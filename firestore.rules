@@ -1,0 +1,390 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function isAdmin() {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/restaurant_accounts/$(request.auth.uid)) &&
+        get(/databases/$(database)/documents/restaurant_accounts/$(request.auth.uid)).data.isAdmin == true;
+    }
+
+    function isVerifiedUser() {
+      return signedIn() && request.auth.token.email_verified == true;
+    }
+
+    function usernameOwnedByCurrentUser() {
+      return signedIn() &&
+        request.resource.data.userId is string &&
+        request.resource.data.userId == request.auth.uid;
+    }
+
+    function existingUsernameOwnedByCurrentUser() {
+      return signedIn() &&
+        resource.data.userId is string &&
+        resource.data.userId == request.auth.uid;
+    }
+
+    function nonEmptyString(value) {
+      return value is string && value.size() > 0;
+    }
+
+    function optionalString(value) {
+      return value == null || value is string;
+    }
+
+    function optionalBool(value) {
+      return value == null || value is bool;
+    }
+
+    function optionalNumber(value) {
+      return value == null || value is int || value is float;
+    }
+
+    function restaurantApproved(uid) {
+      return exists(/databases/$(database)/documents/restaurant_accounts/$(uid)) &&
+        get(/databases/$(database)/documents/restaurant_accounts/$(uid)).data.approvalStatus == 'approved';
+    }
+
+    function protectedRestaurantFields() {
+      return [
+        'subscriptionStatus',
+        'stripeCustomerId',
+        'stripeSubscriptionId',
+        'hasUsedTrial',
+        'couponPostingEnabled',
+        'trialEndsAt',
+        'subscriptionEndsAt',
+        'billingPlanName',
+        'isAdmin'
+      ];
+    }
+
+    function applicantRestaurantCreateFields() {
+      return [
+        'uid',
+        'email',
+        'emailVerified',
+        'restaurantName',
+        'name',
+        'distance',
+        'city',
+        'zipCode',
+        'zip',
+        'phone',
+        'streetAddress',
+        'address',
+        'website',
+        'bio',
+        'businessHours',
+        'latitude',
+        'longitude',
+        'approvalStatus',
+        'createdAt',
+        'updatedAt'
+      ];
+    }
+
+    function ownerRestaurantCreateAllowed(uid) {
+      return isOwner(uid) &&
+        request.resource.data.uid == uid &&
+        request.resource.data.keys().hasOnly(applicantRestaurantCreateFields()) &&
+        request.resource.data.approvalStatus == 'pending' &&
+        !request.resource.data.keys().hasAny(protectedRestaurantFields()) &&
+        request.resource.data.createdAt == request.time &&
+        request.resource.data.updatedAt == request.time;
+    }
+
+    function ownerRestaurantUpdateAllowed(uid) {
+      return isOwner(uid) &&
+        request.resource.data.uid == uid &&
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(
+          protectedRestaurantFields().concat(['approvalStatus'])
+        );
+    }
+
+    function adminRestaurantApprovalUpdateAllowed() {
+      return isAdmin() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'approvalStatus',
+          'updatedAt'
+        ]) &&
+        request.resource.data.approvalStatus in ['pending', 'approved', 'rejected'];
+    }
+
+  function validCouponCreate(data, couponId) {
+  return data.keys().hasOnly([
+      'id',
+      'restaurant',
+      'title',
+      'distance',
+      'expires',
+      'startTime',
+      'endTime',
+      'usageRule',
+      'couponCode',
+      'isProximityOnly',
+      'proximityRadiusMiles',
+      'details',
+      'createdAt',
+      'updatedAt'
+    ]) &&
+    data.id == couponId &&
+    nonEmptyString(data.title) &&
+    data.endTime is timestamp &&
+    nonEmptyString(data.usageRule) &&
+    data.startTime is timestamp &&
+    optionalString(data.restaurant) &&
+    optionalString(data.distance) &&
+    optionalString(data.expires) &&
+    optionalString(data.couponCode) &&
+    optionalString(data.details) &&
+    optionalBool(data.isProximityOnly) &&
+    optionalNumber(data.proximityRadiusMiles);
+}
+
+    function validCouponUpdate(before, after, couponId) {
+      return after.keys().hasOnly([
+          'id',
+          'restaurant',
+          'title',
+          'distance',
+          'expires',
+          'startTime',
+          'endTime',
+          'usageRule',
+          'couponCode',
+          'isProximityOnly',
+          'proximityRadiusMiles',
+          'details',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        before.id == couponId &&
+        after.id == couponId &&
+        nonEmptyString(after.title) &&
+        after.endTime is timestamp &&
+        nonEmptyString(after.usageRule) &&
+        after.startTime is timestamp &&
+        optionalString(after.restaurant) &&
+        optionalString(after.distance) &&
+        optionalString(after.expires) &&
+        optionalString(after.couponCode) &&
+        optionalString(after.details) &&
+        optionalBool(after.isProximityOnly) &&
+        optionalNumber(after.proximityRadiusMiles) &&
+        after.createdAt == before.createdAt &&
+        after.updatedAt == request.time;
+    }
+
+    function validRedemption(data, userId, couponId) {
+      return data.keys().hasOnly([
+          'couponId',
+          'couponTitle',
+          'restaurantName',
+          'restaurantId',
+          'userId',
+          'redeemedAt',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.userId == userId &&
+        data.couponId == couponId &&
+        nonEmptyString(data.userId) &&
+        nonEmptyString(data.couponId) &&
+        optionalString(data.couponTitle) &&
+        optionalString(data.restaurantName) &&
+        optionalString(data.restaurantId) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    match /restaurant_accounts/{uid} {
+      allow read: if true;
+      allow create: if ownerRestaurantCreateAllowed(uid);
+      allow update: if ownerRestaurantUpdateAllowed(uid) || adminRestaurantApprovalUpdateAllowed();
+      allow delete: if isAdmin();
+
+      match /coupons/{couponId} {
+        allow read: if true;
+
+     allow create: if isOwner(uid) &&
+  get(/databases/$(database)/documents/restaurant_accounts/$(uid)).data.approvalStatus == 'approved' &&
+  request.resource.data.id == couponId &&
+  request.resource.data.title is string &&
+  request.resource.data.usageRule is string &&
+  request.resource.data.startTime is timestamp &&
+  request.resource.data.endTime is timestamp &&
+  request.resource.data.createdAt is timestamp &&
+  request.resource.data.updatedAt is timestamp &&
+  (
+    !('couponCode' in request.resource.data) || request.resource.data.couponCode is string || request.resource.data.couponCode == null
+  ) &&
+  (
+    !('details' in request.resource.data) || request.resource.data.details is string || request.resource.data.details == null
+  );
+
+        allow update: if isOwner(uid) &&
+          restaurantApproved(uid) &&
+          validCouponUpdate(resource.data, request.resource.data, couponId);
+
+        allow delete: if isOwner(uid) || isAdmin();
+      }
+    }
+
+    match /customer_redemptions/{userId}/coupon_redemptions/{couponId} {
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+        validRedemption(request.resource.data, userId, couponId);
+      allow update: if isOwner(userId) &&
+        validRedemption(request.resource.data, userId, couponId) &&
+        request.resource.data.userId == resource.data.userId &&
+        request.resource.data.couponId == resource.data.couponId;
+      allow delete: if isOwner(userId);
+    }
+
+    match /bitescore_restaurants/{restaurantId} {
+      allow read: if true;
+      allow create: if isVerifiedUser();
+      allow update, delete: if isAdmin();
+    }
+
+    match /bitescore_dishes/{dishId} {
+      allow read: if true;
+      allow create: if isVerifiedUser();
+      allow update, delete: if isAdmin();
+    }
+
+    match /dish_rating_aggregates/{dishId} {
+      allow read: if true;
+      allow create: if isVerifiedUser();
+      allow update, delete: if isAdmin();
+    }
+
+    match /dish_reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isVerifiedUser() &&
+        request.resource.data.userId is string &&
+        request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /review_feedback_votes/{voteId} {
+      allow read: if true;
+      allow create: if isVerifiedUser() &&
+        request.resource.data.userId is string &&
+        request.resource.data.userId == request.auth.uid;
+      allow update: if isVerifiedUser() &&
+        resource.data.userId is string &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId is string &&
+        request.resource.data.userId == request.auth.uid;
+      allow delete: if isVerifiedUser() &&
+        resource.data.userId is string &&
+        resource.data.userId == request.auth.uid;
+    }
+
+    match /review_reports/{reportId} {
+      allow read: if isAdmin() || (
+        signedIn() &&
+        resource.data.reportingUserId is string &&
+        resource.data.reportingUserId == request.auth.uid
+      );
+      allow create: if isVerifiedUser() &&
+        request.resource.data.reportingUserId is string &&
+        request.resource.data.reportingUserId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /restaurant_reports/{reportId} {
+      allow read: if isAdmin() || (
+        signedIn() &&
+        resource.data.reportingUserId is string &&
+        resource.data.reportingUserId == request.auth.uid
+      );
+      allow create: if isVerifiedUser() &&
+        request.resource.data.reportingUserId is string &&
+        request.resource.data.reportingUserId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /dish_reports/{reportId} {
+      allow read: if isAdmin() || (
+        signedIn() &&
+        resource.data.reportingUserId is string &&
+        resource.data.reportingUserId == request.auth.uid
+      );
+      allow create: if isVerifiedUser() &&
+        request.resource.data.reportingUserId is string &&
+        request.resource.data.reportingUserId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /duplicate_restaurant_reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if isVerifiedUser() &&
+        request.resource.data.reportingUserId is string &&
+        request.resource.data.reportingUserId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /dish_edit_proposals/{proposalId} {
+      allow read: if isAdmin() || (
+        signedIn() &&
+        resource.data.userId is string &&
+        resource.data.userId == request.auth.uid
+      );
+      allow create: if isVerifiedUser() &&
+        request.resource.data.userId is string &&
+        request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    match /public_reviewer_profiles/{userId} {
+      allow read: if true;
+      allow create, update, delete: if isOwner(userId);
+    }
+
+    match /public_usernames/{username} {
+      allow read: if true;
+      allow create: if usernameOwnedByCurrentUser();
+      allow update: if existingUsernameOwnedByCurrentUser() &&
+        usernameOwnedByCurrentUser();
+      allow delete: if existingUsernameOwnedByCurrentUser();
+    }
+
+    match /user_profiles/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create, update, delete: if isOwner(userId);
+
+      match /favorite_restaurants/{docId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
+
+      match /favorite_dishes/{docId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
+
+      match /favorite_coupons/{docId} {
+        allow read, create, update, delete: if isOwner(userId);
+      }
+    }
+
+  match /restaurant_claim_requests/{claimId} {
+  allow read: if true;
+  allow create: if signedIn();
+allow update, delete: if isAdmin();
+}
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

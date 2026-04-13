@@ -1,0 +1,96 @@
+canonicalName,normalizedName,aliases,category,cuisineTags,isActive
+Cheeseburger,cheeseburger,cheese burger|cheezburger|burger with cheese,Burgers,American,true
+Hamburger,hamburger,burger|beef burger|plain burger,Burgers,American,true
+Bacon Cheeseburger,bacon cheeseburger,bacon cheese burger|bacon burger with cheese,Burgers,American,true
+Patty Melt,patty melt,burger melt|pattymelts,Burgers,American|Diner,true
+Chicken Sandwich,chicken sandwich,fried chicken sandwich|grilled chicken sandwich,Sandwiches,American,true
+Club Sandwich,club sandwich,turkey club|club,Sandwiches,American|Diner,true
+BLT,blt,b l t|bacon lettuce tomato,Sandwiches,American|Diner,true
+Reuben,reuben,reuben sandwich|corned beef reuben,Sandwiches,American|Deli,true
+Philly Cheesesteak,philly cheesesteak,cheese steak|cheesesteak|philly steak,Sandwiches,American,true
+French Dip,french dip,beef dip sandwich|au jus sandwich,Sandwiches,American,true
+Grilled Cheese,grilled cheese,grilled cheese sandwich|cheese toastie,Sandwiches,American|Diner,true
+Cheese Pizza,cheese pizza,plain pizza|pizza cheese,Pizza,Italian-American,true
+Pepperoni Pizza,pepperoni pizza,pep pizza|pepperoni pie,Pizza,Italian-American,true
+Supreme Pizza,supreme pizza,deluxe pizza|combo pizza,Pizza,Italian-American,true
+Margherita Pizza,margherita pizza,margarita pizza,Pizza,Italian,true
+Meat Lovers Pizza,meat lovers pizza,meat lover pizza|all meat pizza,Pizza,Italian-American,true
+Spaghetti and Meatballs,spaghetti and meatballs,spaghetti meatballs,Pasta,Italian,true
+Fettuccine Alfredo,fettuccine alfredo,alfredo pasta,Pasta,Italian,true
+Chicken Alfredo,chicken alfredo,chicken fettuccine alfredo,Pasta,Italian,true
+Lasagna,lasagna,beef lasagna|meat lasagna,Pasta,Italian,true
+Baked Ziti,baked ziti,ziti bake,Pasta,Italian,true
+Mac and Cheese,mac and cheese,mac n cheese,Pasta,American|Comfort Food,true
+Caesar Salad,caesar salad,cesar salad|classic caesar,Salads,American|Italian,true
+Garden Salad,garden salad,house salad|side salad,Salads,American,true
+Greek Salad,greek salad,grecian salad,Salads,Greek,true
+Cobb Salad,cobb salad,chef cobb salad,Salads,American,true
+Chicken Tenders,chicken tenders,tenders|chicken strips,Chicken,American,true
+Chicken Wings,chicken wings,wings|buffalo wings,Chicken,American|Bar Food,true
+Buffalo Wings,buffalo wings,hot wings|buff wings,Chicken,American|Bar Food,true
+Fried Chicken,fried chicken,southern fried chicken,Chicken,American|Southern,true
+Chicken Parmesan,chicken parmesan,chicken parm|chicken parmigiana,Chicken,Italian,true
+Ribeye Steak,ribeye steak,rib eye|ribeye,Steak,Steakhouse,true
+New York Strip,new york strip,ny strip|strip steak,Steak,Steakhouse,true
+Filet Mignon,filet mignon,filet,Steak,Steakhouse,true
+Fish and Chips,fish and chips,fried fish and fries,Seafood,British|Seafood,true
+Fried Shrimp,fried shrimp,shrimp basket,Seafood,American|Seafood,true
+Grilled Salmon,grilled salmon,salmon filet,Seafood,Seafood,true
+Crab Cakes,crab cakes,crabcakes,Seafood,Seafood,true
+Shrimp and Grits,shrimp and grits,shrimp n grits,Seafood,Southern|Seafood,true
+Tacos,tacos,street tacos|soft tacos,Mexican,Mexican,true
+Carne Asada Tacos,carne asada tacos,steak tacos,Mexican,Mexican,true
+Chicken Tacos,chicken tacos,pollo tacos,Mexican,Mexican,true
+Fish Tacos,fish tacos,baja fish tacos,Mexican|Seafood,Mexican,true
+Burrito,burrito,bean burrito|beef burrito,Mexican,Mexican,true
+Quesadilla,quesadilla,cheese quesadilla|chicken quesadilla,Mexican,Mexican,true
+Nachos,nachos,loaded nachos,Mexican|Bar Food,Mexican,true
+Fajitas,fajitas,steak fajitas|chicken fajitas,Mexican,Mexican,true
+Enchiladas,enchiladas,enchilada plate,Mexican,Mexican,true
+Orange Chicken,orange chicken,chinese orange chicken,Asian,Chinese,true
+General Tso's Chicken,general tso's chicken,general tsos chicken|gen tso chicken,Asian,Chinese,true
+Sesame Chicken,sesame chicken,chinese sesame chicken,Asian,Chinese,true
+Beef and Broccoli,beef and broccoli,broccoli beef,Asian,Chinese,true
+Lo Mein,lo mein,chicken lo mein|beef lo mein,Asian,Chinese,true
+Fried Rice,fried rice,house fried rice|shrimp fried rice,Asian,Chinese,true
+Pad Thai,pad thai,thai noodles,Asian,Thai,true
+Pho,pho,beef pho|chicken pho,Asian,Vietnamese,true
+Ramen,ramen,tonkotsu ramen|shoyu ramen,Asian,Japanese,true
+California Roll,california roll,crab roll,Asian|Seafood,Japanese,true
+Spicy Tuna Roll,spicy tuna roll,tuna roll spicy,Asian|Seafood,Japanese,true
+Pancakes,pancakes,stack of pancakes|hotcakes,Breakfast,Breakfast|Diner,true
+French Toast,french toast,toast french,Breakfast,Breakfast|Diner,true
+Waffles,waffles,belgian waffles,Breakfast,Breakfast|Diner,true
+Biscuits and Gravy,biscuits and gravy,biscuit gravy,Breakfast,Southern|Breakfast,true
+Omelette,omelette,omelet|western omelette,Breakfast,Breakfast|Diner,true
+Eggs Benedict,eggs benedict,benedict eggs,Breakfast,Breakfast|Brunch,true
+Breakfast Burrito,breakfast burrito,egg burrito,Breakfast,Breakfast|Mexican,true
+Hash Browns,hash browns,hashed browns,Sides,Breakfast|Diner,true
+Home Fries,home fries,breakfast potatoes,Sides,Breakfast|Diner,true
+French Fries,french fries,fries|chips,Sides,American,true
+Onion Rings,onion rings,fried onion rings,Sides,American,true
+Mozzarella Sticks,mozzarella sticks,fried mozzarella,Sides|Appetizers,American,true
+Loaded Fries,loaded fries,cheese fries|loaded french fries,Sides|Appetizers,American|Bar Food,true
+Potato Skins,potato skins,loaded potato skins,Sides|Appetizers,American|Bar Food,true
+Garlic Bread,garlic bread,cheesy garlic bread,Sides,Italian,true
+Coleslaw,coleslaw,cole slaw,Sides,American|Southern,true
+Mashed Potatoes,mashed potatoes,mash potatoes,Sides,American|Southern,true
+Tomato Soup,tomato soup,cream of tomato soup,Soups,American,true
+Chicken Noodle Soup,chicken noodle soup,chicken noodle,Soups,American|Diner,true
+French Onion Soup,french onion soup,onion soup french,Soups,French,true
+Broccoli Cheddar Soup,broccoli cheddar soup,broccoli cheese soup,Soups,American,true
+Cheesecake,cheesecake,new york cheesecake,Desserts,Dessert,true
+Chocolate Cake,chocolate cake,choc cake,Desserts,Dessert,true
+Carrot Cake,carrot cake,carrotcake,Desserts,Dessert,true
+Brownie Sundae,brownie sundae,brownie ice cream,Desserts,Dessert,true
+Apple Pie,apple pie,slice of apple pie,Desserts,Dessert|Diner,true
+Key Lime Pie,key lime pie,lime pie,Desserts,Dessert,true
+Ice Cream Sundae,ice cream sundae,sundae,Desserts,Dessert|Diner,true
+Milkshake,milkshake,shake|vanilla milkshake,Drinks|Desserts,Diner|Dessert,true
+Hot Dog,hot dog,hotdog,American,American,true
+Chili Dog,chili dog,hot dog with chili,American,American,true
+Meatloaf,meatloaf,homestyle meatloaf,Comfort Food,American|Diner,true
+Fried Catfish,fried catfish,catfish plate,Seafood,Southern|Seafood,true
+Po' Boy,po' boy,po boy|po-boy|shrimp po boy,Sandwiches,Southern|Seafood,true
+Gumbo,gumbo,seafood gumbo|chicken sausage gumbo,Soups,Cajun,true
+Jambalaya,jambalaya,cajun jambalaya,Rice Dishes,Cajun,true
