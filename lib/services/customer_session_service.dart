@@ -10,25 +10,25 @@ class CustomerSessionService {
   static const String _guestDeviceIdKey = 'guest_device_id';
 
   static bool _hasBootstrappedAuth = false;
-  static Future<User>? _bootstrapFuture;
+  static Future<User?>? _bootstrapFuture;
   static Future<String>? _guestDeviceIdFuture;
 
   /// Ensures Firebase Auth has had a chance to restore any existing user
-  /// before deciding to create a new anonymous customer session.
-  static Future<User> ensureCustomerUser() {
-    if (_hasBootstrappedAuth && _auth.currentUser != null) {
-      return Future.value(_auth.currentUser!);
+  /// without automatically creating a new anonymous session.
+  static Future<User?> ensureAuthReady() {
+    if (_hasBootstrappedAuth) {
+      return Future.value(_auth.currentUser);
     }
 
     if (_bootstrapFuture != null) {
       return _bootstrapFuture!;
     }
 
-    _bootstrapFuture = _ensureCustomerUserInternal();
+    _bootstrapFuture = _ensureAuthReadyInternal();
     return _bootstrapFuture!;
   }
 
-  static Future<User> _ensureCustomerUserInternal() async {
+  static Future<User?> _ensureAuthReadyInternal() async {
     User? currentUser = _auth.currentUser;
 
     if (currentUser != null) {
@@ -48,6 +48,16 @@ class CustomerSessionService {
     if (currentUser != null) {
       _hasBootstrappedAuth = true;
       return currentUser;
+    }
+
+    _hasBootstrappedAuth = true;
+    return null;
+  }
+
+  static Future<User> signInAsGuest() async {
+    final existingUser = await ensureAuthReady();
+    if (existingUser != null) {
+      return existingUser;
     }
 
     final credential = await _auth.signInAnonymously();
@@ -105,10 +115,15 @@ class CustomerSessionService {
     _bootstrapFuture = null;
   }
 
-  /// Signs out the current user and immediately restores guest browsing mode.
-  static Future<User> restoreGuestSession() async {
+  static Future<void> signOutToSignedOut() async {
     resetBootstrapState();
     await _auth.signOut();
-    return ensureCustomerUser();
+  }
+
+  /// Signs out the current user and restores guest browsing mode only when
+  /// guest mode is explicitly requested.
+  static Future<User> restoreGuestSession() async {
+    await signOutToSignedOut();
+    return signInAsGuest();
   }
 }

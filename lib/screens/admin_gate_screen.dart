@@ -142,7 +142,7 @@ class AdminGateScreen extends StatelessWidget {
               actions: [
                 TextButton(
                   onPressed: () async {
-                    await CustomerSessionService.restoreGuestSession();
+                    await CustomerSessionService.signOutToSignedOut();
                   },
                   child: const Text('Sign Out'),
                 ),

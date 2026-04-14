@@ -366,12 +366,14 @@ class _RestaurantCreateCouponScreenState
 
     try {
       final data = await RestaurantAccountService.getAccountData(user.uid);
+      final hasSubmittedApplication =
+          RestaurantAccountService.hasSubmittedCouponApplication(data);
       final approvalStatus =
           (data?['approvalStatus'] as String?)?.trim() ?? 'pending';
       final isEmailVerified = user.emailVerified;
 
       _couponAccessState = _resolveCouponAccessState(
-        hasAccount: data != null,
+        hasSubmittedApplication: hasSubmittedApplication,
         isEmailVerified: isEmailVerified,
         approvalStatus: approvalStatus,
       );
@@ -529,11 +531,11 @@ class _RestaurantCreateCouponScreenState
   }
 
   _CouponAccountAccessState _resolveCouponAccessState({
-    required bool hasAccount,
+    required bool hasSubmittedApplication,
     required bool isEmailVerified,
     required String approvalStatus,
   }) {
-    if (!hasAccount) {
+    if (!hasSubmittedApplication) {
       return _CouponAccountAccessState.noAccount;
     }
     if (!isEmailVerified) {
@@ -558,8 +560,7 @@ class _RestaurantCreateCouponScreenState
 
     switch (state) {
       case _CouponAccountAccessState.noAccount:
-        return 'You don\'t have a BiteSaver coupon-side restaurant account yet. '
-            'You can apply here to enter the existing approval flow.';
+        return 'Enter your restaurant information below.';
       case _CouponAccountAccessState.unverified:
         return 'Please verify the email for $accountEmail before managing '
             'BiteSaver coupons.';
@@ -580,7 +581,7 @@ class _RestaurantCreateCouponScreenState
   String _couponAccessTitle() {
     switch (_couponAccessState) {
       case _CouponAccountAccessState.noAccount:
-        return 'No Coupon-Side Account Yet';
+        return 'Apply for Coupon-Side Approval';
       case _CouponAccountAccessState.unverified:
         return 'Email Verification Required';
       case _CouponAccountAccessState.pending:
@@ -668,6 +669,7 @@ class _RestaurantCreateCouponScreenState
         city: city,
         zipCode: zipCode,
         phone: phone,
+        markApplicationSubmitted: true,
       );
       await RestaurantAccountService.syncEmailVerified(user);
       if (!mounted) {
@@ -1769,13 +1771,45 @@ class _RestaurantCreateCouponScreenState
               ],
             ),
             const SizedBox(height: 14),
-            const Text(
-              'Payments are handled securely by Stripe. We do not store your card details.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                color: Color(0xFF64748B),
-                height: 1.4,
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF0FDF4),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFBBF7D0)),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color(0x12000000),
+                    blurRadius: 8,
+                    offset: Offset(0, 2),
+                  ),
+                ],
+              ),
+              child: const Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Padding(
+                    padding: EdgeInsets.only(top: 1),
+                    child: Icon(
+                      Icons.verified_user,
+                      size: 18,
+                      color: Color(0xFF15803D),
+                    ),
+                  ),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Payments are securely handled by Stripe. We do not store your card details.',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: Color(0xFF166534),
+                        height: 1.4,
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 16),
@@ -1894,12 +1928,13 @@ class _RestaurantCreateCouponScreenState
                     ),
                     const SizedBox(height: 12),
                     const Text(
-                      'Applications are usually reviewed within 1 business hour Monday through Friday, 9:00 AM to 5:00 PM Eastern.',
+                      'Applications are usually reviewed day of, Monday through Saturday.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
                         fontSize: 12,
                         color: Colors.black54,
                         height: 1.4,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 16),
@@ -1973,7 +2008,7 @@ class _RestaurantCreateCouponScreenState
         actions: [
           TextButton.icon(
             onPressed: () async {
-              await CustomerSessionService.restoreGuestSession();
+              await CustomerSessionService.signOutToSignedOut();
             },
             icon: const Icon(Icons.logout),
             label: const Text('Sign Out'),

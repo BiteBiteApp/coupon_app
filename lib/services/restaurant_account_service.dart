@@ -17,6 +17,11 @@ class RestaurantAccountService {
     return docForUser(uid).collection('coupons');
   }
 
+  static CollectionReference<Map<String, dynamic>>
+  restaurantNameChangeRequestsCollection() {
+    return _firestore.collection('restaurant_name_change_requests');
+  }
+
   static Future<void> createOrUpdateAccountRecord(
     User user, {
     String? restaurantName,
@@ -24,6 +29,7 @@ class RestaurantAccountService {
     String? city,
     String? zipCode,
     String? phone,
+    bool markApplicationSubmitted = false,
   }) async {
     final doc = docForUser(user.uid);
     final snapshot = await doc.get();
@@ -48,7 +54,8 @@ class RestaurantAccountService {
         if (trimmedPhone != null && trimmedPhone.isNotEmpty)
           Restaurant.fieldPhone: trimmedPhone,
         'emailVerified': user.emailVerified,
-        Restaurant.fieldApprovalStatus: 'pending',
+        if (markApplicationSubmitted) 'couponApplicationSubmitted': true,
+        if (markApplicationSubmitted) Restaurant.fieldApprovalStatus: 'pending',
         Restaurant.fieldCreatedAt: FieldValue.serverTimestamp(),
         Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
       });
@@ -69,6 +76,10 @@ class RestaurantAccountService {
       if (trimmedPhone != null && trimmedPhone.isNotEmpty)
         Restaurant.fieldPhone: trimmedPhone,
       'emailVerified': user.emailVerified,
+      if (markApplicationSubmitted) 'couponApplicationSubmitted': true,
+      if (markApplicationSubmitted) Restaurant.fieldApprovalStatus: 'pending',
+      if (snapshot.data()?[Restaurant.fieldCreatedAt] == null)
+        Restaurant.fieldCreatedAt: FieldValue.serverTimestamp(),
       Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
@@ -87,9 +98,21 @@ class RestaurantAccountService {
   }
 
   static Stream<QuerySnapshot<Map<String, dynamic>>> allAccountsStream() {
+    return _firestore.collection('restaurant_accounts').snapshots();
+  }
+
+  static Stream<QuerySnapshot<Map<String, dynamic>>>
+  couponApplicationsAdminStream() {
     return _firestore
         .collection('restaurant_accounts')
-        .orderBy(Restaurant.fieldCreatedAt, descending: true)
+        .where('couponApplicationSubmitted', isEqualTo: true)
+        .snapshots();
+  }
+
+  static Stream<QuerySnapshot<Map<String, dynamic>>>
+  pendingRestaurantNameChangeRequestsStream() {
+    return restaurantNameChangeRequestsCollection()
+        .where('status', isEqualTo: 'pending')
         .snapshots();
   }
 
@@ -114,6 +137,30 @@ class RestaurantAccountService {
     }, SetOptions(merge: true));
   }
 
+  static Future<void> approveRestaurantNameChangeRequest({
+    required String requestId,
+    required String uid,
+    required String requestedRestaurantName,
+  }) async {
+    final batch = _firestore.batch();
+    batch.set(docForUser(uid), {
+      Restaurant.fieldName: requestedRestaurantName.trim(),
+      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    batch.set(restaurantNameChangeRequestsCollection().doc(requestId), {
+      'status': 'approved',
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    await batch.commit();
+  }
+
+  static Future<void> rejectRestaurantNameChangeRequest(String requestId) async {
+    await restaurantNameChangeRequestsCollection().doc(requestId).set({
+      'status': 'rejected',
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   static Future<Map<String, dynamic>?> getAccountData(String uid) async {
     final snapshot = await docForUser(uid).get();
     final data = snapshot.data();
@@ -131,6 +178,30 @@ class RestaurantAccountService {
 
   static bool hasCouponPostingAccess(Map<String, dynamic>? data) {
     return _canPostCouponsFromData(data);
+  }
+
+  static bool hasSubmittedCouponApplication(Map<String, dynamic>? data) {
+    if (data == null) {
+      return false;
+    }
+
+    final explicitFlag = _readBool(data['couponApplicationSubmitted']);
+    if (explicitFlag == true) {
+      return true;
+    }
+
+    final approvalStatus =
+        (_readString(data[Restaurant.fieldApprovalStatus]) ?? 'pending')
+            .toLowerCase();
+    if (approvalStatus == 'approved' || approvalStatus == 'rejected') {
+      return true;
+    }
+
+    return (_readString(data[Restaurant.fieldName]) ?? '').isNotEmpty &&
+        (_readString(data[Restaurant.fieldStreetAddress]) ?? '').isNotEmpty &&
+        (_readString(data[Restaurant.fieldCity]) ?? '').isNotEmpty &&
+        (_readString(data[Restaurant.fieldZipCode]) ?? '').isNotEmpty &&
+        (_readString(data[Restaurant.fieldPhone]) ?? '').isNotEmpty;
   }
 
   static Future<void> saveRestaurantProfile({
@@ -382,6 +453,9 @@ class RestaurantAccountService {
       Restaurant.fieldLongitude: _readDouble(data[Restaurant.fieldLongitude]),
       Restaurant.fieldApprovalStatus:
           _readString(data[Restaurant.fieldApprovalStatus]) ?? 'pending',
+      'couponApplicationSubmitted': _readBool(
+        data['couponApplicationSubmitted'],
+      ),
       'subscriptionStatus': _readString(data['subscriptionStatus']) ?? 'inactive',
       'trialEndsAt': data['trialEndsAt'],
       'subscriptionEndsAt': data['subscriptionEndsAt'],

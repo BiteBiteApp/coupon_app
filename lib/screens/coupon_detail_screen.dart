@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/coupon.dart';
@@ -8,6 +9,7 @@ import '../services/app_error_text.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
+import 'customer_account_screen.dart';
 
 class CouponDetailScreen extends StatefulWidget {
   final Coupon coupon;
@@ -105,6 +107,18 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
 
   Future<void> _startRedeemTimer() async {
     if (isRedeeming || !_supportsRedeemTimer) return;
+
+    if (FirebaseAuth.instance.currentUser == null) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const CustomerAccountScreen(),
+        ),
+      );
+
+      if (!mounted || FirebaseAuth.instance.currentUser == null) {
+        return;
+      }
+    }
 
     setState(() {
       isRedeeming = true;

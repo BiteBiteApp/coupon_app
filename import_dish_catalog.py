@@ -4,7 +4,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 
 CSV_FILE = r"starter_dish_catalog.csv"
-FIREBASE_KEY_PATH = r"firebase-key.json"
+FIREBASE_KEY_PATH = r"secrets/firebase-key.json"
 
 cred = credentials.Certificate(FIREBASE_KEY_PATH)
 firebase_admin.initialize_app(cred)

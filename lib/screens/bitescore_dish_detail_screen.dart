@@ -79,29 +79,41 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     await BiteScoreService.evaluatePendingDishEditSuggestionsForDish(
       _currentEntry.dish.id,
     );
+    final baseLoadResults = await Future.wait<Object?>([
+      BiteScoreService.loadDishById(_currentEntry.dish.id),
+      BiteScoreService.loadRestaurantById(_currentEntry.restaurant.id),
+      BiteScoreService.isDishFavoritedByCurrentUser(_currentEntry.dish.id),
+    ]);
     final refreshedDish =
-        await BiteScoreService.loadDishById(_currentEntry.dish.id) ??
-            _currentEntry.dish;
-    final refreshedRestaurant = await BiteScoreService.loadRestaurantById(
-          _currentEntry.restaurant.id,
-        ) ??
+        (baseLoadResults[0] as BitescoreDish?) ?? _currentEntry.dish;
+    final refreshedRestaurant =
+        (baseLoadResults[1] as BitescoreRestaurant?) ??
         _currentEntry.restaurant;
-    final aggregate = await BiteScoreService.loadDishRatingAggregate(
-          refreshedDish.id,
-        ) ??
-        _currentEntry.aggregate;
-    final reviews = await BiteScoreService.loadDishReviews(refreshedDish.id);
-    final trustByReviewId = await BiteScoreService.loadReviewTrustSummaries(
-      reviews,
-      currentUserId: _currentUser?.uid,
-    );
+    final isFavoriteDish = baseLoadResults[2] as bool;
+
+    final dishLoadResults = await Future.wait<Object?>([
+      BiteScoreService.loadDishRatingAggregate(refreshedDish.id),
+      BiteScoreService.loadDishReviews(refreshedDish.id),
+    ]);
+    final aggregate =
+        (dishLoadResults[0] as DishRatingAggregate?) ?? _currentEntry.aggregate;
+    final reviews = dishLoadResults[1] as List<DishReview>;
+
+    final reviewMetadataResults = await Future.wait<Object>([
+      BiteScoreService.loadReviewTrustSummaries(
+        reviews,
+        currentUserId: _currentUser?.uid,
+      ),
+      BiteScoreService.loadReviewerBadgeLabels(reviews),
+      BiteScoreService.loadReviewerDisplayNames(reviews),
+    ]);
+    final trustByReviewId =
+        reviewMetadataResults[0] as Map<String, ReviewTrustSummary>;
     final reviewerBadgesByUserId =
-        await BiteScoreService.loadReviewerBadgeLabels(reviews);
+        reviewMetadataResults[1] as Map<String, String>;
     final reviewerNamesByUserId =
-        await BiteScoreService.loadReviewerDisplayNames(reviews);
-    final isFavoriteDish = await BiteScoreService.isDishFavoritedByCurrentUser(
-      refreshedDish.id,
-    );
+        reviewMetadataResults[2] as Map<String, String>;
+
     reviews.sort((a, b) {
       final aTrust = trustByReviewId[a.id] ?? const ReviewTrustSummary();
       final bTrust = trustByReviewId[b.id] ?? const ReviewTrustSummary();

@@ -6,8 +6,47 @@ import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/restaurant_account_service.dart';
 
-class AdminReviewScreen extends StatelessWidget {
+class AdminReviewScreen extends StatefulWidget {
   const AdminReviewScreen({super.key});
+
+  @override
+  State<AdminReviewScreen> createState() => _AdminReviewScreenState();
+}
+
+class _AdminReviewScreenState extends State<AdminReviewScreen> {
+  final TextEditingController _searchController = TextEditingController();
+  late final Stream<QuerySnapshot<Map<String, dynamic>>> _accountsStream;
+  late final Stream<QuerySnapshot<Map<String, dynamic>>>
+      _nameChangeRequestsStream;
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _fullRestaurantList =
+      const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _filteredRestaurantList =
+      const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+
+  @override
+  void initState() {
+    super.initState();
+    _accountsStream = RestaurantAccountService.allAccountsStream();
+    _nameChangeRequestsStream =
+        RestaurantAccountService.pendingRestaurantNameChangeRequestsStream();
+    _searchController.addListener(_handleSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_handleSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _handleSearchChanged() {
+    setState(() {
+      _filteredRestaurantList = _buildFilteredRestaurantList(
+        _fullRestaurantList,
+        _searchController.text,
+      );
+    });
+  }
 
   Color statusColor(String status) {
     switch (status) {
@@ -48,6 +87,66 @@ class AdminReviewScreen extends StatelessWidget {
       return double.tryParse(value.trim());
     }
     return null;
+  }
+
+  DateTime? _readDateTime(Map<String, dynamic> data, String key) {
+    final value = data[key];
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    if (value is DateTime) {
+      return value;
+    }
+    return null;
+  }
+
+  String _dateLabel(DateTime? value) {
+    if (value == null) {
+      return 'Recent';
+    }
+
+    final local = value.toLocal();
+    return '${local.month}/${local.day}/${local.year}';
+  }
+
+  int _statusSortPriority(String status) {
+    switch (status.trim().toLowerCase()) {
+      case 'pending':
+        return 0;
+      case 'approved':
+        return 1;
+      case 'rejected':
+        return 2;
+      default:
+        return 3;
+    }
+  }
+
+  List<QueryDocumentSnapshot<Map<String, dynamic>>> _buildFilteredRestaurantList(
+    List<QueryDocumentSnapshot<Map<String, dynamic>>> restaurants,
+    String query,
+  ) {
+    final normalizedQuery = query.trim().toLowerCase();
+    if (normalizedQuery.isEmpty) {
+      return List<QueryDocumentSnapshot<Map<String, dynamic>>>.from(
+        restaurants,
+        growable: false,
+      );
+    }
+
+    return restaurants.where((doc) {
+      final data = doc.data();
+      final restaurantName = _readString(
+        data,
+        Restaurant.fieldName,
+      ).toLowerCase();
+      final email = _readString(data, Restaurant.fieldEmail).toLowerCase();
+      final city = _readString(data, Restaurant.fieldCity).toLowerCase();
+
+      return restaurantName.contains(normalizedQuery) ||
+          email.contains(normalizedQuery) ||
+          city.contains(normalizedQuery);
+    }).toList(growable: false);
   }
 
   Future<bool> _confirmDelete(
@@ -200,6 +299,506 @@ class AdminReviewScreen extends StatelessWidget {
     }
   }
 
+  Future<void> _approveRestaurantNameChangeRequest(
+    BuildContext context, {
+    required String requestId,
+    required String uid,
+    required String requestedRestaurantName,
+  }) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    try {
+      await RestaurantAccountService.approveRestaurantNameChangeRequest(
+        requestId: requestId,
+        uid: uid,
+        requestedRestaurantName: requestedRestaurantName,
+      );
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(content: Text('Restaurant name change approved.')),
+      );
+    } catch (error) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            AppErrorText.friendly(
+              error,
+              fallback: 'Could not approve the restaurant name change right now.',
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _rejectRestaurantNameChangeRequest(
+    BuildContext context, {
+    required String requestId,
+  }) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+
+    try {
+      await RestaurantAccountService.rejectRestaurantNameChangeRequest(
+        requestId,
+      );
+      scaffoldMessenger.showSnackBar(
+        const SnackBar(content: Text('Restaurant name change rejected.')),
+      );
+    } catch (error) {
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            AppErrorText.friendly(
+              error,
+              fallback: 'Could not reject the restaurant name change right now.',
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  Widget _buildAdminHeaderCard({
+    required String title,
+    required String description,
+  }) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 14),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              description,
+              style: const TextStyle(color: Colors.black54),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNameChangesTab() {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: _nameChangeRequestsStream,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _buildAdminHeaderCard(
+                title: 'Pending Restaurant Name Changes',
+                description:
+                    'Review requested coupon-side restaurant name updates.',
+              ),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    AppErrorText.load('restaurant name change requests'),
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+
+        final docs =
+            snapshot.data?.docs ??
+            const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+        final sortedDocs = List<QueryDocumentSnapshot<Map<String, dynamic>>>.from(
+          docs,
+          growable: true,
+        )..sort((a, b) {
+            final aDate =
+                _readDateTime(a.data(), 'createdAt') ??
+                DateTime.fromMillisecondsSinceEpoch(0);
+            final bDate =
+                _readDateTime(b.data(), 'createdAt') ??
+                DateTime.fromMillisecondsSinceEpoch(0);
+            return bDate.compareTo(aDate);
+          });
+
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _buildAdminHeaderCard(
+              title: 'Pending Restaurant Name Changes',
+              description:
+                  'Review requested coupon-side restaurant name updates.',
+            ),
+            if (sortedDocs.isEmpty)
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    'No pending restaurant name change requests right now.',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+              )
+            else
+              ...sortedDocs.map((doc) {
+                final data = doc.data();
+                final uid = _readString(data, 'userId');
+                final currentRestaurantName =
+                    _readString(data, 'currentRestaurantName').isEmpty
+                    ? 'Unnamed Restaurant'
+                    : _readString(data, 'currentRestaurantName');
+                final requestedRestaurantName =
+                    _readString(data, 'requestedRestaurantName');
+                final createdAt = _readDateTime(data, 'createdAt');
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          currentRestaurantName,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text('Requested: $requestedRestaurantName'),
+                        if (uid.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text('User ID: $uid'),
+                        ],
+                        const SizedBox(height: 4),
+                        Text('Submitted: ${_dateLabel(createdAt)}'),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            ElevatedButton(
+                              onPressed:
+                                  uid.isEmpty || requestedRestaurantName.isEmpty
+                                  ? null
+                                  : () {
+                                      _approveRestaurantNameChangeRequest(
+                                        context,
+                                        requestId: doc.id,
+                                        uid: uid,
+                                        requestedRestaurantName:
+                                            requestedRestaurantName,
+                                      );
+                                    },
+                              child: const Text('Approve'),
+                            ),
+                            OutlinedButton(
+                              onPressed: () {
+                                _rejectRestaurantNameChangeRequest(
+                                  context,
+                                  requestId: doc.id,
+                                );
+                              },
+                              child: const Text('Reject'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildRestaurantsTab() {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: _accountsStream,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(
+            child: CircularProgressIndicator(),
+          );
+        }
+
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                AppErrorText.load('restaurants'),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          );
+        }
+
+        final docs =
+            snapshot.data?.docs ??
+            const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+        final sortedDocs = List<QueryDocumentSnapshot<Map<String, dynamic>>>.from(
+          docs,
+          growable: true,
+        )..sort((a, b) {
+            final aData = a.data();
+            final bData = b.data();
+            final byStatus = _statusSortPriority(
+              _readString(aData, Restaurant.fieldApprovalStatus),
+            ).compareTo(
+              _statusSortPriority(
+                _readString(bData, Restaurant.fieldApprovalStatus),
+              ),
+            );
+            if (byStatus != 0) {
+              return byStatus;
+            }
+
+            final aTimestamp =
+                _readDateTime(aData, Restaurant.fieldUpdatedAt) ??
+                _readDateTime(aData, Restaurant.fieldCreatedAt) ??
+                DateTime.fromMillisecondsSinceEpoch(0);
+            final bTimestamp =
+                _readDateTime(bData, Restaurant.fieldUpdatedAt) ??
+                _readDateTime(bData, Restaurant.fieldCreatedAt) ??
+                DateTime.fromMillisecondsSinceEpoch(0);
+            return bTimestamp.compareTo(aTimestamp);
+          });
+        _fullRestaurantList = List<QueryDocumentSnapshot<Map<String, dynamic>>>.from(
+          sortedDocs,
+          growable: false,
+        );
+        _filteredRestaurantList = _buildFilteredRestaurantList(
+          _fullRestaurantList,
+          _searchController.text,
+        );
+
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Column(
+                children: [
+                  _buildAdminHeaderCard(
+                    title: 'Coupon Side Admin',
+                    description:
+                        'Approve or reject restaurant applications, edit restaurant information, and delete coupons or restaurant accounts from one shared admin area.',
+                  ),
+                  TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: 'Search restaurants',
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: _searchController.text.trim().isEmpty
+                          ? null
+                          : IconButton(
+                              tooltip: 'Clear search',
+                              onPressed: () {
+                                _searchController.clear();
+                              },
+                              icon: const Icon(Icons.clear),
+                            ),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                ],
+              ),
+            ),
+            Expanded(
+              child: _filteredRestaurantList.isEmpty
+                  ? Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(
+                          _searchController.text.trim().isEmpty
+                              ? 'No restaurants found.'
+                              : 'No restaurants match your search.',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ),
+                    )
+                  : ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      itemCount: _filteredRestaurantList.length,
+                      itemBuilder: (context, index) {
+                        final doc = _filteredRestaurantList[index];
+                        final data = doc.data();
+
+                        final uid = _readString(data, Restaurant.fieldUid).isEmpty
+                            ? doc.id
+                            : _readString(data, Restaurant.fieldUid);
+                        final restaurantName =
+                            _readString(data, Restaurant.fieldName).isEmpty
+                            ? 'Unnamed Restaurant'
+                            : _readString(data, Restaurant.fieldName);
+                        final email =
+                            _readString(data, Restaurant.fieldEmail).isEmpty
+                            ? 'No email'
+                            : _readString(data, Restaurant.fieldEmail);
+                        final city = _readString(data, Restaurant.fieldCity);
+                        final zipCode = _readString(data, Restaurant.fieldZipCode);
+                        final approvalStatus =
+                            _readString(data, Restaurant.fieldApprovalStatus)
+                                    .isEmpty
+                            ? 'pending'
+                            : _readString(data, Restaurant.fieldApprovalStatus);
+
+                        return Card(
+                          margin: const EdgeInsets.only(bottom: 14),
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  restaurantName,
+                                  style: const TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(email),
+                                if (city.isNotEmpty || zipCode.isNotEmpty) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    city.isEmpty
+                                        ? zipCode
+                                        : '$city${zipCode.isEmpty ? '' : ', $zipCode'}',
+                                  ),
+                                ],
+                                const SizedBox(height: 10),
+                                Row(
+                                  children: [
+                                    const Text('Status: '),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 10,
+                                        vertical: 4,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: statusColor(
+                                          approvalStatus,
+                                        ).withOpacity(0.12),
+                                        borderRadius: BorderRadius.circular(999),
+                                      ),
+                                      child: Text(
+                                        labelForStatus(approvalStatus),
+                                        style: TextStyle(
+                                          color: statusColor(approvalStatus),
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 12),
+                                Wrap(
+                                  spacing: 8,
+                                  runSpacing: 8,
+                                  children: [
+                                    ElevatedButton(
+                                      onPressed: uid.isEmpty
+                                          ? null
+                                          : () {
+                                              _updateApprovalStatus(
+                                                context,
+                                                uid: uid,
+                                                approved: true,
+                                              );
+                                            },
+                                      child: const Text('Approve'),
+                                    ),
+                                    OutlinedButton(
+                                      onPressed: uid.isEmpty
+                                          ? null
+                                          : () {
+                                              _updateApprovalStatus(
+                                                context,
+                                                uid: uid,
+                                                approved: false,
+                                              );
+                                            },
+                                      child: const Text('Reject'),
+                                    ),
+                                    OutlinedButton.icon(
+                                      onPressed: uid.isEmpty
+                                          ? null
+                                          : () {
+                                              _editRestaurant(
+                                                context,
+                                                uid: uid,
+                                                data: data,
+                                              );
+                                            },
+                                      icon: const Icon(Icons.edit_outlined),
+                                      label: const Text('Edit Restaurant'),
+                                    ),
+                                    TextButton.icon(
+                                      onPressed: uid.isEmpty
+                                          ? null
+                                          : () {
+                                              _deleteRestaurant(context, uid);
+                                            },
+                                      icon: const Icon(Icons.delete_outline),
+                                      label: const Text('Delete Restaurant'),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                ExpansionTile(
+                                  tilePadding: EdgeInsets.zero,
+                                  childrenPadding: EdgeInsets.zero,
+                                  title: const Text(
+                                    'Coupons',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                  subtitle: const Text(
+                                    'View or delete restaurant coupons',
+                                  ),
+                                  children: [
+                                    _buildCouponSection(
+                                      context,
+                                      uid: uid,
+                                      restaurantName: restaurantName,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildCouponSection(
     BuildContext context, {
     required String uid,
@@ -281,214 +880,29 @@ class AdminReviewScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: RestaurantAccountService.allAccountsStream(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
-        }
-
-        if (snapshot.hasError) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                AppErrorText.load('restaurant accounts'),
-                textAlign: TextAlign.center,
-              ),
+    return DefaultTabController(
+      length: 2,
+      child: Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: TabBar(
+              tabs: [
+                Tab(text: 'Restaurants'),
+                Tab(text: 'Name Changes'),
+              ],
             ),
-          );
-        }
-
-        final docs = snapshot.data?.docs ?? [];
-
-        if (docs.isEmpty) {
-          return const Center(
-            child: Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'No restaurant accounts found yet.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16),
-              ),
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _buildRestaurantsTab(),
+                _buildNameChangesTab(),
+              ],
             ),
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          itemCount: docs.length + 1,
-          itemBuilder: (context, index) {
-            if (index == 0) {
-              return Card(
-                margin: const EdgeInsets.only(bottom: 14),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text(
-                        'Coupon Side Admin',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: 8),
-                      Text(
-                        'Approve or reject restaurant accounts, edit restaurant information, and delete coupons or restaurant accounts from one shared admin area.',
-                        style: TextStyle(color: Colors.black54),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-
-            final doc = docs[index - 1];
-            final data = doc.data();
-
-            final uid = _readString(data, Restaurant.fieldUid).isEmpty
-                ? doc.id
-                : _readString(data, Restaurant.fieldUid);
-            final restaurantName =
-                _readString(data, Restaurant.fieldName).isEmpty
-                ? 'Unnamed Restaurant'
-                : _readString(data, Restaurant.fieldName);
-            final email = _readString(data, Restaurant.fieldEmail).isEmpty
-                ? 'No email'
-                : _readString(data, Restaurant.fieldEmail);
-            final city = _readString(data, Restaurant.fieldCity);
-            final zipCode = _readString(data, Restaurant.fieldZipCode);
-            final approvalStatus =
-                _readString(data, Restaurant.fieldApprovalStatus).isEmpty
-                ? 'pending'
-                : _readString(data, Restaurant.fieldApprovalStatus);
-
-            return Card(
-              margin: const EdgeInsets.only(bottom: 14),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      restaurantName,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(email),
-                    if (city.isNotEmpty || zipCode.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text(
-                        city.isEmpty ? zipCode : '$city${zipCode.isEmpty ? '' : ', $zipCode'}',
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        const Text('Status: '),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: statusColor(approvalStatus).withOpacity(0.12),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            labelForStatus(approvalStatus),
-                            style: TextStyle(
-                              color: statusColor(approvalStatus),
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        ElevatedButton(
-                          onPressed: uid.isEmpty
-                              ? null
-                              : () {
-                                  _updateApprovalStatus(
-                                    context,
-                                    uid: uid,
-                                    approved: true,
-                                  );
-                                },
-                          child: const Text('Approve'),
-                        ),
-                        OutlinedButton(
-                          onPressed: uid.isEmpty
-                              ? null
-                              : () {
-                                  _updateApprovalStatus(
-                                    context,
-                                    uid: uid,
-                                    approved: false,
-                                  );
-                                },
-                          child: const Text('Reject'),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: uid.isEmpty
-                              ? null
-                              : () {
-                                  _editRestaurant(
-                                    context,
-                                    uid: uid,
-                                    data: data,
-                                  );
-                                },
-                          icon: const Icon(Icons.edit_outlined),
-                          label: const Text('Edit Restaurant'),
-                        ),
-                        TextButton.icon(
-                          onPressed: uid.isEmpty
-                              ? null
-                              : () {
-                                  _deleteRestaurant(context, uid);
-                                },
-                          icon: const Icon(Icons.delete_outline),
-                          label: const Text('Delete Restaurant'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    ExpansionTile(
-                      tilePadding: EdgeInsets.zero,
-                      childrenPadding: EdgeInsets.zero,
-                      title: const Text(
-                        'Coupons',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      subtitle: const Text('View or delete restaurant coupons'),
-                      children: [
-                        _buildCouponSection(
-                          context,
-                          uid: uid,
-                          restaurantName: restaurantName,
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
-      },
+          ),
+        ],
+      ),
     );
   }
 }

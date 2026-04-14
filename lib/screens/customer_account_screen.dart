@@ -252,7 +252,7 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
 
       if (!mounted) return;
 
-      _showSnackBar('Signed out. You are now browsing as guest.');
+      _showSnackBar('Signed out.');
     } catch (error) {
       if (!mounted) return;
 
@@ -276,78 +276,55 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
       return const SizedBox.shrink();
     }
 
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 16),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF4E5),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: const Color(0xFFF2C17D),
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return SizedBox(
+  width: double.infinity,
+  child: Card(
+    margin: const EdgeInsets.only(top: 16),
+    child: Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
-            Icons.mark_email_unread_outlined,
-            color: Color(0xFF8A4B00),
+          const Icon(Icons.mark_email_read_outlined, size: 44),
+          const SizedBox(height: 14),
+          const Text(
+            'Verify Your Email',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 22,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                RichText(
-                  text: const TextSpan(
-                    style: TextStyle(
-                      fontSize: 15,
-                      height: 1.35,
-                      color: Color(0xFF4F3422),
-                    ),
-                    children: [
-                      TextSpan(
-                        text: 'Email verification required. ',
-                        style: TextStyle(fontWeight: FontWeight.w800),
-                      ),
-                      TextSpan(
-                        text:
-                            'Please verify your email to rate, review, or add dishes.',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      TextButton(
-                        onPressed: isSubmitting
-                            ? null
-                            : () => _resendCustomerVerificationEmail(user),
-                        child: const Text('Resend verification email'),
-                      ),
-                      TextButton(
-                        onPressed: isSubmitting
-                            ? null
-                            : _refreshVerificationStatus,
-                        child: const Text('Refresh Verification'),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
+          const SizedBox(height: 10),
+          Text(
+            'Please verify ${user.email ?? 'your email address'} before continuing.',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.black54, height: 1.35),
+          ),
+          const SizedBox(height: 18),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () => _resendCustomerVerificationEmail(user),
+              child: const Text('Resend verification email'),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton(
+              onPressed: isSubmitting ? null : _refreshVerificationStatus,
+              child: const Text('Refresh Verification'),
             ),
           ),
         ],
       ),
-    );
-  }
+    ),
+  ),
+);
+}
 
   Widget _buildGuestCard(User? user) {
     return Card(

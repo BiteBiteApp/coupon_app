@@ -6,10 +6,11 @@ from firebase_admin import credentials, firestore
 
 # ---------- CHANGE THESE 3 LINES ----------
 GOOGLE_API_KEY = "AIzaSyB0MBT1CVdu4kZLQ8rsWDk8m44RFoe6r2o"
-FIREBASE_KEY_PATH = "C:/Users/sakar/Desktop/24 trailer/App Data/VS Code app stuff/coupon_app/firebase-key.json"
+
 CSV_FILE = "C:/Users/sakar/Desktop/24 trailer/App Data/VS Code app stuff/coupon_app/restaurants.csv"
 # -----------------------------------------
-
+from pathlib import Path
+FIREBASE_KEY_PATH = Path("secrets/firebase-key.json")
 cred = credentials.Certificate(FIREBASE_KEY_PATH)
 firebase_admin.initialize_app(cred)
 db = firestore.client()

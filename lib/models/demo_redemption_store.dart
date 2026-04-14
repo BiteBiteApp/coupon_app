@@ -48,17 +48,15 @@ class DemoRedemptionStore {
         user,
       ) async {
         final nextUid = user?.uid;
-        final nextIsGuest = user == null || user.isAnonymous;
+        final nextIsGuest = user?.isAnonymous ?? false;
 
         if (_loadedUid != nextUid || _loadedAsGuest != nextIsGuest) {
           _loadGeneration++;
           _loadedUid = nextUid;
           _loadedAsGuest = nextIsGuest;
           _loadedGuestDeviceId = null;
-          _clearMemory();
           _initialized = false;
           _initializingFuture = null;
-          changes.value++;
           await ensureInitialized();
         }
       });
@@ -77,10 +75,11 @@ class DemoRedemptionStore {
   }
 
   static Future<void> _loadCurrentUserRedemptions() async {
-    final user = await CustomerSessionService.ensureCustomerUser();
+    await CustomerSessionService.ensureAuthReady();
+    final user = FirebaseAuth.instance.currentUser;
     final loadGeneration = _loadGeneration;
-    final activeUid = user.uid;
-    final activeIsGuest = user.isAnonymous;
+    final activeUid = user?.uid;
+    final activeIsGuest = user?.isAnonymous ?? false;
 
     if (!_matchesCurrentAuthUser(activeUid, activeIsGuest)) {
       return;
@@ -88,6 +87,19 @@ class DemoRedemptionStore {
 
     _loadedUid = activeUid;
     _loadedAsGuest = activeIsGuest;
+    _loadedGuestDeviceId =
+        await CustomerSessionService.getExistingGuestDeviceId();
+
+    if (user == null) {
+      if (!_isCurrentLoad(loadGeneration, activeUid, activeIsGuest)) {
+        return;
+      }
+
+      _initialized = true;
+      changes.value++;
+      return;
+    }
+
     _loadedGuestDeviceId = null;
     _clearMemory();
 
@@ -103,7 +115,9 @@ class DemoRedemptionStore {
     if (activeIsGuest) {
       await _loadGuestRedemptionsFromDevice(guestDeviceId);
     } else {
-      await _loadSignedInRedemptionsFromFirestore(activeUid);
+      if (activeUid != null) {
+  await _loadSignedInRedemptionsFromFirestore(activeUid);
+}
 
       final guestRedemptions = await _readGuestRedemptionsFromDevice(
         guestDeviceId,
@@ -359,7 +373,14 @@ class DemoRedemptionStore {
     Coupon? coupon,
     bool incrementRedeemedCount = false,
   }) async {
-    final user = await CustomerSessionService.ensureCustomerUser();
+    await CustomerSessionService.ensureAuthReady();
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      throw StateError(
+        'Please continue as guest or sign in before redeeming coupons.',
+      );
+    }
 
     if (user.isAnonymous) {
       await _saveGuestRedemptionsToDevice();
@@ -544,14 +565,16 @@ class DemoRedemptionStore {
     await ensureInitialized();
   }
 
-  static bool _matchesCurrentAuthUser(String uid, bool isGuest) {
+  static bool _matchesCurrentAuthUser(String? uid, bool isGuest) {
     final currentUser = FirebaseAuth.instance.currentUser;
-    return currentUser != null &&
-        currentUser.uid == uid &&
-        currentUser.isAnonymous == isGuest;
+    if (currentUser == null) {
+      return uid == null && !isGuest;
+    }
+
+    return currentUser.uid == uid && currentUser.isAnonymous == isGuest;
   }
 
-  static bool _isCurrentLoad(int generation, String uid, bool isGuest) {
+  static bool _isCurrentLoad(int generation, String? uid, bool isGuest) {
     return generation == _loadGeneration && _matchesCurrentAuthUser(uid, isGuest);
   }
 

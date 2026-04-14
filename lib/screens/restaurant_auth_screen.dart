@@ -24,6 +24,8 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
     with WidgetsBindingObserver {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
+  final TextEditingController confirmPasswordController =
+      TextEditingController();
 
   bool isLoginMode = true;
   bool isLoading = false;
@@ -39,6 +41,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
     WidgetsBinding.instance.removeObserver(this);
     emailController.dispose();
     passwordController.dispose();
+    confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -74,11 +77,30 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
   Future<void> submit() async {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
+    final confirmPassword = confirmPasswordController.text.trim();
 
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Please enter both email and password.'),
+        ),
+      );
+      return;
+    }
+
+    if (!isLoginMode && confirmPassword.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please confirm your password.'),
+        ),
+      );
+      return;
+    }
+
+    if (!isLoginMode && password != confirmPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Passwords do not match.'),
         ),
       );
       return;
@@ -260,7 +282,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
   }
 
   Future<void> signOut() async {
-    await CustomerSessionService.restoreGuestSession();
+    await CustomerSessionService.signOutToSignedOut();
   }
 
   Future<void> _applyForRestaurantAccount(User user) async {
@@ -369,6 +391,17 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
                       border: OutlineInputBorder(),
                     ),
                   ),
+                  if (!isLoginMode) ...[
+                    const SizedBox(height: 16),
+                    TextField(
+                      controller: confirmPasswordController,
+                      obscureText: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Confirm Password',
+                        border: OutlineInputBorder(),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,
@@ -392,6 +425,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
                           : () {
                               setState(() {
                                 isLoginMode = !isLoginMode;
+                                confirmPasswordController.clear();
                               });
                             },
                       child: Text(
@@ -471,51 +505,73 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
 
   Widget buildPendingApprovalScreen(User user) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
-          child: Card(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.hourglass_top, size: 52),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Pending Approval',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                      Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade600.withOpacity(0.1),
+                          shape: BoxShape.circle,
+                        ),
+                        child: Icon(
+                          Icons.hourglass_top,
+                          size: 52,
+                          color: Colors.orange.shade600,
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      const Text(
+                        'Pending Approval',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        'Your restaurant account (${user.email ?? 'unknown email'}) has been verified but is still waiting for admin approval before you can post coupons.',
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 20),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton(
+                          onPressed: () async {
+                            await _refreshLiveVerificationState();
+                          },
+                          child: const Text('Refresh Status'),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      SizedBox(
+                        width: double.infinity,
+                        child: TextButton(
+                          onPressed: signOut,
+                          child: const Text('Sign Out'),
+                        ),
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Your restaurant account (${user.email ?? 'unknown email'}) has been verified but is still waiting for admin approval before you can post coupons.',
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: OutlinedButton(
-                      onPressed: () async {
-                        await _refreshLiveVerificationState();
-                      },
-                      child: const Text('Refresh Status'),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: TextButton(
-                      onPressed: signOut,
-                      child: const Text('Sign Out'),
-                    ),
-                  ),
-                ],
+                ),
               ),
-            ),
+              const SizedBox(height: 16),
+              _buildBiteRaterAccessCard(
+                title: 'Claim Your Restaurant on BiteRater',
+                message:
+                    'While your coupon-side application is being reviewed, you can still browse BiteRater and claim your restaurant on the rating side.',
+              ),
+            ],
           ),
         ),
       ),
@@ -565,9 +621,79 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
     );
   }
 
+  Widget _buildBiteRaterAccessCard({
+    String title = 'BiteRater Side',
+    String message =
+        'Claim your restaurant on the rating side to manage dishes and restaurant tools.',
+  }) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.shade600.withOpacity(0.1),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.restaurant_outlined,
+                size: 48,
+                color: Colors.blue.shade600,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 10),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => MainNavigationScreen(
+                        initialMode: AppMode.biteScore,
+                        initialIndex: 0,
+                      ),
+                    ),
+                  );
+                },
+                child: const Text('Browse BiteRater and Claim'),
+              ),
+            ),
+            const SizedBox(height: 10),
+            const Text(
+              'If you don\'t see your restaurant, use Create & Rate to add it.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 13,
+                color: Colors.black54,
+                height: 1.35,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget buildNoApprovedAccountsScreen(User user) {
     return Center(
-      child: Padding(
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(24),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
@@ -613,57 +739,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
                 ),
               ),
               const SizedBox(height: 16),
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(Icons.restaurant_outlined, size: 48),
-                      const SizedBox(height: 14),
-                      const Text(
-                        'BiteRater Side',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        'Claim your restaurant on the rating side to manage dishes and restaurant tools.',
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 18),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton(
-                          onPressed: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => MainNavigationScreen(
-  initialMode: AppMode.biteScore,
-  initialIndex: 0,
-),
-                              ),
-                            );
-                          },
-                          child: const Text('Browse BiteRater and Claim'),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      const Text(
-                        'If you don\'t see your restaurant, use Create & Rate to add it.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.black54,
-                          height: 1.35,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              _buildBiteRaterAccessCard(),
               const SizedBox(height: 12),
               SizedBox(
                 width: double.infinity,
@@ -735,12 +811,15 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
         }
 
         final data = accountSnapshot.data?.data();
-        final hasCouponAccount = data != null;
+        final hasCouponApplication =
+            RestaurantAccountService.hasSubmittedCouponApplication(data);
         final emailVerified = user.emailVerified;
         final approvalStatus =
             (data?['approvalStatus'] as String?) ?? 'pending';
         final hasCouponAccess =
-            hasCouponAccount && emailVerified && approvalStatus == 'approved';
+            hasCouponApplication &&
+            emailVerified &&
+            approvalStatus == 'approved';
 
         return FutureBuilder<List<BitescoreRestaurant>>(
           future: BiteScoreService.loadOwnedRestaurantsForUser(user.uid),
@@ -756,12 +835,12 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
               return RestaurantOwnerHubScreen(currentUser: user);
             }
 
-            if (!hasCouponAccount) {
-              return buildNoApprovedAccountsScreen(user);
-            }
-
             if (!emailVerified) {
               return buildEmailVerificationScreen(user);
+            }
+
+            if (!hasCouponApplication) {
+              return buildNoApprovedAccountsScreen(user);
             }
 
             if (approvalStatus == 'pending') {

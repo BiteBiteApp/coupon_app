@@ -213,8 +213,8 @@ class CustomerAuthService {
       } catch (_) {}
     }
 
-    await CustomerSessionService.restoreGuestSession();
-    await DemoRedemptionStore.ensureInitialized();
+    await CustomerSessionService.signOutToSignedOut();
+    await DemoRedemptionStore.refreshFromFirestore();
   }
 
   static Future<void> _finalizeSignedInCustomerSession({

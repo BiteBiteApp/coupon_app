@@ -17,7 +17,7 @@ Future<void> main() async {
 }
 
 Future<void> ensureUserSignedIn() async {
-  await CustomerSessionService.ensureCustomerUser();
+  await CustomerSessionService.ensureAuthReady();
 }
 
 class CouponApp extends StatelessWidget {
