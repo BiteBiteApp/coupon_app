@@ -18,6 +18,7 @@ import '../models/review_feedback_vote.dart';
 import '../models/review_report.dart';
 import '../models/restaurant.dart';
 import '../models/restaurant_claim_request.dart';
+import 'customer_auth_service.dart';
 import 'restaurant_account_service.dart';
 
 class BiteScoreHomeEntry {
@@ -170,12 +171,13 @@ class BiteScoreReportedReviewAdminEntry {
   int get reportCount => reports.length;
   String get reportStatus =>
       reports.isEmpty ? ReviewReport.statusPending : reports.first.status;
-  List<String> get distinctReasons => reports
-      .map((report) => report.reason?.trim() ?? '')
-      .where((reason) => reason.isNotEmpty)
-      .toSet()
-      .toList()
-    ..sort();
+  List<String> get distinctReasons =>
+      reports
+          .map((report) => report.reason?.trim() ?? '')
+          .where((reason) => reason.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
 }
 
 class BiteScoreReportedRestaurantAdminEntry {
@@ -190,12 +192,13 @@ class BiteScoreReportedRestaurantAdminEntry {
   int get reportCount => reports.length;
   String get reportStatus =>
       reports.isEmpty ? RestaurantReport.statusPending : reports.first.status;
-  List<String> get distinctReasons => reports
-      .map((report) => report.reason?.trim() ?? '')
-      .where((reason) => reason.isNotEmpty)
-      .toSet()
-      .toList()
-    ..sort();
+  List<String> get distinctReasons =>
+      reports
+          .map((report) => report.reason?.trim() ?? '')
+          .where((reason) => reason.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
 }
 
 class BiteScoreReportedDishAdminEntry {
@@ -212,12 +215,13 @@ class BiteScoreReportedDishAdminEntry {
   int get reportCount => reports.length;
   String get reportStatus =>
       reports.isEmpty ? DishReport.statusPending : reports.first.status;
-  List<String> get distinctReasons => reports
-      .map((report) => report.reason?.trim() ?? '')
-      .where((reason) => reason.isNotEmpty)
-      .toSet()
-      .toList()
-    ..sort();
+  List<String> get distinctReasons =>
+      reports
+          .map((report) => report.reason?.trim() ?? '')
+          .where((reason) => reason.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
 }
 
 class BiteScoreDuplicateRestaurantReportAdminEntry {
@@ -233,12 +237,13 @@ class BiteScoreDuplicateRestaurantReportAdminEntry {
   String get reportStatus => reports.isEmpty
       ? DuplicateRestaurantReport.statusPending
       : reports.first.status;
-  List<String> get distinctReasons => reports
-      .map((report) => report.reason?.trim() ?? '')
-      .where((reason) => reason.isNotEmpty)
-      .toSet()
-      .toList()
-    ..sort();
+  List<String> get distinctReasons =>
+      reports
+          .map((report) => report.reason?.trim() ?? '')
+          .where((reason) => reason.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
 }
 
 class BiteScoreAdminClaimEntry {
@@ -388,7 +393,8 @@ class DishEditSuggestionAdminEntry {
   bool get isRename => type == DishEditProposal.typeRename;
   bool get isMerge => type == DishEditProposal.typeMerge;
   bool get isInvalid => (invalidReason ?? '').trim().isNotEmpty;
-  int get supporterCount => proposals.map((proposal) => proposal.userId).toSet().length;
+  int get supporterCount =>
+      proposals.map((proposal) => proposal.userId).toSet().length;
   DateTime? get oldestCreatedAt {
     DateTime? oldest;
     for (final proposal in proposals) {
@@ -435,10 +441,7 @@ class ExistingDishMatchSuggestion {
   final BitescoreDish dish;
   final double score;
 
-  const ExistingDishMatchSuggestion({
-    required this.dish,
-    required this.score,
-  });
+  const ExistingDishMatchSuggestion({required this.dish, required this.score});
 }
 
 class BiteScoreCreateRequest {
@@ -533,7 +536,8 @@ class BiteScoreService {
     return _firestore.collection('dish_catalog');
   }
 
-  static CollectionReference<Map<String, dynamic>> ratingAggregatesCollection() {
+  static CollectionReference<Map<String, dynamic>>
+  ratingAggregatesCollection() {
     return _firestore.collection(DishRatingAggregate.collectionName);
   }
 
@@ -541,7 +545,8 @@ class BiteScoreService {
     return _firestore.collection(DishReview.collectionName);
   }
 
-  static CollectionReference<Map<String, dynamic>> reviewFeedbackVotesCollection() {
+  static CollectionReference<Map<String, dynamic>>
+  reviewFeedbackVotesCollection() {
     return _firestore.collection(ReviewFeedbackVote.collectionName);
   }
 
@@ -549,7 +554,8 @@ class BiteScoreService {
     return _firestore.collection(ReviewReport.collectionName);
   }
 
-  static CollectionReference<Map<String, dynamic>> restaurantReportsCollection() {
+  static CollectionReference<Map<String, dynamic>>
+  restaurantReportsCollection() {
     return _firestore.collection(RestaurantReport.collectionName);
   }
 
@@ -558,7 +564,7 @@ class BiteScoreService {
   }
 
   static CollectionReference<Map<String, dynamic>>
-      duplicateRestaurantReportsCollection() {
+  duplicateRestaurantReportsCollection() {
     return _firestore.collection(DuplicateRestaurantReport.collectionName);
   }
 
@@ -571,7 +577,7 @@ class BiteScoreService {
   }
 
   static CollectionReference<Map<String, dynamic>>
-      restaurantAccountsCollection() {
+  restaurantAccountsCollection() {
     return _firestore.collection('restaurant_accounts');
   }
 
@@ -592,17 +598,19 @@ class BiteScoreService {
   }
 
   static CollectionReference<Map<String, dynamic>>
-      favoriteRestaurantsCollection(String userId) {
+  favoriteRestaurantsCollection(String userId) {
     return userProfileDocument(userId).collection('favorite_restaurants');
   }
 
-  static CollectionReference<Map<String, dynamic>>
-      favoriteDishesCollection(String userId) {
+  static CollectionReference<Map<String, dynamic>> favoriteDishesCollection(
+    String userId,
+  ) {
     return userProfileDocument(userId).collection('favorite_dishes');
   }
 
-  static CollectionReference<Map<String, dynamic>>
-      favoriteCouponsCollection(String userId) {
+  static CollectionReference<Map<String, dynamic>> favoriteCouponsCollection(
+    String userId,
+  ) {
     return userProfileDocument(userId).collection('favorite_coupons');
   }
 
@@ -671,17 +679,22 @@ class BiteScoreService {
         .where('restaurantId', isEqualTo: restaurantId)
         .get();
 
-    final dishes = snapshot.docs
-        .map(
-          (doc) => BitescoreDish.tryFromFirestore(
-            doc.data(),
-            fallbackId: doc.id,
-          ),
-        )
-        .whereType<BitescoreDish>()
-        .where((dish) => !dish.isMerged && (includeInactive || dish.isActive))
-        .toList()
-      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    final dishes =
+        snapshot.docs
+            .map(
+              (doc) => BitescoreDish.tryFromFirestore(
+                doc.data(),
+                fallbackId: doc.id,
+              ),
+            )
+            .whereType<BitescoreDish>()
+            .where(
+              (dish) => !dish.isMerged && (includeInactive || dish.isActive),
+            )
+            .toList()
+          ..sort(
+            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+          );
 
     return dishes;
   }
@@ -694,16 +707,19 @@ class BiteScoreService {
         .where('isClaimed', isEqualTo: true)
         .get();
 
-    final restaurants = snapshot.docs
-        .map(
-          (doc) => BitescoreRestaurant.tryFromFirestore(
-            doc.data(),
-            fallbackId: doc.id,
-          ),
-        )
-        .whereType<BitescoreRestaurant>()
-        .toList()
-      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    final restaurants =
+        snapshot.docs
+            .map(
+              (doc) => BitescoreRestaurant.tryFromFirestore(
+                doc.data(),
+                fallbackId: doc.id,
+              ),
+            )
+            .whereType<BitescoreRestaurant>()
+            .toList()
+          ..sort(
+            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
+          );
 
     return restaurants;
   }
@@ -711,43 +727,49 @@ class BiteScoreService {
   static Future<List<BitescoreRestaurant>> loadRestaurantMergeCandidates({
     required BitescoreRestaurant duplicateRestaurant,
   }) async {
-    final candidates = (await loadRestaurantsForFinder())
-        .where(
-          (restaurant) =>
-              restaurant.id != duplicateRestaurant.id && restaurant.isActive,
-        )
-        .toList()
-      ..sort((a, b) {
-        final aSameMarket =
-            a.city.toLowerCase() == duplicateRestaurant.city.toLowerCase() &&
-            a.state.toUpperCase() == duplicateRestaurant.state.toUpperCase();
-        final bSameMarket =
-            b.city.toLowerCase() == duplicateRestaurant.city.toLowerCase() &&
-            b.state.toUpperCase() == duplicateRestaurant.state.toUpperCase();
-        if (aSameMarket != bSameMarket) {
-          return bSameMarket ? 1 : -1;
-        }
+    final candidates =
+        (await loadRestaurantsForFinder())
+            .where(
+              (restaurant) =>
+                  restaurant.id != duplicateRestaurant.id &&
+                  restaurant.isActive,
+            )
+            .toList()
+          ..sort((a, b) {
+            final aSameMarket =
+                a.city.toLowerCase() ==
+                    duplicateRestaurant.city.toLowerCase() &&
+                a.state.toUpperCase() ==
+                    duplicateRestaurant.state.toUpperCase();
+            final bSameMarket =
+                b.city.toLowerCase() ==
+                    duplicateRestaurant.city.toLowerCase() &&
+                b.state.toUpperCase() ==
+                    duplicateRestaurant.state.toUpperCase();
+            if (aSameMarket != bSameMarket) {
+              return bSameMarket ? 1 : -1;
+            }
 
-        final aSameName =
-            a.normalizedName == duplicateRestaurant.normalizedName;
-        final bSameName =
-            b.normalizedName == duplicateRestaurant.normalizedName;
-        if (aSameName != bSameName) {
-          return bSameName ? 1 : -1;
-        }
+            final aSameName =
+                a.normalizedName == duplicateRestaurant.normalizedName;
+            final bSameName =
+                b.normalizedName == duplicateRestaurant.normalizedName;
+            if (aSameName != bSameName) {
+              return bSameName ? 1 : -1;
+            }
 
-        final byName = a.name.toLowerCase().compareTo(b.name.toLowerCase());
-        if (byName != 0) {
-          return byName;
-        }
+            final byName = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+            if (byName != 0) {
+              return byName;
+            }
 
-        final byCity = a.city.toLowerCase().compareTo(b.city.toLowerCase());
-        if (byCity != 0) {
-          return byCity;
-        }
+            final byCity = a.city.toLowerCase().compareTo(b.city.toLowerCase());
+            if (byCity != 0) {
+              return byCity;
+            }
 
-        return a.state.toLowerCase().compareTo(b.state.toLowerCase());
-      });
+            return a.state.toLowerCase().compareTo(b.state.toLowerCase());
+          });
 
     return candidates;
   }
@@ -779,18 +801,16 @@ class BiteScoreService {
     return dishesCollection().snapshots().map((snapshot) {
       final dishes = snapshot.docs
           .map(
-            (doc) => BitescoreDish.tryFromFirestore(
-              doc.data(),
-              fallbackId: doc.id,
-            ),
+            (doc) =>
+                BitescoreDish.tryFromFirestore(doc.data(), fallbackId: doc.id),
           )
           .whereType<BitescoreDish>()
           .toList();
 
       dishes.sort((a, b) {
-        final byRestaurant = a.restaurantName
-            .toLowerCase()
-            .compareTo(b.restaurantName.toLowerCase());
+        final byRestaurant = a.restaurantName.toLowerCase().compareTo(
+          b.restaurantName.toLowerCase(),
+        );
         if (byRestaurant != 0) {
           return byRestaurant;
         }
@@ -805,323 +825,364 @@ class BiteScoreService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .asyncMap((snapshot) async {
-      final dishesSnapshot = await dishesCollection().get();
-      final restaurantsSnapshot = await restaurantsCollection().get();
+          final dishesSnapshot = await dishesCollection().get();
+          final restaurantsSnapshot = await restaurantsCollection().get();
 
-      final dishesById = <String, BitescoreDish>{};
-      for (final doc in dishesSnapshot.docs) {
-        final dish =
-            BitescoreDish.tryFromFirestore(doc.data(), fallbackId: doc.id);
-        if (dish != null) {
-          dishesById[dish.id] = dish;
-        }
-      }
-
-      final restaurantsById = <String, BitescoreRestaurant>{};
-      for (final doc in restaurantsSnapshot.docs) {
-        final restaurant = BitescoreRestaurant.tryFromFirestore(
-          doc.data(),
-          fallbackId: doc.id,
-        );
-        if (restaurant != null) {
-          restaurantsById[restaurant.id] = restaurant;
-        }
-      }
-
-      final entries = snapshot.docs
-          .map(
-            (doc) => DishReview.tryFromFirestore(
+          final dishesById = <String, BitescoreDish>{};
+          for (final doc in dishesSnapshot.docs) {
+            final dish = BitescoreDish.tryFromFirestore(
               doc.data(),
               fallbackId: doc.id,
-            ),
-          )
-          .whereType<DishReview>()
-          .map((review) {
-            final dish = dishesById[review.dishId];
-            final restaurant = restaurantsById[review.restaurantId];
-            return BiteScoreAdminReviewEntry(
-              review: review,
-              dishName: dish?.name ?? 'Unknown dish',
-              restaurantName: restaurant?.name ?? 'Unknown restaurant',
             );
-          })
-          .toList();
+            if (dish != null) {
+              dishesById[dish.id] = dish;
+            }
+          }
 
-      return entries;
-    });
+          final restaurantsById = <String, BitescoreRestaurant>{};
+          for (final doc in restaurantsSnapshot.docs) {
+            final restaurant = BitescoreRestaurant.tryFromFirestore(
+              doc.data(),
+              fallbackId: doc.id,
+            );
+            if (restaurant != null) {
+              restaurantsById[restaurant.id] = restaurant;
+            }
+          }
+
+          final entries = snapshot.docs
+              .map(
+                (doc) =>
+                    DishReview.tryFromFirestore(doc.data(), fallbackId: doc.id),
+              )
+              .whereType<DishReview>()
+              .map((review) {
+                final dish = dishesById[review.dishId];
+                final restaurant = restaurantsById[review.restaurantId];
+                return BiteScoreAdminReviewEntry(
+                  review: review,
+                  dishName: dish?.name ?? 'Unknown dish',
+                  restaurantName: restaurant?.name ?? 'Unknown restaurant',
+                );
+              })
+              .toList();
+
+          return entries;
+        });
   }
 
   static Stream<List<BiteScoreReportedReviewAdminEntry>>
-      reportedReviewsAdminStream() {
+  reportedReviewsAdminStream() {
     return reviewReportsCollection()
         .where('status', isEqualTo: ReviewReport.statusPending)
         .snapshots()
         .asyncMap((snapshot) async {
-      final reviewsSnapshot = await reviewsCollection().get();
-      final dishesSnapshot = await dishesCollection().get();
-      final restaurantsSnapshot = await restaurantsCollection().get();
+          final reviewsSnapshot = await reviewsCollection().get();
+          final dishesSnapshot = await dishesCollection().get();
+          final restaurantsSnapshot = await restaurantsCollection().get();
 
-      final reviewsById = <String, DishReview>{};
-      for (final doc in reviewsSnapshot.docs) {
-        final review =
-            DishReview.tryFromFirestore(doc.data(), fallbackId: doc.id);
-        if (review != null) {
-          reviewsById[review.id] = review;
-        }
-      }
-
-      final dishesById = <String, BitescoreDish>{};
-      for (final doc in dishesSnapshot.docs) {
-        final dish =
-            BitescoreDish.tryFromFirestore(doc.data(), fallbackId: doc.id);
-        if (dish != null) {
-          dishesById[dish.id] = dish;
-        }
-      }
-
-      final restaurantsById = <String, BitescoreRestaurant>{};
-      for (final doc in restaurantsSnapshot.docs) {
-        final restaurant = BitescoreRestaurant.tryFromFirestore(
-          doc.data(),
-          fallbackId: doc.id,
-        );
-        if (restaurant != null) {
-          restaurantsById[restaurant.id] = restaurant;
-        }
-      }
-
-      final reportsByReviewId = <String, List<ReviewReport>>{};
-      for (final doc in snapshot.docs) {
-        final report =
-            ReviewReport.tryFromFirestore(doc.data(), fallbackId: doc.id);
-        if (report == null) {
-          continue;
-        }
-        reportsByReviewId.putIfAbsent(report.reviewId, () => <ReviewReport>[]).add(report);
-      }
-
-      final entries = reportsByReviewId.entries
-          .map((group) {
-            final reports = [...group.value]
-              ..sort((a, b) {
-                final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-                final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-                return bDate.compareTo(aDate);
-              });
-            final review = reviewsById[group.key];
-            if (review == null) {
-              return null;
-            }
-
-            return BiteScoreReportedReviewAdminEntry(
-              review: review,
-              dishName: dishesById[review.dishId]?.name ?? 'Unknown dish',
-              restaurantName:
-                  restaurantsById[review.restaurantId]?.name ?? 'Unknown restaurant',
-              reports: reports,
+          final reviewsById = <String, DishReview>{};
+          for (final doc in reviewsSnapshot.docs) {
+            final review = DishReview.tryFromFirestore(
+              doc.data(),
+              fallbackId: doc.id,
             );
-          })
-          .whereType<BiteScoreReportedReviewAdminEntry>()
-          .toList()
-        ..sort((a, b) {
-          final aDate =
-              a.reports.first.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-          final bDate =
-              b.reports.first.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-          return bDate.compareTo(aDate);
-        });
+            if (review != null) {
+              reviewsById[review.id] = review;
+            }
+          }
 
-      return entries;
-    });
+          final dishesById = <String, BitescoreDish>{};
+          for (final doc in dishesSnapshot.docs) {
+            final dish = BitescoreDish.tryFromFirestore(
+              doc.data(),
+              fallbackId: doc.id,
+            );
+            if (dish != null) {
+              dishesById[dish.id] = dish;
+            }
+          }
+
+          final restaurantsById = <String, BitescoreRestaurant>{};
+          for (final doc in restaurantsSnapshot.docs) {
+            final restaurant = BitescoreRestaurant.tryFromFirestore(
+              doc.data(),
+              fallbackId: doc.id,
+            );
+            if (restaurant != null) {
+              restaurantsById[restaurant.id] = restaurant;
+            }
+          }
+
+          final reportsByReviewId = <String, List<ReviewReport>>{};
+          for (final doc in snapshot.docs) {
+            final report = ReviewReport.tryFromFirestore(
+              doc.data(),
+              fallbackId: doc.id,
+            );
+            if (report == null) {
+              continue;
+            }
+            reportsByReviewId
+                .putIfAbsent(report.reviewId, () => <ReviewReport>[])
+                .add(report);
+          }
+
+          final entries =
+              reportsByReviewId.entries
+                  .map((group) {
+                    final reports = [...group.value]
+                      ..sort((a, b) {
+                        final aDate =
+                            a.createdAt ??
+                            DateTime.fromMillisecondsSinceEpoch(0);
+                        final bDate =
+                            b.createdAt ??
+                            DateTime.fromMillisecondsSinceEpoch(0);
+                        return bDate.compareTo(aDate);
+                      });
+                    final review = reviewsById[group.key];
+                    if (review == null) {
+                      return null;
+                    }
+
+                    return BiteScoreReportedReviewAdminEntry(
+                      review: review,
+                      dishName:
+                          dishesById[review.dishId]?.name ?? 'Unknown dish',
+                      restaurantName:
+                          restaurantsById[review.restaurantId]?.name ??
+                          'Unknown restaurant',
+                      reports: reports,
+                    );
+                  })
+                  .whereType<BiteScoreReportedReviewAdminEntry>()
+                  .toList()
+                ..sort((a, b) {
+                  final aDate =
+                      a.reports.first.createdAt ??
+                      DateTime.fromMillisecondsSinceEpoch(0);
+                  final bDate =
+                      b.reports.first.createdAt ??
+                      DateTime.fromMillisecondsSinceEpoch(0);
+                  return bDate.compareTo(aDate);
+                });
+
+          return entries;
+        });
   }
 
   static Stream<List<BiteScoreReportedRestaurantAdminEntry>>
-      reportedRestaurantsAdminStream() {
+  reportedRestaurantsAdminStream() {
     return restaurantReportsCollection()
         .where('status', isEqualTo: RestaurantReport.statusPending)
         .snapshots()
         .asyncMap((snapshot) async {
-      final restaurants = await loadRestaurantsForFinder();
-      final restaurantsById = <String, BitescoreRestaurant>{
-        for (final restaurant in restaurants) restaurant.id: restaurant,
-      };
+          final restaurants = await loadRestaurantsForFinder();
+          final restaurantsById = <String, BitescoreRestaurant>{
+            for (final restaurant in restaurants) restaurant.id: restaurant,
+          };
 
-      final reportsByRestaurantId = <String, List<RestaurantReport>>{};
-      for (final doc in snapshot.docs) {
-        final report =
-            RestaurantReport.tryFromFirestore(doc.data(), fallbackId: doc.id);
-        if (report == null) {
-          continue;
-        }
-        reportsByRestaurantId
-            .putIfAbsent(report.restaurantId, () => <RestaurantReport>[])
-            .add(report);
-      }
-
-      final entries = reportsByRestaurantId.entries
-          .map((group) {
-            final restaurant = restaurantsById[group.key];
-            if (restaurant == null) {
-              return null;
-            }
-
-            final reports = [...group.value]
-              ..sort((a, b) {
-                final aDate =
-                    a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-                final bDate =
-                    b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-                return bDate.compareTo(aDate);
-              });
-
-            return BiteScoreReportedRestaurantAdminEntry(
-              restaurant: restaurant,
-              reports: reports,
+          final reportsByRestaurantId = <String, List<RestaurantReport>>{};
+          for (final doc in snapshot.docs) {
+            final report = RestaurantReport.tryFromFirestore(
+              doc.data(),
+              fallbackId: doc.id,
             );
-          })
-          .whereType<BiteScoreReportedRestaurantAdminEntry>()
-          .toList()
-        ..sort((a, b) {
-          final aDate =
-              a.reports.first.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-          final bDate =
-              b.reports.first.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-          return bDate.compareTo(aDate);
-        });
+            if (report == null) {
+              continue;
+            }
+            reportsByRestaurantId
+                .putIfAbsent(report.restaurantId, () => <RestaurantReport>[])
+                .add(report);
+          }
 
-      return entries;
-    });
+          final entries =
+              reportsByRestaurantId.entries
+                  .map((group) {
+                    final restaurant = restaurantsById[group.key];
+                    if (restaurant == null) {
+                      return null;
+                    }
+
+                    final reports = [...group.value]
+                      ..sort((a, b) {
+                        final aDate =
+                            a.createdAt ??
+                            DateTime.fromMillisecondsSinceEpoch(0);
+                        final bDate =
+                            b.createdAt ??
+                            DateTime.fromMillisecondsSinceEpoch(0);
+                        return bDate.compareTo(aDate);
+                      });
+
+                    return BiteScoreReportedRestaurantAdminEntry(
+                      restaurant: restaurant,
+                      reports: reports,
+                    );
+                  })
+                  .whereType<BiteScoreReportedRestaurantAdminEntry>()
+                  .toList()
+                ..sort((a, b) {
+                  final aDate =
+                      a.reports.first.createdAt ??
+                      DateTime.fromMillisecondsSinceEpoch(0);
+                  final bDate =
+                      b.reports.first.createdAt ??
+                      DateTime.fromMillisecondsSinceEpoch(0);
+                  return bDate.compareTo(aDate);
+                });
+
+          return entries;
+        });
   }
 
   static Stream<List<BiteScoreReportedDishAdminEntry>>
-      reportedDishesAdminStream() {
+  reportedDishesAdminStream() {
     return dishReportsCollection()
         .where('status', isEqualTo: DishReport.statusPending)
         .snapshots()
         .asyncMap((snapshot) async {
-      final dishesSnapshot = await dishesCollection().get();
-      final restaurants = await loadRestaurantsForFinder();
+          final dishesSnapshot = await dishesCollection().get();
+          final restaurants = await loadRestaurantsForFinder();
 
-      final dishesById = <String, BitescoreDish>{};
-      for (final doc in dishesSnapshot.docs) {
-        final dish =
-            BitescoreDish.tryFromFirestore(doc.data(), fallbackId: doc.id);
-        if (dish != null) {
-          dishesById[dish.id] = dish;
-        }
-      }
-
-      final restaurantsById = <String, BitescoreRestaurant>{
-        for (final restaurant in restaurants) restaurant.id: restaurant,
-      };
-
-      final reportsByDishId = <String, List<DishReport>>{};
-      for (final doc in snapshot.docs) {
-        final report =
-            DishReport.tryFromFirestore(doc.data(), fallbackId: doc.id);
-        if (report == null) {
-          continue;
-        }
-        reportsByDishId.putIfAbsent(report.dishId, () => <DishReport>[]).add(report);
-      }
-
-      final entries = reportsByDishId.entries
-          .map((group) {
-            final dish = dishesById[group.key];
-            if (dish == null) {
-              return null;
-            }
-
-            final reports = [...group.value]
-              ..sort((a, b) {
-                final aDate =
-                    a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-                final bDate =
-                    b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-                return bDate.compareTo(aDate);
-              });
-
-            return BiteScoreReportedDishAdminEntry(
-              dish: dish,
-              restaurant: restaurantsById[dish.restaurantId],
-              reports: reports,
+          final dishesById = <String, BitescoreDish>{};
+          for (final doc in dishesSnapshot.docs) {
+            final dish = BitescoreDish.tryFromFirestore(
+              doc.data(),
+              fallbackId: doc.id,
             );
-          })
-          .whereType<BiteScoreReportedDishAdminEntry>()
-          .toList()
-        ..sort((a, b) {
-          final aDate =
-              a.reports.first.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-          final bDate =
-              b.reports.first.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-          return bDate.compareTo(aDate);
-        });
+            if (dish != null) {
+              dishesById[dish.id] = dish;
+            }
+          }
 
-      return entries;
-    });
+          final restaurantsById = <String, BitescoreRestaurant>{
+            for (final restaurant in restaurants) restaurant.id: restaurant,
+          };
+
+          final reportsByDishId = <String, List<DishReport>>{};
+          for (final doc in snapshot.docs) {
+            final report = DishReport.tryFromFirestore(
+              doc.data(),
+              fallbackId: doc.id,
+            );
+            if (report == null) {
+              continue;
+            }
+            reportsByDishId
+                .putIfAbsent(report.dishId, () => <DishReport>[])
+                .add(report);
+          }
+
+          final entries =
+              reportsByDishId.entries
+                  .map((group) {
+                    final dish = dishesById[group.key];
+                    if (dish == null) {
+                      return null;
+                    }
+
+                    final reports = [...group.value]
+                      ..sort((a, b) {
+                        final aDate =
+                            a.createdAt ??
+                            DateTime.fromMillisecondsSinceEpoch(0);
+                        final bDate =
+                            b.createdAt ??
+                            DateTime.fromMillisecondsSinceEpoch(0);
+                        return bDate.compareTo(aDate);
+                      });
+
+                    return BiteScoreReportedDishAdminEntry(
+                      dish: dish,
+                      restaurant: restaurantsById[dish.restaurantId],
+                      reports: reports,
+                    );
+                  })
+                  .whereType<BiteScoreReportedDishAdminEntry>()
+                  .toList()
+                ..sort((a, b) {
+                  final aDate =
+                      a.reports.first.createdAt ??
+                      DateTime.fromMillisecondsSinceEpoch(0);
+                  final bDate =
+                      b.reports.first.createdAt ??
+                      DateTime.fromMillisecondsSinceEpoch(0);
+                  return bDate.compareTo(aDate);
+                });
+
+          return entries;
+        });
   }
 
   static Stream<List<BiteScoreDuplicateRestaurantReportAdminEntry>>
-      duplicateRestaurantReportsAdminStream() {
+  duplicateRestaurantReportsAdminStream() {
     return duplicateRestaurantReportsCollection()
         .where('status', isEqualTo: DuplicateRestaurantReport.statusPending)
         .snapshots()
         .asyncMap((snapshot) async {
-      final restaurants = await loadRestaurantsForFinder();
-      final restaurantsById = <String, BitescoreRestaurant>{
-        for (final restaurant in restaurants) restaurant.id: restaurant,
-      };
+          final restaurants = await loadRestaurantsForFinder();
+          final restaurantsById = <String, BitescoreRestaurant>{
+            for (final restaurant in restaurants) restaurant.id: restaurant,
+          };
 
-      final reportsByRestaurantId = <String, List<DuplicateRestaurantReport>>{};
-      for (final doc in snapshot.docs) {
-        final report = DuplicateRestaurantReport.tryFromFirestore(
-          doc.data(),
-          fallbackId: doc.id,
-        );
-        if (report == null) {
-          continue;
-        }
-        reportsByRestaurantId
-            .putIfAbsent(
-              report.restaurantId,
-              () => <DuplicateRestaurantReport>[],
-            )
-            .add(report);
-      }
-
-      final entries = reportsByRestaurantId.entries
-          .map((group) {
-            final restaurant = restaurantsById[group.key];
-            if (restaurant == null) {
-              return null;
-            }
-
-            final reports = [...group.value]
-              ..sort((a, b) {
-                final aDate =
-                    a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-                final bDate =
-                    b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-                return bDate.compareTo(aDate);
-              });
-
-            return BiteScoreDuplicateRestaurantReportAdminEntry(
-              restaurant: restaurant,
-              reports: reports,
+          final reportsByRestaurantId =
+              <String, List<DuplicateRestaurantReport>>{};
+          for (final doc in snapshot.docs) {
+            final report = DuplicateRestaurantReport.tryFromFirestore(
+              doc.data(),
+              fallbackId: doc.id,
             );
-          })
-          .whereType<BiteScoreDuplicateRestaurantReportAdminEntry>()
-          .toList()
-        ..sort((a, b) {
-          final aDate =
-              a.reports.first.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-          final bDate =
-              b.reports.first.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-          return bDate.compareTo(aDate);
-        });
+            if (report == null) {
+              continue;
+            }
+            reportsByRestaurantId
+                .putIfAbsent(
+                  report.restaurantId,
+                  () => <DuplicateRestaurantReport>[],
+                )
+                .add(report);
+          }
 
-      return entries;
-    });
+          final entries =
+              reportsByRestaurantId.entries
+                  .map((group) {
+                    final restaurant = restaurantsById[group.key];
+                    if (restaurant == null) {
+                      return null;
+                    }
+
+                    final reports = [...group.value]
+                      ..sort((a, b) {
+                        final aDate =
+                            a.createdAt ??
+                            DateTime.fromMillisecondsSinceEpoch(0);
+                        final bDate =
+                            b.createdAt ??
+                            DateTime.fromMillisecondsSinceEpoch(0);
+                        return bDate.compareTo(aDate);
+                      });
+
+                    return BiteScoreDuplicateRestaurantReportAdminEntry(
+                      restaurant: restaurant,
+                      reports: reports,
+                    );
+                  })
+                  .whereType<BiteScoreDuplicateRestaurantReportAdminEntry>()
+                  .toList()
+                ..sort((a, b) {
+                  final aDate =
+                      a.reports.first.createdAt ??
+                      DateTime.fromMillisecondsSinceEpoch(0);
+                  final bDate =
+                      b.reports.first.createdAt ??
+                      DateTime.fromMillisecondsSinceEpoch(0);
+                  return bDate.compareTo(aDate);
+                });
+
+          return entries;
+        });
   }
 
   static Stream<List<BiteScoreAdminClaimEntry>> claimRequestsAdminStream() {
@@ -1129,73 +1190,75 @@ class BiteScoreService {
         .orderBy('createdAt', descending: true)
         .snapshots()
         .asyncMap((snapshot) async {
-      final restaurants = await loadRestaurantsForFinder();
-      final restaurantsById = <String, BitescoreRestaurant>{
-        for (final restaurant in restaurants) restaurant.id: restaurant,
-      };
+          final restaurants = await loadRestaurantsForFinder();
+          final restaurantsById = <String, BitescoreRestaurant>{
+            for (final restaurant in restaurants) restaurant.id: restaurant,
+          };
 
-      final entries = snapshot.docs
-          .map(
-            (doc) => RestaurantClaimRequest.tryFromFirestore(
-              doc.data(),
-              fallbackId: doc.id,
-            ),
-          )
-          .whereType<RestaurantClaimRequest>()
-          .map(
-            (request) => BiteScoreAdminClaimEntry(
-              request: request,
-              restaurant: restaurantsById[request.restaurantId],
-            ),
-          )
-          .toList();
+          final entries = snapshot.docs
+              .map(
+                (doc) => RestaurantClaimRequest.tryFromFirestore(
+                  doc.data(),
+                  fallbackId: doc.id,
+                ),
+              )
+              .whereType<RestaurantClaimRequest>()
+              .map(
+                (request) => BiteScoreAdminClaimEntry(
+                  request: request,
+                  restaurant: restaurantsById[request.restaurantId],
+                ),
+              )
+              .toList();
 
-      return entries;
-    });
+          return entries;
+        });
   }
 
   static Stream<List<DishEditSuggestionAdminEntry>>
-      dishEditSuggestionsAdminStream() {
+  dishEditSuggestionsAdminStream() {
     return editProposalsCollection()
         .orderBy('createdAt', descending: true)
         .snapshots()
         .asyncMap((snapshot) async {
-      await maybeAutoApplyDueDishEditSuggestions();
+          await maybeAutoApplyDueDishEditSuggestions();
 
-      final refreshedSnapshot = await editProposalsCollection()
-          .orderBy('createdAt', descending: true)
-          .get();
-      final dishesSnapshot = await dishesCollection().get();
+          final refreshedSnapshot = await editProposalsCollection()
+              .orderBy('createdAt', descending: true)
+              .get();
+          final dishesSnapshot = await dishesCollection().get();
 
-      final dishesById = <String, BitescoreDish>{};
-      for (final doc in dishesSnapshot.docs) {
-        final dish =
-            BitescoreDish.tryFromFirestore(doc.data(), fallbackId: doc.id);
-        if (dish != null) {
-          dishesById[dish.id] = dish;
-        }
-      }
-
-      final pendingProposals = refreshedSnapshot.docs
-          .map(
-            (doc) => DishEditProposal.tryFromFirestore(
+          final dishesById = <String, BitescoreDish>{};
+          for (final doc in dishesSnapshot.docs) {
+            final dish = BitescoreDish.tryFromFirestore(
               doc.data(),
               fallbackId: doc.id,
-            ),
-          )
-          .whereType<DishEditProposal>()
-          .where((proposal) => proposal.status == 'pending')
-          .toList();
+            );
+            if (dish != null) {
+              dishesById[dish.id] = dish;
+            }
+          }
 
-      return _buildDishEditSuggestionAdminEntries(
-        proposals: pendingProposals,
-        dishesById: dishesById,
-      );
-    });
+          final pendingProposals = refreshedSnapshot.docs
+              .map(
+                (doc) => DishEditProposal.tryFromFirestore(
+                  doc.data(),
+                  fallbackId: doc.id,
+                ),
+              )
+              .whereType<DishEditProposal>()
+              .where((proposal) => proposal.status == 'pending')
+              .toList();
+
+          return _buildDishEditSuggestionAdminEntries(
+            proposals: pendingProposals,
+            dishesById: dishesById,
+          );
+        });
   }
 
   static Stream<List<BiteScoreApprovedOwnershipEntry>>
-      approvedOwnershipsAdminStream() {
+  approvedOwnershipsAdminStream() {
     return restaurantsCollection().snapshots().asyncMap((snapshot) async {
       final claimsSnapshot = await claimRequestsCollection()
           .where('status', isEqualTo: 'approved')
@@ -1212,8 +1275,14 @@ class BiteScoreService {
           .toList();
 
       approvedClaims.sort((a, b) {
-        final aDate = a.updatedAt ?? a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        final bDate = b.updatedAt ?? b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final aDate =
+            a.updatedAt ??
+            a.createdAt ??
+            DateTime.fromMillisecondsSinceEpoch(0);
+        final bDate =
+            b.updatedAt ??
+            b.createdAt ??
+            DateTime.fromMillisecondsSinceEpoch(0);
         return bDate.compareTo(aDate);
       });
 
@@ -1232,38 +1301,38 @@ class BiteScoreService {
           )
           .toList();
 
-      final entries = restaurants.map((restaurant) {
-        final ownerUserId = restaurant.ownerUserId?.trim();
-        RestaurantClaimRequest? approvedClaim;
-        for (final claim in approvedClaims) {
-          if (claim.restaurantId != restaurant.id) {
-            continue;
-          }
-          if (ownerUserId == null ||
-              ownerUserId.isEmpty ||
-              (claim.requesterUserId?.trim() == ownerUserId)) {
-            approvedClaim = claim;
-            break;
-          }
-          approvedClaim ??= claim;
-        }
+      final entries =
+          restaurants.map((restaurant) {
+            final ownerUserId = restaurant.ownerUserId?.trim();
+            RestaurantClaimRequest? approvedClaim;
+            for (final claim in approvedClaims) {
+              if (claim.restaurantId != restaurant.id) {
+                continue;
+              }
+              if (ownerUserId == null ||
+                  ownerUserId.isEmpty ||
+                  (claim.requesterUserId?.trim() == ownerUserId)) {
+                approvedClaim = claim;
+                break;
+              }
+              approvedClaim ??= claim;
+            }
 
-        return BiteScoreApprovedOwnershipEntry(
-          restaurant: restaurant,
-          approvedClaim: approvedClaim,
-        );
-      }).toList()
-        ..sort((a, b) {
-          final byName = a.restaurant.name
-              .toLowerCase()
-              .compareTo(b.restaurant.name.toLowerCase());
-          if (byName != 0) {
-            return byName;
-          }
-          return a.restaurant.city
-              .toLowerCase()
-              .compareTo(b.restaurant.city.toLowerCase());
-        });
+            return BiteScoreApprovedOwnershipEntry(
+              restaurant: restaurant,
+              approvedClaim: approvedClaim,
+            );
+          }).toList()..sort((a, b) {
+            final byName = a.restaurant.name.toLowerCase().compareTo(
+              b.restaurant.name.toLowerCase(),
+            );
+            if (byName != 0) {
+              return byName;
+            }
+            return a.restaurant.city.toLowerCase().compareTo(
+              b.restaurant.city.toLowerCase(),
+            );
+          });
 
       return entries;
     });
@@ -1290,8 +1359,10 @@ class BiteScoreService {
         return;
       }
 
-      final existing =
-          usersById.putIfAbsent(trimmedUid, () => _MutableAdminUserEntry(trimmedUid));
+      final existing = usersById.putIfAbsent(
+        trimmedUid,
+        () => _MutableAdminUserEntry(trimmedUid),
+      );
       existing.apply(
         email: email,
         displayName: displayName,
@@ -1304,18 +1375,21 @@ class BiteScoreService {
       );
     }
 
-    final restaurantAccountsSnapshot = await restaurantAccountsCollection().get();
+    final restaurantAccountsSnapshot = await restaurantAccountsCollection()
+        .get();
     for (final doc in restaurantAccountsSnapshot.docs) {
       final data = doc.data();
       upsertUser(
         uid: _readAdminString(data[Restaurant.fieldUid]) ?? doc.id,
         email: _readAdminString(data[Restaurant.fieldEmail]),
-        displayName: _readAdminString(data[Restaurant.fieldName]) ??
+        displayName:
+            _readAdminString(data[Restaurant.fieldName]) ??
             _readAdminString(data[Restaurant.legacyFieldName]),
         hasRestaurantAccount: true,
         isEmailVerified: data['emailVerified'] as bool?,
-        restaurantAccountStatus:
-            _readAdminString(data[Restaurant.fieldApprovalStatus]),
+        restaurantAccountStatus: _readAdminString(
+          data[Restaurant.fieldApprovalStatus],
+        ),
         activityTag: 'Coupon',
       );
     }
@@ -1336,8 +1410,10 @@ class BiteScoreService {
 
     final claimRequestsSnapshot = await claimRequestsCollection().get();
     for (final doc in claimRequestsSnapshot.docs) {
-      final request =
-          RestaurantClaimRequest.tryFromFirestore(doc.data(), fallbackId: doc.id);
+      final request = RestaurantClaimRequest.tryFromFirestore(
+        doc.data(),
+        fallbackId: doc.id,
+      );
       if (request == null) {
         continue;
       }
@@ -1351,39 +1427,38 @@ class BiteScoreService {
 
     final reviewsSnapshot = await reviewsCollection().get();
     for (final doc in reviewsSnapshot.docs) {
-      final review = DishReview.tryFromFirestore(doc.data(), fallbackId: doc.id);
-      upsertUser(
-        uid: review?.userId,
-        activityTag: 'Reviews',
+      final review = DishReview.tryFromFirestore(
+        doc.data(),
+        fallbackId: doc.id,
       );
+      upsertUser(uid: review?.userId, activityTag: 'Reviews');
     }
 
     final reviewReportsSnapshot = await reviewReportsCollection().get();
     for (final doc in reviewReportsSnapshot.docs) {
-      final report = ReviewReport.tryFromFirestore(doc.data(), fallbackId: doc.id);
-      upsertUser(
-        uid: report?.reportingUserId,
-        activityTag: 'Reports',
+      final report = ReviewReport.tryFromFirestore(
+        doc.data(),
+        fallbackId: doc.id,
       );
+      upsertUser(uid: report?.reportingUserId, activityTag: 'Reports');
     }
 
     final restaurantReportsSnapshot = await restaurantReportsCollection().get();
     for (final doc in restaurantReportsSnapshot.docs) {
-      final report =
-          RestaurantReport.tryFromFirestore(doc.data(), fallbackId: doc.id);
-      upsertUser(
-        uid: report?.reportingUserId,
-        activityTag: 'Reports',
+      final report = RestaurantReport.tryFromFirestore(
+        doc.data(),
+        fallbackId: doc.id,
       );
+      upsertUser(uid: report?.reportingUserId, activityTag: 'Reports');
     }
 
     final dishReportsSnapshot = await dishReportsCollection().get();
     for (final doc in dishReportsSnapshot.docs) {
-      final report = DishReport.tryFromFirestore(doc.data(), fallbackId: doc.id);
-      upsertUser(
-        uid: report?.reportingUserId,
-        activityTag: 'Reports',
+      final report = DishReport.tryFromFirestore(
+        doc.data(),
+        fallbackId: doc.id,
       );
+      upsertUser(uid: report?.reportingUserId, activityTag: 'Reports');
     }
 
     final duplicateReportsSnapshot =
@@ -1393,30 +1468,25 @@ class BiteScoreService {
         doc.data(),
         fallbackId: doc.id,
       );
-      upsertUser(
-        uid: report?.reportingUserId,
-        activityTag: 'Reports',
-      );
+      upsertUser(uid: report?.reportingUserId, activityTag: 'Reports');
     }
 
     final editProposalsSnapshot = await editProposalsCollection().get();
     for (final doc in editProposalsSnapshot.docs) {
-      final proposal =
-          DishEditProposal.tryFromFirestore(doc.data(), fallbackId: doc.id);
-      upsertUser(
-        uid: proposal?.userId,
-        activityTag: 'Suggestions',
+      final proposal = DishEditProposal.tryFromFirestore(
+        doc.data(),
+        fallbackId: doc.id,
       );
+      upsertUser(uid: proposal?.userId, activityTag: 'Suggestions');
     }
 
     final reviewVotesSnapshot = await reviewFeedbackVotesCollection().get();
     for (final doc in reviewVotesSnapshot.docs) {
-      final vote =
-          ReviewFeedbackVote.tryFromFirestore(doc.data(), fallbackId: doc.id);
-      upsertUser(
-        uid: vote?.userId,
-        activityTag: 'Review Votes',
+      final vote = ReviewFeedbackVote.tryFromFirestore(
+        doc.data(),
+        fallbackId: doc.id,
       );
+      upsertUser(uid: vote?.userId, activityTag: 'Review Votes');
     }
 
     for (final adminEmail in AdminAccessService.allowedAdminEmails) {
@@ -1428,37 +1498,42 @@ class BiteScoreService {
       }
     }
 
-    final entries = usersById.values
-        .map(
-          (entry) => BiteScoreAdminUserEntry(
-            uid: entry.uid,
-            email: entry.email,
-            displayName: entry.displayName,
-            claimedRestaurantNames:
-                Set<String>.unmodifiable(entry.claimedRestaurantNames),
-            hasRestaurantAccount: entry.hasRestaurantAccount,
-            hasBiteScoreOwnership: entry.hasBiteScoreOwnership,
-            isAdmin: entry.isAdmin || AdminAccessService.isAdminEmail(entry.email),
-            isEmailVerified: entry.isEmailVerified,
-            restaurantAccountStatus: entry.restaurantAccountStatus,
-            activityTags: Set<String>.unmodifiable(entry.activityTags),
-          ),
-        )
-        .toList()
-      ..sort((a, b) {
-        final byName = (a.displayName ?? '')
-            .toLowerCase()
-            .compareTo((b.displayName ?? '').toLowerCase());
-        if (byName != 0) {
-          return byName;
-        }
-        final byEmail =
-            (a.email ?? '').toLowerCase().compareTo((b.email ?? '').toLowerCase());
-        if (byEmail != 0) {
-          return byEmail;
-        }
-        return a.uid.compareTo(b.uid);
-      });
+    final entries =
+        usersById.values
+            .map(
+              (entry) => BiteScoreAdminUserEntry(
+                uid: entry.uid,
+                email: entry.email,
+                displayName: entry.displayName,
+                claimedRestaurantNames: Set<String>.unmodifiable(
+                  entry.claimedRestaurantNames,
+                ),
+                hasRestaurantAccount: entry.hasRestaurantAccount,
+                hasBiteScoreOwnership: entry.hasBiteScoreOwnership,
+                isAdmin:
+                    entry.isAdmin ||
+                    AdminAccessService.isAdminEmail(entry.email),
+                isEmailVerified: entry.isEmailVerified,
+                restaurantAccountStatus: entry.restaurantAccountStatus,
+                activityTags: Set<String>.unmodifiable(entry.activityTags),
+              ),
+            )
+            .toList()
+          ..sort((a, b) {
+            final byName = (a.displayName ?? '').toLowerCase().compareTo(
+              (b.displayName ?? '').toLowerCase(),
+            );
+            if (byName != 0) {
+              return byName;
+            }
+            final byEmail = (a.email ?? '').toLowerCase().compareTo(
+              (b.email ?? '').toLowerCase(),
+            );
+            if (byEmail != 0) {
+              return byEmail;
+            }
+            return a.uid.compareTo(b.uid);
+          });
 
     return entries;
   }
@@ -1495,8 +1570,10 @@ class BiteScoreService {
 
     final accountSnapshot = await restaurantAccountsCollection().doc(uid).get();
     if (accountSnapshot.exists) {
-      final couponsSnapshot =
-          await restaurantAccountsCollection().doc(uid).collection('coupons').get();
+      final couponsSnapshot = await restaurantAccountsCollection()
+          .doc(uid)
+          .collection('coupons')
+          .get();
       if (couponsSnapshot.docs.isNotEmpty) {
         final couponBatch = _firestore.batch();
         for (final couponDoc in couponsSnapshot.docs) {
@@ -1521,8 +1598,9 @@ class BiteScoreService {
         )
         .whereType<BitescoreRestaurant>()
         .toList();
-    final normalizedRestaurants =
-        _applyFinderCompatibilityFallbacks(parsedRestaurants);
+    final normalizedRestaurants = _applyFinderCompatibilityFallbacks(
+      parsedRestaurants,
+    );
 
     final dedupedRestaurants = <String, BitescoreRestaurant>{};
     for (final restaurant in normalizedRestaurants) {
@@ -1550,10 +1628,8 @@ class BiteScoreService {
 
     return snapshot.docs
         .map(
-          (doc) => BitescoreDish.tryFromFirestore(
-            doc.data(),
-            fallbackId: doc.id,
-          ),
+          (doc) =>
+              BitescoreDish.tryFromFirestore(doc.data(), fallbackId: doc.id),
         )
         .whereType<BitescoreDish>()
         .where((dish) => dish.isActive && !dish.isMerged)
@@ -1623,9 +1699,9 @@ class BiteScoreService {
       if (byScore != 0) {
         return byScore;
       }
-      return a.suggestion.canonicalName
-          .toLowerCase()
-          .compareTo(b.suggestion.canonicalName.toLowerCase());
+      return a.suggestion.canonicalName.toLowerCase().compareTo(
+        b.suggestion.canonicalName.toLowerCase(),
+      );
     });
 
     final deduped = <String, DishCatalogSuggestion>{};
@@ -1674,11 +1750,9 @@ class BiteScoreService {
         continue;
       }
 
-      final aggregate = aggregates[dish.id] ??
-          DishRatingAggregate(
-            dishId: dish.id,
-            restaurantId: dish.restaurantId,
-          );
+      final aggregate =
+          aggregates[dish.id] ??
+          DishRatingAggregate(dishId: dish.id, restaurantId: dish.restaurantId);
 
       entries.add(
         BiteScoreHomeEntry(
@@ -1703,10 +1777,8 @@ class BiteScoreService {
 
     final dishes = dishesSnapshot.docs
         .map(
-          (doc) => BitescoreDish.tryFromFirestore(
-            doc.data(),
-            fallbackId: doc.id,
-          ),
+          (doc) =>
+              BitescoreDish.tryFromFirestore(doc.data(), fallbackId: doc.id),
         )
         .whereType<BitescoreDish>()
         .where((dish) => !dish.isMerged && (includeInactive || dish.isActive))
@@ -1717,7 +1789,8 @@ class BiteScoreService {
           (dish) => BiteScoreHomeEntry(
             dish: dish,
             restaurant: restaurant,
-            aggregate: aggregates[dish.id] ??
+            aggregate:
+                aggregates[dish.id] ??
                 DishRatingAggregate(
                   dishId: dish.id,
                   restaurantId: dish.restaurantId,
@@ -1727,12 +1800,11 @@ class BiteScoreService {
         .toList();
   }
 
-  static Future<BitescoreRestaurant?> loadRestaurantById(String restaurantId) async {
+  static Future<BitescoreRestaurant?> loadRestaurantById(
+    String restaurantId,
+  ) async {
     final snapshot = await restaurantsCollection().doc(restaurantId).get();
-    return _parseRestaurantCompat(
-      snapshot.data(),
-      fallbackId: snapshot.id,
-    );
+    return _parseRestaurantCompat(snapshot.data(), fallbackId: snapshot.id);
   }
 
   static Future<DishRatingAggregate?> loadDishRatingAggregate(
@@ -1750,10 +1822,7 @@ class BiteScoreService {
 
     final reviews = snapshot.docs
         .map(
-          (doc) => DishReview.tryFromFirestore(
-            doc.data(),
-            fallbackId: doc.id,
-          ),
+          (doc) => DishReview.tryFromFirestore(doc.data(), fallbackId: doc.id),
         )
         .whereType<DishReview>()
         .toList();
@@ -1781,9 +1850,9 @@ class BiteScoreService {
     }
 
     try {
-      final snapshot = await favoriteRestaurantsCollection(user.uid)
-          .doc(trimmedRestaurantId)
-          .get();
+      final snapshot = await favoriteRestaurantsCollection(
+        user.uid,
+      ).doc(trimmedRestaurantId).get();
       return snapshot.exists;
     } catch (_) {
       return false;
@@ -1810,8 +1879,9 @@ class BiteScoreService {
     }
 
     try {
-      final snapshot =
-          await favoriteDishesCollection(user.uid).doc(trimmedDishId).get();
+      final snapshot = await favoriteDishesCollection(
+        user.uid,
+      ).doc(trimmedDishId).get();
       return snapshot.exists;
     } catch (_) {
       return false;
@@ -1830,8 +1900,9 @@ class BiteScoreService {
     }
 
     try {
-      final snapshot =
-          await favoriteCouponsCollection(user.uid).doc(trimmedCouponId).get();
+      final snapshot = await favoriteCouponsCollection(
+        user.uid,
+      ).doc(trimmedCouponId).get();
       return snapshot.exists;
     } catch (_) {
       return false;
@@ -1939,11 +2010,13 @@ class BiteScoreService {
     final user = _requireSignedInAppUser();
     final publicIdentity = await _ensureCurrentUserPublicReviewerIdentity(user);
 
-    final favoriteRestaurantSnapshot =
-        await favoriteRestaurantsCollection(user.uid).get();
+    final favoriteRestaurantSnapshot = await favoriteRestaurantsCollection(
+      user.uid,
+    ).get();
     final favoriteDishSnapshot = await favoriteDishesCollection(user.uid).get();
-    final reviewSnapshot =
-        await reviewsCollection().where('userId', isEqualTo: user.uid).get();
+    final reviewSnapshot = await reviewsCollection()
+        .where('userId', isEqualTo: user.uid)
+        .get();
 
     final favoriteRestaurants = <BitescoreRestaurant>[];
     final favoriteSaverRestaurants = <Restaurant>[];
@@ -1955,9 +2028,8 @@ class BiteScoreService {
     final approvedSaverRestaurantsById = saverFavoriteDocs.isEmpty
         ? <String, Restaurant>{}
         : {
-            for (final restaurant in
-                await RestaurantAccountService
-                    .loadApprovedRestaurantsWithCoupons())
+            for (final restaurant
+                in await RestaurantAccountService.loadApprovedRestaurantsWithCoupons())
               _favoriteSaverRestaurantId(restaurant): restaurant,
           };
 
@@ -1973,18 +2045,15 @@ class BiteScoreService {
         }
 
         favoriteSaverRestaurants.add(
-          Restaurant.fromFirestore(
-            {
-              Restaurant.fieldName:
-                  _readString(data['restaurantName']) ?? 'Saved Restaurant',
-              Restaurant.fieldCity: _readString(data['city']) ?? '',
-              Restaurant.fieldZipCode: _readString(data['zipCode']) ?? '',
-              Restaurant.fieldStreetAddress: _readString(data['streetAddress']),
-              Restaurant.fieldBusinessHours: data[Restaurant.fieldBusinessHours],
-              Restaurant.fieldDistance: Restaurant.defaultDistanceLabel,
-            },
-            coupons: const <Coupon>[],
-          ),
+          Restaurant.fromFirestore({
+            Restaurant.fieldName:
+                _readString(data['restaurantName']) ?? 'Saved Restaurant',
+            Restaurant.fieldCity: _readString(data['city']) ?? '',
+            Restaurant.fieldZipCode: _readString(data['zipCode']) ?? '',
+            Restaurant.fieldStreetAddress: _readString(data['streetAddress']),
+            Restaurant.fieldBusinessHours: data[Restaurant.fieldBusinessHours],
+            Restaurant.fieldDistance: Restaurant.defaultDistanceLabel,
+          }, coupons: const <Coupon>[]),
         );
         continue;
       }
@@ -2023,45 +2092,44 @@ class BiteScoreService {
       return a.dish.name.toLowerCase().compareTo(b.dish.name.toLowerCase());
     });
 
-    final favoriteCouponSnapshot =
-        await favoriteCouponsCollection(user.uid).get();
-    final favoriteCoupons = favoriteCouponSnapshot.docs
-        .map((doc) {
+    final favoriteCouponSnapshot = await favoriteCouponsCollection(
+      user.uid,
+    ).get();
+    final favoriteCoupons =
+        favoriteCouponSnapshot.docs.map((doc) {
           final data = doc.data();
           return Coupon(
             id: _readString(data['couponId']) ?? doc.id,
             restaurant: _readString(data['restaurantName']) ?? '',
             title: _readString(data['couponTitle']) ?? 'Saved Coupon',
-            distance: _readString(data['distance']) ??
+            distance:
+                _readString(data['distance']) ??
                 Restaurant.defaultDistanceLabel,
             expires: _readString(data['expires']) ?? 'Limited time',
-            usageRule: _readString(data['usageRule']) ??
-                Coupon.defaultUsageRule,
+            usageRule:
+                _readString(data['usageRule']) ?? Coupon.defaultUsageRule,
           );
-        })
-        .toList()
-      ..sort(
-        (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
-      );
+        }).toList()..sort(
+          (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+        );
 
-    final reviews = reviewSnapshot.docs
-        .map(
-          (doc) => DishReview.tryFromFirestore(
-            doc.data(),
-            fallbackId: doc.id,
-          ),
-        )
-        .whereType<DishReview>()
-        .toList()
-      ..sort((a, b) {
-        final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        final byDate = bDate.compareTo(aDate);
-        if (byDate != 0) {
-          return byDate;
-        }
-        return a.id.compareTo(b.id);
-      });
+    final reviews =
+        reviewSnapshot.docs
+            .map(
+              (doc) =>
+                  DishReview.tryFromFirestore(doc.data(), fallbackId: doc.id),
+            )
+            .whereType<DishReview>()
+            .toList()
+          ..sort((a, b) {
+            final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+            final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+            final byDate = bDate.compareTo(aDate);
+            if (byDate != 0) {
+              return byDate;
+            }
+            return a.id.compareTo(b.id);
+          });
 
     final reviewEntries = <BiteScoreUserReviewEntry>[];
     for (final review in reviews) {
@@ -2111,7 +2179,7 @@ class BiteScoreService {
   }
 
   static Future<BiteScorePublicReviewerProfileData>
-      loadPublicReviewerProfileData(String userId) async {
+  loadPublicReviewerProfileData(String userId) async {
     final trimmedUserId = userId.trim();
     if (trimmedUserId.isEmpty) {
       throw ArgumentError('Could not load that reviewer profile right now.');
@@ -2121,24 +2189,23 @@ class BiteScoreService {
     final reviewSnapshot = await reviewsCollection()
         .where('userId', isEqualTo: trimmedUserId)
         .get();
-    final reviews = reviewSnapshot.docs
-        .map(
-          (doc) => DishReview.tryFromFirestore(
-            doc.data(),
-            fallbackId: doc.id,
-          ),
-        )
-        .whereType<DishReview>()
-        .toList()
-      ..sort((a, b) {
-        final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        final byDate = bDate.compareTo(aDate);
-        if (byDate != 0) {
-          return byDate;
-        }
-        return a.id.compareTo(b.id);
-      });
+    final reviews =
+        reviewSnapshot.docs
+            .map(
+              (doc) =>
+                  DishReview.tryFromFirestore(doc.data(), fallbackId: doc.id),
+            )
+            .whereType<DishReview>()
+            .toList()
+          ..sort((a, b) {
+            final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+            final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+            final byDate = bDate.compareTo(aDate);
+            if (byDate != 0) {
+              return byDate;
+            }
+            return a.id.compareTo(b.id);
+          });
 
     final reviewEntries = <BiteScoreUserReviewEntry>[];
     for (final review in reviews) {
@@ -2161,15 +2228,12 @@ class BiteScoreService {
     final oldestReviewDate = reviews
         .map((review) => review.createdAt)
         .whereType<DateTime>()
-        .fold<DateTime?>(
-      identity.createdAt,
-      (oldest, createdAt) {
-        if (oldest == null || createdAt.isBefore(oldest)) {
-          return createdAt;
-        }
-        return oldest;
-      },
-    );
+        .fold<DateTime?>(identity.createdAt, (oldest, createdAt) {
+          if (oldest == null || createdAt.isBefore(oldest)) {
+            return createdAt;
+          }
+          return oldest;
+        });
     final accountAgeDays = oldestReviewDate == null
         ? 0
         : max(0, DateTime.now().difference(oldestReviewDate.toLocal()).inDays);
@@ -2202,8 +2266,9 @@ class BiteScoreService {
       throw ArgumentError(validationError);
     }
 
-    final snapshot =
-        await publicUsernamesCollection().doc(normalizedUsername).get();
+    final snapshot = await publicUsernamesCollection()
+        .doc(normalizedUsername)
+        .get();
     if (!snapshot.exists) {
       return true;
     }
@@ -2229,39 +2294,35 @@ class BiteScoreService {
     await _firestore.runTransaction((transaction) async {
       final profileRef = publicReviewerProfileDocument(user.uid);
       final profileSnapshot = await transaction.get(profileRef);
-      final currentIdentity = _parsePublicReviewerIdentity(
+      final currentIdentity =
+          _parsePublicReviewerIdentity(
             profileSnapshot.data(),
             fallbackUserId: profileSnapshot.id,
           ) ??
           _generatedPublicReviewerIdentity(user.uid);
 
-      final currentChosenUsername =
-          _normalizePublicUsername(currentIdentity.chosenUsername ?? '');
+      final currentChosenUsername = _normalizePublicUsername(
+        currentIdentity.chosenUsername ?? '',
+      );
       if (currentChosenUsername == normalizedUsername) {
-        transaction.set(
-          profileRef,
-          {
-            'publicDisplayName': username.trim(),
-            'chosenUsername': username.trim(),
-            'chosenUsernameNormalized': normalizedUsername,
-            'fallbackUsername': currentIdentity.fallbackUsername,
-            'userId': user.uid,
-            'createdAt': profileSnapshot.exists &&
-                    currentIdentity.createdAt != null
-                ? Timestamp.fromDate(currentIdentity.createdAt!)
-                : FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true),
-        );
+        transaction.set(profileRef, {
+          'publicDisplayName': username.trim(),
+          'chosenUsername': username.trim(),
+          'chosenUsernameNormalized': normalizedUsername,
+          'fallbackUsername': currentIdentity.fallbackUsername,
+          'userId': user.uid,
+          'createdAt':
+              profileSnapshot.exists && currentIdentity.createdAt != null
+              ? Timestamp.fromDate(currentIdentity.createdAt!)
+              : FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
         return;
       }
 
-      final usernameRef =
-          publicUsernamesCollection().doc(normalizedUsername);
+      final usernameRef = publicUsernamesCollection().doc(normalizedUsername);
       final usernameSnapshot = await transaction.get(usernameRef);
-      final reservedByUserId =
-          _readString(usernameSnapshot.data()?['userId']);
+      final reservedByUserId = _readString(usernameSnapshot.data()?['userId']);
       if (usernameSnapshot.exists && reservedByUserId != user.uid) {
         throw ArgumentError(
           'That username is already taken. Please try another one.',
@@ -2283,26 +2344,23 @@ class BiteScoreService {
         );
       }
 
-      transaction.set(
-        profileRef,
-        {
-          'publicDisplayName': username.trim(),
-          'chosenUsername': username.trim(),
-          'chosenUsernameNormalized': normalizedUsername,
-          'fallbackUsername': currentIdentity.fallbackUsername,
-          'userId': user.uid,
-          'createdAt': profileSnapshot.exists &&
-                  currentIdentity.createdAt != null
-              ? Timestamp.fromDate(currentIdentity.createdAt!)
-              : FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-        SetOptions(merge: true),
-      );
+      transaction.set(profileRef, {
+        'publicDisplayName': username.trim(),
+        'chosenUsername': username.trim(),
+        'chosenUsernameNormalized': normalizedUsername,
+        'fallbackUsername': currentIdentity.fallbackUsername,
+        'userId': user.uid,
+        'createdAt': profileSnapshot.exists && currentIdentity.createdAt != null
+            ? Timestamp.fromDate(currentIdentity.createdAt!)
+            : FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
     });
   }
 
-  static Future<BiteScoreHomeEntry?> _loadDishHomeEntryById(String dishId) async {
+  static Future<BiteScoreHomeEntry?> _loadDishHomeEntryById(
+    String dishId,
+  ) async {
     final dish = await loadDishById(dishId);
     if (dish == null || dish.isMerged || !dish.isActive) {
       return null;
@@ -2313,11 +2371,9 @@ class BiteScoreService {
       return null;
     }
 
-    final aggregate = await loadDishRatingAggregate(dish.id) ??
-        DishRatingAggregate(
-          dishId: dish.id,
-          restaurantId: dish.restaurantId,
-        );
+    final aggregate =
+        await loadDishRatingAggregate(dish.id) ??
+        DishRatingAggregate(dishId: dish.id, restaurantId: dish.restaurantId);
 
     return BiteScoreHomeEntry(
       dish: dish,
@@ -2335,10 +2391,7 @@ class BiteScoreService {
 
     return snapshot.docs
         .map(
-          (doc) => DishReview.tryFromFirestore(
-            doc.data(),
-            fallbackId: doc.id,
-          ),
+          (doc) => DishReview.tryFromFirestore(doc.data(), fallbackId: doc.id),
         )
         .whereType<DishReview>()
         .toList();
@@ -2356,7 +2409,9 @@ class BiteScoreService {
       for (final review in reviews) review.id: const ReviewTrustSummary(),
     };
 
-    final reviewIds = reviews.map((review) => review.id).toList(growable: false);
+    final reviewIds = reviews
+        .map((review) => review.id)
+        .toList(growable: false);
 
     for (final chunk in _chunkStrings(reviewIds, size: 10)) {
       final snapshot = await reviewFeedbackVotesCollection()
@@ -2374,8 +2429,7 @@ class BiteScoreService {
 
         final existing = summaries[vote.reviewId] ?? const ReviewTrustSummary();
         summaries[vote.reviewId] = ReviewTrustSummary(
-          helpfulCount:
-              existing.helpfulCount + (vote.isHelpful ? 1 : 0),
+          helpfulCount: existing.helpfulCount + (vote.isHelpful ? 1 : 0),
           notHelpfulCount:
               existing.notHelpfulCount + (vote.isNotHelpful ? 1 : 0),
           currentUserVoteType: currentUserId == vote.userId
@@ -2403,7 +2457,8 @@ class BiteScoreService {
           continue;
         }
 
-        final existing = summaries[report.reviewId] ?? const ReviewTrustSummary();
+        final existing =
+            summaries[report.reviewId] ?? const ReviewTrustSummary();
         summaries[report.reviewId] = ReviewTrustSummary(
           helpfulCount: existing.helpfulCount,
           notHelpfulCount: existing.notHelpfulCount,
@@ -2456,8 +2511,9 @@ class BiteScoreService {
         final identity = await _loadPublicReviewerIdentity(userId);
         namesByUserId[userId] = identity.publicDisplayName;
       } catch (_) {
-        namesByUserId[userId] =
-            _generatedPublicReviewerIdentity(userId).publicDisplayName;
+        namesByUserId[userId] = _generatedPublicReviewerIdentity(
+          userId,
+        ).publicDisplayName;
       }
     }
 
@@ -2490,7 +2546,9 @@ class BiteScoreService {
         .limit(1)
         .get();
     if (duplicateSnapshot.docs.isNotEmpty) {
-      throw ArgumentError('You already have a pending claim for this restaurant.');
+      throw ArgumentError(
+        'You already have a pending claim for this restaurant.',
+      );
     }
 
     await _createPendingRestaurantClaimRequestOnly(
@@ -2529,7 +2587,9 @@ class BiteScoreService {
     });
   }
 
-  static Future<void> approveClaimAsAdmin(RestaurantClaimRequest request) async {
+  static Future<void> approveClaimAsAdmin(
+    RestaurantClaimRequest request,
+  ) async {
     final requesterUserId = request.requesterUserId?.trim();
     if (requesterUserId == null || requesterUserId.isEmpty) {
       throw ArgumentError('This claim request is missing a requester user ID.');
@@ -2633,8 +2693,10 @@ class BiteScoreService {
         .get();
 
     final alreadyPending = pendingSnapshot.docs.any((doc) {
-      final report =
-          ReviewReport.tryFromFirestore(doc.data(), fallbackId: doc.id);
+      final report = ReviewReport.tryFromFirestore(
+        doc.data(),
+        fallbackId: doc.id,
+      );
       return report != null &&
           report.reviewId == review.id &&
           report.status == ReviewReport.statusPending;
@@ -2674,8 +2736,10 @@ class BiteScoreService {
         .get();
 
     final alreadyPending = pendingSnapshot.docs.any((doc) {
-      final report =
-          RestaurantReport.tryFromFirestore(doc.data(), fallbackId: doc.id);
+      final report = RestaurantReport.tryFromFirestore(
+        doc.data(),
+        fallbackId: doc.id,
+      );
       return report != null &&
           report.restaurantId == restaurant.id &&
           report.status == RestaurantReport.statusPending;
@@ -2714,7 +2778,10 @@ class BiteScoreService {
         .get();
 
     final alreadyPending = pendingSnapshot.docs.any((doc) {
-      final report = DishReport.tryFromFirestore(doc.data(), fallbackId: doc.id);
+      final report = DishReport.tryFromFirestore(
+        doc.data(),
+        fallbackId: doc.id,
+      );
       return report != null &&
           report.dishId == dish.id &&
           report.status == DishReport.statusPending;
@@ -2796,8 +2863,9 @@ class BiteScoreService {
       throw ArgumentError('Unknown review vote type.');
     }
 
-    final voteRef = reviewFeedbackVotesCollection()
-        .doc(_reviewVoteDocumentId(review.id, user.uid));
+    final voteRef = reviewFeedbackVotesCollection().doc(
+      _reviewVoteDocumentId(review.id, user.uid),
+    );
 
     await _firestore.runTransaction((transaction) async {
       final snapshot = await transaction.get(voteRef);
@@ -3005,9 +3073,7 @@ class BiteScoreService {
           proposal.restaurantId == dish.restaurantId &&
           proposal.targetDishId == dish.id &&
           _normalize(proposal.proposedName ?? '') == normalizedName) {
-        throw ArgumentError(
-          'You already suggested this rename for the dish.',
-        );
+        throw ArgumentError('You already suggested this rename for the dish.');
       }
     }
 
@@ -3170,9 +3236,7 @@ class BiteScoreService {
           if ((proposal.mergeTargetDishId ?? '').trim().isNotEmpty)
             proposal.mergeTargetDishId!.trim(),
       };
-      final dishes = await Future.wait(
-        dishIds.map(loadDishById),
-      );
+      final dishes = await Future.wait(dishIds.map(loadDishById));
       final dishesById = <String, BitescoreDish>{
         for (final dish in dishes.whereType<BitescoreDish>()) dish.id: dish,
       };
@@ -3274,13 +3338,14 @@ class BiteScoreService {
       overallImpression: 8,
     );
     final verifiedLocation = await _verifyRestaurantAddress(updatedRequest);
-    final tagList = cuisineTags
-        .split(',')
-        .map((tag) => tag.trim())
-        .where((tag) => tag.isNotEmpty)
-        .toSet()
-        .toList()
-      ..sort();
+    final tagList =
+        cuisineTags
+            .split(',')
+            .map((tag) => tag.trim())
+            .where((tag) => tag.isNotEmpty)
+            .toSet()
+            .toList()
+          ..sort();
 
     final updatedRestaurant = restaurant.copyWith(
       name: name.trim(),
@@ -3461,24 +3526,18 @@ class BiteScoreService {
     }
 
     for (final review in sourceReviews) {
-      await queueMergeWrite(
-        reviewsCollection().doc(review.id),
-        {
-          'dishId': mergeTargetDish.id,
-          'restaurantId': mergeTargetDish.restaurantId,
-          'updatedAt': FieldValue.serverTimestamp(),
-        },
-      );
+      await queueMergeWrite(reviewsCollection().doc(review.id), {
+        'dishId': mergeTargetDish.id,
+        'restaurantId': mergeTargetDish.restaurantId,
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
     }
 
-    await queueMergeWrite(
-      dishesCollection().doc(sourceDish.id),
-      {
-        'isActive': false,
-        'mergedIntoDishId': mergeTargetDish.id,
-        'updatedAt': FieldValue.serverTimestamp(),
-      },
-    );
+    await queueMergeWrite(dishesCollection().doc(sourceDish.id), {
+      'isActive': false,
+      'mergedIntoDishId': mergeTargetDish.id,
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
 
     if (pendingWrites > 0) {
       await batch.commit();
@@ -3538,10 +3597,14 @@ class BiteScoreService {
   ) async {
     final batch = _firestore.batch();
     for (final report in entry.reports) {
-      batch.set(duplicateRestaurantReportsCollection().doc(report.id), {
-        'status': DuplicateRestaurantReport.statusResolved,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      batch.set(
+        duplicateRestaurantReportsCollection().doc(report.id),
+        {
+          'status': DuplicateRestaurantReport.statusResolved,
+          'updatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
     }
     await batch.commit();
   }
@@ -3550,9 +3613,7 @@ class BiteScoreService {
     required BitescoreRestaurant duplicateRestaurant,
     required BitescoreRestaurant survivingRestaurant,
   }) async {
-    _requireSignedInAdminUser(
-      operation: 'duplicate_restaurant_merge',
-    );
+    _requireSignedInAdminUser(operation: 'duplicate_restaurant_merge');
     final duplicateId = duplicateRestaurant.id.trim();
     final survivingId = survivingRestaurant.id.trim();
     _logMergeCondition(
@@ -3614,7 +3675,8 @@ class BiteScoreService {
         duplicateOwner != null && duplicateOwner.isNotEmpty;
     final survivingHasOwner =
         survivingOwner != null && survivingOwner.isNotEmpty;
-    final hasDifferentOwners = duplicateHasOwner &&
+    final hasDifferentOwners =
+        duplicateHasOwner &&
         survivingHasOwner &&
         duplicateOwner != survivingOwner;
     _logMergeCondition(
@@ -3626,15 +3688,17 @@ class BiteScoreService {
           'duplicateOwner=${duplicateOwner ?? ''} survivingOwner=${survivingOwner ?? ''}',
     );
 
-    final mergedOwnerUserId =
-        survivingHasOwner ? survivingOwner : (duplicateHasOwner ? duplicateOwner : null);
+    final mergedOwnerUserId = survivingHasOwner
+        ? survivingOwner
+        : (duplicateHasOwner ? duplicateOwner : null);
     final mergedIsClaimed =
-        freshSurviving.isClaimed || freshDuplicate.isClaimed || mergedOwnerUserId != null;
+        freshSurviving.isClaimed ||
+        freshDuplicate.isClaimed ||
+        mergedOwnerUserId != null;
     final mergedCuisineTags = <String>{
       ...freshSurviving.cuisineTags.map((tag) => tag.trim()),
       ...freshDuplicate.cuisineTags.map((tag) => tag.trim()),
-    }.where((tag) => tag.isNotEmpty).toList()
-      ..sort();
+    }.where((tag) => tag.isNotEmpty).toList()..sort();
 
     final mergedSurviving = freshSurviving.copyWith(
       phone: (freshSurviving.phone?.trim().isNotEmpty ?? false)
@@ -3661,7 +3725,9 @@ class BiteScoreService {
 
     final dishesSnapshot = await _runMergeStep(
       'load_duplicate_dishes',
-      () => dishesCollection().where('restaurantId', isEqualTo: duplicateId).get(),
+      () => dishesCollection()
+          .where('restaurantId', isEqualTo: duplicateId)
+          .get(),
     );
     final movedDishIds = <String>[];
     for (final doc in dishesSnapshot.docs) {
@@ -3698,7 +3764,9 @@ class BiteScoreService {
 
     final reviewsSnapshot = await _runMergeStep(
       'load_duplicate_reviews',
-      () => reviewsCollection().where('restaurantId', isEqualTo: duplicateId).get(),
+      () => reviewsCollection()
+          .where('restaurantId', isEqualTo: duplicateId)
+          .get(),
     );
     for (final doc in reviewsSnapshot.docs) {
       await _runMergeStep('move_review_${doc.id}', () async {
@@ -3720,7 +3788,9 @@ class BiteScoreService {
 
     final claimSnapshot = await _runMergeStep(
       'load_duplicate_claims',
-      () => claimRequestsCollection().where('restaurantId', isEqualTo: duplicateId).get(),
+      () => claimRequestsCollection()
+          .where('restaurantId', isEqualTo: duplicateId)
+          .get(),
     );
     for (final doc in claimSnapshot.docs) {
       await _runMergeStep('move_claim_${doc.id}', () async {
@@ -3734,7 +3804,9 @@ class BiteScoreService {
 
     final proposalSnapshot = await _runMergeStep(
       'load_duplicate_edit_proposals',
-      () => editProposalsCollection().where('restaurantId', isEqualTo: duplicateId).get(),
+      () => editProposalsCollection()
+          .where('restaurantId', isEqualTo: duplicateId)
+          .get(),
     );
     for (final doc in proposalSnapshot.docs) {
       await _runMergeStep('move_edit_proposal_${doc.id}', () async {
@@ -3763,7 +3835,9 @@ class BiteScoreService {
 
     final dishReportSnapshot = await _runMergeStep(
       'load_duplicate_dish_reports',
-      () => dishReportsCollection().where('restaurantId', isEqualTo: duplicateId).get(),
+      () => dishReportsCollection()
+          .where('restaurantId', isEqualTo: duplicateId)
+          .get(),
     );
     for (final doc in dishReportSnapshot.docs) {
       await _runMergeStep('move_dish_report_${doc.id}', () async {
@@ -3776,7 +3850,9 @@ class BiteScoreService {
 
     final reviewReportSnapshot = await _runMergeStep(
       'load_duplicate_review_reports',
-      () => reviewReportsCollection().where('restaurantId', isEqualTo: duplicateId).get(),
+      () => reviewReportsCollection()
+          .where('restaurantId', isEqualTo: duplicateId)
+          .get(),
     );
     for (final doc in reviewReportSnapshot.docs) {
       await _runMergeStep('move_review_report_${doc.id}', () async {
@@ -3898,10 +3974,7 @@ class BiteScoreService {
       city: request.city.trim(),
       state: request.state.trim(),
       zipCode: request.zipCode.trim(),
-      location: GeoPoint(
-        verifiedLocation.latitude,
-        verifiedLocation.longitude,
-      ),
+      location: GeoPoint(verifiedLocation.latitude, verifiedLocation.longitude),
     );
 
     await restaurantRef.set({
@@ -3915,8 +3988,7 @@ class BiteScoreService {
 
   static Future<BitescoreDish> _findOrCreateDish(
     BiteScoreCreateRequest request,
-    BitescoreRestaurant restaurant,
-    {
+    BitescoreRestaurant restaurant, {
     bool allowExistingMatch = true,
   }) async {
     if (restaurant.latitude == null || restaurant.longitude == null) {
@@ -3950,9 +4022,12 @@ class BiteScoreService {
       restaurantName: restaurant.name,
       name: request.dishName.trim(),
       normalizedName: normalizedDishName,
-      category: request.category.trim().isEmpty ? null : request.category.trim(),
-      priceLabel:
-          request.priceLabel.trim().isEmpty ? null : request.priceLabel.trim(),
+      category: request.category.trim().isEmpty
+          ? null
+          : request.category.trim(),
+      priceLabel: request.priceLabel.trim().isEmpty
+          ? null
+          : request.priceLabel.trim(),
     );
 
     await dishRef.set({
@@ -4045,14 +4120,14 @@ class BiteScoreService {
     String? details,
   }) {
     assert(name.isNotEmpty);
-    assert(sourceRestaurantId.isNotEmpty || targetRestaurantId.isNotEmpty || !passed);
+    assert(
+      sourceRestaurantId.isNotEmpty || targetRestaurantId.isNotEmpty || !passed,
+    );
     assert(details == null || details.trim().isNotEmpty || passed || !passed);
     return;
   }
 
-  static User _requireSignedInAdminUser({
-    required String operation,
-  }) {
+  static User _requireSignedInAdminUser({required String operation}) {
     assert(operation.isNotEmpty);
     final user = FirebaseAuth.instance.currentUser;
     final isAdmin = AdminAccessService.isAdminUser(user);
@@ -4093,7 +4168,7 @@ class BiteScoreService {
       throw ArgumentError(loginRequiredMessage);
     }
 
-    if (!user.emailVerified) {
+    if (CustomerAuthService.requiresEmailVerification(user)) {
       throw ArgumentError(emailVerificationRequiredMessage);
     }
 
@@ -4136,9 +4211,8 @@ class BiteScoreService {
     return null;
   }
 
-  static Future<_PublicReviewerIdentity> _ensureCurrentUserPublicReviewerIdentity(
-    User user,
-  ) async {
+  static Future<_PublicReviewerIdentity>
+  _ensureCurrentUserPublicReviewerIdentity(User user) async {
     final userId = user.uid.trim();
     if (userId.isEmpty || user.isAnonymous) {
       throw ArgumentError(loginRequiredMessage);
@@ -4154,26 +4228,22 @@ class BiteScoreService {
       if (existingIdentity != null) {
         final nextDisplayName =
             (existingIdentity.chosenUsername ?? '').trim().isNotEmpty
-                ? existingIdentity.chosenUsername!.trim()
-                : existingIdentity.fallbackUsername;
+            ? existingIdentity.chosenUsername!.trim()
+            : existingIdentity.fallbackUsername;
 
-        transaction.set(
-          profileRef,
-          {
-            'publicDisplayName': nextDisplayName,
-            'chosenUsername': existingIdentity.chosenUsername,
-            'chosenUsernameNormalized': _normalizePublicUsername(
-              existingIdentity.chosenUsername ?? '',
-            ),
-            'fallbackUsername': existingIdentity.fallbackUsername,
-            'userId': userId,
-            'createdAt': existingIdentity.createdAt == null
-                ? FieldValue.serverTimestamp()
-                : Timestamp.fromDate(existingIdentity.createdAt!),
-            'updatedAt': FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true),
-        );
+        transaction.set(profileRef, {
+          'publicDisplayName': nextDisplayName,
+          'chosenUsername': existingIdentity.chosenUsername,
+          'chosenUsernameNormalized': _normalizePublicUsername(
+            existingIdentity.chosenUsername ?? '',
+          ),
+          'fallbackUsername': existingIdentity.fallbackUsername,
+          'userId': userId,
+          'createdAt': existingIdentity.createdAt == null
+              ? FieldValue.serverTimestamp()
+              : Timestamp.fromDate(existingIdentity.createdAt!),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
 
         return _PublicReviewerIdentity(
           userId: userId,
@@ -4189,11 +4259,11 @@ class BiteScoreService {
           userId,
           attempt: attempt,
         );
-        final fallbackRef =
-            publicUsernamesCollection().doc(candidateFallback);
+        final fallbackRef = publicUsernamesCollection().doc(candidateFallback);
         final fallbackSnapshot = await transaction.get(fallbackRef);
-        final reservedByUserId =
-            _readString(fallbackSnapshot.data()?['userId']);
+        final reservedByUserId = _readString(
+          fallbackSnapshot.data()?['userId'],
+        );
         if (fallbackSnapshot.exists && reservedByUserId != userId) {
           continue;
         }
@@ -4205,19 +4275,15 @@ class BiteScoreService {
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         });
-        transaction.set(
-          profileRef,
-          {
-            'publicDisplayName': candidateFallback,
-            'chosenUsername': null,
-            'chosenUsernameNormalized': null,
-            'fallbackUsername': candidateFallback,
-            'userId': userId,
-            'createdAt': FieldValue.serverTimestamp(),
-            'updatedAt': FieldValue.serverTimestamp(),
-          },
-          SetOptions(merge: true),
-        );
+        transaction.set(profileRef, {
+          'publicDisplayName': candidateFallback,
+          'chosenUsername': null,
+          'chosenUsernameNormalized': null,
+          'fallbackUsername': candidateFallback,
+          'userId': userId,
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
 
         return _PublicReviewerIdentity(
           userId: userId,
@@ -4249,8 +4315,7 @@ class BiteScoreService {
       return _ensureCurrentUserPublicReviewerIdentity(currentUser);
     }
 
-    final snapshot =
-        await publicReviewerProfileDocument(trimmedUserId).get();
+    final snapshot = await publicReviewerProfileDocument(trimmedUserId).get();
     return _parsePublicReviewerIdentity(
           snapshot.data(),
           fallbackUserId: snapshot.id,
@@ -4272,9 +4337,11 @@ class BiteScoreService {
     }
 
     final chosenUsername = _readString(data['chosenUsername']);
-    final fallbackUsername = _readString(data['fallbackUsername']) ??
+    final fallbackUsername =
+        _readString(data['fallbackUsername']) ??
         _fallbackUsernameForUser(userId);
-    final publicDisplayName = chosenUsername ??
+    final publicDisplayName =
+        chosenUsername ??
         _readString(data['publicDisplayName']) ??
         fallbackUsername;
 
@@ -4301,16 +4368,15 @@ class BiteScoreService {
     );
   }
 
-  static String _fallbackUsernameForUser(
-    String userId, {
-    int attempt = 0,
-  }) {
+  static String _fallbackUsernameForUser(String userId, {int attempt = 0}) {
     final seed = userId.trim().codeUnits.fold<int>(
       0,
       (value, codeUnit) => ((value * 31) + codeUnit) & 0x7fffffff,
     );
     final base = 1 + (seed % 900000);
-    final offset = attempt == 0 ? 0 : Random(seed + attempt).nextInt(9000) + attempt;
+    final offset = attempt == 0
+        ? 0
+        : Random(seed + attempt).nextInt(9000) + attempt;
     return 'anon${base + offset}';
   }
 
@@ -4397,14 +4463,12 @@ class BiteScoreService {
       return 'New Reviewer';
     }
 
-    final reviewSnapshot =
-        await reviewsCollection().where('userId', isEqualTo: trimmedUserId).get();
+    final reviewSnapshot = await reviewsCollection()
+        .where('userId', isEqualTo: trimmedUserId)
+        .get();
     final reviewerReviews = reviewSnapshot.docs
         .map(
-          (doc) => DishReview.tryFromFirestore(
-            doc.data(),
-            fallbackId: doc.id,
-          ),
+          (doc) => DishReview.tryFromFirestore(doc.data(), fallbackId: doc.id),
         )
         .whereType<DishReview>()
         .toList();
@@ -4416,15 +4480,12 @@ class BiteScoreService {
     final oldestReviewDate = reviewerReviews
         .map((review) => review.createdAt)
         .whereType<DateTime>()
-        .fold<DateTime?>(
-      null,
-      (oldest, createdAt) {
-        if (oldest == null || createdAt.isBefore(oldest)) {
-          return createdAt;
-        }
-        return oldest;
-      },
-    );
+        .fold<DateTime?>(null, (oldest, createdAt) {
+          if (oldest == null || createdAt.isBefore(oldest)) {
+            return createdAt;
+          }
+          return oldest;
+        });
     final reviewerAgeDays = oldestReviewDate == null
         ? 0
         : DateTime.now().difference(oldestReviewDate.toLocal()).inDays;
@@ -4437,52 +4498,58 @@ class BiteScoreService {
     );
   }
 
-  static List<DishEditSuggestionAdminEntry> _buildDishEditSuggestionAdminEntries({
+  static List<DishEditSuggestionAdminEntry>
+  _buildDishEditSuggestionAdminEntries({
     required List<DishEditProposal> proposals,
     required Map<String, BitescoreDish> dishesById,
   }) {
     final proposalsByKey = <String, List<DishEditProposal>>{};
     for (final proposal in proposals) {
       proposalsByKey
-          .putIfAbsent(_dishEditProposalGroupKey(proposal), () => <DishEditProposal>[])
+          .putIfAbsent(
+            _dishEditProposalGroupKey(proposal),
+            () => <DishEditProposal>[],
+          )
           .add(proposal);
     }
 
-    final entries = proposalsByKey.entries.map((group) {
-      final sortedProposals = [...group.value]
-        ..sort((a, b) {
-          final aDate =
-              a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-          final bDate =
-              b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-          return aDate.compareTo(bDate);
-        });
-      final representative = sortedProposals.first;
+    final entries =
+        proposalsByKey.entries.map((group) {
+          final sortedProposals = [...group.value]
+            ..sort((a, b) {
+              final aDate =
+                  a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+              final bDate =
+                  b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+              return aDate.compareTo(bDate);
+            });
+          final representative = sortedProposals.first;
 
-      return DishEditSuggestionAdminEntry(
-        groupKey: group.key,
-        type: representative.type,
-        restaurantId: representative.restaurantId,
-        targetDish: dishesById[representative.targetDishId],
-        mergeTargetDish: representative.mergeTargetDishId == null
-            ? null
-            : dishesById[representative.mergeTargetDishId!],
-        proposals: sortedProposals,
-        invalidReason: representative.isMerge
-            ? _mergeSuggestionInvalidReason(
-                targetDish: dishesById[representative.targetDishId],
-                mergeTargetDish: representative.mergeTargetDishId == null
-                    ? null
-                    : dishesById[representative.mergeTargetDishId!],
-              )
-            : null,
-      );
-    }).toList()
-      ..sort((a, b) {
-        final aDate = a.oldestCreatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        final bDate = b.oldestCreatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-        return bDate.compareTo(aDate);
-      });
+          return DishEditSuggestionAdminEntry(
+            groupKey: group.key,
+            type: representative.type,
+            restaurantId: representative.restaurantId,
+            targetDish: dishesById[representative.targetDishId],
+            mergeTargetDish: representative.mergeTargetDishId == null
+                ? null
+                : dishesById[representative.mergeTargetDishId!],
+            proposals: sortedProposals,
+            invalidReason: representative.isMerge
+                ? _mergeSuggestionInvalidReason(
+                    targetDish: dishesById[representative.targetDishId],
+                    mergeTargetDish: representative.mergeTargetDishId == null
+                        ? null
+                        : dishesById[representative.mergeTargetDishId!],
+                  )
+                : null,
+          );
+        }).toList()..sort((a, b) {
+          final aDate =
+              a.oldestCreatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          final bDate =
+              b.oldestCreatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+          return bDate.compareTo(aDate);
+        });
 
     return entries;
   }
@@ -4674,10 +4741,10 @@ class BiteScoreService {
       overallBiteScore: sumOverall / ratingCount,
       ratingCount: ratingCount,
       overallImpressionAverage: sumOverallImpression / ratingCount,
-      tastinessScoreAverage:
-          tastinessCount == 0 ? null : sumTastiness / tastinessCount,
-      qualityScoreAverage:
-          qualityCount == 0 ? null : sumQuality / qualityCount,
+      tastinessScoreAverage: tastinessCount == 0
+          ? null
+          : sumTastiness / tastinessCount,
+      qualityScoreAverage: qualityCount == 0 ? null : sumQuality / qualityCount,
       valueScoreAverage: valueCount == 0 ? null : sumValue / valueCount,
     );
 
@@ -4706,10 +4773,7 @@ class BiteScoreService {
     Map<String, dynamic>? data, {
     required String fallbackId,
   }) {
-    return BitescoreRestaurant.tryFromFirestore(
-          data,
-          fallbackId: fallbackId,
-        ) ??
+    return BitescoreRestaurant.tryFromFirestore(data, fallbackId: fallbackId) ??
         BitescoreRestaurant.tryFromFinderFirestore(
           data,
           fallbackId: fallbackId,
@@ -4756,7 +4820,8 @@ class BiteScoreService {
       for (var rightIndex = 0; rightIndex < right.length; rightIndex += 1) {
         final insertionCost = currentRow[rightIndex] + 1;
         final deletionCost = previousRow[rightIndex + 1] + 1;
-        final substitutionCost = previousRow[rightIndex] +
+        final substitutionCost =
+            previousRow[rightIndex] +
             (left[leftIndex] == right[rightIndex] ? 0 : 1);
         var bestCost = insertionCost < deletionCost
             ? insertionCost
@@ -4829,10 +4894,7 @@ class BiteScoreService {
       'updatedAt': FieldValue.serverTimestamp(),
     });
 
-    await _rebuildDishAggregate(
-      dishId: dish.id,
-      restaurantId: restaurant.id,
-    );
+    await _rebuildDishAggregate(dishId: dish.id, restaurantId: restaurant.id);
   }
 
   static String? _validateRequiredReviewScores({
@@ -4866,7 +4928,7 @@ class BiteScoreService {
   }
 
   static Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
-      _loadAllRestaurantDocuments() async {
+  _loadAllRestaurantDocuments() async {
     const pageSize = 250;
     final allDocs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
     DocumentSnapshot<Map<String, dynamic>>? lastDoc;
@@ -4897,7 +4959,7 @@ class BiteScoreService {
   }
 
   static Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>
-      _loadAllDishCatalogDocuments() async {
+  _loadAllDishCatalogDocuments() async {
     const pageSize = 250;
     final allDocs = <QueryDocumentSnapshot<Map<String, dynamic>>>[];
     DocumentSnapshot<Map<String, dynamic>>? lastDoc;
@@ -4947,7 +5009,8 @@ class BiteScoreService {
     }
   }
 
-  static Future<List<DishCatalogSuggestion>> _loadDishCatalogCacheInternal() async {
+  static Future<List<DishCatalogSuggestion>>
+  _loadDishCatalogCacheInternal() async {
     try {
       final docs = await _loadAllDishCatalogDocuments();
 
@@ -4965,7 +5028,8 @@ class BiteScoreService {
   static DishCatalogSuggestion? _catalogSuggestionFromDoc(
     Map<String, dynamic> data,
   ) {
-    final canonicalName = _readCatalogString(data['canonicalName']) ??
+    final canonicalName =
+        _readCatalogString(data['canonicalName']) ??
         _readCatalogString(data['name']) ??
         _readCatalogString(data['title']);
     if (canonicalName == null) {
@@ -5074,7 +5138,8 @@ class BiteScoreService {
         return restaurant;
       }
 
-      final inferredState = byZip[restaurant.zipCode.trim()] ??
+      final inferredState =
+          byZip[restaurant.zipCode.trim()] ??
           byCity[restaurant.city.trim().toUpperCase()] ??
           dominantState ??
           'Unknown';
@@ -5088,8 +5153,5 @@ class _CatalogMatch {
   final DishCatalogSuggestion suggestion;
   final int score;
 
-  const _CatalogMatch({
-    required this.suggestion,
-    required this.score,
-  });
+  const _CatalogMatch({required this.suggestion, required this.score});
 }

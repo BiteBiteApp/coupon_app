@@ -12,6 +12,13 @@ class CustomerAuthService {
   static const String webServerClientId =
       '253983587346-bqkv4qsf93390ctdjctpq9nuup2r9lhe.apps.googleusercontent.com';
 
+  static bool requiresEmailVerification(User user) {
+    final hasPasswordProvider = user.providerData.any(
+      (provider) => provider.providerId == 'password',
+    );
+    return hasPasswordProvider && !user.emailVerified;
+  }
+
   static Future<User?> signInOrLinkWithGoogle() async {
     if (kIsWeb) {
       return _signInOrLinkWithGoogleWeb();
@@ -35,8 +42,9 @@ class CustomerAuthService {
       );
 
       try {
-        final linkedCredential =
-            await currentUser.linkWithCredential(credential);
+        final linkedCredential = await currentUser.linkWithCredential(
+          credential,
+        );
         final linkedUser = linkedCredential.user;
 
         await _sendEmailVerificationIfNeeded(linkedUser);
@@ -88,8 +96,9 @@ class CustomerAuthService {
     required String password,
   }) async {
     final currentUser = _auth.currentUser;
-    final anonymousUid =
-        currentUser != null && currentUser.isAnonymous ? currentUser.uid : null;
+    final anonymousUid = currentUser != null && currentUser.isAnonymous
+        ? currentUser.uid
+        : null;
 
     final signedInCredential = await _auth.signInWithEmailAndPassword(
       email: email.trim(),
@@ -104,11 +113,61 @@ class CustomerAuthService {
     return signedInCredential.user;
   }
 
+  static Future<User?> signInOrLinkWithPhoneCredential(
+    PhoneAuthCredential credential,
+  ) async {
+    final currentUser = _auth.currentUser;
+    final anonymousUid = currentUser != null && currentUser.isAnonymous
+        ? currentUser.uid
+        : null;
+
+    if (currentUser != null && currentUser.isAnonymous) {
+      try {
+        final linkedCredential = await currentUser.linkWithCredential(
+          credential,
+        );
+        final linkedUser = linkedCredential.user;
+
+        await _finalizeSignedInCustomerSession(
+          anonymousUid: anonymousUid,
+          signedInUser: linkedUser,
+        );
+
+        return linkedUser;
+      } on FirebaseAuthException catch (e) {
+        if (e.code == 'credential-already-in-use' ||
+            e.code == 'provider-already-linked') {
+          final signedInCredential = await _auth.signInWithCredential(
+            credential,
+          );
+
+          await _finalizeSignedInCustomerSession(
+            anonymousUid: anonymousUid,
+            signedInUser: signedInCredential.user,
+          );
+
+          return signedInCredential.user;
+        }
+        rethrow;
+      }
+    }
+
+    final signedInCredential = await _auth.signInWithCredential(credential);
+
+    await _finalizeSignedInCustomerSession(
+      anonymousUid: null,
+      signedInUser: signedInCredential.user,
+    );
+
+    return signedInCredential.user;
+  }
+
   static Future<User?> _signInOrLinkWithGoogleWeb() async {
     final provider = GoogleAuthProvider();
     final currentUser = _auth.currentUser;
-    final anonymousUid =
-        currentUser != null && currentUser.isAnonymous ? currentUser.uid : null;
+    final anonymousUid = currentUser != null && currentUser.isAnonymous
+        ? currentUser.uid
+        : null;
 
     if (currentUser != null && currentUser.isAnonymous) {
       try {
@@ -164,13 +223,15 @@ class CustomerAuthService {
     );
 
     final currentUser = _auth.currentUser;
-    final anonymousUid =
-        currentUser != null && currentUser.isAnonymous ? currentUser.uid : null;
+    final anonymousUid = currentUser != null && currentUser.isAnonymous
+        ? currentUser.uid
+        : null;
 
     if (currentUser != null && currentUser.isAnonymous) {
       try {
-        final linkedCredential =
-            await currentUser.linkWithCredential(credential);
+        final linkedCredential = await currentUser.linkWithCredential(
+          credential,
+        );
         final linkedUser = linkedCredential.user;
 
         await _finalizeSignedInCustomerSession(
@@ -182,8 +243,9 @@ class CustomerAuthService {
       } on FirebaseAuthException catch (e) {
         if (e.code == 'credential-already-in-use' ||
             e.code == 'provider-already-linked') {
-          final signedInCredential =
-              await _auth.signInWithCredential(credential);
+          final signedInCredential = await _auth.signInWithCredential(
+            credential,
+          );
 
           await _finalizeSignedInCustomerSession(
             anonymousUid: anonymousUid,

@@ -2,13 +2,16 @@ import 'package:coupon_app/services/app_mode_state_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:coupon_app/services/customer_session_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/bitescore_restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/bitescore_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_auth_service.dart';
+import '../widgets/phone_auth_sheet.dart';
 import 'main_navigation_screen.dart';
 import 'restaurant_create_coupon_screen.dart';
 import 'restaurant_owner_hub_screen.dart';
@@ -22,6 +25,9 @@ class RestaurantAuthScreen extends StatefulWidget {
 
 class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
     with WidgetsBindingObserver {
+  static const String _lastSignInMethodKey = 'last_restaurant_sign_in_method';
+
+  final TextEditingController phoneController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   final TextEditingController confirmPasswordController =
@@ -29,16 +35,19 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
 
   bool isLoginMode = true;
   bool isLoading = false;
+  String? _lastUsedMethod;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _loadLastUsedMethod();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    phoneController.dispose();
     emailController.dispose();
     passwordController.dispose();
     confirmPasswordController.dispose();
@@ -74,6 +83,28 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
     }
   }
 
+  Future<void> _loadLastUsedMethod() async {
+    final prefs = await SharedPreferences.getInstance();
+    final lastUsedMethod = prefs.getString(_lastSignInMethodKey);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _lastUsedMethod = lastUsedMethod;
+    });
+  }
+
+  Future<void> _rememberLastUsedMethod(String method) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_lastSignInMethodKey, method);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _lastUsedMethod = method;
+    });
+  }
+
   Future<void> submit() async {
     final email = emailController.text.trim();
     final password = passwordController.text.trim();
@@ -81,28 +112,22 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
 
     if (email.isEmpty || password.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter both email and password.'),
-        ),
+        const SnackBar(content: Text('Please enter both email and password.')),
       );
       return;
     }
 
     if (!isLoginMode && confirmPassword.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please confirm your password.'),
-        ),
+        const SnackBar(content: Text('Please confirm your password.')),
       );
       return;
     }
 
     if (!isLoginMode && password != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Passwords do not match.'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Passwords do not match.')));
       return;
     }
 
@@ -139,6 +164,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
           refreshedUser,
         );
         await RestaurantAccountService.syncEmailVerified(refreshedUser);
+        await _rememberLastUsedMethod('email');
       }
 
       if (!mounted) return;
@@ -194,14 +220,13 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
 
     try {
       await RestaurantAuthService.signInWithGoogle();
+      await _rememberLastUsedMethod('google');
       await _refreshLiveVerificationState();
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Signed in with Google successfully.'),
-        ),
+        const SnackBar(content: Text('Signed in with Google successfully.')),
       );
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
@@ -238,16 +263,56 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
     }
   }
 
+  Future<void> continueWithPhone() async {
+    if (kIsWeb) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Phone sign-in is available in the native app.'),
+        ),
+      );
+      return;
+    }
+
+    final normalizedPhoneNumber = normalizePhoneNumber(phoneController.text);
+    if (normalizedPhoneNumber == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Enter a valid phone number')),
+      );
+      return;
+    }
+
+    phoneController.value = TextEditingValue(
+      text: normalizedPhoneNumber,
+      selection: TextSelection.collapsed(offset: normalizedPhoneNumber.length),
+    );
+
+    final signedIn = await showPhoneAuthSheet(
+      context: context,
+      onVerifiedCredential: RestaurantAuthService.signInWithPhoneCredential,
+      initialPhoneNumber: normalizedPhoneNumber,
+      sendCodeImmediately: true,
+    );
+
+    if (signedIn == true) {
+      await _rememberLastUsedMethod('phone');
+      await _refreshLiveVerificationState();
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Signed in with phone successfully.')),
+      );
+    }
+  }
+
   Future<void> resendVerificationEmail(User user) async {
     try {
       await user.sendEmailVerification();
 
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Verification email sent.'),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Verification email sent.')));
     } catch (error) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -329,6 +394,81 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
     }
   }
 
+  Widget _buildOrSeparator() {
+    return const Text(
+      '--- or ---',
+      textAlign: TextAlign.center,
+      style: TextStyle(fontSize: 13, color: Colors.black45),
+    );
+  }
+
+  Widget _buildLastUsedMarker(String method) {
+    final isLastUsed = _lastUsedMethod == method;
+
+    return SizedBox(
+      width: 14,
+      child: Align(
+        alignment: const Alignment(-0.55, 0),
+        child: isLastUsed
+            ? Container(
+                width: 14,
+                height: 14,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE2ECFA),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: const Color(0xFFC7D7EF)),
+                ),
+                child: const Icon(
+                  Icons.check,
+                  size: 10,
+                  color: Color(0xFF48627E),
+                ),
+              )
+            : const SizedBox.shrink(),
+      ),
+    );
+  }
+
+  BoxDecoration? _lastUsedHighlightDecoration(String method) {
+    if (_lastUsedMethod != method) {
+      return null;
+    }
+
+    return BoxDecoration(
+      color: const Color(0xFFF8FBFF),
+      borderRadius: BorderRadius.zero,
+      border: Border.all(color: const Color(0xFFD9E4F3)),
+    );
+  }
+
+  Widget _buildOptionWithLastUsed({
+    required String method,
+    required Widget child,
+    CrossAxisAlignment crossAxisAlignment = CrossAxisAlignment.center,
+  }) {
+    return Container(
+      width: double.infinity,
+      margin: EdgeInsets.zero,
+      decoration: _lastUsedHighlightDecoration(method),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 2),
+      child: Row(
+        crossAxisAlignment: crossAxisAlignment,
+        children: [
+          _buildLastUsedMarker(method),
+          const SizedBox(width: 2),
+          Expanded(child: child),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCardInset(Widget child) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: child,
+    );
+  }
+
   Widget buildAuthForm() {
     return Center(
       child: SingleChildScrollView(
@@ -337,101 +477,137 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
           constraints: const BoxConstraints(maxWidth: 420),
           child: Card(
             child: Padding(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.symmetric(vertical: 20),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    isLoginMode
-                        ? 'Restaurant Sign In'
-                        : 'Create Restaurant Account',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
+                  _buildCardInset(
+                    Text(
+                      isLoginMode
+                          ? 'Restaurant Sign In'
+                          : 'Create Restaurant Account',
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    isLoginMode
-                        ? 'Sign in with your restaurant email/password or Google account.'
-                        : 'Create a restaurant account with email/password, or continue with Google. You will still need approval before posting coupons.',
-                    style: const TextStyle(color: Colors.black54),
                   ),
                   const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton.icon(
-                      onPressed: isLoading ? null : continueWithGoogle,
-                      icon: const Icon(Icons.login),
-                      label: Text(
-                        isLoading
-                            ? 'Please wait...'
-                            : 'Continue with Google',
+                  _buildOptionWithLastUsed(
+                    method: 'phone',
+                    child: TextField(
+                      controller: phoneController,
+                      keyboardType: TextInputType.phone,
+                      enabled: !isLoading,
+                      autofillHints: const [AutofillHints.telephoneNumber],
+                      decoration: InputDecoration(
+                        hintText: 'Phone number',
+                        border: const OutlineInputBorder(),
+                        prefixIcon: const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12),
+                          child: Icon(Icons.phone_iphone_outlined),
+                        ),
+                        prefixIconConstraints: const BoxConstraints(
+                          minWidth: 48,
+                          minHeight: 48,
+                        ),
+                        suffixIcon: TextButton(
+                          onPressed: isLoading ? null : continueWithPhone,
+                          child: const Text('Send Code'),
+                        ),
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  const Divider(),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: const InputDecoration(
-                      labelText: 'Email',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  TextField(
-                    controller: passwordController,
-                    obscureText: true,
-                    decoration: const InputDecoration(
-                      labelText: 'Password',
-                      border: OutlineInputBorder(),
-                    ),
-                  ),
-                  if (!isLoginMode) ...[
-                    const SizedBox(height: 16),
-                    TextField(
-                      controller: confirmPasswordController,
-                      obscureText: true,
-                      decoration: const InputDecoration(
-                        labelText: 'Confirm Password',
-                        border: OutlineInputBorder(),
+                  const SizedBox(height: 14),
+                  _buildCardInset(_buildOrSeparator()),
+                  const SizedBox(height: 12),
+                  _buildOptionWithLastUsed(
+                    method: 'google',
+                    child: SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton.icon(
+                        onPressed: isLoading ? null : continueWithGoogle,
+                        icon: const Icon(Icons.login),
+                        label: Text(
+                          isLoading ? 'Please wait...' : 'Continue with Google',
+                        ),
                       ),
                     ),
-                  ],
-                  const SizedBox(height: 20),
-                  SizedBox(
-                    width: double.infinity,
-                    child: ElevatedButton(
-                      onPressed: isLoading ? null : submit,
-                      child: Text(
-                        isLoading
-                            ? 'Please wait...'
-                            : isLoginMode
-                                ? 'Sign In'
-                                : 'Create Account',
-                      ),
+                  ),
+                  const SizedBox(height: 14),
+                  _buildCardInset(_buildOrSeparator()),
+                  const SizedBox(height: 16),
+                  _buildOptionWithLastUsed(
+                    method: 'email',
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextField(
+                          controller: emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: const InputDecoration(
+                            labelText: 'Email',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: passwordController,
+                          obscureText: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Password',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        if (!isLoginMode) ...[
+                          const SizedBox(height: 16),
+                          TextField(
+                            controller: confirmPasswordController,
+                            obscureText: true,
+                            decoration: const InputDecoration(
+                              labelText: 'Confirm Password',
+                              border: OutlineInputBorder(),
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 20),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: isLoading ? null : submit,
+                            child: Text(
+                              isLoading
+                                  ? 'Please wait...'
+                                  : isLoginMode
+                                  ? 'Sign In'
+                                  : 'Create Account',
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 12),
-                  SizedBox(
-                    width: double.infinity,
-                    child: TextButton(
-                      onPressed: isLoading
-                          ? null
-                          : () {
-                              setState(() {
-                                isLoginMode = !isLoginMode;
-                                confirmPasswordController.clear();
-                              });
-                            },
-                      child: Text(
-                        isLoginMode
-                            ? 'Need an account? Create one'
-                            : 'Already have an account? Sign in',
+                  _buildCardInset(
+                    SizedBox(
+                      width: double.infinity,
+                      child: TextButton(
+                        onPressed: isLoading
+                            ? null
+                            : () {
+                                setState(() {
+                                  isLoginMode = !isLoginMode;
+                                  confirmPasswordController.clear();
+                                });
+                              },
+                        child: Text(
+                          isLoginMode
+                              ? 'Need an account? Create one'
+                              : 'Already have an account? Sign in',
+                        ),
                       ),
                     ),
                   ),
@@ -460,10 +636,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
                   const SizedBox(height: 16),
                   const Text(
                     'Verify Your Email',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -515,9 +688,9 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
@@ -594,10 +767,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
                   const SizedBox(height: 16),
                   const Text(
                     'Account Not Approved',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
                   Text(
@@ -647,16 +817,10 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
             const SizedBox(height: 14),
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 10),
-            Text(
-              message,
-              textAlign: TextAlign.center,
-            ),
+            Text(message, textAlign: TextAlign.center),
             const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
@@ -727,7 +891,8 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
                           onPressed: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
-                                builder: (_) => const RestaurantCreateCouponScreen(),
+                                builder: (_) =>
+                                    const RestaurantCreateCouponScreen(),
                               ),
                             );
                           },
@@ -772,10 +937,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
                   const Text(
                     'Could Not Check Owner Access',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
                   const Text(
@@ -813,12 +975,13 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
         final data = accountSnapshot.data?.data();
         final hasCouponApplication =
             RestaurantAccountService.hasSubmittedCouponApplication(data);
-        final emailVerified = user.emailVerified;
+        final requiresEmailVerification =
+            RestaurantAuthService.requiresEmailVerification(user);
         final approvalStatus =
             (data?['approvalStatus'] as String?) ?? 'pending';
         final hasCouponAccess =
             hasCouponApplication &&
-            emailVerified &&
+            !requiresEmailVerification &&
             approvalStatus == 'approved';
 
         return FutureBuilder<List<BitescoreRestaurant>>(
@@ -835,7 +998,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
               return RestaurantOwnerHubScreen(currentUser: user);
             }
 
-            if (!emailVerified) {
+            if (requiresEmailVerification) {
               return buildEmailVerificationScreen(user);
             }
 
@@ -871,9 +1034,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
 
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 

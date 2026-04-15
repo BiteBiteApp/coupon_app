@@ -10,6 +10,13 @@ class RestaurantAuthService {
   static const String webServerClientId =
       '253983587346-bqkv4qsf93390ctdjctpq9nuup2r9lhe.apps.googleusercontent.com';
 
+  static bool requiresEmailVerification(User user) {
+    final isPasswordUser = user.providerData.any(
+      (provider) => provider.providerId == 'password',
+    );
+    return isPasswordUser && !user.emailVerified;
+  }
+
   static Future<User?> signInWithGoogle() async {
     if (kIsWeb) {
       return _signInWithGoogleWeb();
@@ -48,6 +55,20 @@ class RestaurantAuthService {
       idToken: googleAuth.idToken,
     );
 
+    final signedInCredential = await _auth.signInWithCredential(credential);
+    final user = signedInCredential.user;
+
+    if (user != null) {
+      await RestaurantAccountService.createOrUpdateAccountRecord(user);
+      await RestaurantAccountService.syncEmailVerified(user);
+    }
+
+    return user;
+  }
+
+  static Future<User?> signInWithPhoneCredential(
+    PhoneAuthCredential credential,
+  ) async {
     final signedInCredential = await _auth.signInWithCredential(credential);
     final user = signedInCredential.user;
 

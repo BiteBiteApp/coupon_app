@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import 'bitescore_owner_screen.dart';
+import 'main_navigation_screen.dart';
 import 'restaurant_create_coupon_screen.dart';
 
 class RestaurantOwnerHubScreen extends StatelessWidget {
@@ -30,6 +31,20 @@ class RestaurantOwnerHubScreen extends StatelessWidget {
     );
   }
 
+  Future<void> _signOut(BuildContext context) async {
+    await FirebaseAuth.instance.signOut();
+    if (!context.mounted) {
+      return;
+    }
+
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => const MainNavigationScreen(initialIndex: 1),
+      ),
+      (route) => false,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Center(
@@ -43,6 +58,14 @@ class RestaurantOwnerHubScreen extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton.icon(
+                      onPressed: () => _signOut(context),
+                      icon: const Icon(Icons.logout),
+                      label: const Text('Sign Out'),
+                    ),
+                  ),
                   const Icon(Icons.storefront, size: 52),
                   const SizedBox(height: 16),
                   const Text(

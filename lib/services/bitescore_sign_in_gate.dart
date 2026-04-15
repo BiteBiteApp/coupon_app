@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../screens/customer_account_screen.dart';
+import 'customer_auth_service.dart';
 
 class BiteScoreSignInGate {
   static const String loginRequiredMessage = 'Please sign in to continue';
@@ -36,30 +37,22 @@ class BiteScoreSignInGate {
       return true;
     }
 
-    if (user != null &&
-        !user.isAnonymous &&
-        _requiresEmailVerification(user)) {
+    if (user != null && !user.isAnonymous && _requiresEmailVerification(user)) {
       _showAuthSnackBar(
         context,
         title: 'Email verification required',
-        message:
-            'Please verify your email to rate, review, or add dishes.',
+        message: 'Please verify your email to rate, review, or add dishes.',
         isWarning: true,
       );
 
       return false;
     }
 
-    _showAuthSnackBar(
-      context,
-      message: message,
-    );
+    _showAuthSnackBar(context, message: message);
 
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const CustomerAccountScreen(),
-      ),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const CustomerAccountScreen()));
 
     return canCurrentUserWrite;
   }
@@ -73,16 +66,11 @@ class BiteScoreSignInGate {
       return true;
     }
 
-    _showAuthSnackBar(
-      context,
-      message: message,
-    );
+    _showAuthSnackBar(context, message: message);
 
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const CustomerAccountScreen(),
-      ),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const CustomerAccountScreen()));
 
     return canCurrentUserSaveFavorites;
   }
@@ -100,8 +88,7 @@ class BiteScoreSignInGate {
         SnackBar(
           duration: const Duration(seconds: 3),
           behavior: SnackBarBehavior.floating,
-          backgroundColor:
-              isWarning ? const Color(0xFFFFF3E0) : null,
+          backgroundColor: isWarning ? const Color(0xFFFFF3E0) : null,
           content: title == null
               ? Text(
                   message,
@@ -121,15 +108,11 @@ class BiteScoreSignInGate {
                     children: [
                       TextSpan(
                         text: '$title. ',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w800,
-                        ),
+                        style: const TextStyle(fontWeight: FontWeight.w800),
                       ),
                       TextSpan(
                         text: message,
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                        ),
+                        style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
@@ -143,15 +126,14 @@ class BiteScoreSignInGate {
       return false;
     }
 
-    return user.emailVerified;
+    return !_requiresEmailVerification(user);
   }
 
   static bool _requiresEmailVerification(User user) {
-    return !user.emailVerified;
+    return CustomerAuthService.requiresEmailVerification(user);
   }
 
   static bool _canUserSaveFavorites(User? user) {
     return user != null && !user.isAnonymous;
   }
-
 }

@@ -10,6 +10,7 @@ import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/customer_session_service.dart';
 import '../services/restaurant_account_service.dart';
+import '../services/restaurant_auth_service.dart';
 import '../services/subscription_checkout_service.dart';
 import 'paywall_screen.dart';
 
@@ -77,11 +78,9 @@ class _RestaurantCreateCouponScreenState
   User? get currentUser => FirebaseAuth.instance.currentUser;
 
   Future<void> _openPaywallScreen() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => const PaywallScreen(),
-      ),
-    );
+    await Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => const PaywallScreen()));
   }
 
   Future<void> _openSubscriptionSignupScreen() async {
@@ -373,19 +372,21 @@ class _RestaurantCreateCouponScreenState
           RestaurantAccountService.hasSubmittedCouponApplication(data);
       final approvalStatus =
           (data?['approvalStatus'] as String?)?.trim() ?? 'pending';
-      final isEmailVerified = user.emailVerified;
+      final requiresEmailVerification =
+          RestaurantAuthService.requiresEmailVerification(user);
 
       _couponAccessState = _resolveCouponAccessState(
         hasSubmittedApplication: hasSubmittedApplication,
-        isEmailVerified: isEmailVerified,
+        requiresEmailVerification: requiresEmailVerification,
         approvalStatus: approvalStatus,
       );
       _couponAccessMessage = _couponAccessMessageFor(
         state: _couponAccessState,
         email: user.email,
       );
-      _hasCouponPostingAccess =
-          RestaurantAccountService.hasCouponPostingAccess(data);
+      _hasCouponPostingAccess = RestaurantAccountService.hasCouponPostingAccess(
+        data,
+      );
       _hasUsedTrial = data?['hasUsedTrial'] == true;
       _subscriptionStatus =
           ((data?['subscriptionStatus'] as String?) ?? 'inactive')
@@ -409,36 +410,36 @@ class _RestaurantCreateCouponScreenState
       if (data != null) {
         restaurantNameController.text =
             (data['restaurantName'] as String?)?.trim().isNotEmpty == true
-                ? data['restaurantName'] as String
-                : restaurantNameController.text;
+            ? data['restaurantName'] as String
+            : restaurantNameController.text;
         cityController.text =
             (data['city'] as String?)?.trim().isNotEmpty == true
-                ? data['city'] as String
-                : cityController.text;
+            ? data['city'] as String
+            : cityController.text;
         stateController.text =
             (data[Restaurant.fieldState] as String?)?.trim().isNotEmpty == true
-                ? data[Restaurant.fieldState] as String
-                : stateController.text;
+            ? data[Restaurant.fieldState] as String
+            : stateController.text;
         zipCodeController.text =
             (data['zipCode'] as String?)?.trim().isNotEmpty == true
-                ? data['zipCode'] as String
-                : zipCodeController.text;
+            ? data['zipCode'] as String
+            : zipCodeController.text;
         emailController.text =
             (data['email'] as String?)?.trim().isNotEmpty == true
-                ? data['email'] as String
-                : emailController.text;
+            ? data['email'] as String
+            : emailController.text;
         phoneController.text =
             (data['phone'] as String?)?.trim().isNotEmpty == true
-                ? data['phone'] as String
-                : phoneController.text;
+            ? data['phone'] as String
+            : phoneController.text;
         streetAddressController.text =
             (data['streetAddress'] as String?)?.trim().isNotEmpty == true
-                ? data['streetAddress'] as String
-                : streetAddressController.text;
+            ? data['streetAddress'] as String
+            : streetAddressController.text;
         websiteController.text =
             (data['website'] as String?)?.trim().isNotEmpty == true
-                ? data['website'] as String
-                : websiteController.text;
+            ? data['website'] as String
+            : websiteController.text;
         bioController.text = (data['bio'] as String?)?.trim().isNotEmpty == true
             ? data['bio'] as String
             : bioController.text;
@@ -449,7 +450,9 @@ class _RestaurantCreateCouponScreenState
         _businessHoursDirty = loadedBusinessHours.isNotEmpty;
       }
 
-      final loadedCoupons = await RestaurantAccountService.loadCoupons(user.uid);
+      final loadedCoupons = await RestaurantAccountService.loadCoupons(
+        user.uid,
+      );
       for (final coupon in loadedCoupons.reversed) {
         LocalCouponStore.addCoupon(coupon);
       }
@@ -542,13 +545,13 @@ class _RestaurantCreateCouponScreenState
 
   _CouponAccountAccessState _resolveCouponAccessState({
     required bool hasSubmittedApplication,
-    required bool isEmailVerified,
+    required bool requiresEmailVerification,
     required String approvalStatus,
   }) {
     if (!hasSubmittedApplication) {
       return _CouponAccountAccessState.noAccount;
     }
-    if (!isEmailVerified) {
+    if (requiresEmailVerification) {
       return _CouponAccountAccessState.unverified;
     }
     if (approvalStatus == 'approved') {
@@ -720,8 +723,8 @@ class _RestaurantCreateCouponScreenState
     }
 
     final currentRestaurantName = restaurantNameController.text.trim();
-    final requestedRestaurantName =
-        requestedRestaurantNameController.text.trim();
+    final requestedRestaurantName = requestedRestaurantNameController.text
+        .trim();
 
     if (requestedRestaurantName.isEmpty) {
       _showSnackBar('Please enter the requested restaurant name.');
@@ -784,17 +787,12 @@ class _RestaurantCreateCouponScreenState
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          duration: const Duration(seconds: 3),
-        ),
+        SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
       );
   }
 
   String _formatShortDate(DateTime value) {
-    return MaterialLocalizations.of(
-      context,
-    ).formatMediumDate(value.toLocal());
+    return MaterialLocalizations.of(context).formatMediumDate(value.toLocal());
   }
 
   Widget _buildSubscriptionStatusSection() {
@@ -812,10 +810,7 @@ class _RestaurantCreateCouponScreenState
     late final IconData icon;
 
     if (hasValidTrial) {
-      final remainingDays = _trialEndsAt!
-          .difference(now)
-          .inDays
-          .clamp(0, 9999);
+      final remainingDays = _trialEndsAt!.difference(now).inDays.clamp(0, 9999);
       title = 'Trial active';
       message = remainingDays <= 0
           ? 'Trial ends ${_formatShortDate(_trialEndsAt!)}'
@@ -840,9 +835,7 @@ class _RestaurantCreateCouponScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: accentColor.withOpacity(0.18),
-        ),
+        border: Border.all(color: accentColor.withOpacity(0.18)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -856,10 +849,7 @@ class _RestaurantCreateCouponScreenState
                   color: accentColor.withOpacity(0.10),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(
-                  icon,
-                  color: accentColor,
-                ),
+                child: Icon(icon, color: accentColor),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -896,9 +886,7 @@ class _RestaurantCreateCouponScreenState
                     ? null
                     : _openManageSubscription,
                 child: Text(
-                  _customerPortalLoading
-                      ? 'Opening...'
-                      : 'Manage Subscription',
+                  _customerPortalLoading ? 'Opening...' : 'Manage Subscription',
                 ),
               ),
             ),
@@ -1132,8 +1120,9 @@ class _RestaurantCreateCouponScreenState
     }
 
     final accountData = await RestaurantAccountService.getAccountData(user.uid);
-    final canPostCoupons =
-        RestaurantAccountService.hasCouponPostingAccess(accountData);
+    final canPostCoupons = RestaurantAccountService.hasCouponPostingAccess(
+      accountData,
+    );
     if (!canPostCoupons) {
       await _openPaywallScreen();
       return;
@@ -1258,8 +1247,8 @@ class _RestaurantCreateCouponScreenState
       selectedCouponType = coupon.isProximityOnly
           ? 'Proximity-only coupon'
           : 'Normal coupon';
-      selectedProximityRadius = coupon.isProximityOnly &&
-              coupon.proximityRadiusMiles != null
+      selectedProximityRadius =
+          coupon.isProximityOnly && coupon.proximityRadiusMiles != null
           ? '${coupon.proximityRadiusMiles!.toStringAsFixed(0)} ${coupon.proximityRadiusMiles == 1 ? 'mile' : 'miles'}'
           : '1 mile';
     });
@@ -1500,94 +1489,86 @@ class _RestaurantCreateCouponScreenState
               style: const TextStyle(fontSize: 13),
             ),
           ),
-            if (!entry.closed) ...[
-              const SizedBox(height: 8),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final openField = DropdownButtonFormField<String>(
-                    key: ValueKey('${entry.day}-open-${entry.opensAt}'),
-                    isExpanded: true,
-                    initialValue: businessHourOptions.contains(entry.opensAt)
-                        ? entry.opensAt
-                        : '9:00 AM',
-                    decoration: buildInputDecoration('Open', ''),
-                    items: businessHourOptions
-                        .map(
-                          (option) => DropdownMenuItem(
-                            value: option,
-                            child: Text(
-                              option,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value == null) {
-                        return;
-                      }
-                      _updateBusinessHoursEntry(
-                        dayIndex,
-                        entry.copyWith(opensAt: value),
-                      );
-                    },
-                  );
-
-                  final closeField = DropdownButtonFormField<String>(
-                    key: ValueKey('${entry.day}-close-${entry.closesAt}'),
-                    isExpanded: true,
-                    initialValue: businessHourOptions.contains(entry.closesAt)
-                        ? entry.closesAt
-                        : '5:00 PM',
-                    decoration: buildInputDecoration('Close', ''),
-                    items: businessHourOptions
-                        .map(
-                          (option) => DropdownMenuItem(
-                            value: option,
-                            child: Text(
-                              option,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value == null) {
-                        return;
-                      }
-                      _updateBusinessHoursEntry(
-                        dayIndex,
-                        entry.copyWith(closesAt: value),
-                      );
-                    },
-                  );
-
-                  if (constraints.maxWidth < 420) {
-                    return Column(
-                      children: [
-                        openField,
-                        const SizedBox(height: 10),
-                        closeField,
-                      ],
+          if (!entry.closed) ...[
+            const SizedBox(height: 8),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final openField = DropdownButtonFormField<String>(
+                  key: ValueKey('${entry.day}-open-${entry.opensAt}'),
+                  isExpanded: true,
+                  initialValue: businessHourOptions.contains(entry.opensAt)
+                      ? entry.opensAt
+                      : '9:00 AM',
+                  decoration: buildInputDecoration('Open', ''),
+                  items: businessHourOptions
+                      .map(
+                        (option) => DropdownMenuItem(
+                          value: option,
+                          child: Text(option, overflow: TextOverflow.ellipsis),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) {
+                      return;
+                    }
+                    _updateBusinessHoursEntry(
+                      dayIndex,
+                      entry.copyWith(opensAt: value),
                     );
-                  }
+                  },
+                );
 
-                  return Row(
+                final closeField = DropdownButtonFormField<String>(
+                  key: ValueKey('${entry.day}-close-${entry.closesAt}'),
+                  isExpanded: true,
+                  initialValue: businessHourOptions.contains(entry.closesAt)
+                      ? entry.closesAt
+                      : '5:00 PM',
+                  decoration: buildInputDecoration('Close', ''),
+                  items: businessHourOptions
+                      .map(
+                        (option) => DropdownMenuItem(
+                          value: option,
+                          child: Text(option, overflow: TextOverflow.ellipsis),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) {
+                      return;
+                    }
+                    _updateBusinessHoursEntry(
+                      dayIndex,
+                      entry.copyWith(closesAt: value),
+                    );
+                  },
+                );
+
+                if (constraints.maxWidth < 420) {
+                  return Column(
                     children: [
-                      Expanded(child: openField),
-                      const SizedBox(width: 10),
-                      Expanded(child: closeField),
+                      openField,
+                      const SizedBox(height: 10),
+                      closeField,
                     ],
                   );
-                },
-              ),
-            ],
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: openField),
+                    const SizedBox(width: 10),
+                    Expanded(child: closeField),
+                  ],
+                );
+              },
+            ),
           ],
-        ),
-      );
+        ],
+      ),
+    );
   }
-
-
 
   Widget buildPreviewCard(Coupon coupon) {
     return Card(
@@ -1691,10 +1672,7 @@ class _RestaurantCreateCouponScreenState
                   : todayHours.closed
                   ? 'Closed today'
                   : 'Open today: ${todayHours.opensAt} - ${todayHours.closesAt}',
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
             if (hasBio) ...[
               const SizedBox(height: 16),
@@ -1717,7 +1695,8 @@ class _RestaurantCreateCouponScreenState
             Text('ZIP: ${profile.zipCode}'),
             if (hasPhone) Text('Phone: ${profile.phone}'),
             if (hasWebsite) Text('Website: ${profile.website}'),
-            if (profile.email.trim().isNotEmpty) Text('Email: ${profile.email}'),
+            if (profile.email.trim().isNotEmpty)
+              Text('Email: ${profile.email}'),
           ],
         ),
       ),
@@ -1806,115 +1785,112 @@ class _RestaurantCreateCouponScreenState
                 const Text(
                   'Cancel anytime',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF64748B),
+                  style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            'Post coupons and reach nearby customers with targeted local deals.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 14,
+              color: Color(0xFF475569),
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 10,
+            runSpacing: 10,
+            children: const [
+              Chip(
+                label: Text('Post unlimited coupons'),
+                visualDensity: VisualDensity.compact,
+                backgroundColor: Color(0xFFEFF6FF),
+                side: BorderSide(color: Color(0xFFDBEAFE)),
+                labelStyle: TextStyle(
+                  color: Color(0xFF1E3A8A),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Chip(
+                label: Text('Reach nearby customers'),
+                visualDensity: VisualDensity.compact,
+                backgroundColor: Color(0xFFEFF6FF),
+                side: BorderSide(color: Color(0xFFDBEAFE)),
+                labelStyle: TextStyle(
+                  color: Color(0xFF1E3A8A),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Chip(
+                label: Text('Simple monthly pricing'),
+                visualDensity: VisualDensity.compact,
+                backgroundColor: Color(0xFFEFF6FF),
+                side: BorderSide(color: Color(0xFFDBEAFE)),
+                labelStyle: TextStyle(
+                  color: Color(0xFF1E3A8A),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF0FDF4),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: const Color(0xFFBBF7D0)),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x12000000),
+                  blurRadius: 8,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: EdgeInsets.only(top: 1),
+                  child: Icon(
+                    Icons.verified_user,
+                    size: 18,
+                    color: Color(0xFF15803D),
+                  ),
+                ),
+                SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Payments are securely handled by Stripe. We do not store your card details.',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF166534),
+                      height: 1.4,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
-            const SizedBox(height: 12),
-            const Text(
-              'Post coupons and reach nearby customers with targeted local deals.',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 14,
-                color: Color(0xFF475569),
-                height: 1.4,
-              ),
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: 10,
-              runSpacing: 10,
-              children: const [
-                Chip(
-                  label: Text('Post unlimited coupons'),
-                  visualDensity: VisualDensity.compact,
-                  backgroundColor: Color(0xFFEFF6FF),
-                  side: BorderSide(color: Color(0xFFDBEAFE)),
-                  labelStyle: TextStyle(
-                    color: Color(0xFF1E3A8A),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Chip(
-                  label: Text('Reach nearby customers'),
-                  visualDensity: VisualDensity.compact,
-                  backgroundColor: Color(0xFFEFF6FF),
-                  side: BorderSide(color: Color(0xFFDBEAFE)),
-                  labelStyle: TextStyle(
-                    color: Color(0xFF1E3A8A),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                Chip(
-                  label: Text('Simple monthly pricing'),
-                  visualDensity: VisualDensity.compact,
-                  backgroundColor: Color(0xFFEFF6FF),
-                  side: BorderSide(color: Color(0xFFDBEAFE)),
-                  labelStyle: TextStyle(
-                    color: Color(0xFF1E3A8A),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0FDF4),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFFBBF7D0)),
-                boxShadow: const [
-                  BoxShadow(
-                    color: Color(0x12000000),
-                    blurRadius: 8,
-                    offset: Offset(0, 2),
-                  ),
-                ],
-              ),
-              child: const Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Padding(
-                    padding: EdgeInsets.only(top: 1),
-                    child: Icon(
-                      Icons.verified_user,
-                      size: 18,
-                      color: Color(0xFF15803D),
-                    ),
-                  ),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Payments are securely handled by Stripe. We do not store your card details.',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF166534),
-                        height: 1.4,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton(
-                onPressed: _subscriptionCheckoutLoading
-                    ? null
-                    : _openSubscriptionSignupScreen,
-                style: FilledButton.styleFrom(
-                  backgroundColor: const Color(0xFF111827),
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: FilledButton(
+              onPressed: _subscriptionCheckoutLoading
+                  ? null
+                  : _openSubscriptionSignupScreen,
+              style: FilledButton.styleFrom(
+                backgroundColor: const Color(0xFF111827),
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 16),
                 textStyle: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
@@ -1923,20 +1899,17 @@ class _RestaurantCreateCouponScreenState
                   borderRadius: BorderRadius.circular(16),
                 ),
               ),
-                child: Text(
-                  _subscriptionCheckoutLoading
-                      ? 'Opening Checkout...'
-                      : 'Start Subscription',
-                ),
+              child: Text(
+                _subscriptionCheckoutLoading
+                    ? 'Opening Checkout...'
+                    : 'Start Subscription',
               ),
             ),
+          ),
           const SizedBox(height: 10),
           const Text(
             'Subscription is only required when you are ready to post a coupon.',
-            style: TextStyle(
-              fontSize: 12,
-              color: Color(0xFF64748B),
-            ),
+            style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
           ),
         ],
       ),
@@ -1966,10 +1939,7 @@ class _RestaurantCreateCouponScreenState
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Text(
-                    _couponAccessMessage,
-                    textAlign: TextAlign.center,
-                  ),
+                  Text(_couponAccessMessage, textAlign: TextAlign.center),
                   const SizedBox(height: 20),
                   if (_couponAccessState ==
                       _CouponAccountAccessState.noAccount) ...[
@@ -2003,10 +1973,7 @@ class _RestaurantCreateCouponScreenState
                     TextField(
                       controller: stateController,
                       textInputAction: TextInputAction.next,
-                      decoration: buildInputDecoration(
-                        'State',
-                        'Example: FL',
-                      ),
+                      decoration: buildInputDecoration('State', 'Example: FL'),
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -2056,8 +2023,7 @@ class _RestaurantCreateCouponScreenState
                   ],
                   if (_couponAccessState ==
                           _CouponAccountAccessState.unverified ||
-                      _couponAccessState ==
-                          _CouponAccountAccessState.pending ||
+                      _couponAccessState == _CouponAccountAccessState.pending ||
                       _couponAccessState ==
                           _CouponAccountAccessState.loadFailed)
                     SizedBox(
@@ -2434,9 +2400,11 @@ class _RestaurantCreateCouponScreenState
                 child: Text(
                   couponSaving
                       ? (isEditingCoupon
-                          ? 'Saving Changes...'
-                          : 'Saving Coupon...')
-                      : (isEditingCoupon ? 'Save Coupon Changes' : 'Create Coupon'),
+                            ? 'Saving Changes...'
+                            : 'Saving Coupon...')
+                      : (isEditingCoupon
+                            ? 'Save Coupon Changes'
+                            : 'Create Coupon'),
                 ),
               ),
             ),

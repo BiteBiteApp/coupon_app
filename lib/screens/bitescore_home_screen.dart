@@ -152,7 +152,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     currentPosition = sharedLocation.usingCurrentLocation
         ? sharedLocation.currentPosition
         : null;
-    typedSearchCenter = sharedLocation.usingTypedSearchLocation &&
+    typedSearchCenter =
+        sharedLocation.usingTypedSearchLocation &&
             sharedLocation.typedLatitude != null &&
             sharedLocation.typedLongitude != null
         ? BiteScoreSearchCenter(
@@ -309,8 +310,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
       final locationText = locationDetails.city?.isNotEmpty == true
           ? locationDetails.city!
           : (locationDetails.zip?.isNotEmpty == true
-              ? locationDetails.zip!
-              : '');
+                ? locationDetails.zip!
+                : '');
 
       if (!mounted) return;
       setState(() {
@@ -375,7 +376,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     final center = _activeSearchCenter();
 
     final filtered = entries.where((entry) {
-      final matchesDishQuery = dishQuery.isEmpty ||
+      final matchesDishQuery =
+          dishQuery.isEmpty ||
           entry.dish.name.toLowerCase().contains(dishQuery) ||
           entry.restaurant.name.toLowerCase().contains(dishQuery);
 
@@ -389,7 +391,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
           return false;
         }
       } else {
-        final matchesLocationQuery = locationQuery.isEmpty ||
+        final matchesLocationQuery =
+            locationQuery.isEmpty ||
             entry.restaurant.city.toLowerCase().contains(locationQuery) ||
             entry.restaurant.zipCode.toLowerCase().contains(locationQuery);
         if (!matchesLocationQuery) {
@@ -411,8 +414,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
           }
           return a.dish.name.toLowerCase().compareTo(b.dish.name.toLowerCase());
         case 'Most Reviewed':
-          final byCount =
-              b.aggregate.ratingCount.compareTo(a.aggregate.ratingCount);
+          final byCount = b.aggregate.ratingCount.compareTo(
+            a.aggregate.ratingCount,
+          );
           if (byCount != 0) {
             return byCount;
           }
@@ -445,19 +449,11 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
       isDense: true,
       prefixIcon: prefixIcon == null
           ? null
-          : Icon(
-              prefixIcon,
-              color: BiteRaterTheme.ocean.withOpacity(0.85),
-            ),
-      contentPadding: const EdgeInsets.symmetric(
-        horizontal: 12,
-        vertical: 14,
-      ),
+          : Icon(prefixIcon, color: BiteRaterTheme.ocean.withOpacity(0.85)),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
       enabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(
-          color: BiteRaterTheme.lineBlue,
-        ),
+        borderSide: const BorderSide(color: BiteRaterTheme.lineBlue),
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
@@ -466,9 +462,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
           width: 1.4,
         ),
       ),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-      ),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
     );
   }
 
@@ -487,12 +481,13 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
           controller: controller,
           focusNode: focusNode,
           onSubmitted: (_) => onSearch(),
-          decoration: _inputDecoration(
-            hintText: hintText,
-            prefixIcon: prefixIcon,
-          ).copyWith(
-            contentPadding: const EdgeInsets.fromLTRB(12, 14, 156, 14),
-          ),
+          decoration:
+              _inputDecoration(
+                hintText: hintText,
+                prefixIcon: prefixIcon,
+              ).copyWith(
+                contentPadding: const EdgeInsets.fromLTRB(12, 14, 156, 14),
+              ),
         ),
         Positioned(
           top: 1,
@@ -502,9 +497,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
             decoration: BoxDecoration(
               color: BiteRaterTheme.softSearchBlue,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(
-                color: BiteRaterTheme.ocean.withOpacity(0.10),
-              ),
+              border: Border.all(color: BiteRaterTheme.ocean.withOpacity(0.10)),
               boxShadow: [
                 BoxShadow(
                   color: BiteRaterTheme.ocean.withOpacity(0.05),
@@ -561,9 +554,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
       shadowColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
       minimumSize: const Size.fromHeight(48),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       padding: EdgeInsets.zero,
       textStyle: const TextStyle(
         fontSize: 16,
@@ -582,7 +573,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     bool fullWidth = false,
   }) {
     return DecoratedBox(
-      decoration: decoration ??
+      decoration:
+          decoration ??
           BoxDecoration(
             gradient: gradientColors == null
                 ? BiteRaterTheme.brandGradient
@@ -617,11 +609,10 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     if (!_listScrollController.hasClients) {
       return;
     }
-    final targetOffset = (_expandedHeaderExtent - _collapsedHeaderExtent)
-        .clamp(
-          _listScrollController.position.minScrollExtent,
-          _listScrollController.position.maxScrollExtent,
-        );
+    final targetOffset = (_expandedHeaderExtent - _collapsedHeaderExtent).clamp(
+      _listScrollController.position.minScrollExtent,
+      _listScrollController.position.maxScrollExtent,
+    );
     await _listScrollController.animateTo(
       targetOffset,
       duration: const Duration(milliseconds: 220),
@@ -655,6 +646,17 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     bool showRefresh = true,
   }) {
     final borderRadius = BorderRadius.circular(16);
+    final sharedActionButtonStyle = ElevatedButton.styleFrom(
+      backgroundColor: Theme.of(context).colorScheme.surfaceContainerLowest,
+      foregroundColor: Theme.of(context).colorScheme.primary,
+      elevation: 1,
+      shadowColor: Theme.of(context).colorScheme.shadow.withOpacity(0.20),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      shape: RoundedRectangleBorder(
+        borderRadius: borderRadius,
+        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+      ),
+    );
 
     return Align(
       alignment: Alignment.center,
@@ -666,27 +668,15 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: isGettingLocation ? null : _useMyLocation,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor:
-                      Theme.of(context).colorScheme.surfaceContainerLowest,
-                  foregroundColor: Theme.of(context).colorScheme.primary,
-                  elevation: 1,
-                  shadowColor:
-                      Theme.of(context).colorScheme.shadow.withOpacity(0.20),
-                  minimumSize: Size.fromHeight(minHeight),
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: borderRadius,
-                    side: BorderSide(
-                      color: Theme.of(context).colorScheme.outlineVariant,
-                    ),
+                style: sharedActionButtonStyle.copyWith(
+                  minimumSize: WidgetStatePropertyAll(
+                    Size.fromHeight(minHeight),
+                  ),
+                  padding: const WidgetStatePropertyAll(
+                    EdgeInsets.symmetric(vertical: 10),
                   ),
                 ),
-                icon: const Icon(
-                  Icons.location_on,
-                  size: 18,
-                ),
+                icon: const Icon(Icons.location_on, size: 18),
                 label: Text(
                   isGettingLocation ? 'Getting Location...' : 'Use My Location',
                 ),
@@ -698,18 +688,10 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                 height: minHeight,
                 child: ElevatedButton(
                   onPressed: isGettingLocation ? null : _useMyLocation,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: BiteRaterTheme.scoreFlame,
-                    foregroundColor: Colors.white,
-                    elevation: 1,
-                    minimumSize: const Size(110, 0),
-                    padding: const EdgeInsets.symmetric(horizontal: 18),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: borderRadius,
-                    ),
-                    textStyle: const TextStyle(
-                      fontWeight: FontWeight.w800,
+                  style: sharedActionButtonStyle.copyWith(
+                    minimumSize: const WidgetStatePropertyAll(Size(110, 0)),
+                    padding: const WidgetStatePropertyAll(
+                      EdgeInsets.symmetric(horizontal: 18),
                     ),
                   ),
                   child: const Text('Refresh'),
@@ -735,212 +717,216 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
             child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (collapsed)
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    InkWell(
-                      borderRadius: BorderRadius.circular(12),
-                      onTap: _expandHeader,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: Column(
-                          children: [
-                            Text(
-                              'Expand search',
-                              style: TextStyle(
-                                color: BiteRaterTheme.grape,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w800,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (collapsed)
+                  Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      InkWell(
+                        borderRadius: BorderRadius.circular(12),
+                        onTap: _expandHeader,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Column(
+                            children: [
+                              Text(
+                                'Expand search',
+                                style: TextStyle(
+                                  color: BiteRaterTheme.grape,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
+                              const SizedBox(height: 1),
+                              Icon(
+                                Icons.keyboard_arrow_down,
+                                color: BiteRaterTheme.grape,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
+                else
+                  const SizedBox.shrink(),
+                ClipRect(
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    heightFactor: expansionT,
+                    child: IgnorePointer(
+                      ignoring: collapsed,
+                      child: Opacity(
+                        opacity: expansionT,
+                        child: Stack(
+                          children: [
+                            Column(
+                              mainAxisSize: MainAxisSize.min,
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                _buildSearchField(
+                                  controller: dishSearchController,
+                                  hintText: 'Search dishes or restaurants',
+                                  prefixIcon: Icons.restaurant_menu,
+                                  onSearch: () {
+                                    setState(() {});
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                _buildSearchField(
+                                  controller: locationSearchController,
+                                  focusNode: _locationSearchFocusNode,
+                                  hintText: 'Enter city or ZIP code',
+                                  prefixIcon: Icons.search,
+                                  onSearch: _searchLocation,
+                                  showArrowIcon: false,
+                                ),
+                                const SizedBox(height: 12),
+                                _buildLocationActionRow(minHeight: 40),
+                                const SizedBox(height: 12),
+                                DropdownButtonFormField<String>(
+                                  initialValue: selectedRadius,
+                                  decoration: _inputDecoration(
+                                    hintText: 'Radius',
+                                  ),
+                                  items: const [
+                                    DropdownMenuItem(
+                                      value: '1 mile',
+                                      child: Text('1 mile'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: '5 miles',
+                                      child: Text('5 miles'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: '10 miles',
+                                      child: Text('10 miles'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: '15 miles',
+                                      child: Text('15 miles'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: '25 miles',
+                                      child: Text('25 miles'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: '30 miles',
+                                      child: Text('30 miles'),
+                                    ),
+                                  ],
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setState(() {
+                                        selectedRadius = value;
+                                      });
+                                      _saveSelectedRadius(value);
+                                    }
+                                  },
+                                ),
+                                const SizedBox(height: 12),
+                                DropdownButtonFormField<String>(
+                                  initialValue: selectedSort,
+                                  decoration: _inputDecoration(
+                                    hintText: 'Sort',
+                                  ),
+                                  items: const [
+                                    DropdownMenuItem(
+                                      value: 'Top Rated',
+                                      child: Text('Top Rated'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Most Reviewed',
+                                      child: Text('Most Reviewed'),
+                                    ),
+                                    DropdownMenuItem(
+                                      value: 'Closest',
+                                      child: Text('Closest'),
+                                    ),
+                                  ],
+                                  onChanged: (value) {
+                                    if (value != null) {
+                                      setState(() {
+                                        selectedSort = value;
+                                      });
+                                    }
+                                  },
+                                ),
+                                const SizedBox(height: 8),
+                                SizedBox(
+                                  width: double.infinity,
+                                  child: _buildBiteScoreActionButton(
+                                    label: 'Create and Rate',
+                                    onPressed: _openCreateAndRate,
+                                    fullWidth: true,
+                                    style: _chromeActionButtonStyle(),
+                                    decoration: BoxDecoration(
+                                      gradient: const LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          Color(0xFFF8F8F6),
+                                          Color(0xFFE1E1DC),
+                                          Color(0xFFB8B8B1),
+                                          Color(0xFFEAEAE5),
+                                          Color(0xFF8F8F89),
+                                        ],
+                                        stops: [0.0, 0.18, 0.44, 0.68, 1.0],
+                                      ),
+                                      borderRadius: BorderRadius.circular(16),
+                                      border: Border.all(
+                                        color: const Color(
+                                          0xFFFDFDFB,
+                                        ).withOpacity(0.95),
+                                        width: 1.2,
+                                      ),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.white.withOpacity(0.75),
+                                          blurRadius: 0,
+                                          offset: const Offset(0, -1),
+                                        ),
+                                        BoxShadow(
+                                          color: const Color(
+                                            0xFF6C6C67,
+                                          ).withOpacity(0.28),
+                                          blurRadius: 16,
+                                          offset: const Offset(0, 8),
+                                        ),
+                                        BoxShadow(
+                                          color: const Color(
+                                            0xFFFFFFFF,
+                                          ).withOpacity(0.38),
+                                          blurRadius: 12,
+                                          offset: const Offset(-4, -4),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 0),
+                              ],
                             ),
-                            const SizedBox(height: 1),
-                            Icon(
-                              Icons.keyboard_arrow_down,
-                              color: BiteRaterTheme.grape,
+                            Positioned(
+                              top: -6,
+                              right: -6,
+                              child: IconButton(
+                                onPressed: _collapseHeader,
+                                icon: const Icon(Icons.keyboard_arrow_up),
+                                tooltip: 'Collapse filters',
+                                visualDensity: VisualDensity.compact,
+                              ),
                             ),
                           ],
                         ),
                       ),
                     ),
-                  ],
-                )
-              else
-                const SizedBox.shrink(),
-              ClipRect(
-                child: Align(
-                  alignment: Alignment.topCenter,
-                  heightFactor: expansionT,
-                  child: IgnorePointer(
-                    ignoring: collapsed,
-                    child: Opacity(
-                      opacity: expansionT,
-                      child: Stack(
-                        children: [
-                          Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildSearchField(
-                                controller: dishSearchController,
-                                hintText: 'Search dishes or restaurants',
-                                prefixIcon: Icons.restaurant_menu,
-                                onSearch: () {
-                                  setState(() {});
-                                },
-                              ),
-                              const SizedBox(height: 12),
-                              _buildSearchField(
-                                controller: locationSearchController,
-                                focusNode: _locationSearchFocusNode,
-                                hintText: 'Enter city or ZIP code',
-                                prefixIcon: Icons.search,
-                                onSearch: _searchLocation,
-                                showArrowIcon: false,
-                              ),
-                              const SizedBox(height: 12),
-                              _buildLocationActionRow(minHeight: 40),
-                              const SizedBox(height: 12),
-                              DropdownButtonFormField<String>(
-                                initialValue: selectedRadius,
-                                decoration: _inputDecoration(hintText: 'Radius'),
-                                items: const [
-                                  DropdownMenuItem(
-                                    value: '1 mile',
-                                    child: Text('1 mile'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: '5 miles',
-                                    child: Text('5 miles'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: '10 miles',
-                                    child: Text('10 miles'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: '15 miles',
-                                    child: Text('15 miles'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: '25 miles',
-                                    child: Text('25 miles'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: '30 miles',
-                                    child: Text('30 miles'),
-                                  ),
-                                ],
-                                onChanged: (value) {
-                                  if (value != null) {
-                                    setState(() {
-                                      selectedRadius = value;
-                                    });
-                                    _saveSelectedRadius(value);
-                                  }
-                                },
-                              ),
-                              const SizedBox(height: 12),
-                              DropdownButtonFormField<String>(
-                                initialValue: selectedSort,
-                                decoration: _inputDecoration(hintText: 'Sort'),
-                                items: const [
-                                  DropdownMenuItem(
-                                    value: 'Top Rated',
-                                    child: Text('Top Rated'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'Most Reviewed',
-                                    child: Text('Most Reviewed'),
-                                  ),
-                                  DropdownMenuItem(
-                                    value: 'Closest',
-                                    child: Text('Closest'),
-                                  ),
-                                ],
-                                onChanged: (value) {
-                                  if (value != null) {
-                                    setState(() {
-                                      selectedSort = value;
-                                    });
-                                  }
-                                },
-                              ),
-                              const SizedBox(height: 8),
-                              SizedBox(
-                                width: double.infinity,
-                                child: _buildBiteScoreActionButton(
-                                  label: 'Create and Rate',
-                                  onPressed: _openCreateAndRate,
-                                  fullWidth: true,
-                                  style: _chromeActionButtonStyle(),
-                                  decoration: BoxDecoration(
-                                    gradient: const LinearGradient(
-                                      begin: Alignment.topLeft,
-                                      end: Alignment.bottomRight,
-                                      colors: [
-                                        Color(0xFFF8F8F6),
-                                        Color(0xFFE1E1DC),
-                                        Color(0xFFB8B8B1),
-                                        Color(0xFFEAEAE5),
-                                        Color(0xFF8F8F89),
-                                      ],
-                                      stops: [0.0, 0.18, 0.44, 0.68, 1.0],
-                                    ),
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: const Color(
-                                        0xFFFDFDFB,
-                                      ).withOpacity(0.95),
-                                      width: 1.2,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: Colors.white.withOpacity(0.75),
-                                        blurRadius: 0,
-                                        offset: const Offset(0, -1),
-                                      ),
-                                      BoxShadow(
-                                        color: const Color(
-                                          0xFF6C6C67,
-                                        ).withOpacity(0.28),
-                                        blurRadius: 16,
-                                        offset: const Offset(0, 8),
-                                      ),
-                                      BoxShadow(
-                                        color: const Color(
-                                          0xFFFFFFFF,
-                                        ).withOpacity(0.38),
-                                        blurRadius: 12,
-                                        offset: const Offset(-4, -4),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(height: 0),
-                            ],
-                          ),
-                          Positioned(
-                            top: -6,
-                            right: -6,
-                            child: IconButton(
-                              onPressed: _collapseHeader,
-                              icon: const Icon(Icons.keyboard_arrow_up),
-                              tooltip: 'Collapse filters',
-                              visualDensity: VisualDensity.compact,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
         ),
       ),
     );
@@ -988,9 +974,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
 
     final refreshed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => BiteScoreCreateRateScreen(
-          existingEntry: entry,
-        ),
+        builder: (_) => BiteScoreCreateRateScreen(existingEntry: entry),
       ),
     );
 
@@ -1018,9 +1002,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         children: [
           BiteRaterTheme.pressableSection(
             onTap: () => _openDishDetail(entry),
-            borderRadius: const BorderRadius.vertical(
-              top: Radius.circular(20),
-            ),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
             border: const Border(
               top: BorderSide(color: BiteRaterTheme.lineBlue),
               left: BorderSide(color: BiteRaterTheme.lineBlue),
@@ -1182,9 +1164,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     }
 
     final created = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => const BiteScoreCreateRateScreen(),
-      ),
+      MaterialPageRoute(builder: (_) => const BiteScoreCreateRateScreen()),
     );
 
     if (created == true && mounted) {
@@ -1331,34 +1311,31 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
 
   Widget _buildResultsSliver(List<BiteScoreHomeEntry> entries) {
     return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          if (entries.isEmpty) {
-            return Padding(
-              padding: const EdgeInsets.only(top: 12),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(20),
-                decoration: BiteRaterTheme.surfaceDecoration(
-                  accentColor: BiteRaterTheme.ocean,
-                ),
-                child: const Text(
-                  'No BiteScore dishes found yet. Use Create and Rate to add the first one.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: BiteRaterTheme.mutedInk,
-                    fontWeight: FontWeight.w700,
-                    height: 1.3,
-                  ),
+      delegate: SliverChildBuilderDelegate((context, index) {
+        if (entries.isEmpty) {
+          return Padding(
+            padding: const EdgeInsets.only(top: 12),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(20),
+              decoration: BiteRaterTheme.surfaceDecoration(
+                accentColor: BiteRaterTheme.ocean,
+              ),
+              child: const Text(
+                'No BiteScore dishes found yet. Use Create and Rate to add the first one.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: BiteRaterTheme.mutedInk,
+                  fontWeight: FontWeight.w700,
+                  height: 1.3,
                 ),
               ),
-            );
-          }
+            ),
+          );
+        }
 
-          return _buildEntryCard(entries[index], _entries);
-        },
-        childCount: entries.isEmpty ? 1 : entries.length,
-      ),
+        return _buildEntryCard(entries[index], _entries);
+      }, childCount: entries.isEmpty ? 1 : entries.length),
     );
   }
 
@@ -1385,10 +1362,10 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
             sliver: !_hasLocationOrZipInput
                 ? _buildGetStartedState()
                 : _loadError != null && _entries.isEmpty
-                    ? _buildInlineErrorState()
-                    : _isLoading && _entries.isEmpty
-                        ? _buildInlineLoadingState()
-                        : _buildResultsSliver(filteredEntries),
+                ? _buildInlineErrorState()
+                : _isLoading && _entries.isEmpty
+                ? _buildInlineLoadingState()
+                : _buildResultsSliver(filteredEntries),
           ),
         ],
       ),
@@ -1420,10 +1397,14 @@ class _BiteScoreHeaderDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     final availableRange = (maxExtent - minExtent).clamp(1, double.infinity);
-    final currentExtent =
-        (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
-    final expansionT =
-        ((currentExtent - minExtent) / availableRange).clamp(0.0, 1.0);
+    final currentExtent = (maxExtent - shrinkOffset).clamp(
+      minExtent,
+      maxExtent,
+    );
+    final expansionT = ((currentExtent - minExtent) / availableRange).clamp(
+      0.0,
+      1.0,
+    );
 
     return ClipRect(
       child: SizedBox(
