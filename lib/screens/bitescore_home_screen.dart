@@ -37,7 +37,7 @@ class BiteScoreHomeScreen extends StatefulWidget {
 
 class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   static const double _collapsedHeaderExtent = 86;
-  static const double _expandedHeaderExtent = 392;
+  static const double _expandedHeaderExtent = 320;
   static const String _selectedRadiusPreferenceKey = 'selected_radius';
 
   final TextEditingController dishSearchController = TextEditingController();
@@ -445,24 +445,24 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     return InputDecoration(
       hintText: hintText,
       filled: true,
-      fillColor: Colors.white,
+      fillColor: const Color(0xFFFCFDFC),
       isDense: true,
       prefixIcon: prefixIcon == null
           ? null
           : Icon(prefixIcon, color: BiteRaterTheme.ocean.withOpacity(0.85)),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: BiteRaterTheme.lineBlue),
+        borderRadius: BorderRadius.circular(16),
+        borderSide: const BorderSide(color: BiteRaterTheme.lineBlue, width: 1),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(16),
         borderSide: BorderSide(
           color: BiteRaterTheme.ocean.withOpacity(0.55),
           width: 1.4,
         ),
       ),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
     );
   }
 
@@ -486,7 +486,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                 hintText: hintText,
                 prefixIcon: prefixIcon,
               ).copyWith(
-                contentPadding: const EdgeInsets.fromLTRB(12, 14, 156, 14),
+                contentPadding: const EdgeInsets.fromLTRB(12, 12, 156, 12),
               ),
         ),
         Positioned(
@@ -496,13 +496,13 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: BiteRaterTheme.softSearchBlue,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: BiteRaterTheme.ocean.withOpacity(0.10)),
               boxShadow: [
                 BoxShadow(
                   color: BiteRaterTheme.ocean.withOpacity(0.05),
-                  blurRadius: 8,
-                  offset: const Offset(0, 2),
+                  blurRadius: 6,
+                  offset: const Offset(0, 1),
                 ),
               ],
             ),
@@ -510,7 +510,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
               color: Colors.transparent,
               child: InkWell(
                 onTap: onSearch,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(16),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 18),
                   child: Row(
@@ -549,7 +549,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
 
   ButtonStyle _chromeActionButtonStyle() {
     return ElevatedButton.styleFrom(
-      foregroundColor: const Color(0xFF20201E),
+      foregroundColor: const Color(0xFF171715),
       backgroundColor: Colors.transparent,
       shadowColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
@@ -558,8 +558,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
       padding: EdgeInsets.zero,
       textStyle: const TextStyle(
         fontSize: 16,
-        fontWeight: FontWeight.w800,
-        letterSpacing: 0.2,
+        fontWeight: FontWeight.w900,
+        letterSpacing: 0.35,
       ),
     );
   }
@@ -710,221 +710,254 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     return Material(
       color: Colors.transparent,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-        child: BiteRaterTheme.liftedCard(
-          radius: 20,
-          borderColor: BiteRaterTheme.coral.withOpacity(0.22),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (collapsed)
-                  Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      InkWell(
-                        borderRadius: BorderRadius.circular(12),
-                        onTap: _expandHeader,
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: Column(
-                            children: [
-                              Text(
-                                'Expand search',
-                                style: TextStyle(
-                                  color: BiteRaterTheme.grape,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            color: const Color(0xFFFDFDFC),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x12000000),
+                blurRadius: 0,
+                spreadRadius: 1,
+              ),
+              BoxShadow(
+                color: Color(0x240F172A),
+                blurRadius: 24,
+                offset: Offset(0, 9),
+              ),
+              BoxShadow(
+                color: Color(0x120F172A),
+                blurRadius: 8,
+                offset: Offset(0, 2),
+              ),
+            ],
+          ),
+          child: BiteRaterTheme.liftedCard(
+            radius: 20,
+            borderColor: BiteRaterTheme.coral.withOpacity(0.34),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (collapsed)
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        InkWell(
+                          borderRadius: BorderRadius.circular(12),
+                          onTap: _expandHeader,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 2),
+                            child: Column(
+                              children: [
+                                Text(
+                                  'Expand search',
+                                  style: TextStyle(
+                                    color: BiteRaterTheme.grape,
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                  ),
                                 ),
+                                const SizedBox(height: 1),
+                                Icon(
+                                  Icons.keyboard_arrow_down,
+                                  color: BiteRaterTheme.grape,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    )
+                  else
+                    const SizedBox.shrink(),
+                  ClipRect(
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      heightFactor: expansionT,
+                      child: IgnorePointer(
+                        ignoring: collapsed,
+                        child: Opacity(
+                          opacity: expansionT,
+                          child: Stack(
+                            children: [
+                              Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  _buildSearchField(
+                                    controller: dishSearchController,
+                                    hintText: 'Search dishes or restaurants',
+                                    prefixIcon: Icons.restaurant_menu,
+                                    onSearch: () {
+                                      setState(() {});
+                                    },
+                                  ),
+                                  const SizedBox(height: 4),
+                                  _buildSearchField(
+                                    controller: locationSearchController,
+                                    focusNode: _locationSearchFocusNode,
+                                    hintText: 'Enter city or ZIP code',
+                                    prefixIcon: Icons.search,
+                                    onSearch: _searchLocation,
+                                    showArrowIcon: false,
+                                  ),
+                                  const SizedBox(height: 4),
+                                  _buildLocationActionRow(minHeight: 40),
+                                  const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: DropdownButtonFormField<String>(
+                                          initialValue: selectedRadius,
+                                          decoration: _inputDecoration(
+                                            hintText: 'Radius',
+                                          ),
+                                          items: const [
+                                            DropdownMenuItem(
+                                              value: '1 mile',
+                                              child: Text('1 mile'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '5 miles',
+                                              child: Text('5 miles'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '10 miles',
+                                              child: Text('10 miles'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '15 miles',
+                                              child: Text('15 miles'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '25 miles',
+                                              child: Text('25 miles'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '30 miles',
+                                              child: Text('30 miles'),
+                                            ),
+                                          ],
+                                          onChanged: (value) {
+                                            if (value != null) {
+                                              setState(() {
+                                                selectedRadius = value;
+                                              });
+                                              _saveSelectedRadius(value);
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        child: DropdownButtonFormField<String>(
+                                          initialValue: selectedSort,
+                                          decoration: _inputDecoration(
+                                            hintText: 'Sort',
+                                          ),
+                                          items: const [
+                                            DropdownMenuItem(
+                                              value: 'Top Rated',
+                                              child: Text('Top Rated'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: 'Most Reviewed',
+                                              child: Text('Most Reviewed'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: 'Closest',
+                                              child: Text('Closest'),
+                                            ),
+                                          ],
+                                          onChanged: (value) {
+                                            if (value != null) {
+                                              setState(() {
+                                                selectedSort = value;
+                                              });
+                                            }
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 3),
+                                  SizedBox(
+                                    width: double.infinity,
+                                    child: _buildBiteScoreActionButton(
+                                      label: 'Create and Rate',
+                                      onPressed: _openCreateAndRate,
+                                      fullWidth: true,
+                                      style: _chromeActionButtonStyle(),
+                                      decoration: BoxDecoration(
+                                        gradient: const LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            Color(0xFFFFFFFF),
+                                            Color(0xFFF0F0EB),
+                                            Color(0xFFAEAEA6),
+                                            Color(0xFFE6E6E0),
+                                            Color(0xFF74746F),
+                                          ],
+                                          stops: [0.0, 0.16, 0.42, 0.7, 1.0],
+                                        ),
+                                        borderRadius: BorderRadius.circular(16),
+                                        border: Border.all(
+                                          color: const Color(
+                                            0xFFFDFDFB,
+                                          ).withOpacity(1),
+                                          width: 1.6,
+                                        ),
+                                        boxShadow: [
+                                          BoxShadow(
+                                            color: Colors.white.withOpacity(
+                                              0.85,
+                                            ),
+                                            blurRadius: 0,
+                                            offset: const Offset(0, -1),
+                                          ),
+                                          BoxShadow(
+                                            color: const Color(
+                                              0xFF6C6C67,
+                                            ).withOpacity(0.40),
+                                            blurRadius: 22,
+                                            offset: const Offset(0, 11),
+                                          ),
+                                          BoxShadow(
+                                            color: const Color(
+                                              0xFFFFFFFF,
+                                            ).withOpacity(0.48),
+                                            blurRadius: 14,
+                                            offset: const Offset(-4, -4),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 0),
+                                ],
                               ),
-                              const SizedBox(height: 1),
-                              Icon(
-                                Icons.keyboard_arrow_down,
-                                color: BiteRaterTheme.grape,
+                              Positioned(
+                                top: -6,
+                                right: -6,
+                                child: IconButton(
+                                  onPressed: _collapseHeader,
+                                  icon: const Icon(Icons.keyboard_arrow_up),
+                                  tooltip: 'Collapse filters',
+                                  visualDensity: VisualDensity.compact,
+                                ),
                               ),
                             ],
                           ),
                         ),
                       ),
-                    ],
-                  )
-                else
-                  const SizedBox.shrink(),
-                ClipRect(
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    heightFactor: expansionT,
-                    child: IgnorePointer(
-                      ignoring: collapsed,
-                      child: Opacity(
-                        opacity: expansionT,
-                        child: Stack(
-                          children: [
-                            Column(
-                              mainAxisSize: MainAxisSize.min,
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                _buildSearchField(
-                                  controller: dishSearchController,
-                                  hintText: 'Search dishes or restaurants',
-                                  prefixIcon: Icons.restaurant_menu,
-                                  onSearch: () {
-                                    setState(() {});
-                                  },
-                                ),
-                                const SizedBox(height: 12),
-                                _buildSearchField(
-                                  controller: locationSearchController,
-                                  focusNode: _locationSearchFocusNode,
-                                  hintText: 'Enter city or ZIP code',
-                                  prefixIcon: Icons.search,
-                                  onSearch: _searchLocation,
-                                  showArrowIcon: false,
-                                ),
-                                const SizedBox(height: 12),
-                                _buildLocationActionRow(minHeight: 40),
-                                const SizedBox(height: 12),
-                                DropdownButtonFormField<String>(
-                                  initialValue: selectedRadius,
-                                  decoration: _inputDecoration(
-                                    hintText: 'Radius',
-                                  ),
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: '1 mile',
-                                      child: Text('1 mile'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: '5 miles',
-                                      child: Text('5 miles'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: '10 miles',
-                                      child: Text('10 miles'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: '15 miles',
-                                      child: Text('15 miles'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: '25 miles',
-                                      child: Text('25 miles'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: '30 miles',
-                                      child: Text('30 miles'),
-                                    ),
-                                  ],
-                                  onChanged: (value) {
-                                    if (value != null) {
-                                      setState(() {
-                                        selectedRadius = value;
-                                      });
-                                      _saveSelectedRadius(value);
-                                    }
-                                  },
-                                ),
-                                const SizedBox(height: 12),
-                                DropdownButtonFormField<String>(
-                                  initialValue: selectedSort,
-                                  decoration: _inputDecoration(
-                                    hintText: 'Sort',
-                                  ),
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 'Top Rated',
-                                      child: Text('Top Rated'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'Most Reviewed',
-                                      child: Text('Most Reviewed'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 'Closest',
-                                      child: Text('Closest'),
-                                    ),
-                                  ],
-                                  onChanged: (value) {
-                                    if (value != null) {
-                                      setState(() {
-                                        selectedSort = value;
-                                      });
-                                    }
-                                  },
-                                ),
-                                const SizedBox(height: 8),
-                                SizedBox(
-                                  width: double.infinity,
-                                  child: _buildBiteScoreActionButton(
-                                    label: 'Create and Rate',
-                                    onPressed: _openCreateAndRate,
-                                    fullWidth: true,
-                                    style: _chromeActionButtonStyle(),
-                                    decoration: BoxDecoration(
-                                      gradient: const LinearGradient(
-                                        begin: Alignment.topLeft,
-                                        end: Alignment.bottomRight,
-                                        colors: [
-                                          Color(0xFFF8F8F6),
-                                          Color(0xFFE1E1DC),
-                                          Color(0xFFB8B8B1),
-                                          Color(0xFFEAEAE5),
-                                          Color(0xFF8F8F89),
-                                        ],
-                                        stops: [0.0, 0.18, 0.44, 0.68, 1.0],
-                                      ),
-                                      borderRadius: BorderRadius.circular(16),
-                                      border: Border.all(
-                                        color: const Color(
-                                          0xFFFDFDFB,
-                                        ).withOpacity(0.95),
-                                        width: 1.2,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: Colors.white.withOpacity(0.75),
-                                          blurRadius: 0,
-                                          offset: const Offset(0, -1),
-                                        ),
-                                        BoxShadow(
-                                          color: const Color(
-                                            0xFF6C6C67,
-                                          ).withOpacity(0.28),
-                                          blurRadius: 16,
-                                          offset: const Offset(0, 8),
-                                        ),
-                                        BoxShadow(
-                                          color: const Color(
-                                            0xFFFFFFFF,
-                                          ).withOpacity(0.38),
-                                          blurRadius: 12,
-                                          offset: const Offset(-4, -4),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 0),
-                              ],
-                            ),
-                            Positioned(
-                              top: -6,
-                              right: -6,
-                              child: IconButton(
-                                onPressed: _collapseHeader,
-                                icon: const Icon(Icons.keyboard_arrow_up),
-                                tooltip: 'Collapse filters',
-                                visualDensity: VisualDensity.compact,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -1009,7 +1042,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
               right: BorderSide(color: BiteRaterTheme.lineBlue),
             ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1017,7 +1050,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
-                        vertical: 12,
+                        vertical: 11,
                       ),
                       decoration: BoxDecoration(
                         gradient: BiteRaterTheme.softHeroGradient,
@@ -1042,9 +1075,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                         entry.dish.name,
                         style: const TextStyle(
                           color: BiteRaterTheme.ink,
-                          fontSize: 19,
+                          fontSize: 18,
                           fontWeight: FontWeight.w900,
-                          letterSpacing: 0.1,
+                          letterSpacing: 0.05,
                         ),
                       ),
                     ),
@@ -1062,7 +1095,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                           color: BiteRaterTheme.scoreFlame,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 1),
                       const Text(
                         'BiteScore',
                         style: TextStyle(
@@ -1072,11 +1105,11 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                           color: BiteRaterTheme.scoreFlame,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 1),
                       Text(
                         '${entry.aggregate.ratingCount} ratings',
                         style: const TextStyle(
-                          fontSize: 12,
+                          fontSize: 11,
                           color: BiteRaterTheme.mutedInk,
                           fontWeight: FontWeight.w600,
                         ),
@@ -1107,7 +1140,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
             ),
             pressedScale: 0.98,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(18, 12, 18, 18),
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1115,26 +1148,29 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                     entry.restaurant.name,
                     style: const TextStyle(
                       color: BiteRaterTheme.ocean,
+                      fontSize: 14,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Text(
                     '${entry.restaurant.city}, ${entry.restaurant.zipCode}',
                     style: const TextStyle(
                       color: BiteRaterTheme.mutedInk,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Text(
                     _distanceLabel(entry),
                     style: const TextStyle(
                       color: BiteRaterTheme.mutedInk,
+                      fontSize: 12,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   Row(
                     children: [
                       OutlinedButton(
@@ -1358,7 +1394,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
             ),
           ),
           SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 6, 16, 16),
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
             sliver: !_hasLocationOrZipInput
                 ? _buildGetStartedState()
                 : _loadError != null && _entries.isEmpty
