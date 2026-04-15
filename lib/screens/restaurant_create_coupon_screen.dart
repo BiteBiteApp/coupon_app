@@ -27,6 +27,7 @@ class _RestaurantCreateCouponScreenState
   final TextEditingController restaurantNameController =
       TextEditingController();
   final TextEditingController cityController = TextEditingController();
+  final TextEditingController stateController = TextEditingController();
   final TextEditingController zipCodeController = TextEditingController();
   final TextEditingController distanceController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
@@ -197,6 +198,7 @@ class _RestaurantCreateCouponScreenState
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    stateController.dispose();
     requestedRestaurantNameController.dispose();
     super.dispose();
   }
@@ -332,6 +334,7 @@ class _RestaurantCreateCouponScreenState
     final localProfile = LocalRestaurantProfileStore.profile.value;
     restaurantNameController.text = localProfile.name;
     cityController.text = localProfile.city;
+    stateController.text = localProfile.state;
     zipCodeController.text = localProfile.zipCode;
     distanceController.text = '';
     emailController.text = currentUser?.email ?? localProfile.email;
@@ -412,6 +415,10 @@ class _RestaurantCreateCouponScreenState
             (data['city'] as String?)?.trim().isNotEmpty == true
                 ? data['city'] as String
                 : cityController.text;
+        stateController.text =
+            (data[Restaurant.fieldState] as String?)?.trim().isNotEmpty == true
+                ? data[Restaurant.fieldState] as String
+                : stateController.text;
         zipCodeController.text =
             (data['zipCode'] as String?)?.trim().isNotEmpty == true
                 ? data['zipCode'] as String
@@ -456,6 +463,9 @@ class _RestaurantCreateCouponScreenState
           city: cityController.text.trim().isEmpty
               ? 'Lecanto'
               : cityController.text.trim(),
+          state: stateController.text.trim().isEmpty
+              ? 'FL'
+              : stateController.text.trim(),
           zipCode: zipCodeController.text.trim().isEmpty
               ? '34461'
               : zipCodeController.text.trim(),
@@ -633,6 +643,7 @@ class _RestaurantCreateCouponScreenState
     final restaurantName = restaurantNameController.text.trim();
     final streetAddress = streetAddressController.text.trim();
     final city = cityController.text.trim();
+    final state = stateController.text.trim();
     final zipCode = zipCodeController.text.trim();
     final phone = phoneController.text.trim();
 
@@ -646,6 +657,10 @@ class _RestaurantCreateCouponScreenState
     }
     if (city.isEmpty) {
       _showSnackBar('City is required.');
+      return;
+    }
+    if (state.isEmpty) {
+      _showSnackBar('State is required.');
       return;
     }
     if (zipCode.isEmpty) {
@@ -667,6 +682,7 @@ class _RestaurantCreateCouponScreenState
         restaurantName: restaurantName,
         streetAddress: streetAddress,
         city: city,
+        state: state,
         zipCode: zipCode,
         phone: phone,
         markApplicationSubmitted: true,
@@ -898,12 +914,19 @@ class _RestaurantCreateCouponScreenState
 
   String? _validateProfileInput() {
     final name = restaurantNameController.text.trim();
+    final streetAddress = streetAddressController.text.trim();
     final city = cityController.text.trim();
+    final state = stateController.text.trim();
     final zipCode = zipCodeController.text.trim();
     final email = emailController.text.trim();
 
-    if (name.isEmpty || city.isEmpty || zipCode.isEmpty || email.isEmpty) {
-      return 'Please complete the required profile fields: name, city, ZIP, and email.';
+    if (name.isEmpty ||
+        streetAddress.isEmpty ||
+        city.isEmpty ||
+        state.isEmpty ||
+        zipCode.isEmpty ||
+        email.isEmpty) {
+      return 'Please complete the required profile fields: name, street, city, state, ZIP, and email.';
     }
 
     return null;
@@ -956,13 +979,14 @@ class _RestaurantCreateCouponScreenState
 
     final name = restaurantNameController.text.trim();
     final city = cityController.text.trim();
+    final state = stateController.text.trim();
     final zipCode = zipCodeController.text.trim();
     final email = emailController.text.trim();
     final phone = phoneController.text.trim();
     final streetAddress = streetAddressController.text.trim();
     final website = websiteController.text.trim();
     final bio = bioController.text.trim();
-    final fullAddress = '$streetAddress, $city, $zipCode';
+    final fullAddress = '$streetAddress, $city, $state $zipCode';
 
     double? latitude;
     double? longitude;
@@ -990,6 +1014,7 @@ class _RestaurantCreateCouponScreenState
         uid: user.uid,
         name: name,
         city: city,
+        state: state,
         zipCode: zipCode,
         email: email,
         phone: phone,
@@ -1006,6 +1031,7 @@ class _RestaurantCreateCouponScreenState
         RestaurantProfileData(
           name: name,
           city: city,
+          state: state,
           zipCode: zipCode,
           distance: 'Distance calculated from location',
           email: email,
@@ -1046,9 +1072,9 @@ class _RestaurantCreateCouponScreenState
       return;
     }
 
-    final canPostCoupons = await RestaurantAccountService.canPostCoupons(
-      user.uid,
-    );
+    final accountData = await RestaurantAccountService.getAccountData(user.uid);
+    final canPostCoupons =
+        RestaurantAccountService.hasCouponPostingAccess(accountData);
     if (!canPostCoupons) {
       await _openPaywallScreen();
       return;
@@ -1622,6 +1648,7 @@ class _RestaurantCreateCouponScreenState
             const SizedBox(height: 6),
             if (hasAddress) Text('Address: ${profile.streetAddress}'),
             Text('City: ${profile.city}'),
+            Text('State: ${profile.state}'),
             Text('ZIP: ${profile.zipCode}'),
             if (hasPhone) Text('Phone: ${profile.phone}'),
             if (hasWebsite) Text('Website: ${profile.website}'),
@@ -1909,6 +1936,15 @@ class _RestaurantCreateCouponScreenState
                     ),
                     const SizedBox(height: 12),
                     TextField(
+                      controller: stateController,
+                      textInputAction: TextInputAction.next,
+                      decoration: buildInputDecoration(
+                        'State',
+                        'Example: FL',
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
                       controller: zipCodeController,
                       textInputAction: TextInputAction.next,
                       decoration: buildInputDecoration(
@@ -2120,6 +2156,11 @@ class _RestaurantCreateCouponScreenState
             TextField(
               controller: cityController,
               decoration: buildInputDecoration('City', 'Example: Lecanto'),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: stateController,
+              decoration: buildInputDecoration('State', 'Example: FL'),
             ),
             const SizedBox(height: 16),
             TextField(

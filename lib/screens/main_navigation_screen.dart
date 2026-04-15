@@ -56,17 +56,25 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   Future<void> _listenForSubscriptionReturnLinks() async {
     try {
       final initialUri = await _appLinks.getInitialLink();
-      _handleSubscriptionReturnUri(initialUri);
+      _handleIncomingDeepLink(initialUri);
     } catch (_) {}
 
     _subscriptionReturnSubscription = _appLinks.uriLinkStream.listen(
-      _handleSubscriptionReturnUri,
+      _handleIncomingDeepLink,
       onError: (_) {},
     );
   }
 
-  void _handleSubscriptionReturnUri(Uri? uri) {
+  void _handleIncomingDeepLink(Uri? uri) {
     if (uri == null) {
+      return;
+    }
+
+    if (uri.scheme == 'bitesaver' && uri.host == 'subscription-success') {
+      _openMainScreenWithMessage(
+        message: 'Subscription active',
+        mode: AppMode.biteSaver,
+      );
       return;
     }
 
@@ -86,6 +94,23 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       return;
     }
 
+    _openMainScreenWithMessage(
+      message: message,
+      mode: AppMode.biteSaver,
+    );
+  }
+
+  void _openMainScreenWithMessage({
+    required String message,
+    required AppMode mode,
+  }) {
+    if (mounted) {
+      setState(() {
+        selectedIndex = 0;
+        selectedMode = mode;
+      });
+    }
+    AppModeStateService.setMode(mode);
     rootScaffoldMessengerKey.currentState
       ?..hideCurrentSnackBar()
       ..showSnackBar(

@@ -27,6 +27,7 @@ class RestaurantAccountService {
     String? restaurantName,
     String? streetAddress,
     String? city,
+    String? state,
     String? zipCode,
     String? phone,
     bool markApplicationSubmitted = false,
@@ -36,6 +37,7 @@ class RestaurantAccountService {
     final trimmedRestaurantName = restaurantName?.trim();
     final trimmedStreetAddress = streetAddress?.trim();
     final trimmedCity = city?.trim();
+    final trimmedState = state?.trim();
     final trimmedZipCode = zipCode?.trim();
     final trimmedPhone = phone?.trim();
 
@@ -49,6 +51,8 @@ class RestaurantAccountService {
           Restaurant.fieldStreetAddress: trimmedStreetAddress,
         if (trimmedCity != null && trimmedCity.isNotEmpty)
           Restaurant.fieldCity: trimmedCity,
+        if (trimmedState != null && trimmedState.isNotEmpty)
+          Restaurant.fieldState: trimmedState,
         if (trimmedZipCode != null && trimmedZipCode.isNotEmpty)
           Restaurant.fieldZipCode: trimmedZipCode,
         if (trimmedPhone != null && trimmedPhone.isNotEmpty)
@@ -71,6 +75,8 @@ class RestaurantAccountService {
         Restaurant.fieldStreetAddress: trimmedStreetAddress,
       if (trimmedCity != null && trimmedCity.isNotEmpty)
         Restaurant.fieldCity: trimmedCity,
+      if (trimmedState != null && trimmedState.isNotEmpty)
+        Restaurant.fieldState: trimmedState,
       if (trimmedZipCode != null && trimmedZipCode.isNotEmpty)
         Restaurant.fieldZipCode: trimmedZipCode,
       if (trimmedPhone != null && trimmedPhone.isNotEmpty)
@@ -200,6 +206,7 @@ class RestaurantAccountService {
     return (_readString(data[Restaurant.fieldName]) ?? '').isNotEmpty &&
         (_readString(data[Restaurant.fieldStreetAddress]) ?? '').isNotEmpty &&
         (_readString(data[Restaurant.fieldCity]) ?? '').isNotEmpty &&
+        (_readString(data[Restaurant.fieldState]) ?? '').isNotEmpty &&
         (_readString(data[Restaurant.fieldZipCode]) ?? '').isNotEmpty &&
         (_readString(data[Restaurant.fieldPhone]) ?? '').isNotEmpty;
   }
@@ -208,6 +215,7 @@ class RestaurantAccountService {
     required String uid,
     required String name,
     required String city,
+    required String state,
     required String zipCode,
     required String email,
     required String phone,
@@ -222,6 +230,7 @@ class RestaurantAccountService {
       name: name.trim(),
       distance: Restaurant.defaultDistanceLabel,
       city: city.trim(),
+      state: state.trim(),
       zipCode: zipCode.trim(),
       coupons: const [],
       phone: phone.trim().isEmpty ? null : phone.trim(),
@@ -262,6 +271,8 @@ class RestaurantAccountService {
     required String uid,
     required Coupon coupon,
   }) async {
+    await _ensureCanPostCoupons(uid);
+
     final validationError = coupon.validateForSave();
     if (validationError != null) {
       throw ArgumentError(validationError);
@@ -292,6 +303,8 @@ class RestaurantAccountService {
     required String uid,
     required Coupon coupon,
   }) async {
+    await _ensureCanPostCoupons(uid);
+
     final validationError = coupon.validateForSave();
     if (validationError != null) {
       throw ArgumentError(validationError);
@@ -437,6 +450,7 @@ class RestaurantAccountService {
           '',
       Restaurant.fieldDistance: Restaurant.defaultDistanceLabel,
       Restaurant.fieldCity: _readString(data[Restaurant.fieldCity]) ?? '',
+      Restaurant.fieldState: _readString(data[Restaurant.fieldState]) ?? '',
       Restaurant.fieldZipCode:
           _readString(data[Restaurant.fieldZipCode]) ??
           _readString(data[Restaurant.legacyFieldZipCode]) ??
@@ -474,9 +488,11 @@ class RestaurantAccountService {
       return false;
     }
 
-    final couponPostingEnabled = _readBool(data['couponPostingEnabled']);
-    if (couponPostingEnabled == true) {
-      return true;
+    final approvalStatus =
+        (_readString(data[Restaurant.fieldApprovalStatus]) ?? 'pending')
+            .toLowerCase();
+    if (approvalStatus != 'approved') {
+      return false;
     }
 
     final status = (_readString(data['subscriptionStatus']) ?? 'inactive')
@@ -493,6 +509,17 @@ class RestaurantAccountService {
     }
 
     return false;
+  }
+
+  static Future<void> _ensureCanPostCoupons(String uid) async {
+    final data = await getAccountData(uid);
+    if (_canPostCouponsFromData(data)) {
+      return;
+    }
+
+    throw StateError(
+      'An approved active subscription is required before creating coupons.',
+    );
   }
 
   static String? _readString(dynamic value) {

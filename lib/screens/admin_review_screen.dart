@@ -595,11 +595,6 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
               child: Column(
                 children: [
-                  _buildAdminHeaderCard(
-                    title: 'Coupon Side Admin',
-                    description:
-                        'Approve or reject restaurant applications, edit restaurant information, and delete coupons or restaurant accounts from one shared admin area.',
-                  ),
                   TextField(
                     controller: _searchController,
                     decoration: InputDecoration(
@@ -954,6 +949,7 @@ class _CouponRestaurantEditDialogState
     extends State<_CouponRestaurantEditDialog> {
   late final TextEditingController _nameController;
   late final TextEditingController _cityController;
+  late final TextEditingController _stateController;
   late final TextEditingController _zipController;
   late final TextEditingController _emailController;
   late final TextEditingController _phoneController;
@@ -972,6 +968,9 @@ class _CouponRestaurantEditDialogState
     );
     _cityController = TextEditingController(
       text: _readString(widget.data, Restaurant.fieldCity),
+    );
+    _stateController = TextEditingController(
+      text: _readString(widget.data, Restaurant.fieldState),
     );
     _zipController = TextEditingController(
       text: _readString(widget.data, Restaurant.fieldZipCode),
@@ -1004,6 +1003,7 @@ class _CouponRestaurantEditDialogState
   void dispose() {
     _nameController.dispose();
     _cityController.dispose();
+    _stateController.dispose();
     _zipController.dispose();
     _emailController.dispose();
     _phoneController.dispose();
@@ -1044,6 +1044,7 @@ class _CouponRestaurantEditDialogState
         uid: widget.uid,
         name: _nameController.text,
         city: _cityController.text,
+        state: _stateController.text,
         zipCode: _zipController.text,
         email: _emailController.text,
         phone: _phoneController.text,
@@ -1101,6 +1102,13 @@ class _CouponRestaurantEditDialogState
                     child: _AdminTextField(
                       controller: _cityController,
                       label: 'City',
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _AdminTextField(
+                      controller: _stateController,
+                      label: 'State',
                     ),
                   ),
                   const SizedBox(width: 12),

@@ -16,6 +16,7 @@ class Restaurant {
   static const String legacyFieldName = 'name';
   static const String fieldDistance = 'distance';
   static const String fieldCity = 'city';
+  static const String fieldState = 'state';
   static const String fieldZipCode = 'zipCode';
   static const String legacyFieldZipCode = 'zip';
   static const String fieldEmail = 'email';
@@ -35,6 +36,7 @@ class Restaurant {
   final String name;
   final String distance;
   final String city;
+  final String state;
   final String zipCode;
   final List<Coupon> coupons;
   final String? uid;
@@ -50,6 +52,7 @@ class Restaurant {
     required this.name,
     required this.distance,
     required this.city,
+    this.state = '',
     required this.zipCode,
     required this.coupons,
     this.uid,
@@ -67,8 +70,16 @@ class Restaurant {
       return 'Restaurant name is required.';
     }
 
+    if (streetAddress?.trim().isEmpty ?? true) {
+      return 'Restaurant street address is required.';
+    }
+
     if (city.trim().isEmpty) {
       return 'Restaurant city is required.';
+    }
+
+    if (state.trim().isEmpty) {
+      return 'Restaurant state is required.';
     }
 
     if (zipCode.trim().isEmpty) {
@@ -93,6 +104,7 @@ class Restaurant {
     return {
       fieldName: name.trim(),
       fieldCity: city.trim(),
+      fieldState: state.trim(),
       fieldZipCode: zipCode.trim(),
       fieldEmail: email.trim(),
       fieldPhone: phone.trim(),
@@ -115,6 +127,7 @@ class Restaurant {
       name: _readString(data[fieldName]) ?? _readString(data[legacyFieldName]) ?? '',
       distance: defaultDistanceLabel,
       city: _readString(data[fieldCity]) ?? '',
+      state: _readString(data[fieldState]) ?? '',
       zipCode: _readString(data[fieldZipCode]) ?? _readString(data[legacyFieldZipCode]) ?? '',
       phone: _readString(data[fieldPhone]),
       streetAddress:

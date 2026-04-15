@@ -27,11 +27,15 @@ const db: Firestore = getFirestore();
 const stripeSecret = defineSecret("STRIPE_SECRET_KEY");
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
-const stripeCheckoutSuccessUrl = defineString("STRIPE_CHECKOUT_SUCCESS_URL");
-const stripeCheckoutCancelUrl = defineString("STRIPE_CHECKOUT_CANCEL_URL");
+const stripeCheckoutSuccessUrl = "https://coupon-app-29446.web.app/stripe-success.html";
+const stripeCheckoutCancelUrl = "https://coupon-app-29446.web.app/stripe-cancel.html";
 const stripeCustomerPortalReturnUrl = defineString(
   "STRIPE_CUSTOMER_PORTAL_RETURN_URL",
 );
+const hostedStripeCheckoutSuccessUrl =
+  "https://coupon-app-29446.web.app/stripe-success.html";
+const hostedStripeCheckoutCancelUrl =
+  "https://coupon-app-29446.web.app/stripe-cancel.html";
 const stripePriceId = "price_1TJKGjBwoT6e93tVkesJPfxD";
 const stripeTrialDays = 60;
 const subscriptionReturnSuccessUri = "couponapp://subscription-return?status=success";
@@ -219,8 +223,10 @@ export const createSubscriptionCheckoutSession = onCall(
       throw new HttpsError("unauthenticated", "Authentication is required.");
     }
 
-    const successUrl = stripeCheckoutSuccessUrl.value();
-    const cancelUrl = stripeCheckoutCancelUrl.value();
+    const successUrl =
+      stripeCheckoutSuccessUrl || hostedStripeCheckoutSuccessUrl;
+    const cancelUrl =
+      stripeCheckoutCancelUrl || hostedStripeCheckoutCancelUrl;
     if (!successUrl || !cancelUrl) {
       throw new HttpsError(
         "failed-precondition",
@@ -310,8 +316,10 @@ export const createCheckoutSession = onCall(
       throw new HttpsError("unauthenticated", "Authentication is required.");
     }
 
-    const successUrl = stripeCheckoutSuccessUrl.value();
-    const cancelUrl = stripeCheckoutCancelUrl.value();
+    const successUrl =
+      stripeCheckoutSuccessUrl || hostedStripeCheckoutSuccessUrl;
+    const cancelUrl =
+      stripeCheckoutCancelUrl || hostedStripeCheckoutCancelUrl;
     if (!successUrl || !cancelUrl) {
       throw new HttpsError(
         "failed-precondition",

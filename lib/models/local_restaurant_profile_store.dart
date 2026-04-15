@@ -5,6 +5,7 @@ import 'restaurant.dart';
 class RestaurantProfileData {
   final String name;
   final String city;
+  final String state;
   final String zipCode;
   final String distance;
   final String email;
@@ -19,6 +20,7 @@ class RestaurantProfileData {
   const RestaurantProfileData({
     required this.name,
     required this.city,
+    required this.state,
     required this.zipCode,
     required this.distance,
     required this.email,
@@ -34,6 +36,7 @@ class RestaurantProfileData {
   RestaurantProfileData copyWith({
     String? name,
     String? city,
+    String? state,
     String? zipCode,
     String? distance,
     String? email,
@@ -48,6 +51,7 @@ class RestaurantProfileData {
     return RestaurantProfileData(
       name: name ?? this.name,
       city: city ?? this.city,
+      state: state ?? this.state,
       zipCode: zipCode ?? this.zipCode,
       distance: distance ?? this.distance,
       email: email ?? this.email,
@@ -66,6 +70,7 @@ class LocalRestaurantProfileStore {
   static final RestaurantProfileData emptyProfile = RestaurantProfileData(
     name: 'Your Restaurant Preview',
     city: 'Lecanto',
+    state: 'FL',
     zipCode: '34461',
     distance: '0.8 miles away',
     email: '',
