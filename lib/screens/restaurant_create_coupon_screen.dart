@@ -1065,6 +1065,65 @@ class _RestaurantCreateCouponScreenState
     }
   }
 
+  Future<bool> _ensureRestaurantAddressReadyForCoupons(User user) async {
+    final streetAddress = streetAddressController.text.trim();
+    final city = cityController.text.trim();
+    final state = stateController.text.trim();
+    final zipCode = zipCodeController.text.trim();
+
+    if (streetAddress.isEmpty ||
+        city.isEmpty ||
+        state.isEmpty ||
+        zipCode.isEmpty) {
+      _showSnackBar(
+        'Please complete your restaurant address before posting coupons.',
+      );
+      return false;
+    }
+
+    final savedProfile = LocalRestaurantProfileStore.profile.value;
+    final savedLatitude = double.tryParse(savedProfile.latitude.trim());
+    final savedLongitude = double.tryParse(savedProfile.longitude.trim());
+    if (savedLatitude != null && savedLongitude != null) {
+      return true;
+    }
+
+    final fullAddress = '$streetAddress, $city, $state $zipCode';
+
+    try {
+      final locations = await locationFromAddress(fullAddress);
+      if (locations.isEmpty) {
+        _showSnackBar('Could not find location for that address.');
+        return false;
+      }
+
+      final latitude = locations.first.latitude;
+      final longitude = locations.first.longitude;
+
+      await RestaurantAccountService.saveRestaurantCoordinates(
+        uid: user.uid,
+        latitude: latitude,
+        longitude: longitude,
+      );
+
+      LocalRestaurantProfileStore.updateProfile(
+        savedProfile.copyWith(
+          streetAddress: streetAddress,
+          city: city,
+          state: state,
+          zipCode: zipCode,
+          latitude: latitude.toString(),
+          longitude: longitude.toString(),
+        ),
+      );
+
+      return true;
+    } catch (_) {
+      _showSnackBar('Could not find location for that address.');
+      return false;
+    }
+  }
+
   Future<void> createOrUpdateCoupon() async {
     final user = currentUser;
     if (user == null) {
@@ -1080,14 +1139,8 @@ class _RestaurantCreateCouponScreenState
       return;
     }
 
-    final savedProfile = LocalRestaurantProfileStore.profile.value;
-    final hasSavedAddress = savedProfile.streetAddress.trim().isNotEmpty;
-    final savedLatitude = double.tryParse(savedProfile.latitude.trim());
-    final savedLongitude = double.tryParse(savedProfile.longitude.trim());
-    if (!hasSavedAddress || savedLatitude == null || savedLongitude == null) {
-      _showSnackBar(
-        'Please complete your restaurant address before posting coupons.',
-      );
+    final addressReady = await _ensureRestaurantAddressReadyForCoupons(user);
+    if (!addressReady) {
       return;
     }
 
@@ -1178,6 +1231,18 @@ class _RestaurantCreateCouponScreenState
           couponSaving = false;
         });
       }
+    }
+  }
+
+  Future<void> _signOutAndExitRestaurantHub() async {
+    await CustomerSessionService.signOutToSignedOut();
+    if (!mounted) {
+      return;
+    }
+
+    final navigator = Navigator.of(context);
+    if (navigator.canPop()) {
+      navigator.pop();
     }
   }
 
@@ -2044,7 +2109,7 @@ class _RestaurantCreateCouponScreenState
         actions: [
           TextButton.icon(
             onPressed: () async {
-              await CustomerSessionService.signOutToSignedOut();
+              await _signOutAndExitRestaurantHub();
             },
             icon: const Icon(Icons.logout),
             label: const Text('Sign Out'),

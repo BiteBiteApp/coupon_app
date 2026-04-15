@@ -267,6 +267,18 @@ class RestaurantAccountService {
     }, SetOptions(merge: true));
   }
 
+  static Future<void> saveRestaurantCoordinates({
+    required String uid,
+    required double latitude,
+    required double longitude,
+  }) async {
+    await docForUser(uid).set({
+      Restaurant.fieldLatitude: latitude,
+      Restaurant.fieldLongitude: longitude,
+      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   static Future<Coupon> saveCoupon({
     required String uid,
     required Coupon coupon,

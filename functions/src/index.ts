@@ -184,35 +184,33 @@ async function syncRestaurantSubscriptionFromStripe(
   const trialEndsAt = subscriptionStatus === "trialing"
     ? unixSecondsToTimestamp(subscription.trial_end)
     : null;
+  const updateData: Record<string, unknown> = {
+    subscriptionStatus,
+    trialEndsAt,
+    subscriptionEndsAt:
+      unixSecondsToTimestamp((subscription as any).current_period_end) ??
+      unixSecondsToTimestamp(subscription.ended_at) ??
+      unixSecondsToTimestamp(subscription.canceled_at),
+    stripeCustomerId,
+    stripeSubscriptionId: subscription.id,
+    billingPlanName: metadata.billingPlanName?.trim() || "coupon_monthly",
+    couponPostingEnabled,
+    updatedAt: FieldValue.serverTimestamp(),
+  };
+
+  if (couponPostingEnabled || subscription.status === "trialing") {
+    updateData.hasUsedTrial = true;
+  }
 
   await db.collection("restaurant_accounts").doc(restaurantUid).set(
-    {
-      subscriptionStatus,
-      trialEndsAt,
-      subscriptionEndsAt:
-        unixSecondsToTimestamp((subscription as any).current_period_end) ??
-        unixSecondsToTimestamp(subscription.ended_at) ??
-        unixSecondsToTimestamp(subscription.canceled_at),
-      stripeCustomerId,
-      stripeSubscriptionId: subscription.id,
-      billingPlanName: metadata.billingPlanName?.trim() || "coupon_monthly",
-      couponPostingEnabled,
-      updatedAt: FieldValue.serverTimestamp(),
-    },
+    updateData,
     { merge: true },
   );
 }
 
 
 
-async function getTrialEligibility(ownerUid: string): Promise<boolean> {
-  const accountSnapshot = await db
-    .collection("restaurant_accounts")
-    .doc(ownerUid)
-    .get();
-  const accountData = accountSnapshot.data();
-  return accountData?.hasUsedTrial === true;
-}
+
 
 export const createSubscriptionCheckoutSession = onCall(
   {
@@ -239,7 +237,6 @@ export const createSubscriptionCheckoutSession = onCall(
     });
 
     const ownerUid = request.auth.uid;
-    const hasUsedTrial = await getTrialEligibility(ownerUid);
 
     try {
       const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData =
@@ -270,16 +267,6 @@ export const createSubscriptionCheckoutSession = onCall(
         },
         subscription_data: subscriptionData,
       });
-
-      if (!hasUsedTrial) {
-        await db.collection("restaurant_accounts").doc(ownerUid).set(
-          {
-            hasUsedTrial: true,
-            updatedAt: FieldValue.serverTimestamp(),
-          },
-          { merge: true },
-        );
-      }
 
       if (!session.url) {
         throw new HttpsError(
@@ -338,14 +325,6 @@ const accountSnap = await accountRef.get();
 const hasUsedTrial = accountSnap.data()?.hasUsedTrial === true;
 
 const includeTrial = !hasUsedTrial;
-if (includeTrial) {
-  await accountRef.set(
-    {
-      hasUsedTrial: true,
-    },
-    { merge: true },
-  );
-}
       const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData =
         {
           metadata: {
