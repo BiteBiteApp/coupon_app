@@ -1047,15 +1047,15 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
               right: BorderSide(color: BiteRaterTheme.lineBlue),
             ),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 15, 16, 10),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 9),
               child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
-                        vertical: 10,
+                        vertical: 9,
                       ),
                       decoration: BoxDecoration(
                         gradient: BiteRaterTheme.softHeroGradient,
@@ -1080,9 +1080,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                         entry.dish.name,
                         style: const TextStyle(
                           color: BiteRaterTheme.ink,
-                          fontSize: 18,
+                          fontSize: 19,
                           fontWeight: FontWeight.w900,
-                          letterSpacing: 0.05,
+                          letterSpacing: 0.02,
                           height: 1.15,
                         ),
                       ),
@@ -1090,38 +1090,40 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                   ),
                   const SizedBox(width: 12),
                   SizedBox(
-                    width: 72,
+                    width: 74,
                     child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Text(
                           scoreLabel,
                           style: const TextStyle(
-                            fontSize: 24,
+                            fontSize: 29,
                             fontWeight: FontWeight.w900,
-                            height: 1.0,
+                            height: 0.96,
                             color: BiteRaterTheme.scoreFlame,
                           ),
                         ),
-                        const SizedBox(height: 1),
-                        const Text(
+                        const SizedBox(height: 0.5),
+                        Text(
                           'BiteScore',
                           style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w700,
-                            letterSpacing: 0.2,
-                            color: BiteRaterTheme.scoreFlame,
+                            fontSize: 8.5,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.14,
+                            color: BiteRaterTheme.mutedInk.withOpacity(0.82),
+                            height: 1.0,
                           ),
                         ),
-                        const SizedBox(height: 1),
+                        const SizedBox(height: 0.5),
                         Text(
                           '${entry.aggregate.ratingCount} ratings',
                           textAlign: TextAlign.right,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            color: BiteRaterTheme.mutedInk,
-                            fontWeight: FontWeight.w600,
-                            height: 1.15,
+                          style: TextStyle(
+                            fontSize: 9.5,
+                            color: BiteRaterTheme.mutedInk.withOpacity(0.78),
+                            fontWeight: FontWeight.w500,
+                            height: 1.0,
                           ),
                         ),
                       ],
@@ -1132,9 +1134,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
             ),
           ),
           Container(
-            height: 1,
+            height: 0.5,
             margin: const EdgeInsets.symmetric(horizontal: 18),
-            color: BiteRaterTheme.lineBlue.withOpacity(0.75),
+            color: BiteRaterTheme.lineBlue.withOpacity(0.35),
           ),
           BiteRaterTheme.pressableSection(
             onTap: () => _openRestaurantPage(
@@ -1151,7 +1153,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
             ),
             pressedScale: 0.98,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 10, 16, 13),
+              padding: const EdgeInsets.fromLTRB(16, 9, 16, 12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1159,8 +1161,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                     entry.restaurant.name,
                     style: const TextStyle(
                       color: BiteRaterTheme.ocean,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w800,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w700,
                       height: 1.15,
                     ),
                   ),
@@ -1169,8 +1171,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                     '${entry.restaurant.city}, ${entry.restaurant.zipCode}',
                     style: const TextStyle(
                       color: BiteRaterTheme.mutedInk,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
                       height: 1.2,
                     ),
                   ),
@@ -1180,26 +1182,30 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                     style: const TextStyle(
                       color: BiteRaterTheme.mutedInk,
                       fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.1,
+                      fontWeight: FontWeight.w500,
+                      letterSpacing: 0.05,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      OutlinedButton(
-                        onPressed: () => _openExistingDishReview(entry),
-                        style: BiteRaterTheme.outlinedButtonStyle(
-                          accentColor: BiteRaterTheme.coral,
+                  const SizedBox(height: 6),
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        OutlinedButton(
+                          onPressed: () => _openExistingDishReview(entry),
+                          style: BiteRaterTheme.outlinedButtonStyle(
+                            accentColor: BiteRaterTheme.coral,
+                          ),
+                          child: const Text('Rate & Review'),
                         ),
-                        child: const Text('Rate & Review'),
-                      ),
-                      const SizedBox(width: 10),
-                      const Icon(
-                        Icons.chevron_right,
-                        color: BiteRaterTheme.mutedInk,
-                      ),
-                    ],
+                        const SizedBox(width: 10),
+                        const Icon(
+                          Icons.chevron_right,
+                          color: BiteRaterTheme.mutedInk,
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
