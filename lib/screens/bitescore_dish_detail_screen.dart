@@ -118,9 +118,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       final aTrust = trustByReviewId[a.id] ?? const ReviewTrustSummary();
       final bTrust = trustByReviewId[b.id] ?? const ReviewTrustSummary();
 
-      final byHelpfulScore = bTrust.helpfulScore.compareTo(
-        aTrust.helpfulScore,
-      );
+      final byHelpfulScore = bTrust.helpfulScore.compareTo(aTrust.helpfulScore);
       if (byHelpfulScore != 0) {
         return byHelpfulScore;
       }
@@ -159,10 +157,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          duration: const Duration(seconds: 3),
-        ),
+        SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
       );
   }
 
@@ -212,8 +207,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   }
 
   Future<void> _toggleDishFavorite() async {
-    final canSave =
-        await BiteScoreSignInGate.ensureSignedInForFavorites(context);
+    final canSave = await BiteScoreSignInGate.ensureSignedInForFavorites(
+      context,
+    );
     if (!canSave || !mounted || _isSavingFavoriteDish) {
       return;
     }
@@ -317,11 +313,11 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   }
 
   double get _overallBiteScore => BiteScoreService.computeOverallBiteScore(
-        overallImpression: _overallImpression,
-        tastinessScore: _tastinessScore,
-        qualityScore: _qualityScore,
-        valueScore: _valueScore,
-      );
+    overallImpression: _overallImpression,
+    tastinessScore: _tastinessScore,
+    qualityScore: _qualityScore,
+    valueScore: _valueScore,
+  );
 
   ButtonStyle _bitescoreActionButtonStyle() {
     return BiteRaterTheme.filledButtonStyle();
@@ -370,14 +366,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(
-          color: BiteRaterTheme.grape,
-          width: 1.4,
-        ),
+        borderSide: const BorderSide(color: BiteRaterTheme.grape, width: 1.4),
       ),
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-      ),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
     );
   }
 
@@ -486,9 +477,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFFF8FAFC),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: BiteRaterTheme.lineBlue,
-        ),
+        border: Border.all(color: BiteRaterTheme.lineBlue.withOpacity(0.75)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -498,6 +487,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
             style: const TextStyle(
               fontSize: 12,
               color: BiteRaterTheme.mutedInk,
+              fontWeight: FontWeight.w500,
             ),
           ),
           const SizedBox(height: 2),
@@ -505,7 +495,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
             _scoreLabel(value),
             style: const TextStyle(
               color: BiteRaterTheme.ink,
-              fontSize: 16,
+              fontSize: 17,
               fontWeight: FontWeight.w900,
             ),
           ),
@@ -519,7 +509,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BiteRaterTheme.chipDecoration(BiteRaterTheme.ocean),
       child: Text(
-        value == null ? '$label Not rated' : '$label ${value.toStringAsFixed(1)}',
+        value == null
+            ? '$label Not rated'
+            : '$label ${value.toStringAsFixed(1)}',
         style: const TextStyle(
           color: BiteRaterTheme.ink,
           fontSize: 12,
@@ -529,10 +521,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     );
   }
 
-  Future<void> _toggleReviewVote(
-    DishReview review,
-    String voteType,
-  ) async {
+  Future<void> _toggleReviewVote(DishReview review, String voteType) async {
     final canWrite = await BiteScoreSignInGate.ensureSignedInForWrite(context);
     if (!canWrite || !mounted) {
       return;
@@ -580,7 +569,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       if (!mounted) {
         return;
       }
-      _showSnackBar(submitted ? 'Review reported.' : 'You already reported this review.');
+      _showSnackBar(
+        submitted ? 'Review reported.' : 'You already reported this review.',
+      );
       setState(_refresh);
     } catch (error) {
       _showSnackBar(
@@ -634,7 +625,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         return;
       }
       _showSnackBar(
-        submitted ? 'Dish reported for admin review.' : 'You already reported this dish.',
+        submitted
+            ? 'Dish reported for admin review.'
+            : 'You already reported this dish.',
       );
     } catch (error) {
       _showSnackBar(
@@ -656,11 +649,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     final selectedColor = BiteRaterTheme.ocean;
     return OutlinedButton.icon(
       onPressed: onTap,
-      icon: Icon(
-        icon,
-        size: 14,
-        color: selected ? selectedColor : null,
-      ),
+      icon: Icon(icon, size: 14, color: selected ? selectedColor : null),
       label: Text(
         '$label${count > 0 ? ' $count' : ''}',
         style: TextStyle(
@@ -671,9 +660,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       ),
       style: OutlinedButton.styleFrom(
         side: BorderSide(
-          color: selected
-              ? selectedColor
-              : BiteRaterTheme.lineBlue,
+          color: selected ? selectedColor : BiteRaterTheme.lineBlue,
         ),
         backgroundColor: selected
             ? selectedColor.withOpacity(0.10)
@@ -694,17 +681,16 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   ) {
     final headline = (review.headline ?? '').trim();
     final notes = (review.notes ?? '').trim();
-    final publicDisplayName =
-        (reviewerDisplayName ?? '').trim().isEmpty
-            ? 'Reviewer'
-            : reviewerDisplayName!.trim();
+    final publicDisplayName = (reviewerDisplayName ?? '').trim().isEmpty
+        ? 'Reviewer'
+        : reviewerDisplayName!.trim();
 
     return BiteRaterTheme.liftedCard(
       margin: const EdgeInsets.only(bottom: 12),
       radius: 22,
-      borderColor: BiteRaterTheme.grape.withOpacity(0.14),
+      borderColor: BiteRaterTheme.grape.withOpacity(0.09),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -717,7 +703,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                     children: [
                       Wrap(
                         spacing: 8,
-                        runSpacing: 6,
+                        runSpacing: 4,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           InkWell(
@@ -743,14 +729,15 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                             _buildReviewerBadgeChip(reviewerBadgeLabel),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(height: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 10,
                           vertical: 6,
                         ),
-                        decoration:
-                            BiteRaterTheme.chipDecoration(BiteRaterTheme.coral),
+                        decoration: BiteRaterTheme.chipDecoration(
+                          BiteRaterTheme.coral,
+                        ),
                         child: Text(
                           review.overallBiteScore.toStringAsFixed(0),
                           style: const TextStyle(
@@ -806,14 +793,14 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
               ),
             ],
             if (notes.isNotEmpty) ...[
-              SizedBox(height: headline.isNotEmpty ? 8 : 0),
+              SizedBox(height: headline.isNotEmpty ? 6 : 0),
               Text(notes),
             ],
             if (headline.isNotEmpty || notes.isNotEmpty)
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
             Wrap(
               spacing: 8,
-              runSpacing: 8,
+              runSpacing: 6,
               children: [
                 _buildMiniMetric('Enjoyment', review.overallImpression),
                 if (review.tastinessScore != null)
@@ -824,10 +811,10 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                   _buildMiniMetric('Value', review.valueScore),
               ],
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Wrap(
               spacing: 8,
-              runSpacing: 8,
+              runSpacing: 6,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 _buildReviewVoteButton(
@@ -835,10 +822,8 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                   label: 'Helpful',
                   count: trustSummary.helpfulCount,
                   selected: trustSummary.userMarkedHelpful,
-                  onTap: () => _toggleReviewVote(
-                    review,
-                    ReviewFeedbackVote.voteHelpful,
-                  ),
+                  onTap: () =>
+                      _toggleReviewVote(review, ReviewFeedbackVote.voteHelpful),
                 ),
                 _buildReviewVoteButton(
                   icon: Icons.thumb_down_alt_outlined,
@@ -883,21 +868,12 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   Widget _buildReviewerBadgeChip(String badgeLabel) {
     final badgeStyle = switch (badgeLabel) {
       'Top Contributor' => (
-          BiteRaterTheme.ocean,
-          Icons.workspace_premium_outlined,
-        ),
-      'Trusted Reviewer' => (
-          BiteRaterTheme.grape,
-          Icons.verified_outlined,
-        ),
-      'Active Reviewer' => (
-          BiteRaterTheme.ocean,
-          Icons.auto_awesome_outlined,
-        ),
-      _ => (
-          BiteRaterTheme.coral,
-          Icons.local_fire_department_outlined,
-        ),
+        BiteRaterTheme.ocean,
+        Icons.workspace_premium_outlined,
+      ),
+      'Trusted Reviewer' => (BiteRaterTheme.grape, Icons.verified_outlined),
+      'Active Reviewer' => (BiteRaterTheme.ocean, Icons.auto_awesome_outlined),
+      _ => (BiteRaterTheme.coral, Icons.local_fire_department_outlined),
     };
 
     return Container(
@@ -905,18 +881,12 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       decoration: BoxDecoration(
         color: badgeStyle.$1.withOpacity(0.08),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: badgeStyle.$1.withOpacity(0.16),
-        ),
+        border: Border.all(color: badgeStyle.$1.withOpacity(0.16)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            badgeStyle.$2,
-            size: 12,
-            color: badgeStyle.$1.withOpacity(0.90),
-          ),
+          Icon(badgeStyle.$2, size: 12, color: badgeStyle.$1.withOpacity(0.90)),
           const SizedBox(width: 4),
           Text(
             badgeLabel,
@@ -991,8 +961,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
               const SizedBox(height: 12),
               _buildRequiredScoreSection(
                 title: 'Tastiness',
-                helperText:
-                    'Flavor, seasoning, and overall tastiness.',
+                helperText: 'Flavor, seasoning, and overall tastiness.',
                 value: _tastinessScore,
                 onChanged: (value) {
                   setState(() {
@@ -1059,13 +1028,14 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _isSaving ? null : _submitReview,
-                  style: BiteRaterTheme.outlinedButtonStyle(
-                    accentColor: BiteRaterTheme.coral,
-                  ).copyWith(
-                    minimumSize: WidgetStateProperty.all(
-                      const Size.fromHeight(48),
-                    ),
-                  ),
+                  style:
+                      BiteRaterTheme.outlinedButtonStyle(
+                        accentColor: BiteRaterTheme.coral,
+                      ).copyWith(
+                        minimumSize: WidgetStateProperty.all(
+                          const Size.fromHeight(48),
+                        ),
+                      ),
                   child: Text(_isSaving ? 'Saving...' : 'Save Review'),
                 ),
               ),
@@ -1134,7 +1104,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
 
       return BiteRaterTheme.liftedCard(
         radius: 22,
-        borderColor: BiteRaterTheme.ocean.withOpacity(0.16),
+        borderColor: BiteRaterTheme.ocean.withOpacity(0.10),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Column(
@@ -1176,7 +1146,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
 
     return BiteRaterTheme.liftedCard(
       radius: 22,
-      borderColor: BiteRaterTheme.ocean.withOpacity(0.16),
+      borderColor: BiteRaterTheme.ocean.withOpacity(0.08),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -1186,8 +1156,8 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
               'Suggest Dish Edit',
               style: TextStyle(
                 color: BiteRaterTheme.ink,
-                fontSize: 18,
-                fontWeight: FontWeight.w900,
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
               ),
             ),
             const SizedBox(height: 6),
@@ -1213,10 +1183,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                   ),
                   child: const FittedBox(
                     fit: BoxFit.scaleDown,
-                    child: Text(
-                      'Suggest Rename',
-                      textAlign: TextAlign.center,
-                    ),
+                    child: Text('Suggest Rename', textAlign: TextAlign.center),
                   ),
                 );
 
@@ -1227,10 +1194,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                   ),
                   child: const FittedBox(
                     fit: BoxFit.scaleDown,
-                    child: Text(
-                      'Suggest Merge',
-                      textAlign: TextAlign.center,
-                    ),
+                    child: Text('Suggest Merge', textAlign: TextAlign.center),
                   ),
                 );
 
@@ -1274,20 +1238,11 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                 aggregate.overallImpressionAverage,
               ),
               const SizedBox(height: chipGap),
-              _buildBreakdownChip(
-                'Tastiness',
-                aggregate.tastinessScoreAverage,
-              ),
+              _buildBreakdownChip('Tastiness', aggregate.tastinessScoreAverage),
               const SizedBox(height: chipGap),
-              _buildBreakdownChip(
-                'Quality',
-                aggregate.qualityScoreAverage,
-              ),
+              _buildBreakdownChip('Quality', aggregate.qualityScoreAverage),
               const SizedBox(height: chipGap),
-              _buildBreakdownChip(
-                'Value',
-                aggregate.valueScoreAverage,
-              ),
+              _buildBreakdownChip('Value', aggregate.valueScoreAverage),
             ],
           );
         }
@@ -1412,7 +1367,8 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
             );
           }
 
-          final detail = snapshot.data ??
+          final detail =
+              snapshot.data ??
               _DishDetailData(
                 dish: entry.dish,
                 restaurant: entry.restaurant,
@@ -1424,7 +1380,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
               );
           final currentDish = detail.dish;
           final currentRestaurant = detail.restaurant;
-          final visibleReviews = detail.reviews.take(_visibleReviewCount).toList();
+          final visibleReviews = detail.reviews
+              .take(_visibleReviewCount)
+              .toList();
           final hasMoreReviews = detail.reviews.length > visibleReviews.length;
 
           return Column(
@@ -1444,209 +1402,216 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                BiteRaterTheme.liftedCard(
-                  radius: 24,
-                  borderColor: BiteRaterTheme.peach.withOpacity(0.22),
-                  child: Padding(
-                    padding: const EdgeInsets.all(18),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                currentDish.name,
-                                style: const TextStyle(
-                                  color: BiteRaterTheme.ink,
-                                  fontSize: 24,
-                                  fontWeight: FontWeight.w900,
-                                  letterSpacing: 0.15,
-                                ),
-                                maxLines: 3,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            const SizedBox(width: 12),
-                            Flexible(
-                              child: Align(
-                                alignment: Alignment.topRight,
-                                child: _buildBiteScoreActionButton(
-                                  onPressed: _scrollToReviewSection,
-                                  label: 'Rate & Review',
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        InkWell(
-                          onTap: _openRestaurantPage,
-                          borderRadius: BorderRadius.circular(8),
+                        BiteRaterTheme.liftedCard(
+                          radius: 24,
+                          borderColor: BiteRaterTheme.peach.withOpacity(0.22),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2),
-                            child: Text(
-                              currentRestaurant.name,
-                              style: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
-                                color: BiteRaterTheme.restaurantTitle,
-                              ),
+                            padding: const EdgeInsets.all(18),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        currentDish.name,
+                                        style: const TextStyle(
+                                          color: BiteRaterTheme.ink,
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.w900,
+                                          letterSpacing: 0.15,
+                                        ),
+                                        maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 12),
+                                    Flexible(
+                                      child: Align(
+                                        alignment: Alignment.topRight,
+                                        child: _buildBiteScoreActionButton(
+                                          onPressed: _scrollToReviewSection,
+                                          label: 'Rate & Review',
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                InkWell(
+                                  onTap: _openRestaurantPage,
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 2,
+                                    ),
+                                    child: Text(
+                                      currentRestaurant.name,
+                                      style: const TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w800,
+                                        color: BiteRaterTheme.restaurantTitle,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  '${currentRestaurant.city}, ${currentRestaurant.zipCode}',
+                                  style: const TextStyle(
+                                    color: BiteRaterTheme.mutedInk,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                if (widget.distanceLabel != null) ...[
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    widget.distanceLabel!,
+                                    style: const TextStyle(
+                                      color: BiteRaterTheme.mutedInk,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: TextButton.icon(
+                                    onPressed: _reportDish,
+                                    icon: const Icon(
+                                      Icons.flag_outlined,
+                                      size: 18,
+                                    ),
+                                    style: TextButton.styleFrom(
+                                      foregroundColor: BiteRaterTheme.coral,
+                                    ),
+                                    label: const Text('Report dish'),
+                                  ),
+                                ),
+                                BiteRaterTheme.softDivider(),
+                                Center(
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        detail.aggregate.overallBiteScore > 0
+                                            ? detail.aggregate.overallBiteScore
+                                                  .toStringAsFixed(0)
+                                            : '--',
+                                        style: const TextStyle(
+                                          fontSize: 54,
+                                          fontWeight: FontWeight.w900,
+                                          height: 0.96,
+                                          color: BiteRaterTheme.scoreFlame,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      const Text(
+                                        'BiteScore',
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w700,
+                                          letterSpacing: 0.24,
+                                          color: BiteRaterTheme.mutedInk,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        '${detail.aggregate.ratingCount} ratings',
+                                        style: const TextStyle(
+                                          color: BiteRaterTheme.mutedInk,
+                                          fontSize: 12,
+                                          fontWeight: FontWeight.w500,
+                                          height: 1.0,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 18),
+                                const Text(
+                                  'Average Ratings',
+                                  style: TextStyle(
+                                    color: BiteRaterTheme.ink,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                _buildAverageRatingGrid(detail.aggregate),
+                              ],
                             ),
                           ),
                         ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${currentRestaurant.city}, ${currentRestaurant.zipCode}',
-                          style: const TextStyle(
-                            color: BiteRaterTheme.mutedInk,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        if (widget.distanceLabel != null) ...[
-                          const SizedBox(height: 4),
-                          Text(
-                            widget.distanceLabel!,
-                            style: const TextStyle(
-                              color: BiteRaterTheme.mutedInk,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 8),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
-                            onPressed: _reportDish,
-                            icon: const Icon(Icons.flag_outlined, size: 18),
-                            style: TextButton.styleFrom(
-                              foregroundColor: BiteRaterTheme.coral,
-                            ),
-                            label: const Text('Report dish'),
-                          ),
-                        ),
-                        BiteRaterTheme.softDivider(),
-                        Center(
-                          child: Column(
-                            children: [
-                              Text(
-                                detail.aggregate.overallBiteScore > 0
-                                    ? detail.aggregate.overallBiteScore
-                                        .toStringAsFixed(0)
-                                    : '--',
-                                style: const TextStyle(
-                                  fontSize: 48,
-                                  fontWeight: FontWeight.w900,
-                                  height: 1.0,
-                                  color: BiteRaterTheme.scoreFlame,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              const Text(
-                                'BiteScore',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.3,
-                                  color: BiteRaterTheme.scoreFlame,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Text(
-                                '${detail.aggregate.ratingCount} ratings',
-                                style: const TextStyle(
-                                  color: BiteRaterTheme.mutedInk,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 20),
+                        _buildSuggestionCard(currentDish),
+                        const SizedBox(height: 20),
                         const Text(
-                          'Average Ratings',
+                          'Reviews',
                           style: TextStyle(
                             color: BiteRaterTheme.ink,
-                            fontSize: 16,
+                            fontSize: 20,
                             fontWeight: FontWeight.w900,
                           ),
                         ),
+                        if (detail.reviews.isNotEmpty) ...[
+                          const SizedBox(height: 4),
+                          Text(
+                            'Sorted by most helpful',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              color: BiteRaterTheme.grape,
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 12),
-                        _buildAverageRatingGrid(detail.aggregate),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 20),
-                _buildSuggestionCard(currentDish),
-                const SizedBox(height: 20),
-                const Text(
-                  'Reviews',
-                  style: TextStyle(
-                    color: BiteRaterTheme.ink,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                if (detail.reviews.isNotEmpty) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    'Sorted by most helpful',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: BiteRaterTheme.grape,
-                    ),
-                  ),
-                ],
-                const SizedBox(height: 12),
-                if (detail.reviews.isEmpty)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BiteRaterTheme.surfaceDecoration(
-                      accentColor: BiteRaterTheme.ocean,
-                      radius: 16,
-                    ),
-                    child: const Text(
-                      'No reviews yet for this dish.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: BiteRaterTheme.mutedInk,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  )
-                else ...[
-                  ...visibleReviews.map(
-                    (review) => _buildReviewCard(
-                      review,
-                      detail.trustByReviewId[review.id] ??
-                          const ReviewTrustSummary(),
-                      detail.reviewerBadgesByUserId[review.userId],
-                      detail.reviewerNamesByUserId[review.userId],
-                    ),
-                  ),
-                  if (hasMoreReviews) ...[
-                    const SizedBox(height: 4),
-                    Center(
-                      child: OutlinedButton(
-                        onPressed: () {
-                          setState(() {
-                            _visibleReviewCount += 3;
-                          });
-                        },
-                        style: BiteRaterTheme.outlinedButtonStyle(
-                          accentColor: BiteRaterTheme.grape,
-                        ),
-                        child: const Text('Load more'),
-                      ),
-                    ),
-                  ],
-                ],
-                const SizedBox(height: 20),
-                _buildInlineReviewForm(),
+                        if (detail.reviews.isEmpty)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(16),
+                            decoration: BiteRaterTheme.surfaceDecoration(
+                              accentColor: BiteRaterTheme.ocean,
+                              radius: 16,
+                            ),
+                            child: const Text(
+                              'No reviews yet for this dish.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                color: BiteRaterTheme.mutedInk,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          )
+                        else ...[
+                          ...visibleReviews.map(
+                            (review) => _buildReviewCard(
+                              review,
+                              detail.trustByReviewId[review.id] ??
+                                  const ReviewTrustSummary(),
+                              detail.reviewerBadgesByUserId[review.userId],
+                              detail.reviewerNamesByUserId[review.userId],
+                            ),
+                          ),
+                          if (hasMoreReviews) ...[
+                            const SizedBox(height: 4),
+                            Center(
+                              child: OutlinedButton(
+                                onPressed: () {
+                                  setState(() {
+                                    _visibleReviewCount += 3;
+                                  });
+                                },
+                                style: BiteRaterTheme.outlinedButtonStyle(
+                                  accentColor: BiteRaterTheme.grape,
+                                ),
+                                child: const Text('Load more'),
+                              ),
+                            ),
+                          ],
+                        ],
+                        const SizedBox(height: 20),
+                        _buildInlineReviewForm(),
                       ],
                     ),
                   ),
@@ -1683,9 +1648,7 @@ class _DishDetailData {
 class _DishManagementDialog extends StatefulWidget {
   final BitescoreDish dish;
 
-  const _DishManagementDialog({
-    required this.dish,
-  });
+  const _DishManagementDialog({required this.dish});
 
   @override
   State<_DishManagementDialog> createState() => _DishManagementDialogState();
@@ -1702,10 +1665,12 @@ class _DishManagementDialogState extends State<_DishManagementDialog> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.dish.name);
-    _categoryController =
-        TextEditingController(text: widget.dish.category ?? '');
-    _priceController =
-        TextEditingController(text: widget.dish.priceLabel ?? '');
+    _categoryController = TextEditingController(
+      text: widget.dish.category ?? '',
+    );
+    _priceController = TextEditingController(
+      text: widget.dish.priceLabel ?? '',
+    );
     _isActive = widget.dish.isActive;
   }
 
@@ -1856,10 +1821,8 @@ class _ReviewReportDialogState extends State<_ReviewReportDialog> {
         ),
         items: _reasons
             .map(
-              (reason) => DropdownMenuItem<String>(
-                value: reason,
-                child: Text(reason),
-              ),
+              (reason) =>
+                  DropdownMenuItem<String>(value: reason, child: Text(reason)),
             )
             .toList(),
         onChanged: (value) {
@@ -1915,10 +1878,8 @@ class _DishReportDialogState extends State<_DishReportDialog> {
         ),
         items: _reasons
             .map(
-              (reason) => DropdownMenuItem<String>(
-                value: reason,
-                child: Text(reason),
-              ),
+              (reason) =>
+                  DropdownMenuItem<String>(value: reason, child: Text(reason)),
             )
             .toList(),
         onChanged: (value) {
@@ -1944,9 +1905,7 @@ class _DishReportDialogState extends State<_DishReportDialog> {
 class _DishRenameSuggestionDialog extends StatefulWidget {
   final BitescoreDish dish;
 
-  const _DishRenameSuggestionDialog({
-    required this.dish,
-  });
+  const _DishRenameSuggestionDialog({required this.dish});
 
   @override
   State<_DishRenameSuggestionDialog> createState() =>
@@ -2045,7 +2004,8 @@ class _DishMergeSuggestionDialog extends StatefulWidget {
       _DishMergeSuggestionDialogState();
 }
 
-class _DishMergeSuggestionDialogState extends State<_DishMergeSuggestionDialog> {
+class _DishMergeSuggestionDialogState
+    extends State<_DishMergeSuggestionDialog> {
   String? _selectedDishId;
   bool _isSaving = false;
   late final Future<List<BitescoreDish>> _candidatesFuture;

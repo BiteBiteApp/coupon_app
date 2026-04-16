@@ -222,7 +222,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
       return 'Distance unavailable';
     }
 
-    return '${distanceMiles.toStringAsFixed(1)} miles away';
+    return '${distanceMiles.toStringAsFixed(1)} mi';
   }
 
   Future<void> _searchLocation() async {
@@ -551,23 +551,6 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     return BiteRaterTheme.filledButtonStyle();
   }
 
-  ButtonStyle _chromeActionButtonStyle() {
-    return ElevatedButton.styleFrom(
-      foregroundColor: const Color(0xFF171715),
-      backgroundColor: Colors.transparent,
-      shadowColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      minimumSize: const Size.fromHeight(48),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      padding: EdgeInsets.zero,
-      textStyle: const TextStyle(
-        fontSize: 16,
-        fontWeight: FontWeight.w900,
-        letterSpacing: 0.35,
-      ),
-    );
-  }
-
   Widget _buildBiteScoreActionButton({
     required String label,
     required VoidCallback? onPressed,
@@ -742,7 +725,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
             radius: 20,
             borderColor: BiteRaterTheme.coral.withOpacity(0.34),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 5, 12, 1),
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -800,7 +783,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                                       setState(() {});
                                     },
                                   ),
-                                  const SizedBox(height: 5),
+                                  const SizedBox(height: 4),
                                   _buildSearchField(
                                     controller: locationSearchController,
                                     focusNode: _locationSearchFocusNode,
@@ -809,9 +792,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                                     onSearch: _searchLocation,
                                     showArrowIcon: false,
                                   ),
-                                  const SizedBox(height: 5),
+                                  const SizedBox(height: 4),
                                   _buildLocationActionRow(minHeight: 40),
-                                  const SizedBox(height: 5),
+                                  const SizedBox(height: 4),
                                   Row(
                                     children: [
                                       Expanded(
@@ -888,61 +871,42 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 4),
+                                  const SizedBox(height: 3),
                                   SizedBox(
                                     width: double.infinity,
                                     child: _buildBiteScoreActionButton(
                                       label: 'Create and Rate',
                                       onPressed: _openCreateAndRate,
                                       fullWidth: true,
-                                      style: _chromeActionButtonStyle(),
+                                      style: BiteRaterTheme.filledButtonStyle(),
                                       decoration: BoxDecoration(
                                         gradient: const LinearGradient(
-                                          begin: Alignment.topLeft,
-                                          end: Alignment.bottomRight,
+                                          begin: Alignment.centerLeft,
+                                          end: Alignment.centerRight,
                                           colors: [
-                                            Color(0xFFFFFFFF),
-                                            Color(0xFFF0F0EB),
-                                            Color(0xFFAEAEA6),
-                                            Color(0xFFE6E6E0),
-                                            Color(0xFF74746F),
+                                            Color(0xFF5A88C4),
+                                            Color(0xFF617EB7),
+                                            Color(0xFF6A73A8),
                                           ],
-                                          stops: [0.0, 0.16, 0.42, 0.7, 1.0],
                                         ),
                                         borderRadius: BorderRadius.circular(16),
                                         border: Border.all(
-                                          color: const Color(
-                                            0xFFFDFDFB,
-                                          ).withOpacity(1),
-                                          width: 1.6,
+                                          color: BiteRaterTheme.ocean
+                                              .withOpacity(0.18),
+                                          width: 1,
                                         ),
                                         boxShadow: [
                                           BoxShadow(
-                                            color: Colors.white.withOpacity(
-                                              0.85,
-                                            ),
-                                            blurRadius: 0,
-                                            offset: const Offset(0, -1),
-                                          ),
-                                          BoxShadow(
-                                            color: const Color(
-                                              0xFF6C6C67,
-                                            ).withOpacity(0.40),
-                                            blurRadius: 22,
-                                            offset: const Offset(0, 11),
-                                          ),
-                                          BoxShadow(
-                                            color: const Color(
-                                              0xFFFFFFFF,
-                                            ).withOpacity(0.48),
-                                            blurRadius: 14,
-                                            offset: const Offset(-4, -4),
+                                            color: BiteRaterTheme.ocean
+                                                .withOpacity(0.18),
+                                            blurRadius: 10,
+                                            offset: const Offset(0, 4),
                                           ),
                                         ],
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 0),
+                                  const SizedBox(height: 4),
                                 ],
                               ),
                               Positioned(
@@ -1117,7 +1081,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                         ),
                         const SizedBox(height: 0.5),
                         Text(
-                          '${entry.aggregate.ratingCount} ratings',
+                          '(${entry.aggregate.ratingCount})',
                           textAlign: TextAlign.right,
                           style: TextStyle(
                             fontSize: 9.5,
@@ -1153,7 +1117,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
             ),
             pressedScale: 0.98,
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 9, 16, 12),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 11),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1186,7 +1150,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                       letterSpacing: 0.05,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  const SizedBox(height: 5),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Row(
@@ -1197,7 +1161,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                           style: BiteRaterTheme.outlinedButtonStyle(
                             accentColor: BiteRaterTheme.coral,
                           ),
-                          child: const Text('Rate & Review'),
+                          child: const Text('Rate Dish'),
                         ),
                         const SizedBox(width: 10),
                         const Icon(
