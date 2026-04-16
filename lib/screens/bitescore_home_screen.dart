@@ -979,6 +979,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
               left: BorderSide(color: BiteRaterTheme.lineBlue),
               right: BorderSide(color: BiteRaterTheme.lineBlue),
             ),
+            pressedScale: 0.965,
+            pressedColor: const Color(0xFFF4F8FD),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
               child: Row(
@@ -1090,7 +1092,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
               right: BorderSide(color: BiteRaterTheme.lineBlue),
               bottom: BorderSide(color: BiteRaterTheme.lineBlue),
             ),
-            pressedScale: 0.98,
+            pressedScale: 0.99,
+            pressedColor: const Color(0xFFFCFDFE),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
               child: Row(
@@ -1102,18 +1105,20 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                       children: [
                         Text(
                           entry.restaurant.name,
-                          style: const TextStyle(
-                            color: BiteRaterTheme.ocean,
+                          style: TextStyle(
+                            color: BiteRaterTheme.restaurantTitle.withOpacity(
+                              0.96,
+                            ),
                             fontSize: 13,
-                            fontWeight: FontWeight.w800,
+                            fontWeight: FontWeight.w700,
                             height: 1.12,
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           '${entry.restaurant.city} · ${_distanceLabel(entry)}',
-                          style: const TextStyle(
-                            color: BiteRaterTheme.mutedInk,
+                          style: TextStyle(
+                            color: BiteRaterTheme.mutedInk.withOpacity(0.92),
                             fontSize: 11,
                             fontWeight: FontWeight.w500,
                             height: 1.15,
