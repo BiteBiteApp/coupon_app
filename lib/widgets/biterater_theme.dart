@@ -23,11 +23,7 @@ class BiteRaterTheme {
       spreadRadius: 2,
       offset: Offset(0, 12),
     ),
-    BoxShadow(
-      color: Color(0x0F000000),
-      blurRadius: 6,
-      offset: Offset(0, 3),
-    ),
+    BoxShadow(color: Color(0x0F000000), blurRadius: 6, offset: Offset(0, 3)),
   ];
   static const List<BoxShadow> pressedLiftedShadows = <BoxShadow>[
     BoxShadow(
@@ -36,29 +32,19 @@ class BiteRaterTheme {
       spreadRadius: 1,
       offset: Offset(0, 6),
     ),
-    BoxShadow(
-      color: Color(0x0A000000),
-      blurRadius: 4,
-      offset: Offset(0, 2),
-    ),
+    BoxShadow(color: Color(0x0A000000), blurRadius: 4, offset: Offset(0, 2)),
   ];
 
   static const LinearGradient brandGradient = LinearGradient(
     begin: Alignment.centerLeft,
     end: Alignment.centerRight,
-    colors: [
-      ocean,
-      grape,
-    ],
+    colors: [ocean, grape],
   );
 
   static const LinearGradient softHeroGradient = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
-    colors: [
-      cardSurface,
-      Color(0xFFF7F8FB),
-    ],
+    colors: [cardSurface, Color(0xFFF7F8FB)],
   );
 
   static BorderRadius cardRadius([double radius = 18]) =>
@@ -81,10 +67,7 @@ class BiteRaterTheme {
   }) {
     return RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(radius - 1),
-      side: BorderSide(
-        color: borderColor,
-        width: 1,
-      ),
+      side: BorderSide(color: borderColor, width: 1),
     );
   }
 
@@ -127,9 +110,9 @@ class BiteRaterTheme {
 
   static Widget softDivider() {
     return Container(
-      height: 1,
+      height: 0.5,
       margin: const EdgeInsets.symmetric(vertical: 12),
-      color: lineBlue.withOpacity(0.75),
+      color: lineBlue.withOpacity(0.35),
     );
   }
 
@@ -140,9 +123,7 @@ class BiteRaterTheme {
     return BoxDecoration(
       color: cardSurface,
       borderRadius: cardRadius(radius),
-      border: Border.all(
-        color: accentColor.withOpacity(0.14),
-      ),
+      border: Border.all(color: accentColor.withOpacity(0.14)),
       boxShadow: liftedShadows,
     );
   }
@@ -154,9 +135,7 @@ class BiteRaterTheme {
     return BoxDecoration(
       gradient: softHeroGradient,
       borderRadius: cardRadius(radius),
-      border: Border.all(
-        color: accentColor.withOpacity(0.14),
-      ),
+      border: Border.all(color: accentColor.withOpacity(0.14)),
       boxShadow: liftedShadows,
     );
   }
@@ -165,9 +144,7 @@ class BiteRaterTheme {
     return BoxDecoration(
       color: accentColor.withOpacity(0.08),
       borderRadius: BorderRadius.circular(999),
-      border: Border.all(
-        color: accentColor.withOpacity(0.14),
-      ),
+      border: Border.all(color: accentColor.withOpacity(0.14)),
     );
   }
 
@@ -175,9 +152,7 @@ class BiteRaterTheme {
     return BoxDecoration(
       color: accentColor.withOpacity(0.06),
       borderRadius: BorderRadius.circular(16),
-      border: Border.all(
-        color: accentColor.withOpacity(0.12),
-      ),
+      border: Border.all(color: accentColor.withOpacity(0.12)),
       boxShadow: liftedShadows,
     );
   }
@@ -203,16 +178,10 @@ class BiteRaterTheme {
   static ButtonStyle outlinedButtonStyle({Color accentColor = grape}) {
     return OutlinedButton.styleFrom(
       foregroundColor: accentColor,
-      side: BorderSide(
-        color: accentColor.withOpacity(0.22),
-      ),
+      side: BorderSide(color: accentColor.withOpacity(0.22)),
       backgroundColor: accentColor.withOpacity(0.04),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      textStyle: const TextStyle(
-        fontWeight: FontWeight.w800,
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      textStyle: const TextStyle(fontWeight: FontWeight.w800),
     );
   }
 
@@ -223,9 +192,7 @@ class BiteRaterTheme {
       shadowColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
       minimumSize: const Size.fromHeight(48),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       padding: EdgeInsets.zero,
       textStyle: const TextStyle(
         fontSize: 16,
@@ -367,10 +334,7 @@ class _BiteRaterPressableSectionState
             child: InkWell(
               onTap: widget.onTap,
               borderRadius: widget.borderRadius,
-              child: SizedBox(
-                width: double.infinity,
-                child: widget.child,
-              ),
+              child: SizedBox(width: double.infinity, child: widget.child),
             ),
           ),
         ),
