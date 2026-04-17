@@ -870,11 +870,11 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 6),
             _buildReviewScoreBadge(review.overallBiteScore),
             Container(
               height: 0.5,
-              margin: const EdgeInsets.only(top: 8, bottom: 8),
+              margin: const EdgeInsets.only(top: 6, bottom: 6),
               color: BiteRaterTheme.lineBlue.withOpacity(0.35),
             ),
             if (headline.isNotEmpty) ...[
