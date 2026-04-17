@@ -727,8 +727,14 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     required int count,
     required bool selected,
     required VoidCallback onTap,
+    bool showLabel = true,
   }) {
     final selectedColor = BiteRaterTheme.ocean;
+    final resolvedLabel = showLabel
+        ? '$label${count > 0 ? ' $count' : ''}'
+        : count > 0
+        ? '$count'
+        : '';
     return OutlinedButton.icon(
       onPressed: onTap,
       icon: Icon(
@@ -736,24 +742,33 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         size: 14,
         color: selected ? selectedColor : BiteRaterTheme.restaurantTitle,
       ),
-      label: Text(
-        '$label${count > 0 ? ' $count' : ''}',
-        style: TextStyle(
-          color: selected ? selectedColor : BiteRaterTheme.restaurantTitle,
-          fontSize: 12,
-          fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
-        ),
-      ),
+      label: resolvedLabel.isEmpty
+          ? const SizedBox.shrink()
+          : Text(
+              resolvedLabel,
+              style: TextStyle(
+                color: selected
+                    ? selectedColor
+                    : BiteRaterTheme.restaurantTitle,
+                fontSize: 12,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+              ),
+            ),
       style: OutlinedButton.styleFrom(
         side: BorderSide(
-          color: selected ? selectedColor : BiteRaterTheme.lineBlue,
+          color: selected
+              ? selectedColor.withOpacity(0.70)
+              : BiteRaterTheme.lineBlue.withOpacity(0.82),
         ),
         backgroundColor: selected
             ? selectedColor.withOpacity(0.10)
             : Colors.white,
         minimumSize: const Size(0, 32),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+        padding: EdgeInsets.symmetric(
+          horizontal: showLabel ? 8 : 6,
+          vertical: 7,
+        ),
         visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
       ),
     );
@@ -788,8 +803,8 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Wrap(
-                        spacing: 8,
-                        runSpacing: 4,
+                        spacing: 4,
+                        runSpacing: 1,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
                           InkWell(
@@ -815,42 +830,27 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                             _buildReviewerBadgeChip(reviewerBadgeLabel),
                         ],
                       ),
-                      const SizedBox(height: 2),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BiteRaterTheme.chipDecoration(
-                          BiteRaterTheme.coral,
-                        ),
-                        child: Text(
-                          review.overallBiteScore.toStringAsFixed(0),
-                          style: const TextStyle(
-                            color: BiteRaterTheme.scoreFlame,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
+                      const SizedBox(height: 1),
+                      _buildReviewScoreBadge(review.overallBiteScore),
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 5),
                 Padding(
-                  padding: const EdgeInsets.only(top: 2),
+                  padding: const EdgeInsets.only(top: 0.5),
                   child: Text(
                     _dateLabel(review.createdAt),
                     style: const TextStyle(
                       color: BiteRaterTheme.mutedInk,
-                      fontSize: 12,
+                      fontSize: 11.5,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
-                const SizedBox(width: 2),
+                const SizedBox(width: 1),
                 PopupMenuButton<String>(
                   tooltip: 'Review actions',
-                  iconSize: 20,
+                  iconSize: 18,
                   padding: EdgeInsets.zero,
                   onSelected: (_) => _reportReview(review),
                   itemBuilder: (context) => [
@@ -908,6 +908,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                   label: 'Not Helpful',
                   count: trustSummary.notHelpfulCount,
                   selected: trustSummary.userMarkedNotHelpful,
+                  showLabel: false,
                   onTap: () => _toggleReviewVote(
                     review,
                     ReviewFeedbackVote.voteNotHelpful,
@@ -916,6 +917,27 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReviewScoreBadge(double overallBiteScore) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      decoration: BoxDecoration(
+        color: BiteRaterTheme.coral.withOpacity(0.065),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: BiteRaterTheme.coral.withOpacity(0.16)),
+      ),
+      child: Text(
+        overallBiteScore.toStringAsFixed(0),
+        style: const TextStyle(
+          color: BiteRaterTheme.scoreFlame,
+          fontSize: 15,
+          fontWeight: FontWeight.w900,
+          height: 1.0,
+          letterSpacing: -0.1,
         ),
       ),
     );
@@ -933,26 +955,21 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      width: 18,
+      height: 18,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: badgeStyle.$1.withOpacity(0.08),
+        color: badgeStyle.$1.withOpacity(0.07),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: badgeStyle.$1.withOpacity(0.16)),
+        border: Border.all(color: badgeStyle.$1.withOpacity(0.14)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(badgeStyle.$2, size: 12, color: badgeStyle.$1.withOpacity(0.90)),
-          const SizedBox(width: 4),
-          Text(
-            badgeLabel,
-            style: TextStyle(
-              color: badgeStyle.$1.withOpacity(0.90),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
+      child: Tooltip(
+        message: badgeLabel,
+        child: Icon(
+          badgeStyle.$2,
+          size: 11,
+          color: badgeStyle.$1.withOpacity(0.84),
+        ),
       ),
     );
   }
@@ -1586,28 +1603,30 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                                     .toStringAsFixed(0)
                                               : '--',
                                           style: const TextStyle(
-                                            fontSize: 58,
+                                            fontSize: 66,
                                             fontWeight: FontWeight.w900,
-                                            height: 0.92,
+                                            height: 0.80,
+                                            letterSpacing: -0.9,
                                             color: BiteRaterTheme.scoreFlame,
                                           ),
                                         ),
-                                        const SizedBox(height: 0.5),
+                                        const SizedBox(height: 6),
                                         const Text(
                                           'BiteScore',
                                           style: TextStyle(
-                                            fontSize: 10,
-                                            fontWeight: FontWeight.w600,
-                                            letterSpacing: 0.18,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.w500,
+                                            letterSpacing: 0.12,
                                             color: BiteRaterTheme.mutedInk,
+                                            height: 1.0,
                                           ),
                                         ),
-                                        const SizedBox(height: 0.5),
+                                        const SizedBox(height: 0),
                                         Text(
                                           '${detail.aggregate.ratingCount} ratings',
                                           style: const TextStyle(
                                             color: BiteRaterTheme.mutedInk,
-                                            fontSize: 11,
+                                            fontSize: 9.5,
                                             fontWeight: FontWeight.w500,
                                             height: 1.0,
                                           ),
@@ -1615,7 +1634,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                       ],
                                     ),
                                   ),
-                                  const SizedBox(height: 10),
+                                  const SizedBox(height: 18),
                                   _buildAverageRatingGrid(detail.aggregate),
                                 ],
                               ),
