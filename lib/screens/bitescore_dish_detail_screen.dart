@@ -785,91 +785,87 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     final publicDisplayName = (reviewerDisplayName ?? '').trim().isEmpty
         ? 'Reviewer'
         : reviewerDisplayName!.trim();
+    final reviewerNameWidget = InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: () => _openReviewerProfile(review.userId),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+        child: Text(
+          publicDisplayName,
+          style: const TextStyle(
+            color: BiteRaterTheme.grape,
+            fontSize: 13,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ),
+    );
+    final reviewerBadgeWidget =
+        reviewerBadgeLabel != null && reviewerBadgeLabel.trim().isNotEmpty
+        ? _buildReviewerBadgeChip(reviewerBadgeLabel)
+        : null;
+    final reviewDateWidget = Text(
+      _dateLabel(review.createdAt),
+      style: const TextStyle(
+        color: BiteRaterTheme.mutedInk,
+        fontSize: 11.5,
+        fontWeight: FontWeight.w600,
+      ),
+    );
+    final reviewMenuWidget = PopupMenuButton<String>(
+      tooltip: 'Review actions',
+      iconSize: 18,
+      padding: EdgeInsets.zero,
+      onSelected: (_) => _reportReview(review),
+      itemBuilder: (context) => [
+        PopupMenuItem<String>(
+          value: 'report',
+          enabled: !trustSummary.hasPendingUserReport,
+          child: Text(
+            trustSummary.hasPendingUserReport
+                ? 'Review reported'
+                : 'Report review',
+          ),
+        ),
+      ],
+    );
 
     return BiteRaterTheme.liftedCard(
       margin: const EdgeInsets.only(bottom: 8),
       radius: 22,
       borderColor: BiteRaterTheme.grape.withOpacity(0.09),
       child: Padding(
-        padding: const EdgeInsets.all(9),
+        padding: const EdgeInsets.fromLTRB(9, 10, 9, 10),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Wrap(
-                        spacing: 4,
-                        runSpacing: 1,
-                        crossAxisAlignment: WrapCrossAlignment.center,
-                        children: [
-                          InkWell(
-                            borderRadius: BorderRadius.circular(999),
-                            onTap: () => _openReviewerProfile(review.userId),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 2,
-                                vertical: 2,
-                              ),
-                              child: Text(
-                                publicDisplayName,
-                                style: const TextStyle(
-                                  color: BiteRaterTheme.grape,
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                            ),
-                          ),
-                          if (reviewerBadgeLabel != null &&
-                              reviewerBadgeLabel.trim().isNotEmpty)
-                            _buildReviewerBadgeChip(reviewerBadgeLabel),
-                        ],
-                      ),
-                      const SizedBox(height: 1),
-                      _buildReviewScoreBadge(review.overallBiteScore),
+                Row(
+                  children: [
+                    reviewerNameWidget,
+                    if (reviewerBadgeWidget != null) ...[
+                      const SizedBox(width: 6),
+                      reviewerBadgeWidget,
                     ],
-                  ),
+                  ],
                 ),
-                const SizedBox(width: 5),
-                Padding(
-                  padding: const EdgeInsets.only(top: 0.5),
-                  child: Text(
-                    _dateLabel(review.createdAt),
-                    style: const TextStyle(
-                      color: BiteRaterTheme.mutedInk,
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 1),
-                PopupMenuButton<String>(
-                  tooltip: 'Review actions',
-                  iconSize: 18,
-                  padding: EdgeInsets.zero,
-                  onSelected: (_) => _reportReview(review),
-                  itemBuilder: (context) => [
-                    PopupMenuItem<String>(
-                      value: 'report',
-                      enabled: !trustSummary.hasPendingUserReport,
-                      child: Text(
-                        trustSummary.hasPendingUserReport
-                            ? 'Review reported'
-                            : 'Report review',
-                      ),
-                    ),
+                Row(
+                  children: [
+                    reviewDateWidget,
+                    const SizedBox(width: 4),
+                    reviewMenuWidget,
                   ],
                 ),
               ],
             ),
+            const SizedBox(height: 1),
+            _buildReviewScoreBadge(review.overallBiteScore),
             Container(
               height: 0.5,
-              margin: const EdgeInsets.symmetric(vertical: 8),
+              margin: const EdgeInsets.symmetric(vertical: 4),
               color: BiteRaterTheme.lineBlue.withOpacity(0.35),
             ),
             if (headline.isNotEmpty) ...[
@@ -925,21 +921,28 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   Widget _buildReviewScoreBadge(double overallBiteScore) {
     return Container(
       width: 38,
-      height: 38,
+      height: 32,
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF8F5),
+        color: const Color(0xFFFFF2EC),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: const Color(0xFFE19A8B), width: 1.2),
+        border: Border.all(color: const Color(0xFFDA8672), width: 1.3),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x08B4533A),
+            blurRadius: 2,
+            offset: Offset(0, 1),
+          ),
+        ],
       ),
       child: Text(
         overallBiteScore.toStringAsFixed(0),
         style: const TextStyle(
-          color: BiteRaterTheme.scoreFlame,
-          fontSize: 15.5,
+          color: Color(0xFFD62828),
+          fontSize: 15.8,
           fontWeight: FontWeight.w900,
           height: 1.0,
-          letterSpacing: -0.2,
+          letterSpacing: -0.25,
         ),
         textAlign: TextAlign.center,
       ),
