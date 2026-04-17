@@ -924,21 +924,24 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
 
   Widget _buildReviewScoreBadge(double overallBiteScore) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      width: 38,
+      height: 38,
+      alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: BiteRaterTheme.coral.withOpacity(0.065),
+        color: const Color(0xFFFFF8F5),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: BiteRaterTheme.coral.withOpacity(0.16)),
+        border: Border.all(color: const Color(0xFFE19A8B), width: 1.2),
       ),
       child: Text(
         overallBiteScore.toStringAsFixed(0),
         style: const TextStyle(
           color: BiteRaterTheme.scoreFlame,
-          fontSize: 15,
+          fontSize: 15.5,
           fontWeight: FontWeight.w900,
           height: 1.0,
-          letterSpacing: -0.1,
+          letterSpacing: -0.2,
         ),
+        textAlign: TextAlign.center,
       ),
     );
   }
