@@ -31,6 +31,13 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
 }
 
 class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
+  static const List<String> _reviewSortOptions = <String>[
+    'Most Helpful',
+    'Most Recent',
+    'Highest Rated',
+    'Lowest Rated',
+  ];
+
   Future<_DishDetailData>? _detailFuture;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _reviewSectionKey = GlobalKey();
@@ -46,6 +53,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   bool _isFavoriteDish = false;
   bool _isSavingFavoriteDish = false;
   int _visibleReviewCount = 3;
+  String _selectedReviewSort = 'Most Helpful';
   User? get _currentUser => FirebaseAuth.instance.currentUser;
   bool get _isOwner =>
       _currentUser != null &&
@@ -112,24 +120,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     final reviewerNamesByUserId =
         reviewMetadataResults[2] as Map<String, String>;
 
-    reviews.sort((a, b) {
-      final aTrust = trustByReviewId[a.id] ?? const ReviewTrustSummary();
-      final bTrust = trustByReviewId[b.id] ?? const ReviewTrustSummary();
-
-      final byHelpfulScore = bTrust.helpfulScore.compareTo(aTrust.helpfulScore);
-      if (byHelpfulScore != 0) {
-        return byHelpfulScore;
-      }
-
-      final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final byDate = bDate.compareTo(aDate);
-      if (byDate != 0) {
-        return byDate;
-      }
-
-      return a.id.compareTo(b.id);
-    });
+    _sortReviews(reviews, trustByReviewId, _selectedReviewSort);
     _currentEntry = BiteScoreHomeEntry(
       dish: refreshedDish,
       restaurant: refreshedRestaurant,
@@ -146,6 +137,60 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       reviewerBadgesByUserId: reviewerBadgesByUserId,
       reviewerNamesByUserId: reviewerNamesByUserId,
     );
+  }
+
+  void _sortReviews(
+    List<DishReview> reviews,
+    Map<String, ReviewTrustSummary> trustByReviewId,
+    String sortOption,
+  ) {
+    reviews.sort((a, b) {
+      final aTrust = trustByReviewId[a.id] ?? const ReviewTrustSummary();
+      final bTrust = trustByReviewId[b.id] ?? const ReviewTrustSummary();
+      final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+
+      switch (sortOption) {
+        case 'Most Recent':
+          final byDate = bDate.compareTo(aDate);
+          if (byDate != 0) {
+            return byDate;
+          }
+          break;
+        case 'Highest Rated':
+          final byScore = b.overallBiteScore.compareTo(a.overallBiteScore);
+          if (byScore != 0) {
+            return byScore;
+          }
+          break;
+        case 'Lowest Rated':
+          final byScore = a.overallBiteScore.compareTo(b.overallBiteScore);
+          if (byScore != 0) {
+            return byScore;
+          }
+          break;
+        case 'Most Helpful':
+        default:
+          final byHelpfulScore = bTrust.helpfulScore.compareTo(
+            aTrust.helpfulScore,
+          );
+          if (byHelpfulScore != 0) {
+            return byHelpfulScore;
+          }
+          final byDate = bDate.compareTo(aDate);
+          if (byDate != 0) {
+            return byDate;
+          }
+          break;
+      }
+
+      final fallbackByDate = bDate.compareTo(aDate);
+      if (fallbackByDate != 0) {
+        return fallbackByDate;
+      }
+
+      return a.id.compareTo(b.id);
+    });
   }
 
   void _showSnackBar(String message) {
@@ -531,9 +576,10 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
           Text(
             label,
             style: TextStyle(
-              color: BiteRaterTheme.mutedInk.withOpacity(0.84),
-              fontSize: 9.5,
+              color: BiteRaterTheme.mutedInk.withOpacity(0.88),
+              fontSize: 9,
               fontWeight: FontWeight.w500,
+              letterSpacing: 0.12,
               height: 1.0,
             ),
           ),
@@ -750,8 +796,10 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                 color: selected
                     ? selectedColor
                     : BiteRaterTheme.restaurantTitle,
-                fontSize: 12,
+                fontSize: 11.5,
                 fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                letterSpacing: 0.04,
+                height: 1.0,
               ),
             ),
       style: OutlinedButton.styleFrom(
@@ -795,7 +843,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
           style: const TextStyle(
             color: BiteRaterTheme.grape,
             fontSize: 13,
-            fontWeight: FontWeight.w800,
+            fontWeight: FontWeight.w700,
+            letterSpacing: 0.02,
+            height: 1.05,
           ),
         ),
       ),
@@ -808,8 +858,10 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       _dateLabel(review.createdAt),
       style: const TextStyle(
         color: BiteRaterTheme.mutedInk,
-        fontSize: 11.5,
-        fontWeight: FontWeight.w600,
+        fontSize: 11,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.04,
+        height: 1.0,
       ),
     );
     final reviewMenuWidget = PopupMenuButton<String>(
@@ -882,14 +934,24 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                 headline,
                 style: const TextStyle(
                   color: BiteRaterTheme.ink,
-                  fontSize: 16,
+                  fontSize: 16.5,
                   fontWeight: FontWeight.w900,
+                  height: 1.08,
+                  letterSpacing: 0.02,
                 ),
               ),
             ],
             if (notes.isNotEmpty) ...[
               SizedBox(height: headline.isNotEmpty ? 4 : 0),
-              Text(notes),
+              Text(
+                notes,
+                style: const TextStyle(
+                  color: BiteRaterTheme.ink,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                  height: 1.4,
+                ),
+              ),
             ],
             if (headline.isNotEmpty || notes.isNotEmpty)
               const SizedBox(height: 10),
@@ -1254,8 +1316,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
               'Suggest Dish Edit',
               style: TextStyle(
                 color: BiteRaterTheme.ink,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
+                fontSize: 15.5,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.04,
               ),
             ),
             const SizedBox(height: 4),
@@ -1281,7 +1344,15 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                       ),
                   child: const FittedBox(
                     fit: BoxFit.scaleDown,
-                    child: Text('Suggest Rename', textAlign: TextAlign.center),
+                    child: Text(
+                      'Suggest Rename',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.06,
+                      ),
+                    ),
                   ),
                 );
 
@@ -1302,7 +1373,15 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                       ),
                   child: const FittedBox(
                     fit: BoxFit.scaleDown,
-                    child: Text('Suggest Merge', textAlign: TextAlign.center),
+                    child: Text(
+                      'Suggest Merge',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.06,
+                      ),
+                    ),
                   ),
                 );
 
@@ -1488,10 +1567,16 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
               );
           final currentDish = detail.dish;
           final currentRestaurant = detail.restaurant;
-          final visibleReviews = detail.reviews
+          final sortedReviews = List<DishReview>.of(detail.reviews);
+          _sortReviews(
+            sortedReviews,
+            detail.trustByReviewId,
+            _selectedReviewSort,
+          );
+          final visibleReviews = sortedReviews
               .take(_visibleReviewCount)
               .toList();
-          final hasMoreReviews = detail.reviews.length > visibleReviews.length;
+          final hasMoreReviews = sortedReviews.length > visibleReviews.length;
 
           return Column(
             children: [
@@ -1564,8 +1649,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                       child: Text(
                                         currentRestaurant.name,
                                         style: const TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15.5,
+                                          fontWeight: FontWeight.w800,
+                                          height: 1.1,
                                           color: BiteRaterTheme.restaurantTitle,
                                         ),
                                       ),
@@ -1576,8 +1662,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                     '${currentRestaurant.city}, ${currentRestaurant.zipCode}',
                                     style: const TextStyle(
                                       color: BiteRaterTheme.mutedInk,
-                                      fontSize: 13,
+                                      fontSize: 12.5,
                                       fontWeight: FontWeight.w500,
+                                      height: 1.15,
                                     ),
                                   ),
                                   if (widget.distanceLabel != null) ...[
@@ -1586,8 +1673,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                       widget.distanceLabel!,
                                       style: const TextStyle(
                                         color: BiteRaterTheme.mutedInk,
-                                        fontSize: 13,
+                                        fontSize: 12.5,
                                         fontWeight: FontWeight.w500,
+                                        height: 1.15,
                                       ),
                                     ),
                                   ],
@@ -1602,6 +1690,11 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                       ),
                                       style: TextButton.styleFrom(
                                         foregroundColor: BiteRaterTheme.coral,
+                                        textStyle: const TextStyle(
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w600,
+                                          letterSpacing: 0.1,
+                                        ),
                                       ),
                                       label: const Text('Report dish'),
                                     ),
@@ -1629,9 +1722,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                         const Text(
                                           'BiteScore',
                                           style: TextStyle(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w500,
-                                            letterSpacing: 0.12,
+                                            fontSize: 8.5,
+                                            fontWeight: FontWeight.w600,
+                                            letterSpacing: 0.18,
                                             color: BiteRaterTheme.mutedInk,
                                             height: 1.0,
                                           ),
@@ -1641,7 +1734,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                           '${detail.aggregate.ratingCount} ratings',
                                           style: const TextStyle(
                                             color: BiteRaterTheme.mutedInk,
-                                            fontSize: 9.5,
+                                            fontSize: 9,
                                             fontWeight: FontWeight.w500,
                                             height: 1.0,
                                           ),
@@ -1664,16 +1757,61 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                               color: BiteRaterTheme.ink,
                               fontSize: 20,
                               fontWeight: FontWeight.w900,
+                              letterSpacing: 0.05,
                             ),
                           ),
                           if (detail.reviews.isNotEmpty) ...[
                             const SizedBox(height: 4),
-                            Text(
-                              'Sorted by most helpful',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: BiteRaterTheme.grape,
+                            DecoratedBox(
+                              decoration: BoxDecoration(
+                                color: BiteRaterTheme.cardSurface,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                  color: BiteRaterTheme.lineBlue.withOpacity(
+                                    0.65,
+                                  ),
+                                ),
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                ),
+                                child: DropdownButtonHideUnderline(
+                                  child: DropdownButton<String>(
+                                    value: _selectedReviewSort,
+                                    isDense: true,
+                                    icon: const Icon(
+                                      Icons.keyboard_arrow_down_rounded,
+                                      size: 18,
+                                      color: BiteRaterTheme.mutedInk,
+                                    ),
+                                    style: const TextStyle(
+                                      color: BiteRaterTheme.ink,
+                                      fontSize: 12.5,
+                                      fontWeight: FontWeight.w600,
+                                      letterSpacing: 0.04,
+                                    ),
+                                    dropdownColor: BiteRaterTheme.cardSurface,
+                                    borderRadius: BorderRadius.circular(14),
+                                    items: _reviewSortOptions
+                                        .map(
+                                          (option) => DropdownMenuItem<String>(
+                                            value: option,
+                                            child: Text(option),
+                                          ),
+                                        )
+                                        .toList(),
+                                    onChanged: (value) {
+                                      if (value == null ||
+                                          value == _selectedReviewSort) {
+                                        return;
+                                      }
+                                      setState(() {
+                                        _selectedReviewSort = value;
+                                      });
+                                    },
+                                  ),
+                                ),
                               ),
                             ),
                           ],
