@@ -1098,7 +1098,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final scheduleText = coupon.shortExpiresLabel;
 
     return Card(
-      color: proximityOnly ? Colors.orange.shade100 : Colors.orange.shade50,
+      color: const Color(0xFFF5EFE6),
       surfaceTintColor: Colors.transparent,
       elevation: 1,
       shadowColor: Colors.black.withOpacity(0.04),
