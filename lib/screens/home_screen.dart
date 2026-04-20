@@ -1100,7 +1100,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return Card(
       color: proximityOnly ? Colors.orange.shade100 : Colors.orange.shade50,
       surfaceTintColor: Colors.transparent,
-      elevation: 0,
+      elevation: 1,
+      shadowColor: Colors.black.withOpacity(0.04),
       margin: const EdgeInsets.only(bottom: 10),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
@@ -1139,13 +1140,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 fontSize: 16.5,
                 fontWeight: FontWeight.w700,
                 height: 1.12,
-                letterSpacing: -0.05,
+                letterSpacing: -0.08,
               ),
             ),
           ],
         ),
         subtitle: Padding(
-          padding: const EdgeInsets.only(top: 5),
+          padding: const EdgeInsets.only(top: 7),
           child: Text(
             proximityOnly
                 ? '$scheduleText - ${coupon.usageRule} - Unlocked nearby'
@@ -1153,7 +1154,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ? '$scheduleText - ${coupon.usageRule}'
                       : '$scheduleText - ${coupon.usageRule} - Code: ${coupon.couponCode}'),
             style: TextStyle(
-              color: Colors.black.withOpacity(0.65),
+              color: Colors.black.withOpacity(0.62),
               fontSize: 12.5,
               fontWeight: FontWeight.w500,
               height: 1.28,
@@ -1524,7 +1525,7 @@ class _HomeScreenState extends State<HomeScreen> {
             surfaceTintColor: Colors.transparent,
             elevation: 2,
             shadowColor: Colors.black.withOpacity(0.05),
-            margin: const EdgeInsets.only(bottom: 14),
+            margin: const EdgeInsets.only(bottom: 16),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(18),
               side: BorderSide(color: Colors.orange.withOpacity(0.08)),
@@ -1544,7 +1545,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             fontSize: 18.5,
                             fontWeight: FontWeight.w700,
                             height: 1.12,
-                            letterSpacing: -0.08,
+                            letterSpacing: -0.12,
                           ),
                         ),
                       ),
