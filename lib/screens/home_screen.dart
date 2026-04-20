@@ -1109,15 +1109,15 @@ class _HomeScreenState extends State<HomeScreen> {
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
-          vertical: 12,
+          vertical: 10,
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (proximityOnly)
               Container(
-                margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                margin: const EdgeInsets.only(bottom: 5),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: Colors.deepOrange,
                   borderRadius: BorderRadius.circular(999),
@@ -1136,14 +1136,14 @@ class _HomeScreenState extends State<HomeScreen> {
               style: const TextStyle(
                 color: Color(0xFF2B1D14),
                 fontSize: 16,
-                fontWeight: FontWeight.w600,
-                height: 1.18,
+                fontWeight: FontWeight.w700,
+                height: 1.14,
               ),
             ),
           ],
         ),
         subtitle: Padding(
-          padding: const EdgeInsets.only(top: 6),
+          padding: const EdgeInsets.only(top: 5),
           child: Text(
             proximityOnly
                 ? '$scheduleText - ${coupon.usageRule} - Unlocked nearby'
@@ -1154,7 +1154,7 @@ class _HomeScreenState extends State<HomeScreen> {
               color: Colors.black.withOpacity(0.65),
               fontSize: 12.5,
               fontWeight: FontWeight.w500,
-              height: 1.35,
+              height: 1.3,
             ),
           ),
         ),
@@ -1527,7 +1527,7 @@ class _HomeScreenState extends State<HomeScreen> {
               side: BorderSide(color: Colors.orange.withOpacity(0.08)),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 15),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -1551,7 +1551,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Text(
                     '${restaurant.distance} - ${restaurant.city}, ${restaurant.zipCode}',
                     style: TextStyle(
@@ -1561,7 +1561,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       height: 1.25,
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  const SizedBox(height: 12),
                   ...restaurant.coupons.map(
                     (coupon) => buildCouponCard(coupon, context),
                   ),
