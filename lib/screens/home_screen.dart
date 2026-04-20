@@ -41,14 +41,21 @@ class _HomeScreenState extends State<HomeScreen> {
   static const double _collapsedHeaderExtent = 86;
   static const double _expandedHeaderExtent = 312;
   static const String _selectedRadiusPreferenceKey = 'selected_radius';
+  static const Color _paperSurface = Color(0xFFFFFCF6);
+  static const Color _warmCardSurface = Color(0xFFFFF8EE);
+  static const Color _warmCardSurfaceStrong = Color(0xFFFFF2E1);
+  static const Color _warmInk = Color(0xFF2F2A24);
+  static const Color _mutedWarmInk = Color(0xFF736B60);
+  static const Color _softRule = Color(0xFFE8DED0);
+  static const Color _softButtonSurface = Color(0xFFF7F1E8);
+  static const Color _warmAccent = Color(0xFFB96832);
 
   String selectedRadius = '15 miles';
   String searchQuery = '';
   final TextEditingController searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   String generalSearchQuery = '';
-  final TextEditingController generalSearchController =
-      TextEditingController();
+  final TextEditingController generalSearchController = TextEditingController();
   final ScrollController _listScrollController = ScrollController();
 
   bool usingCurrentLocation = false;
@@ -332,7 +339,8 @@ class _HomeScreenState extends State<HomeScreen> {
     detectedCity = sharedLocation.detectedCity;
     detectedZip = sharedLocation.detectedZip;
     usingTypedSearchLocation = sharedLocation.usingTypedSearchLocation;
-    typedSearchCenter = sharedLocation.usingTypedSearchLocation &&
+    typedSearchCenter =
+        sharedLocation.usingTypedSearchLocation &&
             sharedLocation.typedLatitude != null &&
             sharedLocation.typedLongitude != null
         ? SearchCenter(
@@ -401,10 +409,12 @@ class _HomeScreenState extends State<HomeScreen> {
       return '';
     }
 
-    return snapshot.docs.map((doc) {
-      final data = doc.data();
-      return '${doc.id}|${data[Restaurant.fieldApprovalStatus] ?? ''}|${data[Restaurant.fieldUpdatedAt] ?? ''}';
-    }).join('||');
+    return snapshot.docs
+        .map((doc) {
+          final data = doc.data();
+          return '${doc.id}|${data[Restaurant.fieldApprovalStatus] ?? ''}|${data[Restaurant.fieldUpdatedAt] ?? ''}';
+        })
+        .join('||');
   }
 
   @override
@@ -591,10 +601,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          duration: const Duration(seconds: 3),
-        ),
+        SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
       );
   }
 
@@ -747,8 +754,8 @@ class _HomeScreenState extends State<HomeScreen> {
         searchQuery = locationDetails.city?.isNotEmpty == true
             ? locationDetails.city!
             : (locationDetails.zip?.isNotEmpty == true
-                ? locationDetails.zip!
-                : '');
+                  ? locationDetails.zip!
+                  : '');
         searchController.text = searchQuery;
         locationStatusMessage = 'Using your current location.';
       });
@@ -805,41 +812,38 @@ class _HomeScreenState extends State<HomeScreen> {
   void startLiveLocationTracking(List<Restaurant> allRestaurants) {
     _positionStreamSubscription?.cancel();
 
-    _positionStreamSubscription = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.best,
-        distanceFilter: 25,
-      ),
-    ).listen((position) async {
-      if (!mounted || !usingCurrentLocation) return;
+    _positionStreamSubscription =
+        Geolocator.getPositionStream(
+          locationSettings: const LocationSettings(
+            accuracy: LocationAccuracy.best,
+            distanceFilter: 25,
+          ),
+        ).listen((position) async {
+          if (!mounted || !usingCurrentLocation) return;
 
-      final newlyUnlocked = collectNewlyUnlockedCouponsForPosition(
-        allRestaurants,
-        position,
-      );
+          final newlyUnlocked = collectNewlyUnlockedCouponsForPosition(
+            allRestaurants,
+            position,
+          );
 
-      if (!mounted) return;
+          if (!mounted) return;
 
-      setState(() {
-        currentPosition = position;
-        locationStatusMessage = 'Using your current location live.';
-      });
+          setState(() {
+            currentPosition = position;
+            locationStatusMessage = 'Using your current location live.';
+          });
 
-      if (newlyUnlocked.isNotEmpty) {
-        for (final coupon in newlyUnlocked) {
-          _notifiedUnlockedCouponIds.add(coupon.id);
-        }
+          if (newlyUnlocked.isNotEmpty) {
+            for (final coupon in newlyUnlocked) {
+              _notifiedUnlockedCouponIds.add(coupon.id);
+            }
 
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          showUnlockedCouponNotification(newlyUnlocked);
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              showUnlockedCouponNotification(newlyUnlocked);
+            });
+          }
         });
-      }
-
-     
-    });
   }
-
-  
 
   void stopLiveLocationTracking() {
     _positionStreamSubscription?.cancel();
@@ -890,10 +894,7 @@ class _HomeScreenState extends State<HomeScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          duration: const Duration(seconds: 4),
-        ),
+        SnackBar(content: Text(message), duration: const Duration(seconds: 4)),
       );
   }
 
@@ -950,19 +951,24 @@ class _HomeScreenState extends State<HomeScreen> {
     final radius = selectedRadiusMiles();
     final center = activeSearchCenter;
     final now = DateTime.now();
-    final results = <({
-      Restaurant restaurant,
-      List<Coupon> coupons,
-      bool exactMatch,
-      double distanceMiles,
-    })>[];
+    final results =
+        <
+          ({
+            Restaurant restaurant,
+            List<Coupon> coupons,
+            bool exactMatch,
+            double distanceMiles,
+          })
+        >[];
 
     for (final restaurant in allRestaurants) {
       final availableCoupons = restaurant.coupons.where((coupon) {
         if (!coupon.isActiveAt(now)) return false;
 
-        final availableByUsage =
-            DemoRedemptionStore.isAvailable(coupon.id, coupon.usageRule);
+        final availableByUsage = DemoRedemptionStore.isAvailable(
+          coupon.id,
+          coupon.usageRule,
+        );
 
         if (!availableByUsage) return false;
 
@@ -1058,6 +1064,7 @@ class _HomeScreenState extends State<HomeScreen> {
       );
     }).toList();
   }
+
   int totalVisibleCoupons(List<Restaurant> restaurants) {
     return restaurants.fold(
       0,
@@ -1099,19 +1106,25 @@ class _HomeScreenState extends State<HomeScreen> {
     final scheduleText = coupon.shortExpiresLabel;
 
     return Card(
-      color: proximityOnly ? Colors.orange.shade100 : Colors.orange.shade50,
-      margin: const EdgeInsets.only(bottom: 8),
+      color: proximityOnly ? _warmCardSurfaceStrong : _warmCardSurface,
+      surfaceTintColor: Colors.transparent,
+      elevation: 0,
+      margin: const EdgeInsets.only(bottom: 10),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: _softRule, width: 0.8),
+      ),
       child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (proximityOnly)
               Container(
                 margin: const EdgeInsets.only(bottom: 6),
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: Colors.deepOrange,
+                  color: _warmAccent,
                   borderRadius: BorderRadius.circular(999),
                 ),
                 child: const Text(
@@ -1119,13 +1132,20 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextStyle(
                     color: Colors.white,
                     fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                    fontWeight: FontWeight.w700,
+                    letterSpacing: 0.15,
                   ),
                 ),
               ),
             Text(
               coupon.title,
-              style: const TextStyle(fontWeight: FontWeight.w600),
+              style: const TextStyle(
+                color: _warmInk,
+                fontSize: 15.5,
+                fontWeight: FontWeight.w700,
+                height: 1.18,
+                letterSpacing: -0.05,
+              ),
             ),
           ],
         ),
@@ -1135,11 +1155,17 @@ class _HomeScreenState extends State<HomeScreen> {
             proximityOnly
                 ? '$scheduleText - ${coupon.usageRule} - Unlocked nearby'
                 : (coupon.couponCode == null
-                    ? '$scheduleText - ${coupon.usageRule}'
-                    : '$scheduleText - ${coupon.usageRule} - Code: ${coupon.couponCode}'),
+                      ? '$scheduleText - ${coupon.usageRule}'
+                      : '$scheduleText - ${coupon.usageRule} - Code: ${coupon.couponCode}'),
+            style: const TextStyle(
+              color: _mutedWarmInk,
+              fontSize: 12.5,
+              fontWeight: FontWeight.w500,
+              height: 1.35,
+            ),
           ),
         ),
-        trailing: const Icon(Icons.chevron_right),
+        trailing: const Icon(Icons.chevron_right, color: _mutedWarmInk),
         onTap: () async {
           await Navigator.push(
             context,
@@ -1167,11 +1193,10 @@ class _HomeScreenState extends State<HomeScreen> {
       return;
     }
 
-    final targetOffset = (_expandedHeaderExtent - _collapsedHeaderExtent)
-        .clamp(
-          _listScrollController.position.minScrollExtent,
-          _listScrollController.position.maxScrollExtent,
-        );
+    final targetOffset = (_expandedHeaderExtent - _collapsedHeaderExtent).clamp(
+      _listScrollController.position.minScrollExtent,
+      _listScrollController.position.maxScrollExtent,
+    );
 
     await _listScrollController.animateTo(
       targetOffset,
@@ -1215,7 +1240,8 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
-  Widget _buildLocationActionRow(List<Restaurant> allRestaurants, {
+  Widget _buildLocationActionRow(
+    List<Restaurant> allRestaurants, {
     double minHeight = 52,
     bool showRefresh = true,
     bool matchBiteScoreStyle = false,
@@ -1237,33 +1263,27 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: ElevatedButton.styleFrom(
                   minimumSize: Size.fromHeight(minHeight),
                   backgroundColor: matchBiteScoreStyle
-                      ? Theme.of(context).colorScheme.surfaceContainerLowest
+                      ? _softButtonSurface
                       : null,
-                  foregroundColor: matchBiteScoreStyle
-                      ? Theme.of(context).colorScheme.primary
-                      : null,
-                  elevation: matchBiteScoreStyle ? 1 : null,
-                  shadowColor: matchBiteScoreStyle
-                      ? Theme.of(context).colorScheme.shadow.withOpacity(0.20)
-                      : null,
+                  foregroundColor: matchBiteScoreStyle ? _warmInk : null,
+                  elevation: matchBiteScoreStyle ? 0 : null,
+                  shadowColor: matchBiteScoreStyle ? Colors.transparent : null,
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   shape: RoundedRectangleBorder(
                     borderRadius: borderRadius,
                     side: matchBiteScoreStyle
-                        ? BorderSide(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .outlineVariant,
-                          )
+                        ? const BorderSide(color: _softRule)
                         : BorderSide.none,
+                  ),
+                  textStyle: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    letterSpacing: 0.02,
                   ),
                 ),
                 icon: const Icon(Icons.location_on_outlined),
                 label: Text(
-                  isGettingLocation
-                      ? 'Getting Location...'
-                      : 'Use My Location',
+                  isGettingLocation ? 'Getting Location...' : 'Use My Location',
                 ),
               ),
             ),
@@ -1277,14 +1297,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       : () => useMyLocation(allRestaurants),
                   style: ElevatedButton.styleFrom(
                     minimumSize: const Size(110, 0),
-                    backgroundColor: Colors.red.shade600,
+                    backgroundColor: const Color(0xFFB84F3B),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: borderRadius,
-                    ),
-                    textStyle: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                    ),
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: borderRadius),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w700),
                   ),
                   child: const Text('Refresh'),
                 ),
@@ -1299,20 +1316,19 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildGetStartedState(List<Restaurant> allRestaurants) {
     return SliverFillRemaining(
       hasScrollBody: false,
-        child: Align(
-          alignment: Alignment.topCenter,
-          child: Padding(
+      child: Align(
+        alignment: Alignment.topCenter,
+        child: Padding(
           padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: Card(
-              elevation: 4,
-              shadowColor: Colors.black.withOpacity(0.08),
+              color: _paperSurface,
+              surfaceTintColor: Colors.transparent,
+              elevation: 0,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(24),
-                side: const BorderSide(
-                  color: Color(0xFFE2E8F0),
-                ),
+                side: const BorderSide(color: _softRule),
               ),
               child: Padding(
                 padding: const EdgeInsets.all(24),
@@ -1323,10 +1339,11 @@ class _HomeScreenState extends State<HomeScreen> {
                       'Find great food near you 🍽️',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Theme.of(context).colorScheme.onSurface,
+                        color: _warmInk,
                         fontSize: 28,
-                        fontWeight: FontWeight.w900,
+                        fontWeight: FontWeight.w800,
                         height: 1.15,
+                        letterSpacing: -0.25,
                       ),
                     ),
                     const SizedBox(height: 14),
@@ -1334,17 +1351,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       'Use your location or enter a ZIP code to see nearby deals and top-rated dishes.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.black54,
+                        color: _mutedWarmInk,
                         fontSize: 15,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                         height: 1.45,
                       ),
                     ),
                     const SizedBox(height: 24),
-                    _buildLocationActionRow(
-                      allRestaurants,
-                      showRefresh: false,
-                    ),
+                    _buildLocationActionRow(allRestaurants, showRefresh: false),
                     const SizedBox(height: 12),
                     SizedBox(
                       width: double.infinity,
@@ -1352,13 +1366,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         onPressed: _focusLocationSearchField,
                         style: OutlinedButton.styleFrom(
                           minimumSize: const Size.fromHeight(52),
-                          foregroundColor:
-                              Theme.of(context).colorScheme.primary,
+                          foregroundColor: Theme.of(
+                            context,
+                          ).colorScheme.primary,
                           side: BorderSide(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .primary
-                                .withOpacity(0.28),
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.primary.withOpacity(0.28),
                           ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
@@ -1373,9 +1387,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       'We only use your location to show nearby results.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.black45,
+                        color: _mutedWarmInk,
                         fontSize: 12,
-                        fontWeight: FontWeight.w600,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
@@ -1416,10 +1430,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 const Text(
                   'Could not load nearby deals right now.',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -1428,10 +1439,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     fallback: 'Please try again in a moment.',
                   ),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    color: Colors.black54,
-                    height: 1.35,
-                  ),
+                  style: const TextStyle(color: Colors.black54, height: 1.35),
                 ),
                 const SizedBox(height: 14),
                 ElevatedButton(
@@ -1451,123 +1459,125 @@ class _HomeScreenState extends State<HomeScreen> {
     List<Restaurant> filteredRestaurants,
   ) {
     return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          if (filteredRestaurants.isEmpty) {
-            final nextRadius = _nextRadiusOption();
-            final canIncreaseRadius = nextRadius != selectedRadius;
+      delegate: SliverChildBuilderDelegate((context, index) {
+        if (filteredRestaurants.isEmpty) {
+          final nextRadius = _nextRadiusOption();
+          final canIncreaseRadius = nextRadius != selectedRadius;
 
-            return Padding(
-              padding: const EdgeInsets.only(top: 16),
-              child: Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    children: [
-                      const Text(
-                        'No nearby deals yet',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Try a larger radius, another ZIP code, or switch to BiteScore to find highly rated dishes nearby.',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.black54,
-                          height: 1.35,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      Wrap(
-                        alignment: WrapAlignment.center,
-                        spacing: 10,
-                        runSpacing: 10,
-                        children: [
-                          OutlinedButton(
-                            onPressed: canIncreaseRadius
-                                ? () {
-                                    setState(() {
-                                      selectedRadius = nextRadius;
-                                    });
-                                  }
-                                : null,
-                            child: Text(
-                              canIncreaseRadius
-                                  ? 'Increase Radius'
-                                  : 'Max Radius',
-                            ),
-                          ),
-                          TextButton(
-                            onPressed: () {
-                              AppModeStateService.setMode(
-                                AppMode.biteScore,
-                              );
-                            },
-                            child: const Text('Try BiteScore'),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }
-
-          final restaurant = filteredRestaurants[index];
-          return GestureDetector(
-            onTap: () => openRestaurantProfile(restaurant),
+          return Padding(
+            padding: const EdgeInsets.only(top: 16),
             child: Card(
-              margin: const EdgeInsets.only(bottom: 12),
               child: Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(18),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
+                    const Text(
+                      'No nearby deals yet',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Try a larger radius, another ZIP code, or switch to BiteScore to find highly rated dishes nearby.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.black54, height: 1.35),
+                    ),
+                    const SizedBox(height: 14),
+                    Wrap(
+                      alignment: WrapAlignment.center,
+                      spacing: 10,
+                      runSpacing: 10,
                       children: [
-                        Expanded(
+                        OutlinedButton(
+                          onPressed: canIncreaseRadius
+                              ? () {
+                                  setState(() {
+                                    selectedRadius = nextRadius;
+                                  });
+                                }
+                              : null,
                           child: Text(
-                            restaurant.name,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
+                            canIncreaseRadius
+                                ? 'Increase Radius'
+                                : 'Max Radius',
                           ),
                         ),
-                        const Icon(
-                          Icons.storefront,
-                          size: 18,
-                          color: Colors.black54,
+                        TextButton(
+                          onPressed: () {
+                            AppModeStateService.setMode(AppMode.biteScore);
+                          },
+                          child: const Text('Try BiteScore'),
                         ),
                       ],
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${restaurant.distance} - ${restaurant.city}, ${restaurant.zipCode}',
-                      style: const TextStyle(
-                        color: Colors.black54,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ...restaurant.coupons.map(
-                      (coupon) => buildCouponCard(
-                        coupon,
-                        context,
-                      ),
                     ),
                   ],
                 ),
               ),
             ),
           );
-        },
-        childCount: filteredRestaurants.isEmpty ? 1 : filteredRestaurants.length,
-      ),
+        }
+
+        final restaurant = filteredRestaurants[index];
+        return GestureDetector(
+          onTap: () => openRestaurantProfile(restaurant),
+          child: Card(
+            color: _paperSurface,
+            surfaceTintColor: Colors.transparent,
+            elevation: 0,
+            margin: const EdgeInsets.only(bottom: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: const BorderSide(color: _softRule, width: 0.9),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 15, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          restaurant.name,
+                          style: const TextStyle(
+                            color: _warmInk,
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            height: 1.15,
+                            letterSpacing: -0.08,
+                          ),
+                        ),
+                      ),
+                      const Icon(
+                        Icons.storefront,
+                        size: 18,
+                        color: _mutedWarmInk,
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${restaurant.distance} - ${restaurant.city}, ${restaurant.zipCode}',
+                    style: const TextStyle(
+                      color: _mutedWarmInk,
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      height: 1.25,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ...restaurant.coupons.map(
+                    (coupon) => buildCouponCard(coupon, context),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }, childCount: filteredRestaurants.isEmpty ? 1 : filteredRestaurants.length),
     );
   }
 
@@ -1586,11 +1596,9 @@ class _HomeScreenState extends State<HomeScreen> {
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
           decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceContainerLowest,
+            color: _paperSurface,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: Theme.of(context).colorScheme.outlineVariant,
-            ),
+            border: Border.all(color: _softRule),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -1605,19 +1613,15 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         Text(
                           'Expand search',
-                          style: TextStyle(
-                            color:
-                                Theme.of(context).colorScheme.onSurfaceVariant,
+                          style: const TextStyle(
+                            color: _mutedWarmInk,
                             fontSize: 12,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 0.12,
                           ),
                         ),
                         const SizedBox(height: 1),
-                        Icon(
-                          Icons.keyboard_arrow_down,
-                          color:
-                              Theme.of(context).colorScheme.onSurfaceVariant,
-                        ),
+                        Icon(Icons.keyboard_arrow_down, color: _mutedWarmInk),
                       ],
                     ),
                   ),
@@ -1646,17 +1650,31 @@ class _HomeScreenState extends State<HomeScreen> {
                                       hintText: 'Search restaurants or coupons',
                                       prefixIcon: const Icon(
                                         Icons.manage_search,
+                                        color: _mutedWarmInk,
                                       ),
-                                      contentPadding:
-                                          const EdgeInsets.fromLTRB(
+                                      filled: true,
+                                      fillColor: const Color(0xFFFFFDF9),
+                                      contentPadding: const EdgeInsets.fromLTRB(
                                         12,
                                         14,
                                         188,
                                         14,
                                       ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: const BorderSide(
+                                          color: _softRule,
+                                        ),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFFD8C8B5),
+                                          width: 1.2,
+                                        ),
+                                      ),
                                       border: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(12),
                                       ),
                                     ),
                                   ),
@@ -1678,37 +1696,35 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 VisualDensity.compact,
                                           ),
                                         Material(
-                                          color: Colors.grey.shade100,
+                                          color: _softButtonSurface,
                                           shape: RoundedRectangleBorder(
-                                            side: BorderSide(
-                                              color: Colors.grey.shade300,
+                                            side: const BorderSide(
+                                              color: _softRule,
                                             ),
-                                            borderRadius:
-                                                BorderRadius.circular(12),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
                                           ),
                                           child: InkWell(
                                             onTap: runGeneralSearch,
-                                            borderRadius:
-                                                BorderRadius.circular(12),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
                                             child: ConstrainedBox(
-                                              constraints:
-                                                  const BoxConstraints(
+                                              constraints: const BoxConstraints(
                                                 minHeight: 42,
                                               ),
                                               child: Padding(
                                                 padding:
                                                     const EdgeInsets.symmetric(
-                                                  horizontal: 18,
-                                                ),
+                                                      horizontal: 18,
+                                                    ),
                                                 child: Text(
                                                   'Search',
-                                                  style: TextStyle(
+                                                  style: const TextStyle(
                                                     fontSize: 12,
-                                                    fontWeight:
-                                                        FontWeight.w600,
-                                                    color: Theme.of(context)
-                                                        .colorScheme
-                                                        .primary,
+                                                    fontWeight: FontWeight.w600,
+                                                    color: _warmInk,
                                                   ),
                                                 ),
                                               ),
@@ -1732,17 +1748,33 @@ class _HomeScreenState extends State<HomeScreen> {
                                     decoration: InputDecoration(
                                       isDense: true,
                                       hintText: 'Enter city or ZIP code',
-                                      prefixIcon: const Icon(Icons.search),
-                                      contentPadding:
-                                          const EdgeInsets.fromLTRB(
+                                      prefixIcon: const Icon(
+                                        Icons.search,
+                                        color: _mutedWarmInk,
+                                      ),
+                                      filled: true,
+                                      fillColor: const Color(0xFFFFFDF9),
+                                      contentPadding: const EdgeInsets.fromLTRB(
                                         12,
                                         14,
                                         188,
                                         14,
                                       ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: const BorderSide(
+                                          color: _softRule,
+                                        ),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: const BorderSide(
+                                          color: Color(0xFFD8C8B5),
+                                          width: 1.2,
+                                        ),
+                                      ),
                                       border: OutlineInputBorder(
-                                        borderRadius:
-                                            BorderRadius.circular(12),
+                                        borderRadius: BorderRadius.circular(12),
                                       ),
                                     ),
                                   ),
@@ -1764,31 +1796,32 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 VisualDensity.compact,
                                           ),
                                         Material(
-                                          color: Colors.grey.shade100,
+                                          color: _softButtonSurface,
                                           shape: RoundedRectangleBorder(
-                                            side: BorderSide(
-                                              color: Colors.grey.shade300,
+                                            side: const BorderSide(
+                                              color: _softRule,
                                             ),
-                                            borderRadius:
-                                                BorderRadius.circular(12),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
                                           ),
                                           child: InkWell(
                                             onTap: isSearchingLocation
                                                 ? null
                                                 : () =>
-                                                    runSearch(allRestaurants),
-                                            borderRadius:
-                                                BorderRadius.circular(12),
+                                                      runSearch(allRestaurants),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
                                             child: ConstrainedBox(
-                                              constraints:
-                                                  const BoxConstraints(
+                                              constraints: const BoxConstraints(
                                                 minHeight: 42,
                                               ),
                                               child: Padding(
                                                 padding:
                                                     const EdgeInsets.symmetric(
-                                                  horizontal: 18,
-                                                ),
+                                                      horizontal: 18,
+                                                    ),
                                                 child: Row(
                                                   mainAxisSize:
                                                       MainAxisSize.min,
@@ -1796,10 +1829,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                     Icon(
                                                       Icons.arrow_forward,
                                                       size: 16,
-                                                      color:
-                                                          Theme.of(context)
-                                                              .colorScheme
-                                                              .primary,
+                                                      color: _warmInk,
                                                     ),
                                                     const SizedBox(width: 6),
                                                     Text(
@@ -1810,10 +1840,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                         fontSize: 12,
                                                         fontWeight:
                                                             FontWeight.w600,
-                                                        color:
-                                                            Theme.of(context)
-                                                                .colorScheme
-                                                                .primary,
+                                                        color: _warmInk,
                                                       ),
                                                     ),
                                                   ],
@@ -1839,13 +1866,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                 decoration: InputDecoration(
                                   isDense: true,
                                   labelText: 'Within Radius',
-                                  contentPadding:
-                                      const EdgeInsets.symmetric(
+                                  contentPadding: const EdgeInsets.symmetric(
                                     horizontal: 12,
                                     vertical: 12,
                                   ),
                                   border: OutlineInputBorder(
                                     borderRadius: BorderRadius.circular(12),
+                                    borderSide: const BorderSide(
+                                      color: _softRule,
+                                    ),
                                   ),
                                 ),
                                 items: const [
@@ -1888,8 +1917,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                 },
                               ),
                               const SizedBox(height: 8),
-                              if (compactStatusLine(filteredRestaurants)
-                                  .isNotEmpty)
+                              if (compactStatusLine(
+                                filteredRestaurants,
+                              ).isNotEmpty)
                                 Align(
                                   alignment: Alignment.centerLeft,
                                   child: Text(
@@ -1898,13 +1928,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                       fontSize: 12,
                                       color:
                                           (locationStatusMessage != null &&
-                                                  locationStatusMessage!
-                                                      .isNotEmpty &&
-                                                  !usingCurrentLocation &&
-                                                  searchQuery.trim().isEmpty)
-                                              ? Colors.deepOrange
-                                              : Colors.black54,
-                                      fontWeight: FontWeight.w600,
+                                              locationStatusMessage!
+                                                  .isNotEmpty &&
+                                              !usingCurrentLocation &&
+                                              searchQuery.trim().isEmpty)
+                                          ? _warmAccent
+                                          : _mutedWarmInk,
+                                      fontWeight: FontWeight.w500,
+                                      height: 1.25,
                                     ),
                                   ),
                                 ),
@@ -1981,8 +2012,9 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             }
 
-            final approvedAccountsSignature =
-                _buildApprovedAccountsSignature(snapshot.data);
+            final approvedAccountsSignature = _buildApprovedAccountsSignature(
+              snapshot.data,
+            );
             if (approvedAccountsSignature != _approvedAccountsSignature) {
               _approvedAccountsSignature = approvedAccountsSignature;
               WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -2031,13 +2063,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     sliver: !_hasLocationOrZipInput
                         ? _buildGetStartedState(allRestaurants)
                         : _restaurantsError != null && _restaurants.isEmpty
-                            ? _buildInlineRestaurantsError()
-                            : _isRestaurantsLoading && _restaurants.isEmpty
-                                ? _buildInlineRestaurantsLoading()
-                                : _buildResultsSliver(
-                                    allRestaurants,
-                                    filteredRestaurants,
-                                  ),
+                        ? _buildInlineRestaurantsError()
+                        : _isRestaurantsLoading && _restaurants.isEmpty
+                        ? _buildInlineRestaurantsLoading()
+                        : _buildResultsSliver(
+                            allRestaurants,
+                            filteredRestaurants,
+                          ),
                   ),
                 ],
               ),
@@ -2073,10 +2105,14 @@ class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
     bool overlapsContent,
   ) {
     final availableRange = (maxExtent - minExtent).clamp(1, double.infinity);
-    final currentExtent =
-        (maxExtent - shrinkOffset).clamp(minExtent, maxExtent);
-    final expansionT =
-        ((currentExtent - minExtent) / availableRange).clamp(0.0, 1.0);
+    final currentExtent = (maxExtent - shrinkOffset).clamp(
+      minExtent,
+      maxExtent,
+    );
+    final expansionT = ((currentExtent - minExtent) / availableRange).clamp(
+      0.0,
+      1.0,
+    );
 
     return ClipRect(
       child: SizedBox(
@@ -2096,11 +2132,3 @@ class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
         builder != oldDelegate.builder;
   }
 }
-
-
-
-
-
-
-
-

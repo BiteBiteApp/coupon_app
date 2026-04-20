@@ -14,16 +14,19 @@ import 'customer_account_screen.dart';
 class CouponDetailScreen extends StatefulWidget {
   final Coupon coupon;
 
-  const CouponDetailScreen({
-    super.key,
-    required this.coupon,
-  });
+  const CouponDetailScreen({super.key, required this.coupon});
 
   @override
   State<CouponDetailScreen> createState() => _CouponDetailScreenState();
 }
 
 class _CouponDetailScreenState extends State<CouponDetailScreen> {
+  static const Color _paperSurface = Color(0xFFFFFCF6);
+  static const Color _warmInk = Color(0xFF2F2A24);
+  static const Color _mutedWarmInk = Color(0xFF736B60);
+  static const Color _softRule = Color(0xFFE8DED0);
+  static const Color _warmAccent = Color(0xFFB96832);
+
   bool isLoading = true;
   bool isRedeeming = false;
   bool _isFavoriteCoupon = false;
@@ -71,10 +74,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          duration: const Duration(seconds: 3),
-        ),
+        SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
       );
   }
 
@@ -109,11 +109,9 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     if (isRedeeming || !_supportsRedeemTimer) return;
 
     if (FirebaseAuth.instance.currentUser == null) {
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => const CustomerAccountScreen(),
-        ),
-      );
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const CustomerAccountScreen()));
 
       if (!mounted || FirebaseAuth.instance.currentUser == null) {
         return;
@@ -150,8 +148,9 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   }
 
   Future<void> _toggleCouponFavorite() async {
-    final canSave =
-        await BiteScoreSignInGate.ensureSignedInForFavorites(context);
+    final canSave = await BiteScoreSignInGate.ensureSignedInForFavorites(
+      context,
+    );
     if (!canSave || !mounted || _isSavingFavoriteCoupon) {
       return;
     }
@@ -214,7 +213,9 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     }
 
     if (DemoRedemptionStore.hasActiveRedeemTimer(widget.coupon.id)) {
-      final remaining = DemoRedemptionStore.activeTimerRemaining(widget.coupon.id);
+      final remaining = DemoRedemptionStore.activeTimerRemaining(
+        widget.coupon.id,
+      );
       if (remaining == null) {
         return _expiredMessage();
       }
@@ -268,18 +269,11 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
 
     if (isLoading) {
       return Scaffold(
-        appBar: AppBar(
-          title: const Text('Coupon Details'),
-          centerTitle: true,
-        ),
+        appBar: AppBar(title: const Text('Coupon Details'), centerTitle: true),
         body: Column(
           children: [
             buildPersistentAppModeSwitcher(context),
-            const Expanded(
-              child: Center(
-                child: CircularProgressIndicator(),
-              ),
-            ),
+            const Expanded(child: Center(child: CircularProgressIndicator())),
           ],
         ),
       );
@@ -308,10 +302,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
         : null;
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Coupon Details'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Coupon Details'), centerTitle: true),
       body: Column(
         children: [
           buildPersistentAppModeSwitcher(context),
@@ -321,123 +312,177 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Text(
-                            coupon.title,
+                  Card(
+                    color: _paperSurface,
+                    surfaceTintColor: Colors.transparent,
+                    elevation: 0,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(22),
+                      side: const BorderSide(color: _softRule, width: 0.9),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(18),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  coupon.title,
+                                  style: const TextStyle(
+                                    color: _warmInk,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.w800,
+                                    height: 1.12,
+                                    letterSpacing: -0.18,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              _buildFavoriteAction(),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Restaurant: ${coupon.restaurant}',
                             style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
+                              color: _warmInk,
+                              fontWeight: FontWeight.w600,
+                              height: 1.25,
                             ),
                           ),
+                          const SizedBox(height: 6),
+                          Text(
+                            coupon.shortExpiresLabel,
+                            style: const TextStyle(
+                              color: _mutedWarmInk,
+                              fontWeight: FontWeight.w500,
+                              height: 1.25,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Usage rule: ${coupon.usageRule}',
+                            style: const TextStyle(
+                              color: _mutedWarmInk,
+                              fontWeight: FontWeight.w500,
+                              height: 1.25,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Status: ${_availabilityText()}',
+                            style: const TextStyle(
+                              color: _mutedWarmInk,
+                              fontWeight: FontWeight.w500,
+                              height: 1.25,
+                            ),
+                          ),
+                          if (coupon.couponCode != null &&
+                              coupon.couponCode!.trim().isNotEmpty) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              'Code: ${coupon.couponCode!}',
+                              style: const TextStyle(
+                                color: _warmInk,
+                                fontWeight: FontWeight.w700,
+                                letterSpacing: 0.2,
+                              ),
+                            ),
+                          ],
+                          if (coupon.details != null &&
+                              coupon.details!.trim().isNotEmpty) ...[
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Details',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w700,
+                                color: _warmInk,
+                                letterSpacing: 0.02,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              coupon.details!,
+                              style: const TextStyle(
+                                color: _mutedWarmInk,
+                                height: 1.4,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                          if (coupon.isProximityOnly) ...[
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFFFF2EA),
+                                borderRadius: BorderRadius.circular(999),
+                                border: Border.all(
+                                  color: const Color(0xFFE6B7A3),
+                                ),
+                              ),
+                              child: const Text(
+                                'Proximity-only coupon',
+                                style: TextStyle(
+                                  color: _warmAccent,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (_supportsRedeemTimer) ...[
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: (canStartRedeemTimer && !isRedeeming)
+                            ? _startRedeemTimer
+                            : null,
+                        child: Text(
+                          isRedeeming
+                              ? 'Starting Timer...'
+                              : hasActiveTimer
+                              ? 'Redeem Timer Active'
+                              : canStartRedeemTimer
+                              ? 'Redeem Coupon'
+                              : 'Not Available',
                         ),
-                        const SizedBox(width: 8),
-                        _buildFavoriteAction(),
-                      ],
+                      ),
                     ),
                     const SizedBox(height: 10),
-                    Text('Restaurant: ${coupon.restaurant}'),
-                    const SizedBox(height: 6),
-                    Text(coupon.shortExpiresLabel),
-                    const SizedBox(height: 6),
-                    Text('Usage rule: ${coupon.usageRule}'),
-                    const SizedBox(height: 6),
-                    Text('Status: ${_availabilityText()}'),
-                    if (coupon.couponCode != null &&
-                        coupon.couponCode!.trim().isNotEmpty) ...[
-                      const SizedBox(height: 6),
-                      Text('Code: ${coupon.couponCode!}'),
-                    ],
-                    if (coupon.details != null &&
-                        coupon.details!.trim().isNotEmpty) ...[
-                      const SizedBox(height: 16),
+                    if (hasActiveTimer && remaining != null)
+                      Text(
+                        'Timer active: ${_formatDuration(remaining)} remaining.',
+                        style: const TextStyle(
+                          color: _warmAccent,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      )
+                    else if (showExpiredMessage)
+                      Text(
+                        _expiredMessage(),
+                        style: const TextStyle(
+                          color: Color(0xFFB84F3B),
+                          fontWeight: FontWeight.w600,
+                        ),
+                      )
+                    else if (canStartRedeemTimer)
                       const Text(
-                        'Details',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                        'Tapping redeem starts a 5-minute timer. Tap when ready to pay.',
+                        style: TextStyle(color: _mutedWarmInk, height: 1.35),
                       ),
-                      const SizedBox(height: 6),
-                      Text(coupon.details!),
-                    ],
-                    if (coupon.isProximityOnly) ...[
-                      const SizedBox(height: 16),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.red.shade50,
-                          borderRadius: BorderRadius.circular(999),
-                          border: Border.all(color: Colors.red.shade200),
-                        ),
-                        child: const Text(
-                          'Proximity-only coupon',
-                          style: TextStyle(
-                            color: Colors.red,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
                   ],
-                ),
-              ),
-            ),
-            if (_supportsRedeemTimer) ...[
-              const SizedBox(height: 20),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: (canStartRedeemTimer && !isRedeeming)
-                      ? _startRedeemTimer
-                      : null,
-                  child: Text(
-                    isRedeeming
-                        ? 'Starting Timer...'
-                        : hasActiveTimer
-                            ? 'Redeem Timer Active'
-                            : canStartRedeemTimer
-                                ? 'Redeem Coupon'
-                                : 'Not Available',
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              if (hasActiveTimer && remaining != null)
-                Text(
-                  'Timer active: ${_formatDuration(remaining)} remaining.',
-                  style: const TextStyle(
-                    color: Colors.deepOrange,
-                    fontWeight: FontWeight.w600,
-                  ),
-                )
-              else if (showExpiredMessage)
-                Text(
-                  _expiredMessage(),
-                  style: const TextStyle(
-                    color: Colors.red,
-                    fontWeight: FontWeight.w600,
-                  ),
-                )
-              else if (canStartRedeemTimer)
-                const Text(
-                  'Tapping redeem starts a 5-minute timer. Tap when ready to pay.',
-                  style: TextStyle(
-                    color: Colors.black54,
-                  ),
-                ),
-            ],
                 ],
               ),
             ),
