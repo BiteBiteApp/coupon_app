@@ -1182,36 +1182,27 @@ class _HomeScreenState extends State<HomeScreen> {
                 borderRadius: shellRadius,
                 child: Padding(
                   padding: const EdgeInsets.all(1.2),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: faceRadius,
-                      border: Border.all(color: highlightBorderColor, width: 1),
-                    ),
-                    child: Padding(
-                      padding: innerMargin,
-                      child: Container(
-                        decoration: BoxDecoration(
-                          borderRadius: faceRadius,
-                          gradient: faceGradient,
-                          border: Border.all(color: faceBorderColor, width: 1),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.white.withOpacity(0.58),
-                              blurRadius: 1.5,
-                              offset: const Offset(0, -1),
-                            ),
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.045),
-                              blurRadius: 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: ClipRRect(
-                          borderRadius: faceRadius,
-                          child: child,
-                        ),
+                  child: Padding(
+                    padding: innerMargin,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: faceRadius,
+                        gradient: faceGradient,
+                        border: Border.all(color: faceBorderColor, width: 1),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.white.withOpacity(0.58),
+                            blurRadius: 1.5,
+                            offset: const Offset(0, -1),
+                          ),
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.045),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
                       ),
+                      child: ClipRRect(borderRadius: faceRadius, child: child),
                     ),
                   ),
                 ),
@@ -2123,56 +2114,105 @@ class _HomeScreenState extends State<HomeScreen> {
                                           fontSize: 12,
                                         ),
                                       ),
-                                      _biteSaverLightTileControl(
-                                        DropdownButtonFormField<String>(
-                                          initialValue: selectedRadius,
-                                          decoration: const InputDecoration(
-                                            contentPadding: EdgeInsets.fromLTRB(
-                                              12,
-                                              12,
-                                              12,
-                                              12,
-                                            ),
-                                            border: InputBorder.none,
+                                      Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 2,
+                                        ),
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
                                           ),
-                                          items: const [
-                                            DropdownMenuItem(
-                                              value: '1 mile',
-                                              child: Text('1 mile'),
+                                          child: _biteSaverTile(
+                                            shellRadius: BorderRadius.circular(
+                                              14,
                                             ),
-                                            DropdownMenuItem(
-                                              value: '3 miles',
-                                              child: Text('3 miles'),
+                                            faceRadius: BorderRadius.circular(
+                                              12.5,
                                             ),
-                                            DropdownMenuItem(
-                                              value: '5 miles',
-                                              child: Text('5 miles'),
+                                            innerMargin: const EdgeInsets.all(
+                                              1.6,
                                             ),
-                                            DropdownMenuItem(
-                                              value: '10 miles',
-                                              child: Text('10 miles'),
+                                            shadows: [
+                                              BoxShadow(
+                                                color: Colors.black.withOpacity(
+                                                  0.10,
+                                                ),
+                                                blurRadius: 8,
+                                                offset: const Offset(0, 3),
+                                              ),
+                                              BoxShadow(
+                                                color: Colors.white.withOpacity(
+                                                  0.45,
+                                                ),
+                                                blurRadius: 1,
+                                                offset: const Offset(0, -1),
+                                              ),
+                                            ],
+                                            child: SizedBox(
+                                              height: 58,
+                                              child:
+                                                  DropdownButtonFormField<
+                                                    String
+                                                  >(
+                                                    initialValue:
+                                                        selectedRadius,
+                                                    decoration:
+                                                        const InputDecoration(
+                                                          isDense: false,
+                                                          contentPadding:
+                                                              EdgeInsets.fromLTRB(
+                                                                12,
+                                                                16,
+                                                                12,
+                                                                14,
+                                                              ),
+                                                          border:
+                                                              InputBorder.none,
+                                                        ),
+                                                    items: const [
+                                                      DropdownMenuItem(
+                                                        value: '1 mile',
+                                                        child: Text('1 mile'),
+                                                      ),
+                                                      DropdownMenuItem(
+                                                        value: '3 miles',
+                                                        child: Text('3 miles'),
+                                                      ),
+                                                      DropdownMenuItem(
+                                                        value: '5 miles',
+                                                        child: Text('5 miles'),
+                                                      ),
+                                                      DropdownMenuItem(
+                                                        value: '10 miles',
+                                                        child: Text('10 miles'),
+                                                      ),
+                                                      DropdownMenuItem(
+                                                        value: '15 miles',
+                                                        child: Text('15 miles'),
+                                                      ),
+                                                      DropdownMenuItem(
+                                                        value: '20 miles',
+                                                        child: Text('20 miles'),
+                                                      ),
+                                                      DropdownMenuItem(
+                                                        value: '30 miles',
+                                                        child: Text('30 miles'),
+                                                      ),
+                                                    ],
+                                                    onChanged: (value) {
+                                                      if (value != null) {
+                                                        setState(() {
+                                                          selectedRadius =
+                                                              value;
+                                                        });
+                                                        _saveSelectedRadius(
+                                                          value,
+                                                        );
+                                                      }
+                                                    },
+                                                  ),
                                             ),
-                                            DropdownMenuItem(
-                                              value: '15 miles',
-                                              child: Text('15 miles'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: '20 miles',
-                                              child: Text('20 miles'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: '30 miles',
-                                              child: Text('30 miles'),
-                                            ),
-                                          ],
-                                          onChanged: (value) {
-                                            if (value != null) {
-                                              setState(() {
-                                                selectedRadius = value;
-                                              });
-                                              _saveSelectedRadius(value);
-                                            }
-                                          },
+                                          ),
                                         ),
                                       ),
                                     ],
