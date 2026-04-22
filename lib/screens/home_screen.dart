@@ -39,7 +39,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   static const double _collapsedHeaderExtent = 86;
-  static const double _expandedHeaderExtent = 312;
+  static const double _expandedHeaderExtent = 340;
   static const String _selectedRadiusPreferenceKey = 'selected_radius';
 
   String selectedRadius = '15 miles';
@@ -1099,17 +1099,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     return [
       BoxShadow(
-        color: Colors.black.withOpacity(0.10 + opacityBoost),
-        blurRadius: 12 * strength,
-        offset: Offset(0, 6 * strength),
+        color: Colors.black.withOpacity(0.14 + opacityBoost),
+        blurRadius: 18 * strength,
+        offset: Offset(0, 9 * strength),
       ),
       BoxShadow(
-        color: Colors.black.withOpacity(0.05 + opacityBoost / 2),
-        blurRadius: 4 * strength,
+        color: Colors.black.withOpacity(0.055 + opacityBoost / 2),
+        blurRadius: 6 * strength,
         offset: Offset(0, 2 * strength),
       ),
       BoxShadow(
-        color: Colors.white.withOpacity(0.55),
+        color: Colors.white.withOpacity(0.46),
         blurRadius: 2 * strength,
         offset: Offset(0, -1 * strength),
       ),
@@ -1120,59 +1120,62 @@ class _HomeScreenState extends State<HomeScreen> {
     required Widget child,
     required BorderRadius shellRadius,
     required BorderRadius faceRadius,
-    Color shellBorderColor = const Color(0xFFDDCBB8),
-    Color highlightBorderColor = const Color(0xF2FFFFFF),
-    Color faceBorderColor = const Color(0xFFF8F1E7),
+    Color shellBorderColor = const Color(0xFFE7D8C7),
+    Color highlightBorderColor = const Color(0xF7FFFFFF),
+    Color faceBorderColor = const Color(0xFFFAF3EA),
     Gradient shellGradient = const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xFFF4EBE0), Color(0xFFEEE2D5), Color(0xFFE6D7C7)],
+      colors: [Color(0xFFF5EBDD), Color(0xFFEEDFCF), Color(0xFFE3D1BE)],
     ),
     Gradient faceGradient = const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xFFFFFFFF), Color(0xFFF8F1E8), Color(0xFFF1E7DA)],
+      colors: [Color(0xFFFFFFFF), Color(0xFFFBF6EF), Color(0xFFF5ECE0)],
     ),
-    EdgeInsetsGeometry innerMargin = const EdgeInsets.all(1.1),
+    EdgeInsetsGeometry innerMargin = const EdgeInsets.all(1.8),
     List<BoxShadow>? shadows,
   }) {
     return Container(
-      clipBehavior: Clip.none,
       decoration: BoxDecoration(
         borderRadius: shellRadius,
         boxShadow: shadows ?? _biteSaverTileShadows(),
+        gradient: shellGradient,
+        border: Border.all(color: shellBorderColor, width: 1),
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: shellRadius,
-          gradient: shellGradient,
-          border: Border.all(color: shellBorderColor, width: 1),
-        ),
-        child: Stack(
-          children: [
-            Positioned.fill(
-              child: IgnorePointer(
-                child: Padding(
-                  padding: const EdgeInsets.all(1),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      borderRadius: faceRadius,
-                      border: Border.all(color: highlightBorderColor, width: 1),
+      child: ClipRRect(
+        borderRadius: shellRadius,
+        child: Padding(
+          padding: const EdgeInsets.all(1.2),
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: faceRadius,
+              border: Border.all(color: highlightBorderColor, width: 1),
+            ),
+            child: Padding(
+              padding: innerMargin,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: faceRadius,
+                  gradient: faceGradient,
+                  border: Border.all(color: faceBorderColor, width: 1),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.white.withOpacity(0.58),
+                      blurRadius: 1.5,
+                      offset: const Offset(0, -1),
                     ),
-                  ),
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.045),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
+                child: ClipRRect(borderRadius: faceRadius, child: child),
               ),
             ),
-            Container(
-              margin: innerMargin,
-              decoration: BoxDecoration(
-                borderRadius: faceRadius,
-                gradient: faceGradient,
-                border: Border.all(color: faceBorderColor, width: 1),
-              ),
-              child: ClipRRect(borderRadius: faceRadius, child: child),
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -1180,10 +1183,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _biteSaverLightTileControl(Widget child) {
     return _biteSaverTile(
-      shellRadius: BorderRadius.circular(12),
-      faceRadius: BorderRadius.circular(11),
-      innerMargin: const EdgeInsets.all(1.2),
-      shadows: _biteSaverTileShadows(strength: 0.72, opacityBoost: 0.012),
+      shellRadius: BorderRadius.circular(14),
+      faceRadius: BorderRadius.circular(12.5),
+      innerMargin: const EdgeInsets.all(1.6),
+      shadows: _biteSaverTileShadows(strength: 0.72, opacityBoost: 0.01),
       child: child,
     );
   }
@@ -1191,34 +1194,34 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _biteSaverRedTileControl(Widget child) {
     return _biteSaverTile(
       shellRadius: BorderRadius.circular(14),
-      faceRadius: BorderRadius.circular(13),
-      shellBorderColor: const Color(0xFFDDCBB8),
-      highlightBorderColor: const Color(0xA6FFFFFF),
-      faceBorderColor: const Color(0x47FFFFFF),
+      faceRadius: BorderRadius.circular(12.5),
+      shellBorderColor: const Color(0xFFE0665F),
+      highlightBorderColor: const Color(0xAFFFFFFF),
+      faceBorderColor: const Color(0x33FFFFFF),
       shellGradient: const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFFE75B54), Color(0xFFDF4D46), Color(0xFFD9443E)],
+        colors: [Color(0xFFE75A53), Color(0xFFDC4E47), Color(0xFFD2433D)],
       ),
       faceGradient: const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFFF46059), Color(0xFFEF544D), Color(0xFFE84842)],
+        colors: [Color(0xFFF56A63), Color(0xFFEF5750), Color(0xFFE64943)],
       ),
-      innerMargin: const EdgeInsets.all(1.2),
+      innerMargin: const EdgeInsets.all(1.5),
       shadows: [
         BoxShadow(
-          color: Colors.black.withOpacity(0.12),
-          blurRadius: 12,
-          offset: const Offset(0, 6),
+          color: Colors.black.withOpacity(0.15),
+          blurRadius: 16,
+          offset: const Offset(0, 8),
         ),
         BoxShadow(
-          color: Colors.black.withOpacity(0.06),
-          blurRadius: 4,
+          color: Colors.black.withOpacity(0.07),
+          blurRadius: 5,
           offset: const Offset(0, 2),
         ),
         BoxShadow(
-          color: Colors.white.withOpacity(0.55),
+          color: Colors.white.withOpacity(0.46),
           blurRadius: 2,
           offset: const Offset(0, -1),
         ),
@@ -1234,23 +1237,23 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       child: _biteSaverTile(
-        shellRadius: BorderRadius.circular(16),
-        faceRadius: BorderRadius.circular(15),
-        shellBorderColor: const Color(0xFFDDCBB8),
-        highlightBorderColor: const Color(0xF2FFFFFF),
-        faceBorderColor: const Color(0xFFF8F1E7),
+        shellRadius: BorderRadius.circular(17),
+        faceRadius: BorderRadius.circular(15.5),
+        shellBorderColor: const Color(0xFFE3D0BC),
+        highlightBorderColor: const Color(0xF7FFFFFF),
+        faceBorderColor: const Color(0xFFFBF3EA),
         shellGradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFF4EBE0), Color(0xFFEEE2D5), Color(0xFFE6D7C7)],
+          colors: [Color(0xFFF4E9DC), Color(0xFFEBDCCD), Color(0xFFE0CEBA)],
         ),
         faceGradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFFFFF), Color(0xFFF8F1E8), Color(0xFFF1E7DA)],
+          colors: [Color(0xFFFFFFFF), Color(0xFFFBF6EF), Color(0xFFF5ECE0)],
         ),
-        innerMargin: const EdgeInsets.all(1.2),
-        shadows: _biteSaverTileShadows(),
+        innerMargin: const EdgeInsets.all(1.7),
+        shadows: _biteSaverTileShadows(strength: 0.90),
         child: Material(
           color: Colors.transparent,
           child: ListTile(
@@ -1697,18 +1700,18 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Container(
             margin: const EdgeInsets.only(bottom: 16),
             child: _biteSaverTile(
-              shellRadius: BorderRadius.circular(18),
-              faceRadius: BorderRadius.circular(17),
-              shellBorderColor: const Color(0xFFDDCBB8),
-              highlightBorderColor: const Color(0xF2FFFFFF),
-              faceBorderColor: const Color(0xFFF8F1E7),
+              shellRadius: BorderRadius.circular(20),
+              faceRadius: BorderRadius.circular(18),
+              shellBorderColor: const Color(0xFFE0CBB7),
+              highlightBorderColor: const Color(0xF7FFFFFF),
+              faceBorderColor: const Color(0xFFFAF2E8),
               shellGradient: const LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFF4EBE0),
-                  Color(0xFFEEE2D5),
-                  Color(0xFFE6D7C7),
+                  Color(0xFFF3E7D9),
+                  Color(0xFFE8D8C7),
+                  Color(0xFFDCC8B3),
                 ],
               ),
               faceGradient: const LinearGradient(
@@ -1716,12 +1719,15 @@ class _HomeScreenState extends State<HomeScreen> {
                 end: Alignment.bottomCenter,
                 colors: [
                   Color(0xFFFFFFFF),
-                  Color(0xFFF8F1E8),
-                  Color(0xFFF1E7DA),
+                  Color(0xFFFBF6EF),
+                  Color(0xFFF5ECE0),
                 ],
               ),
-              innerMargin: const EdgeInsets.all(1.2),
-              shadows: _biteSaverTileShadows(),
+              innerMargin: const EdgeInsets.all(2.1),
+              shadows: _biteSaverTileShadows(
+                strength: 1.08,
+                opacityBoost: 0.01,
+              ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 15),
                 child: Column(
@@ -1787,23 +1793,23 @@ class _HomeScreenState extends State<HomeScreen> {
         child: SizedBox(
           width: double.infinity,
           child: _biteSaverTile(
-            shellRadius: BorderRadius.circular(16),
-            faceRadius: BorderRadius.circular(15),
-            shellBorderColor: const Color(0xFFDDCBB8),
-            highlightBorderColor: const Color(0xF2FFFFFF),
-            faceBorderColor: const Color(0xFFF8F1E7),
+            shellRadius: BorderRadius.circular(18),
+            faceRadius: BorderRadius.circular(16),
+            shellBorderColor: const Color(0xFFE3D0BC),
+            highlightBorderColor: const Color(0xF6FFFFFF),
+            faceBorderColor: const Color(0xFFFAF2E8),
             shellGradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFF4EBE0), Color(0xFFEEE2D5), Color(0xFFE6D7C7)],
+              colors: [Color(0xFFF4E9DC), Color(0xFFEADBCD), Color(0xFFE0CEBB)],
             ),
             faceGradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFFFFFFF), Color(0xFFF8F1E8), Color(0xFFF1E7DA)],
+              colors: [Color(0xFFFFFFFF), Color(0xFFFBF6EF), Color(0xFFF5ECE0)],
             ),
-            innerMargin: const EdgeInsets.all(1.2),
-            shadows: _biteSaverTileShadows(),
+            innerMargin: const EdgeInsets.all(2.0),
+            shadows: _biteSaverTileShadows(strength: 0.92),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
               child: Column(
@@ -2061,57 +2067,73 @@ class _HomeScreenState extends State<HomeScreen> {
                                     matchBiteScoreStyle: true,
                                   ),
                                   const SizedBox(height: 12),
-                                  _biteSaverLightTileControl(
-                                    DropdownButtonFormField<String>(
-                                      initialValue: selectedRadius,
-                                      decoration: const InputDecoration(
-                                        isDense: true,
-                                        labelText: 'Within Radius',
-                                        contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 12,
+                                  Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Within Radius',
+                                        style: TextStyle(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                          fontSize: 12,
                                         ),
-                                        border: InputBorder.none,
                                       ),
-                                      items: const [
-                                        DropdownMenuItem(
-                                          value: '1 mile',
-                                          child: Text('1 mile'),
+                                      _biteSaverLightTileControl(
+                                        DropdownButtonFormField<String>(
+                                          initialValue: selectedRadius,
+                                          decoration: const InputDecoration(
+                                            contentPadding: EdgeInsets.fromLTRB(
+                                              12,
+                                              12,
+                                              12,
+                                              12,
+                                            ),
+                                            border: InputBorder.none,
+                                          ),
+                                          items: const [
+                                            DropdownMenuItem(
+                                              value: '1 mile',
+                                              child: Text('1 mile'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '3 miles',
+                                              child: Text('3 miles'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '5 miles',
+                                              child: Text('5 miles'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '10 miles',
+                                              child: Text('10 miles'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '15 miles',
+                                              child: Text('15 miles'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '20 miles',
+                                              child: Text('20 miles'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '30 miles',
+                                              child: Text('30 miles'),
+                                            ),
+                                          ],
+                                          onChanged: (value) {
+                                            if (value != null) {
+                                              setState(() {
+                                                selectedRadius = value;
+                                              });
+                                              _saveSelectedRadius(value);
+                                            }
+                                          },
                                         ),
-                                        DropdownMenuItem(
-                                          value: '3 miles',
-                                          child: Text('3 miles'),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: '5 miles',
-                                          child: Text('5 miles'),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: '10 miles',
-                                          child: Text('10 miles'),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: '15 miles',
-                                          child: Text('15 miles'),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: '20 miles',
-                                          child: Text('20 miles'),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: '30 miles',
-                                          child: Text('30 miles'),
-                                        ),
-                                      ],
-                                      onChanged: (value) {
-                                        if (value != null) {
-                                          setState(() {
-                                            selectedRadius = value;
-                                          });
-                                          _saveSelectedRadius(value);
-                                        }
-                                      },
-                                    ),
+                                      ),
+                                    ],
                                   ),
                                   const SizedBox(height: 8),
                                   if (compactStatusLine(
