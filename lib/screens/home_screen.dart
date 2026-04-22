@@ -38,7 +38,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  static const double _collapsedHeaderExtent = 86;
+  static const double _collapsedHeaderExtent = 90;
   static const double _expandedHeaderExtent = 340;
   static const String _selectedRadiusPreferenceKey = 'selected_radius';
 
@@ -1853,7 +1853,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       borderRadius: BorderRadius.circular(12),
                       onTap: _expandHeader,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        padding: EdgeInsets.zero,
                         child: Column(
                           children: [
                             Text(
@@ -1866,7 +1866,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                            const SizedBox(height: 1),
+                            const SizedBox(height: 0),
                             Icon(
                               Icons.keyboard_arrow_down,
                               color: Theme.of(
@@ -2114,110 +2114,60 @@ class _HomeScreenState extends State<HomeScreen> {
                                           fontSize: 12,
                                         ),
                                       ),
-                                      Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 2,
-                                        ),
-                                        child: ClipRRect(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
-                                          ),
-                                          child: _biteSaverTile(
-                                            shellRadius: BorderRadius.circular(
-                                              14,
-                                            ),
-                                            faceRadius: BorderRadius.circular(
-                                              12.5,
-                                            ),
-                                            innerMargin: const EdgeInsets.all(
-                                              1.6,
-                                            ),
-                                            shadows: [
-                                              BoxShadow(
-                                                color: Colors.black.withOpacity(
-                                                  0.10,
+                                      _biteSaverLightTileControl(
+                                        DropdownButtonFormField<String>(
+                                          initialValue: selectedRadius,
+                                          decoration: const InputDecoration(
+                                            contentPadding:
+                                                EdgeInsets.symmetric(
+                                                  horizontal: 12,
+                                                  vertical: 12,
                                                 ),
-                                                blurRadius: 8,
-                                                offset: const Offset(0, 3),
-                                              ),
-                                              BoxShadow(
-                                                color: Colors.white.withOpacity(
-                                                  0.45,
-                                                ),
-                                                blurRadius: 1,
-                                                offset: const Offset(0, -1),
-                                              ),
-                                            ],
-                                            child: SizedBox(
-                                              height: 58,
-                                              child:
-                                                  DropdownButtonFormField<
-                                                    String
-                                                  >(
-                                                    initialValue:
-                                                        selectedRadius,
-                                                    decoration:
-                                                        const InputDecoration(
-                                                          isDense: false,
-                                                          contentPadding:
-                                                              EdgeInsets.fromLTRB(
-                                                                12,
-                                                                16,
-                                                                12,
-                                                                14,
-                                                              ),
-                                                          border:
-                                                              InputBorder.none,
-                                                        ),
-                                                    items: const [
-                                                      DropdownMenuItem(
-                                                        value: '1 mile',
-                                                        child: Text('1 mile'),
-                                                      ),
-                                                      DropdownMenuItem(
-                                                        value: '3 miles',
-                                                        child: Text('3 miles'),
-                                                      ),
-                                                      DropdownMenuItem(
-                                                        value: '5 miles',
-                                                        child: Text('5 miles'),
-                                                      ),
-                                                      DropdownMenuItem(
-                                                        value: '10 miles',
-                                                        child: Text('10 miles'),
-                                                      ),
-                                                      DropdownMenuItem(
-                                                        value: '15 miles',
-                                                        child: Text('15 miles'),
-                                                      ),
-                                                      DropdownMenuItem(
-                                                        value: '20 miles',
-                                                        child: Text('20 miles'),
-                                                      ),
-                                                      DropdownMenuItem(
-                                                        value: '30 miles',
-                                                        child: Text('30 miles'),
-                                                      ),
-                                                    ],
-                                                    onChanged: (value) {
-                                                      if (value != null) {
-                                                        setState(() {
-                                                          selectedRadius =
-                                                              value;
-                                                        });
-                                                        _saveSelectedRadius(
-                                                          value,
-                                                        );
-                                                      }
-                                                    },
-                                                  ),
-                                            ),
+                                            border: InputBorder.none,
                                           ),
+                                          items: const [
+                                            DropdownMenuItem(
+                                              value: '1 mile',
+                                              child: Text('1 mile'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '3 miles',
+                                              child: Text('3 miles'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '5 miles',
+                                              child: Text('5 miles'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '10 miles',
+                                              child: Text('10 miles'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '15 miles',
+                                              child: Text('15 miles'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '20 miles',
+                                              child: Text('20 miles'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '30 miles',
+                                              child: Text('30 miles'),
+                                            ),
+                                          ],
+                                          onChanged: (value) {
+                                            if (value != null) {
+                                              setState(() {
+                                                selectedRadius = value;
+                                              });
+                                              _saveSelectedRadius(value);
+                                            }
+                                          },
                                         ),
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 8),
+                                  const SizedBox(height: 4),
                                   if (compactStatusLine(
                                     filteredRestaurants,
                                   ).isNotEmpty)
