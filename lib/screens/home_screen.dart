@@ -1099,18 +1099,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     return [
       BoxShadow(
-        color: const Color(0xFF4A321B).withOpacity(0.16 + opacityBoost),
-        blurRadius: 13 * strength,
-        offset: Offset(0, 9 * strength),
+        color: const Color(0xFF493016).withOpacity(0.18 + opacityBoost),
+        blurRadius: 10 * strength,
+        offset: Offset(0, 8 * strength),
       ),
       BoxShadow(
-        color: const Color(0xFF6A4A24).withOpacity(0.06 + opacityBoost / 2),
-        blurRadius: 5 * strength,
+        color: const Color(0xFF654720).withOpacity(0.075 + opacityBoost / 2),
+        blurRadius: 3 * strength,
         offset: Offset(0, 2 * strength),
       ),
       BoxShadow(
-        color: Colors.white.withOpacity(0.58),
-        blurRadius: 1.2 * strength,
+        color: Colors.white.withOpacity(0.64),
+        blurRadius: 0.8 * strength,
         offset: Offset(0, -1 * strength),
       ),
     ];
@@ -1120,18 +1120,18 @@ class _HomeScreenState extends State<HomeScreen> {
     required Widget child,
     required BorderRadius shellRadius,
     required BorderRadius faceRadius,
-    Color shellBorderColor = const Color(0xFFE7C9A0),
+    Color shellBorderColor = const Color(0xFFE1C092),
     Color highlightBorderColor = const Color(0xF7FFFFFF),
     Color faceBorderColor = const Color(0xFFFFFAF0),
     Gradient shellGradient = const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xFFFCECCF), Color(0xFFEFD2A3), Color(0xFFD9B06F)],
+      colors: [Color(0xFFF9E5BF), Color(0xFFE5C184), Color(0xFFC89954)],
     ),
     Gradient faceGradient = const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xFFFFFFFF), Color(0xFFFFFDF8), Color(0xFFFBF0DE)],
+      colors: [Color(0xFFFFFFFF), Color(0xFFFFFEFB), Color(0xFFFDF5E9)],
     ),
     EdgeInsetsGeometry innerMargin = const EdgeInsets.all(1.8),
     List<BoxShadow>? shadows,
@@ -1154,12 +1154,14 @@ class _HomeScreenState extends State<HomeScreen> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Color(0xFFE9CCA0),
-                    Color(0xFFCDA567),
-                    Color(0xFFA98345),
+                    Color(0xFFF0D39F),
+                    Color(0xFFD4AA67),
+                    Color(0xFFB68B45),
+                    Color(0xFF8F6B32),
                   ],
+                  stops: [0.0, 0.18, 0.58, 1.0],
                 ),
-                border: Border.all(color: const Color(0xFFC9AA7D), width: 1),
+                border: Border.all(color: const Color(0xFFC19E69), width: 1),
               ),
             ),
           ),
@@ -1172,8 +1174,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 border: Border.all(color: shellBorderColor, width: 1),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF4A321B).withOpacity(0.24),
-                    blurRadius: 5,
+                    color: const Color(0xFF493016).withOpacity(0.31),
+                    blurRadius: 3,
                     offset: const Offset(0, 3),
                   ),
                 ],
@@ -1191,13 +1193,13 @@ class _HomeScreenState extends State<HomeScreen> {
                         border: Border.all(color: faceBorderColor, width: 1),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.white.withOpacity(0.68),
-                            blurRadius: 0.9,
+                            color: Colors.white.withOpacity(0.76),
+                            blurRadius: 0.6,
                             offset: const Offset(0, -1),
                           ),
                           BoxShadow(
-                            color: const Color(0xFF6A4A24).withOpacity(0.05),
-                            blurRadius: 4,
+                            color: const Color(0xFF654720).withOpacity(0.06),
+                            blurRadius: 2.5,
                             offset: const Offset(0, 2),
                           ),
                         ],
@@ -1272,18 +1274,18 @@ class _HomeScreenState extends State<HomeScreen> {
       child: _biteSaverTile(
         shellRadius: BorderRadius.circular(17),
         faceRadius: BorderRadius.circular(15.5),
-        shellBorderColor: const Color(0xFFE7C9A0),
+        shellBorderColor: const Color(0xFFE1C092),
         highlightBorderColor: const Color(0xF7FFFFFF),
         faceBorderColor: const Color(0xFFFFFAF0),
         shellGradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFFCECCF), Color(0xFFEFD2A3), Color(0xFFDDB57A)],
+          colors: [Color(0xFFF9E5BF), Color(0xFFE5C184), Color(0xFFCFA05D)],
         ),
         faceGradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFFFFF), Color(0xFFFFFDF8), Color(0xFFFBF0DE)],
+          colors: [Color(0xFFFFFFFF), Color(0xFFFFFEFB), Color(0xFFFDF5E9)],
         ),
         innerMargin: const EdgeInsets.all(1.7),
         shadows: _biteSaverTileShadows(strength: 0.90),
@@ -1735,16 +1737,16 @@ class _HomeScreenState extends State<HomeScreen> {
             child: _biteSaverTile(
               shellRadius: BorderRadius.circular(20),
               faceRadius: BorderRadius.circular(18),
-              shellBorderColor: const Color(0xFFE2C59D),
+              shellBorderColor: const Color(0xFFDDB989),
               highlightBorderColor: const Color(0xF7FFFFFF),
               faceBorderColor: const Color(0xFFFFFAEF),
               shellGradient: const LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFF9E7C7),
-                  Color(0xFFE8C998),
-                  Color(0xFFD0A96C),
+                  Color(0xFFF7DFB4),
+                  Color(0xFFDDB375),
+                  Color(0xFFC3934D),
                 ],
               ),
               faceGradient: const LinearGradient(
@@ -1752,14 +1754,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 end: Alignment.bottomCenter,
                 colors: [
                   Color(0xFFFFFFFF),
-                  Color(0xFFFFFDF8),
-                  Color(0xFFFBF0DE),
+                  Color(0xFFFFFEFB),
+                  Color(0xFFFDF5E9),
                 ],
               ),
               innerMargin: const EdgeInsets.all(2.1),
               shadows: _biteSaverTileShadows(
                 strength: 1.08,
-                opacityBoost: 0.02,
+                opacityBoost: 0.03,
               ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 15),
@@ -1828,18 +1830,18 @@ class _HomeScreenState extends State<HomeScreen> {
           child: _biteSaverTile(
             shellRadius: BorderRadius.circular(18),
             faceRadius: BorderRadius.circular(16),
-            shellBorderColor: const Color(0xFFE7C9A0),
+            shellBorderColor: const Color(0xFFE1C092),
             highlightBorderColor: const Color(0xF6FFFFFF),
             faceBorderColor: const Color(0xFFFFFAEF),
             shellGradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFFCECCF), Color(0xFFEFD2A3), Color(0xFFDDB57A)],
+              colors: [Color(0xFFF9E5BF), Color(0xFFE5C184), Color(0xFFCFA05D)],
             ),
             faceGradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFFFFFFF), Color(0xFFFFFDF8), Color(0xFFFBF0DE)],
+              colors: [Color(0xFFFFFFFF), Color(0xFFFFFEFB), Color(0xFFFDF5E9)],
             ),
             innerMargin: const EdgeInsets.all(2.0),
             shadows: _biteSaverTileShadows(strength: 0.92),
