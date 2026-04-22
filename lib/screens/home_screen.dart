@@ -1126,7 +1126,13 @@ class _HomeScreenState extends State<HomeScreen> {
     Gradient shellGradient = const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xFFF9E5BF), Color(0xFFE5C184), Color(0xFFC89954)],
+      colors: [
+        Color(0xFFFFF4DE),
+        Color(0xFFE4C384),
+        Color(0xFFC39A58),
+        Color(0xFF98743D),
+      ],
+      stops: [0.0, 0.34, 0.72, 1.0],
     ),
     Gradient faceGradient = const LinearGradient(
       begin: Alignment.topCenter,
@@ -1156,12 +1162,13 @@ class _HomeScreenState extends State<HomeScreen> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Color(0xFFEFD7AC),
-                    Color(0xFFD6B174),
-                    Color(0xFFB8904D),
-                    Color(0xFF9B793D),
+                    Color(0xFFFFECCE),
+                    Color(0xFFDDBB7A),
+                    Color(0xFFB88E4A),
+                    Color(0xFF96703A),
+                    Color(0xFF6F5229),
                   ],
-                  stops: [0.0, 0.18, 0.58, 1.0],
+                  stops: [0.0, 0.25, 0.55, 0.78, 1.0],
                 ),
                 border: Border.all(color: const Color(0x55E3C996), width: 0.4),
               ),
@@ -1284,7 +1291,13 @@ class _HomeScreenState extends State<HomeScreen> {
         shellGradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFF9E5BF), Color(0xFFE5C184), Color(0xFFCFA05D)],
+          colors: [
+            Color(0xFFFFF4DE),
+            Color(0xFFE4C384),
+            Color(0xFFC9A05F),
+            Color(0xFFA47D42),
+          ],
+          stops: [0.0, 0.34, 0.72, 1.0],
         ),
         faceGradient: const LinearGradient(
           begin: Alignment.topCenter,
@@ -1748,10 +1761,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFF7DFB4),
-                  Color(0xFFDDB375),
-                  Color(0xFFC3934D),
+                  Color(0xFFFFEED0),
+                  Color(0xFFDDBA78),
+                  Color(0xFFB98F4A),
+                  Color(0xFF947038),
                 ],
+                stops: [0.0, 0.34, 0.72, 1.0],
               ),
               faceGradient: const LinearGradient(
                 begin: Alignment.topCenter,
@@ -1840,7 +1855,13 @@ class _HomeScreenState extends State<HomeScreen> {
             shellGradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFF9E5BF), Color(0xFFE5C184), Color(0xFFCFA05D)],
+              colors: [
+                Color(0xFFFFF4DE),
+                Color(0xFFE4C384),
+                Color(0xFFC9A05F),
+                Color(0xFFA47D42),
+              ],
+              stops: [0.0, 0.34, 0.72, 1.0],
             ),
             faceGradient: const LinearGradient(
               begin: Alignment.topCenter,
