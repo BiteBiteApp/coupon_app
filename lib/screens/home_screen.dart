@@ -1140,43 +1140,85 @@ class _HomeScreenState extends State<HomeScreen> {
       decoration: BoxDecoration(
         borderRadius: shellRadius,
         boxShadow: shadows ?? _biteSaverTileShadows(),
-        gradient: shellGradient,
-        border: Border.all(color: shellBorderColor, width: 1),
       ),
-      child: ClipRRect(
-        borderRadius: shellRadius,
-        child: Padding(
-          padding: const EdgeInsets.all(1.2),
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: faceRadius,
-              border: Border.all(color: highlightBorderColor, width: 1),
-            ),
-            child: Padding(
-              padding: innerMargin,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: faceRadius,
-                  gradient: faceGradient,
-                  border: Border.all(color: faceBorderColor, width: 1),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.white.withOpacity(0.58),
-                      blurRadius: 1.5,
-                      offset: const Offset(0, -1),
-                    ),
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.045),
-                      blurRadius: 4,
-                      offset: const Offset(0, 2),
-                    ),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            top: 2,
+            bottom: -2,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: shellRadius,
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFFE6D7C7),
+                    Color(0xFFD6C3AF),
+                    Color(0xFFC2AD96),
                   ],
                 ),
-                child: ClipRRect(borderRadius: faceRadius, child: child),
+                border: Border.all(color: const Color(0xFFCFBCA8), width: 1),
               ),
             ),
           ),
-        ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 3),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: shellRadius,
+                gradient: shellGradient,
+                border: Border.all(color: shellBorderColor, width: 1),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.18),
+                    blurRadius: 6,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: shellRadius,
+                child: Padding(
+                  padding: const EdgeInsets.all(1.2),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      borderRadius: faceRadius,
+                      border: Border.all(color: highlightBorderColor, width: 1),
+                    ),
+                    child: Padding(
+                      padding: innerMargin,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: faceRadius,
+                          gradient: faceGradient,
+                          border: Border.all(color: faceBorderColor, width: 1),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.white.withOpacity(0.58),
+                              blurRadius: 1.5,
+                              offset: const Offset(0, -1),
+                            ),
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.045),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: ClipRRect(
+                          borderRadius: faceRadius,
+                          child: child,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
