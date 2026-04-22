@@ -1137,7 +1137,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Gradient faceGradient = const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xFFFFFFFF), Color(0xFFFFFEFC), Color(0xFFFFF7EE)],
+      colors: [Color(0xFFFFFFFF), Color(0xFFFFFFFF), Color(0xFFFFF8F0)],
     ),
     EdgeInsetsGeometry innerMargin = const EdgeInsets.all(1.8),
     List<BoxShadow>? shadows,
@@ -1151,10 +1151,10 @@ class _HomeScreenState extends State<HomeScreen> {
         clipBehavior: Clip.none,
         children: [
           Positioned.fill(
-            left: 1,
+            left: 1.5,
             top: 1,
-            right: 1,
-            bottom: -1.5,
+            right: 1.5,
+            bottom: -1,
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: shellRadius,
@@ -1166,7 +1166,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Color(0xFFDDBB7A),
                     Color(0xFFB88E4A),
                     Color(0xFF96703A),
-                    Color(0xFF6F5229),
+                    Color(0xFF94743F),
                   ],
                   stops: [0.0, 0.25, 0.55, 0.78, 1.0],
                 ),
@@ -1175,7 +1175,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.only(bottom: 2.2),
+            padding: const EdgeInsets.only(bottom: 1.5),
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: shellRadius,
@@ -1204,8 +1204,14 @@ class _HomeScreenState extends State<HomeScreen> {
                             : Border.all(color: faceBorderColor, width: 0.35),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.white.withOpacity(0.76),
-                            blurRadius: 0.6,
+                            color: Colors.white.withOpacity(0.34),
+                            blurRadius: 5,
+                            spreadRadius: -2.5,
+                            offset: const Offset(-1, -1.5),
+                          ),
+                          BoxShadow(
+                            color: Colors.white.withOpacity(0.82),
+                            blurRadius: 0.45,
                             offset: const Offset(0, -1),
                           ),
                           BoxShadow(
@@ -1302,7 +1308,7 @@ class _HomeScreenState extends State<HomeScreen> {
         faceGradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFFFFF), Color(0xFFFFFEFC), Color(0xFFFFF7EE)],
+          colors: [Color(0xFFFFFFFF), Color(0xFFFFFFFF), Color(0xFFFFF8F0)],
         ),
         innerMargin: const EdgeInsets.all(1.7),
         shadows: _biteSaverTileShadows(strength: 0.90),
@@ -1773,8 +1779,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 end: Alignment.bottomCenter,
                 colors: [
                   Color(0xFFFFFFFF),
-                  Color(0xFFFFFEFC),
-                  Color(0xFFFFF7EE),
+                  Color(0xFFFFFFFF),
+                  Color(0xFFFFF8F0),
                 ],
               ),
               innerMargin: const EdgeInsets.all(2.1),
@@ -1866,7 +1872,7 @@ class _HomeScreenState extends State<HomeScreen> {
             faceGradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFFFFFFF), Color(0xFFFFFEFC), Color(0xFFFFF7EE)],
+              colors: [Color(0xFFFFFFFF), Color(0xFFFFFFFF), Color(0xFFFFF8F0)],
             ),
             innerMargin: const EdgeInsets.all(2.0),
             shadows: _biteSaverTileShadows(strength: 0.92),
