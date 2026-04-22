@@ -1099,17 +1099,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     return [
       BoxShadow(
-        color: Colors.black.withOpacity(0.14 + opacityBoost),
-        blurRadius: 18 * strength,
+        color: const Color(0xFF4E2C10).withOpacity(0.16 + opacityBoost),
+        blurRadius: 14 * strength,
         offset: Offset(0, 9 * strength),
       ),
       BoxShadow(
-        color: Colors.black.withOpacity(0.055 + opacityBoost / 2),
-        blurRadius: 6 * strength,
+        color: const Color(0xFF744514).withOpacity(0.06 + opacityBoost / 2),
+        blurRadius: 5 * strength,
         offset: Offset(0, 2 * strength),
       ),
       BoxShadow(
-        color: Colors.white.withOpacity(0.46),
+        color: Colors.white.withOpacity(0.50),
         blurRadius: 2 * strength,
         offset: Offset(0, -1 * strength),
       ),
@@ -1120,18 +1120,18 @@ class _HomeScreenState extends State<HomeScreen> {
     required Widget child,
     required BorderRadius shellRadius,
     required BorderRadius faceRadius,
-    Color shellBorderColor = const Color(0xFFE7D8C7),
+    Color shellBorderColor = const Color(0xFFECC99F),
     Color highlightBorderColor = const Color(0xF7FFFFFF),
-    Color faceBorderColor = const Color(0xFFFAF3EA),
+    Color faceBorderColor = const Color(0xFFFFF7EE),
     Gradient shellGradient = const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xFFF5EBDD), Color(0xFFEEDFCF), Color(0xFFE3D1BE)],
+      colors: [Color(0xFFFFEBD0), Color(0xFFF3D2A0), Color(0xFFE0AE68)],
     ),
     Gradient faceGradient = const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xFFFFFFFF), Color(0xFFFBF6EF), Color(0xFFF5ECE0)],
+      colors: [Color(0xFFFFFFFF), Color(0xFFFFFCF6), Color(0xFFFAEEDB)],
     ),
     EdgeInsetsGeometry innerMargin = const EdgeInsets.all(1.8),
     List<BoxShadow>? shadows,
@@ -1154,12 +1154,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Color(0xFFE6D7C7),
-                    Color(0xFFD6C3AF),
-                    Color(0xFFC2AD96),
+                    Color(0xFFEFC894),
+                    Color(0xFFD49E58),
+                    Color(0xFFB67932),
                   ],
                 ),
-                border: Border.all(color: const Color(0xFFCFBCA8), width: 1),
+                border: Border.all(color: const Color(0xFFD0A46B), width: 1),
               ),
             ),
           ),
@@ -1172,7 +1172,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 border: Border.all(color: shellBorderColor, width: 1),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.18),
+                    color: const Color(0xFF4E2C10).withOpacity(0.22),
                     blurRadius: 6,
                     offset: const Offset(0, 3),
                   ),
@@ -1196,7 +1196,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             offset: const Offset(0, -1),
                           ),
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.045),
+                            color: const Color(0xFF744514).withOpacity(0.05),
                             blurRadius: 4,
                             offset: const Offset(0, 2),
                           ),
@@ -1228,33 +1228,33 @@ class _HomeScreenState extends State<HomeScreen> {
     return _biteSaverTile(
       shellRadius: BorderRadius.circular(14),
       faceRadius: BorderRadius.circular(12.5),
-      shellBorderColor: const Color(0xFFE0665F),
+      shellBorderColor: const Color(0xFFE86A60),
       highlightBorderColor: const Color(0xAFFFFFFF),
       faceBorderColor: const Color(0x33FFFFFF),
       shellGradient: const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFFE75A53), Color(0xFFDC4E47), Color(0xFFD2433D)],
+        colors: [Color(0xFFF06A62), Color(0xFFE3544C), Color(0xFFD8443C)],
       ),
       faceGradient: const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFFF56A63), Color(0xFFEF5750), Color(0xFFE64943)],
+        colors: [Color(0xFFFF7A72), Color(0xFFF5625A), Color(0xFFE94B44)],
       ),
       innerMargin: const EdgeInsets.all(1.5),
       shadows: [
         BoxShadow(
-          color: Colors.black.withOpacity(0.15),
-          blurRadius: 16,
+          color: const Color(0xFF4A1F1A).withOpacity(0.15),
+          blurRadius: 15,
           offset: const Offset(0, 8),
         ),
         BoxShadow(
-          color: Colors.black.withOpacity(0.07),
+          color: const Color(0xFF5A231D).withOpacity(0.065),
           blurRadius: 5,
           offset: const Offset(0, 2),
         ),
         BoxShadow(
-          color: Colors.white.withOpacity(0.46),
+          color: Colors.white.withOpacity(0.52),
           blurRadius: 2,
           offset: const Offset(0, -1),
         ),
@@ -1272,18 +1272,18 @@ class _HomeScreenState extends State<HomeScreen> {
       child: _biteSaverTile(
         shellRadius: BorderRadius.circular(17),
         faceRadius: BorderRadius.circular(15.5),
-        shellBorderColor: const Color(0xFFE3D0BC),
+        shellBorderColor: const Color(0xFFEACBA5),
         highlightBorderColor: const Color(0xF7FFFFFF),
-        faceBorderColor: const Color(0xFFFBF3EA),
+        faceBorderColor: const Color(0xFFFFF8ED),
         shellGradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFF4E9DC), Color(0xFFEBDCCD), Color(0xFFE0CEBA)],
+          colors: [Color(0xFFFFEBD0), Color(0xFFF3D4A7), Color(0xFFE3B977)],
         ),
         faceGradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFFFFF), Color(0xFFFBF6EF), Color(0xFFF5ECE0)],
+          colors: [Color(0xFFFFFFFF), Color(0xFFFFFCF6), Color(0xFFFAEEDB)],
         ),
         innerMargin: const EdgeInsets.all(1.7),
         shadows: _biteSaverTileShadows(strength: 0.90),
@@ -1735,16 +1735,16 @@ class _HomeScreenState extends State<HomeScreen> {
             child: _biteSaverTile(
               shellRadius: BorderRadius.circular(20),
               faceRadius: BorderRadius.circular(18),
-              shellBorderColor: const Color(0xFFE0CBB7),
+              shellBorderColor: const Color(0xFFE5C79D),
               highlightBorderColor: const Color(0xF7FFFFFF),
-              faceBorderColor: const Color(0xFFFAF2E8),
+              faceBorderColor: const Color(0xFFFFF8EC),
               shellGradient: const LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFF3E7D9),
-                  Color(0xFFE8D8C7),
-                  Color(0xFFDCC8B3),
+                  Color(0xFFFBE5C4),
+                  Color(0xFFEFCB96),
+                  Color(0xFFD9AA64),
                 ],
               ),
               faceGradient: const LinearGradient(
@@ -1752,14 +1752,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 end: Alignment.bottomCenter,
                 colors: [
                   Color(0xFFFFFFFF),
-                  Color(0xFFFBF6EF),
-                  Color(0xFFF5ECE0),
+                  Color(0xFFFFFCF6),
+                  Color(0xFFFAEEDB),
                 ],
               ),
               innerMargin: const EdgeInsets.all(2.1),
               shadows: _biteSaverTileShadows(
                 strength: 1.08,
-                opacityBoost: 0.01,
+                opacityBoost: 0.02,
               ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 15),
@@ -1828,18 +1828,18 @@ class _HomeScreenState extends State<HomeScreen> {
           child: _biteSaverTile(
             shellRadius: BorderRadius.circular(18),
             faceRadius: BorderRadius.circular(16),
-            shellBorderColor: const Color(0xFFE3D0BC),
+            shellBorderColor: const Color(0xFFEACBA5),
             highlightBorderColor: const Color(0xF6FFFFFF),
-            faceBorderColor: const Color(0xFFFAF2E8),
+            faceBorderColor: const Color(0xFFFFF8EC),
             shellGradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFF4E9DC), Color(0xFFEADBCD), Color(0xFFE0CEBB)],
+              colors: [Color(0xFFFFEBD0), Color(0xFFF3D4A7), Color(0xFFE3B977)],
             ),
             faceGradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFFFFFFF), Color(0xFFFBF6EF), Color(0xFFF5ECE0)],
+              colors: [Color(0xFFFFFFFF), Color(0xFFFFFCF6), Color(0xFFFAEEDB)],
             ),
             innerMargin: const EdgeInsets.all(2.0),
             shadows: _biteSaverTileShadows(strength: 0.92),
