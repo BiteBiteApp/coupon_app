@@ -1137,7 +1137,7 @@ class _HomeScreenState extends State<HomeScreen> {
     Gradient faceGradient = const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xFFFAEEDD), Color(0xFFF8EBDD), Color(0xFFF4E6D3)],
+      colors: [Color(0xFFFFFCF8), Color(0xFFFAF1E7), Color(0xFFF6E8D8)],
     ),
     EdgeInsetsGeometry innerMargin = const EdgeInsets.all(1.8),
     List<BoxShadow>? shadows,
@@ -1306,7 +1306,7 @@ class _HomeScreenState extends State<HomeScreen> {
         faceGradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFFAEEDD), Color(0xFFF8EBDD), Color(0xFFF4E6D3)],
+          colors: [Color(0xFFFFFCF8), Color(0xFFFAF1E7), Color(0xFFF6E8D8)],
         ),
         innerMargin: const EdgeInsets.all(1.7),
         shadows: _biteSaverTileShadows(strength: 0.90),
@@ -1776,9 +1776,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFFAEEDD),
-                  Color(0xFFF8EBDD),
-                  Color(0xFFF4E6D3),
+                  Color(0xFFFFFCF8),
+                  Color(0xFFFAF1E7),
+                  Color(0xFFF6E8D8),
                 ],
               ),
               innerMargin: const EdgeInsets.all(2.1),
@@ -1870,7 +1870,7 @@ class _HomeScreenState extends State<HomeScreen> {
             faceGradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFF8EBDD), Color(0xFFF5E6D3), Color(0xFFF1DFC8)],
+              colors: [Color(0xFFFCF3E9), Color(0xFFF8EBDD), Color(0xFFF3E1CC)],
             ),
             innerMargin: const EdgeInsets.all(2.0),
             shadows: _biteSaverTileShadows(strength: 0.92),
@@ -2322,13 +2322,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 .length;
 
             return Scaffold(
-              backgroundColor: const Color(0xFFE6D2B5),
+              backgroundColor: const Color(0xFFEFE0CD),
               body: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Color(0xFFE9D7BE), Color(0xFFE2C7A3)],
+                    colors: [Color(0xFFF2E5D4), Color(0xFFE8D2B8)],
                   ),
                 ),
                 child: CustomScrollView(
