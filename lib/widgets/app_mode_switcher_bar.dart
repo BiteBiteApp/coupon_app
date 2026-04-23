@@ -83,7 +83,7 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
             },
             child: Container(
               width: double.infinity,
-              height: 53,
+              height: 51,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   begin: Alignment.centerLeft,
@@ -121,7 +121,10 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                     bottom: 1,
                     width: thumbWidth,
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20.5),
+                      clipBehavior: Clip.antiAlias,
+                      borderRadius: const BorderRadius.all(
+                        Radius.elliptical(20.5, 17.5),
+                      ),
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                           gradient: widget.selectedMode == AppMode.biteSaver
@@ -143,7 +146,9 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                                     Color(0xFF3E67D6),
                                   ],
                                 ),
-                          borderRadius: BorderRadius.circular(20.5),
+                          borderRadius: const BorderRadius.all(
+                            Radius.elliptical(20.5, 17.5),
+                          ),
                           border: Border.all(
                             color: Colors.white.withOpacity(0.54),
                             width: 0.8,
@@ -171,7 +176,7 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                           borderRadius: BorderRadius.circular(24),
                           onTap: () => widget.onModeSelected(AppMode.biteSaver),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 13),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
                             child: Center(
                               child: Text(
                                 'BiteSaver',
@@ -194,7 +199,7 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                           borderRadius: BorderRadius.circular(24),
                           onTap: () => widget.onModeSelected(AppMode.biteScore),
                           child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 13),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
                             child: Center(
                               child: Text(
                                 'BiteScore',
