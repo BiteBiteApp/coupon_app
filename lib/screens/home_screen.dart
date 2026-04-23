@@ -1280,6 +1280,40 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _biteSaverInputFieldSurface() {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFFFF7ED), Color(0xFFFFF1E3)],
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF704D24).withOpacity(0.14),
+                blurRadius: 8,
+                offset: const Offset(0, 6),
+              ),
+              BoxShadow(
+                color: const Color(0xFF704D24).withOpacity(0.08),
+                blurRadius: 1.2,
+                offset: const Offset(0, 2),
+              ),
+              BoxShadow(
+                color: Colors.white.withOpacity(0.16),
+                blurRadius: 1,
+                offset: const Offset(0, 0.2),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget buildCouponCard(Coupon coupon, BuildContext context) {
     final proximityOnly = isProximityCoupon(coupon);
     final scheduleText = coupon.shortExpiresLabel;
@@ -1873,7 +1907,7 @@ class _HomeScreenState extends State<HomeScreen> {
               colors: [Color(0xFFFCF3E9), Color(0xFFF8EBDD), Color(0xFFF3E1CC)],
             ),
             innerMargin: const EdgeInsets.all(2.0),
-            shadows: _biteSaverTileShadows(strength: 0.92),
+            shadows: _biteSaverTileShadows(strength: 0.82),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
               child: Column(
@@ -1924,10 +1958,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                   Stack(
                                     alignment: Alignment.centerRight,
                                     children: [
+                                      _biteSaverInputFieldSurface(),
                                       TextField(
                                         controller: generalSearchController,
                                         onSubmitted: (_) => runGeneralSearch(),
                                         decoration: InputDecoration(
+                                          filled: true,
+                                          fillColor: Colors.transparent,
                                           isDense: true,
                                           hintText:
                                               'Search restaurants or coupons',
@@ -2010,12 +2047,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                   Stack(
                                     alignment: Alignment.centerRight,
                                     children: [
+                                      _biteSaverInputFieldSurface(),
                                       TextField(
                                         controller: searchController,
                                         focusNode: _searchFocusNode,
                                         onSubmitted: (_) =>
                                             runSearch(allRestaurants),
                                         decoration: InputDecoration(
+                                          filled: true,
+                                          fillColor: Colors.transparent,
                                           isDense: true,
                                           hintText: 'Enter city or ZIP code',
                                           prefixIcon: const Icon(Icons.search),
@@ -2145,6 +2185,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                         DropdownButtonFormField<String>(
                                           initialValue: selectedRadius,
                                           decoration: const InputDecoration(
+                                            filled: true,
+                                            fillColor: Color(0xFFFFF3E6),
                                             contentPadding:
                                                 EdgeInsets.symmetric(
                                                   horizontal: 12,
@@ -2322,13 +2364,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 .length;
 
             return Scaffold(
-              backgroundColor: const Color(0xFFEFE0CD),
+              backgroundColor: const Color(0xFFEAD3B4),
               body: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Color(0xFFF2E5D4), Color(0xFFE8D2B8)],
+                    colors: [Color(0xFFF0DBC0), Color(0xFFE2C49B)],
                   ),
                 ),
                 child: CustomScrollView(
