@@ -1963,7 +1963,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         onSubmitted: (_) => runGeneralSearch(),
                                         decoration: InputDecoration(
                                           filled: true,
-                                          fillColor: const Color(0xFFFFF4E6),
+                                          fillColor: const Color(0xFFFFEED8),
                                           isDense: true,
                                           hintText:
                                               'Search restaurants or coupons',
@@ -2074,7 +2074,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             runSearch(allRestaurants),
                                         decoration: InputDecoration(
                                           filled: true,
-                                          fillColor: const Color(0xFFFFF4E6),
+                                          fillColor: const Color(0xFFFFEED8),
                                           isDense: true,
                                           hintText: 'Enter city or ZIP code',
                                           prefixIcon: const Icon(Icons.search),
@@ -2187,10 +2187,115 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ],
                                   ),
                                   const SizedBox(height: 10),
-                                  _buildLocationActionRow(
-                                    allRestaurants,
-                                    minHeight: 40,
-                                    matchBiteScoreStyle: true,
+                                  Align(
+                                    alignment: Alignment.center,
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(
+                                        maxWidth: 380,
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Expanded(
+                                            child: _biteSaverLightTileControl(
+                                              ElevatedButton.icon(
+                                                onPressed: isGettingLocation
+                                                    ? null
+                                                    : () => useMyLocation(
+                                                        allRestaurants,
+                                                      ),
+                                                style:
+                                                    ElevatedButton.styleFrom(
+                                                      minimumSize:
+                                                          const Size.fromHeight(
+                                                            40,
+                                                          ),
+                                                      backgroundColor:
+                                                          const Color(
+                                                            0xFFF7E3BF,
+                                                          ),
+                                                      foregroundColor:
+                                                          const Color(
+                                                            0xFF8C5A1E,
+                                                          ),
+                                                      elevation: 4,
+                                                      shadowColor:
+                                                          Colors.black
+                                                              .withOpacity(
+                                                                0.2,
+                                                              ),
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            vertical: 10,
+                                                          ),
+                                                      tapTargetSize:
+                                                          MaterialTapTargetSize
+                                                              .shrinkWrap,
+                                                      shape:
+                                                          RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                            side:
+                                                                BorderSide.none,
+                                                          ),
+                                                    ),
+                                                icon: const Icon(
+                                                  Icons.location_on_outlined,
+                                                ),
+                                                label: Text(
+                                                  isGettingLocation
+                                                      ? 'Getting Location...'
+                                                      : 'Use My Location',
+                                                ),
+                                              ),
+                                              shadows: const [],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          SizedBox(
+                                            height: 40,
+                                            child: _biteSaverRedTileControl(
+                                              ElevatedButton(
+                                                onPressed: isGettingLocation
+                                                    ? null
+                                                    : () => useMyLocation(
+                                                        allRestaurants,
+                                                      ),
+                                                style:
+                                                    ElevatedButton.styleFrom(
+                                                      minimumSize:
+                                                          const Size(110, 0),
+                                                      backgroundColor:
+                                                          Colors.transparent,
+                                                      foregroundColor:
+                                                          Colors.white,
+                                                      elevation: 0,
+                                                      shadowColor:
+                                                          Colors.transparent,
+                                                      shape:
+                                                          RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  14,
+                                                                ),
+                                                            side:
+                                                                BorderSide.none,
+                                                          ),
+                                                      textStyle:
+                                                          const TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.w800,
+                                                          ),
+                                                    ),
+                                                child: const Text('Refresh'),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
                                   ),
                                   const SizedBox(height: 12),
                                   Column(
@@ -2210,15 +2315,32 @@ class _HomeScreenState extends State<HomeScreen> {
                                       _biteSaverLightTileControl(
                                         DropdownButtonFormField<String>(
                                           initialValue: selectedRadius,
-                                          decoration: const InputDecoration(
+                                          decoration: InputDecoration(
                                             filled: true,
-                                            fillColor: Color(0xFFFFF3E6),
+                                            fillColor: const Color(
+                                              0xFFF7E3BF,
+                                            ),
+                                            isDense: true,
                                             contentPadding:
-                                                EdgeInsets.symmetric(
-                                                  horizontal: 12,
-                                                  vertical: 12,
+                                                const EdgeInsets.symmetric(
+                                                  horizontal: 18,
+                                                  vertical: 10,
                                                 ),
-                                            border: InputBorder.none,
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              borderSide: BorderSide.none,
+                                            ),
+                                            enabledBorder: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              borderSide: BorderSide.none,
+                                            ),
+                                            focusedBorder: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              borderSide: BorderSide.none,
+                                            ),
                                           ),
                                           items: const [
                                             DropdownMenuItem(
