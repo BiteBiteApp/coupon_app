@@ -1099,18 +1099,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     return [
       BoxShadow(
-        color: const Color(0xFF5E3E1E).withOpacity(0.16 + opacityBoost),
-        blurRadius: 10 * strength,
-        offset: Offset(0, 9 * strength),
+        color: const Color(0xFF5E3E1E).withOpacity(0.22 + opacityBoost),
+        blurRadius: 14 * strength,
+        offset: Offset(0, 11 * strength),
       ),
       BoxShadow(
-        color: const Color(0xFF704D24).withOpacity(0.13 + opacityBoost / 2),
-        blurRadius: 1.4 * strength,
+        color: const Color(0xFF704D24).withOpacity(0.16 + opacityBoost / 2),
+        blurRadius: 1.2 * strength,
         offset: Offset(0, 3 * strength),
       ),
       BoxShadow(
-        color: Colors.white.withOpacity(0.24),
-        blurRadius: 1.8 * strength,
+        color: Colors.white.withOpacity(0.10),
+        blurRadius: 1.2 * strength,
         offset: Offset(0, 0.2 * strength),
       ),
     ];
@@ -1127,17 +1127,17 @@ class _HomeScreenState extends State<HomeScreen> {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        Color(0xFFFFF1D2),
-        Color(0xFFEFD09A),
-        Color(0xFFD9B170),
-        Color(0xFFBE9552),
+        Color(0xFFF8E5C8),
+        Color(0xFFE0B978),
+        Color(0xFFD3A55E),
+        Color(0xFFC6944F),
       ],
       stops: [0.0, 0.34, 0.72, 1.0],
     ),
     Gradient faceGradient = const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xFFFFFCF7), Color(0xFFFFF7ED), Color(0xFFFFEFDF)],
+      colors: [Color(0xFFFAEEDD), Color(0xFFF8EBDD), Color(0xFFF4E6D3)],
     ),
     EdgeInsetsGeometry innerMargin = const EdgeInsets.all(1.8),
     List<BoxShadow>? shadows,
@@ -1162,11 +1162,11 @@ class _HomeScreenState extends State<HomeScreen> {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Color(0xFFFFECCA),
-                    Color(0xFFE8C47F),
-                    Color(0xFFD19E55),
-                    Color(0xFFB98B48),
-                    Color(0xFFA27B3E),
+                    Color(0xFFF2D49D),
+                    Color(0xFFD8AE72),
+                    Color(0xFFCFA46A),
+                    Color(0xFFC79A5B),
+                    Color(0xFFB88849),
                   ],
                   stops: [0.0, 0.25, 0.55, 0.78, 1.0],
                 ),
@@ -1181,8 +1181,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 gradient: shellGradient,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF704D24).withOpacity(0.34),
-                    blurRadius: 1.6,
+                    color: const Color(0xFF704D24).withOpacity(0.40),
+                    blurRadius: 1.4,
                     offset: const Offset(0, 2.2),
                   ),
                 ],
@@ -1202,18 +1202,18 @@ class _HomeScreenState extends State<HomeScreen> {
                             : Border.all(color: faceBorderColor, width: 0.35),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.white.withOpacity(0.14),
+                            color: Colors.white.withOpacity(0.08),
                             blurRadius: 4,
                             spreadRadius: -2.8,
                             offset: const Offset(-1, -1.5),
                           ),
                           BoxShadow(
-                            color: Colors.white.withOpacity(0.28),
+                            color: Colors.white.withOpacity(0.14),
                             blurRadius: 1.0,
                             offset: const Offset(0, -0.3),
                           ),
                           BoxShadow(
-                            color: const Color(0xFF704D24).withOpacity(0.055),
+                            color: const Color(0xFF704D24).withOpacity(0.075),
                             blurRadius: 2,
                             offset: const Offset(0, 1.8),
                           ),
@@ -1296,17 +1296,17 @@ class _HomeScreenState extends State<HomeScreen> {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Color(0xFFFFF1D2),
-            Color(0xFFEFD09A),
-            Color(0xFFDDB675),
-            Color(0xFFC39A58),
+            Color(0xFFF8E5C8),
+            Color(0xFFE0B978),
+            Color(0xFFD5A865),
+            Color(0xFFCFA46A),
           ],
           stops: [0.0, 0.34, 0.72, 1.0],
         ),
         faceGradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFFCF7), Color(0xFFFFF7ED), Color(0xFFFFEFDF)],
+          colors: [Color(0xFFFAEEDD), Color(0xFFF8EBDD), Color(0xFFF4E6D3)],
         ),
         innerMargin: const EdgeInsets.all(1.7),
         shadows: _biteSaverTileShadows(strength: 0.90),
@@ -1765,10 +1765,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFFFF1D3),
-                  Color(0xFFEAC888),
-                  Color(0xFFD1A05A),
-                  Color(0xFFB98A47),
+                  Color(0xFFF6E0BB),
+                  Color(0xFFD8AE72),
+                  Color(0xFFCFA46A),
+                  Color(0xFFC09252),
                 ],
                 stops: [0.0, 0.34, 0.72, 1.0],
               ),
@@ -1776,9 +1776,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFFFFCF7),
-                  Color(0xFFFFF7ED),
-                  Color(0xFFFFEFDF),
+                  Color(0xFFFAEEDD),
+                  Color(0xFFF8EBDD),
+                  Color(0xFFF4E6D3),
                 ],
               ),
               innerMargin: const EdgeInsets.all(2.1),
@@ -1860,17 +1860,17 @@ class _HomeScreenState extends State<HomeScreen> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFFFFEFD0),
-                Color(0xFFE9C88F),
-                Color(0xFFD5AC69),
-                Color(0xFFBE9350),
+                Color(0xFFF0D2A0),
+                Color(0xFFD8AE72),
+                Color(0xFFCFA46A),
+                Color(0xFFC09252),
               ],
               stops: [0.0, 0.34, 0.72, 1.0],
             ),
             faceGradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFFFF7EE), Color(0xFFFFF1E4), Color(0xFFFFE9D4)],
+              colors: [Color(0xFFF8EBDD), Color(0xFFF5E6D3), Color(0xFFF1DFC8)],
             ),
             innerMargin: const EdgeInsets.all(2.0),
             shadows: _biteSaverTileShadows(strength: 0.92),
@@ -2322,13 +2322,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 .length;
 
             return Scaffold(
-              backgroundColor: const Color(0xFFF1E2D0),
+              backgroundColor: const Color(0xFFE6D2B5),
               body: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Color(0xFFF6E9D8), Color(0xFFECD7BF)],
+                    colors: [Color(0xFFE9D7BE), Color(0xFFE2C7A3)],
                   ),
                 ),
                 child: CustomScrollView(
