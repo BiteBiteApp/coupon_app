@@ -64,20 +64,15 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainerLowest,
-        border: Border(
-          bottom: BorderSide(
-            color: colorScheme.outlineVariant,
-          ),
-        ),
+        color: const Color(0xFFF0DBC0),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
-          final thumbWidth = (width - 12) / 2;
+          final thumbWidth = (width - 4) / 2;
           final visualPosition =
               (_selectedPosition + _dragProgress).clamp(0, 1).toDouble();
-          final left = 6 + (visualPosition * thumbWidth);
+          final left = 2 + (visualPosition * thumbWidth);
 
           return GestureDetector(
             onHorizontalDragUpdate: (details) {
@@ -122,51 +117,48 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                     duration: const Duration(milliseconds: 300),
                     curve: Curves.easeOutCubic,
                     left: left,
-                    top: 6,
+                    top: 1,
                     width: thumbWidth,
-                    height: 50,
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: widget.selectedMode == AppMode.biteSaver
-                            ? const LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Color(0xFFFF9830),
-                                  Color(0xFFFF7121),
-                                  Color(0xFFFF5A1F),
-                                ],
-                              )
-                            : const LinearGradient(
-                                begin: Alignment.topLeft,
-                                end: Alignment.bottomRight,
-                                colors: [
-                                  Color(0xFFD95A8C),
-                                  Color(0xFF9E49C3),
-                                  Color(0xFF3E67D6),
-                                ],
-                              ),
-                        borderRadius: BorderRadius.circular(21),
-                        border: Border.all(
-                          color: Colors.white.withOpacity(0.68),
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: thumbShadow.withOpacity(0.34),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
+                    height: 60,
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(25),
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: widget.selectedMode == AppMode.biteSaver
+                              ? const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFFFF9830),
+                                    Color(0xFFFF7121),
+                                    Color(0xFFFF5A1F),
+                                  ],
+                                )
+                              : const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFFD95A8C),
+                                    Color(0xFF9E49C3),
+                                    Color(0xFF3E67D6),
+                                  ],
+                                ),
+                          borderRadius: BorderRadius.circular(25),
+                          border: Border.all(
+                            color: Colors.white.withOpacity(0.54),
+                            width: 0.8,
                           ),
-                        ],
-                      ),
-                      child: Center(
-                        child: Text(
-                          widget.selectedMode == AppMode.biteSaver
-                              ? 'BiteSaver'
-                              : 'BiteScore',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 15,
+                        ),
+                        child: Center(
+                          child: Text(
+                            widget.selectedMode == AppMode.biteSaver
+                                ? 'BiteSaver'
+                                : 'BiteScore',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w800,
+                              fontSize: 15,
+                            ),
                           ),
                         ),
                       ),
