@@ -1893,17 +1893,17 @@ class _HomeScreenState extends State<HomeScreen> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFFF3D9AE),
-                Color(0xFFE0B97F),
-                Color(0xFFD7AF72),
-                Color(0xFFC89C5C),
+                Color(0xFFECCF9F),
+                Color(0xFFD9AE70),
+                Color(0xFFCE9F60),
+                Color(0xFFBE8E4F),
               ],
               stops: [0.0, 0.34, 0.72, 1.0],
             ),
             faceGradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFFEF6EC), Color(0xFFFBF0E2), Color(0xFFF7E7D2)],
+              colors: [Color(0xFFF9EAD5), Color(0xFFF5E1C6), Color(0xFFF0D7B6)],
             ),
             innerMargin: const EdgeInsets.all(2.0),
             shadows: _biteSaverTileShadows(strength: 0.82),
@@ -1963,7 +1963,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         onSubmitted: (_) => runGeneralSearch(),
                                         decoration: InputDecoration(
                                           filled: true,
-                                          fillColor: const Color(0xFFFFEED8),
+                                          fillColor: const Color(0xFFFFF4E6),
                                           isDense: true,
                                           hintText:
                                               'Search restaurants or coupons',
@@ -1972,7 +1972,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ),
                                           contentPadding:
                                               const EdgeInsets.fromLTRB(
-                                                12,
+                                                14,
                                                 14,
                                                 188,
                                                 14,
@@ -1981,24 +1981,24 @@ class _HomeScreenState extends State<HomeScreen> {
                                             borderRadius:
                                                 BorderRadius.circular(14),
                                             borderSide: const BorderSide(
-                                              color: Color(0xFFD9B77A),
-                                              width: 1.4,
+                                              color: Color(0xFFE0C79A),
+                                              width: 1.0,
                                             ),
                                           ),
                                           enabledBorder: OutlineInputBorder(
                                             borderRadius:
                                                 BorderRadius.circular(14),
                                             borderSide: const BorderSide(
-                                              color: Color(0xFFD9B77A),
-                                              width: 1.4,
+                                              color: Color(0xFFE0C79A),
+                                              width: 1.0,
                                             ),
                                           ),
                                           focusedBorder: OutlineInputBorder(
                                             borderRadius:
                                                 BorderRadius.circular(14),
                                             borderSide: const BorderSide(
-                                              color: Color(0xFFD9B77A),
-                                              width: 1.4,
+                                              color: Color(0xFFE0C79A),
+                                              width: 1.0,
                                             ),
                                           ),
                                         ),
@@ -2026,7 +2026,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 style: ElevatedButton.styleFrom(
                                                   minimumSize: const Size(0, 42),
                                                   backgroundColor: const Color(
-                                                    0xFFF7E3BF,
+                                                    0xFFFFF6E8,
                                                   ),
                                                   foregroundColor: const Color(
                                                     0xFF8C5A1E,
@@ -2074,13 +2074,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                             runSearch(allRestaurants),
                                         decoration: InputDecoration(
                                           filled: true,
-                                          fillColor: const Color(0xFFFFEED8),
+                                          fillColor: const Color(0xFFFFF4E6),
                                           isDense: true,
                                           hintText: 'Enter city or ZIP code',
                                           prefixIcon: const Icon(Icons.search),
                                           contentPadding:
                                               const EdgeInsets.fromLTRB(
-                                                12,
+                                                14,
                                                 14,
                                                 188,
                                                 14,
@@ -2089,24 +2089,24 @@ class _HomeScreenState extends State<HomeScreen> {
                                             borderRadius:
                                                 BorderRadius.circular(14),
                                             borderSide: const BorderSide(
-                                              color: Color(0xFFD9B77A),
-                                              width: 1.4,
+                                              color: Color(0xFFE0C79A),
+                                              width: 1.0,
                                             ),
                                           ),
                                           enabledBorder: OutlineInputBorder(
                                             borderRadius:
                                                 BorderRadius.circular(14),
                                             borderSide: const BorderSide(
-                                              color: Color(0xFFD9B77A),
-                                              width: 1.4,
+                                              color: Color(0xFFE0C79A),
+                                              width: 1.0,
                                             ),
                                           ),
                                           focusedBorder: OutlineInputBorder(
                                             borderRadius:
                                                 BorderRadius.circular(14),
                                             borderSide: const BorderSide(
-                                              color: Color(0xFFD9B77A),
-                                              width: 1.4,
+                                              color: Color(0xFFE0C79A),
+                                              width: 1.0,
                                             ),
                                           ),
                                         ),
@@ -2138,7 +2138,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 style: ElevatedButton.styleFrom(
                                                   minimumSize: const Size(0, 42),
                                                   backgroundColor: const Color(
-                                                    0xFFF7E3BF,
+                                                    0xFFFFF6E8,
                                                   ),
                                                   foregroundColor: const Color(
                                                     0xFF8C5A1E,
@@ -2212,7 +2212,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                           ),
                                                       backgroundColor:
                                                           const Color(
-                                                            0xFFF7E3BF,
+                                                            0xFFFFF6E8,
                                                           ),
                                                       foregroundColor:
                                                           const Color(
@@ -2318,7 +2318,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           decoration: InputDecoration(
                                             filled: true,
                                             fillColor: const Color(
-                                              0xFFF7E3BF,
+                                              0xFFFFF4E6,
                                             ),
                                             isDense: true,
                                             contentPadding:
