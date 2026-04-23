@@ -1231,17 +1231,23 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _biteSaverLightTileControl(Widget child) {
+  Widget _biteSaverLightTileControl(
+    Widget child, {
+    List<BoxShadow>? shadows,
+  }) {
     return _biteSaverTile(
       shellRadius: BorderRadius.circular(14),
       faceRadius: BorderRadius.circular(12.5),
       innerMargin: const EdgeInsets.all(1.6),
-      shadows: _biteSaverTileShadows(strength: 0.72, opacityBoost: 0.01),
+      shadows: shadows ?? _biteSaverTileShadows(strength: 0.72, opacityBoost: 0.01),
       child: child,
     );
   }
 
-  Widget _biteSaverRedTileControl(Widget child) {
+  Widget _biteSaverRedTileControl(
+    Widget child, {
+    List<BoxShadow>? shadows,
+  }) {
     return _biteSaverTile(
       shellRadius: BorderRadius.circular(14),
       faceRadius: BorderRadius.circular(12.5),
@@ -1259,23 +1265,24 @@ class _HomeScreenState extends State<HomeScreen> {
         colors: [Color(0xFFFF7A72), Color(0xFFF5625A), Color(0xFFE94B44)],
       ),
       innerMargin: const EdgeInsets.all(1.5),
-      shadows: [
-        BoxShadow(
-          color: const Color(0xFF4A1F1A).withOpacity(0.18),
-          blurRadius: 10,
-          offset: const Offset(0, 9),
-        ),
-        BoxShadow(
-          color: const Color(0xFF5A231D).withOpacity(0.10),
-          blurRadius: 2,
-          offset: const Offset(0, 3),
-        ),
-        BoxShadow(
-          color: Colors.white.withOpacity(0.22),
-          blurRadius: 1.5,
-          offset: const Offset(0, 0.2),
-        ),
-      ],
+      shadows: shadows ??
+          [
+            BoxShadow(
+              color: const Color(0xFF4A1F1A).withOpacity(0.18),
+              blurRadius: 10,
+              offset: const Offset(0, 9),
+            ),
+            BoxShadow(
+              color: const Color(0xFF5A231D).withOpacity(0.10),
+              blurRadius: 2,
+              offset: const Offset(0, 3),
+            ),
+            BoxShadow(
+              color: Colors.white.withOpacity(0.22),
+              blurRadius: 1.5,
+              offset: const Offset(0, 0.2),
+            ),
+          ],
       child: child,
     );
   }
@@ -1286,28 +1293,18 @@ class _HomeScreenState extends State<HomeScreen> {
         child: DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
-            gradient: const LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFFFFF7ED), Color(0xFFFFF1E3)],
-            ),
+            color: const Color(0xFFFFF7ED),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF704D24).withOpacity(0.14),
-                blurRadius: 8,
-                offset: const Offset(0, 6),
-              ),
-              BoxShadow(
-                color: const Color(0xFF704D24).withOpacity(0.08),
-                blurRadius: 1.2,
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 5,
                 offset: const Offset(0, 2),
               ),
-              BoxShadow(
-                color: Colors.white.withOpacity(0.16),
-                blurRadius: 1,
-                offset: const Offset(0, 0.2),
-              ),
             ],
+            border: Border.all(
+              color: const Color(0xFFE8D7B5),
+              width: 1.2,
+            ),
           ),
         ),
       ),
@@ -1509,8 +1506,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           foregroundColor: Theme.of(
                             context,
                           ).colorScheme.primary,
-                          elevation: 0,
-                          shadowColor: Colors.transparent,
+                          elevation: 4,
+                          shadowColor: Colors.black.withOpacity(0.2),
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           shape: RoundedRectangleBorder(
@@ -1525,6 +1522,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               : 'Use My Location',
                         ),
                       ),
+                      shadows: const [],
                     )
                   : ElevatedButton.icon(
                       onPressed: isGettingLocation
@@ -1560,8 +1558,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       minimumSize: const Size(110, 0),
                       backgroundColor: Colors.transparent,
                       foregroundColor: Colors.white,
-                      elevation: 0,
-                      shadowColor: Colors.transparent,
+                      elevation: 4,
+                      shadowColor: Colors.black.withOpacity(0.2),
                       shape: RoundedRectangleBorder(
                         borderRadius: borderRadius,
                         side: BorderSide.none,
@@ -1570,6 +1568,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     child: const Text('Refresh'),
                   ),
+                  shadows: const [],
                 ),
               ),
             ],
@@ -1894,17 +1893,17 @@ class _HomeScreenState extends State<HomeScreen> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFFF0D2A0),
-                Color(0xFFD8AE72),
-                Color(0xFFCFA46A),
-                Color(0xFFC09252),
+                Color(0xFFF3D9AE),
+                Color(0xFFE0B97F),
+                Color(0xFFD7AF72),
+                Color(0xFFC89C5C),
               ],
               stops: [0.0, 0.34, 0.72, 1.0],
             ),
             faceGradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFFCF3E9), Color(0xFFF8EBDD), Color(0xFFF3E1CC)],
+              colors: [Color(0xFFFEF6EC), Color(0xFFFBF0E2), Color(0xFFF7E7D2)],
             ),
             innerMargin: const EdgeInsets.all(2.0),
             shadows: _biteSaverTileShadows(strength: 0.82),
@@ -1964,7 +1963,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         onSubmitted: (_) => runGeneralSearch(),
                                         decoration: InputDecoration(
                                           filled: true,
-                                          fillColor: Colors.transparent,
+                                          fillColor: const Color(0xFFFFF4E6),
                                           isDense: true,
                                           hintText:
                                               'Search restaurants or coupons',
@@ -1978,9 +1977,30 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 188,
                                                 14,
                                               ),
-                                          border: InputBorder.none,
-                                          enabledBorder: InputBorder.none,
-                                          focusedBorder: InputBorder.none,
+                                          border: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFFD9B77A),
+                                              width: 1.4,
+                                            ),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFFD9B77A),
+                                              width: 1.4,
+                                            ),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFFD9B77A),
+                                              width: 1.4,
+                                            ),
+                                          ),
                                         ),
                                       ),
                                       Positioned(
@@ -2001,42 +2021,41 @@ class _HomeScreenState extends State<HomeScreen> {
                                                     VisualDensity.compact,
                                               ),
                                             _biteSaverLightTileControl(
-                                              Material(
-                                                color: Colors.transparent,
-                                                shape: RoundedRectangleBorder(
-                                                  side: BorderSide.none,
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                ),
-                                                child: InkWell(
-                                                  onTap: runGeneralSearch,
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                  child: ConstrainedBox(
-                                                    constraints:
-                                                        const BoxConstraints(
-                                                          minHeight: 42,
-                                                        ),
-                                                    child: Padding(
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 18,
-                                                          ),
-                                                      child: Text(
-                                                        'Search',
-                                                        style: TextStyle(
-                                                          fontSize: 12,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          color: Theme.of(
-                                                            context,
-                                                          ).colorScheme.primary,
-                                                        ),
+                                              ElevatedButton(
+                                                onPressed: runGeneralSearch,
+                                                style: ElevatedButton.styleFrom(
+                                                  minimumSize: const Size(0, 42),
+                                                  backgroundColor: const Color(
+                                                    0xFFF7E3BF,
+                                                  ),
+                                                  foregroundColor: const Color(
+                                                    0xFF8C5A1E,
+                                                  ),
+                                                  elevation: 4,
+                                                  shadowColor:
+                                                      Colors.black.withOpacity(0.2),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 18,
                                                       ),
-                                                    ),
+                                                  tapTargetSize:
+                                                      MaterialTapTargetSize
+                                                          .shrinkWrap,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(12),
+                                                    side: BorderSide.none,
+                                                  ),
+                                                ),
+                                                child: const Text(
+                                                  'Search',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
                                                   ),
                                                 ),
                                               ),
+                                              shadows: const [],
                                             ),
                                           ],
                                         ),
@@ -2055,7 +2074,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             runSearch(allRestaurants),
                                         decoration: InputDecoration(
                                           filled: true,
-                                          fillColor: Colors.transparent,
+                                          fillColor: const Color(0xFFFFF4E6),
                                           isDense: true,
                                           hintText: 'Enter city or ZIP code',
                                           prefixIcon: const Icon(Icons.search),
@@ -2066,9 +2085,30 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 188,
                                                 14,
                                               ),
-                                          border: InputBorder.none,
-                                          enabledBorder: InputBorder.none,
-                                          focusedBorder: InputBorder.none,
+                                          border: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFFD9B77A),
+                                              width: 1.4,
+                                            ),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFFD9B77A),
+                                              width: 1.4,
+                                            ),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFFD9B77A),
+                                              width: 1.4,
+                                            ),
+                                          ),
                                         ),
                                       ),
                                       Positioned(
@@ -2089,71 +2129,57 @@ class _HomeScreenState extends State<HomeScreen> {
                                                     VisualDensity.compact,
                                               ),
                                             _biteSaverLightTileControl(
-                                              Material(
-                                                color: Colors.transparent,
-                                                shape: RoundedRectangleBorder(
-                                                  side: BorderSide.none,
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                ),
-                                                child: InkWell(
-                                                  onTap: isSearchingLocation
-                                                      ? null
-                                                      : () => runSearch(
-                                                          allRestaurants,
-                                                        ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                  child: ConstrainedBox(
-                                                    constraints:
-                                                        const BoxConstraints(
-                                                          minHeight: 42,
-                                                        ),
-                                                    child: Padding(
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 18,
-                                                          ),
-                                                      child: Row(
-                                                        mainAxisSize:
-                                                            MainAxisSize.min,
-                                                        children: [
-                                                          Icon(
-                                                            Icons.arrow_forward,
-                                                            size: 16,
-                                                            color:
-                                                                Theme.of(
-                                                                      context,
-                                                                    )
-                                                                    .colorScheme
-                                                                    .primary,
-                                                          ),
-                                                          const SizedBox(
-                                                            width: 6,
-                                                          ),
-                                                          Text(
-                                                            isSearchingLocation
-                                                                ? 'Searching...'
-                                                                : 'Search',
-                                                            style: TextStyle(
-                                                              fontSize: 12,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                              color:
-                                                                  Theme.of(
-                                                                        context,
-                                                                      )
-                                                                      .colorScheme
-                                                                      .primary,
-                                                            ),
-                                                          ),
-                                                        ],
+                                              ElevatedButton(
+                                                onPressed: isSearchingLocation
+                                                    ? null
+                                                    : () => runSearch(
+                                                        allRestaurants,
                                                       ),
-                                                    ),
+                                                style: ElevatedButton.styleFrom(
+                                                  minimumSize: const Size(0, 42),
+                                                  backgroundColor: const Color(
+                                                    0xFFF7E3BF,
+                                                  ),
+                                                  foregroundColor: const Color(
+                                                    0xFF8C5A1E,
+                                                  ),
+                                                  elevation: 4,
+                                                  shadowColor:
+                                                      Colors.black.withOpacity(0.2),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 18,
+                                                      ),
+                                                  tapTargetSize:
+                                                      MaterialTapTargetSize
+                                                          .shrinkWrap,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(12),
+                                                    side: BorderSide.none,
                                                   ),
                                                 ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const Icon(
+                                                      Icons.arrow_forward,
+                                                      size: 16,
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Text(
+                                                      isSearchingLocation
+                                                          ? 'Searching...'
+                                                          : 'Search',
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
+                                              shadows: const [],
                                             ),
                                           ],
                                         ),
@@ -2233,6 +2259,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             }
                                           },
                                         ),
+                                        shadows: const [],
                                       ),
                                     ],
                                   ),
