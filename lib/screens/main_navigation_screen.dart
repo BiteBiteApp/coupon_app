@@ -220,7 +220,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     if (selectedMode != AppMode.biteScore) {
       return Container(
         color: Colors.transparent,
-        padding: const EdgeInsets.fromLTRB(6, 0, 6, 0),
+        padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
         child: Container(
           decoration: BoxDecoration(
             color: const Color(0xFFF6E7CF),
@@ -250,6 +250,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                         : FontWeight.w600,
                     fontSize: 13.5,
                     letterSpacing: -0.1,
+                    height: 1.0,
                   );
                 }),
                 iconTheme: WidgetStateProperty.resolveWith((states) {
@@ -257,7 +258,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                     color: states.contains(WidgetState.selected)
                         ? const Color(0xFF2458D6)
                         : const Color(0xFF645A4C),
-                    size: states.contains(WidgetState.selected) ? 25 : 24,
+                    size: 24,
                   );
                 }),
               ),
