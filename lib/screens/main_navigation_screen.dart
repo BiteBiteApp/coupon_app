@@ -185,7 +185,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   Widget _buildBottomNavigationBar() {
     final navigationBar = NavigationBar(
       selectedIndex: selectedIndex,
-      height: 70,
+      height: 66,
       backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
       onDestinationSelected: (index) {
@@ -220,7 +220,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     if (selectedMode != AppMode.biteScore) {
       return Container(
         color: Colors.transparent,
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 2),
+        padding: const EdgeInsets.fromLTRB(6, 0, 6, 0),
         child: Container(
           decoration: BoxDecoration(
             color: const Color(0xFFF1DAB5),
@@ -243,18 +243,21 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                 labelTextStyle: WidgetStateProperty.resolveWith((states) {
                   return TextStyle(
                     color: states.contains(WidgetState.selected)
-                        ? const Color(0xFF2057D7)
-                        : Colors.black54,
+                        ? const Color(0xFF184FCC)
+                        : const Color(0xFF5E564A),
                     fontWeight: states.contains(WidgetState.selected)
-                        ? FontWeight.w800
+                        ? FontWeight.w700
                         : FontWeight.w600,
+                    fontSize: 13.5,
+                    letterSpacing: -0.1,
                   );
                 }),
                 iconTheme: WidgetStateProperty.resolveWith((states) {
                   return IconThemeData(
                     color: states.contains(WidgetState.selected)
-                        ? const Color(0xFF2F63E3)
-                        : Colors.black45,
+                        ? const Color(0xFF2458D6)
+                        : const Color(0xFF645A4C),
+                    size: states.contains(WidgetState.selected) ? 25 : 24,
                   );
                 }),
               ),
