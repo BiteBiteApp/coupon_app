@@ -185,6 +185,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   Widget _buildBottomNavigationBar() {
     final navigationBar = NavigationBar(
       selectedIndex: selectedIndex,
+      height: 70,
+      backgroundColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
       onDestinationSelected: (index) {
         setState(() {
           selectedIndex = index;
@@ -215,7 +218,54 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     );
 
     if (selectedMode != AppMode.biteScore) {
-      return navigationBar;
+      return Container(
+        color: Colors.transparent,
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 2),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFFF1DAB5),
+            borderRadius: BorderRadius.circular(28),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.10),
+                blurRadius: 6,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              navigationBarTheme: NavigationBarThemeData(
+                backgroundColor: Colors.transparent,
+                surfaceTintColor: Colors.transparent,
+                indicatorColor: const Color(0xFFE7E4FB),
+                elevation: 0,
+                labelTextStyle: WidgetStateProperty.resolveWith((states) {
+                  return TextStyle(
+                    color: states.contains(WidgetState.selected)
+                        ? const Color(0xFF2057D7)
+                        : Colors.black54,
+                    fontWeight: states.contains(WidgetState.selected)
+                        ? FontWeight.w800
+                        : FontWeight.w600,
+                  );
+                }),
+                iconTheme: WidgetStateProperty.resolveWith((states) {
+                  return IconThemeData(
+                    color: states.contains(WidgetState.selected)
+                        ? const Color(0xFF2F63E3)
+                        : Colors.black45,
+                  );
+                }),
+              ),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(28),
+              child: navigationBar,
+            ),
+          ),
+        ),
+      );
     }
 
     return Theme(
@@ -251,6 +301,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      extendBody: true,
       body: SafeArea(
         bottom: false,
         child: Column(
