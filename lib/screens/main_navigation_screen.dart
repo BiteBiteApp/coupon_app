@@ -223,7 +223,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         padding: const EdgeInsets.fromLTRB(6, 0, 6, 0),
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFFF1DAB5),
+            color: const Color(0xFFF6E7CF),
             borderRadius: BorderRadius.circular(28),
             boxShadow: [
               BoxShadow(
