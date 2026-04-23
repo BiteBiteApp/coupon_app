@@ -1100,12 +1100,12 @@ class _HomeScreenState extends State<HomeScreen> {
     return [
       BoxShadow(
         color: const Color(0xFF493016).withOpacity(0.165 + opacityBoost),
-        blurRadius: 12.5 * strength,
+        blurRadius: 11 * strength,
         offset: Offset(0, 8 * strength),
       ),
       BoxShadow(
-        color: const Color(0xFF5B3A19).withOpacity(0.135 + opacityBoost / 2),
-        blurRadius: 1.8 * strength,
+        color: const Color(0xFF5B3A19).withOpacity(0.15 + opacityBoost / 2),
+        blurRadius: 1.5 * strength,
         offset: Offset(0, 2.5 * strength),
       ),
       BoxShadow(
@@ -1166,7 +1166,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     Color(0xFFEAD19B),
                     Color(0xFFD4B370),
                     Color(0xFFB89558),
-                    Color(0xFF96743E),
+                    Color(0xFF8F6D38),
                   ],
                   stops: [0.0, 0.25, 0.55, 0.78, 1.0],
                 ),
@@ -1181,8 +1181,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 gradient: shellGradient,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF5B3A19).withOpacity(0.34),
-                    blurRadius: 2.2,
+                    color: const Color(0xFF5B3A19).withOpacity(0.37),
+                    blurRadius: 1.9,
                     offset: const Offset(0, 2),
                   ),
                 ],
@@ -1202,19 +1202,19 @@ class _HomeScreenState extends State<HomeScreen> {
                             : Border.all(color: faceBorderColor, width: 0.35),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.white.withOpacity(0.24),
-                            blurRadius: 4,
+                            color: Colors.white.withOpacity(0.28),
+                            blurRadius: 3.4,
                             spreadRadius: -2.8,
                             offset: const Offset(-1, -1.5),
                           ),
                           BoxShadow(
-                            color: Colors.white.withOpacity(0.62),
-                            blurRadius: 0.7,
+                            color: Colors.white.withOpacity(0.66),
+                            blurRadius: 0.55,
                             offset: const Offset(0, -1),
                           ),
                           BoxShadow(
-                            color: const Color(0xFF654720).withOpacity(0.05),
-                            blurRadius: 2.6,
+                            color: const Color(0xFF654720).withOpacity(0.055),
+                            blurRadius: 2.3,
                             offset: const Offset(0, 1.5),
                           ),
                         ],
@@ -1845,7 +1845,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final collapsed = expansionT <= 0.02;
 
     return Material(
-      color: Theme.of(context).scaffoldBackgroundColor,
+      color: Colors.transparent,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
         child: SizedBox(
@@ -2322,35 +2322,45 @@ class _HomeScreenState extends State<HomeScreen> {
                 .length;
 
             return Scaffold(
-              body: CustomScrollView(
-                controller: _listScrollController,
-                slivers: [
-                  SliverPersistentHeader(
-                    pinned: true,
-                    delegate: _HomeHeaderDelegate(
-                      minExtentHeight: _collapsedHeaderExtent,
-                      maxExtentHeight: _expandedHeaderExtent,
-                      builder: (context, expansionT) => _buildHeader(
-                        allRestaurants: allRestaurants,
-                        filteredRestaurants: filteredRestaurants,
-                        expansionT: expansionT,
+              backgroundColor: const Color(0xFFF6EDE3),
+              body: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFFF8F1E8), Color(0xFFF3E6D8)],
+                  ),
+                ),
+                child: CustomScrollView(
+                  controller: _listScrollController,
+                  slivers: [
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _HomeHeaderDelegate(
+                        minExtentHeight: _collapsedHeaderExtent,
+                        maxExtentHeight: _expandedHeaderExtent,
+                        builder: (context, expansionT) => _buildHeader(
+                          allRestaurants: allRestaurants,
+                          filteredRestaurants: filteredRestaurants,
+                          expansionT: expansionT,
+                        ),
                       ),
                     ),
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    sliver: !_hasLocationOrZipInput
-                        ? _buildGetStartedState(allRestaurants)
-                        : _restaurantsError != null && _restaurants.isEmpty
-                        ? _buildInlineRestaurantsError()
-                        : _isRestaurantsLoading && _restaurants.isEmpty
-                        ? _buildInlineRestaurantsLoading()
-                        : _buildResultsSliver(
-                            allRestaurants,
-                            filteredRestaurants,
-                          ),
-                  ),
-                ],
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      sliver: !_hasLocationOrZipInput
+                          ? _buildGetStartedState(allRestaurants)
+                          : _restaurantsError != null && _restaurants.isEmpty
+                          ? _buildInlineRestaurantsError()
+                          : _isRestaurantsLoading && _restaurants.isEmpty
+                          ? _buildInlineRestaurantsLoading()
+                          : _buildResultsSliver(
+                              allRestaurants,
+                              filteredRestaurants,
+                            ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
