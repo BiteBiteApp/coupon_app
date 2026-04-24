@@ -1283,64 +1283,39 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Stack(
                 children: [
                   Positioned.fill(
+                    left: 1.65,
+                    top: 0.35,
+                    right: 1.65,
+                    bottom: 1.1,
                     child: IgnorePointer(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          borderRadius: shellRadius,
-                          border: Border(
-                            top: BorderSide(
-                              color: Colors.white,
-                              width: 0.38,
+                      child: ShaderMask(
+                        blendMode: BlendMode.srcATop,
+                        shaderCallback: (bounds) {
+                          return const LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Color.fromRGBO(255, 0, 0, 1),
+                              Color.fromRGBO(255, 0, 0, 0.84),
+                              Color.fromRGBO(255, 0, 0, 0.56),
+                              Color.fromRGBO(255, 0, 0, 0.28),
+                              Color.fromRGBO(255, 0, 0, 0.08),
+                              Color.fromRGBO(255, 0, 0, 0),
+                              Color.fromRGBO(255, 0, 0, 0),
+                            ],
+                            stops: [0.0, 0.42, 0.62, 0.78, 0.90, 0.97, 1.0],
+                          ).createShader(bounds);
+                        },
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: shellRadius,
+                            border: const Border(
+                              top: BorderSide(color: Colors.red, width: 1.6),
+                              left: BorderSide(color: Colors.red, width: 1.6),
+                              right: BorderSide(color: Colors.red, width: 1.6),
                             ),
                           ),
                         ),
-                      ),
-                    ),
-                  ),
-                  Positioned.fill(
-                    left: 1.85,
-                    top: 0.8,
-                    right: 1.85,
-                    bottom: 2.0,
-                    child: IgnorePointer(
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 0.5,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.transparent,
-                                  Colors.white,
-                                  Colors.white,
-                                  Colors.white,
-                                  sideHighlightBottomColor.withOpacity(0.08),
-                                ],
-                                stops: const [0.0, 0.10, 0.24, 0.72, 1.0],
-                              ),
-                            ),
-                          ),
-                          const Spacer(),
-                          Container(
-                            width: 0.5,
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.topCenter,
-                                end: Alignment.bottomCenter,
-                                colors: [
-                                  Colors.transparent,
-                                  Colors.white,
-                                  Colors.white,
-                                  Colors.white,
-                                  sideHighlightBottomColor.withOpacity(0.08),
-                                ],
-                                stops: const [0.0, 0.10, 0.24, 0.72, 1.0],
-                              ),
-                            ),
-                          ),
-                        ],
                       ),
                     ),
                   ),
