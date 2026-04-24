@@ -38,8 +38,8 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  static const double _collapsedHeaderExtent = 86;
-  static const double _expandedHeaderExtent = 312;
+  static const double _collapsedHeaderExtent = 90;
+  static const double _expandedHeaderExtent = 340;
   static const String _selectedRadiusPreferenceKey = 'selected_radius';
 
   String selectedRadius = '15 miles';
@@ -1099,19 +1099,19 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     return [
       BoxShadow(
-        color: Colors.white.withOpacity(0.75),
-        blurRadius: 1.5 * strength,
-        offset: const Offset(-1, -1),
+        color: const Color(0xFF5E3E1E).withOpacity(0.22 + opacityBoost),
+        blurRadius: 14 * strength,
+        offset: Offset(0, 11 * strength),
       ),
       BoxShadow(
-        color: Colors.black.withOpacity(0.10 + opacityBoost),
-        blurRadius: 10 * strength,
-        offset: Offset(0, 6 * strength),
+        color: const Color(0xFF704D24).withOpacity(0.16 + opacityBoost / 2),
+        blurRadius: 1.2 * strength,
+        offset: Offset(0, 3 * strength),
       ),
       BoxShadow(
-        color: Colors.black.withOpacity(0.05 + opacityBoost / 2),
-        blurRadius: 18 * strength,
-        offset: Offset(0, 2 * strength),
+        color: Colors.white.withOpacity(0.10),
+        blurRadius: 1.2 * strength,
+        offset: Offset(0, 0.2 * strength),
       ),
     ];
   }
@@ -1120,98 +1120,194 @@ class _HomeScreenState extends State<HomeScreen> {
     required Widget child,
     required BorderRadius shellRadius,
     required BorderRadius faceRadius,
-    Color shellBorderColor = const Color(0xFFE2D3C3),
-    Color faceBorderColor = const Color(0xE6FFFFFF),
+    Color shellBorderColor = const Color(0x66F2DDBB),
+    Color highlightBorderColor = const Color(0xF7FFFFFF),
+    Color faceBorderColor = Colors.transparent,
     Gradient shellGradient = const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xFFF6EEE5), Color(0xFFEFE3D5)],
+      colors: [
+        Color(0xFFF8E5C8),
+        Color(0xFFE0B978),
+        Color(0xFFD3A55E),
+        Color(0xFFC6944F),
+      ],
+      stops: [0.0, 0.34, 0.72, 1.0],
     ),
     Gradient faceGradient = const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xFFFFFFFF), Color(0xFFF7F1E8)],
+      colors: [Color(0xFFFFFCF8), Color(0xFFFAF1E7), Color(0xFFF6E8D8)],
     ),
-    EdgeInsetsGeometry innerMargin = const EdgeInsets.all(1.1),
+    EdgeInsetsGeometry innerMargin = const EdgeInsets.all(1.8),
     List<BoxShadow>? shadows,
   }) {
     return Container(
-      clipBehavior: Clip.none,
       decoration: BoxDecoration(
         borderRadius: shellRadius,
         boxShadow: shadows ?? _biteSaverTileShadows(),
       ),
-      child: Container(
-        decoration: BoxDecoration(
-          borderRadius: shellRadius,
-          gradient: shellGradient,
-          border: Border.all(color: shellBorderColor, width: 1),
-        ),
-        child: Container(
-          margin: innerMargin,
-          decoration: BoxDecoration(
-            borderRadius: faceRadius,
-            color: const Color(0xFFFDF9F4),
-          ),
-          child: Container(
-            margin: EdgeInsets.zero,
-            decoration: BoxDecoration(
-              borderRadius: faceRadius,
-              gradient: faceGradient,
-              border: Border.all(color: faceBorderColor, width: 0.8),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            left: 1.5,
+            top: 1,
+            right: 1.5,
+            bottom: -1,
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: shellRadius,
+                gradient: const LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Color(0xFFF2D49D),
+                    Color(0xFFD8AE72),
+                    Color(0xFFCFA46A),
+                    Color(0xFFC79A5B),
+                    Color(0xFFB88849),
+                  ],
+                  stops: [0.0, 0.25, 0.55, 0.78, 1.0],
+                ),
+              ),
             ),
-            child: ClipRRect(borderRadius: faceRadius, child: child),
           ),
-        ),
+          Padding(
+            padding: const EdgeInsets.only(bottom: 1.5),
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: shellRadius,
+                gradient: shellGradient,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF704D24).withOpacity(0.40),
+                    blurRadius: 1.4,
+                    offset: const Offset(0, 2.2),
+                  ),
+                ],
+              ),
+              child: ClipRRect(
+                borderRadius: shellRadius,
+                child: Padding(
+                  padding: const EdgeInsets.all(1.2),
+                  child: Padding(
+                    padding: innerMargin,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: faceRadius,
+                        gradient: faceGradient,
+                        border: faceBorderColor == Colors.transparent
+                            ? null
+                            : Border.all(color: faceBorderColor, width: 0.35),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.white.withOpacity(0.08),
+                            blurRadius: 4,
+                            spreadRadius: -2.8,
+                            offset: const Offset(-1, -1.5),
+                          ),
+                          BoxShadow(
+                            color: Colors.white.withOpacity(0.14),
+                            blurRadius: 1.0,
+                            offset: const Offset(0, -0.3),
+                          ),
+                          BoxShadow(
+                            color: const Color(0xFF704D24).withOpacity(0.075),
+                            blurRadius: 2,
+                            offset: const Offset(0, 1.8),
+                          ),
+                        ],
+                      ),
+                      child: ClipRRect(borderRadius: faceRadius, child: child),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
 
-  Widget _biteSaverLightTileControl(Widget child) {
+  Widget _biteSaverLightTileControl(
+    Widget child, {
+    List<BoxShadow>? shadows,
+  }) {
     return _biteSaverTile(
-      shellRadius: BorderRadius.circular(12),
-      faceRadius: BorderRadius.circular(11),
-      innerMargin: const EdgeInsets.all(1.2),
-      shadows: _biteSaverTileShadows(strength: 0.72, opacityBoost: 0.012),
+      shellRadius: BorderRadius.circular(14),
+      faceRadius: BorderRadius.circular(12.5),
+      innerMargin: const EdgeInsets.all(1.6),
+      shadows: shadows ?? _biteSaverTileShadows(strength: 0.72, opacityBoost: 0.01),
       child: child,
     );
   }
 
-  Widget _biteSaverRedTileControl(Widget child) {
+  Widget _biteSaverRedTileControl(
+    Widget child, {
+    List<BoxShadow>? shadows,
+  }) {
     return _biteSaverTile(
       shellRadius: BorderRadius.circular(14),
-      faceRadius: BorderRadius.circular(13),
-      shellBorderColor: const Color(0xFFE2D3C3),
-      faceBorderColor: const Color(0xE6FFFFFF),
+      faceRadius: BorderRadius.circular(12.5),
+      shellBorderColor: const Color(0x55F7A29B),
+      highlightBorderColor: const Color(0xAFFFFFFF),
+      faceBorderColor: Colors.transparent,
       shellGradient: const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFFE85851), Color(0xFFD94640)],
+        colors: [Color(0xFFF06A62), Color(0xFFE3544C), Color(0xFFD8443C)],
       ),
       faceGradient: const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFFF35F58), Color(0xFFE94A45)],
+        colors: [Color(0xFFFF7A72), Color(0xFFF5625A), Color(0xFFE94B44)],
       ),
-      innerMargin: const EdgeInsets.all(1.2),
-      shadows: [
-        BoxShadow(
-          color: Colors.white.withOpacity(0.75),
-          blurRadius: 1.5,
-          offset: const Offset(-1, -1),
-        ),
-        BoxShadow(
-          color: Colors.black.withOpacity(0.12),
-          blurRadius: 10,
-          offset: const Offset(0, 6),
-        ),
-        BoxShadow(
-          color: Colors.black.withOpacity(0.06),
-          blurRadius: 18,
-          offset: const Offset(0, 2),
-        ),
-      ],
+      innerMargin: const EdgeInsets.all(1.5),
+      shadows: shadows ??
+          [
+            BoxShadow(
+              color: const Color(0xFF4A1F1A).withOpacity(0.18),
+              blurRadius: 10,
+              offset: const Offset(0, 9),
+            ),
+            BoxShadow(
+              color: const Color(0xFF5A231D).withOpacity(0.10),
+              blurRadius: 2,
+              offset: const Offset(0, 3),
+            ),
+            BoxShadow(
+              color: Colors.white.withOpacity(0.22),
+              blurRadius: 1.5,
+              offset: const Offset(0, 0.2),
+            ),
+          ],
       child: child,
+    );
+  }
+
+  Widget _biteSaverInputFieldSurface() {
+    return Positioned.fill(
+      child: IgnorePointer(
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            color: const Color(0xFFFFF7ED),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.15),
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              ),
+            ],
+            border: Border.all(
+              color: const Color(0xFFE8D7B5),
+              width: 1.2,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1222,22 +1318,29 @@ class _HomeScreenState extends State<HomeScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
       child: _biteSaverTile(
-        shellRadius: BorderRadius.circular(16),
-        faceRadius: BorderRadius.circular(15),
-        shellBorderColor: const Color(0xFFE2D3C3),
-        faceBorderColor: const Color(0xE6FFFFFF),
+        shellRadius: BorderRadius.circular(17),
+        faceRadius: BorderRadius.circular(15.5),
+        shellBorderColor: const Color(0x66F2DDBB),
+        highlightBorderColor: const Color(0xF7FFFFFF),
+        faceBorderColor: Colors.transparent,
         shellGradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFF8F0E6), Color(0xFFF0E4D6)],
+          colors: [
+            Color(0xFFF8E5C8),
+            Color(0xFFE0B978),
+            Color(0xFFD5A865),
+            Color(0xFFCFA46A),
+          ],
+          stops: [0.0, 0.34, 0.72, 1.0],
         ),
         faceGradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFFCF8F3), Color(0xFFF6EFE7)],
+          colors: [Color(0xFFFFFCF8), Color(0xFFFAF1E7), Color(0xFFF6E8D8)],
         ),
-        innerMargin: const EdgeInsets.all(1.2),
-        shadows: _biteSaverTileShadows(strength: 1, opacityBoost: 0.025),
+        innerMargin: const EdgeInsets.all(1.7),
+        shadows: _biteSaverTileShadows(strength: 0.90),
         child: Material(
           color: Colors.transparent,
           child: ListTile(
@@ -1403,8 +1506,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           foregroundColor: Theme.of(
                             context,
                           ).colorScheme.primary,
-                          elevation: 0,
-                          shadowColor: Colors.transparent,
+                          elevation: 4,
+                          shadowColor: Colors.black.withOpacity(0.2),
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           shape: RoundedRectangleBorder(
@@ -1419,6 +1522,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               : 'Use My Location',
                         ),
                       ),
+                      shadows: const [],
                     )
                   : ElevatedButton.icon(
                       onPressed: isGettingLocation
@@ -1454,8 +1558,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       minimumSize: const Size(110, 0),
                       backgroundColor: Colors.transparent,
                       foregroundColor: Colors.white,
-                      elevation: 0,
-                      shadowColor: Colors.transparent,
+                      elevation: 4,
+                      shadowColor: Colors.black.withOpacity(0.2),
                       shape: RoundedRectangleBorder(
                         borderRadius: borderRadius,
                         side: BorderSide.none,
@@ -1464,6 +1568,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                     child: const Text('Refresh'),
                   ),
+                  shadows: const [],
                 ),
               ),
             ],
@@ -1684,14 +1789,35 @@ class _HomeScreenState extends State<HomeScreen> {
           child: Container(
             margin: const EdgeInsets.only(bottom: 16),
             child: _biteSaverTile(
-              shellRadius: BorderRadius.circular(18),
-              faceRadius: BorderRadius.circular(17),
-              shellBorderColor: const Color(0xFFE2D3C3),
-              faceBorderColor: const Color(0xE6FFFFFF),
-              innerMargin: const EdgeInsets.all(1.2),
+              shellRadius: BorderRadius.circular(20),
+              faceRadius: BorderRadius.circular(18),
+              shellBorderColor: const Color(0x66EED8B2),
+              highlightBorderColor: const Color(0xF7FFFFFF),
+              faceBorderColor: Colors.transparent,
+              shellGradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFFF6E0BB),
+                  Color(0xFFD8AE72),
+                  Color(0xFFCFA46A),
+                  Color(0xFFC09252),
+                ],
+                stops: [0.0, 0.34, 0.72, 1.0],
+              ),
+              faceGradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFFFFFCF8),
+                  Color(0xFFFAF1E7),
+                  Color(0xFFF6E8D8),
+                ],
+              ),
+              innerMargin: const EdgeInsets.all(2.1),
               shadows: _biteSaverTileShadows(
-                strength: 1.05,
-                opacityBoost: 0.02,
+                strength: 1.08,
+                opacityBoost: 0.03,
               ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 15),
@@ -1752,18 +1878,35 @@ class _HomeScreenState extends State<HomeScreen> {
     final collapsed = expansionT <= 0.02;
 
     return Material(
-      color: Theme.of(context).scaffoldBackgroundColor,
+      color: Colors.transparent,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
         child: SizedBox(
           width: double.infinity,
           child: _biteSaverTile(
-            shellRadius: BorderRadius.circular(16),
-            faceRadius: BorderRadius.circular(15),
-            shellBorderColor: const Color(0xFFE2D3C3),
-            faceBorderColor: const Color(0xE6FFFFFF),
-            innerMargin: const EdgeInsets.all(1.2),
-            shadows: _biteSaverTileShadows(strength: 0.92, opacityBoost: 0.005),
+            shellRadius: BorderRadius.circular(18),
+            faceRadius: BorderRadius.circular(16),
+            shellBorderColor: const Color(0x66F2DDBB),
+            highlightBorderColor: const Color(0xF6FFFFFF),
+            faceBorderColor: Colors.transparent,
+            shellGradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [
+                Color(0xFFECCF9F),
+                Color(0xFFD9AE70),
+                Color(0xFFCE9F60),
+                Color(0xFFBE8E4F),
+              ],
+              stops: [0.0, 0.34, 0.72, 1.0],
+            ),
+            faceGradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFF9EAD5), Color(0xFFF5E1C6), Color(0xFFF0D7B6)],
+            ),
+            innerMargin: const EdgeInsets.all(2.0),
+            shadows: _biteSaverTileShadows(strength: 0.82),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
               child: Column(
@@ -1774,7 +1917,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       borderRadius: BorderRadius.circular(12),
                       onTap: _expandHeader,
                       child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        padding: EdgeInsets.zero,
                         child: Column(
                           children: [
                             Text(
@@ -1787,7 +1930,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 fontWeight: FontWeight.w700,
                               ),
                             ),
-                            const SizedBox(height: 1),
+                            const SizedBox(height: 0),
                             Icon(
                               Icons.keyboard_arrow_down,
                               color: Theme.of(
@@ -1814,10 +1957,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                   Stack(
                                     alignment: Alignment.centerRight,
                                     children: [
+                                      _biteSaverInputFieldSurface(),
                                       TextField(
                                         controller: generalSearchController,
                                         onSubmitted: (_) => runGeneralSearch(),
                                         decoration: InputDecoration(
+                                          filled: true,
+                                          fillColor: const Color(0xFFFFF4E6),
                                           isDense: true,
                                           hintText:
                                               'Search restaurants or coupons',
@@ -1826,14 +1972,33 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ),
                                           contentPadding:
                                               const EdgeInsets.fromLTRB(
-                                                12,
+                                                14,
                                                 14,
                                                 188,
                                                 14,
                                               ),
                                           border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFFE0C79A),
+                                              width: 1.0,
+                                            ),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFFE0C79A),
+                                              width: 1.0,
+                                            ),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFFE0C79A),
+                                              width: 1.0,
                                             ),
                                           ),
                                         ),
@@ -1856,42 +2021,41 @@ class _HomeScreenState extends State<HomeScreen> {
                                                     VisualDensity.compact,
                                               ),
                                             _biteSaverLightTileControl(
-                                              Material(
-                                                color: Colors.transparent,
-                                                shape: RoundedRectangleBorder(
-                                                  side: BorderSide.none,
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                ),
-                                                child: InkWell(
-                                                  onTap: runGeneralSearch,
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                  child: ConstrainedBox(
-                                                    constraints:
-                                                        const BoxConstraints(
-                                                          minHeight: 42,
-                                                        ),
-                                                    child: Padding(
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 18,
-                                                          ),
-                                                      child: Text(
-                                                        'Search',
-                                                        style: TextStyle(
-                                                          fontSize: 12,
-                                                          fontWeight:
-                                                              FontWeight.w600,
-                                                          color: Theme.of(
-                                                            context,
-                                                          ).colorScheme.primary,
-                                                        ),
+                                              ElevatedButton(
+                                                onPressed: runGeneralSearch,
+                                                style: ElevatedButton.styleFrom(
+                                                  minimumSize: const Size(0, 42),
+                                                  backgroundColor: const Color(
+                                                    0xFFFFF6E8,
+                                                  ),
+                                                  foregroundColor: const Color(
+                                                    0xFF8C5A1E,
+                                                  ),
+                                                  elevation: 4,
+                                                  shadowColor:
+                                                      Colors.black.withOpacity(0.2),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 18,
                                                       ),
-                                                    ),
+                                                  tapTargetSize:
+                                                      MaterialTapTargetSize
+                                                          .shrinkWrap,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(12),
+                                                    side: BorderSide.none,
+                                                  ),
+                                                ),
+                                                child: const Text(
+                                                  'Search',
+                                                  style: TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
                                                   ),
                                                 ),
                                               ),
+                                              shadows: const [],
                                             ),
                                           ],
                                         ),
@@ -1902,25 +2066,47 @@ class _HomeScreenState extends State<HomeScreen> {
                                   Stack(
                                     alignment: Alignment.centerRight,
                                     children: [
+                                      _biteSaverInputFieldSurface(),
                                       TextField(
                                         controller: searchController,
                                         focusNode: _searchFocusNode,
                                         onSubmitted: (_) =>
                                             runSearch(allRestaurants),
                                         decoration: InputDecoration(
+                                          filled: true,
+                                          fillColor: const Color(0xFFFFF4E6),
                                           isDense: true,
                                           hintText: 'Enter city or ZIP code',
                                           prefixIcon: const Icon(Icons.search),
                                           contentPadding:
                                               const EdgeInsets.fromLTRB(
-                                                12,
+                                                14,
                                                 14,
                                                 188,
                                                 14,
                                               ),
                                           border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              12,
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFFE0C79A),
+                                              width: 1.0,
+                                            ),
+                                          ),
+                                          enabledBorder: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFFE0C79A),
+                                              width: 1.0,
+                                            ),
+                                          ),
+                                          focusedBorder: OutlineInputBorder(
+                                            borderRadius:
+                                                BorderRadius.circular(14),
+                                            borderSide: const BorderSide(
+                                              color: Color(0xFFE0C79A),
+                                              width: 1.0,
                                             ),
                                           ),
                                         ),
@@ -1943,71 +2129,57 @@ class _HomeScreenState extends State<HomeScreen> {
                                                     VisualDensity.compact,
                                               ),
                                             _biteSaverLightTileControl(
-                                              Material(
-                                                color: Colors.transparent,
-                                                shape: RoundedRectangleBorder(
-                                                  side: BorderSide.none,
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                ),
-                                                child: InkWell(
-                                                  onTap: isSearchingLocation
-                                                      ? null
-                                                      : () => runSearch(
-                                                          allRestaurants,
-                                                        ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(12),
-                                                  child: ConstrainedBox(
-                                                    constraints:
-                                                        const BoxConstraints(
-                                                          minHeight: 42,
-                                                        ),
-                                                    child: Padding(
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 18,
-                                                          ),
-                                                      child: Row(
-                                                        mainAxisSize:
-                                                            MainAxisSize.min,
-                                                        children: [
-                                                          Icon(
-                                                            Icons.arrow_forward,
-                                                            size: 16,
-                                                            color:
-                                                                Theme.of(
-                                                                      context,
-                                                                    )
-                                                                    .colorScheme
-                                                                    .primary,
-                                                          ),
-                                                          const SizedBox(
-                                                            width: 6,
-                                                          ),
-                                                          Text(
-                                                            isSearchingLocation
-                                                                ? 'Searching...'
-                                                                : 'Search',
-                                                            style: TextStyle(
-                                                              fontSize: 12,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                              color:
-                                                                  Theme.of(
-                                                                        context,
-                                                                      )
-                                                                      .colorScheme
-                                                                      .primary,
-                                                            ),
-                                                          ),
-                                                        ],
+                                              ElevatedButton(
+                                                onPressed: isSearchingLocation
+                                                    ? null
+                                                    : () => runSearch(
+                                                        allRestaurants,
                                                       ),
-                                                    ),
+                                                style: ElevatedButton.styleFrom(
+                                                  minimumSize: const Size(0, 42),
+                                                  backgroundColor: const Color(
+                                                    0xFFFFF6E8,
+                                                  ),
+                                                  foregroundColor: const Color(
+                                                    0xFF8C5A1E,
+                                                  ),
+                                                  elevation: 4,
+                                                  shadowColor:
+                                                      Colors.black.withOpacity(0.2),
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 18,
+                                                      ),
+                                                  tapTargetSize:
+                                                      MaterialTapTargetSize
+                                                          .shrinkWrap,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(12),
+                                                    side: BorderSide.none,
                                                   ),
                                                 ),
+                                                child: Row(
+                                                  mainAxisSize: MainAxisSize.min,
+                                                  children: [
+                                                    const Icon(
+                                                      Icons.arrow_forward,
+                                                      size: 16,
+                                                    ),
+                                                    const SizedBox(width: 6),
+                                                    Text(
+                                                      isSearchingLocation
+                                                          ? 'Searching...'
+                                                          : 'Search',
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        fontWeight: FontWeight.w600,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
                                               ),
+                                              shadows: const [],
                                             ),
                                           ],
                                         ),
@@ -2015,65 +2187,205 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ],
                                   ),
                                   const SizedBox(height: 10),
-                                  _buildLocationActionRow(
-                                    allRestaurants,
-                                    minHeight: 40,
-                                    matchBiteScoreStyle: true,
-                                  ),
-                                  const SizedBox(height: 12),
-                                  _biteSaverLightTileControl(
-                                    DropdownButtonFormField<String>(
-                                      initialValue: selectedRadius,
-                                      decoration: const InputDecoration(
-                                        isDense: true,
-                                        labelText: 'Within Radius',
-                                        contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 12,
-                                          vertical: 12,
-                                        ),
-                                        border: InputBorder.none,
+                                  Align(
+                                    alignment: Alignment.center,
+                                    child: ConstrainedBox(
+                                      constraints: const BoxConstraints(
+                                        maxWidth: 380,
                                       ),
-                                      items: const [
-                                        DropdownMenuItem(
-                                          value: '1 mile',
-                                          child: Text('1 mile'),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: '3 miles',
-                                          child: Text('3 miles'),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: '5 miles',
-                                          child: Text('5 miles'),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: '10 miles',
-                                          child: Text('10 miles'),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: '15 miles',
-                                          child: Text('15 miles'),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: '20 miles',
-                                          child: Text('20 miles'),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: '30 miles',
-                                          child: Text('30 miles'),
-                                        ),
-                                      ],
-                                      onChanged: (value) {
-                                        if (value != null) {
-                                          setState(() {
-                                            selectedRadius = value;
-                                          });
-                                          _saveSelectedRadius(value);
-                                        }
-                                      },
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Expanded(
+                                            child: _biteSaverLightTileControl(
+                                              ElevatedButton.icon(
+                                                onPressed: isGettingLocation
+                                                    ? null
+                                                    : () => useMyLocation(
+                                                        allRestaurants,
+                                                      ),
+                                                style:
+                                                    ElevatedButton.styleFrom(
+                                                      minimumSize:
+                                                          const Size.fromHeight(
+                                                            40,
+                                                          ),
+                                                      backgroundColor:
+                                                          const Color(
+                                                            0xFFFFF6E8,
+                                                          ),
+                                                      foregroundColor:
+                                                          const Color(
+                                                            0xFF8C5A1E,
+                                                          ),
+                                                      elevation: 4,
+                                                      shadowColor:
+                                                          Colors.black
+                                                              .withOpacity(
+                                                                0.2,
+                                                              ),
+                                                      padding:
+                                                          const EdgeInsets.symmetric(
+                                                            vertical: 10,
+                                                          ),
+                                                      tapTargetSize:
+                                                          MaterialTapTargetSize
+                                                              .shrinkWrap,
+                                                      shape:
+                                                          RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  12,
+                                                                ),
+                                                            side:
+                                                                BorderSide.none,
+                                                          ),
+                                                    ),
+                                                icon: const Icon(
+                                                  Icons.location_on_outlined,
+                                                ),
+                                                label: Text(
+                                                  isGettingLocation
+                                                      ? 'Getting Location...'
+                                                      : 'Use My Location',
+                                                ),
+                                              ),
+                                              shadows: const [],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          SizedBox(
+                                            height: 40,
+                                            child: _biteSaverRedTileControl(
+                                              ElevatedButton(
+                                                onPressed: isGettingLocation
+                                                    ? null
+                                                    : () => useMyLocation(
+                                                        allRestaurants,
+                                                      ),
+                                                style:
+                                                    ElevatedButton.styleFrom(
+                                                      minimumSize:
+                                                          const Size(110, 0),
+                                                      backgroundColor:
+                                                          Colors.transparent,
+                                                      foregroundColor:
+                                                          Colors.white,
+                                                      elevation: 0,
+                                                      shadowColor:
+                                                          Colors.transparent,
+                                                      shape:
+                                                          RoundedRectangleBorder(
+                                                            borderRadius:
+                                                                BorderRadius.circular(
+                                                                  14,
+                                                                ),
+                                                            side:
+                                                                BorderSide.none,
+                                                          ),
+                                                      textStyle:
+                                                          const TextStyle(
+                                                            fontWeight:
+                                                                FontWeight.w800,
+                                                          ),
+                                                    ),
+                                                child: const Text('Refresh'),
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
                                     ),
                                   ),
-                                  const SizedBox(height: 8),
+                                  const SizedBox(height: 12),
+                                  Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Within Radius',
+                                        style: TextStyle(
+                                          color: Theme.of(
+                                            context,
+                                          ).colorScheme.onSurfaceVariant,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                      _biteSaverLightTileControl(
+                                        DropdownButtonFormField<String>(
+                                          initialValue: selectedRadius,
+                                          decoration: InputDecoration(
+                                            filled: true,
+                                            fillColor: const Color(
+                                              0xFFFFF4E6,
+                                            ),
+                                            isDense: true,
+                                            contentPadding:
+                                                const EdgeInsets.symmetric(
+                                                  horizontal: 18,
+                                                  vertical: 10,
+                                                ),
+                                            border: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              borderSide: BorderSide.none,
+                                            ),
+                                            enabledBorder: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              borderSide: BorderSide.none,
+                                            ),
+                                            focusedBorder: OutlineInputBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              borderSide: BorderSide.none,
+                                            ),
+                                          ),
+                                          items: const [
+                                            DropdownMenuItem(
+                                              value: '1 mile',
+                                              child: Text('1 mile'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '3 miles',
+                                              child: Text('3 miles'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '5 miles',
+                                              child: Text('5 miles'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '10 miles',
+                                              child: Text('10 miles'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '15 miles',
+                                              child: Text('15 miles'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '20 miles',
+                                              child: Text('20 miles'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: '30 miles',
+                                              child: Text('30 miles'),
+                                            ),
+                                          ],
+                                          onChanged: (value) {
+                                            if (value != null) {
+                                              setState(() {
+                                                selectedRadius = value;
+                                              });
+                                              _saveSelectedRadius(value);
+                                            }
+                                          },
+                                        ),
+                                        shadows: const [],
+                                      ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 4),
                                   if (compactStatusLine(
                                     filteredRestaurants,
                                   ).isNotEmpty)
@@ -2201,35 +2513,45 @@ class _HomeScreenState extends State<HomeScreen> {
                 .length;
 
             return Scaffold(
-              body: CustomScrollView(
-                controller: _listScrollController,
-                slivers: [
-                  SliverPersistentHeader(
-                    pinned: true,
-                    delegate: _HomeHeaderDelegate(
-                      minExtentHeight: _collapsedHeaderExtent,
-                      maxExtentHeight: _expandedHeaderExtent,
-                      builder: (context, expansionT) => _buildHeader(
-                        allRestaurants: allRestaurants,
-                        filteredRestaurants: filteredRestaurants,
-                        expansionT: expansionT,
+              backgroundColor: const Color(0xFFEAD3B4),
+              body: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [Color(0xFFF0DBC0), Color(0xFFE2C49B)],
+                  ),
+                ),
+                child: CustomScrollView(
+                  controller: _listScrollController,
+                  slivers: [
+                    SliverPersistentHeader(
+                      pinned: true,
+                      delegate: _HomeHeaderDelegate(
+                        minExtentHeight: _collapsedHeaderExtent,
+                        maxExtentHeight: _expandedHeaderExtent,
+                        builder: (context, expansionT) => _buildHeader(
+                          allRestaurants: allRestaurants,
+                          filteredRestaurants: filteredRestaurants,
+                          expansionT: expansionT,
+                        ),
                       ),
                     ),
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                    sliver: !_hasLocationOrZipInput
-                        ? _buildGetStartedState(allRestaurants)
-                        : _restaurantsError != null && _restaurants.isEmpty
-                        ? _buildInlineRestaurantsError()
-                        : _isRestaurantsLoading && _restaurants.isEmpty
-                        ? _buildInlineRestaurantsLoading()
-                        : _buildResultsSliver(
-                            allRestaurants,
-                            filteredRestaurants,
-                          ),
-                  ),
-                ],
+                    SliverPadding(
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                      sliver: !_hasLocationOrZipInput
+                          ? _buildGetStartedState(allRestaurants)
+                          : _restaurantsError != null && _restaurants.isEmpty
+                          ? _buildInlineRestaurantsError()
+                          : _isRestaurantsLoading && _restaurants.isEmpty
+                          ? _buildInlineRestaurantsLoading()
+                          : _buildResultsSliver(
+                              allRestaurants,
+                              filteredRestaurants,
+                            ),
+                    ),
+                  ],
+                ),
               ),
             );
           },
