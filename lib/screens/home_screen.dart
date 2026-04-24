@@ -1219,7 +1219,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         borderRadius: faceRadius,
                         gradient: faceGradient,
                         border: faceBorderColor == Colors.transparent
-                            ? null
+                            ? Border(
+                                bottom: BorderSide(
+                                  color: shellBottomColor.withOpacity(0.18),
+                                  width: 0.8,
+                                ),
+                              )
                             : Border.all(color: faceBorderColor, width: 0.35),
                         boxShadow: [
                           BoxShadow(
@@ -1350,7 +1355,14 @@ class _HomeScreenState extends State<HomeScreen> {
           colors: [Color(0xFFFFFCF8), Color(0xFFFAF1E7), Color(0xFFF6E8D8)],
         ),
         innerMargin: const EdgeInsets.all(1.7),
-        shadows: _biteSaverTileShadows(strength: 0.90),
+        shadows: [
+          const BoxShadow(
+            color: Color.fromRGBO(120, 80, 40, 0.25),
+            offset: Offset(0, 2),
+            blurRadius: 0,
+          ),
+          ..._biteSaverTileShadows(strength: 0.90),
+        ],
         child: Material(
           color: Colors.transparent,
           child: ListTile(
@@ -1825,10 +1837,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
               innerMargin: const EdgeInsets.all(2.1),
-              shadows: _biteSaverTileShadows(
-                strength: 1.08,
-                opacityBoost: 0.03,
-              ),
+              shadows: [
+                const BoxShadow(
+                  color: Color.fromRGBO(120, 80, 40, 0.25),
+                  offset: Offset(0, 2),
+                  blurRadius: 0,
+                ),
+                ..._biteSaverTileShadows(
+                  strength: 1.08,
+                  opacityBoost: 0.03,
+                ),
+              ],
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 15),
                 child: Column(
@@ -1916,7 +1935,14 @@ class _HomeScreenState extends State<HomeScreen> {
               colors: [Color(0xFFF9EAD5), Color(0xFFF5E1C6), Color(0xFFF0D7B6)],
             ),
             innerMargin: const EdgeInsets.all(2.0),
-            shadows: _biteSaverTileShadows(strength: 0.82),
+            shadows: [
+              const BoxShadow(
+                color: Color.fromRGBO(120, 80, 40, 0.25),
+                offset: Offset(0, 2),
+                blurRadius: 0,
+              ),
+              ..._biteSaverTileShadows(strength: 0.82),
+            ],
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
               child: Column(
