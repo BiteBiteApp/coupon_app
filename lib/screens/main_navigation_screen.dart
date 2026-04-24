@@ -188,6 +188,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       height: 66,
       backgroundColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
+      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
       onDestinationSelected: (index) {
         setState(() {
           selectedIndex = index;
@@ -220,7 +221,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     if (selectedMode != AppMode.biteScore) {
       return Container(
         color: Colors.transparent,
-        padding: const EdgeInsets.fromLTRB(6, 0, 6, 6),
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
         child: Container(
           decoration: BoxDecoration(
             color: const Color(0xFFF6E7CF),
