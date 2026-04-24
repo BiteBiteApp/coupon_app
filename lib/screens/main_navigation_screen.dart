@@ -227,14 +227,25 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                         Container(
                           padding: item.key == selectedIndex
                               ? const EdgeInsets.symmetric(
-                                  horizontal: 22,
-                                  vertical: 4,
+                                  horizontal: 20,
+                                  vertical: 3,
                                 )
                               : EdgeInsets.zero,
                           decoration: item.key == selectedIndex
                               ? BoxDecoration(
-                                  color: const Color(0xFFE7E4FB),
+                                  color: const Color(0xFFF6E7CF),
                                   borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: Colors.white.withOpacity(0.82),
+                                    width: 1.0,
+                                  ),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: Colors.black.withOpacity(0.08),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
                                 )
                               : null,
                           child: Column(
@@ -248,7 +259,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                         ? item.value.selectedIcon
                                         : item.value.icon,
                                     color: item.key == selectedIndex
-                                        ? const Color(0xFF2458D6)
+                                        ? const Color(0xFF1E4CAA)
                                         : const Color(0xFF645A4C),
                                     size: 24,
                                   ),
@@ -262,10 +273,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                     textAlign: TextAlign.center,
                                     style: TextStyle(
                                       color: item.key == selectedIndex
-                                          ? const Color(0xFF184FCC)
+                                          ? const Color(0xFF1A469F)
                                           : const Color(0xFF5E564A),
                                       fontWeight: item.key == selectedIndex
-                                          ? FontWeight.w700
+                                          ? FontWeight.w800
                                           : FontWeight.w600,
                                       fontSize: 13.5,
                                       letterSpacing: -0.1,
