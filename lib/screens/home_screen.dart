@@ -1146,17 +1146,48 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     final shellColors = _biteSaverGradientColors(shellGradient);
     final faceColors = _biteSaverGradientColors(faceGradient);
-    final shellBottomColor =
+    final rawShellBottomColor =
         shellColors.isNotEmpty ? shellColors.last : const Color(0xFFC6944F);
+    final shellBottomColor =
+        Color.lerp(rawShellBottomColor, const Color(0xFF9D6E3A), 0.14) ??
+        rawShellBottomColor;
     final faceTopColor =
         faceColors.isNotEmpty ? faceColors.first : const Color(0xFFFFFCF8);
     final lipColor = Color.lerp(shellBottomColor, const Color(0xFF8E6030), 0.28) ??
         shellBottomColor;
+    final sideHighlightBottomColor =
+        Color.lerp(highlightBorderColor, shellBorderColor, 0.84) ??
+        shellBorderColor;
+    final resolvedShadows = <BoxShadow>[
+      const BoxShadow(
+        color: Color.fromRGBO(90, 60, 30, 0.28),
+        blurRadius: 1,
+        spreadRadius: 0,
+        offset: Offset(0, -1),
+      ),
+      const BoxShadow(
+        color: Color.fromRGBO(90, 60, 30, 0.20),
+        blurRadius: 1,
+        spreadRadius: 0,
+        offset: Offset(0, 0),
+      ),
+      const BoxShadow(
+        color: Color.fromRGBO(90, 60, 30, 0.06),
+        blurRadius: 8,
+        offset: Offset(0, -1),
+      ),
+      const BoxShadow(
+        color: Color.fromRGBO(90, 60, 30, 0.04),
+        blurRadius: 6,
+        offset: Offset(0, 0),
+      ),
+      ...(shadows ?? _biteSaverTileShadows()),
+    ];
 
     return Container(
       decoration: BoxDecoration(
         borderRadius: shellRadius,
-        boxShadow: shadows ?? _biteSaverTileShadows(),
+        boxShadow: resolvedShadows,
       ),
       child: Stack(
         clipBehavior: Clip.none,
@@ -1208,36 +1239,102 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                 ],
               ),
-              child: ClipRRect(
-                borderRadius: shellRadius,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(1.0, 0.4, 1.0, 1.9),
-                  child: Padding(
-                    padding: innerMargin,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: faceRadius,
-                        gradient: faceGradient,
-                        border: faceBorderColor == Colors.transparent
-                            ? Border(
-                            bottom: BorderSide(
-                              color: shellBottomColor.withOpacity(0.10),
-                              width: 0.5,
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          borderRadius: shellRadius,
+                          border: Border(
+                            top: BorderSide(
+                              color: Colors.white,
+                              width: 0.38,
                             ),
-                          )
-                            : Border.all(color: faceBorderColor, width: 0.35),
-                        boxShadow: [
-                          BoxShadow(
-                            color: const Color(0xFF704D24).withOpacity(0.05),
-                            blurRadius: 1.8,
-                            offset: const Offset(0, 1.0),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    left: 1.85,
+                    top: 0.8,
+                    right: 1.85,
+                    bottom: 2.0,
+                    child: IgnorePointer(
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 0.5,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.white,
+                                  Colors.white,
+                                  Colors.white,
+                                  sideHighlightBottomColor.withOpacity(0.08),
+                                ],
+                                stops: const [0.0, 0.10, 0.24, 0.72, 1.0],
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          Container(
+                            width: 0.5,
+                            decoration: BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [
+                                  Colors.transparent,
+                                  Colors.white,
+                                  Colors.white,
+                                  Colors.white,
+                                  sideHighlightBottomColor.withOpacity(0.08),
+                                ],
+                                stops: const [0.0, 0.10, 0.24, 0.72, 1.0],
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                      child: ClipRRect(borderRadius: faceRadius, child: child),
                     ),
                   ),
-                ),
+                  ClipRRect(
+                    borderRadius: shellRadius,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(1.0, 0.4, 1.0, 1.9),
+                      child: Padding(
+                        padding: innerMargin,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: faceRadius,
+                            gradient: faceGradient,
+                            border: faceBorderColor == Colors.transparent
+                                ? Border(
+                                    bottom: BorderSide(
+                                      color: shellBottomColor.withOpacity(0.10),
+                                      width: 0.5,
+                                    ),
+                                  )
+                                : Border.all(color: faceBorderColor, width: 0.35),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF704D24).withOpacity(0.05),
+                                blurRadius: 1.8,
+                                offset: const Offset(0, 1.0),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(borderRadius: faceRadius, child: child),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
