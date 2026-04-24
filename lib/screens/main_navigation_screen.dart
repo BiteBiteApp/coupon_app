@@ -183,39 +183,108 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   Widget _buildBottomNavigationBar() {
-    final navigationBar = NavigationBar(
-      selectedIndex: selectedIndex,
+    final navigationBar = SizedBox(
       height: 66,
-      backgroundColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-      onDestinationSelected: (index) {
-        setState(() {
-          selectedIndex = index;
-        });
-      },
-      destinations: const [
-        NavigationDestination(
-          icon: Icon(Icons.home_outlined),
-          selectedIcon: Icon(Icons.home),
-          label: 'Home',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.storefront_outlined),
-          selectedIcon: Icon(Icons.storefront),
-          label: 'Restaurant\nHub',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.admin_panel_settings_outlined),
-          selectedIcon: Icon(Icons.admin_panel_settings),
-          label: 'Admin',
-        ),
-        NavigationDestination(
-          icon: Icon(Icons.person_outline),
-          selectedIcon: Icon(Icons.person),
-          label: 'Account',
-        ),
-      ],
+      child: Row(
+        children: [
+          for (final item in [
+            (
+              label: 'Home',
+              icon: Icons.home_outlined,
+              selectedIcon: Icons.home,
+            ),
+            (
+              label: 'Restaurant\nHub',
+              icon: Icons.storefront_outlined,
+              selectedIcon: Icons.storefront,
+            ),
+            (
+              label: 'Admin',
+              icon: Icons.admin_panel_settings_outlined,
+              selectedIcon: Icons.admin_panel_settings,
+            ),
+            (
+              label: 'Account',
+              icon: Icons.person_outline,
+              selectedIcon: Icons.person,
+            ),
+          ].asMap().entries)
+            Expanded(
+              child: InkWell(
+                onTap: () {
+                  setState(() {
+                    selectedIndex = item.key;
+                  });
+                },
+                borderRadius: BorderRadius.circular(16),
+                child: Center(
+                  child: SizedBox(
+                    height: item.key == selectedIndex ? 60 : 54,
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Container(
+                          padding: item.key == selectedIndex
+                              ? const EdgeInsets.symmetric(
+                                  horizontal: 22,
+                                  vertical: 4,
+                                )
+                              : EdgeInsets.zero,
+                          decoration: item.key == selectedIndex
+                              ? BoxDecoration(
+                                  color: const Color(0xFFE7E4FB),
+                                  borderRadius: BorderRadius.circular(16),
+                                )
+                              : null,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              SizedBox(
+                                height: 24,
+                                child: Center(
+                                  child: Icon(
+                                    item.key == selectedIndex
+                                        ? item.value.selectedIcon
+                                        : item.value.icon,
+                                    color: item.key == selectedIndex
+                                        ? const Color(0xFF2458D6)
+                                        : const Color(0xFF645A4C),
+                                    size: 24,
+                                  ),
+                                ),
+                              ),
+                              SizedBox(
+                                height: 28,
+                                child: Center(
+                                  child: Text(
+                                    item.value.label,
+                                    textAlign: TextAlign.center,
+                                    style: TextStyle(
+                                      color: item.key == selectedIndex
+                                          ? const Color(0xFF184FCC)
+                                          : const Color(0xFF5E564A),
+                                      fontWeight: item.key == selectedIndex
+                                          ? FontWeight.w700
+                                          : FontWeight.w600,
+                                      fontSize: 13.5,
+                                      letterSpacing: -0.1,
+                                      height: 1.0,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
     );
 
     if (selectedMode != AppMode.biteScore) {
@@ -234,40 +303,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               ),
             ],
           ),
-          child: Theme(
-            data: Theme.of(context).copyWith(
-              navigationBarTheme: NavigationBarThemeData(
-                backgroundColor: Colors.transparent,
-                surfaceTintColor: Colors.transparent,
-                indicatorColor: const Color(0xFFE7E4FB),
-                elevation: 0,
-                labelTextStyle: WidgetStateProperty.resolveWith((states) {
-                  return TextStyle(
-                    color: states.contains(WidgetState.selected)
-                        ? const Color(0xFF184FCC)
-                        : const Color(0xFF5E564A),
-                    fontWeight: states.contains(WidgetState.selected)
-                        ? FontWeight.w700
-                        : FontWeight.w600,
-                    fontSize: 13.5,
-                    letterSpacing: -0.1,
-                    height: 1.0,
-                  );
-                }),
-                iconTheme: WidgetStateProperty.resolveWith((states) {
-                  return IconThemeData(
-                    color: states.contains(WidgetState.selected)
-                        ? const Color(0xFF2458D6)
-                        : const Color(0xFF645A4C),
-                    size: 24,
-                  );
-                }),
-              ),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
-              child: navigationBar,
-            ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(28),
+            child: navigationBar,
           ),
         ),
       );
