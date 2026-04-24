@@ -1295,24 +1295,24 @@ class _HomeScreenState extends State<HomeScreen> {
                             begin: Alignment.topCenter,
                             end: Alignment.bottomCenter,
                             colors: [
-                              Color.fromRGBO(255, 0, 0, 1),
-                              Color.fromRGBO(255, 0, 0, 0.84),
-                              Color.fromRGBO(255, 0, 0, 0.56),
-                              Color.fromRGBO(255, 0, 0, 0.28),
-                              Color.fromRGBO(255, 0, 0, 0.08),
-                              Color.fromRGBO(255, 0, 0, 0),
-                              Color.fromRGBO(255, 0, 0, 0),
+                              Color.fromRGBO(255, 255, 255, 1),
+                              Color.fromRGBO(255, 255, 255, 0.72),
+                              Color.fromRGBO(255, 255, 255, 0.34),
+                              Color.fromRGBO(255, 255, 255, 0.07),
+                              Color.fromRGBO(255, 255, 255, 0.01),
+                              Color.fromRGBO(255, 255, 255, 0),
+                              Color.fromRGBO(255, 255, 255, 0),
                             ],
-                            stops: [0.0, 0.42, 0.62, 0.78, 0.90, 0.97, 1.0],
+                            stops: [0.0, 0.30, 0.48, 0.60, 0.74, 0.88, 1.0],
                           ).createShader(bounds);
                         },
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             borderRadius: shellRadius,
                             border: const Border(
-                              top: BorderSide(color: Colors.red, width: 1.6),
-                              left: BorderSide(color: Colors.red, width: 1.6),
-                              right: BorderSide(color: Colors.red, width: 1.6),
+                              top: BorderSide(color: Colors.white, width: 0.7),
+                              left: BorderSide(color: Colors.white, width: 0.7),
+                              right: BorderSide(color: Colors.white, width: 0.7),
                             ),
                           ),
                         ),
@@ -2047,7 +2047,7 @@ class _HomeScreenState extends State<HomeScreen> {
             faceGradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFF9EAD5), Color(0xFFF5E1C6), Color(0xFFF0D7B6)],
+              colors: [Color(0xFFEBCFA9), Color(0xFFEBCFA9), Color(0xFFEBCFA9)],
             ),
             innerMargin: const EdgeInsets.all(2.0),
             shadows: [
