@@ -1176,7 +1176,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     lipColor.withOpacity(0.0),
                     lipColor.withOpacity(0.0),
                     lipColor.withOpacity(0.18),
-                    lipColor.withOpacity(0.72),
+                    lipColor.withOpacity(0.52),
                   ],
                   stops: const [0.0, 0.80, 0.94, 1.0],
                 ),
@@ -1220,11 +1220,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         gradient: faceGradient,
                         border: faceBorderColor == Colors.transparent
                             ? Border(
-                                bottom: BorderSide(
-                                  color: shellBottomColor.withOpacity(0.18),
-                                  width: 0.8,
-                                ),
-                              )
+                            bottom: BorderSide(
+                              color: shellBottomColor.withOpacity(0.10),
+                              width: 0.5,
+                            ),
+                          )
                             : Border.all(color: faceBorderColor, width: 0.35),
                         boxShadow: [
                           BoxShadow(
@@ -1357,9 +1357,10 @@ class _HomeScreenState extends State<HomeScreen> {
         innerMargin: const EdgeInsets.all(1.7),
         shadows: [
           const BoxShadow(
-            color: Color.fromRGBO(120, 80, 40, 0.25),
+            color: Color.fromRGBO(120, 80, 40, 0.45),
             offset: Offset(0, 2),
             blurRadius: 0,
+            spreadRadius: 0,
           ),
           ..._biteSaverTileShadows(strength: 0.90),
         ],
@@ -1839,9 +1840,10 @@ class _HomeScreenState extends State<HomeScreen> {
               innerMargin: const EdgeInsets.all(2.1),
               shadows: [
                 const BoxShadow(
-                  color: Color.fromRGBO(120, 80, 40, 0.25),
+                  color: Color.fromRGBO(120, 80, 40, 0.45),
                   offset: Offset(0, 2),
                   blurRadius: 0,
+                  spreadRadius: 0,
                 ),
                 ..._biteSaverTileShadows(
                   strength: 1.08,
@@ -1937,9 +1939,10 @@ class _HomeScreenState extends State<HomeScreen> {
             innerMargin: const EdgeInsets.all(2.0),
             shadows: [
               const BoxShadow(
-                color: Color.fromRGBO(120, 80, 40, 0.25),
+                color: Color.fromRGBO(120, 80, 40, 0.45),
                 offset: Offset(0, 2),
                 blurRadius: 0,
+                spreadRadius: 0,
               ),
               ..._biteSaverTileShadows(strength: 0.82),
             ],
@@ -2254,12 +2257,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                                           const Color(
                                                             0xFF8C5A1E,
                                                           ),
-                                                      elevation: 4,
+                                                      elevation: 0,
                                                       shadowColor:
-                                                          Colors.black
-                                                              .withOpacity(
-                                                                0.2,
-                                                              ),
+                                                          Colors.transparent,
                                                       padding:
                                                           const EdgeInsets.symmetric(
                                                             vertical: 10,
@@ -2286,7 +2286,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                                       : 'Use My Location',
                                                 ),
                                               ),
-                                              shadows: const [],
+                                              shadows: const [
+                                                BoxShadow(
+                                                  color: Color.fromRGBO(120, 80, 40, 0.08),
+                                                  offset: Offset(0, 1),
+                                                  blurRadius: 0,
+                                                  spreadRadius: 0,
+                                                ),
+                                                BoxShadow(
+                                                  color: Color.fromRGBO(94, 62, 30, 0.035),
+                                                  offset: Offset(0, 2),
+                                                  blurRadius: 6,
+                                                  spreadRadius: 0,
+                                                ),
+                                              ],
                                             ),
                                           ),
                                           const SizedBox(width: 10),
@@ -2417,7 +2430,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                             }
                                           },
                                         ),
-                                        shadows: const [],
+                                        shadows: const [
+                                          BoxShadow(
+                                            color: Color.fromRGBO(120, 80, 40, 0.08),
+                                            offset: Offset(0, 1),
+                                            blurRadius: 0,
+                                            spreadRadius: 0,
+                                          ),
+                                          BoxShadow(
+                                            color: Color.fromRGBO(94, 62, 30, 0.035),
+                                            offset: Offset(0, 2),
+                                            blurRadius: 6,
+                                            spreadRadius: 0,
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
