@@ -1146,13 +1146,54 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     final shellColors = _biteSaverGradientColors(shellGradient);
     final faceColors = _biteSaverGradientColors(faceGradient);
+    final warmedFaceColors = faceColors.isNotEmpty
+        ? faceColors
+            .map(
+              (color) =>
+                  Color.lerp(color, const Color(0xFFF0DFC4), 0.10) ?? color,
+            )
+            .toList(growable: false)
+        : const <Color>[Color(0xFFFFFCF8), Color(0xFFFAF1E7), Color(0xFFF6E8D8)];
+    final adjustedFaceGradient = faceGradient is LinearGradient
+        ? LinearGradient(
+            begin: faceGradient.begin,
+            end: faceGradient.end,
+            colors: warmedFaceColors,
+            stops: faceGradient.stops,
+            tileMode: faceGradient.tileMode,
+            transform: faceGradient.transform,
+          )
+        : faceGradient is RadialGradient
+        ? RadialGradient(
+            center: faceGradient.center,
+            radius: faceGradient.radius,
+            colors: warmedFaceColors,
+            stops: faceGradient.stops,
+            tileMode: faceGradient.tileMode,
+            focal: faceGradient.focal,
+            focalRadius: faceGradient.focalRadius,
+            transform: faceGradient.transform,
+          )
+        : faceGradient is SweepGradient
+        ? SweepGradient(
+            center: faceGradient.center,
+            startAngle: faceGradient.startAngle,
+            endAngle: faceGradient.endAngle,
+            colors: warmedFaceColors,
+            stops: faceGradient.stops,
+            tileMode: faceGradient.tileMode,
+            transform: faceGradient.transform,
+          )
+        : faceGradient;
     final rawShellBottomColor =
         shellColors.isNotEmpty ? shellColors.last : const Color(0xFFC6944F);
     final shellBottomColor =
         Color.lerp(rawShellBottomColor, const Color(0xFF9D6E3A), 0.14) ??
         rawShellBottomColor;
     final faceTopColor =
-        faceColors.isNotEmpty ? faceColors.first : const Color(0xFFFFFCF8);
+        warmedFaceColors.isNotEmpty
+        ? warmedFaceColors.first
+        : const Color(0xFFFFFCF8);
     final lipColor = Color.lerp(shellBottomColor, const Color(0xFF8E6030), 0.28) ??
         shellBottomColor;
     final sideHighlightBottomColor =
@@ -1312,7 +1353,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         child: Container(
                           decoration: BoxDecoration(
                             borderRadius: faceRadius,
-                            gradient: faceGradient,
+                            gradient: adjustedFaceGradient,
                             border: faceBorderColor == Colors.transparent
                                 ? Border(
                                     bottom: BorderSide(
