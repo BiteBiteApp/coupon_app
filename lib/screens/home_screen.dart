@@ -1129,17 +1129,17 @@ class _HomeScreenState extends State<HomeScreen> {
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        Color(0xFFF7EFE7),
-        Color(0xFFE7D2C0),
-        Color(0xFFD8BCA5),
-        Color(0xFFCAA88C),
+        Color(0xFFF7EEE4),
+        Color(0xFFE6D0BD),
+        Color(0xFFD7B79D),
+        Color(0xFFC7A382),
       ],
       stops: [0.0, 0.34, 0.72, 1.0],
     ),
     Gradient faceGradient = const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xFFFFFCFA), Color(0xFFFAF6F1), Color(0xFFF5EDE6)],
+      colors: [Color(0xFFFFFCFA), Color(0xFFFAF5EF), Color(0xFFF4EBE2)],
     ),
     EdgeInsetsGeometry innerMargin = const EdgeInsets.all(1.8),
     List<BoxShadow>? shadows,
@@ -1150,10 +1150,10 @@ class _HomeScreenState extends State<HomeScreen> {
         ? faceColors
             .map(
               (color) =>
-                  Color.lerp(color, const Color(0xFFF2E8DD), 0.06) ?? color,
+                  Color.lerp(color, const Color(0xFFF1E5D8), 0.08) ?? color,
             )
             .toList(growable: false)
-        : const <Color>[Color(0xFFFFFCFA), Color(0xFFFAF6F1), Color(0xFFF5EDE6)];
+        : const <Color>[Color(0xFFFFFCFA), Color(0xFFFAF5EF), Color(0xFFF4EBE2)];
     final adjustedFaceGradient = faceGradient is LinearGradient
         ? LinearGradient(
             begin: faceGradient.begin,
@@ -1385,12 +1385,12 @@ class _HomeScreenState extends State<HomeScreen> {
       shellGradient: const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFFD08A6C), Color(0xFFB66B50), Color(0xFF9E533E)],
+        colors: [Color(0xFFE0A07B), Color(0xFFC0714F), Color(0xFFA15B42)],
       ),
       faceGradient: const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFFDEA086), Color(0xFFC97C62), Color(0xFFB36148)],
+        colors: [Color(0xFFE9AF8B), Color(0xFFD48862), Color(0xFFBB6B4A)],
       ),
       innerMargin: const EdgeInsets.all(1.5),
       shadows: shadows ??
@@ -1455,17 +1455,17 @@ class _HomeScreenState extends State<HomeScreen> {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Color(0xFFF6EBE1),
-            Color(0xFFE5D2C0),
-            Color(0xFFD9BEA7),
-            Color(0xFFCDB08F),
+            Color(0xFFF1E1D1),
+            Color(0xFFDDC4AD),
+            Color(0xFFCDAB88),
+            Color(0xFFBD946D),
           ],
           stops: [0.0, 0.34, 0.72, 1.0],
         ),
         faceGradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFFCFA), Color(0xFFFAF6F1), Color(0xFFF6EFE8)],
+          colors: [Color(0xFFFFFBF8), Color(0xFFF8F0E8), Color(0xFFF1E4D7)],
         ),
         innerMargin: const EdgeInsets.all(1.7),
         shadows: [
@@ -1495,7 +1495,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF9C5A42),
+                      color: const Color(0xFFB7613F),
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: const Text(
@@ -1539,7 +1539,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             trailing: const Icon(
               Icons.chevron_right,
-              color: Color(0xFF9C5A42),
+              color: Color(0xFF9F5236),
             ),
             onTap: () async {
               await Navigator.push(
@@ -1937,10 +1937,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFF4E7DB),
-                  Color(0xFFE0CCB7),
-                  Color(0xFFD2B699),
-                  Color(0xFFC4A582),
+                  Color(0xFFF0DDCC),
+                  Color(0xFFDBC2A8),
+                  Color(0xFFCAA580),
+                  Color(0xFFB88F67),
                 ],
                 stops: [0.0, 0.34, 0.72, 1.0],
               ),
@@ -1948,9 +1948,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFFFFCFA),
-                  Color(0xFFFAF6F1),
-                  Color(0xFFF6EFE8),
+                  Color(0xFFFFFBF8),
+                  Color(0xFFF8F0E8),
+                  Color(0xFFF0E2D4),
                 ],
               ),
               innerMargin: const EdgeInsets.all(2.1),
@@ -1988,7 +1988,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const Icon(
                           Icons.storefront,
                           size: 18,
-                          color: Color(0xFF9C5A42),
+                          color: Color(0xFF9F5236),
                         ),
                       ],
                     ),
@@ -2040,17 +2040,17 @@ class _HomeScreenState extends State<HomeScreen> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFFE5D5C4),
-                Color(0xFFD0BAA4),
-                Color(0xFFC2A587),
-                Color(0xFFB48C6B),
+                Color(0xFFDFCBB8),
+                Color(0xFFC5AE94),
+                Color(0xFFB69170),
+                Color(0xFFA77B59),
               ],
               stops: [0.0, 0.34, 0.72, 1.0],
             ),
             faceGradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFDFCEBC), Color(0xFFDFCEBC), Color(0xFFDFCEBC)],
+              colors: [Color(0xFFD3BDA8), Color(0xFFD3BDA8), Color(0xFFD3BDA8)],
             ),
             innerMargin: const EdgeInsets.all(2.0),
             shadows: [
@@ -2088,9 +2088,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             const SizedBox(height: 0),
                             Icon(
                               Icons.keyboard_arrow_down,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.onSurfaceVariant,
+                              color: const Color(0xFFB7613F),
                             ),
                           ],
                         ),
@@ -2124,7 +2122,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               'Search restaurants or coupons',
                                           prefixIcon: const Icon(
                                             Icons.manage_search,
-                                            color: Color(0xFF9C5A42),
+                                            color: Color(0xFFB7613F),
                                           ),
                                           contentPadding:
                                               const EdgeInsets.fromLTRB(
@@ -2172,7 +2170,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               IconButton(
                                                 icon: const Icon(
                                                   Icons.clear,
-                                                  color: Color(0xFF9C5A42),
+                                                  color: Color(0xFFB7613F),
                                                 ),
                                                 onPressed: clearGeneralSearch,
                                                 tooltip: 'Clear search',
@@ -2188,7 +2186,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                     0xFFFFFBF7,
                                                   ),
                                                   foregroundColor: const Color(
-                                                    0xFF9C5A42,
+                                                    0xFFB7613F,
                                                   ),
                                                   elevation: 4,
                                                   shadowColor:
@@ -2238,7 +2236,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           hintText: 'Enter city or ZIP code',
                                           prefixIcon: const Icon(
                                             Icons.search,
-                                            color: Color(0xFF9C5A42),
+                                            color: Color(0xFFB7613F),
                                           ),
                                           contentPadding:
                                               const EdgeInsets.fromLTRB(
@@ -2286,7 +2284,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               IconButton(
                                                 icon: const Icon(
                                                   Icons.clear,
-                                                  color: Color(0xFF9C5A42),
+                                                  color: Color(0xFFB7613F),
                                                 ),
                                                 onPressed: clearSearch,
                                                 tooltip: 'Clear search',
@@ -2306,7 +2304,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                     0xFFFFFBF7,
                                                   ),
                                                   foregroundColor: const Color(
-                                                    0xFF9C5A42,
+                                                    0xFFB7613F,
                                                   ),
                                                   elevation: 4,
                                                   shadowColor:
@@ -2381,7 +2379,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                           ),
                                                       foregroundColor:
                                                           const Color(
-                                                            0xFF9C5A42,
+                                                            0xFFB7613F,
                                                           ),
                                                       elevation: 0,
                                                       shadowColor:
@@ -2518,7 +2516,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             ),
                                           ),
                                           iconEnabledColor: const Color(
-                                            0xFF9C5A42,
+                                            0xFFB7613F,
                                           ),
                                           items: const [
                                             DropdownMenuItem(
@@ -2592,7 +2590,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                       .isNotEmpty &&
                                                   !usingCurrentLocation &&
                                                   searchQuery.trim().isEmpty)
-                                              ? const Color(0xFF9C5A42)
+                                              ? const Color(0xFFB7613F)
                                               : Colors.black54,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -2606,7 +2604,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                 right: -6,
                                 child: IconButton(
                                   onPressed: _collapseHeader,
-                                  icon: const Icon(Icons.keyboard_arrow_up),
+                                  icon: const Icon(
+                                    Icons.keyboard_arrow_up,
+                                    color: Color(0xFFB7613F),
+                                  ),
                                   tooltip: 'Collapse filters',
                                   visualDensity: VisualDensity.compact,
                                 ),
@@ -2704,13 +2705,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 .length;
 
             return Scaffold(
-              backgroundColor: const Color(0xFFF8F3EE),
+              backgroundColor: const Color(0xFFFBF7F2),
               body: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Color(0xFFFCFAF7), Color(0xFFF2E8DE)],
+                    colors: [Color(0xFFFFFDFB), Color(0xFFF6EEE6)],
                   ),
                 ),
                 child: CustomScrollView(
