@@ -2050,7 +2050,7 @@ class _HomeScreenState extends State<HomeScreen> {
             faceGradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFD3BDA8), Color(0xFFD3BDA8), Color(0xFFD3BDA8)],
+              colors: [Color(0xFFD0B9A3), Color(0xFFD0B9A3), Color(0xFFD0B9A3)],
             ),
             innerMargin: const EdgeInsets.all(2.0),
             shadows: [
@@ -2705,13 +2705,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 .length;
 
             return Scaffold(
-              backgroundColor: const Color(0xFFFBF7F2),
+              backgroundColor: const Color(0xFFFCF9F5),
               body: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Color(0xFFFFFDFB), Color(0xFFF6EEE6)],
+                    colors: [Color(0xFFFFFEFC), Color(0xFFF8F1E9)],
                   ),
                 ),
                 child: CustomScrollView(
