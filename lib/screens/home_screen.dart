@@ -15,6 +15,7 @@ import '../services/app_mode_state_service.dart';
 import '../services/app_error_text.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/shared_location_state_service.dart';
+import '../widgets/pressable_scale.dart';
 import 'coupon_detail_screen.dart';
 import 'restaurant_profile_screen.dart';
 
@@ -1385,12 +1386,12 @@ class _HomeScreenState extends State<HomeScreen> {
       shellGradient: const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFFE0A07B), Color(0xFFC0714F), Color(0xFFA15B42)],
+        colors: [Color(0xFFDDA17F), Color(0xFFBE7657), Color(0xFFA5664E)],
       ),
       faceGradient: const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFFE9AF8B), Color(0xFFD48862), Color(0xFFBB6B4A)],
+        colors: [Color(0xFFE5AE8E), Color(0xFFD18D69), Color(0xFFBC7355)],
       ),
       innerMargin: const EdgeInsets.all(1.5),
       shadows: shadows ??
@@ -1445,7 +1446,13 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      child: _biteSaverTile(
+      child: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) {
+          _RestaurantCardPressScope.maybeMarkChildPressed(context);
+        },
+        child: PressableScale(
+          child: _biteSaverTile(
         shellRadius: BorderRadius.circular(17),
         faceRadius: BorderRadius.circular(15.5),
         shellBorderColor: const Color(0x66F2DDBB),
@@ -1455,17 +1462,17 @@ class _HomeScreenState extends State<HomeScreen> {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Color(0xFFF1E1D1),
-            Color(0xFFDDC4AD),
-            Color(0xFFCDAB88),
-            Color(0xFFBD946D),
+            Color(0xFFEFDECD),
+            Color(0xFFDBC1AA),
+            Color(0xFFCBA783),
+            Color(0xFFBA9168),
           ],
           stops: [0.0, 0.34, 0.72, 1.0],
         ),
         faceGradient: const LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFFBF8), Color(0xFFF8F0E8), Color(0xFFF1E4D7)],
+          colors: [Color(0xFFFFFBF8), Color(0xFFF7EEE5), Color(0xFFEFE0D1)],
         ),
         innerMargin: const EdgeInsets.all(1.7),
         shadows: [
@@ -1539,7 +1546,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             trailing: const Icon(
               Icons.chevron_right,
-              color: Color(0xFF9F5236),
+              color: Color(0xFF94482E),
             ),
             onTap: () async {
               await Navigator.push(
@@ -1551,6 +1558,8 @@ class _HomeScreenState extends State<HomeScreen> {
               setState(() {});
             },
           ),
+        ),
+        ),
         ),
       ),
     );
@@ -1634,7 +1643,9 @@ class _HomeScreenState extends State<HomeScreen> {
           children: [
             Expanded(
               child: matchBiteScoreStyle
-                  ? _biteSaverLightTileControl(
+                  ? PressableScale(
+                      enabled: !isGettingLocation,
+                      child: _biteSaverLightTileControl(
                       ElevatedButton.icon(
                         onPressed: isGettingLocation
                             ? null
@@ -1662,8 +1673,11 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       shadows: const [],
+                    ),
                     )
-                  : ElevatedButton.icon(
+                  : PressableScale(
+                      enabled: !isGettingLocation,
+                      child: ElevatedButton.icon(
                       onPressed: isGettingLocation
                           ? null
                           : () => useMyLocation(allRestaurants),
@@ -1683,12 +1697,15 @@ class _HomeScreenState extends State<HomeScreen> {
                             : 'Use My Location',
                       ),
                     ),
+                    ),
             ),
             if (showRefresh) ...[
               const SizedBox(width: 10),
               SizedBox(
                 height: minHeight,
-                child: _biteSaverRedTileControl(
+                child: PressableScale(
+                  enabled: !isGettingLocation,
+                  child: _biteSaverRedTileControl(
                   ElevatedButton(
                     onPressed: isGettingLocation
                         ? null
@@ -1708,6 +1725,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     child: const Text('Refresh'),
                   ),
                   shadows: const [],
+                ),
                 ),
               ),
             ],
@@ -1923,7 +1941,7 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         final restaurant = filteredRestaurants[index];
-        return GestureDetector(
+        return _RestaurantCardPressSurface(
           onTap: () => openRestaurantProfile(restaurant),
           child: Container(
             margin: const EdgeInsets.only(bottom: 16),
@@ -1937,10 +1955,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
                 colors: [
-                  Color(0xFFF0DDCC),
-                  Color(0xFFDBC2A8),
-                  Color(0xFFCAA580),
-                  Color(0xFFB88F67),
+                  Color(0xFFEEDBC9),
+                  Color(0xFFD8BEA3),
+                  Color(0xFFC7A17B),
+                  Color(0xFFB58B63),
                 ],
                 stops: [0.0, 0.34, 0.72, 1.0],
               ),
@@ -1949,8 +1967,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 end: Alignment.bottomCenter,
                 colors: [
                   Color(0xFFFFFBF8),
-                  Color(0xFFF8F0E8),
-                  Color(0xFFF0E2D4),
+                  Color(0xFFF7EDE3),
+                  Color(0xFFEEDDCB),
                 ],
               ),
               innerMargin: const EdgeInsets.all(2.1),
@@ -1988,7 +2006,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const Icon(
                           Icons.storefront,
                           size: 18,
-                          color: Color(0xFF9F5236),
+                          color: Color(0xFF94482E),
                         ),
                       ],
                     ),
@@ -2177,7 +2195,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 visualDensity:
                                                     VisualDensity.compact,
                                               ),
-                                            _biteSaverLightTileControl(
+                                            PressableScale(
+                                              child: _biteSaverLightTileControl(
                                               ElevatedButton(
                                                 onPressed: runGeneralSearch,
                                                 style: ElevatedButton.styleFrom(
@@ -2213,6 +2232,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 ),
                                               ),
                                               shadows: const [],
+                                            ),
                                             ),
                                           ],
                                         ),
@@ -2291,7 +2311,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 visualDensity:
                                                     VisualDensity.compact,
                                               ),
-                                            _biteSaverLightTileControl(
+                                            PressableScale(
+                                              enabled:
+                                                  !isSearchingLocation,
+                                              child: _biteSaverLightTileControl(
                                               ElevatedButton(
                                                 onPressed: isSearchingLocation
                                                     ? null
@@ -2344,6 +2367,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               ),
                                               shadows: const [],
                                             ),
+                                            ),
                                           ],
                                         ),
                                       ),
@@ -2360,7 +2384,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
                                           Expanded(
-                                            child: _biteSaverLightTileControl(
+                                            child: PressableScale(
+                                              enabled: !isGettingLocation,
+                                              child: _biteSaverLightTileControl(
                                               ElevatedButton.icon(
                                                 onPressed: isGettingLocation
                                                     ? null
@@ -2425,11 +2451,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 ),
                                               ],
                                             ),
+                                            ),
                                           ),
                                           const SizedBox(width: 10),
                                           SizedBox(
                                             height: 40,
-                                            child: _biteSaverRedTileControl(
+                                            child: PressableScale(
+                                              enabled: !isGettingLocation,
+                                              child: _biteSaverRedTileControl(
                                               ElevatedButton(
                                                 onPressed: isGettingLocation
                                                     ? null
@@ -2463,6 +2492,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                           ),
                                                     ),
                                                 child: const Text('Refresh'),
+                                              ),
                                               ),
                                             ),
                                           ),
@@ -2802,5 +2832,103 @@ class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
     return minExtentHeight != oldDelegate.minExtentHeight ||
         maxExtentHeight != oldDelegate.maxExtentHeight ||
         builder != oldDelegate.builder;
+  }
+}
+
+class _RestaurantCardPressSurface extends StatefulWidget {
+  final Widget child;
+  final VoidCallback onTap;
+
+  const _RestaurantCardPressSurface({
+    required this.child,
+    required this.onTap,
+  });
+
+  @override
+  State<_RestaurantCardPressSurface> createState() =>
+      _RestaurantCardPressSurfaceState();
+}
+
+class _RestaurantCardPressSurfaceState
+    extends State<_RestaurantCardPressSurface> {
+  bool _pressed = false;
+  bool _childPressActive = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() {
+      _pressed = value;
+    });
+  }
+
+  void _markChildPressed() {
+    _childPressActive = true;
+    if (_pressed) {
+      _setPressed(false);
+    }
+  }
+
+  void _resetPointerState() {
+    _childPressActive = false;
+    _setPressed(false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _RestaurantCardPressScope(
+      onChildPressed: _markChildPressed,
+      child: Listener(
+        behavior: HitTestBehavior.translucent,
+        onPointerDown: (_) {
+          if (_childPressActive) {
+            _childPressActive = false;
+            return;
+          }
+          _setPressed(true);
+        },
+        onPointerUp: (_) => _resetPointerState(),
+        onPointerCancel: (_) => _resetPointerState(),
+        child: GestureDetector(
+          behavior: HitTestBehavior.translucent,
+          onTap: widget.onTap,
+          child: AnimatedScale(
+            scale: _pressed ? 0.978 : 1.0,
+            duration: const Duration(milliseconds: 100),
+            curve: Curves.easeOut,
+            child: AnimatedOpacity(
+              opacity: _pressed ? 0.98 : 1.0,
+              duration: const Duration(milliseconds: 100),
+              curve: Curves.easeOut,
+              child: widget.child,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _RestaurantCardPressScope extends InheritedWidget {
+  final VoidCallback onChildPressed;
+
+  const _RestaurantCardPressScope({
+    required this.onChildPressed,
+    required super.child,
+  });
+
+  static void maybeMarkChildPressed(BuildContext context) {
+    final scope =
+        context
+            .getElementForInheritedWidgetOfExactType<
+              _RestaurantCardPressScope
+            >()
+            ?.widget
+            as _RestaurantCardPressScope?;
+    scope?.onChildPressed();
+  }
+
+  @override
+  bool updateShouldNotify(covariant _RestaurantCardPressScope oldWidget) {
+    return onChildPressed != oldWidget.onChildPressed;
   }
 }

@@ -18,17 +18,18 @@ class AppModeSwitcherBar extends StatefulWidget {
 
 class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
   double _dragProgress = 0;
+  AppMode? _pressedMode;
 
   Color _accentColor() {
     return widget.selectedMode == AppMode.biteScore
-        ? const Color(0xFFC62828)
-        : const Color(0xFFE86A17);
+        ? const Color(0xFF3D67BE)
+        : const Color(0xFFD06C3B);
   }
 
   Color _shadowColor() {
     return widget.selectedMode == AppMode.biteScore
-        ? const Color(0xFF7F1D1D)
-        : const Color(0xFFB45309);
+        ? const Color(0xFF284D8F)
+        : const Color(0xFF9A4E29);
   }
 
   double get _selectedPosition =>
@@ -48,10 +49,20 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
 
   void _handleDragEnd() {
     final targetPosition = (_selectedPosition + _dragProgress) >= 0.5 ? 1 : 0;
-    _dragProgress = 0;
+    setState(() {
+      _dragProgress = 0;
+      _pressedMode = null;
+    });
     widget.onModeSelected(
       targetPosition == 0 ? AppMode.biteSaver : AppMode.biteScore,
     );
+  }
+
+  void _setPressedMode(AppMode? mode) {
+    if (_pressedMode == mode) return;
+    setState(() {
+      _pressedMode = mode;
+    });
   }
 
   @override
@@ -64,7 +75,7 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0DBC0),
+        color: const Color(0xFFF0E2D2),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -89,19 +100,17 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                   begin: Alignment.centerLeft,
                   end: Alignment.centerRight,
                   colors: [
-                    Color(0xFFFFC94E),
-                    Color(0xFFFFA84B),
-                    Color(0xFFFF7B56),
-                    Color(0xFFE25571),
-                    Color(0xFFC14B95),
-                    Color(0xFF9160C9),
-                    Color(0xFF5F74E2),
-                    Color(0xFF3F8EE4),
+                    Color(0xFFD68A52),
+                    Color(0xFFC66E59),
+                    Color(0xFFB56678),
+                    Color(0xFF7A689E),
+                    Color(0xFF3364BB),
                   ],
+                  stops: [0.0, 0.24, 0.50, 0.74, 1.0],
                 ),
                 borderRadius: BorderRadius.circular(26),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.34),
+                  color: const Color(0xFFF9EEE4).withOpacity(0.46),
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -120,49 +129,63 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                     top: 1,
                     bottom: 1,
                     width: thumbWidth,
-                    child: ClipRRect(
-                      clipBehavior: Clip.antiAlias,
-                      borderRadius: const BorderRadius.all(
-                        Radius.elliptical(20.5, 17.5),
-                      ),
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: widget.selectedMode == AppMode.biteSaver
-                              ? const LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Color(0xFFFF9830),
-                                    Color(0xFFFF7121),
-                                    Color(0xFFFF5A1F),
-                                  ],
-                                )
-                              : const LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Color(0xFFD95A8C),
-                                    Color(0xFF9E49C3),
-                                    Color(0xFF3E67D6),
-                                  ],
-                                ),
+                    child: AnimatedScale(
+                      scale:
+                          _pressedMode == widget.selectedMode ? 0.978 : 1.0,
+                      duration: const Duration(milliseconds: 100),
+                      curve: Curves.easeOut,
+                      child: AnimatedOpacity(
+                        opacity:
+                            _pressedMode == widget.selectedMode ? 0.98 : 1.0,
+                        duration: const Duration(milliseconds: 100),
+                        curve: Curves.easeOut,
+                        child: ClipRRect(
+                          clipBehavior: Clip.antiAlias,
                           borderRadius: const BorderRadius.all(
                             Radius.elliptical(20.5, 17.5),
                           ),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.54),
-                            width: 0.8,
-                          ),
-                        ),
-                        child: Center(
-                          child: Text(
-                            widget.selectedMode == AppMode.biteSaver
-                                ? 'BiteSaver'
-                                : 'BiteScore',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w800,
-                              fontSize: 14,
+                          child: DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: widget.selectedMode == AppMode.biteSaver
+                                  ? const LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        Color(0xFFEDA364),
+                                        Color(0xFFD36F3A),
+                                        Color(0xFFB54D24),
+                                      ],
+                                    )
+                                  : const LinearGradient(
+                                      begin: Alignment.topLeft,
+                                      end: Alignment.bottomRight,
+                                      colors: [
+                                        Color(0xFF936AB3),
+                                        Color(0xFF5668BE),
+                                        Color(0xFF285CC3),
+                                      ],
+                                    ),
+                              borderRadius: const BorderRadius.all(
+                                Radius.elliptical(20.5, 17.5),
+                              ),
+                              border: Border.all(
+                                color: const Color(0xFFFFF6EE).withOpacity(
+                                  0.62,
+                                ),
+                                width: 0.8,
+                              ),
+                            ),
+                            child: Center(
+                              child: Text(
+                                widget.selectedMode == AppMode.biteSaver
+                                    ? 'BiteSaver'
+                                    : 'BiteScore',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 14,
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -174,20 +197,42 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                       Expanded(
                         child: InkWell(
                           borderRadius: BorderRadius.circular(24),
+                          onHighlightChanged: (pressed) {
+                            _setPressedMode(
+                              pressed ? AppMode.biteSaver : null,
+                            );
+                          },
                           onTap: () => widget.onModeSelected(AppMode.biteSaver),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Center(
-                              child: Text(
-                                'BiteSaver',
-                                style: TextStyle(
-                                  color: widget.selectedMode == AppMode.biteSaver
-                                      ? Colors.transparent
-                                      : colorScheme.onSurfaceVariant.withOpacity(
-                                          0.9,
-                                        ),
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
+                          child: AnimatedScale(
+                            scale:
+                                _pressedMode == AppMode.biteSaver ? 0.985 : 1.0,
+                            duration: const Duration(milliseconds: 100),
+                            curve: Curves.easeOut,
+                            child: AnimatedOpacity(
+                              opacity:
+                                  _pressedMode == AppMode.biteSaver
+                                      ? 0.98
+                                      : 1.0,
+                              duration: const Duration(milliseconds: 100),
+                              curve: Curves.easeOut,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'BiteSaver',
+                                    style: TextStyle(
+                                      color:
+                                          widget.selectedMode ==
+                                                  AppMode.biteSaver
+                                              ? Colors.transparent
+                                              : colorScheme.onSurfaceVariant
+                                                  .withOpacity(0.9),
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
@@ -197,20 +242,42 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                       Expanded(
                         child: InkWell(
                           borderRadius: BorderRadius.circular(24),
+                          onHighlightChanged: (pressed) {
+                            _setPressedMode(
+                              pressed ? AppMode.biteScore : null,
+                            );
+                          },
                           onTap: () => widget.onModeSelected(AppMode.biteScore),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                            child: Center(
-                              child: Text(
-                                'BiteScore',
-                                style: TextStyle(
-                                  color: widget.selectedMode == AppMode.biteScore
-                                      ? Colors.transparent
-                                      : colorScheme.onSurfaceVariant.withOpacity(
-                                          0.9,
-                                        ),
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 14,
+                          child: AnimatedScale(
+                            scale:
+                                _pressedMode == AppMode.biteScore ? 0.985 : 1.0,
+                            duration: const Duration(milliseconds: 100),
+                            curve: Curves.easeOut,
+                            child: AnimatedOpacity(
+                              opacity:
+                                  _pressedMode == AppMode.biteScore
+                                      ? 0.98
+                                      : 1.0,
+                              duration: const Duration(milliseconds: 100),
+                              curve: Curves.easeOut,
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    'BiteScore',
+                                    style: TextStyle(
+                                      color:
+                                          widget.selectedMode ==
+                                                  AppMode.biteScore
+                                              ? Colors.transparent
+                                              : colorScheme.onSurfaceVariant
+                                                  .withOpacity(0.9),
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
+                                  ),
                                 ),
                               ),
                             ),
