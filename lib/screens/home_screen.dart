@@ -1379,18 +1379,18 @@ class _HomeScreenState extends State<HomeScreen> {
     return _biteSaverTile(
       shellRadius: BorderRadius.circular(14),
       faceRadius: BorderRadius.circular(12.5),
-      shellBorderColor: const Color(0x55D49A82),
+      shellBorderColor: const Color(0x55C8876A),
       highlightBorderColor: const Color(0xAFFFFFFF),
       faceBorderColor: Colors.transparent,
       shellGradient: const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFFD48C6F), Color(0xFFC77B5F), Color(0xFFBB6A50)],
+        colors: [Color(0xFFD08A6C), Color(0xFFB66B50), Color(0xFF9E533E)],
       ),
       faceGradient: const LinearGradient(
         begin: Alignment.topCenter,
         end: Alignment.bottomCenter,
-        colors: [Color(0xFFE09C80), Color(0xFFD2876A), Color(0xFFC97558)],
+        colors: [Color(0xFFDEA086), Color(0xFFC97C62), Color(0xFFB36148)],
       ),
       innerMargin: const EdgeInsets.all(1.5),
       shadows: shadows ??
@@ -1495,7 +1495,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       vertical: 3,
                     ),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFB86C4F),
+                      color: const Color(0xFF9C5A42),
                       borderRadius: BorderRadius.circular(999),
                     ),
                     child: const Text(
@@ -1539,7 +1539,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
             trailing: const Icon(
               Icons.chevron_right,
-              color: Color(0xFFA65F45),
+              color: Color(0xFF9C5A42),
             ),
             onTap: () async {
               await Navigator.push(
@@ -1988,7 +1988,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         const Icon(
                           Icons.storefront,
                           size: 18,
-                          color: Color(0xFFA66C52),
+                          color: Color(0xFF9C5A42),
                         ),
                       ],
                     ),
@@ -2040,17 +2040,17 @@ class _HomeScreenState extends State<HomeScreen> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFFE9DBC9),
-                Color(0xFFD8C2AC),
-                Color(0xFFCCB093),
-                Color(0xFFC19C7B),
+                Color(0xFFE5D5C4),
+                Color(0xFFD0BAA4),
+                Color(0xFFC2A587),
+                Color(0xFFB48C6B),
               ],
               stops: [0.0, 0.34, 0.72, 1.0],
             ),
             faceGradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFE7D9C8), Color(0xFFE7D9C8), Color(0xFFE7D9C8)],
+              colors: [Color(0xFFDFCEBC), Color(0xFFDFCEBC), Color(0xFFDFCEBC)],
             ),
             innerMargin: const EdgeInsets.all(2.0),
             shadows: [
@@ -2124,7 +2124,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               'Search restaurants or coupons',
                                           prefixIcon: const Icon(
                                             Icons.manage_search,
-                                            color: Color(0xFFA65F45),
+                                            color: Color(0xFF9C5A42),
                                           ),
                                           contentPadding:
                                               const EdgeInsets.fromLTRB(
@@ -2137,7 +2137,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             borderRadius:
                                                 BorderRadius.circular(14),
                                             borderSide: const BorderSide(
-                                              color: Color(0xFFD9B8A2),
+                                              color: Color(0xFFD6B4A0),
                                               width: 1.0,
                                             ),
                                           ),
@@ -2145,7 +2145,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             borderRadius:
                                                 BorderRadius.circular(14),
                                             borderSide: const BorderSide(
-                                              color: Color(0xFFD9B8A2),
+                                              color: Color(0xFFD6B4A0),
                                               width: 1.0,
                                             ),
                                           ),
@@ -2153,7 +2153,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             borderRadius:
                                                 BorderRadius.circular(14),
                                             borderSide: const BorderSide(
-                                              color: Color(0xFFD9B8A2),
+                                              color: Color(0xFFD6B4A0),
                                               width: 1.0,
                                             ),
                                           ),
@@ -2172,7 +2172,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               IconButton(
                                                 icon: const Icon(
                                                   Icons.clear,
-                                                  color: Color(0xFFA65F45),
+                                                  color: Color(0xFF9C5A42),
                                                 ),
                                                 onPressed: clearGeneralSearch,
                                                 tooltip: 'Clear search',
@@ -2188,7 +2188,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                     0xFFFFFBF7,
                                                   ),
                                                   foregroundColor: const Color(
-                                                    0xFFA65F45,
+                                                    0xFF9C5A42,
                                                   ),
                                                   elevation: 4,
                                                   shadowColor:
@@ -2238,7 +2238,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           hintText: 'Enter city or ZIP code',
                                           prefixIcon: const Icon(
                                             Icons.search,
-                                            color: Color(0xFFA65F45),
+                                            color: Color(0xFF9C5A42),
                                           ),
                                           contentPadding:
                                               const EdgeInsets.fromLTRB(
@@ -2251,7 +2251,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             borderRadius:
                                                 BorderRadius.circular(14),
                                             borderSide: const BorderSide(
-                                              color: Color(0xFFD9B8A2),
+                                              color: Color(0xFFD6B4A0),
                                               width: 1.0,
                                             ),
                                           ),
@@ -2259,7 +2259,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             borderRadius:
                                                 BorderRadius.circular(14),
                                             borderSide: const BorderSide(
-                                              color: Color(0xFFD9B8A2),
+                                              color: Color(0xFFD6B4A0),
                                               width: 1.0,
                                             ),
                                           ),
@@ -2267,7 +2267,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             borderRadius:
                                                 BorderRadius.circular(14),
                                             borderSide: const BorderSide(
-                                              color: Color(0xFFD9B8A2),
+                                              color: Color(0xFFD6B4A0),
                                               width: 1.0,
                                             ),
                                           ),
@@ -2286,7 +2286,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               IconButton(
                                                 icon: const Icon(
                                                   Icons.clear,
-                                                  color: Color(0xFFA65F45),
+                                                  color: Color(0xFF9C5A42),
                                                 ),
                                                 onPressed: clearSearch,
                                                 tooltip: 'Clear search',
@@ -2306,7 +2306,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                     0xFFFFFBF7,
                                                   ),
                                                   foregroundColor: const Color(
-                                                    0xFFA65F45,
+                                                    0xFF9C5A42,
                                                   ),
                                                   elevation: 4,
                                                   shadowColor:
@@ -2381,7 +2381,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                           ),
                                                       foregroundColor:
                                                           const Color(
-                                                            0xFFA65F45,
+                                                            0xFF9C5A42,
                                                           ),
                                                       elevation: 0,
                                                       shadowColor:
@@ -2518,7 +2518,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             ),
                                           ),
                                           iconEnabledColor: const Color(
-                                            0xFFA65F45,
+                                            0xFF9C5A42,
                                           ),
                                           items: const [
                                             DropdownMenuItem(
@@ -2592,7 +2592,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                       .isNotEmpty &&
                                                   !usingCurrentLocation &&
                                                   searchQuery.trim().isEmpty)
-                                              ? const Color(0xFFB86C4F)
+                                              ? const Color(0xFF9C5A42)
                                               : Colors.black54,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -2704,13 +2704,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 .length;
 
             return Scaffold(
-              backgroundColor: const Color(0xFFF5EEE7),
+              backgroundColor: const Color(0xFFF8F3EE),
               body: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Color(0xFFFAF6F1), Color(0xFFF0E5DA)],
+                    colors: [Color(0xFFFCFAF7), Color(0xFFF2E8DE)],
                   ),
                 ),
                 child: CustomScrollView(
