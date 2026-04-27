@@ -1099,21 +1099,23 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     return [
       BoxShadow(
-        color: const Color(0xFF5E3E1E).withOpacity(0.22 + opacityBoost),
-        blurRadius: 14 * strength,
-        offset: Offset(0, 11 * strength),
+        color: const Color(0xFF5E3E1E).withOpacity(0.10 + opacityBoost / 2),
+        blurRadius: 16 * strength,
+        offset: Offset(0, 10 * strength),
       ),
       BoxShadow(
-        color: const Color(0xFF704D24).withOpacity(0.16 + opacityBoost / 2),
-        blurRadius: 1.2 * strength,
-        offset: Offset(0, 3 * strength),
-      ),
-      BoxShadow(
-        color: Colors.white.withOpacity(0.10),
-        blurRadius: 1.2 * strength,
-        offset: Offset(0, 0.2 * strength),
+        color: const Color(0xFF704D24).withOpacity(0.22 + opacityBoost / 2),
+        blurRadius: 3.4 * strength,
+        offset: Offset(0, 4 * strength),
       ),
     ];
+  }
+
+  List<Color> _biteSaverGradientColors(Gradient gradient) {
+    if (gradient is LinearGradient) return gradient.colors;
+    if (gradient is RadialGradient) return gradient.colors;
+    if (gradient is SweepGradient) return gradient.colors;
+    return const <Color>[];
   }
 
   Widget _biteSaverTile({
@@ -1142,33 +1144,113 @@ class _HomeScreenState extends State<HomeScreen> {
     EdgeInsetsGeometry innerMargin = const EdgeInsets.all(1.8),
     List<BoxShadow>? shadows,
   }) {
+    final shellColors = _biteSaverGradientColors(shellGradient);
+    final faceColors = _biteSaverGradientColors(faceGradient);
+    final warmedFaceColors = faceColors.isNotEmpty
+        ? faceColors
+            .map(
+              (color) =>
+                  Color.lerp(color, const Color(0xFFF0DFC4), 0.10) ?? color,
+            )
+            .toList(growable: false)
+        : const <Color>[Color(0xFFFFFCF8), Color(0xFFFAF1E7), Color(0xFFF6E8D8)];
+    final adjustedFaceGradient = faceGradient is LinearGradient
+        ? LinearGradient(
+            begin: faceGradient.begin,
+            end: faceGradient.end,
+            colors: warmedFaceColors,
+            stops: faceGradient.stops,
+            tileMode: faceGradient.tileMode,
+            transform: faceGradient.transform,
+          )
+        : faceGradient is RadialGradient
+        ? RadialGradient(
+            center: faceGradient.center,
+            radius: faceGradient.radius,
+            colors: warmedFaceColors,
+            stops: faceGradient.stops,
+            tileMode: faceGradient.tileMode,
+            focal: faceGradient.focal,
+            focalRadius: faceGradient.focalRadius,
+            transform: faceGradient.transform,
+          )
+        : faceGradient is SweepGradient
+        ? SweepGradient(
+            center: faceGradient.center,
+            startAngle: faceGradient.startAngle,
+            endAngle: faceGradient.endAngle,
+            colors: warmedFaceColors,
+            stops: faceGradient.stops,
+            tileMode: faceGradient.tileMode,
+            transform: faceGradient.transform,
+          )
+        : faceGradient;
+    final rawShellBottomColor =
+        shellColors.isNotEmpty ? shellColors.last : const Color(0xFFC6944F);
+    final shellBottomColor =
+        Color.lerp(rawShellBottomColor, const Color(0xFF9D6E3A), 0.14) ??
+        rawShellBottomColor;
+    final faceTopColor =
+        warmedFaceColors.isNotEmpty
+        ? warmedFaceColors.first
+        : const Color(0xFFFFFCF8);
+    final lipColor = Color.lerp(shellBottomColor, const Color(0xFF8E6030), 0.28) ??
+        shellBottomColor;
+    final sideHighlightBottomColor =
+        Color.lerp(highlightBorderColor, shellBorderColor, 0.84) ??
+        shellBorderColor;
+    final resolvedShadows = <BoxShadow>[
+      const BoxShadow(
+        color: Color.fromRGBO(90, 60, 30, 0.28),
+        blurRadius: 1,
+        spreadRadius: 0,
+        offset: Offset(0, -1),
+      ),
+      const BoxShadow(
+        color: Color.fromRGBO(90, 60, 30, 0.20),
+        blurRadius: 1,
+        spreadRadius: 0,
+        offset: Offset(0, 0),
+      ),
+      const BoxShadow(
+        color: Color.fromRGBO(90, 60, 30, 0.06),
+        blurRadius: 8,
+        offset: Offset(0, -1),
+      ),
+      const BoxShadow(
+        color: Color.fromRGBO(90, 60, 30, 0.04),
+        blurRadius: 6,
+        offset: Offset(0, 0),
+      ),
+      ...(shadows ?? _biteSaverTileShadows()),
+    ];
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: shellRadius,
-        boxShadow: shadows ?? _biteSaverTileShadows(),
+        boxShadow: resolvedShadows,
       ),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
           Positioned.fill(
             left: 1.5,
-            top: 1,
+            top: 5.2,
             right: 1.5,
-            bottom: -1,
+            bottom: -1.1,
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: shellRadius,
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Color(0xFFF2D49D),
-                    Color(0xFFD8AE72),
-                    Color(0xFFCFA46A),
-                    Color(0xFFC79A5B),
-                    Color(0xFFB88849),
+                    lipColor.withOpacity(0.0),
+                    lipColor.withOpacity(0.0),
+                    lipColor.withOpacity(0.18),
+                    lipColor.withOpacity(0.52),
                   ],
-                  stops: [0.0, 0.25, 0.55, 0.78, 1.0],
+                  stops: const [0.0, 0.80, 0.94, 1.0],
                 ),
               ),
             ),
@@ -1178,51 +1260,97 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Container(
               decoration: BoxDecoration(
                 borderRadius: shellRadius,
-                gradient: shellGradient,
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    faceTopColor,
+                    faceTopColor,
+                    Color.lerp(faceTopColor, shellBottomColor, 0.28) ??
+                        shellBottomColor,
+                    shellBottomColor,
+                  ],
+                  stops: const [0.0, 0.78, 0.93, 1.0],
+                ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF704D24).withOpacity(0.40),
-                    blurRadius: 1.4,
-                    offset: const Offset(0, 2.2),
+                    color: const Color(0xFF704D24).withOpacity(0.14),
+                    blurRadius: 1.8,
+                    offset: const Offset(0, 1.6),
                   ),
                 ],
               ),
-              child: ClipRRect(
-                borderRadius: shellRadius,
-                child: Padding(
-                  padding: const EdgeInsets.all(1.2),
-                  child: Padding(
-                    padding: innerMargin,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: faceRadius,
-                        gradient: faceGradient,
-                        border: faceBorderColor == Colors.transparent
-                            ? null
-                            : Border.all(color: faceBorderColor, width: 0.35),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.white.withOpacity(0.08),
-                            blurRadius: 4,
-                            spreadRadius: -2.8,
-                            offset: const Offset(-1, -1.5),
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    left: 1.65,
+                    top: 0.35,
+                    right: 1.65,
+                    bottom: 1.1,
+                    child: IgnorePointer(
+                      child: ShaderMask(
+                        blendMode: BlendMode.srcATop,
+                        shaderCallback: (bounds) {
+                          return const LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [
+                              Color.fromRGBO(255, 255, 255, 1),
+                              Color.fromRGBO(255, 255, 255, 0.72),
+                              Color.fromRGBO(255, 255, 255, 0.34),
+                              Color.fromRGBO(255, 255, 255, 0.07),
+                              Color.fromRGBO(255, 255, 255, 0.01),
+                              Color.fromRGBO(255, 255, 255, 0),
+                              Color.fromRGBO(255, 255, 255, 0),
+                            ],
+                            stops: [0.0, 0.30, 0.48, 0.60, 0.74, 0.88, 1.0],
+                          ).createShader(bounds);
+                        },
+                        child: DecoratedBox(
+                          decoration: BoxDecoration(
+                            borderRadius: shellRadius,
+                            border: const Border(
+                              top: BorderSide(color: Colors.white, width: 0.7),
+                              left: BorderSide(color: Colors.white, width: 0.7),
+                              right: BorderSide(color: Colors.white, width: 0.7),
+                            ),
                           ),
-                          BoxShadow(
-                            color: Colors.white.withOpacity(0.14),
-                            blurRadius: 1.0,
-                            offset: const Offset(0, -0.3),
-                          ),
-                          BoxShadow(
-                            color: const Color(0xFF704D24).withOpacity(0.075),
-                            blurRadius: 2,
-                            offset: const Offset(0, 1.8),
-                          ),
-                        ],
+                        ),
                       ),
-                      child: ClipRRect(borderRadius: faceRadius, child: child),
                     ),
                   ),
-                ),
+                  ClipRRect(
+                    borderRadius: shellRadius,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(1.0, 0.4, 1.0, 1.9),
+                      child: Padding(
+                        padding: innerMargin,
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: faceRadius,
+                            gradient: adjustedFaceGradient,
+                            border: faceBorderColor == Colors.transparent
+                                ? Border(
+                                    bottom: BorderSide(
+                                      color: shellBottomColor.withOpacity(0.10),
+                                      width: 0.5,
+                                    ),
+                                  )
+                                : Border.all(color: faceBorderColor, width: 0.35),
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(0xFF704D24).withOpacity(0.05),
+                                blurRadius: 1.8,
+                                offset: const Offset(0, 1.0),
+                              ),
+                            ],
+                          ),
+                          child: ClipRRect(borderRadius: faceRadius, child: child),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -1340,7 +1468,15 @@ class _HomeScreenState extends State<HomeScreen> {
           colors: [Color(0xFFFFFCF8), Color(0xFFFAF1E7), Color(0xFFF6E8D8)],
         ),
         innerMargin: const EdgeInsets.all(1.7),
-        shadows: _biteSaverTileShadows(strength: 0.90),
+        shadows: [
+          const BoxShadow(
+            color: Color.fromRGBO(120, 80, 40, 0.45),
+            offset: Offset(0, 2),
+            blurRadius: 0,
+            spreadRadius: 0,
+          ),
+          ..._biteSaverTileShadows(strength: 0.90),
+        ],
         child: Material(
           color: Colors.transparent,
           child: ListTile(
@@ -1815,10 +1951,18 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
               innerMargin: const EdgeInsets.all(2.1),
-              shadows: _biteSaverTileShadows(
-                strength: 1.08,
-                opacityBoost: 0.03,
-              ),
+              shadows: [
+                const BoxShadow(
+                  color: Color.fromRGBO(120, 80, 40, 0.45),
+                  offset: Offset(0, 2),
+                  blurRadius: 0,
+                  spreadRadius: 0,
+                ),
+                ..._biteSaverTileShadows(
+                  strength: 1.08,
+                  opacityBoost: 0.03,
+                ),
+              ],
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 15),
                 child: Column(
@@ -1903,10 +2047,18 @@ class _HomeScreenState extends State<HomeScreen> {
             faceGradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFF9EAD5), Color(0xFFF5E1C6), Color(0xFFF0D7B6)],
+              colors: [Color(0xFFEBCFA9), Color(0xFFEBCFA9), Color(0xFFEBCFA9)],
             ),
             innerMargin: const EdgeInsets.all(2.0),
-            shadows: _biteSaverTileShadows(strength: 0.82),
+            shadows: [
+              const BoxShadow(
+                color: Color.fromRGBO(120, 80, 40, 0.45),
+                offset: Offset(0, 2),
+                blurRadius: 0,
+                spreadRadius: 0,
+              ),
+              ..._biteSaverTileShadows(strength: 0.82),
+            ],
             child: Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
               child: Column(
@@ -2218,12 +2370,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                                           const Color(
                                                             0xFF8C5A1E,
                                                           ),
-                                                      elevation: 4,
+                                                      elevation: 0,
                                                       shadowColor:
-                                                          Colors.black
-                                                              .withOpacity(
-                                                                0.2,
-                                                              ),
+                                                          Colors.transparent,
                                                       padding:
                                                           const EdgeInsets.symmetric(
                                                             vertical: 10,
@@ -2250,7 +2399,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                                       : 'Use My Location',
                                                 ),
                                               ),
-                                              shadows: const [],
+                                              shadows: const [
+                                                BoxShadow(
+                                                  color: Color.fromRGBO(120, 80, 40, 0.08),
+                                                  offset: Offset(0, 1),
+                                                  blurRadius: 0,
+                                                  spreadRadius: 0,
+                                                ),
+                                                BoxShadow(
+                                                  color: Color.fromRGBO(94, 62, 30, 0.035),
+                                                  offset: Offset(0, 2),
+                                                  blurRadius: 6,
+                                                  spreadRadius: 0,
+                                                ),
+                                              ],
                                             ),
                                           ),
                                           const SizedBox(width: 10),
@@ -2381,7 +2543,20 @@ class _HomeScreenState extends State<HomeScreen> {
                                             }
                                           },
                                         ),
-                                        shadows: const [],
+                                        shadows: const [
+                                          BoxShadow(
+                                            color: Color.fromRGBO(120, 80, 40, 0.08),
+                                            offset: Offset(0, 1),
+                                            blurRadius: 0,
+                                            spreadRadius: 0,
+                                          ),
+                                          BoxShadow(
+                                            color: Color.fromRGBO(94, 62, 30, 0.035),
+                                            offset: Offset(0, 2),
+                                            blurRadius: 6,
+                                            spreadRadius: 0,
+                                          ),
+                                        ],
                                       ),
                                     ],
                                   ),
