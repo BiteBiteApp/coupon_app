@@ -5,16 +5,18 @@ class PressableScale extends StatefulWidget {
   final bool enabled;
   final double pressedScale;
   final double pressedOpacity;
-  final Duration duration;
+  final Duration pressInDuration;
+  final Duration pressOutDuration;
   final Curve curve;
 
   const PressableScale({
     super.key,
     required this.child,
     this.enabled = true,
-    this.pressedScale = 0.978,
-    this.pressedOpacity = 0.98,
-    this.duration = const Duration(milliseconds: 100),
+    this.pressedScale = 0.965,
+    this.pressedOpacity = 0.955,
+    this.pressInDuration = const Duration(milliseconds: 80),
+    this.pressOutDuration = const Duration(milliseconds: 125),
     this.curve = Curves.easeOut,
   });
 
@@ -24,6 +26,9 @@ class PressableScale extends StatefulWidget {
 
 class _PressableScaleState extends State<PressableScale> {
   bool _pressed = false;
+
+  Duration get _duration =>
+      _pressed ? widget.pressInDuration : widget.pressOutDuration;
 
   void _setPressed(bool value) {
     if (!widget.enabled || _pressed == value) return;
@@ -41,11 +46,11 @@ class _PressableScaleState extends State<PressableScale> {
       onPointerCancel: (_) => _setPressed(false),
       child: AnimatedScale(
         scale: _pressed ? widget.pressedScale : 1,
-        duration: widget.duration,
+        duration: _duration,
         curve: widget.curve,
         child: AnimatedOpacity(
           opacity: _pressed ? widget.pressedOpacity : 1,
-          duration: widget.duration,
+          duration: _duration,
           curve: widget.curve,
           child: widget.child,
         ),
