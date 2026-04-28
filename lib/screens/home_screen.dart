@@ -41,7 +41,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   static const double _collapsedHeaderExtent = 90;
-  static const double _expandedHeaderExtent = 340;
+  static const double _expandedHeaderExtent = 220;
   static const String _selectedRadiusPreferenceKey = 'selected_radius';
 
   String selectedRadius = '15 miles';
@@ -1561,22 +1561,6 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ],
             ),
-            subtitle: Padding(
-              padding: const EdgeInsets.only(top: 9),
-              child: Text(
-                _formatCouponMetaLine(
-                  coupon,
-                  proximityOnly: proximityOnly,
-                ),
-                style: TextStyle(
-                  color: Colors.black.withOpacity(0.56),
-                  fontSize: 12.6,
-                  fontWeight: FontWeight.w400,
-                  height: 1.32,
-                  letterSpacing: 0.01,
-                ),
-              ),
-            ),
             trailing: const Icon(
               Icons.chevron_right,
               color: Color(0xFF94482E),
@@ -2359,24 +2343,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                                     side: BorderSide.none,
                                                   ),
                                                 ),
-                                                child: Row(
-                                                  mainAxisSize: MainAxisSize.min,
-                                                  children: [
-                                                    const Icon(
-                                                      Icons.arrow_forward,
-                                                      size: 16,
-                                                    ),
-                                                    const SizedBox(width: 6),
-                                                    Text(
-                                                      isSearchingLocation
-                                                          ? 'Searching...'
-                                                          : 'Search',
-                                                      style: const TextStyle(
-                                                        fontSize: 12,
-                                                        fontWeight: FontWeight.w600,
-                                                      ),
-                                                    ),
-                                                  ],
+                                                child: Text(
+                                                  isSearchingLocation
+                                                      ? 'Searching...'
+                                                      : 'Search',
+                                                  style: const TextStyle(
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.w600,
+                                                  ),
                                                 ),
                                               ),
                                               shadows: const [],
@@ -2457,7 +2431,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                       child: Text(
                                                         isGettingLocation
                                                             ? 'Locating...'
-                                                            : 'My Location',
+                                                            : 'Location',
                                                         maxLines: 1,
                                                         overflow: TextOverflow
                                                             .ellipsis,
@@ -2531,20 +2505,65 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 style: const TextStyle(
                                                   fontSize: 12,
                                                   fontWeight: FontWeight.w500,
-                                                  color: Color(0xFF2B1D14),
+                                                  color: Color(0xFFB7613F),
                                                 ),
                                                 iconEnabledColor: const Color(
                                                   0xFFB7613F,
                                                 ),
+                                                iconDisabledColor: const Color(
+                                                  0xFFB7613F,
+                                                ),
                                                 selectedItemBuilder:
                                                     (context) => const [
-                                                      Text('1 mi'),
-                                                      Text('3 mi'),
-                                                      Text('5 mi'),
-                                                      Text('10 mi'),
-                                                      Text('15 mi'),
-                                                      Text('20 mi'),
-                                                      Text('30 mi'),
+                                                      Text(
+                                                        '1 mi',
+                                                        style: TextStyle(
+                                                          color:
+                                                              Color(0xFFB7613F),
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        '3 mi',
+                                                        style: TextStyle(
+                                                          color:
+                                                              Color(0xFFB7613F),
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        '5 mi',
+                                                        style: TextStyle(
+                                                          color:
+                                                              Color(0xFFB7613F),
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        '10 mi',
+                                                        style: TextStyle(
+                                                          color:
+                                                              Color(0xFFB7613F),
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        '15 mi',
+                                                        style: TextStyle(
+                                                          color:
+                                                              Color(0xFFB7613F),
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        '20 mi',
+                                                        style: TextStyle(
+                                                          color:
+                                                              Color(0xFFB7613F),
+                                                        ),
+                                                      ),
+                                                      Text(
+                                                        '30 mi',
+                                                        style: TextStyle(
+                                                          color:
+                                                              Color(0xFFB7613F),
+                                                        ),
+                                                      ),
                                                     ],
                                                 items: const [
                                                   DropdownMenuItem(
@@ -2787,35 +2806,41 @@ class _HomeScreenState extends State<HomeScreen> {
                     colors: [Color(0xFFFFFEFC), Color(0xFFF8F1E9)],
                   ),
                 ),
-                child: CustomScrollView(
-                  controller: _listScrollController,
-                  slivers: [
-                    SliverPersistentHeader(
-                      pinned: true,
-                      delegate: _HomeHeaderDelegate(
-                        minExtentHeight: _collapsedHeaderExtent,
-                        maxExtentHeight: _expandedHeaderExtent,
-                        builder: (context, expansionT) => _buildHeader(
-                          allRestaurants: allRestaurants,
-                          filteredRestaurants: filteredRestaurants,
-                          expansionT: expansionT,
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(
+                    context,
+                  ).copyWith(overscroll: false),
+                  child: CustomScrollView(
+                    controller: _listScrollController,
+                    physics: const ClampingScrollPhysics(),
+                    slivers: [
+                      SliverPersistentHeader(
+                        pinned: true,
+                        delegate: _HomeHeaderDelegate(
+                          minExtentHeight: _collapsedHeaderExtent,
+                          maxExtentHeight: _expandedHeaderExtent,
+                          builder: (context, expansionT) => _buildHeader(
+                            allRestaurants: allRestaurants,
+                            filteredRestaurants: filteredRestaurants,
+                            expansionT: expansionT,
+                          ),
                         ),
                       ),
-                    ),
-                    SliverPadding(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      sliver: !_hasLocationOrZipInput
-                          ? _buildGetStartedState(allRestaurants)
-                          : _restaurantsError != null && _restaurants.isEmpty
-                          ? _buildInlineRestaurantsError()
-                          : _isRestaurantsLoading && _restaurants.isEmpty
-                          ? _buildInlineRestaurantsLoading()
-                          : _buildResultsSliver(
-                              allRestaurants,
-                              filteredRestaurants,
-                            ),
-                    ),
-                  ],
+                      SliverPadding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        sliver: !_hasLocationOrZipInput
+                            ? _buildGetStartedState(allRestaurants)
+                            : _restaurantsError != null && _restaurants.isEmpty
+                            ? _buildInlineRestaurantsError()
+                            : _isRestaurantsLoading && _restaurants.isEmpty
+                            ? _buildInlineRestaurantsLoading()
+                            : _buildResultsSliver(
+                                allRestaurants,
+                                filteredRestaurants,
+                              ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             );

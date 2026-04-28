@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 
 import '../services/app_mode_state_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
-import '../widgets/biterater_theme.dart';
 import 'admin_gate_screen.dart';
 import 'bitescore_home_screen.dart';
 import 'customer_account_screen.dart';
@@ -183,6 +182,23 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   Widget _buildBottomNavigationBar() {
+    final isBiteScore = selectedMode == AppMode.biteScore;
+    final selectedPillColor = isBiteScore
+        ? const Color(0xFFEAF2FF)
+        : const Color(0xFFF6E7CF);
+    final selectedBorderColor = isBiteScore
+        ? const Color(0xFFD6E4F8)
+        : const Color(0xD1FFFFFF);
+    final selectedShadowColor = isBiteScore
+        ? const Color.fromRGBO(36, 76, 140, 0.12)
+        : const Color.fromRGBO(0, 0, 0, 0.08);
+    final selectedIconColor = isBiteScore
+        ? const Color(0xFF285CC3)
+        : const Color(0xFF1E4CAA);
+    final selectedTextColor = isBiteScore
+        ? const Color(0xFF244F9E)
+        : const Color(0xFF1A469F);
+
     final navigationBar = SizedBox(
       height: 66,
       child: Row(
@@ -234,15 +250,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                 : EdgeInsets.zero,
                             decoration: item.key == selectedIndex
                                 ? BoxDecoration(
-                                    color: const Color(0xFFF6E7CF),
+                                    color: selectedPillColor,
                                     borderRadius: BorderRadius.circular(16),
                                     border: Border.all(
-                                      color: Colors.white.withOpacity(0.82),
+                                      color: selectedBorderColor,
                                       width: 1.0,
                                     ),
                                     boxShadow: [
                                       BoxShadow(
-                                        color: Colors.black.withOpacity(0.08),
+                                        color: selectedShadowColor,
                                         blurRadius: 4,
                                         offset: const Offset(0, 2),
                                       ),
@@ -260,7 +276,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                           ? item.value.selectedIcon
                                           : item.value.icon,
                                       color: item.key == selectedIndex
-                                          ? const Color(0xFF1E4CAA)
+                                          ? selectedIconColor
                                           : const Color(0xFF645A4C),
                                       size: 24,
                                     ),
@@ -274,7 +290,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                       textAlign: TextAlign.center,
                                       style: TextStyle(
                                         color: item.key == selectedIndex
-                                            ? const Color(0xFF1A469F)
+                                            ? selectedTextColor
                                             : const Color(0xFF5E564A),
                                         fontWeight: item.key == selectedIndex
                                             ? FontWeight.w800
@@ -300,7 +316,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       ),
     );
 
-    if (selectedMode != AppMode.biteScore) {
+    if (!isBiteScore) {
       return Container(
         color: Colors.transparent,
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
@@ -324,33 +340,27 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       );
     }
 
-    return Theme(
-      data: Theme.of(context).copyWith(
-        navigationBarTheme: NavigationBarThemeData(
-          backgroundColor: BiteRaterTheme.cardSurface,
-          surfaceTintColor: Colors.transparent,
-          indicatorColor: BiteRaterTheme.softSearchBlue,
-          elevation: 0,
-          labelTextStyle: WidgetStateProperty.resolveWith((states) {
-            return TextStyle(
-              color: states.contains(WidgetState.selected)
-                  ? BiteRaterTheme.ink
-                  : BiteRaterTheme.mutedInk,
-              fontWeight: states.contains(WidgetState.selected)
-                  ? FontWeight.w800
-                  : FontWeight.w600,
-            );
-          }),
-          iconTheme: WidgetStateProperty.resolveWith((states) {
-            return IconThemeData(
-              color: states.contains(WidgetState.selected)
-                  ? BiteRaterTheme.ocean
-                  : BiteRaterTheme.mutedInk,
-            );
-          }),
+    return Container(
+      color: Colors.transparent,
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0xFFF7FAFE),
+          borderRadius: BorderRadius.circular(28),
+          border: Border.all(color: const Color(0xFFD8E4F3), width: 1),
+          boxShadow: [
+            BoxShadow(
+              color: Color.fromRGBO(36, 76, 134, 0.13),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(28),
+          child: navigationBar,
         ),
       ),
-      child: navigationBar,
     );
   }
 

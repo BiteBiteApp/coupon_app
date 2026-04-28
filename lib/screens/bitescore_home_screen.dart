@@ -1324,29 +1324,33 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
 
     return Scaffold(
       backgroundColor: BiteRaterTheme.pageBackground,
-      body: CustomScrollView(
-        controller: _listScrollController,
-        slivers: [
-          SliverPersistentHeader(
-            pinned: true,
-            delegate: _BiteScoreHeaderDelegate(
-              minExtentHeight: _collapsedHeaderExtent,
-              maxExtentHeight: _expandedHeaderExtent,
-              builder: (context, expansionT) =>
-                  _buildHeader(expansionT: expansionT),
+      body: ScrollConfiguration(
+        behavior: ScrollConfiguration.of(context).copyWith(overscroll: false),
+        child: CustomScrollView(
+          controller: _listScrollController,
+          physics: const ClampingScrollPhysics(),
+          slivers: [
+            SliverPersistentHeader(
+              pinned: true,
+              delegate: _BiteScoreHeaderDelegate(
+                minExtentHeight: _collapsedHeaderExtent,
+                maxExtentHeight: _expandedHeaderExtent,
+                builder: (context, expansionT) =>
+                    _buildHeader(expansionT: expansionT),
+              ),
             ),
-          ),
-          SliverPadding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            sliver: !_hasLocationOrZipInput
-                ? _buildGetStartedState()
-                : _loadError != null && _entries.isEmpty
-                ? _buildInlineErrorState()
-                : _isLoading && _entries.isEmpty
-                ? _buildInlineLoadingState()
-                : _buildResultsSliver(filteredEntries),
-          ),
-        ],
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              sliver: !_hasLocationOrZipInput
+                  ? _buildGetStartedState()
+                  : _loadError != null && _entries.isEmpty
+                  ? _buildInlineErrorState()
+                  : _isLoading && _entries.isEmpty
+                  ? _buildInlineLoadingState()
+                  : _buildResultsSliver(filteredEntries),
+            ),
+          ],
+        ),
       ),
     );
   }

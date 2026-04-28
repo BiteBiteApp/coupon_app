@@ -75,7 +75,9 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0E2D2),
+        color: widget.selectedMode == AppMode.biteScore
+            ? const Color(0xFFEFF4FA)
+            : const Color(0xFFF0E2D2),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
