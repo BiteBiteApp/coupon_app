@@ -2060,7 +2060,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Material(
       color: Colors.transparent,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
         child: SizedBox(
           width: double.infinity,
           child: _biteSaverTile(
@@ -2096,7 +2096,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ..._biteSaverTileShadows(strength: 0.82),
             ],
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 6, 10, 3),
+              padding: const EdgeInsets.fromLTRB(10, 5, 10, 1),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -2159,9 +2159,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                           contentPadding:
                                               const EdgeInsets.fromLTRB(
                                                 14,
-                                                12,
+                                                10,
                                                 188,
-                                                12,
+                                                10,
                                               ),
                                           border: OutlineInputBorder(
                                             borderRadius:
@@ -2214,7 +2214,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               ElevatedButton(
                                                 onPressed: runGeneralSearch,
                                                 style: ElevatedButton.styleFrom(
-                                                  minimumSize: const Size(0, 38),
+                                                  minimumSize: const Size(0, 36),
                                                   backgroundColor: const Color(
                                                     0xFFFFFBF7,
                                                   ),
@@ -2253,7 +2253,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 8),
+                                  const SizedBox(height: 6),
                                   Stack(
                                     alignment: Alignment.centerRight,
                                     children: [
@@ -2275,9 +2275,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                           contentPadding:
                                               const EdgeInsets.fromLTRB(
                                                 14,
-                                                12,
+                                                10,
                                                 188,
-                                                12,
+                                                10,
                                               ),
                                           border: OutlineInputBorder(
                                             borderRadius:
@@ -2336,7 +2336,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                         allRestaurants,
                                                       ),
                                                 style: ElevatedButton.styleFrom(
-                                                  minimumSize: const Size(0, 38),
+                                                  minimumSize: const Size(0, 36),
                                                   backgroundColor: const Color(
                                                     0xFFFFFBF7,
                                                   ),
@@ -2387,7 +2387,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 8),
+                                  const SizedBox(height: 6),
                                   Align(
                                     alignment: Alignment.center,
                                     child: ConstrainedBox(
@@ -2411,7 +2411,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                     ElevatedButton.styleFrom(
                                                       minimumSize:
                                                           const Size.fromHeight(
-                                                            38,
+                                                            36,
                                                           ),
                                                       backgroundColor:
                                                           const Color(
@@ -2426,7 +2426,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                           Colors.transparent,
                                                       padding:
                                                           const EdgeInsets.symmetric(
-                                                            vertical: 9,
+                                                            vertical: 8,
                                                           ),
                                                       tapTargetSize:
                                                           MaterialTapTargetSize
@@ -2469,7 +2469,122 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ),
                                           const SizedBox(width: 10),
                                           SizedBox(
-                                            height: 38,
+                                            height: 36,
+                                            width: 96,
+                                            child: _biteSaverLightTileControl(
+                                              DropdownButtonFormField<String>(
+                                                initialValue: selectedRadius,
+                                                decoration: InputDecoration(
+                                                  filled: true,
+                                                  fillColor: const Color(
+                                                    0xFFFFFAF5,
+                                                  ),
+                                                  isDense: true,
+                                                  contentPadding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 7,
+                                                      ),
+                                                  border: OutlineInputBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(12),
+                                                    borderSide: BorderSide.none,
+                                                  ),
+                                                  enabledBorder:
+                                                      OutlineInputBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              12,
+                                                            ),
+                                                        borderSide:
+                                                            BorderSide.none,
+                                                      ),
+                                                  focusedBorder:
+                                                      OutlineInputBorder(
+                                                        borderRadius:
+                                                            BorderRadius.circular(
+                                                              12,
+                                                            ),
+                                                        borderSide:
+                                                            BorderSide.none,
+                                                      ),
+                                                ),
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  fontWeight: FontWeight.w500,
+                                                  color: Color(0xFF2B1D14),
+                                                ),
+                                                iconEnabledColor: const Color(
+                                                  0xFFB7613F,
+                                                ),
+                                                selectedItemBuilder:
+                                                    (context) => const [
+                                                      Text('1 mi'),
+                                                      Text('3 mi'),
+                                                      Text('5 mi'),
+                                                      Text('10 mi'),
+                                                      Text('15 mi'),
+                                                      Text('20 mi'),
+                                                      Text('30 mi'),
+                                                    ],
+                                                items: const [
+                                                  DropdownMenuItem(
+                                                    value: '1 mile',
+                                                    child: Text('1 mi'),
+                                                  ),
+                                                  DropdownMenuItem(
+                                                    value: '3 miles',
+                                                    child: Text('3 mi'),
+                                                  ),
+                                                  DropdownMenuItem(
+                                                    value: '5 miles',
+                                                    child: Text('5 mi'),
+                                                  ),
+                                                  DropdownMenuItem(
+                                                    value: '10 miles',
+                                                    child: Text('10 mi'),
+                                                  ),
+                                                  DropdownMenuItem(
+                                                    value: '15 miles',
+                                                    child: Text('15 mi'),
+                                                  ),
+                                                  DropdownMenuItem(
+                                                    value: '20 miles',
+                                                    child: Text('20 mi'),
+                                                  ),
+                                                  DropdownMenuItem(
+                                                    value: '30 miles',
+                                                    child: Text('30 mi'),
+                                                  ),
+                                                ],
+                                                onChanged: (value) {
+                                                  if (value != null) {
+                                                    setState(() {
+                                                      selectedRadius = value;
+                                                    });
+                                                    _saveSelectedRadius(value);
+                                                  }
+                                                },
+                                              ),
+                                              shadows: const [
+                                                BoxShadow(
+                                                  color: Color.fromRGBO(120, 80, 40, 0.08),
+                                                  offset: Offset(0, 1),
+                                                  blurRadius: 0,
+                                                  spreadRadius: 0,
+                                                ),
+                                                BoxShadow(
+                                                  color: Color.fromRGBO(94, 62, 30, 0.035),
+                                                  offset: Offset(0, 2),
+                                                  blurRadius: 6,
+                                                  spreadRadius: 0,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                          const SizedBox(width: 10),
+                                          SizedBox(
+                                            height: 36,
                                             child: PressableScale(
                                               enabled: !isGettingLocation,
                                               child: _biteSaverRedTileControl(
@@ -2514,102 +2629,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 6),
-                                  _biteSaverLightTileControl(
-                                    DropdownButtonFormField<String>(
-                                      initialValue: selectedRadius,
-                                      decoration: InputDecoration(
-                                        filled: true,
-                                        fillColor: const Color(0xFFFFFAF5),
-                                        isDense: true,
-                                        contentPadding:
-                                            const EdgeInsets.symmetric(
-                                              horizontal: 18,
-                                              vertical: 9,
-                                            ),
-                                        border: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          borderSide: BorderSide.none,
-                                        ),
-                                        enabledBorder: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          borderSide: BorderSide.none,
-                                        ),
-                                        focusedBorder: OutlineInputBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(12),
-                                          borderSide: BorderSide.none,
-                                        ),
-                                      ),
-                                      iconEnabledColor: const Color(
-                                        0xFFB7613F,
-                                      ),
-                                      selectedItemBuilder: (context) => const [
-                                        Text('Within 1 mile'),
-                                        Text('Within 3 miles'),
-                                        Text('Within 5 miles'),
-                                        Text('Within 10 miles'),
-                                        Text('Within 15 miles'),
-                                        Text('Within 20 miles'),
-                                        Text('Within 30 miles'),
-                                      ],
-                                      items: const [
-                                        DropdownMenuItem(
-                                          value: '1 mile',
-                                          child: Text('1 mile'),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: '3 miles',
-                                          child: Text('3 miles'),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: '5 miles',
-                                          child: Text('5 miles'),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: '10 miles',
-                                          child: Text('10 miles'),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: '15 miles',
-                                          child: Text('15 miles'),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: '20 miles',
-                                          child: Text('20 miles'),
-                                        ),
-                                        DropdownMenuItem(
-                                          value: '30 miles',
-                                          child: Text('30 miles'),
-                                        ),
-                                      ],
-                                      onChanged: (value) {
-                                        if (value != null) {
-                                          setState(() {
-                                            selectedRadius = value;
-                                          });
-                                          _saveSelectedRadius(value);
-                                        }
-                                      },
-                                    ),
-                                    shadows: const [
-                                      BoxShadow(
-                                        color: Color.fromRGBO(120, 80, 40, 0.08),
-                                        offset: Offset(0, 1),
-                                        blurRadius: 0,
-                                        spreadRadius: 0,
-                                      ),
-                                      BoxShadow(
-                                        color: Color.fromRGBO(94, 62, 30, 0.035),
-                                        offset: Offset(0, 2),
-                                        blurRadius: 6,
-                                        spreadRadius: 0,
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 2),
+                                  const SizedBox(height: 1),
                                 if (compactStatusLine(
                                     filteredRestaurants,
                                   ).isNotEmpty)
@@ -2618,7 +2638,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       child: Text(
                                         compactStatusLine(filteredRestaurants),
                                         style: TextStyle(
-                                          fontSize: 11.2,
+                                          fontSize: 11.0,
                                           color:
                                               (locationStatusMessage != null &&
                                                   locationStatusMessage!
@@ -2633,7 +2653,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         ),
                                       ),
                                     ),
-                                  const SizedBox(height: 1),
+                                  const SizedBox(height: 0),
                                 ],
                               ),
                               Positioned(
