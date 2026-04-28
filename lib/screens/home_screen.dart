@@ -2401,7 +2401,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             child: PressableScale(
                                               enabled: !isGettingLocation,
                                               child: _biteSaverLightTileControl(
-                                              ElevatedButton.icon(
+                                              ElevatedButton(
                                                 onPressed: isGettingLocation
                                                     ? null
                                                     : () => useMyLocation(
@@ -2426,6 +2426,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                           Colors.transparent,
                                                       padding:
                                                           const EdgeInsets.symmetric(
+                                                            horizontal: 10,
                                                             vertical: 8,
                                                           ),
                                                       tapTargetSize:
@@ -2441,13 +2442,31 @@ class _HomeScreenState extends State<HomeScreen> {
                                                                 BorderSide.none,
                                                           ),
                                                     ),
-                                                icon: const Icon(
-                                                  Icons.location_on_outlined,
-                                                ),
-                                                label: Text(
-                                                  isGettingLocation
-                                                      ? 'Getting Location...'
-                                                      : 'Use My Location',
+                                                child: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    const Icon(
+                                                      Icons.location_on_outlined,
+                                                      size: 18,
+                                                    ),
+                                                    const SizedBox(width: 5),
+                                                    Flexible(
+                                                      child: Text(
+                                                        isGettingLocation
+                                                            ? 'Locating...'
+                                                            : 'My Location',
+                                                        maxLines: 1,
+                                                        overflow: TextOverflow
+                                                            .ellipsis,
+                                                        style: const TextStyle(
+                                                          fontSize: 13,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ],
                                                 ),
                                               ),
                                               shadows: const [
@@ -2467,10 +2486,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                             ),
                                             ),
                                           ),
-                                          const SizedBox(width: 10),
+                                          const SizedBox(width: 8),
                                           SizedBox(
                                             height: 36,
-                                            width: 96,
+                                            width: 104,
                                             child: _biteSaverLightTileControl(
                                               DropdownButtonFormField<String>(
                                                 initialValue: selectedRadius,
@@ -2482,8 +2501,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   isDense: true,
                                                   contentPadding:
                                                       const EdgeInsets.symmetric(
-                                                        horizontal: 12,
-                                                        vertical: 7,
+                                                        horizontal: 11,
+                                                        vertical: 6,
                                                       ),
                                                   border: OutlineInputBorder(
                                                     borderRadius:
@@ -2582,7 +2601,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               ],
                                             ),
                                           ),
-                                          const SizedBox(width: 10),
+                                          const SizedBox(width: 8),
                                           SizedBox(
                                             height: 36,
                                             child: PressableScale(
