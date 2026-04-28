@@ -3,6 +3,7 @@ import 'dart:io' show Platform;
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
@@ -1446,13 +1447,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
-      child: Listener(
-        behavior: HitTestBehavior.translucent,
-        onPointerDown: (_) {
-          _RestaurantCardPressScope.maybeMarkChildPressed(context);
-        },
-        child: PressableScale(
-          child: _biteSaverTile(
+      child: _ImmediatePressFeedback(
+        borderRadius: BorderRadius.circular(17),
+        child: _biteSaverTile(
         shellRadius: BorderRadius.circular(17),
         faceRadius: BorderRadius.circular(15.5),
         shellBorderColor: const Color(0x66F2DDBB),
@@ -1558,7 +1555,6 @@ class _HomeScreenState extends State<HomeScreen> {
               setState(() {});
             },
           ),
-        ),
         ),
         ),
       ),
@@ -1941,94 +1937,61 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         final restaurant = filteredRestaurants[index];
-        return _RestaurantCardPressSurface(
+        final shellRadius = BorderRadius.circular(20);
+        final faceRadius = BorderRadius.circular(18);
+        final shellGradient = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFFEEDBC9),
+            Color(0xFFD8BEA3),
+            Color(0xFFC7A17B),
+            Color(0xFFB58B63),
+          ],
+          stops: [0.0, 0.34, 0.72, 1.0],
+        );
+        final faceGradient = const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFFFFFBF8),
+            Color(0xFFF7EDE3),
+            Color(0xFFEEDDCB),
+          ],
+        );
+        final shellShadows = [
+          const BoxShadow(
+            color: Color.fromRGBO(120, 80, 40, 0.45),
+            offset: Offset(0, 2),
+            blurRadius: 0,
+            spreadRadius: 0,
+          ),
+          ..._biteSaverTileShadows(
+            strength: 1.08,
+            opacityBoost: 0.03,
+          ),
+        ];
+
+        return _RestaurantCardShellPressable(
           onTap: () => openRestaurantProfile(restaurant),
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            child: _biteSaverTile(
-              shellRadius: BorderRadius.circular(20),
-              faceRadius: BorderRadius.circular(18),
-              shellBorderColor: const Color(0x66EED8B2),
-              highlightBorderColor: const Color(0xF7FFFFFF),
-              faceBorderColor: Colors.transparent,
-              shellGradient: const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFFEEDBC9),
-                  Color(0xFFD8BEA3),
-                  Color(0xFFC7A17B),
-                  Color(0xFFB58B63),
-                ],
-                stops: [0.0, 0.34, 0.72, 1.0],
-              ),
-              faceGradient: const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFFFFFBF8),
-                  Color(0xFFF7EDE3),
-                  Color(0xFFEEDDCB),
-                ],
-              ),
-              innerMargin: const EdgeInsets.all(2.1),
-              shadows: [
-                const BoxShadow(
-                  color: Color.fromRGBO(120, 80, 40, 0.45),
-                  offset: Offset(0, 2),
-                  blurRadius: 0,
-                  spreadRadius: 0,
-                ),
-                ..._biteSaverTileShadows(
-                  strength: 1.08,
-                  opacityBoost: 0.03,
-                ),
-              ],
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 15),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            restaurant.name,
-                            style: const TextStyle(
-                              color: Color(0xFF1F1A16),
-                              fontSize: 18.5,
-                              fontWeight: FontWeight.w700,
-                              height: 1.12,
-                              letterSpacing: -0.12,
-                            ),
-                          ),
-                        ),
-                        const Icon(
-                          Icons.storefront,
-                          size: 18,
-                          color: Color(0xFF94482E),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      '${restaurant.distance} - ${restaurant.city}, ${restaurant.zipCode}',
-                      style: TextStyle(
-                        color: Colors.black.withOpacity(0.65),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                        height: 1.22,
-                        letterSpacing: 0.01,
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    ...restaurant.coupons.map(
-                      (coupon) => buildCouponCard(coupon, context),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+          title: restaurant.name,
+          subtitle:
+              '${restaurant.distance} - ${restaurant.city}, ${restaurant.zipCode}',
+          couponChildren: restaurant.coupons
+              .map((coupon) => buildCouponCard(coupon, context))
+              .toList(),
+          shellRadius: shellRadius,
+          shellChild: _biteSaverTile(
+            shellRadius: shellRadius,
+            faceRadius: faceRadius,
+            shellBorderColor: const Color(0x66EED8B2),
+            highlightBorderColor: const Color(0xF7FFFFFF),
+            faceBorderColor: Colors.transparent,
+            shellGradient: shellGradient,
+            faceGradient: faceGradient,
+            innerMargin: const EdgeInsets.all(2.1),
+            shadows: shellShadows,
+            child: const SizedBox.expand(),
           ),
         );
       }, childCount: filteredRestaurants.isEmpty ? 1 : filteredRestaurants.length),
@@ -2835,24 +2798,23 @@ class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
   }
 }
 
-class _RestaurantCardPressSurface extends StatefulWidget {
+class _ImmediatePressFeedback extends StatefulWidget {
   final Widget child;
-  final VoidCallback onTap;
+  final BorderRadius borderRadius;
 
-  const _RestaurantCardPressSurface({
+  const _ImmediatePressFeedback({
     required this.child,
-    required this.onTap,
+    required this.borderRadius,
   });
 
   @override
-  State<_RestaurantCardPressSurface> createState() =>
-      _RestaurantCardPressSurfaceState();
+  State<_ImmediatePressFeedback> createState() => _ImmediatePressFeedbackState();
 }
 
-class _RestaurantCardPressSurfaceState
-    extends State<_RestaurantCardPressSurface> {
+class _ImmediatePressFeedbackState extends State<_ImmediatePressFeedback> {
   bool _pressed = false;
-  bool _childPressActive = false;
+
+  Duration get _duration => Duration(milliseconds: _pressed ? 75 : 120);
 
   void _setPressed(bool value) {
     if (_pressed == value) return;
@@ -2861,45 +2823,54 @@ class _RestaurantCardPressSurfaceState
     });
   }
 
-  void _markChildPressed() {
-    _childPressActive = true;
-    if (_pressed) {
-      _setPressed(false);
-    }
-  }
-
-  void _resetPointerState() {
-    _childPressActive = false;
-    _setPressed(false);
-  }
-
   @override
   Widget build(BuildContext context) {
-    return _RestaurantCardPressScope(
-      onChildPressed: _markChildPressed,
-      child: Listener(
-        behavior: HitTestBehavior.translucent,
-        onPointerDown: (_) {
-          if (_childPressActive) {
-            _childPressActive = false;
-            return;
-          }
-          _setPressed(true);
-        },
-        onPointerUp: (_) => _resetPointerState(),
-        onPointerCancel: (_) => _resetPointerState(),
-        child: GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: widget.onTap,
-          child: AnimatedScale(
-            scale: _pressed ? 0.978 : 1.0,
-            duration: const Duration(milliseconds: 100),
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: (_) => _setPressed(true),
+      onPointerUp: (_) => _setPressed(false),
+      onPointerCancel: (_) => _setPressed(false),
+      child: AnimatedContainer(
+        duration: _duration,
+        curve: Curves.easeOut,
+        decoration: BoxDecoration(
+          borderRadius: widget.borderRadius,
+          boxShadow: _pressed
+              ? const [
+                  BoxShadow(
+                    color: Color.fromRGBO(48, 30, 16, 0.08),
+                    blurRadius: 8,
+                    offset: Offset(0, 4),
+                  ),
+                ]
+              : const [],
+        ),
+        child: AnimatedScale(
+          scale: _pressed ? 0.968 : 1.0,
+          duration: _duration,
+          curve: Curves.easeOut,
+          child: AnimatedOpacity(
+            opacity: _pressed ? 0.965 : 1.0,
+            duration: _duration,
             curve: Curves.easeOut,
-            child: AnimatedOpacity(
-              opacity: _pressed ? 0.98 : 1.0,
-              duration: const Duration(milliseconds: 100),
-              curve: Curves.easeOut,
-              child: widget.child,
+            child: Stack(
+              children: [
+                widget.child,
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: ClipRRect(
+                      borderRadius: widget.borderRadius,
+                      child: AnimatedContainer(
+                        duration: _duration,
+                        curve: Curves.easeOut,
+                        color: _pressed
+                            ? const Color.fromRGBO(38, 24, 12, 0.05)
+                            : Colors.transparent,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -2908,27 +2879,231 @@ class _RestaurantCardPressSurfaceState
   }
 }
 
-class _RestaurantCardPressScope extends InheritedWidget {
-  final VoidCallback onChildPressed;
+class _RestaurantCardShellPressable extends StatefulWidget {
+  final VoidCallback onTap;
+  final String title;
+  final String subtitle;
+  final List<Widget> couponChildren;
+  final BorderRadius shellRadius;
+  final Widget shellChild;
 
-  const _RestaurantCardPressScope({
-    required this.onChildPressed,
-    required super.child,
+  const _RestaurantCardShellPressable({
+    required this.onTap,
+    required this.title,
+    required this.subtitle,
+    required this.couponChildren,
+    required this.shellRadius,
+    required this.shellChild,
   });
 
-  static void maybeMarkChildPressed(BuildContext context) {
-    final scope =
-        context
-            .getElementForInheritedWidgetOfExactType<
-              _RestaurantCardPressScope
-            >()
-            ?.widget
-            as _RestaurantCardPressScope?;
-    scope?.onChildPressed();
+  @override
+  State<_RestaurantCardShellPressable> createState() =>
+      _RestaurantCardShellPressableState();
+}
+
+class _RestaurantCardShellPressableState
+    extends State<_RestaurantCardShellPressable> {
+  bool _pressed = false;
+
+  Duration get _duration => Duration(milliseconds: _pressed ? 75 : 120);
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() {
+      _pressed = value;
+    });
+  }
+
+  Widget _headerContent() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                widget.title,
+                style: const TextStyle(
+                  color: Color(0xFF1F1A16),
+                  fontSize: 18.5,
+                  fontWeight: FontWeight.w700,
+                  height: 1.12,
+                  letterSpacing: -0.12,
+                ),
+              ),
+            ),
+            const Icon(
+              Icons.storefront,
+              size: 18,
+              color: Color(0xFF94482E),
+            ),
+          ],
+        ),
+        const SizedBox(height: 3),
+        Text(
+          widget.subtitle,
+          style: TextStyle(
+            color: Colors.black.withOpacity(0.65),
+            fontSize: 13,
+            fontWeight: FontWeight.w500,
+            height: 1.22,
+            letterSpacing: 0.01,
+          ),
+        ),
+        const SizedBox(height: 12),
+      ],
+    );
   }
 
   @override
-  bool updateShouldNotify(covariant _RestaurantCardPressScope oldWidget) {
-    return onChildPressed != oldWidget.onChildPressed;
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapDown: (_) => _setPressed(true),
+              onTapUp: (_) => _setPressed(false),
+              onTapCancel: () => _setPressed(false),
+              onTap: widget.onTap,
+              child: AnimatedContainer(
+                duration: _duration,
+                curve: Curves.easeOut,
+                decoration: BoxDecoration(
+                  borderRadius: widget.shellRadius,
+                  boxShadow: _pressed
+                      ? const [
+                          BoxShadow(
+                            color: Color.fromRGBO(48, 30, 16, 0.10),
+                            blurRadius: 10,
+                            offset: Offset(0, 5),
+                          ),
+                        ]
+                      : const [],
+                ),
+                child: AnimatedScale(
+                  scale: _pressed ? 0.968 : 1.0,
+                  duration: _duration,
+                  curve: Curves.easeOut,
+                  child: AnimatedOpacity(
+                    opacity: _pressed ? 0.965 : 1.0,
+                    duration: _duration,
+                    curve: Curves.easeOut,
+                    child: Stack(
+                      children: [
+                        widget.shellChild,
+                        Positioned.fill(
+                          child: IgnorePointer(
+                            child: ClipRRect(
+                              borderRadius: widget.shellRadius,
+                              child: AnimatedContainer(
+                                duration: _duration,
+                                curve: Curves.easeOut,
+                                color: _pressed
+                                    ? const Color.fromRGBO(38, 24, 12, 0.05)
+                                    : Colors.transparent,
+                              ),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 15),
+                          child: _headerContent(),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 15),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                IgnorePointer(
+                  child: Opacity(
+                    opacity: 0,
+                    child: _headerContent(),
+                  ),
+                ),
+                ...widget.couponChildren,
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
+
+class _RestaurantShellPressable extends StatefulWidget {
+  final VoidCallback onTap;
+  final BorderRadius borderRadius;
+  final Widget child;
+
+  const _RestaurantShellPressable({
+    required this.onTap,
+    required this.borderRadius,
+    required this.child,
+  });
+
+  @override
+  State<_RestaurantShellPressable> createState() =>
+      _RestaurantShellPressableState();
+}
+
+class _RestaurantShellPressableState extends State<_RestaurantShellPressable> {
+  bool _pressed = false;
+
+  void _setPressed(bool value) {
+    if (_pressed == value) return;
+    setState(() {
+      _pressed = value;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => _setPressed(true),
+      onTapUp: (_) => _setPressed(false),
+      onTapCancel: () => _setPressed(false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _pressed ? 0.978 : 1.0,
+        duration: const Duration(milliseconds: 100),
+        curve: Curves.easeOut,
+        child: AnimatedOpacity(
+          opacity: _pressed ? 0.98 : 1.0,
+          duration: const Duration(milliseconds: 100),
+          curve: Curves.easeOut,
+          child: Stack(
+            children: [
+              widget.child,
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: ClipRRect(
+                    borderRadius: widget.borderRadius,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 100),
+                      curve: Curves.easeOut,
+                      color: _pressed
+                          ? const Color.fromRGBO(38, 24, 12, 0.05)
+                          : Colors.transparent,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
