@@ -1486,7 +1486,7 @@ class _HomeScreenState extends State<HomeScreen> {
           child: ListTile(
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 14,
-              vertical: 10,
+              vertical: 11,
             ),
             title: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1516,16 +1516,16 @@ class _HomeScreenState extends State<HomeScreen> {
                   coupon.title,
                   style: const TextStyle(
                     color: Color(0xFF2B1D14),
-                    fontSize: 16.5,
+                    fontSize: 17.0,
                     fontWeight: FontWeight.w700,
-                    height: 1.12,
-                    letterSpacing: -0.08,
+                    height: 1.18,
+                    letterSpacing: -0.04,
                   ),
                 ),
               ],
             ),
             subtitle: Padding(
-              padding: const EdgeInsets.only(top: 7),
+              padding: const EdgeInsets.only(top: 9),
               child: Text(
                 proximityOnly
                     ? '$scheduleText - ${coupon.usageRule} - Unlocked nearby'
@@ -1533,17 +1533,18 @@ class _HomeScreenState extends State<HomeScreen> {
                           ? '$scheduleText - ${coupon.usageRule}'
                           : '$scheduleText - ${coupon.usageRule} - Code: ${coupon.couponCode}'),
                 style: TextStyle(
-                  color: Colors.black.withOpacity(0.62),
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w500,
-                  height: 1.28,
-                  letterSpacing: 0.02,
+                  color: Colors.black.withOpacity(0.56),
+                  fontSize: 12.6,
+                  fontWeight: FontWeight.w400,
+                  height: 1.32,
+                  letterSpacing: 0.01,
                 ),
               ),
             ),
             trailing: const Icon(
               Icons.chevron_right,
               color: Color(0xFF94482E),
+              size: 21,
             ),
             onTap: () async {
               await Navigator.push(
@@ -1977,6 +1978,7 @@ class _HomeScreenState extends State<HomeScreen> {
           title: restaurant.name,
           subtitle:
               '${restaurant.distance} - ${restaurant.city}, ${restaurant.zipCode}',
+          dealCount: restaurant.coupons.length,
           couponChildren: restaurant.coupons
               .map((coupon) => buildCouponCard(coupon, context))
               .toList(),
@@ -2568,7 +2570,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ],
                                   ),
                                   const SizedBox(height: 4),
-                                  if (compactStatusLine(
+                                if (compactStatusLine(
                                     filteredRestaurants,
                                   ).isNotEmpty)
                                     Align(
@@ -2576,7 +2578,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       child: Text(
                                         compactStatusLine(filteredRestaurants),
                                         style: TextStyle(
-                                          fontSize: 12,
+                                          fontSize: 11.6,
                                           color:
                                               (locationStatusMessage != null &&
                                                   locationStatusMessage!
@@ -2585,7 +2587,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   searchQuery.trim().isEmpty)
                                               ? const Color(0xFFB7613F)
                                               : Colors.black54,
-                                          fontWeight: FontWeight.w600,
+                                          fontWeight: FontWeight.w400,
+                                          height: 1.2,
+                                          letterSpacing: 0.02,
                                         ),
                                       ),
                                     ),
@@ -2883,6 +2887,7 @@ class _RestaurantCardShellPressable extends StatefulWidget {
   final VoidCallback onTap;
   final String title;
   final String subtitle;
+  final int dealCount;
   final List<Widget> couponChildren;
   final BorderRadius shellRadius;
   final Widget shellChild;
@@ -2891,6 +2896,7 @@ class _RestaurantCardShellPressable extends StatefulWidget {
     required this.onTap,
     required this.title,
     required this.subtitle,
+    required this.dealCount,
     required this.couponChildren,
     required this.shellRadius,
     required this.shellChild,
@@ -2925,28 +2931,54 @@ class _RestaurantCardShellPressableState
                 widget.title,
                 style: const TextStyle(
                   color: Color(0xFF1F1A16),
-                  fontSize: 18.5,
+                  fontSize: 18.2,
                   fontWeight: FontWeight.w700,
-                  height: 1.12,
-                  letterSpacing: -0.12,
+                  height: 1.14,
+                  letterSpacing: -0.08,
                 ),
               ),
             ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: const Color(0x2294482E),
+                borderRadius: BorderRadius.circular(999),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Color.fromRGBO(120, 80, 40, 0.10),
+                    blurRadius: 3,
+                    offset: Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Text(
+                '${widget.dealCount} ${widget.dealCount == 1 ? 'deal' : 'deals'}',
+                style: const TextStyle(
+                  color: Color(0xFF5F3824),
+                  fontSize: 11,
+                  fontWeight: FontWeight.w800,
+                  height: 1.0,
+                  letterSpacing: 0.01,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
             const Icon(
               Icons.storefront,
-              size: 18,
+              size: 17,
               color: Color(0xFF94482E),
             ),
           ],
         ),
-        const SizedBox(height: 3),
+        const SizedBox(height: 6),
         Text(
           widget.subtitle,
           style: TextStyle(
-            color: Colors.black.withOpacity(0.65),
-            fontSize: 13,
-            fontWeight: FontWeight.w500,
-            height: 1.22,
+            color: Colors.black.withOpacity(0.54),
+            fontSize: 12.8,
+            fontWeight: FontWeight.w400,
+            height: 1.24,
             letterSpacing: 0.01,
           ),
         ),
@@ -2958,7 +2990,7 @@ class _RestaurantCardShellPressableState
   @override
   Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      margin: const EdgeInsets.only(bottom: 20),
       child: Stack(
         children: [
           Positioned.fill(
