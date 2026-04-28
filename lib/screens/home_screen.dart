@@ -941,6 +941,41 @@ class _HomeScreenState extends State<HomeScreen> {
         (coupon.couponCode ?? '').toLowerCase().contains(query);
   }
 
+  String _toTitleCase(String value) {
+    final words = value
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .toList();
+    if (words.isEmpty) return value.trim();
+    return words
+        .map(
+          (word) => word.length == 1
+              ? word.toUpperCase()
+              : '${word[0].toUpperCase()}${word.substring(1).toLowerCase()}',
+        )
+        .join(' ');
+  }
+
+  String _formatRestaurantLocationLine(Restaurant restaurant) {
+    final distance = restaurant.distance
+        .replaceAll('miles away', 'mi')
+        .replaceAll('mile away', 'mi')
+        .trim();
+    final city = _toTitleCase(restaurant.city);
+    return '$distance • $city';
+  }
+
+  String _formatCouponMetaLine(Coupon coupon, {required bool proximityOnly}) {
+    final parts = <String>[
+      coupon.shortExpiresLabel,
+      coupon.usageRule,
+      if (proximityOnly) 'Unlocked nearby',
+      if (coupon.couponCode != null) 'Code: ${coupon.couponCode}',
+    ];
+    return parts.join(' • ');
+  }
+
   List<Restaurant> filterRestaurants(List<Restaurant> allRestaurants) {
     final radius = selectedRadiusMiles();
     final center = activeSearchCenter;
@@ -1076,23 +1111,23 @@ class _HomeScreenState extends State<HomeScreen> {
     final contentQuery = generalSearchQuery.trim();
 
     if (contentQuery.isNotEmpty) {
-      return 'Showing "$contentQuery" \u2022 Restaurants: $restaurantCount \u2022 Coupons: $couponCount';
+      return '"$contentQuery" \u2022 $restaurantCount restaurants \u2022 $couponCount coupons';
     }
 
     if (usingCurrentLocation) {
-      return 'Using Live Location \u2022 Restaurants: $restaurantCount \u2022 Coupons: $couponCount';
+      return 'Live location \u2022 $restaurantCount restaurants \u2022 $couponCount coupons';
     }
 
     final query = typedSearchCenter?.label ?? searchQuery.trim();
     if (query.isNotEmpty) {
-      return 'Search: $query \u2022 Restaurants: $restaurantCount \u2022 Coupons: $couponCount';
+      return '$query \u2022 $restaurantCount restaurants \u2022 $couponCount coupons';
     }
 
     if (locationStatusMessage != null && locationStatusMessage!.isNotEmpty) {
       return locationStatusMessage!;
     }
 
-    return 'Restaurants: $restaurantCount \u2022 Coupons: $couponCount';
+    return '$restaurantCount restaurants \u2022 $couponCount coupons';
   }
 
   List<BoxShadow> _biteSaverTileShadows({
@@ -1443,7 +1478,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget buildCouponCard(Coupon coupon, BuildContext context) {
     final proximityOnly = isProximityCoupon(coupon);
-    final scheduleText = coupon.shortExpiresLabel;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -1479,7 +1513,10 @@ class _HomeScreenState extends State<HomeScreen> {
             blurRadius: 0,
             spreadRadius: 0,
           ),
-          ..._biteSaverTileShadows(strength: 0.90),
+          ..._biteSaverTileShadows(
+            strength: 0.98,
+            opacityBoost: 0.015,
+          ),
         ],
         child: Material(
           color: Colors.transparent,
@@ -1527,11 +1564,10 @@ class _HomeScreenState extends State<HomeScreen> {
             subtitle: Padding(
               padding: const EdgeInsets.only(top: 9),
               child: Text(
-                proximityOnly
-                    ? '$scheduleText - ${coupon.usageRule} - Unlocked nearby'
-                    : (coupon.couponCode == null
-                          ? '$scheduleText - ${coupon.usageRule}'
-                          : '$scheduleText - ${coupon.usageRule} - Code: ${coupon.couponCode}'),
+                _formatCouponMetaLine(
+                  coupon,
+                  proximityOnly: proximityOnly,
+                ),
                 style: TextStyle(
                   color: Colors.black.withOpacity(0.56),
                   fontSize: 12.6,
@@ -1544,7 +1580,7 @@ class _HomeScreenState extends State<HomeScreen> {
             trailing: const Icon(
               Icons.chevron_right,
               color: Color(0xFF94482E),
-              size: 21,
+              size: 22,
             ),
             onTap: () async {
               await Navigator.push(
@@ -1938,27 +1974,41 @@ class _HomeScreenState extends State<HomeScreen> {
         }
 
         final restaurant = filteredRestaurants[index];
+        final isFeaturedCard = index == 0;
         final shellRadius = BorderRadius.circular(20);
         final faceRadius = BorderRadius.circular(18);
-        final shellGradient = const LinearGradient(
+        final shellGradient = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFEEDBC9),
-            Color(0xFFD8BEA3),
-            Color(0xFFC7A17B),
-            Color(0xFFB58B63),
-          ],
-          stops: [0.0, 0.34, 0.72, 1.0],
+          colors: isFeaturedCard
+              ? const [
+                  Color(0xFFF0DECD),
+                  Color(0xFFDCC3A9),
+                  Color(0xFFCCA985),
+                  Color(0xFFBB9269),
+                ]
+              : const [
+                  Color(0xFFEEDBC9),
+                  Color(0xFFD8BEA3),
+                  Color(0xFFC7A17B),
+                  Color(0xFFB58B63),
+                ],
+          stops: const [0.0, 0.34, 0.72, 1.0],
         );
-        final faceGradient = const LinearGradient(
+        final faceGradient = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFFFFBF8),
-            Color(0xFFF7EDE3),
-            Color(0xFFEEDDCB),
-          ],
+          colors: isFeaturedCard
+              ? const [
+                  Color(0xFFFFFCF9),
+                  Color(0xFFF8EFE5),
+                  Color(0xFFF0E0D0),
+                ]
+              : const [
+                  Color(0xFFFFFBF8),
+                  Color(0xFFF7EDE3),
+                  Color(0xFFEEDDCB),
+                ],
         );
         final shellShadows = [
           const BoxShadow(
@@ -1968,16 +2018,16 @@ class _HomeScreenState extends State<HomeScreen> {
             spreadRadius: 0,
           ),
           ..._biteSaverTileShadows(
-            strength: 1.08,
-            opacityBoost: 0.03,
+            strength: isFeaturedCard ? 1.16 : 1.08,
+            opacityBoost: isFeaturedCard ? 0.05 : 0.03,
           ),
         ];
 
         return _RestaurantCardShellPressable(
           onTap: () => openRestaurantProfile(restaurant),
           title: restaurant.name,
-          subtitle:
-              '${restaurant.distance} - ${restaurant.city}, ${restaurant.zipCode}',
+          subtitle: _formatRestaurantLocationLine(restaurant),
+          isFeatured: isFeaturedCard,
           dealCount: restaurant.coupons.length,
           couponChildren: restaurant.coupons
               .map((coupon) => buildCouponCard(coupon, context))
@@ -2010,7 +2060,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return Material(
       color: Colors.transparent,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+        padding: const EdgeInsets.fromLTRB(16, 10, 16, 4),
         child: SizedBox(
           width: double.infinity,
           child: _biteSaverTile(
@@ -2046,7 +2096,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ..._biteSaverTileShadows(strength: 0.82),
             ],
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 4),
+              padding: const EdgeInsets.fromLTRB(10, 6, 10, 3),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -2101,8 +2151,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           filled: true,
                                           fillColor: const Color(0xFFFFFAF5),
                                           isDense: true,
-                                          hintText:
-                                              'Search restaurants or coupons',
+                                          hintText: 'Search restaurants',
                                           prefixIcon: const Icon(
                                             Icons.manage_search,
                                             color: Color(0xFFB7613F),
@@ -2110,9 +2159,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                           contentPadding:
                                               const EdgeInsets.fromLTRB(
                                                 14,
-                                                14,
+                                                12,
                                                 188,
-                                                14,
+                                                12,
                                               ),
                                           border: OutlineInputBorder(
                                             borderRadius:
@@ -2165,7 +2214,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                               ElevatedButton(
                                                 onPressed: runGeneralSearch,
                                                 style: ElevatedButton.styleFrom(
-                                                  minimumSize: const Size(0, 42),
+                                                  minimumSize: const Size(0, 38),
                                                   backgroundColor: const Color(
                                                     0xFFFFFBF7,
                                                   ),
@@ -2204,7 +2253,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 10),
+                                  const SizedBox(height: 8),
                                   Stack(
                                     alignment: Alignment.centerRight,
                                     children: [
@@ -2226,9 +2275,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                           contentPadding:
                                               const EdgeInsets.fromLTRB(
                                                 14,
-                                                14,
+                                                12,
                                                 188,
-                                                14,
+                                                12,
                                               ),
                                           border: OutlineInputBorder(
                                             borderRadius:
@@ -2287,7 +2336,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                         allRestaurants,
                                                       ),
                                                 style: ElevatedButton.styleFrom(
-                                                  minimumSize: const Size(0, 42),
+                                                  minimumSize: const Size(0, 38),
                                                   backgroundColor: const Color(
                                                     0xFFFFFBF7,
                                                   ),
@@ -2338,7 +2387,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 10),
+                                  const SizedBox(height: 8),
                                   Align(
                                     alignment: Alignment.center,
                                     child: ConstrainedBox(
@@ -2362,7 +2411,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                     ElevatedButton.styleFrom(
                                                       minimumSize:
                                                           const Size.fromHeight(
-                                                            40,
+                                                            38,
                                                           ),
                                                       backgroundColor:
                                                           const Color(
@@ -2377,7 +2426,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                           Colors.transparent,
                                                       padding:
                                                           const EdgeInsets.symmetric(
-                                                            vertical: 10,
+                                                            vertical: 9,
                                                           ),
                                                       tapTargetSize:
                                                           MaterialTapTargetSize
@@ -2420,7 +2469,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ),
                                           const SizedBox(width: 10),
                                           SizedBox(
-                                            height: 40,
+                                            height: 38,
                                             child: PressableScale(
                                               enabled: !isGettingLocation,
                                               child: _biteSaverRedTileControl(
@@ -2465,111 +2514,102 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(height: 12),
-                                  Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        'Within Radius',
-                                        style: TextStyle(
-                                          color: Theme.of(
-                                            context,
-                                          ).colorScheme.onSurfaceVariant,
-                                          fontSize: 12,
+                                  const SizedBox(height: 6),
+                                  _biteSaverLightTileControl(
+                                    DropdownButtonFormField<String>(
+                                      initialValue: selectedRadius,
+                                      decoration: InputDecoration(
+                                        filled: true,
+                                        fillColor: const Color(0xFFFFFAF5),
+                                        isDense: true,
+                                        contentPadding:
+                                            const EdgeInsets.symmetric(
+                                              horizontal: 18,
+                                              vertical: 9,
+                                            ),
+                                        border: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                        enabledBorder: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          borderSide: BorderSide.none,
+                                        ),
+                                        focusedBorder: OutlineInputBorder(
+                                          borderRadius:
+                                              BorderRadius.circular(12),
+                                          borderSide: BorderSide.none,
                                         ),
                                       ),
-                                      _biteSaverLightTileControl(
-                                        DropdownButtonFormField<String>(
-                                          initialValue: selectedRadius,
-                                          decoration: InputDecoration(
-                                            filled: true,
-                                            fillColor: const Color(
-                                              0xFFFFFAF5,
-                                            ),
-                                            isDense: true,
-                                            contentPadding:
-                                                const EdgeInsets.symmetric(
-                                                  horizontal: 18,
-                                                  vertical: 10,
-                                                ),
-                                            border: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              borderSide: BorderSide.none,
-                                            ),
-                                            enabledBorder: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              borderSide: BorderSide.none,
-                                            ),
-                                            focusedBorder: OutlineInputBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(12),
-                                              borderSide: BorderSide.none,
-                                            ),
-                                          ),
-                                          iconEnabledColor: const Color(
-                                            0xFFB7613F,
-                                          ),
-                                          items: const [
-                                            DropdownMenuItem(
-                                              value: '1 mile',
-                                              child: Text('1 mile'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: '3 miles',
-                                              child: Text('3 miles'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: '5 miles',
-                                              child: Text('5 miles'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: '10 miles',
-                                              child: Text('10 miles'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: '15 miles',
-                                              child: Text('15 miles'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: '20 miles',
-                                              child: Text('20 miles'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: '30 miles',
-                                              child: Text('30 miles'),
-                                            ),
-                                          ],
-                                          onChanged: (value) {
-                                            if (value != null) {
-                                              setState(() {
-                                                selectedRadius = value;
-                                              });
-                                              _saveSelectedRadius(value);
-                                            }
-                                          },
+                                      iconEnabledColor: const Color(
+                                        0xFFB7613F,
+                                      ),
+                                      selectedItemBuilder: (context) => const [
+                                        Text('Within 1 mile'),
+                                        Text('Within 3 miles'),
+                                        Text('Within 5 miles'),
+                                        Text('Within 10 miles'),
+                                        Text('Within 15 miles'),
+                                        Text('Within 20 miles'),
+                                        Text('Within 30 miles'),
+                                      ],
+                                      items: const [
+                                        DropdownMenuItem(
+                                          value: '1 mile',
+                                          child: Text('1 mile'),
                                         ),
-                                        shadows: const [
-                                          BoxShadow(
-                                            color: Color.fromRGBO(120, 80, 40, 0.08),
-                                            offset: Offset(0, 1),
-                                            blurRadius: 0,
-                                            spreadRadius: 0,
-                                          ),
-                                          BoxShadow(
-                                            color: Color.fromRGBO(94, 62, 30, 0.035),
-                                            offset: Offset(0, 2),
-                                            blurRadius: 6,
-                                            spreadRadius: 0,
-                                          ),
-                                        ],
+                                        DropdownMenuItem(
+                                          value: '3 miles',
+                                          child: Text('3 miles'),
+                                        ),
+                                        DropdownMenuItem(
+                                          value: '5 miles',
+                                          child: Text('5 miles'),
+                                        ),
+                                        DropdownMenuItem(
+                                          value: '10 miles',
+                                          child: Text('10 miles'),
+                                        ),
+                                        DropdownMenuItem(
+                                          value: '15 miles',
+                                          child: Text('15 miles'),
+                                        ),
+                                        DropdownMenuItem(
+                                          value: '20 miles',
+                                          child: Text('20 miles'),
+                                        ),
+                                        DropdownMenuItem(
+                                          value: '30 miles',
+                                          child: Text('30 miles'),
+                                        ),
+                                      ],
+                                      onChanged: (value) {
+                                        if (value != null) {
+                                          setState(() {
+                                            selectedRadius = value;
+                                          });
+                                          _saveSelectedRadius(value);
+                                        }
+                                      },
+                                    ),
+                                    shadows: const [
+                                      BoxShadow(
+                                        color: Color.fromRGBO(120, 80, 40, 0.08),
+                                        offset: Offset(0, 1),
+                                        blurRadius: 0,
+                                        spreadRadius: 0,
+                                      ),
+                                      BoxShadow(
+                                        color: Color.fromRGBO(94, 62, 30, 0.035),
+                                        offset: Offset(0, 2),
+                                        blurRadius: 6,
+                                        spreadRadius: 0,
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 4),
+                                  const SizedBox(height: 2),
                                 if (compactStatusLine(
                                     filteredRestaurants,
                                   ).isNotEmpty)
@@ -2578,7 +2618,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       child: Text(
                                         compactStatusLine(filteredRestaurants),
                                         style: TextStyle(
-                                          fontSize: 11.6,
+                                          fontSize: 11.2,
                                           color:
                                               (locationStatusMessage != null &&
                                                   locationStatusMessage!
@@ -2588,12 +2628,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                               ? const Color(0xFFB7613F)
                                               : Colors.black54,
                                           fontWeight: FontWeight.w400,
-                                          height: 1.2,
+                                          height: 1.15,
                                           letterSpacing: 0.02,
                                         ),
                                       ),
                                     ),
-                                  const SizedBox(height: 2),
+                                  const SizedBox(height: 1),
                                 ],
                               ),
                               Positioned(
@@ -2601,10 +2641,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 right: -6,
                                 child: IconButton(
                                   onPressed: _collapseHeader,
-                                  icon: const Icon(
-                                    Icons.keyboard_arrow_up,
-                                    color: Color(0xFFB7613F),
-                                  ),
+                                  icon: const SizedBox.shrink(),
                                   tooltip: 'Collapse filters',
                                   visualDensity: VisualDensity.compact,
                                 ),
@@ -2887,6 +2924,7 @@ class _RestaurantCardShellPressable extends StatefulWidget {
   final VoidCallback onTap;
   final String title;
   final String subtitle;
+  final bool isFeatured;
   final int dealCount;
   final List<Widget> couponChildren;
   final BorderRadius shellRadius;
@@ -2896,6 +2934,7 @@ class _RestaurantCardShellPressable extends StatefulWidget {
     required this.onTap,
     required this.title,
     required this.subtitle,
+    required this.isFeatured,
     required this.dealCount,
     required this.couponChildren,
     required this.shellRadius,
@@ -2940,26 +2979,47 @@ class _RestaurantCardShellPressableState
             ),
             const SizedBox(width: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
               decoration: BoxDecoration(
-                color: const Color(0x2294482E),
+                color: widget.isFeatured
+                    ? const Color(0x3694482E)
+                    : const Color(0x2894482E),
                 borderRadius: BorderRadius.circular(999),
-                boxShadow: const [
+                boxShadow: [
                   BoxShadow(
-                    color: Color.fromRGBO(120, 80, 40, 0.10),
-                    blurRadius: 3,
-                    offset: Offset(0, 1),
+                    color: widget.isFeatured
+                        ? const Color.fromRGBO(120, 80, 40, 0.14)
+                        : const Color.fromRGBO(120, 80, 40, 0.10),
+                    blurRadius: widget.isFeatured ? 4 : 3,
+                    offset: const Offset(0, 1),
                   ),
                 ],
               ),
-              child: Text(
-                '${widget.dealCount} ${widget.dealCount == 1 ? 'deal' : 'deals'}',
-                style: const TextStyle(
-                  color: Color(0xFF5F3824),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  height: 1.0,
-                  letterSpacing: 0.01,
+              child: RichText(
+                text: TextSpan(
+                  style: TextStyle(
+                    color: widget.isFeatured
+                        ? const Color(0xFF53301E)
+                        : const Color(0xFF5A3522),
+                    fontSize: 11,
+                    height: 1.0,
+                    letterSpacing: 0.0,
+                  ),
+                  children: [
+                    TextSpan(
+                      text: '${widget.dealCount}',
+                      style: TextStyle(
+                        fontWeight: widget.isFeatured
+                            ? FontWeight.w800
+                            : FontWeight.w700,
+                      ),
+                    ),
+                    const TextSpan(text: ' '),
+                    TextSpan(
+                      text: widget.dealCount == 1 ? 'deal' : 'deals',
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -2971,7 +3031,7 @@ class _RestaurantCardShellPressableState
             ),
           ],
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 5),
         Text(
           widget.subtitle,
           style: TextStyle(
