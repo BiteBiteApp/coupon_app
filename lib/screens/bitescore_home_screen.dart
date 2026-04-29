@@ -379,8 +379,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     final filtered = entries.where((entry) {
       final matchesDishQuery =
           dishQuery.isEmpty ||
-          entry.dish.name.toLowerCase().contains(dishQuery) ||
-          entry.restaurant.name.toLowerCase().contains(dishQuery);
+          _matchesSearchText(entry.dish.name, dishQuery) ||
+          _matchesSearchText(entry.restaurant.name, dishQuery) ||
+          _matchesCategorySearch(entry.dish.category, dishQuery);
 
       if (!matchesDishQuery) {
         return false;
@@ -407,6 +408,77 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     filtered.sort(_compareEntriesForSelectedSort);
 
     return filtered;
+  }
+
+  bool _matchesSearchText(String source, String query) {
+    final normalizedSource = _normalizeSearchText(source);
+    final normalizedQuery = _normalizeSearchText(query);
+    if (normalizedQuery.isEmpty) {
+      return true;
+    }
+    if (normalizedSource.contains(normalizedQuery)) {
+      return true;
+    }
+
+    final sourceTerms = _searchTerms(normalizedSource);
+    final queryTerms = _searchTerms(normalizedQuery);
+    return queryTerms.any(sourceTerms.contains);
+  }
+
+  bool _matchesCategorySearch(String? category, String query) {
+    final normalizedCategory = _normalizeSearchText(category ?? '');
+    final normalizedQuery = _normalizeSearchText(query);
+    if (normalizedQuery.isEmpty) {
+      return true;
+    }
+    if (normalizedCategory.isEmpty) {
+      return false;
+    }
+    if (normalizedCategory.contains(normalizedQuery) ||
+        normalizedQuery.contains(normalizedCategory)) {
+      return true;
+    }
+
+    final categoryTerms = _searchTerms(normalizedCategory);
+    final queryTerms = _searchTerms(normalizedQuery);
+    return queryTerms.any(categoryTerms.contains);
+  }
+
+  Set<String> _searchTerms(String value) {
+    final terms = <String>{};
+    final normalized = _normalizeSearchText(value);
+    if (normalized.isNotEmpty) {
+      terms.add(normalized);
+    }
+    for (final token in normalized.split(' ')) {
+      if (token.isEmpty) {
+        continue;
+      }
+      terms.add(token);
+      terms.add(_singularSearchTerm(token));
+    }
+    return terms;
+  }
+
+  String _normalizeSearchText(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .trim();
+  }
+
+  String _singularSearchTerm(String value) {
+    if (value.length > 3 && value.endsWith('ies')) {
+      return '${value.substring(0, value.length - 3)}y';
+    }
+    if (value.length > 3 && value.endsWith('es')) {
+      return value.substring(0, value.length - 2);
+    }
+    if (value.length > 2 && value.endsWith('s')) {
+      return value.substring(0, value.length - 1);
+    }
+    return value;
   }
 
   int _compareEntriesForSelectedSort(
@@ -1102,6 +1174,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     final scoreLabel = entry.aggregate.overallBiteScore > 0
         ? entry.aggregate.overallBiteScore.toStringAsFixed(0)
         : '--';
+    final category = entry.dish.category?.trim() ?? '';
     final restaurantEntries = entries
         .where((item) => item.restaurant.id == entry.restaurant.id)
         .toList();
@@ -1154,15 +1227,35 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                             ),
                           ],
                         ),
-                        child: Text(
-                          entry.dish.name,
-                          style: const TextStyle(
-                            color: BiteRaterTheme.ink,
-                            fontSize: 19,
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: 0.0,
-                            height: 1.08,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              entry.dish.name,
+                              style: const TextStyle(
+                                color: BiteRaterTheme.ink,
+                                fontSize: 19,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 0.0,
+                                height: 1.08,
+                              ),
+                            ),
+                            if (category.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                category,
+                                style: TextStyle(
+                                  color: BiteRaterTheme.mutedInk.withValues(
+                                    alpha: 0.88,
+                                  ),
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  height: 1.0,
+                                ),
+                              ),
+                            ],
+                          ],
                         ),
                       ),
                     ),

@@ -580,6 +580,26 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     );
   }
 
+  Widget _buildDishCategoryChip(String category) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: BiteRaterTheme.ocean.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: BiteRaterTheme.ocean.withValues(alpha: 0.18)),
+      ),
+      child: Text(
+        category,
+        style: const TextStyle(
+          color: BiteRaterTheme.ocean,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          height: 1.0,
+        ),
+      ),
+    );
+  }
+
   Widget _buildReviewMetricGrid(DishReview review) {
     final metrics = <Widget>[
       _buildMiniMetric('Enjoyment', review.overallImpression),
@@ -1519,6 +1539,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
               );
           final currentDish = detail.dish;
           final currentRestaurant = detail.restaurant;
+          final category = currentDish.category?.trim() ?? '';
           final visibleReviews = detail.reviews
               .take(_visibleReviewCount)
               .toList();
@@ -1585,6 +1606,10 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                     ],
                                   ),
                                   const SizedBox(height: 6),
+                                  if (category.isNotEmpty) ...[
+                                    _buildDishCategoryChip(category),
+                                    const SizedBox(height: 6),
+                                  ],
                                   InkWell(
                                     onTap: _openRestaurantPage,
                                     borderRadius: BorderRadius.circular(8),

@@ -4010,6 +4010,30 @@ class BiteScoreService {
         if (existingDish != null &&
             existingDish.isActive &&
             !existingDish.isMerged) {
+          final trimmedCategory = request.category.trim();
+          final existingCategory = existingDish.category?.trim() ?? '';
+          if (trimmedCategory.isNotEmpty &&
+              existingCategory != trimmedCategory) {
+            await doc.reference.set({
+              'category': trimmedCategory,
+              'updatedAt': FieldValue.serverTimestamp(),
+            }, SetOptions(merge: true));
+
+            return BitescoreDish(
+              id: existingDish.id,
+              restaurantId: existingDish.restaurantId,
+              restaurantName: existingDish.restaurantName,
+              name: existingDish.name,
+              normalizedName: existingDish.normalizedName,
+              category: trimmedCategory,
+              priceLabel: existingDish.priceLabel,
+              isActive: existingDish.isActive,
+              mergedIntoDishId: existingDish.mergedIntoDishId,
+              createdAt: existingDish.createdAt,
+              updatedAt: DateTime.now(),
+            );
+          }
+
           return existingDish;
         }
       }

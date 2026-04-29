@@ -46,6 +46,21 @@ class BiteScoreCreateRateScreen extends StatefulWidget {
 }
 
 class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
+  static const String _manualCategoryOption = 'Enter manually';
+  static const List<String> _dishCategoryOptions = <String>[
+    'Pizza',
+    'Sandwich',
+    'Burger',
+    'Tacos',
+    'Pasta',
+    'Wings',
+    'Breakfast',
+    'Seafood',
+    'Steak',
+    'Salad',
+    'Dessert',
+    'Appetizer',
+  ];
   static const List<String> _manualStateOptions = <String>[
     'AL',
     'AK',
@@ -529,6 +544,8 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
   final TextEditingController streetAddressController = TextEditingController();
   final TextEditingController dishNameController = TextEditingController();
   final TextEditingController categoryController = TextEditingController();
+  final MenuController _categoryMenuController = MenuController();
+  final FocusNode _categoryFocusNode = FocusNode();
   final TextEditingController priceLabelController = TextEditingController();
   final TextEditingController headlineController = TextEditingController();
   final TextEditingController notesController = TextEditingController();
@@ -569,6 +586,11 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       qualityScore != null &&
       valueScore != null;
 
+  String get _categoryDisplayText {
+    final category = categoryController.text.trim();
+    return category.isEmpty ? 'Choose a category' : category;
+  }
+
   double get overallBiteScore {
     if (!_hasRequiredScores) {
       return 0;
@@ -585,6 +607,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
   @override
   void initState() {
     super.initState();
+    _categoryFocusNode.addListener(_handleCategoryFocusChanged);
     _seedExistingDishValues();
     _seedExistingRestaurantValues();
     if (isRestaurantSelectionMode) {
@@ -621,6 +644,17 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     streetAddressController.text = restaurant.address;
   }
 
+  void _handleCategoryFocusChanged() {
+    if (!_categoryFocusNode.hasFocus) {
+      _categoryMenuController.close();
+    }
+  }
+
+  void _finishManualCategoryEntry() {
+    _categoryFocusNode.unfocus();
+    _categoryMenuController.close();
+  }
+
   @override
   void dispose() {
     restaurantNameController.dispose();
@@ -629,6 +663,8 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     zipCodeController.dispose();
     streetAddressController.dispose();
     dishNameController.dispose();
+    _categoryFocusNode.removeListener(_handleCategoryFocusChanged);
+    _categoryFocusNode.dispose();
     categoryController.dispose();
     priceLabelController.dispose();
     headlineController.dispose();
@@ -1141,6 +1177,136 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
         ),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
       ),
+    );
+  }
+
+  Widget _buildCategoryInput() {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return MenuAnchor(
+          controller: _categoryMenuController,
+          menuChildren: [
+            SizedBox(
+              width: constraints.maxWidth,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _manualCategoryOption,
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: BiteRaterTheme.ink,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    TextField(
+                      controller: categoryController,
+                      focusNode: _categoryFocusNode,
+                      onChanged: (_) {
+                        setState(() {});
+                      },
+                      onSubmitted: (_) => _finishManualCategoryEntry(),
+                      decoration: InputDecoration(
+                        isDense: true,
+                        filled: true,
+                        fillColor: Colors.white,
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 12,
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: BiteRaterTheme.lineBlue,
+                          ),
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: const BorderSide(
+                            color: BiteRaterTheme.grape,
+                            width: 1.4,
+                          ),
+                        ),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            ..._dishCategoryOptions.map(
+              (category) => MenuItemButton(
+                onPressed: () {
+                  setState(() {
+                    categoryController.text = category;
+                  });
+                  _categoryMenuController.close();
+                },
+                child: SizedBox(
+                  width: constraints.maxWidth,
+                  child: Text(category),
+                ),
+              ),
+            ),
+          ],
+          builder: (context, controller, child) {
+            return InkWell(
+              borderRadius: BorderRadius.circular(14),
+              onTap: () {
+                if (controller.isOpen) {
+                  controller.close();
+                } else {
+                  controller.open();
+                }
+              },
+              child: InputDecorator(
+                decoration: InputDecoration(
+                  labelText: 'Category (Optional)',
+                  filled: true,
+                  fillColor: Colors.white,
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(
+                      color: BiteRaterTheme.lineBlue,
+                    ),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                    borderSide: const BorderSide(
+                      color: BiteRaterTheme.grape,
+                      width: 1.4,
+                    ),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _categoryDisplayText,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          color: categoryController.text.trim().isEmpty
+                              ? Theme.of(context).hintColor
+                              : BiteRaterTheme.ink,
+                        ),
+                      ),
+                    ),
+                    const Icon(Icons.arrow_drop_down),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -2074,14 +2240,9 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
         _buildDishSuggestionList(),
         const SizedBox(height: 16),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: _buildField(
-                controller: categoryController,
-                label: 'Category (Optional)',
-                hint: 'Example: Pizza',
-              ),
-            ),
+            Expanded(child: _buildCategoryInput()),
             const SizedBox(width: 12),
             Expanded(
               child: _buildField(
