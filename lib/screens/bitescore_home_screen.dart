@@ -39,6 +39,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   static const double _collapsedHeaderExtent = 86;
   static const double _expandedHeaderExtent = 300;
   static const String _selectedRadiusPreferenceKey = 'selected_radius';
+  static const String _defaultSort = 'Highest BiteScore';
 
   final TextEditingController dishSearchController = TextEditingController();
   final TextEditingController locationSearchController =
@@ -47,7 +48,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   final ScrollController _listScrollController = ScrollController();
 
   String selectedRadius = '15 miles';
-  String selectedSort = 'Highest BiteScore';
+  String selectedSort = _defaultSort;
   bool isGettingLocation = false;
   bool isSearchingLocation = false;
   String? _launchLocationMessage;
@@ -412,7 +413,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     BiteScoreHomeEntry a,
     BiteScoreHomeEntry b,
   ) {
-    switch (selectedSort) {
+    switch (_normalizeSortOption(selectedSort)) {
       case 'Closest':
         final aDistance = _distanceMilesFor(a) ?? double.infinity;
         final bDistance = _distanceMilesFor(b) ?? double.infinity;
@@ -457,6 +458,23 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
       default:
         return _compareByHighestBiteScore(a, b);
     }
+  }
+
+  String _normalizeSortOption(String? value) {
+    return switch (value) {
+      'Highest BiteScore' => 'Highest BiteScore',
+      'Top Rated' => 'Highest BiteScore',
+      'Highest Rated' => 'Highest BiteScore',
+      'Most Reviewed' => 'Most Reviewed',
+      'Closest' => 'Closest',
+      'Close By' => 'Closest',
+      'Nearby' => 'Closest',
+      'Best Value' => 'Best Value',
+      'Best Flavor' => 'Best Flavor',
+      'Highest Quality' => 'Highest Quality',
+      'Most Enjoyed' => 'Most Enjoyed',
+      _ => _defaultSort,
+    };
   }
 
   int _compareByHighestBiteScore(BiteScoreHomeEntry a, BiteScoreHomeEntry b) {
@@ -890,7 +908,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: DropdownButtonFormField<String>(
-                                          initialValue: selectedSort,
+                                          initialValue: _normalizeSortOption(
+                                            selectedSort,
+                                          ),
                                           decoration: _inputDecoration(
                                             hintText: 'Sort',
                                           ),
@@ -927,7 +947,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                                           onChanged: (value) {
                                             if (value != null) {
                                               setState(() {
-                                                selectedSort = value;
+                                                selectedSort =
+                                                    _normalizeSortOption(value);
                                               });
                                             }
                                           },
