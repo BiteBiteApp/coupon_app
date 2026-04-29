@@ -434,14 +434,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     if (normalizedCategory.isEmpty) {
       return false;
     }
-    if (normalizedCategory.contains(normalizedQuery) ||
-        normalizedQuery.contains(normalizedCategory)) {
-      return true;
-    }
-
-    final categoryTerms = _searchTerms(normalizedCategory);
-    final queryTerms = _searchTerms(normalizedQuery);
-    return queryTerms.any(categoryTerms.contains);
+    return normalizedCategory == normalizedQuery ||
+        '${normalizedCategory}s' == normalizedQuery ||
+        '${normalizedQuery}s' == normalizedCategory;
   }
 
   Set<String> _searchTerms(String value) {

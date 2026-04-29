@@ -31,6 +31,21 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
 }
 
 class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
+  static const List<String> _dishCategoryOptions = <String>[
+    'Pizza',
+    'Sandwich',
+    'Burger',
+    'Tacos',
+    'Pasta',
+    'Wings',
+    'Breakfast',
+    'Seafood',
+    'Steak',
+    'Salad',
+    'Dessert',
+    'Appetizer',
+  ];
+
   Future<_DishDetailData>? _detailFuture;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _reviewSectionKey = GlobalKey();
@@ -45,6 +60,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   bool _isSaving = false;
   bool _isFavoriteDish = false;
   bool _isSavingFavoriteDish = false;
+  bool _hasDishChanges = false;
   int _visibleReviewCount = 3;
   User? get _currentUser => FirebaseAuth.instance.currentUser;
   bool get _isOwner =>
@@ -71,6 +87,10 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
 
   void _refresh() {
     _detailFuture = _loadDetailData();
+  }
+
+  void _popWithDishChanges() {
+    Navigator.of(context).pop(_hasDishChanges);
   }
 
   Future<_DishDetailData> _loadDetailData() async {
@@ -157,6 +177,53 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       ..showSnackBar(
         SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
       );
+  }
+
+  Future<void> _openDishCategoryEditor(BitescoreDish dish) async {
+    final canWrite = await BiteScoreSignInGate.ensureSignedInForWrite(context);
+    if (!canWrite || !mounted) {
+      return;
+    }
+
+    final category = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return _DishCategoryDialog(
+          initialCategory: dish.category,
+          categoryOptions: _dishCategoryOptions,
+        );
+      },
+    );
+
+    if (category == null || !mounted) {
+      return;
+    }
+
+    try {
+      await BiteScoreService.updateDishAsOwner(
+        dish: dish,
+        name: dish.name,
+        category: category,
+        priceLabel: dish.priceLabel ?? '',
+        isActive: dish.isActive,
+      );
+      if (!mounted) {
+        return;
+      }
+      _hasDishChanges = true;
+      setState(_refresh);
+      _showSnackBar('Category updated.');
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not update this category right now.',
+        ),
+      );
+    }
   }
 
   Future<void> _scrollToReviewSection() async {
@@ -596,6 +663,30 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
           fontWeight: FontWeight.w700,
           height: 1.0,
         ),
+      ),
+    );
+  }
+
+  Widget _buildDishCategoryControl(BitescoreDish dish) {
+    final category = dish.category?.trim() ?? '';
+
+    if (category.isNotEmpty) {
+      return _buildDishCategoryChip(category);
+    }
+
+    return TextButton(
+      onPressed: () => _openDishCategoryEditor(dish),
+      style: TextButton.styleFrom(
+        foregroundColor: BiteRaterTheme.mutedInk,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        side: const BorderSide(color: BiteRaterTheme.lineBlue),
+        shape: const StadiumBorder(),
+      ),
+      child: const Text(
+        '+ Add category',
+        style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
       ),
     );
   }
@@ -1453,342 +1544,354 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   Widget build(BuildContext context) {
     final entry = _currentEntry;
 
-    return Scaffold(
-      backgroundColor: BiteRaterTheme.pageBackground,
-      appBar: AppBar(
-        title: const Text('Dish Details'),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            tooltip: _isFavoriteDish ? 'Unsave dish' : 'Save dish',
-            onPressed: _isSavingFavoriteDish ? null : _toggleDishFavorite,
-            icon: Icon(
-              _isFavoriteDish ? Icons.favorite : Icons.favorite_border,
-              color: _isFavoriteDish
-                  ? BiteRaterTheme.coral
-                  : BiteRaterTheme.grape,
-            ),
-          ),
-          PopupMenuButton<String>(
-            tooltip: 'Dish actions',
-            onSelected: (_) => _reportDish(),
-            itemBuilder: (context) => const [
-              PopupMenuItem<String>(
-                value: 'report_dish',
-                child: Text('Report dish'),
+    return PopScope<bool>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) {
+          return;
+        }
+        _popWithDishChanges();
+      },
+      child: Scaffold(
+        backgroundColor: BiteRaterTheme.pageBackground,
+        appBar: AppBar(
+          leading: BackButton(onPressed: _popWithDishChanges),
+          title: const Text('Dish Details'),
+          centerTitle: true,
+          actions: [
+            IconButton(
+              tooltip: _isFavoriteDish ? 'Unsave dish' : 'Save dish',
+              onPressed: _isSavingFavoriteDish ? null : _toggleDishFavorite,
+              icon: Icon(
+                _isFavoriteDish ? Icons.favorite : Icons.favorite_border,
+                color: _isFavoriteDish
+                    ? BiteRaterTheme.coral
+                    : BiteRaterTheme.grape,
               ),
-            ],
-          ),
-        ],
-      ),
-      body: FutureBuilder<_DishDetailData>(
-        future: _detailFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return Column(
-              children: [
-                buildPersistentAppModeSwitcher(context),
-                const Expanded(
-                  child: Center(child: CircularProgressIndicator()),
+            ),
+            PopupMenuButton<String>(
+              tooltip: 'Dish actions',
+              onSelected: (_) => _reportDish(),
+              itemBuilder: (context) => const [
+                PopupMenuItem<String>(
+                  value: 'report_dish',
+                  child: Text('Report dish'),
                 ),
               ],
-            );
-          }
+            ),
+          ],
+        ),
+        body: FutureBuilder<_DishDetailData>(
+          future: _detailFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Column(
+                children: [
+                  buildPersistentAppModeSwitcher(context),
+                  const Expanded(
+                    child: Center(child: CircularProgressIndicator()),
+                  ),
+                ],
+              );
+            }
 
-          if (snapshot.hasError) {
+            if (snapshot.hasError) {
+              return Column(
+                children: [
+                  buildPersistentAppModeSwitcher(context),
+                  Expanded(
+                    child: Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'Could not load dish details.',
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 12),
+                            ElevatedButton(
+                              onPressed: () {
+                                setState(_refresh);
+                              },
+                              child: const Text('Try Again'),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            }
+
+            final detail =
+                snapshot.data ??
+                _DishDetailData(
+                  dish: entry.dish,
+                  restaurant: entry.restaurant,
+                  aggregate: entry.aggregate,
+                  reviews: const <DishReview>[],
+                  trustByReviewId: const <String, ReviewTrustSummary>{},
+                  reviewerBadgesByUserId: const <String, String>{},
+                  reviewerNamesByUserId: const <String, String>{},
+                );
+            final currentDish = detail.dish;
+            final currentRestaurant = detail.restaurant;
+            final visibleReviews = detail.reviews
+                .take(_visibleReviewCount)
+                .toList();
+            final hasMoreReviews =
+                detail.reviews.length > visibleReviews.length;
+
             return Column(
               children: [
                 buildPersistentAppModeSwitcher(context),
                 Expanded(
-                  child: Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text(
-                            'Could not load dish details.',
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 12),
-                          ElevatedButton(
-                            onPressed: () {
-                              setState(_refresh);
-                            },
-                            child: const Text('Try Again'),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            );
-          }
-
-          final detail =
-              snapshot.data ??
-              _DishDetailData(
-                dish: entry.dish,
-                restaurant: entry.restaurant,
-                aggregate: entry.aggregate,
-                reviews: const <DishReview>[],
-                trustByReviewId: const <String, ReviewTrustSummary>{},
-                reviewerBadgesByUserId: const <String, String>{},
-                reviewerNamesByUserId: const <String, String>{},
-              );
-          final currentDish = detail.dish;
-          final currentRestaurant = detail.restaurant;
-          final category = currentDish.category?.trim() ?? '';
-          final visibleReviews = detail.reviews
-              .take(_visibleReviewCount)
-              .toList();
-          final hasMoreReviews = detail.reviews.length > visibleReviews.length;
-
-          return Column(
-            children: [
-              buildPersistentAppModeSwitcher(context),
-              Expanded(
-                child: SafeArea(
-                  top: false,
-                  child: ScrollConfiguration(
-                    behavior: ScrollConfiguration.of(
-                      context,
-                    ).copyWith(overscroll: false),
-                    child: SingleChildScrollView(
-                      controller: _scrollController,
-                      physics: const ClampingScrollPhysics(),
-                      padding: EdgeInsets.fromLTRB(
-                        16,
-                        16,
-                        16,
-                        24 + MediaQuery.of(context).padding.bottom,
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          BiteRaterTheme.liftedCard(
-                            radius: 24,
-                            borderColor: BiteRaterTheme.peach.withOpacity(0.22),
-                            child: Padding(
-                              padding: const EdgeInsets.all(16),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Row(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.center,
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          currentDish.name,
-                                          style: const TextStyle(
-                                            color: BiteRaterTheme.ink,
-                                            fontSize: 26,
-                                            fontWeight: FontWeight.w900,
-                                            letterSpacing: 0.1,
-                                            height: 1.08,
-                                          ),
-                                          maxLines: 3,
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 12),
-                                      Flexible(
-                                        child: Align(
-                                          alignment: Alignment.topRight,
-                                          child: _buildBiteScoreActionButton(
-                                            onPressed: _scrollToReviewSection,
-                                            label: 'Rate & Review',
+                  child: SafeArea(
+                    top: false,
+                    child: ScrollConfiguration(
+                      behavior: ScrollConfiguration.of(
+                        context,
+                      ).copyWith(overscroll: false),
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        physics: const ClampingScrollPhysics(),
+                        padding: EdgeInsets.fromLTRB(
+                          16,
+                          16,
+                          16,
+                          24 + MediaQuery.of(context).padding.bottom,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            BiteRaterTheme.liftedCard(
+                              radius: 24,
+                              borderColor: BiteRaterTheme.peach.withOpacity(
+                                0.22,
+                              ),
+                              child: Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.center,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            currentDish.name,
+                                            style: const TextStyle(
+                                              color: BiteRaterTheme.ink,
+                                              fontSize: 26,
+                                              fontWeight: FontWeight.w900,
+                                              letterSpacing: 0.1,
+                                              height: 1.08,
+                                            ),
+                                            maxLines: 3,
+                                            overflow: TextOverflow.ellipsis,
                                           ),
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 6),
-                                  if (category.isNotEmpty) ...[
-                                    _buildDishCategoryChip(category),
+                                        const SizedBox(width: 12),
+                                        Flexible(
+                                          child: Align(
+                                            alignment: Alignment.topRight,
+                                            child: _buildBiteScoreActionButton(
+                                              onPressed: _scrollToReviewSection,
+                                              label: 'Rate & Review',
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                     const SizedBox(height: 6),
-                                  ],
-                                  InkWell(
-                                    onTap: _openRestaurantPage,
-                                    borderRadius: BorderRadius.circular(8),
-                                    child: Padding(
-                                      padding: const EdgeInsets.symmetric(
-                                        vertical: 2,
-                                      ),
-                                      child: Text(
-                                        currentRestaurant.name,
-                                        style: const TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w700,
-                                          color: BiteRaterTheme.restaurantTitle,
+                                    _buildDishCategoryControl(currentDish),
+                                    const SizedBox(height: 6),
+                                    InkWell(
+                                      onTap: _openRestaurantPage,
+                                      borderRadius: BorderRadius.circular(8),
+                                      child: Padding(
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 2,
+                                        ),
+                                        child: Text(
+                                          currentRestaurant.name,
+                                          style: const TextStyle(
+                                            fontSize: 15,
+                                            fontWeight: FontWeight.w700,
+                                            color:
+                                                BiteRaterTheme.restaurantTitle,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ),
-                                  const SizedBox(height: 3),
-                                  Text(
-                                    '${currentRestaurant.city}, ${currentRestaurant.zipCode}',
-                                    style: const TextStyle(
-                                      color: BiteRaterTheme.mutedInk,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  if (widget.distanceLabel != null) ...[
                                     const SizedBox(height: 3),
                                     Text(
-                                      widget.distanceLabel!,
+                                      '${currentRestaurant.city}, ${currentRestaurant.zipCode}',
                                       style: const TextStyle(
                                         color: BiteRaterTheme.mutedInk,
                                         fontSize: 13,
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
+                                    if (widget.distanceLabel != null) ...[
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        widget.distanceLabel!,
+                                        style: const TextStyle(
+                                          color: BiteRaterTheme.mutedInk,
+                                          fontSize: 13,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
+                                    const SizedBox(height: 6),
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: TextButton.icon(
+                                        onPressed: _reportDish,
+                                        icon: const Icon(
+                                          Icons.flag_outlined,
+                                          size: 18,
+                                        ),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: BiteRaterTheme.coral,
+                                        ),
+                                        label: const Text('Report dish'),
+                                      ),
+                                    ),
+                                    BiteRaterTheme.softDivider(),
+                                    Center(
+                                      child: Column(
+                                        children: [
+                                          Text(
+                                            detail.aggregate.overallBiteScore >
+                                                    0
+                                                ? detail
+                                                      .aggregate
+                                                      .overallBiteScore
+                                                      .toStringAsFixed(0)
+                                                : '--',
+                                            style: const TextStyle(
+                                              fontSize: 66,
+                                              fontWeight: FontWeight.w900,
+                                              height: 0.80,
+                                              letterSpacing: -0.9,
+                                              color: BiteRaterTheme.scoreFlame,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 6),
+                                          const Text(
+                                            'BiteScore',
+                                            style: TextStyle(
+                                              fontSize: 9,
+                                              fontWeight: FontWeight.w500,
+                                              letterSpacing: 0.12,
+                                              color: BiteRaterTheme.mutedInk,
+                                              height: 1.0,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 0),
+                                          Text(
+                                            '${detail.aggregate.ratingCount} ratings',
+                                            style: const TextStyle(
+                                              color: BiteRaterTheme.mutedInk,
+                                              fontSize: 9.5,
+                                              fontWeight: FontWeight.w500,
+                                              height: 1.0,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 18),
+                                    _buildAverageRatingGrid(detail.aggregate),
                                   ],
-                                  const SizedBox(height: 6),
-                                  Align(
-                                    alignment: Alignment.centerLeft,
-                                    child: TextButton.icon(
-                                      onPressed: _reportDish,
-                                      icon: const Icon(
-                                        Icons.flag_outlined,
-                                        size: 18,
-                                      ),
-                                      style: TextButton.styleFrom(
-                                        foregroundColor: BiteRaterTheme.coral,
-                                      ),
-                                      label: const Text('Report dish'),
-                                    ),
-                                  ),
-                                  BiteRaterTheme.softDivider(),
-                                  Center(
-                                    child: Column(
-                                      children: [
-                                        Text(
-                                          detail.aggregate.overallBiteScore > 0
-                                              ? detail
-                                                    .aggregate
-                                                    .overallBiteScore
-                                                    .toStringAsFixed(0)
-                                              : '--',
-                                          style: const TextStyle(
-                                            fontSize: 66,
-                                            fontWeight: FontWeight.w900,
-                                            height: 0.80,
-                                            letterSpacing: -0.9,
-                                            color: BiteRaterTheme.scoreFlame,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 6),
-                                        const Text(
-                                          'BiteScore',
-                                          style: TextStyle(
-                                            fontSize: 9,
-                                            fontWeight: FontWeight.w500,
-                                            letterSpacing: 0.12,
-                                            color: BiteRaterTheme.mutedInk,
-                                            height: 1.0,
-                                          ),
-                                        ),
-                                        const SizedBox(height: 0),
-                                        Text(
-                                          '${detail.aggregate.ratingCount} ratings',
-                                          style: const TextStyle(
-                                            color: BiteRaterTheme.mutedInk,
-                                            fontSize: 9.5,
-                                            fontWeight: FontWeight.w500,
-                                            height: 1.0,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                  const SizedBox(height: 18),
-                                  _buildAverageRatingGrid(detail.aggregate),
-                                ],
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          _buildSuggestionCard(currentDish),
-                          const SizedBox(height: 12),
-                          const Text(
-                            'Reviews',
-                            style: TextStyle(
-                              color: BiteRaterTheme.ink,
-                              fontSize: 20,
-                              fontWeight: FontWeight.w900,
-                            ),
-                          ),
-                          if (detail.reviews.isNotEmpty) ...[
-                            const SizedBox(height: 4),
-                            Text(
-                              'Sorted by most helpful',
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: BiteRaterTheme.grape,
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 12),
-                          if (detail.reviews.isEmpty)
-                            Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.all(16),
-                              decoration: BiteRaterTheme.surfaceDecoration(
-                                accentColor: BiteRaterTheme.ocean,
-                                radius: 16,
-                              ),
-                              child: const Text(
-                                'No reviews yet for this dish.',
-                                textAlign: TextAlign.center,
-                                style: TextStyle(
-                                  color: BiteRaterTheme.mutedInk,
-                                  fontWeight: FontWeight.w700,
                                 ),
                               ),
-                            )
-                          else ...[
-                            ...visibleReviews.map(
-                              (review) => _buildReviewCard(
-                                review,
-                                detail.trustByReviewId[review.id] ??
-                                    const ReviewTrustSummary(),
-                                detail.reviewerBadgesByUserId[review.userId],
-                                detail.reviewerNamesByUserId[review.userId],
+                            ),
+                            const SizedBox(height: 12),
+                            _buildSuggestionCard(currentDish),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Reviews',
+                              style: TextStyle(
+                                color: BiteRaterTheme.ink,
+                                fontSize: 20,
+                                fontWeight: FontWeight.w900,
                               ),
                             ),
-                            if (hasMoreReviews) ...[
-                              const SizedBox(height: 2),
-                              Center(
-                                child: OutlinedButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      _visibleReviewCount += 3;
-                                    });
-                                  },
-                                  style: BiteRaterTheme.outlinedButtonStyle(
-                                    accentColor: BiteRaterTheme.grape,
-                                  ),
-                                  child: const Text('Load more'),
+                            if (detail.reviews.isNotEmpty) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                'Sorted by most helpful',
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                  color: BiteRaterTheme.grape,
                                 ),
                               ),
                             ],
+                            const SizedBox(height: 12),
+                            if (detail.reviews.isEmpty)
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(16),
+                                decoration: BiteRaterTheme.surfaceDecoration(
+                                  accentColor: BiteRaterTheme.ocean,
+                                  radius: 16,
+                                ),
+                                child: const Text(
+                                  'No reviews yet for this dish.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: BiteRaterTheme.mutedInk,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              )
+                            else ...[
+                              ...visibleReviews.map(
+                                (review) => _buildReviewCard(
+                                  review,
+                                  detail.trustByReviewId[review.id] ??
+                                      const ReviewTrustSummary(),
+                                  detail.reviewerBadgesByUserId[review.userId],
+                                  detail.reviewerNamesByUserId[review.userId],
+                                ),
+                              ),
+                              if (hasMoreReviews) ...[
+                                const SizedBox(height: 2),
+                                Center(
+                                  child: OutlinedButton(
+                                    onPressed: () {
+                                      setState(() {
+                                        _visibleReviewCount += 3;
+                                      });
+                                    },
+                                    style: BiteRaterTheme.outlinedButtonStyle(
+                                      accentColor: BiteRaterTheme.grape,
+                                    ),
+                                    child: const Text('Load more'),
+                                  ),
+                                ),
+                              ],
+                            ],
+                            const SizedBox(height: 20),
+                            _buildInlineReviewForm(),
                           ],
-                          const SizedBox(height: 20),
-                          _buildInlineReviewForm(),
-                        ],
+                        ),
                       ),
                     ),
                   ),
                 ),
-              ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -1812,6 +1915,98 @@ class _DishDetailData {
     required this.reviewerBadgesByUserId,
     required this.reviewerNamesByUserId,
   });
+}
+
+class _DishCategoryDialog extends StatefulWidget {
+  final String? initialCategory;
+  final List<String> categoryOptions;
+
+  const _DishCategoryDialog({
+    required this.initialCategory,
+    required this.categoryOptions,
+  });
+
+  @override
+  State<_DishCategoryDialog> createState() => _DishCategoryDialogState();
+}
+
+class _DishCategoryDialogState extends State<_DishCategoryDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialCategory ?? '');
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submitManualCategory() {
+    final category = _controller.text.trim();
+    if (category.isEmpty) {
+      return;
+    }
+    Navigator.of(context).pop(category);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Add category'),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _submitManualCategory(),
+              decoration: InputDecoration(
+                labelText: 'Enter manually',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: widget.categoryOptions.map((category) {
+                return ActionChip(
+                  label: Text(category),
+                  onPressed: () => Navigator.of(context).pop(category),
+                  backgroundColor: Colors.white,
+                  side: const BorderSide(color: BiteRaterTheme.lineBlue),
+                  labelStyle: const TextStyle(
+                    color: BiteRaterTheme.ink,
+                    fontWeight: FontWeight.w700,
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _submitManualCategory,
+          style: BiteRaterTheme.filledButtonStyle(),
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
 }
 
 class _DishManagementDialog extends StatefulWidget {
