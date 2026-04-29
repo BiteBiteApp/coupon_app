@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -63,6 +65,8 @@ class _PhoneAuthSheet extends StatefulWidget {
 }
 
 class _PhoneAuthSheetState extends State<_PhoneAuthSheet> {
+  static const int _codeCooldownSeconds = 60;
+
   final TextEditingController _phoneController = TextEditingController();
   final TextEditingController _codeController = TextEditingController();
 
@@ -71,6 +75,8 @@ class _PhoneAuthSheetState extends State<_PhoneAuthSheet> {
   String? _verificationId;
   int? _resendToken;
   String? _message;
+  Timer? _cooldownTimer;
+  int _cooldownSecondsRemaining = 0;
 
   @override
   void initState() {
@@ -102,12 +108,47 @@ class _PhoneAuthSheetState extends State<_PhoneAuthSheet> {
 
   @override
   void dispose() {
+    _cooldownTimer?.cancel();
     _phoneController.dispose();
     _codeController.dispose();
     super.dispose();
   }
 
+  void _startCodeCooldown() {
+    _cooldownTimer?.cancel();
+    setState(() {
+      _cooldownSecondsRemaining = _codeCooldownSeconds;
+    });
+    _cooldownTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      if (_cooldownSecondsRemaining <= 1) {
+        timer.cancel();
+        setState(() {
+          _cooldownSecondsRemaining = 0;
+        });
+        return;
+      }
+      setState(() {
+        _cooldownSecondsRemaining -= 1;
+      });
+    });
+  }
+
+  String _friendlyPhoneError(Object error, String fallback) {
+    if (error is FirebaseAuthException && error.code == 'too-many-requests') {
+      return 'Too many attempts. Please wait a few minutes before trying again.';
+    }
+    return AppErrorText.friendly(error, fallback: fallback);
+  }
+
   Future<void> _sendCode({bool isResend = false}) async {
+    if (_cooldownSecondsRemaining > 0) {
+      return;
+    }
+
     final normalizedPhoneNumber = normalizePhoneNumber(_phoneController.text);
     if (normalizedPhoneNumber == null) {
       setState(() {
@@ -126,6 +167,7 @@ class _PhoneAuthSheetState extends State<_PhoneAuthSheet> {
       _isSendingCode = true;
       _message = null;
     });
+    _startCodeCooldown();
 
     try {
       await FirebaseAuth.instance.verifyPhoneNumber(
@@ -157,9 +199,9 @@ class _PhoneAuthSheetState extends State<_PhoneAuthSheet> {
             return;
           }
           setState(() {
-            _message = AppErrorText.friendly(
+            _message = _friendlyPhoneError(
               error,
-              fallback: 'Could not send the verification code right now.',
+              'Could not send the verification code right now.',
             );
             _isSendingCode = false;
           });
@@ -189,9 +231,9 @@ class _PhoneAuthSheetState extends State<_PhoneAuthSheet> {
         return;
       }
       setState(() {
-        _message = AppErrorText.friendly(
+        _message = _friendlyPhoneError(
           error,
-          fallback: 'Could not start phone sign-in right now.',
+          'Could not start phone sign-in right now.',
         );
         _isSendingCode = false;
       });
@@ -254,6 +296,13 @@ class _PhoneAuthSheetState extends State<_PhoneAuthSheet> {
         ? mediaQuery.viewInsets.bottom
         : mediaQuery.viewPadding.bottom;
     final hasCodeStep = _verificationId != null;
+    final isCodeCooldownActive = _cooldownSecondsRemaining > 0;
+    final sendCodeLabel = isCodeCooldownActive
+        ? 'Resend in ${_cooldownSecondsRemaining}s'
+        : 'Send code';
+    final resendCodeLabel = isCodeCooldownActive
+        ? 'Resend in ${_cooldownSecondsRemaining}s'
+        : 'Resend code';
 
     return SafeArea(
       top: false,
@@ -325,7 +374,10 @@ class _PhoneAuthSheetState extends State<_PhoneAuthSheet> {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: _isSendingCode || _isVerifyingCode
+                onPressed:
+                    _isSendingCode ||
+                        _isVerifyingCode ||
+                        (!hasCodeStep && isCodeCooldownActive)
                     ? null
                     : hasCodeStep
                     ? _verifyCode
@@ -337,7 +389,7 @@ class _PhoneAuthSheetState extends State<_PhoneAuthSheet> {
                       ? 'Verifying...'
                       : hasCodeStep
                       ? 'Verify code'
-                      : 'Send code',
+                      : sendCodeLabel,
                 ),
               ),
             ),
@@ -346,10 +398,13 @@ class _PhoneAuthSheetState extends State<_PhoneAuthSheet> {
               Row(
                 children: [
                   TextButton(
-                    onPressed: _isSendingCode || _isVerifyingCode
+                    onPressed:
+                        _isSendingCode ||
+                            _isVerifyingCode ||
+                            isCodeCooldownActive
                         ? null
                         : () => _sendCode(isResend: true),
-                    child: const Text('Resend code'),
+                    child: Text(resendCodeLabel),
                   ),
                   TextButton(
                     onPressed: _isSendingCode || _isVerifyingCode

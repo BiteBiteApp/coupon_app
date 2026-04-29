@@ -31,6 +31,16 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
 }
 
 class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
+  static const String _reviewSortMostHelpful = 'Most helpful';
+  static const String _reviewSortMostRecent = 'Most recent';
+  static const String _reviewSortHighestScore = 'Highest score';
+  static const String _reviewSortLowestScore = 'Lowest score';
+  static const List<String> _reviewSortOptions = <String>[
+    _reviewSortMostHelpful,
+    _reviewSortMostRecent,
+    _reviewSortHighestScore,
+    _reviewSortLowestScore,
+  ];
   static const List<String> _dishCategoryOptions = <String>[
     'Pizza',
     'Sandwich',
@@ -62,6 +72,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   bool _isSavingFavoriteDish = false;
   bool _hasDishChanges = false;
   int _visibleReviewCount = 3;
+  String _selectedReviewSort = _reviewSortMostHelpful;
   User? get _currentUser => FirebaseAuth.instance.currentUser;
   bool get _isOwner =>
       _currentUser != null &&
@@ -165,6 +176,65 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       trustByReviewId: trustByReviewId,
       reviewerBadgesByUserId: reviewerBadgesByUserId,
       reviewerNamesByUserId: reviewerNamesByUserId,
+    );
+  }
+
+  List<DishReview> _sortedReviewsForDisplay(List<DishReview> reviews) {
+    final sortedReviews = List<DishReview>.from(reviews);
+    if (_selectedReviewSort == _reviewSortMostHelpful) {
+      return sortedReviews;
+    }
+
+    sortedReviews.sort((a, b) {
+      if (_selectedReviewSort == _reviewSortMostRecent) {
+        final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final byDate = bDate.compareTo(aDate);
+        return byDate != 0 ? byDate : a.id.compareTo(b.id);
+      }
+
+      final byScore = _selectedReviewSort == _reviewSortHighestScore
+          ? b.overallBiteScore.compareTo(a.overallBiteScore)
+          : a.overallBiteScore.compareTo(b.overallBiteScore);
+      if (byScore != 0) {
+        return byScore;
+      }
+
+      final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final byDate = bDate.compareTo(aDate);
+      return byDate != 0 ? byDate : a.id.compareTo(b.id);
+    });
+    return sortedReviews;
+  }
+
+  Widget _buildReviewSortDropdown() {
+    return DropdownButtonHideUnderline(
+      child: DropdownButton<String>(
+        value: _selectedReviewSort,
+        isDense: true,
+        borderRadius: BorderRadius.circular(14),
+        iconSize: 18,
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+          color: BiteRaterTheme.grape,
+        ),
+        items: _reviewSortOptions
+            .map(
+              (option) =>
+                  DropdownMenuItem<String>(value: option, child: Text(option)),
+            )
+            .toList(),
+        onChanged: (value) {
+          if (value == null) {
+            return;
+          }
+          setState(() {
+            _selectedReviewSort = value;
+          });
+        },
+      ),
     );
   }
 
@@ -1639,11 +1709,11 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                 );
             final currentDish = detail.dish;
             final currentRestaurant = detail.restaurant;
-            final visibleReviews = detail.reviews
+            final sortedReviews = _sortedReviewsForDisplay(detail.reviews);
+            final visibleReviews = sortedReviews
                 .take(_visibleReviewCount)
                 .toList();
-            final hasMoreReviews =
-                detail.reviews.length > visibleReviews.length;
+            final hasMoreReviews = sortedReviews.length > visibleReviews.length;
 
             return Column(
               children: [
@@ -1911,14 +1981,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                             ),
                             if (detail.reviews.isNotEmpty) ...[
                               const SizedBox(height: 4),
-                              Text(
-                                'Sorted by most helpful',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w700,
-                                  color: BiteRaterTheme.grape,
-                                ),
-                              ),
+                              _buildReviewSortDropdown(),
                             ],
                             const SizedBox(height: 12),
                             if (detail.reviews.isEmpty)
