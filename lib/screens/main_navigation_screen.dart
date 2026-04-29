@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:app_links/app_links.dart';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/app_mode_state_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
@@ -30,10 +31,13 @@ class MainNavigationScreen extends StatefulWidget {
 }
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
+  static const String _onboardingSeenKey = 'first_time_onboarding_seen';
+
   late int selectedIndex;
   late AppMode selectedMode;
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _subscriptionReturnSubscription;
+  bool _showOnboarding = false;
 
   @override
   void initState() {
@@ -43,6 +47,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     AppModeStateService.setMode(widget.initialMode);
     AppModeStateService.selectedMode.addListener(_syncSelectedMode);
     _listenForSubscriptionReturnLinks();
+    unawaited(_loadOnboardingState());
   }
 
   @override
@@ -62,6 +67,33 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       _handleIncomingDeepLink,
       onError: (_) {},
     );
+  }
+
+  Future<void> _loadOnboardingState() async {
+    final prefs = await SharedPreferences.getInstance();
+    final hasSeenOnboarding = prefs.getBool(_onboardingSeenKey) ?? false;
+    if (!mounted || hasSeenOnboarding) {
+      return;
+    }
+
+    setState(() {
+      _showOnboarding = true;
+    });
+  }
+
+  Future<void> _dismissOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_onboardingSeenKey, true);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _showOnboarding = false;
+      selectedIndex = 0;
+      selectedMode = AppMode.biteSaver;
+    });
+    AppModeStateService.setMode(AppMode.biteSaver);
   }
 
   void _handleIncomingDeepLink(Uri? uri) {
@@ -93,10 +125,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       return;
     }
 
-    _openMainScreenWithMessage(
-      message: message,
-      mode: AppMode.biteSaver,
-    );
+    _openMainScreenWithMessage(message: message, mode: AppMode.biteSaver);
   }
 
   void _openMainScreenWithMessage({
@@ -112,11 +141,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     AppModeStateService.setMode(mode);
     rootScaffoldMessengerKey.currentState
       ?..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-        ),
-      );
+      ..showSnackBar(SnackBar(content: Text(message)));
   }
 
   void _syncSelectedMode() {
@@ -131,13 +156,13 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   List<Widget> get pages => [
-        selectedMode == AppMode.biteSaver
-            ? const HomeScreen()
-            : const BiteScoreHomeScreen(),
-        const RestaurantAuthScreen(),
-        const AdminGateScreen(),
-        const CustomerAccountScreen(),
-      ];
+    selectedMode == AppMode.biteSaver
+        ? const HomeScreen()
+        : const BiteScoreHomeScreen(),
+    const RestaurantAuthScreen(),
+    const AdminGateScreen(),
+    const CustomerAccountScreen(),
+  ];
 
   void _setMode(AppMode mode) {
     if (selectedMode == mode) return;
@@ -146,10 +171,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   Widget _buildCurrentPage() {
     if (selectedIndex != 0) {
-      return IndexedStack(
-        index: selectedIndex,
-        children: pages,
-      );
+      return IndexedStack(index: selectedIndex, children: pages);
     }
 
     final slideFromRight = selectedMode == AppMode.biteScore;
@@ -167,10 +189,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         return ClipRect(
           child: SlideTransition(
             position: offsetAnimation,
-            child: FadeTransition(
-              opacity: animation,
-              child: child,
-            ),
+            child: FadeTransition(opacity: animation, child: child),
           ),
         );
       },
@@ -364,25 +383,156 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      extendBody: true,
-      body: SafeArea(
-        bottom: false,
-        child: Column(
-          children: [
-            AppModeSwitcherBar(
-              selectedMode: selectedMode,
-              onModeSelected: _setMode,
+  Widget _buildOnboardingOverlay() {
+    return Positioned.fill(
+      child: Material(
+        color: const Color.fromRGBO(31, 26, 22, 0.48),
+        child: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(24),
+              child: Container(
+                width: double.infinity,
+                constraints: const BoxConstraints(maxWidth: 420),
+                padding: const EdgeInsets.fromLTRB(22, 22, 22, 20),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFFCF8),
+                  borderRadius: BorderRadius.circular(24),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color.fromRGBO(42, 25, 14, 0.18),
+                      blurRadius: 24,
+                      offset: Offset(0, 12),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Find dishes worth trying',
+                      style: TextStyle(
+                        color: Color(0xFF1F1A16),
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        height: 1.12,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    const Text(
+                      'See highly rated dishes, find local deals, and save places you want to visit.',
+                      style: TextStyle(
+                        color: Color(0xFF5E564A),
+                        fontSize: 14.5,
+                        fontWeight: FontWeight.w500,
+                        height: 1.35,
+                      ),
+                    ),
+                    const SizedBox(height: 18),
+                    const _OnboardingPoint(
+                      icon: Icons.search,
+                      text: 'Search dishes, restaurants, or cities',
+                    ),
+                    const _OnboardingPoint(
+                      icon: Icons.star_border,
+                      text: 'Use BiteScore to find standout dishes',
+                    ),
+                    const _OnboardingPoint(
+                      icon: Icons.local_offer_outlined,
+                      text: 'Save deals before you go',
+                    ),
+                    const SizedBox(height: 20),
+                    SizedBox(
+                      width: double.infinity,
+                      child: ElevatedButton(
+                        onPressed: _dismissOnboarding,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFB7613F),
+                          foregroundColor: Colors.white,
+                          minimumSize: const Size.fromHeight(48),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                          ),
+                          textStyle: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        child: const Text('Got it'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-            Expanded(
-              child: _buildCurrentPage(),
-            ),
-          ],
+          ),
         ),
       ),
-      bottomNavigationBar: _buildBottomNavigationBar(),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        Scaffold(
+          extendBody: true,
+          body: SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                AppModeSwitcherBar(
+                  selectedMode: selectedMode,
+                  onModeSelected: _setMode,
+                ),
+                Expanded(child: _buildCurrentPage()),
+              ],
+            ),
+          ),
+          bottomNavigationBar: _buildBottomNavigationBar(),
+        ),
+        if (_showOnboarding) _buildOnboardingOverlay(),
+      ],
+    );
+  }
+}
+
+class _OnboardingPoint extends StatelessWidget {
+  final IconData icon;
+  final String text;
+
+  const _OnboardingPoint({required this.icon, required this.text});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Container(
+            width: 28,
+            height: 28,
+            decoration: BoxDecoration(
+              color: const Color(0x1AB7613F),
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Icon(icon, size: 16, color: const Color(0xFFB7613F)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: const TextStyle(
+                color: Color(0xFF2B1D14),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                height: 1.2,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

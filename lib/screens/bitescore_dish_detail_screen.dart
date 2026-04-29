@@ -38,10 +38,10 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   final TextEditingController _notesController = TextEditingController();
   late BiteScoreHomeEntry _currentEntry;
 
-  double _overallImpression = 8;
-  double _tastinessScore = 8;
-  double _qualityScore = 8;
-  double _valueScore = 8;
+  double? _overallImpression;
+  double? _tastinessScore;
+  double? _qualityScore;
+  double? _valueScore;
   bool _isSaving = false;
   bool _isFavoriteDish = false;
   bool _isSavingFavoriteDish = false;
@@ -256,6 +256,18 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   }
 
   Future<void> _submitReview() async {
+    final overallImpression = _overallImpression;
+    final tastinessScore = _tastinessScore;
+    final qualityScore = _qualityScore;
+    final valueScore = _valueScore;
+    if (overallImpression == null ||
+        tastinessScore == null ||
+        qualityScore == null ||
+        valueScore == null) {
+      _showSnackBar('Please rate each category before submitting.');
+      return;
+    }
+
     final canWrite = await BiteScoreSignInGate.ensureSignedInForWrite(context);
     if (!canWrite || !mounted) {
       return;
@@ -269,12 +281,12 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       await BiteScoreService.addReviewForDish(
         dish: _currentEntry.dish,
         restaurant: _currentEntry.restaurant,
-        overallImpression: _overallImpression,
+        overallImpression: overallImpression,
         headline: _headlineController.text,
         notes: _notesController.text,
-        tastinessScore: _tastinessScore,
-        qualityScore: _qualityScore,
-        valueScore: _valueScore,
+        tastinessScore: tastinessScore,
+        qualityScore: qualityScore,
+        valueScore: valueScore,
       );
 
       _headlineController.clear();
@@ -310,12 +322,23 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     }
   }
 
-  double get _overallBiteScore => BiteScoreService.computeOverallBiteScore(
-    overallImpression: _overallImpression,
-    tastinessScore: _tastinessScore,
-    qualityScore: _qualityScore,
-    valueScore: _valueScore,
-  );
+  bool get _hasRequiredScores =>
+      _overallImpression != null &&
+      _tastinessScore != null &&
+      _qualityScore != null &&
+      _valueScore != null;
+
+  double? get _overallBiteScore {
+    if (!_hasRequiredScores) {
+      return null;
+    }
+    return BiteScoreService.computeOverallBiteScore(
+      overallImpression: _overallImpression!,
+      tastinessScore: _tastinessScore!,
+      qualityScore: _qualityScore!,
+      valueScore: _valueScore!,
+    );
+  }
 
   ButtonStyle _bitescoreActionButtonStyle() {
     return BiteRaterTheme.filledButtonStyle();
@@ -374,9 +397,12 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   Widget _buildScoreSlider({
     required String label,
     required String helperText,
-    required double value,
+    required double? value,
     required ValueChanged<double> onChanged,
   }) {
+    final isRated = value != null;
+    final sliderValue = value ?? 1.0;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -385,7 +411,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
             Expanded(
               child: Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   color: BiteRaterTheme.ink,
                   fontWeight: FontWeight.w700,
                   fontSize: 15,
@@ -396,9 +422,11 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BiteRaterTheme.chipDecoration(BiteRaterTheme.coral),
               child: Text(
-                value.toStringAsFixed(1),
-                style: const TextStyle(
-                  color: BiteRaterTheme.scoreFlame,
+                isRated ? value.toStringAsFixed(1) : '--',
+                style: TextStyle(
+                  color: isRated
+                      ? BiteRaterTheme.scoreFlame
+                      : BiteRaterTheme.mutedInk,
                   fontWeight: FontWeight.w900,
                 ),
               ),
@@ -416,11 +444,11 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         ),
         const SizedBox(height: 2),
         Slider(
-          value: value,
+          value: sliderValue,
           min: 1,
           max: 10,
           divisions: 18,
-          label: value.toStringAsFixed(1),
+          label: isRated ? value.toStringAsFixed(1) : 'Choose',
           onChanged: onChanged,
         ),
       ],
@@ -430,7 +458,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   Widget _buildRequiredScoreSection({
     required String title,
     required String helperText,
-    required double value,
+    required double? value,
     required ValueChanged<double> onChanged,
   }) {
     return _buildScoreSlider(
@@ -990,6 +1018,8 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   }
 
   Widget _buildInlineReviewForm() {
+    final calculatedBiteScore = _overallBiteScore;
+
     return Container(
       key: _reviewSectionKey,
       child: BiteRaterTheme.liftedCard(
@@ -1037,8 +1067,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
               const SizedBox(height: 14),
               _buildScoreSlider(
                 label: 'Enjoyment (Required)',
-                helperText:
-                    'How much you enjoyed eating this dish from 1 to 10.',
+                helperText: 'How much you enjoyed the dish overall.',
                 value: _overallImpression,
                 onChanged: (value) {
                   setState(() {
@@ -1048,8 +1077,8 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
               ),
               const SizedBox(height: 8),
               _buildRequiredScoreSection(
-                title: 'Tastiness',
-                helperText: 'Flavor, seasoning, and overall tastiness.',
+                title: 'Flavor',
+                helperText: 'Taste, seasoning, and craveability.',
                 value: _tastinessScore,
                 onChanged: (value) {
                   setState(() {
@@ -1061,7 +1090,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
               _buildRequiredScoreSection(
                 title: 'Quality',
                 helperText:
-                    'How well-made and high-quality the dish felt overall.',
+                    'Freshness, preparation, and how well-made it felt.',
                 value: _qualityScore,
                 onChanged: (value) {
                   setState(() {
@@ -1073,7 +1102,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
               _buildRequiredScoreSection(
                 title: 'Value',
                 helperText:
-                    'How fair the price felt for the quality and portion.',
+                    'How fair the price felt for the portion and quality.',
                 value: _valueScore,
                 onChanged: (value) {
                   setState(() {
@@ -1101,11 +1130,13 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      _overallBiteScore.toStringAsFixed(0),
-                      style: const TextStyle(
+                      calculatedBiteScore?.toStringAsFixed(0) ?? '--',
+                      style: TextStyle(
                         fontSize: 32,
                         fontWeight: FontWeight.w900,
-                        color: BiteRaterTheme.scoreFlame,
+                        color: calculatedBiteScore == null
+                            ? BiteRaterTheme.mutedInk
+                            : BiteRaterTheme.scoreFlame,
                       ),
                     ),
                   ],

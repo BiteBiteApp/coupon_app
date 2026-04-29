@@ -37,7 +37,7 @@ class BiteScoreHomeScreen extends StatefulWidget {
 
 class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   static const double _collapsedHeaderExtent = 86;
-  static const double _expandedHeaderExtent = 320;
+  static const double _expandedHeaderExtent = 300;
   static const String _selectedRadiusPreferenceKey = 'selected_radius';
 
   final TextEditingController dishSearchController = TextEditingController();
@@ -47,7 +47,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   final ScrollController _listScrollController = ScrollController();
 
   String selectedRadius = '15 miles';
-  String selectedSort = 'Top Rated';
+  String selectedSort = 'Highest BiteScore';
   bool isGettingLocation = false;
   bool isSearchingLocation = false;
   String? _launchLocationMessage;
@@ -403,39 +403,101 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
       return true;
     }).toList();
 
-    filtered.sort((a, b) {
-      switch (selectedSort) {
-        case 'Closest':
-          final aDistance = _distanceMilesFor(a) ?? double.infinity;
-          final bDistance = _distanceMilesFor(b) ?? double.infinity;
-          final byDistance = aDistance.compareTo(bDistance);
-          if (byDistance != 0) {
-            return byDistance;
-          }
-          return a.dish.name.toLowerCase().compareTo(b.dish.name.toLowerCase());
-        case 'Most Reviewed':
-          final byCount = b.aggregate.ratingCount.compareTo(
-            a.aggregate.ratingCount,
-          );
-          if (byCount != 0) {
-            return byCount;
-          }
-          return b.aggregate.overallBiteScore.compareTo(
-            a.aggregate.overallBiteScore,
-          );
-        case 'Top Rated':
-        default:
-          final byScore = b.aggregate.overallBiteScore.compareTo(
-            a.aggregate.overallBiteScore,
-          );
-          if (byScore != 0) {
-            return byScore;
-          }
-          return b.aggregate.ratingCount.compareTo(a.aggregate.ratingCount);
-      }
-    });
+    filtered.sort(_compareEntriesForSelectedSort);
 
     return filtered;
+  }
+
+  int _compareEntriesForSelectedSort(
+    BiteScoreHomeEntry a,
+    BiteScoreHomeEntry b,
+  ) {
+    switch (selectedSort) {
+      case 'Closest':
+        final aDistance = _distanceMilesFor(a) ?? double.infinity;
+        final bDistance = _distanceMilesFor(b) ?? double.infinity;
+        final byDistance = aDistance.compareTo(bDistance);
+        if (byDistance != 0) {
+          return byDistance;
+        }
+        return _compareByHighestBiteScore(a, b);
+      case 'Most Reviewed':
+        final byCount = b.aggregate.ratingCount.compareTo(
+          a.aggregate.ratingCount,
+        );
+        if (byCount != 0) {
+          return byCount;
+        }
+        return _compareByHighestBiteScore(a, b);
+      case 'Best Value':
+        return _compareByNullableScore(
+          a,
+          b,
+          (entry) => entry.aggregate.valueScoreAverage,
+        );
+      case 'Best Flavor':
+        return _compareByNullableScore(
+          a,
+          b,
+          (entry) => entry.aggregate.tastinessScoreAverage,
+        );
+      case 'Highest Quality':
+        return _compareByNullableScore(
+          a,
+          b,
+          (entry) => entry.aggregate.qualityScoreAverage,
+        );
+      case 'Most Enjoyed':
+        return _compareByNullableScore(
+          a,
+          b,
+          (entry) => entry.aggregate.overallImpressionAverage,
+        );
+      case 'Highest BiteScore':
+      default:
+        return _compareByHighestBiteScore(a, b);
+    }
+  }
+
+  int _compareByHighestBiteScore(BiteScoreHomeEntry a, BiteScoreHomeEntry b) {
+    final byScore = b.aggregate.overallBiteScore.compareTo(
+      a.aggregate.overallBiteScore,
+    );
+    if (byScore != 0) {
+      return byScore;
+    }
+    final byCount = b.aggregate.ratingCount.compareTo(a.aggregate.ratingCount);
+    if (byCount != 0) {
+      return byCount;
+    }
+    return _compareByDishName(a, b);
+  }
+
+  int _compareByNullableScore(
+    BiteScoreHomeEntry a,
+    BiteScoreHomeEntry b,
+    double? Function(BiteScoreHomeEntry entry) readScore,
+  ) {
+    final aScore = readScore(a);
+    final bScore = readScore(b);
+    if (aScore == null && bScore == null) {
+      return _compareByHighestBiteScore(a, b);
+    }
+    if (aScore == null) {
+      return 1;
+    }
+    if (bScore == null) {
+      return -1;
+    }
+    final byScore = bScore.compareTo(aScore);
+    if (byScore != 0) {
+      return byScore;
+    }
+    return _compareByHighestBiteScore(a, b);
+  }
+
+  int _compareByDishName(BiteScoreHomeEntry a, BiteScoreHomeEntry b) {
+    return a.dish.name.toLowerCase().compareTo(b.dish.name.toLowerCase());
   }
 
   InputDecoration _inputDecoration({
@@ -683,7 +745,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     return Material(
       color: Colors.transparent,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 2),
         child: DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
@@ -834,8 +896,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                                           ),
                                           items: const [
                                             DropdownMenuItem(
-                                              value: 'Top Rated',
-                                              child: Text('Top Rated'),
+                                              value: 'Highest BiteScore',
+                                              child: Text('Highest BiteScore'),
                                             ),
                                             DropdownMenuItem(
                                               value: 'Most Reviewed',
@@ -844,6 +906,22 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                                             DropdownMenuItem(
                                               value: 'Closest',
                                               child: Text('Closest'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: 'Best Value',
+                                              child: Text('Best Value'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: 'Best Flavor',
+                                              child: Text('Best Flavor'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: 'Highest Quality',
+                                              child: Text('Highest Quality'),
+                                            ),
+                                            DropdownMenuItem(
+                                              value: 'Most Enjoyed',
+                                              child: Text('Most Enjoyed'),
                                             ),
                                           ],
                                           onChanged: (value) {

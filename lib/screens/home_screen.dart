@@ -1136,14 +1136,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     return [
       BoxShadow(
-        color: const Color(0xFF5E3E1E).withOpacity(0.10 + opacityBoost / 2),
-        blurRadius: 16 * strength,
-        offset: Offset(0, 10 * strength),
+        color: const Color(0xFF5E3E1E).withOpacity(0.075 + opacityBoost / 2),
+        blurRadius: 11.5 * strength,
+        offset: Offset(0, 7 * strength),
       ),
       BoxShadow(
-        color: const Color(0xFF704D24).withOpacity(0.22 + opacityBoost / 2),
-        blurRadius: 3.4 * strength,
-        offset: Offset(0, 4 * strength),
+        color: const Color(0xFF704D24).withOpacity(0.19 + opacityBoost / 2),
+        blurRadius: 2.4 * strength,
+        offset: Offset(0, 2.8 * strength),
       ),
     ];
   }
@@ -1185,12 +1185,16 @@ class _HomeScreenState extends State<HomeScreen> {
     final faceColors = _biteSaverGradientColors(faceGradient);
     final warmedFaceColors = faceColors.isNotEmpty
         ? faceColors
-            .map(
-              (color) =>
-                  Color.lerp(color, const Color(0xFFF1E5D8), 0.08) ?? color,
-            )
-            .toList(growable: false)
-        : const <Color>[Color(0xFFFFFCFA), Color(0xFFFAF5EF), Color(0xFFF4EBE2)];
+              .map(
+                (color) =>
+                    Color.lerp(color, const Color(0xFFF1E5D8), 0.08) ?? color,
+              )
+              .toList(growable: false)
+        : const <Color>[
+            Color(0xFFFFFCFA),
+            Color(0xFFFAF5EF),
+            Color(0xFFF4EBE2),
+          ];
     final adjustedFaceGradient = faceGradient is LinearGradient
         ? LinearGradient(
             begin: faceGradient.begin,
@@ -1222,16 +1226,17 @@ class _HomeScreenState extends State<HomeScreen> {
             transform: faceGradient.transform,
           )
         : faceGradient;
-    final rawShellBottomColor =
-        shellColors.isNotEmpty ? shellColors.last : const Color(0xFFC6944F);
+    final rawShellBottomColor = shellColors.isNotEmpty
+        ? shellColors.last
+        : const Color(0xFFC6944F);
     final shellBottomColor =
         Color.lerp(rawShellBottomColor, const Color(0xFF9D6E3A), 0.14) ??
         rawShellBottomColor;
-    final faceTopColor =
-        warmedFaceColors.isNotEmpty
+    final faceTopColor = warmedFaceColors.isNotEmpty
         ? warmedFaceColors.first
         : const Color(0xFFFFFCF8);
-    final lipColor = Color.lerp(shellBottomColor, const Color(0xFF8E6030), 0.28) ??
+    final lipColor =
+        Color.lerp(shellBottomColor, const Color(0xFF8E6030), 0.28) ??
         shellBottomColor;
     final sideHighlightBottomColor =
         Color.lerp(highlightBorderColor, shellBorderColor, 0.84) ??
@@ -1244,7 +1249,7 @@ class _HomeScreenState extends State<HomeScreen> {
         offset: Offset(0, -1),
       ),
       const BoxShadow(
-        color: Color.fromRGBO(90, 60, 30, 0.20),
+        color: Color.fromRGBO(90, 60, 30, 0.18),
         blurRadius: 1,
         spreadRadius: 0,
         offset: Offset(0, 0),
@@ -1349,7 +1354,10 @@ class _HomeScreenState extends State<HomeScreen> {
                             border: const Border(
                               top: BorderSide(color: Colors.white, width: 0.7),
                               left: BorderSide(color: Colors.white, width: 0.7),
-                              right: BorderSide(color: Colors.white, width: 0.7),
+                              right: BorderSide(
+                                color: Colors.white,
+                                width: 0.7,
+                              ),
                             ),
                           ),
                         ),
@@ -1373,16 +1381,24 @@ class _HomeScreenState extends State<HomeScreen> {
                                       width: 0.5,
                                     ),
                                   )
-                                : Border.all(color: faceBorderColor, width: 0.35),
+                                : Border.all(
+                                    color: faceBorderColor,
+                                    width: 0.35,
+                                  ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(0xFF704D24).withOpacity(0.05),
+                                color: const Color(
+                                  0xFF704D24,
+                                ).withOpacity(0.05),
                                 blurRadius: 1.8,
                                 offset: const Offset(0, 1.0),
                               ),
                             ],
                           ),
-                          child: ClipRRect(borderRadius: faceRadius, child: child),
+                          child: ClipRRect(
+                            borderRadius: faceRadius,
+                            child: child,
+                          ),
                         ),
                       ),
                     ),
@@ -1396,23 +1412,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _biteSaverLightTileControl(
-    Widget child, {
-    List<BoxShadow>? shadows,
-  }) {
+  Widget _biteSaverLightTileControl(Widget child, {List<BoxShadow>? shadows}) {
     return _biteSaverTile(
       shellRadius: BorderRadius.circular(14),
       faceRadius: BorderRadius.circular(12.5),
       innerMargin: const EdgeInsets.all(1.6),
-      shadows: shadows ?? _biteSaverTileShadows(strength: 0.72, opacityBoost: 0.01),
+      shadows:
+          shadows ?? _biteSaverTileShadows(strength: 0.72, opacityBoost: 0.01),
       child: child,
     );
   }
 
-  Widget _biteSaverRedTileControl(
-    Widget child, {
-    List<BoxShadow>? shadows,
-  }) {
+  Widget _biteSaverRedTileControl(Widget child, {List<BoxShadow>? shadows}) {
     return _biteSaverTile(
       shellRadius: BorderRadius.circular(14),
       faceRadius: BorderRadius.circular(12.5),
@@ -1430,7 +1441,8 @@ class _HomeScreenState extends State<HomeScreen> {
         colors: [Color(0xFFE5AE8E), Color(0xFFD18D69), Color(0xFFBC7355)],
       ),
       innerMargin: const EdgeInsets.all(1.5),
-      shadows: shadows ??
+      shadows:
+          shadows ??
           [
             BoxShadow(
               color: const Color(0xFF4A1F1A).withOpacity(0.18),
@@ -1461,15 +1473,12 @@ class _HomeScreenState extends State<HomeScreen> {
             color: const Color(0xFFFFFBF7),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.15),
-                blurRadius: 5,
+                color: const Color(0xFF5E3E1E).withOpacity(0.085),
+                blurRadius: 3.4,
                 offset: const Offset(0, 2),
               ),
             ],
-            border: Border.all(
-              color: const Color(0xFFE5D2C2),
-              width: 1.2,
-            ),
+            border: Border.all(color: const Color(0xFFE5D2C2), width: 1.2),
           ),
         ),
       ),
@@ -1484,99 +1493,103 @@ class _HomeScreenState extends State<HomeScreen> {
       child: _ImmediatePressFeedback(
         borderRadius: BorderRadius.circular(17),
         child: _biteSaverTile(
-        shellRadius: BorderRadius.circular(17),
-        faceRadius: BorderRadius.circular(15.5),
-        shellBorderColor: const Color(0x66F2DDBB),
-        highlightBorderColor: const Color(0xF7FFFFFF),
-        faceBorderColor: Colors.transparent,
-        shellGradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [
-            Color(0xFFEFDECD),
-            Color(0xFFDBC1AA),
-            Color(0xFFCBA783),
-            Color(0xFFBA9168),
-          ],
-          stops: [0.0, 0.34, 0.72, 1.0],
-        ),
-        faceGradient: const LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: [Color(0xFFFFFBF8), Color(0xFFF7EEE5), Color(0xFFEFE0D1)],
-        ),
-        innerMargin: const EdgeInsets.all(1.7),
-        shadows: [
-          const BoxShadow(
-            color: Color.fromRGBO(120, 80, 40, 0.45),
-            offset: Offset(0, 2),
-            blurRadius: 0,
-            spreadRadius: 0,
+          shellRadius: BorderRadius.circular(17),
+          faceRadius: BorderRadius.circular(15.5),
+          shellBorderColor: const Color(0x66F2DDBB),
+          highlightBorderColor: const Color(0xF7FFFFFF),
+          faceBorderColor: Colors.transparent,
+          shellGradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              Color(0xFFEFDECD),
+              Color(0xFFDBC1AA),
+              Color(0xFFCBA783),
+              Color(0xFFBA9168),
+            ],
+            stops: [0.0, 0.34, 0.72, 1.0],
           ),
-          ..._biteSaverTileShadows(
-            strength: 0.98,
-            opacityBoost: 0.015,
+          faceGradient: const LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFFFFCFA), Color(0xFFF6ECE2), Color(0xFFEBD9C7)],
           ),
-        ],
-        child: Material(
-          color: Colors.transparent,
-          child: ListTile(
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 11,
+          innerMargin: const EdgeInsets.all(1.7),
+          shadows: [
+            const BoxShadow(
+              color: Color.fromRGBO(120, 80, 40, 0.36),
+              offset: Offset(0, 2),
+              blurRadius: 0,
+              spreadRadius: 0,
             ),
-            title: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (proximityOnly)
-                  Container(
-                    margin: const EdgeInsets.only(bottom: 5),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFB7613F),
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: const Text(
-                      'Proximity Deal',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        letterSpacing: 0.12,
+            ..._biteSaverTileShadows(strength: 0.82, opacityBoost: 0.008),
+          ],
+          child: Material(
+            color: Colors.transparent,
+            child: ListTile(
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 15,
+                vertical: 8,
+              ),
+              title: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (proximityOnly)
+                    Container(
+                      margin: const EdgeInsets.only(bottom: 5),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2.5,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFB7613F),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: const Text(
+                        'Proximity Deal',
+                        style: TextStyle(
+                          color: Color(0xF5FFFFFF),
+                          fontSize: 10.6,
+                          fontWeight: FontWeight.w700,
+                          height: 1.0,
+                          letterSpacing: 0.14,
+                        ),
                       ),
                     ),
+                  Text(
+                    coupon.title,
+                    style: const TextStyle(
+                      color: Color(0xFF2B1D14),
+                      fontSize: 16.4,
+                      fontWeight: FontWeight.w700,
+                      height: 1.08,
+                      letterSpacing: 0.02,
+                    ),
                   ),
-                Text(
-                  coupon.title,
-                  style: const TextStyle(
-                    color: Color(0xFF2B1D14),
-                    fontSize: 17.0,
-                    fontWeight: FontWeight.w700,
-                    height: 1.18,
-                    letterSpacing: -0.04,
+                ],
+              ),
+              trailing: const SizedBox(
+                width: 24,
+                height: 24,
+                child: Center(
+                  child: Icon(
+                    Icons.chevron_right,
+                    color: Color(0xFF94482E),
+                    size: 21,
                   ),
                 ),
-              ],
+              ),
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => CouponDetailScreen(coupon: coupon),
+                  ),
+                );
+                setState(() {});
+              },
             ),
-            trailing: const Icon(
-              Icons.chevron_right,
-              color: Color(0xFF94482E),
-              size: 22,
-            ),
-            onTap: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => CouponDetailScreen(coupon: coupon),
-                ),
-              );
-              setState(() {});
-            },
           ),
-        ),
         ),
       ),
     );
@@ -1663,18 +1676,43 @@ class _HomeScreenState extends State<HomeScreen> {
                   ? PressableScale(
                       enabled: !isGettingLocation,
                       child: _biteSaverLightTileControl(
-                      ElevatedButton.icon(
+                        ElevatedButton.icon(
+                          onPressed: isGettingLocation
+                              ? null
+                              : () => useMyLocation(allRestaurants),
+                          style: ElevatedButton.styleFrom(
+                            minimumSize: Size.fromHeight(minHeight),
+                            backgroundColor: Colors.transparent,
+                            foregroundColor: Theme.of(
+                              context,
+                            ).colorScheme.primary,
+                            elevation: 4,
+                            shadowColor: Colors.black.withOpacity(0.2),
+                            padding: const EdgeInsets.symmetric(vertical: 10),
+                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: borderRadius,
+                              side: BorderSide.none,
+                            ),
+                          ),
+                          icon: const Icon(Icons.location_on_outlined),
+                          label: Text(
+                            isGettingLocation
+                                ? 'Getting Location...'
+                                : 'Use My Location',
+                          ),
+                        ),
+                        shadows: const [],
+                      ),
+                    )
+                  : PressableScale(
+                      enabled: !isGettingLocation,
+                      child: ElevatedButton.icon(
                         onPressed: isGettingLocation
                             ? null
                             : () => useMyLocation(allRestaurants),
                         style: ElevatedButton.styleFrom(
                           minimumSize: Size.fromHeight(minHeight),
-                          backgroundColor: Colors.transparent,
-                          foregroundColor: Theme.of(
-                            context,
-                          ).colorScheme.primary,
-                          elevation: 4,
-                          shadowColor: Colors.black.withOpacity(0.2),
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                           shape: RoundedRectangleBorder(
@@ -1689,31 +1727,6 @@ class _HomeScreenState extends State<HomeScreen> {
                               : 'Use My Location',
                         ),
                       ),
-                      shadows: const [],
-                    ),
-                    )
-                  : PressableScale(
-                      enabled: !isGettingLocation,
-                      child: ElevatedButton.icon(
-                      onPressed: isGettingLocation
-                          ? null
-                          : () => useMyLocation(allRestaurants),
-                      style: ElevatedButton.styleFrom(
-                        minimumSize: Size.fromHeight(minHeight),
-                        padding: const EdgeInsets.symmetric(vertical: 10),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: borderRadius,
-                          side: BorderSide.none,
-                        ),
-                      ),
-                      icon: const Icon(Icons.location_on_outlined),
-                      label: Text(
-                        isGettingLocation
-                            ? 'Getting Location...'
-                            : 'Use My Location',
-                      ),
-                    ),
                     ),
             ),
             if (showRefresh) ...[
@@ -1723,26 +1736,26 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: PressableScale(
                   enabled: !isGettingLocation,
                   child: _biteSaverRedTileControl(
-                  ElevatedButton(
-                    onPressed: isGettingLocation
-                        ? null
-                        : () => useMyLocation(allRestaurants),
-                    style: ElevatedButton.styleFrom(
-                      minimumSize: const Size(110, 0),
-                      backgroundColor: Colors.transparent,
-                      foregroundColor: Colors.white,
-                      elevation: 4,
-                      shadowColor: Colors.black.withOpacity(0.2),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: borderRadius,
-                        side: BorderSide.none,
+                    ElevatedButton(
+                      onPressed: isGettingLocation
+                          ? null
+                          : () => useMyLocation(allRestaurants),
+                      style: ElevatedButton.styleFrom(
+                        minimumSize: const Size(110, 0),
+                        backgroundColor: Colors.transparent,
+                        foregroundColor: Colors.white,
+                        elevation: 4,
+                        shadowColor: Colors.black.withOpacity(0.2),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: borderRadius,
+                          side: BorderSide.none,
+                        ),
+                        textStyle: const TextStyle(fontWeight: FontWeight.w800),
                       ),
-                      textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                      child: const Text('Refresh'),
                     ),
-                    child: const Text('Refresh'),
+                    shadows: const [],
                   ),
-                  shadows: const [],
-                ),
                 ),
               ),
             ],
@@ -1896,141 +1909,146 @@ class _HomeScreenState extends State<HomeScreen> {
     List<Restaurant> filteredRestaurants,
   ) {
     return SliverList(
-      delegate: SliverChildBuilderDelegate((context, index) {
-        if (filteredRestaurants.isEmpty) {
-          final nextRadius = _nextRadiusOption();
-          final canIncreaseRadius = nextRadius != selectedRadius;
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          if (filteredRestaurants.isEmpty) {
+            final nextRadius = _nextRadiusOption();
+            final canIncreaseRadius = nextRadius != selectedRadius;
 
-          return Padding(
-            padding: const EdgeInsets.only(top: 16),
-            child: Card(
-              child: Padding(
-                padding: const EdgeInsets.all(18),
-                child: Column(
-                  children: [
-                    const Text(
-                      'No nearby deals yet',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w800,
+            return Padding(
+              padding: const EdgeInsets.only(top: 16),
+              child: Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(18),
+                  child: Column(
+                    children: [
+                      const Text(
+                        'No nearby deals yet',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Try a larger radius, another ZIP code, or switch to BiteScore to find highly rated dishes nearby.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.black54, height: 1.35),
-                    ),
-                    const SizedBox(height: 14),
-                    Wrap(
-                      alignment: WrapAlignment.center,
-                      spacing: 10,
-                      runSpacing: 10,
-                      children: [
-                        OutlinedButton(
-                          onPressed: canIncreaseRadius
-                              ? () {
-                                  setState(() {
-                                    selectedRadius = nextRadius;
-                                  });
-                                }
-                              : null,
-                          child: Text(
-                            canIncreaseRadius
-                                ? 'Increase Radius'
-                                : 'Max Radius',
+                      const SizedBox(height: 8),
+                      const Text(
+                        'Try a larger radius, another ZIP code, or switch to BiteScore to find highly rated dishes nearby.',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.black54, height: 1.35),
+                      ),
+                      const SizedBox(height: 14),
+                      Wrap(
+                        alignment: WrapAlignment.center,
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          OutlinedButton(
+                            onPressed: canIncreaseRadius
+                                ? () {
+                                    setState(() {
+                                      selectedRadius = nextRadius;
+                                    });
+                                  }
+                                : null,
+                            child: Text(
+                              canIncreaseRadius
+                                  ? 'Increase Radius'
+                                  : 'Max Radius',
+                            ),
                           ),
-                        ),
-                        TextButton(
-                          onPressed: () {
-                            AppModeStateService.setMode(AppMode.biteScore);
-                          },
-                          child: const Text('Try BiteScore'),
-                        ),
-                      ],
-                    ),
-                  ],
+                          TextButton(
+                            onPressed: () {
+                              AppModeStateService.setMode(AppMode.biteScore);
+                            },
+                            child: const Text('Try BiteScore'),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
+            );
+          }
+
+          final restaurant = filteredRestaurants[index];
+          final isFeaturedCard = index == 0;
+          final shellRadius = BorderRadius.circular(20);
+          final faceRadius = BorderRadius.circular(18);
+          final shellGradient = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: isFeaturedCard
+                ? const [
+                    Color(0xFFF0DECD),
+                    Color(0xFFDCC3A9),
+                    Color(0xFFCCA985),
+                    Color(0xFFBB9269),
+                  ]
+                : const [
+                    Color(0xFFEEDBC9),
+                    Color(0xFFD8BEA3),
+                    Color(0xFFC7A17B),
+                    Color(0xFFB58B63),
+                  ],
+            stops: const [0.0, 0.34, 0.72, 1.0],
+          );
+          final faceGradient = LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: isFeaturedCard
+                ? const [
+                    Color(0xFFFFFCF9),
+                    Color(0xFFF8EFE5),
+                    Color(0xFFF0E0D0),
+                  ]
+                : const [
+                    Color(0xFFFFFBF8),
+                    Color(0xFFF7EDE3),
+                    Color(0xFFEEDDCB),
+                  ],
+          );
+          final shellShadows = [
+            const BoxShadow(
+              color: Color.fromRGBO(120, 80, 40, 0.36),
+              offset: Offset(0, 2),
+              blurRadius: 0,
+              spreadRadius: 0,
+            ),
+            ..._biteSaverTileShadows(
+              strength: isFeaturedCard ? 0.98 : 0.90,
+              opacityBoost: isFeaturedCard ? 0.035 : 0.018,
+            ),
+          ];
+
+          return _RestaurantCardShellPressable(
+            onTap: () => openRestaurantProfile(restaurant),
+            title: restaurant.name,
+            subtitle: _formatRestaurantLocationLine(restaurant),
+            isFeatured: isFeaturedCard,
+            dealCount: restaurant.coupons.length,
+            couponChildren: restaurant.coupons
+                .map((coupon) => buildCouponCard(coupon, context))
+                .toList(),
+            shellRadius: shellRadius,
+            shellChild: _biteSaverTile(
+              shellRadius: shellRadius,
+              faceRadius: faceRadius,
+              shellBorderColor: const Color(0x66EED8B2),
+              highlightBorderColor: const Color(0xF7FFFFFF),
+              faceBorderColor: Colors.transparent,
+              shellGradient: shellGradient,
+              faceGradient: faceGradient,
+              innerMargin: const EdgeInsets.all(2.1),
+              shadows: shellShadows,
+              child: const SizedBox.expand(),
             ),
           );
-        }
-
-        final restaurant = filteredRestaurants[index];
-        final isFeaturedCard = index == 0;
-        final shellRadius = BorderRadius.circular(20);
-        final faceRadius = BorderRadius.circular(18);
-        final shellGradient = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: isFeaturedCard
-              ? const [
-                  Color(0xFFF0DECD),
-                  Color(0xFFDCC3A9),
-                  Color(0xFFCCA985),
-                  Color(0xFFBB9269),
-                ]
-              : const [
-                  Color(0xFFEEDBC9),
-                  Color(0xFFD8BEA3),
-                  Color(0xFFC7A17B),
-                  Color(0xFFB58B63),
-                ],
-          stops: const [0.0, 0.34, 0.72, 1.0],
-        );
-        final faceGradient = LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: isFeaturedCard
-              ? const [
-                  Color(0xFFFFFCF9),
-                  Color(0xFFF8EFE5),
-                  Color(0xFFF0E0D0),
-                ]
-              : const [
-                  Color(0xFFFFFBF8),
-                  Color(0xFFF7EDE3),
-                  Color(0xFFEEDDCB),
-                ],
-        );
-        final shellShadows = [
-          const BoxShadow(
-            color: Color.fromRGBO(120, 80, 40, 0.45),
-            offset: Offset(0, 2),
-            blurRadius: 0,
-            spreadRadius: 0,
-          ),
-          ..._biteSaverTileShadows(
-            strength: isFeaturedCard ? 1.16 : 1.08,
-            opacityBoost: isFeaturedCard ? 0.05 : 0.03,
-          ),
-        ];
-
-        return _RestaurantCardShellPressable(
-          onTap: () => openRestaurantProfile(restaurant),
-          title: restaurant.name,
-          subtitle: _formatRestaurantLocationLine(restaurant),
-          isFeatured: isFeaturedCard,
-          dealCount: restaurant.coupons.length,
-          couponChildren: restaurant.coupons
-              .map((coupon) => buildCouponCard(coupon, context))
-              .toList(),
-          shellRadius: shellRadius,
-          shellChild: _biteSaverTile(
-            shellRadius: shellRadius,
-            faceRadius: faceRadius,
-            shellBorderColor: const Color(0x66EED8B2),
-            highlightBorderColor: const Color(0xF7FFFFFF),
-            faceBorderColor: Colors.transparent,
-            shellGradient: shellGradient,
-            faceGradient: faceGradient,
-            innerMargin: const EdgeInsets.all(2.1),
-            shadows: shellShadows,
-            child: const SizedBox.expand(),
-          ),
-        );
-      }, childCount: filteredRestaurants.isEmpty ? 1 : filteredRestaurants.length),
+        },
+        childCount: filteredRestaurants.isEmpty
+            ? 1
+            : filteredRestaurants.length,
+      ),
     );
   }
 
@@ -2059,25 +2077,25 @@ class _HomeScreenState extends State<HomeScreen> {
               colors: [
                 Color(0xFFDFCBB8),
                 Color(0xFFC5AE94),
-                Color(0xFFB69170),
-                Color(0xFFA77B59),
+                Color(0xFFBA9878),
+                Color(0xFFAA8060),
               ],
               stops: [0.0, 0.34, 0.72, 1.0],
             ),
             faceGradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFD0B9A3), Color(0xFFD0B9A3), Color(0xFFD0B9A3)],
+              colors: [Color(0xFFD6C2AE), Color(0xFFD6C2AE), Color(0xFFD6C2AE)],
             ),
             innerMargin: const EdgeInsets.all(2.0),
             shadows: [
               const BoxShadow(
-                color: Color.fromRGBO(120, 80, 40, 0.45),
+                color: Color.fromRGBO(120, 80, 40, 0.36),
                 offset: Offset(0, 2),
                 blurRadius: 0,
                 spreadRadius: 0,
               ),
-              ..._biteSaverTileShadows(strength: 0.82),
+              ..._biteSaverTileShadows(strength: 0.76),
             ],
             child: Padding(
               padding: const EdgeInsets.fromLTRB(10, 5, 10, 1),
@@ -2136,10 +2154,22 @@ class _HomeScreenState extends State<HomeScreen> {
                                           fillColor: const Color(0xFFFFFAF5),
                                           isDense: true,
                                           hintText: 'Search restaurants',
+                                          hintStyle: const TextStyle(
+                                            color: Color(0xFF8A7B70),
+                                            fontSize: 15.5,
+                                            fontWeight: FontWeight.w400,
+                                            height: 1.0,
+                                          ),
                                           prefixIcon: const Icon(
                                             Icons.manage_search,
                                             color: Color(0xFFB7613F),
+                                            size: 20,
                                           ),
+                                          prefixIconConstraints:
+                                              const BoxConstraints(
+                                                minWidth: 44,
+                                                minHeight: 36,
+                                              ),
                                           contentPadding:
                                               const EdgeInsets.fromLTRB(
                                                 14,
@@ -2148,24 +2178,27 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 10,
                                               ),
                                           border: OutlineInputBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(14),
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
                                             borderSide: const BorderSide(
                                               color: Color(0xFFD6B4A0),
                                               width: 1.0,
                                             ),
                                           ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(14),
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
                                             borderSide: const BorderSide(
                                               color: Color(0xFFD6B4A0),
                                               width: 1.0,
                                             ),
                                           ),
                                           focusedBorder: OutlineInputBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(14),
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
                                             borderSide: const BorderSide(
                                               color: Color(0xFFD6B4A0),
                                               width: 1.0,
@@ -2195,42 +2228,47 @@ class _HomeScreenState extends State<HomeScreen> {
                                               ),
                                             PressableScale(
                                               child: _biteSaverLightTileControl(
-                                              ElevatedButton(
-                                                onPressed: runGeneralSearch,
-                                                style: ElevatedButton.styleFrom(
-                                                  minimumSize: const Size(0, 36),
-                                                  backgroundColor: const Color(
-                                                    0xFFFFFBF7,
+                                                ElevatedButton(
+                                                  onPressed: runGeneralSearch,
+                                                  style: ElevatedButton.styleFrom(
+                                                    minimumSize: const Size(
+                                                      0,
+                                                      36,
+                                                    ),
+                                                    backgroundColor:
+                                                        const Color(0xFFFFFBF7),
+                                                    foregroundColor:
+                                                        const Color(0xFFB7613F),
+                                                    elevation: 4,
+                                                    shadowColor: Colors.black
+                                                        .withOpacity(0.14),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 18,
+                                                        ),
+                                                    tapTargetSize:
+                                                        MaterialTapTargetSize
+                                                            .shrinkWrap,
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            12,
+                                                          ),
+                                                      side: BorderSide.none,
+                                                    ),
                                                   ),
-                                                  foregroundColor: const Color(
-                                                    0xFFB7613F,
-                                                  ),
-                                                  elevation: 4,
-                                                  shadowColor:
-                                                      Colors.black.withOpacity(0.2),
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 18,
-                                                      ),
-                                                  tapTargetSize:
-                                                      MaterialTapTargetSize
-                                                          .shrinkWrap,
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(12),
-                                                    side: BorderSide.none,
+                                                  child: const Text(
+                                                    'Search',
+                                                    style: TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      height: 1.0,
+                                                    ),
                                                   ),
                                                 ),
-                                                child: const Text(
-                                                  'Search',
-                                                  style: TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
+                                                shadows: const [],
                                               ),
-                                              shadows: const [],
-                                            ),
                                             ),
                                           ],
                                         ),
@@ -2252,10 +2290,22 @@ class _HomeScreenState extends State<HomeScreen> {
                                           fillColor: const Color(0xFFFFFAF5),
                                           isDense: true,
                                           hintText: 'Enter city or ZIP code',
+                                          hintStyle: const TextStyle(
+                                            color: Color(0xFF8A7B70),
+                                            fontSize: 15.5,
+                                            fontWeight: FontWeight.w400,
+                                            height: 1.0,
+                                          ),
                                           prefixIcon: const Icon(
                                             Icons.search,
                                             color: Color(0xFFB7613F),
+                                            size: 20,
                                           ),
+                                          prefixIconConstraints:
+                                              const BoxConstraints(
+                                                minWidth: 44,
+                                                minHeight: 36,
+                                              ),
                                           contentPadding:
                                               const EdgeInsets.fromLTRB(
                                                 14,
@@ -2264,24 +2314,27 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 10,
                                               ),
                                           border: OutlineInputBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(14),
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
                                             borderSide: const BorderSide(
                                               color: Color(0xFFD6B4A0),
                                               width: 1.0,
                                             ),
                                           ),
                                           enabledBorder: OutlineInputBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(14),
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
                                             borderSide: const BorderSide(
                                               color: Color(0xFFD6B4A0),
                                               width: 1.0,
                                             ),
                                           ),
                                           focusedBorder: OutlineInputBorder(
-                                            borderRadius:
-                                                BorderRadius.circular(14),
+                                            borderRadius: BorderRadius.circular(
+                                              14,
+                                            ),
                                             borderSide: const BorderSide(
                                               color: Color(0xFFD6B4A0),
                                               width: 1.0,
@@ -2310,51 +2363,55 @@ class _HomeScreenState extends State<HomeScreen> {
                                                     VisualDensity.compact,
                                               ),
                                             PressableScale(
-                                              enabled:
-                                                  !isSearchingLocation,
+                                              enabled: !isSearchingLocation,
                                               child: _biteSaverLightTileControl(
-                                              ElevatedButton(
-                                                onPressed: isSearchingLocation
-                                                    ? null
-                                                    : () => runSearch(
-                                                        allRestaurants,
-                                                      ),
-                                                style: ElevatedButton.styleFrom(
-                                                  minimumSize: const Size(0, 36),
-                                                  backgroundColor: const Color(
-                                                    0xFFFFFBF7,
+                                                ElevatedButton(
+                                                  onPressed: isSearchingLocation
+                                                      ? null
+                                                      : () => runSearch(
+                                                          allRestaurants,
+                                                        ),
+                                                  style: ElevatedButton.styleFrom(
+                                                    minimumSize: const Size(
+                                                      0,
+                                                      36,
+                                                    ),
+                                                    backgroundColor:
+                                                        const Color(0xFFFFFBF7),
+                                                    foregroundColor:
+                                                        const Color(0xFFB7613F),
+                                                    elevation: 4,
+                                                    shadowColor: Colors.black
+                                                        .withOpacity(0.14),
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 18,
+                                                        ),
+                                                    tapTargetSize:
+                                                        MaterialTapTargetSize
+                                                            .shrinkWrap,
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            12,
+                                                          ),
+                                                      side: BorderSide.none,
+                                                    ),
                                                   ),
-                                                  foregroundColor: const Color(
-                                                    0xFFB7613F,
-                                                  ),
-                                                  elevation: 4,
-                                                  shadowColor:
-                                                      Colors.black.withOpacity(0.2),
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 18,
-                                                      ),
-                                                  tapTargetSize:
-                                                      MaterialTapTargetSize
-                                                          .shrinkWrap,
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(12),
-                                                    side: BorderSide.none,
+                                                  child: Text(
+                                                    isSearchingLocation
+                                                        ? 'Searching...'
+                                                        : 'Search',
+                                                    style: const TextStyle(
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      height: 1.0,
+                                                    ),
                                                   ),
                                                 ),
-                                                child: Text(
-                                                  isSearchingLocation
-                                                      ? 'Searching...'
-                                                      : 'Search',
-                                                  style: const TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w600,
-                                                  ),
-                                                ),
+                                                shadows: const [],
                                               ),
-                                              shadows: const [],
-                                            ),
                                             ),
                                           ],
                                         ),
@@ -2375,89 +2432,99 @@ class _HomeScreenState extends State<HomeScreen> {
                                             child: PressableScale(
                                               enabled: !isGettingLocation,
                                               child: _biteSaverLightTileControl(
-                                              ElevatedButton(
-                                                onPressed: isGettingLocation
-                                                    ? null
-                                                    : () => useMyLocation(
-                                                        allRestaurants,
+                                                ElevatedButton(
+                                                  onPressed: isGettingLocation
+                                                      ? null
+                                                      : () => useMyLocation(
+                                                          allRestaurants,
+                                                        ),
+                                                  style: ElevatedButton.styleFrom(
+                                                    minimumSize:
+                                                        const Size.fromHeight(
+                                                          36,
+                                                        ),
+                                                    backgroundColor:
+                                                        const Color(0xFFFFFBF7),
+                                                    foregroundColor:
+                                                        const Color(0xFFB7613F),
+                                                    elevation: 0,
+                                                    shadowColor:
+                                                        Colors.transparent,
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          horizontal: 10,
+                                                          vertical: 8,
+                                                        ),
+                                                    tapTargetSize:
+                                                        MaterialTapTargetSize
+                                                            .shrinkWrap,
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            12,
+                                                          ),
+                                                      side: BorderSide.none,
+                                                    ),
+                                                  ),
+                                                  child: Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    mainAxisAlignment:
+                                                        MainAxisAlignment
+                                                            .center,
+                                                    children: [
+                                                      const Icon(
+                                                        Icons
+                                                            .location_on_outlined,
+                                                        size: 18,
                                                       ),
-                                                style:
-                                                    ElevatedButton.styleFrom(
-                                                      minimumSize:
-                                                          const Size.fromHeight(
-                                                            36,
-                                                          ),
-                                                      backgroundColor:
-                                                          const Color(
-                                                            0xFFFFFBF7,
-                                                          ),
-                                                      foregroundColor:
-                                                          const Color(
-                                                            0xFFB7613F,
-                                                          ),
-                                                      elevation: 0,
-                                                      shadowColor:
-                                                          Colors.transparent,
-                                                      padding:
-                                                          const EdgeInsets.symmetric(
-                                                            horizontal: 10,
-                                                            vertical: 8,
-                                                          ),
-                                                      tapTargetSize:
-                                                          MaterialTapTargetSize
-                                                              .shrinkWrap,
-                                                      shape:
-                                                          RoundedRectangleBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  12,
-                                                                ),
-                                                            side:
-                                                                BorderSide.none,
-                                                          ),
-                                                    ),
-                                                child: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  mainAxisAlignment:
-                                                      MainAxisAlignment.center,
-                                                  children: [
-                                                    const Icon(
-                                                      Icons.location_on_outlined,
-                                                      size: 18,
-                                                    ),
-                                                    const SizedBox(width: 5),
-                                                    Flexible(
-                                                      child: Text(
-                                                        isGettingLocation
-                                                            ? 'Locating...'
-                                                            : 'Location',
-                                                        maxLines: 1,
-                                                        overflow: TextOverflow
-                                                            .ellipsis,
-                                                        style: const TextStyle(
-                                                          fontSize: 13,
+                                                      const SizedBox(width: 5),
+                                                      Flexible(
+                                                        child: Text(
+                                                          isGettingLocation
+                                                              ? 'Locating...'
+                                                              : 'Location',
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
+                                                          style:
+                                                              const TextStyle(
+                                                                fontSize: 13,
+                                                                fontWeight:
+                                                                    FontWeight
+                                                                        .w600,
+                                                                height: 1.0,
+                                                              ),
                                                         ),
                                                       ),
+                                                    ],
+                                                  ),
+                                                ),
+                                                shadows: const [
+                                                  BoxShadow(
+                                                    color: Color.fromRGBO(
+                                                      120,
+                                                      80,
+                                                      40,
+                                                      0.08,
                                                     ),
-                                                  ],
-                                                ),
+                                                    offset: Offset(0, 1),
+                                                    blurRadius: 0,
+                                                    spreadRadius: 0,
+                                                  ),
+                                                  BoxShadow(
+                                                    color: Color.fromRGBO(
+                                                      94,
+                                                      62,
+                                                      30,
+                                                      0.035,
+                                                    ),
+                                                    offset: Offset(0, 2),
+                                                    blurRadius: 6,
+                                                    spreadRadius: 0,
+                                                  ),
+                                                ],
                                               ),
-                                              shadows: const [
-                                                BoxShadow(
-                                                  color: Color.fromRGBO(120, 80, 40, 0.08),
-                                                  offset: Offset(0, 1),
-                                                  blurRadius: 0,
-                                                  spreadRadius: 0,
-                                                ),
-                                                BoxShadow(
-                                                  color: Color.fromRGBO(94, 62, 30, 0.035),
-                                                  offset: Offset(0, 2),
-                                                  blurRadius: 6,
-                                                  spreadRadius: 0,
-                                                ),
-                                              ],
-                                            ),
                                             ),
                                           ),
                                           const SizedBox(width: 8),
@@ -2480,7 +2547,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                                       ),
                                                   border: OutlineInputBorder(
                                                     borderRadius:
-                                                        BorderRadius.circular(12),
+                                                        BorderRadius.circular(
+                                                          12,
+                                                        ),
                                                     borderSide: BorderSide.none,
                                                   ),
                                                   enabledBorder:
@@ -2518,50 +2587,57 @@ class _HomeScreenState extends State<HomeScreen> {
                                                       Text(
                                                         '1 mi',
                                                         style: TextStyle(
-                                                          color:
-                                                              Color(0xFFB7613F),
+                                                          color: Color(
+                                                            0xFFB7613F,
+                                                          ),
                                                         ),
                                                       ),
                                                       Text(
                                                         '3 mi',
                                                         style: TextStyle(
-                                                          color:
-                                                              Color(0xFFB7613F),
+                                                          color: Color(
+                                                            0xFFB7613F,
+                                                          ),
                                                         ),
                                                       ),
                                                       Text(
                                                         '5 mi',
                                                         style: TextStyle(
-                                                          color:
-                                                              Color(0xFFB7613F),
+                                                          color: Color(
+                                                            0xFFB7613F,
+                                                          ),
                                                         ),
                                                       ),
                                                       Text(
                                                         '10 mi',
                                                         style: TextStyle(
-                                                          color:
-                                                              Color(0xFFB7613F),
+                                                          color: Color(
+                                                            0xFFB7613F,
+                                                          ),
                                                         ),
                                                       ),
                                                       Text(
                                                         '15 mi',
                                                         style: TextStyle(
-                                                          color:
-                                                              Color(0xFFB7613F),
+                                                          color: Color(
+                                                            0xFFB7613F,
+                                                          ),
                                                         ),
                                                       ),
                                                       Text(
                                                         '20 mi',
                                                         style: TextStyle(
-                                                          color:
-                                                              Color(0xFFB7613F),
+                                                          color: Color(
+                                                            0xFFB7613F,
+                                                          ),
                                                         ),
                                                       ),
                                                       Text(
                                                         '30 mi',
                                                         style: TextStyle(
-                                                          color:
-                                                              Color(0xFFB7613F),
+                                                          color: Color(
+                                                            0xFFB7613F,
+                                                          ),
                                                         ),
                                                       ),
                                                     ],
@@ -2606,13 +2682,23 @@ class _HomeScreenState extends State<HomeScreen> {
                                               ),
                                               shadows: const [
                                                 BoxShadow(
-                                                  color: Color.fromRGBO(120, 80, 40, 0.08),
+                                                  color: Color.fromRGBO(
+                                                    120,
+                                                    80,
+                                                    40,
+                                                    0.08,
+                                                  ),
                                                   offset: Offset(0, 1),
                                                   blurRadius: 0,
                                                   spreadRadius: 0,
                                                 ),
                                                 BoxShadow(
-                                                  color: Color.fromRGBO(94, 62, 30, 0.035),
+                                                  color: Color.fromRGBO(
+                                                    94,
+                                                    62,
+                                                    30,
+                                                    0.035,
+                                                  ),
                                                   offset: Offset(0, 2),
                                                   blurRadius: 6,
                                                   spreadRadius: 0,
@@ -2626,40 +2712,38 @@ class _HomeScreenState extends State<HomeScreen> {
                                             child: PressableScale(
                                               enabled: !isGettingLocation,
                                               child: _biteSaverRedTileControl(
-                                              ElevatedButton(
-                                                onPressed: isGettingLocation
-                                                    ? null
-                                                    : () => useMyLocation(
-                                                        allRestaurants,
-                                                      ),
-                                                style:
-                                                    ElevatedButton.styleFrom(
-                                                      minimumSize:
-                                                          const Size(110, 0),
-                                                      backgroundColor:
-                                                          Colors.transparent,
-                                                      foregroundColor:
-                                                          Colors.white,
-                                                      elevation: 0,
-                                                      shadowColor:
-                                                          Colors.transparent,
-                                                      shape:
-                                                          RoundedRectangleBorder(
-                                                            borderRadius:
-                                                                BorderRadius.circular(
-                                                                  14,
-                                                                ),
-                                                            side:
-                                                                BorderSide.none,
-                                                          ),
-                                                      textStyle:
-                                                          const TextStyle(
-                                                            fontWeight:
-                                                                FontWeight.w800,
-                                                          ),
+                                                ElevatedButton(
+                                                  onPressed: isGettingLocation
+                                                      ? null
+                                                      : () => useMyLocation(
+                                                          allRestaurants,
+                                                        ),
+                                                  style: ElevatedButton.styleFrom(
+                                                    minimumSize: const Size(
+                                                      110,
+                                                      0,
                                                     ),
-                                                child: const Text('Refresh'),
-                                              ),
+                                                    backgroundColor:
+                                                        Colors.transparent,
+                                                    foregroundColor:
+                                                        Colors.white,
+                                                    elevation: 0,
+                                                    shadowColor:
+                                                        Colors.transparent,
+                                                    shape: RoundedRectangleBorder(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            14,
+                                                          ),
+                                                      side: BorderSide.none,
+                                                    ),
+                                                    textStyle: const TextStyle(
+                                                      fontWeight:
+                                                          FontWeight.w800,
+                                                    ),
+                                                  ),
+                                                  child: const Text('Refresh'),
+                                                ),
                                               ),
                                             ),
                                           ),
@@ -2668,7 +2752,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                     ),
                                   ),
                                   const SizedBox(height: 1),
-                                if (compactStatusLine(
+                                  if (compactStatusLine(
                                     filteredRestaurants,
                                   ).isNotEmpty)
                                     Align(
@@ -2684,14 +2768,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   !usingCurrentLocation &&
                                                   searchQuery.trim().isEmpty)
                                               ? const Color(0xFFB7613F)
-                                              : Colors.black54,
+                                              : Colors.black45,
                                           fontWeight: FontWeight.w400,
-                                          height: 1.15,
+                                          height: 1.1,
                                           letterSpacing: 0.02,
                                         ),
                                       ),
                                     ),
-                                  const SizedBox(height: 0),
+                                  const SizedBox(height: 2),
                                 ],
                               ),
                               Positioned(
@@ -2913,7 +2997,8 @@ class _ImmediatePressFeedback extends StatefulWidget {
   });
 
   @override
-  State<_ImmediatePressFeedback> createState() => _ImmediatePressFeedbackState();
+  State<_ImmediatePressFeedback> createState() =>
+      _ImmediatePressFeedbackState();
 }
 
 class _ImmediatePressFeedbackState extends State<_ImmediatePressFeedback> {
@@ -3034,27 +3119,27 @@ class _RestaurantCardShellPressableState
                 widget.title,
                 style: const TextStyle(
                   color: Color(0xFF1F1A16),
-                  fontSize: 18.2,
-                  fontWeight: FontWeight.w700,
-                  height: 1.14,
-                  letterSpacing: -0.08,
+                  fontSize: 18.0,
+                  fontWeight: FontWeight.w600,
+                  height: 1.10,
+                  letterSpacing: 0.24,
                 ),
               ),
             ),
             const SizedBox(width: 8),
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
               decoration: BoxDecoration(
                 color: widget.isFeatured
-                    ? const Color(0x3694482E)
-                    : const Color(0x2894482E),
+                    ? const Color(0x4094482E)
+                    : const Color(0x3094482E),
                 borderRadius: BorderRadius.circular(999),
                 boxShadow: [
                   BoxShadow(
                     color: widget.isFeatured
                         ? const Color.fromRGBO(120, 80, 40, 0.14)
-                        : const Color.fromRGBO(120, 80, 40, 0.10),
-                    blurRadius: widget.isFeatured ? 4 : 3,
+                        : const Color.fromRGBO(120, 80, 40, 0.08),
+                    blurRadius: widget.isFeatured ? 3.0 : 2.2,
                     offset: const Offset(0, 1),
                   ),
                 ],
@@ -3063,9 +3148,9 @@ class _RestaurantCardShellPressableState
                 text: TextSpan(
                   style: TextStyle(
                     color: widget.isFeatured
-                        ? const Color(0xFF53301E)
-                        : const Color(0xFF5A3522),
-                    fontSize: 11,
+                        ? const Color(0xFF472717)
+                        : const Color(0xFF4C2C1B),
+                    fontSize: 10.8,
                     height: 1.0,
                     letterSpacing: 0.0,
                   ),
@@ -3075,38 +3160,43 @@ class _RestaurantCardShellPressableState
                       style: TextStyle(
                         fontWeight: widget.isFeatured
                             ? FontWeight.w800
-                            : FontWeight.w700,
+                            : FontWeight.w800,
                       ),
                     ),
                     const TextSpan(text: ' '),
                     TextSpan(
                       text: widget.dealCount == 1 ? 'deal' : 'deals',
-                      style: const TextStyle(fontWeight: FontWeight.w500),
+                      style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(width: 8),
-            const Icon(
-              Icons.storefront,
-              size: 17,
-              color: Color(0xFF94482E),
+            const SizedBox(width: 7),
+            const SizedBox(
+              height: 17,
+              child: Center(
+                child: Icon(
+                  Icons.storefront,
+                  size: 16.5,
+                  color: Color(0xFF94482E),
+                ),
+              ),
             ),
           ],
         ),
-        const SizedBox(height: 5),
+        const SizedBox(height: 4),
         Text(
           widget.subtitle,
           style: TextStyle(
-            color: Colors.black.withOpacity(0.54),
-            fontSize: 12.8,
+            color: Colors.black.withOpacity(0.46),
+            fontSize: 12.2,
             fontWeight: FontWeight.w400,
-            height: 1.24,
+            height: 1.16,
             letterSpacing: 0.01,
           ),
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 10),
       ],
     );
   }
@@ -3165,7 +3255,7 @@ class _RestaurantCardShellPressableState
                           ),
                         ),
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 15),
+                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                           child: _headerContent(),
                         ),
                       ],
@@ -3176,15 +3266,12 @@ class _RestaurantCardShellPressableState
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 15),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 IgnorePointer(
-                  child: Opacity(
-                    opacity: 0,
-                    child: _headerContent(),
-                  ),
+                  child: Opacity(opacity: 0, child: _headerContent()),
                 ),
                 ...widget.couponChildren,
               ],
@@ -3262,4 +3349,3 @@ class _RestaurantShellPressableState extends State<_RestaurantShellPressable> {
     );
   }
 }
-
