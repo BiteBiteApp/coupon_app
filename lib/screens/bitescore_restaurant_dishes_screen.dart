@@ -804,7 +804,12 @@ class _BiteScoreRestaurantDishesScreenState
             buildPersistentAppModeSwitcher(context),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+                padding: EdgeInsets.fromLTRB(
+                  16,
+                  16,
+                  16,
+                  24 + MediaQuery.of(context).viewPadding.bottom,
+                ),
                 children: [
                   BiteRaterTheme.liftedCard(
                     margin: const EdgeInsets.only(bottom: 12),

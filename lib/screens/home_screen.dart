@@ -2871,7 +2871,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
             final filteredRestaurants = filterRestaurants(allRestaurants);
             final bottomContentPadding =
-                88.0 + MediaQuery.of(context).viewPadding.bottom;
+                136.0 + MediaQuery.of(context).viewPadding.bottom;
 
             final hiddenProximityCount = allRestaurants
                 .expand((restaurant) => restaurant.coupons)
@@ -2994,7 +2994,7 @@ class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
   }
 }
 
-class _ImmediatePressFeedback extends StatefulWidget {
+class _ImmediatePressFeedback extends StatelessWidget {
   final Widget child;
   final BorderRadius borderRadius;
 
@@ -3004,79 +3004,12 @@ class _ImmediatePressFeedback extends StatefulWidget {
   });
 
   @override
-  State<_ImmediatePressFeedback> createState() =>
-      _ImmediatePressFeedbackState();
-}
-
-class _ImmediatePressFeedbackState extends State<_ImmediatePressFeedback> {
-  bool _pressed = false;
-
-  Duration get _duration => Duration(milliseconds: _pressed ? 75 : 120);
-
-  void _setPressed(bool value) {
-    if (_pressed == value) return;
-    setState(() {
-      _pressed = value;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: (_) => _setPressed(true),
-      onPointerUp: (_) => _setPressed(false),
-      onPointerCancel: (_) => _setPressed(false),
-      child: AnimatedContainer(
-        duration: _duration,
-        curve: Curves.easeOut,
-        decoration: BoxDecoration(
-          borderRadius: widget.borderRadius,
-          boxShadow: _pressed
-              ? const [
-                  BoxShadow(
-                    color: Color.fromRGBO(48, 30, 16, 0.08),
-                    blurRadius: 8,
-                    offset: Offset(0, 4),
-                  ),
-                ]
-              : const [],
-        ),
-        child: AnimatedScale(
-          scale: _pressed ? 0.968 : 1.0,
-          duration: _duration,
-          curve: Curves.easeOut,
-          child: AnimatedOpacity(
-            opacity: _pressed ? 0.965 : 1.0,
-            duration: _duration,
-            curve: Curves.easeOut,
-            child: Stack(
-              children: [
-                widget.child,
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: ClipRRect(
-                      borderRadius: widget.borderRadius,
-                      child: AnimatedContainer(
-                        duration: _duration,
-                        curve: Curves.easeOut,
-                        color: _pressed
-                            ? const Color.fromRGBO(38, 24, 12, 0.05)
-                            : Colors.transparent,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
+    return child;
   }
 }
 
-class _RestaurantCardShellPressable extends StatefulWidget {
+class _RestaurantCardShellPressable extends StatelessWidget {
   final VoidCallback onTap;
   final String title;
   final String subtitle;
@@ -3097,24 +3030,6 @@ class _RestaurantCardShellPressable extends StatefulWidget {
     required this.shellChild,
   });
 
-  @override
-  State<_RestaurantCardShellPressable> createState() =>
-      _RestaurantCardShellPressableState();
-}
-
-class _RestaurantCardShellPressableState
-    extends State<_RestaurantCardShellPressable> {
-  bool _pressed = false;
-
-  Duration get _duration => Duration(milliseconds: _pressed ? 75 : 120);
-
-  void _setPressed(bool value) {
-    if (_pressed == value) return;
-    setState(() {
-      _pressed = value;
-    });
-  }
-
   Widget _headerContent() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -3123,7 +3038,7 @@ class _RestaurantCardShellPressableState
           children: [
             Expanded(
               child: Text(
-                widget.title,
+                title,
                 style: const TextStyle(
                   color: Color(0xFF1F1A16),
                   fontSize: 18.0,
@@ -3137,16 +3052,16 @@ class _RestaurantCardShellPressableState
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
               decoration: BoxDecoration(
-                color: widget.isFeatured
+                color: isFeatured
                     ? const Color(0x4094482E)
                     : const Color(0x3094482E),
                 borderRadius: BorderRadius.circular(999),
                 boxShadow: [
                   BoxShadow(
-                    color: widget.isFeatured
+                    color: isFeatured
                         ? const Color.fromRGBO(120, 80, 40, 0.14)
                         : const Color.fromRGBO(120, 80, 40, 0.08),
-                    blurRadius: widget.isFeatured ? 3.0 : 2.2,
+                    blurRadius: isFeatured ? 3.0 : 2.2,
                     offset: const Offset(0, 1),
                   ),
                 ],
@@ -3154,7 +3069,7 @@ class _RestaurantCardShellPressableState
               child: RichText(
                 text: TextSpan(
                   style: TextStyle(
-                    color: widget.isFeatured
+                    color: isFeatured
                         ? const Color(0xFF472717)
                         : const Color(0xFF4C2C1B),
                     fontSize: 10.8,
@@ -3163,16 +3078,16 @@ class _RestaurantCardShellPressableState
                   ),
                   children: [
                     TextSpan(
-                      text: '${widget.dealCount}',
+                      text: '$dealCount',
                       style: TextStyle(
-                        fontWeight: widget.isFeatured
+                        fontWeight: isFeatured
                             ? FontWeight.w800
                             : FontWeight.w800,
                       ),
                     ),
                     const TextSpan(text: ' '),
                     TextSpan(
-                      text: widget.dealCount == 1 ? 'deal' : 'deals',
+                      text: dealCount == 1 ? 'deal' : 'deals',
                       style: const TextStyle(fontWeight: FontWeight.w600),
                     ),
                   ],
@@ -3194,7 +3109,7 @@ class _RestaurantCardShellPressableState
         ),
         const SizedBox(height: 4),
         Text(
-          widget.subtitle,
+          subtitle,
           style: TextStyle(
             color: Colors.black.withOpacity(0.46),
             fontSize: 12.2,
@@ -3217,58 +3132,15 @@ class _RestaurantCardShellPressableState
           Positioned.fill(
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTapDown: (_) => _setPressed(true),
-              onTapUp: (_) => _setPressed(false),
-              onTapCancel: () => _setPressed(false),
-              onTap: widget.onTap,
-              child: AnimatedContainer(
-                duration: _duration,
-                curve: Curves.easeOut,
-                decoration: BoxDecoration(
-                  borderRadius: widget.shellRadius,
-                  boxShadow: _pressed
-                      ? const [
-                          BoxShadow(
-                            color: Color.fromRGBO(48, 30, 16, 0.10),
-                            blurRadius: 10,
-                            offset: Offset(0, 5),
-                          ),
-                        ]
-                      : const [],
-                ),
-                child: AnimatedScale(
-                  scale: _pressed ? 0.968 : 1.0,
-                  duration: _duration,
-                  curve: Curves.easeOut,
-                  child: AnimatedOpacity(
-                    opacity: _pressed ? 0.965 : 1.0,
-                    duration: _duration,
-                    curve: Curves.easeOut,
-                    child: Stack(
-                      children: [
-                        widget.shellChild,
-                        Positioned.fill(
-                          child: IgnorePointer(
-                            child: ClipRRect(
-                              borderRadius: widget.shellRadius,
-                              child: AnimatedContainer(
-                                duration: _duration,
-                                curve: Curves.easeOut,
-                                color: _pressed
-                                    ? const Color.fromRGBO(38, 24, 12, 0.05)
-                                    : Colors.transparent,
-                              ),
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-                          child: _headerContent(),
-                        ),
-                      ],
-                    ),
+              onTap: onTap,
+              child: Stack(
+                children: [
+                  shellChild,
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
+                    child: _headerContent(),
                   ),
-                ),
+                ],
               ),
             ),
           ),
@@ -3280,78 +3152,11 @@ class _RestaurantCardShellPressableState
                 IgnorePointer(
                   child: Opacity(opacity: 0, child: _headerContent()),
                 ),
-                ...widget.couponChildren,
+                ...couponChildren,
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _RestaurantShellPressable extends StatefulWidget {
-  final VoidCallback onTap;
-  final BorderRadius borderRadius;
-  final Widget child;
-
-  const _RestaurantShellPressable({
-    required this.onTap,
-    required this.borderRadius,
-    required this.child,
-  });
-
-  @override
-  State<_RestaurantShellPressable> createState() =>
-      _RestaurantShellPressableState();
-}
-
-class _RestaurantShellPressableState extends State<_RestaurantShellPressable> {
-  bool _pressed = false;
-
-  void _setPressed(bool value) {
-    if (_pressed == value) return;
-    setState(() {
-      _pressed = value;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: (_) => _setPressed(true),
-      onTapUp: (_) => _setPressed(false),
-      onTapCancel: () => _setPressed(false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _pressed ? 0.978 : 1.0,
-        duration: const Duration(milliseconds: 100),
-        curve: Curves.easeOut,
-        child: AnimatedOpacity(
-          opacity: _pressed ? 0.98 : 1.0,
-          duration: const Duration(milliseconds: 100),
-          curve: Curves.easeOut,
-          child: Stack(
-            children: [
-              widget.child,
-              Positioned.fill(
-                child: IgnorePointer(
-                  child: ClipRRect(
-                    borderRadius: widget.borderRadius,
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 100),
-                      curve: Curves.easeOut,
-                      color: _pressed
-                          ? const Color.fromRGBO(38, 24, 12, 0.05)
-                          : Colors.transparent,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

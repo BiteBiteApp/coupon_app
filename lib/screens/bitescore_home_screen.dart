@@ -1551,7 +1551,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   Widget build(BuildContext context) {
     final filteredEntries = _filteredEntries(_entries);
     final bottomContentPadding =
-        88.0 + MediaQuery.of(context).viewPadding.bottom;
+        136.0 + MediaQuery.of(context).viewPadding.bottom;
 
     return Scaffold(
       backgroundColor: BiteRaterTheme.pageBackground,

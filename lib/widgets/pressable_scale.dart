@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-class PressableScale extends StatefulWidget {
+class PressableScale extends StatelessWidget {
   final Widget child;
   final bool enabled;
   final double pressedScale;
@@ -21,40 +21,7 @@ class PressableScale extends StatefulWidget {
   });
 
   @override
-  State<PressableScale> createState() => _PressableScaleState();
-}
-
-class _PressableScaleState extends State<PressableScale> {
-  bool _pressed = false;
-
-  Duration get _duration =>
-      _pressed ? widget.pressInDuration : widget.pressOutDuration;
-
-  void _setPressed(bool value) {
-    if (!widget.enabled || _pressed == value) return;
-    setState(() {
-      _pressed = value;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: (_) => _setPressed(true),
-      onPointerUp: (_) => _setPressed(false),
-      onPointerCancel: (_) => _setPressed(false),
-      child: AnimatedScale(
-        scale: _pressed ? widget.pressedScale : 1,
-        duration: _duration,
-        curve: widget.curve,
-        child: AnimatedOpacity(
-          opacity: _pressed ? widget.pressedOpacity : 1,
-          duration: _duration,
-          curve: widget.curve,
-          child: widget.child,
-        ),
-      ),
-    );
+    return child;
   }
 }

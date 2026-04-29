@@ -1662,7 +1662,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                           16,
                           16,
                           16,
-                          24 + MediaQuery.of(context).padding.bottom,
+                          24 + MediaQuery.of(context).viewPadding.bottom,
                         ),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,

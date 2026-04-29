@@ -203,7 +203,7 @@ class BiteRaterTheme {
   }
 }
 
-class _BiteRaterLiftedCardShell extends StatefulWidget {
+class _BiteRaterLiftedCardShell extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry margin;
   final double radius;
@@ -219,61 +219,31 @@ class _BiteRaterLiftedCardShell extends StatefulWidget {
   });
 
   @override
-  State<_BiteRaterLiftedCardShell> createState() =>
-      _BiteRaterLiftedCardShellState();
-}
-
-class _BiteRaterLiftedCardShellState extends State<_BiteRaterLiftedCardShell> {
-  bool _pressed = false;
-
-  void _setPressed(bool value) {
-    if (_pressed == value || !mounted) {
-      return;
-    }
-    setState(() {
-      _pressed = value;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Listener(
-      onPointerDown: widget.pressEnabled ? (_) => _setPressed(true) : null,
-      onPointerUp: widget.pressEnabled ? (_) => _setPressed(false) : null,
-      onPointerCancel: widget.pressEnabled ? (_) => _setPressed(false) : null,
-      child: AnimatedScale(
-        scale: widget.pressEnabled && _pressed ? 0.97 : 1,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOutCubic,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          curve: Curves.easeOutCubic,
-          margin: widget.margin,
-          decoration: BiteRaterTheme.liftedCardOuterDecoration(
-            radius: widget.radius,
-            pressed: _pressed,
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOutCubic,
+      margin: margin,
+      decoration: BiteRaterTheme.liftedCardOuterDecoration(radius: radius),
+      child: Padding(
+        padding: const EdgeInsets.all(1.4),
+        child: Card(
+          margin: EdgeInsets.zero,
+          color: BiteRaterTheme.cardSurface,
+          surfaceTintColor: Colors.transparent,
+          elevation: 0,
+          shape: BiteRaterTheme.liftedCardShape(
+            radius: radius,
+            borderColor: borderColor,
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(1.4),
-            child: Card(
-              margin: EdgeInsets.zero,
-              color: BiteRaterTheme.cardSurface,
-              surfaceTintColor: Colors.transparent,
-              elevation: 0,
-              shape: BiteRaterTheme.liftedCardShape(
-                radius: widget.radius,
-                borderColor: widget.borderColor,
-              ),
-              child: widget.child,
-            ),
-          ),
+          child: child,
         ),
       ),
     );
   }
 }
 
-class _BiteRaterPressableSection extends StatefulWidget {
+class _BiteRaterPressableSection extends StatelessWidget {
   final Widget child;
   final VoidCallback? onTap;
   final BorderRadius? borderRadius;
@@ -293,50 +263,21 @@ class _BiteRaterPressableSection extends StatefulWidget {
   });
 
   @override
-  State<_BiteRaterPressableSection> createState() =>
-      _BiteRaterPressableSectionState();
-}
-
-class _BiteRaterPressableSectionState
-    extends State<_BiteRaterPressableSection> {
-  bool _pressed = false;
-
-  void _setPressed(bool value) {
-    if (_pressed == value || !mounted) {
-      return;
-    }
-    setState(() {
-      _pressed = value;
-    });
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Listener(
-      behavior: HitTestBehavior.opaque,
-      onPointerDown: (_) => _setPressed(true),
-      onPointerUp: (_) => _setPressed(false),
-      onPointerCancel: (_) => _setPressed(false),
-      child: AnimatedScale(
-        scale: _pressed ? widget.pressedScale : 1,
-        duration: const Duration(milliseconds: 120),
-        curve: Curves.easeOutCubic,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          curve: Curves.easeOutCubic,
-          decoration: BoxDecoration(
-            color: _pressed ? widget.pressedColor : widget.restingColor,
-            borderRadius: widget.borderRadius,
-            border: widget.border,
-          ),
-          child: Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: widget.onTap,
-              borderRadius: widget.borderRadius,
-              child: SizedBox(width: double.infinity, child: widget.child),
-            ),
-          ),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 120),
+      curve: Curves.easeOutCubic,
+      decoration: BoxDecoration(
+        color: restingColor,
+        borderRadius: borderRadius,
+        border: border,
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: borderRadius,
+          child: SizedBox(width: double.infinity, child: child),
         ),
       ),
     );
