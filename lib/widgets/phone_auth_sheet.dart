@@ -249,119 +249,125 @@ class _PhoneAuthSheetState extends State<_PhoneAuthSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final mediaQuery = MediaQuery.of(context);
+    final bottomInset = mediaQuery.viewInsets.bottom > 0
+        ? mediaQuery.viewInsets.bottom
+        : mediaQuery.viewPadding.bottom;
     final hasCodeStep = _verificationId != null;
 
-    return Padding(
-      padding: EdgeInsets.fromLTRB(20, 20, 20, bottomInset + 20),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 36,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.black12,
-                borderRadius: BorderRadius.circular(999),
+    return SafeArea(
+      top: false,
+      child: SingleChildScrollView(
+        padding: EdgeInsets.fromLTRB(20, 20, 20, bottomInset + 20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.black12,
+                  borderRadius: BorderRadius.circular(999),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            hasCodeStep ? 'Enter verification code' : 'Sign in with phone',
-            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            hasCodeStep
-                ? 'Enter the SMS code we sent to your phone.'
-                : 'Enter your mobile number to get a one-time verification code.',
-            style: const TextStyle(color: Colors.black54, height: 1.35),
-          ),
-          const SizedBox(height: 18),
-          TextField(
-            controller: _phoneController,
-            keyboardType: TextInputType.phone,
-            enabled: !hasCodeStep,
-            autofillHints: const [AutofillHints.telephoneNumber],
-            decoration: const InputDecoration(
-              labelText: 'Phone number',
-              hintText: '555-123-4567',
-              border: OutlineInputBorder(),
+            const SizedBox(height: 18),
+            Text(
+              hasCodeStep ? 'Enter verification code' : 'Sign in with phone',
+              style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-          ),
-          if (hasCodeStep) ...[
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
+            Text(
+              hasCodeStep
+                  ? 'Enter the SMS code we sent to your phone.'
+                  : 'Enter your mobile number to get a one-time verification code.',
+              style: const TextStyle(color: Colors.black54, height: 1.35),
+            ),
+            const SizedBox(height: 18),
             TextField(
-              controller: _codeController,
-              keyboardType: TextInputType.number,
-              autofillHints: const [AutofillHints.oneTimeCode],
+              controller: _phoneController,
+              keyboardType: TextInputType.phone,
+              enabled: !hasCodeStep,
+              autofillHints: const [AutofillHints.telephoneNumber],
               decoration: const InputDecoration(
-                labelText: 'Verification code',
+                labelText: 'Phone number',
+                hintText: '555-123-4567',
                 border: OutlineInputBorder(),
               ),
             ),
-          ],
-          if (_message != null) ...[
-            const SizedBox(height: 12),
-            Text(
-              _message!,
-              style: TextStyle(
-                fontSize: 13,
-                color: _message == 'Verification code sent.'
-                    ? Colors.green[700]
-                    : Colors.black54,
+            if (hasCodeStep) ...[
+              const SizedBox(height: 12),
+              TextField(
+                controller: _codeController,
+                keyboardType: TextInputType.number,
+                autofillHints: const [AutofillHints.oneTimeCode],
+                decoration: const InputDecoration(
+                  labelText: 'Verification code',
+                  border: OutlineInputBorder(),
+                ),
               ),
-            ),
-          ],
-          const SizedBox(height: 18),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _isSendingCode || _isVerifyingCode
-                  ? null
-                  : hasCodeStep
-                  ? _verifyCode
-                  : _sendCode,
-              child: Text(
-                _isSendingCode
-                    ? 'Sending code...'
-                    : _isVerifyingCode
-                    ? 'Verifying...'
+            ],
+            if (_message != null) ...[
+              const SizedBox(height: 12),
+              Text(
+                _message!,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: _message == 'Verification code sent.'
+                      ? Colors.green[700]
+                      : Colors.black54,
+                ),
+              ),
+            ],
+            const SizedBox(height: 18),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _isSendingCode || _isVerifyingCode
+                    ? null
                     : hasCodeStep
-                    ? 'Verify code'
-                    : 'Send code',
+                    ? _verifyCode
+                    : _sendCode,
+                child: Text(
+                  _isSendingCode
+                      ? 'Sending code...'
+                      : _isVerifyingCode
+                      ? 'Verifying...'
+                      : hasCodeStep
+                      ? 'Verify code'
+                      : 'Send code',
+                ),
               ),
             ),
-          ),
-          if (hasCodeStep) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                TextButton(
-                  onPressed: _isSendingCode || _isVerifyingCode
-                      ? null
-                      : () => _sendCode(isResend: true),
-                  child: const Text('Resend code'),
-                ),
-                TextButton(
-                  onPressed: _isSendingCode || _isVerifyingCode
-                      ? null
-                      : () {
-                          setState(() {
-                            _verificationId = null;
-                            _codeController.clear();
-                            _message = null;
-                          });
-                        },
-                  child: const Text('Use a different number'),
-                ),
-              ],
-            ),
+            if (hasCodeStep) ...[
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  TextButton(
+                    onPressed: _isSendingCode || _isVerifyingCode
+                        ? null
+                        : () => _sendCode(isResend: true),
+                    child: const Text('Resend code'),
+                  ),
+                  TextButton(
+                    onPressed: _isSendingCode || _isVerifyingCode
+                        ? null
+                        : () {
+                            setState(() {
+                              _verificationId = null;
+                              _codeController.clear();
+                              _message = null;
+                            });
+                          },
+                    child: const Text('Use a different number'),
+                  ),
+                ],
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }

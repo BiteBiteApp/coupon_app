@@ -764,8 +764,10 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
           body: SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {
+                final bottomPadding =
+                    96.0 + MediaQuery.of(context).viewPadding.bottom;
                 return SingleChildScrollView(
-                  padding: const EdgeInsets.all(24),
+                  padding: EdgeInsets.fromLTRB(24, 24, 24, bottomPadding),
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
                       minHeight: constraints.maxHeight - 48,

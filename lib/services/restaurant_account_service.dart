@@ -40,11 +40,14 @@ class RestaurantAccountService {
     final trimmedState = state?.trim();
     final trimmedZipCode = zipCode?.trim();
     final trimmedPhone = phone?.trim();
+    final trimmedPhoneNumber = user.phoneNumber?.trim();
 
     if (!snapshot.exists) {
       await doc.set({
         Restaurant.fieldUid: user.uid,
         Restaurant.fieldEmail: user.email,
+        if (trimmedPhoneNumber != null && trimmedPhoneNumber.isNotEmpty)
+          'phoneNumber': trimmedPhoneNumber,
         if (trimmedRestaurantName != null && trimmedRestaurantName.isNotEmpty)
           Restaurant.fieldName: trimmedRestaurantName,
         if (trimmedStreetAddress != null && trimmedStreetAddress.isNotEmpty)
@@ -69,6 +72,8 @@ class RestaurantAccountService {
     await doc.set({
       Restaurant.fieldUid: user.uid,
       Restaurant.fieldEmail: user.email,
+      if (trimmedPhoneNumber != null && trimmedPhoneNumber.isNotEmpty)
+        'phoneNumber': trimmedPhoneNumber,
       if (trimmedRestaurantName != null && trimmedRestaurantName.isNotEmpty)
         Restaurant.fieldName: trimmedRestaurantName,
       if (trimmedStreetAddress != null && trimmedStreetAddress.isNotEmpty)
@@ -91,8 +96,11 @@ class RestaurantAccountService {
   }
 
   static Future<void> syncEmailVerified(User user) async {
+    final trimmedPhoneNumber = user.phoneNumber?.trim();
     await docForUser(user.uid).set({
       'emailVerified': user.emailVerified,
+      if (trimmedPhoneNumber != null && trimmedPhoneNumber.isNotEmpty)
+        'phoneNumber': trimmedPhoneNumber,
       Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
@@ -153,14 +161,17 @@ class RestaurantAccountService {
       Restaurant.fieldName: requestedRestaurantName.trim(),
       Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
-    batch.set(restaurantNameChangeRequestsCollection().doc(requestId), {
-      'status': 'approved',
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    batch.set(
+      restaurantNameChangeRequestsCollection().doc(requestId),
+      {'status': 'approved', 'updatedAt': FieldValue.serverTimestamp()},
+      SetOptions(merge: true),
+    );
     await batch.commit();
   }
 
-  static Future<void> rejectRestaurantNameChangeRequest(String requestId) async {
+  static Future<void> rejectRestaurantNameChangeRequest(
+    String requestId,
+  ) async {
     await restaurantNameChangeRequestsCollection().doc(requestId).set({
       'status': 'rejected',
       'updatedAt': FieldValue.serverTimestamp(),
@@ -246,9 +257,7 @@ class RestaurantAccountService {
 
     final validationError = restaurant.validateRequiredFields();
     if (validationError != null || email.trim().isEmpty) {
-      throw ArgumentError(
-        validationError ?? 'Restaurant email is required.',
-      );
+      throw ArgumentError(validationError ?? 'Restaurant email is required.');
     }
 
     await docForUser(uid).set({
@@ -340,9 +349,9 @@ class RestaurantAccountService {
   }
 
   static Future<List<Coupon>> loadCoupons(String uid) async {
-    final snapshot = await couponsCollection(uid)
-        .orderBy(Coupon.fieldCreatedAt, descending: true)
-        .get();
+    final snapshot = await couponsCollection(
+      uid,
+    ).orderBy(Coupon.fieldCreatedAt, descending: true).get();
 
     final coupons = <Coupon>[];
 
@@ -395,14 +404,8 @@ class RestaurantAccountService {
   }) async {
     final duplicateSnapshot = await couponsCollection(uid)
         .where(Coupon.fieldTitle, isEqualTo: title)
-        .where(
-          Coupon.fieldStartTime,
-          isEqualTo: Timestamp.fromDate(startTime),
-        )
-        .where(
-          Coupon.fieldEndTime,
-          isEqualTo: Timestamp.fromDate(endTime),
-        )
+        .where(Coupon.fieldStartTime, isEqualTo: Timestamp.fromDate(startTime))
+        .where(Coupon.fieldEndTime, isEqualTo: Timestamp.fromDate(endTime))
         .limit(1)
         .get();
 
@@ -427,8 +430,7 @@ class RestaurantAccountService {
           doc.data(),
           fallbackUid: doc.id,
         );
-        final uid =
-            _readString(normalizedData[Restaurant.fieldUid]) ?? doc.id;
+        final uid = _readString(normalizedData[Restaurant.fieldUid]) ?? doc.id;
 
         final coupons = await loadCoupons(uid);
         final restaurant = Restaurant.fromFirestore(
@@ -482,7 +484,8 @@ class RestaurantAccountService {
       'couponApplicationSubmitted': _readBool(
         data['couponApplicationSubmitted'],
       ),
-      'subscriptionStatus': _readString(data['subscriptionStatus']) ?? 'inactive',
+      'subscriptionStatus':
+          _readString(data['subscriptionStatus']) ?? 'inactive',
       'trialEndsAt': data['trialEndsAt'],
       'subscriptionEndsAt': data['subscriptionEndsAt'],
       'billingPlanName': _readString(data['billingPlanName']),

@@ -2870,6 +2870,8 @@ class _HomeScreenState extends State<HomeScreen> {
             detectAndShowNewCouponNotifications(allRestaurants);
 
             final filteredRestaurants = filterRestaurants(allRestaurants);
+            final bottomContentPadding =
+                88.0 + MediaQuery.of(context).viewPadding.bottom;
 
             final hiddenProximityCount = allRestaurants
                 .expand((restaurant) => restaurant.coupons)
@@ -2911,7 +2913,12 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                       ),
                       SliverPadding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        padding: EdgeInsets.fromLTRB(
+                          16,
+                          0,
+                          16,
+                          bottomContentPadding,
+                        ),
                         sliver: !_hasLocationOrZipInput
                             ? _buildGetStartedState(allRestaurants)
                             : _restaurantsError != null && _restaurants.isEmpty

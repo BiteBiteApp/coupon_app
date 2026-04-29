@@ -17,7 +17,7 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
   final TextEditingController _searchController = TextEditingController();
   late final Stream<QuerySnapshot<Map<String, dynamic>>> _accountsStream;
   late final Stream<QuerySnapshot<Map<String, dynamic>>>
-      _nameChangeRequestsStream;
+  _nameChangeRequestsStream;
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _fullRestaurantList =
       const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _filteredRestaurantList =
@@ -122,7 +122,8 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
     }
   }
 
-  List<QueryDocumentSnapshot<Map<String, dynamic>>> _buildFilteredRestaurantList(
+  List<QueryDocumentSnapshot<Map<String, dynamic>>>
+  _buildFilteredRestaurantList(
     List<QueryDocumentSnapshot<Map<String, dynamic>>> restaurants,
     String query,
   ) {
@@ -134,19 +135,25 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
       );
     }
 
-    return restaurants.where((doc) {
-      final data = doc.data();
-      final restaurantName = _readString(
-        data,
-        Restaurant.fieldName,
-      ).toLowerCase();
-      final email = _readString(data, Restaurant.fieldEmail).toLowerCase();
-      final city = _readString(data, Restaurant.fieldCity).toLowerCase();
+    return restaurants
+        .where((doc) {
+          final data = doc.data();
+          final restaurantName = _readString(
+            data,
+            Restaurant.fieldName,
+          ).toLowerCase();
+          final email = _readString(data, Restaurant.fieldEmail).toLowerCase();
+          final phoneNumber = _readString(data, 'phoneNumber').toLowerCase();
+          final phone = _readString(data, Restaurant.fieldPhone).toLowerCase();
+          final city = _readString(data, Restaurant.fieldCity).toLowerCase();
 
-      return restaurantName.contains(normalizedQuery) ||
-          email.contains(normalizedQuery) ||
-          city.contains(normalizedQuery);
-    }).toList(growable: false);
+          return restaurantName.contains(normalizedQuery) ||
+              email.contains(normalizedQuery) ||
+              phoneNumber.contains(normalizedQuery) ||
+              phone.contains(normalizedQuery) ||
+              city.contains(normalizedQuery);
+        })
+        .toList(growable: false);
   }
 
   Future<bool> _confirmDelete(
@@ -250,17 +257,14 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
     final saved = await showDialog<bool>(
       context: context,
       builder: (context) {
-        return _CouponRestaurantEditDialog(
-          uid: uid,
-          data: data,
-        );
+        return _CouponRestaurantEditDialog(uid: uid, data: data);
       },
     );
 
     if (saved == true && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Restaurant updated.')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Restaurant updated.')));
     }
   }
 
@@ -322,7 +326,8 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
           content: Text(
             AppErrorText.friendly(
               error,
-              fallback: 'Could not approve the restaurant name change right now.',
+              fallback:
+                  'Could not approve the restaurant name change right now.',
             ),
           ),
         ),
@@ -349,7 +354,8 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
           content: Text(
             AppErrorText.friendly(
               error,
-              fallback: 'Could not reject the restaurant name change right now.',
+              fallback:
+                  'Could not reject the restaurant name change right now.',
             ),
           ),
         ),
@@ -370,16 +376,10 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
           children: [
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            Text(
-              description,
-              style: const TextStyle(color: Colors.black54),
-            ),
+            Text(description, style: const TextStyle(color: Colors.black54)),
           ],
         ),
       ),
@@ -391,9 +391,7 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
       stream: _nameChangeRequestsStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
+          return const Center(child: CircularProgressIndicator());
         }
 
         if (snapshot.hasError) {
@@ -421,18 +419,19 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
         final docs =
             snapshot.data?.docs ??
             const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-        final sortedDocs = List<QueryDocumentSnapshot<Map<String, dynamic>>>.from(
-          docs,
-          growable: true,
-        )..sort((a, b) {
-            final aDate =
-                _readDateTime(a.data(), 'createdAt') ??
-                DateTime.fromMillisecondsSinceEpoch(0);
-            final bDate =
-                _readDateTime(b.data(), 'createdAt') ??
-                DateTime.fromMillisecondsSinceEpoch(0);
-            return bDate.compareTo(aDate);
-          });
+        final sortedDocs =
+            List<QueryDocumentSnapshot<Map<String, dynamic>>>.from(
+              docs,
+              growable: true,
+            )..sort((a, b) {
+              final aDate =
+                  _readDateTime(a.data(), 'createdAt') ??
+                  DateTime.fromMillisecondsSinceEpoch(0);
+              final bDate =
+                  _readDateTime(b.data(), 'createdAt') ??
+                  DateTime.fromMillisecondsSinceEpoch(0);
+              return bDate.compareTo(aDate);
+            });
 
         return ListView(
           padding: const EdgeInsets.all(16),
@@ -460,8 +459,10 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
                     _readString(data, 'currentRestaurantName').isEmpty
                     ? 'Unnamed Restaurant'
                     : _readString(data, 'currentRestaurantName');
-                final requestedRestaurantName =
-                    _readString(data, 'requestedRestaurantName');
+                final requestedRestaurantName = _readString(
+                  data,
+                  'requestedRestaurantName',
+                );
                 final createdAt = _readDateTime(data, 'createdAt');
 
                 return Card(
@@ -533,9 +534,7 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
       stream: _accountsStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(),
-          );
+          return const Center(child: CircularProgressIndicator());
         }
 
         if (snapshot.hasError) {
@@ -553,37 +552,40 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
         final docs =
             snapshot.data?.docs ??
             const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-        final sortedDocs = List<QueryDocumentSnapshot<Map<String, dynamic>>>.from(
-          docs,
-          growable: true,
-        )..sort((a, b) {
-            final aData = a.data();
-            final bData = b.data();
-            final byStatus = _statusSortPriority(
-              _readString(aData, Restaurant.fieldApprovalStatus),
-            ).compareTo(
-              _statusSortPriority(
-                _readString(bData, Restaurant.fieldApprovalStatus),
-              ),
-            );
-            if (byStatus != 0) {
-              return byStatus;
-            }
+        final sortedDocs =
+            List<QueryDocumentSnapshot<Map<String, dynamic>>>.from(
+              docs,
+              growable: true,
+            )..sort((a, b) {
+              final aData = a.data();
+              final bData = b.data();
+              final byStatus =
+                  _statusSortPriority(
+                    _readString(aData, Restaurant.fieldApprovalStatus),
+                  ).compareTo(
+                    _statusSortPriority(
+                      _readString(bData, Restaurant.fieldApprovalStatus),
+                    ),
+                  );
+              if (byStatus != 0) {
+                return byStatus;
+              }
 
-            final aTimestamp =
-                _readDateTime(aData, Restaurant.fieldUpdatedAt) ??
-                _readDateTime(aData, Restaurant.fieldCreatedAt) ??
-                DateTime.fromMillisecondsSinceEpoch(0);
-            final bTimestamp =
-                _readDateTime(bData, Restaurant.fieldUpdatedAt) ??
-                _readDateTime(bData, Restaurant.fieldCreatedAt) ??
-                DateTime.fromMillisecondsSinceEpoch(0);
-            return bTimestamp.compareTo(aTimestamp);
-          });
-        _fullRestaurantList = List<QueryDocumentSnapshot<Map<String, dynamic>>>.from(
-          sortedDocs,
-          growable: false,
-        );
+              final aTimestamp =
+                  _readDateTime(aData, Restaurant.fieldUpdatedAt) ??
+                  _readDateTime(aData, Restaurant.fieldCreatedAt) ??
+                  DateTime.fromMillisecondsSinceEpoch(0);
+              final bTimestamp =
+                  _readDateTime(bData, Restaurant.fieldUpdatedAt) ??
+                  _readDateTime(bData, Restaurant.fieldCreatedAt) ??
+                  DateTime.fromMillisecondsSinceEpoch(0);
+              return bTimestamp.compareTo(aTimestamp);
+            });
+        _fullRestaurantList =
+            List<QueryDocumentSnapshot<Map<String, dynamic>>>.from(
+              sortedDocs,
+              growable: false,
+            );
         _filteredRestaurantList = _buildFilteredRestaurantList(
           _fullRestaurantList,
           _searchController.text,
@@ -639,7 +641,8 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
                         final doc = _filteredRestaurantList[index];
                         final data = doc.data();
 
-                        final uid = _readString(data, Restaurant.fieldUid).isEmpty
+                        final uid =
+                            _readString(data, Restaurant.fieldUid).isEmpty
                             ? doc.id
                             : _readString(data, Restaurant.fieldUid);
                         final restaurantName =
@@ -650,11 +653,24 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
                             _readString(data, Restaurant.fieldEmail).isEmpty
                             ? 'No email'
                             : _readString(data, Restaurant.fieldEmail);
+                        final phoneNumber = _readString(data, 'phoneNumber');
+                        final applicantPhone = _readString(
+                          data,
+                          Restaurant.fieldPhone,
+                        );
+                        final contactPhone = phoneNumber.isNotEmpty
+                            ? phoneNumber
+                            : applicantPhone;
                         final city = _readString(data, Restaurant.fieldCity);
-                        final zipCode = _readString(data, Restaurant.fieldZipCode);
+                        final zipCode = _readString(
+                          data,
+                          Restaurant.fieldZipCode,
+                        );
                         final approvalStatus =
-                            _readString(data, Restaurant.fieldApprovalStatus)
-                                    .isEmpty
+                            _readString(
+                              data,
+                              Restaurant.fieldApprovalStatus,
+                            ).isEmpty
                             ? 'pending'
                             : _readString(data, Restaurant.fieldApprovalStatus);
 
@@ -673,7 +689,18 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 6),
-                                Text(email),
+                                Text(
+                                  email == 'No email' && contactPhone.isNotEmpty
+                                      ? 'Phone: $contactPhone'
+                                      : email,
+                                ),
+                                if (email != 'No email' &&
+                                    contactPhone.isNotEmpty)
+                                  Text('Phone: $contactPhone'),
+                                if (applicantPhone.isNotEmpty &&
+                                    phoneNumber.isNotEmpty &&
+                                    applicantPhone != phoneNumber)
+                                  Text('Applicant phone: $applicantPhone'),
                                 if (city.isNotEmpty || zipCode.isNotEmpty) ...[
                                   const SizedBox(height: 4),
                                   Text(
@@ -695,7 +722,9 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
                                         color: statusColor(
                                           approvalStatus,
                                         ).withOpacity(0.12),
-                                        borderRadius: BorderRadius.circular(999),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
                                       ),
                                       child: Text(
                                         labelForStatus(approvalStatus),
@@ -857,11 +886,7 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
                 trailing: IconButton(
                   tooltip: 'Delete coupon',
                   onPressed: () {
-                    _deleteCoupon(
-                      context,
-                      uid: uid,
-                      couponId: coupon.id,
-                    );
+                    _deleteCoupon(context, uid: uid, couponId: coupon.id);
                   },
                   icon: const Icon(Icons.delete_outline),
                 ),
@@ -890,10 +915,7 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
           ),
           Expanded(
             child: TabBarView(
-              children: [
-                _buildRestaurantsTab(),
-                _buildNameChangesTab(),
-              ],
+              children: [_buildRestaurantsTab(), _buildNameChangesTab()],
             ),
           ),
         ],
@@ -923,9 +945,7 @@ class _AdminTextField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -935,10 +955,7 @@ class _CouponRestaurantEditDialog extends StatefulWidget {
   final String uid;
   final Map<String, dynamic> data;
 
-  const _CouponRestaurantEditDialog({
-    required this.uid,
-    required this.data,
-  });
+  const _CouponRestaurantEditDialog({required this.uid, required this.data});
 
   @override
   State<_CouponRestaurantEditDialog> createState() =>
@@ -991,7 +1008,8 @@ class _CouponRestaurantEditDialogState
       text: _readString(widget.data, Restaurant.fieldBio),
     );
     _latitudeController = TextEditingController(
-      text: _readDouble(widget.data, Restaurant.fieldLatitude)?.toString() ?? '',
+      text:
+          _readDouble(widget.data, Restaurant.fieldLatitude)?.toString() ?? '',
     );
     _longitudeController = TextEditingController(
       text:
@@ -1121,25 +1139,16 @@ class _CouponRestaurantEditDialogState
                 ],
               ),
               const SizedBox(height: 12),
-              _AdminTextField(
-                controller: _emailController,
-                label: 'Email',
-              ),
+              _AdminTextField(controller: _emailController, label: 'Email'),
               const SizedBox(height: 12),
-              _AdminTextField(
-                controller: _phoneController,
-                label: 'Phone',
-              ),
+              _AdminTextField(controller: _phoneController, label: 'Phone'),
               const SizedBox(height: 12),
               _AdminTextField(
                 controller: _addressController,
                 label: 'Street address',
               ),
               const SizedBox(height: 12),
-              _AdminTextField(
-                controller: _websiteController,
-                label: 'Website',
-              ),
+              _AdminTextField(controller: _websiteController, label: 'Website'),
               const SizedBox(height: 12),
               _AdminTextField(
                 controller: _bioController,

@@ -41,8 +41,8 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   Future<void> _loadFavoriteState() async {
     final isFavorite =
         await BiteScoreService.isSaverRestaurantFavoritedByCurrentUser(
-      restaurant,
-    );
+          restaurant,
+        );
     if (!mounted) {
       return;
     }
@@ -65,7 +65,8 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   bool get hasBio =>
       restaurant.bio != null && restaurant.bio!.trim().isNotEmpty;
 
-  List<RestaurantBusinessHours> get weeklyHours => restaurant.businessHours.isEmpty
+  List<RestaurantBusinessHours> get weeklyHours =>
+      restaurant.businessHours.isEmpty
       ? const []
       : RestaurantBusinessHours.normalizedWeek(restaurant.businessHours);
 
@@ -126,23 +127,14 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   }
 
   String _normalizeRestaurantIdentity(String value) {
-    return value
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r'[^a-z0-9]+'), '');
+    return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
   }
 
-  Future<void> _showLaunchError(
-    BuildContext context,
-    String message,
-  ) async {
+  Future<void> _showLaunchError(BuildContext context, String message) async {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          duration: const Duration(seconds: 3),
-        ),
+        SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
       );
   }
 
@@ -157,10 +149,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
 
     final launched = await launchUrl(uri);
     if (!launched && context.mounted) {
-      await _showLaunchError(
-        context,
-        'Could not open the phone dialer.',
-      );
+      await _showLaunchError(context, 'Could not open the phone dialer.');
     }
   }
 
@@ -171,23 +160,17 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     }
 
     final rawWebsite = restaurant.website!.trim();
-    final normalizedWebsite = rawWebsite.startsWith('http://') ||
-            rawWebsite.startsWith('https://')
+    final normalizedWebsite =
+        rawWebsite.startsWith('http://') || rawWebsite.startsWith('https://')
         ? rawWebsite
         : 'https://$rawWebsite';
 
     final uri = Uri.parse(normalizedWebsite);
 
-    final launched = await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-    );
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
 
     if (!launched && context.mounted) {
-      await _showLaunchError(
-        context,
-        'Could not open the website.',
-      );
+      await _showLaunchError(context, 'Could not open the website.');
     }
   }
 
@@ -200,22 +183,17 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
       'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(fullAddress)}',
     );
 
-    final launched = await launchUrl(
-      uri,
-      mode: LaunchMode.externalApplication,
-    );
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
 
     if (!launched && context.mounted) {
-      await _showLaunchError(
-        context,
-        'Could not open directions.',
-      );
+      await _showLaunchError(context, 'Could not open directions.');
     }
   }
 
   Future<void> _toggleRestaurantFavorite() async {
-    final canSave =
-        await BiteScoreSignInGate.ensureSignedInForFavorites(context);
+    final canSave = await BiteScoreSignInGate.ensureSignedInForFavorites(
+      context,
+    );
     if (!canSave || !mounted || _isSavingFavoriteRestaurant) {
       return;
     }
@@ -300,26 +278,15 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
           onExpansionChanged: onExpansionChanged,
           title: Text(
             title,
-            style: const TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
-            ),
+            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
           ),
           subtitle: Text(
             summary,
             maxLines: isExpanded ? 3 : 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(
-              fontSize: 13,
-              color: Colors.black54,
-            ),
+            style: const TextStyle(fontSize: 13, color: Colors.black54),
           ),
-          children: [
-            Align(
-              alignment: Alignment.centerLeft,
-              child: child,
-            ),
-          ],
+          children: [Align(alignment: Alignment.centerLeft, child: child)],
         ),
       ),
     );
@@ -329,10 +296,10 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     final summary = weeklyHours.isEmpty
         ? 'Hours not set'
         : (weeklyHours[DateTime.now().weekday % 7].closed
-            ? 'Closed today'
-            : 'Open today: '
-                '${weeklyHours[DateTime.now().weekday % 7].opensAt} - '
-                '${weeklyHours[DateTime.now().weekday % 7].closesAt}');
+              ? 'Closed today'
+              : 'Open today: '
+                    '${weeklyHours[DateTime.now().weekday % 7].opensAt} - '
+                    '${weeklyHours[DateTime.now().weekday % 7].closesAt}');
 
     return _buildExpandableInfoTile(
       title: 'Hours',
@@ -361,9 +328,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
-                    Expanded(
-                      child: Text(dayHours.summaryLabel),
-                    ),
+                    Expanded(child: Text(dayHours.summaryLabel)),
                   ],
                 ),
               ),
@@ -382,9 +347,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
 
     return _buildExpandableInfoTile(
       title: 'Restaurant Info',
-      summary: details.isEmpty
-          ? 'Address and contact details'
-          : details.first,
+      summary: details.isEmpty ? 'Address and contact details' : details.first,
       isExpanded: _showRestaurantInfo,
       onExpansionChanged: (expanded) {
         setState(() {
@@ -444,10 +407,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
           _showAbout = expanded;
         });
       },
-      child: Text(
-        restaurant.bio!,
-        style: const TextStyle(fontSize: 14),
-      ),
+      child: Text(restaurant.bio!, style: const TextStyle(fontSize: 14)),
     );
   }
 
@@ -461,10 +421,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
             .where(
               (coupon) =>
                   coupon.isActiveAt(now) &&
-                  DemoRedemptionStore.isAvailable(
-                    coupon.id,
-                    coupon.usageRule,
-                  ),
+                  DemoRedemptionStore.isAvailable(coupon.id, coupon.usageRule),
             )
             .toList();
 
@@ -475,7 +432,12 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
               buildPersistentAppModeSwitcher(context),
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    8,
+                    16,
+                    16 + MediaQuery.of(context).viewPadding.bottom,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -526,41 +488,41 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                         ],
                       ),
                       const SizedBox(height: 14),
-                Row(
-                  children: [
-                    buildActionButton(
-                      icon: Icons.call,
-                      label: 'Call',
-                      enabled: hasPhone,
-                      onPressed: () {
-                        _callRestaurant(context);
-                      },
-                    ),
-                    const SizedBox(width: 10),
-                    buildActionButton(
-                      icon: Icons.language,
-                      label: 'Website',
-                      enabled: hasWebsite,
-                      onPressed: () {
-                        _openWebsite(context);
-                      },
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 10),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton.icon(
-                    onPressed: () {
-                      _getDirections(context);
-                    },
-                    icon: const Icon(Icons.directions),
-                    label: const Text('Get Directions'),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                  ),
-                ),
+                      Row(
+                        children: [
+                          buildActionButton(
+                            icon: Icons.call,
+                            label: 'Call',
+                            enabled: hasPhone,
+                            onPressed: () {
+                              _callRestaurant(context);
+                            },
+                          ),
+                          const SizedBox(width: 10),
+                          buildActionButton(
+                            icon: Icons.language,
+                            label: 'Website',
+                            enabled: hasWebsite,
+                            onPressed: () {
+                              _openWebsite(context);
+                            },
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            _getDirections(context);
+                          },
+                          icon: const Icon(Icons.directions),
+                          label: const Text('Get Directions'),
+                          style: ElevatedButton.styleFrom(
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 12),
                       _buildHoursSection(),
                       if (hasBio) ...[
@@ -570,85 +532,89 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                       const SizedBox(height: 10),
                       _buildRestaurantInfoSection(),
                       const SizedBox(height: 20),
-                const Text(
-                  'Available Coupons',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                if (activeCoupons.isEmpty)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Text('No available coupons right now.'),
-                  )
-                else
-                  Column(
-                    children: activeCoupons.map((coupon) {
-                      final isProximity = coupon.isProximityOnly;
-                      final scheduleText = coupon.shortExpiresLabel;
+                      const Text(
+                        'Available Coupons',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      if (activeCoupons.isEmpty)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Text('No available coupons right now.'),
+                        )
+                      else
+                        Column(
+                          children: activeCoupons.map((coupon) {
+                            final isProximity = coupon.isProximityOnly;
+                            final scheduleText = coupon.shortExpiresLabel;
 
-                      return Card(
-                        margin: const EdgeInsets.only(bottom: 10),
-                        child: ListTile(
-                          title: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (isProximity)
-                                Container(
-                                  margin: const EdgeInsets.only(bottom: 6),
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.deepOrange,
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                  child: const Text(
-                                    'Proximity Deal',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
+                            return Card(
+                              margin: const EdgeInsets.only(bottom: 10),
+                              child: ListTile(
+                                title: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (isProximity)
+                                      Container(
+                                        margin: const EdgeInsets.only(
+                                          bottom: 6,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: Colors.deepOrange,
+                                          borderRadius: BorderRadius.circular(
+                                            999,
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          'Proximity Deal',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 11,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    Text(
+                                      coupon.title,
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w600,
+                                      ),
                                     ),
-                                  ),
+                                  ],
                                 ),
-                              Text(
-                                coupon.title,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w600,
+                                subtitle: Text(
+                                  isProximity
+                                      ? '$scheduleText - ${coupon.usageRule} - Unlocked nearby'
+                                      : (coupon.couponCode == null
+                                            ? '$scheduleText - ${coupon.usageRule}'
+                                            : '$scheduleText - ${coupon.usageRule} - Code: ${coupon.couponCode}'),
                                 ),
-                              ),
-                            ],
-                          ),
-                          subtitle: Text(
-                            isProximity
-                                ? '$scheduleText - ${coupon.usageRule} - Unlocked nearby'
-                                : (coupon.couponCode == null
-                                    ? '$scheduleText - ${coupon.usageRule}'
-                                    : '$scheduleText - ${coupon.usageRule} - Code: ${coupon.couponCode}'),
-                          ),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (context) =>
-                                    CouponDetailScreen(coupon: coupon),
+                                trailing: const Icon(Icons.chevron_right),
+                                onTap: () {
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (context) =>
+                                          CouponDetailScreen(coupon: coupon),
+                                    ),
+                                  );
+                                },
                               ),
                             );
-                          },
+                          }).toList(),
                         ),
-                      );
-                    }).toList(),
-                  ),
                     ],
                   ),
                 ),

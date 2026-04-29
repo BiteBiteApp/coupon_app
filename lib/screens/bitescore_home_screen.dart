@@ -1550,6 +1550,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   @override
   Widget build(BuildContext context) {
     final filteredEntries = _filteredEntries(_entries);
+    final bottomContentPadding =
+        88.0 + MediaQuery.of(context).viewPadding.bottom;
 
     return Scaffold(
       backgroundColor: BiteRaterTheme.pageBackground,
@@ -1569,7 +1571,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
               ),
             ),
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+              padding: EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
               sliver: !_hasLocationOrZipInput
                   ? _buildGetStartedState()
                   : _loadError != null && _entries.isEmpty

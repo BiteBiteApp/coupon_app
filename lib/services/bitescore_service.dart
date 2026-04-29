@@ -269,6 +269,7 @@ class BiteScoreApprovedOwnershipEntry {
 class BiteScoreAdminUserEntry {
   final String uid;
   final String? email;
+  final String? phoneNumber;
   final String? displayName;
   final Set<String> claimedRestaurantNames;
   final bool hasRestaurantAccount;
@@ -281,6 +282,7 @@ class BiteScoreAdminUserEntry {
   const BiteScoreAdminUserEntry({
     required this.uid,
     required this.email,
+    required this.phoneNumber,
     required this.displayName,
     required this.claimedRestaurantNames,
     required this.hasRestaurantAccount,
@@ -315,6 +317,7 @@ class BiteScoreAdminUserEntry {
 class _MutableAdminUserEntry {
   final String uid;
   String? email;
+  String? phoneNumber;
   String? displayName;
   final Set<String> claimedRestaurantNames = <String>{};
   bool hasRestaurantAccount = false;
@@ -328,6 +331,7 @@ class _MutableAdminUserEntry {
 
   void apply({
     String? email,
+    String? phoneNumber,
     String? displayName,
     bool hasRestaurantAccount = false,
     bool hasBiteScoreOwnership = false,
@@ -339,6 +343,11 @@ class _MutableAdminUserEntry {
     final trimmedEmail = email?.trim();
     if (trimmedEmail != null && trimmedEmail.isNotEmpty) {
       this.email = trimmedEmail;
+    }
+
+    final trimmedPhoneNumber = phoneNumber?.trim();
+    if (trimmedPhoneNumber != null && trimmedPhoneNumber.isNotEmpty) {
+      this.phoneNumber = trimmedPhoneNumber;
     }
 
     final trimmedDisplayName = displayName?.trim();
@@ -591,6 +600,11 @@ class BiteScoreService {
     String userId,
   ) {
     return _firestore.collection('public_reviewer_profiles').doc(userId.trim());
+  }
+
+  static CollectionReference<Map<String, dynamic>>
+  publicReviewerProfilesCollection() {
+    return _firestore.collection('public_reviewer_profiles');
   }
 
   static CollectionReference<Map<String, dynamic>> publicUsernamesCollection() {
@@ -1346,6 +1360,7 @@ class BiteScoreService {
     void upsertUser({
       required String? uid,
       String? email,
+      String? phoneNumber,
       String? displayName,
       bool hasRestaurantAccount = false,
       bool hasBiteScoreOwnership = false,
@@ -1365,6 +1380,7 @@ class BiteScoreService {
       );
       existing.apply(
         email: email,
+        phoneNumber: phoneNumber,
         displayName: displayName,
         hasRestaurantAccount: hasRestaurantAccount,
         hasBiteScoreOwnership: hasBiteScoreOwnership,
@@ -1382,6 +1398,7 @@ class BiteScoreService {
       upsertUser(
         uid: _readAdminString(data[Restaurant.fieldUid]) ?? doc.id,
         email: _readAdminString(data[Restaurant.fieldEmail]),
+        phoneNumber: _readAdminString(data['phoneNumber']),
         displayName:
             _readAdminString(data[Restaurant.fieldName]) ??
             _readAdminString(data[Restaurant.legacyFieldName]),
@@ -1391,6 +1408,32 @@ class BiteScoreService {
           data[Restaurant.fieldApprovalStatus],
         ),
         activityTag: 'Coupon',
+      );
+    }
+
+    final userProfilesSnapshot = await _firestore
+        .collection('user_profiles')
+        .get();
+    for (final doc in userProfilesSnapshot.docs) {
+      final data = doc.data();
+      upsertUser(
+        uid: _readAdminString(data['userId']) ?? doc.id,
+        email: _readAdminString(data[Restaurant.fieldEmail]),
+        phoneNumber: _readAdminString(data['phoneNumber']),
+        displayName: _readAdminString(data['displayName']),
+        activityTag: 'Profile',
+      );
+    }
+
+    final publicProfilesSnapshot = await publicReviewerProfilesCollection()
+        .get();
+    for (final doc in publicProfilesSnapshot.docs) {
+      final data = doc.data();
+      upsertUser(
+        uid: _readAdminString(data['userId']) ?? doc.id,
+        phoneNumber: _readAdminString(data['phoneNumber']),
+        displayName: _readAdminString(data['publicDisplayName']),
+        activityTag: 'Profile',
       );
     }
 
@@ -1420,6 +1463,7 @@ class BiteScoreService {
       upsertUser(
         uid: request.requesterUserId,
         email: request.email,
+        phoneNumber: request.phone,
         displayName: request.claimantName,
         activityTag: 'Claims',
       );
@@ -1504,6 +1548,7 @@ class BiteScoreService {
               (entry) => BiteScoreAdminUserEntry(
                 uid: entry.uid,
                 email: entry.email,
+                phoneNumber: entry.phoneNumber,
                 displayName: entry.displayName,
                 claimedRestaurantNames: Set<String>.unmodifiable(
                   entry.claimedRestaurantNames,
@@ -4241,6 +4286,7 @@ class BiteScoreService {
     if (userId.isEmpty || user.isAnonymous) {
       throw ArgumentError(loginRequiredMessage);
     }
+    final phoneNumber = user.phoneNumber?.trim();
 
     return _firestore.runTransaction((transaction) async {
       final profileRef = publicReviewerProfileDocument(userId);
@@ -4263,6 +4309,8 @@ class BiteScoreService {
           ),
           'fallbackUsername': existingIdentity.fallbackUsername,
           'userId': userId,
+          if (phoneNumber != null && phoneNumber.isNotEmpty)
+            'phoneNumber': phoneNumber,
           'createdAt': existingIdentity.createdAt == null
               ? FieldValue.serverTimestamp()
               : Timestamp.fromDate(existingIdentity.createdAt!),
@@ -4305,6 +4353,8 @@ class BiteScoreService {
           'chosenUsernameNormalized': null,
           'fallbackUsername': candidateFallback,
           'userId': userId,
+          if (phoneNumber != null && phoneNumber.isNotEmpty)
+            'phoneNumber': phoneNumber,
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));

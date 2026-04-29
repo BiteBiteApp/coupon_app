@@ -649,7 +649,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
 
   Widget _buildDishCategoryChip(String category) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
       decoration: BoxDecoration(
         color: BiteRaterTheme.ocean.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(999),
@@ -659,7 +659,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         category,
         style: const TextStyle(
           color: BiteRaterTheme.ocean,
-          fontSize: 12,
+          fontSize: 11.5,
           fontWeight: FontWeight.w700,
           height: 1.0,
         ),
@@ -678,7 +678,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       onPressed: () => _openDishCategoryEditor(dish),
       style: TextButton.styleFrom(
         foregroundColor: BiteRaterTheme.mutedInk,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
         side: const BorderSide(color: BiteRaterTheme.lineBlue),
@@ -1392,15 +1392,15 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              'Suggest Dish Edit',
+            Text(
+              'Suggest dish edits',
               style: TextStyle(
-                color: BiteRaterTheme.ink,
-                fontSize: 15,
+                color: BiteRaterTheme.mutedInk.withOpacity(0.86),
+                fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(height: 3),
             LayoutBuilder(
               builder: (context, constraints) {
                 const buttonGap = 5.0;
@@ -1477,7 +1477,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   Widget _buildAverageRatingGrid(DishRatingAggregate aggregate) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        const chipGap = 6.0;
+        const chipGap = 8.0;
         final useTwoColumns = constraints.maxWidth >= 220;
 
         if (!useTwoColumns) {
@@ -1679,91 +1679,150 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                   children: [
                                     Row(
                                       crossAxisAlignment:
-                                          CrossAxisAlignment.center,
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Expanded(
-                                          child: Text(
-                                            currentDish.name,
-                                            style: const TextStyle(
-                                              color: BiteRaterTheme.ink,
-                                              fontSize: 26,
-                                              fontWeight: FontWeight.w900,
-                                              letterSpacing: 0.1,
-                                              height: 1.08,
-                                            ),
-                                            maxLines: 3,
-                                            overflow: TextOverflow.ellipsis,
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                currentDish.name,
+                                                style: const TextStyle(
+                                                  color: BiteRaterTheme.ink,
+                                                  fontSize: 26,
+                                                  fontWeight: FontWeight.w900,
+                                                  letterSpacing: 0.1,
+                                                  height: 1.08,
+                                                ),
+                                                maxLines: 3,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                              const SizedBox(height: 6),
+                                              _buildDishCategoryControl(
+                                                currentDish,
+                                              ),
+                                            ],
                                           ),
                                         ),
-                                        const SizedBox(width: 12),
+                                        const SizedBox(width: 16),
                                         Flexible(
-                                          child: Align(
-                                            alignment: Alignment.topRight,
-                                            child: _buildBiteScoreActionButton(
-                                              onPressed: _scrollToReviewSection,
-                                              label: 'Rate & Review',
-                                            ),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              _buildBiteScoreActionButton(
+                                                onPressed:
+                                                    _scrollToReviewSection,
+                                                label: 'Rate & Review',
+                                              ),
+                                              const SizedBox(height: 5),
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                  left: 18,
+                                                ),
+                                                child: InkWell(
+                                                  onTap: _openRestaurantPage,
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  splashColor: BiteRaterTheme
+                                                      .ocean
+                                                      .withValues(alpha: 0.08),
+                                                  highlightColor: BiteRaterTheme
+                                                      .ocean
+                                                      .withValues(alpha: 0.04),
+                                                  child: Padding(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          vertical: 2,
+                                                        ),
+                                                    child: Column(
+                                                      crossAxisAlignment:
+                                                          CrossAxisAlignment
+                                                              .start,
+                                                      children: [
+                                                        Row(
+                                                          mainAxisSize:
+                                                              MainAxisSize.min,
+                                                          children: [
+                                                            Flexible(
+                                                              child: Text(
+                                                                currentRestaurant
+                                                                    .name,
+                                                                style: const TextStyle(
+                                                                  fontSize:
+                                                                      14.5,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w900,
+                                                                  color: BiteRaterTheme
+                                                                      .restaurantTitle,
+                                                                ),
+                                                                maxLines: 1,
+                                                                overflow:
+                                                                    TextOverflow
+                                                                        .ellipsis,
+                                                              ),
+                                                            ),
+                                                            const SizedBox(
+                                                              width: 3,
+                                                            ),
+                                                            const Icon(
+                                                              Icons
+                                                                  .chevron_right,
+                                                              size: 15,
+                                                              color: BiteRaterTheme
+                                                                  .restaurantTitle,
+                                                            ),
+                                                          ],
+                                                        ),
+                                                        const SizedBox(
+                                                          height: 0,
+                                                        ),
+                                                        Text(
+                                                          '${currentRestaurant.city}, ${currentRestaurant.zipCode}',
+                                                          style: const TextStyle(
+                                                            color:
+                                                                BiteRaterTheme
+                                                                    .mutedInk,
+                                                            fontSize: 12,
+                                                            fontWeight:
+                                                                FontWeight.w500,
+                                                          ),
+                                                        ),
+                                                        if (widget
+                                                                .distanceLabel !=
+                                                            null) ...[
+                                                          const SizedBox(
+                                                            height: 0,
+                                                          ),
+                                                          Text(
+                                                            widget
+                                                                .distanceLabel!,
+                                                            style: const TextStyle(
+                                                              color:
+                                                                  BiteRaterTheme
+                                                                      .mutedInk,
+                                                              fontSize: 12,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w500,
+                                                            ),
+                                                          ),
+                                                        ],
+                                                      ],
+                                                    ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 6),
-                                    _buildDishCategoryControl(currentDish),
-                                    const SizedBox(height: 6),
-                                    InkWell(
-                                      onTap: _openRestaurantPage,
-                                      borderRadius: BorderRadius.circular(8),
-                                      child: Padding(
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 2,
-                                        ),
-                                        child: Text(
-                                          currentRestaurant.name,
-                                          style: const TextStyle(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w700,
-                                            color:
-                                                BiteRaterTheme.restaurantTitle,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 3),
-                                    Text(
-                                      '${currentRestaurant.city}, ${currentRestaurant.zipCode}',
-                                      style: const TextStyle(
-                                        color: BiteRaterTheme.mutedInk,
-                                        fontSize: 13,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    if (widget.distanceLabel != null) ...[
-                                      const SizedBox(height: 3),
-                                      Text(
-                                        widget.distanceLabel!,
-                                        style: const TextStyle(
-                                          color: BiteRaterTheme.mutedInk,
-                                          fontSize: 13,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                    const SizedBox(height: 6),
-                                    Align(
-                                      alignment: Alignment.centerLeft,
-                                      child: TextButton.icon(
-                                        onPressed: _reportDish,
-                                        icon: const Icon(
-                                          Icons.flag_outlined,
-                                          size: 18,
-                                        ),
-                                        style: TextButton.styleFrom(
-                                          foregroundColor: BiteRaterTheme.coral,
-                                        ),
-                                        label: const Text('Report dish'),
-                                      ),
-                                    ),
+                                    const SizedBox(height: 12),
                                     BiteRaterTheme.softDivider(),
+                                    const SizedBox(height: 12),
                                     Center(
                                       child: Column(
                                         children: [
@@ -1794,7 +1853,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                               height: 1.0,
                                             ),
                                           ),
-                                          const SizedBox(height: 0),
+                                          const SizedBox(height: 1),
                                           Text(
                                             '${detail.aggregate.ratingCount} ratings',
                                             style: const TextStyle(
@@ -1807,8 +1866,34 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                         ],
                                       ),
                                     ),
-                                    const SizedBox(height: 18),
+                                    const SizedBox(height: 16),
                                     _buildAverageRatingGrid(detail.aggregate),
+                                    const SizedBox(height: 12),
+                                    Align(
+                                      alignment: Alignment.centerLeft,
+                                      child: TextButton.icon(
+                                        onPressed: _reportDish,
+                                        icon: const Icon(
+                                          Icons.flag_outlined,
+                                          size: 15,
+                                        ),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor:
+                                              BiteRaterTheme.mutedInk,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 4,
+                                            vertical: 4,
+                                          ),
+                                          minimumSize: Size.zero,
+                                          tapTargetSize:
+                                              MaterialTapTargetSize.shrinkWrap,
+                                        ),
+                                        label: const Text(
+                                          'Report dish',
+                                          style: TextStyle(fontSize: 12),
+                                        ),
+                                      ),
+                                    ),
                                   ],
                                 ),
                               ),

@@ -201,6 +201,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   Widget _buildBottomNavigationBar() {
+    final mediaQuery = MediaQuery.of(context);
+    final extraBottomInset =
+        mediaQuery.viewPadding.bottom > mediaQuery.padding.bottom
+        ? mediaQuery.viewPadding.bottom - mediaQuery.padding.bottom
+        : 0.0;
     final isBiteScore = selectedMode == AppMode.biteScore;
     final selectedPillColor = isBiteScore
         ? const Color(0xFFEAF2FF)
@@ -336,18 +341,49 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     );
 
     if (!isBiteScore) {
-      return Container(
+      return SafeArea(
+        bottom: true,
+        top: false,
+        child: Container(
+          color: Colors.transparent,
+          padding: EdgeInsets.fromLTRB(16, 0, 16, 6 + extraBottomInset),
+          child: Container(
+            decoration: BoxDecoration(
+              color: const Color(0xFFF6E7CF),
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.10),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(28),
+              child: navigationBar,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return SafeArea(
+      bottom: true,
+      top: false,
+      child: Container(
         color: Colors.transparent,
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
+        padding: EdgeInsets.fromLTRB(16, 0, 16, 6 + extraBottomInset),
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFFF6E7CF),
+            color: const Color(0xFFF7FAFE),
             borderRadius: BorderRadius.circular(28),
+            border: Border.all(color: const Color(0xFFD8E4F3), width: 1),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.10),
-                blurRadius: 6,
-                offset: const Offset(0, 2),
+                color: Color.fromRGBO(36, 76, 134, 0.13),
+                blurRadius: 10,
+                offset: const Offset(0, 3),
               ),
             ],
           ),
@@ -355,29 +391,6 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             borderRadius: BorderRadius.circular(28),
             child: navigationBar,
           ),
-        ),
-      );
-    }
-
-    return Container(
-      color: Colors.transparent,
-      padding: const EdgeInsets.fromLTRB(16, 0, 16, 6),
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFFF7FAFE),
-          borderRadius: BorderRadius.circular(28),
-          border: Border.all(color: const Color(0xFFD8E4F3), width: 1),
-          boxShadow: [
-            BoxShadow(
-              color: Color.fromRGBO(36, 76, 134, 0.13),
-              blurRadius: 10,
-              offset: const Offset(0, 3),
-            ),
-          ],
-        ),
-        child: ClipRRect(
-          borderRadius: BorderRadius.circular(28),
-          child: navigationBar,
         ),
       ),
     );

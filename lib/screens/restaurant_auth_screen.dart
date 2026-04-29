@@ -469,10 +469,19 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
     );
   }
 
+  EdgeInsets _screenPadding(BuildContext context) {
+    return EdgeInsets.fromLTRB(
+      24,
+      24,
+      24,
+      96 + MediaQuery.of(context).viewPadding.bottom,
+    );
+  }
+
   Widget buildAuthForm() {
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: _screenPadding(context),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 420),
           child: Card(
@@ -623,7 +632,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
   Widget buildEmailVerificationScreen(User user) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: _screenPadding(context),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 500),
           child: Card(
@@ -679,7 +688,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
   Widget buildPendingApprovalScreen(User user) {
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: _screenPadding(context),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
           child: Column(
@@ -754,7 +763,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
   Widget buildRejectedScreen(User user) {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: _screenPadding(context),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
           child: Card(
@@ -858,7 +867,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
   Widget buildNoApprovedAccountsScreen(User user) {
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: _screenPadding(context),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
           child: Column(
@@ -923,7 +932,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
   Widget buildOwnerAccessLoadErrorScreen() {
     return Center(
       child: Padding(
-        padding: const EdgeInsets.all(24),
+        padding: _screenPadding(context),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
           child: Card(

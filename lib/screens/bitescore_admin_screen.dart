@@ -44,16 +44,14 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
   Widget build(BuildContext context) {
     final adminTheme = Theme.of(context).copyWith(
       cardTheme: Theme.of(context).cardTheme.copyWith(
-            color: Colors.white,
-            elevation: 0,
-            surfaceTintColor: Colors.transparent,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
-              side: BorderSide(
-                color: BiteRaterTheme.grape.withOpacity(0.14),
-              ),
-            ),
-          ),
+        color: Colors.white,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: BorderSide(color: BiteRaterTheme.grape.withOpacity(0.14)),
+        ),
+      ),
     );
 
     return Theme(
@@ -88,21 +86,21 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
           Expanded(
             child: TabBarView(
               controller: _tabController,
-            children: [
-              _BiteScoreRestaurantAdminList(
-                onManageDishes: _openRestaurantDishes,
-              ),
-              _BiteScoreDishAdminList(
-                selectedRestaurant: _selectedDishRestaurant,
-              ),
-              const _BiteScoreReviewAdminList(),
-              const _BiteScoreReportedReviewAdminList(),
-              const _BiteScoreDataReportsAdminList(),
-              const _BiteScoreClaimAdminList(),
-              const _BiteScoreDishSuggestionAdminList(),
-              const _BiteScoreApprovedOwnershipAdminList(),
-              const _BiteScoreUsersAdminList(),
-            ],
+              children: [
+                _BiteScoreRestaurantAdminList(
+                  onManageDishes: _openRestaurantDishes,
+                ),
+                _BiteScoreDishAdminList(
+                  selectedRestaurant: _selectedDishRestaurant,
+                ),
+                const _BiteScoreReviewAdminList(),
+                const _BiteScoreReportedReviewAdminList(),
+                const _BiteScoreDataReportsAdminList(),
+                const _BiteScoreClaimAdminList(),
+                const _BiteScoreDishSuggestionAdminList(),
+                const _BiteScoreApprovedOwnershipAdminList(),
+                const _BiteScoreUsersAdminList(),
+              ],
             ),
           ),
         ],
@@ -176,17 +174,11 @@ class _AdminSearchFieldState extends State<_AdminSearchField> {
       onSubmitted: (_) => _submitSearch(),
       textInputAction: TextInputAction.search,
       decoration: InputDecoration(
-        prefixIcon: const Icon(
-          Icons.search,
-          color: BiteRaterTheme.grape,
-        ),
+        prefixIcon: const Icon(Icons.search, color: BiteRaterTheme.grape),
         suffixIcon: IconButton(
           tooltip: 'Search',
           onPressed: _submitSearch,
-          icon: const Icon(
-            Icons.arrow_forward,
-            color: BiteRaterTheme.coral,
-          ),
+          icon: const Icon(Icons.arrow_forward, color: BiteRaterTheme.coral),
         ),
         labelText: widget.label,
         filled: true,
@@ -197,14 +189,9 @@ class _AdminSearchFieldState extends State<_AdminSearchField> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: const BorderSide(
-            color: BiteRaterTheme.grape,
-            width: 1.4,
-          ),
+          borderSide: const BorderSide(color: BiteRaterTheme.grape, width: 1.4),
         ),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(14),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
   }
@@ -236,11 +223,7 @@ class _AdminEmptyStateCard extends StatelessWidget {
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    icon,
-                    size: 44,
-                    color: BiteRaterTheme.grape,
-                  ),
+                  Icon(icon, size: 44, color: BiteRaterTheme.grape),
                   const SizedBox(height: 12),
                   Text(
                     title,
@@ -273,9 +256,7 @@ class _AdminEmptyStateCard extends StatelessWidget {
 class _BiteScoreRestaurantAdminList extends StatefulWidget {
   final ValueChanged<BitescoreRestaurant> onManageDishes;
 
-  const _BiteScoreRestaurantAdminList({
-    required this.onManageDishes,
-  });
+  const _BiteScoreRestaurantAdminList({required this.onManageDishes});
 
   @override
   State<_BiteScoreRestaurantAdminList> createState() =>
@@ -293,9 +274,9 @@ class _BiteScoreRestaurantAdminListState
   }
 
   void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<bool> _confirmDelete(
@@ -399,18 +380,15 @@ class _BiteScoreRestaurantAdminListState
         final restaurants = snapshot.data ?? const <BitescoreRestaurant>[];
         final filteredRestaurants = restaurants
             .where(
-              (restaurant) => _matchesAdminQuery(
-                _searchController.text,
-                [
-                  restaurant.name,
-                  restaurant.address,
-                  restaurant.city,
-                  restaurant.state,
-                  restaurant.zipCode,
-                  restaurant.phone,
-                  restaurant.ownerUserId,
-                ],
-              ),
+              (restaurant) => _matchesAdminQuery(_searchController.text, [
+                restaurant.name,
+                restaurant.address,
+                restaurant.city,
+                restaurant.state,
+                restaurant.zipCode,
+                restaurant.phone,
+                restaurant.ownerUserId,
+              ]),
             )
             .toList(growable: false);
 
@@ -434,57 +412,60 @@ class _BiteScoreRestaurantAdminListState
               const _AdminEmptyStateCard(
                 icon: Icons.search_off,
                 title: 'No Matching Restaurants',
-                message: 'Try a different restaurant name, city, or ZIP search.',
+                message:
+                    'Try a different restaurant name, city, or ZIP search.',
               )
             else
               ...filteredRestaurants.map((restaurant) {
-            final subtitleLines = <String>[
-              if (restaurant.address.trim().isNotEmpty) restaurant.address.trim(),
-              [
-                restaurant.city.trim(),
-                restaurant.state.trim(),
-                restaurant.zipCode.trim(),
-              ].where((part) => part.isNotEmpty).join(', '),
-              if ((restaurant.phone ?? '').trim().isNotEmpty)
-                'Phone: ${restaurant.phone!.trim()}',
-              'Status: ${restaurant.isActive ? 'Active' : 'Hidden'}',
-            ].where((line) => line.trim().isNotEmpty).toList();
+                final subtitleLines = <String>[
+                  if (restaurant.address.trim().isNotEmpty)
+                    restaurant.address.trim(),
+                  [
+                    restaurant.city.trim(),
+                    restaurant.state.trim(),
+                    restaurant.zipCode.trim(),
+                  ].where((part) => part.isNotEmpty).join(', '),
+                  if ((restaurant.phone ?? '').trim().isNotEmpty)
+                    'Phone: ${restaurant.phone!.trim()}',
+                  'Status: ${restaurant.isActive ? 'Active' : 'Hidden'}',
+                ].where((line) => line.trim().isNotEmpty).toList();
 
-            return BiteRaterTheme.liftedCard(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                title: Text(
-                  restaurant.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Text(subtitleLines.join('\n')),
-                isThreeLine: subtitleLines.length > 1,
-                trailing: Wrap(
-                  spacing: 4,
-                  children: [
-                    IconButton(
-                      tooltip: 'Manage this restaurant\'s dishes',
-                      icon: const Icon(Icons.restaurant_menu_outlined),
-                      onPressed: () => widget.onManageDishes(restaurant),
+                return BiteRaterTheme.liftedCard(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
                     ),
-                    IconButton(
-                      tooltip: 'Edit restaurant',
-                      icon: const Icon(Icons.edit_outlined),
-                      onPressed: () => _editRestaurant(context, restaurant),
+                    title: Text(
+                      restaurant.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    IconButton(
-                      tooltip: 'Delete restaurant',
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: () => _deleteRestaurant(context, restaurant),
+                    subtitle: Text(subtitleLines.join('\n')),
+                    isThreeLine: subtitleLines.length > 1,
+                    trailing: Wrap(
+                      spacing: 4,
+                      children: [
+                        IconButton(
+                          tooltip: 'Manage this restaurant\'s dishes',
+                          icon: const Icon(Icons.restaurant_menu_outlined),
+                          onPressed: () => widget.onManageDishes(restaurant),
+                        ),
+                        IconButton(
+                          tooltip: 'Edit restaurant',
+                          icon: const Icon(Icons.edit_outlined),
+                          onPressed: () => _editRestaurant(context, restaurant),
+                        ),
+                        IconButton(
+                          tooltip: 'Delete restaurant',
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () =>
+                              _deleteRestaurant(context, restaurant),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-            );
+                  ),
+                );
               }),
           ],
         );
@@ -496,12 +477,11 @@ class _BiteScoreRestaurantAdminListState
 class _BiteScoreDishAdminList extends StatefulWidget {
   final BitescoreRestaurant? selectedRestaurant;
 
-  const _BiteScoreDishAdminList({
-    required this.selectedRestaurant,
-  });
+  const _BiteScoreDishAdminList({required this.selectedRestaurant});
 
   @override
-  State<_BiteScoreDishAdminList> createState() => _BiteScoreDishAdminListState();
+  State<_BiteScoreDishAdminList> createState() =>
+      _BiteScoreDishAdminListState();
 }
 
 class _BiteScoreDishAdminListState extends State<_BiteScoreDishAdminList> {
@@ -514,9 +494,9 @@ class _BiteScoreDishAdminListState extends State<_BiteScoreDishAdminList> {
   }
 
   void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _deleteDish(BuildContext context, BitescoreDish dish) async {
@@ -645,15 +625,12 @@ class _BiteScoreDishAdminListState extends State<_BiteScoreDishAdminList> {
             .toList(growable: false);
         final filteredDishes = dishes
             .where(
-              (dish) => _matchesAdminQuery(
-                _searchController.text,
-                [
-                  dish.name,
-                  dish.category,
-                  dish.priceLabel,
-                  dish.restaurantName,
-                ],
-              ),
+              (dish) => _matchesAdminQuery(_searchController.text, [
+                dish.name,
+                dish.category,
+                dish.priceLabel,
+                dish.restaurantName,
+              ]),
             )
             .toList(growable: false);
 
@@ -662,10 +639,7 @@ class _BiteScoreDishAdminListState extends State<_BiteScoreDishAdminList> {
           children: [
             Text(
               'Managing dishes for ${selectedRestaurant.name}',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             _AdminSearchField(
@@ -678,64 +652,67 @@ class _BiteScoreDishAdminListState extends State<_BiteScoreDishAdminList> {
               _AdminEmptyStateCard(
                 icon: Icons.restaurant_menu_outlined,
                 title: 'No Dishes for ${selectedRestaurant.name}',
-                message:
-                    'This restaurant does not have BiteScore dishes yet.',
+                message: 'This restaurant does not have BiteScore dishes yet.',
               )
             else if (filteredDishes.isEmpty)
               const _AdminEmptyStateCard(
                 icon: Icons.search_off,
                 title: 'No Matching Dishes',
-                message: 'Try a different dish name, category, or price search.',
+                message:
+                    'Try a different dish name, category, or price search.',
               )
             else
               ...filteredDishes.map((dish) {
-            final subtitleLines = <String>[
-              dish.restaurantName,
-              if ((dish.category ?? '').trim().isNotEmpty) dish.category!.trim(),
-              if ((dish.priceLabel ?? '').trim().isNotEmpty)
-                dish.priceLabel!.trim(),
-              'Status: ${dish.isActive ? 'Available' : 'Unavailable'}',
-            ];
+                final subtitleLines = <String>[
+                  dish.restaurantName,
+                  if ((dish.category ?? '').trim().isNotEmpty)
+                    dish.category!.trim(),
+                  if ((dish.priceLabel ?? '').trim().isNotEmpty)
+                    dish.priceLabel!.trim(),
+                  'Status: ${dish.isActive ? 'Available' : 'Unavailable'}',
+                ];
 
-            return BiteRaterTheme.liftedCard(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                title: Text(
-                  dish.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Text(subtitleLines.join('\n')),
-                isThreeLine: true,
-                trailing: Wrap(
-                  spacing: 4,
-                  children: [
-                    IconButton(
-                      tooltip: dish.isActive
-                          ? 'Mark unavailable'
-                          : 'Mark available',
-                      icon: Icon(
-                        dish.isActive ? Icons.visibility_off : Icons.visibility,
-                      ),
-                      onPressed: () => _toggleAvailability(context, dish),
+                return BiteRaterTheme.liftedCard(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
                     ),
-                    IconButton(
-                      tooltip: 'Edit dish',
-                      icon: const Icon(Icons.edit_outlined),
-                      onPressed: () => _editDish(context, dish),
+                    title: Text(
+                      dish.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    IconButton(
-                      tooltip: 'Delete dish',
-                      icon: const Icon(Icons.delete_outline),
-                      onPressed: () => _deleteDish(context, dish),
+                    subtitle: Text(subtitleLines.join('\n')),
+                    isThreeLine: true,
+                    trailing: Wrap(
+                      spacing: 4,
+                      children: [
+                        IconButton(
+                          tooltip: dish.isActive
+                              ? 'Mark unavailable'
+                              : 'Mark available',
+                          icon: Icon(
+                            dish.isActive
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                          ),
+                          onPressed: () => _toggleAvailability(context, dish),
+                        ),
+                        IconButton(
+                          tooltip: 'Edit dish',
+                          icon: const Icon(Icons.edit_outlined),
+                          onPressed: () => _editDish(context, dish),
+                        ),
+                        IconButton(
+                          tooltip: 'Delete dish',
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () => _deleteDish(context, dish),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-              ),
-            );
+                  ),
+                );
               }),
           ],
         );
@@ -762,9 +739,9 @@ class _BiteScoreReviewAdminListState extends State<_BiteScoreReviewAdminList> {
   }
 
   void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _deleteReview(
@@ -853,16 +830,13 @@ class _BiteScoreReviewAdminListState extends State<_BiteScoreReviewAdminList> {
         final entries = snapshot.data ?? const <BiteScoreAdminReviewEntry>[];
         final filteredEntries = entries
             .where(
-              (entry) => _matchesAdminQuery(
-                _searchController.text,
-                [
-                  entry.review.userId,
-                  entry.dishName,
-                  entry.restaurantName,
-                  entry.review.headline,
-                  entry.review.notes,
-                ],
-              ),
+              (entry) => _matchesAdminQuery(_searchController.text, [
+                entry.review.userId,
+                entry.dishName,
+                entry.restaurantName,
+                entry.review.headline,
+                entry.review.notes,
+              ]),
             )
             .toList(growable: false);
 
@@ -891,38 +865,38 @@ class _BiteScoreReviewAdminListState extends State<_BiteScoreReviewAdminList> {
               )
             else
               ...filteredEntries.map((entry) {
-            final review = entry.review;
-            final subtitleLines = <String>[
-              '${entry.restaurantName} • ${entry.dishName}',
-              'Enjoyment: ${review.overallImpression.toStringAsFixed(1)}',
-              'BiteScore: ${review.overallBiteScore.toStringAsFixed(0)}',
-              _reviewDateLabel(review),
-              if ((review.headline ?? '').trim().isNotEmpty)
-                'Headline: ${review.headline!.trim()}',
-              if ((review.notes ?? '').trim().isNotEmpty)
-                'Notes: ${review.notes!.trim()}',
-            ];
+                final review = entry.review;
+                final subtitleLines = <String>[
+                  '${entry.restaurantName} • ${entry.dishName}',
+                  'Enjoyment: ${review.overallImpression.toStringAsFixed(1)}',
+                  'BiteScore: ${review.overallBiteScore.toStringAsFixed(0)}',
+                  _reviewDateLabel(review),
+                  if ((review.headline ?? '').trim().isNotEmpty)
+                    'Headline: ${review.headline!.trim()}',
+                  if ((review.notes ?? '').trim().isNotEmpty)
+                    'Notes: ${review.notes!.trim()}',
+                ];
 
-            return BiteRaterTheme.liftedCard(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                title: Text(
-                  'Review by ${review.userId}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Text(subtitleLines.join('\n')),
-                isThreeLine: true,
-                trailing: IconButton(
-                  tooltip: 'Delete review',
-                  icon: const Icon(Icons.delete_outline),
-                  onPressed: () => _deleteReview(context, entry),
-                ),
-              ),
-            );
+                return BiteRaterTheme.liftedCard(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
+                    ),
+                    title: Text(
+                      'Review by ${review.userId}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    subtitle: Text(subtitleLines.join('\n')),
+                    isThreeLine: true,
+                    trailing: IconButton(
+                      tooltip: 'Delete review',
+                      icon: const Icon(Icons.delete_outline),
+                      onPressed: () => _deleteReview(context, entry),
+                    ),
+                  ),
+                );
               }),
           ],
         );
@@ -950,9 +924,9 @@ class _BiteScoreReportedReviewAdminListState
   }
 
   void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _dismissReports(
@@ -1066,18 +1040,15 @@ class _BiteScoreReportedReviewAdminListState
             snapshot.data ?? const <BiteScoreReportedReviewAdminEntry>[];
         final filteredEntries = entries
             .where(
-              (entry) => _matchesAdminQuery(
-                _searchController.text,
-                [
-                  entry.review.userId,
-                  entry.dishName,
-                  entry.restaurantName,
-                  entry.reportStatus,
-                  entry.distinctReasons.join(' '),
-                  entry.review.headline,
-                  entry.review.notes,
-                ],
-              ),
+              (entry) => _matchesAdminQuery(_searchController.text, [
+                entry.review.userId,
+                entry.dishName,
+                entry.restaurantName,
+                entry.reportStatus,
+                entry.distinctReasons.join(' '),
+                entry.review.headline,
+                entry.review.notes,
+              ]),
             )
             .toList(growable: false);
 
@@ -1106,57 +1077,57 @@ class _BiteScoreReportedReviewAdminListState
               )
             else
               ...filteredEntries.map((entry) {
-            final review = entry.review;
-            final subtitleLines = <String>[
-              '${entry.restaurantName} - ${entry.dishName}',
-              'Reports: ${entry.reportCount}',
-              'Status: ${entry.reportStatus}',
-              'Enjoyment: ${review.overallImpression.toStringAsFixed(1)}',
-              'BiteScore: ${review.overallBiteScore.toStringAsFixed(0)}',
-              _reviewDateLabel(review),
-              if (entry.distinctReasons.isNotEmpty)
-                'Reasons: ${entry.distinctReasons.join(', ')}',
-              if ((review.headline ?? '').trim().isNotEmpty)
-                'Headline: ${review.headline!.trim()}',
-              if ((review.notes ?? '').trim().isNotEmpty)
-                'Notes: ${review.notes!.trim()}',
-            ];
+                final review = entry.review;
+                final subtitleLines = <String>[
+                  '${entry.restaurantName} - ${entry.dishName}',
+                  'Reports: ${entry.reportCount}',
+                  'Status: ${entry.reportStatus}',
+                  'Enjoyment: ${review.overallImpression.toStringAsFixed(1)}',
+                  'BiteScore: ${review.overallBiteScore.toStringAsFixed(0)}',
+                  _reviewDateLabel(review),
+                  if (entry.distinctReasons.isNotEmpty)
+                    'Reasons: ${entry.distinctReasons.join(', ')}',
+                  if ((review.headline ?? '').trim().isNotEmpty)
+                    'Headline: ${review.headline!.trim()}',
+                  if ((review.notes ?? '').trim().isNotEmpty)
+                    'Notes: ${review.notes!.trim()}',
+                ];
 
-            return BiteRaterTheme.liftedCard(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Review by ${review.userId}',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(subtitleLines.join('\n')),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                return BiteRaterTheme.liftedCard(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        OutlinedButton(
-                          onPressed: () => _dismissReports(context, entry),
-                          child: const Text('Dismiss Report'),
+                        Text(
+                          'Review by ${review.userId}',
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        ElevatedButton(
-                          onPressed: () => _deleteReview(context, entry),
-                          child: const Text('Delete Review'),
+                        const SizedBox(height: 8),
+                        Text(subtitleLines.join('\n')),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            OutlinedButton(
+                              onPressed: () => _dismissReports(context, entry),
+                              child: const Text('Dismiss Report'),
+                            ),
+                            ElevatedButton(
+                              onPressed: () => _deleteReview(context, entry),
+                              child: const Text('Delete Review'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-            );
+                  ),
+                );
               }),
           ],
         );
@@ -1202,9 +1173,9 @@ class _BiteScoreReportedRestaurantsSectionState
   }
 
   void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _dismissReports(
@@ -1316,17 +1287,14 @@ class _BiteScoreReportedRestaurantsSectionState
               snapshot.data ?? const <BiteScoreReportedRestaurantAdminEntry>[];
           final filteredEntries = entries
               .where(
-                (entry) => _matchesAdminQuery(
-                  _searchController.text,
-                  [
-                    entry.restaurant.name,
-                    entry.restaurant.city,
-                    entry.restaurant.state,
-                    entry.restaurant.address,
-                    entry.reportStatus,
-                    entry.distinctReasons.join(' '),
-                  ],
-                ),
+                (entry) => _matchesAdminQuery(_searchController.text, [
+                  entry.restaurant.name,
+                  entry.restaurant.city,
+                  entry.restaurant.state,
+                  entry.restaurant.address,
+                  entry.reportStatus,
+                  entry.distinctReasons.join(' '),
+                ]),
               )
               .toList(growable: false);
 
@@ -1349,60 +1317,64 @@ class _BiteScoreReportedRestaurantsSectionState
                 const _AdminEmptyStateCard(
                   icon: Icons.search_off,
                   title: 'No Matching Restaurant Reports',
-                  message: 'Try a different restaurant name, city, or reason search.',
+                  message:
+                      'Try a different restaurant name, city, or reason search.',
                 )
               else
                 ...filteredEntries.map((entry) {
-              final reasons = entry.distinctReasons;
-              return BiteRaterTheme.liftedCard(
-                margin: const EdgeInsets.only(top: 12),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        entry.restaurant.name,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        [
-                          '${entry.restaurant.city}, ${entry.restaurant.state}',
-                          'Reports: ${entry.reportCount}',
-                          'Status: ${entry.reportStatus}',
-                          if (reasons.isNotEmpty) 'Reasons: ${reasons.join(', ')}',
-                        ].join('\n'),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
+                  final reasons = entry.distinctReasons;
+                  return BiteRaterTheme.liftedCard(
+                    margin: const EdgeInsets.only(top: 12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          OutlinedButton(
-                            onPressed: () =>
-                                _dismissReports(context, entry),
-                            child: const Text('Dismiss'),
+                          Text(
+                            entry.restaurant.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                          OutlinedButton(
-                            onPressed: () =>
-                                _editRestaurant(context, entry.restaurant),
-                            child: const Text('Edit Restaurant'),
+                          const SizedBox(height: 8),
+                          Text(
+                            [
+                              '${entry.restaurant.city}, ${entry.restaurant.state}',
+                              'Reports: ${entry.reportCount}',
+                              'Status: ${entry.reportStatus}',
+                              if (reasons.isNotEmpty)
+                                'Reasons: ${reasons.join(', ')}',
+                            ].join('\n'),
                           ),
-                          FilledButton.tonal(
-                            onPressed: () =>
-                                _deleteRestaurant(context, entry.restaurant),
-                            child: const Text('Delete Restaurant'),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              OutlinedButton(
+                                onPressed: () =>
+                                    _dismissReports(context, entry),
+                                child: const Text('Dismiss'),
+                              ),
+                              OutlinedButton(
+                                onPressed: () =>
+                                    _editRestaurant(context, entry.restaurant),
+                                child: const Text('Edit Restaurant'),
+                              ),
+                              FilledButton.tonal(
+                                onPressed: () => _deleteRestaurant(
+                                  context,
+                                  entry.restaurant,
+                                ),
+                                child: const Text('Delete Restaurant'),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-              );
+                    ),
+                  );
                 }),
             ],
           );
@@ -1431,9 +1403,9 @@ class _BiteScoreReportedDishesSectionState
   }
 
   void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _dismissReports(
@@ -1524,16 +1496,13 @@ class _BiteScoreReportedDishesSectionState
               snapshot.data ?? const <BiteScoreReportedDishAdminEntry>[];
           final filteredEntries = entries
               .where(
-                (entry) => _matchesAdminQuery(
-                  _searchController.text,
-                  [
-                    entry.dish.name,
-                    entry.dish.restaurantName,
-                    entry.restaurant?.name,
-                    entry.reportStatus,
-                    entry.distinctReasons.join(' '),
-                  ],
-                ),
+                (entry) => _matchesAdminQuery(_searchController.text, [
+                  entry.dish.name,
+                  entry.dish.restaurantName,
+                  entry.restaurant?.name,
+                  entry.reportStatus,
+                  entry.distinctReasons.join(' '),
+                ]),
               )
               .toList(growable: false);
 
@@ -1556,56 +1525,59 @@ class _BiteScoreReportedDishesSectionState
                 const _AdminEmptyStateCard(
                   icon: Icons.search_off,
                   title: 'No Matching Dish Reports',
-                  message: 'Try a different dish, restaurant, or reason search.',
+                  message:
+                      'Try a different dish, restaurant, or reason search.',
                 )
               else
                 ...filteredEntries.map((entry) {
-              final reasons = entry.distinctReasons;
-              final restaurantName =
-                  entry.restaurant?.name ?? entry.dish.restaurantName;
-              return BiteRaterTheme.liftedCard(
-                margin: const EdgeInsets.only(top: 12),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        entry.dish.name,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        [
-                          'Restaurant: $restaurantName',
-                          'Reports: ${entry.reportCount}',
-                          'Status: ${entry.reportStatus}',
-                          if (reasons.isNotEmpty) 'Reasons: ${reasons.join(', ')}',
-                        ].join('\n'),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
+                  final reasons = entry.distinctReasons;
+                  final restaurantName =
+                      entry.restaurant?.name ?? entry.dish.restaurantName;
+                  return BiteRaterTheme.liftedCard(
+                    margin: const EdgeInsets.only(top: 12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          OutlinedButton(
-                            onPressed: () =>
-                                _dismissReports(context, entry),
-                            child: const Text('Dismiss'),
+                          Text(
+                            entry.dish.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                          FilledButton.tonal(
-                            onPressed: () => _deleteDish(context, entry.dish),
-                            child: const Text('Delete Dish'),
+                          const SizedBox(height: 8),
+                          Text(
+                            [
+                              'Restaurant: $restaurantName',
+                              'Reports: ${entry.reportCount}',
+                              'Status: ${entry.reportStatus}',
+                              if (reasons.isNotEmpty)
+                                'Reasons: ${reasons.join(', ')}',
+                            ].join('\n'),
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              OutlinedButton(
+                                onPressed: () =>
+                                    _dismissReports(context, entry),
+                                child: const Text('Dismiss'),
+                              ),
+                              FilledButton.tonal(
+                                onPressed: () =>
+                                    _deleteDish(context, entry.dish),
+                                child: const Text('Delete Dish'),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-              );
+                    ),
+                  );
                 }),
             ],
           );
@@ -1634,9 +1606,9 @@ class _BiteScoreDuplicateRestaurantsSectionState
   }
 
   void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _resolveReports(
@@ -1766,20 +1738,17 @@ class _BiteScoreDuplicateRestaurantsSectionState
 
           final entries =
               snapshot.data ??
-                  const <BiteScoreDuplicateRestaurantReportAdminEntry>[];
+              const <BiteScoreDuplicateRestaurantReportAdminEntry>[];
           final filteredEntries = entries
               .where(
-                (entry) => _matchesAdminQuery(
-                  _searchController.text,
-                  [
-                    entry.restaurant.name,
-                    entry.restaurant.city,
-                    entry.restaurant.state,
-                    entry.restaurant.address,
-                    entry.reportStatus,
-                    entry.distinctReasons.join(' '),
-                  ],
-                ),
+                (entry) => _matchesAdminQuery(_searchController.text, [
+                  entry.restaurant.name,
+                  entry.restaurant.city,
+                  entry.restaurant.state,
+                  entry.restaurant.address,
+                  entry.reportStatus,
+                  entry.distinctReasons.join(' '),
+                ]),
               )
               .toList(growable: false);
 
@@ -1807,54 +1776,57 @@ class _BiteScoreDuplicateRestaurantsSectionState
                 )
               else
                 ...filteredEntries.map((entry) {
-              final reasons = entry.distinctReasons;
-              return BiteRaterTheme.liftedCard(
-                margin: const EdgeInsets.only(top: 12),
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        entry.restaurant.name,
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        [
-                          '${entry.restaurant.address}, ${entry.restaurant.city}, ${entry.restaurant.state}',
-                          'Reports: ${entry.reportCount}',
-                          'Status: ${entry.reportStatus}',
-                          if (reasons.isNotEmpty) 'Reasons: ${reasons.join(', ')}',
-                        ].join('\n'),
-                      ),
-                      const SizedBox(height: 12),
-                      Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
+                  final reasons = entry.distinctReasons;
+                  return BiteRaterTheme.liftedCard(
+                    margin: const EdgeInsets.only(top: 12),
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          OutlinedButton(
-                            onPressed: () =>
-                                _editRestaurant(context, entry.restaurant),
-                            child: const Text('Edit Restaurant'),
+                          Text(
+                            entry.restaurant.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                          OutlinedButton(
-                            onPressed: () => _mergeRestaurant(context, entry),
-                            child: const Text('Merge Into...'),
+                          const SizedBox(height: 8),
+                          Text(
+                            [
+                              '${entry.restaurant.address}, ${entry.restaurant.city}, ${entry.restaurant.state}',
+                              'Reports: ${entry.reportCount}',
+                              'Status: ${entry.reportStatus}',
+                              if (reasons.isNotEmpty)
+                                'Reasons: ${reasons.join(', ')}',
+                            ].join('\n'),
                           ),
-                          FilledButton.tonal(
-                            onPressed: () => _resolveReports(context, entry),
-                            child: const Text('Resolve'),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            children: [
+                              OutlinedButton(
+                                onPressed: () =>
+                                    _editRestaurant(context, entry.restaurant),
+                                child: const Text('Edit Restaurant'),
+                              ),
+                              OutlinedButton(
+                                onPressed: () =>
+                                    _mergeRestaurant(context, entry),
+                                child: const Text('Merge Into...'),
+                              ),
+                              FilledButton.tonal(
+                                onPressed: () =>
+                                    _resolveReports(context, entry),
+                                child: const Text('Resolve'),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
-                  ),
-                ),
-              );
+                    ),
+                  );
                 }),
             ],
           );
@@ -1868,10 +1840,7 @@ class _BiteScoreDataReportSection extends StatelessWidget {
   final String title;
   final Widget child;
 
-  const _BiteScoreDataReportSection({
-    required this.title,
-    required this.child,
-  });
+  const _BiteScoreDataReportSection({required this.title, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -1880,9 +1849,7 @@ class _BiteScoreDataReportSection extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: BiteRaterTheme.ocean.withOpacity(0.16),
-        ),
+        border: Border.all(color: BiteRaterTheme.ocean.withOpacity(0.16)),
         boxShadow: [
           BoxShadow(
             color: BiteRaterTheme.ocean.withOpacity(0.08),
@@ -1913,9 +1880,7 @@ class _BiteScoreDataReportSection extends StatelessWidget {
 class _BiteScoreRestaurantMergeDialog extends StatefulWidget {
   final BitescoreRestaurant duplicateRestaurant;
 
-  const _BiteScoreRestaurantMergeDialog({
-    required this.duplicateRestaurant,
-  });
+  const _BiteScoreRestaurantMergeDialog({required this.duplicateRestaurant});
 
   @override
   State<_BiteScoreRestaurantMergeDialog> createState() =>
@@ -2046,9 +2011,9 @@ class _BiteScoreClaimAdminListState extends State<_BiteScoreClaimAdminList> {
   }
 
   void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _approveClaim(
@@ -2126,20 +2091,17 @@ class _BiteScoreClaimAdminListState extends State<_BiteScoreClaimAdminList> {
             .toList(growable: false);
         final filteredEntries = pendingEntries
             .where(
-              (entry) => _matchesAdminQuery(
-                _searchController.text,
-                [
-                  entry.request.restaurantName,
-                  entry.request.claimantName,
-                  entry.request.email,
-                  entry.request.phone,
-                  entry.request.requesterUserId,
-                  entry.request.message,
-                  entry.restaurant?.address,
-                  entry.restaurant?.city,
-                  entry.restaurant?.state,
-                ],
-              ),
+              (entry) => _matchesAdminQuery(_searchController.text, [
+                entry.request.restaurantName,
+                entry.request.claimantName,
+                entry.request.email,
+                entry.request.phone,
+                entry.request.requesterUserId,
+                entry.request.message,
+                entry.restaurant?.address,
+                entry.restaurant?.city,
+                entry.restaurant?.state,
+              ]),
             )
             .toList(growable: false);
 
@@ -2168,59 +2130,59 @@ class _BiteScoreClaimAdminListState extends State<_BiteScoreClaimAdminList> {
               )
             else
               ...filteredEntries.map((entry) {
-            final request = entry.request;
-            final restaurant = entry.restaurant;
+                final request = entry.request;
+                final restaurant = entry.restaurant;
 
-            return BiteRaterTheme.liftedCard(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      request.restaurantName,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text('Claimant: ${request.claimantName}'),
-                    Text('Email: ${request.email}'),
-                    Text('Phone: ${request.phone}'),
-                    if ((request.requesterUserId ?? '').trim().isNotEmpty)
-                      Text('User ID: ${request.requesterUserId!}'),
-                    if (restaurant != null) ...[
-                      const SizedBox(height: 8),
-                      Text(
-                        '${restaurant.address}, ${restaurant.city}, ${restaurant.state} ${restaurant.zipCode}',
-                        style: const TextStyle(color: Colors.black54),
-                      ),
-                    ],
-                    if ((request.message ?? '').trim().isNotEmpty) ...[
-                      const SizedBox(height: 8),
-                      Text('Message: ${request.message!.trim()}'),
-                    ],
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                return BiteRaterTheme.liftedCard(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ElevatedButton(
-                          onPressed: () => _approveClaim(context, request),
-                          child: const Text('Approve'),
+                        Text(
+                          request.restaurantName,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        OutlinedButton(
-                          onPressed: () => _rejectClaim(context, request),
-                          child: const Text('Reject'),
+                        const SizedBox(height: 8),
+                        Text('Claimant: ${request.claimantName}'),
+                        Text('Email: ${request.email}'),
+                        Text('Phone: ${request.phone}'),
+                        if ((request.requesterUserId ?? '').trim().isNotEmpty)
+                          Text('User ID: ${request.requesterUserId!}'),
+                        if (restaurant != null) ...[
+                          const SizedBox(height: 8),
+                          Text(
+                            '${restaurant.address}, ${restaurant.city}, ${restaurant.state} ${restaurant.zipCode}',
+                            style: const TextStyle(color: Colors.black54),
+                          ),
+                        ],
+                        if ((request.message ?? '').trim().isNotEmpty) ...[
+                          const SizedBox(height: 8),
+                          Text('Message: ${request.message!.trim()}'),
+                        ],
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            ElevatedButton(
+                              onPressed: () => _approveClaim(context, request),
+                              child: const Text('Approve'),
+                            ),
+                            OutlinedButton(
+                              onPressed: () => _rejectClaim(context, request),
+                              child: const Text('Reject'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-            );
+                  ),
+                );
               }),
           ],
         );
@@ -2248,9 +2210,9 @@ class _BiteScoreDishSuggestionAdminListState
   }
 
   void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   String _dateLabel(DateTime? value) {
@@ -2347,18 +2309,15 @@ class _BiteScoreDishSuggestionAdminListState
         final entries = snapshot.data ?? const <DishEditSuggestionAdminEntry>[];
         final filteredEntries = entries
             .where(
-              (entry) => _matchesAdminQuery(
-                _searchController.text,
-                [
-                  entry.restaurantId,
-                  entry.targetDish?.name,
-                  entry.targetDish?.restaurantName,
-                  entry.mergeTargetDish?.name,
-                  entry.proposedName,
-                  entry.type,
-                  entry.invalidReason,
-                ],
-              ),
+              (entry) => _matchesAdminQuery(_searchController.text, [
+                entry.restaurantId,
+                entry.targetDish?.name,
+                entry.targetDish?.restaurantName,
+                entry.mergeTargetDish?.name,
+                entry.proposedName,
+                entry.type,
+                entry.invalidReason,
+              ]),
             )
             .toList(growable: false);
 
@@ -2387,61 +2346,64 @@ class _BiteScoreDishSuggestionAdminListState
               )
             else
               ...filteredEntries.map((entry) {
-            final targetDishName = entry.targetDish?.name ?? 'Unknown dish';
-            final subtitleLines = <String>[
-              'Type: ${entry.isRename ? 'Rename' : 'Merge'}',
-              'Restaurant ID: ${entry.restaurantId}',
-              'Source dish: $targetDishName',
-              if (entry.isRename && (entry.proposedName ?? '').trim().isNotEmpty)
-                'Proposed name: ${entry.proposedName!.trim()}',
-              if (entry.isMerge)
-                'Merge into: ${entry.mergeTargetDish?.name ?? 'Unknown dish'}',
-              'Supporters: ${entry.supporterCount}',
-              'Status: ${entry.isInvalid ? 'Invalid' : 'Pending'}',
-              'Created: ${_dateLabel(entry.oldestCreatedAt)}',
-              _autoApplyLabel(entry),
-              if (entry.isInvalid) 'Invalid reason: ${entry.invalidReason!}',
-            ];
+                final targetDishName = entry.targetDish?.name ?? 'Unknown dish';
+                final subtitleLines = <String>[
+                  'Type: ${entry.isRename ? 'Rename' : 'Merge'}',
+                  'Restaurant ID: ${entry.restaurantId}',
+                  'Source dish: $targetDishName',
+                  if (entry.isRename &&
+                      (entry.proposedName ?? '').trim().isNotEmpty)
+                    'Proposed name: ${entry.proposedName!.trim()}',
+                  if (entry.isMerge)
+                    'Merge into: ${entry.mergeTargetDish?.name ?? 'Unknown dish'}',
+                  'Supporters: ${entry.supporterCount}',
+                  'Status: ${entry.isInvalid ? 'Invalid' : 'Pending'}',
+                  'Created: ${_dateLabel(entry.oldestCreatedAt)}',
+                  _autoApplyLabel(entry),
+                  if (entry.isInvalid)
+                    'Invalid reason: ${entry.invalidReason!}',
+                ];
 
-            return BiteRaterTheme.liftedCard(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      entry.targetDish?.restaurantName ??
-                          entry.mergeTargetDish?.restaurantName ??
-                          'Dish Suggestion',
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(subtitleLines.join('\n')),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
+                return BiteRaterTheme.liftedCard(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ElevatedButton(
-                          onPressed: entry.isInvalid
-                              ? null
-                              : () => _approveSuggestion(context, entry),
-                          child: const Text('Approve'),
+                        Text(
+                          entry.targetDish?.restaurantName ??
+                              entry.mergeTargetDish?.restaurantName ??
+                              'Dish Suggestion',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
                         ),
-                        OutlinedButton(
-                          onPressed: () => _rejectSuggestion(context, entry),
-                          child: const Text('Reject'),
+                        const SizedBox(height: 8),
+                        Text(subtitleLines.join('\n')),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            ElevatedButton(
+                              onPressed: entry.isInvalid
+                                  ? null
+                                  : () => _approveSuggestion(context, entry),
+                              child: const Text('Approve'),
+                            ),
+                            OutlinedButton(
+                              onPressed: () =>
+                                  _rejectSuggestion(context, entry),
+                              child: const Text('Reject'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
-            );
+                  ),
+                );
               }),
           ],
         );
@@ -2469,9 +2431,9 @@ class _BiteScoreApprovedOwnershipAdminListState
   }
 
   void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   String _approvalDateLabel(RestaurantClaimRequest? request) {
@@ -2575,17 +2537,15 @@ class _BiteScoreApprovedOwnershipAdminListState
             snapshot.data ?? const <BiteScoreApprovedOwnershipEntry>[];
         final filteredEntries = entries
             .where(
-              (entry) => _matchesAdminQuery(
-                _searchController.text,
-                [
-                  entry.restaurant.name,
-                  entry.restaurant.city,
-                  entry.restaurant.state,
-                  entry.restaurant.ownerUserId,
-                  entry.approvedClaim?.email,
-                  entry.approvedClaim?.claimantName,
-                ],
-              ),
+              (entry) => _matchesAdminQuery(_searchController.text, [
+                entry.restaurant.name,
+                entry.restaurant.city,
+                entry.restaurant.state,
+                entry.restaurant.ownerUserId,
+                entry.approvedClaim?.email,
+                entry.approvedClaim?.phone,
+                entry.approvedClaim?.claimantName,
+              ]),
             )
             .toList(growable: false);
 
@@ -2614,49 +2574,52 @@ class _BiteScoreApprovedOwnershipAdminListState
               )
             else
               ...filteredEntries.map((entry) {
-            final restaurant = entry.restaurant;
-            final request = entry.approvedClaim;
-            final ownerUserId = restaurant.ownerUserId?.trim();
-            final ownerEmail = request?.email.trim();
-            final subtitleLines = <String>[
-              if (ownerEmail != null && ownerEmail.isNotEmpty)
-                'Owner email: $ownerEmail',
-              if (ownerUserId != null && ownerUserId.isNotEmpty)
-                'Owner user ID: $ownerUserId',
-              'Approval status: Approved',
-              'Approval date: ${_approvalDateLabel(request)}',
-            ];
+                final restaurant = entry.restaurant;
+                final request = entry.approvedClaim;
+                final ownerUserId = restaurant.ownerUserId?.trim();
+                final ownerEmail = request?.email.trim();
+                final ownerPhone = request?.phone.trim();
+                final subtitleLines = <String>[
+                  if (ownerEmail != null && ownerEmail.isNotEmpty)
+                    'Owner email: $ownerEmail',
+                  if (ownerPhone != null && ownerPhone.isNotEmpty)
+                    'Owner phone: $ownerPhone',
+                  if (ownerUserId != null && ownerUserId.isNotEmpty)
+                    'Owner user ID: $ownerUserId',
+                  'Approval status: Approved',
+                  'Approval date: ${_approvalDateLabel(request)}',
+                ];
 
-            return BiteRaterTheme.liftedCard(
-              margin: const EdgeInsets.only(bottom: 12),
-              child: ListTile(
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 10,
-                ),
-                title: Text(
-                  restaurant.name,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                subtitle: Text(subtitleLines.join('\n')),
-                isThreeLine: true,
-                trailing: Wrap(
-                  spacing: 4,
-                  children: [
-                    IconButton(
-                      tooltip: 'View restaurant',
-                      icon: const Icon(Icons.open_in_new),
-                      onPressed: () => _viewRestaurant(context, restaurant),
+                return BiteRaterTheme.liftedCard(
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: ListTile(
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 10,
                     ),
-                    IconButton(
-                      tooltip: 'Remove owner',
-                      icon: const Icon(Icons.person_remove_outlined),
-                      onPressed: () => _unclaimRestaurant(context, entry),
+                    title: Text(
+                      restaurant.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                  ],
-                ),
-              ),
-            );
+                    subtitle: Text(subtitleLines.join('\n')),
+                    isThreeLine: true,
+                    trailing: Wrap(
+                      spacing: 4,
+                      children: [
+                        IconButton(
+                          tooltip: 'View restaurant',
+                          icon: const Icon(Icons.open_in_new),
+                          onPressed: () => _viewRestaurant(context, restaurant),
+                        ),
+                        IconButton(
+                          tooltip: 'Remove owner',
+                          icon: const Icon(Icons.person_remove_outlined),
+                          onPressed: () => _unclaimRestaurant(context, entry),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
               }),
           ],
         );
@@ -2694,9 +2657,9 @@ class _BiteScoreUsersAdminListState extends State<_BiteScoreUsersAdminList> {
   }
 
   void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message)),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _showUserDetails(
@@ -2706,8 +2669,16 @@ class _BiteScoreUsersAdminListState extends State<_BiteScoreUsersAdminList> {
     await showDialog<void>(
       context: context,
       builder: (context) {
+        final contactLabel = user.email ?? user.phoneNumber ?? user.uid;
+        final contactLine = user.email != null
+            ? 'Email: ${user.email}'
+            : user.phoneNumber != null
+            ? 'Phone: ${user.phoneNumber}'
+            : 'Email: No email available';
         final lines = <String>[
-          'Email: ${user.email ?? 'No email available'}',
+          contactLine,
+          if (user.email != null && user.phoneNumber != null)
+            'Phone: ${user.phoneNumber}',
           'Name: ${user.displayName ?? 'No display name available'}',
           'UID: ${user.uid}',
           'Roles: ${user.roleLabel}',
@@ -2720,10 +2691,8 @@ class _BiteScoreUsersAdminListState extends State<_BiteScoreUsersAdminList> {
         ];
 
         return AlertDialog(
-          title: Text(user.displayName ?? user.email ?? user.uid),
-          content: SingleChildScrollView(
-            child: Text(lines.join('\n')),
-          ),
+          title: Text(user.displayName ?? contactLabel),
+          content: SingleChildScrollView(child: Text(lines.join('\n'))),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
@@ -2746,7 +2715,7 @@ class _BiteScoreUsersAdminListState extends State<_BiteScoreUsersAdminList> {
           title: const Text('Delete User Account Records'),
           content: Text(
             'Delete admin-visible owner records for '
-            '${user.email ?? user.displayName ?? user.uid}? '
+            '${user.email ?? user.phoneNumber ?? user.displayName ?? user.uid}? '
             'This removes coupon owner account data and unclaims BiteScore restaurants '
             'owned by this user, but it does not delete the Firebase Auth login itself.',
           ),
@@ -2823,18 +2792,16 @@ class _BiteScoreUsersAdminListState extends State<_BiteScoreUsersAdminList> {
         final users = snapshot.data ?? const <BiteScoreAdminUserEntry>[];
         final filteredUsers = users
             .where(
-              (user) => _matchesAdminQuery(
-                _searchController.text,
-                [
-                  user.uid,
-                  user.email,
-                  user.displayName,
-                  user.roleLabel,
-                  user.claimedRestaurantNames.join(' '),
-                  user.restaurantAccountStatus,
-                  user.activityTags.join(' '),
-                ],
-              ),
+              (user) => _matchesAdminQuery(_searchController.text, [
+                user.uid,
+                user.email,
+                user.phoneNumber,
+                user.displayName,
+                user.roleLabel,
+                user.claimedRestaurantNames.join(' '),
+                user.restaurantAccountStatus,
+                user.activityTags.join(' '),
+              ]),
             )
             .toList(growable: false);
 
@@ -2875,8 +2842,15 @@ class _BiteScoreUsersAdminListState extends State<_BiteScoreUsersAdminList> {
               )
             else
               ...filteredUsers.map((user) {
+                final contactLine = user.email != null
+                    ? 'Email: ${user.email}'
+                    : user.phoneNumber != null
+                    ? 'Phone: ${user.phoneNumber}'
+                    : 'Email: No email available';
                 final subtitleLines = <String>[
-                  'Email: ${user.email ?? 'No email available'}',
+                  contactLine,
+                  if (user.email != null && user.phoneNumber != null)
+                    'Phone: ${user.phoneNumber}',
                   'Name: ${user.displayName ?? 'No display name available'}',
                   'UID: ${user.uid}',
                   'Role: ${user.roleLabel}',
@@ -2894,7 +2868,10 @@ class _BiteScoreUsersAdminListState extends State<_BiteScoreUsersAdminList> {
                       vertical: 10,
                     ),
                     title: Text(
-                      user.displayName ?? user.email ?? user.uid,
+                      user.displayName ??
+                          user.email ??
+                          user.phoneNumber ??
+                          user.uid,
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text(subtitleLines.join('\n')),
@@ -2947,9 +2924,7 @@ class _AdminTextField extends StatelessWidget {
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -2958,9 +2933,7 @@ class _AdminTextField extends StatelessWidget {
 class _BiteScoreRestaurantEditDialog extends StatefulWidget {
   final BitescoreRestaurant restaurant;
 
-  const _BiteScoreRestaurantEditDialog({
-    required this.restaurant,
-  });
+  const _BiteScoreRestaurantEditDialog({required this.restaurant});
 
   @override
   State<_BiteScoreRestaurantEditDialog> createState() =>
@@ -2988,8 +2961,9 @@ class _BiteScoreRestaurantEditDialogState
     _cityController = TextEditingController(text: widget.restaurant.city);
     _stateController = TextEditingController(text: widget.restaurant.state);
     _zipController = TextEditingController(text: widget.restaurant.zipCode);
-    _phoneController =
-        TextEditingController(text: widget.restaurant.phone ?? '');
+    _phoneController = TextEditingController(
+      text: widget.restaurant.phone ?? '',
+    );
     _bioController = TextEditingController(text: widget.restaurant.bio ?? '');
     _cuisineController = TextEditingController(
       text: widget.restaurant.cuisineTags.join(', '),
@@ -3152,9 +3126,7 @@ class _BiteScoreRestaurantEditDialogState
 class _BiteScoreDishEditDialog extends StatefulWidget {
   final BitescoreDish dish;
 
-  const _BiteScoreDishEditDialog({
-    required this.dish,
-  });
+  const _BiteScoreDishEditDialog({required this.dish});
 
   @override
   State<_BiteScoreDishEditDialog> createState() =>
@@ -3172,9 +3144,12 @@ class _BiteScoreDishEditDialogState extends State<_BiteScoreDishEditDialog> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.dish.name);
-    _categoryController =
-        TextEditingController(text: widget.dish.category ?? '');
-    _priceController = TextEditingController(text: widget.dish.priceLabel ?? '');
+    _categoryController = TextEditingController(
+      text: widget.dish.category ?? '',
+    );
+    _priceController = TextEditingController(
+      text: widget.dish.priceLabel ?? '',
+    );
     _isActive = widget.dish.isActive;
   }
 
@@ -3233,10 +3208,7 @@ class _BiteScoreDishEditDialogState extends State<_BiteScoreDishEditDialog> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _AdminTextField(
-                controller: _nameController,
-                label: 'Dish name',
-              ),
+              _AdminTextField(controller: _nameController, label: 'Dish name'),
               const SizedBox(height: 12),
               _AdminTextField(
                 controller: _categoryController,

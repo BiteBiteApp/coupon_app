@@ -292,6 +292,15 @@ class CustomerAuthService {
     );
 
     await signedInUser.reload();
+    final refreshedUser = _auth.currentUser ?? signedInUser;
+    final phoneNumber = refreshedUser.phoneNumber?.trim();
+    if (phoneNumber != null && phoneNumber.isNotEmpty) {
+      await _firestore.collection('user_profiles').doc(refreshedUser.uid).set({
+        'userId': refreshedUser.uid,
+        'phoneNumber': phoneNumber,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+    }
 
     await DemoRedemptionStore.refreshFromFirestore();
   }
