@@ -732,6 +732,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                 icon: const Icon(Icons.location_on, size: 18),
                 label: Text(
                   isGettingLocation ? 'Getting Location...' : 'Use My Location',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ),
@@ -742,9 +744,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                 child: ElevatedButton(
                   onPressed: isGettingLocation ? null : _useMyLocation,
                   style: sharedActionButtonStyle.copyWith(
-                    minimumSize: const WidgetStatePropertyAll(Size(110, 0)),
+                    minimumSize: const WidgetStatePropertyAll(Size(88, 0)),
                     padding: const WidgetStatePropertyAll(
-                      EdgeInsets.symmetric(horizontal: 18),
+                      EdgeInsets.symmetric(horizontal: 12),
                     ),
                   ),
                   child: const Text('Refresh'),
@@ -866,6 +868,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                                       Expanded(
                                         child: DropdownButtonFormField<String>(
                                           initialValue: selectedRadius,
+                                          isExpanded: true,
                                           decoration: _inputDecoration(
                                             hintText: 'Radius',
                                           ),
@@ -911,9 +914,48 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                                           initialValue: _normalizeSortOption(
                                             selectedSort,
                                           ),
+                                          isExpanded: true,
                                           decoration: _inputDecoration(
                                             hintText: 'Sort',
                                           ),
+                                          selectedItemBuilder: (context) =>
+                                              const [
+                                                Text(
+                                                  'BiteScore',
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                                Text(
+                                                  'Reviews',
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                                Text(
+                                                  'Closest',
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                                Text(
+                                                  'Value',
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                                Text(
+                                                  'Flavor',
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                                Text(
+                                                  'Quality',
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                                Text(
+                                                  'Enjoyed',
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                ),
+                                              ],
                                           items: const [
                                             DropdownMenuItem(
                                               value: 'Highest BiteScore',
