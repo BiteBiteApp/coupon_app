@@ -37,7 +37,7 @@ class BiteScoreHomeScreen extends StatefulWidget {
 
 class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   static const double _collapsedHeaderExtent = 86;
-  static const double _expandedHeaderExtent = 300;
+  static const double _expandedHeaderExtent = 244;
   static const String _selectedRadiusPreferenceKey = 'selected_radius';
   static const String _defaultSort = 'Highest BiteScore';
 
@@ -826,6 +826,69 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     );
   }
 
+  Widget _buildSortDropdown({String hintText = 'Sort'}) {
+    return DropdownButtonFormField<String>(
+      initialValue: _normalizeSortOption(selectedSort),
+      isExpanded: false,
+      decoration: _inputDecoration(hintText: hintText),
+      selectedItemBuilder: (context) => const [
+        Text('BiteScore', overflow: TextOverflow.ellipsis),
+        Text('Reviews', overflow: TextOverflow.ellipsis),
+        Text('Closest', overflow: TextOverflow.ellipsis),
+        Text('Value', overflow: TextOverflow.ellipsis),
+        Text('Flavor', overflow: TextOverflow.ellipsis),
+        Text('Quality', overflow: TextOverflow.ellipsis),
+        Text('Enjoyed', overflow: TextOverflow.ellipsis),
+      ],
+      items: const [
+        DropdownMenuItem(
+          value: 'Highest BiteScore',
+          child: Text('Highest BiteScore'),
+        ),
+        DropdownMenuItem(value: 'Most Reviewed', child: Text('Most Reviewed')),
+        DropdownMenuItem(value: 'Closest', child: Text('Closest')),
+        DropdownMenuItem(value: 'Best Value', child: Text('Best Value')),
+        DropdownMenuItem(value: 'Best Flavor', child: Text('Best Flavor')),
+        DropdownMenuItem(
+          value: 'Highest Quality',
+          child: Text('Highest Quality'),
+        ),
+        DropdownMenuItem(value: 'Most Enjoyed', child: Text('Most Enjoyed')),
+      ],
+      onChanged: (value) {
+        if (value != null) {
+          setState(() {
+            selectedSort = _normalizeSortOption(value);
+          });
+        }
+      },
+    );
+  }
+
+  Widget _buildSortControl() {
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const Text(
+            'Sort by',
+            style: TextStyle(
+              color: BiteRaterTheme.mutedInk,
+              fontSize: 12,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(width: 8),
+          ConstrainedBox(
+            constraints: const BoxConstraints(minWidth: 132, maxWidth: 172),
+            child: _buildSortDropdown(hintText: 'BiteScore'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHeader({required double expansionT}) {
     final collapsed = expansionT <= 0.02;
 
@@ -933,6 +996,55 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                                   Row(
                                     children: [
                                       Expanded(
+                                        flex: 7,
+                                        child: _buildBiteScoreActionButton(
+                                          label: 'Create & Rate',
+                                          onPressed: _openCreateAndRate,
+                                          fullWidth: true,
+                                          style: BiteRaterTheme.filledButtonStyle()
+                                              .copyWith(
+                                                textStyle:
+                                                    const WidgetStatePropertyAll(
+                                                      TextStyle(
+                                                        fontSize: 16,
+                                                        fontWeight:
+                                                            FontWeight.w700,
+                                                        letterSpacing: 0.2,
+                                                      ),
+                                                    ),
+                                              ),
+                                          decoration: BoxDecoration(
+                                            gradient: const LinearGradient(
+                                              begin: Alignment.centerLeft,
+                                              end: Alignment.centerRight,
+                                              colors: [
+                                                Color(0xFF6C88B8),
+                                                Color(0xFF7082B2),
+                                                Color(0xFF767AA9),
+                                              ],
+                                            ),
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                            border: Border.all(
+                                              color: BiteRaterTheme.ocean
+                                                  .withOpacity(0.14),
+                                              width: 1,
+                                            ),
+                                            boxShadow: [
+                                              BoxShadow(
+                                                color: BiteRaterTheme.ocean
+                                                    .withOpacity(0.10),
+                                                blurRadius: 7,
+                                                offset: const Offset(0, 2),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      Expanded(
+                                        flex: 3,
                                         child: DropdownButtonFormField<String>(
                                           initialValue: selectedRadius,
                                           isExpanded: true,
@@ -975,140 +1087,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                                           },
                                         ),
                                       ),
-                                      const SizedBox(width: 10),
-                                      Expanded(
-                                        child: DropdownButtonFormField<String>(
-                                          initialValue: _normalizeSortOption(
-                                            selectedSort,
-                                          ),
-                                          isExpanded: true,
-                                          decoration: _inputDecoration(
-                                            hintText: 'Sort',
-                                          ),
-                                          selectedItemBuilder: (context) =>
-                                              const [
-                                                Text(
-                                                  'BiteScore',
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                                Text(
-                                                  'Reviews',
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                                Text(
-                                                  'Closest',
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                                Text(
-                                                  'Value',
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                                Text(
-                                                  'Flavor',
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                                Text(
-                                                  'Quality',
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                                Text(
-                                                  'Enjoyed',
-                                                  overflow:
-                                                      TextOverflow.ellipsis,
-                                                ),
-                                              ],
-                                          items: const [
-                                            DropdownMenuItem(
-                                              value: 'Highest BiteScore',
-                                              child: Text('Highest BiteScore'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: 'Most Reviewed',
-                                              child: Text('Most Reviewed'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: 'Closest',
-                                              child: Text('Closest'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: 'Best Value',
-                                              child: Text('Best Value'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: 'Best Flavor',
-                                              child: Text('Best Flavor'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: 'Highest Quality',
-                                              child: Text('Highest Quality'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: 'Most Enjoyed',
-                                              child: Text('Most Enjoyed'),
-                                            ),
-                                          ],
-                                          onChanged: (value) {
-                                            if (value != null) {
-                                              setState(() {
-                                                selectedSort =
-                                                    _normalizeSortOption(value);
-                                              });
-                                            }
-                                          },
-                                        ),
-                                      ),
                                     ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                  SizedBox(
-                                    width: double.infinity,
-                                    child: _buildBiteScoreActionButton(
-                                      label: 'Create and Rate',
-                                      onPressed: _openCreateAndRate,
-                                      fullWidth: true,
-                                      style: BiteRaterTheme.filledButtonStyle()
-                                          .copyWith(
-                                            textStyle:
-                                                const WidgetStatePropertyAll(
-                                                  TextStyle(
-                                                    fontSize: 16,
-                                                    fontWeight: FontWeight.w600,
-                                                    letterSpacing: 0.2,
-                                                  ),
-                                                ),
-                                          ),
-                                      decoration: BoxDecoration(
-                                        gradient: const LinearGradient(
-                                          begin: Alignment.centerLeft,
-                                          end: Alignment.centerRight,
-                                          colors: [
-                                            Color(0xFF6C88B8),
-                                            Color(0xFF7082B2),
-                                            Color(0xFF767AA9),
-                                          ],
-                                        ),
-                                        borderRadius: BorderRadius.circular(16),
-                                        border: Border.all(
-                                          color: BiteRaterTheme.ocean
-                                              .withOpacity(0.14),
-                                          width: 1,
-                                        ),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: BiteRaterTheme.ocean
-                                                .withOpacity(0.10),
-                                            blurRadius: 7,
-                                            offset: const Offset(0, 2),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
                                   ),
                                   const SizedBox(height: 4),
                                 ],
@@ -1570,6 +1549,13 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                     _buildHeader(expansionT: expansionT),
               ),
             ),
+            if (_hasLocationOrZipInput)
+              SliverToBoxAdapter(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  child: _buildSortControl(),
+                ),
+              ),
             SliverPadding(
               padding: EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
               sliver: !_hasLocationOrZipInput
