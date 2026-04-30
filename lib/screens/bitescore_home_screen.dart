@@ -894,13 +894,13 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
             'Sort by',
             style: TextStyle(
               color: BiteRaterTheme.mutedInk,
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 132, maxWidth: 172),
+            constraints: const BoxConstraints(minWidth: 124, maxWidth: 160),
             child: _buildSortDropdown(hintText: 'BiteScore'),
           ),
         ],
@@ -926,13 +926,13 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                 spreadRadius: 1,
               ),
               BoxShadow(
-                color: Color(0x1E0F172A),
-                blurRadius: 20,
-                offset: Offset(0, 8),
+                color: Color(0x180F172A),
+                blurRadius: 16,
+                offset: Offset(0, 7),
               ),
               BoxShadow(
-                color: Color(0x100F172A),
-                blurRadius: 6,
+                color: Color(0x0C0F172A),
+                blurRadius: 5,
                 offset: Offset(0, 2),
               ),
             ],
@@ -1189,7 +1189,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
             pressedScale: 0.965,
             pressedColor: const Color(0xFFF4F8FD),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 7),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -1228,7 +1228,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                               _displayText(entry.dish.name, 'Unnamed dish'),
                               style: const TextStyle(
                                 color: BiteRaterTheme.ink,
-                                fontSize: 19,
+                                fontSize: 18.6,
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 0.0,
                                 height: 1.08,
@@ -1255,7 +1255,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                   ),
                   const SizedBox(width: 12),
                   SizedBox(
-                    width: 76,
+                    width: 72,
                     child: Align(
                       alignment: Alignment.center,
                       child: Column(
@@ -1266,9 +1266,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                           Text(
                             scoreLabel,
                             style: const TextStyle(
-                              fontSize: 31,
+                              fontSize: 30,
                               fontWeight: FontWeight.w900,
-                              height: 0.94,
+                              height: 0.90,
                               color: BiteRaterTheme.scoreFlame,
                             ),
                           ),
@@ -1276,11 +1276,11 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                             'BiteScore',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 8.5,
+                              fontSize: 8.3,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 0.12,
-                              color: BiteRaterTheme.mutedInk.withOpacity(0.82),
-                              height: 1.0,
+                              color: BiteRaterTheme.mutedInk.withOpacity(0.74),
+                              height: 0.98,
                             ),
                           ),
                           Text(
@@ -1288,9 +1288,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 9,
-                              color: BiteRaterTheme.mutedInk.withOpacity(0.78),
+                              color: BiteRaterTheme.mutedInk.withOpacity(0.68),
                               fontWeight: FontWeight.w500,
-                              height: 1.0,
+                              height: 0.98,
                             ),
                           ),
                         ],
@@ -1304,7 +1304,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
           Container(
             height: 0.5,
             margin: const EdgeInsets.symmetric(horizontal: 18),
-            color: BiteRaterTheme.lineBlue.withOpacity(0.35),
+            color: BiteRaterTheme.lineBlue.withOpacity(0.22),
           ),
           BiteRaterTheme.pressableSection(
             onTap: () => _openRestaurantPage(
@@ -1322,7 +1322,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
             pressedScale: 0.99,
             pressedColor: const Color(0xFFFCFDFE),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
+              padding: const EdgeInsets.fromLTRB(16, 7, 16, 9),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -1334,10 +1334,10 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                           _displayText(entry.restaurant.name, 'Restaurant'),
                           style: TextStyle(
                             color: BiteRaterTheme.restaurantTitle.withOpacity(
-                              0.96,
+                              0.88,
                             ),
                             fontSize: 13,
-                            fontWeight: FontWeight.w700,
+                            fontWeight: FontWeight.w600,
                             height: 1.12,
                           ),
                         ),
@@ -1345,9 +1345,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                         Text(
                           _restaurantMetaLabel(entry),
                           style: TextStyle(
-                            color: BiteRaterTheme.mutedInk.withOpacity(0.92),
+                            color: BiteRaterTheme.mutedInk.withOpacity(0.74),
                             fontSize: 11,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w400,
                             height: 1.15,
                           ),
                         ),

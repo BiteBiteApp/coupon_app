@@ -1144,14 +1144,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     return [
       BoxShadow(
-        color: const Color(0xFF5E3E1E).withOpacity(0.075 + opacityBoost / 2),
-        blurRadius: 11.5 * strength,
-        offset: Offset(0, 7 * strength),
+        color: const Color(0xFF5E3E1E).withOpacity(0.062 + opacityBoost / 2),
+        blurRadius: 10.5 * strength,
+        offset: Offset(0, 6 * strength),
       ),
       BoxShadow(
-        color: const Color(0xFF704D24).withOpacity(0.19 + opacityBoost / 2),
-        blurRadius: 2.4 * strength,
-        offset: Offset(0, 2.8 * strength),
+        color: const Color(0xFF704D24).withOpacity(0.15 + opacityBoost / 2),
+        blurRadius: 2.1 * strength,
+        offset: Offset(0, 2.4 * strength),
       ),
     ];
   }
@@ -1325,8 +1325,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 boxShadow: [
                   BoxShadow(
                     color: const Color(0xFF704D24).withOpacity(0.14),
-                    blurRadius: 1.8,
-                    offset: const Offset(0, 1.6),
+                    blurRadius: 1.5,
+                    offset: const Offset(0, 1.3),
                   ),
                 ],
               ),
@@ -1537,7 +1537,7 @@ class _HomeScreenState extends State<HomeScreen> {
             child: ListTile(
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 15,
-                vertical: 8,
+                vertical: 7,
               ),
               title: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1572,7 +1572,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: Color(0xFF2B1D14),
                       fontSize: 16.4,
                       fontWeight: FontWeight.w700,
-                      height: 1.08,
+                      height: 1.06,
                       letterSpacing: 0.02,
                     ),
                   ),
@@ -3054,9 +3054,9 @@ class _RestaurantCardShellPressable extends StatelessWidget {
                 style: const TextStyle(
                   color: Color(0xFF1F1A16),
                   fontSize: 18.0,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.w700,
                   height: 1.10,
-                  letterSpacing: 0.24,
+                  letterSpacing: 0.08,
                 ),
               ),
             ),
@@ -3123,8 +3123,8 @@ class _RestaurantCardShellPressable extends StatelessWidget {
         Text(
           subtitle,
           style: TextStyle(
-            color: Colors.black.withOpacity(0.46),
-            fontSize: 12.2,
+            color: Colors.black.withOpacity(0.40),
+            fontSize: 12.0,
             fontWeight: FontWeight.w400,
             height: 1.16,
             letterSpacing: 0.01,

@@ -214,8 +214,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         ? const Color(0xFFD6E4F8)
         : const Color(0xD1FFFFFF);
     final selectedShadowColor = isBiteScore
-        ? const Color.fromRGBO(36, 76, 140, 0.12)
-        : const Color.fromRGBO(0, 0, 0, 0.08);
+        ? const Color.fromRGBO(36, 76, 140, 0.16)
+        : const Color.fromRGBO(0, 0, 0, 0.10);
     final selectedIconColor = isBiteScore
         ? const Color(0xFF285CC3)
         : const Color(0xFF1E4CAA);
@@ -301,7 +301,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                           : item.value.icon,
                                       color: item.key == selectedIndex
                                           ? selectedIconColor
-                                          : const Color(0xFF645A4C),
+                                          : const Color(0xFF766D61),
                                       size: 24,
                                     ),
                                   ),
@@ -315,12 +315,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                       style: TextStyle(
                                         color: item.key == selectedIndex
                                             ? selectedTextColor
-                                            : const Color(0xFF5E564A),
+                                            : const Color(0xFF766D61),
                                         fontWeight: item.key == selectedIndex
                                             ? FontWeight.w800
-                                            : FontWeight.w600,
+                                            : FontWeight.w500,
                                         fontSize: 13.5,
-                                        letterSpacing: -0.1,
+                                        letterSpacing: 0,
                                         height: 1.0,
                                       ),
                                     ),
@@ -354,7 +354,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               boxShadow: [
                 BoxShadow(
                   color: Colors.black.withOpacity(0.10),
-                  blurRadius: 6,
+                  blurRadius: 7,
                   offset: const Offset(0, 2),
                 ),
               ],
@@ -382,7 +382,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             boxShadow: [
               BoxShadow(
                 color: Color.fromRGBO(36, 76, 134, 0.13),
-                blurRadius: 10,
+                blurRadius: 11,
                 offset: const Offset(0, 3),
               ),
             ],
