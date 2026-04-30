@@ -293,11 +293,17 @@ class CustomerAuthService {
 
     await signedInUser.reload();
     final refreshedUser = _auth.currentUser ?? signedInUser;
-    final phoneNumber = refreshedUser.phoneNumber?.trim();
-    if (phoneNumber != null && phoneNumber.isNotEmpty) {
+    if (!refreshedUser.isAnonymous) {
+      final email = refreshedUser.email?.trim();
+      final phoneNumber = refreshedUser.phoneNumber?.trim();
+      final displayName = refreshedUser.displayName?.trim();
       await _firestore.collection('user_profiles').doc(refreshedUser.uid).set({
         'userId': refreshedUser.uid,
-        'phoneNumber': phoneNumber,
+        if (email != null && email.isNotEmpty) 'email': email,
+        if (phoneNumber != null && phoneNumber.isNotEmpty)
+          'phoneNumber': phoneNumber,
+        if (displayName != null && displayName.isNotEmpty)
+          'displayName': displayName,
         'updatedAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
     }

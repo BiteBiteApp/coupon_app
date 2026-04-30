@@ -79,6 +79,10 @@ class Coupon {
   bool get hasStructuredSchedule => startTime != null || endTime != null;
 
   String? validateForSave() {
+    if (restaurant.trim().isEmpty) {
+      return 'Restaurant name is required.';
+    }
+
     if (title.trim().isEmpty) {
       return 'Coupon title is required.';
     }
@@ -163,14 +167,15 @@ class Coupon {
       fieldExpires: expiresText ?? expires,
       fieldStartTime: Timestamp.fromDate(startTime!),
       fieldEndTime: Timestamp.fromDate(endTime!),
-      fieldUsageRule:
-          usageRule.trim().isEmpty ? defaultUsageRule : usageRule.trim(),
-      fieldCouponCode:
-          couponCode?.trim().isEmpty == true ? null : couponCode?.trim(),
+      fieldUsageRule: usageRule.trim().isEmpty
+          ? defaultUsageRule
+          : usageRule.trim(),
+      fieldCouponCode: couponCode?.trim().isEmpty == true
+          ? null
+          : couponCode?.trim(),
       fieldIsProximityOnly: isProximityOnly,
       fieldProximityRadiusMiles: proximityRadiusMiles,
-      fieldDetails:
-          details?.trim().isEmpty == true ? null : details?.trim(),
+      fieldDetails: details?.trim().isEmpty == true ? null : details?.trim(),
     };
   }
 
@@ -189,7 +194,8 @@ class Coupon {
     final expires = _readString(data[fieldExpires]);
     final parsedStartTime = _coerceDateTime(data[fieldStartTime]);
     final parsedEndTime =
-        _coerceDateTime(data[fieldEndTime]) ?? _coerceDateTime(data[fieldExpires]);
+        _coerceDateTime(data[fieldEndTime]) ??
+        _coerceDateTime(data[fieldExpires]);
     final usageRule = _readString(data[fieldUsageRule]) ?? defaultUsageRule;
     final couponCode = _readString(data[fieldCouponCode]);
     final details = _readString(data[fieldDetails]);

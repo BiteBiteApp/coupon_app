@@ -40,14 +40,19 @@ class RestaurantAccountService {
     final trimmedState = state?.trim();
     final trimmedZipCode = zipCode?.trim();
     final trimmedPhone = phone?.trim();
+    final trimmedEmail = user.email?.trim();
     final trimmedPhoneNumber = user.phoneNumber?.trim();
+    final trimmedDisplayName = user.displayName?.trim();
 
     if (!snapshot.exists) {
       await doc.set({
         Restaurant.fieldUid: user.uid,
-        Restaurant.fieldEmail: user.email,
+        if (trimmedEmail != null && trimmedEmail.isNotEmpty)
+          Restaurant.fieldEmail: trimmedEmail,
         if (trimmedPhoneNumber != null && trimmedPhoneNumber.isNotEmpty)
           'phoneNumber': trimmedPhoneNumber,
+        if (trimmedDisplayName != null && trimmedDisplayName.isNotEmpty)
+          'displayName': trimmedDisplayName,
         if (trimmedRestaurantName != null && trimmedRestaurantName.isNotEmpty)
           Restaurant.fieldName: trimmedRestaurantName,
         if (trimmedStreetAddress != null && trimmedStreetAddress.isNotEmpty)
@@ -71,9 +76,12 @@ class RestaurantAccountService {
 
     await doc.set({
       Restaurant.fieldUid: user.uid,
-      Restaurant.fieldEmail: user.email,
+      if (trimmedEmail != null && trimmedEmail.isNotEmpty)
+        Restaurant.fieldEmail: trimmedEmail,
       if (trimmedPhoneNumber != null && trimmedPhoneNumber.isNotEmpty)
         'phoneNumber': trimmedPhoneNumber,
+      if (trimmedDisplayName != null && trimmedDisplayName.isNotEmpty)
+        'displayName': trimmedDisplayName,
       if (trimmedRestaurantName != null && trimmedRestaurantName.isNotEmpty)
         Restaurant.fieldName: trimmedRestaurantName,
       if (trimmedStreetAddress != null && trimmedStreetAddress.isNotEmpty)
@@ -96,11 +104,17 @@ class RestaurantAccountService {
   }
 
   static Future<void> syncEmailVerified(User user) async {
+    final trimmedEmail = user.email?.trim();
     final trimmedPhoneNumber = user.phoneNumber?.trim();
+    final trimmedDisplayName = user.displayName?.trim();
     await docForUser(user.uid).set({
       'emailVerified': user.emailVerified,
+      if (trimmedEmail != null && trimmedEmail.isNotEmpty)
+        Restaurant.fieldEmail: trimmedEmail,
       if (trimmedPhoneNumber != null && trimmedPhoneNumber.isNotEmpty)
         'phoneNumber': trimmedPhoneNumber,
+      if (trimmedDisplayName != null && trimmedDisplayName.isNotEmpty)
+        'displayName': trimmedDisplayName,
       Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
   }
@@ -237,6 +251,12 @@ class RestaurantAccountService {
     required double? latitude,
     required double? longitude,
   }) async {
+    final trimmedUid = uid.trim();
+    if (trimmedUid.isEmpty) {
+      throw ArgumentError('Restaurant user ID is required.');
+    }
+
+    final trimmedEmail = email.trim();
     final restaurant = Restaurant(
       name: name.trim(),
       distance: Restaurant.defaultDistanceLabel,
@@ -256,14 +276,14 @@ class RestaurantAccountService {
     );
 
     final validationError = restaurant.validateRequiredFields();
-    if (validationError != null || email.trim().isEmpty) {
+    if (validationError != null || trimmedEmail.isEmpty) {
       throw ArgumentError(validationError ?? 'Restaurant email is required.');
     }
 
-    await docForUser(uid).set({
-      Restaurant.fieldUid: uid,
+    await docForUser(trimmedUid).set({
+      Restaurant.fieldUid: trimmedUid,
       ...restaurant.toProfileFirestoreMap(
-        email: email,
+        email: trimmedEmail,
         phone: phone,
         streetAddress: streetAddress,
         website: website,
@@ -294,7 +314,8 @@ class RestaurantAccountService {
   }) async {
     await _ensureCanPostCoupons(uid);
 
-    final validationError = coupon.validateForSave();
+    final sanitizedCoupon = _sanitizeCouponForSave(coupon);
+    final validationError = sanitizedCoupon.validateForSave();
     if (validationError != null) {
       throw ArgumentError(validationError);
     }
@@ -302,13 +323,13 @@ class RestaurantAccountService {
     final doc = couponsCollection(uid).doc();
     await _ensureNoDuplicateCoupon(
       uid: uid,
-      title: coupon.title.trim(),
-      startTime: coupon.startTime!,
-      endTime: coupon.endTime!,
+      title: sanitizedCoupon.title,
+      startTime: sanitizedCoupon.startTime!,
+      endTime: sanitizedCoupon.endTime!,
     );
 
     await doc.set({
-      ...coupon.toFirestoreMap(id: doc.id),
+      ...sanitizedCoupon.toFirestoreMap(id: doc.id),
       Coupon.fieldCreatedAt: FieldValue.serverTimestamp(),
       Coupon.fieldUpdatedAt: FieldValue.serverTimestamp(),
     });
@@ -317,7 +338,7 @@ class RestaurantAccountService {
       Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
-    return coupon.copyWith(id: doc.id);
+    return sanitizedCoupon.copyWith(id: doc.id);
   }
 
   static Future<Coupon> updateCoupon({
@@ -326,18 +347,19 @@ class RestaurantAccountService {
   }) async {
     await _ensureCanPostCoupons(uid);
 
-    final validationError = coupon.validateForSave();
-    if (validationError != null) {
-      throw ArgumentError(validationError);
-    }
-
     final couponId = coupon.id.trim();
     if (couponId.isEmpty) {
       throw ArgumentError('Coupon ID is required for updates.');
     }
 
+    final sanitizedCoupon = _sanitizeCouponForSave(coupon, id: couponId);
+    final validationError = sanitizedCoupon.validateForSave();
+    if (validationError != null) {
+      throw ArgumentError(validationError);
+    }
+
     await couponsCollection(uid).doc(couponId).set({
-      ...coupon.toFirestoreMap(id: couponId),
+      ...sanitizedCoupon.toFirestoreMap(id: couponId),
       Coupon.fieldUpdatedAt: FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
@@ -345,7 +367,37 @@ class RestaurantAccountService {
       Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
-    return coupon;
+    return sanitizedCoupon;
+  }
+
+  static Coupon _sanitizeCouponForSave(Coupon coupon, {String? id}) {
+    final trimmedCouponCode = coupon.couponCode?.trim();
+    final trimmedDetails = coupon.details?.trim();
+    final trimmedExpires = coupon.expiresText?.trim();
+    final trimmedUsageRule = coupon.usageRule.trim();
+
+    return Coupon(
+      id: id ?? coupon.id.trim(),
+      restaurant: coupon.restaurant.trim(),
+      title: coupon.title.trim(),
+      distance: coupon.distance.trim(),
+      expires: trimmedExpires == null || trimmedExpires.isEmpty
+          ? null
+          : trimmedExpires,
+      startTime: coupon.startTime,
+      endTime: coupon.endTime,
+      usageRule: trimmedUsageRule.isEmpty
+          ? Coupon.defaultUsageRule
+          : trimmedUsageRule,
+      couponCode: trimmedCouponCode == null || trimmedCouponCode.isEmpty
+          ? null
+          : trimmedCouponCode,
+      isProximityOnly: coupon.isProximityOnly,
+      proximityRadiusMiles: coupon.proximityRadiusMiles,
+      details: trimmedDetails == null || trimmedDetails.isEmpty
+          ? null
+          : trimmedDetails,
+    );
   }
 
   static Future<List<Coupon>> loadCoupons(String uid) async {

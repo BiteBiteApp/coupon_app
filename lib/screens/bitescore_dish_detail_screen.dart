@@ -45,6 +45,8 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     'Pizza',
     'Sandwich',
     'Burger',
+    'Chicken Dish',
+    'Barbecue',
     'Tacos',
     'Pasta',
     'Wings',
@@ -80,6 +82,26 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       _currentEntry.restaurant.ownerUserId?.trim() == _currentUser!.uid;
   bool get _isAdmin => AdminAccessService.isAdminUser(_currentUser);
   bool get _canManageDish => _isOwner || _isAdmin;
+
+  String _displayText(String value, String fallback) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? fallback : trimmed;
+  }
+
+  String _restaurantLocationLabel(BitescoreRestaurant restaurant) {
+    final city = restaurant.city.trim();
+    final zipCode = restaurant.zipCode.trim();
+    if (city.isNotEmpty && zipCode.isNotEmpty) {
+      return '$city, $zipCode';
+    }
+    if (city.isNotEmpty) {
+      return city;
+    }
+    if (zipCode.isNotEmpty) {
+      return zipCode;
+    }
+    return 'Location unavailable';
+  }
 
   @override
   void initState() {
@@ -1757,7 +1779,10 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                                 CrossAxisAlignment.start,
                                             children: [
                                               Text(
-                                                currentDish.name,
+                                                _displayText(
+                                                  currentDish.name,
+                                                  'Unnamed dish',
+                                                ),
                                                 style: const TextStyle(
                                                   color: BiteRaterTheme.ink,
                                                   fontSize: 26,
@@ -1817,8 +1842,11 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                                           children: [
                                                             Flexible(
                                                               child: Text(
-                                                                currentRestaurant
-                                                                    .name,
+                                                                _displayText(
+                                                                  currentRestaurant
+                                                                      .name,
+                                                                  'Restaurant',
+                                                                ),
                                                                 style: const TextStyle(
                                                                   fontSize:
                                                                       14.5,
@@ -1850,7 +1878,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                                           height: 0,
                                                         ),
                                                         Text(
-                                                          '${currentRestaurant.city}, ${currentRestaurant.zipCode}',
+                                                          _restaurantLocationLabel(
+                                                            currentRestaurant,
+                                                          ),
                                                           style: const TextStyle(
                                                             color:
                                                                 BiteRaterTheme
@@ -1860,15 +1890,17 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                                                 FontWeight.w500,
                                                           ),
                                                         ),
-                                                        if (widget
-                                                                .distanceLabel !=
-                                                            null) ...[
+                                                        if (widget.distanceLabel
+                                                                ?.trim()
+                                                                .isNotEmpty ==
+                                                            true) ...[
                                                           const SizedBox(
                                                             height: 0,
                                                           ),
                                                           Text(
                                                             widget
-                                                                .distanceLabel!,
+                                                                .distanceLabel!
+                                                                .trim(),
                                                             style: const TextStyle(
                                                               color:
                                                                   BiteRaterTheme
@@ -2257,7 +2289,7 @@ class _DishManagementDialogState extends State<_DishManagementDialog> {
               TextField(
                 controller: _categoryController,
                 decoration: InputDecoration(
-                  labelText: 'Category',
+                  labelText: 'Category (optional)',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -2442,6 +2474,20 @@ class _DishRenameSuggestionDialogState
   }
 
   Future<void> _submit() async {
+    final proposedName = _nameController.text.trim();
+    if (proposedName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Suggested dish name is required.')),
+      );
+      return;
+    }
+    if (proposedName.toLowerCase() == widget.dish.name.trim().toLowerCase()) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('That dish already uses this name.')),
+      );
+      return;
+    }
+
     setState(() {
       _isSaving = true;
     });
@@ -2449,7 +2495,7 @@ class _DishRenameSuggestionDialogState
     try {
       await BiteScoreService.submitDishRenameSuggestion(
         dish: widget.dish,
-        proposedName: _nameController.text,
+        proposedName: proposedName,
       );
       if (!mounted) {
         return;

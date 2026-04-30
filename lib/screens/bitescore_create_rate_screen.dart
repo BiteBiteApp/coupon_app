@@ -51,6 +51,8 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     'Pizza',
     'Sandwich',
     'Burger',
+    'Chicken Dish',
+    'Barbecue',
     'Tacos',
     'Pasta',
     'Wings',
@@ -1265,7 +1267,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
               },
               child: InputDecorator(
                 decoration: InputDecoration(
-                  labelText: 'Category (Optional)',
+                  labelText: 'Category (optional)',
                   filled: true,
                   fillColor: Colors.white,
                   enabledBorder: OutlineInputBorder(
@@ -2582,121 +2584,127 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
           Expanded(
             child: SafeArea(
               top: false,
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (isExistingDishMode) ...[
-                      _buildSectionTitle(
-                        'Dish',
-                        'You are reviewing an existing BiteScore dish.',
-                      ),
-                      const SizedBox(height: 16),
-                      _buildExistingDishHeader(),
-                      const SizedBox(height: 28),
-                      _buildRatingSection(),
-                    ] else if (isExistingRestaurantMode) ...[
-                      _buildSectionTitle(
-                        'Restaurant',
-                        'You are adding a dish for an existing BiteScore restaurant.',
-                      ),
-                      const SizedBox(height: 16),
-                      _buildExistingRestaurantHeader(),
-                      const SizedBox(height: 28),
-                      _buildDishCreationSection(
-                        title: 'Dish',
-                        subtitle:
-                            'Create a new dish for this restaurant and add the first rating.',
-                      ),
-                      const SizedBox(height: 28),
-                      _buildRatingSection(),
-                    ] else ...[
-                      if (_restaurantEntryStage ==
-                          _RestaurantEntryStage.chooseRestaurant) ...[
-                        _buildExistingRestaurantFinder(),
-                        const SizedBox(height: 20),
-                        _buildManualRestaurantChooser(),
-                      ],
-                      if (_restaurantEntryStage ==
-                          _RestaurantEntryStage.confirmCloseMatch)
-                        _buildCloseMatchConfirmation(),
-                      if (_restaurantEntryStage ==
-                          _RestaurantEntryStage.createNewRestaurant) ...[
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(
+                  context,
+                ).copyWith(overscroll: false),
+                child: SingleChildScrollView(
+                  physics: const ClampingScrollPhysics(),
+                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (isExistingDishMode) ...[
                         _buildSectionTitle(
-                          'Restaurant confirmed',
-                          'Finish the required location details for this new restaurant, then add the dish and first rating.',
+                          'Dish',
+                          'You are reviewing an existing BiteScore dish.',
                         ),
                         const SizedBox(height: 16),
-                        _buildManualRestaurantHeader(),
-                        const SizedBox(height: 20),
-                        _buildField(
-                          controller: streetAddressController,
-                          label: 'Street Address',
-                          hint: 'Required street address',
+                        _buildExistingDishHeader(),
+                        const SizedBox(height: 28),
+                        _buildRatingSection(),
+                      ] else if (isExistingRestaurantMode) ...[
+                        _buildSectionTitle(
+                          'Restaurant',
+                          'You are adding a dish for an existing BiteScore restaurant.',
                         ),
                         const SizedBox(height: 16),
-                        _buildField(
-                          controller: zipCodeController,
-                          label: 'ZIP Code',
-                          hint: '34461',
-                          keyboardType: TextInputType.number,
-                        ),
+                        _buildExistingRestaurantHeader(),
                         const SizedBox(height: 28),
                         _buildDishCreationSection(
-                          title: 'Add a Dish',
+                          title: 'Dish',
                           subtitle:
-                              'Now that the restaurant is confirmed, add the dish and first rating.',
+                              'Create a new dish for this restaurant and add the first rating.',
                         ),
                         const SizedBox(height: 28),
                         _buildRatingSection(),
-                        const SizedBox(height: 16),
-                        TextButton(
-                          onPressed: _backToRestaurantSelection,
-                          child: const Text('Back to restaurant selection'),
-                        ),
+                      ] else ...[
+                        if (_restaurantEntryStage ==
+                            _RestaurantEntryStage.chooseRestaurant) ...[
+                          _buildExistingRestaurantFinder(),
+                          const SizedBox(height: 20),
+                          _buildManualRestaurantChooser(),
+                        ],
+                        if (_restaurantEntryStage ==
+                            _RestaurantEntryStage.confirmCloseMatch)
+                          _buildCloseMatchConfirmation(),
+                        if (_restaurantEntryStage ==
+                            _RestaurantEntryStage.createNewRestaurant) ...[
+                          _buildSectionTitle(
+                            'Restaurant confirmed',
+                            'Finish the required location details for this new restaurant, then add the dish and first rating.',
+                          ),
+                          const SizedBox(height: 16),
+                          _buildManualRestaurantHeader(),
+                          const SizedBox(height: 20),
+                          _buildField(
+                            controller: streetAddressController,
+                            label: 'Street Address',
+                            hint: 'Required street address',
+                          ),
+                          const SizedBox(height: 16),
+                          _buildField(
+                            controller: zipCodeController,
+                            label: 'ZIP Code',
+                            hint: '34461',
+                            keyboardType: TextInputType.number,
+                          ),
+                          const SizedBox(height: 28),
+                          _buildDishCreationSection(
+                            title: 'Add a Dish',
+                            subtitle:
+                                'Now that the restaurant is confirmed, add the dish and first rating.',
+                          ),
+                          const SizedBox(height: 28),
+                          _buildRatingSection(),
+                          const SizedBox(height: 16),
+                          TextButton(
+                            onPressed: _backToRestaurantSelection,
+                            child: const Text('Back to restaurant selection'),
+                          ),
+                        ],
                       ],
-                    ],
-                    const SizedBox(height: 24),
-                    if (!isRestaurantSelectionMode ||
-                        showDishCreationForManualRestaurant)
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          onPressed: isSaving
-                              ? null
-                              : _hasRequiredScores
-                              ? _save
-                              : () => _showSnackBar(
-                                  'Please rate each category before submitting.',
-                                ),
-                          style: ElevatedButton.styleFrom(
-                            foregroundColor: Colors.white,
-                            backgroundColor: _hasRequiredScores
-                                ? BiteRaterTheme.coral
-                                : BiteRaterTheme.mutedInk,
-                            minimumSize: const Size.fromHeight(50),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
+                      const SizedBox(height: 24),
+                      if (!isRestaurantSelectionMode ||
+                          showDishCreationForManualRestaurant)
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton(
+                            onPressed: isSaving
+                                ? null
+                                : _hasRequiredScores
+                                ? _save
+                                : () => _showSnackBar(
+                                    'Please rate each category before submitting.',
+                                  ),
+                            style: ElevatedButton.styleFrom(
+                              foregroundColor: Colors.white,
+                              backgroundColor: _hasRequiredScores
+                                  ? BiteRaterTheme.coral
+                                  : BiteRaterTheme.mutedInk,
+                              minimumSize: const Size.fromHeight(50),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              textStyle: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                              ),
                             ),
-                            textStyle: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
+                            child: Text(
+                              isSaving
+                                  ? 'Saving...'
+                                  : isExistingDishMode
+                                  ? 'Save Review'
+                                  : isExistingRestaurantMode ||
+                                        showDishCreationForManualRestaurant
+                                  ? 'Save Dish & Rating'
+                                  : 'Save Rating',
                             ),
-                          ),
-                          child: Text(
-                            isSaving
-                                ? 'Saving...'
-                                : isExistingDishMode
-                                ? 'Save Review'
-                                : isExistingRestaurantMode ||
-                                      showDishCreationForManualRestaurant
-                                ? 'Save Dish & Rating'
-                                : 'Save Rating',
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ),

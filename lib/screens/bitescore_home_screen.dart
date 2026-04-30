@@ -82,6 +82,21 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         locationSearchController.text.trim().isNotEmpty;
   }
 
+  String _displayText(String value, String fallback) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? fallback : trimmed;
+  }
+
+  String _restaurantMetaLabel(BiteScoreHomeEntry entry) {
+    final city = entry.restaurant.city.trim();
+    final distance = _distanceLabel(entry).trim();
+    final parts = <String>[
+      if (city.isNotEmpty) city,
+      if (distance.isNotEmpty) distance,
+    ];
+    return parts.isEmpty ? 'Location unavailable' : parts.join(' - ');
+  }
+
   Future<void> _loadSelectedRadius() async {
     final prefs = await SharedPreferences.getInstance();
     final savedRadius = prefs.getString(_selectedRadiusPreferenceKey);
@@ -433,6 +448,10 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     }
     if (normalizedCategory.isEmpty) {
       return false;
+    }
+    if ((normalizedCategory == 'barbecue' || normalizedCategory == 'bbq') &&
+        (normalizedQuery == 'barbecue' || normalizedQuery == 'bbq')) {
+      return true;
     }
     return normalizedCategory == normalizedQuery ||
         '${normalizedCategory}s' == normalizedQuery ||
@@ -1206,7 +1225,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             Text(
-                              entry.dish.name,
+                              _displayText(entry.dish.name, 'Unnamed dish'),
                               style: const TextStyle(
                                 color: BiteRaterTheme.ink,
                                 fontSize: 19,
@@ -1312,7 +1331,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          entry.restaurant.name,
+                          _displayText(entry.restaurant.name, 'Restaurant'),
                           style: TextStyle(
                             color: BiteRaterTheme.restaurantTitle.withOpacity(
                               0.96,
@@ -1324,7 +1343,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                         ),
                         const SizedBox(height: 2),
                         Text(
-                          '${entry.restaurant.city} · ${_distanceLabel(entry)}',
+                          _restaurantMetaLabel(entry),
                           style: TextStyle(
                             color: BiteRaterTheme.mutedInk.withOpacity(0.92),
                             fontSize: 11,

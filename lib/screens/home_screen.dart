@@ -963,7 +963,15 @@ class _HomeScreenState extends State<HomeScreen> {
         .replaceAll('mile away', 'mi')
         .trim();
     final city = _toTitleCase(restaurant.city);
-    return '$distance • $city';
+    final hasDistance =
+        distance.isNotEmpty && distance != Restaurant.defaultDistanceLabel;
+    if (hasDistance && city.isNotEmpty) {
+      return '$distance • $city';
+    }
+    if (hasDistance) {
+      return distance;
+    }
+    return city.isEmpty ? 'Location unavailable' : city;
   }
 
   String _formatCouponMetaLine(Coupon coupon, {required bool proximityOnly}) {
@@ -1557,7 +1565,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                     ),
                   Text(
-                    coupon.title,
+                    coupon.title.trim().isEmpty
+                        ? 'Untitled coupon'
+                        : coupon.title.trim(),
                     style: const TextStyle(
                       color: Color(0xFF2B1D14),
                       fontSize: 16.4,
@@ -2023,7 +2033,9 @@ class _HomeScreenState extends State<HomeScreen> {
 
           return _RestaurantCardShellPressable(
             onTap: () => openRestaurantProfile(restaurant),
-            title: restaurant.name,
+            title: restaurant.name.trim().isEmpty
+                ? 'Restaurant'
+                : restaurant.name.trim(),
             subtitle: _formatRestaurantLocationLine(restaurant),
             isFeatured: isFeaturedCard,
             dealCount: restaurant.coupons.length,

@@ -31,7 +31,8 @@ class Restaurant {
   static const String fieldApprovalStatus = 'approvalStatus';
   static const String fieldCreatedAt = 'createdAt';
   static const String fieldUpdatedAt = 'updatedAt';
-  static const String defaultDistanceLabel = 'Distance calculated from location';
+  static const String defaultDistanceLabel =
+      'Distance calculated from location';
 
   final String name;
   final String distance;
@@ -101,18 +102,27 @@ class Restaurant {
     required double? latitude,
     required double? longitude,
   }) {
+    final trimmedEmail = email.trim();
+    final trimmedPhone = phone.trim();
+    final trimmedStreetAddress = streetAddress.trim();
+    final trimmedWebsite = website.trim();
+    final trimmedBio = bio.trim();
+
     return {
       fieldName: name.trim(),
       fieldCity: city.trim(),
       fieldState: state.trim(),
       fieldZipCode: zipCode.trim(),
-      fieldEmail: email.trim(),
-      fieldPhone: phone.trim(),
-      fieldStreetAddress: streetAddress.trim(),
-      fieldWebsite: website.trim(),
-      fieldBio: bio.trim(),
-      fieldBusinessHours:
-          RestaurantBusinessHours.toFirestoreList(businessHours),
+      fieldEmail: trimmedEmail,
+      fieldPhone: trimmedPhone.isEmpty ? null : trimmedPhone,
+      fieldStreetAddress: trimmedStreetAddress.isEmpty
+          ? null
+          : trimmedStreetAddress,
+      fieldWebsite: trimmedWebsite.isEmpty ? null : trimmedWebsite,
+      fieldBio: trimmedBio.isEmpty ? null : trimmedBio,
+      fieldBusinessHours: RestaurantBusinessHours.toFirestoreList(
+        businessHours,
+      ),
       fieldLatitude: latitude,
       fieldLongitude: longitude,
     };
@@ -124,19 +134,26 @@ class Restaurant {
   }) {
     return Restaurant(
       uid: _readString(data[fieldUid]),
-      name: _readString(data[fieldName]) ?? _readString(data[legacyFieldName]) ?? '',
-      distance: defaultDistanceLabel,
+      name:
+          _readString(data[fieldName]) ??
+          _readString(data[legacyFieldName]) ??
+          '',
+      distance: _readString(data[fieldDistance]) ?? '',
       city: _readString(data[fieldCity]) ?? '',
       state: _readString(data[fieldState]) ?? '',
-      zipCode: _readString(data[fieldZipCode]) ?? _readString(data[legacyFieldZipCode]) ?? '',
+      zipCode:
+          _readString(data[fieldZipCode]) ??
+          _readString(data[legacyFieldZipCode]) ??
+          '',
       phone: _readString(data[fieldPhone]),
       streetAddress:
           _readString(data[fieldStreetAddress]) ??
           _readString(data[legacyFieldStreetAddress]),
       website: _readString(data[fieldWebsite]),
       bio: _readString(data[fieldBio]),
-      businessHours:
-          RestaurantBusinessHours.listFromFirestore(data[fieldBusinessHours]),
+      businessHours: RestaurantBusinessHours.listFromFirestore(
+        data[fieldBusinessHours],
+      ),
       coupons: coupons,
       latitude: _readDouble(data[fieldLatitude]),
       longitude: _readDouble(data[fieldLongitude]),
@@ -207,9 +224,9 @@ class RestaurantBusinessHours {
 
   Map<String, dynamic> toFirestoreMap() {
     return {
-      fieldDay: day,
-      fieldOpensAt: opensAt,
-      fieldClosesAt: closesAt,
+      fieldDay: day.trim(),
+      fieldOpensAt: opensAt.trim(),
+      fieldClosesAt: closesAt.trim(),
       fieldClosed: closed,
     };
   }
@@ -266,9 +283,7 @@ class RestaurantBusinessHours {
       return defaultWeek();
     }
 
-    final entriesByDay = {
-      for (final entry in hours) entry.day: entry,
-    };
+    final entriesByDay = {for (final entry in hours) entry.day: entry};
 
     return Restaurant.businessDayNames
         .map((day) => entriesByDay[day] ?? defaultDay(day))
@@ -276,9 +291,7 @@ class RestaurantBusinessHours {
   }
 
   static List<RestaurantBusinessHours> defaultWeek() {
-    return Restaurant.businessDayNames
-        .map((day) => defaultDay(day))
-        .toList();
+    return Restaurant.businessDayNames.map((day) => defaultDay(day)).toList();
   }
 
   static RestaurantBusinessHours defaultDay(String day) {

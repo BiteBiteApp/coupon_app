@@ -508,7 +508,7 @@ class BiteScoreCreateRequest {
     if (zipCode.trim().isEmpty) {
       return 'ZIP code is required.';
     }
-    if (dishName.trim().isEmpty) {
+    if (!BiteScoreService._hasMeaningfulDishName(dishName)) {
       return 'Dish name is required.';
     }
     return BiteScoreService._validateRequiredReviewScores(
@@ -2958,7 +2958,7 @@ class BiteScoreService {
     double? valueScore,
     bool forceCreateNewDish = false,
   }) async {
-    if (dishName.trim().isEmpty) {
+    if (!_hasMeaningfulDishName(dishName)) {
       throw ArgumentError('Dish name is required.');
     }
     final validationError = _validateRequiredReviewScores(
@@ -3094,8 +3094,12 @@ class BiteScoreService {
     required String proposedName,
   }) async {
     final user = await _requireFreshSignedInSuggestionUser();
-    final normalizedName = _normalize(proposedName);
+    final proposedDishName = _normalizeDishNameForSave(proposedName);
+    final normalizedName = _normalize(proposedDishName);
     if (normalizedName.isEmpty) {
+      throw ArgumentError('Proposed dish name is required.');
+    }
+    if (!_hasMeaningfulDishName(proposedDishName)) {
       throw ArgumentError('Proposed dish name is required.');
     }
     if (normalizedName == dish.normalizedName) {
@@ -3129,7 +3133,7 @@ class BiteScoreService {
         type: DishEditProposal.typeRename,
         restaurantId: dish.restaurantId,
         targetDishId: dish.id,
-        proposedName: proposedName.trim(),
+        proposedName: proposedDishName,
         userId: user.uid,
       ),
     );
@@ -3469,18 +3473,23 @@ class BiteScoreService {
     required String priceLabel,
     required bool isActive,
   }) async {
-    final normalizedName = _normalize(name);
+    final normalizedDishName = _normalizeDishNameForSave(name);
+    final normalizedName = _normalize(normalizedDishName);
     if (normalizedName.isEmpty) {
       throw ArgumentError('Dish name is required.');
     }
+    if (!_hasMeaningfulDishName(normalizedDishName)) {
+      throw ArgumentError('Dish name is required.');
+    }
+    final trimmedCategory = category.trim();
 
     final updatedDish = BitescoreDish(
       id: dish.id,
       restaurantId: dish.restaurantId,
       restaurantName: dish.restaurantName,
-      name: name.trim(),
+      name: normalizedDishName,
       normalizedName: normalizedName,
-      category: category.trim().isEmpty ? null : category.trim(),
+      category: trimmedCategory.isEmpty ? null : trimmedCategory,
       priceLabel: priceLabel.trim().isEmpty ? null : priceLabel.trim(),
       isActive: isActive,
       mergedIntoDishId: dish.mergedIntoDishId,
@@ -4040,7 +4049,12 @@ class BiteScoreService {
       throw ArgumentError(BiteScoreCreateRequest.invalidAddressMessage);
     }
 
-    final normalizedDishName = _normalize(request.dishName);
+    final dishName = _normalizeDishNameForSave(request.dishName);
+    final normalizedDishName = _normalize(dishName);
+    if (!_hasMeaningfulDishName(dishName)) {
+      throw ArgumentError('Dish name is required.');
+    }
+    final trimmedCategory = request.category.trim();
     final snapshot = await dishesCollection()
         .where('restaurantId', isEqualTo: restaurant.id)
         .where('normalizedName', isEqualTo: normalizedDishName)
@@ -4055,7 +4069,6 @@ class BiteScoreService {
         if (existingDish != null &&
             existingDish.isActive &&
             !existingDish.isMerged) {
-          final trimmedCategory = request.category.trim();
           final existingCategory = existingDish.category?.trim() ?? '';
           if (trimmedCategory.isNotEmpty &&
               existingCategory != trimmedCategory) {
@@ -4089,11 +4102,9 @@ class BiteScoreService {
       id: dishRef.id,
       restaurantId: restaurant.id,
       restaurantName: restaurant.name,
-      name: request.dishName.trim(),
+      name: dishName,
       normalizedName: normalizedDishName,
-      category: request.category.trim().isEmpty
-          ? null
-          : request.category.trim(),
+      category: trimmedCategory.isEmpty ? null : trimmedCategory,
       priceLabel: request.priceLabel.trim().isEmpty
           ? null
           : request.priceLabel.trim(),
@@ -4705,7 +4716,7 @@ class BiteScoreService {
   }) async {
     if (entry.isRename) {
       final targetDish = entry.targetDish;
-      final proposedName = entry.proposedName?.trim() ?? '';
+      final proposedName = _normalizeDishNameForSave(entry.proposedName ?? '');
       if (targetDish == null || proposedName.isEmpty) {
         throw ArgumentError('Rename suggestion is missing dish data.');
       }
@@ -4856,6 +4867,31 @@ class BiteScoreService {
 
   static String _normalize(String input) {
     return input.trim().toLowerCase();
+  }
+
+  static String _normalizeDishNameForSave(String input) {
+    return input
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((word) => word.isNotEmpty)
+        .map(_titleCaseDishWord)
+        .join(' ');
+  }
+
+  static bool _hasMeaningfulDishName(String input) {
+    return RegExp(r'[A-Za-z0-9]').hasMatch(input);
+  }
+
+  static String _titleCaseDishWord(String word) {
+    return word
+        .split('-')
+        .map((part) {
+          if (part.isEmpty) {
+            return part;
+          }
+          return part[0].toUpperCase() + part.substring(1).toLowerCase();
+        })
+        .join('-');
   }
 
   static String _normalizeDishMatchText(String input) {

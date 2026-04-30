@@ -35,6 +35,8 @@ class _BiteScoreRestaurantDishesScreenState
     'Pizza',
     'Sandwich',
     'Burger',
+    'Chicken Dish',
+    'Barbecue',
     'Tacos',
     'Pasta',
     'Wings',
@@ -803,260 +805,273 @@ class _BiteScoreRestaurantDishesScreenState
           children: [
             buildPersistentAppModeSwitcher(context),
             Expanded(
-              child: ListView(
-                padding: EdgeInsets.fromLTRB(
-                  16,
-                  16,
-                  16,
-                  24 + MediaQuery.of(context).viewPadding.bottom,
-                ),
-                children: [
-                  BiteRaterTheme.liftedCard(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    radius: 24,
-                    borderColor: BiteRaterTheme.coral.withOpacity(0.18),
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(
+              child: ScrollConfiguration(
+                behavior: ScrollConfiguration.of(
+                  context,
+                ).copyWith(overscroll: false),
+                child: ListView(
+                  physics: const ClampingScrollPhysics(),
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    16,
+                    16,
+                    24 + MediaQuery.of(context).viewPadding.bottom,
+                  ),
+                  children: [
+                    BiteRaterTheme.liftedCard(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      radius: 24,
+                      borderColor: BiteRaterTheme.coral.withOpacity(0.18),
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Expanded(
+                                  child: Text(
+                                    _restaurant.name,
+                                    style: const TextStyle(
+                                      color: BiteRaterTheme.ink,
+                                      fontSize: 22,
+                                      fontWeight: FontWeight.w900,
+                                      letterSpacing: 0.1,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                IconButton(
+                                  tooltip: _isFavoriteRestaurant
+                                      ? 'Unsave restaurant'
+                                      : 'Save restaurant',
+                                  onPressed: _isSavingFavoriteRestaurant
+                                      ? null
+                                      : _toggleRestaurantFavorite,
+                                  icon: Icon(
+                                    _isFavoriteRestaurant
+                                        ? Icons.favorite
+                                        : Icons.favorite_border,
+                                    color: _isFavoriteRestaurant
+                                        ? BiteRaterTheme.coral
+                                        : BiteRaterTheme.grape,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (_restaurant.isClaimed) ...[
+                              const SizedBox(height: 10),
+                              _buildClaimedBadge(),
+                            ],
+                            const SizedBox(height: 8),
+                            InkWell(
+                              onTap: _hasDirectionsTarget
+                                  ? _openDirections
+                                  : null,
+                              borderRadius: BorderRadius.circular(8),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 2,
+                                ),
                                 child: Text(
-                                  _restaurant.name,
-                                  style: const TextStyle(
-                                    color: BiteRaterTheme.ink,
-                                    fontSize: 22,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: 0.1,
+                                  _restaurantAddressLabel(),
+                                  style: TextStyle(
+                                    color: _hasDirectionsTarget
+                                        ? BiteRaterTheme.ocean
+                                        : BiteRaterTheme.ink,
+                                    fontWeight: FontWeight.w600,
+                                    decoration: _hasDirectionsTarget
+                                        ? TextDecoration.underline
+                                        : TextDecoration.none,
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              IconButton(
-                                tooltip: _isFavoriteRestaurant
-                                    ? 'Unsave restaurant'
-                                    : 'Save restaurant',
-                                onPressed: _isSavingFavoriteRestaurant
-                                    ? null
-                                    : _toggleRestaurantFavorite,
-                                icon: Icon(
-                                  _isFavoriteRestaurant
-                                      ? Icons.favorite
-                                      : Icons.favorite_border,
-                                  color: _isFavoriteRestaurant
-                                      ? BiteRaterTheme.coral
-                                      : BiteRaterTheme.grape,
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              _hasPhone
+                                  ? 'Phone: ${_restaurant.phone!}'
+                                  : 'Phone: Not available',
+                              style: const TextStyle(
+                                color: BiteRaterTheme.mutedInk,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (_hasPhone ||
+                                _hasWebsite ||
+                                _hasDirectionsTarget) ...[
+                              const SizedBox(height: 10),
+                              _buildRestaurantContactActions(),
+                            ],
+                            _buildHoursSection(),
+                            _buildBioSection(),
+                            BiteRaterTheme.softDivider(),
+                            SizedBox(
+                              width: double.infinity,
+                              child: _buildBiteScoreActionButton(
+                                label: _isRefreshing
+                                    ? 'Refreshing...'
+                                    : 'Add Dish',
+                                onPressed: _isRefreshing ? null : _openAddDish,
+                              ),
+                            ),
+                            if (_canManageRestaurant) ...[
+                              const SizedBox(height: 10),
+                              SizedBox(
+                                width: double.infinity,
+                                child: OutlinedButton.icon(
+                                  onPressed: _isRefreshing
+                                      ? null
+                                      : _openOwnerRestaurantEditor,
+                                  style: BiteRaterTheme.outlinedButtonStyle(
+                                    accentColor: BiteRaterTheme.ocean,
+                                  ),
+                                  icon: const Icon(Icons.edit_outlined),
+                                  label: const Text('Edit Restaurant Info'),
                                 ),
                               ),
                             ],
-                          ),
-                          if (_restaurant.isClaimed) ...[
-                            const SizedBox(height: 10),
-                            _buildClaimedBadge(),
+                            const SizedBox(height: 8),
+                            _buildClaimAndReportActions(),
                           ],
-                          const SizedBox(height: 8),
-                          InkWell(
-                            onTap: _hasDirectionsTarget
-                                ? _openDirections
-                                : null,
-                            borderRadius: BorderRadius.circular(8),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 2),
-                              child: Text(
-                                _restaurantAddressLabel(),
-                                style: TextStyle(
-                                  color: _hasDirectionsTarget
-                                      ? BiteRaterTheme.ocean
-                                      : BiteRaterTheme.ink,
-                                  fontWeight: FontWeight.w600,
-                                  decoration: _hasDirectionsTarget
-                                      ? TextDecoration.underline
-                                      : TextDecoration.none,
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            _hasPhone
-                                ? 'Phone: ${_restaurant.phone!}'
-                                : 'Phone: Not available',
-                            style: const TextStyle(
-                              color: BiteRaterTheme.mutedInk,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          if (_hasPhone ||
-                              _hasWebsite ||
-                              _hasDirectionsTarget) ...[
-                            const SizedBox(height: 10),
-                            _buildRestaurantContactActions(),
-                          ],
-                          _buildHoursSection(),
-                          _buildBioSection(),
-                          BiteRaterTheme.softDivider(),
-                          SizedBox(
-                            width: double.infinity,
-                            child: _buildBiteScoreActionButton(
-                              label: _isRefreshing
-                                  ? 'Refreshing...'
-                                  : 'Add Dish',
-                              onPressed: _isRefreshing ? null : _openAddDish,
-                            ),
-                          ),
-                          if (_canManageRestaurant) ...[
-                            const SizedBox(height: 10),
-                            SizedBox(
-                              width: double.infinity,
-                              child: OutlinedButton.icon(
-                                onPressed: _isRefreshing
-                                    ? null
-                                    : _openOwnerRestaurantEditor,
-                                style: BiteRaterTheme.outlinedButtonStyle(
-                                  accentColor: BiteRaterTheme.ocean,
-                                ),
-                                icon: const Icon(Icons.edit_outlined),
-                                label: const Text('Edit Restaurant Info'),
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 8),
-                          _buildClaimAndReportActions(),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
-                  if (_entries.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 32),
-                      child: Text(
-                        'No dishes found for this restaurant yet.',
-                        textAlign: TextAlign.center,
-                      ),
-                    )
-                  else
-                    ..._entries.map((entry) {
-                      final scoreLabel = entry.aggregate.overallBiteScore > 0
-                          ? entry.aggregate.overallBiteScore.toStringAsFixed(0)
-                          : '--';
+                    if (_entries.isEmpty)
+                      const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 32),
+                        child: Text(
+                          'No dishes found for this restaurant yet.',
+                          textAlign: TextAlign.center,
+                        ),
+                      )
+                    else
+                      ..._entries.map((entry) {
+                        final scoreLabel = entry.aggregate.overallBiteScore > 0
+                            ? entry.aggregate.overallBiteScore.toStringAsFixed(
+                                0,
+                              )
+                            : '--';
 
-                      return BiteRaterTheme.liftedCard(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        radius: 20,
-                        borderColor: BiteRaterTheme.grape.withOpacity(0.16),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(20),
-                          onTap: () {
-                            Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => BiteScoreDishDetailScreen(
-                                  entry: entry,
-                                  distanceLabel: null,
+                        return BiteRaterTheme.liftedCard(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          radius: 20,
+                          borderColor: BiteRaterTheme.grape.withOpacity(0.16),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(20),
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (_) => BiteScoreDishDetailScreen(
+                                    entry: entry,
+                                    distanceLabel: null,
+                                  ),
                                 ),
-                              ),
-                            );
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        entry.dish.name,
-                                        style: const TextStyle(
-                                          color: BiteRaterTheme.ink,
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 17,
-                                          letterSpacing: 0.1,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.end,
-                                      children: [
-                                        Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            Text(
-                                              scoreLabel,
-                                              style: const TextStyle(
-                                                color:
-                                                    BiteRaterTheme.scoreFlame,
-                                                fontWeight: FontWeight.w900,
-                                                fontSize: 22,
-                                                height: 1.0,
-                                              ),
-                                            ),
-                                            const SizedBox(width: 6),
-                                            const Text(
-                                              'BiteScore',
-                                              style: TextStyle(
-                                                color:
-                                                    BiteRaterTheme.scoreFlame,
-                                                fontWeight: FontWeight.w700,
-                                                fontSize: 10,
-                                                letterSpacing: 0.2,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 3),
-                                        Text(
-                                          '${entry.aggregate.ratingCount} ratings',
+                              );
+                            },
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          entry.dish.name,
                                           style: const TextStyle(
-                                            fontSize: 12,
-                                            color: BiteRaterTheme.mutedInk,
-                                            fontWeight: FontWeight.w600,
+                                            color: BiteRaterTheme.ink,
+                                            fontWeight: FontWeight.w900,
+                                            fontSize: 17,
+                                            letterSpacing: 0.1,
                                           ),
                                         ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
-                                BiteRaterTheme.softDivider(),
-                                Row(
-                                  children: [
-                                    OutlinedButton(
-                                      onPressed: () =>
-                                          _openExistingDishReview(entry),
-                                      style: BiteRaterTheme.outlinedButtonStyle(
-                                        accentColor: BiteRaterTheme.coral,
                                       ),
-                                      child: const Text('Rate & Review'),
-                                    ),
-                                    if (_canManageRestaurant) ...[
-                                      const SizedBox(width: 8),
-                                      TextButton(
-                                        onPressed: () =>
-                                            _openOwnerDishEditor(entry),
-                                        style: TextButton.styleFrom(
-                                          foregroundColor: BiteRaterTheme.ocean,
-                                        ),
-                                        child: const Text('Edit Dish'),
+                                      const SizedBox(width: 12),
+                                      Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.end,
+                                        children: [
+                                          Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                scoreLabel,
+                                                style: const TextStyle(
+                                                  color:
+                                                      BiteRaterTheme.scoreFlame,
+                                                  fontWeight: FontWeight.w900,
+                                                  fontSize: 22,
+                                                  height: 1.0,
+                                                ),
+                                              ),
+                                              const SizedBox(width: 6),
+                                              const Text(
+                                                'BiteScore',
+                                                style: TextStyle(
+                                                  color:
+                                                      BiteRaterTheme.scoreFlame,
+                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 10,
+                                                  letterSpacing: 0.2,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          const SizedBox(height: 3),
+                                          Text(
+                                            '${entry.aggregate.ratingCount} ratings',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: BiteRaterTheme.mutedInk,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                          ),
+                                        ],
                                       ),
                                     ],
-                                    const Spacer(),
-                                    const Icon(Icons.chevron_right),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                _buildDishCategoryControl(entry),
-                              ],
+                                  ),
+                                  BiteRaterTheme.softDivider(),
+                                  Row(
+                                    children: [
+                                      OutlinedButton(
+                                        onPressed: () =>
+                                            _openExistingDishReview(entry),
+                                        style:
+                                            BiteRaterTheme.outlinedButtonStyle(
+                                              accentColor: BiteRaterTheme.coral,
+                                            ),
+                                        child: const Text('Rate & Review'),
+                                      ),
+                                      if (_canManageRestaurant) ...[
+                                        const SizedBox(width: 8),
+                                        TextButton(
+                                          onPressed: () =>
+                                              _openOwnerDishEditor(entry),
+                                          style: TextButton.styleFrom(
+                                            foregroundColor:
+                                                BiteRaterTheme.ocean,
+                                          ),
+                                          child: const Text('Edit Dish'),
+                                        ),
+                                      ],
+                                      const Spacer(),
+                                      const Icon(Icons.chevron_right),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 8),
+                                  _buildDishCategoryControl(entry),
+                                ],
+                              ),
                             ),
                           ),
-                        ),
-                      );
-                    }),
-                ],
+                        );
+                      }),
+                  ],
+                ),
               ),
             ),
           ],
@@ -1938,7 +1953,7 @@ class _OwnerDishEditDialogState extends State<_OwnerDishEditDialog> {
               const SizedBox(height: 12),
               _OwnerTextField(
                 controller: _categoryController,
-                label: 'Category',
+                label: 'Category (optional)',
               ),
               const SizedBox(height: 12),
               _OwnerTextField(

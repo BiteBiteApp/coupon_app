@@ -18,6 +18,7 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
   late final Stream<QuerySnapshot<Map<String, dynamic>>> _accountsStream;
   late final Stream<QuerySnapshot<Map<String, dynamic>>>
   _nameChangeRequestsStream;
+  late final Stream<QuerySnapshot<Map<String, dynamic>>> _reportsStream;
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _fullRestaurantList =
       const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _filteredRestaurantList =
@@ -29,6 +30,10 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
     _accountsStream = RestaurantAccountService.allAccountsStream();
     _nameChangeRequestsStream =
         RestaurantAccountService.pendingRestaurantNameChangeRequestsStream();
+    _reportsStream = FirebaseFirestore.instance
+        .collection('bitesaver_reports')
+        .where('status', isEqualTo: 'open')
+        .snapshots();
     _searchController.addListener(_handleSearchChanged);
   }
 
@@ -363,6 +368,38 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
     }
   }
 
+  Future<void> _updateReportStatus(
+    BuildContext context, {
+    required String reportId,
+    required String status,
+  }) async {
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    try {
+      await FirebaseFirestore.instance
+          .collection('bitesaver_reports')
+          .doc(reportId)
+          .set({
+            'status': status,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+      scaffoldMessenger.showSnackBar(
+        SnackBar(content: Text('Report marked $status.')),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text(
+            AppErrorText.friendly(
+              error,
+              fallback: 'Could not update this report right now.',
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
   Widget _buildAdminHeaderCard({
     required String title,
     required String description,
@@ -515,6 +552,156 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
                                 );
                               },
                               child: const Text('Reject'),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildReportsTab() {
+    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
+      stream: _reportsStream,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (snapshot.hasError) {
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              _buildAdminHeaderCard(
+                title: 'BiteSaver Reports',
+                description:
+                    'Review restaurant and coupon reports submitted by users.',
+              ),
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    AppErrorText.load('BiteSaver reports'),
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ),
+              ),
+            ],
+          );
+        }
+
+        final docs =
+            snapshot.data?.docs ??
+            const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+        final sortedDocs =
+            List<QueryDocumentSnapshot<Map<String, dynamic>>>.from(
+              docs,
+              growable: true,
+            )..sort((a, b) {
+              final aDate =
+                  _readDateTime(a.data(), 'createdAt') ??
+                  DateTime.fromMillisecondsSinceEpoch(0);
+              final bDate =
+                  _readDateTime(b.data(), 'createdAt') ??
+                  DateTime.fromMillisecondsSinceEpoch(0);
+              return bDate.compareTo(aDate);
+            });
+
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _buildAdminHeaderCard(
+              title: 'BiteSaver Reports',
+              description:
+                  'Review restaurant and coupon reports submitted by users.',
+            ),
+            if (sortedDocs.isEmpty)
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text(
+                    'No BiteSaver reports right now.',
+                    style: TextStyle(fontSize: 16),
+                  ),
+                ),
+              )
+            else
+              ...sortedDocs.map((doc) {
+                final data = doc.data();
+                final reportType = _readString(data, 'reportType').isEmpty
+                    ? 'Report'
+                    : _readString(data, 'reportType');
+                final restaurantName = _readString(data, 'restaurantName');
+                final couponTitle = _readString(data, 'couponTitle');
+                final restaurantId = _readString(data, 'restaurantId');
+                final couponId = _readString(data, 'couponId');
+                final reason = _readString(data, 'reason');
+                final note = _readString(data, 'note');
+                final reporterUid = _readString(data, 'reporterUid');
+                final status = _readString(data, 'status').isEmpty
+                    ? 'open'
+                    : _readString(data, 'status');
+                final createdAt = _readDateTime(data, 'createdAt');
+
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 14),
+                  child: Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          reportType,
+                          style: const TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        if (restaurantName.isNotEmpty)
+                          Text('Restaurant: $restaurantName'),
+                        if (couponTitle.isNotEmpty)
+                          Text('Coupon: $couponTitle'),
+                        if (restaurantName.isEmpty && restaurantId.isNotEmpty)
+                          Text('Restaurant ID: $restaurantId'),
+                        if (couponTitle.isEmpty && couponId.isNotEmpty)
+                          Text('Coupon ID: $couponId'),
+                        Text('Reason: ${reason.isEmpty ? 'Unknown' : reason}'),
+                        if (note.isNotEmpty) Text('Note: $note'),
+                        if (reporterUid.isNotEmpty)
+                          Text('Reporter: $reporterUid'),
+                        Text('Submitted: ${_dateLabel(createdAt)}'),
+                        Text('Status: $status'),
+                        const SizedBox(height: 12),
+                        Wrap(
+                          spacing: 8,
+                          runSpacing: 8,
+                          children: [
+                            ElevatedButton(
+                              onPressed: status == 'reviewed'
+                                  ? null
+                                  : () => _updateReportStatus(
+                                      context,
+                                      reportId: doc.id,
+                                      status: 'reviewed',
+                                    ),
+                              child: const Text('Mark reviewed'),
+                            ),
+                            OutlinedButton(
+                              onPressed: status == 'dismissed'
+                                  ? null
+                                  : () => _updateReportStatus(
+                                      context,
+                                      reportId: doc.id,
+                                      status: 'dismissed',
+                                    ),
+                              child: const Text('Dismiss'),
                             ),
                           ],
                         ),
@@ -901,7 +1088,7 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       child: Column(
         children: [
           const Padding(
@@ -910,12 +1097,17 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
               tabs: [
                 Tab(text: 'Restaurants'),
                 Tab(text: 'Name Changes'),
+                Tab(text: 'Reports'),
               ],
             ),
           ),
           Expanded(
             child: TabBarView(
-              children: [_buildRestaurantsTab(), _buildNameChangesTab()],
+              children: [
+                _buildRestaurantsTab(),
+                _buildNameChangesTab(),
+                _buildReportsTab(),
+              ],
             ),
           ),
         ],

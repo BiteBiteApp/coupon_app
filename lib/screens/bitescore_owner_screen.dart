@@ -16,10 +16,7 @@ import 'main_navigation_screen.dart';
 class BiteScoreOwnerScreen extends StatefulWidget {
   final User currentUser;
 
-  const BiteScoreOwnerScreen({
-    super.key,
-    required this.currentUser,
-  });
+  const BiteScoreOwnerScreen({super.key, required this.currentUser});
 
   @override
   State<BiteScoreOwnerScreen> createState() => _BiteScoreOwnerScreenState();
@@ -64,9 +61,8 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
           );
 
     entries.sort(
-      (a, b) => b.aggregate.overallBiteScore.compareTo(
-        a.aggregate.overallBiteScore,
-      ),
+      (a, b) =>
+          b.aggregate.overallBiteScore.compareTo(a.aggregate.overallBiteScore),
     );
 
     final reviewLists = await Future.wait(
@@ -76,23 +72,20 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
     for (var index = 0; index < entries.length; index++) {
       for (final review in reviewLists[index]) {
         reviewEntries.add(
-          _OwnerReviewEntry(
-            entry: entries[index],
-            review: review,
-          ),
+          _OwnerReviewEntry(entry: entries[index], review: review),
         );
       }
     }
     reviewEntries.sort((a, b) {
-      final byDate = _reviewTimestamp(b.review).compareTo(
-        _reviewTimestamp(a.review),
-      );
+      final byDate = _reviewTimestamp(
+        b.review,
+      ).compareTo(_reviewTimestamp(a.review));
       if (byDate != 0) {
         return byDate;
       }
       return a.entry.dish.name.toLowerCase().compareTo(
-            b.entry.dish.name.toLowerCase(),
-          );
+        b.entry.dish.name.toLowerCase(),
+      );
     });
 
     return _OwnerRatingData(
@@ -116,10 +109,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          duration: const Duration(seconds: 3),
-        ),
+        SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
       );
   }
 
@@ -135,9 +125,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
   Future<void> _openRestaurantEditor(BitescoreRestaurant restaurant) async {
     final saved = await showDialog<bool>(
       context: context,
-      builder: (context) => _OwnerRestaurantEditDialog(
-        restaurant: restaurant,
-      ),
+      builder: (context) => _OwnerRestaurantEditDialog(restaurant: restaurant),
     );
 
     if (saved == true && mounted) {
@@ -161,9 +149,8 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
   Future<void> _openAddDish(BitescoreRestaurant restaurant) async {
     final created = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => BiteScoreCreateRateScreen(
-          existingRestaurant: restaurant,
-        ),
+        builder: (_) =>
+            BiteScoreCreateRateScreen(existingRestaurant: restaurant),
       ),
     );
 
@@ -215,8 +202,9 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
           Text(
             bio,
             maxLines: _bioExpanded || !isLong ? null : 4,
-            overflow:
-                _bioExpanded || !isLong ? TextOverflow.visible : TextOverflow.ellipsis,
+            overflow: _bioExpanded || !isLong
+                ? TextOverflow.visible
+                : TextOverflow.ellipsis,
           ),
           if (isLong)
             Align(
@@ -400,8 +388,9 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
           return byScore;
         }
 
-        final byCount =
-            b.aggregate.ratingCount.compareTo(a.aggregate.ratingCount);
+        final byCount = b.aggregate.ratingCount.compareTo(
+          a.aggregate.ratingCount,
+        );
         if (byCount != 0) {
           return byCount;
         }
@@ -411,8 +400,9 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
 
     return _OwnerInsights(
       totalRatings: totalRatings,
-      averageBiteScore:
-          ratedEntries.isEmpty ? 0 : (totalDishScore / ratedEntries.length),
+      averageBiteScore: ratedEntries.isEmpty
+          ? 0
+          : (totalDishScore / ratedEntries.length),
       topDishes: topDishPool.take(3).toList(growable: false),
       recentRatings: reviewEntries.take(4).toList(growable: false),
       newestReviews: reviewEntries
@@ -444,40 +434,39 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
           .add(reviewEntry);
     }
 
-    final ranked = grouped.values.map((dishReviews) {
-      final scoreTotal = dishReviews.fold<double>(
-        0,
-        (sum, item) => sum + item.review.overallBiteScore,
-      );
-      final latestDate = dishReviews
-          .map((item) => _reviewTimestamp(item.review))
-          .reduce((a, b) => a.isAfter(b) ? a : b);
+    final ranked =
+        grouped.values.map((dishReviews) {
+          final scoreTotal = dishReviews.fold<double>(
+            0,
+            (sum, item) => sum + item.review.overallBiteScore,
+          );
+          final latestDate = dishReviews
+              .map((item) => _reviewTimestamp(item.review))
+              .reduce((a, b) => a.isAfter(b) ? a : b);
 
-      return _OwnerTopDish(
-        entry: dishReviews.first.entry,
-        weeklyAverageScore: scoreTotal / dishReviews.length,
-        weeklyRatingCount: dishReviews.length,
-        latestReviewDate: latestDate,
-      );
-    }).toList()
-      ..sort((a, b) {
-        final byScore =
-            b.weeklyAverageScore.compareTo(a.weeklyAverageScore);
-        if (byScore != 0) {
-          return byScore;
-        }
-        final byCount = b.weeklyRatingCount.compareTo(a.weeklyRatingCount);
-        if (byCount != 0) {
-          return byCount;
-        }
-        final byLatest = b.latestReviewDate.compareTo(a.latestReviewDate);
-        if (byLatest != 0) {
-          return byLatest;
-        }
-        return a.entry.dish.name.toLowerCase().compareTo(
-              b.entry.dish.name.toLowerCase(),
-            );
-      });
+          return _OwnerTopDish(
+            entry: dishReviews.first.entry,
+            weeklyAverageScore: scoreTotal / dishReviews.length,
+            weeklyRatingCount: dishReviews.length,
+            latestReviewDate: latestDate,
+          );
+        }).toList()..sort((a, b) {
+          final byScore = b.weeklyAverageScore.compareTo(a.weeklyAverageScore);
+          if (byScore != 0) {
+            return byScore;
+          }
+          final byCount = b.weeklyRatingCount.compareTo(a.weeklyRatingCount);
+          if (byCount != 0) {
+            return byCount;
+          }
+          final byLatest = b.latestReviewDate.compareTo(a.latestReviewDate);
+          if (byLatest != 0) {
+            return byLatest;
+          }
+          return a.entry.dish.name.toLowerCase().compareTo(
+            b.entry.dish.name.toLowerCase(),
+          );
+        });
 
     return ranked.first;
   }
@@ -490,25 +479,26 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
     final thisWeek = reviewEntries
         .where((entry) => _reviewTimestamp(entry.review).isAfter(oneWeekAgo))
         .toList(growable: false);
-    final previousWeek = reviewEntries.where((entry) {
-      final timestamp = _reviewTimestamp(entry.review);
-      return timestamp.isAfter(twoWeeksAgo) &&
-          !timestamp.isAfter(oneWeekAgo);
-    }).toList(growable: false);
+    final previousWeek = reviewEntries
+        .where((entry) {
+          final timestamp = _reviewTimestamp(entry.review);
+          return timestamp.isAfter(twoWeeksAgo) &&
+              !timestamp.isAfter(oneWeekAgo);
+        })
+        .toList(growable: false);
 
     if (thisWeek.isEmpty || previousWeek.isEmpty) {
-      return const _OwnerTrend(
-        label: 'Flat',
-        icon: Icons.trending_flat,
-      );
+      return const _OwnerTrend(label: 'Flat', icon: Icons.trending_flat);
     }
 
-    final thisWeekAverage = thisWeek.fold<double>(
+    final thisWeekAverage =
+        thisWeek.fold<double>(
           0,
           (sum, item) => sum + item.review.overallBiteScore,
         ) /
         thisWeek.length;
-    final previousWeekAverage = previousWeek.fold<double>(
+    final previousWeekAverage =
+        previousWeek.fold<double>(
           0,
           (sum, item) => sum + item.review.overallBiteScore,
         ) /
@@ -532,10 +522,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
     };
   }
 
-  Widget _buildInsightStatCard({
-    required String label,
-    required String value,
-  }) {
+  Widget _buildInsightStatCard({required String label, required String value}) {
     return BiteRaterTheme.liftedCard(
       radius: 18,
       borderColor: BiteRaterTheme.grape.withOpacity(0.18),
@@ -586,10 +573,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Hours',
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
+          const Text('Hours', style: TextStyle(fontWeight: FontWeight.w700)),
           const SizedBox(height: 6),
           Text(
             todayHours.closed
@@ -636,16 +620,9 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
       minimumSize: const Size.fromHeight(48),
       foregroundColor: BiteRaterTheme.grape,
       backgroundColor: BiteRaterTheme.grape.withOpacity(0.06),
-      side: BorderSide(
-        color: BiteRaterTheme.grape.withOpacity(0.22),
-      ),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
-      textStyle: const TextStyle(
-        fontSize: 14,
-        fontWeight: FontWeight.w700,
-      ),
+      side: BorderSide(color: BiteRaterTheme.grape.withOpacity(0.22)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
     );
   }
 
@@ -673,8 +650,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
 
     return BiteRaterTheme.liftedCard(
       radius: 18,
-      borderColor:
-          (titleAccentColor ?? BiteRaterTheme.coral).withOpacity(0.18),
+      borderColor: (titleAccentColor ?? BiteRaterTheme.coral).withOpacity(0.18),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
         child: Column(
@@ -719,11 +695,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
                   ),
                 ),
                 const SizedBox(width: 10),
-                Icon(
-                  Icons.refresh,
-                  size: 24,
-                  color: trendColor,
-                ),
+                Icon(Icons.refresh, size: 24, color: trendColor),
                 const SizedBox(width: 8),
                 Text(
                   'Trend',
@@ -740,11 +712,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
             BiteRaterTheme.softDivider(),
             Row(
               children: [
-                Icon(
-                  trend.icon,
-                  size: 20,
-                  color: trendColor,
-                ),
+                Icon(trend.icon, size: 20, color: trendColor),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
@@ -774,25 +742,22 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final sectionStyle = switch (title) {
       'Top Dish This Week' => (
-          icon: Icons.local_fire_department_outlined,
-          color: BiteRaterTheme.coral,
-        ),
+        icon: Icons.local_fire_department_outlined,
+        color: BiteRaterTheme.coral,
+      ),
       'Highest Rated Dishes' => (
-          icon: Icons.star_outline,
-          color: BiteRaterTheme.coral,
-        ),
+        icon: Icons.star_outline,
+        color: BiteRaterTheme.coral,
+      ),
       'Recent Ratings' => (
-          icon: Icons.insights_outlined,
-          color: BiteRaterTheme.ocean,
-        ),
+        icon: Icons.insights_outlined,
+        color: BiteRaterTheme.ocean,
+      ),
       'Newest Reviews' => (
-          icon: Icons.rate_review_outlined,
-          color: BiteRaterTheme.grape,
-        ),
-      _ => (
-          icon: Icons.label_important_outline,
-          color: colorScheme.primary,
-        ),
+        icon: Icons.rate_review_outlined,
+        color: BiteRaterTheme.grape,
+      ),
+      _ => (icon: Icons.label_important_outline, color: colorScheme.primary),
     };
     final resolvedAccentColor = accentColor ?? sectionStyle.color;
     final resolvedIcon = leadingIcon ?? sectionStyle.icon;
@@ -809,11 +774,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
           ),
         ),
         const SizedBox(width: 10),
-        Icon(
-          resolvedIcon,
-          size: leadingIconSize,
-          color: resolvedAccentColor,
-        ),
+        Icon(resolvedIcon, size: leadingIconSize, color: resolvedAccentColor),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
@@ -1092,10 +1053,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
           children: [
             const Text(
               'Insights',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             Row(
@@ -1133,9 +1091,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
             const SizedBox(height: 16),
             const Text(
               'Top Dishes',
-              style: TextStyle(
-                fontWeight: FontWeight.w700,
-              ),
+              style: TextStyle(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 10),
             if (insights.topDishes.isEmpty)
@@ -1400,7 +1356,9 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
                     width: double.infinity,
                     child: FilledButton(
                       onPressed: _openBiteScoreBrowse,
-                      child: const Text('Browse BiteScore and Claim a Restaurant'),
+                      child: const Text(
+                        'Browse BiteScore and Claim a Restaurant',
+                      ),
                     ),
                   ),
                 ],
@@ -1456,7 +1414,9 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
                     width: double.infinity,
                     child: FilledButton(
                       onPressed: _openBiteScoreBrowse,
-                      child: const Text('Browse BiteRater and Claim a Restaurant'),
+                      child: const Text(
+                        'Browse BiteRater and Claim a Restaurant',
+                      ),
                     ),
                   ),
                 ],
@@ -1472,10 +1432,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: BiteRaterTheme.pageBackground,
-      appBar: AppBar(
-        title: const Text('Rating Side Owner'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Rating Side Owner'), centerTitle: true),
       body: FutureBuilder<_OwnerRatingData>(
         future: _dataFuture,
         builder: (context, snapshot) {
@@ -1519,7 +1476,8 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
                 const SizedBox(height: 12),
                 _buildDishList(
                   activeEntries,
-                  emptyMessage: 'No available dishes found for this restaurant yet.',
+                  emptyMessage:
+                      'No available dishes found for this restaurant yet.',
                 ),
                 if (unavailableEntries.isNotEmpty) ...[
                   const SizedBox(height: 24),
@@ -1561,10 +1519,10 @@ class _OwnerRatingData {
   });
 
   const _OwnerRatingData.empty()
-      : restaurants = const <BitescoreRestaurant>[],
-        selectedRestaurant = null,
-        entries = const <BiteScoreHomeEntry>[],
-        reviewEntries = const <_OwnerReviewEntry>[];
+    : restaurants = const <BitescoreRestaurant>[],
+      selectedRestaurant = null,
+      entries = const <BiteScoreHomeEntry>[],
+      reviewEntries = const <_OwnerReviewEntry>[];
 }
 
 class _OwnerInsights {
@@ -1591,10 +1549,7 @@ class _OwnerReviewEntry {
   final BiteScoreHomeEntry entry;
   final DishReview review;
 
-  const _OwnerReviewEntry({
-    required this.entry,
-    required this.review,
-  });
+  const _OwnerReviewEntry({required this.entry, required this.review});
 }
 
 class _OwnerTopDish {
@@ -1615,10 +1570,7 @@ class _OwnerTrend {
   final String label;
   final IconData icon;
 
-  const _OwnerTrend({
-    required this.label,
-    required this.icon,
-  });
+  const _OwnerTrend({required this.label, required this.icon});
 }
 
 class _OwnerTextField extends StatelessWidget {
@@ -1642,9 +1594,7 @@ class _OwnerTextField extends StatelessWidget {
       keyboardType: keyboardType,
       decoration: InputDecoration(
         labelText: label,
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
@@ -1653,9 +1603,7 @@ class _OwnerTextField extends StatelessWidget {
 class _OwnerRestaurantEditDialog extends StatefulWidget {
   final BitescoreRestaurant restaurant;
 
-  const _OwnerRestaurantEditDialog({
-    required this.restaurant,
-  });
+  const _OwnerRestaurantEditDialog({required this.restaurant});
 
   @override
   State<_OwnerRestaurantEditDialog> createState() =>
@@ -1686,8 +1634,9 @@ class _OwnerRestaurantEditDialogState
     _cityController = TextEditingController(text: widget.restaurant.city);
     _stateController = TextEditingController(text: widget.restaurant.state);
     _zipController = TextEditingController(text: widget.restaurant.zipCode);
-    _phoneController =
-        TextEditingController(text: widget.restaurant.phone ?? '');
+    _phoneController = TextEditingController(
+      text: widget.restaurant.phone ?? '',
+    );
     _bioController = TextEditingController(text: widget.restaurant.bio ?? '');
     _businessHours = RestaurantBusinessHours.normalizedWeek(
       widget.restaurant.businessHours,
@@ -1726,8 +1675,8 @@ class _OwnerRestaurantEditDialogState
         bio: _bioController.text,
         businessHours:
             widget.restaurant.businessHours.isNotEmpty || _businessHoursDirty
-                ? _businessHours
-                : widget.restaurant.businessHours,
+            ? _businessHours
+            : widget.restaurant.businessHours,
       );
       if (!mounted) {
         return;
@@ -1814,9 +1763,7 @@ class _OwnerRestaurantEditDialogState
     return InputDecoration(
       labelText: label,
       isDense: true,
-      border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-      ),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
     );
   }
 
@@ -1826,10 +1773,7 @@ class _OwnerRestaurantEditDialogState
       children: [
         const Text(
           'Hours',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.w700,
-          ),
+          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 6),
         const Text(
@@ -1908,91 +1852,85 @@ class _OwnerRestaurantEditDialogState
               style: const TextStyle(fontSize: 13),
             ),
           ),
-            if (!entry.closed) ...[
-              const SizedBox(height: 8),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  final openField = DropdownButtonFormField<String>(
-                    key: ValueKey('${entry.day}-open-${entry.opensAt}'),
-                    isExpanded: true,
-                    initialValue: _businessHourOptions.contains(entry.opensAt)
-                        ? entry.opensAt
-                        : '9:00 AM',
-                    decoration: _hoursFieldDecoration('Open'),
-                    items: _businessHourOptions
-                        .map(
-                          (option) => DropdownMenuItem<String>(
-                            value: option,
-                            child: Text(
-                              option,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value == null) {
-                        return;
-                      }
-                      _updateBusinessHoursEntry(
-                        dayIndex,
-                        entry.copyWith(opensAt: value),
-                      );
-                    },
-                  );
-
-                  final closeField = DropdownButtonFormField<String>(
-                    key: ValueKey('${entry.day}-close-${entry.closesAt}'),
-                    isExpanded: true,
-                    initialValue: _businessHourOptions.contains(entry.closesAt)
-                        ? entry.closesAt
-                        : '5:00 PM',
-                    decoration: _hoursFieldDecoration('Close'),
-                    items: _businessHourOptions
-                        .map(
-                          (option) => DropdownMenuItem<String>(
-                            value: option,
-                            child: Text(
-                              option,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: (value) {
-                      if (value == null) {
-                        return;
-                      }
-                      _updateBusinessHoursEntry(
-                        dayIndex,
-                        entry.copyWith(closesAt: value),
-                      );
-                    },
-                  );
-
-                  if (constraints.maxWidth < 420) {
-                    return Column(
-                      children: [
-                        openField,
-                        const SizedBox(height: 10),
-                        closeField,
-                      ],
+          if (!entry.closed) ...[
+            const SizedBox(height: 8),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final openField = DropdownButtonFormField<String>(
+                  key: ValueKey('${entry.day}-open-${entry.opensAt}'),
+                  isExpanded: true,
+                  initialValue: _businessHourOptions.contains(entry.opensAt)
+                      ? entry.opensAt
+                      : '9:00 AM',
+                  decoration: _hoursFieldDecoration('Open'),
+                  items: _businessHourOptions
+                      .map(
+                        (option) => DropdownMenuItem<String>(
+                          value: option,
+                          child: Text(option, overflow: TextOverflow.ellipsis),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) {
+                      return;
+                    }
+                    _updateBusinessHoursEntry(
+                      dayIndex,
+                      entry.copyWith(opensAt: value),
                     );
-                  }
+                  },
+                );
 
-                  return Row(
+                final closeField = DropdownButtonFormField<String>(
+                  key: ValueKey('${entry.day}-close-${entry.closesAt}'),
+                  isExpanded: true,
+                  initialValue: _businessHourOptions.contains(entry.closesAt)
+                      ? entry.closesAt
+                      : '5:00 PM',
+                  decoration: _hoursFieldDecoration('Close'),
+                  items: _businessHourOptions
+                      .map(
+                        (option) => DropdownMenuItem<String>(
+                          value: option,
+                          child: Text(option, overflow: TextOverflow.ellipsis),
+                        ),
+                      )
+                      .toList(),
+                  onChanged: (value) {
+                    if (value == null) {
+                      return;
+                    }
+                    _updateBusinessHoursEntry(
+                      dayIndex,
+                      entry.copyWith(closesAt: value),
+                    );
+                  },
+                );
+
+                if (constraints.maxWidth < 420) {
+                  return Column(
                     children: [
-                      Expanded(child: openField),
-                      const SizedBox(width: 10),
-                      Expanded(child: closeField),
+                      openField,
+                      const SizedBox(height: 10),
+                      closeField,
                     ],
                   );
-                },
-              ),
-            ],
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: openField),
+                    const SizedBox(width: 10),
+                    Expanded(child: closeField),
+                  ],
+                );
+              },
+            ),
           ],
-        ),
-      );
+        ],
+      ),
+    );
   }
 
   @override
@@ -2005,7 +1943,10 @@ class _OwnerRestaurantEditDialogState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              _OwnerTextField(controller: _nameController, label: 'Restaurant name'),
+              _OwnerTextField(
+                controller: _nameController,
+                label: 'Restaurant name',
+              ),
               const SizedBox(height: 12),
               _OwnerTextField(
                 controller: _addressController,
@@ -2077,9 +2018,7 @@ class _OwnerRestaurantEditDialogState
 class _OwnerDishEditDialog extends StatefulWidget {
   final BitescoreDish dish;
 
-  const _OwnerDishEditDialog({
-    required this.dish,
-  });
+  const _OwnerDishEditDialog({required this.dish});
 
   @override
   State<_OwnerDishEditDialog> createState() => _OwnerDishEditDialogState();
@@ -2096,9 +2035,12 @@ class _OwnerDishEditDialogState extends State<_OwnerDishEditDialog> {
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.dish.name);
-    _categoryController =
-        TextEditingController(text: widget.dish.category ?? '');
-    _priceController = TextEditingController(text: widget.dish.priceLabel ?? '');
+    _categoryController = TextEditingController(
+      text: widget.dish.category ?? '',
+    );
+    _priceController = TextEditingController(
+      text: widget.dish.priceLabel ?? '',
+    );
     _isActive = widget.dish.isActive;
   }
 
@@ -2159,7 +2101,10 @@ class _OwnerDishEditDialogState extends State<_OwnerDishEditDialog> {
             children: [
               _OwnerTextField(controller: _nameController, label: 'Dish name'),
               const SizedBox(height: 12),
-              _OwnerTextField(controller: _categoryController, label: 'Category'),
+              _OwnerTextField(
+                controller: _categoryController,
+                label: 'Category (optional)',
+              ),
               const SizedBox(height: 12),
               _OwnerTextField(
                 controller: _priceController,
@@ -2197,9 +2142,7 @@ class _OwnerDishEditDialogState extends State<_OwnerDishEditDialog> {
 class _OwnerDishMergeDialog extends StatefulWidget {
   final List<BitescoreDish> dishes;
 
-  const _OwnerDishMergeDialog({
-    required this.dishes,
-  });
+  const _OwnerDishMergeDialog({required this.dishes});
 
   @override
   State<_OwnerDishMergeDialog> createState() => _OwnerDishMergeDialogState();

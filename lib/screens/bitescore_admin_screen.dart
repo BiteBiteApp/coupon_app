@@ -3212,7 +3212,7 @@ class _BiteScoreDishEditDialogState extends State<_BiteScoreDishEditDialog> {
               const SizedBox(height: 12),
               _AdminTextField(
                 controller: _categoryController,
-                label: 'Category',
+                label: 'Category (optional)',
               ),
               const SizedBox(height: 12),
               _AdminTextField(

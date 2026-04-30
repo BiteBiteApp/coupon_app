@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/demo_redemption_store.dart';
+import '../models/coupon.dart';
 import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
+import '../services/bitesaver_report_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
+import '../widgets/bitesaver_report_dialog.dart';
 import 'coupon_detail_screen.dart';
 
 class RestaurantProfileScreen extends StatefulWidget {
@@ -26,9 +29,15 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   bool _showAbout = false;
   bool _showHours = false;
   bool _showRestaurantInfo = false;
+  bool _isSubmittingReport = false;
   late Restaurant _restaurant;
 
   Restaurant get restaurant => _restaurant;
+
+  String _displayText(String value, String fallback) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? fallback : trimmed;
+  }
 
   @override
   void initState() {
@@ -70,6 +79,55 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
       ? const []
       : RestaurantBusinessHours.normalizedWeek(restaurant.businessHours);
 
+  bool _isFallbackDistanceLabel(String value) {
+    return value.trim().isEmpty ||
+        value.trim() == Restaurant.defaultDistanceLabel;
+  }
+
+  String _distanceLocationLine(Restaurant restaurant) {
+    final parts = <String>[
+      if (!_isFallbackDistanceLabel(restaurant.distance))
+        restaurant.distance.trim(),
+      if (restaurant.city.trim().isNotEmpty) restaurant.city.trim(),
+    ];
+    if (parts.isEmpty) {
+      return _displayText(restaurant.zipCode, 'Location unavailable');
+    }
+    return parts.join(' - ');
+  }
+
+  String _couponSubtitle(Coupon coupon) {
+    final parts = <String>[
+      coupon.shortExpiresLabel.trim(),
+      coupon.usageRule.trim(),
+    ].where((part) => part.isNotEmpty).toList();
+    return parts.isEmpty ? 'Coupon details unavailable' : parts.join(' - ');
+  }
+
+  Restaurant _withSafeDistanceLabel(Restaurant freshRestaurant) {
+    if (!_isFallbackDistanceLabel(freshRestaurant.distance) ||
+        _isFallbackDistanceLabel(restaurant.distance)) {
+      return freshRestaurant;
+    }
+
+    return Restaurant(
+      uid: freshRestaurant.uid,
+      name: freshRestaurant.name,
+      distance: restaurant.distance,
+      city: freshRestaurant.city,
+      state: freshRestaurant.state,
+      zipCode: freshRestaurant.zipCode,
+      coupons: freshRestaurant.coupons,
+      phone: freshRestaurant.phone,
+      streetAddress: freshRestaurant.streetAddress,
+      website: freshRestaurant.website,
+      bio: freshRestaurant.bio,
+      businessHours: freshRestaurant.businessHours,
+      latitude: freshRestaurant.latitude,
+      longitude: freshRestaurant.longitude,
+    );
+  }
+
   Future<void> _refreshRestaurantDetails() async {
     try {
       Restaurant? freshRestaurant;
@@ -92,7 +150,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
       }
 
       setState(() {
-        _restaurant = freshRestaurant!;
+        _restaurant = _withSafeDistanceLabel(freshRestaurant!);
       });
     } catch (_) {
       return;
@@ -237,6 +295,55 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
       if (mounted) {
         setState(() {
           _isSavingFavoriteRestaurant = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _reportRestaurant() async {
+    if (_isSubmittingReport) {
+      return;
+    }
+
+    final report = await showDialog<BiteSaverReportResult>(
+      context: context,
+      builder: (context) => const BiteSaverReportDialog(),
+    );
+
+    if (report == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSubmittingReport = true;
+    });
+
+    try {
+      await BiteSaverReportService.submitReport(
+        reportType: 'restaurant',
+        restaurantId: restaurant.uid,
+        reason: report.reason,
+        note: report.note,
+      );
+      if (!mounted) {
+        return;
+      }
+      await _showLaunchError(context, 'Thanks — we’ll review this.');
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      await _showLaunchError(
+        context,
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not submit this report right now.',
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmittingReport = false;
         });
       }
     }
@@ -431,191 +538,216 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
             children: [
               buildPersistentAppModeSwitcher(context),
               Expanded(
-                child: SingleChildScrollView(
-                  padding: EdgeInsets.fromLTRB(
-                    16,
-                    8,
-                    16,
-                    16 + MediaQuery.of(context).viewPadding.bottom,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                Text(
-                                  restaurant.name,
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontSize: 24,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                Text(
-                                  '${restaurant.distance} - ${restaurant.city}, ${restaurant.zipCode}',
-                                  textAlign: TextAlign.center,
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          IconButton(
-                            tooltip: _isFavoriteRestaurant
-                                ? 'Unsave restaurant'
-                                : 'Save restaurant',
-                            onPressed: _isSavingFavoriteRestaurant
-                                ? null
-                                : _toggleRestaurantFavorite,
-                            icon: Icon(
-                              _isFavoriteRestaurant
-                                  ? Icons.favorite
-                                  : Icons.favorite_border,
-                              color: _isFavoriteRestaurant
-                                  ? Colors.red.shade400
-                                  : null,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 14),
-                      Row(
-                        children: [
-                          buildActionButton(
-                            icon: Icons.call,
-                            label: 'Call',
-                            enabled: hasPhone,
-                            onPressed: () {
-                              _callRestaurant(context);
-                            },
-                          ),
-                          const SizedBox(width: 10),
-                          buildActionButton(
-                            icon: Icons.language,
-                            label: 'Website',
-                            enabled: hasWebsite,
-                            onPressed: () {
-                              _openWebsite(context);
-                            },
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            _getDirections(context);
-                          },
-                          icon: const Icon(Icons.directions),
-                          label: const Text('Get Directions'),
-                          style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      _buildHoursSection(),
-                      if (hasBio) ...[
-                        const SizedBox(height: 10),
-                        _buildAboutSection()!,
-                      ],
-                      const SizedBox(height: 10),
-                      _buildRestaurantInfoSection(),
-                      const SizedBox(height: 20),
-                      const Text(
-                        'Available Coupons',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      if (activeCoupons.isEmpty)
-                        Container(
-                          width: double.infinity,
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade100,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Text('No available coupons right now.'),
-                        )
-                      else
-                        Column(
-                          children: activeCoupons.map((coupon) {
-                            final isProximity = coupon.isProximityOnly;
-                            final scheduleText = coupon.shortExpiresLabel;
-
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              child: ListTile(
-                                title: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    if (isProximity)
-                                      Container(
-                                        margin: const EdgeInsets.only(
-                                          bottom: 6,
-                                        ),
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 8,
-                                          vertical: 4,
-                                        ),
-                                        decoration: BoxDecoration(
-                                          color: Colors.deepOrange,
-                                          borderRadius: BorderRadius.circular(
-                                            999,
-                                          ),
-                                        ),
-                                        child: const Text(
-                                          'Proximity Deal',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                        ),
-                                      ),
-                                    Text(
-                                      coupon.title,
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                      ),
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(
+                    context,
+                  ).copyWith(overscroll: false),
+                  child: SingleChildScrollView(
+                    physics: const ClampingScrollPhysics(),
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      8,
+                      16,
+                      16 + MediaQuery.of(context).viewPadding.bottom,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.center,
+                                children: [
+                                  Text(
+                                    _displayText(restaurant.name, 'Restaurant'),
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontSize: 24,
+                                      fontWeight: FontWeight.bold,
                                     ),
-                                  ],
-                                ),
-                                subtitle: Text(
-                                  isProximity
-                                      ? '$scheduleText - ${coupon.usageRule} - Unlocked nearby'
-                                      : (coupon.couponCode == null
-                                            ? '$scheduleText - ${coupon.usageRule}'
-                                            : '$scheduleText - ${coupon.usageRule} - Code: ${coupon.couponCode}'),
-                                ),
-                                trailing: const Icon(Icons.chevron_right),
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) =>
-                                          CouponDetailScreen(coupon: coupon),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    _distanceLocationLine(restaurant),
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      color: Colors.black54,
                                     ),
-                                  );
-                                },
+                                  ),
+                                ],
                               ),
-                            );
-                          }).toList(),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              tooltip: _isFavoriteRestaurant
+                                  ? 'Unsave restaurant'
+                                  : 'Save restaurant',
+                              onPressed: _isSavingFavoriteRestaurant
+                                  ? null
+                                  : _toggleRestaurantFavorite,
+                              icon: Icon(
+                                _isFavoriteRestaurant
+                                    ? Icons.favorite
+                                    : Icons.favorite_border,
+                                color: _isFavoriteRestaurant
+                                    ? Colors.red.shade400
+                                    : null,
+                              ),
+                            ),
+                          ],
                         ),
-                    ],
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            buildActionButton(
+                              icon: Icons.call,
+                              label: 'Call',
+                              enabled: hasPhone,
+                              onPressed: () {
+                                _callRestaurant(context);
+                              },
+                            ),
+                            const SizedBox(width: 10),
+                            buildActionButton(
+                              icon: Icons.language,
+                              label: 'Website',
+                              enabled: hasWebsite,
+                              onPressed: () {
+                                _openWebsite(context);
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              _getDirections(context);
+                            },
+                            icon: const Icon(Icons.directions),
+                            label: const Text('Get Directions'),
+                            style: ElevatedButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        _buildHoursSection(),
+                        if (hasBio) ...[
+                          const SizedBox(height: 10),
+                          _buildAboutSection()!,
+                        ],
+                        const SizedBox(height: 10),
+                        _buildRestaurantInfoSection(),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: _isSubmittingReport
+                                ? null
+                                : _reportRestaurant,
+                            style: TextButton.styleFrom(
+                              foregroundColor: Colors.black54,
+                              padding: EdgeInsets.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            icon: const Icon(Icons.flag_outlined, size: 16),
+                            label: const Text('Report'),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        const Text(
+                          'Available Coupons',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        if (activeCoupons.isEmpty)
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Text(
+                              'No available coupons right now.',
+                            ),
+                          )
+                        else
+                          Column(
+                            children: activeCoupons.map((coupon) {
+                              final isProximity = coupon.isProximityOnly;
+                              return Card(
+                                margin: const EdgeInsets.only(bottom: 10),
+                                child: ListTile(
+                                  title: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      if (isProximity)
+                                        Container(
+                                          margin: const EdgeInsets.only(
+                                            bottom: 6,
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 8,
+                                            vertical: 4,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: Colors.deepOrange,
+                                            borderRadius: BorderRadius.circular(
+                                              999,
+                                            ),
+                                          ),
+                                          child: const Text(
+                                            'Proximity Deal',
+                                            style: TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 11,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                        ),
+                                      Text(
+                                        _displayText(
+                                          coupon.title,
+                                          'Untitled coupon',
+                                        ),
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  subtitle: Text(
+                                    isProximity
+                                        ? '${_couponSubtitle(coupon)} - Unlocked nearby'
+                                        : (coupon.couponCode == null
+                                              ? _couponSubtitle(coupon)
+                                              : '${_couponSubtitle(coupon)} - Code: ${coupon.couponCode}'),
+                                  ),
+                                  trailing: const Icon(Icons.chevron_right),
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) =>
+                                            CouponDetailScreen(coupon: coupon),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              );
+                            }).toList(),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),

@@ -1021,7 +1021,7 @@ class _RestaurantCreateCouponScreenState
           city: city,
           state: state,
           zipCode: zipCode,
-          distance: 'Distance calculated from location',
+          distance: '',
           email: email,
           phone: phone,
           streetAddress: streetAddress,
@@ -1662,7 +1662,10 @@ class _RestaurantCreateCouponScreenState
             ),
             const SizedBox(height: 6),
             Text(
-              '${profile.distance} • ${profile.city}, ${profile.zipCode}',
+              [
+                profile.distance,
+                '${profile.city}, ${profile.zipCode}',
+              ].where((part) => part.trim().isNotEmpty).join(' • '),
               style: const TextStyle(fontSize: 14, color: Colors.black54),
             ),
             const SizedBox(height: 12),

@@ -10,11 +10,7 @@ import 'bitescore_restaurant_dishes_screen.dart';
 import 'coupon_detail_screen.dart';
 import 'restaurant_profile_screen.dart';
 
-enum _SavedSection {
-  restaurants,
-  dishes,
-  coupons,
-}
+enum _SavedSection { restaurants, dishes, coupons }
 
 class CustomerProfileScreen extends StatefulWidget {
   const CustomerProfileScreen({super.key});
@@ -44,6 +40,19 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     _profileFuture = BiteScoreService.loadCurrentUserProfileData();
   }
 
+  String _displayText(String value, String fallback) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? fallback : trimmed;
+  }
+
+  String _locationLabel(String city, String zipCode) {
+    final parts = <String>[
+      if (city.trim().isNotEmpty) city.trim(),
+      if (zipCode.trim().isNotEmpty) zipCode.trim(),
+    ];
+    return parts.isEmpty ? 'Location unavailable' : parts.join(', ');
+  }
+
   @override
   void dispose() {
     _usernameController.dispose();
@@ -58,10 +67,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          duration: const Duration(seconds: 3),
-        ),
+        SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
       );
   }
 
@@ -157,8 +163,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
   Future<void> _openRestaurant(BitescoreRestaurant restaurant) async {
     try {
-      final entries =
-          await BiteScoreService.loadEntriesForRestaurant(restaurant);
+      final entries = await BiteScoreService.loadEntriesForRestaurant(
+        restaurant,
+      );
       if (!mounted) {
         return;
       }
@@ -211,9 +218,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
   Future<void> _openCoupon(Coupon coupon) async {
     await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => CouponDetailScreen(coupon: coupon),
-      ),
+      MaterialPageRoute(builder: (_) => CouponDetailScreen(coupon: coupon)),
     );
 
     if (mounted) {
@@ -339,18 +344,11 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   Widget _buildSectionHeader(String title, IconData icon) {
     return Row(
       children: [
-        Icon(
-          icon,
-          size: 20,
-          color: Theme.of(context).colorScheme.primary,
-        ),
+        Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
         const SizedBox(width: 8),
         Text(
           title,
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w800,
-          ),
+          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
         ),
       ],
     );
@@ -360,10 +358,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Text(
-          message,
-          style: const TextStyle(color: Colors.black54),
-        ),
+        child: Text(message, style: const TextStyle(color: Colors.black54)),
       ),
     );
   }
@@ -391,10 +386,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       showSelectedIcon: false,
       style: SegmentedButton.styleFrom(
         visualDensity: VisualDensity.compact,
-        textStyle: const TextStyle(
-          fontSize: 12,
-          fontWeight: FontWeight.w700,
-        ),
+        textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
       ),
       onSelectionChanged: (selection) {
         setState(() {
@@ -410,28 +402,21 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       child: ListTile(
         dense: true,
         contentPadding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
-        leading: Icon(
-          Icons.favorite,
-          color: Colors.red.shade400,
-          size: 22,
-        ),
+        leading: Icon(Icons.favorite, color: Colors.red.shade400, size: 22),
         title: Text(
-          restaurant.name,
+          _displayText(restaurant.name, 'Restaurant'),
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         subtitle: Text(
-          '${restaurant.city}, ${restaurant.state} ${restaurant.zipCode}'.trim(),
+          '${restaurant.city}, ${restaurant.state} ${restaurant.zipCode}'
+              .trim(),
         ),
         trailing: Wrap(
           children: [
             IconButton(
               tooltip: 'Remove from Saved',
               onPressed: () => _removeSavedRestaurant(restaurant),
-              icon: Icon(
-                Icons.favorite,
-                color: Colors.red.shade400,
-                size: 20,
-              ),
+              icon: Icon(Icons.favorite, color: Colors.red.shade400, size: 20),
             ),
             const Icon(Icons.chevron_right),
           ],
@@ -447,28 +432,18 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       child: ListTile(
         dense: true,
         contentPadding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
-        leading: Icon(
-          Icons.favorite,
-          color: Colors.red.shade400,
-          size: 22,
-        ),
+        leading: Icon(Icons.favorite, color: Colors.red.shade400, size: 22),
         title: Text(
-          restaurant.name,
+          _displayText(restaurant.name, 'Restaurant'),
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
-        subtitle: Text(
-          '${restaurant.city}, ${restaurant.zipCode}'.trim(),
-        ),
+        subtitle: Text(_locationLabel(restaurant.city, restaurant.zipCode)),
         trailing: Wrap(
           children: [
             IconButton(
               tooltip: 'Remove from Saved',
               onPressed: () => _removeSavedSaverRestaurant(restaurant),
-              icon: Icon(
-                Icons.favorite,
-                color: Colors.red.shade400,
-                size: 20,
-              ),
+              icon: Icon(Icons.favorite, color: Colors.red.shade400, size: 20),
             ),
             const Icon(Icons.chevron_right),
           ],
@@ -487,16 +462,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       child: ListTile(
         dense: true,
         contentPadding: const EdgeInsets.fromLTRB(14, 8, 6, 8),
-        leading: Icon(
-          Icons.favorite,
-          color: Colors.red.shade400,
-          size: 22,
-        ),
+        leading: Icon(Icons.favorite, color: Colors.red.shade400, size: 22),
         title: Text(
-          entry.dish.name,
+          _displayText(entry.dish.name, 'Unnamed dish'),
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
-        subtitle: Text(entry.restaurant.name),
+        subtitle: Text(_displayText(entry.restaurant.name, 'Restaurant')),
         trailing: Wrap(
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
@@ -516,10 +487,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   ),
                   Text(
                     '$ratingCount ratings',
-                    style: const TextStyle(
-                      fontSize: 11,
-                      color: Colors.black54,
-                    ),
+                    style: const TextStyle(fontSize: 11, color: Colors.black54),
                   ),
                 ],
               ),
@@ -527,11 +495,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             IconButton(
               tooltip: 'Remove from Saved',
               onPressed: () => _removeSavedDish(entry),
-              icon: Icon(
-                Icons.favorite,
-                color: Colors.red.shade400,
-                size: 20,
-              ),
+              icon: Icon(Icons.favorite, color: Colors.red.shade400, size: 20),
             ),
             const Icon(Icons.chevron_right),
           ],
@@ -545,15 +509,14 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     return Card(
       margin: const EdgeInsets.only(top: 12),
       child: ListTile(
-        leading: Icon(
-          Icons.favorite,
-          color: Colors.red.shade400,
-        ),
+        leading: Icon(Icons.favorite, color: Colors.red.shade400),
         title: Text(
-          coupon.title,
+          _displayText(coupon.title, 'Untitled coupon'),
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
-        subtitle: Text('${coupon.restaurant} • ${coupon.expires}'),
+        subtitle: Text(
+          "${_displayText(coupon.restaurant, 'Restaurant')} - ${coupon.expires}",
+        ),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => _openCoupon(coupon),
       ),
@@ -566,26 +529,20 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       child: ListTile(
         dense: true,
         contentPadding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
-        leading: Icon(
-          Icons.favorite,
-          color: Colors.red.shade400,
-          size: 22,
-        ),
+        leading: Icon(Icons.favorite, color: Colors.red.shade400, size: 22),
         title: Text(
-          coupon.title,
+          _displayText(coupon.title, 'Untitled coupon'),
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
-        subtitle: Text('${coupon.restaurant} - ${coupon.expires}'),
+        subtitle: Text(
+          "${_displayText(coupon.restaurant, 'Restaurant')} - ${coupon.expires}",
+        ),
         trailing: Wrap(
           children: [
             IconButton(
               tooltip: 'Remove from Saved',
               onPressed: () => _removeSavedCoupon(coupon),
-              icon: Icon(
-                Icons.favorite,
-                color: Colors.red.shade400,
-                size: 20,
-              ),
+              icon: Icon(Icons.favorite, color: Colors.red.shade400, size: 20),
             ),
             const Icon(Icons.chevron_right),
           ],
@@ -631,9 +588,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             ),
           ];
         }
-        return profileData.favoriteCoupons
-            .map(_buildSavedCouponTile)
-            .toList();
+        return profileData.favoriteCoupons.map(_buildSavedCouponTile).toList();
     }
   }
 
@@ -690,15 +645,11 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                 notes != null &&
                 notes.isNotEmpty)
               const SizedBox(height: 4),
-            if (notes != null && notes.isNotEmpty)
-              Text(notes),
+            if (notes != null && notes.isNotEmpty) Text(notes),
             const SizedBox(height: 10),
             Text(
               _dateLabel(entry.review.createdAt),
-              style: const TextStyle(
-                fontSize: 12,
-                color: Colors.black54,
-              ),
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
             ),
           ],
         ),
@@ -731,9 +682,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           const SizedBox(height: 28),
           _buildSectionHeader('Your Reviews', Icons.rate_review_outlined),
           if (profileData.reviews.isEmpty)
-            _buildEmptyCard(
-              'You have not posted a BiteScore review yet.',
-            )
+            _buildEmptyCard('You have not posted a BiteScore review yet.')
           else
             ...profileData.reviews.map(_buildReviewCard),
         ],
@@ -756,10 +705,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           children: [
             const Text(
               'Public Username',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.w800,
-              ),
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
             if (!hasChosenUsername) ...[
               const SizedBox(height: 6),
@@ -786,9 +732,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                       decoration: BoxDecoration(
                         color: Colors.grey.shade50,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.grey.shade300,
-                        ),
+                        border: Border.all(color: Colors.grey.shade300),
                       ),
                       child: RichText(
                         text: TextSpan(
@@ -799,9 +743,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                           children: [
                             const TextSpan(
                               text: 'Username: ',
-                              style: TextStyle(
-                                fontWeight: FontWeight.w700,
-                              ),
+                              style: TextStyle(fontWeight: FontWeight.w700),
                             ),
                             TextSpan(
                               text: chosenUsername,
@@ -914,10 +856,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           border: Border(
-            left: BorderSide(
-              color: badgeColors.$1.withOpacity(0.35),
-              width: 4,
-            ),
+            left: BorderSide(color: badgeColors.$1.withOpacity(0.35), width: 4),
           ),
         ),
         padding: const EdgeInsets.all(18),
@@ -932,11 +871,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                     color: badgeColors.$1.withOpacity(0.14),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Icon(
-                    badgeColors.$2,
-                    color: badgeColors.$1,
-                    size: 24,
-                  ),
+                  child: Icon(badgeColors.$2, color: badgeColors.$1, size: 24),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -999,11 +934,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 14,
-            color: Colors.black54,
-          ),
+          Icon(icon, size: 14, color: Colors.black54),
           const SizedBox(width: 6),
           Text(
             label,
@@ -1034,17 +965,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('My Profile'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('My Profile'), centerTitle: true),
       body: FutureBuilder<BiteScoreUserProfileData>(
         future: _profileFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(),
-            );
+            return const Center(child: CircularProgressIndicator());
           }
 
           if (snapshot.hasError) {
@@ -1057,7 +983,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                     Text(
                       AppErrorText.friendly(
                         snapshot.error ??
-                            StateError('Could not load your profile right now.'),
+                            StateError(
+                              'Could not load your profile right now.',
+                            ),
                         fallback: 'Could not load your profile right now.',
                       ),
                       textAlign: TextAlign.center,

@@ -138,8 +138,16 @@ class _PhoneAuthSheetState extends State<_PhoneAuthSheet> {
   }
 
   String _friendlyPhoneError(Object error, String fallback) {
-    if (error is FirebaseAuthException && error.code == 'too-many-requests') {
-      return 'Too many attempts. Please wait a few minutes before trying again.';
+    if (error is FirebaseAuthException) {
+      final code = error.code.toLowerCase();
+      final message = (error.message ?? '').toLowerCase();
+      if (code == 'too-many-requests' ||
+          code == 'quota-exceeded' ||
+          code == 'captcha-check-failed' ||
+          message.contains('unusual activity') ||
+          message.contains('too many')) {
+        return 'Too many attempts. Please wait a few minutes before trying again.';
+      }
     }
     return AppErrorText.friendly(error, fallback: fallback);
   }
@@ -198,13 +206,15 @@ class _PhoneAuthSheetState extends State<_PhoneAuthSheet> {
           if (!mounted) {
             return;
           }
+          final message = _friendlyPhoneError(
+            error,
+            'Could not send the verification code right now.',
+          );
           setState(() {
-            _message = _friendlyPhoneError(
-              error,
-              'Could not send the verification code right now.',
-            );
+            _message = message;
             _isSendingCode = false;
           });
+          _showLocalSnackBar(message);
         },
         codeSent: (verificationId, resendToken) {
           if (!mounted) {
@@ -230,13 +240,15 @@ class _PhoneAuthSheetState extends State<_PhoneAuthSheet> {
       if (!mounted) {
         return;
       }
+      final message = _friendlyPhoneError(
+        error,
+        'Could not start phone sign-in right now.',
+      );
       setState(() {
-        _message = _friendlyPhoneError(
-          error,
-          'Could not start phone sign-in right now.',
-        );
+        _message = message;
         _isSendingCode = false;
       });
+      _showLocalSnackBar(message);
     }
   }
 
