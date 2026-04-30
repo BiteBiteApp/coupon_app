@@ -656,7 +656,12 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                 hintText: hintText,
                 prefixIcon: prefixIcon,
               ).copyWith(
-                contentPadding: const EdgeInsets.fromLTRB(12, 13, 156, 13),
+                contentPadding: EdgeInsets.fromLTRB(
+                  12,
+                  13,
+                  showArrowIcon ? 156 : 88,
+                  13,
+                ),
               ),
         ),
         Positioned(
@@ -845,42 +850,68 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     );
   }
 
-  Widget _buildSortDropdown({String hintText = 'Sort'}) {
-    return DropdownButtonFormField<String>(
-      initialValue: _normalizeSortOption(selectedSort),
-      isExpanded: false,
-      decoration: _inputDecoration(hintText: hintText),
-      selectedItemBuilder: (context) => const [
-        Text('BiteScore', overflow: TextOverflow.ellipsis),
-        Text('Reviews', overflow: TextOverflow.ellipsis),
-        Text('Closest', overflow: TextOverflow.ellipsis),
-        Text('Value', overflow: TextOverflow.ellipsis),
-        Text('Flavor', overflow: TextOverflow.ellipsis),
-        Text('Quality', overflow: TextOverflow.ellipsis),
-        Text('Enjoyed', overflow: TextOverflow.ellipsis),
-      ],
-      items: const [
-        DropdownMenuItem(
-          value: 'Highest BiteScore',
-          child: Text('Highest BiteScore'),
+  Widget _buildSortDropdown() {
+    return Container(
+      height: 36,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: BiteRaterTheme.lineBlue, width: 0.8),
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _normalizeSortOption(selectedSort),
+          isDense: true,
+          isExpanded: false,
+          padding: EdgeInsets.zero,
+          icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+          style: const TextStyle(
+            color: BiteRaterTheme.ink,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            height: 1,
+          ),
+          selectedItemBuilder: (context) => const [
+            Text('BiteScore', overflow: TextOverflow.ellipsis),
+            Text('Reviews', overflow: TextOverflow.ellipsis),
+            Text('Closest', overflow: TextOverflow.ellipsis),
+            Text('Value', overflow: TextOverflow.ellipsis),
+            Text('Flavor', overflow: TextOverflow.ellipsis),
+            Text('Quality', overflow: TextOverflow.ellipsis),
+            Text('Enjoyed', overflow: TextOverflow.ellipsis),
+          ],
+          items: const [
+            DropdownMenuItem(
+              value: 'Highest BiteScore',
+              child: Text('Highest BiteScore'),
+            ),
+            DropdownMenuItem(
+              value: 'Most Reviewed',
+              child: Text('Most Reviewed'),
+            ),
+            DropdownMenuItem(value: 'Closest', child: Text('Closest')),
+            DropdownMenuItem(value: 'Best Value', child: Text('Best Value')),
+            DropdownMenuItem(value: 'Best Flavor', child: Text('Best Flavor')),
+            DropdownMenuItem(
+              value: 'Highest Quality',
+              child: Text('Highest Quality'),
+            ),
+            DropdownMenuItem(
+              value: 'Most Enjoyed',
+              child: Text('Most Enjoyed'),
+            ),
+          ],
+          onChanged: (value) {
+            if (value != null) {
+              setState(() {
+                selectedSort = _normalizeSortOption(value);
+              });
+            }
+          },
         ),
-        DropdownMenuItem(value: 'Most Reviewed', child: Text('Most Reviewed')),
-        DropdownMenuItem(value: 'Closest', child: Text('Closest')),
-        DropdownMenuItem(value: 'Best Value', child: Text('Best Value')),
-        DropdownMenuItem(value: 'Best Flavor', child: Text('Best Flavor')),
-        DropdownMenuItem(
-          value: 'Highest Quality',
-          child: Text('Highest Quality'),
-        ),
-        DropdownMenuItem(value: 'Most Enjoyed', child: Text('Most Enjoyed')),
-      ],
-      onChanged: (value) {
-        if (value != null) {
-          setState(() {
-            selectedSort = _normalizeSortOption(value);
-          });
-        }
-      },
+      ),
     );
   }
 
@@ -889,20 +920,18 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
       alignment: Alignment.centerRight,
       child: Row(
         mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           const Text(
             'Sort by',
             style: TextStyle(
               color: BiteRaterTheme.mutedInk,
-              fontSize: 11.5,
-              fontWeight: FontWeight.w700,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
             ),
           ),
           const SizedBox(width: 6),
-          ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: 124, maxWidth: 160),
-            child: _buildSortDropdown(hintText: 'BiteScore'),
-          ),
+          _buildSortDropdown(),
         ],
       ),
     );
@@ -1276,11 +1305,11 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                             'BiteScore',
                             textAlign: TextAlign.center,
                             style: TextStyle(
-                              fontSize: 8.3,
+                              fontSize: 8.1,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 0.12,
-                              color: BiteRaterTheme.mutedInk.withOpacity(0.74),
-                              height: 0.98,
+                              color: BiteRaterTheme.mutedInk.withOpacity(0.66),
+                              height: 0.90,
                             ),
                           ),
                           Text(
@@ -1288,9 +1317,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 9,
-                              color: BiteRaterTheme.mutedInk.withOpacity(0.68),
+                              color: BiteRaterTheme.mutedInk.withOpacity(0.60),
                               fontWeight: FontWeight.w500,
-                              height: 0.98,
+                              height: 0.90,
                             ),
                           ),
                         ],
@@ -1304,7 +1333,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
           Container(
             height: 0.5,
             margin: const EdgeInsets.symmetric(horizontal: 18),
-            color: BiteRaterTheme.lineBlue.withOpacity(0.22),
+            color: BiteRaterTheme.lineBlue.withOpacity(0.16),
           ),
           BiteRaterTheme.pressableSection(
             onTap: () => _openRestaurantPage(
@@ -1549,7 +1578,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   Widget build(BuildContext context) {
     final filteredEntries = _filteredEntries(_entries);
     final bottomContentPadding =
-        136.0 + MediaQuery.of(context).viewPadding.bottom;
+        148.0 + MediaQuery.of(context).viewPadding.bottom;
 
     return Scaffold(
       backgroundColor: BiteRaterTheme.pageBackground,
@@ -1571,7 +1600,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
             if (_hasLocationOrZipInput)
               SliverToBoxAdapter(
                 child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+                  padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
                   child: _buildSortControl(),
                 ),
               ),

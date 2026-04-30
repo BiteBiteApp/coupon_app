@@ -5,11 +5,11 @@ import '../models/demo_redemption_store.dart';
 import '../models/coupon.dart';
 import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
+import '../services/app_mode_state_service.dart';
 import '../services/bitesaver_report_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../services/restaurant_account_service.dart';
-import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/bitesaver_report_dialog.dart';
 import 'coupon_detail_screen.dart';
 
@@ -30,6 +30,8 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   bool _showHours = false;
   bool _showRestaurantInfo = false;
   bool _isSubmittingReport = false;
+  double _modeDragProgress = 0;
+  AppMode? _pressedMode;
   late Restaurant _restaurant;
 
   Restaurant get restaurant => _restaurant;
@@ -349,6 +351,76 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     }
   }
 
+  List<BoxShadow> _biteSaverTileShadows({double strength = 0.9}) {
+    return [
+      BoxShadow(
+        color: Color.fromRGBO(84, 48, 18, 0.16 * strength),
+        blurRadius: 14,
+        offset: const Offset(0, 8),
+      ),
+      BoxShadow(
+        color: Color.fromRGBO(120, 80, 40, 0.10 * strength),
+        blurRadius: 3,
+        offset: const Offset(0, 2),
+      ),
+      BoxShadow(
+        color: Color.fromRGBO(255, 255, 255, 0.35 * strength),
+        blurRadius: 1.5,
+        offset: const Offset(0, -0.5),
+      ),
+    ];
+  }
+
+  Widget _biteSaverRaisedSurface({
+    required Widget child,
+    BorderRadius? borderRadius,
+    EdgeInsetsGeometry innerMargin = const EdgeInsets.all(1.8),
+    double shadowStrength = 0.9,
+  }) {
+    final shellRadius = borderRadius ?? BorderRadius.circular(16);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: shellRadius,
+        gradient: const LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color(0xFFEEDBC9),
+            Color(0xFFD8BEA3),
+            Color(0xFFC7A17B),
+            Color(0xFFB58B63),
+          ],
+          stops: [0.0, 0.34, 0.72, 1.0],
+        ),
+        border: Border.all(color: const Color(0x66EED8B2), width: 1),
+        boxShadow: [
+          const BoxShadow(
+            color: Color.fromRGBO(120, 80, 40, 0.30),
+            offset: Offset(0, 2),
+            blurRadius: 0,
+          ),
+          ..._biteSaverTileShadows(strength: shadowStrength),
+        ],
+      ),
+      child: Padding(
+        padding: innerMargin,
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: shellRadius,
+            gradient: const LinearGradient(
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+              colors: [Color(0xFFFFFBF8), Color(0xFFF7EDE3), Color(0xFFEEDDCB)],
+            ),
+            border: Border.all(color: const Color(0xF7FFFFFF), width: 0.7),
+          ),
+          child: child,
+        ),
+      ),
+    );
+  }
+
   Widget buildActionButton({
     required IconData icon,
     required String label,
@@ -356,12 +428,26 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     required VoidCallback onPressed,
   }) {
     return Expanded(
-      child: ElevatedButton.icon(
-        onPressed: enabled ? onPressed : null,
-        icon: Icon(icon, size: 18),
-        label: Text(label),
-        style: ElevatedButton.styleFrom(
-          padding: const EdgeInsets.symmetric(vertical: 14),
+      child: _biteSaverRaisedSurface(
+        borderRadius: BorderRadius.circular(999),
+        innerMargin: const EdgeInsets.all(1.4),
+        shadowStrength: enabled ? 0.64 : 0.22,
+        child: ElevatedButton.icon(
+          onPressed: enabled ? onPressed : null,
+          icon: Icon(icon, size: 18),
+          label: Text(label),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.transparent,
+            foregroundColor: const Color(0xFF9F4F34),
+            disabledBackgroundColor: Colors.transparent,
+            disabledForegroundColor: const Color(0xFF9A8B80),
+            elevation: 0,
+            shadowColor: Colors.transparent,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(999),
+            ),
+          ),
         ),
       ),
     );
@@ -374,8 +460,19 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     required ValueChanged<bool> onExpansionChanged,
     required Widget child,
   }) {
-    return Card(
-      margin: EdgeInsets.zero,
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFCF8),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE8D8C9), width: 1),
+        boxShadow: const [
+          BoxShadow(
+            color: Color.fromRGBO(94, 62, 30, 0.055),
+            blurRadius: 5,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
       child: Theme(
         data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
         child: ExpansionTile(
@@ -385,13 +482,17 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
           onExpansionChanged: onExpansionChanged,
           title: Text(
             title,
-            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            style: const TextStyle(
+              color: Color(0xFF2B1D14),
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+            ),
           ),
           subtitle: Text(
             summary,
             maxLines: isExpanded ? 3 : 1,
             overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 13, color: Colors.black54),
+            style: const TextStyle(fontSize: 13, color: Color(0xFF7F6D5F)),
           ),
           children: [Align(alignment: Alignment.centerLeft, child: child)],
         ),
@@ -518,6 +619,290 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     );
   }
 
+  Color _modeAccentColor(AppMode selectedMode) {
+    return selectedMode == AppMode.biteScore
+        ? const Color(0xFF3D67BE)
+        : const Color(0xFFD06C3B);
+  }
+
+  double _selectedModePosition(AppMode selectedMode) {
+    return selectedMode == AppMode.biteSaver ? 0 : 1;
+  }
+
+  void _handleModeDragUpdate(
+    DragUpdateDetails details,
+    BoxConstraints constraints,
+  ) {
+    final width = constraints.maxWidth;
+    if (width <= 0) return;
+
+    setState(() {
+      _modeDragProgress = (_modeDragProgress + (details.delta.dx / width))
+          .clamp(-1, 1);
+    });
+  }
+
+  void _setPressedMode(AppMode? mode) {
+    if (_pressedMode == mode) return;
+    setState(() {
+      _pressedMode = mode;
+    });
+  }
+
+  void _selectMode(AppMode mode, AppMode selectedMode) {
+    if (mode == selectedMode) {
+      return;
+    }
+    Navigator.of(context).popUntil((route) => route.isFirst);
+    AppModeStateService.setMode(mode);
+  }
+
+  Widget _buildWarmModeSwitcher() {
+    return ValueListenableBuilder<AppMode>(
+      valueListenable: AppModeStateService.selectedMode,
+      builder: (context, selectedMode, _) {
+        final colorScheme = Theme.of(context).colorScheme;
+        final accent = _modeAccentColor(selectedMode);
+        final selectedPosition = _selectedModePosition(selectedMode);
+
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+          color: const Color(0xFFF8F1EA),
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final width = constraints.maxWidth;
+              final thumbWidth = (width - 4) / 2;
+              final visualPosition = (selectedPosition + _modeDragProgress)
+                  .clamp(0, 1)
+                  .toDouble();
+              final left = 2 + (visualPosition * thumbWidth);
+
+              void handleDragEnd() {
+                final targetPosition =
+                    (selectedPosition + _modeDragProgress) >= 0.5 ? 1 : 0;
+                setState(() {
+                  _modeDragProgress = 0;
+                  _pressedMode = null;
+                });
+                _selectMode(
+                  targetPosition == 0 ? AppMode.biteSaver : AppMode.biteScore,
+                  selectedMode,
+                );
+              }
+
+              return GestureDetector(
+                onHorizontalDragUpdate: (details) {
+                  _handleModeDragUpdate(details, constraints);
+                },
+                onHorizontalDragEnd: (_) {
+                  handleDragEnd();
+                },
+                child: Container(
+                  width: double.infinity,
+                  height: 51,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      colors: [
+                        Color(0xFFD68A52),
+                        Color(0xFFC66E59),
+                        Color(0xFFB56678),
+                        Color(0xFF7A689E),
+                        Color(0xFF3364BB),
+                      ],
+                      stops: [0.0, 0.24, 0.50, 0.74, 1.0],
+                    ),
+                    borderRadius: BorderRadius.circular(26),
+                    border: Border.all(
+                      color: const Color(0xFFF9EEE4).withValues(alpha: 0.46),
+                    ),
+                    boxShadow: [
+                      BoxShadow(
+                        color: accent.withValues(alpha: 0.10),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Stack(
+                    children: [
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeOutCubic,
+                        left: left,
+                        top: 1,
+                        bottom: 1,
+                        width: thumbWidth,
+                        child: AnimatedScale(
+                          scale: _pressedMode == selectedMode ? 0.978 : 1.0,
+                          duration: const Duration(milliseconds: 100),
+                          curve: Curves.easeOut,
+                          child: AnimatedOpacity(
+                            opacity: _pressedMode == selectedMode ? 0.98 : 1.0,
+                            duration: const Duration(milliseconds: 100),
+                            curve: Curves.easeOut,
+                            child: ClipRRect(
+                              clipBehavior: Clip.antiAlias,
+                              borderRadius: const BorderRadius.all(
+                                Radius.elliptical(20.5, 17.5),
+                              ),
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(
+                                  gradient: selectedMode == AppMode.biteSaver
+                                      ? const LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            Color(0xFFEDA364),
+                                            Color(0xFFD36F3A),
+                                            Color(0xFFB54D24),
+                                          ],
+                                        )
+                                      : const LinearGradient(
+                                          begin: Alignment.topLeft,
+                                          end: Alignment.bottomRight,
+                                          colors: [
+                                            Color(0xFF936AB3),
+                                            Color(0xFF5668BE),
+                                            Color(0xFF285CC3),
+                                          ],
+                                        ),
+                                  borderRadius: const BorderRadius.all(
+                                    Radius.elliptical(20.5, 17.5),
+                                  ),
+                                  border: Border.all(
+                                    color: const Color(
+                                      0xFFFFF6EE,
+                                    ).withValues(alpha: 0.62),
+                                    width: 0.8,
+                                  ),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    selectedMode == AppMode.biteSaver
+                                        ? 'BiteSaver'
+                                        : 'BiteScore',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w800,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(24),
+                              onHighlightChanged: (pressed) {
+                                _setPressedMode(
+                                  pressed ? AppMode.biteSaver : null,
+                                );
+                              },
+                              onTap: () {
+                                _selectMode(AppMode.biteSaver, selectedMode);
+                              },
+                              child: AnimatedScale(
+                                scale: _pressedMode == AppMode.biteSaver
+                                    ? 0.985
+                                    : 1.0,
+                                duration: const Duration(milliseconds: 100),
+                                curve: Curves.easeOut,
+                                child: AnimatedOpacity(
+                                  opacity: _pressedMode == AppMode.biteSaver
+                                      ? 0.98
+                                      : 1.0,
+                                  duration: const Duration(milliseconds: 100),
+                                  curve: Curves.easeOut,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        'BiteSaver',
+                                        style: TextStyle(
+                                          color:
+                                              selectedMode == AppMode.biteSaver
+                                              ? Colors.transparent
+                                              : colorScheme.onSurfaceVariant
+                                                    .withValues(alpha: 0.9),
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(24),
+                              onHighlightChanged: (pressed) {
+                                _setPressedMode(
+                                  pressed ? AppMode.biteScore : null,
+                                );
+                              },
+                              onTap: () {
+                                _selectMode(AppMode.biteScore, selectedMode);
+                              },
+                              child: AnimatedScale(
+                                scale: _pressedMode == AppMode.biteScore
+                                    ? 0.985
+                                    : 1.0,
+                                duration: const Duration(milliseconds: 100),
+                                curve: Curves.easeOut,
+                                child: AnimatedOpacity(
+                                  opacity: _pressedMode == AppMode.biteScore
+                                      ? 0.98
+                                      : 1.0,
+                                  duration: const Duration(milliseconds: 100),
+                                  curve: Curves.easeOut,
+                                  child: Padding(
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 12,
+                                    ),
+                                    child: Center(
+                                      child: Text(
+                                        'BiteScore',
+                                        style: TextStyle(
+                                          color:
+                                              selectedMode == AppMode.biteScore
+                                              ? Colors.transparent
+                                              : colorScheme.onSurfaceVariant
+                                                    .withValues(alpha: 0.9),
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 14,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ValueListenableBuilder<int>(
@@ -533,10 +918,15 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
             .toList();
 
         return Scaffold(
-          appBar: AppBar(),
+          backgroundColor: const Color(0xFFF8F1EA),
+          appBar: AppBar(
+            backgroundColor: const Color(0xFFF8F1EA),
+            surfaceTintColor: const Color(0xFFF8F1EA),
+            elevation: 0,
+          ),
           body: Column(
             children: [
-              buildPersistentAppModeSwitcher(context),
+              _buildWarmModeSwitcher(),
               Expanded(
                 child: ScrollConfiguration(
                   behavior: ScrollConfiguration.of(
@@ -564,8 +954,10 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                     _displayText(restaurant.name, 'Restaurant'),
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
+                                      color: Color(0xFF2B1D14),
                                       fontSize: 24,
-                                      fontWeight: FontWeight.bold,
+                                      fontWeight: FontWeight.w800,
+                                      height: 1.05,
                                     ),
                                   ),
                                   const SizedBox(height: 6),
@@ -574,7 +966,8 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
                                       fontSize: 14,
-                                      color: Colors.black54,
+                                      color: Color(0xFF7F6D5F),
+                                      fontWeight: FontWeight.w500,
                                     ),
                                   ),
                                 ],
@@ -594,7 +987,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                     : Icons.favorite_border,
                                 color: _isFavoriteRestaurant
                                     ? Colors.red.shade400
-                                    : null,
+                                    : const Color(0xFF9F4F34),
                               ),
                             ),
                           ],
@@ -624,14 +1017,28 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                         const SizedBox(height: 10),
                         SizedBox(
                           width: double.infinity,
-                          child: ElevatedButton.icon(
-                            onPressed: () {
-                              _getDirections(context);
-                            },
-                            icon: const Icon(Icons.directions),
-                            label: const Text('Get Directions'),
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 14),
+                          child: _biteSaverRaisedSurface(
+                            borderRadius: BorderRadius.circular(999),
+                            innerMargin: const EdgeInsets.all(1.4),
+                            shadowStrength: 0.64,
+                            child: ElevatedButton.icon(
+                              onPressed: () {
+                                _getDirections(context);
+                              },
+                              icon: const Icon(Icons.directions),
+                              label: const Text('Get Directions'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.transparent,
+                                foregroundColor: const Color(0xFF9F4F34),
+                                elevation: 0,
+                                shadowColor: Colors.transparent,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                              ),
                             ),
                           ),
                         ),
@@ -650,7 +1057,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                 ? null
                                 : _reportRestaurant,
                             style: TextButton.styleFrom(
-                              foregroundColor: Colors.black54,
+                              foregroundColor: const Color(0xFF7F6D5F),
                               padding: EdgeInsets.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
@@ -664,84 +1071,100 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
+                            color: Color(0xFF2B1D14),
                           ),
                         ),
                         const SizedBox(height: 12),
                         if (activeCoupons.isEmpty)
-                          Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.all(14),
-                            decoration: BoxDecoration(
-                              color: Colors.grey.shade100,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: const Text(
-                              'No available coupons right now.',
+                          _biteSaverRaisedSurface(
+                            shadowStrength: 0.68,
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(14),
+                              child: const Text(
+                                'No available coupons right now.',
+                                style: TextStyle(color: Color(0xFF7F6D5F)),
+                              ),
                             ),
                           )
                         else
                           Column(
                             children: activeCoupons.map((coupon) {
                               final isProximity = coupon.isProximityOnly;
-                              return Card(
-                                margin: const EdgeInsets.only(bottom: 10),
-                                child: ListTile(
-                                  title: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      if (isProximity)
-                                        Container(
-                                          margin: const EdgeInsets.only(
-                                            bottom: 6,
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 8,
-                                            vertical: 4,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: Colors.deepOrange,
-                                            borderRadius: BorderRadius.circular(
-                                              999,
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: _biteSaverRaisedSurface(
+                                  shadowStrength: 0.74,
+                                  child: Material(
+                                    color: Colors.transparent,
+                                    child: ListTile(
+                                      title: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          if (isProximity)
+                                            Container(
+                                              margin: const EdgeInsets.only(
+                                                bottom: 6,
+                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: Colors.deepOrange,
+                                                borderRadius:
+                                                    BorderRadius.circular(999),
+                                              ),
+                                              child: const Text(
+                                                'Proximity Deal',
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
+                                          Text(
+                                            _displayText(
+                                              coupon.title,
+                                              'Untitled coupon',
+                                            ),
+                                            style: const TextStyle(
+                                              color: Color(0xFF2B1D14),
+                                              fontWeight: FontWeight.w700,
                                             ),
                                           ),
-                                          child: const Text(
-                                            'Proximity Deal',
-                                            style: TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 11,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                        ),
-                                      Text(
-                                        _displayText(
-                                          coupon.title,
-                                          'Untitled coupon',
-                                        ),
+                                        ],
+                                      ),
+                                      subtitle: Text(
+                                        isProximity
+                                            ? '${_couponSubtitle(coupon)} - Unlocked nearby'
+                                            : (coupon.couponCode == null
+                                                  ? _couponSubtitle(coupon)
+                                                  : '${_couponSubtitle(coupon)} - Code: ${coupon.couponCode}'),
                                         style: const TextStyle(
-                                          fontWeight: FontWeight.w600,
+                                          color: Color(0xFF7F6D5F),
                                         ),
                                       ),
-                                    ],
-                                  ),
-                                  subtitle: Text(
-                                    isProximity
-                                        ? '${_couponSubtitle(coupon)} - Unlocked nearby'
-                                        : (coupon.couponCode == null
-                                              ? _couponSubtitle(coupon)
-                                              : '${_couponSubtitle(coupon)} - Code: ${coupon.couponCode}'),
-                                  ),
-                                  trailing: const Icon(Icons.chevron_right),
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            CouponDetailScreen(coupon: coupon),
+                                      trailing: const Icon(
+                                        Icons.chevron_right,
+                                        color: Color(0xFF94482E),
                                       ),
-                                    );
-                                  },
+                                      onTap: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) =>
+                                                CouponDetailScreen(
+                                                  coupon: coupon,
+                                                ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ),
                                 ),
                               );
                             }).toList(),

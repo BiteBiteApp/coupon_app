@@ -26,12 +26,6 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
         : const Color(0xFFD06C3B);
   }
 
-  Color _shadowColor() {
-    return widget.selectedMode == AppMode.biteScore
-        ? const Color(0xFF284D8F)
-        : const Color(0xFF9A4E29);
-  }
-
   double get _selectedPosition =>
       widget.selectedMode == AppMode.biteSaver ? 0 : 1;
 
@@ -69,7 +63,6 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final accent = _accentColor();
-    final thumbShadow = _shadowColor();
 
     return Container(
       width: double.infinity,
@@ -77,14 +70,15 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
       decoration: BoxDecoration(
         color: widget.selectedMode == AppMode.biteScore
             ? const Color(0xFFEFF4FA)
-            : const Color(0xFFF0E2D2),
+            : const Color(0xFFFFFEFC),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
           final thumbWidth = (width - 4) / 2;
-          final visualPosition =
-              (_selectedPosition + _dragProgress).clamp(0, 1).toDouble();
+          final visualPosition = (_selectedPosition + _dragProgress)
+              .clamp(0, 1)
+              .toDouble();
           final left = 2 + (visualPosition * thumbWidth);
 
           return GestureDetector(
@@ -112,13 +106,13 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                 ),
                 borderRadius: BorderRadius.circular(26),
                 border: Border.all(
-                  color: const Color(0xFFF9EEE4).withOpacity(0.46),
+                  color: const Color(0xFFF9EEE4).withValues(alpha: 0.46),
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: accent.withOpacity(0.12),
-                    blurRadius: 14,
-                    offset: const Offset(0, 8),
+                    color: accent.withValues(alpha: 0.10),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
@@ -132,13 +126,13 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                     bottom: 1,
                     width: thumbWidth,
                     child: AnimatedScale(
-                      scale:
-                          _pressedMode == widget.selectedMode ? 0.978 : 1.0,
+                      scale: _pressedMode == widget.selectedMode ? 0.978 : 1.0,
                       duration: const Duration(milliseconds: 100),
                       curve: Curves.easeOut,
                       child: AnimatedOpacity(
-                        opacity:
-                            _pressedMode == widget.selectedMode ? 0.98 : 1.0,
+                        opacity: _pressedMode == widget.selectedMode
+                            ? 0.98
+                            : 1.0,
                         duration: const Duration(milliseconds: 100),
                         curve: Curves.easeOut,
                         child: ClipRRect(
@@ -171,9 +165,9 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                                 Radius.elliptical(20.5, 17.5),
                               ),
                               border: Border.all(
-                                color: const Color(0xFFFFF6EE).withOpacity(
-                                  0.62,
-                                ),
+                                color: const Color(
+                                  0xFFFFF6EE,
+                                ).withValues(alpha: 0.62),
                                 width: 0.8,
                               ),
                             ),
@@ -200,21 +194,19 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                         child: InkWell(
                           borderRadius: BorderRadius.circular(24),
                           onHighlightChanged: (pressed) {
-                            _setPressedMode(
-                              pressed ? AppMode.biteSaver : null,
-                            );
+                            _setPressedMode(pressed ? AppMode.biteSaver : null);
                           },
                           onTap: () => widget.onModeSelected(AppMode.biteSaver),
                           child: AnimatedScale(
-                            scale:
-                                _pressedMode == AppMode.biteSaver ? 0.985 : 1.0,
+                            scale: _pressedMode == AppMode.biteSaver
+                                ? 0.985
+                                : 1.0,
                             duration: const Duration(milliseconds: 100),
                             curve: Curves.easeOut,
                             child: AnimatedOpacity(
-                              opacity:
-                                  _pressedMode == AppMode.biteSaver
-                                      ? 0.98
-                                      : 1.0,
+                              opacity: _pressedMode == AppMode.biteSaver
+                                  ? 0.98
+                                  : 1.0,
                               duration: const Duration(milliseconds: 100),
                               curve: Curves.easeOut,
                               child: Padding(
@@ -227,10 +219,10 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                                     style: TextStyle(
                                       color:
                                           widget.selectedMode ==
-                                                  AppMode.biteSaver
-                                              ? Colors.transparent
-                                              : colorScheme.onSurfaceVariant
-                                                  .withOpacity(0.9),
+                                              AppMode.biteSaver
+                                          ? Colors.transparent
+                                          : colorScheme.onSurfaceVariant
+                                                .withValues(alpha: 0.9),
                                       fontWeight: FontWeight.w700,
                                       fontSize: 14,
                                     ),
@@ -245,21 +237,19 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                         child: InkWell(
                           borderRadius: BorderRadius.circular(24),
                           onHighlightChanged: (pressed) {
-                            _setPressedMode(
-                              pressed ? AppMode.biteScore : null,
-                            );
+                            _setPressedMode(pressed ? AppMode.biteScore : null);
                           },
                           onTap: () => widget.onModeSelected(AppMode.biteScore),
                           child: AnimatedScale(
-                            scale:
-                                _pressedMode == AppMode.biteScore ? 0.985 : 1.0,
+                            scale: _pressedMode == AppMode.biteScore
+                                ? 0.985
+                                : 1.0,
                             duration: const Duration(milliseconds: 100),
                             curve: Curves.easeOut,
                             child: AnimatedOpacity(
-                              opacity:
-                                  _pressedMode == AppMode.biteScore
-                                      ? 0.98
-                                      : 1.0,
+                              opacity: _pressedMode == AppMode.biteScore
+                                  ? 0.98
+                                  : 1.0,
                               duration: const Duration(milliseconds: 100),
                               curve: Curves.easeOut,
                               child: Padding(
@@ -272,10 +262,10 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                                     style: TextStyle(
                                       color:
                                           widget.selectedMode ==
-                                                  AppMode.biteScore
-                                              ? Colors.transparent
-                                              : colorScheme.onSurfaceVariant
-                                                  .withOpacity(0.9),
+                                              AppMode.biteScore
+                                          ? Colors.transparent
+                                          : colorScheme.onSurfaceVariant
+                                                .withValues(alpha: 0.9),
                                       fontWeight: FontWeight.w700,
                                       fontSize: 14,
                                     ),
