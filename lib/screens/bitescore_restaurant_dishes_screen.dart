@@ -678,31 +678,29 @@ class _BiteScoreRestaurantDishesScreenState
       return const SizedBox.shrink();
     }
 
-    final label = _isOwner
-        ? 'Claimed by You'
-        : (_isAdmin ? 'Admin Access' : 'Claimed Restaurant');
-
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: BiteRaterTheme.mint.withOpacity(0.10),
+        color: const Color(0xFFEFF6F0),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: BiteRaterTheme.mint.withOpacity(0.26)),
+        border: Border.all(color: const Color(0xFFC9D8C8), width: 0.7),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(
             Icons.verified_outlined,
-            size: 16,
-            color: BiteRaterTheme.mint,
+            size: 13,
+            color: Color(0xFF5F8A66),
           ),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: const TextStyle(
-              color: BiteRaterTheme.mint,
-              fontWeight: FontWeight.w800,
+          const SizedBox(width: 4),
+          const Text(
+            'Verified',
+            style: TextStyle(
+              color: Color(0xFF5F8A66),
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              height: 1.0,
             ),
           ),
         ],
