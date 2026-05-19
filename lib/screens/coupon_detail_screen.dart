@@ -321,34 +321,23 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   }
 
   Widget _couponSurface({required Widget child}) {
-    final cardRadius = BorderRadius.circular(22);
+    const frameInset = 8.0;
+    final cardRadius = BorderRadius.circular(20);
     final frameRadius = BorderRadius.circular(28);
 
     return Stack(
       children: [
         Positioned.fill(
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: frameRadius,
-              boxShadow: const [
-                BoxShadow(
-                  color: Color.fromRGBO(120, 80, 40, 0.15),
-                  blurRadius: 18,
-                  offset: Offset(0, 9),
-                ),
-              ],
-            ),
-            child: ClipRRect(
-              borderRadius: frameRadius,
-              child: Image.asset(
-                'assets/images/diamond_coupon_border.png',
-                fit: BoxFit.fill,
-              ),
+          child: ClipRRect(
+            borderRadius: frameRadius,
+            child: Image.asset(
+              'assets/images/diamond_coupon_border.png',
+              fit: BoxFit.fill,
             ),
           ),
         ),
         Padding(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(frameInset),
           child: DecoratedBox(
             decoration: BoxDecoration(
               borderRadius: cardRadius,
@@ -364,9 +353,9 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
               border: Border.all(color: const Color(0xFFE5D2C2), width: 1),
               boxShadow: const [
                 BoxShadow(
-                  color: Color.fromRGBO(120, 80, 40, 0.20),
-                  blurRadius: 12,
-                  offset: Offset(0, 7),
+                  color: Color.fromRGBO(120, 80, 40, 0.16),
+                  blurRadius: 10,
+                  offset: Offset(0, 4),
                 ),
                 BoxShadow(
                   color: Color.fromRGBO(120, 80, 40, 0.12),
