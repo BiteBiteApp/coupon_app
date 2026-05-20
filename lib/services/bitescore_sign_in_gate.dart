@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -60,6 +62,7 @@ class BiteScoreSignInGate {
   static Future<bool> ensureSignedInForFavorites(
     BuildContext context, {
     String message = 'Please sign in to save favorites.',
+    bool returnToOriginAfterSignIn = false,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (_canUserSaveFavorites(user)) {
@@ -68,9 +71,18 @@ class BiteScoreSignInGate {
 
     _showAuthSnackBar(context, message: message);
 
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const CustomerAccountScreen()));
+    if (returnToOriginAfterSignIn) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const _FavoriteSignInReturnRoute(),
+          fullscreenDialog: true,
+        ),
+      );
+    } else {
+      await Navigator.of(
+        context,
+      ).push(MaterialPageRoute(builder: (_) => const CustomerAccountScreen()));
+    }
 
     return canCurrentUserSaveFavorites;
   }
@@ -135,5 +147,62 @@ class BiteScoreSignInGate {
 
   static bool _canUserSaveFavorites(User? user) {
     return user != null && !user.isAnonymous;
+  }
+}
+
+class _FavoriteSignInReturnRoute extends StatefulWidget {
+  const _FavoriteSignInReturnRoute();
+
+  @override
+  State<_FavoriteSignInReturnRoute> createState() =>
+      _FavoriteSignInReturnRouteState();
+}
+
+class _FavoriteSignInReturnRouteState
+    extends State<_FavoriteSignInReturnRoute> {
+  bool _hasReturnedAfterSignIn = false;
+  late final StreamSubscription<User?> _authSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    _authSubscription = FirebaseAuth.instance.userChanges().listen(
+      _returnAfterSignIn,
+    );
+  }
+
+  @override
+  void dispose() {
+    _authSubscription.cancel();
+    super.dispose();
+  }
+
+  void _returnAfterSignIn(User? user) {
+    if (_hasReturnedAfterSignIn ||
+        !BiteScoreSignInGate._canUserSaveFavorites(user)) {
+      return;
+    }
+
+    _hasReturnedAfterSignIn = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop(true);
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.close),
+          tooltip: 'Cancel sign in',
+          onPressed: () => Navigator.of(context).maybePop(false),
+        ),
+        title: const Text('Sign in'),
+      ),
+      body: const CustomerAccountScreen(),
+    );
   }
 }

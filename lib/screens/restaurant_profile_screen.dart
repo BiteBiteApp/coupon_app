@@ -253,6 +253,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   Future<void> _toggleRestaurantFavorite() async {
     final canSave = await BiteScoreSignInGate.ensureSignedInForFavorites(
       context,
+      returnToOriginAfterSignIn: true,
     );
     if (!canSave || !mounted || _isSavingFavoriteRestaurant) {
       return;

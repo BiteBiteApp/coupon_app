@@ -66,7 +66,7 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.fromLTRB(16, 7, 16, 7),
       decoration: BoxDecoration(
         color: widget.selectedMode == AppMode.biteScore
             ? const Color(0xFFEFF4FA)
@@ -90,7 +90,7 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
             },
             child: Container(
               width: double.infinity,
-              height: 51,
+              height: 42,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
                   begin: Alignment.centerLeft,
@@ -104,7 +104,7 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                   ],
                   stops: [0.0, 0.24, 0.50, 0.74, 1.0],
                 ),
-                borderRadius: BorderRadius.circular(26),
+                borderRadius: BorderRadius.circular(21),
                 border: Border.all(
                   color: const Color(0xFFF9EEE4).withValues(alpha: 0.46),
                 ),
@@ -138,7 +138,7 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                         child: ClipRRect(
                           clipBehavior: Clip.antiAlias,
                           borderRadius: const BorderRadius.all(
-                            Radius.elliptical(20.5, 17.5),
+                            Radius.elliptical(18.5, 15.5),
                           ),
                           child: DecoratedBox(
                             decoration: BoxDecoration(
@@ -162,7 +162,7 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                                       ],
                                     ),
                               borderRadius: const BorderRadius.all(
-                                Radius.elliptical(20.5, 17.5),
+                                Radius.elliptical(18.5, 15.5),
                               ),
                               border: Border.all(
                                 color: const Color(
@@ -179,7 +179,7 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                                 style: const TextStyle(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w800,
-                                  fontSize: 14,
+                                  fontSize: 13,
                                 ),
                               ),
                             ),
@@ -211,7 +211,7 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                               curve: Curves.easeOut,
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
+                                  vertical: 8,
                                 ),
                                 child: Center(
                                   child: Text(
@@ -224,7 +224,7 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                                           : colorScheme.onSurfaceVariant
                                                 .withValues(alpha: 0.9),
                                       fontWeight: FontWeight.w700,
-                                      fontSize: 14,
+                                      fontSize: 13,
                                     ),
                                   ),
                                 ),
@@ -254,7 +254,7 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                               curve: Curves.easeOut,
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                  vertical: 12,
+                                  vertical: 8,
                                 ),
                                 child: Center(
                                   child: Text(
@@ -267,7 +267,7 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                                           : colorScheme.onSurfaceVariant
                                                 .withValues(alpha: 0.9),
                                       fontWeight: FontWeight.w700,
-                                      fontSize: 14,
+                                      fontSize: 13,
                                     ),
                                   ),
                                 ),

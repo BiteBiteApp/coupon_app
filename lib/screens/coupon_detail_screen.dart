@@ -159,6 +159,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   Future<void> _toggleCouponFavorite() async {
     final canSave = await BiteScoreSignInGate.ensureSignedInForFavorites(
       context,
+      returnToOriginAfterSignIn: true,
     );
     if (!canSave || !mounted || _isSavingFavoriteCoupon) {
       return;

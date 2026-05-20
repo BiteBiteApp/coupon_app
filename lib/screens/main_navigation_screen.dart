@@ -155,10 +155,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     });
   }
 
+  Widget _buildModeHomePage() {
+    return selectedMode == AppMode.biteSaver
+        ? const HomeScreen(key: ValueKey('bitesaver-home'))
+        : const BiteScoreHomeScreen(key: ValueKey('bitescore-home'));
+  }
+
   List<Widget> get pages => [
-    selectedMode == AppMode.biteSaver
-        ? const HomeScreen()
-        : const BiteScoreHomeScreen(),
+    _buildModeHomePage(),
     const RestaurantAuthScreen(),
     const AdminGateScreen(),
     const CustomerAccountScreen(),
@@ -188,11 +192,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         PopupMenuItem(value: 3, child: Text('Account')),
       ],
       child: Container(
-        width: 46,
-        height: 46,
+        width: 39,
+        height: 39,
         decoration: BoxDecoration(
           color: const Color(0xFFFFFBF2),
-          borderRadius: BorderRadius.circular(23),
+          borderRadius: BorderRadius.circular(19.5),
           border: Border.all(color: const Color(0xFFEFE1D1)),
           boxShadow: const [
             BoxShadow(
@@ -202,7 +206,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             ),
           ],
         ),
-        child: const Icon(Icons.menu, color: Color(0xFF24170F), size: 25),
+        child: const Icon(Icons.menu, color: Color(0xFF24170F), size: 22),
       ),
     );
   }
@@ -212,30 +216,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       return IndexedStack(index: selectedIndex, children: pages);
     }
 
-    final slideFromRight = selectedMode == AppMode.biteScore;
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 220),
-      switchInCurve: Curves.easeOutCubic,
-      switchOutCurve: Curves.easeInCubic,
-      transitionBuilder: (child, animation) {
-        final beginOffset = Offset(slideFromRight ? 0.12 : -0.12, 0);
-        final offsetAnimation = Tween<Offset>(
-          begin: beginOffset,
-          end: Offset.zero,
-        ).animate(animation);
-
-        return ClipRect(
-          child: SlideTransition(
-            position: offsetAnimation,
-            child: FadeTransition(opacity: animation, child: child),
-          ),
-        );
-      },
-      child: KeyedSubtree(
-        key: ValueKey<AppMode>(selectedMode),
-        child: pages.first,
-      ),
-    );
+    return _buildModeHomePage();
   }
 
   Widget _buildBottomNavigationBar() {
@@ -253,7 +234,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         : const Color(0xFF4F7D1F);
 
     final navigationBar = SizedBox(
-      height: 62,
+      height: 48,
       child: Row(
         children: [
           for (final item in [
@@ -281,10 +262,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             Expanded(
               child: InkWell(
                 onTap: () => _selectTab(item.key),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(13),
                 child: Center(
                   child: SizedBox(
-                    height: 56,
+                    height: 43,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.center,
@@ -292,14 +273,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                         IntrinsicWidth(
                           child: Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 2,
+                              horizontal: 5,
+                              vertical: 1,
                             ),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 SizedBox(
-                                  height: 24,
+                                  height: 19,
                                   child: Center(
                                     child: Icon(
                                       item.key == selectedIndex
@@ -308,12 +289,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                       color: item.key == selectedIndex
                                           ? selectedIconColor
                                           : const Color(0xFF766D61),
-                                      size: item.key == selectedIndex ? 26 : 24,
+                                      size: item.key == selectedIndex
+                                          ? 21
+                                          : 19.5,
                                     ),
                                   ),
                                 ),
                                 SizedBox(
-                                  height: 28,
+                                  height: 22,
                                   child: Center(
                                     child: Text(
                                       item.value.label,
@@ -325,9 +308,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                         fontWeight: item.key == selectedIndex
                                             ? FontWeight.w700
                                             : FontWeight.w500,
-                                        fontSize: 13,
+                                        fontSize: 11.3,
                                         letterSpacing: 0,
-                                        height: 1.0,
+                                        height: 0.96,
                                       ),
                                     ),
                                   ),
@@ -352,22 +335,22 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         top: false,
         child: Container(
           color: Colors.transparent,
-          padding: EdgeInsets.fromLTRB(22, 0, 22, 8 + extraBottomInset),
+          padding: EdgeInsets.fromLTRB(22, 0, 22, 3 + extraBottomInset),
           child: Container(
             decoration: BoxDecoration(
               color: const Color(0xFFFFFEFC),
-              borderRadius: BorderRadius.circular(30),
+              borderRadius: BorderRadius.circular(21),
               border: Border.all(color: const Color(0xFFEFE1D1)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.075),
-                  blurRadius: 22,
-                  offset: const Offset(0, 10),
+                  color: Colors.black.withValues(alpha: 0.045),
+                  blurRadius: 13,
+                  offset: const Offset(0, 5),
                 ),
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(30),
+              borderRadius: BorderRadius.circular(21),
               child: navigationBar,
             ),
           ),
@@ -380,22 +363,22 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       top: false,
       child: Container(
         color: Colors.transparent,
-        padding: EdgeInsets.fromLTRB(16, 0, 16, 6 + extraBottomInset),
+        padding: EdgeInsets.fromLTRB(16, 0, 16, 3 + extraBottomInset),
         child: Container(
           decoration: BoxDecoration(
             color: const Color(0xFFF7FAFE),
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(color: const Color(0xFFD8E4F3), width: 1),
             boxShadow: [
               BoxShadow(
-                color: Color.fromRGBO(36, 76, 134, 0.13),
-                blurRadius: 11,
-                offset: const Offset(0, 3),
+                color: Color.fromRGBO(36, 76, 134, 0.075),
+                blurRadius: 7,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
           child: ClipRRect(
-            borderRadius: BorderRadius.circular(28),
+            borderRadius: BorderRadius.circular(20),
             child: navigationBar,
           ),
         ),
@@ -508,12 +491,17 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                       selectedMode: selectedMode,
                       onModeSelected: _setMode,
                     ),
-                    if (selectedMode == AppMode.biteSaver)
-                      Positioned(
-                        top: 14,
-                        right: 18,
-                        child: _buildBiteSaverMenuButton(),
+                    Positioned(
+                      top: 9,
+                      right: 18,
+                      child: Offstage(
+                        offstage: selectedMode != AppMode.biteSaver,
+                        child: IgnorePointer(
+                          ignoring: selectedMode != AppMode.biteSaver,
+                          child: _buildBiteSaverMenuButton(),
+                        ),
                       ),
+                    ),
                   ],
                 ),
                 Expanded(child: _buildCurrentPage()),

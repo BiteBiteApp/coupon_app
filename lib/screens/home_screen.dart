@@ -41,7 +41,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   static const double _collapsedHeaderExtent = 82;
-  static const double _expandedHeaderExtent = 462;
+  static const double _expandedHeaderExtent = 270;
   static const String _selectedRadiusPreferenceKey = 'selected_radius';
   static const List<String> _restaurantPlaceholderImages = [
     'assets/images/placeholder_outside.png',
@@ -331,8 +331,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void _restoreSharedLocationState() {
     final sharedLocation = SharedLocationStateService.state;
-    searchController.text = sharedLocation.searchText;
-    searchQuery = sharedLocation.searchText;
+    searchController.text = sharedLocation.usingCurrentLocation
+        ? ''
+        : sharedLocation.searchText;
+    searchQuery = sharedLocation.usingCurrentLocation
+        ? ''
+        : sharedLocation.searchText;
     usingCurrentLocation = sharedLocation.usingCurrentLocation;
     currentPosition = sharedLocation.currentPosition;
     detectedCity = sharedLocation.detectedCity;
@@ -750,17 +754,13 @@ class _HomeScreenState extends State<HomeScreen> {
         detectedCity = locationDetails.city;
         detectedZip = locationDetails.zip;
         currentPosition = position;
-        searchQuery = locationDetails.city?.isNotEmpty == true
-            ? locationDetails.city!
-            : (locationDetails.zip?.isNotEmpty == true
-                  ? locationDetails.zip!
-                  : '');
-        searchController.text = searchQuery;
+        searchQuery = '';
+        searchController.clear();
         locationStatusMessage = 'Using your current location.';
       });
       SharedLocationStateService.saveCurrentLocation(
         position: position,
-        searchText: searchQuery,
+        searchText: '',
         detectedCity: locationDetails.city,
         detectedZip: locationDetails.zip,
       );
@@ -981,12 +981,31 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _formatCouponMetaLine(Coupon coupon, {required bool proximityOnly}) {
     final parts = <String>[
-      coupon.shortExpiresLabel,
+      _formatCouponListExpiresLabel(coupon),
       coupon.usageRule,
       if (proximityOnly) 'Unlocked nearby',
       if (coupon.couponCode != null) 'Code: ${coupon.couponCode}',
     ];
     return parts.join(' • ');
+  }
+
+  String _formatCouponListExpiresLabel(Coupon coupon) {
+    if (coupon.endTime != null) {
+      return 'Exp. ${Coupon.formatMonthDay(coupon.endTime!)}';
+    }
+
+    return coupon.shortExpiresLabel
+        .replaceFirst(
+          RegExp(r'\s+at\s+\d{1,2}:\d{2}\s*(AM|PM)', caseSensitive: false),
+          '',
+        )
+        .replaceFirst(
+          RegExp(r'\s+\d{1,2}:\d{2}\s*(AM|PM)', caseSensitive: false),
+          '',
+        )
+        .replaceFirst(RegExp(r'\s+\d{1,2}\s*(AM|PM)', caseSensitive: false), '')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 
   int _stableRestaurantImageIndex(Restaurant restaurant, int index) {
@@ -2023,17 +2042,17 @@ class _HomeScreenState extends State<HomeScreen> {
     final proximityOnly = isProximityCoupon(primaryCoupon);
 
     return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
+      padding: const EdgeInsets.only(bottom: 7),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: () => openRestaurantProfile(restaurant),
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(15),
           child: Ink(
             decoration: BoxDecoration(
               color: const Color(0xFFFFFEFB),
-              borderRadius: BorderRadius.circular(18),
-              border: Border.all(color: const Color(0xFFEDE3D8), width: 0.8),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: const Color(0xFFEDE3D8), width: 0.7),
               boxShadow: const [
                 BoxShadow(
                   color: Color.fromRGBO(64, 42, 22, 0.065),
@@ -2048,25 +2067,25 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
             ),
             child: Padding(
-              padding: const EdgeInsets.all(7),
+              padding: const EdgeInsets.all(5),
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final compact = constraints.maxWidth < 360;
-                  final imageWidth = compact ? 108.0 : 128.0;
+                  final imageWidth = compact ? 102.0 : 121.0;
 
                   return Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(13),
+                        borderRadius: BorderRadius.circular(11),
                         child: Image.asset(
                           _placeholderImageForRestaurant(restaurant, index),
                           width: imageWidth,
-                          height: compact ? 104 : 120,
+                          height: compact ? 98 : 113,
                           fit: BoxFit.cover,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      const SizedBox(width: 8),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -2080,21 +2099,21 @@ class _HomeScreenState extends State<HomeScreen> {
                                     overflow: TextOverflow.ellipsis,
                                     style: TextStyle(
                                       color: Color(0xFF24170F),
-                                      fontSize: compact ? 17.5 : 18.5,
+                                      fontSize: compact ? 16.7 : 17.6,
                                       fontWeight: FontWeight.w800,
                                       height: 1.08,
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 4),
+                                const SizedBox(width: 3),
                                 const Icon(
                                   Icons.chevron_right,
                                   color: Color(0xFFE24A17),
-                                  size: 22,
+                                  size: 20,
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 5),
+                            const SizedBox(height: 3),
                             Row(
                               children: [
                                 const Icon(
@@ -2110,25 +2129,25 @@ class _HomeScreenState extends State<HomeScreen> {
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
                                       color: Color(0xFF5E564E),
-                                      fontSize: 13,
+                                      fontSize: 12.7,
                                       fontWeight: FontWeight.w600,
                                     ),
                                   ),
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
+                            const SizedBox(height: 2),
                             Text(
                               metaParts.join('  •  '),
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                color: Color(0xFF7A7068),
-                                fontSize: 12,
+                                color: Color(0xFF897F75),
+                                fontSize: 11.7,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
-                            const SizedBox(height: 7),
+                            const SizedBox(height: 5),
                             Wrap(
                               spacing: 8,
                               runSpacing: 8,
@@ -2136,8 +2155,8 @@ class _HomeScreenState extends State<HomeScreen> {
                               children: [
                                 Container(
                                   padding: const EdgeInsets.symmetric(
-                                    horizontal: 9,
-                                    vertical: 4,
+                                    horizontal: 8,
+                                    vertical: 3,
                                   ),
                                   decoration: BoxDecoration(
                                     color: const Color(0xFFFFF3DE),
@@ -2152,14 +2171,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                       const Icon(
                                         Icons.confirmation_number_outlined,
                                         color: Color(0xFFC87912),
-                                        size: 15,
+                                        size: 14,
                                       ),
                                       const SizedBox(width: 5),
                                       Text(
                                         _couponCountLabel(coupons.length),
                                         style: const TextStyle(
                                           color: Color(0xFF3C2818),
-                                          fontSize: 12,
+                                          fontSize: 11.5,
                                           fontWeight: FontWeight.w700,
                                         ),
                                       ),
@@ -2169,8 +2188,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 if (proximityOnly)
                                   Container(
                                     padding: const EdgeInsets.symmetric(
-                                      horizontal: 9,
-                                      vertical: 4,
+                                      horizontal: 8,
+                                      vertical: 3,
                                     ),
                                     decoration: BoxDecoration(
                                       color: const Color(0xFFEFF7E7),
@@ -2180,14 +2199,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                       'Nearby unlock',
                                       style: TextStyle(
                                         color: Color(0xFF4E7B20),
-                                        fontSize: 12,
+                                        fontSize: 11.5,
                                         fontWeight: FontWeight.w700,
                                       ),
                                     ),
                                   ),
                               ],
                             ),
-                            const SizedBox(height: 7),
+                            const SizedBox(height: 5),
                             _buildCouponPreview(primaryCoupon),
                           ],
                         ),
@@ -2218,16 +2237,16 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         setState(() {});
       },
-      borderRadius: BorderRadius.circular(13),
+      borderRadius: BorderRadius.circular(11),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: useGreen ? const Color(0xFFF8FCF2) : const Color(0xFFFFF8F2),
-          borderRadius: BorderRadius.circular(13),
+          borderRadius: BorderRadius.circular(11),
           border: Border.all(
             color: useGreen ? const Color(0xFFB9D99E) : const Color(0xFFFFB58E),
-            width: 1.1,
+            width: 0.75,
             strokeAlign: BorderSide.strokeAlignInside,
           ),
         ),
@@ -2247,12 +2266,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: useGreen
                           ? const Color(0xFF4E7B20)
                           : const Color(0xFFE24A17),
-                      fontSize: 14.5,
+                      fontSize: 14.1,
                       fontWeight: FontWeight.w900,
                       height: 1.05,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  const SizedBox(height: 2),
                   Text(
                     _formatCouponMetaLine(
                       coupon,
@@ -2262,20 +2281,20 @@ class _HomeScreenState extends State<HomeScreen> {
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
                       color: Color(0xFF665C54),
-                      fontSize: 11.5,
+                      fontSize: 11.2,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 7),
             Icon(
               Icons.favorite_border,
               color: useGreen
                   ? const Color(0xFF5F8F25)
                   : const Color(0xFFE24A17),
-              size: 22,
+              size: 20,
             ),
           ],
         ),
@@ -2306,43 +2325,43 @@ class _HomeScreenState extends State<HomeScreen> {
         hintText: hint,
         hintStyle: const TextStyle(
           color: Color(0xFF7B7168),
-          fontSize: 14,
+          fontSize: 12.6,
           fontWeight: FontWeight.w500,
         ),
-        prefixIcon: Icon(icon, color: const Color(0xFF24170F), size: 23),
+        prefixIcon: Icon(icon, color: const Color(0xFF24170F), size: 21),
         prefixIconConstraints: const BoxConstraints(
-          minWidth: 38,
-          minHeight: 42,
+          minWidth: 32,
+          minHeight: 36,
         ),
         suffixIcon: suffixIcon,
         suffixIconConstraints: const BoxConstraints(
-          minWidth: 38,
-          minHeight: 42,
+          minWidth: 32,
+          minHeight: 36,
         ),
         contentPadding: contentPadding,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(13),
           borderSide: const BorderSide(color: Color(0xFFE5DBD2)),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(13),
           borderSide: const BorderSide(color: Color(0xFFE5DBD2)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
+          borderRadius: BorderRadius.circular(13),
           borderSide: const BorderSide(color: Color(0xFFD79A32), width: 1.25),
         ),
       );
     }
 
-    Widget currentLocationButton(bool tight) {
+    Widget currentLocationButton(bool tight, double controlHeight) {
       return ElevatedButton.icon(
         onPressed: isGettingLocation
             ? null
             : () => useMyLocation(allRestaurants),
         icon: Icon(
           isGettingLocation ? Icons.hourglass_top : Icons.near_me_outlined,
-          size: tight ? 19 : 23,
+          size: tight ? 17 : 21,
         ),
         label: Column(
           mainAxisSize: MainAxisSize.min,
@@ -2355,168 +2374,177 @@ class _HomeScreenState extends State<HomeScreen> {
                 isGettingLocation ? 'Locating...' : 'Use My Current Location',
                 maxLines: 1,
                 textScaler: TextScaler.noScaling,
-                style: TextStyle(fontSize: tight ? 11.2 : 14.0),
+                style: TextStyle(fontSize: tight ? 10.3 : 12.2),
               ),
             ),
             if (!tight)
-              const Text(
+              Text(
                 'Find restaurants near you',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600),
+                style: TextStyle(
+                  fontSize: tight ? 9.2 : 10.2,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
           ],
         ),
         style: ElevatedButton.styleFrom(
-          minimumSize: Size.fromHeight(tight ? 46 : 52),
+          fixedSize: Size.fromHeight(controlHeight),
           backgroundColor: const Color(0xFFE94312),
           foregroundColor: Colors.white,
           elevation: 0,
-          padding: EdgeInsets.symmetric(horizontal: tight ? 6 : 12),
+          padding: EdgeInsets.symmetric(horizontal: tight ? 5 : 9),
           textStyle: const TextStyle(
-            fontSize: 13.5,
+            fontSize: 12.6,
             fontWeight: FontWeight.w800,
           ),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(13),
+            borderRadius: BorderRadius.circular(11),
           ),
         ),
       );
     }
 
-    Widget typedLocationButton(bool tight) {
-      return TextField(
-        controller: searchController,
-        focusNode: _searchFocusNode,
-        onSubmitted: (_) => runSearch(allRestaurants),
-        decoration: searchDecoration(
-          hint: 'Enter a Location',
-          icon: Icons.location_on,
-          contentPadding: EdgeInsets.symmetric(
-            horizontal: tight ? 9 : 12,
-            vertical: tight ? 10 : 12,
+    Widget typedLocationButton(bool tight, double controlHeight) {
+      return SizedBox(
+        height: controlHeight,
+        child: TextField(
+          controller: searchController,
+          focusNode: _searchFocusNode,
+          onSubmitted: (_) => runSearch(allRestaurants),
+          decoration: searchDecoration(
+            hint: 'Enter a Location',
+            icon: Icons.location_on,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: tight ? 5 : 9,
+              vertical: tight ? 6 : 8,
+            ),
+            suffixIcon: IconButton(
+              onPressed: isSearchingLocation
+                  ? null
+                  : () => runSearch(allRestaurants),
+              tooltip: 'Search location',
+              icon: isSearchingLocation
+                  ? const SizedBox(
+                      width: 17,
+                      height: 17,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(
+                      Icons.arrow_forward,
+                      color: Color(0xFFE24A17),
+                      size: 18,
+                    ),
+            ),
           ),
-          suffixIcon: IconButton(
-            onPressed: isSearchingLocation
-                ? null
-                : () => runSearch(allRestaurants),
-            tooltip: 'Search location',
-            icon: isSearchingLocation
-                ? const SizedBox(
-                    width: 17,
-                    height: 17,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(
+        ),
+      );
+    }
+
+    Widget radiusDropdown(bool tight, double controlHeight) {
+      return SizedBox(
+        height: controlHeight,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return DropdownButtonFormField<String>(
+              initialValue: selectedRadius,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: const Color(0xFFFFFEFC),
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: tight ? 7 : 8,
+                  vertical: tight ? 5 : 6,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(11),
+                  borderSide: const BorderSide(color: Color(0xFFE5DBD2)),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(11),
+                  borderSide: const BorderSide(color: Color(0xFFE5DBD2)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(11),
+                  borderSide: const BorderSide(color: Color(0xFFD79A32)),
+                ),
+              ),
+              style: TextStyle(
+                color: const Color(0xFF2A1B12),
+                fontSize: tight ? 11.7 : 12.2,
+                fontWeight: FontWeight.w700,
+              ),
+              selectedItemBuilder: (context) => const [
+                Text('1 mi'),
+                Text('3 mi'),
+                Text('5 mi'),
+                Text('10 mi'),
+                Text('15 mi'),
+                Text('20 mi'),
+                Text('30 mi'),
+              ],
+              items: const [
+                DropdownMenuItem(value: '1 mile', child: Text('1 mile')),
+                DropdownMenuItem(value: '3 miles', child: Text('3 miles')),
+                DropdownMenuItem(value: '5 miles', child: Text('5 miles')),
+                DropdownMenuItem(value: '10 miles', child: Text('10 miles')),
+                DropdownMenuItem(value: '15 miles', child: Text('15 miles')),
+                DropdownMenuItem(value: '20 miles', child: Text('20 miles')),
+                DropdownMenuItem(value: '30 miles', child: Text('30 miles')),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => selectedRadius = value);
+                _saveSelectedRadius(value);
+              },
+            );
+          },
+        ),
+      );
+    }
+
+    Widget restaurantSearchField(bool tight, double controlHeight) {
+      return SizedBox(
+        height: controlHeight,
+        child: TextField(
+          controller: generalSearchController,
+          onSubmitted: (_) => runGeneralSearch(),
+          decoration: searchDecoration(
+            hint: tight
+                ? 'Restaurants or cuisines...'
+                : 'Search for restaurants or cuisines...',
+            icon: Icons.search,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: tight ? 6 : 8,
+            ),
+            suffixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (generalSearchQuery.trim().isNotEmpty)
+                  IconButton(
+                    onPressed: clearGeneralSearch,
+                    tooltip: 'Clear search',
+                    icon: const Icon(
+                      Icons.close,
+                      color: Color(0xFF9A8D80),
+                      size: 17,
+                    ),
+                  ),
+                IconButton(
+                  onPressed: runGeneralSearch,
+                  tooltip: 'Search',
+                  icon: const Icon(
                     Icons.arrow_forward,
                     color: Color(0xFFE24A17),
-                    size: 20,
+                    size: 18,
                   ),
+                ),
+              ],
+            ),
           ),
         ),
-      );
-    }
-
-    Widget radiusControl() {
-      return LayoutBuilder(
-        builder: (context, constraints) {
-          final tight = constraints.maxWidth < 345;
-
-          return Row(
-            children: [
-              const Text(
-                'Search within',
-                style: TextStyle(
-                  color: Color(0xFF2A1B12),
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              SizedBox(width: tight ? 7 : 14),
-              if (!tight)
-                const Text(
-                  '1 mi',
-                  style: TextStyle(color: Color(0xFF776B61), fontSize: 12.5),
-                ),
-              Expanded(
-                child: SliderTheme(
-                  data: SliderTheme.of(context).copyWith(
-                    activeTrackColor: const Color(0xFF5F8F25),
-                    inactiveTrackColor: const Color(0xFFE3DDD6),
-                    thumbColor: const Color(0xFF5F8F25),
-                    overlayColor: const Color(0x1A5F8F25),
-                    trackHeight: 3,
-                    thumbShape: const RoundSliderThumbShape(
-                      enabledThumbRadius: 8,
-                    ),
-                  ),
-                  child: Slider(
-                    min: 1,
-                    max: 30,
-                    divisions: 29,
-                    value: selectedRadiusMiles().clamp(1, 30),
-                    onChanged: (value) {
-                      final rounded = value.round();
-                      final next = rounded == 1 ? '1 mile' : '$rounded miles';
-                      if (_isSupportedRadius(next)) {
-                        setState(() => selectedRadius = next);
-                        _saveSelectedRadius(next);
-                      }
-                    },
-                  ),
-                ),
-              ),
-              if (!tight)
-                const Text(
-                  '25 mi',
-                  style: TextStyle(color: Color(0xFF776B61), fontSize: 12.5),
-                ),
-              SizedBox(width: tight ? 5 : 10),
-              SizedBox(
-                width: tight ? 92 : 104,
-                child: DropdownButtonFormField<String>(
-                  initialValue: selectedRadius,
-                  decoration: InputDecoration(
-                    filled: true,
-                    fillColor: const Color(0xFFFFFEFC),
-                    isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(13),
-                      borderSide: const BorderSide(color: Color(0xFFE5DBD2)),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(13),
-                      borderSide: const BorderSide(color: Color(0xFFE5DBD2)),
-                    ),
-                  ),
-                  style: const TextStyle(
-                    color: Color(0xFF2A1B12),
-                    fontSize: 13,
-                    fontWeight: FontWeight.w600,
-                  ),
-                  items: const [
-                    DropdownMenuItem(value: '1 mile', child: Text('1 mi')),
-                    DropdownMenuItem(value: '3 miles', child: Text('3 mi')),
-                    DropdownMenuItem(value: '5 miles', child: Text('5 mi')),
-                    DropdownMenuItem(value: '10 miles', child: Text('10 mi')),
-                    DropdownMenuItem(value: '15 miles', child: Text('15 mi')),
-                    DropdownMenuItem(value: '20 miles', child: Text('20 mi')),
-                    DropdownMenuItem(value: '30 miles', child: Text('30 mi')),
-                  ],
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() => selectedRadius = value);
-                    _saveSelectedRadius(value);
-                  },
-                ),
-              ),
-            ],
-          );
-        },
       );
     }
 
@@ -2580,10 +2608,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final width = constraints.maxWidth;
-                    final tight = width < 390;
-                    final heroHeight = tight ? 214.0 : 230.0;
-                    final horizontalPadding = tight ? 8.0 : 12.0;
-                    final searchPadding = tight ? 8.0 : 12.0;
+                    final tight = width < 430;
+                    final controlHeight = tight ? 38.0 : 43.0;
+                    final heroHeight = tight ? 158.0 : 173.0;
+                    final horizontalPadding = tight ? 8.0 : 10.0;
+                    final searchPadding = tight ? 5.0 : 7.0;
 
                     return DecoratedBox(
                       decoration: const BoxDecoration(
@@ -2600,7 +2629,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             child: Padding(
                               padding: EdgeInsets.fromLTRB(
                                 horizontalPadding + 4,
-                                14,
+                                10,
                                 tight ? 6 : horizontalPadding,
                                 0,
                               ),
@@ -2616,45 +2645,6 @@ class _HomeScreenState extends State<HomeScreen> {
                                         FittedBox(
                                           fit: BoxFit.scaleDown,
                                           alignment: Alignment.centerLeft,
-                                          child: Text.rich(
-                                            const TextSpan(
-                                              children: [
-                                                TextSpan(
-                                                  text: 'Bite',
-                                                  style: TextStyle(
-                                                    color: Color(0xFF2A1B12),
-                                                  ),
-                                                ),
-                                                TextSpan(
-                                                  text: 'Saver',
-                                                  style: TextStyle(
-                                                    color: Color(0xFFC97912),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
-                                            style: TextStyle(
-                                              fontSize: tight ? 26 : 32,
-                                              fontWeight: FontWeight.w900,
-                                              height: 0.96,
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 5),
-                                        const Text(
-                                          'Save more. Eat better.',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: TextStyle(
-                                            color: Color(0xFF2A1B12),
-                                            fontSize: 12.5,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                        ),
-                                        SizedBox(height: tight ? 22 : 27),
-                                        FittedBox(
-                                          fit: BoxFit.scaleDown,
-                                          alignment: Alignment.centerLeft,
                                           child: Column(
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
@@ -2665,7 +2655,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   color: const Color(
                                                     0xFF2A1B12,
                                                   ),
-                                                  fontSize: tight ? 25 : 31,
+                                                  fontSize: tight ? 28 : 33,
                                                   fontWeight: FontWeight.w900,
                                                   height: 1.06,
                                                 ),
@@ -2676,7 +2666,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   color: const Color(
                                                     0xFF4F8A24,
                                                   ),
-                                                  fontSize: tight ? 25 : 31,
+                                                  fontSize: tight ? 28 : 33,
                                                   fontWeight: FontWeight.w900,
                                                   height: 1.06,
                                                 ),
@@ -2684,7 +2674,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                             ],
                                           ),
                                         ),
-                                        const SizedBox(height: 10),
+                                        const SizedBox(height: 6),
                                         Text(
                                           'Find and save on delicious deals from local restaurants near you.',
                                           maxLines: 2,
@@ -2693,8 +2683,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                             color: Colors.black.withValues(
                                               alpha: 0.68,
                                             ),
-                                            fontSize: tight ? 12.5 : 14.5,
-                                            height: 1.32,
+                                            fontSize: tight ? 11.8 : 13.1,
+                                            height: 1.22,
                                             fontWeight: FontWeight.w500,
                                           ),
                                         ),
@@ -2706,13 +2696,13 @@ class _HomeScreenState extends State<HomeScreen> {
                                     flex: tight ? 38 : 40,
                                     child: Padding(
                                       padding: EdgeInsets.only(
-                                        top: tight ? 26 : 18,
+                                        top: tight ? 17 : 13,
                                       ),
                                       child: Align(
                                         alignment: Alignment.topRight,
                                         child: IgnorePointer(
                                           child: FractionallySizedBox(
-                                            widthFactor: tight ? 1.14 : 1.08,
+                                            widthFactor: tight ? 1.09 : 1.04,
                                             child: Image.asset(
                                               'assets/images/hero.png',
                                               fit: BoxFit.contain,
@@ -2727,7 +2717,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           Transform.translate(
-                            offset: Offset(0, tight ? -16 : -20),
+                            offset: Offset(0, tight ? -12 : -16),
                             child: Padding(
                               padding: EdgeInsets.fromLTRB(
                                 horizontalPadding,
@@ -2739,120 +2729,66 @@ class _HomeScreenState extends State<HomeScreen> {
                                 width: double.infinity,
                                 padding: EdgeInsets.fromLTRB(
                                   searchPadding,
-                                  tight ? 8 : 10,
+                                  tight ? 3 : 5,
                                   searchPadding,
-                                  tight ? 8 : 10,
+                                  tight ? 3 : 5,
                                 ),
                                 decoration: BoxDecoration(
                                   color: const Color(0xFFFFFEFC),
-                                  borderRadius: BorderRadius.circular(18),
+                                  borderRadius: BorderRadius.circular(15),
                                   border: Border.all(
                                     color: const Color(0xFFEDE3D8),
                                     width: 0.8,
                                   ),
                                   boxShadow: const [
                                     BoxShadow(
-                                      color: Color.fromRGBO(64, 42, 22, 0.10),
-                                      blurRadius: 22,
-                                      offset: Offset(0, 9),
+                                      color: Color.fromRGBO(64, 42, 22, 0.085),
+                                      blurRadius: 18,
+                                      offset: Offset(0, 7),
                                     ),
                                   ],
                                 ),
                                 child: Column(
                                   mainAxisSize: MainAxisSize.min,
                                   children: [
-                                    TextField(
-                                      controller: generalSearchController,
-                                      onSubmitted: (_) => runGeneralSearch(),
-                                      decoration: searchDecoration(
-                                        hint:
-                                            'Search for restaurants or cuisines...',
-                                        icon: Icons.search,
-                                        contentPadding: EdgeInsets.symmetric(
-                                          horizontal: 14,
-                                          vertical: tight ? 12 : 14,
-                                        ),
-                                        suffixIcon: Row(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            if (generalSearchQuery
-                                                .trim()
-                                                .isNotEmpty)
-                                              IconButton(
-                                                onPressed: clearGeneralSearch,
-                                                tooltip: 'Clear search',
-                                                icon: const Icon(
-                                                  Icons.close,
-                                                  color: Color(0xFF9A8D80),
-                                                  size: 20,
-                                                ),
-                                              ),
-                                            IconButton(
-                                              onPressed: runGeneralSearch,
-                                              tooltip: 'Search',
-                                              icon: const Icon(
-                                                Icons.arrow_forward,
-                                                color: Color(0xFFE24A17),
-                                                size: 21,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
                                     Row(
                                       children: [
                                         Expanded(
-                                          flex: 43,
-                                          child: currentLocationButton(tight),
-                                        ),
-                                        SizedBox(width: tight ? 5 : 10),
-                                        Container(
-                                          width: tight ? 30 : 40,
-                                          height: tight ? 30 : 40,
-                                          alignment: Alignment.center,
-                                          decoration: BoxDecoration(
-                                            color: const Color(0xFFFFFEFC),
-                                            shape: BoxShape.circle,
-                                            border: Border.all(
-                                              color: const Color(0xFFE9DDD1),
-                                            ),
-                                          ),
-                                          child: const Text(
-                                            'OR',
-                                            style: TextStyle(
-                                              color: Color(0xFF2A1B12),
-                                              fontSize: 11.5,
-                                              fontWeight: FontWeight.w900,
-                                            ),
+                                          flex: 49,
+                                          child: currentLocationButton(
+                                            tight,
+                                            controlHeight,
                                           ),
                                         ),
-                                        SizedBox(width: tight ? 5 : 10),
+                                        SizedBox(width: tight ? 8 : 10),
                                         Expanded(
-                                          flex: 43,
-                                          child: typedLocationButton(tight),
+                                          flex: 51,
+                                          child: typedLocationButton(
+                                            tight,
+                                            controlHeight,
+                                          ),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 8),
-                                    radiusControl(),
-                                    if (statusLine.isNotEmpty) ...[
-                                      const SizedBox(height: 4),
-                                      Align(
-                                        alignment: Alignment.centerLeft,
-                                        child: Text(
-                                          statusLine,
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            color: Color(0xFF776B61),
-                                            fontSize: 11.5,
-                                            fontWeight: FontWeight.w600,
+                                    SizedBox(height: tight ? 2 : 3),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: restaurantSearchField(
+                                            tight,
+                                            controlHeight,
                                           ),
                                         ),
-                                      ),
-                                    ],
+                                        SizedBox(width: tight ? 5 : 7),
+                                        SizedBox(
+                                          width: tight ? 92 : 100,
+                                          child: radiusDropdown(
+                                            tight,
+                                            controlHeight,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
                                   ],
                                 ),
                               ),

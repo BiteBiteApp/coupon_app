@@ -1105,6 +1105,10 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                                               child: Text('1 mile'),
                                             ),
                                             DropdownMenuItem(
+                                              value: '3 miles',
+                                              child: Text('3 miles'),
+                                            ),
+                                            DropdownMenuItem(
                                               value: '5 miles',
                                               child: Text('5 miles'),
                                             ),
@@ -1117,8 +1121,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                                               child: Text('15 miles'),
                                             ),
                                             DropdownMenuItem(
-                                              value: '25 miles',
-                                              child: Text('25 miles'),
+                                              value: '20 miles',
+                                              child: Text('20 miles'),
                                             ),
                                             DropdownMenuItem(
                                               value: '30 miles',
