@@ -169,6 +169,44 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     AppModeStateService.setMode(mode);
   }
 
+  void _selectTab(int index) {
+    setState(() {
+      selectedIndex = index;
+    });
+  }
+
+  Widget _buildBiteSaverMenuButton() {
+    return PopupMenuButton<int>(
+      tooltip: 'Menu',
+      onSelected: _selectTab,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      color: const Color(0xFFFFFEFC),
+      itemBuilder: (context) => const [
+        PopupMenuItem(value: 0, child: Text('Home')),
+        PopupMenuItem(value: 2, child: Text('Admin')),
+        PopupMenuItem(value: 1, child: Text('Restaurant Hub')),
+        PopupMenuItem(value: 3, child: Text('Account')),
+      ],
+      child: Container(
+        width: 46,
+        height: 46,
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFFBF2),
+          borderRadius: BorderRadius.circular(23),
+          border: Border.all(color: const Color(0xFFEFE1D1)),
+          boxShadow: const [
+            BoxShadow(
+              color: Color.fromRGBO(64, 42, 22, 0.10),
+              blurRadius: 14,
+              offset: Offset(0, 7),
+            ),
+          ],
+        ),
+        child: const Icon(Icons.menu, color: Color(0xFF24170F), size: 25),
+      ),
+    );
+  }
+
   Widget _buildCurrentPage() {
     if (selectedIndex != 0) {
       return IndexedStack(index: selectedIndex, children: pages);
@@ -207,24 +245,15 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         ? mediaQuery.viewPadding.bottom - mediaQuery.padding.bottom
         : 0.0;
     final isBiteScore = selectedMode == AppMode.biteScore;
-    final selectedPillColor = isBiteScore
-        ? const Color(0xFFEAF2FF)
-        : const Color(0xFFF6E7CF);
-    final selectedBorderColor = isBiteScore
-        ? const Color(0xFFD6E4F8)
-        : const Color(0xD1FFFFFF);
-    final selectedShadowColor = isBiteScore
-        ? const Color.fromRGBO(36, 76, 140, 0.16)
-        : const Color.fromRGBO(0, 0, 0, 0.10);
     final selectedIconColor = isBiteScore
         ? const Color(0xFF285CC3)
-        : const Color(0xFF1E4CAA);
+        : const Color(0xFF5F8F25);
     final selectedTextColor = isBiteScore
         ? const Color(0xFF244F9E)
-        : const Color(0xFF1A469F);
+        : const Color(0xFF4F7D1F);
 
     final navigationBar = SizedBox(
-      height: 66,
+      height: 62,
       child: Row(
         children: [
           for (final item in [
@@ -251,44 +280,21 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
           ].asMap().entries)
             Expanded(
               child: InkWell(
-                onTap: () {
-                  setState(() {
-                    selectedIndex = item.key;
-                  });
-                },
+                onTap: () => _selectTab(item.key),
                 borderRadius: BorderRadius.circular(16),
                 child: Center(
                   child: SizedBox(
-                    height: item.key == selectedIndex ? 60 : 54,
+                    height: 56,
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
                         IntrinsicWidth(
                           child: Container(
-                            padding: item.key == selectedIndex
-                                ? const EdgeInsets.symmetric(
-                                    horizontal: 16,
-                                    vertical: 3,
-                                  )
-                                : EdgeInsets.zero,
-                            decoration: item.key == selectedIndex
-                                ? BoxDecoration(
-                                    color: selectedPillColor,
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: selectedBorderColor,
-                                      width: 1.0,
-                                    ),
-                                    boxShadow: [
-                                      BoxShadow(
-                                        color: selectedShadowColor,
-                                        blurRadius: 4,
-                                        offset: const Offset(0, 2),
-                                      ),
-                                    ],
-                                  )
-                                : null,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 2,
+                            ),
                             child: Column(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -302,7 +308,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                       color: item.key == selectedIndex
                                           ? selectedIconColor
                                           : const Color(0xFF766D61),
-                                      size: 24,
+                                      size: item.key == selectedIndex ? 26 : 24,
                                     ),
                                   ),
                                 ),
@@ -317,9 +323,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                             ? selectedTextColor
                                             : const Color(0xFF766D61),
                                         fontWeight: item.key == selectedIndex
-                                            ? FontWeight.w800
+                                            ? FontWeight.w700
                                             : FontWeight.w500,
-                                        fontSize: 13.5,
+                                        fontSize: 13,
                                         letterSpacing: 0,
                                         height: 1.0,
                                       ),
@@ -346,21 +352,22 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         top: false,
         child: Container(
           color: Colors.transparent,
-          padding: EdgeInsets.fromLTRB(16, 0, 16, 6 + extraBottomInset),
+          padding: EdgeInsets.fromLTRB(22, 0, 22, 8 + extraBottomInset),
           child: Container(
             decoration: BoxDecoration(
-              color: const Color(0xFFF6E7CF),
-              borderRadius: BorderRadius.circular(28),
+              color: const Color(0xFFFFFEFC),
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(color: const Color(0xFFEFE1D1)),
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.10),
-                  blurRadius: 7,
-                  offset: const Offset(0, 2),
+                  color: Colors.black.withValues(alpha: 0.075),
+                  blurRadius: 22,
+                  offset: const Offset(0, 10),
                 ),
               ],
             ),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(28),
+              borderRadius: BorderRadius.circular(30),
               child: navigationBar,
             ),
           ),
@@ -495,9 +502,19 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             bottom: false,
             child: Column(
               children: [
-                AppModeSwitcherBar(
-                  selectedMode: selectedMode,
-                  onModeSelected: _setMode,
+                Stack(
+                  children: [
+                    AppModeSwitcherBar(
+                      selectedMode: selectedMode,
+                      onModeSelected: _setMode,
+                    ),
+                    if (selectedMode == AppMode.biteSaver)
+                      Positioned(
+                        top: 14,
+                        right: 18,
+                        child: _buildBiteSaverMenuButton(),
+                      ),
+                  ],
                 ),
                 Expanded(child: _buildCurrentPage()),
               ],
