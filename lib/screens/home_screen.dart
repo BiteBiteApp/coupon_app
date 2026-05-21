@@ -2555,7 +2555,7 @@ class _HomeScreenState extends State<HomeScreen> {
           focusNode: _searchFocusNode,
           onSubmitted: (_) => runSearch(allRestaurants),
           decoration: searchDecoration(
-            hint: 'Enter a Location',
+            hint: 'City or zip code',
             icon: Icons.location_on,
             contentPadding: EdgeInsets.symmetric(
               horizontal: tight ? 5 : 9,
