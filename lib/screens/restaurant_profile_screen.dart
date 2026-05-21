@@ -26,8 +26,6 @@ class RestaurantProfileScreen extends StatefulWidget {
 class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   bool _isFavoriteRestaurant = false;
   bool _isSavingFavoriteRestaurant = false;
-  bool _showAbout = false;
-  bool _showHours = false;
   bool _showRestaurantInfo = false;
   bool _isSubmittingReport = false;
   double _modeDragProgress = 0;
@@ -456,72 +454,93 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
 
   Widget _buildExpandableInfoTile({
     required String title,
-    required String summary,
     required bool isExpanded,
     required ValueChanged<bool> onExpansionChanged,
     required Widget child,
   }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFFCF8),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE8D8C9), width: 1),
-        boxShadow: const [
-          BoxShadow(
-            color: Color.fromRGBO(94, 62, 30, 0.055),
-            blurRadius: 5,
-            offset: Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          initiallyExpanded: false,
-          tilePadding: const EdgeInsets.symmetric(horizontal: 14),
-          childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
-          onExpansionChanged: onExpansionChanged,
-          title: Text(
-            title,
-            style: const TextStyle(
-              color: Color(0xFF2B1D14),
-              fontSize: 16,
-              fontWeight: FontWeight.w700,
+    return _biteSaverRaisedSurface(
+      borderRadius: BorderRadius.circular(18),
+      innerMargin: const EdgeInsets.all(1.4),
+      shadowStrength: 0.64,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            InkWell(
+              onTap: () => onExpansionChanged(!isExpanded),
+              child: SizedBox(
+                height: 56,
+                width: double.infinity,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    Text(
+                      title,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(
+                        color: Color(0xFF9F4F34),
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Positioned(
+                      right: 14,
+                      child: AnimatedRotation(
+                        turns: isExpanded ? 0.5 : 0,
+                        duration: const Duration(milliseconds: 200),
+                        curve: Curves.easeOut,
+                        child: const Icon(
+                          Icons.expand_more,
+                          color: Color(0xFF9F4F34),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
             ),
-          ),
-          subtitle: Text(
-            summary,
-            maxLines: isExpanded ? 3 : 1,
-            overflow: TextOverflow.ellipsis,
-            style: const TextStyle(fontSize: 13, color: Color(0xFF7F6D5F)),
-          ),
-          children: [Align(alignment: Alignment.centerLeft, child: child)],
+            AnimatedCrossFade(
+              firstChild: const SizedBox(width: double.infinity),
+              secondChild: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+                child: Align(alignment: Alignment.centerLeft, child: child),
+              ),
+              crossFadeState: isExpanded
+                  ? CrossFadeState.showSecond
+                  : CrossFadeState.showFirst,
+              duration: const Duration(milliseconds: 200),
+              sizeCurve: Curves.easeOut,
+            ),
+          ],
         ),
       ),
     );
   }
 
-  Widget _buildHoursSection() {
-    final summary = weeklyHours.isEmpty
-        ? 'Hours not set'
-        : (weeklyHours[DateTime.now().weekday % 7].closed
-              ? 'Closed today'
-              : 'Open today: '
-                    '${weeklyHours[DateTime.now().weekday % 7].opensAt} - '
-                    '${weeklyHours[DateTime.now().weekday % 7].closesAt}');
-
+  Widget _buildRestaurantInformationSection() {
     return _buildExpandableInfoTile(
-      title: 'Hours',
-      summary: summary,
-      isExpanded: _showHours,
-      onExpansionChanged: (expanded) {
-        setState(() {
-          _showHours = expanded;
-        });
-      },
+      title: 'Restaurant Information',
+      isExpanded: _showRestaurantInfo,
+      onExpansionChanged: (expanded) =>
+          setState(() => _showRestaurantInfo = expanded),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          if (hasBio) ...[
+            const Text(
+              'About',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 6),
+            Text(restaurant.bio!, style: const TextStyle(fontSize: 14)),
+            const SizedBox(height: 14),
+          ],
+          const Text(
+            'Hours',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
           if (weeklyHours.isEmpty)
             const Text('Hours not set')
           else
@@ -541,31 +560,12 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                   ],
                 ),
               ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildRestaurantInfoSection() {
-    final details = <String>[
-      if (hasStreetAddress) restaurant.streetAddress!,
-      '${restaurant.city}, ${restaurant.zipCode}',
-      if (hasPhone) restaurant.phone!,
-      if (hasWebsite) restaurant.website!,
-    ];
-
-    return _buildExpandableInfoTile(
-      title: 'Restaurant Info',
-      summary: details.isEmpty ? 'Address and contact details' : details.first,
-      isExpanded: _showRestaurantInfo,
-      onExpansionChanged: (expanded) {
-        setState(() {
-          _showRestaurantInfo = expanded;
-        });
-      },
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+          const SizedBox(height: 14),
+          const Text(
+            'Details',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 6),
           if (hasStreetAddress) ...[
             InkWell(
               onTap: () {
@@ -599,24 +599,6 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
           ],
         ],
       ),
-    );
-  }
-
-  Widget? _buildAboutSection() {
-    if (!hasBio) {
-      return null;
-    }
-
-    return _buildExpandableInfoTile(
-      title: 'About',
-      summary: restaurant.bio!,
-      isExpanded: _showAbout,
-      onExpansionChanged: (expanded) {
-        setState(() {
-          _showAbout = expanded;
-        });
-      },
-      child: Text(restaurant.bio!, style: const TextStyle(fontSize: 14)),
     );
   }
 
@@ -1044,13 +1026,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        _buildHoursSection(),
-                        if (hasBio) ...[
-                          const SizedBox(height: 10),
-                          _buildAboutSection()!,
-                        ],
-                        const SizedBox(height: 10),
-                        _buildRestaurantInfoSection(),
+                        _buildRestaurantInformationSection(),
                         Align(
                           alignment: Alignment.centerLeft,
                           child: TextButton.icon(
@@ -1160,6 +1136,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                             builder: (context) =>
                                                 CouponDetailScreen(
                                                   coupon: coupon,
+                                                  restaurant: restaurant,
                                                 ),
                                           ),
                                         );

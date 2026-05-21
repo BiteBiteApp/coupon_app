@@ -14,6 +14,8 @@ import '../models/demo_redemption_store.dart';
 import '../models/restaurant.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/app_error_text.dart';
+import '../services/bitescore_sign_in_gate.dart';
+import '../services/bitescore_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/shared_location_state_service.dart';
 import '../widgets/pressable_scale.dart';
@@ -40,7 +42,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  static const double _collapsedHeaderExtent = 82;
+  static const double _collapsedHeaderExtent = 60;
   static const double _expandedHeaderExtent = 270;
   static const String _selectedRadiusPreferenceKey = 'selected_radius';
   static const List<String> _restaurantPlaceholderImages = [
@@ -56,6 +58,8 @@ class _HomeScreenState extends State<HomeScreen> {
   String generalSearchQuery = '';
   final TextEditingController generalSearchController = TextEditingController();
   final ScrollController _listScrollController = ScrollController();
+  final Set<String> _favoriteRestaurantKeys = <String>{};
+  final Set<String> _savingFavoriteRestaurantKeys = <String>{};
 
   bool usingCurrentLocation = false;
   bool usingTypedSearchLocation = false;
@@ -65,6 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
   String? detectedCity;
   String? detectedZip;
   String? locationStatusMessage;
+  String? _favoriteRestaurantsSignature;
   Position? currentPosition;
   SearchCenter? typedSearchCenter;
 
@@ -981,31 +986,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
   String _formatCouponMetaLine(Coupon coupon, {required bool proximityOnly}) {
     final parts = <String>[
-      _formatCouponListExpiresLabel(coupon),
-      coupon.usageRule,
       if (proximityOnly) 'Unlocked nearby',
       if (coupon.couponCode != null) 'Code: ${coupon.couponCode}',
     ];
     return parts.join(' • ');
-  }
-
-  String _formatCouponListExpiresLabel(Coupon coupon) {
-    if (coupon.endTime != null) {
-      return 'Exp. ${Coupon.formatMonthDay(coupon.endTime!)}';
-    }
-
-    return coupon.shortExpiresLabel
-        .replaceFirst(
-          RegExp(r'\s+at\s+\d{1,2}:\d{2}\s*(AM|PM)', caseSensitive: false),
-          '',
-        )
-        .replaceFirst(
-          RegExp(r'\s+\d{1,2}:\d{2}\s*(AM|PM)', caseSensitive: false),
-          '',
-        )
-        .replaceFirst(RegExp(r'\s+\d{1,2}\s*(AM|PM)', caseSensitive: false), '')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
   }
 
   int _stableRestaurantImageIndex(Restaurant restaurant, int index) {
@@ -1631,13 +1615,138 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void openRestaurantProfile(Restaurant restaurant) {
-    Navigator.push(
+  Future<void> openRestaurantProfile(Restaurant restaurant) async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => RestaurantProfileScreen(restaurant: restaurant),
       ),
     );
+    if (mounted) {
+      _favoriteRestaurantsSignature = null;
+      setState(() {});
+    }
+  }
+
+  String _restaurantFavoriteKey(Restaurant restaurant) {
+    final keySource = [
+      restaurant.name,
+      restaurant.city,
+      restaurant.zipCode,
+      restaurant.streetAddress ?? '',
+    ].join('_').toLowerCase();
+    final normalizedKey = keySource
+        .replaceAll(RegExp(r'[^a-z0-9]+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    return normalizedKey.isEmpty
+        ? 'bitesaver_restaurant'
+        : 'bitesaver_$normalizedKey';
+  }
+
+  String _favoriteStatusSignature(List<Restaurant> restaurants) {
+    final authScope = BiteScoreSignInGate.canCurrentUserSaveFavorites
+        ? 'signed-in'
+        : 'guest';
+    return '$authScope:${restaurants.map(_restaurantFavoriteKey).join('|')}';
+  }
+
+  Future<void> _loadRestaurantFavoriteStatuses(
+    List<Restaurant> restaurants,
+  ) async {
+    final signature = _favoriteStatusSignature(restaurants);
+    if (_favoriteRestaurantsSignature == signature) {
+      return;
+    }
+    _favoriteRestaurantsSignature = signature;
+
+    if (!BiteScoreSignInGate.canCurrentUserSaveFavorites) {
+      if (_favoriteRestaurantKeys.isNotEmpty && mounted) {
+        setState(() {
+          _favoriteRestaurantKeys.clear();
+        });
+      }
+      return;
+    }
+
+    final favoriteKeys = <String>{};
+    for (final restaurant in restaurants) {
+      final isFavorite =
+          await BiteScoreService.isSaverRestaurantFavoritedByCurrentUser(
+            restaurant,
+          );
+      if (isFavorite) {
+        favoriteKeys.add(_restaurantFavoriteKey(restaurant));
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _favoriteRestaurantKeys
+        ..clear()
+        ..addAll(favoriteKeys);
+    });
+  }
+
+  Future<void> _toggleRestaurantFavorite(Restaurant restaurant) async {
+    final key = _restaurantFavoriteKey(restaurant);
+    if (_savingFavoriteRestaurantKeys.contains(key)) {
+      return;
+    }
+
+    final canSave = await BiteScoreSignInGate.ensureSignedInForFavorites(
+      context,
+      returnToOriginAfterSignIn: true,
+    );
+    if (!canSave || !mounted) {
+      return;
+    }
+
+    final nextIsFavorite = !_favoriteRestaurantKeys.contains(key);
+    setState(() {
+      _savingFavoriteRestaurantKeys.add(key);
+      if (nextIsFavorite) {
+        _favoriteRestaurantKeys.add(key);
+      } else {
+        _favoriteRestaurantKeys.remove(key);
+      }
+    });
+
+    try {
+      await BiteScoreService.setSaverRestaurantFavorite(
+        restaurant: restaurant,
+        isFavorite: nextIsFavorite,
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          if (nextIsFavorite) {
+            _favoriteRestaurantKeys.remove(key);
+          } else {
+            _favoriteRestaurantKeys.add(key);
+          }
+        });
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            SnackBar(
+              content: Text(
+                AppErrorText.friendly(
+                  error,
+                  fallback: 'Could not update this saved restaurant right now.',
+                ),
+              ),
+            ),
+          );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _savingFavoriteRestaurantKeys.remove(key);
+        });
+      }
+    }
   }
 
   void runGeneralSearch() {
@@ -1732,8 +1841,20 @@ class _HomeScreenState extends State<HomeScreen> {
                             : () => useMyLocation(allRestaurants),
                         style: ElevatedButton.styleFrom(
                           minimumSize: Size.fromHeight(minHeight),
+                          backgroundColor: const Color(0xFFE94312),
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: const Color(
+                            0xFFE94312,
+                          ).withValues(alpha: 0.55),
+                          disabledForegroundColor: Colors.white.withValues(
+                            alpha: 0.82,
+                          ),
+                          elevation: 0,
                           padding: const EdgeInsets.symmetric(vertical: 10),
                           tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                          textStyle: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: borderRadius,
                             side: BorderSide.none,
@@ -2037,9 +2158,13 @@ class _HomeScreenState extends State<HomeScreen> {
         restaurant.bio!.trim()
       else if (restaurant.city.trim().isNotEmpty)
         _toTitleCase(restaurant.city),
-      primaryCoupon.usageRule.trim(),
     ].where((part) => part.isNotEmpty).take(2).toList();
     final proximityOnly = isProximityCoupon(primaryCoupon);
+    final favoriteKey = _restaurantFavoriteKey(restaurant);
+    final isFavoriteRestaurant = _favoriteRestaurantKeys.contains(favoriteKey);
+    final isSavingFavoriteRestaurant = _savingFavoriteRestaurantKeys.contains(
+      favoriteKey,
+    );
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 7),
@@ -2076,13 +2201,54 @@ class _HomeScreenState extends State<HomeScreen> {
                   return Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(11),
-                        child: Image.asset(
-                          _placeholderImageForRestaurant(restaurant, index),
-                          width: imageWidth,
-                          height: compact ? 98 : 113,
-                          fit: BoxFit.cover,
+                      SizedBox(
+                        width: imageWidth,
+                        height: compact ? 98 : 113,
+                        child: Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Positioned.fill(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(11),
+                                child: Image.asset(
+                                  _placeholderImageForRestaurant(
+                                    restaurant,
+                                    index,
+                                  ),
+                                  fit: BoxFit.cover,
+                                ),
+                              ),
+                            ),
+                            Positioned(
+                              left: 5,
+                              bottom: -5,
+                              child: SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: IconButton(
+                                  tooltip: isFavoriteRestaurant
+                                      ? 'Unsave restaurant'
+                                      : 'Save restaurant',
+                                  onPressed: isSavingFavoriteRestaurant
+                                      ? null
+                                      : () => _toggleRestaurantFavorite(
+                                          restaurant,
+                                        ),
+                                  visualDensity: VisualDensity.compact,
+                                  padding: EdgeInsets.zero,
+                                  icon: Icon(
+                                    isFavoriteRestaurant
+                                        ? Icons.favorite
+                                        : Icons.favorite_border,
+                                    color: isFavoriteRestaurant
+                                        ? Colors.red.shade400
+                                        : const Color(0xFFE24A17),
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -2207,7 +2373,7 @@ class _HomeScreenState extends State<HomeScreen> {
                               ],
                             ),
                             const SizedBox(height: 5),
-                            _buildCouponPreview(primaryCoupon),
+                            _buildCouponPreview(primaryCoupon, restaurant),
                           ],
                         ),
                       ),
@@ -2222,17 +2388,19 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCouponPreview(Coupon coupon) {
-    final useGreen =
-        coupon.title.toLowerCase().contains('free') ||
-        coupon.title.contains('%');
+  Widget _buildCouponPreview(Coupon coupon, Restaurant restaurant) {
+    final metaLine = _formatCouponMetaLine(
+      coupon,
+      proximityOnly: isProximityCoupon(coupon),
+    );
 
     return InkWell(
       onTap: () async {
         await Navigator.push(
           context,
           MaterialPageRoute(
-            builder: (context) => CouponDetailScreen(coupon: coupon),
+            builder: (context) =>
+                CouponDetailScreen(coupon: coupon, restaurant: restaurant),
           ),
         );
         setState(() {});
@@ -2242,10 +2410,10 @@ class _HomeScreenState extends State<HomeScreen> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: useGreen ? const Color(0xFFF8FCF2) : const Color(0xFFFFF8F2),
+          color: const Color(0xFFF8FCF2),
           borderRadius: BorderRadius.circular(11),
           border: Border.all(
-            color: useGreen ? const Color(0xFFB9D99E) : const Color(0xFFFFB58E),
+            color: const Color(0xFFB9D99E),
             width: 0.75,
             strokeAlign: BorderSide.strokeAlignInside,
           ),
@@ -2263,39 +2431,30 @@ class _HomeScreenState extends State<HomeScreen> {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: useGreen
-                          ? const Color(0xFF4E7B20)
-                          : const Color(0xFFE24A17),
+                      color: const Color(0xFF4E7B20),
                       fontSize: 14.1,
                       fontWeight: FontWeight.w900,
                       height: 1.05,
                     ),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    _formatCouponMetaLine(
-                      coupon,
-                      proximityOnly: isProximityCoupon(coupon),
+                  if (metaLine.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      metaLine,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Color(0xFF665C54),
+                        fontSize: 11.2,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      color: Color(0xFF665C54),
-                      fontSize: 11.2,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
+                  ],
                 ],
               ),
             ),
             const SizedBox(width: 7),
-            Icon(
-              Icons.favorite_border,
-              color: useGreen
-                  ? const Color(0xFF5F8F25)
-                  : const Color(0xFFE24A17),
-              size: 20,
-            ),
+            Icon(Icons.chevron_right, color: const Color(0xFF5F8F25), size: 18),
           ],
         ),
       ),
@@ -2307,7 +2466,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required List<Restaurant> filteredRestaurants,
     required double expansionT,
   }) {
-    final collapsed = expansionT <= 0.05;
+    final collapsed = expansionT <= 0.12;
     final statusLine = compactStatusLine(filteredRestaurants);
 
     InputDecoration searchDecoration({
@@ -2552,53 +2711,65 @@ class _HomeScreenState extends State<HomeScreen> {
       color: const Color(0xFFFFFCF7),
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 180),
+        layoutBuilder: (currentChild, previousChildren) {
+          return Stack(
+            alignment: Alignment.topCenter,
+            children: <Widget>[...previousChildren, ?currentChild],
+          );
+        },
         child: collapsed
             ? Padding(
                 key: const ValueKey('collapsed'),
-                padding: const EdgeInsets.fromLTRB(10, 8, 10, 0),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 9,
-                  ),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFFEFC),
-                    borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: const Color(0xFFEDE3D8)),
-                    boxShadow: const [
-                      BoxShadow(
-                        color: Color.fromRGBO(64, 42, 22, 0.07),
-                        blurRadius: 12,
-                        offset: Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          statusLine.isEmpty
-                              ? 'Find local BiteSaver deals'
-                              : statusLine,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Color(0xFF2A1B12),
-                            fontSize: 14,
-                            fontWeight: FontWeight.w800,
+                padding: const EdgeInsets.fromLTRB(10, 7, 10, 0),
+                child: SizedBox(
+                  height: 44,
+                  child: Container(
+                    padding: const EdgeInsets.only(left: 13, right: 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFFEFC),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFEDE3D8)),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color.fromRGBO(64, 42, 22, 0.07),
+                          blurRadius: 12,
+                          offset: Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            statusLine.isEmpty
+                                ? 'Find local BiteSaver deals'
+                                : statusLine,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Color(0xFF2A1B12),
+                              fontSize: 13.4,
+                              fontWeight: FontWeight.w800,
+                            ),
                           ),
                         ),
-                      ),
-                      IconButton(
-                        onPressed: _expandHeader,
-                        visualDensity: VisualDensity.compact,
-                        icon: const Icon(
-                          Icons.keyboard_arrow_down,
-                          color: Color(0xFFE24A17),
+                        IconButton(
+                          onPressed: _expandHeader,
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 34,
+                            height: 34,
+                          ),
+                          padding: EdgeInsets.zero,
+                          icon: const Icon(
+                            Icons.keyboard_arrow_down,
+                            color: Color(0xFFE24A17),
+                            size: 24,
+                          ),
+                          tooltip: 'Expand search',
                         ),
-                        tooltip: 'Expand search',
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               )
@@ -2717,7 +2888,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           Transform.translate(
-                            offset: Offset(0, tight ? -12 : -16),
+                            offset: Offset(0, tight ? -4 : -6),
                             child: Padding(
                               padding: EdgeInsets.fromLTRB(
                                 horizontalPadding,
@@ -2867,6 +3038,11 @@ class _HomeScreenState extends State<HomeScreen> {
               firestoreRestaurants: _restaurants,
               sampleRestaurants: sampleRestaurants,
             );
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) {
+                _loadRestaurantFavoriteStatuses(allRestaurants);
+              }
+            });
 
             detectAndShowNewCouponNotifications(allRestaurants);
 
@@ -2967,12 +3143,17 @@ class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
       1.0,
     );
 
-    return ClipRect(
-      child: SizedBox(
-        height: currentExtent,
-        child: Align(
+    return SizedBox(
+      height: currentExtent,
+      child: ClipRect(
+        child: OverflowBox(
           alignment: Alignment.topCenter,
-          child: builder(context, expansionT),
+          minHeight: 0,
+          maxHeight: maxExtent,
+          child: SizedBox(
+            height: maxExtent,
+            child: builder(context, expansionT),
+          ),
         ),
       ),
     );

@@ -5,18 +5,22 @@ import 'package:flutter/material.dart';
 
 import '../models/coupon.dart';
 import '../models/demo_redemption_store.dart';
+import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/bitesaver_report_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
+import '../services/restaurant_account_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/bitesaver_report_dialog.dart';
 import 'customer_account_screen.dart';
+import 'restaurant_profile_screen.dart';
 
 class CouponDetailScreen extends StatefulWidget {
   final Coupon coupon;
+  final Restaurant? restaurant;
 
-  const CouponDetailScreen({super.key, required this.coupon});
+  const CouponDetailScreen({super.key, required this.coupon, this.restaurant});
 
   @override
   State<CouponDetailScreen> createState() => _CouponDetailScreenState();
@@ -35,6 +39,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   bool _isFavoriteCoupon = false;
   bool _isSavingFavoriteCoupon = false;
   bool _isSubmittingReport = false;
+  bool _isOpeningRestaurant = false;
   Timer? _countdownTicker;
 
   bool get _supportsRedeemTimer =>
@@ -253,6 +258,68 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
         });
       }
     }
+  }
+
+  Future<void> _openRestaurantProfile() async {
+    if (_isOpeningRestaurant) {
+      return;
+    }
+
+    setState(() {
+      _isOpeningRestaurant = true;
+    });
+
+    try {
+      final restaurant =
+          widget.restaurant ?? await _findRestaurantForCoupon(widget.coupon);
+      if (!mounted) {
+        return;
+      }
+
+      if (restaurant == null) {
+        _showSnackBar('Restaurant profile is not available right now.');
+        return;
+      }
+
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => RestaurantProfileScreen(restaurant: restaurant),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not open this restaurant right now.',
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isOpeningRestaurant = false;
+        });
+      }
+    }
+  }
+
+  Future<Restaurant?> _findRestaurantForCoupon(Coupon coupon) async {
+    final restaurants =
+        await RestaurantAccountService.loadApprovedRestaurantsWithCoupons();
+    final couponRestaurant = coupon.restaurant.trim().toLowerCase();
+    if (couponRestaurant.isEmpty) {
+      return null;
+    }
+
+    for (final restaurant in restaurants) {
+      if (restaurant.name.trim().toLowerCase() == couponRestaurant) {
+        return restaurant;
+      }
+    }
+
+    return null;
   }
 
   String _availabilityText() {
@@ -554,6 +621,32 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                             ),
                             const SizedBox(height: 10),
                             _detailLine('Restaurant', restaurantLabel),
+                            const SizedBox(height: 8),
+                            OutlinedButton.icon(
+                              onPressed: _isOpeningRestaurant
+                                  ? null
+                                  : _openRestaurantProfile,
+                              icon: _isOpeningRestaurant
+                                  ? const SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.storefront_outlined),
+                              label: const Text('View Restaurant'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: _warmAccent,
+                                side: const BorderSide(
+                                  color: Color(0xFFE3C7B3),
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
                             _detailLine('Expires', coupon.shortExpiresLabel),
                             _detailLine('Usage', usageRuleLabel),
                             _detailLine('Status', _availabilityText()),

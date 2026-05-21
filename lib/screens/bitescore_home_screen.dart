@@ -788,18 +788,19 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     double minHeight = 52,
     bool showRefresh = true,
   }) {
-    final borderRadius = BorderRadius.circular(16);
+    final borderRadius = BorderRadius.circular(14);
     final sharedActionButtonStyle = ElevatedButton.styleFrom(
-      backgroundColor: BiteRaterTheme.cardSurface,
-      foregroundColor: Theme.of(context).colorScheme.primary,
-      elevation: 1,
-      shadowColor: Theme.of(context).colorScheme.shadow.withOpacity(0.20),
+      backgroundColor: const Color(0xFFE94312),
+      foregroundColor: Colors.white,
+      disabledBackgroundColor: const Color(0xFFE94312).withValues(alpha: 0.55),
+      disabledForegroundColor: Colors.white.withValues(alpha: 0.82),
+      elevation: 0,
       tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       shape: RoundedRectangleBorder(
         borderRadius: borderRadius,
-        side: BorderSide(color: Theme.of(context).colorScheme.outlineVariant),
+        side: BorderSide.none,
       ),
-      textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+      textStyle: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
     );
 
     return Align(
