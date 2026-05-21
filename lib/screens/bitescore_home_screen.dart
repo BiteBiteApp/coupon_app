@@ -1606,7 +1606,72 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
-                  child: _buildSortControl(),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Flexible(
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: SizedBox(
+                            height: 36,
+                            child: DecoratedBox(
+                              decoration: BoxDecoration(
+                                gradient: const LinearGradient(
+                                  begin: Alignment.centerLeft,
+                                  end: Alignment.centerRight,
+                                  colors: [
+                                    Color(0xFF6C88B8),
+                                    Color(0xFF7082B2),
+                                    Color(0xFF767AA9),
+                                  ],
+                                ),
+                                borderRadius: BorderRadius.circular(18),
+                                border: Border.all(
+                                  color: BiteRaterTheme.ocean.withValues(
+                                    alpha: 0.14,
+                                  ),
+                                  width: 1,
+                                ),
+                              ),
+                              child: ElevatedButton(
+                                onPressed: _openCreateAndRate,
+                                style: BiteRaterTheme.filledButtonStyle()
+                                    .copyWith(
+                                      minimumSize:
+                                          const WidgetStatePropertyAll(
+                                            Size(0, 36),
+                                          ),
+                                      tapTargetSize: MaterialTapTargetSize
+                                          .shrinkWrap,
+                                      textStyle:
+                                          const WidgetStatePropertyAll(
+                                            TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w800,
+                                              letterSpacing: 0.1,
+                                            ),
+                                          ),
+                                      padding:
+                                          const WidgetStatePropertyAll(
+                                            EdgeInsets.symmetric(
+                                              horizontal: 14,
+                                            ),
+                                          ),
+                                    ),
+                                child: const Text(
+                                  'Add Dish or Restaurant',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      _buildSortControl(),
+                    ],
+                  ),
                 ),
               ),
             SliverPadding(
