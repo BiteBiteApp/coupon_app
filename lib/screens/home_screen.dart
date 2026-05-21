@@ -2200,14 +2200,10 @@ class _HomeScreenState extends State<HomeScreen> {
                           clipBehavior: Clip.none,
                           children: [
                             Positioned.fill(
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(11),
-                                child: Image.asset(
-                                  _placeholderImageForRestaurant(
-                                    restaurant,
-                                    index,
-                                  ),
-                                  fit: BoxFit.cover,
+                              child: _SoftRestaurantImageFrame(
+                                imagePath: _placeholderImageForRestaurant(
+                                  restaurant,
+                                  index,
                                 ),
                               ),
                             ),
@@ -3162,4 +3158,85 @@ class _ImmediatePressFeedback extends StatelessWidget {
   Widget build(BuildContext context) {
     return child;
   }
+}
+
+class _SoftRestaurantImageFrame extends StatelessWidget {
+  final String imagePath;
+
+  const _SoftRestaurantImageFrame({required this.imagePath});
+
+  @override
+  Widget build(BuildContext context) {
+    return Transform.translate(
+      offset: const Offset(-1, -1),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: 3,
+            right: -1,
+            top: 4,
+            bottom: -2,
+            child: ClipPath(
+              clipper: const _SquircleClipper(),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFE8D6C1),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color.fromRGBO(64, 42, 22, 0.16),
+                      blurRadius: 9,
+                      offset: Offset(0, 4),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          Positioned.fill(
+            child: ClipPath(
+              clipper: const _SquircleClipper(),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF9F1),
+                  border: Border.all(
+                    color: const Color(0xFFFFF7EC),
+                    width: 1.2,
+                  ),
+                ),
+                child: Image.asset(imagePath, fit: BoxFit.cover),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SquircleClipper extends CustomClipper<Path> {
+  const _SquircleClipper();
+
+  @override
+  Path getClip(Size size) {
+    final w = size.width;
+    final h = size.height;
+    final r = (w < h ? w : h) * 0.23;
+    final c = r * 0.66;
+
+    return Path()
+      ..moveTo(r, 0)
+      ..lineTo(w - r, 0)
+      ..cubicTo(w - c, 0, w, c, w, r)
+      ..lineTo(w, h - r)
+      ..cubicTo(w, h - c, w - c, h, w - r, h)
+      ..lineTo(r, h)
+      ..cubicTo(c, h, 0, h - c, 0, h - r)
+      ..lineTo(0, r)
+      ..cubicTo(0, c, c, 0, r, 0)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(covariant _SquircleClipper oldClipper) => false;
 }

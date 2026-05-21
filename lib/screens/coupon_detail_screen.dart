@@ -391,58 +391,46 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   }
 
   Widget _couponSurface({required Widget child}) {
-    const frameInset = 8.0;
-    final cardRadius = BorderRadius.circular(20);
-    final frameRadius = BorderRadius.circular(28);
+    final radius = BorderRadius.circular(22);
 
-    return Stack(
-      children: [
-        Positioned.fill(
-          child: ClipRRect(
-            borderRadius: frameRadius,
-            child: Image.asset(
-              'assets/images/diamond_coupon_border.png',
-              fit: BoxFit.fill,
-            ),
-          ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color(0xFFFFFEFB),
+            Color(0xFFFBF4EC),
+            Color(0xFFF1DFCE),
+          ],
         ),
-        Padding(
-          padding: const EdgeInsets.all(frameInset),
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              borderRadius: cardRadius,
-              gradient: const LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFFFFFEFB),
-                  Color(0xFFFAF2EA),
-                  Color(0xFFF2E4D6),
-                ],
-              ),
-              border: Border.all(color: const Color(0xFFE5D2C2), width: 1),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color.fromRGBO(120, 80, 40, 0.16),
-                  blurRadius: 10,
-                  offset: Offset(0, 4),
-                ),
-                BoxShadow(
-                  color: Color.fromRGBO(120, 80, 40, 0.12),
-                  blurRadius: 0,
-                  offset: Offset(0, 2),
-                ),
-                BoxShadow(
-                  color: Color.fromRGBO(255, 255, 255, 0.55),
-                  blurRadius: 2,
-                  offset: Offset(0, -1),
-                ),
-              ],
-            ),
-            child: child,
+        border: Border.all(color: const Color(0xFFE6C79F), width: 1.15),
+        boxShadow: const [
+          BoxShadow(
+            color: Color.fromRGBO(91, 50, 20, 0.15),
+            blurRadius: 18,
+            offset: Offset(0, 9),
           ),
+          BoxShadow(
+            color: Color.fromRGBO(122, 72, 29, 0.12),
+            blurRadius: 0,
+            offset: Offset(0, 3),
+          ),
+          BoxShadow(
+            color: Color.fromRGBO(255, 255, 255, 0.72),
+            blurRadius: 2,
+            offset: Offset(0, -1),
+          ),
+        ],
+      ),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          borderRadius: radius,
+          border: Border.all(color: const Color(0xEFFFFFFF), width: 0.8),
         ),
-      ],
+        child: child,
+      ),
     );
   }
 
