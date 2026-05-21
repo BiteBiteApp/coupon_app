@@ -192,21 +192,21 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         PopupMenuItem(value: 3, child: Text('Account')),
       ],
       child: Container(
-        width: 39,
-        height: 39,
+        width: 38,
+        height: 38,
         decoration: BoxDecoration(
           color: const Color(0xFFFFFBF2),
-          borderRadius: BorderRadius.circular(19.5),
+          borderRadius: BorderRadius.circular(19),
           border: Border.all(color: const Color(0xFFEFE1D1)),
           boxShadow: const [
             BoxShadow(
-              color: Color.fromRGBO(64, 42, 22, 0.10),
-              blurRadius: 14,
-              offset: Offset(0, 7),
+              color: Color.fromRGBO(64, 42, 22, 0.08),
+              blurRadius: 10,
+              offset: Offset(0, 5),
             ),
           ],
         ),
-        child: const Icon(Icons.menu, color: Color(0xFF24170F), size: 22),
+        child: const Icon(Icons.menu, color: Color(0xFF24170F), size: 21),
       ),
     );
   }
@@ -485,24 +485,25 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             bottom: false,
             child: Column(
               children: [
-                Stack(
-                  children: [
-                    AppModeSwitcherBar(
-                      selectedMode: selectedMode,
-                      onModeSelected: _setMode,
-                    ),
-                    Positioned(
-                      top: 9,
-                      right: 18,
-                      child: Offstage(
-                        offstage: selectedMode != AppMode.biteSaver,
-                        child: IgnorePointer(
-                          ignoring: selectedMode != AppMode.biteSaver,
-                          child: _buildBiteSaverMenuButton(),
+                Container(
+                  width: double.infinity,
+                  color: selectedMode == AppMode.biteScore
+                      ? const Color(0xFFEFF4FA)
+                      : const Color(0xFFFFFEFC),
+                  child: Row(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(left: 16, right: 4),
+                        child: _buildBiteSaverMenuButton(),
+                      ),
+                      Expanded(
+                        child: AppModeSwitcherBar(
+                          selectedMode: selectedMode,
+                          onModeSelected: _setMode,
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 Expanded(child: _buildCurrentPage()),
               ],

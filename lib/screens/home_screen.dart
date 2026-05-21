@@ -60,6 +60,7 @@ class _HomeScreenState extends State<HomeScreen> {
   final ScrollController _listScrollController = ScrollController();
   final Set<String> _favoriteRestaurantKeys = <String>{};
   final Set<String> _savingFavoriteRestaurantKeys = <String>{};
+  final Set<String> _expandedRestaurantDealKeys = <String>{};
 
   bool usingCurrentLocation = false;
   bool usingTypedSearchLocation = false;
@@ -1012,10 +1013,6 @@ class _HomeScreenState extends State<HomeScreen> {
       restaurant,
       index,
     )];
-  }
-
-  String _couponCountLabel(int count) {
-    return '$count ${count == 1 ? 'coupon' : 'coupons'}';
   }
 
   List<Restaurant> filterRestaurants(List<Restaurant> allRestaurants) {
@@ -2148,23 +2145,18 @@ class _HomeScreenState extends State<HomeScreen> {
     required int index,
   }) {
     final coupons = restaurant.coupons;
-    final primaryCoupon = coupons.first;
     final title = restaurant.name.trim().isEmpty
         ? 'Restaurant'
         : restaurant.name.trim();
     final locationLine = _formatRestaurantLocationLine(restaurant);
-    final metaParts = <String>[
-      if (restaurant.bio?.trim().isNotEmpty == true)
-        restaurant.bio!.trim()
-      else if (restaurant.city.trim().isNotEmpty)
-        _toTitleCase(restaurant.city),
-    ].where((part) => part.isNotEmpty).take(2).toList();
-    final proximityOnly = isProximityCoupon(primaryCoupon);
     final favoriteKey = _restaurantFavoriteKey(restaurant);
     final isFavoriteRestaurant = _favoriteRestaurantKeys.contains(favoriteKey);
     final isSavingFavoriteRestaurant = _savingFavoriteRestaurantKeys.contains(
       favoriteKey,
     );
+    final isDealsExpanded = _expandedRestaurantDealKeys.contains(favoriteKey);
+    final visibleCoupons = isDealsExpanded ? coupons : coupons.take(2).toList();
+    final hiddenCouponCount = coupons.length - 2;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 7),
@@ -2302,78 +2294,29 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 2),
-                            Text(
-                              metaParts.join('  •  '),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: Color(0xFF897F75),
-                                fontSize: 11.7,
-                                fontWeight: FontWeight.w500,
+                            const SizedBox(height: 5),
+                            AnimatedSize(
+                              duration: const Duration(milliseconds: 180),
+                              curve: Curves.easeOutCubic,
+                              alignment: Alignment.topCenter,
+                              child: Column(
+                                children: [
+                                  for (final coupon in visibleCoupons) ...[
+                                    _buildCouponPreview(coupon, restaurant),
+                                    if (coupon != visibleCoupons.last)
+                                      const SizedBox(height: 4),
+                                  ],
+                                  if (hiddenCouponCount > 0) ...[
+                                    const SizedBox(height: 3),
+                                    _buildMoreDealsToggle(
+                                      restaurantKey: favoriteKey,
+                                      hiddenCount: hiddenCouponCount,
+                                      isExpanded: isDealsExpanded,
+                                    ),
+                                  ],
+                                ],
                               ),
                             ),
-                            const SizedBox(height: 5),
-                            Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              crossAxisAlignment: WrapCrossAlignment.center,
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 3,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFFFF3DE),
-                                    borderRadius: BorderRadius.circular(999),
-                                    border: Border.all(
-                                      color: const Color(0xFFF1D8A9),
-                                    ),
-                                  ),
-                                  child: Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      const Icon(
-                                        Icons.confirmation_number_outlined,
-                                        color: Color(0xFFC87912),
-                                        size: 14,
-                                      ),
-                                      const SizedBox(width: 5),
-                                      Text(
-                                        _couponCountLabel(coupons.length),
-                                        style: const TextStyle(
-                                          color: Color(0xFF3C2818),
-                                          fontSize: 11.5,
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                if (proximityOnly)
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 8,
-                                      vertical: 3,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFFEFF7E7),
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
-                                    child: const Text(
-                                      'Nearby unlock',
-                                      style: TextStyle(
-                                        color: Color(0xFF4E7B20),
-                                        fontSize: 11.5,
-                                        fontWeight: FontWeight.w700,
-                                      ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                            const SizedBox(height: 5),
-                            _buildCouponPreview(primaryCoupon, restaurant),
                           ],
                         ),
                       ),
@@ -2381,6 +2324,45 @@ class _HomeScreenState extends State<HomeScreen> {
                   );
                 },
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildMoreDealsToggle({
+    required String restaurantKey,
+    required int hiddenCount,
+    required bool isExpanded,
+  }) {
+    final label = isExpanded
+        ? '▲ Show fewer deals'
+        : '▼ $hiddenCount more ${hiddenCount == 1 ? 'deal' : 'deals'}';
+
+    return InkWell(
+      onTap: () {
+        setState(() {
+          if (isExpanded) {
+            _expandedRestaurantDealKeys.remove(restaurantKey);
+          } else {
+            _expandedRestaurantDealKeys.add(restaurantKey);
+          }
+        });
+      },
+      borderRadius: BorderRadius.circular(9),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: Text(
+            label,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: Color(0xFF24170F),
+              fontSize: 11.6,
+              fontWeight: FontWeight.w800,
             ),
           ),
         ),
@@ -2592,7 +2574,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     )
                   : const Icon(
                       Icons.arrow_forward,
-                      color: Color(0xFFE24A17),
+                      color: Color(0xFF24170F),
                       size: 18,
                     ),
             ),
@@ -2696,7 +2678,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   tooltip: 'Search',
                   icon: const Icon(
                     Icons.arrow_forward,
-                    color: Color(0xFFE24A17),
+                    color: Color(0xFF24170F),
                     size: 18,
                   ),
                 ),
