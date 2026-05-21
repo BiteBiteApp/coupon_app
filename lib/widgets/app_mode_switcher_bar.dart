@@ -66,7 +66,7 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 7, 16, 7),
+      padding: const EdgeInsets.fromLTRB(10, 7, 14, 7),
       decoration: BoxDecoration(
         color: widget.selectedMode == AppMode.biteScore
             ? const Color(0xFFEFF4FA)
@@ -222,7 +222,7 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                                               AppMode.biteSaver
                                           ? Colors.transparent
                                           : colorScheme.onSurfaceVariant
-                                                .withValues(alpha: 0.9),
+                                                .withValues(alpha: 0.98),
                                       fontWeight: FontWeight.w700,
                                       fontSize: 13,
                                     ),
@@ -265,7 +265,7 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                                               AppMode.biteScore
                                           ? Colors.transparent
                                           : colorScheme.onSurfaceVariant
-                                                .withValues(alpha: 0.9),
+                                                .withValues(alpha: 0.98),
                                       fontWeight: FontWeight.w700,
                                       fontSize: 13,
                                     ),

@@ -2304,7 +2304,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   for (final coupon in visibleCoupons) ...[
                                     _buildCouponPreview(coupon, restaurant),
                                     if (coupon != visibleCoupons.last)
-                                      const SizedBox(height: 4),
+                                      const SizedBox(height: 3),
                                   ],
                                   if (hiddenCouponCount > 0) ...[
                                     const SizedBox(height: 3),
@@ -2390,7 +2390,7 @@ class _HomeScreenState extends State<HomeScreen> {
       borderRadius: BorderRadius.circular(11),
       child: Container(
         width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
         decoration: BoxDecoration(
           color: const Color(0xFFF8FCF2),
           borderRadius: BorderRadius.circular(11),
@@ -2763,7 +2763,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     final width = constraints.maxWidth;
                     final tight = width < 430;
                     final controlHeight = tight ? 38.0 : 43.0;
-                    final heroHeight = tight ? 158.0 : 173.0;
+                    final heroHeight = tight ? 154.0 : 168.0;
                     final horizontalPadding = tight ? 8.0 : 10.0;
                     final searchPadding = tight ? 5.0 : 7.0;
 
@@ -2870,7 +2870,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           Transform.translate(
-                            offset: Offset(0, tight ? -4 : -6),
+                            offset: Offset(0, tight ? -6 : -8),
                             child: Padding(
                               padding: EdgeInsets.fromLTRB(
                                 horizontalPadding,

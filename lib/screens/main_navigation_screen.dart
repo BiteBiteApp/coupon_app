@@ -192,11 +192,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         PopupMenuItem(value: 3, child: Text('Account')),
       ],
       child: Container(
-        width: 38,
-        height: 38,
+        width: 35,
+        height: 35,
         decoration: BoxDecoration(
           color: const Color(0xFFFFFBF2),
-          borderRadius: BorderRadius.circular(19),
+          borderRadius: BorderRadius.circular(17.5),
           border: Border.all(color: const Color(0xFFEFE1D1)),
           boxShadow: const [
             BoxShadow(
@@ -206,7 +206,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
             ),
           ],
         ),
-        child: const Icon(Icons.menu, color: Color(0xFF24170F), size: 21),
+        child: const Icon(Icons.menu, color: Color(0xFF24170F), size: 20),
       ),
     );
   }
@@ -493,7 +493,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                   child: Row(
                     children: [
                       Padding(
-                        padding: const EdgeInsets.only(left: 16, right: 4),
+                        padding: const EdgeInsets.only(left: 14, right: 1),
                         child: _buildBiteSaverMenuButton(),
                       ),
                       Expanded(
