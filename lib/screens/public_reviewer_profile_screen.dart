@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../models/dish_rating_aggregate.dart';
 import '../services/app_error_text.dart';
+import '../services/app_mode_state_service.dart';
 import '../services/bitescore_service.dart';
 import '../widgets/biterater_theme.dart';
+import '../widgets/persistent_bottom_navigation.dart';
 import 'bitescore_dish_detail_screen.dart';
 
 class PublicReviewerProfileScreen extends StatefulWidget {
@@ -374,8 +376,19 @@ class _PublicReviewerProfileScreenState
     return Scaffold(
       backgroundColor: BiteRaterTheme.pageBackground,
       appBar: AppBar(
+        leadingWidth: 64,
+        leading: IconButton(
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+          onPressed: () => Navigator.of(context).maybePop(),
+          padding: const EdgeInsets.all(16),
+          constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
+          icon: const BackButtonIcon(),
+        ),
         title: const Text('Reviewer Profile'),
         centerTitle: true,
+      ),
+      bottomNavigationBar: const PersistentBottomNavigation(
+        mode: AppMode.biteScore,
       ),
       body: FutureBuilder<BiteScorePublicReviewerProfileData>(
         future: _profileFuture,

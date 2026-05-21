@@ -1145,21 +1145,34 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                           vertical: 9,
                         ),
                         decoration: BoxDecoration(
-                          gradient: BiteRaterTheme.softHeroGradient,
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [
+                              Color(0xFFFEFFFF),
+                              Color(0xFFF7FAFF),
+                              Color(0xFFFBF8FF),
+                            ],
+                          ),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: BiteRaterTheme.lineBlue.withOpacity(0.55),
+                            color: const Color(0xFFC8D5F0).withValues(
+                              alpha: 0.72,
+                            ),
+                            width: 1.05,
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.white.withOpacity(0.75),
+                              color: Colors.white.withValues(alpha: 0.86),
                               blurRadius: 0,
                               offset: const Offset(0, -1),
                             ),
                             BoxShadow(
-                              color: const Color(0xFF6F6F6A).withOpacity(0.06),
-                              blurRadius: 8,
-                              offset: const Offset(0, 3),
+                              color: const Color(0xFF7389C9).withValues(
+                                alpha: 0.08,
+                              ),
+                              blurRadius: 10,
+                              offset: const Offset(0, 4),
                             ),
                           ],
                         ),
@@ -1586,7 +1599,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                                                 ),
                                           ),
                                       child: const Text(
-                                        'Add Dish or Restaurant',
+                                        'Add Dish',
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                       ),

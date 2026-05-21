@@ -2577,7 +2577,18 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
 
     return Scaffold(
       backgroundColor: BiteRaterTheme.pageBackground,
-      appBar: AppBar(title: Text(title), centerTitle: true),
+      appBar: AppBar(
+        leadingWidth: 64,
+        leading: IconButton(
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+          onPressed: () => Navigator.of(context).maybePop(),
+          padding: const EdgeInsets.all(16),
+          constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
+          icon: const BackButtonIcon(),
+        ),
+        title: Text(title),
+        centerTitle: true,
+      ),
       body: Column(
         children: [
           buildPersistentAppModeSwitcher(context),
@@ -2732,7 +2743,17 @@ class _DidYouMeanRestaurantScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: BiteRaterTheme.pageBackground,
-      appBar: AppBar(title: const Text('Did you mean?')),
+      appBar: AppBar(
+        leadingWidth: 64,
+        leading: IconButton(
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+          onPressed: () => Navigator.of(context).maybePop(),
+          padding: const EdgeInsets.all(16),
+          constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
+          icon: const BackButtonIcon(),
+        ),
+        title: const Text('Did you mean?'),
+      ),
       body: Column(
         children: [
           buildPersistentAppModeSwitcher(context),

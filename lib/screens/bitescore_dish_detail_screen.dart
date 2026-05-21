@@ -8,10 +8,12 @@ import '../models/dish_review.dart';
 import '../models/review_feedback_vote.dart';
 import '../services/admin_access_service.dart';
 import '../services/app_error_text.dart';
+import '../services/app_mode_state_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/biterater_theme.dart';
+import '../widgets/persistent_bottom_navigation.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
 import 'public_reviewer_profile_screen.dart';
 
@@ -1647,7 +1649,14 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       child: Scaffold(
         backgroundColor: BiteRaterTheme.pageBackground,
         appBar: AppBar(
-          leading: BackButton(onPressed: _popWithDishChanges),
+          leadingWidth: 64,
+          leading: IconButton(
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+            onPressed: _popWithDishChanges,
+            padding: const EdgeInsets.all(16),
+            constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
+            icon: const BackButtonIcon(),
+          ),
           title: const Text('Dish Details'),
           centerTitle: true,
           actions: [
@@ -1672,6 +1681,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
               ],
             ),
           ],
+        ),
+        bottomNavigationBar: const PersistentBottomNavigation(
+          mode: AppMode.biteScore,
         ),
         body: FutureBuilder<_DishDetailData>(
           future: _detailFuture,

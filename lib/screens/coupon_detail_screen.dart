@@ -7,12 +7,14 @@ import '../models/coupon.dart';
 import '../models/demo_redemption_store.dart';
 import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
+import '../services/app_mode_state_service.dart';
 import '../services/bitesaver_report_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/bitesaver_report_dialog.dart';
+import '../widgets/persistent_bottom_navigation.dart';
 import 'customer_account_screen.dart';
 import 'restaurant_profile_screen.dart';
 
@@ -525,11 +527,22 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
       return Scaffold(
         backgroundColor: _pageBackground,
         appBar: AppBar(
+          leadingWidth: 64,
+          leading: IconButton(
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+            onPressed: () => Navigator.of(context).maybePop(),
+            padding: const EdgeInsets.all(16),
+            constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
+            icon: const BackButtonIcon(),
+          ),
           title: const Text('Coupon Details'),
           centerTitle: true,
           backgroundColor: _pageBackground,
           surfaceTintColor: _pageBackground,
           elevation: 0,
+        ),
+        bottomNavigationBar: const PersistentBottomNavigation(
+          mode: AppMode.biteSaver,
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -566,11 +579,22 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     return Scaffold(
       backgroundColor: _pageBackground,
       appBar: AppBar(
+        leadingWidth: 64,
+        leading: IconButton(
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+          onPressed: () => Navigator.of(context).maybePop(),
+          padding: const EdgeInsets.all(16),
+          constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
+          icon: const BackButtonIcon(),
+        ),
         title: const Text('Coupon Details'),
         centerTitle: true,
         backgroundColor: _pageBackground,
         surfaceTintColor: _pageBackground,
         elevation: 0,
+      ),
+      bottomNavigationBar: const PersistentBottomNavigation(
+        mode: AppMode.biteSaver,
       ),
       body: Column(
         children: [

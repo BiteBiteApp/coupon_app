@@ -7,10 +7,12 @@ import '../models/bitescore_restaurant.dart';
 import '../models/restaurant.dart';
 import '../services/admin_access_service.dart';
 import '../services/app_error_text.dart';
+import '../services/app_mode_state_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/biterater_theme.dart';
+import '../widgets/persistent_bottom_navigation.dart';
 import 'bitescore_create_rate_screen.dart';
 import 'bitescore_dish_detail_screen.dart';
 
@@ -798,7 +800,19 @@ class _BiteScoreRestaurantDishesScreenState
       },
       child: Scaffold(
         backgroundColor: BiteRaterTheme.pageBackground,
-        appBar: AppBar(leading: BackButton(onPressed: _popWithDishChanges)),
+        appBar: AppBar(
+          leadingWidth: 64,
+          leading: IconButton(
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+            onPressed: _popWithDishChanges,
+            padding: const EdgeInsets.all(16),
+            constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
+            icon: const BackButtonIcon(),
+          ),
+        ),
+        bottomNavigationBar: const PersistentBottomNavigation(
+          mode: AppMode.biteScore,
+        ),
         body: Column(
           children: [
             buildPersistentAppModeSwitcher(context),

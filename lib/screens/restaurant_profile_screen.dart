@@ -11,6 +11,7 @@ import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../widgets/bitesaver_report_dialog.dart';
+import '../widgets/persistent_bottom_navigation.dart';
 import 'coupon_detail_screen.dart';
 
 class RestaurantProfileScreen extends StatefulWidget {
@@ -903,9 +904,20 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
         return Scaffold(
           backgroundColor: const Color(0xFFF8F1EA),
           appBar: AppBar(
+            leadingWidth: 64,
+            leading: IconButton(
+              tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+              onPressed: () => Navigator.of(context).maybePop(),
+              padding: const EdgeInsets.all(16),
+              constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
+              icon: const BackButtonIcon(),
+            ),
             backgroundColor: const Color(0xFFF8F1EA),
             surfaceTintColor: const Color(0xFFF8F1EA),
             elevation: 0,
+          ),
+          bottomNavigationBar: const PersistentBottomNavigation(
+            mode: AppMode.biteSaver,
           ),
           body: Column(
             children: [
