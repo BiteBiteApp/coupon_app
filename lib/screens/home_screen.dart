@@ -2189,6 +2189,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 builder: (context, constraints) {
                   final compact = constraints.maxWidth < 360;
                   final imageWidth = compact ? 102.0 : 121.0;
+                  final imageRhythmOffset = index.isOdd ? 4.0 : -2.0;
 
                   return Row(
                     crossAxisAlignment: CrossAxisAlignment.center,
@@ -2205,6 +2206,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   restaurant,
                                   index,
                                 ),
+                                verticalOffset: imageRhythmOffset,
                               ),
                             ),
                             Positioned(
@@ -3162,13 +3164,17 @@ class _ImmediatePressFeedback extends StatelessWidget {
 
 class _SoftRestaurantImageFrame extends StatelessWidget {
   final String imagePath;
+  final double verticalOffset;
 
-  const _SoftRestaurantImageFrame({required this.imagePath});
+  const _SoftRestaurantImageFrame({
+    required this.imagePath,
+    required this.verticalOffset,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Transform.translate(
-      offset: const Offset(-1, -1),
+      offset: Offset(-1, verticalOffset),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
