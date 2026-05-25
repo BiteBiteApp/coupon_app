@@ -58,6 +58,11 @@ class _RestaurantCreateCouponScreenState
   bool couponSaving = false;
   bool couponImageUploading = false;
   bool _hoursExpanded = false;
+  bool _basicInfoSectionExpanded = false;
+  bool _restaurantImageSectionExpanded = false;
+  bool _hoursSectionExpanded = false;
+  bool _couponManagementSectionExpanded = false;
+  bool _customerPreviewSectionExpanded = false;
   bool _businessHoursDirty = false;
   bool _subscriptionCheckoutLoading = false;
   bool _customerPortalLoading = false;
@@ -2253,6 +2258,489 @@ class _RestaurantCreateCouponScreenState
     );
   }
 
+  Widget _buildOwnerExpandableSection({
+    required String title,
+    required bool initiallyExpanded,
+    required ValueChanged<bool> onExpansionChanged,
+    required List<Widget> children,
+  }) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 14),
+      elevation: 2,
+      shadowColor: const Color(0x332B1D14),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: const BorderSide(color: Color(0xFFE7D5C1)),
+      ),
+      child: Theme(
+        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+        child: ExpansionTile(
+          initiallyExpanded: initiallyExpanded,
+          onExpansionChanged: onExpansionChanged,
+          tilePadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          iconColor: const Color(0xFF8A5A16),
+          collapsedIconColor: const Color(0xFF8A5A16),
+          title: Text(
+            title,
+            style: const TextStyle(
+              fontSize: 17,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF2B1D14),
+            ),
+          ),
+          children: children,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBasicRestaurantInformationSection() {
+    return _buildOwnerExpandableSection(
+      title: 'Basic Restaurant Information',
+      initiallyExpanded: _basicInfoSectionExpanded,
+      onExpansionChanged: (expanded) {
+        setState(() {
+          _basicInfoSectionExpanded = expanded;
+        });
+      },
+      children: [
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Restaurant Name',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.black87,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              restaurantNameController.text.trim().isEmpty
+                  ? 'Restaurant name not set'
+                  : restaurantNameController.text.trim(),
+              style: const TextStyle(
+                fontSize: 16,
+                color: Colors.black87,
+                height: 1.35,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton(
+            onPressed: () {
+              setState(() {
+                _showNameChangeRequest = !_showNameChangeRequest;
+                if (!_showNameChangeRequest) {
+                  requestedRestaurantNameController.clear();
+                }
+              });
+            },
+            child: const Text('Request Name Change'),
+          ),
+        ),
+        if (_showNameChangeRequest) ...[
+          const SizedBox(height: 8),
+          TextField(
+            controller: requestedRestaurantNameController,
+            textInputAction: TextInputAction.done,
+            decoration: buildInputDecoration(
+              'Requested Restaurant Name',
+              'Enter the corrected restaurant name',
+            ),
+          ),
+          const SizedBox(height: 12),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FilledButton(
+              onPressed: _submittingNameChangeRequest
+                  ? null
+                  : _submitRestaurantNameChangeRequest,
+              child: Text(
+                _submittingNameChangeRequest
+                    ? 'Submitting...'
+                    : 'Submit Request',
+              ),
+            ),
+          ),
+        ],
+        const SizedBox(height: 16),
+        TextField(
+          controller: emailController,
+          keyboardType: TextInputType.emailAddress,
+          decoration: buildInputDecoration(
+            'Email Address',
+            'Example: owner@joespizza.com',
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: phoneController,
+          keyboardType: TextInputType.phone,
+          decoration: buildInputDecoration(
+            'Phone Number',
+            'Example: (352) 555-1234',
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: streetAddressController,
+          decoration: buildInputDecoration(
+            'Street Address',
+            'Example: 123 Main St',
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: cityController,
+          decoration: buildInputDecoration('City', 'Example: Lecanto'),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: stateController,
+          decoration: buildInputDecoration('State', 'Example: FL'),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: zipCodeController,
+          decoration: buildInputDecoration('ZIP Code', 'Example: 34461'),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: websiteController,
+          keyboardType: TextInputType.url,
+          decoration: buildInputDecoration(
+            'Website',
+            'Example: https://joespizza.com',
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: bioController,
+          minLines: 3,
+          maxLines: 5,
+          decoration: buildInputDecoration(
+            'Short Bio',
+            'Tell customers a little about your restaurant',
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRestaurantImageSection() {
+    return _buildOwnerExpandableSection(
+      title: 'Restaurant Image',
+      initiallyExpanded: _restaurantImageSectionExpanded,
+      onExpansionChanged: (expanded) {
+        setState(() {
+          _restaurantImageSectionExpanded = expanded;
+        });
+      },
+      children: [
+        _buildImageUploadField(
+          title: 'Restaurant image',
+          buttonLabel: restaurantImageUrl == null
+              ? 'Add restaurant image'
+              : 'Change restaurant image',
+          imageUrl: restaurantImageUrl,
+          uploading: restaurantImageUploading,
+          onPressed: _pickRestaurantImage,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHoursSection() {
+    return _buildOwnerExpandableSection(
+      title: 'Hours',
+      initiallyExpanded: _hoursSectionExpanded,
+      onExpansionChanged: (expanded) {
+        setState(() {
+          _hoursSectionExpanded = expanded;
+        });
+      },
+      children: [_buildBusinessHoursEditor()],
+    );
+  }
+
+  Widget _buildSaveProfileButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: profileSaving ? null : saveRestaurantProfile,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: const Color(0xFF2563EB),
+          foregroundColor: Colors.white,
+          padding: const EdgeInsets.symmetric(vertical: 15),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(14),
+          ),
+        ),
+        child: Text(profileSaving ? 'Saving...' : 'Save Restaurant Profile'),
+      ),
+    );
+  }
+
+  Widget _buildManageMenuButton() {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        onPressed: _openMenuManagement,
+        icon: const Icon(Icons.menu_book_outlined),
+        label: const Text('Manage Menu'),
+      ),
+    );
+  }
+
+  Widget _buildCustomerPreviewSection(RestaurantProfileData profile) {
+    return _buildOwnerExpandableSection(
+      title: 'Customer Preview',
+      initiallyExpanded: _customerPreviewSectionExpanded,
+      onExpansionChanged: (expanded) {
+        setState(() {
+          _customerPreviewSectionExpanded = expanded;
+        });
+      },
+      children: [buildCustomerProfilePreview(profile)],
+    );
+  }
+
+  Widget _buildCouponManagementSection() {
+    return _buildOwnerExpandableSection(
+      title: 'Coupon Management',
+      initiallyExpanded: _couponManagementSectionExpanded,
+      onExpansionChanged: (expanded) {
+        setState(() {
+          _couponManagementSectionExpanded = expanded;
+        });
+      },
+      children: [
+        _buildSubscriptionStatusSection(),
+        const SizedBox(height: 16),
+        if (!_hasCouponPostingAccess) ...[
+          _buildSubscriptionPromoSection(),
+          const SizedBox(height: 24),
+          const Divider(),
+          const SizedBox(height: 16),
+        ],
+        Text(
+          isEditingCoupon ? 'Edit Coupon' : 'Create a New Coupon',
+          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        ),
+        if (isEditingCoupon) ...[
+          const SizedBox(height: 8),
+          const Text(
+            'Update the fields below and save your changes.',
+            style: TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+        ],
+        const SizedBox(height: 16),
+        TextField(
+          controller: titleController,
+          decoration: buildInputDecoration(
+            'Coupon Title',
+            'Example: 50% Off Any Large Pizza',
+          ),
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: couponDetailsController,
+          minLines: 3,
+          maxLines: 5,
+          decoration: buildInputDecoration(
+            'Coupon Description (Optional)',
+            'Optional details, exclusions, or redemption notes.',
+          ),
+        ),
+        const SizedBox(height: 8),
+        _buildImageUploadField(
+          title: 'Coupon image',
+          buttonLabel: couponImageUrl == null
+              ? 'Add coupon image'
+              : 'Change coupon image',
+          imageUrl: couponImageUrl,
+          uploading: couponImageUploading,
+          onPressed: _pickCouponImage,
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Coupon title and valid start/end times are required. Description is optional.',
+          style: TextStyle(fontSize: 12, color: Colors.black54),
+        ),
+        const SizedBox(height: 16),
+        buildDateTimeField(
+          label: 'Start Time',
+          hint: 'Select when this coupon becomes active',
+          value: couponStartTime,
+          onTap: () {
+            _pickCouponDateTime(isStart: true);
+          },
+        ),
+        const SizedBox(height: 16),
+        buildDateTimeField(
+          label: 'End Time',
+          hint: 'Select expiration date',
+          value: couponEndTime,
+          onTap: () {
+            _pickCouponDateTime(isStart: false);
+          },
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Coupons are visible only between the selected start and end times.',
+          style: TextStyle(fontSize: 12, color: Colors.black54),
+        ),
+        const SizedBox(height: 16),
+        DropdownButtonFormField<String>(
+          initialValue: selectedUsageRule,
+          decoration: buildInputDecoration('Usage Rule', ''),
+          items: const [
+            DropdownMenuItem(
+              value: 'Once per customer',
+              child: Text('Once per customer'),
+            ),
+            DropdownMenuItem(
+              value: 'Once per day',
+              child: Text('Once per day'),
+            ),
+            DropdownMenuItem(value: 'Unlimited', child: Text('Unlimited')),
+          ],
+          onChanged: (value) {
+            if (value != null) {
+              setState(() {
+                selectedUsageRule = value;
+              });
+            }
+          },
+        ),
+        const SizedBox(height: 16),
+        DropdownButtonFormField<String>(
+          initialValue: selectedCouponType,
+          decoration: buildInputDecoration('Coupon Type', ''),
+          items: const [
+            DropdownMenuItem(
+              value: 'Normal coupon',
+              child: Text('Normal coupon'),
+            ),
+            DropdownMenuItem(
+              value: 'Proximity-only coupon',
+              child: Text('Proximity-only coupon'),
+            ),
+          ],
+          onChanged: (value) {
+            if (value != null) {
+              setState(() {
+                selectedCouponType = value;
+              });
+            }
+          },
+        ),
+        if (isProximityCoupon) ...[
+          const SizedBox(height: 16),
+          DropdownButtonFormField<String>(
+            initialValue: selectedProximityRadius,
+            decoration: buildInputDecoration('Visible Within Radius', ''),
+            items: const [
+              DropdownMenuItem(value: '1 mile', child: Text('1 mile')),
+              DropdownMenuItem(value: '2 miles', child: Text('2 miles')),
+              DropdownMenuItem(value: '3 miles', child: Text('3 miles')),
+              DropdownMenuItem(value: '4 miles', child: Text('4 miles')),
+              DropdownMenuItem(value: '5 miles', child: Text('5 miles')),
+              DropdownMenuItem(value: '6 miles', child: Text('6 miles')),
+              DropdownMenuItem(value: '7 miles', child: Text('7 miles')),
+              DropdownMenuItem(value: '8 miles', child: Text('8 miles')),
+              DropdownMenuItem(value: '9 miles', child: Text('9 miles')),
+              DropdownMenuItem(value: '10 miles', child: Text('10 miles')),
+            ],
+            onChanged: (value) {
+              if (value != null) {
+                setState(() {
+                  selectedProximityRadius = value;
+                });
+              }
+            },
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'This coupon will only be visible when the user is within the selected distance from the restaurant.',
+            style: TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+        ],
+        const SizedBox(height: 16),
+        TextField(
+          controller: couponCodeController,
+          decoration: buildInputDecoration(
+            'Optional Coupon Code',
+            'Example: JOE50',
+          ),
+        ),
+        const SizedBox(height: 8),
+        const Text(
+          'Restaurants can leave this blank if no code is needed.',
+          style: TextStyle(fontSize: 12, color: Colors.black54),
+        ),
+        const SizedBox(height: 24),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton(
+            onPressed: couponSaving ? null : createOrUpdateCoupon,
+            child: Text(
+              couponSaving
+                  ? (isEditingCoupon ? 'Saving Changes...' : 'Saving Coupon...')
+                  : (isEditingCoupon ? 'Save Coupon Changes' : 'Create Coupon'),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: clearCouponForm,
+            child: Text(
+              isEditingCoupon ? 'Cancel Editing' : 'Clear Coupon Form',
+            ),
+          ),
+        ),
+        const SizedBox(height: 32),
+        const Divider(),
+        const SizedBox(height: 16),
+        const Text(
+          'Created Coupon Preview',
+          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 12),
+        ValueListenableBuilder<List<Coupon>>(
+          valueListenable: LocalCouponStore.createdCoupons,
+          builder: (context, coupons, _) {
+            if (coupons.isEmpty) {
+              return Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  'No coupons created yet.',
+                  style: TextStyle(fontSize: 16),
+                ),
+              );
+            }
+
+            return Column(children: coupons.map(buildPreviewCard).toList());
+          },
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final savedProfile = LocalRestaurantProfileStore.profile.value;
@@ -2296,389 +2784,16 @@ class _RestaurantCreateCouponScreenState
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Restaurant Name',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Colors.black87,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  restaurantNameController.text.trim().isEmpty
-                      ? 'Restaurant name not set'
-                      : restaurantNameController.text.trim(),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    color: Colors.black87,
-                    height: 1.35,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton(
-                onPressed: () {
-                  setState(() {
-                    _showNameChangeRequest = !_showNameChangeRequest;
-                    if (!_showNameChangeRequest) {
-                      requestedRestaurantNameController.clear();
-                    }
-                  });
-                },
-                child: const Text('Request Name Change'),
-              ),
-            ),
-            if (_showNameChangeRequest) ...[
-              const SizedBox(height: 8),
-              TextField(
-                controller: requestedRestaurantNameController,
-                textInputAction: TextInputAction.done,
-                decoration: buildInputDecoration(
-                  'Requested Restaurant Name',
-                  'Enter the corrected restaurant name',
-                ),
-              ),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: FilledButton(
-                  onPressed: _submittingNameChangeRequest
-                      ? null
-                      : _submitRestaurantNameChangeRequest,
-                  child: Text(
-                    _submittingNameChangeRequest
-                        ? 'Submitting...'
-                        : 'Submit Request',
-                  ),
-                ),
-              ),
-            ],
-            const SizedBox(height: 16),
-            TextField(
-              controller: emailController,
-              keyboardType: TextInputType.emailAddress,
-              decoration: buildInputDecoration(
-                'Email Address',
-                'Example: owner@joespizza.com',
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: phoneController,
-              keyboardType: TextInputType.phone,
-              decoration: buildInputDecoration(
-                'Phone Number',
-                'Example: (352) 555-1234',
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: streetAddressController,
-              decoration: buildInputDecoration(
-                'Street Address',
-                'Example: 123 Main St',
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: cityController,
-              decoration: buildInputDecoration('City', 'Example: Lecanto'),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: stateController,
-              decoration: buildInputDecoration('State', 'Example: FL'),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: zipCodeController,
-              decoration: buildInputDecoration('ZIP Code', 'Example: 34461'),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: websiteController,
-              keyboardType: TextInputType.url,
-              decoration: buildInputDecoration(
-                'Website',
-                'Example: https://joespizza.com',
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: bioController,
-              minLines: 3,
-              maxLines: 5,
-              decoration: buildInputDecoration(
-                'Short Bio',
-                'Tell customers a little about your restaurant',
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildImageUploadField(
-              title: 'Restaurant image',
-              buttonLabel: restaurantImageUrl == null
-                  ? 'Add restaurant image'
-                  : 'Change restaurant image',
-              imageUrl: restaurantImageUrl,
-              uploading: restaurantImageUploading,
-              onPressed: _pickRestaurantImage,
-            ),
-            const SizedBox(height: 16),
-            _buildBusinessHoursEditor(),
-            const SizedBox(height: 16),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: profileSaving ? null : saveRestaurantProfile,
-                child: Text(
-                  profileSaving ? 'Saving...' : 'Save Restaurant Profile',
-                ),
-              ),
-            ),
+            _buildBasicRestaurantInformationSection(),
+            _buildRestaurantImageSection(),
+            _buildHoursSection(),
+            const SizedBox(height: 2),
+            _buildSaveProfileButton(),
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _openMenuManagement,
-                icon: const Icon(Icons.menu_book_outlined),
-                label: const Text('Manage Menu'),
-              ),
-            ),
-            const SizedBox(height: 24),
-            const Divider(),
+            _buildManageMenuButton(),
             const SizedBox(height: 16),
-            const Text(
-              'Customer View Preview',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            buildCustomerProfilePreview(savedProfile),
-            const SizedBox(height: 16),
-            _buildSubscriptionStatusSection(),
-            const SizedBox(height: 16),
-            if (!_hasCouponPostingAccess) ...[
-              _buildSubscriptionPromoSection(),
-              const SizedBox(height: 32),
-              const Divider(),
-              const SizedBox(height: 16),
-            ],
-            Text(
-              isEditingCoupon ? 'Edit Coupon' : 'Create a New Coupon',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            if (isEditingCoupon) ...[
-              const SizedBox(height: 8),
-              const Text(
-                'Update the fields below and save your changes.',
-                style: TextStyle(fontSize: 12, color: Colors.black54),
-              ),
-            ],
-            const SizedBox(height: 16),
-            TextField(
-              controller: titleController,
-              decoration: buildInputDecoration(
-                'Coupon Title',
-                'Example: 50% Off Any Large Pizza',
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: couponDetailsController,
-              minLines: 3,
-              maxLines: 5,
-              decoration: buildInputDecoration(
-                'Coupon Description (Optional)',
-                'Optional details, exclusions, or redemption notes.',
-              ),
-            ),
-            const SizedBox(height: 8),
-            _buildImageUploadField(
-              title: 'Coupon image',
-              buttonLabel: couponImageUrl == null
-                  ? 'Add coupon image'
-                  : 'Change coupon image',
-              imageUrl: couponImageUrl,
-              uploading: couponImageUploading,
-              onPressed: _pickCouponImage,
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Coupon title and valid start/end times are required. Description is optional.',
-              style: TextStyle(fontSize: 12, color: Colors.black54),
-            ),
-            const SizedBox(height: 16),
-            buildDateTimeField(
-              label: 'Start Time',
-              hint: 'Select when this coupon becomes active',
-              value: couponStartTime,
-              onTap: () {
-                _pickCouponDateTime(isStart: true);
-              },
-            ),
-            const SizedBox(height: 16),
-            buildDateTimeField(
-              label: 'End Time',
-              hint: 'Select expiration date',
-              value: couponEndTime,
-              onTap: () {
-                _pickCouponDateTime(isStart: false);
-              },
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Coupons are visible only between the selected start and end times.',
-              style: TextStyle(fontSize: 12, color: Colors.black54),
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: selectedUsageRule,
-              decoration: buildInputDecoration('Usage Rule', ''),
-              items: const [
-                DropdownMenuItem(
-                  value: 'Once per customer',
-                  child: Text('Once per customer'),
-                ),
-                DropdownMenuItem(
-                  value: 'Once per day',
-                  child: Text('Once per day'),
-                ),
-                DropdownMenuItem(value: 'Unlimited', child: Text('Unlimited')),
-              ],
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    selectedUsageRule = value;
-                  });
-                }
-              },
-            ),
-            const SizedBox(height: 16),
-            DropdownButtonFormField<String>(
-              initialValue: selectedCouponType,
-              decoration: buildInputDecoration('Coupon Type', ''),
-              items: const [
-                DropdownMenuItem(
-                  value: 'Normal coupon',
-                  child: Text('Normal coupon'),
-                ),
-                DropdownMenuItem(
-                  value: 'Proximity-only coupon',
-                  child: Text('Proximity-only coupon'),
-                ),
-              ],
-              onChanged: (value) {
-                if (value != null) {
-                  setState(() {
-                    selectedCouponType = value;
-                  });
-                }
-              },
-            ),
-            if (isProximityCoupon) ...[
-              const SizedBox(height: 16),
-              DropdownButtonFormField<String>(
-                initialValue: selectedProximityRadius,
-                decoration: buildInputDecoration('Visible Within Radius', ''),
-                items: const [
-                  DropdownMenuItem(value: '1 mile', child: Text('1 mile')),
-                  DropdownMenuItem(value: '2 miles', child: Text('2 miles')),
-                  DropdownMenuItem(value: '3 miles', child: Text('3 miles')),
-                  DropdownMenuItem(value: '4 miles', child: Text('4 miles')),
-                  DropdownMenuItem(value: '5 miles', child: Text('5 miles')),
-                  DropdownMenuItem(value: '6 miles', child: Text('6 miles')),
-                  DropdownMenuItem(value: '7 miles', child: Text('7 miles')),
-                  DropdownMenuItem(value: '8 miles', child: Text('8 miles')),
-                  DropdownMenuItem(value: '9 miles', child: Text('9 miles')),
-                  DropdownMenuItem(value: '10 miles', child: Text('10 miles')),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    setState(() {
-                      selectedProximityRadius = value;
-                    });
-                  }
-                },
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'This coupon will only be visible when the user is within the selected distance from the restaurant.',
-                style: TextStyle(fontSize: 12, color: Colors.black54),
-              ),
-            ],
-            const SizedBox(height: 16),
-            TextField(
-              controller: couponCodeController,
-              decoration: buildInputDecoration(
-                'Optional Coupon Code',
-                'Example: JOE50',
-              ),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Restaurants can leave this blank if no code is needed.',
-              style: TextStyle(fontSize: 12, color: Colors.black54),
-            ),
-            const SizedBox(height: 24),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: couponSaving ? null : createOrUpdateCoupon,
-                child: Text(
-                  couponSaving
-                      ? (isEditingCoupon
-                            ? 'Saving Changes...'
-                            : 'Saving Coupon...')
-                      : (isEditingCoupon
-                            ? 'Save Coupon Changes'
-                            : 'Create Coupon'),
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton(
-                onPressed: clearCouponForm,
-                child: Text(
-                  isEditingCoupon ? 'Cancel Editing' : 'Clear Coupon Form',
-                ),
-              ),
-            ),
-            const SizedBox(height: 32),
-            const Divider(),
-            const SizedBox(height: 16),
-            const Text(
-              'Created Coupon Preview',
-              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            ValueListenableBuilder<List<Coupon>>(
-              valueListenable: LocalCouponStore.createdCoupons,
-              builder: (context, coupons, _) {
-                if (coupons.isEmpty) {
-                  return Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const Text(
-                      'No coupons created yet.',
-                      style: TextStyle(fontSize: 16),
-                    ),
-                  );
-                }
-
-                return Column(children: coupons.map(buildPreviewCard).toList());
-              },
-            ),
+            _buildCouponManagementSection(),
+            _buildCustomerPreviewSection(savedProfile),
           ],
         ),
       ),
