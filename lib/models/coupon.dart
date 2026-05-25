@@ -13,6 +13,7 @@ class Coupon {
   static const String fieldIsProximityOnly = 'isProximityOnly';
   static const String fieldProximityRadiusMiles = 'proximityRadiusMiles';
   static const String fieldDetails = 'details';
+  static const String fieldImageUrl = 'imageUrl';
   static const String fieldCreatedAt = 'createdAt';
   static const String fieldUpdatedAt = 'updatedAt';
   static const String defaultUsageRule = 'Once per customer';
@@ -29,6 +30,7 @@ class Coupon {
   final bool isProximityOnly;
   final double? proximityRadiusMiles;
   final String? details;
+  final String? imageUrl;
 
   const Coupon({
     required this.id,
@@ -43,6 +45,7 @@ class Coupon {
     this.isProximityOnly = false,
     this.proximityRadiusMiles,
     this.details,
+    this.imageUrl,
   }) : expiresText = expires;
 
   String get expires {
@@ -137,6 +140,7 @@ class Coupon {
     bool? isProximityOnly,
     double? proximityRadiusMiles,
     String? details,
+    String? imageUrl,
   }) {
     return Coupon(
       id: id ?? this.id,
@@ -151,6 +155,7 @@ class Coupon {
       isProximityOnly: isProximityOnly ?? this.isProximityOnly,
       proximityRadiusMiles: proximityRadiusMiles ?? this.proximityRadiusMiles,
       details: details ?? this.details,
+      imageUrl: imageUrl ?? this.imageUrl,
     );
   }
 
@@ -176,6 +181,7 @@ class Coupon {
       fieldIsProximityOnly: isProximityOnly,
       fieldProximityRadiusMiles: proximityRadiusMiles,
       fieldDetails: details?.trim().isEmpty == true ? null : details?.trim(),
+      fieldImageUrl: imageUrl?.trim().isEmpty == true ? null : imageUrl?.trim(),
     };
   }
 
@@ -199,6 +205,7 @@ class Coupon {
     final usageRule = _readString(data[fieldUsageRule]) ?? defaultUsageRule;
     final couponCode = _readString(data[fieldCouponCode]);
     final details = _readString(data[fieldDetails]);
+    final imageUrl = _readString(data[fieldImageUrl]);
     final isProximityOnly = _readBool(data[fieldIsProximityOnly]) ?? false;
     final proximityRadiusMiles = _readDouble(data[fieldProximityRadiusMiles]);
 
@@ -215,6 +222,7 @@ class Coupon {
       isProximityOnly: isProximityOnly,
       proximityRadiusMiles: proximityRadiusMiles,
       details: details,
+      imageUrl: imageUrl,
     );
 
     final hasLegacyFallback =

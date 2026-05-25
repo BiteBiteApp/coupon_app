@@ -123,6 +123,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
       streetAddress: freshRestaurant.streetAddress,
       website: freshRestaurant.website,
       bio: freshRestaurant.bio,
+      mainImageUrl: freshRestaurant.mainImageUrl,
       businessHours: freshRestaurant.businessHours,
       latitude: freshRestaurant.latitude,
       longitude: freshRestaurant.longitude,
@@ -1087,6 +1088,38 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                   child: Material(
                                     color: Colors.transparent,
                                     child: ListTile(
+                                      leading:
+                                          coupon.imageUrl != null &&
+                                              coupon.imageUrl!.trim().isNotEmpty
+                                          ? ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(10),
+                                              child: Image.network(
+                                                coupon.imageUrl!,
+                                                width: 52,
+                                                height: 52,
+                                                fit: BoxFit.cover,
+                                                errorBuilder:
+                                                    (
+                                                      context,
+                                                      error,
+                                                      stackTrace,
+                                                    ) => Container(
+                                                      width: 52,
+                                                      height: 52,
+                                                      color: const Color(
+                                                        0xFFF4E8DC,
+                                                      ),
+                                                      child: const Icon(
+                                                        Icons.local_offer,
+                                                        color: Color(
+                                                          0xFF94482E,
+                                                        ),
+                                                      ),
+                                                    ),
+                                              ),
+                                            )
+                                          : null,
                                       title: Column(
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,

@@ -399,11 +399,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            Color(0xFFFFFEFB),
-            Color(0xFFFBF4EC),
-            Color(0xFFF1DFCE),
-          ],
+          colors: [Color(0xFFFFFEFB), Color(0xFFFBF4EC), Color(0xFFF1DFCE)],
         ),
         border: Border.all(color: const Color(0xFFE6C79F), width: 1.15),
         boxShadow: const [
@@ -612,6 +608,30 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
+                            if (coupon.imageUrl != null &&
+                                coupon.imageUrl!.trim().isNotEmpty) ...[
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(16),
+                                child: Image.network(
+                                  coupon.imageUrl!,
+                                  width: double.infinity,
+                                  height: 180,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Container(
+                                        height: 180,
+                                        alignment: Alignment.center,
+                                        color: const Color(0xFFF4E8DC),
+                                        child: const Icon(
+                                          Icons.local_offer_outlined,
+                                          color: _warmAccent,
+                                          size: 34,
+                                        ),
+                                      ),
+                                ),
+                              ),
+                              const SizedBox(height: 16),
+                            ],
                             Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [

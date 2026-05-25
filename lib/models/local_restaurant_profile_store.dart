@@ -13,6 +13,7 @@ class RestaurantProfileData {
   final String streetAddress;
   final String website;
   final String bio;
+  final String mainImageUrl;
   final String latitude;
   final String longitude;
   final List<RestaurantBusinessHours> businessHours;
@@ -28,6 +29,7 @@ class RestaurantProfileData {
     required this.streetAddress,
     required this.website,
     required this.bio,
+    this.mainImageUrl = '',
     required this.latitude,
     required this.longitude,
     this.businessHours = const [],
@@ -44,6 +46,7 @@ class RestaurantProfileData {
     String? streetAddress,
     String? website,
     String? bio,
+    String? mainImageUrl,
     String? latitude,
     String? longitude,
     List<RestaurantBusinessHours>? businessHours,
@@ -59,6 +62,7 @@ class RestaurantProfileData {
       streetAddress: streetAddress ?? this.streetAddress,
       website: website ?? this.website,
       bio: bio ?? this.bio,
+      mainImageUrl: mainImageUrl ?? this.mainImageUrl,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       businessHours: businessHours ?? this.businessHours,
@@ -78,6 +82,7 @@ class LocalRestaurantProfileStore {
     streetAddress: '',
     website: '',
     bio: '',
+    mainImageUrl: '',
     latitude: '',
     longitude: '',
     businessHours: const [],

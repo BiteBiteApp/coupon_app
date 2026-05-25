@@ -25,6 +25,8 @@ class Restaurant {
   static const String legacyFieldStreetAddress = 'address';
   static const String fieldWebsite = 'website';
   static const String fieldBio = 'bio';
+  static const String fieldMainImageUrl = 'mainImageUrl';
+  static const String legacyFieldImageUrl = 'imageUrl';
   static const String fieldBusinessHours = 'businessHours';
   static const String fieldLatitude = 'latitude';
   static const String fieldLongitude = 'longitude';
@@ -45,6 +47,7 @@ class Restaurant {
   final String? streetAddress;
   final String? website;
   final String? bio;
+  final String? mainImageUrl;
   final List<RestaurantBusinessHours> businessHours;
   final double? latitude;
   final double? longitude;
@@ -61,6 +64,7 @@ class Restaurant {
     this.streetAddress,
     this.website,
     this.bio,
+    this.mainImageUrl,
     this.businessHours = const [],
     this.latitude,
     this.longitude,
@@ -98,6 +102,7 @@ class Restaurant {
     required String streetAddress,
     required String website,
     required String bio,
+    required String mainImageUrl,
     required List<RestaurantBusinessHours> businessHours,
     required double? latitude,
     required double? longitude,
@@ -107,6 +112,7 @@ class Restaurant {
     final trimmedStreetAddress = streetAddress.trim();
     final trimmedWebsite = website.trim();
     final trimmedBio = bio.trim();
+    final trimmedMainImageUrl = mainImageUrl.trim();
 
     return {
       fieldName: name.trim(),
@@ -120,6 +126,9 @@ class Restaurant {
           : trimmedStreetAddress,
       fieldWebsite: trimmedWebsite.isEmpty ? null : trimmedWebsite,
       fieldBio: trimmedBio.isEmpty ? null : trimmedBio,
+      fieldMainImageUrl: trimmedMainImageUrl.isEmpty
+          ? null
+          : trimmedMainImageUrl,
       fieldBusinessHours: RestaurantBusinessHours.toFirestoreList(
         businessHours,
       ),
@@ -151,6 +160,9 @@ class Restaurant {
           _readString(data[legacyFieldStreetAddress]),
       website: _readString(data[fieldWebsite]),
       bio: _readString(data[fieldBio]),
+      mainImageUrl:
+          _readString(data[fieldMainImageUrl]) ??
+          _readString(data[legacyFieldImageUrl]),
       businessHours: RestaurantBusinessHours.listFromFirestore(
         data[fieldBusinessHours],
       ),

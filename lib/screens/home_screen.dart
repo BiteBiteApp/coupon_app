@@ -1116,16 +1116,20 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return results.map((result) {
       return Restaurant(
+        uid: result.restaurant.uid,
         name: result.restaurant.name,
         distance: result.exactMatch
             ? 'Local'
             : restaurantDistanceLabel(result.restaurant),
         city: result.restaurant.city,
+        state: result.restaurant.state,
         zipCode: result.restaurant.zipCode,
         streetAddress: result.restaurant.streetAddress,
         phone: result.restaurant.phone,
         website: result.restaurant.website,
         bio: result.restaurant.bio,
+        mainImageUrl: result.restaurant.mainImageUrl,
+        businessHours: result.restaurant.businessHours,
         coupons: result.coupons,
         latitude: result.restaurant.latitude,
         longitude: result.restaurant.longitude,
@@ -2202,10 +2206,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           children: [
                             Positioned.fill(
                               child: _SoftRestaurantImageFrame(
-                                imagePath: _placeholderImageForRestaurant(
-                                  restaurant,
-                                  index,
-                                ),
+                                imageUrl: restaurant.mainImageUrl,
+                                fallbackImagePath:
+                                    _placeholderImageForRestaurant(
+                                      restaurant,
+                                      index,
+                                    ),
                                 verticalOffset: imageRhythmOffset,
                               ),
                             ),
@@ -3163,11 +3169,13 @@ class _ImmediatePressFeedback extends StatelessWidget {
 }
 
 class _SoftRestaurantImageFrame extends StatelessWidget {
-  final String imagePath;
+  final String? imageUrl;
+  final String fallbackImagePath;
   final double verticalOffset;
 
   const _SoftRestaurantImageFrame({
-    required this.imagePath,
+    required this.imageUrl,
+    required this.fallbackImagePath,
     required this.verticalOffset,
   });
 
@@ -3210,13 +3218,41 @@ class _SoftRestaurantImageFrame extends StatelessWidget {
                     width: 1.2,
                   ),
                 ),
-                child: Image.asset(imagePath, fit: BoxFit.cover),
+                child: _RestaurantCardImage(
+                  imageUrl: imageUrl,
+                  fallbackImagePath: fallbackImagePath,
+                ),
               ),
             ),
           ),
         ],
       ),
     );
+  }
+}
+
+class _RestaurantCardImage extends StatelessWidget {
+  final String? imageUrl;
+  final String fallbackImagePath;
+
+  const _RestaurantCardImage({
+    required this.imageUrl,
+    required this.fallbackImagePath,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmedImageUrl = imageUrl?.trim();
+    if (trimmedImageUrl != null && trimmedImageUrl.isNotEmpty) {
+      return Image.network(
+        trimmedImageUrl,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) =>
+            Image.asset(fallbackImagePath, fit: BoxFit.cover),
+      );
+    }
+
+    return Image.asset(fallbackImagePath, fit: BoxFit.cover);
   }
 }
 

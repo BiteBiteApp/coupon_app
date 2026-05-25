@@ -247,6 +247,7 @@ class RestaurantAccountService {
     required String streetAddress,
     required String website,
     required String bio,
+    String mainImageUrl = '',
     required List<RestaurantBusinessHours> businessHours,
     required double? latitude,
     required double? longitude,
@@ -268,6 +269,7 @@ class RestaurantAccountService {
       streetAddress: streetAddress.trim().isEmpty ? null : streetAddress.trim(),
       website: website.trim().isEmpty ? null : website.trim(),
       bio: bio.trim().isEmpty ? null : bio.trim(),
+      mainImageUrl: mainImageUrl.trim().isEmpty ? null : mainImageUrl.trim(),
       businessHours: businessHours.isEmpty
           ? const []
           : RestaurantBusinessHours.normalizedWeek(businessHours),
@@ -288,6 +290,7 @@ class RestaurantAccountService {
         streetAddress: streetAddress,
         website: website,
         bio: bio,
+        mainImageUrl: mainImageUrl,
         businessHours: businessHours,
         latitude: latitude,
         longitude: longitude,
@@ -397,6 +400,9 @@ class RestaurantAccountService {
       details: trimmedDetails == null || trimmedDetails.isEmpty
           ? null
           : trimmedDetails,
+      imageUrl: coupon.imageUrl?.trim().isEmpty == true
+          ? null
+          : coupon.imageUrl?.trim(),
     );
   }
 
@@ -528,6 +534,9 @@ class RestaurantAccountService {
           _readString(data[Restaurant.legacyFieldStreetAddress]),
       Restaurant.fieldWebsite: _readString(data[Restaurant.fieldWebsite]),
       Restaurant.fieldBio: _readString(data[Restaurant.fieldBio]),
+      Restaurant.fieldMainImageUrl:
+          _readString(data[Restaurant.fieldMainImageUrl]) ??
+          _readString(data[Restaurant.legacyFieldImageUrl]),
       Restaurant.fieldBusinessHours: data[Restaurant.fieldBusinessHours],
       Restaurant.fieldLatitude: _readDouble(data[Restaurant.fieldLatitude]),
       Restaurant.fieldLongitude: _readDouble(data[Restaurant.fieldLongitude]),

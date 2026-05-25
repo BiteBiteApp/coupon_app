@@ -8,6 +8,7 @@ import '../models/local_coupon_store.dart';
 import '../models/local_restaurant_profile_store.dart';
 import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
+import '../services/bitesaver_image_upload_service.dart';
 import '../services/customer_session_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_auth_service.dart';
@@ -46,11 +47,15 @@ class _RestaurantCreateCouponScreenState
   String selectedCouponType = 'Normal coupon';
   String selectedProximityRadius = '1 mile';
   String? editingCouponId;
+  String? restaurantImageUrl;
+  String? couponImageUrl;
 
   bool profileLoading = true;
   bool profileSaving = false;
+  bool restaurantImageUploading = false;
   bool couponsLoading = true;
   bool couponSaving = false;
+  bool couponImageUploading = false;
   bool _hoursExpanded = false;
   bool _businessHoursDirty = false;
   bool _subscriptionCheckoutLoading = false;
@@ -341,6 +346,9 @@ class _RestaurantCreateCouponScreenState
     streetAddressController.text = localProfile.streetAddress;
     websiteController.text = localProfile.website;
     bioController.text = localProfile.bio;
+    restaurantImageUrl = localProfile.mainImageUrl.trim().isEmpty
+        ? null
+        : localProfile.mainImageUrl.trim();
     businessHours = _hoursForEditing(localProfile.businessHours);
     _businessHoursDirty = localProfile.businessHours.isNotEmpty;
 
@@ -443,6 +451,13 @@ class _RestaurantCreateCouponScreenState
         bioController.text = (data['bio'] as String?)?.trim().isNotEmpty == true
             ? data['bio'] as String
             : bioController.text;
+        restaurantImageUrl =
+            (data[Restaurant.fieldMainImageUrl] as String?)
+                    ?.trim()
+                    .isNotEmpty ==
+                true
+            ? data[Restaurant.fieldMainImageUrl] as String
+            : restaurantImageUrl;
         final loadedBusinessHours = RestaurantBusinessHours.listFromFirestore(
           data[Restaurant.fieldBusinessHours],
         );
@@ -480,6 +495,7 @@ class _RestaurantCreateCouponScreenState
           streetAddress: streetAddressController.text.trim(),
           website: websiteController.text.trim(),
           bio: bioController.text.trim(),
+          mainImageUrl: restaurantImageUrl ?? '',
           latitude: _stringFromCoordinateValue(data?[Restaurant.fieldLatitude]),
           longitude: _stringFromCoordinateValue(
             data?[Restaurant.fieldLongitude],
@@ -947,7 +963,109 @@ class _RestaurantCreateCouponScreenState
       details: couponDetailsController.text.trim().isEmpty
           ? null
           : couponDetailsController.text.trim(),
+      imageUrl: couponImageUrl,
     );
+  }
+
+  Future<void> _pickRestaurantImage() async {
+    final user = currentUser;
+    if (user == null) {
+      _showSnackBar('Please sign in to add a restaurant image.');
+      return;
+    }
+
+    setState(() {
+      restaurantImageUploading = true;
+    });
+
+    try {
+      final uploadedUrl =
+          await BiteSaverImageUploadService.pickAndUploadRestaurantImage(
+            uid: user.uid,
+          );
+      if (uploadedUrl == null) {
+        return;
+      }
+      if (!mounted) return;
+      setState(() {
+        restaurantImageUrl = uploadedUrl;
+      });
+      await RestaurantAccountService.docForUser(user.uid).set({
+        Restaurant.fieldMainImageUrl: uploadedUrl,
+        Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      _showSnackBar('Restaurant image saved.');
+    } catch (error) {
+      if (!mounted) return;
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not upload the restaurant image right now.',
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          restaurantImageUploading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _pickCouponImage() async {
+    final user = currentUser;
+    if (user == null) {
+      _showSnackBar('Please sign in to add a coupon image.');
+      return;
+    }
+
+    setState(() {
+      couponImageUploading = true;
+    });
+
+    try {
+      final couponKey =
+          editingCouponId ?? DateTime.now().microsecondsSinceEpoch.toString();
+      final uploadedUrl =
+          await BiteSaverImageUploadService.pickAndUploadCouponImage(
+            uid: user.uid,
+            couponKey: couponKey,
+          );
+      if (uploadedUrl == null) {
+        return;
+      }
+      if (!mounted) return;
+      setState(() {
+        couponImageUrl = uploadedUrl;
+      });
+      if (editingCouponId != null && editingCouponId!.trim().isNotEmpty) {
+        await RestaurantAccountService.couponsCollection(
+          user.uid,
+        ).doc(editingCouponId!.trim()).set({
+          Coupon.fieldImageUrl: uploadedUrl,
+          Coupon.fieldUpdatedAt: FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+      _showSnackBar(
+        editingCouponId == null
+            ? 'Coupon image added. Save the coupon to keep it.'
+            : 'Coupon image saved.',
+      );
+    } catch (error) {
+      if (!mounted) return;
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not upload the coupon image right now.',
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          couponImageUploading = false;
+        });
+      }
+    }
   }
 
   Future<void> saveRestaurantProfile() async {
@@ -974,6 +1092,7 @@ class _RestaurantCreateCouponScreenState
     final streetAddress = streetAddressController.text.trim();
     final website = websiteController.text.trim();
     final bio = bioController.text.trim();
+    final imageUrl = restaurantImageUrl?.trim() ?? '';
     final fullAddress = '$streetAddress, $city, $state $zipCode';
 
     double? latitude;
@@ -1009,6 +1128,7 @@ class _RestaurantCreateCouponScreenState
         streetAddress: streetAddress,
         website: website,
         bio: bio,
+        mainImageUrl: imageUrl,
         businessHours: persistedBusinessHours,
         latitude: latitude,
         longitude: longitude,
@@ -1027,6 +1147,7 @@ class _RestaurantCreateCouponScreenState
           streetAddress: streetAddress,
           website: website,
           bio: bio,
+          mainImageUrl: imageUrl,
           latitude: latitude?.toString() ?? '',
           longitude: longitude?.toString() ?? '',
           businessHours: persistedBusinessHours,
@@ -1244,6 +1365,7 @@ class _RestaurantCreateCouponScreenState
       couponStartTime = coupon.startTime;
       couponEndTime = coupon.endTime;
       selectedUsageRule = coupon.usageRule;
+      couponImageUrl = coupon.imageUrl;
       selectedCouponType = coupon.isProximityOnly
           ? 'Proximity-only coupon'
           : 'Normal coupon';
@@ -1260,6 +1382,7 @@ class _RestaurantCreateCouponScreenState
       titleController.clear();
       couponCodeController.clear();
       couponDetailsController.clear();
+      couponImageUrl = null;
       selectedUsageRule = 'Once per customer';
       selectedCouponType = 'Normal coupon';
       selectedProximityRadius = '1 mile';
@@ -1578,6 +1701,11 @@ class _RestaurantCreateCouponScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (coupon.imageUrl != null && coupon.imageUrl!.trim().isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _buildNetworkImagePreview(coupon.imageUrl!, height: 120),
+              ),
             Text(
               coupon.title,
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -1638,6 +1766,67 @@ class _RestaurantCreateCouponScreenState
     );
   }
 
+  Widget _buildImageUploadField({
+    required String title,
+    required String buttonLabel,
+    required String? imageUrl,
+    required bool uploading,
+    required VoidCallback onPressed,
+  }) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFFBF5),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE6D7C8)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+          if (imageUrl != null && imageUrl.trim().isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _buildNetworkImagePreview(imageUrl, height: 132),
+          ],
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: uploading ? null : onPressed,
+            icon: uploading
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.image_outlined),
+            label: Text(uploading ? 'Uploading...' : buttonLabel),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNetworkImagePreview(String imageUrl, {required double height}) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: Image.network(
+        imageUrl,
+        width: double.infinity,
+        height: height,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          height: height,
+          alignment: Alignment.center,
+          color: const Color(0xFFF3E8DD),
+          child: const Text(
+            'Image preview unavailable',
+            style: TextStyle(color: Colors.black54),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget buildCustomerProfilePreview(RestaurantProfileData profile) {
     final hasPhone = profile.phone.trim().isNotEmpty;
     final hasWebsite = profile.website.trim().isNotEmpty;
@@ -1656,6 +1845,10 @@ class _RestaurantCreateCouponScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (profile.mainImageUrl.trim().isNotEmpty) ...[
+              _buildNetworkImagePreview(profile.mainImageUrl, height: 150),
+              const SizedBox(height: 12),
+            ],
             Text(
               profile.name,
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
@@ -2221,6 +2414,16 @@ class _RestaurantCreateCouponScreenState
               ),
             ),
             const SizedBox(height: 16),
+            _buildImageUploadField(
+              title: 'Restaurant image',
+              buttonLabel: restaurantImageUrl == null
+                  ? 'Add restaurant image'
+                  : 'Change restaurant image',
+              imageUrl: restaurantImageUrl,
+              uploading: restaurantImageUploading,
+              onPressed: _pickRestaurantImage,
+            ),
+            const SizedBox(height: 16),
             _buildBusinessHoursEditor(),
             const SizedBox(height: 16),
             SizedBox(
@@ -2277,6 +2480,16 @@ class _RestaurantCreateCouponScreenState
                 'Coupon Description (Optional)',
                 'Optional details, exclusions, or redemption notes.',
               ),
+            ),
+            const SizedBox(height: 8),
+            _buildImageUploadField(
+              title: 'Coupon image',
+              buttonLabel: couponImageUrl == null
+                  ? 'Add coupon image'
+                  : 'Change coupon image',
+              imageUrl: couponImageUrl,
+              uploading: couponImageUploading,
+              onPressed: _pickCouponImage,
             ),
             const SizedBox(height: 8),
             const Text(

@@ -44,6 +44,8 @@ dependencies:
   geocoding: ^4.0.0
   google_sign_in: ^7.2.0
   shared_preferences: ^2.5.5
+  firebase_storage: ^13.4.1
+  image_picker: ^1.2.2
 
 dev_dependencies:
   flutter_test:
