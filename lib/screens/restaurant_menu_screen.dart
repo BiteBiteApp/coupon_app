@@ -2,16 +2,21 @@ import 'package:flutter/material.dart';
 
 import '../services/app_mode_state_service.dart';
 import '../services/restaurant_account_service.dart';
+import '../services/restaurant_menu_service.dart';
 import '../widgets/persistent_bottom_navigation.dart';
 
 class RestaurantMenuScreen extends StatefulWidget {
-  final String restaurantUid;
+  final String? restaurantUid;
   final String restaurantName;
+  final RestaurantMenuSource? source;
+  final AppMode mode;
 
   const RestaurantMenuScreen({
     super.key,
-    required this.restaurantUid,
     required this.restaurantName,
+    this.restaurantUid,
+    this.source,
+    this.mode = AppMode.biteSaver,
   });
 
   @override
@@ -41,15 +46,28 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     _menuFuture = _loadMenu();
   }
 
+  RestaurantMenuSource? get _source {
+    final providedSource = widget.source;
+    if (providedSource != null) {
+      return providedSource;
+    }
+
+    final uid = widget.restaurantUid?.trim();
+    if (uid == null || uid.isEmpty) {
+      return null;
+    }
+    return RestaurantMenuSource.legacyBiteSaver(uid);
+  }
+
   Future<_RestaurantMenuData> _loadMenu() async {
-    final uid = widget.restaurantUid.trim();
-    if (uid.isEmpty) {
+    final source = _source;
+    if (source == null || source.id.isEmpty) {
       return const _RestaurantMenuData(images: [], items: []);
     }
 
     final results = await Future.wait([
-      RestaurantAccountService.loadMenuImages(uid),
-      RestaurantAccountService.loadMenuItems(uid),
+      RestaurantMenuService.loadMenuImages(source),
+      RestaurantMenuService.loadMenuItems(source),
     ]);
 
     return _RestaurantMenuData(
@@ -336,9 +354,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         surfaceTintColor: const Color(0xFFF8F1EA),
         elevation: 0,
       ),
-      bottomNavigationBar: const PersistentBottomNavigation(
-        mode: AppMode.biteSaver,
-      ),
+      bottomNavigationBar: PersistentBottomNavigation(mode: widget.mode),
       body: FutureBuilder<_RestaurantMenuData>(
         future: _menuFuture,
         builder: (context, snapshot) {

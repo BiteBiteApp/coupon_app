@@ -26,6 +26,7 @@ class Restaurant {
   static const String fieldWebsite = 'website';
   static const String fieldBio = 'bio';
   static const String fieldMainImageUrl = 'mainImageUrl';
+  static const String fieldSharedMenuId = 'sharedMenuId';
   static const String legacyFieldImageUrl = 'imageUrl';
   static const String fieldBusinessHours = 'businessHours';
   static const String fieldLatitude = 'latitude';
@@ -48,6 +49,7 @@ class Restaurant {
   final String? website;
   final String? bio;
   final String? mainImageUrl;
+  final String? sharedMenuId;
   final List<RestaurantBusinessHours> businessHours;
   final double? latitude;
   final double? longitude;
@@ -65,6 +67,7 @@ class Restaurant {
     this.website,
     this.bio,
     this.mainImageUrl,
+    this.sharedMenuId,
     this.businessHours = const [],
     this.latitude,
     this.longitude,
@@ -163,6 +166,7 @@ class Restaurant {
       mainImageUrl:
           _readString(data[fieldMainImageUrl]) ??
           _readString(data[legacyFieldImageUrl]),
+      sharedMenuId: _readString(data[fieldSharedMenuId]),
       businessHours: RestaurantBusinessHours.listFromFirestore(
         data[fieldBusinessHours],
       ),

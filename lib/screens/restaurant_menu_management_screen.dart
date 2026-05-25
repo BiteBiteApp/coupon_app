@@ -1,12 +1,23 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../models/bitescore_restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/bitesaver_image_upload_service.dart';
 import '../services/restaurant_account_service.dart';
+import '../services/restaurant_menu_service.dart';
 
 class RestaurantMenuManagementScreen extends StatefulWidget {
-  const RestaurantMenuManagementScreen({super.key});
+  final RestaurantMenuSource? source;
+  final String? restaurantName;
+  final BitescoreRestaurant? biteScoreRestaurant;
+
+  const RestaurantMenuManagementScreen({
+    super.key,
+    this.source,
+    this.restaurantName,
+    this.biteScoreRestaurant,
+  });
 
   @override
   State<RestaurantMenuManagementScreen> createState() =>
@@ -36,11 +47,25 @@ class _RestaurantMenuManagementScreenState
   bool _isLoading = true;
   bool _isSavingItem = false;
   bool _isUploadingImage = false;
+  bool _isLinkingMenu = false;
   bool _hasPostingAccess = false;
+  RestaurantMenuSource? _activeSource;
+  RestaurantMenuLinkSuggestion? _linkSuggestion;
   List<RestaurantMenuImage> _images = const [];
   List<RestaurantMenuItem> _items = const [];
 
   User? get _currentUser => FirebaseAuth.instance.currentUser;
+
+  RestaurantMenuSource? _sourceForUser(User? user) {
+    final activeSource = _activeSource;
+    if (activeSource != null) {
+      return activeSource;
+    }
+    if (user == null) {
+      return null;
+    }
+    return RestaurantMenuSource.legacyBiteSaver(user.uid);
+  }
 
   @override
   void initState() {
@@ -67,19 +92,38 @@ class _RestaurantMenuManagementScreenState
     }
 
     try {
-      final accountData = await RestaurantAccountService.getAccountData(
-        user.uid,
-      );
-      final hasAccess = RestaurantAccountService.hasCouponPostingAccess(
-        accountData,
-      );
+      final accountData = widget.biteScoreRestaurant == null
+          ? await RestaurantAccountService.getAccountData(user.uid)
+          : null;
+      final source =
+          _activeSource ??
+          widget.source ??
+          RestaurantMenuService.sourceForBiteSaverAccountData(
+            uid: user.uid,
+            accountData: accountData,
+          );
+
+      var hasAccess = true;
+      if (widget.biteScoreRestaurant == null) {
+        hasAccess = RestaurantAccountService.hasCouponPostingAccess(
+          accountData,
+        );
+      }
       final results = await Future.wait([
-        RestaurantAccountService.loadMenuImages(user.uid),
-        RestaurantAccountService.loadMenuItems(user.uid),
+        RestaurantMenuService.loadMenuImages(source),
+        RestaurantMenuService.loadMenuItems(source),
       ]);
+      final suggestion = await RestaurantMenuService.findLinkSuggestion(
+        currentUserId: user.uid,
+        currentSource: source,
+        biteSaverAccountData: accountData,
+        biteScoreRestaurant: widget.biteScoreRestaurant,
+      );
 
       if (!mounted) return;
       setState(() {
+        _activeSource = source;
+        _linkSuggestion = suggestion;
         _hasPostingAccess = hasAccess;
         _images = results[0] as List<RestaurantMenuImage>;
         _items = results[1] as List<RestaurantMenuItem>;
@@ -96,6 +140,73 @@ class _RestaurantMenuManagementScreenState
           fallback: 'Could not load menu tools right now.',
         ),
       );
+    }
+  }
+
+  Future<void> _linkSuggestedMenu(
+    RestaurantMenuLinkSuggestion suggestion,
+  ) async {
+    if (_isLinkingMenu) {
+      return;
+    }
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Use existing menu?'),
+        content: Text(
+          'This will make this restaurant use the same menu as '
+          '${suggestion.targetRestaurantName}. Existing menu items and images '
+          'will not be copied or merged.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Use Menu'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _isLinkingMenu = true;
+    });
+    try {
+      await RestaurantMenuService.linkSuggestedSharedMenu(suggestion);
+      if (!mounted) {
+        return;
+      }
+      _showSnackBar('Menu linked.');
+      setState(() {
+        _activeSource = suggestion.targetSource;
+        _linkSuggestion = null;
+        _isLoading = true;
+      });
+      await _loadMenu();
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback:
+              'Could not link menus. If both menus already have content, manual resolution is needed.',
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLinkingMenu = false;
+        });
+      }
     }
   }
 
@@ -117,16 +228,34 @@ class _RestaurantMenuManagementScreenState
     });
 
     try {
-      final imageUrl = await BiteSaverImageUploadService.pickAndUploadMenuImage(
-        uid: user.uid,
-      );
+      final source = _sourceForUser(user);
+      if (source == null) {
+        _showSnackBar('Please sign in to manage your menu.');
+        return;
+      }
+
+      String? imageUrl;
+      String? storagePath;
+      if (source.isSharedMenu) {
+        final upload =
+            await BiteSaverImageUploadService.pickAndUploadSharedMenuImage(
+              menuId: source.id,
+            );
+        imageUrl = upload?.imageUrl;
+        storagePath = upload?.storagePath;
+      } else {
+        imageUrl = await BiteSaverImageUploadService.pickAndUploadMenuImage(
+          uid: source.id,
+        );
+      }
       if (imageUrl == null) {
         return;
       }
 
-      final savedImage = await RestaurantAccountService.saveMenuImage(
-        uid: user.uid,
+      final savedImage = await RestaurantMenuService.saveMenuImage(
+        source: source,
         imageUrl: imageUrl,
+        storagePath: storagePath,
       );
       if (!mounted) return;
       setState(() {
@@ -169,8 +298,13 @@ class _RestaurantMenuManagementScreenState
     });
 
     try {
-      final savedItem = await RestaurantAccountService.saveMenuItem(
-        uid: user.uid,
+      final source = _sourceForUser(user);
+      if (source == null) {
+        _showSnackBar('Please sign in to manage your menu.');
+        return;
+      }
+      final savedItem = await RestaurantMenuService.saveMenuItem(
+        source: source,
         name: name,
         description: _descriptionController.text,
         price: _priceController.text,
@@ -204,10 +338,12 @@ class _RestaurantMenuManagementScreenState
   Future<void> _deleteImage(RestaurantMenuImage image) async {
     final user = _currentUser;
     if (user == null) return;
+    final source = _sourceForUser(user);
+    if (source == null) return;
 
     try {
-      await RestaurantAccountService.deleteMenuImage(
-        uid: user.uid,
+      await RestaurantMenuService.deleteMenuImage(
+        source: source,
         imageId: image.id,
       );
       if (!mounted) return;
@@ -228,10 +364,12 @@ class _RestaurantMenuManagementScreenState
   Future<void> _deleteItem(RestaurantMenuItem item) async {
     final user = _currentUser;
     if (user == null) return;
+    final source = _sourceForUser(user);
+    if (source == null) return;
 
     try {
-      await RestaurantAccountService.deleteMenuItem(
-        uid: user.uid,
+      await RestaurantMenuService.deleteMenuItem(
+        source: source,
         itemId: item.id,
       );
       if (!mounted) return;
@@ -277,6 +415,51 @@ class _RestaurantMenuManagementScreenState
       child: const Text(
         'Your BiteSaver restaurant account must be approved and active before managing a menu.',
         style: TextStyle(color: Color(0xFF9A3412), height: 1.35),
+      ),
+    );
+  }
+
+  Widget _buildMenuSourceSection() {
+    final suggestion = _linkSuggestion;
+    if (suggestion == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Menu source',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'This restaurant may match a profile on the other side of the app.',
+            style: TextStyle(color: Colors.black54, height: 1.3),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: _isLinkingMenu
+                ? null
+                : () => _linkSuggestedMenu(suggestion),
+            icon: _isLinkingMenu
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.link),
+            label: Text(_isLinkingMenu ? 'Linking...' : suggestion.actionLabel),
+          ),
+        ],
       ),
     );
   }
@@ -386,7 +569,13 @@ class _RestaurantMenuManagementScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Manage Menu')),
+      appBar: AppBar(
+        title: Text(
+          widget.restaurantName?.trim().isNotEmpty == true
+              ? '${widget.restaurantName!.trim()} Menu'
+              : 'Manage Menu',
+        ),
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView(
@@ -396,6 +585,8 @@ class _RestaurantMenuManagementScreenState
                   _buildAccessNotice(),
                   const SizedBox(height: 16),
                 ],
+                _buildMenuSourceSection(),
+                if (_linkSuggestion != null) const SizedBox(height: 16),
                 const Text(
                   'Menu Images',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),

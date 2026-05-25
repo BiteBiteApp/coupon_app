@@ -10,11 +10,13 @@ import '../services/app_error_text.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
+import '../services/restaurant_menu_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/biterater_theme.dart';
 import '../widgets/persistent_bottom_navigation.dart';
 import 'bitescore_create_rate_screen.dart';
 import 'bitescore_dish_detail_screen.dart';
+import 'restaurant_menu_screen.dart';
 
 class BiteScoreRestaurantDishesScreen extends StatefulWidget {
   final BitescoreRestaurant restaurant;
@@ -439,6 +441,24 @@ class _BiteScoreRestaurantDishesScreenState
     if (!opened && mounted) {
       _showSnackBar('Could not open the website right now.');
     }
+  }
+
+  Future<void> _openMenu() async {
+    final menuId = _restaurant.sharedMenuId?.trim();
+    if (menuId == null || menuId.isEmpty) {
+      _showSnackBar('Menu not available yet.');
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => RestaurantMenuScreen(
+          restaurantName: _restaurant.name,
+          source: RestaurantMenuSource.sharedMenu(menuId),
+          mode: AppMode.biteScore,
+        ),
+      ),
+    );
   }
 
   Widget _buildRestaurantContactActions() {
@@ -904,6 +924,22 @@ class _BiteScoreRestaurantDishesScreenState
                               const SizedBox(height: 10),
                               _buildClaimedBadge(),
                             ],
+                            const SizedBox(height: 8),
+                            InkWell(
+                              onTap: _openMenu,
+                              borderRadius: BorderRadius.circular(8),
+                              child: const Padding(
+                                padding: EdgeInsets.symmetric(vertical: 2),
+                                child: Text(
+                                  'Menu',
+                                  style: TextStyle(
+                                    color: BiteRaterTheme.ocean,
+                                    decoration: TextDecoration.underline,
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ),
+                            ),
                             const SizedBox(height: 8),
                             InkWell(
                               onTap: _hasDirectionsTarget

@@ -8,10 +8,12 @@ import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/bitescore_service.dart';
+import '../services/restaurant_menu_service.dart';
 import '../widgets/biterater_theme.dart';
 import 'bitescore_create_rate_screen.dart';
 import 'bitescore_dish_detail_screen.dart';
 import 'main_navigation_screen.dart';
+import 'restaurant_menu_management_screen.dart';
 
 class BiteScoreOwnerScreen extends StatefulWidget {
   final User currentUser;
@@ -160,6 +162,39 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
     }
   }
 
+  Future<void> _openManageMenu(BitescoreRestaurant restaurant) async {
+    try {
+      final source =
+          await RestaurantMenuService.ensureSharedMenuForBiteScoreRestaurant(
+            restaurant: restaurant,
+            ownerUserId: widget.currentUser.uid,
+          );
+      if (!mounted) {
+        return;
+      }
+
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => RestaurantMenuManagementScreen(
+            source: source,
+            restaurantName: restaurant.name,
+            biteScoreRestaurant: restaurant,
+          ),
+        ),
+      );
+      if (mounted) {
+        setState(_refresh);
+      }
+    } catch (error) {
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not open menu tools right now.',
+        ),
+      );
+    }
+  }
+
   Future<void> _openMergeDialog(List<BiteScoreHomeEntry> entries) async {
     final activeDishes = entries
         .map((entry) => entry.dish)
@@ -302,6 +337,14 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
                     onPressed: () => _openAddDish(restaurant),
                     icon: Icons.add,
                     label: 'Add Dish',
+                  ),
+                ),
+                SizedBox(
+                  width: 150,
+                  child: _buildOwnerActionButton(
+                    onPressed: () => _openManageMenu(restaurant),
+                    icon: Icons.menu_book_outlined,
+                    label: 'Manage Menu',
                   ),
                 ),
                 SizedBox(

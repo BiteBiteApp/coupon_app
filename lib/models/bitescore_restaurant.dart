@@ -17,6 +17,7 @@ class BitescoreRestaurant {
   final String? website;
   final String? bio;
   final String? ownerUserId;
+  final String? sharedMenuId;
   final List<RestaurantBusinessHours> businessHours;
   final List<String> cuisineTags;
   final bool isClaimed;
@@ -37,6 +38,7 @@ class BitescoreRestaurant {
     this.website,
     this.bio,
     this.ownerUserId,
+    this.sharedMenuId,
     this.businessHours = const <RestaurantBusinessHours>[],
     this.cuisineTags = const <String>[],
     this.isClaimed = false,
@@ -83,9 +85,11 @@ class BitescoreRestaurant {
       'phone': phone?.trim(),
       'website': website?.trim(),
       'bio': bio?.trim(),
-      Restaurant.fieldBusinessHours:
-          RestaurantBusinessHours.toFirestoreList(businessHours),
+      Restaurant.fieldBusinessHours: RestaurantBusinessHours.toFirestoreList(
+        businessHours,
+      ),
       'ownerUserId': ownerUserId?.trim(),
+      'sharedMenuId': sharedMenuId?.trim(),
       'cuisineTags': cuisineTags,
       'isClaimed': isClaimed,
       'isActive': isActive,
@@ -108,6 +112,7 @@ class BitescoreRestaurant {
     String? website,
     String? bio,
     String? ownerUserId,
+    String? sharedMenuId,
     List<RestaurantBusinessHours>? businessHours,
     List<String>? cuisineTags,
     bool? isClaimed,
@@ -128,6 +133,7 @@ class BitescoreRestaurant {
       website: website ?? this.website,
       bio: bio ?? this.bio,
       ownerUserId: ownerUserId ?? this.ownerUserId,
+      sharedMenuId: sharedMenuId ?? this.sharedMenuId,
       businessHours: businessHours ?? this.businessHours,
       cuisineTags: cuisineTags ?? this.cuisineTags,
       isClaimed: isClaimed ?? this.isClaimed,
@@ -153,7 +159,8 @@ class BitescoreRestaurant {
     final city = _readString(data['city']);
     final state = _readString(data['state']) ?? '';
     final zipCode = _readString(data['zip']) ?? _readString(data['zipCode']);
-    final location = _readGeoPoint(data['location']) ??
+    final location =
+        _readGeoPoint(data['location']) ??
         _readGeoPointFromCoordinates(
           latitude: data['latitude'],
           longitude: data['longitude'],
@@ -181,6 +188,7 @@ class BitescoreRestaurant {
       website: _readString(data['website']) ?? _readString(data['websiteUrl']),
       bio: _readString(data['bio']),
       ownerUserId: _readString(data['ownerUserId']),
+      sharedMenuId: _readString(data['sharedMenuId']),
       businessHours: RestaurantBusinessHours.listFromFirestore(
         data[Restaurant.fieldBusinessHours],
       ),
@@ -200,40 +208,47 @@ class BitescoreRestaurant {
       return null;
     }
 
-    final address = _readString(data['address']) ??
+    final address =
+        _readString(data['address']) ??
         _readString(data['streetAddress']) ??
         _readString(data['formattedAddress']) ??
         _readString(data['fullAddress']) ??
         '';
     final inferredAddress = _parseUsAddress(address);
-    final name = _readString(data['name']) ??
+    final name =
+        _readString(data['name']) ??
         _readString(data['restaurantName']) ??
         _readString(data['restaurant_name']);
     final normalizedName =
         _readString(data['normalizedName']) ?? name?.toLowerCase();
-    final explicitCity = _readString(data['city']) ??
+    final explicitCity =
+        _readString(data['city']) ??
         _readString(data['locality']) ??
         _readString(data['municipality']) ??
         _readString(data['town']);
-    final explicitState = _readString(data['state']) ??
+    final explicitState =
+        _readString(data['state']) ??
         _readString(data['stateCode']) ??
         _readString(data['state_name']) ??
         _readString(data['region']) ??
         _readString(data['province']);
-    final explicitZip = _readString(data['zip']) ??
+    final explicitZip =
+        _readString(data['zip']) ??
         _readString(data['zipCode']) ??
         _readString(data['zip_code']) ??
         _readString(data['postalCode']) ??
         _readString(data['postcode']);
     final state = _normalizeState(explicitState ?? inferredAddress.state);
-    final zipCode = _normalizeZipCode(explicitZip ?? inferredAddress.zipCode) ?? '';
+    final zipCode =
+        _normalizeZipCode(explicitZip ?? inferredAddress.zipCode) ?? '';
     final city = _normalizeCity(
       explicitCity,
       fallbackCity: inferredAddress.city,
       state: state,
       zipCode: zipCode,
     );
-    final location = _readGeoPoint(data['location']) ??
+    final location =
+        _readGeoPoint(data['location']) ??
         _readGeoPoint(data['geoPoint']) ??
         _readGeoPointFromCoordinates(
           latitude: data['latitude'] ?? data['lat'],
@@ -255,17 +270,20 @@ class BitescoreRestaurant {
       zipCode: zipCode,
       location: location,
       phone: _readString(data['phone']) ?? _readString(data['phoneNumber']),
-      website: _readString(data['website']) ??
+      website:
+          _readString(data['website']) ??
           _readString(data['websiteUrl']) ??
           _readString(data['url']),
       bio: _readString(data['bio']),
       ownerUserId: _readString(data['ownerUserId']),
+      sharedMenuId: _readString(data['sharedMenuId']),
       businessHours: RestaurantBusinessHours.listFromFirestore(
         data[Restaurant.fieldBusinessHours],
       ),
       cuisineTags: _readStringList(data['cuisineTags']),
       isClaimed: _readBool(data['isClaimed']) ?? false,
-      isActive: _readBool(data['isActive']) ?? _readBool(data['active']) ?? true,
+      isActive:
+          _readBool(data['isActive']) ?? _readBool(data['active']) ?? true,
       createdAt: _readDateTime(data['createdAt']),
       updatedAt: _readDateTime(data['updatedAt']),
     );
@@ -513,11 +531,7 @@ class _ParsedUsAddress {
   final String? state;
   final String? zipCode;
 
-  const _ParsedUsAddress({
-    this.city,
-    this.state,
-    this.zipCode,
-  });
+  const _ParsedUsAddress({this.city, this.state, this.zipCode});
 }
 
 const Map<String, String> _stateNameToCode = {
