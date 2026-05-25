@@ -26,6 +26,13 @@ class BiteSaverImageUploadService {
     );
   }
 
+  static Future<String?> pickAndUploadMenuImage({required String uid}) async {
+    return _pickAndUpload(
+      storagePath: 'bitesaver_restaurants/${_safePathSegment(uid)}/menu_images',
+      filePrefix: 'menu',
+    );
+  }
+
   static Future<String?> _pickAndUpload({
     required String storagePath,
     required String filePrefix,

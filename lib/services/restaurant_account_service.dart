@@ -17,6 +17,18 @@ class RestaurantAccountService {
     return docForUser(uid).collection('coupons');
   }
 
+  static CollectionReference<Map<String, dynamic>> menuImagesCollection(
+    String uid,
+  ) {
+    return docForUser(uid).collection('menu_images');
+  }
+
+  static CollectionReference<Map<String, dynamic>> menuItemsCollection(
+    String uid,
+  ) {
+    return docForUser(uid).collection('menu_items');
+  }
+
   static CollectionReference<Map<String, dynamic>>
   restaurantNameChangeRequestsCollection() {
     return _firestore.collection('restaurant_name_change_requests');
@@ -438,6 +450,157 @@ class RestaurantAccountService {
     }, SetOptions(merge: true));
   }
 
+  static Future<List<RestaurantMenuImage>> loadMenuImages(String uid) async {
+    final snapshot = await menuImagesCollection(uid).get();
+    final images = <RestaurantMenuImage>[];
+
+    for (final doc in snapshot.docs) {
+      final image = RestaurantMenuImage.tryFromFirestore(
+        doc.data(),
+        fallbackId: doc.id,
+      );
+      if (image != null) {
+        images.add(image);
+      }
+    }
+
+    images.sort((a, b) {
+      final sortComparison = a.sortOrder.compareTo(b.sortOrder);
+      if (sortComparison != 0) {
+        return sortComparison;
+      }
+      return a.id.compareTo(b.id);
+    });
+    return images;
+  }
+
+  static Future<List<RestaurantMenuItem>> loadMenuItems(String uid) async {
+    final snapshot = await menuItemsCollection(uid).get();
+    final items = <RestaurantMenuItem>[];
+
+    for (final doc in snapshot.docs) {
+      final item = RestaurantMenuItem.tryFromFirestore(
+        doc.data(),
+        fallbackId: doc.id,
+      );
+      if (item != null) {
+        items.add(item);
+      }
+    }
+
+    items.sort((a, b) {
+      final categoryComparison = a.category.compareTo(b.category);
+      if (categoryComparison != 0) {
+        return categoryComparison;
+      }
+      final sortComparison = a.sortOrder.compareTo(b.sortOrder);
+      if (sortComparison != 0) {
+        return sortComparison;
+      }
+      return a.name.compareTo(b.name);
+    });
+    return items;
+  }
+
+  static Future<RestaurantMenuImage> saveMenuImage({
+    required String uid,
+    required String imageUrl,
+  }) async {
+    await _ensureCanPostCoupons(uid);
+
+    final trimmedUrl = imageUrl.trim();
+    if (trimmedUrl.isEmpty) {
+      throw ArgumentError('Menu image URL is required.');
+    }
+
+    final doc = menuImagesCollection(uid).doc();
+    final sortOrder = DateTime.now().millisecondsSinceEpoch;
+    await doc.set({
+      RestaurantMenuImage.fieldId: doc.id,
+      RestaurantMenuImage.fieldImageUrl: trimmedUrl,
+      RestaurantMenuImage.fieldSortOrder: sortOrder,
+      RestaurantMenuImage.fieldCreatedAt: FieldValue.serverTimestamp(),
+      RestaurantMenuImage.fieldUpdatedAt: FieldValue.serverTimestamp(),
+    });
+
+    await docForUser(uid).set({
+      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    return RestaurantMenuImage(
+      id: doc.id,
+      imageUrl: trimmedUrl,
+      sortOrder: sortOrder,
+    );
+  }
+
+  static Future<RestaurantMenuItem> saveMenuItem({
+    required String uid,
+    required String name,
+    required String description,
+    required String price,
+    required String category,
+  }) async {
+    await _ensureCanPostCoupons(uid);
+
+    final trimmedName = name.trim();
+    final trimmedCategory = category.trim();
+    if (trimmedName.isEmpty) {
+      throw ArgumentError('Menu item name is required.');
+    }
+    if (trimmedCategory.isEmpty) {
+      throw ArgumentError('Menu item category is required.');
+    }
+
+    final doc = menuItemsCollection(uid).doc();
+    final sortOrder = DateTime.now().millisecondsSinceEpoch;
+    await doc.set({
+      RestaurantMenuItem.fieldId: doc.id,
+      RestaurantMenuItem.fieldName: trimmedName,
+      RestaurantMenuItem.fieldDescription: description.trim(),
+      RestaurantMenuItem.fieldPrice: price.trim(),
+      RestaurantMenuItem.fieldCategory: trimmedCategory,
+      RestaurantMenuItem.fieldSortOrder: sortOrder,
+      RestaurantMenuItem.fieldCreatedAt: FieldValue.serverTimestamp(),
+      RestaurantMenuItem.fieldUpdatedAt: FieldValue.serverTimestamp(),
+    });
+
+    await docForUser(uid).set({
+      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    return RestaurantMenuItem(
+      id: doc.id,
+      name: trimmedName,
+      description: description.trim(),
+      price: price.trim(),
+      category: trimmedCategory,
+      sortOrder: sortOrder,
+    );
+  }
+
+  static Future<void> deleteMenuImage({
+    required String uid,
+    required String imageId,
+  }) async {
+    await _ensureCanPostCoupons(uid);
+    await menuImagesCollection(uid).doc(imageId.trim()).delete();
+    await docForUser(uid).set({
+      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  static Future<void> deleteMenuItem({
+    required String uid,
+    required String itemId,
+  }) async {
+    await _ensureCanPostCoupons(uid);
+    await menuItemsCollection(uid).doc(itemId.trim()).delete();
+    await docForUser(uid).set({
+      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   static Future<void> deleteRestaurantAccount(String uid) async {
     final couponsSnapshot = await couponsCollection(uid).get();
 
@@ -652,4 +815,111 @@ class RestaurantAccountService {
 
     return null;
   }
+}
+
+class RestaurantMenuImage {
+  static const String fieldId = 'id';
+  static const String fieldImageUrl = 'imageUrl';
+  static const String fieldStoragePath = 'storagePath';
+  static const String fieldSortOrder = 'sortOrder';
+  static const String fieldCreatedAt = 'createdAt';
+  static const String fieldUpdatedAt = 'updatedAt';
+
+  final String id;
+  final String imageUrl;
+  final String? storagePath;
+  final int sortOrder;
+
+  const RestaurantMenuImage({
+    required this.id,
+    required this.imageUrl,
+    this.storagePath,
+    required this.sortOrder,
+  });
+
+  static RestaurantMenuImage? tryFromFirestore(
+    Map<String, dynamic>? data, {
+    required String fallbackId,
+  }) {
+    if (data == null) {
+      return null;
+    }
+
+    final imageUrl = RestaurantAccountService._readString(data[fieldImageUrl]);
+    if (imageUrl == null) {
+      return null;
+    }
+
+    return RestaurantMenuImage(
+      id: RestaurantAccountService._readString(data[fieldId]) ?? fallbackId,
+      imageUrl: imageUrl,
+      storagePath: RestaurantAccountService._readString(data[fieldStoragePath]),
+      sortOrder: _readInt(data[fieldSortOrder]) ?? 0,
+    );
+  }
+}
+
+class RestaurantMenuItem {
+  static const String fieldId = 'id';
+  static const String fieldName = 'name';
+  static const String fieldDescription = 'description';
+  static const String fieldPrice = 'price';
+  static const String fieldCategory = 'category';
+  static const String fieldSortOrder = 'sortOrder';
+  static const String fieldCreatedAt = 'createdAt';
+  static const String fieldUpdatedAt = 'updatedAt';
+
+  final String id;
+  final String name;
+  final String description;
+  final String price;
+  final String category;
+  final int sortOrder;
+
+  const RestaurantMenuItem({
+    required this.id,
+    required this.name,
+    required this.description,
+    required this.price,
+    required this.category,
+    required this.sortOrder,
+  });
+
+  static RestaurantMenuItem? tryFromFirestore(
+    Map<String, dynamic>? data, {
+    required String fallbackId,
+  }) {
+    if (data == null) {
+      return null;
+    }
+
+    final name = RestaurantAccountService._readString(data[fieldName]);
+    final category = RestaurantAccountService._readString(data[fieldCategory]);
+    if (name == null || category == null) {
+      return null;
+    }
+
+    return RestaurantMenuItem(
+      id: RestaurantAccountService._readString(data[fieldId]) ?? fallbackId,
+      name: name,
+      description:
+          RestaurantAccountService._readString(data[fieldDescription]) ?? '',
+      price: RestaurantAccountService._readString(data[fieldPrice]) ?? '',
+      category: category,
+      sortOrder: _readInt(data[fieldSortOrder]) ?? 0,
+    );
+  }
+}
+
+int? _readInt(dynamic value) {
+  if (value is int) {
+    return value;
+  }
+  if (value is num) {
+    return value.toInt();
+  }
+  if (value is String) {
+    return int.tryParse(value.trim());
+  }
+  return null;
 }

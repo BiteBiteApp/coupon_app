@@ -13,6 +13,7 @@ import '../services/customer_session_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_auth_service.dart';
 import '../services/subscription_checkout_service.dart';
+import 'restaurant_menu_management_screen.dart';
 import 'paywall_screen.dart';
 
 class RestaurantCreateCouponScreen extends StatefulWidget {
@@ -136,6 +137,12 @@ class _RestaurantCreateCouponScreenState
         });
       }
     }
+  }
+
+  Future<void> _openMenuManagement() async {
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const RestaurantMenuManagementScreen()),
+    );
   }
 
   List<String> get businessHourOptions {
@@ -2433,6 +2440,15 @@ class _RestaurantCreateCouponScreenState
                 child: Text(
                   profileSaving ? 'Saving...' : 'Save Restaurant Profile',
                 ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _openMenuManagement,
+                icon: const Icon(Icons.menu_book_outlined),
+                label: const Text('Manage Menu'),
               ),
             ),
             const SizedBox(height: 24),

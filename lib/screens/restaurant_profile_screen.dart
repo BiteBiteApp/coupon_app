@@ -13,6 +13,7 @@ import '../services/restaurant_account_service.dart';
 import '../widgets/bitesaver_report_dialog.dart';
 import '../widgets/persistent_bottom_navigation.dart';
 import 'coupon_detail_screen.dart';
+import 'restaurant_menu_screen.dart';
 
 class RestaurantProfileScreen extends StatefulWidget {
   final Restaurant restaurant;
@@ -25,6 +26,12 @@ class RestaurantProfileScreen extends StatefulWidget {
 }
 
 class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
+  static const List<String> _restaurantPlaceholderImages = [
+    'assets/images/placeholder_outside.png',
+    'assets/images/placeholder_kitchen.png',
+    'assets/images/placeholder_dining.png',
+  ];
+
   bool _isFavoriteRestaurant = false;
   bool _isSavingFavoriteRestaurant = false;
   bool _showRestaurantInfo = false;
@@ -79,6 +86,45 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
       restaurant.businessHours.isEmpty
       ? const []
       : RestaurantBusinessHours.normalizedWeek(restaurant.businessHours);
+
+  List<_GroupedRestaurantHours> get groupedWeeklyHours {
+    if (weeklyHours.isEmpty) {
+      return const [];
+    }
+
+    final hoursByDay = {for (final entry in weeklyHours) entry.day: entry};
+    final orderedDays = const [
+      'Monday',
+      'Tuesday',
+      'Wednesday',
+      'Thursday',
+      'Friday',
+      'Saturday',
+      'Sunday',
+    ];
+    final orderedHours = [
+      for (final day in orderedDays)
+        if (hoursByDay[day] != null) hoursByDay[day]!,
+    ];
+
+    final groups = <_GroupedRestaurantHours>[];
+    for (final entry in orderedHours) {
+      if (groups.isNotEmpty && groups.last.matches(entry)) {
+        groups.last = groups.last.copyWith(endDay: entry.day);
+      } else {
+        groups.add(
+          _GroupedRestaurantHours(
+            startDay: entry.day,
+            endDay: entry.day,
+            summaryLabel: entry.summaryLabel,
+            closed: entry.closed,
+          ),
+        );
+      }
+    }
+
+    return groups;
+  }
 
   bool _isFallbackDistanceLabel(String value) {
     return value.trim().isEmpty ||
@@ -190,6 +236,18 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
   }
 
+  String _placeholderImageForRestaurant(Restaurant restaurant) {
+    final stableKey = restaurant.uid?.trim().isNotEmpty == true
+        ? restaurant.uid!.trim()
+        : '${restaurant.name}|${restaurant.city}|${restaurant.zipCode}';
+    final hash = stableKey.codeUnits.fold<int>(
+      0,
+      (value, unit) => (value * 31 + unit) & 0x7fffffff,
+    );
+    return _restaurantPlaceholderImages[hash %
+        _restaurantPlaceholderImages.length];
+  }
+
   Future<void> _showLaunchError(BuildContext context, String message) async {
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
@@ -232,6 +290,23 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     if (!launched && context.mounted) {
       await _showLaunchError(context, 'Could not open the website.');
     }
+  }
+
+  Future<void> _openMenu(BuildContext context) async {
+    final uid = restaurant.uid?.trim();
+    if (uid == null || uid.isEmpty) {
+      await _showLaunchError(context, 'Menu is not available yet.');
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => RestaurantMenuScreen(
+          restaurantUid: uid,
+          restaurantName: _displayText(restaurant.name, 'Restaurant'),
+        ),
+      ),
+    );
   }
 
   Future<void> _getDirections(BuildContext context) async {
@@ -422,21 +497,22 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     );
   }
 
-  Widget buildActionButton({
+  Widget _buildCompactActionButton({
     required IconData icon,
     required String label,
     required bool enabled,
     required VoidCallback onPressed,
   }) {
-    return Expanded(
+    return SizedBox(
+      width: double.infinity,
       child: _biteSaverRaisedSurface(
         borderRadius: BorderRadius.circular(999),
-        innerMargin: const EdgeInsets.all(1.4),
-        shadowStrength: enabled ? 0.64 : 0.22,
+        innerMargin: const EdgeInsets.all(1.2),
+        shadowStrength: enabled ? 0.56 : 0.2,
         child: ElevatedButton.icon(
           onPressed: enabled ? onPressed : null,
-          icon: Icon(icon, size: 18),
-          label: Text(label),
+          icon: Icon(icon, size: 16),
+          label: Text(label, overflow: TextOverflow.ellipsis),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.transparent,
             foregroundColor: const Color(0xFF9F4F34),
@@ -444,7 +520,13 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
             disabledForegroundColor: const Color(0xFF9A8B80),
             elevation: 0,
             shadowColor: Colors.transparent,
-            padding: const EdgeInsets.symmetric(vertical: 14),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+            minimumSize: const Size(0, 40),
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            textStyle: const TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+            ),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(999),
             ),
@@ -454,11 +536,64 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     );
   }
 
+  Widget _buildRestaurantProfileImage() {
+    final imageUrl = restaurant.mainImageUrl?.trim();
+    final fallbackAsset = _placeholderImageForRestaurant(restaurant);
+
+    return _biteSaverRaisedSurface(
+      borderRadius: BorderRadius.circular(18),
+      innerMargin: const EdgeInsets.all(1.3),
+      shadowStrength: 0.52,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: AspectRatio(
+          aspectRatio: 1.08,
+          child: imageUrl != null && imageUrl.isNotEmpty
+              ? Image.network(
+                  imageUrl,
+                  fit: BoxFit.cover,
+                  errorBuilder: (context, error, stackTrace) =>
+                      Image.asset(fallbackAsset, fit: BoxFit.cover),
+                )
+              : Image.asset(fallbackAsset, fit: BoxFit.cover),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompactProfileActions() {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildCompactActionButton(
+          icon: Icons.call,
+          label: 'Call',
+          enabled: hasPhone,
+          onPressed: () {
+            _callRestaurant(context);
+          },
+        ),
+        const SizedBox(height: 7),
+        _buildCompactActionButton(
+          icon: Icons.directions,
+          label: 'Directions',
+          enabled: true,
+          onPressed: () {
+            _getDirections(context);
+          },
+        ),
+        const SizedBox(height: 7),
+        _buildRestaurantInformationTile(compact: true),
+      ],
+    );
+  }
+
   Widget _buildExpandableInfoTile({
     required String title,
     required bool isExpanded,
     required ValueChanged<bool> onExpansionChanged,
     required Widget child,
+    bool compact = false,
   }) {
     return _biteSaverRaisedSurface(
       borderRadius: BorderRadius.circular(18),
@@ -472,7 +607,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
             InkWell(
               onTap: () => onExpansionChanged(!isExpanded),
               child: SizedBox(
-                height: 56,
+                height: compact ? 40 : 56,
                 width: double.infinity,
                 child: Stack(
                   alignment: Alignment.center,
@@ -480,20 +615,21 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                     Text(
                       title,
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: Color(0xFF9F4F34),
-                        fontSize: 14,
-                        fontWeight: FontWeight.w600,
+                      style: TextStyle(
+                        color: const Color(0xFF9F4F34),
+                        fontSize: compact ? 13 : 14,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                     Positioned(
-                      right: 14,
+                      right: compact ? 8 : 14,
                       child: AnimatedRotation(
                         turns: isExpanded ? 0.5 : 0,
                         duration: const Duration(milliseconds: 200),
                         curve: Curves.easeOut,
                         child: const Icon(
                           Icons.expand_more,
+                          size: 20,
                           color: Color(0xFF9F4F34),
                         ),
                       ),
@@ -520,12 +656,13 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     );
   }
 
-  Widget _buildRestaurantInformationSection() {
+  Widget _buildRestaurantInformationTile({bool compact = false}) {
     return _buildExpandableInfoTile(
       title: 'Restaurant Information',
       isExpanded: _showRestaurantInfo,
       onExpansionChanged: (expanded) =>
           setState(() => _showRestaurantInfo = expanded),
+      compact: compact,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -538,6 +675,24 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
             Text(restaurant.bio!, style: const TextStyle(fontSize: 14)),
             const SizedBox(height: 14),
           ],
+          InkWell(
+            onTap: () {
+              _openMenu(context);
+            },
+            borderRadius: BorderRadius.circular(8),
+            child: const Padding(
+              padding: EdgeInsets.symmetric(vertical: 2),
+              child: Text(
+                'Menu',
+                style: TextStyle(
+                  color: Color(0xFF2563EB),
+                  decoration: TextDecoration.underline,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
           const Text(
             'Hours',
             style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
@@ -546,15 +701,16 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
           if (weeklyHours.isEmpty)
             const Text('Hours not set')
           else
-            for (final dayHours in weeklyHours)
+            for (final dayHours in groupedWeeklyHours)
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(
-                      width: 92,
+                      width: 78,
                       child: Text(
-                        dayHours.day,
+                        '${dayHours.dayRangeLabel}:',
                         style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
                     ),
@@ -597,7 +753,23 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
           ],
           if (hasWebsite) ...[
             const SizedBox(height: 6),
-            Text('Website: ${restaurant.website!}'),
+            InkWell(
+              onTap: () {
+                _openWebsite(context);
+              },
+              borderRadius: BorderRadius.circular(8),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Text(
+                  'Website: ${restaurant.website!}',
+                  style: const TextStyle(
+                    color: Color(0xFF2563EB),
+                    decoration: TextDecoration.underline,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ),
           ],
         ],
       ),
@@ -990,56 +1162,19 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                         ),
                         const SizedBox(height: 14),
                         Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            buildActionButton(
-                              icon: Icons.call,
-                              label: 'Call',
-                              enabled: hasPhone,
-                              onPressed: () {
-                                _callRestaurant(context);
-                              },
+                            Expanded(
+                              flex: 44,
+                              child: _buildRestaurantProfileImage(),
                             ),
                             const SizedBox(width: 10),
-                            buildActionButton(
-                              icon: Icons.language,
-                              label: 'Website',
-                              enabled: hasWebsite,
-                              onPressed: () {
-                                _openWebsite(context);
-                              },
+                            Expanded(
+                              flex: 56,
+                              child: _buildCompactProfileActions(),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 10),
-                        SizedBox(
-                          width: double.infinity,
-                          child: _biteSaverRaisedSurface(
-                            borderRadius: BorderRadius.circular(999),
-                            innerMargin: const EdgeInsets.all(1.4),
-                            shadowStrength: 0.64,
-                            child: ElevatedButton.icon(
-                              onPressed: () {
-                                _getDirections(context);
-                              },
-                              icon: const Icon(Icons.directions),
-                              label: const Text('Get Directions'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.transparent,
-                                foregroundColor: const Color(0xFF9F4F34),
-                                elevation: 0,
-                                shadowColor: Colors.transparent,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        _buildRestaurantInformationSection(),
                         Align(
                           alignment: Alignment.centerLeft,
                           child: TextButton.icon(
@@ -1202,5 +1337,54 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
         );
       },
     );
+  }
+}
+
+class _GroupedRestaurantHours {
+  final String startDay;
+  final String endDay;
+  final String summaryLabel;
+  final bool closed;
+
+  const _GroupedRestaurantHours({
+    required this.startDay,
+    required this.endDay,
+    required this.summaryLabel,
+    required this.closed,
+  });
+
+  String get dayRangeLabel {
+    final start = _shortDayName(startDay);
+    final end = _shortDayName(endDay);
+    if (start == end) {
+      return start;
+    }
+    return '$start–$end';
+  }
+
+  bool matches(RestaurantBusinessHours entry) {
+    return closed == entry.closed && summaryLabel == entry.summaryLabel;
+  }
+
+  _GroupedRestaurantHours copyWith({required String endDay}) {
+    return _GroupedRestaurantHours(
+      startDay: startDay,
+      endDay: endDay,
+      summaryLabel: summaryLabel,
+      closed: closed,
+    );
+  }
+
+  static String _shortDayName(String day) {
+    return switch (day) {
+      'Monday' => 'Mon',
+      'Tuesday' => 'Tue',
+      'Wednesday' => 'Wed',
+      'Thursday' => 'Thu',
+      'Friday' => 'Fri',
+      'Saturday' => 'Sat',
+      'Sunday' => 'Sun',
+      _ => day,
+    };
   }
 }
