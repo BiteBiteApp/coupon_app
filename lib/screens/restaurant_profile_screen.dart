@@ -300,14 +300,29 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
       return;
     }
 
+    RestaurantMenuSource source;
+    try {
+      final accountData = await RestaurantAccountService.getAccountData(uid);
+      source = RestaurantMenuService.sourceForBiteSaverAccountData(
+        uid: uid,
+        accountData: accountData,
+      );
+    } catch (_) {
+      source = restaurant.sharedMenuId?.trim().isNotEmpty == true
+          ? RestaurantMenuSource.sharedMenu(restaurant.sharedMenuId!)
+          : RestaurantMenuSource.legacyBiteSaver(uid);
+    }
+
+    if (!context.mounted) {
+      return;
+    }
+
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => RestaurantMenuScreen(
           restaurantUid: uid,
           restaurantName: _displayText(restaurant.name, 'Restaurant'),
-          source: restaurant.sharedMenuId?.trim().isNotEmpty == true
-              ? RestaurantMenuSource.sharedMenu(restaurant.sharedMenuId!)
-              : null,
+          source: source,
         ),
       ),
     );

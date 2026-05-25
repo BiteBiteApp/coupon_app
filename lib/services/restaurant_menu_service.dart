@@ -41,6 +41,7 @@ class RestaurantMenuLinkSuggestion {
   final String targetRestaurantId;
   final RestaurantMenuSource targetSource;
   final String targetRestaurantName;
+  final String? targetRestaurantAddress;
   final String actionLabel;
 
   const RestaurantMenuLinkSuggestion({
@@ -51,6 +52,7 @@ class RestaurantMenuLinkSuggestion {
     required this.targetRestaurantId,
     required this.targetSource,
     required this.targetRestaurantName,
+    this.targetRestaurantAddress,
     required this.actionLabel,
   });
 }
@@ -269,7 +271,22 @@ class RestaurantMenuService {
     required BitescoreRestaurant restaurant,
     required String ownerUserId,
   }) async {
-    final existingMenuId = restaurant.sharedMenuId?.trim();
+    final restaurantRef = _firestore
+        .collection(BitescoreRestaurant.collectionName)
+        .doc(restaurant.id);
+    final latestSnapshot = await restaurantRef.get();
+    final latestRestaurant =
+        BitescoreRestaurant.tryFromFirestore(
+          latestSnapshot.data(),
+          fallbackId: latestSnapshot.id,
+        ) ??
+        BitescoreRestaurant.tryFromFinderFirestore(
+          latestSnapshot.data(),
+          fallbackId: latestSnapshot.id,
+        );
+
+    final restaurantForMenu = latestRestaurant ?? restaurant;
+    final existingMenuId = restaurantForMenu.sharedMenuId?.trim();
     if (existingMenuId != null && existingMenuId.isNotEmpty) {
       return RestaurantMenuSource.sharedMenu(existingMenuId);
     }
@@ -283,22 +300,19 @@ class RestaurantMenuService {
     final menuId = menuDoc.id;
     final batch = _firestore.batch();
     batch.set(menuDoc, {
-      'restaurantName': restaurant.name.trim(),
-      'normalizedName': _normalizeKeyPart(restaurant.name),
-      'normalizedAddressKey': _normalizedAddressKey(restaurant),
-      'bitescoreRestaurantId': restaurant.id.trim(),
+      'restaurantName': restaurantForMenu.name.trim(),
+      'normalizedName': _normalizeKeyPart(restaurantForMenu.name),
+      'normalizedAddressKey': _normalizedAddressKey(restaurantForMenu),
+      'bitescoreRestaurantId': restaurantForMenu.id.trim(),
       'createdByUserId': ownerId,
       'linkStatus': 'bitescore_only',
       'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
     });
-    batch.set(
-      _firestore
-          .collection(BitescoreRestaurant.collectionName)
-          .doc(restaurant.id),
-      {'sharedMenuId': menuId, 'updatedAt': FieldValue.serverTimestamp()},
-      SetOptions(merge: true),
-    );
+    batch.set(restaurantRef, {
+      'sharedMenuId': menuId,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
     await batch.commit();
 
     return RestaurantMenuSource.sharedMenu(menuId);
@@ -347,7 +361,7 @@ class RestaurantMenuService {
     return null;
   }
 
-  static Future<void> linkSuggestedSharedMenu(
+  static Future<RestaurantMenuSource> linkSuggestedSharedMenu(
     RestaurantMenuLinkSuggestion suggestion,
   ) async {
     final currentHasContent = await hasMenuContent(suggestion.currentSource);
@@ -360,7 +374,9 @@ class RestaurantMenuService {
       );
     }
 
-    final menuId = suggestion.targetSource.id;
+    final menuId = suggestion.targetSource.isLegacyBiteSaver
+        ? await _createSharedMenuFromLegacyBiteSaverSuggestion(suggestion)
+        : suggestion.targetSource.id;
     final batch = _firestore.batch();
 
     _setSharedMenuIdForSide(
@@ -390,6 +406,7 @@ class RestaurantMenuService {
     }, SetOptions(merge: true));
 
     await batch.commit();
+    return RestaurantMenuSource.sharedMenu(menuId);
   }
 
   static Future<bool> hasMenuContent(RestaurantMenuSource source) async {
@@ -443,11 +460,18 @@ class RestaurantMenuService {
     }
 
     final targetMenuId = biteSaverRestaurant.sharedMenuId?.trim();
-    if (targetMenuId == null || targetMenuId.isEmpty) {
-      return null;
-    }
-    if (currentSource.isSharedMenu && currentSource.id == targetMenuId) {
-      return null;
+    RestaurantMenuSource targetSource;
+    if (targetMenuId != null && targetMenuId.isNotEmpty) {
+      if (currentSource.isSharedMenu && currentSource.id == targetMenuId) {
+        return null;
+      }
+      targetSource = RestaurantMenuSource.sharedMenu(targetMenuId);
+    } else {
+      targetSource = RestaurantMenuSource.legacyBiteSaver(userId);
+      final legacyHasContent = await hasMenuContent(targetSource);
+      if (!legacyHasContent) {
+        return null;
+      }
     }
 
     return RestaurantMenuLinkSuggestion(
@@ -456,8 +480,9 @@ class RestaurantMenuService {
       currentSource: currentSource,
       targetSide: RestaurantMenuAppSide.biteSaver,
       targetRestaurantId: userId,
-      targetSource: RestaurantMenuSource.sharedMenu(targetMenuId),
+      targetSource: targetSource,
       targetRestaurantName: biteSaverRestaurant.name,
+      targetRestaurantAddress: _biteSaverAddressLabel(biteSaverRestaurant),
       actionLabel: 'Use existing menu from BiteSaver',
     );
   }
@@ -517,6 +542,7 @@ class RestaurantMenuService {
         targetRestaurantId: biteScoreRestaurant.id,
         targetSource: RestaurantMenuSource.sharedMenu(targetMenuId),
         targetRestaurantName: biteScoreRestaurant.name,
+        targetRestaurantAddress: _biteScoreAddressLabel(biteScoreRestaurant),
         actionLabel: 'Use existing menu from BiteRater',
       );
     }
@@ -545,6 +571,65 @@ class RestaurantMenuService {
       {'sharedMenuId': menuId, 'updatedAt': FieldValue.serverTimestamp()},
       SetOptions(merge: true),
     );
+  }
+
+  static Future<String> _createSharedMenuFromLegacyBiteSaverSuggestion(
+    RestaurantMenuLinkSuggestion suggestion,
+  ) async {
+    if (!suggestion.targetSource.isLegacyBiteSaver) {
+      return suggestion.targetSource.id;
+    }
+
+    final legacyImages = await loadMenuImages(suggestion.targetSource);
+    final legacyItems = await loadMenuItems(suggestion.targetSource);
+    if (legacyImages.isEmpty && legacyItems.isEmpty) {
+      throw StateError('The BiteSaver menu no longer has content to link.');
+    }
+
+    final menuDoc = sharedMenusCollection().doc();
+    final menuId = menuDoc.id;
+    final batch = _firestore.batch();
+
+    batch.set(menuDoc, {
+      'restaurantName': suggestion.targetRestaurantName.trim(),
+      'normalizedName': _normalizeKeyPart(suggestion.targetRestaurantName),
+      'bitesaverUid': suggestion.targetRestaurantId,
+      if (suggestion.currentSide == RestaurantMenuAppSide.biteScore)
+        'bitescoreRestaurantId': suggestion.currentRestaurantId,
+      'createdByUserId': suggestion.targetRestaurantId,
+      'linkStatus': 'manual_linked',
+      'createdAt': FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
+    });
+
+    for (final image in legacyImages) {
+      final imageRef = menuDoc.collection('menu_images').doc(image.id);
+      batch.set(imageRef, {
+        RestaurantMenuImage.fieldId: image.id,
+        RestaurantMenuImage.fieldImageUrl: image.imageUrl,
+        RestaurantMenuImage.fieldStoragePath: image.storagePath,
+        RestaurantMenuImage.fieldSortOrder: image.sortOrder,
+        RestaurantMenuImage.fieldCreatedAt: FieldValue.serverTimestamp(),
+        RestaurantMenuImage.fieldUpdatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+
+    for (final item in legacyItems) {
+      final itemRef = menuDoc.collection('menu_items').doc(item.id);
+      batch.set(itemRef, {
+        RestaurantMenuItem.fieldId: item.id,
+        RestaurantMenuItem.fieldName: item.name,
+        RestaurantMenuItem.fieldDescription: item.description,
+        RestaurantMenuItem.fieldPrice: item.price,
+        RestaurantMenuItem.fieldCategory: item.category,
+        RestaurantMenuItem.fieldSortOrder: item.sortOrder,
+        RestaurantMenuItem.fieldCreatedAt: FieldValue.serverTimestamp(),
+        RestaurantMenuItem.fieldUpdatedAt: FieldValue.serverTimestamp(),
+      });
+    }
+
+    await batch.commit();
+    return menuId;
   }
 
   static bool _isLikelySameRestaurant({
@@ -599,6 +684,30 @@ class RestaurantMenuService {
       return trimmed.isEmpty ? null : trimmed;
     }
     return null;
+  }
+
+  static String _biteSaverAddressLabel(Restaurant restaurant) {
+    final parts = <String>[
+      restaurant.streetAddress ?? '',
+      restaurant.city,
+      [
+        restaurant.state,
+        restaurant.zipCode,
+      ].map((part) => part.trim()).where((part) => part.isNotEmpty).join(' '),
+    ].map((part) => part.trim()).where((part) => part.isNotEmpty).toList();
+    return parts.join(', ');
+  }
+
+  static String _biteScoreAddressLabel(BitescoreRestaurant restaurant) {
+    final parts = <String>[
+      restaurant.address,
+      restaurant.city,
+      [
+        restaurant.state,
+        restaurant.zipCode,
+      ].map((part) => part.trim()).where((part) => part.isNotEmpty).join(' '),
+    ].map((part) => part.trim()).where((part) => part.isNotEmpty).toList();
+    return parts.join(', ');
   }
 
   static String _normalizedAddressKey(BitescoreRestaurant restaurant) {

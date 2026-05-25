@@ -156,8 +156,8 @@ class _RestaurantMenuManagementScreenState
         title: const Text('Use existing menu?'),
         content: Text(
           'This will make this restaurant use the same menu as '
-          '${suggestion.targetRestaurantName}. Existing menu items and images '
-          'will not be copied or merged.',
+          '${suggestion.targetRestaurantName}. Future menu edits will be shared '
+          'between both profiles.',
         ),
         actions: [
           TextButton(
@@ -179,13 +179,15 @@ class _RestaurantMenuManagementScreenState
       _isLinkingMenu = true;
     });
     try {
-      await RestaurantMenuService.linkSuggestedSharedMenu(suggestion);
+      final linkedSource = await RestaurantMenuService.linkSuggestedSharedMenu(
+        suggestion,
+      );
       if (!mounted) {
         return;
       }
       _showSnackBar('Menu linked.');
       setState(() {
-        _activeSource = suggestion.targetSource;
+        _activeSource = linkedSource;
         _linkSuggestion = null;
         _isLoading = true;
       });
@@ -445,6 +447,19 @@ class _RestaurantMenuManagementScreenState
             'This restaurant may match a profile on the other side of the app.',
             style: TextStyle(color: Colors.black54, height: 1.3),
           ),
+          const SizedBox(height: 8),
+          Text(
+            suggestion.targetRestaurantName,
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+          if (suggestion.targetRestaurantAddress?.trim().isNotEmpty == true)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                suggestion.targetRestaurantAddress!.trim(),
+                style: const TextStyle(color: Colors.black54, height: 1.25),
+              ),
+            ),
           const SizedBox(height: 10),
           OutlinedButton.icon(
             onPressed: _isLinkingMenu
