@@ -2195,135 +2195,136 @@ class _HomeScreenState extends State<HomeScreen> {
                   final imageWidth = compact ? 102.0 : 121.0;
                   final imageRhythmOffset = index.isOdd ? 4.0 : -2.0;
 
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
+                  return Stack(
+                    clipBehavior: Clip.none,
                     children: [
-                      SizedBox(
-                        width: imageWidth,
-                        height: compact ? 98 : 113,
-                        child: Stack(
-                          clipBehavior: Clip.none,
-                          children: [
-                            Positioned.fill(
-                              child: _SoftRestaurantImageFrame(
-                                imageUrl: restaurant.mainImageUrl,
-                                fallbackImagePath:
-                                    _placeholderImageForRestaurant(
-                                      restaurant,
-                                      index,
-                                    ),
-                                verticalOffset: imageRhythmOffset,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: imageWidth,
+                            height: compact ? 98 : 113,
+                            child: _SoftRestaurantImageFrame(
+                              imageUrl: restaurant.mainImageUrl,
+                              fallbackImagePath: _placeholderImageForRestaurant(
+                                restaurant,
+                                index,
                               ),
+                              verticalOffset: imageRhythmOffset,
                             ),
-                            Positioned(
-                              left: 5,
-                              bottom: -5,
-                              child: SizedBox(
-                                width: 24,
-                                height: 24,
-                                child: IconButton(
-                                  tooltip: isFavoriteRestaurant
-                                      ? 'Unsave restaurant'
-                                      : 'Save restaurant',
-                                  onPressed: isSavingFavoriteRestaurant
-                                      ? null
-                                      : () => _toggleRestaurantFavorite(
-                                          restaurant,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        title,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          color: const Color(0xFF24170F),
+                                          fontSize: compact ? 16.7 : 17.6,
+                                          fontWeight: FontWeight.w800,
+                                          height: 1.08,
                                         ),
-                                  visualDensity: VisualDensity.compact,
-                                  padding: EdgeInsets.zero,
-                                  icon: Icon(
-                                    isFavoriteRestaurant
-                                        ? Icons.favorite
-                                        : Icons.favorite_border,
-                                    color: isFavoriteRestaurant
-                                        ? Colors.red.shade400
-                                        : const Color(0xFFE24A17),
-                                    size: 18,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 3),
+                                    const Icon(
+                                      Icons.chevron_right,
+                                      color: Color(0xFFE24A17),
+                                      size: 20,
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 3),
+                                Row(
+                                  children: [
+                                    const Icon(
+                                      Icons.location_on,
+                                      color: Color(0xFF5F8F25),
+                                      size: 15,
+                                    ),
+                                    const SizedBox(width: 3),
+                                    Expanded(
+                                      child: Text(
+                                        locationLine,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          color: Color(0xFF5E564E),
+                                          fontSize: 12.7,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 5),
+                                AnimatedSize(
+                                  duration: const Duration(milliseconds: 180),
+                                  curve: Curves.easeOutCubic,
+                                  alignment: Alignment.topCenter,
+                                  child: Column(
+                                    children: [
+                                      for (final coupon in visibleCoupons) ...[
+                                        _buildCouponPreview(coupon, restaurant),
+                                        if (coupon != visibleCoupons.last)
+                                          const SizedBox(height: 4),
+                                      ],
+                                      if (hiddenCouponCount > 0) ...[
+                                        const SizedBox(height: 3),
+                                        _buildMoreDealsToggle(
+                                          restaurantKey: favoriteKey,
+                                          hiddenCount: hiddenCouponCount,
+                                          isExpanded: isDealsExpanded,
+                                        ),
+                                      ],
+                                    ],
                                   ),
                                 ),
-                              ),
+                              ],
                             ),
-                          ],
-                        ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      color: Color(0xFF24170F),
-                                      fontSize: compact ? 16.7 : 17.6,
-                                      fontWeight: FontWeight.w800,
-                                      height: 1.08,
-                                    ),
+                      if (isFavoriteRestaurant)
+                        Positioned(
+                          left: -6,
+                          bottom: -6,
+                          child: SizedBox(
+                            width: 24,
+                            height: 23,
+                            child: IconButton(
+                              tooltip: 'Unsave restaurant',
+                              onPressed: isSavingFavoriteRestaurant
+                                  ? null
+                                  : () => _toggleRestaurantFavorite(restaurant),
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 24,
+                                height: 23,
+                              ),
+                              icon: Icon(
+                                Icons.favorite,
+                                color: Colors.red.shade400,
+                                size: 18,
+                                shadows: const [
+                                  Shadow(
+                                    color: Color.fromRGBO(64, 42, 22, 0.22),
+                                    blurRadius: 5,
+                                    offset: Offset(0, 2),
                                   ),
-                                ),
-                                const SizedBox(width: 3),
-                                const Icon(
-                                  Icons.chevron_right,
-                                  color: Color(0xFFE24A17),
-                                  size: 20,
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 3),
-                            Row(
-                              children: [
-                                const Icon(
-                                  Icons.location_on,
-                                  color: Color(0xFF5F8F25),
-                                  size: 15,
-                                ),
-                                const SizedBox(width: 3),
-                                Expanded(
-                                  child: Text(
-                                    locationLine,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Color(0xFF5E564E),
-                                      fontSize: 12.7,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 5),
-                            AnimatedSize(
-                              duration: const Duration(milliseconds: 180),
-                              curve: Curves.easeOutCubic,
-                              alignment: Alignment.topCenter,
-                              child: Column(
-                                children: [
-                                  for (final coupon in visibleCoupons) ...[
-                                    _buildCouponPreview(coupon, restaurant),
-                                    if (coupon != visibleCoupons.last)
-                                      const SizedBox(height: 4),
-                                  ],
-                                  if (hiddenCouponCount > 0) ...[
-                                    const SizedBox(height: 3),
-                                    _buildMoreDealsToggle(
-                                      restaurantKey: favoriteKey,
-                                      hiddenCount: hiddenCouponCount,
-                                      isExpanded: isDealsExpanded,
-                                    ),
-                                  ],
                                 ],
                               ),
                             ),
-                          ],
+                          ),
                         ),
-                      ),
                     ],
                   );
                 },

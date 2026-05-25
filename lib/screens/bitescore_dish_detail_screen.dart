@@ -877,7 +877,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 10),
+        const SizedBox(height: 7),
         InkWell(
           onTap: () => _openImageViewer(
             images: safeImages,
@@ -889,12 +889,12 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
             borderRadius: BorderRadius.circular(16),
             child: Image.network(
               imageUrl,
-              width: 112,
-              height: 82,
+              width: 150,
+              height: 110,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) => Container(
-                width: 112,
-                height: 82,
+                width: 150,
+                height: 110,
                 alignment: Alignment.center,
                 color: const Color(0xFFF4F8FD),
                 child: const Icon(
@@ -906,7 +906,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
           ),
         ),
         if (hiddenImageCount > 0) ...[
-          const SizedBox(height: 5),
+          const SizedBox(height: 3),
           TextButton(
             onPressed: () => _openImageViewer(
               images: safeImages,
@@ -2200,9 +2200,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 12),
+                                    const SizedBox(height: 6),
                                     BiteRaterTheme.softDivider(),
-                                    const SizedBox(height: 12),
+                                    const SizedBox(height: 8),
                                     Center(
                                       child: Column(
                                         children: [
@@ -2222,7 +2222,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                               color: BiteRaterTheme.scoreFlame,
                                             ),
                                           ),
-                                          const SizedBox(height: 6),
+                                          const SizedBox(height: 4),
                                           const Text(
                                             'BiteScore',
                                             style: TextStyle(
@@ -2628,32 +2628,38 @@ class _BiteScoreImageViewerScreenState
                 children: [
                   Expanded(
                     child: Padding(
-                      padding: const EdgeInsets.all(16),
+                      padding: const EdgeInsets.fromLTRB(8, 8, 8, 10),
                       child: Center(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(18),
-                          child: InteractiveViewer(
-                            minScale: 1,
-                            maxScale: 4,
-                            child: Image.network(
-                              imageUrl,
-                              fit: BoxFit.contain,
-                              errorBuilder: (context, error, stackTrace) =>
-                                  Container(
-                                    width: double.infinity,
-                                    height: 260,
-                                    alignment: Alignment.center,
-                                    color: const Color(0xFFF4F8FD),
-                                    child: const Text(
-                                      'Image unavailable',
-                                      style: TextStyle(
-                                        color: BiteRaterTheme.mutedInk,
-                                        fontWeight: FontWeight.w700,
+                        child: LayoutBuilder(
+                          builder: (context, constraints) {
+                            return ClipRRect(
+                              borderRadius: BorderRadius.circular(18),
+                              child: InteractiveViewer(
+                                minScale: 1,
+                                maxScale: 4,
+                                child: Image.network(
+                                  imageUrl,
+                                  width: constraints.maxWidth,
+                                  height: constraints.maxHeight,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Container(
+                                        width: constraints.maxWidth,
+                                        height: constraints.maxHeight,
+                                        alignment: Alignment.center,
+                                        color: const Color(0xFFF4F8FD),
+                                        child: const Text(
+                                          'Image unavailable',
+                                          style: TextStyle(
+                                            color: BiteRaterTheme.mutedInk,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
                                       ),
-                                    ),
-                                  ),
-                            ),
-                          ),
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       ),
                     ),

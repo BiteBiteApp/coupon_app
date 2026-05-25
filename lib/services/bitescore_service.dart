@@ -748,20 +748,22 @@ class BiteScoreService {
   static Future<List<BitescoreRestaurant>> loadOwnedRestaurantsForUser(
     String userId,
   ) async {
+    final trimmedUserId = userId.trim();
+    if (trimmedUserId.isEmpty) {
+      return const <BitescoreRestaurant>[];
+    }
+
     final snapshot = await restaurantsCollection()
-        .where('ownerUserId', isEqualTo: userId.trim())
-        .where('isClaimed', isEqualTo: true)
+        .where('ownerUserId', isEqualTo: trimmedUserId)
         .get();
 
     final restaurants =
         snapshot.docs
             .map(
-              (doc) => BitescoreRestaurant.tryFromFirestore(
-                doc.data(),
-                fallbackId: doc.id,
-              ),
+              (doc) => _parseRestaurantCompat(doc.data(), fallbackId: doc.id),
             )
             .whereType<BitescoreRestaurant>()
+            .where((restaurant) => restaurant.isClaimed)
             .toList()
           ..sort(
             (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
