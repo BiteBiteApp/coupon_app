@@ -1995,6 +1995,8 @@ class BiteScoreService {
       transaction.set(dishRef, update, SetOptions(merge: true));
     });
 
+    await _refreshPrimaryDishImageForDish(dish.id);
+
     return image;
   }
 
@@ -2052,7 +2054,7 @@ class BiteScoreService {
       _dishImageVoteDocumentId(image.id, user.uid),
     );
 
-    return _firestore.runTransaction((transaction) async {
+    final result = await _firestore.runTransaction((transaction) async {
       final imageSnapshot = await transaction.get(imageRef);
       final existingImage =
           BiteScoreDishImage.tryFromFirestore(
@@ -2131,6 +2133,90 @@ class BiteScoreService {
         currentUserVoteType: currentUserVoteType,
       );
     });
+
+    await _refreshPrimaryDishImageForDish(result.image.dishId);
+
+    return result;
+  }
+
+  static Future<void> _refreshPrimaryDishImageForDish(String dishId) async {
+    final trimmedDishId = dishId.trim();
+    if (trimmedDishId.isEmpty) {
+      return;
+    }
+
+    final List<BiteScoreDishImage> images;
+    try {
+      final snapshot = await dishImagesCollection()
+          .where('dishId', isEqualTo: trimmedDishId)
+          .get();
+      images = snapshot.docs
+          .map(
+            (doc) => BiteScoreDishImage.tryFromFirestore(
+              doc.data(),
+              fallbackId: doc.id,
+            ),
+          )
+          .whereType<BiteScoreDishImage>()
+          .toList();
+    } catch (_) {
+      return;
+    }
+
+    images.sort(_compareDishImagesForPrimary);
+
+    final primaryImage = images.isEmpty ? null : images.first;
+    final dishRef = dishesCollection().doc(trimmedDishId);
+    final dishSnapshot = await dishRef.get();
+    if (!dishSnapshot.exists) {
+      return;
+    }
+
+    final data = dishSnapshot.data();
+    final currentPrimaryImageId = _readAdminString(data?['primaryImageId']);
+    final currentPrimaryImageUrl = _readAdminString(data?['primaryImageUrl']);
+    final currentImageCount = _readAdminInt(data?['imageCount']) ?? 0;
+    final nextPrimaryImageId = primaryImage?.id.trim();
+    final nextPrimaryImageUrl = primaryImage?.imageUrl.trim();
+    final nextImageCount = images.length;
+
+    if (currentPrimaryImageId == nextPrimaryImageId &&
+        currentPrimaryImageUrl == nextPrimaryImageUrl &&
+        currentImageCount == nextImageCount) {
+      return;
+    }
+
+    await dishRef.set({
+      'primaryImageId': nextPrimaryImageId ?? FieldValue.delete(),
+      'primaryImageUrl': nextPrimaryImageUrl ?? FieldValue.delete(),
+      'imageCount': nextImageCount,
+      'updatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  static int _compareDishImagesForPrimary(
+    BiteScoreDishImage a,
+    BiteScoreDishImage b,
+  ) {
+    final byHelpfulScore = _dishImageHelpfulScore(
+      b,
+    ).compareTo(_dishImageHelpfulScore(a));
+    if (byHelpfulScore != 0) {
+      return byHelpfulScore;
+    }
+
+    final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+    final byUploadDate = aDate.compareTo(bDate);
+    if (byUploadDate != 0) {
+      return byUploadDate;
+    }
+
+    return a.id.compareTo(b.id);
+  }
+
+  static int _dishImageHelpfulScore(BiteScoreDishImage image) {
+    return image.helpfulCount - image.notHelpfulCount;
   }
 
   static Future<bool> isRestaurantFavoritedByCurrentUser(
@@ -4977,6 +5063,13 @@ class BiteScoreService {
     if (value is String) {
       final trimmed = value.trim();
       return trimmed.isEmpty ? null : trimmed;
+    }
+    return null;
+  }
+
+  static int? _readAdminInt(dynamic value) {
+    if (value is num) {
+      return value.toInt();
     }
     return null;
   }
