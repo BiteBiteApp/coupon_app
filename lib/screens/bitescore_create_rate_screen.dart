@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/bitescore_dish.dart';
 import '../models/bitescore_restaurant.dart';
 import '../services/app_error_text.dart';
+import '../services/bitescore_image_upload_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
@@ -551,6 +552,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
   final TextEditingController priceLabelController = TextEditingController();
   final TextEditingController headlineController = TextEditingController();
   final TextEditingController notesController = TextEditingController();
+  BiteScorePickedDishImage? _selectedDishImage;
 
   double? overallImpression;
   double? tastinessScore;
@@ -2281,6 +2283,8 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
           minLines: 4,
           maxLines: 6,
         ),
+        const SizedBox(height: 12),
+        _buildDishImagePicker(),
         const SizedBox(height: 20),
         BiteRaterTheme.liftedCard(
           radius: 24,
@@ -2394,6 +2398,78 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     );
   }
 
+  Future<void> _pickDishImage() async {
+    try {
+      final image = await BiteScoreImageUploadService.pickDishImage();
+      if (image == null || !mounted) {
+        return;
+      }
+      setState(() {
+        _selectedDishImage = image;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not select that image right now.',
+        ),
+      );
+    }
+  }
+
+  Widget _buildDishImagePicker() {
+    final selectedName = _selectedDishImage?.fileName.trim();
+    return OutlinedButton.icon(
+      onPressed: isSaving ? null : _pickDishImage,
+      style: BiteRaterTheme.outlinedButtonStyle(
+        accentColor: BiteRaterTheme.ocean,
+      ),
+      icon: const Icon(Icons.image_outlined),
+      label: Text(
+        selectedName == null || selectedName.isEmpty
+            ? 'Add dish image'
+            : 'Dish image selected',
+      ),
+    );
+  }
+
+  Future<void> _uploadSelectedDishImage(
+    BiteScoreReviewSaveResult saveResult,
+  ) async {
+    final selectedImage = _selectedDishImage;
+    if (selectedImage == null) {
+      return;
+    }
+
+    try {
+      final uploadedImage = await BiteScoreImageUploadService.uploadDishImage(
+        dishId: saveResult.dish.id,
+        pickedImage: selectedImage,
+      );
+      await BiteScoreService.addDishImageRecord(
+        dish: saveResult.dish,
+        restaurant: saveResult.restaurant,
+        reviewId: saveResult.review.id,
+        uploadedByUserId: saveResult.review.userId,
+        imageUrl: uploadedImage.imageUrl,
+        storagePath: uploadedImage.storagePath,
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Review saved, but the dish image could not be uploaded.',
+        ),
+      );
+    }
+  }
+
   Future<void> _save() async {
     if (!_hasRequiredScores) {
       _showSnackBar('Please rate each category before submitting.');
@@ -2457,9 +2533,10 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     });
 
     try {
+      late final BiteScoreReviewSaveResult saveResult;
       if (isExistingDishMode) {
         final entry = widget.existingEntry!;
-        await BiteScoreService.addReviewForDish(
+        saveResult = await BiteScoreService.addReviewForDish(
           dish: entry.dish,
           restaurant: entry.restaurant,
           overallImpression: selectedOverallImpression,
@@ -2473,7 +2550,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
         final restaurant = widget.existingRestaurant!;
 
         if (selectedExistingDish != null) {
-          await BiteScoreService.addReviewForDish(
+          saveResult = await BiteScoreService.addReviewForDish(
             dish: selectedExistingDish,
             restaurant: restaurant,
             overallImpression: selectedOverallImpression,
@@ -2484,7 +2561,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
             valueScore: selectedValueScore,
           );
         } else {
-          await BiteScoreService.createDishAndRateForRestaurant(
+          saveResult = await BiteScoreService.createDishAndRateForRestaurant(
             restaurant: restaurant,
             dishName: dishNameController.text,
             category: categoryController.text,
@@ -2527,8 +2604,14 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
           return;
         }
 
-        await BiteScoreService.createAndRate(request);
+        saveResult = await BiteScoreService.createAndRate(request);
       }
+
+      if (!mounted) {
+        return;
+      }
+
+      await _uploadSelectedDishImage(saveResult);
 
       if (!mounted) {
         return;

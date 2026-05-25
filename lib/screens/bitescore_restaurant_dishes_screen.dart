@@ -788,6 +788,34 @@ class _BiteScoreRestaurantDishesScreenState
     );
   }
 
+  Widget _buildDishThumbnail(String? imageUrl, {double size = 50}) {
+    final trimmedUrl = imageUrl?.trim();
+    if (trimmedUrl == null || trimmedUrl.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Image.network(
+        trimmedUrl,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          width: size,
+          height: size,
+          color: const Color(0xFFF4F8FD),
+          alignment: Alignment.center,
+          child: const Icon(
+            Icons.restaurant_menu,
+            size: 18,
+            color: BiteRaterTheme.mutedInk,
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return PopScope<bool>(
@@ -965,6 +993,10 @@ class _BiteScoreRestaurantDishesScreenState
                                 0,
                               )
                             : '--';
+                        final category = entry.dish.category?.trim() ?? '';
+                        final hasImage = (entry.dish.primaryImageUrl ?? '')
+                            .trim()
+                            .isNotEmpty;
 
                         return BiteRaterTheme.liftedCard(
                           margin: const EdgeInsets.only(bottom: 12),
@@ -991,15 +1023,31 @@ class _BiteScoreRestaurantDishesScreenState
                                     crossAxisAlignment:
                                         CrossAxisAlignment.start,
                                     children: [
+                                      if (hasImage) ...[
+                                        _buildDishThumbnail(
+                                          entry.dish.primaryImageUrl,
+                                        ),
+                                        const SizedBox(width: 12),
+                                      ],
                                       Expanded(
-                                        child: Text(
-                                          entry.dish.name,
-                                          style: const TextStyle(
-                                            color: BiteRaterTheme.ink,
-                                            fontWeight: FontWeight.w900,
-                                            fontSize: 17,
-                                            letterSpacing: 0.1,
-                                          ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              entry.dish.name,
+                                              style: const TextStyle(
+                                                color: BiteRaterTheme.ink,
+                                                fontWeight: FontWeight.w900,
+                                                fontSize: 17,
+                                                letterSpacing: 0.1,
+                                              ),
+                                            ),
+                                            if (category.isNotEmpty) ...[
+                                              const SizedBox(height: 5),
+                                              _buildDishCategoryControl(entry),
+                                            ],
+                                          ],
                                         ),
                                       ),
                                       const SizedBox(width: 12),
@@ -1074,8 +1122,10 @@ class _BiteScoreRestaurantDishesScreenState
                                       const Icon(Icons.chevron_right),
                                     ],
                                   ),
-                                  const SizedBox(height: 8),
-                                  _buildDishCategoryControl(entry),
+                                  if (category.isEmpty) ...[
+                                    const SizedBox(height: 8),
+                                    _buildDishCategoryControl(entry),
+                                  ],
                                 ],
                               ),
                             ),

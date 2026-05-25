@@ -10,6 +10,9 @@ class BitescoreDish {
   final String normalizedName;
   final String? category;
   final String? priceLabel;
+  final String? primaryImageUrl;
+  final String? primaryImageId;
+  final int imageCount;
   final bool isActive;
   final String? mergedIntoDishId;
   final DateTime? createdAt;
@@ -23,6 +26,9 @@ class BitescoreDish {
     required this.normalizedName,
     this.category,
     this.priceLabel,
+    this.primaryImageUrl,
+    this.primaryImageId,
+    this.imageCount = 0,
     this.isActive = true,
     this.mergedIntoDishId,
     this.createdAt,
@@ -41,6 +47,9 @@ class BitescoreDish {
       'normalizedName': normalizedName.trim(),
       'category': category?.trim(),
       'priceLabel': priceLabel?.trim(),
+      'primaryImageUrl': primaryImageUrl?.trim(),
+      'primaryImageId': primaryImageId?.trim(),
+      'imageCount': imageCount,
       'isActive': isActive,
       'mergedIntoDishId': mergedIntoDishId?.trim(),
       'createdAt': createdAt == null ? null : Timestamp.fromDate(createdAt!),
@@ -77,6 +86,9 @@ class BitescoreDish {
       normalizedName: normalizedName,
       category: _readString(data['category']),
       priceLabel: _readString(data['priceLabel']),
+      primaryImageUrl: _readString(data['primaryImageUrl']),
+      primaryImageId: _readString(data['primaryImageId']),
+      imageCount: _readInt(data['imageCount']) ?? 0,
       isActive: _readBool(data['isActive']) ?? true,
       mergedIntoDishId: _readString(data['mergedIntoDishId']),
       createdAt: _readDateTime(data['createdAt']),
@@ -96,6 +108,14 @@ class BitescoreDish {
   static bool? _readBool(dynamic value) {
     if (value is bool) {
       return value;
+    }
+
+    return null;
+  }
+
+  static int? _readInt(dynamic value) {
+    if (value is num) {
+      return value.toInt();
     }
 
     return null;

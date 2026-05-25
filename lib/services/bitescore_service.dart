@@ -6,6 +6,8 @@ import 'package:geocoding/geocoding.dart';
 
 import 'admin_access_service.dart';
 import '../models/bitescore_dish.dart';
+import '../models/bitescore_dish_image.dart';
+import '../models/bitescore_dish_image_vote.dart';
 import '../models/bitescore_restaurant.dart';
 import '../models/coupon.dart';
 import '../models/dish_report.dart';
@@ -30,6 +32,28 @@ class BiteScoreHomeEntry {
     required this.dish,
     required this.restaurant,
     required this.aggregate,
+  });
+}
+
+class BiteScoreReviewSaveResult {
+  final BitescoreDish dish;
+  final BitescoreRestaurant restaurant;
+  final DishReview review;
+
+  const BiteScoreReviewSaveResult({
+    required this.dish,
+    required this.restaurant,
+    required this.review,
+  });
+}
+
+class BiteScoreDishImageVoteResult {
+  final BiteScoreDishImage image;
+  final String? currentUserVoteType;
+
+  const BiteScoreDishImageVoteResult({
+    required this.image,
+    required this.currentUserVoteType,
   });
 }
 
@@ -552,6 +576,14 @@ class BiteScoreService {
 
   static CollectionReference<Map<String, dynamic>> reviewsCollection() {
     return _firestore.collection(DishReview.collectionName);
+  }
+
+  static CollectionReference<Map<String, dynamic>> dishImagesCollection() {
+    return _firestore.collection(BiteScoreDishImage.collectionName);
+  }
+
+  static CollectionReference<Map<String, dynamic>> dishImageVotesCollection() {
+    return _firestore.collection(BiteScoreDishImageVote.collectionName);
   }
 
   static CollectionReference<Map<String, dynamic>>
@@ -1881,6 +1913,226 @@ class BiteScoreService {
     return reviews;
   }
 
+  static Future<List<BiteScoreDishImage>> loadDishImages(String dishId) async {
+    final trimmedDishId = dishId.trim();
+    if (trimmedDishId.isEmpty) {
+      return const <BiteScoreDishImage>[];
+    }
+
+    try {
+      final snapshot = await dishImagesCollection()
+          .where('dishId', isEqualTo: trimmedDishId)
+          .get();
+
+      final images = snapshot.docs
+          .map(
+            (doc) => BiteScoreDishImage.tryFromFirestore(
+              doc.data(),
+              fallbackId: doc.id,
+            ),
+          )
+          .whereType<BiteScoreDishImage>()
+          .toList();
+
+      images.sort((a, b) {
+        final bySortOrder = a.sortOrder.compareTo(b.sortOrder);
+        if (bySortOrder != 0) {
+          return bySortOrder;
+        }
+        final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+        return aDate.compareTo(bDate);
+      });
+
+      return images;
+    } catch (_) {
+      return const <BiteScoreDishImage>[];
+    }
+  }
+
+  static Future<BiteScoreDishImage> addDishImageRecord({
+    required BitescoreDish dish,
+    required BitescoreRestaurant restaurant,
+    required String uploadedByUserId,
+    required String imageUrl,
+    required String storagePath,
+    String? reviewId,
+  }) async {
+    final imageRef = dishImagesCollection().doc();
+    final dishRef = dishesCollection().doc(dish.id);
+
+    final image = BiteScoreDishImage(
+      id: imageRef.id,
+      dishId: dish.id,
+      restaurantId: restaurant.id,
+      reviewId: reviewId,
+      uploadedByUserId: uploadedByUserId,
+      imageUrl: imageUrl,
+      storagePath: storagePath,
+    );
+
+    await _firestore.runTransaction((transaction) async {
+      final dishSnapshot = await transaction.get(dishRef);
+      final data = dishSnapshot.data();
+      final existingPrimaryImageUrl = _readAdminString(
+        data?['primaryImageUrl'],
+      );
+      final update = <String, dynamic>{
+        'imageCount': FieldValue.increment(1),
+        'updatedAt': FieldValue.serverTimestamp(),
+      };
+
+      if (existingPrimaryImageUrl == null) {
+        update['primaryImageUrl'] = imageUrl.trim();
+        update['primaryImageId'] = imageRef.id;
+      }
+
+      transaction.set(imageRef, {
+        ...image.toFirestoreMap(),
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      });
+      transaction.set(dishRef, update, SetOptions(merge: true));
+    });
+
+    return image;
+  }
+
+  static Future<Map<String, String>> loadCurrentUserDishImageVotes(
+    List<String> imageIds,
+  ) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.isAnonymous) {
+      return const <String, String>{};
+    }
+
+    final trimmedImageIds = imageIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList();
+    if (trimmedImageIds.isEmpty) {
+      return const <String, String>{};
+    }
+
+    final voteEntries = await Future.wait(
+      trimmedImageIds.map((imageId) async {
+        final voteRef = dishImageVotesCollection().doc(
+          _dishImageVoteDocumentId(imageId, user.uid),
+        );
+        final snapshot = await voteRef.get();
+        final vote = BiteScoreDishImageVote.tryFromFirestore(
+          snapshot.data(),
+          fallbackId: voteRef.id,
+        );
+        if (vote == null) {
+          return null;
+        }
+        return MapEntry(vote.imageId, vote.voteType);
+      }),
+    );
+
+    return Map<String, String>.fromEntries(
+      voteEntries.whereType<MapEntry<String, String>>(),
+    );
+  }
+
+  static Future<BiteScoreDishImageVoteResult> toggleDishImageVote({
+    required BiteScoreDishImage image,
+    required String voteType,
+  }) async {
+    final user = await _requireFreshSignedInBiteScoreUser();
+    if (voteType != BiteScoreDishImageVote.voteHelpful &&
+        voteType != BiteScoreDishImageVote.voteNotHelpful) {
+      throw ArgumentError('Unknown image vote type.');
+    }
+
+    final imageRef = dishImagesCollection().doc(image.id);
+    final voteRef = dishImageVotesCollection().doc(
+      _dishImageVoteDocumentId(image.id, user.uid),
+    );
+
+    return _firestore.runTransaction((transaction) async {
+      final imageSnapshot = await transaction.get(imageRef);
+      final existingImage =
+          BiteScoreDishImage.tryFromFirestore(
+            imageSnapshot.data(),
+            fallbackId: image.id,
+          ) ??
+          image;
+      final voteSnapshot = await transaction.get(voteRef);
+      final existingVote = BiteScoreDishImageVote.tryFromFirestore(
+        voteSnapshot.data(),
+        fallbackId: voteRef.id,
+      );
+
+      var helpfulDelta = 0;
+      var notHelpfulDelta = 0;
+      String? currentUserVoteType;
+
+      if (existingVote != null && existingVote.voteType == voteType) {
+        if (voteType == BiteScoreDishImageVote.voteHelpful) {
+          helpfulDelta = -1;
+        } else {
+          notHelpfulDelta = -1;
+        }
+        transaction.delete(voteRef);
+      } else {
+        if (existingVote?.voteType == BiteScoreDishImageVote.voteHelpful) {
+          helpfulDelta -= 1;
+        } else if (existingVote?.voteType ==
+            BiteScoreDishImageVote.voteNotHelpful) {
+          notHelpfulDelta -= 1;
+        }
+
+        if (voteType == BiteScoreDishImageVote.voteHelpful) {
+          helpfulDelta += 1;
+        } else {
+          notHelpfulDelta += 1;
+        }
+
+        currentUserVoteType = voteType;
+        final payload = {
+          'id': voteRef.id,
+          'imageId': image.id,
+          'dishId': image.dishId,
+          'restaurantId': image.restaurantId,
+          'userId': user.uid,
+          'voteType': voteType,
+          'updatedAt': FieldValue.serverTimestamp(),
+        };
+
+        if (existingVote == null) {
+          transaction.set(voteRef, {
+            ...payload,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        } else {
+          transaction.set(voteRef, payload, SetOptions(merge: true));
+        }
+      }
+
+      final helpfulCount = max(0, existingImage.helpfulCount + helpfulDelta);
+      final notHelpfulCount = max(
+        0,
+        existingImage.notHelpfulCount + notHelpfulDelta,
+      );
+      transaction.set(imageRef, {
+        'helpfulCount': helpfulCount,
+        'notHelpfulCount': notHelpfulCount,
+        'updatedAt': FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+
+      return BiteScoreDishImageVoteResult(
+        image: existingImage.copyWith(
+          helpfulCount: helpfulCount,
+          notHelpfulCount: notHelpfulCount,
+        ),
+        currentUserVoteType: currentUserVoteType,
+      );
+    });
+  }
+
   static Future<bool> isRestaurantFavoritedByCurrentUser(
     String restaurantId,
   ) async {
@@ -2670,7 +2922,9 @@ class BiteScoreService {
     }, SetOptions(merge: true));
   }
 
-  static Future<void> createAndRate(BiteScoreCreateRequest request) async {
+  static Future<BiteScoreReviewSaveResult> createAndRate(
+    BiteScoreCreateRequest request,
+  ) async {
     final validationError = request.validate();
     if (validationError != null) {
       throw ArgumentError(validationError);
@@ -2680,7 +2934,7 @@ class BiteScoreService {
 
     final restaurant = await _findOrCreateRestaurant(request);
     final dish = await _findOrCreateDish(request, restaurant);
-    await _createReviewAndRebuildAggregate(
+    final review = await _createReviewAndRebuildAggregate(
       userId: user.uid,
       dish: dish,
       restaurant: restaurant,
@@ -2691,9 +2945,15 @@ class BiteScoreService {
       headline: request.headline,
       notes: request.notes,
     );
+
+    return BiteScoreReviewSaveResult(
+      dish: dish,
+      restaurant: restaurant,
+      review: review,
+    );
   }
 
-  static Future<void> addReviewForDish({
+  static Future<BiteScoreReviewSaveResult> addReviewForDish({
     required BitescoreDish dish,
     required BitescoreRestaurant restaurant,
     required double overallImpression,
@@ -2715,7 +2975,7 @@ class BiteScoreService {
 
     final user = await _requireFreshSignedInBiteScoreUser();
 
-    await _createReviewAndRebuildAggregate(
+    final review = await _createReviewAndRebuildAggregate(
       userId: user.uid,
       dish: dish,
       restaurant: restaurant,
@@ -2725,6 +2985,12 @@ class BiteScoreService {
       valueScore: valueScore,
       headline: headline,
       notes: notes,
+    );
+
+    return BiteScoreReviewSaveResult(
+      dish: dish,
+      restaurant: restaurant,
+      review: review,
     );
   }
 
@@ -2945,7 +3211,7 @@ class BiteScoreService {
     });
   }
 
-  static Future<void> createDishAndRateForRestaurant({
+  static Future<BiteScoreReviewSaveResult> createDishAndRateForRestaurant({
     required BitescoreRestaurant restaurant,
     required String dishName,
     required String category,
@@ -2995,7 +3261,7 @@ class BiteScoreService {
       restaurant,
       allowExistingMatch: !forceCreateNewDish,
     );
-    await _createReviewAndRebuildAggregate(
+    final review = await _createReviewAndRebuildAggregate(
       userId: user.uid,
       dish: dish,
       restaurant: restaurant,
@@ -3005,6 +3271,12 @@ class BiteScoreService {
       valueScore: valueScore,
       headline: headline,
       notes: notes,
+    );
+
+    return BiteScoreReviewSaveResult(
+      dish: dish,
+      restaurant: restaurant,
+      review: review,
     );
   }
 
@@ -3491,6 +3763,9 @@ class BiteScoreService {
       normalizedName: normalizedName,
       category: trimmedCategory.isEmpty ? null : trimmedCategory,
       priceLabel: priceLabel.trim().isEmpty ? null : priceLabel.trim(),
+      primaryImageUrl: dish.primaryImageUrl,
+      primaryImageId: dish.primaryImageId,
+      imageCount: dish.imageCount,
       isActive: isActive,
       mergedIntoDishId: dish.mergedIntoDishId,
       createdAt: dish.createdAt,
@@ -3801,6 +4076,9 @@ class BiteScoreService {
         normalizedName: dish.normalizedName,
         category: dish.category,
         priceLabel: dish.priceLabel,
+        primaryImageUrl: dish.primaryImageUrl,
+        primaryImageId: dish.primaryImageId,
+        imageCount: dish.imageCount,
         isActive: dish.isActive,
         createdAt: dish.createdAt,
         updatedAt: DateTime.now(),
@@ -4085,6 +4363,9 @@ class BiteScoreService {
               normalizedName: existingDish.normalizedName,
               category: trimmedCategory,
               priceLabel: existingDish.priceLabel,
+              primaryImageUrl: existingDish.primaryImageUrl,
+              primaryImageId: existingDish.primaryImageId,
+              imageCount: existingDish.imageCount,
               isActive: existingDish.isActive,
               mergedIntoDishId: existingDish.mergedIntoDishId,
               createdAt: existingDish.createdAt,
@@ -4166,6 +4447,10 @@ class BiteScoreService {
 
   static String _reviewVoteDocumentId(String reviewId, String userId) {
     return '${reviewId.trim()}_${userId.trim()}';
+  }
+
+  static String _dishImageVoteDocumentId(String imageId, String userId) {
+    return '${imageId.trim()}_${userId.trim()}';
   }
 
   static List<List<String>> _chunkStrings(
@@ -4732,6 +5017,9 @@ class BiteScoreService {
             normalizedName: normalizedName,
             category: targetDish.category,
             priceLabel: targetDish.priceLabel,
+            primaryImageUrl: targetDish.primaryImageUrl,
+            primaryImageId: targetDish.primaryImageId,
+            imageCount: targetDish.imageCount,
             isActive: targetDish.isActive,
             mergedIntoDishId: targetDish.mergedIntoDishId,
             createdAt: targetDish.createdAt,
@@ -4948,7 +5236,7 @@ class BiteScoreService {
     return previousRow.last;
   }
 
-  static Future<void> _createReviewAndRebuildAggregate({
+  static Future<DishReview> _createReviewAndRebuildAggregate({
     required String userId,
     required BitescoreDish dish,
     required BitescoreRestaurant restaurant,
@@ -5005,6 +5293,7 @@ class BiteScoreService {
     });
 
     await _rebuildDishAggregate(dishId: dish.id, restaurantId: restaurant.id);
+    return review;
   }
 
   static String? _validateRequiredReviewScores({

@@ -2,12 +2,15 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/bitescore_dish.dart';
+import '../models/bitescore_dish_image.dart';
+import '../models/bitescore_dish_image_vote.dart';
 import '../models/bitescore_restaurant.dart';
 import '../models/dish_rating_aggregate.dart';
 import '../models/dish_review.dart';
 import '../models/review_feedback_vote.dart';
 import '../services/admin_access_service.dart';
 import '../services/app_error_text.dart';
+import '../services/bitescore_image_upload_service.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
@@ -65,6 +68,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   final GlobalKey _reviewSectionKey = GlobalKey();
   final TextEditingController _headlineController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
+  BiteScorePickedDishImage? _selectedDishImage;
   late BiteScoreHomeEntry _currentEntry;
 
   double? _overallImpression;
@@ -147,10 +151,22 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     final dishLoadResults = await Future.wait<Object?>([
       BiteScoreService.loadDishRatingAggregate(refreshedDish.id),
       BiteScoreService.loadDishReviews(refreshedDish.id),
+      BiteScoreService.loadDishImages(refreshedDish.id),
     ]);
     final aggregate =
         (dishLoadResults[0] as DishRatingAggregate?) ?? _currentEntry.aggregate;
     final reviews = dishLoadResults[1] as List<DishReview>;
+    final loadedDishImages = dishLoadResults[2];
+    final dishImages = loadedDishImages is List<BiteScoreDishImage>
+        ? loadedDishImages
+        : const <BiteScoreDishImage>[];
+    final reviewImageByReviewId = <String, BiteScoreDishImage>{};
+    for (final image in dishImages) {
+      final reviewId = image.reviewId?.trim();
+      if (reviewId != null && reviewId.isNotEmpty) {
+        reviewImageByReviewId.putIfAbsent(reviewId, () => image);
+      }
+    }
 
     final reviewMetadataResults = await Future.wait<Object>([
       BiteScoreService.loadReviewTrustSummaries(
@@ -197,7 +213,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       restaurant: refreshedRestaurant,
       aggregate: aggregate,
       reviews: reviews,
+      dishImages: dishImages,
       trustByReviewId: trustByReviewId,
+      reviewImageByReviewId: reviewImageByReviewId,
       reviewerBadgesByUserId: reviewerBadgesByUserId,
       reviewerNamesByUserId: reviewerNamesByUserId,
     );
@@ -439,7 +457,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     });
 
     try {
-      await BiteScoreService.addReviewForDish(
+      final saveResult = await BiteScoreService.addReviewForDish(
         dish: _currentEntry.dish,
         restaurant: _currentEntry.restaurant,
         overallImpression: overallImpression,
@@ -450,8 +468,11 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         valueScore: valueScore,
       );
 
+      await _uploadSelectedDishImage(saveResult);
+
       _headlineController.clear();
       _notesController.clear();
+      _selectedDishImage = null;
 
       if (!mounted) {
         return;
@@ -480,6 +501,62 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
           _isSaving = false;
         });
       }
+    }
+  }
+
+  Future<void> _pickDishImage() async {
+    try {
+      final image = await BiteScoreImageUploadService.pickDishImage();
+      if (image == null || !mounted) {
+        return;
+      }
+      setState(() {
+        _selectedDishImage = image;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not select that image right now.',
+        ),
+      );
+    }
+  }
+
+  Future<void> _uploadSelectedDishImage(
+    BiteScoreReviewSaveResult saveResult,
+  ) async {
+    final selectedImage = _selectedDishImage;
+    if (selectedImage == null) {
+      return;
+    }
+
+    try {
+      final uploadedImage = await BiteScoreImageUploadService.uploadDishImage(
+        dishId: saveResult.dish.id,
+        pickedImage: selectedImage,
+      );
+      await BiteScoreService.addDishImageRecord(
+        dish: saveResult.dish,
+        restaurant: saveResult.restaurant,
+        reviewId: saveResult.review.id,
+        uploadedByUserId: saveResult.review.userId,
+        imageUrl: uploadedImage.imageUrl,
+        storagePath: uploadedImage.storagePath,
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Review saved, but the dish image could not be uploaded.',
+        ),
+      );
     }
   }
 
@@ -785,6 +862,115 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     );
   }
 
+  Widget _buildDishImagePreview(
+    BitescoreDish dish,
+    List<BiteScoreDishImage>? images,
+  ) {
+    final imageUrl = dish.primaryImageUrl?.trim();
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final safeImages = images ?? const <BiteScoreDishImage>[];
+    final hiddenImageCount = safeImages.length > 1 ? safeImages.length - 1 : 0;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 10),
+        InkWell(
+          onTap: () => _openImageViewer(
+            images: safeImages,
+            initialImageUrl: imageUrl,
+            title: dish.name,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(16),
+            child: Image.network(
+              imageUrl,
+              width: 112,
+              height: 82,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) => Container(
+                width: 112,
+                height: 82,
+                alignment: Alignment.center,
+                color: const Color(0xFFF4F8FD),
+                child: const Icon(
+                  Icons.restaurant_menu,
+                  color: BiteRaterTheme.mutedInk,
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (hiddenImageCount > 0) ...[
+          const SizedBox(height: 5),
+          TextButton(
+            onPressed: () => _openImageViewer(
+              images: safeImages,
+              initialImageUrl: imageUrl,
+              title: dish.name,
+            ),
+            style: TextButton.styleFrom(
+              foregroundColor: BiteRaterTheme.ocean,
+              padding: EdgeInsets.zero,
+              minimumSize: Size.zero,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: Text(
+              hiddenImageCount == 1
+                  ? 'View more images'
+                  : 'View $hiddenImageCount more images',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w800,
+                decoration: TextDecoration.underline,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _openImageViewer({
+    required List<BiteScoreDishImage>? images,
+    required String initialImageUrl,
+    String? title,
+  }) async {
+    final safeImages = images ?? const <BiteScoreDishImage>[];
+    final imageUrls = safeImages
+        .map((image) => image.imageUrl.trim())
+        .where((url) => url.isNotEmpty)
+        .toList();
+    final trimmedInitialUrl = initialImageUrl.trim();
+
+    if (imageUrls.isEmpty && trimmedInitialUrl.isEmpty) {
+      return;
+    }
+    if (imageUrls.isEmpty) {
+      imageUrls.add(trimmedInitialUrl);
+    } else if (trimmedInitialUrl.isNotEmpty &&
+        !imageUrls.contains(trimmedInitialUrl)) {
+      imageUrls.add(trimmedInitialUrl);
+    }
+
+    final initialIndex = imageUrls.indexOf(trimmedInitialUrl);
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _BiteScoreImageViewerScreen(
+          images: safeImages,
+          imageUrls: imageUrls,
+          initialIndex: initialIndex < 0 ? 0 : initialIndex,
+          title: title,
+        ),
+      ),
+    );
+  }
+
   Widget _buildReviewMetricGrid(DishReview review) {
     final metrics = <Widget>[
       _buildMiniMetric('Enjoyment', review.overallImpression),
@@ -1010,6 +1196,8 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   Widget _buildReviewCard(
     DishReview review,
     ReviewTrustSummary trustSummary,
+    BiteScoreDishImage? reviewImage,
+    List<BiteScoreDishImage>? dishImages,
     String? reviewerBadgeLabel,
     String? reviewerDisplayName,
   ) {
@@ -1104,7 +1292,27 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
               ],
             ),
             const SizedBox(height: 6),
-            _buildReviewScoreBadge(review.overallBiteScore),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _buildReviewScoreBadge(review.overallBiteScore),
+                const Spacer(),
+                if (reviewImage != null)
+                  SizedBox(
+                    width: 74,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 2),
+                        child: _buildReviewImageThumbnail(
+                          reviewImage.imageUrl,
+                          dishImages,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
             Container(
               height: 0.5,
               margin: const EdgeInsets.only(top: 6, bottom: 6),
@@ -1155,6 +1363,45 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
               ],
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReviewImageThumbnail(
+    String imageUrl,
+    List<BiteScoreDishImage>? images,
+  ) {
+    final trimmedUrl = imageUrl.trim();
+    if (trimmedUrl.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return InkWell(
+      onTap: () => _openImageViewer(
+        images: images,
+        initialImageUrl: trimmedUrl,
+        title: 'Review image',
+      ),
+      borderRadius: BorderRadius.circular(12),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(12),
+        child: Image.network(
+          trimmedUrl,
+          width: 70,
+          height: 54,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Container(
+            width: 70,
+            height: 54,
+            alignment: Alignment.center,
+            color: const Color(0xFFF4F8FD),
+            child: const Icon(
+              Icons.image_not_supported_outlined,
+              size: 16,
+              color: BiteRaterTheme.mutedInk,
+            ),
+          ),
         ),
       ),
     );
@@ -1267,6 +1514,19 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                 decoration: _inputDecoration(
                   label: 'Review Notes (Optional)',
                   hint: 'Optional notes about what stood out',
+                ),
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton.icon(
+                onPressed: _isSaving ? null : _pickDishImage,
+                style: BiteRaterTheme.outlinedButtonStyle(
+                  accentColor: BiteRaterTheme.ocean,
+                ),
+                icon: const Icon(Icons.image_outlined),
+                label: Text(
+                  _selectedDishImage == null
+                      ? 'Add dish image'
+                      : 'Dish image selected',
                 ),
               ),
               const SizedBox(height: 14),
@@ -1737,7 +1997,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                   restaurant: entry.restaurant,
                   aggregate: entry.aggregate,
                   reviews: const <DishReview>[],
+                  dishImages: const <BiteScoreDishImage>[],
                   trustByReviewId: const <String, ReviewTrustSummary>{},
+                  reviewImageByReviewId: const <String, BiteScoreDishImage>{},
                   reviewerBadgesByUserId: const <String, String>{},
                   reviewerNamesByUserId: const <String, String>{},
                 );
@@ -1808,6 +2070,10 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                               const SizedBox(height: 6),
                                               _buildDishCategoryControl(
                                                 currentDish,
+                                              ),
+                                              _buildDishImagePreview(
+                                                currentDish,
+                                                detail.dishImages,
                                               ),
                                             ],
                                           ),
@@ -2051,6 +2317,8 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                   review,
                                   detail.trustByReviewId[review.id] ??
                                       const ReviewTrustSummary(),
+                                  detail.reviewImageByReviewId[review.id],
+                                  detail.dishImages,
                                   detail.reviewerBadgesByUserId[review.userId],
                                   detail.reviewerNamesByUserId[review.userId],
                                 ),
@@ -2094,19 +2362,405 @@ class _DishDetailData {
   final BitescoreRestaurant restaurant;
   final DishRatingAggregate aggregate;
   final List<DishReview> reviews;
+  final List<BiteScoreDishImage>? _dishImages;
   final Map<String, ReviewTrustSummary> trustByReviewId;
+  final Map<String, BiteScoreDishImage> reviewImageByReviewId;
   final Map<String, String> reviewerBadgesByUserId;
   final Map<String, String> reviewerNamesByUserId;
+
+  List<BiteScoreDishImage> get dishImages =>
+      _dishImages ?? const <BiteScoreDishImage>[];
 
   const _DishDetailData({
     required this.dish,
     required this.restaurant,
     required this.aggregate,
     required this.reviews,
+    required List<BiteScoreDishImage>? dishImages,
     required this.trustByReviewId,
+    required this.reviewImageByReviewId,
     required this.reviewerBadgesByUserId,
     required this.reviewerNamesByUserId,
+  }) : _dishImages = dishImages;
+}
+
+class _BiteScoreImageViewerScreen extends StatefulWidget {
+  final List<BiteScoreDishImage> images;
+  final List<String> imageUrls;
+  final int initialIndex;
+  final String? title;
+
+  const _BiteScoreImageViewerScreen({
+    required this.images,
+    required this.imageUrls,
+    required this.initialIndex,
+    this.title,
   });
+
+  @override
+  State<_BiteScoreImageViewerScreen> createState() =>
+      _BiteScoreImageViewerScreenState();
+}
+
+class _BiteScoreImageViewerScreenState
+    extends State<_BiteScoreImageViewerScreen> {
+  late List<BiteScoreDishImage> _images;
+  late List<String> _imageUrls;
+  late int _selectedIndex;
+  Map<String, String> _currentVotesByImageId = const <String, String>{};
+  bool _isVoting = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _images = List<BiteScoreDishImage>.from(widget.images);
+    _imageUrls = widget.imageUrls
+        .map((url) => url.trim())
+        .where((url) => url.isNotEmpty)
+        .toList();
+    if (_imageUrls.isEmpty) {
+      _imageUrls = _images
+          .map((image) => image.imageUrl.trim())
+          .where((url) => url.isNotEmpty)
+          .toList();
+    }
+    final lastIndex = _imageUrls.isEmpty ? 0 : _imageUrls.length - 1;
+    _selectedIndex = widget.initialIndex.clamp(0, lastIndex);
+    _loadCurrentVotes();
+  }
+
+  void _selectImage(int index) {
+    if (index < 0 || index >= _imageUrls.length) {
+      return;
+    }
+    setState(() {
+      _selectedIndex = index;
+    });
+  }
+
+  BiteScoreDishImage? get _selectedImage {
+    if (_selectedIndex < 0 || _selectedIndex >= _imageUrls.length) {
+      return null;
+    }
+    final selectedUrl = _imageUrls[_selectedIndex].trim();
+    for (final image in _images) {
+      if (image.imageUrl.trim() == selectedUrl) {
+        return image;
+      }
+    }
+    return null;
+  }
+
+  Future<void> _loadCurrentVotes() async {
+    final imageIds = _images
+        .map((image) => image.id.trim())
+        .where((id) => id.isNotEmpty)
+        .toList();
+    if (imageIds.isEmpty) {
+      return;
+    }
+
+    final votes = await BiteScoreService.loadCurrentUserDishImageVotes(
+      imageIds,
+    );
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _currentVotesByImageId = votes;
+    });
+  }
+
+  Future<void> _toggleImageVote(String voteType) async {
+    final image = _selectedImage;
+    if (image == null || _isVoting) {
+      return;
+    }
+
+    final canWrite = await BiteScoreSignInGate.ensureSignedInForWrite(
+      context,
+      message: 'Please sign in to vote on dish images.',
+    );
+    if (!canWrite || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _isVoting = true;
+    });
+
+    try {
+      final result = await BiteScoreService.toggleDishImageVote(
+        image: image,
+        voteType: voteType,
+      );
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        final index = _images.indexWhere(
+          (candidate) => candidate.id == result.image.id,
+        );
+        if (index >= 0) {
+          _images[index] = result.image;
+        }
+
+        final votes = Map<String, String>.from(_currentVotesByImageId);
+        final currentVote = result.currentUserVoteType;
+        if (currentVote == null) {
+          votes.remove(result.image.id);
+        } else {
+          votes[result.image.id] = currentVote;
+        }
+        _currentVotesByImageId = votes;
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text(
+              AppErrorText.friendly(
+                error,
+                fallback: 'Could not save your vote on this image right now.',
+              ),
+            ),
+          ),
+        );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isVoting = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildVoteButton({
+    required IconData icon,
+    required IconData selectedIcon,
+    required String label,
+    required int count,
+    required String voteType,
+  }) {
+    final image = _selectedImage;
+    final selected =
+        image != null && _currentVotesByImageId[image.id] == voteType;
+
+    return Semantics(
+      label: '$label count $count',
+      button: true,
+      selected: selected,
+      child: OutlinedButton.icon(
+        onPressed: image == null || _isVoting
+            ? null
+            : () => _toggleImageVote(voteType),
+        icon: Icon(selected ? selectedIcon : icon, size: 18),
+        label: Text('$count'),
+        style: OutlinedButton.styleFrom(
+          foregroundColor: selected ? BiteRaterTheme.ocean : BiteRaterTheme.ink,
+          minimumSize: const Size(86, 38),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          side: BorderSide(
+            color: selected ? BiteRaterTheme.ocean : BiteRaterTheme.lineBlue,
+          ),
+          textStyle: const TextStyle(fontWeight: FontWeight.w800),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVoteControls() {
+    final image = _selectedImage;
+    if (image == null) {
+      return const SizedBox.shrink();
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          _buildVoteButton(
+            icon: Icons.thumb_up_alt_outlined,
+            selectedIcon: Icons.thumb_up_alt,
+            label: 'Helpful',
+            count: image.helpfulCount,
+            voteType: BiteScoreDishImageVote.voteHelpful,
+          ),
+          const SizedBox(width: 10),
+          _buildVoteButton(
+            icon: Icons.thumb_down_alt_outlined,
+            selectedIcon: Icons.thumb_down_alt,
+            label: 'Not helpful',
+            count: image.notHelpfulCount,
+            voteType: BiteScoreDishImageVote.voteNotHelpful,
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final hasImages = _imageUrls.isNotEmpty;
+    final imageUrl = hasImages ? _imageUrls[_selectedIndex] : '';
+    final hasMultipleImages = _imageUrls.length > 1;
+
+    return Scaffold(
+      backgroundColor: BiteRaterTheme.pageBackground,
+      appBar: AppBar(
+        title: Text(
+          widget.title?.trim().isNotEmpty == true
+              ? widget.title!.trim()
+              : 'Image',
+        ),
+        backgroundColor: BiteRaterTheme.pageBackground,
+        surfaceTintColor: BiteRaterTheme.pageBackground,
+      ),
+      body: SafeArea(
+        child: hasImages
+            ? Column(
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Center(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(18),
+                          child: InteractiveViewer(
+                            minScale: 1,
+                            maxScale: 4,
+                            child: Image.network(
+                              imageUrl,
+                              fit: BoxFit.contain,
+                              errorBuilder: (context, error, stackTrace) =>
+                                  Container(
+                                    width: double.infinity,
+                                    height: 260,
+                                    alignment: Alignment.center,
+                                    color: const Color(0xFFF4F8FD),
+                                    child: const Text(
+                                      'Image unavailable',
+                                      style: TextStyle(
+                                        color: BiteRaterTheme.mutedInk,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                    ),
+                                  ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  _buildVoteControls(),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed: !hasMultipleImages || _selectedIndex == 0
+                                ? null
+                                : () => _selectImage(_selectedIndex - 1),
+                            icon: const Icon(Icons.chevron_left),
+                            label: const Text('Previous'),
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Text(
+                            '${_selectedIndex + 1} / ${_imageUrls.length}',
+                            style: const TextStyle(
+                              color: BiteRaterTheme.mutedInk,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed:
+                                !hasMultipleImages ||
+                                    _selectedIndex >= _imageUrls.length - 1
+                                ? null
+                                : () => _selectImage(_selectedIndex + 1),
+                            icon: const Icon(Icons.chevron_right),
+                            label: const Text('Next'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (hasMultipleImages)
+                    SizedBox(
+                      height: 72,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
+                        scrollDirection: Axis.horizontal,
+                        itemCount: _imageUrls.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(width: 8),
+                        itemBuilder: (context, index) {
+                          final selected = index == _selectedIndex;
+                          return InkWell(
+                            onTap: () => _selectImage(index),
+                            borderRadius: BorderRadius.circular(12),
+                            child: Container(
+                              padding: const EdgeInsets.all(2),
+                              decoration: BoxDecoration(
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: selected
+                                      ? BiteRaterTheme.ocean
+                                      : BiteRaterTheme.lineBlue,
+                                  width: selected ? 2 : 1,
+                                ),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(9),
+                                child: Image.network(
+                                  _imageUrls[index],
+                                  width: 54,
+                                  height: 54,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (context, error, stackTrace) =>
+                                      Container(
+                                        width: 54,
+                                        height: 54,
+                                        alignment: Alignment.center,
+                                        color: const Color(0xFFF4F8FD),
+                                        child: const Icon(
+                                          Icons.image_not_supported_outlined,
+                                          size: 16,
+                                          color: BiteRaterTheme.mutedInk,
+                                        ),
+                                      ),
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              )
+            : const Center(
+                child: Text(
+                  'No images available.',
+                  style: TextStyle(
+                    color: BiteRaterTheme.mutedInk,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
 }
 
 class _DishCategoryDialog extends StatefulWidget {

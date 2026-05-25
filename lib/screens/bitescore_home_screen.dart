@@ -736,9 +736,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     });
   }
 
-  Widget _buildLocationActionRow({
-    double minHeight = 52,
-  }) {
+  Widget _buildLocationActionRow({double minHeight = 52}) {
     final borderRadius = BorderRadius.circular(14);
     final sharedActionButtonStyle = ElevatedButton.styleFrom(
       backgroundColor: const Color(0xFFE94312),
@@ -1069,6 +1067,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
       ),
     );
   }
+
   Future<void> _openDishDetail(BiteScoreHomeEntry entry) async {
     final distanceLabel = _distanceLabel(entry);
     await Navigator.of(context).push(
@@ -1101,6 +1100,34 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     if (refreshed == true && mounted) {
       _refreshEntries();
     }
+  }
+
+  Widget _buildDishThumbnail(String? imageUrl, {double size = 46}) {
+    final trimmedUrl = imageUrl?.trim();
+    if (trimmedUrl == null || trimmedUrl.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Image.network(
+        trimmedUrl,
+        width: size,
+        height: size,
+        fit: BoxFit.cover,
+        errorBuilder: (context, error, stackTrace) => Container(
+          width: size,
+          height: size,
+          color: const Color(0xFFF4F8FD),
+          alignment: Alignment.center,
+          child: const Icon(
+            Icons.restaurant_menu,
+            size: 18,
+            color: BiteRaterTheme.mutedInk,
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildEntryCard(
@@ -1156,9 +1183,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                           ),
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: const Color(0xFFC8D5F0).withValues(
-                              alpha: 0.72,
-                            ),
+                            color: const Color(
+                              0xFFC8D5F0,
+                            ).withValues(alpha: 0.72),
                             width: 1.05,
                           ),
                           boxShadow: [
@@ -1168,9 +1195,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                               offset: const Offset(0, -1),
                             ),
                             BoxShadow(
-                              color: const Color(0xFF7389C9).withValues(
-                                alpha: 0.08,
-                              ),
+                              color: const Color(
+                                0xFF7389C9,
+                              ).withValues(alpha: 0.08),
                               blurRadius: 10,
                               offset: const Offset(0, 4),
                             ),
@@ -1210,6 +1237,17 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
+                  if ((entry.dish.primaryImageUrl ?? '').trim().isNotEmpty)
+                    SizedBox(
+                      width: 74,
+                      child: Align(
+                        alignment: Alignment.centerLeft,
+                        child: _buildDishThumbnail(
+                          entry.dish.primaryImageUrl,
+                          size: 56,
+                        ),
+                      ),
+                    ),
                   SizedBox(
                     width: 72,
                     child: Align(
@@ -1569,22 +1607,24 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                                     ),
                                     child: ElevatedButton(
                                       onPressed: _openCreateAndRate,
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.transparent,
-                                        foregroundColor: BiteRaterTheme.ink,
-                                        shadowColor: Colors.transparent,
-                                        surfaceTintColor: Colors.transparent,
-                                        elevation: 0,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 10,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(18),
-                                        ),
-                                        tapTargetSize:
-                                            MaterialTapTargetSize.shrinkWrap,
-                                      ).copyWith(
+                                      style:
+                                          ElevatedButton.styleFrom(
+                                            backgroundColor: Colors.transparent,
+                                            foregroundColor: BiteRaterTheme.ink,
+                                            shadowColor: Colors.transparent,
+                                            surfaceTintColor:
+                                                Colors.transparent,
+                                            elevation: 0,
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                            ),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(18),
+                                            ),
+                                            tapTargetSize: MaterialTapTargetSize
+                                                .shrinkWrap,
+                                          ).copyWith(
                                             minimumSize:
                                                 const WidgetStatePropertyAll(
                                                   Size(0, 36),
