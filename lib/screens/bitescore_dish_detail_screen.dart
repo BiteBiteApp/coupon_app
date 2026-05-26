@@ -877,7 +877,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 7),
+        const SizedBox(height: 6),
         InkWell(
           onTap: () => _openImageViewer(
             images: safeImages,
@@ -889,12 +889,12 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
             borderRadius: BorderRadius.circular(16),
             child: Image.network(
               imageUrl,
-              width: 150,
-              height: 110,
+              width: 158,
+              height: 114,
               fit: BoxFit.cover,
               errorBuilder: (context, error, stackTrace) => Container(
-                width: 150,
-                height: 110,
+                width: 158,
+                height: 114,
                 alignment: Alignment.center,
                 color: const Color(0xFFF4F8FD),
                 child: const Icon(
@@ -906,7 +906,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
           ),
         ),
         if (hiddenImageCount > 0) ...[
-          const SizedBox(height: 3),
+          const SizedBox(height: 4),
           TextButton(
             onPressed: () => _openImageViewer(
               images: safeImages,
@@ -1299,15 +1299,12 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                 const Spacer(),
                 if (reviewImage != null)
                   SizedBox(
-                    width: 74,
+                    width: 68,
                     child: Align(
                       alignment: Alignment.centerRight,
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 2),
-                        child: _buildReviewImageThumbnail(
-                          reviewImage.imageUrl,
-                          dishImages,
-                        ),
+                      child: _buildReviewImageThumbnail(
+                        reviewImage.imageUrl,
+                        dishImages,
                       ),
                     ),
                   ),
@@ -1384,22 +1381,26 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         title: 'Review image',
       ),
       borderRadius: BorderRadius.circular(12),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(12),
-        child: Image.network(
-          trimmedUrl,
-          width: 70,
-          height: 54,
-          fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) => Container(
-            width: 70,
+      child: SizedBox(
+        width: 68,
+        height: 54,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            trimmedUrl,
+            width: 68,
             height: 54,
-            alignment: Alignment.center,
-            color: const Color(0xFFF4F8FD),
-            child: const Icon(
-              Icons.image_not_supported_outlined,
-              size: 16,
-              color: BiteRaterTheme.mutedInk,
+            fit: BoxFit.cover,
+            errorBuilder: (context, error, stackTrace) => Container(
+              width: 68,
+              height: 54,
+              alignment: Alignment.center,
+              color: const Color(0xFFF4F8FD),
+              child: const Icon(
+                Icons.image_not_supported_outlined,
+                size: 16,
+                color: BiteRaterTheme.mutedInk,
+              ),
             ),
           ),
         ),
@@ -2200,9 +2201,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 6),
+                                    const SizedBox(height: 5),
                                     BiteRaterTheme.softDivider(),
-                                    const SizedBox(height: 8),
+                                    const SizedBox(height: 7),
                                     Center(
                                       child: Column(
                                         children: [
@@ -2246,7 +2247,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                         ],
                                       ),
                                     ),
-                                    const SizedBox(height: 16),
+                                    const SizedBox(height: 14),
                                     _buildAverageRatingGrid(detail.aggregate),
                                     const SizedBox(height: 12),
                                     Align(

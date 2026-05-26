@@ -143,11 +143,11 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         SizedBox(
-          height: 76,
+          height: 74,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             itemCount: visibleImages.length,
-            separatorBuilder: (context, index) => const SizedBox(width: 10),
+            separatorBuilder: (context, index) => const SizedBox(width: 9),
             itemBuilder: (context, index) {
               return InkWell(
                 onTap: () => _openImageViewer(images, index),
@@ -156,12 +156,12 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                   borderRadius: BorderRadius.circular(12),
                   child: Image.network(
                     visibleImages[index].imageUrl,
-                    width: 86,
-                    height: 76,
+                    width: 84,
+                    height: 74,
                     fit: BoxFit.cover,
                     errorBuilder: (context, error, stackTrace) => Container(
-                      width: 86,
-                      height: 76,
+                      width: 84,
+                      height: 74,
                       alignment: Alignment.center,
                       color: const Color(0xFFF3E8DD),
                       child: const Icon(Icons.menu_book_outlined),
@@ -173,7 +173,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
           ),
         ),
         if (hiddenImageCount > 0) ...[
-          const SizedBox(height: 8),
+          const SizedBox(height: 6),
           TextButton.icon(
             onPressed: () => _openImageViewer(images, visibleImages.length),
             style: TextButton.styleFrom(
@@ -199,11 +199,11 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     final groupedItems = _groupItems(data.items);
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
       children: [
         if (data.images.isNotEmpty) ...[
           _buildImageThumbs(data.images),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
         ],
         for (final entry in groupedItems.entries) ...[
           Text(
@@ -214,10 +214,10 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 7),
           for (final item in entry.value)
             Padding(
-              padding: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.only(bottom: 9),
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: const Color(0xFFFFFEFB),
@@ -232,7 +232,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                   ],
                 ),
                 child: Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(11),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -274,7 +274,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                 ),
               ),
             ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 7),
         ],
       ],
     );
@@ -289,7 +289,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       children: [
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(18),
               child: InteractiveViewer(
@@ -319,6 +319,9 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                     onPressed: _selectedImageIndex == 0
                         ? null
                         : () => setState(() => _selectedImageIndex -= 1),
+                    style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                    ),
                     icon: const Icon(Icons.chevron_left),
                     label: const Text('Previous'),
                   ),
@@ -332,6 +335,9 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                     onPressed: _selectedImageIndex >= images.length - 1
                         ? null
                         : () => setState(() => _selectedImageIndex += 1),
+                    style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                    ),
                     icon: const Icon(Icons.chevron_right),
                     label: const Text('Next'),
                   ),
@@ -453,7 +459,7 @@ class _RestaurantMenuImageViewerState
         children: [
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(18),
                 child: InteractiveViewer(
@@ -530,6 +536,9 @@ class _RestaurantMenuImageViewerState
                     onPressed: !hasMultipleImages || _selectedIndex == 0
                         ? null
                         : () => setState(() => _selectedIndex -= 1),
+                    style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                    ),
                     icon: const Icon(Icons.chevron_left),
                     label: const Text('Previous'),
                   ),
@@ -547,6 +556,9 @@ class _RestaurantMenuImageViewerState
                             _selectedIndex >= widget.images.length - 1
                         ? null
                         : () => setState(() => _selectedIndex += 1),
+                    style: OutlinedButton.styleFrom(
+                      visualDensity: VisualDensity.compact,
+                    ),
                     icon: const Icon(Icons.chevron_right),
                     label: const Text('Next'),
                   ),

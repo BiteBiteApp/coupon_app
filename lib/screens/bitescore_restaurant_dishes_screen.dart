@@ -744,7 +744,7 @@ class _BiteScoreRestaurantDishesScreenState
       onPressed: _openMenu,
       style: TextButton.styleFrom(
         foregroundColor: BiteRaterTheme.ocean,
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 3),
         minimumSize: Size.zero,
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
       ),
@@ -843,24 +843,88 @@ class _BiteScoreRestaurantDishesScreenState
       return const SizedBox.shrink();
     }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
-      child: Image.network(
-        trimmedUrl,
-        width: size,
-        height: size,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) => Container(
+    return SizedBox.square(
+      dimension: size,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Image.network(
+          trimmedUrl,
           width: size,
           height: size,
-          color: const Color(0xFFF4F8FD),
-          alignment: Alignment.center,
-          child: const Icon(
-            Icons.restaurant_menu,
-            size: 18,
-            color: BiteRaterTheme.mutedInk,
+          fit: BoxFit.cover,
+          errorBuilder: (context, error, stackTrace) => Container(
+            width: size,
+            height: size,
+            color: const Color(0xFFF4F8FD),
+            alignment: Alignment.center,
+            child: const Icon(
+              Icons.restaurant_menu,
+              size: 18,
+              color: BiteRaterTheme.mutedInk,
+            ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildHeaderFavoriteButton() {
+    return IconButton(
+      tooltip: _isFavoriteRestaurant ? 'Unsave restaurant' : 'Save restaurant',
+      onPressed: _isSavingFavoriteRestaurant ? null : _toggleRestaurantFavorite,
+      padding: const EdgeInsets.all(8),
+      constraints: const BoxConstraints(minWidth: 40, minHeight: 40),
+      visualDensity: VisualDensity.compact,
+      icon: Icon(
+        _isFavoriteRestaurant ? Icons.favorite : Icons.favorite_border,
+        color: _isFavoriteRestaurant
+            ? BiteRaterTheme.coral
+            : BiteRaterTheme.grape,
+      ),
+    );
+  }
+
+  Widget _buildDishScoreSummary(String scoreLabel, int ratingCount) {
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 76),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                scoreLabel,
+                style: const TextStyle(
+                  color: BiteRaterTheme.scoreFlame,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 22,
+                  height: 1.0,
+                ),
+              ),
+              const SizedBox(width: 5),
+              const Text(
+                'BiteScore',
+                style: TextStyle(
+                  color: BiteRaterTheme.scoreFlame,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 10,
+                  letterSpacing: 0.2,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          Text(
+            '$ratingCount ratings',
+            textAlign: TextAlign.right,
+            style: const TextStyle(
+              fontSize: 12,
+              color: BiteRaterTheme.mutedInk,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -931,22 +995,7 @@ class _BiteScoreRestaurantDishesScreenState
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                IconButton(
-                                  tooltip: _isFavoriteRestaurant
-                                      ? 'Unsave restaurant'
-                                      : 'Save restaurant',
-                                  onPressed: _isSavingFavoriteRestaurant
-                                      ? null
-                                      : _toggleRestaurantFavorite,
-                                  icon: Icon(
-                                    _isFavoriteRestaurant
-                                        ? Icons.favorite
-                                        : Icons.favorite_border,
-                                    color: _isFavoriteRestaurant
-                                        ? BiteRaterTheme.coral
-                                        : BiteRaterTheme.grape,
-                                  ),
-                                ),
+                                _buildHeaderFavoriteButton(),
                               ],
                             ),
                             if (_restaurant.isClaimed) ...[
@@ -1082,11 +1131,12 @@ class _BiteScoreRestaurantDishesScreenState
                                 children: [
                                   Row(
                                     crossAxisAlignment:
-                                        CrossAxisAlignment.start,
+                                        CrossAxisAlignment.center,
                                     children: [
                                       if (hasImage) ...[
                                         _buildDishThumbnail(
                                           entry.dish.primaryImageUrl,
+                                          size: 52,
                                         ),
                                         const SizedBox(width: 12),
                                       ],
@@ -1112,46 +1162,9 @@ class _BiteScoreRestaurantDishesScreenState
                                         ),
                                       ),
                                       const SizedBox(width: 12),
-                                      Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.end,
-                                        children: [
-                                          Row(
-                                            mainAxisSize: MainAxisSize.min,
-                                            children: [
-                                              Text(
-                                                scoreLabel,
-                                                style: const TextStyle(
-                                                  color:
-                                                      BiteRaterTheme.scoreFlame,
-                                                  fontWeight: FontWeight.w900,
-                                                  fontSize: 22,
-                                                  height: 1.0,
-                                                ),
-                                              ),
-                                              const SizedBox(width: 6),
-                                              const Text(
-                                                'BiteScore',
-                                                style: TextStyle(
-                                                  color:
-                                                      BiteRaterTheme.scoreFlame,
-                                                  fontWeight: FontWeight.w700,
-                                                  fontSize: 10,
-                                                  letterSpacing: 0.2,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          const SizedBox(height: 3),
-                                          Text(
-                                            '${entry.aggregate.ratingCount} ratings',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: BiteRaterTheme.mutedInk,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                          ),
-                                        ],
+                                      _buildDishScoreSummary(
+                                        scoreLabel,
+                                        entry.aggregate.ratingCount,
                                       ),
                                     ],
                                   ),
