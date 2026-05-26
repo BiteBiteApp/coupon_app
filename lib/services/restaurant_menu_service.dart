@@ -1,9 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/bitescore_restaurant.dart';
+import '../models/restaurant.dart';
 import 'restaurant_account_service.dart';
 
 enum RestaurantMenuSourceType { legacyBiteSaver, sharedMenu }
+
+enum RestaurantMenuAppSide { biteSaver, biteScore }
 
 class RestaurantMenuSource {
   final RestaurantMenuSourceType type;
@@ -30,8 +33,46 @@ class RestaurantMenuSource {
   bool get isSharedMenu => type == RestaurantMenuSourceType.sharedMenu;
 }
 
+class RestaurantMenuManageAccess {
+  final RestaurantMenuSource? source;
+  final bool isBlocked;
+  final RestaurantMenuAppSide? managedBy;
+  final String? message;
+
+  const RestaurantMenuManageAccess._({
+    required this.source,
+    required this.isBlocked,
+    this.managedBy,
+    this.message,
+  });
+
+  factory RestaurantMenuManageAccess.allowed(RestaurantMenuSource source) {
+    return RestaurantMenuManageAccess._(source: source, isBlocked: false);
+  }
+
+  factory RestaurantMenuManageAccess.blocked({
+    required RestaurantMenuAppSide managedBy,
+    required String message,
+  }) {
+    return RestaurantMenuManageAccess._(
+      source: null,
+      isBlocked: true,
+      managedBy: managedBy,
+      message: message,
+    );
+  }
+}
+
 class RestaurantMenuService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static const String menuSourceSideField = 'menuSourceSide';
+  static const String linkedBiteScoreRestaurantIdField =
+      'linkedBiteScoreRestaurantId';
+  static const String linkedBiteSaverUidField = 'linkedBiteSaverUid';
+  static const String menuSourceUpdatedAtField = 'menuSourceUpdatedAt';
+  static const String menuSourceUpdatedByField = 'menuSourceUpdatedBy';
+  static const String menuSourceBiteSaver = 'biteSaver';
+  static const String menuSourceBiteScore = 'biteScore';
 
   static CollectionReference<Map<String, dynamic>> sharedMenusCollection() {
     return _firestore.collection('restaurant_menus');
@@ -53,6 +94,286 @@ class RestaurantMenuService {
       return RestaurantAccountService.menuItemsCollection(source.id);
     }
     return sharedMenusCollection().doc(source.id).collection('menu_items');
+  }
+
+  static Future<RestaurantMenuSource?> resolveBiteSaverPublicMenuSource({
+    required String uid,
+  }) async {
+    final trimmedUid = uid.trim();
+    if (trimmedUid.isEmpty) {
+      return null;
+    }
+
+    final accountData = await _loadBiteSaverAccountData(trimmedUid);
+    final sourceSide = _readString(accountData?[menuSourceSideField]);
+    if (sourceSide == menuSourceBiteScore) {
+      final biteScoreRestaurantId = _readString(
+        accountData?[linkedBiteScoreRestaurantIdField],
+      );
+      final biteScoreRestaurant = await _loadBiteScoreRestaurantById(
+        biteScoreRestaurantId,
+      );
+      final sharedMenuId = biteScoreRestaurant?.sharedMenuId?.trim();
+      if (sharedMenuId == null || sharedMenuId.isEmpty) {
+        return null;
+      }
+      return RestaurantMenuSource.sharedMenu(sharedMenuId);
+    }
+
+    return RestaurantMenuSource.legacyBiteSaver(trimmedUid);
+  }
+
+  static Future<RestaurantMenuSource?> resolveBiteScorePublicMenuSource({
+    required String restaurantId,
+  }) async {
+    final restaurant = await _loadBiteScoreRestaurantById(restaurantId);
+    if (restaurant == null) {
+      return null;
+    }
+
+    final snapshot = await _firestore
+        .collection(BitescoreRestaurant.collectionName)
+        .doc(restaurant.id)
+        .get();
+    final data = snapshot.data();
+    final sourceSide = _readString(data?[menuSourceSideField]);
+    if (sourceSide == menuSourceBiteSaver) {
+      final biteSaverUid = _readString(data?[linkedBiteSaverUidField]);
+      if (biteSaverUid == null || biteSaverUid.isEmpty) {
+        return null;
+      }
+      return RestaurantMenuSource.legacyBiteSaver(biteSaverUid);
+    }
+
+    final sharedMenuId = restaurant.sharedMenuId?.trim();
+    if (sharedMenuId == null || sharedMenuId.isEmpty) {
+      return null;
+    }
+    return RestaurantMenuSource.sharedMenu(sharedMenuId);
+  }
+
+  static Future<RestaurantMenuManageAccess> resolveBiteSaverManageMenuAccess({
+    required String uid,
+  }) async {
+    final trimmedUid = uid.trim();
+    if (trimmedUid.isEmpty) {
+      return RestaurantMenuManageAccess.blocked(
+        managedBy: RestaurantMenuAppSide.biteSaver,
+        message: 'Menu source is unavailable.',
+      );
+    }
+
+    final accountData = await _loadBiteSaverAccountData(trimmedUid);
+    final sourceSide = _readString(accountData?[menuSourceSideField]);
+    if (sourceSide == menuSourceBiteScore) {
+      return RestaurantMenuManageAccess.blocked(
+        managedBy: RestaurantMenuAppSide.biteScore,
+        message: 'Menu is managed on BiteRater',
+      );
+    }
+
+    return RestaurantMenuManageAccess.allowed(
+      RestaurantMenuSource.legacyBiteSaver(trimmedUid),
+    );
+  }
+
+  static Future<RestaurantMenuManageAccess> resolveBiteScoreManageMenuAccess({
+    required BitescoreRestaurant restaurant,
+    required String ownerUserId,
+  }) async {
+    final latestRestaurant =
+        await _loadBiteScoreRestaurantById(restaurant.id) ?? restaurant;
+    final snapshot = await _firestore
+        .collection(BitescoreRestaurant.collectionName)
+        .doc(latestRestaurant.id)
+        .get();
+    final data = snapshot.data();
+    final sourceSide = _readString(data?[menuSourceSideField]);
+    if (sourceSide == menuSourceBiteSaver) {
+      return RestaurantMenuManageAccess.blocked(
+        managedBy: RestaurantMenuAppSide.biteSaver,
+        message: 'Menu is managed on BiteSaver',
+      );
+    }
+
+    final source = await ensureSharedMenuForBiteScoreRestaurant(
+      restaurant: latestRestaurant,
+      ownerUserId: ownerUserId,
+    );
+    return RestaurantMenuManageAccess.allowed(source);
+  }
+
+  static Future<BitescoreRestaurant?> findLikelyBiteScoreMatchForBiteSaver({
+    required String uid,
+  }) async {
+    final trimmedUid = uid.trim();
+    if (trimmedUid.isEmpty) {
+      return null;
+    }
+    final accountData = await _loadBiteSaverAccountData(trimmedUid);
+    if (accountData == null) {
+      return null;
+    }
+    final biteSaverRestaurant = Restaurant.fromFirestore({
+      ...accountData,
+      Restaurant.fieldUid: trimmedUid,
+    }, coupons: const []);
+    final snapshot = await _firestore
+        .collection(BitescoreRestaurant.collectionName)
+        .where('ownerUserId', isEqualTo: trimmedUid)
+        .get();
+
+    for (final doc in snapshot.docs) {
+      final biteScoreRestaurant = _parseBiteScoreRestaurant(
+        doc.data(),
+        fallbackId: doc.id,
+      );
+      if (biteScoreRestaurant == null || !biteScoreRestaurant.isClaimed) {
+        continue;
+      }
+      if (_isLikelySameRestaurant(
+        biteSaverRestaurant: biteSaverRestaurant,
+        biteScoreRestaurant: biteScoreRestaurant,
+      )) {
+        return biteScoreRestaurant;
+      }
+    }
+    return null;
+  }
+
+  static Future<String?> findLikelyBiteSaverMatchForBiteScore({
+    required String ownerUserId,
+    required BitescoreRestaurant restaurant,
+  }) async {
+    final ownerId = ownerUserId.trim();
+    if (ownerId.isEmpty) {
+      return null;
+    }
+    final accountData = await _loadBiteSaverAccountData(ownerId);
+    if (accountData == null) {
+      return null;
+    }
+    final biteSaverRestaurant = Restaurant.fromFirestore({
+      ...accountData,
+      Restaurant.fieldUid: ownerId,
+    }, coupons: const []);
+    if (!_isLikelySameRestaurant(
+      biteSaverRestaurant: biteSaverRestaurant,
+      biteScoreRestaurant: restaurant,
+    )) {
+      return null;
+    }
+    return ownerId;
+  }
+
+  static Future<bool> biteSaverUsesBiteScoreMenu(String uid) async {
+    final accountData = await _loadBiteSaverAccountData(uid);
+    return _readString(accountData?[menuSourceSideField]) ==
+        menuSourceBiteScore;
+  }
+
+  static Future<bool> biteScoreUsesBiteSaverMenu(String restaurantId) async {
+    final data = await _loadBiteScoreRestaurantData(restaurantId);
+    return _readString(data?[menuSourceSideField]) == menuSourceBiteSaver;
+  }
+
+  static Future<void> setBiteSaverMenuSourceToBiteScore({
+    required String uid,
+    required String biteScoreRestaurantId,
+    required String updatedBy,
+  }) async {
+    final trimmedUid = uid.trim();
+    final trimmedRestaurantId = biteScoreRestaurantId.trim();
+    if (trimmedUid.isEmpty || trimmedRestaurantId.isEmpty) {
+      throw ArgumentError('Matching BiteRater restaurant is required.');
+    }
+    final biteScoreRestaurant = await _loadBiteScoreRestaurantById(
+      trimmedRestaurantId,
+    );
+    if (biteScoreRestaurant == null ||
+        biteScoreRestaurant.ownerUserId?.trim() != trimmedUid ||
+        !biteScoreRestaurant.isClaimed) {
+      throw StateError('Matching BiteRater restaurant is required.');
+    }
+    await ensureSharedMenuForBiteScoreRestaurant(
+      restaurant: biteScoreRestaurant,
+      ownerUserId: trimmedUid,
+    );
+    await RestaurantAccountService.docForUser(trimmedUid).set({
+      menuSourceSideField: menuSourceBiteScore,
+      linkedBiteScoreRestaurantIdField: trimmedRestaurantId,
+      menuSourceUpdatedAtField: FieldValue.serverTimestamp(),
+      menuSourceUpdatedByField: updatedBy.trim(),
+    }, SetOptions(merge: true));
+  }
+
+  static Future<void> clearBiteSaverMenuSourceRouting({
+    required String uid,
+    required String updatedBy,
+  }) async {
+    final trimmedUid = uid.trim();
+    if (trimmedUid.isEmpty) {
+      return;
+    }
+    await RestaurantAccountService.docForUser(trimmedUid).set({
+      menuSourceSideField: menuSourceBiteSaver,
+      linkedBiteScoreRestaurantIdField: FieldValue.delete(),
+      menuSourceUpdatedAtField: FieldValue.serverTimestamp(),
+      menuSourceUpdatedByField: updatedBy.trim(),
+    }, SetOptions(merge: true));
+  }
+
+  static Future<void> setBiteScoreMenuSourceToBiteSaver({
+    required String restaurantId,
+    required String biteSaverUid,
+    required String updatedBy,
+  }) async {
+    final trimmedRestaurantId = restaurantId.trim();
+    final trimmedUid = biteSaverUid.trim();
+    if (trimmedRestaurantId.isEmpty || trimmedUid.isEmpty) {
+      throw ArgumentError('Matching BiteSaver restaurant is required.');
+    }
+    final restaurant = await _loadBiteScoreRestaurantById(trimmedRestaurantId);
+    if (restaurant == null ||
+        restaurant.ownerUserId?.trim() != trimmedUid ||
+        !restaurant.isClaimed) {
+      throw StateError('Matching BiteSaver restaurant is required.');
+    }
+    final matchedUid = await findLikelyBiteSaverMatchForBiteScore(
+      ownerUserId: trimmedUid,
+      restaurant: restaurant,
+    );
+    if (matchedUid == null) {
+      throw StateError('Matching BiteSaver restaurant is required.');
+    }
+    await _firestore
+        .collection(BitescoreRestaurant.collectionName)
+        .doc(trimmedRestaurantId)
+        .set({
+          menuSourceSideField: menuSourceBiteSaver,
+          linkedBiteSaverUidField: matchedUid,
+          menuSourceUpdatedAtField: FieldValue.serverTimestamp(),
+          menuSourceUpdatedByField: updatedBy.trim(),
+        }, SetOptions(merge: true));
+  }
+
+  static Future<void> clearBiteScoreMenuSourceRouting({
+    required String restaurantId,
+    required String updatedBy,
+  }) async {
+    final trimmedRestaurantId = restaurantId.trim();
+    if (trimmedRestaurantId.isEmpty) {
+      return;
+    }
+    await _firestore
+        .collection(BitescoreRestaurant.collectionName)
+        .doc(trimmedRestaurantId)
+        .set({
+          menuSourceSideField: menuSourceBiteScore,
+          linkedBiteSaverUidField: FieldValue.delete(),
+          menuSourceUpdatedAtField: FieldValue.serverTimestamp(),
+          menuSourceUpdatedByField: updatedBy.trim(),
+        }, SetOptions(merge: true));
   }
 
   static Future<List<RestaurantMenuImage>> loadMenuImages(
@@ -300,6 +621,62 @@ class RestaurantMenuService {
     }, SetOptions(merge: true));
   }
 
+  static Future<BitescoreRestaurant?> _loadBiteScoreRestaurantById(
+    String? restaurantId,
+  ) async {
+    final trimmedId = restaurantId?.trim();
+    if (trimmedId == null || trimmedId.isEmpty) {
+      return null;
+    }
+    final snapshot = await _firestore
+        .collection(BitescoreRestaurant.collectionName)
+        .doc(trimmedId)
+        .get();
+    return _parseBiteScoreRestaurant(snapshot.data(), fallbackId: snapshot.id);
+  }
+
+  static Future<Map<String, dynamic>?> _loadBiteScoreRestaurantData(
+    String? restaurantId,
+  ) async {
+    final trimmedId = restaurantId?.trim();
+    if (trimmedId == null || trimmedId.isEmpty) {
+      return null;
+    }
+    final snapshot = await _firestore
+        .collection(BitescoreRestaurant.collectionName)
+        .doc(trimmedId)
+        .get();
+    return snapshot.data();
+  }
+
+  static Future<Map<String, dynamic>?> _loadBiteSaverAccountData(
+    String uid,
+  ) async {
+    final trimmedUid = uid.trim();
+    if (trimmedUid.isEmpty) {
+      return null;
+    }
+    final snapshot = await RestaurantAccountService.docForUser(
+      trimmedUid,
+    ).get();
+    final data = snapshot.data();
+    if (data == null) {
+      return null;
+    }
+    return {...data, Restaurant.fieldUid: trimmedUid};
+  }
+
+  static BitescoreRestaurant? _parseBiteScoreRestaurant(
+    Map<String, dynamic>? data, {
+    required String fallbackId,
+  }) {
+    return BitescoreRestaurant.tryFromFirestore(data, fallbackId: fallbackId) ??
+        BitescoreRestaurant.tryFromFinderFirestore(
+          data,
+          fallbackId: fallbackId,
+        );
+  }
+
   static String _normalizedAddressKey(BitescoreRestaurant restaurant) {
     return [
       restaurant.address,
@@ -309,6 +686,51 @@ class RestaurantMenuService {
     ].map(_normalizeKeyPart).where((part) => part.isNotEmpty).join('|');
   }
 
+  static bool _isLikelySameRestaurant({
+    required Restaurant biteSaverRestaurant,
+    required BitescoreRestaurant biteScoreRestaurant,
+  }) {
+    final namesMatch = _namesSimilar(
+      biteSaverRestaurant.name,
+      biteScoreRestaurant.name,
+    );
+    final addressMatches =
+        _normalizeKeyPart(biteSaverRestaurant.streetAddress ?? '') ==
+            _normalizeKeyPart(biteScoreRestaurant.address) &&
+        _normalizeKeyPart(biteSaverRestaurant.city) ==
+            _normalizeKeyPart(biteScoreRestaurant.city) &&
+        _normalizeKeyPart(biteSaverRestaurant.state) ==
+            _normalizeKeyPart(biteScoreRestaurant.state) &&
+        _normalizeZip(biteSaverRestaurant.zipCode) ==
+            _normalizeZip(biteScoreRestaurant.zipCode);
+
+    return namesMatch && addressMatches;
+  }
+
+  static bool _namesSimilar(String first, String second) {
+    final normalizedFirst = _normalizeRestaurantName(first);
+    final normalizedSecond = _normalizeRestaurantName(second);
+    if (normalizedFirst.isEmpty || normalizedSecond.isEmpty) {
+      return false;
+    }
+    return normalizedFirst == normalizedSecond ||
+        normalizedFirst.contains(normalizedSecond) ||
+        normalizedSecond.contains(normalizedFirst);
+  }
+
+  static String _normalizeRestaurantName(String value) {
+    const noiseWords = {'restaurant', 'cafe', 'grill', 'bar', 'the'};
+    return _normalizeKeyPart(value)
+        .split(' ')
+        .where((word) => word.isNotEmpty && !noiseWords.contains(word))
+        .join(' ');
+  }
+
+  static String _normalizeZip(String value) {
+    final match = RegExp(r'\d{5}').firstMatch(value);
+    return match?.group(0) ?? '';
+  }
+
   static String _normalizeKeyPart(String value) {
     return value
         .trim()
@@ -316,5 +738,13 @@ class RestaurantMenuService {
         .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
+  }
+
+  static String? _readString(dynamic value) {
+    if (value is String) {
+      final trimmed = value.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+    return null;
   }
 }

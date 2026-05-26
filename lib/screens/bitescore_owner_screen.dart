@@ -164,11 +164,20 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
 
   Future<void> _openManageMenu(BitescoreRestaurant restaurant) async {
     try {
-      final source =
-          await RestaurantMenuService.ensureSharedMenuForBiteScoreRestaurant(
+      final access =
+          await RestaurantMenuService.resolveBiteScoreManageMenuAccess(
             restaurant: restaurant,
             ownerUserId: widget.currentUser.uid,
           );
+      if (access.isBlocked) {
+        _showSnackBar(access.message ?? 'Menu is managed elsewhere.');
+        return;
+      }
+      final source = access.source;
+      if (source == null) {
+        _showSnackBar('Could not open menu tools right now.');
+        return;
+      }
       if (!mounted) {
         return;
       }
@@ -212,6 +221,60 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
     if (merged == true && mounted) {
       setState(_refresh);
       _showSnackBar('Dish merge applied.');
+    }
+  }
+
+  Future<_BiteScoreMenuRoutingState> _loadBiteScoreMenuRoutingState(
+    BitescoreRestaurant restaurant,
+  ) async {
+    final usesBiteSaver =
+        await RestaurantMenuService.biteScoreUsesBiteSaverMenu(restaurant.id);
+    final matchedBiteSaverUid =
+        await RestaurantMenuService.findLikelyBiteSaverMatchForBiteScore(
+          ownerUserId: widget.currentUser.uid,
+          restaurant: restaurant,
+        );
+    return _BiteScoreMenuRoutingState(
+      usesBiteSaver: usesBiteSaver,
+      matchedBiteSaverUid: matchedBiteSaverUid,
+    );
+  }
+
+  Future<void> _toggleBiteScoreUsesBiteSaverMenu({
+    required BitescoreRestaurant restaurant,
+    required bool enabled,
+    required String? matchedBiteSaverUid,
+  }) async {
+    try {
+      if (enabled) {
+        final uid = matchedBiteSaverUid?.trim();
+        if (uid == null || uid.isEmpty) {
+          _showSnackBar('Matching BiteSaver restaurant is required.');
+          return;
+        }
+        await RestaurantMenuService.setBiteScoreMenuSourceToBiteSaver(
+          restaurantId: restaurant.id,
+          biteSaverUid: uid,
+          updatedBy: widget.currentUser.uid,
+        );
+        _showSnackBar('Menu is managed on BiteSaver.');
+      } else {
+        await RestaurantMenuService.clearBiteScoreMenuSourceRouting(
+          restaurantId: restaurant.id,
+          updatedBy: widget.currentUser.uid,
+        );
+        _showSnackBar('BiteRater menu management restored.');
+      }
+      if (mounted) {
+        setState(_refresh);
+      }
+    } catch (error) {
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not update menu source right now.',
+        ),
+      );
     }
   }
 
@@ -318,6 +381,8 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
             _buildHoursSection(restaurant),
             _buildBioSection(restaurant),
             BiteRaterTheme.softDivider(),
+            _buildBiteScoreMenuRoutingControl(restaurant),
+            const SizedBox(height: 10),
             Wrap(
               spacing: 10,
               runSpacing: 10,
@@ -332,10 +397,18 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
                 ),
                 SizedBox(
                   width: 150,
-                  child: _buildOwnerActionButton(
-                    onPressed: () => _openManageMenu(restaurant),
-                    icon: Icons.menu_book_outlined,
-                    label: 'Manage Menu',
+                  child: FutureBuilder<_BiteScoreMenuRoutingState>(
+                    future: _loadBiteScoreMenuRoutingState(restaurant),
+                    builder: (context, snapshot) {
+                      final disabled = snapshot.data?.usesBiteSaver == true;
+                      return _buildOwnerActionButton(
+                        onPressed: disabled
+                            ? null
+                            : () => _openManageMenu(restaurant),
+                        icon: Icons.menu_book_outlined,
+                        label: 'Manage Menu',
+                      );
+                    },
                   ),
                 ),
                 SizedBox(
@@ -671,13 +744,75 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
   Widget _buildOwnerActionButton({
     required IconData icon,
     required String label,
-    required VoidCallback onPressed,
+    required VoidCallback? onPressed,
   }) {
     return OutlinedButton.icon(
       onPressed: onPressed,
       style: _ownerActionButtonStyle(),
       icon: Icon(icon, size: 18),
       label: Text(label),
+    );
+  }
+
+  Widget _buildBiteScoreMenuRoutingControl(BitescoreRestaurant restaurant) {
+    return FutureBuilder<_BiteScoreMenuRoutingState>(
+      future: _loadBiteScoreMenuRoutingState(restaurant),
+      builder: (context, snapshot) {
+        final state = snapshot.data;
+        final usesBiteSaver = state?.usesBiteSaver == true;
+        final hasMatch = state?.matchedBiteSaverUid != null;
+        return Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: usesBiteSaver
+                ? BiteRaterTheme.ocean.withValues(alpha: 0.08)
+                : Colors.white.withValues(alpha: 0.72),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: usesBiteSaver
+                  ? BiteRaterTheme.ocean.withValues(alpha: 0.22)
+                  : BiteRaterTheme.lineBlue,
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SwitchListTile.adaptive(
+                contentPadding: EdgeInsets.zero,
+                dense: true,
+                value: usesBiteSaver,
+                onChanged:
+                    snapshot.connectionState == ConnectionState.waiting ||
+                        (!usesBiteSaver && !hasMatch)
+                    ? null
+                    : (enabled) => _toggleBiteScoreUsesBiteSaverMenu(
+                        restaurant: restaurant,
+                        enabled: enabled,
+                        matchedBiteSaverUid: state?.matchedBiteSaverUid,
+                      ),
+                title: const Text(
+                  'Use BiteSaver menu',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+              Text(
+                usesBiteSaver
+                    ? 'Menu is managed on BiteSaver'
+                    : hasMatch
+                    ? 'This restaurant matches your BiteSaver profile.'
+                    : 'Matching BiteSaver restaurant required.',
+                style: TextStyle(
+                  color: usesBiteSaver
+                      ? BiteRaterTheme.ocean
+                      : BiteRaterTheme.mutedInk,
+                  fontWeight: usesBiteSaver ? FontWeight.w800 : FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -1584,6 +1719,16 @@ class _OwnerInsights {
     required this.newestReviews,
     required this.topDishThisWeek,
     required this.trend,
+  });
+}
+
+class _BiteScoreMenuRoutingState {
+  final bool usesBiteSaver;
+  final String? matchedBiteSaverUid;
+
+  const _BiteScoreMenuRoutingState({
+    required this.usesBiteSaver,
+    required this.matchedBiteSaverUid,
   });
 }
 

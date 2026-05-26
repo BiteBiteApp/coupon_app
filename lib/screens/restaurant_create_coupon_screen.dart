@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
 
+import '../models/bitescore_restaurant.dart';
 import '../models/coupon.dart';
 import '../models/local_coupon_store.dart';
 import '../models/local_restaurant_profile_store.dart';
@@ -12,6 +13,7 @@ import '../services/bitesaver_image_upload_service.dart';
 import '../services/customer_session_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_auth_service.dart';
+import '../services/restaurant_menu_service.dart';
 import '../services/subscription_checkout_service.dart';
 import 'restaurant_menu_management_screen.dart';
 import 'paywall_screen.dart';
@@ -145,9 +147,111 @@ class _RestaurantCreateCouponScreenState
   }
 
   Future<void> _openMenuManagement() async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const RestaurantMenuManagementScreen()),
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.isAnonymous) {
+      _showSnackBar('Please sign in to manage your menu.');
+      return;
+    }
+
+    try {
+      final access =
+          await RestaurantMenuService.resolveBiteSaverManageMenuAccess(
+            uid: user.uid,
+          );
+      if (access.isBlocked) {
+        _showSnackBar(access.message ?? 'Menu is managed elsewhere.');
+        return;
+      }
+      final source = access.source;
+      if (source == null) {
+        _showSnackBar('Could not open menu tools right now.');
+        return;
+      }
+      if (!mounted) {
+        return;
+      }
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => RestaurantMenuManagementScreen(source: source),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not open menu tools right now.',
+        ),
+      );
+    }
+  }
+
+  Future<_BiteSaverMenuRoutingState> _loadBiteSaverMenuRoutingState() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.isAnonymous) {
+      return const _BiteSaverMenuRoutingState(
+        usesBiteRater: false,
+        matchedBiteScoreRestaurant: null,
+      );
+    }
+    final usesBiteRater =
+        await RestaurantMenuService.biteSaverUsesBiteScoreMenu(user.uid);
+    final matchedRestaurant =
+        await RestaurantMenuService.findLikelyBiteScoreMatchForBiteSaver(
+          uid: user.uid,
+        );
+    return _BiteSaverMenuRoutingState(
+      usesBiteRater: usesBiteRater,
+      matchedBiteScoreRestaurant: matchedRestaurant,
     );
+  }
+
+  Future<void> _toggleBiteSaverUsesBiteRaterMenu({
+    required bool enabled,
+    required String? matchedBiteScoreRestaurantId,
+  }) async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.isAnonymous) {
+      _showSnackBar('Please sign in to update menu settings.');
+      return;
+    }
+
+    try {
+      if (enabled) {
+        final restaurantId = matchedBiteScoreRestaurantId?.trim();
+        if (restaurantId == null || restaurantId.isEmpty) {
+          _showSnackBar('Matching BiteRater restaurant is required.');
+          return;
+        }
+        await RestaurantMenuService.setBiteSaverMenuSourceToBiteScore(
+          uid: user.uid,
+          biteScoreRestaurantId: restaurantId,
+          updatedBy: user.uid,
+        );
+        _showSnackBar('Menu is managed on BiteRater.');
+      } else {
+        await RestaurantMenuService.clearBiteSaverMenuSourceRouting(
+          uid: user.uid,
+          updatedBy: user.uid,
+        );
+        _showSnackBar('BiteSaver menu management restored.');
+      }
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not update menu source right now.',
+        ),
+      );
+    }
   }
 
   List<String> get businessHourOptions {
@@ -2489,13 +2593,80 @@ class _RestaurantCreateCouponScreenState
   }
 
   Widget _buildManageMenuButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: OutlinedButton.icon(
-        onPressed: _openMenuManagement,
-        icon: const Icon(Icons.menu_book_outlined),
-        label: const Text('Manage Menu'),
-      ),
+    return FutureBuilder<_BiteSaverMenuRoutingState>(
+      future: _loadBiteSaverMenuRoutingState(),
+      builder: (context, snapshot) {
+        final state = snapshot.data;
+        final usesBiteRater = state?.usesBiteRater == true;
+        final hasMatch = state?.matchedBiteScoreRestaurant != null;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: usesBiteRater
+                    ? const Color(0xFFEFF6FF)
+                    : const Color(0xFFFFFEFB),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: usesBiteRater
+                      ? const Color(0xFFBFDBFE)
+                      : const Color(0xFFE8D8C8),
+                ),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SwitchListTile.adaptive(
+                    contentPadding: EdgeInsets.zero,
+                    dense: true,
+                    value: usesBiteRater,
+                    onChanged:
+                        snapshot.connectionState == ConnectionState.waiting ||
+                            (!usesBiteRater && !hasMatch)
+                        ? null
+                        : (enabled) => _toggleBiteSaverUsesBiteRaterMenu(
+                            enabled: enabled,
+                            matchedBiteScoreRestaurantId:
+                                state?.matchedBiteScoreRestaurant?.id,
+                          ),
+                    title: const Text(
+                      'Use BiteRater menu',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                  ),
+                  Text(
+                    usesBiteRater
+                        ? 'Menu is managed on BiteRater'
+                        : hasMatch
+                        ? 'This restaurant matches your BiteRater profile.'
+                        : 'Matching BiteRater restaurant required.',
+                    style: TextStyle(
+                      color: usesBiteRater
+                          ? const Color(0xFF2563EB)
+                          : Colors.black54,
+                      fontWeight: usesBiteRater
+                          ? FontWeight.w800
+                          : FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: usesBiteRater ? null : _openMenuManagement,
+                icon: const Icon(Icons.menu_book_outlined),
+                label: const Text('Manage Menu'),
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -2809,4 +2980,14 @@ enum _CouponAccountAccessState {
   pending,
   rejected,
   loadFailed,
+}
+
+class _BiteSaverMenuRoutingState {
+  final bool usesBiteRater;
+  final BitescoreRestaurant? matchedBiteScoreRestaurant;
+
+  const _BiteSaverMenuRoutingState({
+    required this.usesBiteRater,
+    required this.matchedBiteScoreRestaurant,
+  });
 }

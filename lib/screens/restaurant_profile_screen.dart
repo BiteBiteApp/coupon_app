@@ -10,6 +10,7 @@ import '../services/bitesaver_report_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../services/restaurant_account_service.dart';
+import '../services/restaurant_menu_service.dart';
 import '../widgets/bitesaver_report_dialog.dart';
 import '../widgets/persistent_bottom_navigation.dart';
 import 'coupon_detail_screen.dart';
@@ -299,11 +300,26 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
       return;
     }
 
+    final source = await RestaurantMenuService.resolveBiteSaverPublicMenuSource(
+      uid: uid,
+    );
+    if (source == null) {
+      if (context.mounted) {
+        await _showLaunchError(context, 'Menu is not available yet.');
+      }
+      return;
+    }
+
+    if (!context.mounted) {
+      return;
+    }
+
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => RestaurantMenuScreen(
           restaurantUid: uid,
           restaurantName: _displayText(restaurant.name, 'Restaurant'),
+          source: source,
         ),
       ),
     );
