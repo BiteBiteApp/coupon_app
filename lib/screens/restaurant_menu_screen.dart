@@ -29,6 +29,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
 
   static const List<String> _biteSaverCategoryOrder = [
     'Breakfast',
+    'Anytime',
     'Lunch',
     'Dinner',
     'Lunch Specials',
@@ -42,6 +43,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
 
   static const List<String> _biteScoreCategoryOrder = [
     'Breakfast',
+    'Anytime',
     'Lunch',
     'Dinner',
     'Appetizers',
@@ -347,14 +349,31 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     return const Center(
       child: Padding(
         padding: EdgeInsets.all(24),
-        child: Text(
-          'Menu not available yet.',
-          textAlign: TextAlign.center,
-          style: TextStyle(
-            color: Color(0xFF7F6D5F),
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(Icons.menu_book_outlined, color: Color(0xFFD08A2D), size: 38),
+            SizedBox(height: 12),
+            Text(
+              'Menu not available yet.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF2B1D14),
+                fontSize: 17,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            SizedBox(height: 6),
+            Text(
+              'Please check back later.',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                color: Color(0xFF7F6D5F),
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
       ),
     );

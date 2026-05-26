@@ -25,6 +25,7 @@ class _RestaurantMenuManagementScreenState
     extends State<RestaurantMenuManagementScreen> {
   static const List<String> _biteSaverCategories = [
     'Breakfast',
+    'Anytime',
     'Lunch',
     'Dinner',
     'Lunch Specials',
@@ -38,6 +39,7 @@ class _RestaurantMenuManagementScreenState
 
   static const List<String> _biteScoreCategories = [
     'Breakfast',
+    'Anytime',
     'Lunch',
     'Dinner',
     'Appetizers',

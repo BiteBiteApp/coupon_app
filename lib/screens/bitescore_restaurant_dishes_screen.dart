@@ -16,6 +16,7 @@ import '../widgets/biterater_theme.dart';
 import '../widgets/persistent_bottom_navigation.dart';
 import 'bitescore_create_rate_screen.dart';
 import 'bitescore_dish_detail_screen.dart';
+import 'bitescore_owner_screen.dart';
 import 'restaurant_menu_screen.dart';
 
 class BiteScoreRestaurantDishesScreen extends StatefulWidget {
@@ -326,6 +327,24 @@ class _BiteScoreRestaurantDishesScreenState
     }
   }
 
+  Future<void> _openOwnerControls() async {
+    final user = _currentUser;
+    if (user == null || user.isAnonymous) {
+      _showSnackBar('Sign in with your restaurant owner account first.');
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => BiteScoreOwnerScreen(currentUser: user),
+      ),
+    );
+
+    if (mounted) {
+      await _refreshRestaurantData();
+    }
+  }
+
   Future<void> _openOwnerDishEditor(BiteScoreHomeEntry entry) async {
     final saved = await showDialog<bool>(
       context: context,
@@ -450,10 +469,6 @@ class _BiteScoreRestaurantDishesScreenState
     final source = await RestaurantMenuService.resolveBiteScorePublicMenuSource(
       restaurantId: _restaurant.id,
     );
-    if (source == null) {
-      _showSnackBar('Menu not available yet.');
-      return;
-    }
 
     if (!mounted) {
       return;
@@ -1021,6 +1036,16 @@ class _BiteScoreRestaurantDishesScreenState
                               const SizedBox(height: 10),
                               SizedBox(
                                 width: double.infinity,
+                                child: _buildBiteScoreActionButton(
+                                  label: 'Owner Controls',
+                                  onPressed: _isRefreshing
+                                      ? null
+                                      : _openOwnerControls,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              SizedBox(
+                                width: double.infinity,
                                 child: OutlinedButton.icon(
                                   onPressed: _isRefreshing
                                       ? null
@@ -1029,7 +1054,7 @@ class _BiteScoreRestaurantDishesScreenState
                                     accentColor: BiteRaterTheme.ocean,
                                   ),
                                   icon: const Icon(Icons.edit_outlined),
-                                  label: const Text('Edit Restaurant Info'),
+                                  label: const Text('Edit Basic Info'),
                                 ),
                               ),
                             ],
@@ -1593,11 +1618,13 @@ class _OwnerRestaurantEditDialogState
   late final TextEditingController _stateController;
   late final TextEditingController _zipController;
   late final TextEditingController _phoneController;
+  late final TextEditingController _websiteController;
   late final TextEditingController _bioController;
   late List<RestaurantBusinessHours> _businessHours;
   late final Map<String, bool> _copyPreviousDay;
   bool _businessHoursDirty = false;
   bool _isSaving = false;
+  String? _errorText;
 
   @override
   void initState() {
@@ -1609,6 +1636,9 @@ class _OwnerRestaurantEditDialogState
     _zipController = TextEditingController(text: widget.restaurant.zipCode);
     _phoneController = TextEditingController(
       text: widget.restaurant.phone ?? '',
+    );
+    _websiteController = TextEditingController(
+      text: widget.restaurant.website ?? '',
     );
     _bioController = TextEditingController(text: widget.restaurant.bio ?? '');
     _businessHours = RestaurantBusinessHours.normalizedWeek(
@@ -1627,6 +1657,7 @@ class _OwnerRestaurantEditDialogState
     _stateController.dispose();
     _zipController.dispose();
     _phoneController.dispose();
+    _websiteController.dispose();
     _bioController.dispose();
     super.dispose();
   }
@@ -1634,6 +1665,7 @@ class _OwnerRestaurantEditDialogState
   Future<void> _save() async {
     setState(() {
       _isSaving = true;
+      _errorText = null;
     });
 
     try {
@@ -1645,6 +1677,7 @@ class _OwnerRestaurantEditDialogState
         state: _stateController.text,
         zipCode: _zipController.text,
         phone: _phoneController.text,
+        website: _websiteController.text,
         bio: _bioController.text,
         businessHours:
             widget.restaurant.businessHours.isNotEmpty || _businessHoursDirty
@@ -1659,17 +1692,12 @@ class _OwnerRestaurantEditDialogState
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            AppErrorText.friendly(
-              error,
-              fallback: 'Could not update the restaurant right now.',
-            ),
-          ),
-        ),
+      final message = AppErrorText.friendly(
+        error,
+        fallback: 'Could not update the restaurant right now.',
       );
       setState(() {
+        _errorText = message;
         _isSaving = false;
       });
     }
@@ -1916,6 +1944,25 @@ class _OwnerRestaurantEditDialogState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (_errorText != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF1F2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFCA5A5)),
+                  ),
+                  child: Text(
+                    _errorText!,
+                    style: const TextStyle(
+                      color: Color(0xFF991B1B),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               _OwnerTextField(
                 controller: _nameController,
                 label: 'Restaurant name',
@@ -1961,6 +2008,12 @@ class _OwnerRestaurantEditDialogState
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              _OwnerTextField(
+                controller: _websiteController,
+                label: 'Website',
+                keyboardType: TextInputType.url,
               ),
               const SizedBox(height: 12),
               _OwnerTextField(

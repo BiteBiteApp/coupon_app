@@ -1657,7 +1657,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     required double? value,
     required ValueChanged<double> onChanged,
   }) {
-    final sliderValue = value ?? 5.5;
+    final sliderValue = value ?? 1.0;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1884,6 +1884,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
                         initialValue: cities.contains(selectedFinderCity)
                             ? selectedFinderCity
                             : null,
+                        isExpanded: true,
                         decoration: InputDecoration(
                           labelText: 'City',
                           border: OutlineInputBorder(
@@ -1894,7 +1895,11 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
                             .map(
                               (city) => DropdownMenuItem(
                                 value: city,
-                                child: Text(city),
+                                child: Text(
+                                  city,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             )
                             .toList(),

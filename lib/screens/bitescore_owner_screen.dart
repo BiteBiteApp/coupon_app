@@ -10,6 +10,7 @@ import '../services/app_mode_state_service.dart';
 import '../services/bitescore_service.dart';
 import '../services/restaurant_menu_service.dart';
 import '../widgets/biterater_theme.dart';
+import '../widgets/owner_dish_merge_dialog.dart';
 import 'bitescore_create_rate_screen.dart';
 import 'bitescore_dish_detail_screen.dart';
 import 'main_navigation_screen.dart';
@@ -215,7 +216,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
 
     final merged = await showDialog<bool>(
       context: context,
-      builder: (context) => _OwnerDishMergeDialog(dishes: activeDishes),
+      builder: (context) => OwnerDishMergeDialog(dishes: activeDishes),
     );
 
     if (merged == true && mounted) {
@@ -1824,11 +1825,13 @@ class _OwnerRestaurantEditDialogState
   late final TextEditingController _stateController;
   late final TextEditingController _zipController;
   late final TextEditingController _phoneController;
+  late final TextEditingController _websiteController;
   late final TextEditingController _bioController;
   late List<RestaurantBusinessHours> _businessHours;
   late final Map<String, bool> _copyPreviousDay;
   bool _businessHoursDirty = false;
   bool _isSaving = false;
+  String? _errorText;
 
   @override
   void initState() {
@@ -1840,6 +1843,9 @@ class _OwnerRestaurantEditDialogState
     _zipController = TextEditingController(text: widget.restaurant.zipCode);
     _phoneController = TextEditingController(
       text: widget.restaurant.phone ?? '',
+    );
+    _websiteController = TextEditingController(
+      text: widget.restaurant.website ?? '',
     );
     _bioController = TextEditingController(text: widget.restaurant.bio ?? '');
     _businessHours = RestaurantBusinessHours.normalizedWeek(
@@ -1858,6 +1864,7 @@ class _OwnerRestaurantEditDialogState
     _stateController.dispose();
     _zipController.dispose();
     _phoneController.dispose();
+    _websiteController.dispose();
     _bioController.dispose();
     super.dispose();
   }
@@ -1865,6 +1872,7 @@ class _OwnerRestaurantEditDialogState
   Future<void> _save() async {
     setState(() {
       _isSaving = true;
+      _errorText = null;
     });
 
     try {
@@ -1876,6 +1884,7 @@ class _OwnerRestaurantEditDialogState
         state: _stateController.text,
         zipCode: _zipController.text,
         phone: _phoneController.text,
+        website: _websiteController.text,
         bio: _bioController.text,
         businessHours:
             widget.restaurant.businessHours.isNotEmpty || _businessHoursDirty
@@ -1890,17 +1899,12 @@ class _OwnerRestaurantEditDialogState
       if (!mounted) {
         return;
       }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            AppErrorText.friendly(
-              error,
-              fallback: 'Could not update the restaurant right now.',
-            ),
-          ),
-        ),
+      final message = AppErrorText.friendly(
+        error,
+        fallback: 'Could not update the restaurant right now.',
       );
       setState(() {
+        _errorText = message;
         _isSaving = false;
       });
     }
@@ -2147,6 +2151,25 @@ class _OwnerRestaurantEditDialogState
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
+              if (_errorText != null) ...[
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF1F2),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFFCA5A5)),
+                  ),
+                  child: Text(
+                    _errorText!,
+                    style: const TextStyle(
+                      color: Color(0xFF991B1B),
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+              ],
               _OwnerTextField(
                 controller: _nameController,
                 label: 'Restaurant name',
@@ -2192,6 +2215,12 @@ class _OwnerRestaurantEditDialogState
                     ),
                   ),
                 ],
+              ),
+              const SizedBox(height: 12),
+              _OwnerTextField(
+                controller: _websiteController,
+                label: 'Website',
+                keyboardType: TextInputType.url,
               ),
               const SizedBox(height: 12),
               _OwnerTextField(
@@ -2337,161 +2366,6 @@ class _OwnerDishEditDialogState extends State<_OwnerDishEditDialog> {
         FilledButton(
           onPressed: _isSaving ? null : _save,
           child: Text(_isSaving ? 'Saving...' : 'Save'),
-        ),
-      ],
-    );
-  }
-}
-
-class _OwnerDishMergeDialog extends StatefulWidget {
-  final List<BitescoreDish> dishes;
-
-  const _OwnerDishMergeDialog({required this.dishes});
-
-  @override
-  State<_OwnerDishMergeDialog> createState() => _OwnerDishMergeDialogState();
-}
-
-class _OwnerDishMergeDialogState extends State<_OwnerDishMergeDialog> {
-  String? _sourceDishId;
-  String? _targetDishId;
-  bool _isSaving = false;
-
-  List<BitescoreDish> get _targetOptions {
-    if (_sourceDishId == null) {
-      return widget.dishes;
-    }
-    return widget.dishes.where((dish) => dish.id != _sourceDishId).toList();
-  }
-
-  Future<void> _save() async {
-    BitescoreDish? sourceDish;
-    BitescoreDish? targetDish;
-    for (final dish in widget.dishes) {
-      if (dish.id == _sourceDishId) {
-        sourceDish = dish;
-      }
-      if (dish.id == _targetDishId) {
-        targetDish = dish;
-      }
-    }
-    if (sourceDish == null || targetDish == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Choose both dishes to merge.')),
-      );
-      return;
-    }
-
-    setState(() {
-      _isSaving = true;
-    });
-
-    try {
-      await BiteScoreService.mergeDishesAsOwner(
-        sourceDish: sourceDish,
-        mergeTargetDish: targetDish,
-      );
-      if (!mounted) {
-        return;
-      }
-      Navigator.of(context).pop(true);
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            AppErrorText.friendly(
-              error,
-              fallback: 'Could not merge the dishes right now.',
-            ),
-          ),
-        ),
-      );
-      setState(() {
-        _isSaving = false;
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final targetOptions = _targetOptions;
-    final canSave =
-        !_isSaving && _sourceDishId != null && _targetDishId != null;
-
-    return AlertDialog(
-      title: const Text('Merge Dishes'),
-      content: SizedBox(
-        width: 420,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            DropdownButtonFormField<String>(
-              initialValue: _sourceDishId,
-              decoration: const InputDecoration(
-                labelText: 'Duplicate dish',
-                border: OutlineInputBorder(),
-              ),
-              items: widget.dishes
-                  .map(
-                    (dish) => DropdownMenuItem<String>(
-                      value: dish.id,
-                      child: Text(dish.name),
-                    ),
-                  )
-                  .toList(),
-              onChanged: _isSaving
-                  ? null
-                  : (value) {
-                      setState(() {
-                        _sourceDishId = value;
-                        if (_targetDishId == _sourceDishId) {
-                          _targetDishId = null;
-                        }
-                      });
-                    },
-            ),
-            const SizedBox(height: 12),
-            DropdownButtonFormField<String>(
-              initialValue: _targetDishId,
-              decoration: const InputDecoration(
-                labelText: 'Keep this dish',
-                border: OutlineInputBorder(),
-              ),
-              items: targetOptions
-                  .map(
-                    (dish) => DropdownMenuItem<String>(
-                      value: dish.id,
-                      child: Text(dish.name),
-                    ),
-                  )
-                  .toList(),
-              onChanged: _isSaving
-                  ? null
-                  : (value) {
-                      setState(() {
-                        _targetDishId = value;
-                      });
-                    },
-            ),
-            const SizedBox(height: 12),
-            const Text(
-              'This keeps one dish visible and marks the duplicate dish unavailable.',
-              style: TextStyle(color: Colors.black54),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: _isSaving ? null : () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: canSave ? _save : null,
-          child: Text(_isSaving ? 'Merging...' : 'Merge Dishes'),
         ),
       ],
     );

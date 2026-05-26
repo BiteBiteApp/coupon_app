@@ -295,20 +295,11 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
 
   Future<void> _openMenu(BuildContext context) async {
     final uid = restaurant.uid?.trim();
-    if (uid == null || uid.isEmpty) {
-      await _showLaunchError(context, 'Menu is not available yet.');
-      return;
-    }
-
-    final source = await RestaurantMenuService.resolveBiteSaverPublicMenuSource(
-      uid: uid,
-    );
-    if (source == null) {
-      if (context.mounted) {
-        await _showLaunchError(context, 'Menu is not available yet.');
-      }
-      return;
-    }
+    final source = uid == null || uid.isEmpty
+        ? null
+        : await RestaurantMenuService.resolveBiteSaverPublicMenuSource(
+            uid: uid,
+          );
 
     if (!context.mounted) {
       return;

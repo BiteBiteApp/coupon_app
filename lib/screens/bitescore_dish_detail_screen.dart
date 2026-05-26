@@ -16,6 +16,7 @@ import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/biterater_theme.dart';
+import '../widgets/owner_dish_merge_dialog.dart';
 import '../widgets/persistent_bottom_navigation.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
 import 'public_reviewer_profile_screen.dart';
@@ -1680,6 +1681,35 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     }
   }
 
+  Future<void> _openOwnerMergeDialog() async {
+    final entries = await BiteScoreService.loadEntriesForRestaurant(
+      _currentEntry.restaurant,
+      includeInactive: true,
+    );
+    final activeDishes = entries
+        .map((entry) => entry.dish)
+        .where((dish) => dish.isActive)
+        .toList();
+    if (!mounted) {
+      return;
+    }
+    if (activeDishes.length < 2) {
+      _showSnackBar('Add at least two active dishes before merging.');
+      return;
+    }
+
+    final merged = await showDialog<bool>(
+      context: context,
+      builder: (context) => OwnerDishMergeDialog(dishes: activeDishes),
+    );
+
+    if (merged == true && mounted) {
+      _hasDishChanges = true;
+      _showSnackBar('Dish merge applied.');
+      setState(_refresh);
+    }
+  }
+
   Widget _buildSuggestionCard(BitescoreDish dish) {
     if (_canManageDish) {
       final helperText = _isAdmin
@@ -1711,16 +1741,30 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  onPressed: () => _openDishManagementDialog(dish),
-                  style: BiteRaterTheme.outlinedButtonStyle(
-                    accentColor: BiteRaterTheme.ocean,
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: () => _openDishManagementDialog(dish),
+                      style: BiteRaterTheme.outlinedButtonStyle(
+                        accentColor: BiteRaterTheme.ocean,
+                      ),
+                      icon: const Icon(Icons.edit_outlined, size: 18),
+                      label: const Text('Edit Dish'),
+                    ),
                   ),
-                  icon: const Icon(Icons.edit_outlined, size: 18),
-                  label: const Text('Edit Dish'),
-                ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _openOwnerMergeDialog,
+                      style: BiteRaterTheme.outlinedButtonStyle(
+                        accentColor: BiteRaterTheme.grape,
+                      ),
+                      icon: const Icon(Icons.merge_type, size: 18),
+                      label: const Text('Merge Dish'),
+                    ),
+                  ),
+                ],
               ),
             ],
           ),

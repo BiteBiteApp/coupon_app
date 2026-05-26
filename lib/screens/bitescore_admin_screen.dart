@@ -2998,6 +2998,7 @@ class _BiteScoreRestaurantEditDialogState
         state: _stateController.text,
         zipCode: _zipController.text,
         phone: _phoneController.text,
+        website: widget.restaurant.website ?? '',
         bio: _bioController.text,
         cuisineTags: _cuisineController.text,
         isActive: _isActive,
