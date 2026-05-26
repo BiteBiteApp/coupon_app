@@ -7,6 +7,7 @@ import '../models/restaurant_claim_request.dart';
 import '../services/app_error_text.dart';
 import '../services/bitescore_service.dart';
 import '../widgets/biterater_theme.dart';
+import '../widgets/clickable_phone_text.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
 
 class BiteScoreAdminScreen extends StatefulWidget {
@@ -425,10 +426,9 @@ class _BiteScoreRestaurantAdminListState
                     restaurant.state.trim(),
                     restaurant.zipCode.trim(),
                   ].where((part) => part.isNotEmpty).join(', '),
-                  if ((restaurant.phone ?? '').trim().isNotEmpty)
-                    'Phone: ${restaurant.phone!.trim()}',
                   'Status: ${restaurant.isActive ? 'Active' : 'Hidden'}',
                 ].where((line) => line.trim().isNotEmpty).toList();
+                final hasPhone = (restaurant.phone ?? '').trim().isNotEmpty;
 
                 return BiteRaterTheme.liftedCard(
                   margin: const EdgeInsets.only(bottom: 12),
@@ -441,8 +441,19 @@ class _BiteScoreRestaurantAdminListState
                       restaurant.name,
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    subtitle: Text(subtitleLines.join('\n')),
-                    isThreeLine: subtitleLines.length > 1,
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (final line in subtitleLines) Text(line),
+                        if (hasPhone)
+                          ClickablePhoneText(
+                            phone: restaurant.phone,
+                            prefix: 'Phone: ',
+                          ),
+                      ],
+                    ),
+                    isThreeLine: subtitleLines.length > 1 || hasPhone,
                     trailing: Wrap(
                       spacing: 4,
                       children: [
@@ -2150,7 +2161,10 @@ class _BiteScoreClaimAdminListState extends State<_BiteScoreClaimAdminList> {
                         const SizedBox(height: 8),
                         Text('Claimant: ${request.claimantName}'),
                         Text('Email: ${request.email}'),
-                        Text('Phone: ${request.phone}'),
+                        ClickablePhoneText(
+                          phone: request.phone,
+                          prefix: 'Phone: ',
+                        ),
                         if ((request.requesterUserId ?? '').trim().isNotEmpty)
                           Text('User ID: ${request.requesterUserId!}'),
                         if (restaurant != null) ...[
@@ -2582,8 +2596,6 @@ class _BiteScoreApprovedOwnershipAdminListState
                 final subtitleLines = <String>[
                   if (ownerEmail != null && ownerEmail.isNotEmpty)
                     'Owner email: $ownerEmail',
-                  if (ownerPhone != null && ownerPhone.isNotEmpty)
-                    'Owner phone: $ownerPhone',
                   if (ownerUserId != null && ownerUserId.isNotEmpty)
                     'Owner user ID: $ownerUserId',
                   'Approval status: Approved',
@@ -2601,7 +2613,18 @@ class _BiteScoreApprovedOwnershipAdminListState
                       restaurant.name,
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
-                    subtitle: Text(subtitleLines.join('\n')),
+                    subtitle: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        for (final line in subtitleLines) Text(line),
+                        if (ownerPhone != null && ownerPhone.isNotEmpty)
+                          ClickablePhoneText(
+                            phone: ownerPhone,
+                            prefix: 'Owner phone: ',
+                          ),
+                      ],
+                    ),
                     isThreeLine: true,
                     trailing: Wrap(
                       spacing: 4,

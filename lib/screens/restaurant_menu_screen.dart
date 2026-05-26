@@ -4,6 +4,7 @@ import '../services/app_mode_state_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_menu_service.dart';
 import '../widgets/persistent_bottom_navigation.dart';
+import '../widgets/restaurant_menu_section_card.dart';
 
 class RestaurantMenuScreen extends StatefulWidget {
   final String? restaurantUid;
@@ -86,11 +87,13 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     final results = await Future.wait([
       RestaurantMenuService.loadMenuImages(source),
       RestaurantMenuService.loadMenuItems(source),
+      RestaurantMenuService.loadMenuSections(source),
     ]);
 
     return _RestaurantMenuData(
       images: results[0] as List<RestaurantMenuImage>,
       items: results[1] as List<RestaurantMenuItem>,
+      sections: results[2] as List<RestaurantMenuSection>,
     );
   }
 
@@ -278,6 +281,15 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
             ),
           const SizedBox(height: 8),
         ],
+        if (data.sections.isNotEmpty) ...[
+          if (groupedItems.isNotEmpty) const SizedBox(height: 8),
+          for (final section in data.sections)
+            RestaurantMenuSectionCard(
+              title: section.title,
+              body: section.body,
+              margin: const EdgeInsets.only(bottom: 12),
+            ),
+        ],
       ],
     );
   }
@@ -407,11 +419,14 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
           }
 
           final data = snapshot.data;
-          if (data == null || (data.images.isEmpty && data.items.isEmpty)) {
+          if (data == null ||
+              (data.images.isEmpty &&
+                  data.items.isEmpty &&
+                  data.sections.isEmpty)) {
             return _buildEmptyState();
           }
 
-          if (data.items.isNotEmpty) {
+          if (data.items.isNotEmpty || data.sections.isNotEmpty) {
             return _buildGroupedItems(data);
           }
 
@@ -425,8 +440,13 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
 class _RestaurantMenuData {
   final List<RestaurantMenuImage> images;
   final List<RestaurantMenuItem> items;
+  final List<RestaurantMenuSection> sections;
 
-  const _RestaurantMenuData({required this.images, required this.items});
+  const _RestaurantMenuData({
+    required this.images,
+    required this.items,
+    this.sections = const [],
+  });
 }
 
 class _RestaurantMenuImageViewer extends StatefulWidget {

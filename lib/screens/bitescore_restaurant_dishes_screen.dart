@@ -13,6 +13,7 @@ import '../services/bitescore_service.dart';
 import '../services/restaurant_menu_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/biterater_theme.dart';
+import '../widgets/clickable_phone_text.dart';
 import '../widgets/persistent_bottom_navigation.dart';
 import 'bitescore_create_rate_screen.dart';
 import 'bitescore_dish_detail_screen.dart';
@@ -485,17 +486,20 @@ class _BiteScoreRestaurantDishesScreenState
     );
   }
 
-  Widget _buildRestaurantContactActions() {
+  Widget _buildRestaurantContactSection() {
     final actions = <Widget>[];
 
-    if (_hasPhone) {
+    if (_hasDirectionsTarget) {
       actions.add(
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: _callRestaurant,
+            onPressed: _openDirections,
             style: _reportActionButtonStyle(),
-            icon: const Icon(Icons.call_outlined, size: 18),
-            label: const Text('Call'),
+            icon: const Icon(Icons.directions_outlined, size: 18),
+            label: const FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text('Directions', maxLines: 1, softWrap: false),
+            ),
           ),
         ),
       );
@@ -517,31 +521,94 @@ class _BiteScoreRestaurantDishesScreenState
       );
     }
 
-    if (_hasDirectionsTarget) {
+    if (_hasPhone) {
       actions.add(
         Expanded(
           child: OutlinedButton.icon(
-            onPressed: _openDirections,
+            onPressed: _callRestaurant,
             style: _reportActionButtonStyle(),
-            icon: const Icon(Icons.directions_outlined, size: 18),
-            label: const FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text('Directions', maxLines: 1, softWrap: false),
-            ),
+            icon: const Icon(Icons.call_outlined, size: 18),
+            label: const Text('Call'),
           ),
         ),
       );
     }
 
-    if (actions.isEmpty) {
-      return const SizedBox.shrink();
-    }
+    final streetAddress = _restaurantStreetAddressLabel();
+    final cityStateZip = _restaurantCityStateZipLabel();
 
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (var index = 0; index < actions.length; index++) ...[
-          if (index > 0) const SizedBox(width: 8),
-          actions[index],
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: InkWell(
+                onTap: _hasDirectionsTarget ? _openDirections : null,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 2),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (streetAddress.isNotEmpty)
+                        Text(
+                          streetAddress,
+                          style: TextStyle(
+                            color: _hasDirectionsTarget
+                                ? BiteRaterTheme.ocean
+                                : BiteRaterTheme.ink,
+                            fontWeight: FontWeight.w600,
+                            decoration: _hasDirectionsTarget
+                                ? TextDecoration.underline
+                                : TextDecoration.none,
+                          ),
+                        ),
+                      if (cityStateZip.isNotEmpty)
+                        Text(
+                          cityStateZip,
+                          style: TextStyle(
+                            color: _hasDirectionsTarget
+                                ? BiteRaterTheme.ocean
+                                : BiteRaterTheme.mutedInk,
+                            fontWeight: FontWeight.w600,
+                            decoration: _hasDirectionsTarget
+                                ? TextDecoration.underline
+                                : TextDecoration.none,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            if (_hasPhone) ...[
+              const SizedBox(width: 12),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 150),
+                child: ClickablePhoneText(
+                  phone: _restaurant.phone,
+                  textAlign: TextAlign.right,
+                  style: const TextStyle(
+                    color: BiteRaterTheme.mutedInk,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
+        if (actions.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              for (var index = 0; index < actions.length; index++) ...[
+                if (index > 0) const SizedBox(width: 8),
+                actions[index],
+              ],
+            ],
+          ),
         ],
       ],
     );
@@ -774,19 +841,11 @@ class _BiteScoreRestaurantDishesScreenState
     );
   }
 
-  String _restaurantAddressLabel() {
+  String _restaurantStreetAddressLabel() {
     final cleanedAddress = _restaurant.address
         .trim()
         .replaceAll(RegExp(r',?\s*USA\s*$', caseSensitive: false), '')
         .trim();
-    final cityStateZip = [
-      _restaurant.city.trim(),
-      '${_restaurant.state.trim()} ${_restaurant.zipCode.trim()}'.trim(),
-    ].where((part) => part.isNotEmpty).join(', ');
-
-    if (cleanedAddress.isEmpty) {
-      return cityStateZip;
-    }
 
     final normalizedAddress = cleanedAddress.toLowerCase();
     final city = _restaurant.city.trim().toLowerCase();
@@ -797,11 +856,31 @@ class _BiteScoreRestaurantDishesScreenState
         (state.isEmpty || normalizedAddress.contains(state)) &&
         (zipCode.isEmpty || normalizedAddress.contains(zipCode));
 
-    if (alreadyHasCityStateZip || cityStateZip.isEmpty) {
+    if (!alreadyHasCityStateZip) {
       return cleanedAddress;
     }
 
-    return '$cleanedAddress, $cityStateZip';
+    var streetAddress = cleanedAddress;
+    for (final part in [
+      _restaurant.zipCode.trim(),
+      _restaurant.state.trim(),
+      _restaurant.city.trim(),
+    ]) {
+      if (part.isNotEmpty) {
+        streetAddress = streetAddress.replaceAll(
+          RegExp(',?\\s*${RegExp.escape(part)}\\s*\$', caseSensitive: false),
+          '',
+        );
+      }
+    }
+    return streetAddress.trim().replaceAll(RegExp(r',\s*$'), '').trim();
+  }
+
+  String _restaurantCityStateZipLabel() {
+    return [
+      _restaurant.city.trim(),
+      '${_restaurant.state.trim()} ${_restaurant.zipCode.trim()}'.trim(),
+    ].where((part) => part.isNotEmpty).join(', ');
   }
 
   Widget _buildDishCategoryControl(BiteScoreHomeEntry entry) {
@@ -980,46 +1059,8 @@ class _BiteScoreRestaurantDishesScreenState
                                 child: _buildMenuLink(),
                               ),
                             ],
-                            const SizedBox(height: 8),
-                            InkWell(
-                              onTap: _hasDirectionsTarget
-                                  ? _openDirections
-                                  : null,
-                              borderRadius: BorderRadius.circular(8),
-                              child: Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 2,
-                                ),
-                                child: Text(
-                                  _restaurantAddressLabel(),
-                                  style: TextStyle(
-                                    color: _hasDirectionsTarget
-                                        ? BiteRaterTheme.ocean
-                                        : BiteRaterTheme.ink,
-                                    fontWeight: FontWeight.w600,
-                                    decoration: _hasDirectionsTarget
-                                        ? TextDecoration.underline
-                                        : TextDecoration.none,
-                                  ),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Text(
-                              _hasPhone
-                                  ? 'Phone: ${_restaurant.phone!}'
-                                  : 'Phone: Not available',
-                              style: const TextStyle(
-                                color: BiteRaterTheme.mutedInk,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            if (_hasPhone ||
-                                _hasWebsite ||
-                                _hasDirectionsTarget) ...[
-                              const SizedBox(height: 10),
-                              _buildRestaurantContactActions(),
-                            ],
+                            const SizedBox(height: 10),
+                            _buildRestaurantContactSection(),
                             _buildHoursSection(),
                             _buildBioSection(),
                             BiteRaterTheme.softDivider(),

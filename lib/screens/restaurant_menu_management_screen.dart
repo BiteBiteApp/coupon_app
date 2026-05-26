@@ -5,6 +5,7 @@ import '../services/app_error_text.dart';
 import '../services/bitesaver_image_upload_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_menu_service.dart';
+import 'restaurant_custom_menu_section_editor_screen.dart';
 
 class RestaurantMenuManagementScreen extends StatefulWidget {
   final RestaurantMenuSource? source;
@@ -62,6 +63,7 @@ class _RestaurantMenuManagementScreenState
   RestaurantMenuSource? _activeSource;
   List<RestaurantMenuImage> _images = const [];
   List<RestaurantMenuItem> _items = const [];
+  List<RestaurantMenuSection> _sections = const [];
 
   User? get _currentUser => FirebaseAuth.instance.currentUser;
 
@@ -127,6 +129,7 @@ class _RestaurantMenuManagementScreenState
       final results = await Future.wait([
         RestaurantMenuService.loadMenuImages(source),
         RestaurantMenuService.loadMenuItems(source),
+        RestaurantMenuService.loadMenuSections(source),
       ]);
 
       if (!mounted) return;
@@ -135,6 +138,7 @@ class _RestaurantMenuManagementScreenState
         _hasPostingAccess = hasAccess;
         _images = results[0] as List<RestaurantMenuImage>;
         _items = results[1] as List<RestaurantMenuItem>;
+        _sections = results[2] as List<RestaurantMenuSection>;
         _isLoading = false;
       });
     } catch (error) {
@@ -328,6 +332,87 @@ class _RestaurantMenuManagementScreenState
     }
   }
 
+  Future<void> _openSectionEditor({RestaurantMenuSection? section}) async {
+    final user = _currentUser;
+    if (user == null) {
+      _showSnackBar('Please sign in to manage your menu.');
+      return;
+    }
+    final source = _sourceForUser(user);
+    if (source == null || source.id.isEmpty) {
+      _showSnackBar('Please sign in to manage your menu.');
+      return;
+    }
+
+    final saved = await Navigator.of(context).push<bool>(
+      MaterialPageRoute(
+        builder: (_) => RestaurantCustomMenuSectionEditorScreen(
+          source: source,
+          section: section,
+        ),
+      ),
+    );
+    if (saved == true && mounted) {
+      setState(() {
+        _isLoading = true;
+      });
+      await _loadMenu();
+      _showSnackBar(
+        section == null
+            ? 'Custom menu section added.'
+            : 'Custom menu section updated.',
+      );
+    }
+  }
+
+  Future<void> _deleteSection(RestaurantMenuSection section) async {
+    final user = _currentUser;
+    if (user == null) return;
+    final source = _sourceForUser(user);
+    if (source == null || source.id.isEmpty) return;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete custom section?'),
+        content: Text('Delete "${section.title}" from this menu?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) {
+      return;
+    }
+
+    try {
+      await RestaurantMenuService.deleteMenuSection(
+        source: source,
+        sectionId: section.id,
+      );
+      if (!mounted) return;
+      setState(() {
+        _sections = _sections.where((entry) => entry.id != section.id).toList();
+      });
+      _showSnackBar('Custom menu section deleted.');
+    } catch (error) {
+      if (!mounted) return;
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not delete that custom section.',
+        ),
+      );
+    }
+  }
+
   Map<String, List<RestaurantMenuItem>> _itemsByCategory() {
     final grouped = <String, List<RestaurantMenuItem>>{};
     for (final item in _items) {
@@ -462,6 +547,50 @@ class _RestaurantMenuManagementScreenState
     );
   }
 
+  Widget _buildSectionList() {
+    if (_sections.isEmpty) {
+      return const Text(
+        'No custom menu sections added yet.',
+        style: TextStyle(color: Colors.black54),
+      );
+    }
+
+    return Column(
+      children: [
+        for (final section in _sections)
+          Card(
+            child: ListTile(
+              title: Text(section.title),
+              subtitle: Text(
+                section.body,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+              trailing: Wrap(
+                spacing: 4,
+                children: [
+                  IconButton(
+                    tooltip: 'Edit custom section',
+                    onPressed: _hasPostingAccess
+                        ? () => _openSectionEditor(section: section)
+                        : null,
+                    icon: const Icon(Icons.edit_outlined),
+                  ),
+                  IconButton(
+                    tooltip: 'Delete custom section',
+                    onPressed: _hasPostingAccess
+                        ? () => _deleteSection(section)
+                        : null,
+                    icon: const Icon(Icons.delete_outline),
+                  ),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -565,6 +694,28 @@ class _RestaurantMenuManagementScreenState
                       : const Icon(Icons.add),
                   label: Text(_isSavingItem ? 'Saving...' : 'Add menu item'),
                 ),
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 16),
+                const Text(
+                  'Custom Menu Sections',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Use custom sections for pizza sizes, toppings, combos, trays, family meals, and other flexible menu text.',
+                  style: TextStyle(color: Colors.black54, height: 1.35),
+                ),
+                const SizedBox(height: 10),
+                OutlinedButton.icon(
+                  onPressed: _hasPostingAccess
+                      ? () => _openSectionEditor()
+                      : null,
+                  icon: const Icon(Icons.post_add_outlined),
+                  label: const Text('Add Custom Section'),
+                ),
+                const SizedBox(height: 12),
+                _buildSectionList(),
                 const SizedBox(height: 24),
                 const Text(
                   'Current Menu Items',

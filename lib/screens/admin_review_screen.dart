@@ -5,6 +5,7 @@ import '../models/coupon.dart';
 import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/restaurant_account_service.dart';
+import '../widgets/clickable_phone_text.dart';
 
 class AdminReviewScreen extends StatefulWidget {
   const AdminReviewScreen({super.key});
@@ -876,18 +877,27 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
                                   ),
                                 ),
                                 const SizedBox(height: 6),
-                                Text(
-                                  email == 'No email' && contactPhone.isNotEmpty
-                                      ? 'Phone: $contactPhone'
-                                      : email,
-                                ),
+                                if (email == 'No email' &&
+                                    contactPhone.isNotEmpty)
+                                  ClickablePhoneText(
+                                    phone: contactPhone,
+                                    prefix: 'Phone: ',
+                                  )
+                                else
+                                  Text(email),
                                 if (email != 'No email' &&
                                     contactPhone.isNotEmpty)
-                                  Text('Phone: $contactPhone'),
+                                  ClickablePhoneText(
+                                    phone: contactPhone,
+                                    prefix: 'Phone: ',
+                                  ),
                                 if (applicantPhone.isNotEmpty &&
                                     phoneNumber.isNotEmpty &&
                                     applicantPhone != phoneNumber)
-                                  Text('Applicant phone: $applicantPhone'),
+                                  ClickablePhoneText(
+                                    phone: applicantPhone,
+                                    prefix: 'Applicant phone: ',
+                                  ),
                                 if (city.isNotEmpty || zipCode.isNotEmpty) ...[
                                   const SizedBox(height: 4),
                                   Text(

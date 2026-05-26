@@ -15,6 +15,7 @@ import '../services/restaurant_account_service.dart';
 import '../services/restaurant_auth_service.dart';
 import '../services/restaurant_menu_service.dart';
 import '../services/subscription_checkout_service.dart';
+import '../widgets/clickable_phone_text.dart';
 import 'restaurant_menu_management_screen.dart';
 import 'paywall_screen.dart';
 
@@ -2018,7 +2019,8 @@ class _RestaurantCreateCouponScreenState
             Text('City: ${profile.city}'),
             Text('State: ${profile.state}'),
             Text('ZIP: ${profile.zipCode}'),
-            if (hasPhone) Text('Phone: ${profile.phone}'),
+            if (hasPhone)
+              ClickablePhoneText(phone: profile.phone, prefix: 'Phone: '),
             if (hasWebsite) Text('Website: ${profile.website}'),
             if (profile.email.trim().isNotEmpty)
               Text('Email: ${profile.email}'),

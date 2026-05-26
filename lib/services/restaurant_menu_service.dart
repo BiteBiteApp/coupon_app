@@ -96,6 +96,15 @@ class RestaurantMenuService {
     return sharedMenusCollection().doc(source.id).collection('menu_items');
   }
 
+  static CollectionReference<Map<String, dynamic>> _menuSectionsCollection(
+    RestaurantMenuSource source,
+  ) {
+    if (source.isLegacyBiteSaver) {
+      return RestaurantAccountService.menuSectionsCollection(source.id);
+    }
+    return sharedMenusCollection().doc(source.id).collection('menu_sections');
+  }
+
   static Future<RestaurantMenuSource?> resolveBiteSaverPublicMenuSource({
     required String uid,
   }) async {
@@ -448,6 +457,37 @@ class RestaurantMenuService {
     return items;
   }
 
+  static Future<List<RestaurantMenuSection>> loadMenuSections(
+    RestaurantMenuSource source,
+  ) async {
+    if (source.id.isEmpty) {
+      return const <RestaurantMenuSection>[];
+    }
+    if (source.isLegacyBiteSaver) {
+      return RestaurantAccountService.loadMenuSections(source.id);
+    }
+
+    final snapshot = await _menuSectionsCollection(source).get();
+    final sections = <RestaurantMenuSection>[];
+    for (final doc in snapshot.docs) {
+      final section = RestaurantMenuSection.tryFromFirestore(
+        doc.data(),
+        fallbackId: doc.id,
+      );
+      if (section != null) {
+        sections.add(section);
+      }
+    }
+    sections.sort((a, b) {
+      final sortComparison = a.sortOrder.compareTo(b.sortOrder);
+      if (sortComparison != 0) {
+        return sortComparison;
+      }
+      return a.title.compareTo(b.title);
+    });
+    return sections;
+  }
+
   static Future<RestaurantMenuImage> saveMenuImage({
     required RestaurantMenuSource source,
     required String imageUrl,
@@ -535,6 +575,68 @@ class RestaurantMenuService {
     );
   }
 
+  static Future<RestaurantMenuSection> saveMenuSection({
+    required RestaurantMenuSource source,
+    required String title,
+    required String body,
+    String? existingSectionId,
+  }) async {
+    if (source.isLegacyBiteSaver) {
+      return RestaurantAccountService.saveMenuSection(
+        uid: source.id,
+        title: title,
+        body: body,
+        existingSectionId: existingSectionId,
+      );
+    }
+
+    final trimmedTitle = title.trim();
+    final trimmedBody = body.trim();
+    if (trimmedTitle.isEmpty) {
+      throw ArgumentError('Section title is required.');
+    }
+    if (trimmedBody.isEmpty) {
+      throw ArgumentError('Menu section text is required.');
+    }
+
+    final trimmedId = existingSectionId?.trim();
+    final isEditing = trimmedId != null && trimmedId.isNotEmpty;
+    final doc = isEditing
+        ? _menuSectionsCollection(source).doc(trimmedId)
+        : _menuSectionsCollection(source).doc();
+    var sortOrder = DateTime.now().millisecondsSinceEpoch;
+    DateTime? createdAt;
+    if (isEditing) {
+      final existingSnapshot = await doc.get();
+      final existingSection = RestaurantMenuSection.tryFromFirestore(
+        existingSnapshot.data(),
+        fallbackId: doc.id,
+      );
+      sortOrder = existingSection?.sortOrder ?? sortOrder;
+      createdAt = existingSection?.createdAt;
+    }
+
+    await doc.set({
+      RestaurantMenuSection.fieldId: doc.id,
+      RestaurantMenuSection.fieldTitle: trimmedTitle,
+      RestaurantMenuSection.fieldBody: trimmedBody,
+      RestaurantMenuSection.fieldSortOrder: sortOrder,
+      if (!isEditing)
+        RestaurantMenuSection.fieldCreatedAt: FieldValue.serverTimestamp(),
+      RestaurantMenuSection.fieldUpdatedAt: FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+    await _touchSharedMenu(source.id);
+
+    return RestaurantMenuSection(
+      id: doc.id,
+      title: trimmedTitle,
+      body: trimmedBody,
+      sortOrder: sortOrder,
+      createdAt: createdAt,
+      updatedAt: DateTime.now(),
+    );
+  }
+
   static Future<void> deleteMenuImage({
     required RestaurantMenuSource source,
     required String imageId,
@@ -564,6 +666,22 @@ class RestaurantMenuService {
     }
 
     await _menuItemsCollection(source).doc(itemId.trim()).delete();
+    await _touchSharedMenu(source.id);
+  }
+
+  static Future<void> deleteMenuSection({
+    required RestaurantMenuSource source,
+    required String sectionId,
+  }) async {
+    if (source.isLegacyBiteSaver) {
+      await RestaurantAccountService.deleteMenuSection(
+        uid: source.id,
+        sectionId: sectionId,
+      );
+      return;
+    }
+
+    await _menuSectionsCollection(source).doc(sectionId.trim()).delete();
     await _touchSharedMenu(source.id);
   }
 

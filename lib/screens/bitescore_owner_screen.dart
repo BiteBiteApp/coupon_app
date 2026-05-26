@@ -10,6 +10,7 @@ import '../services/app_mode_state_service.dart';
 import '../services/bitescore_service.dart';
 import '../services/restaurant_menu_service.dart';
 import '../widgets/biterater_theme.dart';
+import '../widgets/clickable_phone_text.dart';
 import '../widgets/owner_dish_merge_dialog.dart';
 import 'bitescore_create_rate_screen.dart';
 import 'bitescore_dish_detail_screen.dart';
@@ -382,13 +383,23 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
               '${restaurant.address}, ${restaurant.city}, ${restaurant.state} ${restaurant.zipCode}',
             ),
             const SizedBox(height: 6),
-            Text(
-              hasPhone ? 'Phone: ${restaurant.phone!}' : 'Phone: Not available',
-              style: const TextStyle(
-                color: BiteRaterTheme.mutedInk,
-                fontWeight: FontWeight.w600,
+            if (hasPhone)
+              ClickablePhoneText(
+                phone: restaurant.phone,
+                prefix: 'Phone: ',
+                style: const TextStyle(
+                  color: BiteRaterTheme.mutedInk,
+                  fontWeight: FontWeight.w600,
+                ),
+              )
+            else
+              const Text(
+                'Phone: Not available',
+                style: TextStyle(
+                  color: BiteRaterTheme.mutedInk,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
             _buildHoursSection(restaurant),
             _buildBioSection(restaurant),
             BiteRaterTheme.softDivider(),

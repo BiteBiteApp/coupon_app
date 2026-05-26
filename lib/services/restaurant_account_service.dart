@@ -29,6 +29,12 @@ class RestaurantAccountService {
     return docForUser(uid).collection('menu_items');
   }
 
+  static CollectionReference<Map<String, dynamic>> menuSectionsCollection(
+    String uid,
+  ) {
+    return docForUser(uid).collection('menu_sections');
+  }
+
   static CollectionReference<Map<String, dynamic>>
   restaurantNameChangeRequestsCollection() {
     return _firestore.collection('restaurant_name_change_requests');
@@ -502,6 +508,32 @@ class RestaurantAccountService {
     return items;
   }
 
+  static Future<List<RestaurantMenuSection>> loadMenuSections(
+    String uid,
+  ) async {
+    final snapshot = await menuSectionsCollection(uid).get();
+    final sections = <RestaurantMenuSection>[];
+
+    for (final doc in snapshot.docs) {
+      final section = RestaurantMenuSection.tryFromFirestore(
+        doc.data(),
+        fallbackId: doc.id,
+      );
+      if (section != null) {
+        sections.add(section);
+      }
+    }
+
+    sections.sort((a, b) {
+      final sortComparison = a.sortOrder.compareTo(b.sortOrder);
+      if (sortComparison != 0) {
+        return sortComparison;
+      }
+      return a.title.compareTo(b.title);
+    });
+    return sections;
+  }
+
   static Future<RestaurantMenuImage> saveMenuImage({
     required String uid,
     required String imageUrl,
@@ -579,6 +611,64 @@ class RestaurantAccountService {
     );
   }
 
+  static Future<RestaurantMenuSection> saveMenuSection({
+    required String uid,
+    required String title,
+    required String body,
+    String? existingSectionId,
+  }) async {
+    await _ensureCanPostCoupons(uid);
+
+    final trimmedTitle = title.trim();
+    final trimmedBody = body.trim();
+    if (trimmedTitle.isEmpty) {
+      throw ArgumentError('Section title is required.');
+    }
+    if (trimmedBody.isEmpty) {
+      throw ArgumentError('Menu section text is required.');
+    }
+
+    final trimmedId = existingSectionId?.trim();
+    final isEditing = trimmedId != null && trimmedId.isNotEmpty;
+    final doc = isEditing
+        ? menuSectionsCollection(uid).doc(trimmedId)
+        : menuSectionsCollection(uid).doc();
+    var sortOrder = DateTime.now().millisecondsSinceEpoch;
+    DateTime? createdAt;
+    if (isEditing) {
+      final existingSnapshot = await doc.get();
+      final existingSection = RestaurantMenuSection.tryFromFirestore(
+        existingSnapshot.data(),
+        fallbackId: doc.id,
+      );
+      sortOrder = existingSection?.sortOrder ?? sortOrder;
+      createdAt = existingSection?.createdAt;
+    }
+
+    await doc.set({
+      RestaurantMenuSection.fieldId: doc.id,
+      RestaurantMenuSection.fieldTitle: trimmedTitle,
+      RestaurantMenuSection.fieldBody: trimmedBody,
+      RestaurantMenuSection.fieldSortOrder: sortOrder,
+      if (!isEditing)
+        RestaurantMenuSection.fieldCreatedAt: FieldValue.serverTimestamp(),
+      RestaurantMenuSection.fieldUpdatedAt: FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await docForUser(uid).set({
+      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    return RestaurantMenuSection(
+      id: doc.id,
+      title: trimmedTitle,
+      body: trimmedBody,
+      sortOrder: sortOrder,
+      createdAt: createdAt,
+      updatedAt: DateTime.now(),
+    );
+  }
+
   static Future<void> deleteMenuImage({
     required String uid,
     required String imageId,
@@ -596,6 +686,17 @@ class RestaurantAccountService {
   }) async {
     await _ensureCanPostCoupons(uid);
     await menuItemsCollection(uid).doc(itemId.trim()).delete();
+    await docForUser(uid).set({
+      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
+  static Future<void> deleteMenuSection({
+    required String uid,
+    required String sectionId,
+  }) async {
+    await _ensureCanPostCoupons(uid);
+    await menuSectionsCollection(uid).doc(sectionId.trim()).delete();
     await docForUser(uid).set({
       Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
@@ -907,6 +1008,55 @@ class RestaurantMenuItem {
       price: RestaurantAccountService._readString(data[fieldPrice]) ?? '',
       category: category,
       sortOrder: _readInt(data[fieldSortOrder]) ?? 0,
+    );
+  }
+}
+
+class RestaurantMenuSection {
+  static const String fieldId = 'id';
+  static const String fieldTitle = 'title';
+  static const String fieldBody = 'body';
+  static const String fieldSortOrder = 'sortOrder';
+  static const String fieldCreatedAt = 'createdAt';
+  static const String fieldUpdatedAt = 'updatedAt';
+
+  final String id;
+  final String title;
+  final String body;
+  final int sortOrder;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
+
+  const RestaurantMenuSection({
+    required this.id,
+    required this.title,
+    required this.body,
+    required this.sortOrder,
+    this.createdAt,
+    this.updatedAt,
+  });
+
+  static RestaurantMenuSection? tryFromFirestore(
+    Map<String, dynamic>? data, {
+    required String fallbackId,
+  }) {
+    if (data == null) {
+      return null;
+    }
+
+    final title = RestaurantAccountService._readString(data[fieldTitle]);
+    final body = RestaurantAccountService._readString(data[fieldBody]);
+    if (title == null || body == null) {
+      return null;
+    }
+
+    return RestaurantMenuSection(
+      id: RestaurantAccountService._readString(data[fieldId]) ?? fallbackId,
+      title: title,
+      body: body,
+      sortOrder: _readInt(data[fieldSortOrder]) ?? 0,
+      createdAt: RestaurantAccountService._readDateTime(data[fieldCreatedAt]),
+      updatedAt: RestaurantAccountService._readDateTime(data[fieldUpdatedAt]),
     );
   }
 }

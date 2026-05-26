@@ -12,6 +12,7 @@ import '../services/bitescore_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_menu_service.dart';
 import '../widgets/bitesaver_report_dialog.dart';
+import '../widgets/clickable_phone_text.dart';
 import '../widgets/persistent_bottom_navigation.dart';
 import 'coupon_detail_screen.dart';
 import 'restaurant_menu_screen.dart';
@@ -742,7 +743,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                 child: Text(
                   'Address: ${restaurant.streetAddress!}',
                   style: TextStyle(
-                    color: Theme.of(context).colorScheme.primary,
+                    color: ClickablePhoneText.linkColor,
                     decoration: TextDecoration.underline,
                     fontWeight: FontWeight.w600,
                   ),
@@ -756,7 +757,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
           Text('ZIP: ${restaurant.zipCode}'),
           if (hasPhone) ...[
             const SizedBox(height: 6),
-            Text('Phone: ${restaurant.phone!}'),
+            ClickablePhoneText(phone: restaurant.phone, prefix: 'Phone: '),
           ],
           if (hasWebsite) ...[
             const SizedBox(height: 6),

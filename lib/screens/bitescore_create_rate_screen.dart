@@ -8,6 +8,7 @@ import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/biterater_theme.dart';
+import '../widgets/clickable_phone_text.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
 
 enum _RestaurantEntryStage {
@@ -2158,6 +2159,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     required String title,
     required String subtitle,
     String? caption,
+    Widget? captionWidget,
   }) {
     return BiteRaterTheme.liftedCard(
       margin: EdgeInsets.zero,
@@ -2185,15 +2187,17 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-            if (caption != null && caption.trim().isNotEmpty) ...[
+            if (captionWidget != null ||
+                (caption != null && caption.trim().isNotEmpty)) ...[
               const SizedBox(height: 4),
-              Text(
-                caption.trim(),
-                style: const TextStyle(
-                  color: BiteRaterTheme.mutedInk,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+              captionWidget ??
+                  Text(
+                    caption!.trim(),
+                    style: const TextStyle(
+                      color: BiteRaterTheme.mutedInk,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
             ],
           ],
         ),
@@ -2217,7 +2221,13 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       title: restaurant.name,
       subtitle:
           '${restaurant.address}, ${restaurant.city}, ${restaurant.state} ${restaurant.zipCode}',
-      caption: restaurant.phone,
+      captionWidget: ClickablePhoneText(
+        phone: restaurant.phone,
+        style: const TextStyle(
+          color: BiteRaterTheme.mutedInk,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
     );
   }
 
