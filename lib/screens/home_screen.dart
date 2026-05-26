@@ -640,7 +640,9 @@ class _HomeScreenState extends State<HomeScreen> {
     });
 
     try {
-      final locations = await locationFromAddress(query);
+      final locations = await SharedLocationStateService.geocodeSearchQuery(
+        query,
+      );
 
       if (locations.isEmpty) {
         setState(() {

@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'dart:io' show Platform;
 
+import 'package:flutter/foundation.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -32,15 +34,13 @@ class SharedLocationRestoreResult {
   final SharedLocationState state;
   final String? message;
 
-  const SharedLocationRestoreResult({
-    required this.state,
-    this.message,
-  });
+  const SharedLocationRestoreResult({required this.state, this.message});
 }
 
 class SharedLocationStateService {
   static const String _prefersLiveLocationKey = 'prefers_live_location';
   static const String _savedZipCodeKey = 'saved_zip_code';
+  static final RegExp _fiveDigitZipPattern = RegExp(r'^\d{5}$');
 
   static SharedLocationState _state = const SharedLocationState();
   static Future<SharedLocationRestoreResult>? _restoreFuture;
@@ -50,12 +50,10 @@ class SharedLocationStateService {
 
   static Future<SharedLocationRestoreResult> restoreOnLaunch({
     required Future<({String? city, String? zip})> Function(Position position)
-        reverseLookupLocation,
+    reverseLookupLocation,
   }) {
     if (_hasRestoredFromStorage) {
-      return Future.value(
-        SharedLocationRestoreResult(state: _state),
-      );
+      return Future.value(SharedLocationRestoreResult(state: _state));
     }
 
     if (_restoreFuture != null) {
@@ -70,11 +68,10 @@ class SharedLocationStateService {
 
   static Future<SharedLocationRestoreResult> _restoreOnLaunchInternal({
     required Future<({String? city, String? zip})> Function(Position position)
-        reverseLookupLocation,
+    reverseLookupLocation,
   }) async {
     final prefs = await SharedPreferences.getInstance();
-    final prefersLiveLocation =
-        prefs.getBool(_prefersLiveLocationKey) ?? false;
+    final prefersLiveLocation = prefs.getBool(_prefersLiveLocationKey) ?? false;
     final savedZipCode = (prefs.getString(_savedZipCodeKey) ?? '').trim();
 
     try {
@@ -98,8 +95,8 @@ class SharedLocationStateService {
         final searchText = locationDetails.city?.isNotEmpty == true
             ? locationDetails.city!
             : (locationDetails.zip?.isNotEmpty == true
-                ? locationDetails.zip!
-                : '');
+                  ? locationDetails.zip!
+                  : '');
 
         _state = SharedLocationState(
           usingCurrentLocation: true,
@@ -120,7 +117,7 @@ class SharedLocationStateService {
         );
 
         try {
-          final locations = await locationFromAddress(savedZipCode);
+          final locations = await geocodeSearchQuery(savedZipCode);
           if (locations.isNotEmpty) {
             restoredState = SharedLocationState(
               usingTypedSearchLocation: true,
@@ -139,9 +136,7 @@ class SharedLocationStateService {
 
       _state = const SharedLocationState();
       _hasRestoredFromStorage = true;
-      return const SharedLocationRestoreResult(
-        state: SharedLocationState(),
-      );
+      return const SharedLocationRestoreResult(state: SharedLocationState());
     } catch (_) {
       _state = const SharedLocationState();
       _hasRestoredFromStorage = true;
@@ -188,11 +183,7 @@ class SharedLocationStateService {
       detectedCity: detectedCity?.trim(),
       detectedZip: detectedZip?.trim(),
     );
-    unawaited(
-      _persistPreference(
-        prefersLiveLocation: true,
-      ),
-    );
+    unawaited(_persistPreference(prefersLiveLocation: true));
   }
 
   static void clear() {
@@ -219,5 +210,34 @@ class SharedLocationStateService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(_prefersLiveLocationKey);
     await prefs.remove(_savedZipCodeKey);
+  }
+
+  static Future<List<Location>> geocodeSearchQuery(String query) async {
+    final trimmedQuery = query.trim();
+    final candidates = _geocodeCandidatesFor(trimmedQuery);
+    Object? lastError;
+
+    for (final candidate in candidates) {
+      try {
+        final locations = await locationFromAddress(candidate);
+        if (locations.isNotEmpty) {
+          return locations;
+        }
+      } catch (error) {
+        lastError = error;
+      }
+    }
+
+    if (lastError != null) {
+      throw lastError;
+    }
+    return const <Location>[];
+  }
+
+  static List<String> _geocodeCandidatesFor(String query) {
+    if (!kIsWeb && Platform.isIOS && _fiveDigitZipPattern.hasMatch(query)) {
+      return <String>['$query, USA', query];
+    }
+    return <String>[query];
   }
 }

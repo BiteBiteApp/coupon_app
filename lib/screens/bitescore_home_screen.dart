@@ -260,7 +260,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     });
 
     try {
-      final locations = await locationFromAddress(query);
+      final locations = await SharedLocationStateService.geocodeSearchQuery(
+        query,
+      );
       if (locations.isEmpty) {
         throw Exception('No matching location found.');
       }
