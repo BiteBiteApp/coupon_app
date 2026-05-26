@@ -12,6 +12,7 @@ import '../services/bitesaver_image_upload_service.dart';
 import '../services/customer_session_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_auth_service.dart';
+import '../services/restaurant_menu_service.dart';
 import '../services/subscription_checkout_service.dart';
 import 'restaurant_menu_management_screen.dart';
 import 'paywall_screen.dart';
@@ -145,8 +146,30 @@ class _RestaurantCreateCouponScreenState
   }
 
   Future<void> _openMenuManagement() async {
+    final user = FirebaseAuth.instance.currentUser;
+    RestaurantMenuSource? source;
+    if (user != null && !user.isAnonymous) {
+      try {
+        source = await RestaurantMenuService.resolveBiteSaverMenuSource(
+          uid: user.uid,
+        );
+      } catch (_) {
+        source = RestaurantMenuSource.legacyBiteSaver(user.uid);
+      }
+    }
+
+    if (!mounted) {
+      return;
+    }
+
     await Navigator.of(context).push(
-      MaterialPageRoute(builder: (_) => const RestaurantMenuManagementScreen()),
+      MaterialPageRoute(
+        builder: (_) => RestaurantMenuManagementScreen(
+          source: source,
+          requireBiteSaverPostingAccess: true,
+          biteSaverAccessUid: user?.uid,
+        ),
+      ),
     );
   }
 

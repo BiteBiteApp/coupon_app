@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/bitescore_restaurant.dart';
+import '../models/restaurant.dart';
 import 'restaurant_account_service.dart';
 
 enum RestaurantMenuSourceType { legacyBiteSaver, sharedMenu }
@@ -28,6 +29,22 @@ class RestaurantMenuSource {
   bool get isLegacyBiteSaver =>
       type == RestaurantMenuSourceType.legacyBiteSaver;
   bool get isSharedMenu => type == RestaurantMenuSourceType.sharedMenu;
+}
+
+enum RestaurantMenuAppSide { biteSaver, biteScore }
+
+class RestaurantMenuMatchSuggestion {
+  final RestaurantMenuAppSide currentSide;
+  final RestaurantMenuAppSide matchedSide;
+  final String matchedRestaurantName;
+  final String matchedRestaurantAddress;
+
+  const RestaurantMenuMatchSuggestion({
+    required this.currentSide,
+    required this.matchedSide,
+    required this.matchedRestaurantName,
+    required this.matchedRestaurantAddress,
+  });
 }
 
 class RestaurantMenuService {
@@ -240,6 +257,148 @@ class RestaurantMenuService {
     await _touchSharedMenu(source.id);
   }
 
+  static RestaurantMenuSource sourceForBiteSaverAccountData({
+    required String uid,
+    required Map<String, dynamic>? accountData,
+  }) {
+    final sharedMenuId = _readString(accountData?['sharedMenuId']);
+    if (sharedMenuId != null && sharedMenuId.isNotEmpty) {
+      return RestaurantMenuSource.sharedMenu(sharedMenuId);
+    }
+    return RestaurantMenuSource.legacyBiteSaver(uid);
+  }
+
+  static Future<RestaurantMenuSource> resolveBiteSaverMenuSource({
+    required String uid,
+  }) async {
+    final trimmedUid = uid.trim();
+    if (trimmedUid.isEmpty) {
+      return RestaurantMenuSource.legacyBiteSaver(trimmedUid);
+    }
+
+    final accountData = await RestaurantAccountService.getAccountData(
+      trimmedUid,
+    );
+    return sourceForBiteSaverAccountData(
+      uid: trimmedUid,
+      accountData: accountData,
+    );
+  }
+
+  static Future<RestaurantMenuSource?> resolveBiteScorePublicMenuSource({
+    required String restaurantId,
+  }) async {
+    final trimmedRestaurantId = restaurantId.trim();
+    if (trimmedRestaurantId.isEmpty) {
+      return null;
+    }
+
+    final snapshot = await _firestore
+        .collection(BitescoreRestaurant.collectionName)
+        .doc(trimmedRestaurantId)
+        .get();
+    final restaurant =
+        BitescoreRestaurant.tryFromFirestore(
+          snapshot.data(),
+          fallbackId: snapshot.id,
+        ) ??
+        BitescoreRestaurant.tryFromFinderFirestore(
+          snapshot.data(),
+          fallbackId: snapshot.id,
+        );
+    final menuId = restaurant?.sharedMenuId?.trim();
+    if (menuId == null || menuId.isEmpty) {
+      return null;
+    }
+    return RestaurantMenuSource.sharedMenu(menuId);
+  }
+
+  static Future<RestaurantMenuMatchSuggestion?> findLikelyMenuMatch({
+    required String currentUserId,
+    Map<String, dynamic>? biteSaverAccountData,
+    BitescoreRestaurant? biteScoreRestaurant,
+  }) async {
+    final userId = currentUserId.trim();
+    if (userId.isEmpty) {
+      return null;
+    }
+
+    if (biteScoreRestaurant != null) {
+      final accountData = await RestaurantAccountService.getAccountData(userId);
+      if (accountData == null) {
+        return null;
+      }
+      final biteSaverRestaurant = Restaurant.fromFirestore({
+        ...accountData,
+        Restaurant.fieldUid: userId,
+      }, coupons: const []);
+      if (!_isLikelySameRestaurant(
+        biteSaverName: biteSaverRestaurant.name,
+        biteSaverAddress: biteSaverRestaurant.streetAddress ?? '',
+        biteSaverCity: biteSaverRestaurant.city,
+        biteSaverState: biteSaverRestaurant.state,
+        biteSaverZip: biteSaverRestaurant.zipCode,
+        biteScoreRestaurant: biteScoreRestaurant,
+      )) {
+        return null;
+      }
+
+      return RestaurantMenuMatchSuggestion(
+        currentSide: RestaurantMenuAppSide.biteScore,
+        matchedSide: RestaurantMenuAppSide.biteSaver,
+        matchedRestaurantName: biteSaverRestaurant.name,
+        matchedRestaurantAddress: _biteSaverAddressLabel(biteSaverRestaurant),
+      );
+    }
+
+    if (biteSaverAccountData == null) {
+      return null;
+    }
+
+    final biteSaverRestaurant = Restaurant.fromFirestore({
+      ...biteSaverAccountData,
+      Restaurant.fieldUid: userId,
+    }, coupons: const []);
+    final snapshot = await _firestore
+        .collection(BitescoreRestaurant.collectionName)
+        .where('ownerUserId', isEqualTo: userId)
+        .get();
+
+    for (final doc in snapshot.docs) {
+      final biteScoreRestaurant =
+          BitescoreRestaurant.tryFromFirestore(
+            doc.data(),
+            fallbackId: doc.id,
+          ) ??
+          BitescoreRestaurant.tryFromFinderFirestore(
+            doc.data(),
+            fallbackId: doc.id,
+          );
+      if (biteScoreRestaurant == null || !biteScoreRestaurant.isClaimed) {
+        continue;
+      }
+      if (!_isLikelySameRestaurant(
+        biteSaverName: biteSaverRestaurant.name,
+        biteSaverAddress: biteSaverRestaurant.streetAddress ?? '',
+        biteSaverCity: biteSaverRestaurant.city,
+        biteSaverState: biteSaverRestaurant.state,
+        biteSaverZip: biteSaverRestaurant.zipCode,
+        biteScoreRestaurant: biteScoreRestaurant,
+      )) {
+        continue;
+      }
+
+      return RestaurantMenuMatchSuggestion(
+        currentSide: RestaurantMenuAppSide.biteSaver,
+        matchedSide: RestaurantMenuAppSide.biteScore,
+        matchedRestaurantName: biteScoreRestaurant.name,
+        matchedRestaurantAddress: _biteScoreAddressLabel(biteScoreRestaurant),
+      );
+    }
+
+    return null;
+  }
+
   static Future<RestaurantMenuSource> ensureSharedMenuForBiteScoreRestaurant({
     required BitescoreRestaurant restaurant,
     required String ownerUserId,
@@ -309,6 +468,76 @@ class RestaurantMenuService {
     ].map(_normalizeKeyPart).where((part) => part.isNotEmpty).join('|');
   }
 
+  static bool _isLikelySameRestaurant({
+    required String biteSaverName,
+    required String biteSaverAddress,
+    required String biteSaverCity,
+    required String biteSaverState,
+    required String biteSaverZip,
+    required BitescoreRestaurant biteScoreRestaurant,
+  }) {
+    final namesMatch = _namesSimilar(biteSaverName, biteScoreRestaurant.name);
+    final addressMatches =
+        _normalizeKeyPart(biteSaverAddress) ==
+            _normalizeKeyPart(biteScoreRestaurant.address) &&
+        _normalizeKeyPart(biteSaverCity) ==
+            _normalizeKeyPart(biteScoreRestaurant.city) &&
+        _normalizeKeyPart(biteSaverState) ==
+            _normalizeKeyPart(biteScoreRestaurant.state) &&
+        _normalizeZip(biteSaverZip) ==
+            _normalizeZip(biteScoreRestaurant.zipCode);
+
+    return namesMatch && addressMatches;
+  }
+
+  static bool _namesSimilar(String first, String second) {
+    final normalizedFirst = _normalizeRestaurantName(first);
+    final normalizedSecond = _normalizeRestaurantName(second);
+    if (normalizedFirst.isEmpty || normalizedSecond.isEmpty) {
+      return false;
+    }
+    return normalizedFirst == normalizedSecond ||
+        normalizedFirst.contains(normalizedSecond) ||
+        normalizedSecond.contains(normalizedFirst);
+  }
+
+  static String _normalizeRestaurantName(String value) {
+    const noiseWords = {'restaurant', 'cafe', 'grill', 'bar', 'the'};
+    return _normalizeKeyPart(value)
+        .split(' ')
+        .where((word) => word.isNotEmpty && !noiseWords.contains(word))
+        .join(' ');
+  }
+
+  static String _normalizeZip(String value) {
+    final match = RegExp(r'\d{5}').firstMatch(value);
+    return match?.group(0) ?? '';
+  }
+
+  static String _biteSaverAddressLabel(Restaurant restaurant) {
+    final parts = <String>[
+      restaurant.streetAddress ?? '',
+      restaurant.city,
+      [
+        restaurant.state,
+        restaurant.zipCode,
+      ].map((part) => part.trim()).where((part) => part.isNotEmpty).join(' '),
+    ].map((part) => part.trim()).where((part) => part.isNotEmpty).toList();
+    return parts.join(', ');
+  }
+
+  static String _biteScoreAddressLabel(BitescoreRestaurant restaurant) {
+    final parts = <String>[
+      restaurant.address,
+      restaurant.city,
+      [
+        restaurant.state,
+        restaurant.zipCode,
+      ].map((part) => part.trim()).where((part) => part.isNotEmpty).join(' '),
+    ].map((part) => part.trim()).where((part) => part.isNotEmpty).toList();
+    return parts.join(', ');
+  }
+
   static String _normalizeKeyPart(String value) {
     return value
         .trim()
@@ -316,5 +545,13 @@ class RestaurantMenuService {
         .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
         .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
+  }
+
+  static String? _readString(dynamic value) {
+    if (value is String) {
+      final trimmed = value.trim();
+      return trimmed.isEmpty ? null : trimmed;
+    }
+    return null;
   }
 }

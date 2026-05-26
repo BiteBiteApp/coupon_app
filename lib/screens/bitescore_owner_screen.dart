@@ -178,6 +178,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
           builder: (_) => RestaurantMenuManagementScreen(
             source: source,
             restaurantName: restaurant.name,
+            biteScoreRestaurant: restaurant,
           ),
         ),
       );

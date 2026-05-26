@@ -447,10 +447,10 @@ class _BiteScoreRestaurantDishesScreenState
     final refreshedRestaurant = await BiteScoreService.loadRestaurantById(
       _restaurant.id,
     );
-    final menuId =
-        refreshedRestaurant?.sharedMenuId?.trim() ??
-        _restaurant.sharedMenuId?.trim();
-    if (menuId == null || menuId.isEmpty) {
+    final source = await RestaurantMenuService.resolveBiteScorePublicMenuSource(
+      restaurantId: _restaurant.id,
+    );
+    if (source == null) {
       _showSnackBar('Menu not available yet.');
       return;
     }
@@ -463,7 +463,7 @@ class _BiteScoreRestaurantDishesScreenState
       MaterialPageRoute(
         builder: (_) => RestaurantMenuScreen(
           restaurantName: refreshedRestaurant?.name ?? _restaurant.name,
-          source: RestaurantMenuSource.sharedMenu(menuId),
+          source: source,
           mode: AppMode.biteScore,
         ),
       ),

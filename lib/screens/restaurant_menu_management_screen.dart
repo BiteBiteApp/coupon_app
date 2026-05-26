@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../models/bitescore_restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/bitesaver_image_upload_service.dart';
 import '../services/restaurant_account_service.dart';
@@ -9,11 +10,17 @@ import '../services/restaurant_menu_service.dart';
 class RestaurantMenuManagementScreen extends StatefulWidget {
   final RestaurantMenuSource? source;
   final String? restaurantName;
+  final bool requireBiteSaverPostingAccess;
+  final String? biteSaverAccessUid;
+  final BitescoreRestaurant? biteScoreRestaurant;
 
   const RestaurantMenuManagementScreen({
     super.key,
     this.source,
     this.restaurantName,
+    this.requireBiteSaverPostingAccess = false,
+    this.biteSaverAccessUid,
+    this.biteScoreRestaurant,
   });
 
   @override
@@ -58,6 +65,7 @@ class _RestaurantMenuManagementScreenState
   bool _isUploadingImage = false;
   bool _hasPostingAccess = false;
   RestaurantMenuSource? _activeSource;
+  RestaurantMenuMatchSuggestion? _matchSuggestion;
   List<RestaurantMenuImage> _images = const [];
   List<RestaurantMenuItem> _items = const [];
 
@@ -114,10 +122,17 @@ class _RestaurantMenuManagementScreenState
       }
 
       var hasAccess = true;
-      if (source.isLegacyBiteSaver) {
-        final accountData = await RestaurantAccountService.getAccountData(
-          user.uid,
+      Map<String, dynamic>? accountData;
+      if (widget.requireBiteSaverPostingAccess) {
+        final accessUid = widget.biteSaverAccessUid?.trim().isNotEmpty == true
+            ? widget.biteSaverAccessUid!.trim()
+            : user.uid;
+        accountData = await RestaurantAccountService.getAccountData(accessUid);
+        hasAccess = RestaurantAccountService.hasCouponPostingAccess(
+          accountData,
         );
+      } else if (source.isLegacyBiteSaver) {
+        accountData = await RestaurantAccountService.getAccountData(user.uid);
         hasAccess = RestaurantAccountService.hasCouponPostingAccess(
           accountData,
         );
@@ -126,10 +141,16 @@ class _RestaurantMenuManagementScreenState
         RestaurantMenuService.loadMenuImages(source),
         RestaurantMenuService.loadMenuItems(source),
       ]);
+      final matchSuggestion = await RestaurantMenuService.findLikelyMenuMatch(
+        currentUserId: user.uid,
+        biteSaverAccountData: accountData,
+        biteScoreRestaurant: widget.biteScoreRestaurant,
+      );
 
       if (!mounted) return;
       setState(() {
         _activeSource = source;
+        _matchSuggestion = matchSuggestion;
         _hasPostingAccess = hasAccess;
         _images = results[0] as List<RestaurantMenuImage>;
         _items = results[1] as List<RestaurantMenuItem>;
@@ -358,6 +379,74 @@ class _RestaurantMenuManagementScreenState
     );
   }
 
+  Widget _buildMasterMenuPreviewSection() {
+    final suggestion = _matchSuggestion;
+    if (suggestion == null) {
+      return const SizedBox.shrink();
+    }
+
+    final matchedSideLabel =
+        suggestion.matchedSide == RestaurantMenuAppSide.biteSaver
+        ? 'BiteSaver'
+        : 'BiteRater';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Use one menu for both sides',
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'This looks like the same restaurant on BiteSaver and BiteRater. You can choose one menu later so both sides stay consistent.',
+            style: TextStyle(color: Colors.black54, height: 1.3),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            suggestion.matchedRestaurantName,
+            style: const TextStyle(fontWeight: FontWeight.w800),
+          ),
+          if (suggestion.matchedRestaurantAddress.trim().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: Text(
+                '$matchedSideLabel • ${suggestion.matchedRestaurantAddress}',
+                style: const TextStyle(color: Colors.black54, height: 1.25),
+              ),
+            ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton(
+                onPressed: _showMenuSelectionComingSoon,
+                child: const Text('Use BiteSaver menu'),
+              ),
+              OutlinedButton(
+                onPressed: _showMenuSelectionComingSoon,
+                child: const Text('Use BiteRater menu'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showMenuSelectionComingSoon() {
+    _showSnackBar('Menu selection is coming next.');
+  }
+
   Widget _buildImageList() {
     if (_images.isEmpty) {
       return const Text(
@@ -479,6 +568,8 @@ class _RestaurantMenuManagementScreenState
                   _buildAccessNotice(),
                   const SizedBox(height: 16),
                 ],
+                _buildMasterMenuPreviewSection(),
+                if (_matchSuggestion != null) const SizedBox(height: 16),
                 const Text(
                   'Menu Images',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
