@@ -33,7 +33,27 @@ class BiteSaverImageUploadService {
     );
   }
 
+  static Future<BiteSaverImageUploadResult?> pickAndUploadSharedMenuImage({
+    required String menuId,
+  }) async {
+    return _pickAndUploadResult(
+      storagePath: 'restaurant_menus/${_safePathSegment(menuId)}/menu_images',
+      filePrefix: 'menu',
+    );
+  }
+
   static Future<String?> _pickAndUpload({
+    required String storagePath,
+    required String filePrefix,
+  }) async {
+    final result = await _pickAndUploadResult(
+      storagePath: storagePath,
+      filePrefix: filePrefix,
+    );
+    return result?.imageUrl;
+  }
+
+  static Future<BiteSaverImageUploadResult?> _pickAndUploadResult({
     required String storagePath,
     required String filePrefix,
   }) async {
@@ -50,16 +70,20 @@ class BiteSaverImageUploadService {
     final contentType = _contentTypeFor(image.name);
     final extension = _extensionFor(image.name);
     final timestamp = DateTime.now().microsecondsSinceEpoch;
-    final ref = _storage.ref().child(
-      '$storagePath/${_safePathSegment(filePrefix)}_$timestamp.$extension',
-    );
+    final fullPath =
+        '$storagePath/${_safePathSegment(filePrefix)}_$timestamp.$extension';
+    final ref = _storage.ref().child(fullPath);
 
     final uploadSnapshot = await ref.putData(
       bytes,
       SettableMetadata(contentType: contentType),
     );
 
-    return uploadSnapshot.ref.getDownloadURL();
+    final imageUrl = await uploadSnapshot.ref.getDownloadURL();
+    return BiteSaverImageUploadResult(
+      imageUrl: imageUrl,
+      storagePath: uploadSnapshot.ref.fullPath,
+    );
   }
 
   static String _safePathSegment(String value) {
@@ -86,4 +110,14 @@ class BiteSaverImageUploadService {
       _ => 'image/jpeg',
     };
   }
+}
+
+class BiteSaverImageUploadResult {
+  final String imageUrl;
+  final String storagePath;
+
+  const BiteSaverImageUploadResult({
+    required this.imageUrl,
+    required this.storagePath,
+  });
 }

@@ -4,9 +4,17 @@ import 'package:flutter/material.dart';
 import '../services/app_error_text.dart';
 import '../services/bitesaver_image_upload_service.dart';
 import '../services/restaurant_account_service.dart';
+import '../services/restaurant_menu_service.dart';
 
 class RestaurantMenuManagementScreen extends StatefulWidget {
-  const RestaurantMenuManagementScreen({super.key});
+  final RestaurantMenuSource? source;
+  final String? restaurantName;
+
+  const RestaurantMenuManagementScreen({
+    super.key,
+    this.source,
+    this.restaurantName,
+  });
 
   @override
   State<RestaurantMenuManagementScreen> createState() =>
@@ -15,7 +23,7 @@ class RestaurantMenuManagementScreen extends StatefulWidget {
 
 class _RestaurantMenuManagementScreenState
     extends State<RestaurantMenuManagementScreen> {
-  static const List<String> _categories = [
+  static const List<String> _biteSaverCategories = [
     'Breakfast',
     'Lunch',
     'Dinner',
@@ -28,19 +36,52 @@ class _RestaurantMenuManagementScreenState
     'Extras',
   ];
 
+  static const List<String> _biteScoreCategories = [
+    'Breakfast',
+    'Lunch',
+    'Dinner',
+    'Appetizers',
+    'Sides',
+    'Drinks',
+    'Desserts',
+    'Specials',
+    'Extras',
+  ];
+
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _descriptionController = TextEditingController();
   final TextEditingController _priceController = TextEditingController();
 
-  String _selectedCategory = _categories.first;
+  String _selectedCategory = _biteSaverCategories.first;
   bool _isLoading = true;
   bool _isSavingItem = false;
   bool _isUploadingImage = false;
   bool _hasPostingAccess = false;
+  RestaurantMenuSource? _activeSource;
   List<RestaurantMenuImage> _images = const [];
   List<RestaurantMenuItem> _items = const [];
 
   User? get _currentUser => FirebaseAuth.instance.currentUser;
+
+  List<String> get _categories =>
+      _sourceForUser(_currentUser)?.isSharedMenu == true
+      ? _biteScoreCategories
+      : _biteSaverCategories;
+
+  RestaurantMenuSource? _sourceForUser(User? user) {
+    final activeSource = _activeSource;
+    if (activeSource != null) {
+      return activeSource;
+    }
+    final providedSource = widget.source;
+    if (providedSource != null) {
+      return providedSource;
+    }
+    if (user == null) {
+      return null;
+    }
+    return RestaurantMenuSource.legacyBiteSaver(user.uid);
+  }
 
   @override
   void initState() {
@@ -67,19 +108,28 @@ class _RestaurantMenuManagementScreenState
     }
 
     try {
-      final accountData = await RestaurantAccountService.getAccountData(
-        user.uid,
-      );
-      final hasAccess = RestaurantAccountService.hasCouponPostingAccess(
-        accountData,
-      );
+      final source = _sourceForUser(user);
+      if (source == null || source.id.isEmpty) {
+        throw StateError('Menu source is unavailable.');
+      }
+
+      var hasAccess = true;
+      if (source.isLegacyBiteSaver) {
+        final accountData = await RestaurantAccountService.getAccountData(
+          user.uid,
+        );
+        hasAccess = RestaurantAccountService.hasCouponPostingAccess(
+          accountData,
+        );
+      }
       final results = await Future.wait([
-        RestaurantAccountService.loadMenuImages(user.uid),
-        RestaurantAccountService.loadMenuItems(user.uid),
+        RestaurantMenuService.loadMenuImages(source),
+        RestaurantMenuService.loadMenuItems(source),
       ]);
 
       if (!mounted) return;
       setState(() {
+        _activeSource = source;
         _hasPostingAccess = hasAccess;
         _images = results[0] as List<RestaurantMenuImage>;
         _items = results[1] as List<RestaurantMenuItem>;
@@ -117,16 +167,34 @@ class _RestaurantMenuManagementScreenState
     });
 
     try {
-      final imageUrl = await BiteSaverImageUploadService.pickAndUploadMenuImage(
-        uid: user.uid,
-      );
+      final source = _sourceForUser(user);
+      if (source == null || source.id.isEmpty) {
+        _showSnackBar('Please sign in to manage your menu.');
+        return;
+      }
+
+      String? imageUrl;
+      String? storagePath;
+      if (source.isSharedMenu) {
+        final upload =
+            await BiteSaverImageUploadService.pickAndUploadSharedMenuImage(
+              menuId: source.id,
+            );
+        imageUrl = upload?.imageUrl;
+        storagePath = upload?.storagePath;
+      } else {
+        imageUrl = await BiteSaverImageUploadService.pickAndUploadMenuImage(
+          uid: source.id,
+        );
+      }
       if (imageUrl == null) {
         return;
       }
 
-      final savedImage = await RestaurantAccountService.saveMenuImage(
-        uid: user.uid,
+      final savedImage = await RestaurantMenuService.saveMenuImage(
+        source: source,
         imageUrl: imageUrl,
+        storagePath: storagePath,
       );
       if (!mounted) return;
       setState(() {
@@ -169,8 +237,13 @@ class _RestaurantMenuManagementScreenState
     });
 
     try {
-      final savedItem = await RestaurantAccountService.saveMenuItem(
-        uid: user.uid,
+      final source = _sourceForUser(user);
+      if (source == null || source.id.isEmpty) {
+        _showSnackBar('Please sign in to manage your menu.');
+        return;
+      }
+      final savedItem = await RestaurantMenuService.saveMenuItem(
+        source: source,
         name: name,
         description: _descriptionController.text,
         price: _priceController.text,
@@ -204,10 +277,12 @@ class _RestaurantMenuManagementScreenState
   Future<void> _deleteImage(RestaurantMenuImage image) async {
     final user = _currentUser;
     if (user == null) return;
+    final source = _sourceForUser(user);
+    if (source == null || source.id.isEmpty) return;
 
     try {
-      await RestaurantAccountService.deleteMenuImage(
-        uid: user.uid,
+      await RestaurantMenuService.deleteMenuImage(
+        source: source,
         imageId: image.id,
       );
       if (!mounted) return;
@@ -228,10 +303,12 @@ class _RestaurantMenuManagementScreenState
   Future<void> _deleteItem(RestaurantMenuItem item) async {
     final user = _currentUser;
     if (user == null) return;
+    final source = _sourceForUser(user);
+    if (source == null || source.id.isEmpty) return;
 
     try {
-      await RestaurantAccountService.deleteMenuItem(
-        uid: user.uid,
+      await RestaurantMenuService.deleteMenuItem(
+        source: source,
         itemId: item.id,
       );
       if (!mounted) return;
@@ -386,7 +463,13 @@ class _RestaurantMenuManagementScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Manage Menu')),
+      appBar: AppBar(
+        title: Text(
+          widget.restaurantName?.trim().isNotEmpty == true
+              ? '${widget.restaurantName!.trim()} Menu'
+              : 'Manage Menu',
+        ),
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView(

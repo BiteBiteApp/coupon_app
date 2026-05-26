@@ -10,11 +10,13 @@ import '../services/app_error_text.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
+import '../services/restaurant_menu_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/biterater_theme.dart';
 import '../widgets/persistent_bottom_navigation.dart';
 import 'bitescore_create_rate_screen.dart';
 import 'bitescore_dish_detail_screen.dart';
+import 'restaurant_menu_screen.dart';
 
 class BiteScoreRestaurantDishesScreen extends StatefulWidget {
   final BitescoreRestaurant restaurant;
@@ -441,6 +443,33 @@ class _BiteScoreRestaurantDishesScreenState
     }
   }
 
+  Future<void> _openMenu() async {
+    final refreshedRestaurant = await BiteScoreService.loadRestaurantById(
+      _restaurant.id,
+    );
+    final menuId =
+        refreshedRestaurant?.sharedMenuId?.trim() ??
+        _restaurant.sharedMenuId?.trim();
+    if (menuId == null || menuId.isEmpty) {
+      _showSnackBar('Menu not available yet.');
+      return;
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => RestaurantMenuScreen(
+          restaurantName: refreshedRestaurant?.name ?? _restaurant.name,
+          source: RestaurantMenuSource.sharedMenu(menuId),
+          mode: AppMode.biteScore,
+        ),
+      ),
+    );
+  }
+
   Widget _buildRestaurantContactActions() {
     final actions = <Widget>[];
 
@@ -710,6 +739,26 @@ class _BiteScoreRestaurantDishesScreenState
     );
   }
 
+  Widget _buildMenuLink() {
+    return TextButton.icon(
+      onPressed: _openMenu,
+      style: TextButton.styleFrom(
+        foregroundColor: BiteRaterTheme.ocean,
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+        minimumSize: Size.zero,
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+      ),
+      icon: const Icon(Icons.menu_book_outlined, size: 17),
+      label: const Text(
+        'Menu',
+        style: TextStyle(
+          decoration: TextDecoration.underline,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+    );
+  }
+
   String _restaurantAddressLabel() {
     final cleanedAddress = _restaurant.address
         .trim()
@@ -902,7 +951,19 @@ class _BiteScoreRestaurantDishesScreenState
                             ),
                             if (_restaurant.isClaimed) ...[
                               const SizedBox(height: 10),
-                              _buildClaimedBadge(),
+                              Row(
+                                children: [
+                                  _buildClaimedBadge(),
+                                  const Spacer(),
+                                  _buildMenuLink(),
+                                ],
+                              ),
+                            ] else ...[
+                              const SizedBox(height: 6),
+                              Align(
+                                alignment: Alignment.centerRight,
+                                child: _buildMenuLink(),
+                              ),
                             ],
                             const SizedBox(height: 8),
                             InkWell(
