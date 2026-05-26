@@ -645,6 +645,12 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       if (locations.isEmpty) {
+        _debugLogBiteSaverSearchDiagnostics(
+          query: query,
+          allRestaurants: allRestaurants,
+          filteredRestaurants: const <Restaurant>[],
+          phase: 'geocode-empty',
+        );
         setState(() {
           isSearchingLocation = false;
           usingCurrentLocation = false;
@@ -674,6 +680,13 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         locationStatusMessage = 'Using "$query" as your search center.';
       });
+      final filteredAfterSearch = filterRestaurants(allRestaurants);
+      _debugLogBiteSaverSearchDiagnostics(
+        query: query,
+        allRestaurants: allRestaurants,
+        filteredRestaurants: filteredAfterSearch,
+        phase: 'geocode-success',
+      );
       SharedLocationStateService.saveTypedLocation(
         latitude: first.latitude,
         longitude: first.longitude,
@@ -683,7 +696,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (showNoResultsSnackBar) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          final filtered = filterRestaurants(allRestaurants);
+          final filtered = filteredAfterSearch;
           if (filtered.isEmpty && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -693,7 +706,13 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         });
       }
-    } catch (_) {
+    } catch (error) {
+      _debugLogBiteSaverSearchDiagnostics(
+        query: query,
+        allRestaurants: allRestaurants,
+        filteredRestaurants: const <Restaurant>[],
+        phase: 'geocode-error: $error',
+      );
       setState(() {
         isSearchingLocation = false;
         usingCurrentLocation = false;
@@ -703,6 +722,40 @@ class _HomeScreenState extends State<HomeScreen> {
         locationStatusMessage =
             'Could not find that city or ZIP for radius search.';
       });
+    }
+  }
+
+  void _debugLogBiteSaverSearchDiagnostics({
+    required String query,
+    required List<Restaurant> allRestaurants,
+    required List<Restaurant> filteredRestaurants,
+    required String phase,
+  }) {
+    if (!kDebugMode) return;
+
+    debugPrint(
+      '[BiteSaverSearch] phase="$phase" rawQuery="$query" '
+      'radius="$selectedRadius" loadedRestaurants=${allRestaurants.length} '
+      'filteredRestaurants=${filteredRestaurants.length}',
+    );
+
+    if (!SharedLocationStateService.isFiveDigitZipSearch(query)) {
+      return;
+    }
+
+    final zipMatches = allRestaurants
+        .where((restaurant) => restaurant.zipCode.trim() == query.trim())
+        .toList();
+    debugPrint(
+      '[BiteSaverSearch] zip="${query.trim()}" '
+      'matchingRestaurantCount=${zipMatches.length}',
+    );
+    for (final restaurant in zipMatches.take(5)) {
+      debugPrint(
+        '[BiteSaverSearch] zipSample name="${restaurant.name}" '
+        'city="${restaurant.city}" zip="${restaurant.zipCode}" '
+        'lat=${restaurant.latitude} lng=${restaurant.longitude}',
+      );
     }
   }
 
