@@ -1839,9 +1839,12 @@ class _OwnerRestaurantEditDialogState
   late final TextEditingController _websiteController;
   late final TextEditingController _bioController;
   late List<RestaurantBusinessHours> _businessHours;
+  late final List<RestaurantBusinessHours> _initialBusinessHours;
   late final Map<String, bool> _copyPreviousDay;
+  late final Map<TextEditingController, String> _initialTextValues;
   bool _businessHoursDirty = false;
   bool _isSaving = false;
+  bool _allowClose = false;
   String? _errorText;
 
   @override
@@ -1862,8 +1865,21 @@ class _OwnerRestaurantEditDialogState
     _businessHours = RestaurantBusinessHours.normalizedWeek(
       widget.restaurant.businessHours,
     );
+    _initialBusinessHours = [
+      for (final entry in _businessHours) entry.copyWith(),
+    ];
     _copyPreviousDay = {
       for (final day in Restaurant.businessDayNames) day: false,
+    };
+    _initialTextValues = {
+      _nameController: _nameController.text,
+      _addressController: _addressController.text,
+      _cityController: _cityController.text,
+      _stateController: _stateController.text,
+      _zipController: _zipController.text,
+      _phoneController: _phoneController.text,
+      _websiteController: _websiteController.text,
+      _bioController: _bioController.text,
     };
   }
 
@@ -1905,6 +1921,7 @@ class _OwnerRestaurantEditDialogState
       if (!mounted) {
         return;
       }
+      _allowClose = true;
       Navigator.of(context).pop(true);
     } catch (error) {
       if (!mounted) {
@@ -1919,6 +1936,71 @@ class _OwnerRestaurantEditDialogState
         _isSaving = false;
       });
     }
+  }
+
+  bool get _hasUnsavedChanges {
+    final textChanged = _initialTextValues.entries.any(
+      (entry) => entry.key.text != entry.value,
+    );
+    return textChanged || !_businessHoursMatch(_initialBusinessHours);
+  }
+
+  bool _businessHoursMatch(List<RestaurantBusinessHours> original) {
+    if (_businessHours.length != original.length) {
+      return false;
+    }
+
+    for (var index = 0; index < _businessHours.length; index += 1) {
+      final current = _businessHours[index];
+      final initial = original[index];
+      if (current.day != initial.day ||
+          current.opensAt != initial.opensAt ||
+          current.closesAt != initial.closesAt ||
+          current.closed != initial.closed) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Future<bool> _confirmDiscardChanges() async {
+    if (!_hasUnsavedChanges) {
+      return true;
+    }
+
+    final shouldLeave = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unsaved changes'),
+        content: const Text(
+          'You have unsaved restaurant profile changes.\nLeave without saving?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Stay'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Leave without saving'),
+          ),
+        ],
+      ),
+    );
+
+    return shouldLeave == true;
+  }
+
+  Future<void> _handleCancel() async {
+    if (_isSaving) {
+      return;
+    }
+    final shouldLeave = await _confirmDiscardChanges();
+    if (!mounted || !shouldLeave) {
+      return;
+    }
+    _allowClose = true;
+    Navigator.of(context).pop(false);
   }
 
   static List<String> _buildBusinessHourOptions() {
@@ -2154,107 +2236,121 @@ class _OwnerRestaurantEditDialogState
 
   @override
   Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Edit Restaurant Info'),
-      content: SizedBox(
-        width: 420,
-        child: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (_errorText != null) ...[
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFFFF1F2),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFFFCA5A5)),
-                  ),
-                  child: Text(
-                    _errorText!,
-                    style: const TextStyle(
-                      color: Color(0xFF991B1B),
-                      fontWeight: FontWeight.w700,
+    return PopScope(
+      canPop: _allowClose || !_hasUnsavedChanges,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop || _allowClose || _isSaving) {
+          return;
+        }
+        final shouldLeave = await _confirmDiscardChanges();
+        if (!context.mounted || !shouldLeave) {
+          return;
+        }
+        _allowClose = true;
+        Navigator.of(context).pop(false);
+      },
+      child: AlertDialog(
+        title: const Text('Edit Restaurant Info'),
+        content: SizedBox(
+          width: 420,
+          child: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_errorText != null) ...[
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF1F2),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFFCA5A5)),
+                    ),
+                    child: Text(
+                      _errorText!,
+                      style: const TextStyle(
+                        color: Color(0xFF991B1B),
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
+                  const SizedBox(height: 12),
+                ],
+                _OwnerTextField(
+                  controller: _nameController,
+                  label: 'Restaurant name',
                 ),
                 const SizedBox(height: 12),
+                _OwnerTextField(
+                  controller: _addressController,
+                  label: 'Street address',
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _OwnerTextField(
+                        controller: _cityController,
+                        label: 'City',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    SizedBox(
+                      width: 90,
+                      child: _OwnerTextField(
+                        controller: _stateController,
+                        label: 'State',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _OwnerTextField(
+                        controller: _zipController,
+                        label: 'ZIP code',
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _OwnerTextField(
+                        controller: _phoneController,
+                        label: 'Phone',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                _OwnerTextField(
+                  controller: _websiteController,
+                  label: 'Website',
+                  keyboardType: TextInputType.url,
+                ),
+                const SizedBox(height: 12),
+                _OwnerTextField(
+                  controller: _bioController,
+                  label: 'Bio / Notes',
+                  maxLines: 5,
+                ),
+                const SizedBox(height: 16),
+                _buildBusinessHoursEditor(),
               ],
-              _OwnerTextField(
-                controller: _nameController,
-                label: 'Restaurant name',
-              ),
-              const SizedBox(height: 12),
-              _OwnerTextField(
-                controller: _addressController,
-                label: 'Street address',
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _OwnerTextField(
-                      controller: _cityController,
-                      label: 'City',
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  SizedBox(
-                    width: 90,
-                    child: _OwnerTextField(
-                      controller: _stateController,
-                      label: 'State',
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _OwnerTextField(
-                      controller: _zipController,
-                      label: 'ZIP code',
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _OwnerTextField(
-                      controller: _phoneController,
-                      label: 'Phone',
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 12),
-              _OwnerTextField(
-                controller: _websiteController,
-                label: 'Website',
-                keyboardType: TextInputType.url,
-              ),
-              const SizedBox(height: 12),
-              _OwnerTextField(
-                controller: _bioController,
-                label: 'Bio / Notes',
-                maxLines: 5,
-              ),
-              const SizedBox(height: 16),
-              _buildBusinessHoursEditor(),
-            ],
+            ),
           ),
         ),
+        actions: [
+          TextButton(
+            onPressed: _isSaving ? null : _handleCancel,
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: _isSaving ? null : _save,
+            child: Text(_isSaving ? 'Saving...' : 'Save'),
+          ),
+        ],
       ),
-      actions: [
-        TextButton(
-          onPressed: _isSaving ? null : () => Navigator.of(context).pop(false),
-          child: const Text('Cancel'),
-        ),
-        FilledButton(
-          onPressed: _isSaving ? null : _save,
-          child: Text(_isSaving ? 'Saving...' : 'Save'),
-        ),
-      ],
     );
   }
 }

@@ -74,12 +74,16 @@ class _RestaurantCreateCouponScreenState
   bool _hasUsedTrial = false;
   bool _showNameChangeRequest = false;
   bool _submittingNameChangeRequest = false;
+  bool _allowProfileClose = false;
   String _subscriptionStatus = 'inactive';
   DateTime? _trialEndsAt;
   DateTime? couponStartTime;
   DateTime? couponEndTime;
   List<RestaurantBusinessHours> businessHours =
       RestaurantBusinessHours.defaultWeek();
+  List<RestaurantBusinessHours> _initialProfileBusinessHours =
+      RestaurantBusinessHours.defaultWeek();
+  Map<TextEditingController, String> _initialProfileTextValues = {};
   final Map<String, bool> copyPreviousDay = {
     for (final day in Restaurant.businessDayNames) day: false,
   };
@@ -90,6 +94,76 @@ class _RestaurantCreateCouponScreenState
   bool get isProximityCoupon => selectedCouponType == 'Proximity-only coupon';
   bool get isEditingCoupon => editingCouponId != null;
   User? get currentUser => FirebaseAuth.instance.currentUser;
+
+  bool get _hasUnsavedRestaurantProfileChanges {
+    final textChanged = _initialProfileTextValues.entries.any(
+      (entry) => entry.key.text != entry.value,
+    );
+    return textChanged || !_businessHoursMatch(_initialProfileBusinessHours);
+  }
+
+  void _captureRestaurantProfileSnapshot() {
+    _initialProfileTextValues = {
+      restaurantNameController: restaurantNameController.text,
+      cityController: cityController.text,
+      stateController: stateController.text,
+      zipCodeController: zipCodeController.text,
+      emailController: emailController.text,
+      phoneController: phoneController.text,
+      streetAddressController: streetAddressController.text,
+      websiteController: websiteController.text,
+      bioController: bioController.text,
+    };
+    _initialProfileBusinessHours = [
+      for (final entry in businessHours) entry.copyWith(),
+    ];
+  }
+
+  bool _businessHoursMatch(List<RestaurantBusinessHours> original) {
+    if (businessHours.length != original.length) {
+      return false;
+    }
+
+    for (var index = 0; index < businessHours.length; index += 1) {
+      final current = businessHours[index];
+      final initial = original[index];
+      if (current.day != initial.day ||
+          current.opensAt != initial.opensAt ||
+          current.closesAt != initial.closesAt ||
+          current.closed != initial.closed) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Future<bool> _confirmLeaveRestaurantProfileChanges() async {
+    if (!_hasUnsavedRestaurantProfileChanges) {
+      return true;
+    }
+
+    final shouldLeave = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Unsaved changes'),
+        content: const Text(
+          'You have unsaved restaurant profile changes.\nLeave without saving?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Stay'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Leave without saving'),
+          ),
+        ],
+      ),
+    );
+
+    return shouldLeave == true;
+  }
 
   Future<void> _openPaywallScreen() async {
     await Navigator.of(
@@ -644,6 +718,7 @@ class _RestaurantCreateCouponScreenState
     }
 
     if (mounted) {
+      _captureRestaurantProfileSnapshot();
       setState(() {
         profileLoading = false;
         couponsLoading = false;
@@ -1285,6 +1360,7 @@ class _RestaurantCreateCouponScreenState
       );
 
       if (!mounted) return;
+      _captureRestaurantProfileSnapshot();
       _showSnackBar('Restaurant profile saved.');
       setState(() {});
     } catch (error) {
@@ -1475,6 +1551,11 @@ class _RestaurantCreateCouponScreenState
   }
 
   Future<void> _signOutAndExitRestaurantHub() async {
+    final shouldLeave = await _confirmLeaveRestaurantProfileChanges();
+    if (!mounted || !shouldLeave) {
+      return;
+    }
+    _allowProfileClose = true;
     await CustomerSessionService.signOutToSignedOut();
     if (!mounted) {
       return;
@@ -2950,43 +3031,57 @@ class _RestaurantCreateCouponScreenState
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Restaurant: Create Coupon'),
-        centerTitle: true,
-        actions: [
-          TextButton.icon(
-            onPressed: () async {
-              await _signOutAndExitRestaurantHub();
-            },
-            icon: const Icon(Icons.logout),
-            label: const Text('Sign Out'),
-            style: TextButton.styleFrom(foregroundColor: Colors.black87),
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text(
-              'Restaurant Profile',
-              style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+    return PopScope(
+      canPop: _allowProfileClose || !_hasUnsavedRestaurantProfileChanges,
+      onPopInvokedWithResult: (didPop, result) async {
+        if (didPop || _allowProfileClose || profileSaving) {
+          return;
+        }
+        final shouldLeave = await _confirmLeaveRestaurantProfileChanges();
+        if (!context.mounted || !shouldLeave) {
+          return;
+        }
+        _allowProfileClose = true;
+        Navigator.of(context).pop();
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Restaurant: Create Coupon'),
+          centerTitle: true,
+          actions: [
+            TextButton.icon(
+              onPressed: () async {
+                await _signOutAndExitRestaurantHub();
+              },
+              icon: const Icon(Icons.logout),
+              label: const Text('Sign Out'),
+              style: TextButton.styleFrom(foregroundColor: Colors.black87),
             ),
-            const SizedBox(height: 16),
-            _buildBasicRestaurantInformationSection(),
-            _buildHoursSection(),
-            const SizedBox(height: 2),
-            _buildSaveProfileButton(),
-            const SizedBox(height: 12),
-            _buildRestaurantImageSection(),
-            const SizedBox(height: 12),
-            _buildManageMenuButton(),
-            const SizedBox(height: 16),
-            _buildCouponManagementSection(),
-            _buildCustomerPreviewSection(savedProfile),
           ],
+        ),
+        body: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Restaurant Profile',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              _buildBasicRestaurantInformationSection(),
+              _buildHoursSection(),
+              const SizedBox(height: 2),
+              _buildSaveProfileButton(),
+              const SizedBox(height: 12),
+              _buildRestaurantImageSection(),
+              const SizedBox(height: 12),
+              _buildManageMenuButton(),
+              const SizedBox(height: 16),
+              _buildCouponManagementSection(),
+              _buildCustomerPreviewSection(savedProfile),
+            ],
+          ),
         ),
       ),
     );
