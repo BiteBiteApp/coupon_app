@@ -234,9 +234,15 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
           ownerUserId: widget.currentUser.uid,
           restaurant: restaurant,
         );
+    final isAlreadyUsedByOtherSide = matchedBiteSaverUid == null
+        ? false
+        : await RestaurantMenuService.biteSaverUsesBiteScoreMenu(
+            matchedBiteSaverUid,
+          );
     return _BiteScoreMenuRoutingState(
       usesBiteSaver: usesBiteSaver,
       matchedBiteSaverUid: matchedBiteSaverUid,
+      isAlreadyUsedByOtherSide: isAlreadyUsedByOtherSide,
     );
   }
 
@@ -250,6 +256,10 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
         final uid = matchedBiteSaverUid?.trim();
         if (uid == null || uid.isEmpty) {
           _showSnackBar('Matching BiteSaver restaurant is required.');
+          return;
+        }
+        if (await RestaurantMenuService.biteSaverUsesBiteScoreMenu(uid)) {
+          _showSnackBar('This menu is already being used by the other side.');
           return;
         }
         await RestaurantMenuService.setBiteScoreMenuSourceToBiteSaver(
@@ -761,6 +771,8 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
         final state = snapshot.data;
         final usesBiteSaver = state?.usesBiteSaver == true;
         final hasMatch = state?.matchedBiteSaverUid != null;
+        final isAlreadyUsedByOtherSide =
+            state?.isAlreadyUsedByOtherSide == true;
         return Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -784,7 +796,8 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
                 value: usesBiteSaver,
                 onChanged:
                     snapshot.connectionState == ConnectionState.waiting ||
-                        (!usesBiteSaver && !hasMatch)
+                        (!usesBiteSaver &&
+                            (!hasMatch || isAlreadyUsedByOtherSide))
                     ? null
                     : (enabled) => _toggleBiteScoreUsesBiteSaverMenu(
                         restaurant: restaurant,
@@ -799,6 +812,8 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
               Text(
                 usesBiteSaver
                     ? 'Menu is managed on BiteSaver'
+                    : isAlreadyUsedByOtherSide
+                    ? 'This menu is already being used by the other side.'
                     : hasMatch
                     ? 'This restaurant matches your BiteSaver profile.'
                     : 'Matching BiteSaver restaurant required.',
@@ -1725,10 +1740,12 @@ class _OwnerInsights {
 class _BiteScoreMenuRoutingState {
   final bool usesBiteSaver;
   final String? matchedBiteSaverUid;
+  final bool isAlreadyUsedByOtherSide;
 
   const _BiteScoreMenuRoutingState({
     required this.usesBiteSaver,
     required this.matchedBiteSaverUid,
+    required this.isAlreadyUsedByOtherSide,
   });
 }
 

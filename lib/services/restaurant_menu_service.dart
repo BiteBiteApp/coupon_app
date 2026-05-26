@@ -295,6 +295,9 @@ class RestaurantMenuService {
         !biteScoreRestaurant.isClaimed) {
       throw StateError('Matching BiteRater restaurant is required.');
     }
+    if (await biteScoreUsesBiteSaverMenu(trimmedRestaurantId)) {
+      throw StateError('This menu is already being used by the other side.');
+    }
     await ensureSharedMenuForBiteScoreRestaurant(
       restaurant: biteScoreRestaurant,
       ownerUserId: trimmedUid,
@@ -345,6 +348,9 @@ class RestaurantMenuService {
     );
     if (matchedUid == null) {
       throw StateError('Matching BiteSaver restaurant is required.');
+    }
+    if (await biteSaverUsesBiteScoreMenu(matchedUid)) {
+      throw StateError('This menu is already being used by the other side.');
     }
     await _firestore
         .collection(BitescoreRestaurant.collectionName)

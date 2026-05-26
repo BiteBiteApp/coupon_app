@@ -194,6 +194,7 @@ class _RestaurantCreateCouponScreenState
       return const _BiteSaverMenuRoutingState(
         usesBiteRater: false,
         matchedBiteScoreRestaurant: null,
+        isAlreadyUsedByOtherSide: false,
       );
     }
     final usesBiteRater =
@@ -202,9 +203,15 @@ class _RestaurantCreateCouponScreenState
         await RestaurantMenuService.findLikelyBiteScoreMatchForBiteSaver(
           uid: user.uid,
         );
+    final isAlreadyUsedByOtherSide = matchedRestaurant == null
+        ? false
+        : await RestaurantMenuService.biteScoreUsesBiteSaverMenu(
+            matchedRestaurant.id,
+          );
     return _BiteSaverMenuRoutingState(
       usesBiteRater: usesBiteRater,
       matchedBiteScoreRestaurant: matchedRestaurant,
+      isAlreadyUsedByOtherSide: isAlreadyUsedByOtherSide,
     );
   }
 
@@ -223,6 +230,12 @@ class _RestaurantCreateCouponScreenState
         final restaurantId = matchedBiteScoreRestaurantId?.trim();
         if (restaurantId == null || restaurantId.isEmpty) {
           _showSnackBar('Matching BiteRater restaurant is required.');
+          return;
+        }
+        if (await RestaurantMenuService.biteScoreUsesBiteSaverMenu(
+          restaurantId,
+        )) {
+          _showSnackBar('This menu is already being used by the other side.');
           return;
         }
         await RestaurantMenuService.setBiteSaverMenuSourceToBiteScore(
@@ -2599,6 +2612,8 @@ class _RestaurantCreateCouponScreenState
         final state = snapshot.data;
         final usesBiteRater = state?.usesBiteRater == true;
         final hasMatch = state?.matchedBiteScoreRestaurant != null;
+        final isAlreadyUsedByOtherSide =
+            state?.isAlreadyUsedByOtherSide == true;
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -2625,7 +2640,8 @@ class _RestaurantCreateCouponScreenState
                     value: usesBiteRater,
                     onChanged:
                         snapshot.connectionState == ConnectionState.waiting ||
-                            (!usesBiteRater && !hasMatch)
+                            (!usesBiteRater &&
+                                (!hasMatch || isAlreadyUsedByOtherSide))
                         ? null
                         : (enabled) => _toggleBiteSaverUsesBiteRaterMenu(
                             enabled: enabled,
@@ -2640,6 +2656,8 @@ class _RestaurantCreateCouponScreenState
                   Text(
                     usesBiteRater
                         ? 'Menu is managed on BiteRater'
+                        : isAlreadyUsedByOtherSide
+                        ? 'This menu is already being used by the other side.'
                         : hasMatch
                         ? 'This restaurant matches your BiteRater profile.'
                         : 'Matching BiteRater restaurant required.',
@@ -2985,9 +3003,11 @@ enum _CouponAccountAccessState {
 class _BiteSaverMenuRoutingState {
   final bool usesBiteRater;
   final BitescoreRestaurant? matchedBiteScoreRestaurant;
+  final bool isAlreadyUsedByOtherSide;
 
   const _BiteSaverMenuRoutingState({
     required this.usesBiteRater,
     required this.matchedBiteScoreRestaurant,
+    required this.isAlreadyUsedByOtherSide,
   });
 }
