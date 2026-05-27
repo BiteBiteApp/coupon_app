@@ -645,12 +645,6 @@ class _HomeScreenState extends State<HomeScreen> {
       );
 
       if (locations.isEmpty) {
-        _debugLogBiteSaverSearchDiagnostics(
-          query: query,
-          allRestaurants: allRestaurants,
-          filteredRestaurants: const <Restaurant>[],
-          phase: 'geocode-empty',
-        );
         setState(() {
           isSearchingLocation = false;
           usingCurrentLocation = false;
@@ -680,13 +674,6 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         locationStatusMessage = 'Using "$query" as your search center.';
       });
-      final filteredAfterSearch = filterRestaurants(allRestaurants);
-      _debugLogBiteSaverSearchDiagnostics(
-        query: query,
-        allRestaurants: allRestaurants,
-        filteredRestaurants: filteredAfterSearch,
-        phase: 'geocode-success',
-      );
       SharedLocationStateService.saveTypedLocation(
         latitude: first.latitude,
         longitude: first.longitude,
@@ -696,7 +683,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       if (showNoResultsSnackBar) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          final filtered = filteredAfterSearch;
+          final filtered = filterRestaurants(allRestaurants);
           if (filtered.isEmpty && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -706,13 +693,7 @@ class _HomeScreenState extends State<HomeScreen> {
           }
         });
       }
-    } catch (error) {
-      _debugLogBiteSaverSearchDiagnostics(
-        query: query,
-        allRestaurants: allRestaurants,
-        filteredRestaurants: const <Restaurant>[],
-        phase: 'geocode-error: $error',
-      );
+    } catch (_) {
       setState(() {
         isSearchingLocation = false;
         usingCurrentLocation = false;
@@ -722,40 +703,6 @@ class _HomeScreenState extends State<HomeScreen> {
         locationStatusMessage =
             'Could not find that city or ZIP for radius search.';
       });
-    }
-  }
-
-  void _debugLogBiteSaverSearchDiagnostics({
-    required String query,
-    required List<Restaurant> allRestaurants,
-    required List<Restaurant> filteredRestaurants,
-    required String phase,
-  }) {
-    if (!kDebugMode) return;
-
-    debugPrint(
-      '[BiteSaverSearch] phase="$phase" rawQuery="$query" '
-      'radius="$selectedRadius" loadedRestaurants=${allRestaurants.length} '
-      'filteredRestaurants=${filteredRestaurants.length}',
-    );
-
-    if (!SharedLocationStateService.isFiveDigitZipSearch(query)) {
-      return;
-    }
-
-    final zipMatches = allRestaurants
-        .where((restaurant) => restaurant.zipCode.trim() == query.trim())
-        .toList();
-    debugPrint(
-      '[BiteSaverSearch] zip="${query.trim()}" '
-      'matchingRestaurantCount=${zipMatches.length}',
-    );
-    for (final restaurant in zipMatches.take(5)) {
-      debugPrint(
-        '[BiteSaverSearch] zipSample name="${restaurant.name}" '
-        'city="${restaurant.city}" zip="${restaurant.zipCode}" '
-        'lat=${restaurant.latitude} lng=${restaurant.longitude}',
-      );
     }
   }
 
@@ -992,19 +939,29 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   bool matchesGeneralSearch(Restaurant restaurant, Coupon coupon) {
-    final query = generalSearchQuery.trim().toLowerCase();
+    final query = _normalizeRestaurantSearchText(generalSearchQuery);
     if (query.isEmpty) {
       return true;
     }
 
-    return restaurant.name.toLowerCase().contains(query) ||
-        restaurant.city.toLowerCase().contains(query) ||
-        restaurant.zipCode.toLowerCase().contains(query) ||
-        (restaurant.bio ?? '').toLowerCase().contains(query) ||
-        coupon.title.toLowerCase().contains(query) ||
-        coupon.restaurant.toLowerCase().contains(query) ||
-        coupon.usageRule.toLowerCase().contains(query) ||
-        (coupon.couponCode ?? '').toLowerCase().contains(query);
+    return _normalizeRestaurantSearchText(restaurant.name).contains(query) ||
+        _normalizeRestaurantSearchText(restaurant.city).contains(query) ||
+        _normalizeRestaurantSearchText(restaurant.zipCode).contains(query) ||
+        _normalizeRestaurantSearchText(restaurant.bio ?? '').contains(query) ||
+        _normalizeRestaurantSearchText(coupon.title).contains(query) ||
+        _normalizeRestaurantSearchText(coupon.restaurant).contains(query) ||
+        _normalizeRestaurantSearchText(coupon.usageRule).contains(query) ||
+        _normalizeRestaurantSearchText(coupon.couponCode ?? '').contains(query);
+  }
+
+  String _normalizeRestaurantSearchText(String value) {
+    return value
+        .trim()
+        .toLowerCase()
+        .replaceAll(RegExp(r"[\u2018\u2019\u201B\u2032']"), '')
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
   }
 
   String _toTitleCase(String value) {

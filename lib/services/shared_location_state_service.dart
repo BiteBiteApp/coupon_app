@@ -215,50 +215,17 @@ class SharedLocationStateService {
   static Future<List<Location>> geocodeSearchQuery(String query) async {
     final trimmedQuery = query.trim();
     final candidates = _geocodeCandidatesFor(trimmedQuery);
-    final shouldInspectAllCandidates = kDebugMode && candidates.length > 1;
     Object? lastError;
-    List<Location>? selectedLocations;
-    String? selectedCandidate;
-
-    debugPrint(
-      '[LocationGeocode] rawQuery="$trimmedQuery" '
-      'candidates="${candidates.join(' | ')}"',
-    );
 
     for (final candidate in candidates) {
       try {
-        debugPrint('[LocationGeocode] locationFromAddress("$candidate")');
         final locations = await locationFromAddress(candidate);
-        debugPrint(
-          '[LocationGeocode] candidate="$candidate" '
-          'returned ${locations.length} result(s)',
-        );
-        await _debugPrintGeocodeResults(candidate, locations);
         if (locations.isNotEmpty) {
-          selectedLocations ??= locations;
-          selectedCandidate ??= candidate;
-          if (!shouldInspectAllCandidates) {
-            debugPrint(
-              '[LocationGeocode] usingCandidate="$candidate" '
-              'lat=${locations.first.latitude}, '
-              'lng=${locations.first.longitude}',
-            );
-            return locations;
-          }
+          return locations;
         }
       } catch (error) {
-        debugPrint('[LocationGeocode] candidate="$candidate" error="$error"');
         lastError = error;
       }
-    }
-
-    if (selectedLocations != null) {
-      debugPrint(
-        '[LocationGeocode] usingCandidate="$selectedCandidate" '
-        'lat=${selectedLocations.first.latitude}, '
-        'lng=${selectedLocations.first.longitude}',
-      );
-      return selectedLocations;
     }
 
     if (lastError != null) {
@@ -267,57 +234,10 @@ class SharedLocationStateService {
     return const <Location>[];
   }
 
-  static bool isFiveDigitZipSearch(String query) {
-    return _fiveDigitZipPattern.hasMatch(query.trim());
-  }
-
   static List<String> _geocodeCandidatesFor(String query) {
     if (!kIsWeb && Platform.isIOS && _fiveDigitZipPattern.hasMatch(query)) {
       return <String>['$query, USA', query];
     }
     return <String>[query];
-  }
-
-  static Future<void> _debugPrintGeocodeResults(
-    String candidate,
-    List<Location> locations,
-  ) async {
-    if (!kDebugMode) return;
-
-    for (var index = 0; index < locations.length; index += 1) {
-      final location = locations[index];
-      debugPrint(
-        '[LocationGeocode] candidate="$candidate" result[$index] '
-        'lat=${location.latitude}, lng=${location.longitude}',
-      );
-
-      try {
-        final placemarks = await placemarkFromCoordinates(
-          location.latitude,
-          location.longitude,
-        );
-        if (placemarks.isEmpty) {
-          debugPrint(
-            '[LocationGeocode] candidate="$candidate" result[$index] '
-            'reverse=none',
-          );
-          continue;
-        }
-
-        final placemark = placemarks.first;
-        debugPrint(
-          '[LocationGeocode] candidate="$candidate" result[$index] '
-          'reverse locality="${placemark.locality}" '
-          'state="${placemark.administrativeArea}" '
-          'postalCode="${placemark.postalCode}" '
-          'country="${placemark.country}"',
-        );
-      } catch (error) {
-        debugPrint(
-          '[LocationGeocode] candidate="$candidate" result[$index] '
-          'reverseError="$error"',
-        );
-      }
-    }
   }
 }

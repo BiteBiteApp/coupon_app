@@ -264,11 +264,6 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         query,
       );
       if (locations.isEmpty) {
-        _debugLogBiteScoreSearchDiagnostics(
-          query: query,
-          filteredEntries: const <BiteScoreHomeEntry>[],
-          phase: 'geocode-empty',
-        );
         throw Exception('No matching location found.');
       }
 
@@ -282,12 +277,6 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         currentPosition = null;
         _launchLocationMessage = null;
       });
-      final filteredAfterSearch = _filteredEntries(_entries);
-      _debugLogBiteScoreSearchDiagnostics(
-        query: query,
-        filteredEntries: filteredAfterSearch,
-        phase: 'geocode-success',
-      );
       SharedLocationStateService.saveTypedLocation(
         latitude: locations.first.latitude,
         longitude: locations.first.longitude,
@@ -296,11 +285,6 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
       );
     } catch (error) {
       if (!mounted) return;
-      _debugLogBiteScoreSearchDiagnostics(
-        query: query,
-        filteredEntries: _filteredEntries(_entries),
-        phase: 'geocode-error: $error',
-      );
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -317,51 +301,6 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
           isSearchingLocation = false;
         });
       }
-    }
-  }
-
-  void _debugLogBiteScoreSearchDiagnostics({
-    required String query,
-    required List<BiteScoreHomeEntry> filteredEntries,
-    required String phase,
-  }) {
-    if (!kDebugMode) return;
-
-    final loadedRestaurants = <String, BitescoreRestaurant>{};
-    for (final entry in _entries) {
-      loadedRestaurants[entry.restaurant.id] = entry.restaurant;
-    }
-    final filteredRestaurants = <String, BitescoreRestaurant>{};
-    for (final entry in filteredEntries) {
-      filteredRestaurants[entry.restaurant.id] = entry.restaurant;
-    }
-
-    debugPrint(
-      '[BiteScoreSearch] phase="$phase" rawQuery="$query" '
-      'radius="$selectedRadius" '
-      'loadedRestaurants=${loadedRestaurants.length} '
-      'filteredRestaurants=${filteredRestaurants.length} '
-      'loadedEntries=${_entries.length} '
-      'filteredEntries=${filteredEntries.length}',
-    );
-
-    if (!SharedLocationStateService.isFiveDigitZipSearch(query)) {
-      return;
-    }
-
-    final zipMatches = loadedRestaurants.values
-        .where((restaurant) => restaurant.zipCode.trim() == query.trim())
-        .toList();
-    debugPrint(
-      '[BiteScoreSearch] zip="${query.trim()}" '
-      'matchingRestaurantCount=${zipMatches.length}',
-    );
-    for (final restaurant in zipMatches.take(5)) {
-      debugPrint(
-        '[BiteScoreSearch] zipSample name="${restaurant.name}" '
-        'city="${restaurant.city}" zip="${restaurant.zipCode}" '
-        'lat=${restaurant.latitude} lng=${restaurant.longitude}',
-      );
     }
   }
 
@@ -538,7 +477,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     return value
         .trim()
         .toLowerCase()
+        .replaceAll(RegExp(r"[\u2018\u2019\u201B\u2032']"), '')
         .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
         .trim();
   }
 
