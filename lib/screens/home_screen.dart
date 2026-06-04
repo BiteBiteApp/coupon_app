@@ -934,8 +934,13 @@ class _HomeScreenState extends State<HomeScreen> {
       return false;
     }
 
-    return restaurant.city.trim().toLowerCase() == normalizedQuery ||
+    return _normalizeCityForExactMatch(restaurant.city) ==
+            _normalizeCityForExactMatch(trimmedQuery) ||
         restaurant.zipCode.trim() == trimmedQuery;
+  }
+
+  String _normalizeCityForExactMatch(String value) {
+    return value.split(',').first.trim().toLowerCase();
   }
 
   bool matchesGeneralSearch(Restaurant restaurant, Coupon coupon) {

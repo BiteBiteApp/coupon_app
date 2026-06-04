@@ -235,12 +235,31 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   }
 
   String _distanceLabel(BiteScoreHomeEntry entry) {
+    if (_isExactLocationMatch(entry)) {
+      return 'Local';
+    }
+
     final distanceMiles = _distanceMilesFor(entry);
     if (distanceMiles == null) {
       return 'Distance unavailable';
     }
 
     return '${distanceMiles.toStringAsFixed(1)} mi';
+  }
+
+  bool _isExactLocationMatch(BiteScoreHomeEntry entry) {
+    final query = typedSearchCenter?.label.trim() ?? '';
+    if (query.isEmpty) {
+      return false;
+    }
+
+    return _normalizeCityForExactMatch(entry.restaurant.city) ==
+            _normalizeCityForExactMatch(query) ||
+        entry.restaurant.zipCode.trim() == query;
+  }
+
+  String _normalizeCityForExactMatch(String value) {
+    return value.split(',').first.trim().toLowerCase();
   }
 
   Future<void> _searchLocation() async {
