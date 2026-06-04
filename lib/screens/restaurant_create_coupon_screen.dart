@@ -47,7 +47,7 @@ class _RestaurantCreateCouponScreenState
   final TextEditingController requestedRestaurantNameController =
       TextEditingController();
 
-  String selectedUsageRule = 'Once per customer';
+  String selectedUsageRule = 'Unlimited';
   String selectedCouponType = 'Normal coupon';
   String selectedProximityRadius = '1 mile';
   String? editingCouponId;
@@ -1594,7 +1594,7 @@ class _RestaurantCreateCouponScreenState
       couponCodeController.clear();
       couponDetailsController.clear();
       couponImageUrl = null;
-      selectedUsageRule = 'Once per customer';
+      selectedUsageRule = 'Unlimited';
       selectedCouponType = 'Normal coupon';
       selectedProximityRadius = '1 mile';
       _resetCouponSchedule();
