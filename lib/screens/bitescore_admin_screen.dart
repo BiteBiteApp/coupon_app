@@ -2970,19 +2970,11 @@ class _BiteScoreUsersAdminListState extends State<_BiteScoreUsersAdminList> {
     if (!mounted) {
       return;
     }
-    final isSearching = _searchController.text.trim().isNotEmpty;
-    setState(() {
-      if (isSearching) {
-        _refreshUsers();
-      }
-    });
+    setState(() {});
   }
 
   void _refreshUsers() {
-    final query = _searchController.text.trim();
-    _usersFuture = query.isEmpty
-        ? BiteScoreService.loadUsersForAdmin()
-        : BiteScoreService.searchUsersForAdmin(query);
+    _usersFuture = BiteScoreService.loadUsersForAdmin();
   }
 
   void _showSnackBar(BuildContext context, String message) {
@@ -3098,14 +3090,7 @@ class _BiteScoreUsersAdminListState extends State<_BiteScoreUsersAdminList> {
               child: _AdminSearchField(
                 controller: _searchController,
                 label: 'Search users',
-                onChanged: (_) {
-                  final isSearching = _searchController.text.trim().isNotEmpty;
-                  setState(() {
-                    if (isSearching) {
-                      _refreshUsers();
-                    }
-                  });
-                },
+                onChanged: (_) => setState(() {}),
               ),
             ),
             if (includeRefresh) ...[
@@ -3125,8 +3110,10 @@ class _BiteScoreUsersAdminListState extends State<_BiteScoreUsersAdminList> {
             onPressed: () {
               setState(() {
                 _showAllUsers = !_showAllUsers;
-                if (_showAllUsers && _usersFuture == null) {
+                if (_showAllUsers) {
                   _refreshUsers();
+                } else {
+                  _usersFuture = null;
                 }
               });
             },
@@ -3139,10 +3126,7 @@ class _BiteScoreUsersAdminListState extends State<_BiteScoreUsersAdminList> {
 
   @override
   Widget build(BuildContext context) {
-    final isSearching = _searchController.text.trim().isNotEmpty;
-    final shouldLoadUsers = _showAllUsers || isSearching;
-
-    if (!shouldLoadUsers) {
+    if (!_showAllUsers) {
       return ListView(
         padding: const EdgeInsets.all(16),
         children: [
