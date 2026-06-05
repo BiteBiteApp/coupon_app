@@ -37,6 +37,13 @@
             {
               "client_id": "253983587346-bqkv4qsf93390ctdjctpq9nuup2r9lhe.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "253983587346-542ffd5n277c54pmp03kek55u8lp0usn.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.couponApp"
+              }
             }
           ]
         }
@@ -74,6 +81,13 @@
             {
               "client_id": "253983587346-bqkv4qsf93390ctdjctpq9nuup2r9lhe.apps.googleusercontent.com",
               "client_type": 3
+            },
+            {
+              "client_id": "253983587346-542ffd5n277c54pmp03kek55u8lp0usn.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.couponApp"
+              }
             }
           ]
         }
