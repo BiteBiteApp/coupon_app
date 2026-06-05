@@ -267,6 +267,7 @@ class _BiteScoreRestaurantAdminList extends StatefulWidget {
 class _BiteScoreRestaurantAdminListState
     extends State<_BiteScoreRestaurantAdminList> {
   final TextEditingController _searchController = TextEditingController();
+  bool _showAllBiteScoreRestaurants = false;
 
   @override
   void dispose() {
@@ -357,8 +358,54 @@ class _BiteScoreRestaurantAdminListState
     }
   }
 
+  Widget _buildRestaurantSearchControls() {
+    return Column(
+      children: [
+        _AdminSearchField(
+          controller: _searchController,
+          label: 'Search restaurants',
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerRight,
+          child: OutlinedButton(
+            onPressed: () {
+              setState(() {
+                _showAllBiteScoreRestaurants = !_showAllBiteScoreRestaurants;
+              });
+            },
+            child: Text(
+              _showAllBiteScoreRestaurants
+                  ? 'Hide All Restaurants'
+                  : 'View All Restaurants',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isSearching = _searchController.text.trim().isNotEmpty;
+    final shouldLoadRestaurants = _showAllBiteScoreRestaurants || isSearching;
+
+    if (!shouldLoadRestaurants) {
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildRestaurantSearchControls(),
+          const SizedBox(height: 12),
+          const _AdminEmptyStateCard(
+            icon: Icons.storefront_outlined,
+            title: 'Find Restaurants',
+            message: 'Search for a restaurant or tap View All Restaurants.',
+          ),
+        ],
+      );
+    }
+
     return StreamBuilder<List<BitescoreRestaurant>>(
       stream: BiteScoreService.restaurantsAdminStream(),
       builder: (context, snapshot) {
@@ -388,7 +435,15 @@ class _BiteScoreRestaurantAdminListState
                 restaurant.state,
                 restaurant.zipCode,
                 restaurant.phone,
+                restaurant.website,
                 restaurant.ownerUserId,
+                restaurant.isActive ? 'active' : 'hidden',
+                [
+                  restaurant.address,
+                  restaurant.city,
+                  restaurant.state,
+                  restaurant.zipCode,
+                ].where((part) => part.trim().isNotEmpty).join(' '),
               ]),
             )
             .toList(growable: false);
@@ -396,11 +451,7 @@ class _BiteScoreRestaurantAdminListState
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _AdminSearchField(
-              controller: _searchController,
-              label: 'Search restaurants',
-              onChanged: (_) => setState(() {}),
-            ),
+            _buildRestaurantSearchControls(),
             const SizedBox(height: 12),
             if (restaurants.isEmpty)
               const _AdminEmptyStateCard(
