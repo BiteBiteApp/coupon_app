@@ -2673,6 +2673,7 @@ class _BiteScoreApprovedOwnershipAdminList extends StatefulWidget {
 class _BiteScoreApprovedOwnershipAdminListState
     extends State<_BiteScoreApprovedOwnershipAdminList> {
   final TextEditingController _searchController = TextEditingController();
+  bool _showAllClaimedRestaurants = false;
 
   @override
   void dispose() {
@@ -2762,8 +2763,56 @@ class _BiteScoreApprovedOwnershipAdminListState
     }
   }
 
+  Widget _buildClaimedRestaurantSearchControls() {
+    return Column(
+      children: [
+        _AdminSearchField(
+          controller: _searchController,
+          label: 'Search claimed restaurants',
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerRight,
+          child: OutlinedButton(
+            onPressed: () {
+              setState(() {
+                _showAllClaimedRestaurants = !_showAllClaimedRestaurants;
+              });
+            },
+            child: Text(
+              _showAllClaimedRestaurants
+                  ? 'Hide All Claimed Restaurants'
+                  : 'View All Claimed Restaurants',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isSearching = _searchController.text.trim().isNotEmpty;
+    final shouldLoadClaimedRestaurants =
+        _showAllClaimedRestaurants || isSearching;
+
+    if (!shouldLoadClaimedRestaurants) {
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildClaimedRestaurantSearchControls(),
+          const SizedBox(height: 12),
+          const _AdminEmptyStateCard(
+            icon: Icons.verified_outlined,
+            title: 'Find Claimed Restaurants',
+            message:
+                'Search for a claimed restaurant or tap View All Claimed Restaurants.',
+          ),
+        ],
+      );
+    }
+
     return StreamBuilder<List<BiteScoreApprovedOwnershipEntry>>(
       stream: BiteScoreService.approvedOwnershipsAdminStream(),
       builder: (context, snapshot) {
@@ -2791,7 +2840,15 @@ class _BiteScoreApprovedOwnershipAdminListState
                 entry.restaurant.name,
                 entry.restaurant.city,
                 entry.restaurant.state,
+                entry.restaurant.zipCode,
+                entry.restaurant.address,
+                entry.restaurant.phone,
+                entry.restaurant.website,
+                entry.restaurant.id,
                 entry.restaurant.ownerUserId,
+                entry.approvedClaim?.status,
+                entry.approvedClaim?.requesterUserId,
+                entry.approvedClaim?.restaurantId,
                 entry.approvedClaim?.email,
                 entry.approvedClaim?.phone,
                 entry.approvedClaim?.claimantName,
@@ -2802,11 +2859,7 @@ class _BiteScoreApprovedOwnershipAdminListState
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _AdminSearchField(
-              controller: _searchController,
-              label: 'Search claimed restaurants',
-              onChanged: (_) => setState(() {}),
-            ),
+            _buildClaimedRestaurantSearchControls(),
             const SizedBox(height: 12),
             if (entries.isEmpty)
               const _AdminEmptyStateCard(
