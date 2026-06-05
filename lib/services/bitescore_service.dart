@@ -185,12 +185,14 @@ class BiteScoreReportedReviewAdminEntry {
   final DishReview review;
   final String dishName;
   final String restaurantName;
+  final String reviewerDisplayName;
   final List<ReviewReport> reports;
 
   const BiteScoreReportedReviewAdminEntry({
     required this.review,
     required this.dishName,
     required this.restaurantName,
+    required this.reviewerDisplayName,
     required this.reports,
   });
 
@@ -982,6 +984,14 @@ class BiteScoreService {
                 .add(report);
           }
 
+          final reportedReviews = reportsByReviewId.keys
+              .map((reviewId) => reviewsById[reviewId])
+              .whereType<DishReview>()
+              .toList();
+          final reviewerNamesByUserId = await loadReviewerDisplayNames(
+            reportedReviews,
+          );
+
           final entries =
               reportsByReviewId.entries
                   .map((group) {
@@ -1007,6 +1017,8 @@ class BiteScoreService {
                       restaurantName:
                           restaurantsById[review.restaurantId]?.name ??
                           'Unknown restaurant',
+                      reviewerDisplayName:
+                          reviewerNamesByUserId[review.userId] ?? review.userId,
                       reports: reports,
                     );
                   })

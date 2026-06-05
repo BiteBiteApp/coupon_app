@@ -1150,6 +1150,7 @@ class _BiteScoreReportedReviewAdminListState
             .where(
               (entry) => _matchesAdminQuery(_searchController.text, [
                 entry.review.userId,
+                entry.reviewerDisplayName,
                 entry.dishName,
                 entry.restaurantName,
                 entry.reportStatus,
@@ -1209,7 +1210,7 @@ class _BiteScoreReportedReviewAdminListState
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Review by ${review.userId}',
+                          'Review by ${entry.reviewerDisplayName}',
                           style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
