@@ -16,9 +16,7 @@ class AdminGateScreen extends StatelessWidget {
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
-            body: Center(
-              child: CircularProgressIndicator(),
-            ),
+            body: Center(child: CircularProgressIndicator()),
           );
         }
 
@@ -28,20 +26,14 @@ class AdminGateScreen extends StatelessWidget {
 
         if (user == null || user.isAnonymous) {
           return Scaffold(
-            appBar: AppBar(
-              title: const Text('Admin'),
-              centerTitle: true,
-            ),
+            appBar: AppBar(title: const Text('Admin'), centerTitle: true),
             body: Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.lock_outline,
-                      size: 56,
-                    ),
+                    const Icon(Icons.lock_outline, size: 56),
                     const SizedBox(height: 16),
                     const Text(
                       'Admin Access Locked',
@@ -66,9 +58,7 @@ class AdminGateScreen extends StatelessWidget {
                       child: const Text(
                         'Sign in through Restaurant Hub with your admin-approved account to continue.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: Colors.black54,
-                        ),
+                        style: TextStyle(color: Colors.black54),
                       ),
                     ),
                   ],
@@ -80,20 +70,14 @@ class AdminGateScreen extends StatelessWidget {
 
         if (!isAdmin) {
           return Scaffold(
-            appBar: AppBar(
-              title: const Text('Admin'),
-              centerTitle: true,
-            ),
+            appBar: AppBar(title: const Text('Admin'), centerTitle: true),
             body: Center(
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Icon(
-                      Icons.admin_panel_settings_outlined,
-                      size: 56,
-                    ),
+                    const Icon(Icons.admin_panel_settings_outlined, size: 56),
                     const SizedBox(height: 16),
                     const Text(
                       'Admin Access Denied',
@@ -148,64 +132,57 @@ class AdminGateScreen extends StatelessWidget {
                 ),
               ],
             ),
-            body: Column(
-              children: [
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.blue.shade200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Admin Session Active',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Text(
-                        'Signed in as ${email ?? ''}',
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'You can manage coupon-side and rating-side data from this shared admin area.',
-                        style: TextStyle(
-                          color: Colors.black54,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            body: NestedScrollView(
+              headerSliverBuilder: (context, innerBoxIsScrolled) => [
+                SliverToBoxAdapter(
                   child: Container(
+                    width: double.infinity,
+                    margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+                    padding: const EdgeInsets.all(14),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
+                      color: Colors.blue.shade50,
                       borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.blue.shade200),
                     ),
-                    child: const TabBar(
-                      tabs: [
-                        Tab(text: 'Coupon Side'),
-                        Tab(text: 'Rating Side'),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'Admin Session Active',
+                          style: TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 6),
+                        Text('Signed in as ${email ?? ''}'),
+                        const SizedBox(height: 6),
+                        const Text(
+                          'You can manage coupon-side and rating-side data from this shared admin area.',
+                          style: TextStyle(color: Colors.black54),
+                        ),
                       ],
                     ),
                   ),
                 ),
-                const Expanded(
-                  child: TabBarView(
-                    children: [
-                      AdminReviewScreen(),
-                      BiteScoreAdminScreen(),
-                    ],
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const TabBar(
+                        tabs: [
+                          Tab(text: 'Coupon Side'),
+                          Tab(text: 'Rating Side'),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
               ],
+              body: const TabBarView(
+                children: [AdminReviewScreen(), BiteScoreAdminScreen()],
+              ),
             ),
           ),
         );

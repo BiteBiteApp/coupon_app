@@ -16,8 +16,7 @@ class AdminReviewScreen extends StatefulWidget {
 
 class _AdminReviewScreenState extends State<AdminReviewScreen> {
   final TextEditingController _searchController = TextEditingController();
-  late final Stream<QuerySnapshot<Map<String, dynamic>>>
-  _pendingAccountsStream;
+  late final Stream<QuerySnapshot<Map<String, dynamic>>> _pendingAccountsStream;
   late final Stream<QuerySnapshot<Map<String, dynamic>>> _allAccountsStream;
   late final Stream<QuerySnapshot<Map<String, dynamic>>>
   _nameChangeRequestsStream;
@@ -27,6 +26,7 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _filteredRestaurantList =
       const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
   bool _showAllRestaurants = false;
+  String _restaurantSearchQuery = '';
 
   @override
   void initState() {
@@ -39,21 +39,32 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
         .collection('bitesaver_reports')
         .where('status', isEqualTo: 'open')
         .snapshots();
-    _searchController.addListener(_handleSearchChanged);
   }
 
   @override
   void dispose() {
-    _searchController.removeListener(_handleSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
 
-  void _handleSearchChanged() {
+  void _runRestaurantSearch() {
+    final query = _searchController.text.trim();
     setState(() {
+      _restaurantSearchQuery = query;
       _filteredRestaurantList = _buildFilteredRestaurantList(
         _fullRestaurantList,
-        _searchController.text,
+        query,
+      );
+    });
+  }
+
+  void _clearRestaurantSearch() {
+    _searchController.clear();
+    setState(() {
+      _restaurantSearchQuery = '';
+      _filteredRestaurantList = _buildFilteredRestaurantList(
+        _fullRestaurantList,
+        '',
       );
     });
   }
@@ -133,7 +144,7 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
   }
 
   Stream<QuerySnapshot<Map<String, dynamic>>> _restaurantAccountsStream() {
-    if (_showAllRestaurants || _searchController.text.trim().isNotEmpty) {
+    if (_showAllRestaurants || _restaurantSearchQuery.isNotEmpty) {
       return _allAccountsStream;
     }
     return _pendingAccountsStream;
@@ -754,6 +765,65 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
     );
   }
 
+  Widget _buildRestaurantSearchControls({required bool showingAllAccounts}) {
+    return Column(
+      children: [
+        TextField(
+          controller: _searchController,
+          textInputAction: TextInputAction.search,
+          onSubmitted: (_) => _runRestaurantSearch(),
+          decoration: InputDecoration(
+            hintText: 'Search restaurants',
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  tooltip: 'Search',
+                  onPressed: _runRestaurantSearch,
+                  icon: const Icon(Icons.search),
+                ),
+                if (_restaurantSearchQuery.isNotEmpty)
+                  IconButton(
+                    tooltip: 'Clear search',
+                    onPressed: _clearRestaurantSearch,
+                    icon: const Icon(Icons.clear),
+                  ),
+              ],
+            ),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                showingAllAccounts
+                    ? 'Showing all restaurant accounts.'
+                    : 'Showing pending restaurant approvals only.',
+                style: const TextStyle(color: Colors.black54),
+              ),
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton(
+              onPressed: () {
+                setState(() {
+                  _showAllRestaurants = !_showAllRestaurants;
+                });
+              },
+              child: Text(
+                _showAllRestaurants
+                    ? 'Show Pending Only'
+                    : 'View All Restaurants',
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
   Widget _buildRestaurantsTab() {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
       stream: _restaurantAccountsStream(),
@@ -813,295 +883,223 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
             );
         _filteredRestaurantList = _buildFilteredRestaurantList(
           _fullRestaurantList,
-          _searchController.text,
+          _restaurantSearchQuery,
         );
-        final isSearching = _searchController.text.trim().isNotEmpty;
+        final isSearching = _restaurantSearchQuery.isNotEmpty;
         final showingAllAccounts = _showAllRestaurants || isSearching;
 
-        return Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: Column(
-                children: [
-                  TextField(
-                    controller: _searchController,
-                    decoration: InputDecoration(
-                      hintText: 'Search restaurants',
-                      prefixIcon: const Icon(Icons.search),
-                      suffixIcon: _searchController.text.trim().isEmpty
-                          ? null
-                          : IconButton(
-                              tooltip: 'Clear search',
-                              onPressed: () {
-                                _searchController.clear();
-                              },
-                              icon: const Icon(Icons.clear),
-                            ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+        if (_filteredRestaurantList.isEmpty) {
+          return ListView(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+            children: [
+              _buildRestaurantSearchControls(
+                showingAllAccounts: showingAllAccounts,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                _restaurantSearchQuery.isEmpty
+                    ? showingAllAccounts
+                          ? 'No restaurants found.'
+                          : 'No pending restaurant approvals found.'
+                    : 'No restaurants match your search.',
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 16),
+              ),
+            ],
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+          itemCount: _filteredRestaurantList.length + 1,
+          itemBuilder: (context, index) {
+            if (index == 0) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: _buildRestaurantSearchControls(
+                  showingAllAccounts: showingAllAccounts,
+                ),
+              );
+            }
+
+            final doc = _filteredRestaurantList[index - 1];
+            final data = doc.data();
+
+            final uid = _readString(data, Restaurant.fieldUid).isEmpty
+                ? doc.id
+                : _readString(data, Restaurant.fieldUid);
+            final restaurantName =
+                _readString(data, Restaurant.fieldName).isEmpty
+                ? 'Unnamed Restaurant'
+                : _readString(data, Restaurant.fieldName);
+            final email = _readString(data, Restaurant.fieldEmail).isEmpty
+                ? 'No email'
+                : _readString(data, Restaurant.fieldEmail);
+            final phoneNumber = _readString(data, 'phoneNumber');
+            final applicantPhone = _readString(data, Restaurant.fieldPhone);
+            final contactPhone = phoneNumber.isNotEmpty
+                ? phoneNumber
+                : applicantPhone;
+            final streetAddress = _readString(
+              data,
+              Restaurant.fieldStreetAddress,
+            );
+            final city = _readString(data, Restaurant.fieldCity);
+            final state = _readString(data, Restaurant.fieldState);
+            final zipCode = _readString(data, Restaurant.fieldZipCode);
+            final locationParts = <String>[
+              if (city.isNotEmpty) city,
+              if (state.isNotEmpty) state,
+              if (zipCode.isNotEmpty) zipCode,
+            ];
+            final website = _readString(data, Restaurant.fieldWebsite);
+            final approvalStatus =
+                _readString(data, Restaurant.fieldApprovalStatus).isEmpty
+                ? 'pending'
+                : _readString(data, Restaurant.fieldApprovalStatus);
+
+            return Card(
+              margin: const EdgeInsets.only(bottom: 14),
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      restaurantName,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          showingAllAccounts
-                              ? 'Showing all restaurant accounts.'
-                              : 'Showing pending restaurant approvals only.',
-                          style: const TextStyle(color: Colors.black54),
-                        ),
+                    const SizedBox(height: 6),
+                    if (email == 'No email' && contactPhone.isNotEmpty)
+                      ClickablePhoneText(phone: contactPhone, prefix: 'Phone: ')
+                    else
+                      Text(email),
+                    if (email != 'No email' && contactPhone.isNotEmpty)
+                      ClickablePhoneText(
+                        phone: contactPhone,
+                        prefix: 'Phone: ',
                       ),
-                      const SizedBox(width: 8),
-                      OutlinedButton(
-                        onPressed: () {
-                          setState(() {
-                            _showAllRestaurants = !_showAllRestaurants;
-                          });
-                        },
-                        child: Text(
-                          _showAllRestaurants
-                              ? 'Show Pending Only'
-                              : 'View All Restaurants',
-                        ),
+                    if (applicantPhone.isNotEmpty &&
+                        phoneNumber.isNotEmpty &&
+                        applicantPhone != phoneNumber)
+                      ClickablePhoneText(
+                        phone: applicantPhone,
+                        prefix: 'Applicant phone: ',
                       ),
+                    if (streetAddress.isNotEmpty ||
+                        city.isNotEmpty ||
+                        state.isNotEmpty ||
+                        zipCode.isNotEmpty) ...[
+                      const SizedBox(height: 4),
+                      if (streetAddress.isNotEmpty)
+                        Text('Street: $streetAddress'),
+                      if (locationParts.isNotEmpty)
+                        Text('Location: ${locationParts.join(', ')}'),
                     ],
-                  ),
-                  const SizedBox(height: 12),
-                ],
-              ),
-            ),
-            Expanded(
-              child: _filteredRestaurantList.isEmpty
-                  ? Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Text(
-                          _searchController.text.trim().isEmpty
-                              ? showingAllAccounts
-                                    ? 'No restaurants found.'
-                                    : 'No pending restaurant approvals found.'
-                              : 'No restaurants match your search.',
-                          textAlign: TextAlign.center,
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                      ),
-                    )
-                  : ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      itemCount: _filteredRestaurantList.length,
-                      itemBuilder: (context, index) {
-                        final doc = _filteredRestaurantList[index];
-                        final data = doc.data();
-
-                        final uid =
-                            _readString(data, Restaurant.fieldUid).isEmpty
-                            ? doc.id
-                            : _readString(data, Restaurant.fieldUid);
-                        final restaurantName =
-                            _readString(data, Restaurant.fieldName).isEmpty
-                            ? 'Unnamed Restaurant'
-                            : _readString(data, Restaurant.fieldName);
-                        final email =
-                            _readString(data, Restaurant.fieldEmail).isEmpty
-                            ? 'No email'
-                            : _readString(data, Restaurant.fieldEmail);
-                        final phoneNumber = _readString(data, 'phoneNumber');
-                        final applicantPhone = _readString(
-                          data,
-                          Restaurant.fieldPhone,
-                        );
-                        final contactPhone = phoneNumber.isNotEmpty
-                            ? phoneNumber
-                            : applicantPhone;
-                        final streetAddress = _readString(
-                          data,
-                          Restaurant.fieldStreetAddress,
-                        );
-                        final city = _readString(data, Restaurant.fieldCity);
-                        final state = _readString(data, Restaurant.fieldState);
-                        final zipCode = _readString(
-                          data,
-                          Restaurant.fieldZipCode,
-                        );
-                        final locationParts = <String>[
-                          if (city.isNotEmpty) city,
-                          if (state.isNotEmpty) state,
-                          if (zipCode.isNotEmpty) zipCode,
-                        ];
-                        final website = _readString(
-                          data,
-                          Restaurant.fieldWebsite,
-                        );
-                        final approvalStatus =
-                            _readString(
-                              data,
-                              Restaurant.fieldApprovalStatus,
-                            ).isEmpty
-                            ? 'pending'
-                            : _readString(data, Restaurant.fieldApprovalStatus);
-
-                        return Card(
-                          margin: const EdgeInsets.only(bottom: 14),
-                          child: Padding(
-                            padding: const EdgeInsets.all(16),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  restaurantName,
-                                  style: const TextStyle(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                                if (email == 'No email' &&
-                                    contactPhone.isNotEmpty)
-                                  ClickablePhoneText(
-                                    phone: contactPhone,
-                                    prefix: 'Phone: ',
-                                  )
-                                else
-                                  Text(email),
-                                if (email != 'No email' &&
-                                    contactPhone.isNotEmpty)
-                                  ClickablePhoneText(
-                                    phone: contactPhone,
-                                    prefix: 'Phone: ',
-                                  ),
-                                if (applicantPhone.isNotEmpty &&
-                                    phoneNumber.isNotEmpty &&
-                                    applicantPhone != phoneNumber)
-                                  ClickablePhoneText(
-                                    phone: applicantPhone,
-                                    prefix: 'Applicant phone: ',
-                                  ),
-                                if (streetAddress.isNotEmpty ||
-                                    city.isNotEmpty ||
-                                    state.isNotEmpty ||
-                                    zipCode.isNotEmpty) ...[
-                                  const SizedBox(height: 4),
-                                  if (streetAddress.isNotEmpty)
-                                    Text('Street: $streetAddress'),
-                                  if (locationParts.isNotEmpty)
-                                    Text(
-                                      'Location: ${locationParts.join(', ')}',
-                                    ),
-                                ],
-                                if (website.isNotEmpty)
-                                  Text('Website: $website'),
-                                const SizedBox(height: 10),
-                                Row(
-                                  children: [
-                                    const Text('Status: '),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 10,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: statusColor(
-                                          approvalStatus,
-                                        ).withOpacity(0.12),
-                                        borderRadius: BorderRadius.circular(
-                                          999,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        labelForStatus(approvalStatus),
-                                        style: TextStyle(
-                                          color: statusColor(approvalStatus),
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 8,
-                                  children: [
-                                    ElevatedButton(
-                                      onPressed: uid.isEmpty
-                                          ? null
-                                          : () {
-                                              _updateApprovalStatus(
-                                                context,
-                                                uid: uid,
-                                                approved: true,
-                                              );
-                                            },
-                                      child: const Text('Approve'),
-                                    ),
-                                    OutlinedButton(
-                                      onPressed: uid.isEmpty
-                                          ? null
-                                          : () {
-                                              _updateApprovalStatus(
-                                                context,
-                                                uid: uid,
-                                                approved: false,
-                                              );
-                                            },
-                                      child: const Text('Reject'),
-                                    ),
-                                    OutlinedButton.icon(
-                                      onPressed: uid.isEmpty
-                                          ? null
-                                          : () {
-                                              _editRestaurant(
-                                                context,
-                                                uid: uid,
-                                                data: data,
-                                              );
-                                            },
-                                      icon: const Icon(Icons.edit_outlined),
-                                      label: const Text('Edit Restaurant'),
-                                    ),
-                                    TextButton.icon(
-                                      onPressed: uid.isEmpty
-                                          ? null
-                                          : () {
-                                              _deleteRestaurant(context, uid);
-                                            },
-                                      icon: const Icon(Icons.delete_outline),
-                                      label: const Text('Delete Restaurant'),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                ExpansionTile(
-                                  tilePadding: EdgeInsets.zero,
-                                  childrenPadding: EdgeInsets.zero,
-                                  title: const Text(
-                                    'Coupons',
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                  subtitle: const Text(
-                                    'View or delete restaurant coupons',
-                                  ),
-                                  children: [
-                                    _buildCouponSection(
-                                      context,
-                                      uid: uid,
-                                      restaurantName: restaurantName,
-                                    ),
-                                  ],
-                                ),
-                              ],
+                    if (website.isNotEmpty) Text('Website: $website'),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const Text('Status: '),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: statusColor(
+                              approvalStatus,
+                            ).withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            labelForStatus(approvalStatus),
+                            style: TextStyle(
+                              color: statusColor(approvalStatus),
+                              fontWeight: FontWeight.bold,
                             ),
                           ),
-                        );
-                      },
+                        ),
+                      ],
                     ),
-            ),
-          ],
+                    const SizedBox(height: 12),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        ElevatedButton(
+                          onPressed: uid.isEmpty
+                              ? null
+                              : () {
+                                  _updateApprovalStatus(
+                                    context,
+                                    uid: uid,
+                                    approved: true,
+                                  );
+                                },
+                          child: const Text('Approve'),
+                        ),
+                        OutlinedButton(
+                          onPressed: uid.isEmpty
+                              ? null
+                              : () {
+                                  _updateApprovalStatus(
+                                    context,
+                                    uid: uid,
+                                    approved: false,
+                                  );
+                                },
+                          child: const Text('Reject'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: uid.isEmpty
+                              ? null
+                              : () {
+                                  _editRestaurant(
+                                    context,
+                                    uid: uid,
+                                    data: data,
+                                  );
+                                },
+                          icon: const Icon(Icons.edit_outlined),
+                          label: const Text('Edit Restaurant'),
+                        ),
+                        TextButton.icon(
+                          onPressed: uid.isEmpty
+                              ? null
+                              : () {
+                                  _deleteRestaurant(context, uid);
+                                },
+                          icon: const Icon(Icons.delete_outline),
+                          label: const Text('Delete Restaurant'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    ExpansionTile(
+                      tilePadding: EdgeInsets.zero,
+                      childrenPadding: EdgeInsets.zero,
+                      title: const Text(
+                        'Coupons',
+                        style: TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: const Text('View or delete restaurant coupons'),
+                      children: [
+                        _buildCouponSection(
+                          context,
+                          uid: uid,
+                          restaurantName: restaurantName,
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
@@ -1186,28 +1184,28 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 3,
-      child: Column(
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: TabBar(
-              tabs: [
-                Tab(text: 'Restaurants'),
-                Tab(text: 'Name Changes'),
-                Tab(text: 'Reports'),
-              ],
-            ),
-          ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _buildRestaurantsTab(),
-                _buildNameChangesTab(),
-                _buildReportsTab(),
-              ],
+      child: NestedScrollView(
+        headerSliverBuilder: (context, innerBoxIsScrolled) => [
+          const SliverToBoxAdapter(
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: TabBar(
+                tabs: [
+                  Tab(text: 'Restaurants'),
+                  Tab(text: 'Name Changes'),
+                  Tab(text: 'Reports'),
+                ],
+              ),
             ),
           ),
         ],
+        body: TabBarView(
+          children: [
+            _buildRestaurantsTab(),
+            _buildNameChangesTab(),
+            _buildReportsTab(),
+          ],
+        ),
       ),
     );
   }
