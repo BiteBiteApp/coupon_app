@@ -1245,26 +1245,55 @@ class _BiteScoreReportedReviewAdminListState
   }
 }
 
-class _BiteScoreDataReportsAdminList extends StatelessWidget {
+class _BiteScoreDataReportsAdminList extends StatefulWidget {
   const _BiteScoreDataReportsAdminList();
+
+  @override
+  State<_BiteScoreDataReportsAdminList> createState() =>
+      _BiteScoreDataReportsAdminListState();
+}
+
+class _BiteScoreDataReportsAdminListState
+    extends State<_BiteScoreDataReportsAdminList> {
+  bool _showAllDataReports = false;
 
   @override
   Widget build(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(16),
-      children: const [
-        _BiteScoreReportedRestaurantsSection(),
-        SizedBox(height: 20),
-        _BiteScoreReportedDishesSection(),
-        SizedBox(height: 20),
-        _BiteScoreDuplicateRestaurantsSection(),
+      children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: OutlinedButton(
+            onPressed: () {
+              setState(() {
+                _showAllDataReports = !_showAllDataReports;
+              });
+            },
+            child: Text(
+              _showAllDataReports ? 'Show Pending Only' : 'View All Reports',
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        _BiteScoreReportedRestaurantsSection(
+          showAllReports: _showAllDataReports,
+        ),
+        const SizedBox(height: 20),
+        _BiteScoreReportedDishesSection(showAllReports: _showAllDataReports),
+        const SizedBox(height: 20),
+        _BiteScoreDuplicateRestaurantsSection(
+          showAllReports: _showAllDataReports,
+        ),
       ],
     );
   }
 }
 
 class _BiteScoreReportedRestaurantsSection extends StatefulWidget {
-  const _BiteScoreReportedRestaurantsSection();
+  final bool showAllReports;
+
+  const _BiteScoreReportedRestaurantsSection({required this.showAllReports});
 
   @override
   State<_BiteScoreReportedRestaurantsSection> createState() =>
@@ -1382,7 +1411,9 @@ class _BiteScoreReportedRestaurantsSectionState
     return _BiteScoreDataReportSection(
       title: 'Reported Restaurants',
       child: StreamBuilder<List<BiteScoreReportedRestaurantAdminEntry>>(
-        stream: BiteScoreService.reportedRestaurantsAdminStream(),
+        stream: BiteScoreService.reportedRestaurantsAdminStream(
+          pendingOnly: !widget.showAllReports,
+        ),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -1401,8 +1432,12 @@ class _BiteScoreReportedRestaurantsSectionState
                   entry.restaurant.city,
                   entry.restaurant.state,
                   entry.restaurant.address,
+                  entry.restaurant.id,
                   entry.reportStatus,
                   entry.distinctReasons.join(' '),
+                  entry.reportIds.join(' '),
+                  entry.reporterUserIds.join(' '),
+                  ...entry.reports.map((report) => report.restaurantName),
                 ]),
               )
               .toList(growable: false);
@@ -1494,7 +1529,9 @@ class _BiteScoreReportedRestaurantsSectionState
 }
 
 class _BiteScoreReportedDishesSection extends StatefulWidget {
-  const _BiteScoreReportedDishesSection();
+  final bool showAllReports;
+
+  const _BiteScoreReportedDishesSection({required this.showAllReports});
 
   @override
   State<_BiteScoreReportedDishesSection> createState() =>
@@ -1591,7 +1628,9 @@ class _BiteScoreReportedDishesSectionState
     return _BiteScoreDataReportSection(
       title: 'Reported Dishes',
       child: StreamBuilder<List<BiteScoreReportedDishAdminEntry>>(
-        stream: BiteScoreService.reportedDishesAdminStream(),
+        stream: BiteScoreService.reportedDishesAdminStream(
+          pendingOnly: !widget.showAllReports,
+        ),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -1609,8 +1648,13 @@ class _BiteScoreReportedDishesSectionState
                   entry.dish.name,
                   entry.dish.restaurantName,
                   entry.restaurant?.name,
+                  entry.dish.id,
+                  entry.dish.restaurantId,
                   entry.reportStatus,
                   entry.distinctReasons.join(' '),
+                  entry.reportIds.join(' '),
+                  entry.reporterUserIds.join(' '),
+                  ...entry.reports.map((report) => report.dishName),
                 ]),
               )
               .toList(growable: false);
@@ -1697,7 +1741,9 @@ class _BiteScoreReportedDishesSectionState
 }
 
 class _BiteScoreDuplicateRestaurantsSection extends StatefulWidget {
-  const _BiteScoreDuplicateRestaurantsSection();
+  final bool showAllReports;
+
+  const _BiteScoreDuplicateRestaurantsSection({required this.showAllReports});
 
   @override
   State<_BiteScoreDuplicateRestaurantsSection> createState() =>
@@ -1835,7 +1881,9 @@ class _BiteScoreDuplicateRestaurantsSectionState
     return _BiteScoreDataReportSection(
       title: 'Duplicate Restaurant Reports',
       child: StreamBuilder<List<BiteScoreDuplicateRestaurantReportAdminEntry>>(
-        stream: BiteScoreService.duplicateRestaurantReportsAdminStream(),
+        stream: BiteScoreService.duplicateRestaurantReportsAdminStream(
+          pendingOnly: !widget.showAllReports,
+        ),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -1855,8 +1903,12 @@ class _BiteScoreDuplicateRestaurantsSectionState
                   entry.restaurant.city,
                   entry.restaurant.state,
                   entry.restaurant.address,
+                  entry.restaurant.id,
                   entry.reportStatus,
                   entry.distinctReasons.join(' '),
+                  entry.reportIds.join(' '),
+                  entry.reporterUserIds.join(' '),
+                  ...entry.reports.map((report) => report.restaurantName),
                 ]),
               )
               .toList(growable: false);

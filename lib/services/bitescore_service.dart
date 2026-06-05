@@ -220,6 +220,20 @@ class BiteScoreReportedRestaurantAdminEntry {
   int get reportCount => reports.length;
   String get reportStatus =>
       reports.isEmpty ? RestaurantReport.statusPending : reports.first.status;
+  List<String> get reportIds =>
+      reports
+          .map((report) => report.id.trim())
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+  List<String> get reporterUserIds =>
+      reports
+          .map((report) => report.reportingUserId.trim())
+          .where((userId) => userId.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
   List<String> get distinctReasons =>
       reports
           .map((report) => report.reason?.trim() ?? '')
@@ -243,6 +257,20 @@ class BiteScoreReportedDishAdminEntry {
   int get reportCount => reports.length;
   String get reportStatus =>
       reports.isEmpty ? DishReport.statusPending : reports.first.status;
+  List<String> get reportIds =>
+      reports
+          .map((report) => report.id.trim())
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+  List<String> get reporterUserIds =>
+      reports
+          .map((report) => report.reportingUserId.trim())
+          .where((userId) => userId.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
   List<String> get distinctReasons =>
       reports
           .map((report) => report.reason?.trim() ?? '')
@@ -265,6 +293,20 @@ class BiteScoreDuplicateRestaurantReportAdminEntry {
   String get reportStatus => reports.isEmpty
       ? DuplicateRestaurantReport.statusPending
       : reports.first.status;
+  List<String> get reportIds =>
+      reports
+          .map((report) => report.id.trim())
+          .where((id) => id.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
+  List<String> get reporterUserIds =>
+      reports
+          .map((report) => report.reportingUserId.trim())
+          .where((userId) => userId.isNotEmpty)
+          .toSet()
+          .toList()
+        ..sort();
   List<String> get distinctReasons =>
       reports
           .map((report) => report.reason?.trim() ?? '')
@@ -1039,216 +1081,218 @@ class BiteScoreService {
   }
 
   static Stream<List<BiteScoreReportedRestaurantAdminEntry>>
-  reportedRestaurantsAdminStream() {
-    return restaurantReportsCollection()
-        .where('status', isEqualTo: RestaurantReport.statusPending)
-        .snapshots()
-        .asyncMap((snapshot) async {
-          final restaurants = await loadRestaurantsForFinder();
-          final restaurantsById = <String, BitescoreRestaurant>{
-            for (final restaurant in restaurants) restaurant.id: restaurant,
-          };
+  reportedRestaurantsAdminStream({bool pendingOnly = true}) {
+    Query<Map<String, dynamic>> query = restaurantReportsCollection();
+    if (pendingOnly) {
+      query = query.where('status', isEqualTo: RestaurantReport.statusPending);
+    }
 
-          final reportsByRestaurantId = <String, List<RestaurantReport>>{};
-          for (final doc in snapshot.docs) {
-            final report = RestaurantReport.tryFromFirestore(
-              doc.data(),
-              fallbackId: doc.id,
-            );
-            if (report == null) {
-              continue;
-            }
-            reportsByRestaurantId
-                .putIfAbsent(report.restaurantId, () => <RestaurantReport>[])
-                .add(report);
-          }
+    return query.snapshots().asyncMap((snapshot) async {
+      final restaurants = await loadRestaurantsForFinder();
+      final restaurantsById = <String, BitescoreRestaurant>{
+        for (final restaurant in restaurants) restaurant.id: restaurant,
+      };
 
-          final entries =
-              reportsByRestaurantId.entries
-                  .map((group) {
-                    final restaurant = restaurantsById[group.key];
-                    if (restaurant == null) {
-                      return null;
-                    }
+      final reportsByRestaurantId = <String, List<RestaurantReport>>{};
+      for (final doc in snapshot.docs) {
+        final report = RestaurantReport.tryFromFirestore(
+          doc.data(),
+          fallbackId: doc.id,
+        );
+        if (report == null) {
+          continue;
+        }
+        reportsByRestaurantId
+            .putIfAbsent(report.restaurantId, () => <RestaurantReport>[])
+            .add(report);
+      }
 
-                    final reports = [...group.value]
-                      ..sort((a, b) {
-                        final aDate =
-                            a.createdAt ??
-                            DateTime.fromMillisecondsSinceEpoch(0);
-                        final bDate =
-                            b.createdAt ??
-                            DateTime.fromMillisecondsSinceEpoch(0);
-                        return bDate.compareTo(aDate);
-                      });
+      final entries =
+          reportsByRestaurantId.entries
+              .map((group) {
+                final restaurant = restaurantsById[group.key];
+                if (restaurant == null) {
+                  return null;
+                }
 
-                    return BiteScoreReportedRestaurantAdminEntry(
-                      restaurant: restaurant,
-                      reports: reports,
-                    );
-                  })
-                  .whereType<BiteScoreReportedRestaurantAdminEntry>()
-                  .toList()
-                ..sort((a, b) {
-                  final aDate =
-                      a.reports.first.createdAt ??
-                      DateTime.fromMillisecondsSinceEpoch(0);
-                  final bDate =
-                      b.reports.first.createdAt ??
-                      DateTime.fromMillisecondsSinceEpoch(0);
-                  return bDate.compareTo(aDate);
-                });
+                final reports = [...group.value]
+                  ..sort((a, b) {
+                    final aDate =
+                        a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+                    final bDate =
+                        b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+                    return bDate.compareTo(aDate);
+                  });
 
-          return entries;
-        });
+                return BiteScoreReportedRestaurantAdminEntry(
+                  restaurant: restaurant,
+                  reports: reports,
+                );
+              })
+              .whereType<BiteScoreReportedRestaurantAdminEntry>()
+              .toList()
+            ..sort((a, b) {
+              final aDate =
+                  a.reports.first.createdAt ??
+                  DateTime.fromMillisecondsSinceEpoch(0);
+              final bDate =
+                  b.reports.first.createdAt ??
+                  DateTime.fromMillisecondsSinceEpoch(0);
+              return bDate.compareTo(aDate);
+            });
+
+      return entries;
+    });
   }
 
   static Stream<List<BiteScoreReportedDishAdminEntry>>
-  reportedDishesAdminStream() {
-    return dishReportsCollection()
-        .where('status', isEqualTo: DishReport.statusPending)
-        .snapshots()
-        .asyncMap((snapshot) async {
-          final dishesSnapshot = await dishesCollection().get();
-          final restaurants = await loadRestaurantsForFinder();
+  reportedDishesAdminStream({bool pendingOnly = true}) {
+    Query<Map<String, dynamic>> query = dishReportsCollection();
+    if (pendingOnly) {
+      query = query.where('status', isEqualTo: DishReport.statusPending);
+    }
 
-          final dishesById = <String, BitescoreDish>{};
-          for (final doc in dishesSnapshot.docs) {
-            final dish = BitescoreDish.tryFromFirestore(
-              doc.data(),
-              fallbackId: doc.id,
-            );
-            if (dish != null) {
-              dishesById[dish.id] = dish;
-            }
-          }
+    return query.snapshots().asyncMap((snapshot) async {
+      final dishesSnapshot = await dishesCollection().get();
+      final restaurants = await loadRestaurantsForFinder();
 
-          final restaurantsById = <String, BitescoreRestaurant>{
-            for (final restaurant in restaurants) restaurant.id: restaurant,
-          };
+      final dishesById = <String, BitescoreDish>{};
+      for (final doc in dishesSnapshot.docs) {
+        final dish = BitescoreDish.tryFromFirestore(
+          doc.data(),
+          fallbackId: doc.id,
+        );
+        if (dish != null) {
+          dishesById[dish.id] = dish;
+        }
+      }
 
-          final reportsByDishId = <String, List<DishReport>>{};
-          for (final doc in snapshot.docs) {
-            final report = DishReport.tryFromFirestore(
-              doc.data(),
-              fallbackId: doc.id,
-            );
-            if (report == null) {
-              continue;
-            }
-            reportsByDishId
-                .putIfAbsent(report.dishId, () => <DishReport>[])
-                .add(report);
-          }
+      final restaurantsById = <String, BitescoreRestaurant>{
+        for (final restaurant in restaurants) restaurant.id: restaurant,
+      };
 
-          final entries =
-              reportsByDishId.entries
-                  .map((group) {
-                    final dish = dishesById[group.key];
-                    if (dish == null) {
-                      return null;
-                    }
+      final reportsByDishId = <String, List<DishReport>>{};
+      for (final doc in snapshot.docs) {
+        final report = DishReport.tryFromFirestore(
+          doc.data(),
+          fallbackId: doc.id,
+        );
+        if (report == null) {
+          continue;
+        }
+        reportsByDishId
+            .putIfAbsent(report.dishId, () => <DishReport>[])
+            .add(report);
+      }
 
-                    final reports = [...group.value]
-                      ..sort((a, b) {
-                        final aDate =
-                            a.createdAt ??
-                            DateTime.fromMillisecondsSinceEpoch(0);
-                        final bDate =
-                            b.createdAt ??
-                            DateTime.fromMillisecondsSinceEpoch(0);
-                        return bDate.compareTo(aDate);
-                      });
+      final entries =
+          reportsByDishId.entries
+              .map((group) {
+                final dish = dishesById[group.key];
+                if (dish == null) {
+                  return null;
+                }
 
-                    return BiteScoreReportedDishAdminEntry(
-                      dish: dish,
-                      restaurant: restaurantsById[dish.restaurantId],
-                      reports: reports,
-                    );
-                  })
-                  .whereType<BiteScoreReportedDishAdminEntry>()
-                  .toList()
-                ..sort((a, b) {
-                  final aDate =
-                      a.reports.first.createdAt ??
-                      DateTime.fromMillisecondsSinceEpoch(0);
-                  final bDate =
-                      b.reports.first.createdAt ??
-                      DateTime.fromMillisecondsSinceEpoch(0);
-                  return bDate.compareTo(aDate);
-                });
+                final reports = [...group.value]
+                  ..sort((a, b) {
+                    final aDate =
+                        a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+                    final bDate =
+                        b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+                    return bDate.compareTo(aDate);
+                  });
 
-          return entries;
-        });
+                return BiteScoreReportedDishAdminEntry(
+                  dish: dish,
+                  restaurant: restaurantsById[dish.restaurantId],
+                  reports: reports,
+                );
+              })
+              .whereType<BiteScoreReportedDishAdminEntry>()
+              .toList()
+            ..sort((a, b) {
+              final aDate =
+                  a.reports.first.createdAt ??
+                  DateTime.fromMillisecondsSinceEpoch(0);
+              final bDate =
+                  b.reports.first.createdAt ??
+                  DateTime.fromMillisecondsSinceEpoch(0);
+              return bDate.compareTo(aDate);
+            });
+
+      return entries;
+    });
   }
 
   static Stream<List<BiteScoreDuplicateRestaurantReportAdminEntry>>
-  duplicateRestaurantReportsAdminStream() {
-    return duplicateRestaurantReportsCollection()
-        .where('status', isEqualTo: DuplicateRestaurantReport.statusPending)
-        .snapshots()
-        .asyncMap((snapshot) async {
-          final restaurants = await loadRestaurantsForFinder();
-          final restaurantsById = <String, BitescoreRestaurant>{
-            for (final restaurant in restaurants) restaurant.id: restaurant,
-          };
+  duplicateRestaurantReportsAdminStream({bool pendingOnly = true}) {
+    Query<Map<String, dynamic>> query = duplicateRestaurantReportsCollection();
+    if (pendingOnly) {
+      query = query.where(
+        'status',
+        isEqualTo: DuplicateRestaurantReport.statusPending,
+      );
+    }
 
-          final reportsByRestaurantId =
-              <String, List<DuplicateRestaurantReport>>{};
-          for (final doc in snapshot.docs) {
-            final report = DuplicateRestaurantReport.tryFromFirestore(
-              doc.data(),
-              fallbackId: doc.id,
-            );
-            if (report == null) {
-              continue;
-            }
-            reportsByRestaurantId
-                .putIfAbsent(
-                  report.restaurantId,
-                  () => <DuplicateRestaurantReport>[],
-                )
-                .add(report);
-          }
+    return query.snapshots().asyncMap((snapshot) async {
+      final restaurants = await loadRestaurantsForFinder();
+      final restaurantsById = <String, BitescoreRestaurant>{
+        for (final restaurant in restaurants) restaurant.id: restaurant,
+      };
 
-          final entries =
-              reportsByRestaurantId.entries
-                  .map((group) {
-                    final restaurant = restaurantsById[group.key];
-                    if (restaurant == null) {
-                      return null;
-                    }
+      final reportsByRestaurantId = <String, List<DuplicateRestaurantReport>>{};
+      for (final doc in snapshot.docs) {
+        final report = DuplicateRestaurantReport.tryFromFirestore(
+          doc.data(),
+          fallbackId: doc.id,
+        );
+        if (report == null) {
+          continue;
+        }
+        reportsByRestaurantId
+            .putIfAbsent(
+              report.restaurantId,
+              () => <DuplicateRestaurantReport>[],
+            )
+            .add(report);
+      }
 
-                    final reports = [...group.value]
-                      ..sort((a, b) {
-                        final aDate =
-                            a.createdAt ??
-                            DateTime.fromMillisecondsSinceEpoch(0);
-                        final bDate =
-                            b.createdAt ??
-                            DateTime.fromMillisecondsSinceEpoch(0);
-                        return bDate.compareTo(aDate);
-                      });
+      final entries =
+          reportsByRestaurantId.entries
+              .map((group) {
+                final restaurant = restaurantsById[group.key];
+                if (restaurant == null) {
+                  return null;
+                }
 
-                    return BiteScoreDuplicateRestaurantReportAdminEntry(
-                      restaurant: restaurant,
-                      reports: reports,
-                    );
-                  })
-                  .whereType<BiteScoreDuplicateRestaurantReportAdminEntry>()
-                  .toList()
-                ..sort((a, b) {
-                  final aDate =
-                      a.reports.first.createdAt ??
-                      DateTime.fromMillisecondsSinceEpoch(0);
-                  final bDate =
-                      b.reports.first.createdAt ??
-                      DateTime.fromMillisecondsSinceEpoch(0);
-                  return bDate.compareTo(aDate);
-                });
+                final reports = [...group.value]
+                  ..sort((a, b) {
+                    final aDate =
+                        a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+                    final bDate =
+                        b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+                    return bDate.compareTo(aDate);
+                  });
 
-          return entries;
-        });
+                return BiteScoreDuplicateRestaurantReportAdminEntry(
+                  restaurant: restaurant,
+                  reports: reports,
+                );
+              })
+              .whereType<BiteScoreDuplicateRestaurantReportAdminEntry>()
+              .toList()
+            ..sort((a, b) {
+              final aDate =
+                  a.reports.first.createdAt ??
+                  DateTime.fromMillisecondsSinceEpoch(0);
+              final bDate =
+                  b.reports.first.createdAt ??
+                  DateTime.fromMillisecondsSinceEpoch(0);
+              return bDate.compareTo(aDate);
+            });
+
+      return entries;
+    });
   }
 
   static Stream<List<BiteScoreAdminClaimEntry>> claimRequestsAdminStream({
