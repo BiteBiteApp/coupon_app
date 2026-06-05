@@ -793,6 +793,7 @@ class _BiteScoreReviewAdminList extends StatefulWidget {
 
 class _BiteScoreReviewAdminListState extends State<_BiteScoreReviewAdminList> {
   final TextEditingController _searchController = TextEditingController();
+  bool _showAllBiteScoreReviews = false;
 
   @override
   void dispose() {
@@ -868,8 +869,54 @@ class _BiteScoreReviewAdminListState extends State<_BiteScoreReviewAdminList> {
     return '$month/$day/${createdAt.year}';
   }
 
+  Widget _buildReviewSearchControls() {
+    return Column(
+      children: [
+        _AdminSearchField(
+          controller: _searchController,
+          label: 'Search reviews',
+          onChanged: (_) => setState(() {}),
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerRight,
+          child: OutlinedButton(
+            onPressed: () {
+              setState(() {
+                _showAllBiteScoreReviews = !_showAllBiteScoreReviews;
+              });
+            },
+            child: Text(
+              _showAllBiteScoreReviews
+                  ? 'Hide All Reviews'
+                  : 'View All Reviews',
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isSearching = _searchController.text.trim().isNotEmpty;
+    final shouldLoadReviews = _showAllBiteScoreReviews || isSearching;
+
+    if (!shouldLoadReviews) {
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildReviewSearchControls(),
+          const SizedBox(height: 12),
+          const _AdminEmptyStateCard(
+            icon: Icons.rate_review_outlined,
+            title: 'Find Reviews',
+            message: 'Search for a review or tap View All Reviews.',
+          ),
+        ],
+      );
+    }
+
     return StreamBuilder<List<BiteScoreAdminReviewEntry>>(
       stream: BiteScoreService.reviewsAdminStream(),
       builder: (context, snapshot) {
@@ -894,10 +941,13 @@ class _BiteScoreReviewAdminListState extends State<_BiteScoreReviewAdminList> {
             .where(
               (entry) => _matchesAdminQuery(_searchController.text, [
                 entry.review.userId,
+                entry.reviewerDisplayName,
                 entry.dishName,
                 entry.restaurantName,
                 entry.review.headline,
                 entry.review.notes,
+                entry.review.overallImpression.toStringAsFixed(1),
+                entry.review.overallBiteScore.toStringAsFixed(0),
               ]),
             )
             .toList(growable: false);
@@ -905,11 +955,7 @@ class _BiteScoreReviewAdminListState extends State<_BiteScoreReviewAdminList> {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            _AdminSearchField(
-              controller: _searchController,
-              label: 'Search reviews',
-              onChanged: (_) => setState(() {}),
-            ),
+            _buildReviewSearchControls(),
             const SizedBox(height: 12),
             if (entries.isEmpty)
               const _AdminEmptyStateCard(
@@ -947,7 +993,7 @@ class _BiteScoreReviewAdminListState extends State<_BiteScoreReviewAdminList> {
                       vertical: 10,
                     ),
                     title: Text(
-                      'Review by ${review.userId}',
+                      'Review by ${entry.reviewerDisplayName}',
                       style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text(subtitleLines.join('\n')),

@@ -151,11 +151,13 @@ class BiteScoreAdminReviewEntry {
   final DishReview review;
   final String dishName;
   final String restaurantName;
+  final String reviewerDisplayName;
 
   const BiteScoreAdminReviewEntry({
     required this.review,
     required this.dishName,
     required this.restaurantName,
+    required this.reviewerDisplayName,
   });
 }
 
@@ -898,22 +900,26 @@ class BiteScoreService {
             }
           }
 
-          final entries = snapshot.docs
+          final reviews = snapshot.docs
               .map(
                 (doc) =>
                     DishReview.tryFromFirestore(doc.data(), fallbackId: doc.id),
               )
               .whereType<DishReview>()
-              .map((review) {
-                final dish = dishesById[review.dishId];
-                final restaurant = restaurantsById[review.restaurantId];
-                return BiteScoreAdminReviewEntry(
-                  review: review,
-                  dishName: dish?.name ?? 'Unknown dish',
-                  restaurantName: restaurant?.name ?? 'Unknown restaurant',
-                );
-              })
               .toList();
+          final reviewerNamesByUserId = await loadReviewerDisplayNames(reviews);
+
+          final entries = reviews.map((review) {
+            final dish = dishesById[review.dishId];
+            final restaurant = restaurantsById[review.restaurantId];
+            return BiteScoreAdminReviewEntry(
+              review: review,
+              dishName: dish?.name ?? 'Unknown dish',
+              restaurantName: restaurant?.name ?? 'Unknown restaurant',
+              reviewerDisplayName:
+                  reviewerNamesByUserId[review.userId] ?? review.userId,
+            );
+          }).toList();
 
           return entries;
         });
