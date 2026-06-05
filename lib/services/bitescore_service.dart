@@ -1241,15 +1241,14 @@ class BiteScoreService {
       query = query.where('status', isEqualTo: 'pending');
     }
 
-    return query
-        .snapshots()
-        .asyncMap((snapshot) async {
-          final restaurants = await loadRestaurantsForFinder();
-          final restaurantsById = <String, BitescoreRestaurant>{
-            for (final restaurant in restaurants) restaurant.id: restaurant,
-          };
+    return query.snapshots().asyncMap((snapshot) async {
+      final restaurants = await loadRestaurantsForFinder();
+      final restaurantsById = <String, BitescoreRestaurant>{
+        for (final restaurant in restaurants) restaurant.id: restaurant,
+      };
 
-          final entries = snapshot.docs
+      final entries =
+          snapshot.docs
               .map(
                 (doc) => RestaurantClaimRequest.tryFromFirestore(
                   doc.data(),
@@ -1272,50 +1271,49 @@ class BiteScoreService {
               return bDate.compareTo(aDate);
             });
 
-          return entries;
-        });
+      return entries;
+    });
   }
 
   static Stream<List<DishEditSuggestionAdminEntry>>
-  dishEditSuggestionsAdminStream() {
-    return editProposalsCollection()
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .asyncMap((snapshot) async {
-          await maybeAutoApplyDueDishEditSuggestions();
+  dishEditSuggestionsAdminStream({bool pendingOnly = true}) {
+    Query<Map<String, dynamic>> query = editProposalsCollection();
+    if (pendingOnly) {
+      query = query.where('status', isEqualTo: 'pending');
+    }
 
-          final refreshedSnapshot = await editProposalsCollection()
-              .orderBy('createdAt', descending: true)
-              .get();
-          final dishesSnapshot = await dishesCollection().get();
+    return query.snapshots().asyncMap((snapshot) async {
+      await maybeAutoApplyDueDishEditSuggestions();
 
-          final dishesById = <String, BitescoreDish>{};
-          for (final doc in dishesSnapshot.docs) {
-            final dish = BitescoreDish.tryFromFirestore(
+      final refreshedSnapshot = await query.get();
+      final dishesSnapshot = await dishesCollection().get();
+
+      final dishesById = <String, BitescoreDish>{};
+      for (final doc in dishesSnapshot.docs) {
+        final dish = BitescoreDish.tryFromFirestore(
+          doc.data(),
+          fallbackId: doc.id,
+        );
+        if (dish != null) {
+          dishesById[dish.id] = dish;
+        }
+      }
+
+      final pendingProposals = refreshedSnapshot.docs
+          .map(
+            (doc) => DishEditProposal.tryFromFirestore(
               doc.data(),
               fallbackId: doc.id,
-            );
-            if (dish != null) {
-              dishesById[dish.id] = dish;
-            }
-          }
+            ),
+          )
+          .whereType<DishEditProposal>()
+          .toList();
 
-          final pendingProposals = refreshedSnapshot.docs
-              .map(
-                (doc) => DishEditProposal.tryFromFirestore(
-                  doc.data(),
-                  fallbackId: doc.id,
-                ),
-              )
-              .whereType<DishEditProposal>()
-              .where((proposal) => proposal.status == 'pending')
-              .toList();
-
-          return _buildDishEditSuggestionAdminEntries(
-            proposals: pendingProposals,
-            dishesById: dishesById,
-          );
-        });
+      return _buildDishEditSuggestionAdminEntries(
+        proposals: pendingProposals,
+        dishesById: dishesById,
+      );
+    });
   }
 
   static Stream<List<BiteScoreApprovedOwnershipEntry>>

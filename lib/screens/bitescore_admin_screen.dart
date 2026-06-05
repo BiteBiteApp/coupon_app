@@ -2254,6 +2254,7 @@ class _BiteScoreDishSuggestionAdminList extends StatefulWidget {
 class _BiteScoreDishSuggestionAdminListState
     extends State<_BiteScoreDishSuggestionAdminList> {
   final TextEditingController _searchController = TextEditingController();
+  bool _showAllDishSuggestions = false;
 
   @override
   void dispose() {
@@ -2339,8 +2340,13 @@ class _BiteScoreDishSuggestionAdminListState
 
   @override
   Widget build(BuildContext context) {
+    final isSearching = _searchController.text.trim().isNotEmpty;
+    final showingAllSuggestions = _showAllDishSuggestions || isSearching;
+
     return StreamBuilder<List<DishEditSuggestionAdminEntry>>(
-      stream: BiteScoreService.dishEditSuggestionsAdminStream(),
+      stream: BiteScoreService.dishEditSuggestionsAdminStream(
+        pendingOnly: !showingAllSuggestions,
+      ),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -2366,9 +2372,18 @@ class _BiteScoreDishSuggestionAdminListState
                 entry.targetDish?.name,
                 entry.targetDish?.restaurantName,
                 entry.mergeTargetDish?.name,
+                entry.mergeTargetDish?.restaurantName,
                 entry.proposedName,
                 entry.type,
                 entry.invalidReason,
+                ...entry.proposals.expand(
+                  (proposal) => [
+                    proposal.userId,
+                    proposal.status,
+                    proposal.reason,
+                    proposal.proposedName,
+                  ],
+                ),
               ]),
             )
             .toList(growable: false);
@@ -2382,12 +2397,31 @@ class _BiteScoreDishSuggestionAdminListState
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton(
+                onPressed: () {
+                  setState(() {
+                    _showAllDishSuggestions = !_showAllDishSuggestions;
+                  });
+                },
+                child: Text(
+                  _showAllDishSuggestions
+                      ? 'Show Pending Only'
+                      : 'View All Suggestions',
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             if (entries.isEmpty)
-              const _AdminEmptyStateCard(
+              _AdminEmptyStateCard(
                 icon: Icons.edit_note_outlined,
-                title: 'No Dish Suggestions',
-                message:
-                    'Rename and merge suggestions from users will appear here when there is something to review.',
+                title: showingAllSuggestions
+                    ? 'No Dish Suggestions'
+                    : 'No Pending Dish Suggestions',
+                message: showingAllSuggestions
+                    ? 'Rename and merge suggestions from users will appear here once they are submitted.'
+                    : 'Rename and merge suggestions from users will appear here when there is something to review.',
               )
             else if (filteredEntries.isEmpty)
               const _AdminEmptyStateCard(
@@ -2399,6 +2433,15 @@ class _BiteScoreDishSuggestionAdminListState
             else
               ...filteredEntries.map((entry) {
                 final targetDishName = entry.targetDish?.name ?? 'Unknown dish';
+                final statuses =
+                    entry.proposals
+                        .map((proposal) => proposal.status.trim())
+                        .where((status) => status.isNotEmpty)
+                        .toSet()
+                        .toList()
+                      ..sort();
+                final isPending =
+                    statuses.length == 1 && statuses.contains('pending');
                 final subtitleLines = <String>[
                   'Type: ${entry.isRename ? 'Rename' : 'Merge'}',
                   'Restaurant ID: ${entry.restaurantId}',
@@ -2409,7 +2452,11 @@ class _BiteScoreDishSuggestionAdminListState
                   if (entry.isMerge)
                     'Merge into: ${entry.mergeTargetDish?.name ?? 'Unknown dish'}',
                   'Supporters: ${entry.supporterCount}',
-                  'Status: ${entry.isInvalid ? 'Invalid' : 'Pending'}',
+                  'Status: ${entry.isInvalid
+                      ? 'Invalid'
+                      : statuses.isEmpty
+                      ? 'Pending'
+                      : statuses.join(', ')}',
                   'Created: ${_dateLabel(entry.oldestCreatedAt)}',
                   _autoApplyLabel(entry),
                   if (entry.isInvalid)
@@ -2440,14 +2487,15 @@ class _BiteScoreDishSuggestionAdminListState
                           runSpacing: 8,
                           children: [
                             ElevatedButton(
-                              onPressed: entry.isInvalid
+                              onPressed: entry.isInvalid || !isPending
                                   ? null
                                   : () => _approveSuggestion(context, entry),
                               child: const Text('Approve'),
                             ),
                             OutlinedButton(
-                              onPressed: () =>
-                                  _rejectSuggestion(context, entry),
+                              onPressed: isPending
+                                  ? () => _rejectSuggestion(context, entry)
+                                  : null,
                               child: const Text('Reject'),
                             ),
                           ],
