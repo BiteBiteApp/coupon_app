@@ -1184,28 +1184,28 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 3,
-      child: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          const SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: TabBar(
-                tabs: [
-                  Tab(text: 'Restaurants'),
-                  Tab(text: 'Name Changes'),
-                  Tab(text: 'Reports'),
-                ],
-              ),
+      child: Column(
+        children: [
+          const Padding(
+            padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: TabBar(
+              tabs: [
+                Tab(text: 'Restaurants'),
+                Tab(text: 'Name Changes'),
+                Tab(text: 'Reports'),
+              ],
+            ),
+          ),
+          Expanded(
+            child: TabBarView(
+              children: [
+                _buildRestaurantsTab(),
+                _buildNameChangesTab(),
+                _buildReportsTab(),
+              ],
             ),
           ),
         ],
-        body: TabBarView(
-          children: [
-            _buildRestaurantsTab(),
-            _buildNameChangesTab(),
-            _buildReportsTab(),
-          ],
-        ),
       ),
     );
   }

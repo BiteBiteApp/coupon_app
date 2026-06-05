@@ -43,7 +43,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   static const double _collapsedHeaderExtent = 60;
-  static const double _expandedHeaderExtent = 244;
+  static const double _expandedHeaderExtent = 231;
   static const String _selectedRadiusPreferenceKey = 'selected_radius';
   static const List<String> _restaurantPlaceholderImages = [
     'assets/images/placeholder_outside.png',
@@ -2785,7 +2785,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     final width = constraints.maxWidth;
                     final tight = width < 430;
                     final controlHeight = tight ? 38.0 : 43.0;
-                    final heroHeight = tight ? 143.0 : 153.0;
+                    final heroHeight = tight ? 132.0 : 140.0;
                     final horizontalPadding = tight ? 8.0 : 10.0;
                     final searchPadding = tight ? 5.0 : 7.0;
 
@@ -2832,7 +2832,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   ),
                                                   fontSize: tight ? 28 : 33,
                                                   fontWeight: FontWeight.w900,
-                                                  height: 1.06,
+                                                  height: 1.04,
                                                 ),
                                               ),
                                               Text(
@@ -2843,7 +2843,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   ),
                                                   fontSize: tight ? 28 : 33,
                                                   fontWeight: FontWeight.w900,
-                                                  height: 1.06,
+                                                  height: 1.04,
                                                 ),
                                               ),
                                             ],
@@ -2855,12 +2855,10 @@ class _HomeScreenState extends State<HomeScreen> {
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
-                                            color: Colors.black.withValues(
-                                              alpha: 0.68,
-                                            ),
-                                            fontSize: tight ? 11.8 : 13.1,
-                                            height: 1.22,
-                                            fontWeight: FontWeight.w500,
+                                            color: const Color(0xFF4A3324),
+                                            fontSize: tight ? 12.2 : 13.4,
+                                            height: 1.18,
+                                            fontWeight: FontWeight.w600,
                                           ),
                                         ),
                                       ],

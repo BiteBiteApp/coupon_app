@@ -57,54 +57,54 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
 
     return Theme(
       data: adminTheme,
-      child: NestedScrollView(
-        headerSliverBuilder: (context, innerBoxIsScrolled) => [
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: BiteRaterTheme.liftedCard(
-                radius: 16,
-                borderColor: BiteRaterTheme.grape.withOpacity(0.16),
-                child: TabBar(
-                  controller: _tabController,
-                  isScrollable: true,
-                  labelColor: BiteRaterTheme.grape,
-                  unselectedLabelColor: BiteRaterTheme.mutedInk,
-                  indicatorColor: BiteRaterTheme.coral,
-                  tabs: const [
-                    Tab(text: 'Restaurants'),
-                    Tab(text: 'Dishes'),
-                    Tab(text: 'Reviews'),
-                    Tab(text: 'Reported Reviews'),
-                    Tab(text: 'Data Reports'),
-                    Tab(text: 'Claims'),
-                    Tab(text: 'Dish Suggestions'),
-                    Tab(text: 'Claimed Restaurants'),
-                    Tab(text: 'Users'),
-                  ],
-                ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+            child: BiteRaterTheme.liftedCard(
+              radius: 16,
+              borderColor: BiteRaterTheme.grape.withOpacity(0.16),
+              child: TabBar(
+                controller: _tabController,
+                isScrollable: true,
+                labelColor: BiteRaterTheme.grape,
+                unselectedLabelColor: BiteRaterTheme.mutedInk,
+                indicatorColor: BiteRaterTheme.coral,
+                tabs: const [
+                  Tab(text: 'Restaurants'),
+                  Tab(text: 'Dishes'),
+                  Tab(text: 'Reviews'),
+                  Tab(text: 'Reported Reviews'),
+                  Tab(text: 'Data Reports'),
+                  Tab(text: 'Claims'),
+                  Tab(text: 'Dish Suggestions'),
+                  Tab(text: 'Claimed Restaurants'),
+                  Tab(text: 'Users'),
+                ],
               ),
             ),
           ),
+          Expanded(
+            child: TabBarView(
+              controller: _tabController,
+              children: [
+                _BiteScoreRestaurantAdminList(
+                  onManageDishes: _openRestaurantDishes,
+                ),
+                _BiteScoreDishAdminList(
+                  selectedRestaurant: _selectedDishRestaurant,
+                ),
+                const _BiteScoreReviewAdminList(),
+                const _BiteScoreReportedReviewAdminList(),
+                const _BiteScoreDataReportsAdminList(),
+                const _BiteScoreClaimAdminList(),
+                const _BiteScoreDishSuggestionAdminList(),
+                const _BiteScoreApprovedOwnershipAdminList(),
+                const _BiteScoreUsersAdminList(),
+              ],
+            ),
+          ),
         ],
-        body: TabBarView(
-          controller: _tabController,
-          children: [
-            _BiteScoreRestaurantAdminList(
-              onManageDishes: _openRestaurantDishes,
-            ),
-            _BiteScoreDishAdminList(
-              selectedRestaurant: _selectedDishRestaurant,
-            ),
-            const _BiteScoreReviewAdminList(),
-            const _BiteScoreReportedReviewAdminList(),
-            const _BiteScoreDataReportsAdminList(),
-            const _BiteScoreClaimAdminList(),
-            const _BiteScoreDishSuggestionAdminList(),
-            const _BiteScoreApprovedOwnershipAdminList(),
-            const _BiteScoreUsersAdminList(),
-          ],
-        ),
       ),
     );
   }
