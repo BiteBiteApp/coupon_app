@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:coupon_app/models/demo_redemption_store.dart';
 import 'package:coupon_app/services/customer_session_service.dart';
+import 'package:coupon_app/services/user_profile_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
@@ -293,20 +294,7 @@ class CustomerAuthService {
 
     await signedInUser.reload();
     final refreshedUser = _auth.currentUser ?? signedInUser;
-    if (!refreshedUser.isAnonymous) {
-      final email = refreshedUser.email?.trim();
-      final phoneNumber = refreshedUser.phoneNumber?.trim();
-      final displayName = refreshedUser.displayName?.trim();
-      await _firestore.collection('user_profiles').doc(refreshedUser.uid).set({
-        'userId': refreshedUser.uid,
-        if (email != null && email.isNotEmpty) 'email': email,
-        if (phoneNumber != null && phoneNumber.isNotEmpty)
-          'phoneNumber': phoneNumber,
-        if (displayName != null && displayName.isNotEmpty)
-          'displayName': displayName,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    }
+    await UserProfileService.upsertSignedInUserProfile(refreshedUser);
 
     await DemoRedemptionStore.refreshFromFirestore();
   }

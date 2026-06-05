@@ -2950,22 +2950,39 @@ class _BiteScoreUsersAdminList extends StatefulWidget {
 
 class _BiteScoreUsersAdminListState extends State<_BiteScoreUsersAdminList> {
   final TextEditingController _searchController = TextEditingController();
-  late Future<List<BiteScoreAdminUserEntry>> _usersFuture;
+  Future<List<BiteScoreAdminUserEntry>>? _usersFuture;
+  bool _showAllUsers = false;
 
   @override
   void initState() {
     super.initState();
-    _usersFuture = BiteScoreService.loadUsersForAdmin();
+    _searchController.addListener(_handleSearchChanged);
   }
 
   @override
   void dispose() {
+    _searchController.removeListener(_handleSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
 
+  void _handleSearchChanged() {
+    if (!mounted) {
+      return;
+    }
+    final isSearching = _searchController.text.trim().isNotEmpty;
+    setState(() {
+      if (isSearching) {
+        _refreshUsers();
+      }
+    });
+  }
+
   void _refreshUsers() {
-    _usersFuture = BiteScoreService.loadUsersForAdmin();
+    final query = _searchController.text.trim();
+    _usersFuture = query.isEmpty
+        ? BiteScoreService.loadUsersForAdmin()
+        : BiteScoreService.searchUsersForAdmin(query);
   }
 
   void _showSnackBar(BuildContext context, String message) {
@@ -3055,7 +3072,9 @@ class _BiteScoreUsersAdminListState extends State<_BiteScoreUsersAdminList> {
         return;
       }
       _showSnackBar(context, 'User account records deleted.');
-      setState(_refreshUsers);
+      if (_showAllUsers) {
+        setState(_refreshUsers);
+      }
     } catch (error) {
       if (!context.mounted) {
         return;
@@ -3070,8 +3089,76 @@ class _BiteScoreUsersAdminListState extends State<_BiteScoreUsersAdminList> {
     }
   }
 
+  Widget _buildUserSearchControls({required bool includeRefresh}) {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: _AdminSearchField(
+                controller: _searchController,
+                label: 'Search users',
+                onChanged: (_) {
+                  final isSearching = _searchController.text.trim().isNotEmpty;
+                  setState(() {
+                    if (isSearching) {
+                      _refreshUsers();
+                    }
+                  });
+                },
+              ),
+            ),
+            if (includeRefresh) ...[
+              const SizedBox(width: 8),
+              IconButton(
+                tooltip: 'Refresh users',
+                onPressed: () => setState(_refreshUsers),
+                icon: const Icon(Icons.refresh),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 12),
+        Align(
+          alignment: Alignment.centerRight,
+          child: OutlinedButton(
+            onPressed: () {
+              setState(() {
+                _showAllUsers = !_showAllUsers;
+                if (_showAllUsers && _usersFuture == null) {
+                  _refreshUsers();
+                }
+              });
+            },
+            child: Text(_showAllUsers ? 'Hide All Users' : 'View All Users'),
+          ),
+        ),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final isSearching = _searchController.text.trim().isNotEmpty;
+    final shouldLoadUsers = _showAllUsers || isSearching;
+
+    if (!shouldLoadUsers) {
+      return ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildUserSearchControls(includeRefresh: false),
+          const SizedBox(height: 12),
+          const _AdminEmptyStateCard(
+            icon: Icons.people_alt_outlined,
+            title: 'Find Users',
+            message: 'Search for a user or tap View All Users.',
+          ),
+        ],
+      );
+    }
+
+    _usersFuture ??= BiteScoreService.loadUsersForAdmin();
+
     return FutureBuilder<List<BiteScoreAdminUserEntry>>(
       future: _usersFuture,
       builder: (context, snapshot) {
@@ -3120,23 +3207,7 @@ class _BiteScoreUsersAdminListState extends State<_BiteScoreUsersAdminList> {
         return ListView(
           padding: const EdgeInsets.all(16),
           children: [
-            Row(
-              children: [
-                Expanded(
-                  child: _AdminSearchField(
-                    controller: _searchController,
-                    label: 'Search users',
-                    onChanged: (_) => setState(() {}),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  tooltip: 'Refresh users',
-                  onPressed: () => setState(_refreshUsers),
-                  icon: const Icon(Icons.refresh),
-                ),
-              ],
-            ),
+            _buildUserSearchControls(includeRefresh: true),
             const SizedBox(height: 12),
             if (users.isEmpty)
               const _AdminEmptyStateCard(

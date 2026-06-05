@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 
 import 'restaurant_account_service.dart';
+import 'user_profile_service.dart';
 
 class RestaurantAuthService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -34,6 +35,7 @@ class RestaurantAuthService {
     if (user != null) {
       await RestaurantAccountService.createOrUpdateAccountRecord(user);
       await RestaurantAccountService.syncEmailVerified(user);
+      await UserProfileService.upsertSignedInUserProfile(user);
     }
 
     return user;
@@ -61,6 +63,7 @@ class RestaurantAuthService {
     if (user != null) {
       await RestaurantAccountService.createOrUpdateAccountRecord(user);
       await RestaurantAccountService.syncEmailVerified(user);
+      await UserProfileService.upsertSignedInUserProfile(user);
     }
 
     return user;
@@ -75,6 +78,7 @@ class RestaurantAuthService {
     if (user != null) {
       await RestaurantAccountService.createOrUpdateAccountRecord(user);
       await RestaurantAccountService.syncEmailVerified(user);
+      await UserProfileService.upsertSignedInUserProfile(user);
     }
 
     return user;

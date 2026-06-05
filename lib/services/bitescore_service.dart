@@ -1690,6 +1690,413 @@ class BiteScoreService {
     return entries;
   }
 
+  static Future<List<BiteScoreAdminUserEntry>> searchUsersForAdmin(
+    String query,
+  ) async {
+    _requireSignedInAdminUser(operation: 'search_users_for_admin');
+
+    final trimmedQuery = query.trim();
+    if (trimmedQuery.isEmpty) {
+      return const <BiteScoreAdminUserEntry>[];
+    }
+
+    final usersById = <String, _MutableAdminUserEntry>{};
+
+    void upsertUser({
+      required String? uid,
+      String? email,
+      String? phoneNumber,
+      String? displayName,
+      bool hasRestaurantAccount = false,
+      bool hasBiteScoreOwnership = false,
+      bool? isEmailVerified,
+      String? restaurantAccountStatus,
+      String? claimedRestaurantName,
+      String? activityTag,
+    }) {
+      final trimmedUid = uid?.trim();
+      if (trimmedUid == null || trimmedUid.isEmpty) {
+        return;
+      }
+
+      final existing = usersById.putIfAbsent(
+        trimmedUid,
+        () => _MutableAdminUserEntry(trimmedUid),
+      );
+      existing.apply(
+        email: email,
+        phoneNumber: phoneNumber,
+        displayName: displayName,
+        hasRestaurantAccount: hasRestaurantAccount,
+        hasBiteScoreOwnership: hasBiteScoreOwnership,
+        isEmailVerified: isEmailVerified,
+        restaurantAccountStatus: restaurantAccountStatus,
+        claimedRestaurantName: claimedRestaurantName,
+        activityTag: activityTag,
+      );
+    }
+
+    void upsertUserProfileDoc(QueryDocumentSnapshot<Map<String, dynamic>> doc) {
+      final data = doc.data();
+      upsertUser(
+        uid: _readAdminString(data['userId']) ?? doc.id,
+        email: _readAdminString(data[Restaurant.fieldEmail]),
+        phoneNumber: _readAdminString(data['phoneNumber']),
+        displayName: _readAdminString(data['displayName']),
+        activityTag: 'Profile',
+      );
+    }
+
+    void upsertUserProfileSnapshot(
+      DocumentSnapshot<Map<String, dynamic>> snapshot,
+    ) {
+      final data = snapshot.data();
+      if (data == null) {
+        return;
+      }
+      upsertUser(
+        uid: _readAdminString(data['userId']) ?? snapshot.id,
+        email: _readAdminString(data[Restaurant.fieldEmail]),
+        phoneNumber: _readAdminString(data['phoneNumber']),
+        displayName: _readAdminString(data['displayName']),
+        activityTag: 'Profile',
+      );
+    }
+
+    void upsertRestaurantAccountDoc(
+      QueryDocumentSnapshot<Map<String, dynamic>> doc,
+    ) {
+      final data = doc.data();
+      upsertUser(
+        uid: _readAdminString(data[Restaurant.fieldUid]) ?? doc.id,
+        email: _readAdminString(data[Restaurant.fieldEmail]),
+        phoneNumber:
+            _readAdminString(data['phoneNumber']) ??
+            _readAdminString(data[Restaurant.fieldPhone]),
+        displayName:
+            _readAdminString(data['displayName']) ??
+            _readAdminString(data[Restaurant.fieldName]) ??
+            _readAdminString(data[Restaurant.legacyFieldName]),
+        hasRestaurantAccount: true,
+        isEmailVerified: data['emailVerified'] as bool?,
+        restaurantAccountStatus: _readAdminString(
+          data[Restaurant.fieldApprovalStatus],
+        ),
+        activityTag: 'Coupon',
+      );
+    }
+
+    void upsertRestaurantAccountSnapshot(
+      DocumentSnapshot<Map<String, dynamic>> snapshot,
+    ) {
+      final data = snapshot.data();
+      if (data == null) {
+        return;
+      }
+      upsertUser(
+        uid: _readAdminString(data[Restaurant.fieldUid]) ?? snapshot.id,
+        email: _readAdminString(data[Restaurant.fieldEmail]),
+        phoneNumber:
+            _readAdminString(data['phoneNumber']) ??
+            _readAdminString(data[Restaurant.fieldPhone]),
+        displayName:
+            _readAdminString(data['displayName']) ??
+            _readAdminString(data[Restaurant.fieldName]) ??
+            _readAdminString(data[Restaurant.legacyFieldName]),
+        hasRestaurantAccount: true,
+        isEmailVerified: data['emailVerified'] as bool?,
+        restaurantAccountStatus: _readAdminString(
+          data[Restaurant.fieldApprovalStatus],
+        ),
+        activityTag: 'Coupon',
+      );
+    }
+
+    void upsertPublicReviewerDoc(
+      QueryDocumentSnapshot<Map<String, dynamic>> doc,
+    ) {
+      final data = doc.data();
+      upsertUser(
+        uid: _readAdminString(data['userId']) ?? doc.id,
+        phoneNumber: _readAdminString(data['phoneNumber']),
+        displayName:
+            _readAdminString(data['publicDisplayName']) ??
+            _readAdminString(data['chosenUsername']) ??
+            _readAdminString(data['fallbackUsername']),
+        activityTag: 'Profile',
+      );
+    }
+
+    void upsertPublicReviewerSnapshot(
+      DocumentSnapshot<Map<String, dynamic>> snapshot,
+    ) {
+      final data = snapshot.data();
+      if (data == null) {
+        return;
+      }
+      upsertUser(
+        uid: _readAdminString(data['userId']) ?? snapshot.id,
+        phoneNumber: _readAdminString(data['phoneNumber']),
+        displayName:
+            _readAdminString(data['publicDisplayName']) ??
+            _readAdminString(data['chosenUsername']) ??
+            _readAdminString(data['fallbackUsername']),
+        activityTag: 'Profile',
+      );
+    }
+
+    void upsertClaimRequestDoc(
+      QueryDocumentSnapshot<Map<String, dynamic>> doc,
+    ) {
+      final request = RestaurantClaimRequest.tryFromFirestore(
+        doc.data(),
+        fallbackId: doc.id,
+      );
+      if (request == null) {
+        return;
+      }
+      upsertUser(
+        uid: request.requesterUserId,
+        email: request.email,
+        phoneNumber: request.phone,
+        displayName: request.claimantName,
+        activityTag: 'Claims',
+      );
+    }
+
+    Future<void> queryCollection({
+      required CollectionReference<Map<String, dynamic>> collection,
+      required String field,
+      required String value,
+      required void Function(QueryDocumentSnapshot<Map<String, dynamic>> doc)
+      applyDoc,
+    }) async {
+      final trimmedValue = value.trim();
+      if (trimmedValue.isEmpty) {
+        return;
+      }
+      final snapshot = await collection
+          .where(field, isEqualTo: trimmedValue)
+          .limit(25)
+          .get();
+      for (final doc in snapshot.docs) {
+        applyDoc(doc);
+      }
+    }
+
+    Future<void> hydrateUserId(String userId, {String? fallbackName}) async {
+      final trimmedUserId = userId.trim();
+      if (trimmedUserId.isEmpty || trimmedUserId.contains('/')) {
+        return;
+      }
+      upsertUser(
+        uid: trimmedUserId,
+        displayName: fallbackName,
+        activityTag: fallbackName == null ? null : 'Profile',
+      );
+      upsertUserProfileSnapshot(await userProfileDocument(trimmedUserId).get());
+      upsertRestaurantAccountSnapshot(
+        await restaurantAccountsCollection().doc(trimmedUserId).get(),
+      );
+      upsertPublicReviewerSnapshot(
+        await publicReviewerProfileDocument(trimmedUserId).get(),
+      );
+    }
+
+    final emailCandidates = _adminExactEmailSearchCandidates(trimmedQuery);
+    for (final email in emailCandidates) {
+      await queryCollection(
+        collection: _firestore.collection('user_profiles'),
+        field: Restaurant.fieldEmail,
+        value: email,
+        applyDoc: upsertUserProfileDoc,
+      );
+      await queryCollection(
+        collection: restaurantAccountsCollection(),
+        field: Restaurant.fieldEmail,
+        value: email,
+        applyDoc: upsertRestaurantAccountDoc,
+      );
+      await queryCollection(
+        collection: claimRequestsCollection(),
+        field: 'email',
+        value: email,
+        applyDoc: upsertClaimRequestDoc,
+      );
+    }
+
+    for (final phone in _adminExactPhoneSearchCandidates(trimmedQuery)) {
+      await queryCollection(
+        collection: _firestore.collection('user_profiles'),
+        field: 'phoneNumber',
+        value: phone,
+        applyDoc: upsertUserProfileDoc,
+      );
+      await queryCollection(
+        collection: restaurantAccountsCollection(),
+        field: 'phoneNumber',
+        value: phone,
+        applyDoc: upsertRestaurantAccountDoc,
+      );
+      await queryCollection(
+        collection: restaurantAccountsCollection(),
+        field: Restaurant.fieldPhone,
+        value: phone,
+        applyDoc: upsertRestaurantAccountDoc,
+      );
+      await queryCollection(
+        collection: claimRequestsCollection(),
+        field: 'phone',
+        value: phone,
+        applyDoc: upsertClaimRequestDoc,
+      );
+      await queryCollection(
+        collection: publicReviewerProfilesCollection(),
+        field: 'phoneNumber',
+        value: phone,
+        applyDoc: upsertPublicReviewerDoc,
+      );
+    }
+
+    final normalizedUsername = trimmedQuery.toLowerCase();
+    if (_looksLikeAdminUsernameQuery(normalizedUsername)) {
+      await queryCollection(
+        collection: publicReviewerProfilesCollection(),
+        field: 'chosenUsernameNormalized',
+        value: normalizedUsername,
+        applyDoc: upsertPublicReviewerDoc,
+      );
+      await queryCollection(
+        collection: publicReviewerProfilesCollection(),
+        field: 'fallbackUsername',
+        value: normalizedUsername,
+        applyDoc: upsertPublicReviewerDoc,
+      );
+      final usernameSnapshot = await publicUsernamesCollection()
+          .doc(normalizedUsername)
+          .get();
+      final usernameData = usernameSnapshot.data();
+      final reservedUserId = _readAdminString(usernameData?['userId']);
+      if (reservedUserId != null) {
+        await hydrateUserId(
+          reservedUserId,
+          fallbackName:
+              _readAdminString(usernameData?['username']) ?? normalizedUsername,
+        );
+      }
+    }
+
+    if (_looksLikeAdminUidQuery(trimmedQuery)) {
+      await hydrateUserId(trimmedQuery);
+      await queryCollection(
+        collection: claimRequestsCollection(),
+        field: 'requesterUserId',
+        value: trimmedQuery,
+        applyDoc: upsertClaimRequestDoc,
+      );
+    }
+
+    for (final adminEmail in AdminAccessService.allowedAdminEmails) {
+      final existingEntry = usersById.values
+          .where((entry) => entry.email?.toLowerCase().trim() == adminEmail)
+          .toList();
+      if (existingEntry.isNotEmpty) {
+        existingEntry.first.isAdmin = true;
+      }
+    }
+
+    final entries =
+        usersById.values
+            .map(
+              (entry) => BiteScoreAdminUserEntry(
+                uid: entry.uid,
+                email: entry.email,
+                phoneNumber: entry.phoneNumber,
+                displayName: entry.displayName,
+                claimedRestaurantNames: Set<String>.unmodifiable(
+                  entry.claimedRestaurantNames,
+                ),
+                hasRestaurantAccount: entry.hasRestaurantAccount,
+                hasBiteScoreOwnership: entry.hasBiteScoreOwnership,
+                isAdmin:
+                    entry.isAdmin ||
+                    AdminAccessService.isAdminEmail(entry.email),
+                isEmailVerified: entry.isEmailVerified,
+                restaurantAccountStatus: entry.restaurantAccountStatus,
+                activityTags: Set<String>.unmodifiable(entry.activityTags),
+              ),
+            )
+            .toList()
+          ..sort((a, b) {
+            final byName = (a.displayName ?? '').toLowerCase().compareTo(
+              (b.displayName ?? '').toLowerCase(),
+            );
+            if (byName != 0) {
+              return byName;
+            }
+            final byEmail = (a.email ?? '').toLowerCase().compareTo(
+              (b.email ?? '').toLowerCase(),
+            );
+            if (byEmail != 0) {
+              return byEmail;
+            }
+            return a.uid.compareTo(b.uid);
+          });
+
+    return entries;
+  }
+
+  static List<String> _adminExactEmailSearchCandidates(String query) {
+    final trimmed = query.trim();
+    if (!trimmed.contains('@')) {
+      return const <String>[];
+    }
+    final lower = trimmed.toLowerCase();
+    return <String>{trimmed, lower}.where((value) => value.isNotEmpty).toList();
+  }
+
+  static List<String> _adminExactPhoneSearchCandidates(String query) {
+    final trimmed = query.trim();
+    if (trimmed.isEmpty) {
+      return const <String>[];
+    }
+
+    final digits = trimmed.replaceAll(RegExp(r'\D'), '');
+    if (digits.length < 7) {
+      return const <String>[];
+    }
+
+    final candidates = <String>{trimmed, digits};
+    if (trimmed.startsWith('+')) {
+      final internationalDigits = trimmed
+          .substring(1)
+          .replaceAll(RegExp(r'\D'), '');
+      if (internationalDigits.length >= 8 && internationalDigits.length <= 15) {
+        candidates.add('+$internationalDigits');
+      }
+    }
+    if (digits.length == 10) {
+      candidates.add('+1$digits');
+    }
+    if (digits.length == 11 && digits.startsWith('1')) {
+      candidates.add('+$digits');
+    }
+
+    return candidates.where((value) => value.isNotEmpty).toList();
+  }
+
+  static bool _looksLikeAdminUsernameQuery(String query) {
+    return RegExp(r'^[a-z0-9_]{3,30}$').hasMatch(query.trim().toLowerCase());
+  }
+
+  static bool _looksLikeAdminUidQuery(String query) {
+    final trimmed = query.trim();
+    return trimmed.length >= 12 &&
+        !trimmed.contains('/') &&
+        !trimmed.contains('@') &&
+        !RegExp(r'\s').hasMatch(trimmed);
+  }
+
   static Future<void> deleteUserAccountRecordsAsAdmin(
     BiteScoreAdminUserEntry user,
   ) async {

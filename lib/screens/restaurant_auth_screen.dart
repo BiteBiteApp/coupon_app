@@ -11,6 +11,7 @@ import '../services/app_error_text.dart';
 import '../services/bitescore_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_auth_service.dart';
+import '../services/user_profile_service.dart';
 import '../widgets/phone_auth_sheet.dart';
 import 'main_navigation_screen.dart';
 import 'restaurant_create_coupon_screen.dart';
@@ -164,6 +165,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
           refreshedUser,
         );
         await RestaurantAccountService.syncEmailVerified(refreshedUser);
+        await UserProfileService.upsertSignedInUserProfile(refreshedUser);
         await _rememberLastUsedMethod('email');
       }
 

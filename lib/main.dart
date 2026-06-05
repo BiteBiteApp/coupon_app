@@ -1,6 +1,7 @@
 import 'package:coupon_app/firebase_options.dart';
 import 'package:coupon_app/screens/main_navigation_screen.dart';
 import 'package:coupon_app/services/customer_session_service.dart';
+import 'package:coupon_app/services/user_profile_service.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
@@ -17,7 +18,14 @@ Future<void> main() async {
 }
 
 Future<void> ensureUserSignedIn() async {
-  await CustomerSessionService.ensureAuthReady();
+  final user = await CustomerSessionService.ensureAuthReady();
+  if (user == null) {
+    return;
+  }
+
+  try {
+    await UserProfileService.upsertSignedInUserProfile(user);
+  } catch (_) {}
 }
 
 class CouponApp extends StatelessWidget {
