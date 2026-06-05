@@ -16,7 +16,9 @@ class AdminReviewScreen extends StatefulWidget {
 
 class _AdminReviewScreenState extends State<AdminReviewScreen> {
   final TextEditingController _searchController = TextEditingController();
-  late final Stream<QuerySnapshot<Map<String, dynamic>>> _accountsStream;
+  late final Stream<QuerySnapshot<Map<String, dynamic>>>
+  _pendingAccountsStream;
+  late final Stream<QuerySnapshot<Map<String, dynamic>>> _allAccountsStream;
   late final Stream<QuerySnapshot<Map<String, dynamic>>>
   _nameChangeRequestsStream;
   late final Stream<QuerySnapshot<Map<String, dynamic>>> _reportsStream;
@@ -24,11 +26,13 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
       const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
   List<QueryDocumentSnapshot<Map<String, dynamic>>> _filteredRestaurantList =
       const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+  bool _showAllRestaurants = false;
 
   @override
   void initState() {
     super.initState();
-    _accountsStream = RestaurantAccountService.allAccountsStream();
+    _pendingAccountsStream = RestaurantAccountService.pendingAccountsStream();
+    _allAccountsStream = RestaurantAccountService.allAccountsStream();
     _nameChangeRequestsStream =
         RestaurantAccountService.pendingRestaurantNameChangeRequestsStream();
     _reportsStream = FirebaseFirestore.instance
@@ -128,6 +132,13 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
     }
   }
 
+  Stream<QuerySnapshot<Map<String, dynamic>>> _restaurantAccountsStream() {
+    if (_showAllRestaurants || _searchController.text.trim().isNotEmpty) {
+      return _allAccountsStream;
+    }
+    return _pendingAccountsStream;
+  }
+
   List<QueryDocumentSnapshot<Map<String, dynamic>>>
   _buildFilteredRestaurantList(
     List<QueryDocumentSnapshot<Map<String, dynamic>>> restaurants,
@@ -144,20 +155,46 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
     return restaurants
         .where((doc) {
           final data = doc.data();
-          final restaurantName = _readString(
+          final streetAddress = _readString(
             data,
-            Restaurant.fieldName,
-          ).toLowerCase();
-          final email = _readString(data, Restaurant.fieldEmail).toLowerCase();
-          final phoneNumber = _readString(data, 'phoneNumber').toLowerCase();
-          final phone = _readString(data, Restaurant.fieldPhone).toLowerCase();
-          final city = _readString(data, Restaurant.fieldCity).toLowerCase();
+            Restaurant.fieldStreetAddress,
+          );
+          final legacyStreetAddress = _readString(
+            data,
+            Restaurant.legacyFieldStreetAddress,
+          );
+          final city = _readString(data, Restaurant.fieldCity);
+          final state = _readString(data, Restaurant.fieldState);
+          final zipCode = _readString(data, Restaurant.fieldZipCode);
+          final legacyZipCode = _readString(
+            data,
+            Restaurant.legacyFieldZipCode,
+          );
+          final fullAddress = [
+            streetAddress.isNotEmpty ? streetAddress : legacyStreetAddress,
+            city,
+            state,
+            zipCode.isNotEmpty ? zipCode : legacyZipCode,
+          ].where((part) => part.isNotEmpty).join(' ');
 
-          return restaurantName.contains(normalizedQuery) ||
-              email.contains(normalizedQuery) ||
-              phoneNumber.contains(normalizedQuery) ||
-              phone.contains(normalizedQuery) ||
-              city.contains(normalizedQuery);
+          final values = <String>[
+            _readString(data, Restaurant.fieldName),
+            _readString(data, Restaurant.legacyFieldName),
+            _readString(data, Restaurant.fieldEmail),
+            _readString(data, 'phoneNumber'),
+            _readString(data, Restaurant.fieldPhone),
+            city,
+            state,
+            zipCode,
+            legacyZipCode,
+            streetAddress,
+            legacyStreetAddress,
+            fullAddress,
+          ];
+
+          return values.any(
+            (value) => value.toLowerCase().contains(normalizedQuery),
+          );
         })
         .toList(growable: false);
   }
@@ -719,7 +756,7 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
 
   Widget _buildRestaurantsTab() {
     return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: _accountsStream,
+      stream: _restaurantAccountsStream(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -778,6 +815,8 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
           _fullRestaurantList,
           _searchController.text,
         );
+        final isSearching = _searchController.text.trim().isNotEmpty;
+        final showingAllAccounts = _showAllRestaurants || isSearching;
 
         return Column(
           children: [
@@ -804,6 +843,32 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          showingAllAccounts
+                              ? 'Showing all restaurant accounts.'
+                              : 'Showing pending restaurant approvals only.',
+                          style: const TextStyle(color: Colors.black54),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      OutlinedButton(
+                        onPressed: () {
+                          setState(() {
+                            _showAllRestaurants = !_showAllRestaurants;
+                          });
+                        },
+                        child: Text(
+                          _showAllRestaurants
+                              ? 'Show Pending Only'
+                              : 'View All Restaurants',
+                        ),
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 12),
                 ],
               ),
@@ -815,7 +880,9 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
                         padding: const EdgeInsets.all(16),
                         child: Text(
                           _searchController.text.trim().isEmpty
-                              ? 'No restaurants found.'
+                              ? showingAllAccounts
+                                    ? 'No restaurants found.'
+                                    : 'No pending restaurant approvals found.'
                               : 'No restaurants match your search.',
                           textAlign: TextAlign.center,
                           style: const TextStyle(fontSize: 16),
@@ -849,10 +916,24 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
                         final contactPhone = phoneNumber.isNotEmpty
                             ? phoneNumber
                             : applicantPhone;
+                        final streetAddress = _readString(
+                          data,
+                          Restaurant.fieldStreetAddress,
+                        );
                         final city = _readString(data, Restaurant.fieldCity);
+                        final state = _readString(data, Restaurant.fieldState);
                         final zipCode = _readString(
                           data,
                           Restaurant.fieldZipCode,
+                        );
+                        final locationParts = <String>[
+                          if (city.isNotEmpty) city,
+                          if (state.isNotEmpty) state,
+                          if (zipCode.isNotEmpty) zipCode,
+                        ];
+                        final website = _readString(
+                          data,
+                          Restaurant.fieldWebsite,
                         );
                         final approvalStatus =
                             _readString(
@@ -898,14 +979,20 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
                                     phone: applicantPhone,
                                     prefix: 'Applicant phone: ',
                                   ),
-                                if (city.isNotEmpty || zipCode.isNotEmpty) ...[
+                                if (streetAddress.isNotEmpty ||
+                                    city.isNotEmpty ||
+                                    state.isNotEmpty ||
+                                    zipCode.isNotEmpty) ...[
                                   const SizedBox(height: 4),
-                                  Text(
-                                    city.isEmpty
-                                        ? zipCode
-                                        : '$city${zipCode.isEmpty ? '' : ', $zipCode'}',
-                                  ),
+                                  if (streetAddress.isNotEmpty)
+                                    Text('Street: $streetAddress'),
+                                  if (locationParts.isNotEmpty)
+                                    Text(
+                                      'Location: ${locationParts.join(', ')}',
+                                    ),
                                 ],
+                                if (website.isNotEmpty)
+                                  Text('Website: $website'),
                                 const SizedBox(height: 10),
                                 Row(
                                   children: [

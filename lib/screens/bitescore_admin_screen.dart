@@ -2014,6 +2014,7 @@ class _BiteScoreClaimAdminList extends StatefulWidget {
 
 class _BiteScoreClaimAdminListState extends State<_BiteScoreClaimAdminList> {
   final TextEditingController _searchController = TextEditingController();
+  bool _showAllClaims = false;
 
   @override
   void dispose() {
@@ -2077,8 +2078,13 @@ class _BiteScoreClaimAdminListState extends State<_BiteScoreClaimAdminList> {
 
   @override
   Widget build(BuildContext context) {
+    final isSearching = _searchController.text.trim().isNotEmpty;
+    final showingAllClaims = _showAllClaims || isSearching;
+
     return StreamBuilder<List<BiteScoreAdminClaimEntry>>(
-      stream: BiteScoreService.claimRequestsAdminStream(),
+      stream: BiteScoreService.claimRequestsAdminStream(
+        pendingOnly: !showingAllClaims,
+      ),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -2097,10 +2103,12 @@ class _BiteScoreClaimAdminListState extends State<_BiteScoreClaimAdminList> {
         }
 
         final entries = snapshot.data ?? const <BiteScoreAdminClaimEntry>[];
-        final pendingEntries = entries
-            .where((entry) => entry.request.status == 'pending')
-            .toList(growable: false);
-        final filteredEntries = pendingEntries
+        final visibleEntries = showingAllClaims
+            ? entries
+            : entries
+                  .where((entry) => entry.request.status == 'pending')
+                  .toList(growable: false);
+        final matchingEntries = visibleEntries
             .where(
               (entry) => _matchesAdminQuery(_searchController.text, [
                 entry.request.restaurantName,
@@ -2109,9 +2117,17 @@ class _BiteScoreClaimAdminListState extends State<_BiteScoreClaimAdminList> {
                 entry.request.phone,
                 entry.request.requesterUserId,
                 entry.request.message,
+                entry.request.status,
                 entry.restaurant?.address,
                 entry.restaurant?.city,
                 entry.restaurant?.state,
+                entry.restaurant?.zipCode,
+                [
+                  entry.restaurant?.address,
+                  entry.restaurant?.city,
+                  entry.restaurant?.state,
+                  entry.restaurant?.zipCode,
+                ].whereType<String>().join(' '),
               ]),
             )
             .toList(growable: false);
@@ -2125,14 +2141,29 @@ class _BiteScoreClaimAdminListState extends State<_BiteScoreClaimAdminList> {
               onChanged: (_) => setState(() {}),
             ),
             const SizedBox(height: 12),
-            if (pendingEntries.isEmpty)
-              const _AdminEmptyStateCard(
+            Align(
+              alignment: Alignment.centerRight,
+              child: OutlinedButton(
+                onPressed: () {
+                  setState(() {
+                    _showAllClaims = !_showAllClaims;
+                  });
+                },
+                child: Text(
+                  _showAllClaims ? 'Show Pending Only' : 'View All Claims',
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
+            if (visibleEntries.isEmpty)
+              _AdminEmptyStateCard(
                 icon: Icons.verified_user_outlined,
-                title: 'No Pending Claims',
-                message:
-                    'Restaurant claim requests will appear here when owners ask to manage a BiteScore profile.',
+                title: showingAllClaims ? 'No Claims' : 'No Pending Claims',
+                message: showingAllClaims
+                    ? 'Restaurant claim requests will appear here once owners ask to manage a BiteScore profile.'
+                    : 'Restaurant claim requests will appear here when owners ask to manage a BiteScore profile.',
               )
-            else if (filteredEntries.isEmpty)
+            else if (matchingEntries.isEmpty)
               const _AdminEmptyStateCard(
                 icon: Icons.search_off,
                 title: 'No Matching Claims',
@@ -2140,9 +2171,10 @@ class _BiteScoreClaimAdminListState extends State<_BiteScoreClaimAdminList> {
                     'Try a different restaurant name, claimant name, email, or user ID search.',
               )
             else
-              ...filteredEntries.map((entry) {
+              ...matchingEntries.map((entry) {
                 final request = entry.request;
                 final restaurant = entry.restaurant;
+                final isPending = request.status == 'pending';
 
                 return BiteRaterTheme.liftedCard(
                   margin: const EdgeInsets.only(bottom: 12),
@@ -2167,6 +2199,8 @@ class _BiteScoreClaimAdminListState extends State<_BiteScoreClaimAdminList> {
                         ),
                         if ((request.requesterUserId ?? '').trim().isNotEmpty)
                           Text('User ID: ${request.requesterUserId!}'),
+                        if (showingAllClaims || !isPending)
+                          Text('Status: ${request.status}'),
                         if (restaurant != null) ...[
                           const SizedBox(height: 8),
                           Text(
@@ -2184,11 +2218,15 @@ class _BiteScoreClaimAdminListState extends State<_BiteScoreClaimAdminList> {
                           runSpacing: 8,
                           children: [
                             ElevatedButton(
-                              onPressed: () => _approveClaim(context, request),
+                              onPressed: isPending
+                                  ? () => _approveClaim(context, request)
+                                  : null,
                               child: const Text('Approve'),
                             ),
                             OutlinedButton(
-                              onPressed: () => _rejectClaim(context, request),
+                              onPressed: isPending
+                                  ? () => _rejectClaim(context, request)
+                                  : null,
                               child: const Text('Reject'),
                             ),
                           ],

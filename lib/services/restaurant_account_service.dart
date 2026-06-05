@@ -147,6 +147,13 @@ class RestaurantAccountService {
     return _firestore.collection('restaurant_accounts').snapshots();
   }
 
+  static Stream<QuerySnapshot<Map<String, dynamic>>> pendingAccountsStream() {
+    return _firestore
+        .collection('restaurant_accounts')
+        .where(Restaurant.fieldApprovalStatus, isEqualTo: 'pending')
+        .snapshots();
+  }
+
   static Stream<QuerySnapshot<Map<String, dynamic>>>
   couponApplicationsAdminStream() {
     return _firestore

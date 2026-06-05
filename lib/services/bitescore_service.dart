@@ -1233,9 +1233,15 @@ class BiteScoreService {
         });
   }
 
-  static Stream<List<BiteScoreAdminClaimEntry>> claimRequestsAdminStream() {
-    return claimRequestsCollection()
-        .orderBy('createdAt', descending: true)
+  static Stream<List<BiteScoreAdminClaimEntry>> claimRequestsAdminStream({
+    bool pendingOnly = true,
+  }) {
+    Query<Map<String, dynamic>> query = claimRequestsCollection();
+    if (pendingOnly) {
+      query = query.where('status', isEqualTo: 'pending');
+    }
+
+    return query
         .snapshots()
         .asyncMap((snapshot) async {
           final restaurants = await loadRestaurantsForFinder();
@@ -1257,7 +1263,14 @@ class BiteScoreService {
                   restaurant: restaurantsById[request.restaurantId],
                 ),
               )
-              .toList();
+              .toList()
+            ..sort((a, b) {
+              final aDate =
+                  a.request.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+              final bDate =
+                  b.request.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+              return bDate.compareTo(aDate);
+            });
 
           return entries;
         });
