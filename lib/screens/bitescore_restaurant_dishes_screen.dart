@@ -1367,12 +1367,14 @@ class _OwnerTextField extends StatelessWidget {
   final String label;
   final int maxLines;
   final TextInputType? keyboardType;
+  final bool readOnly;
 
   const _OwnerTextField({
     required this.controller,
     required this.label,
     this.maxLines = 1,
     this.keyboardType,
+    this.readOnly = false,
   });
 
   @override
@@ -1381,6 +1383,7 @@ class _OwnerTextField extends StatelessWidget {
       controller: controller,
       maxLines: maxLines,
       keyboardType: keyboardType,
+      readOnly: readOnly,
       decoration: InputDecoration(
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -1409,15 +1412,19 @@ class _RestaurantClaimDialogState extends State<_RestaurantClaimDialog> {
   late final TextEditingController _messageController;
   bool _isSaving = false;
 
+  String get _authEmail =>
+      (FirebaseAuth.instance.currentUser?.email ??
+              widget.currentUser.email ??
+              '')
+          .trim();
+
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(
       text: widget.currentUser.displayName ?? '',
     );
-    _emailController = TextEditingController(
-      text: widget.currentUser.email ?? '',
-    );
+    _emailController = TextEditingController(text: _authEmail);
     _phoneController = TextEditingController(
       text: widget.currentUser.phoneNumber ?? '',
     );
@@ -1434,6 +1441,9 @@ class _RestaurantClaimDialogState extends State<_RestaurantClaimDialog> {
   }
 
   Future<void> _submit() async {
+    final authEmail = _authEmail;
+    _emailController.text = authEmail;
+
     setState(() {
       _isSaving = true;
     });
@@ -1443,7 +1453,6 @@ class _RestaurantClaimDialogState extends State<_RestaurantClaimDialog> {
         restaurantId: widget.restaurant.id,
         restaurantName: widget.restaurant.name,
         claimantName: _nameController.text,
-        email: _emailController.text,
         phone: _phoneController.text,
         message: _messageController.text,
       );
@@ -1490,6 +1499,7 @@ class _RestaurantClaimDialogState extends State<_RestaurantClaimDialog> {
                 controller: _emailController,
                 label: 'Email',
                 keyboardType: TextInputType.emailAddress,
+                readOnly: true,
               ),
               const SizedBox(height: 12),
               _OwnerTextField(

@@ -2982,16 +2982,18 @@ class BiteScoreService {
     required String restaurantId,
     required String restaurantName,
     required String claimantName,
-    required String email,
     required String phone,
     required String message,
   }) async {
     final user = await _requireFreshSignedInBiteScoreUser();
+    final authEmail = user.email?.trim();
     if (claimantName.trim().isEmpty) {
       throw ArgumentError('Claimant name is required.');
     }
-    if (email.trim().isEmpty) {
-      throw ArgumentError('Email is required.');
+    if (authEmail == null || authEmail.isEmpty) {
+      throw ArgumentError(
+        'An email-based account is required to claim a restaurant.',
+      );
     }
     if (phone.trim().isEmpty) {
       throw ArgumentError('Phone is required.');
@@ -3014,7 +3016,7 @@ class BiteScoreService {
       restaurantName: restaurantName,
       requesterUserId: user.uid,
       claimantName: claimantName,
-      email: email,
+      email: authEmail,
       phone: phone,
       message: message,
     );
