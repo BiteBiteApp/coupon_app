@@ -64,6 +64,7 @@ class _RestaurantCreateCouponScreenState
   bool _basicInfoSectionExpanded = false;
   bool _restaurantImageSectionExpanded = false;
   bool _hoursSectionExpanded = false;
+  bool _menuManagementSectionExpanded = false;
   bool _couponManagementSectionExpanded = false;
   bool _customerPreviewSectionExpanded = false;
   bool _businessHoursDirty = false;
@@ -2771,6 +2772,19 @@ class _RestaurantCreateCouponScreenState
     );
   }
 
+  Widget _buildMenuManagementSection() {
+    return _buildOwnerExpandableSection(
+      title: 'Menu Management',
+      initiallyExpanded: _menuManagementSectionExpanded,
+      onExpansionChanged: (expanded) {
+        setState(() {
+          _menuManagementSectionExpanded = expanded;
+        });
+      },
+      children: [_buildManageMenuButton()],
+    );
+  }
+
   Widget _buildCustomerPreviewSection(RestaurantProfileData profile) {
     return _buildOwnerExpandableSection(
       title: 'Customer Preview',
@@ -3075,9 +3089,7 @@ class _RestaurantCreateCouponScreenState
               _buildSaveProfileButton(),
               const SizedBox(height: 12),
               _buildRestaurantImageSection(),
-              const SizedBox(height: 12),
-              _buildManageMenuButton(),
-              const SizedBox(height: 16),
+              _buildMenuManagementSection(),
               _buildCouponManagementSection(),
               _buildCustomerPreviewSection(savedProfile),
             ],

@@ -1160,7 +1160,6 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     final scoreLabel = entry.aggregate.overallBiteScore > 0
         ? entry.aggregate.overallBiteScore.toStringAsFixed(0)
         : '--';
-    final category = entry.dish.category?.trim() ?? '';
     final restaurantEntries = entries
         .where((item) => item.restaurant.id == entry.restaurant.id)
         .toList();
@@ -1240,20 +1239,6 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                                 height: 1.08,
                               ),
                             ),
-                            if (category.isNotEmpty) ...[
-                              const SizedBox(height: 4),
-                              Text(
-                                category,
-                                style: TextStyle(
-                                  color: BiteRaterTheme.mutedInk.withValues(
-                                    alpha: 0.88,
-                                  ),
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w700,
-                                  height: 1.0,
-                                ),
-                              ),
-                            ],
                           ],
                         ),
                       ),

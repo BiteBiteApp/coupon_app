@@ -134,34 +134,8 @@ class AdminGateScreen extends StatelessWidget {
             ),
             body: Column(
               children: [
-                Container(
-                  width: double.infinity,
-                  margin: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.blue.shade200),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Admin Session Active',
-                        style: TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 6),
-                      Text('Signed in as ${email ?? ''}'),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'You can manage coupon-side and rating-side data from this shared admin area.',
-                        style: TextStyle(color: Colors.black54),
-                      ),
-                    ],
-                  ),
-                ),
                 Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
                   child: Container(
                     decoration: BoxDecoration(
                       color: Colors.grey.shade100,

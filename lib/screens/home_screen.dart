@@ -43,7 +43,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   static const double _collapsedHeaderExtent = 60;
-  static const double _expandedHeaderExtent = 231;
+  static const double _expandedHeaderExtent = 219;
   static const String _selectedRadiusPreferenceKey = 'selected_radius';
   static const List<String> _restaurantPlaceholderImages = [
     'assets/images/placeholder_outside.png',
@@ -2785,7 +2785,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     final width = constraints.maxWidth;
                     final tight = width < 430;
                     final controlHeight = tight ? 38.0 : 43.0;
-                    final heroHeight = tight ? 132.0 : 140.0;
+                    final heroHeight = tight ? 120.0 : 128.0;
                     final horizontalPadding = tight ? 8.0 : 10.0;
                     final searchPadding = tight ? 5.0 : 7.0;
 
@@ -2867,10 +2867,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                   SizedBox(width: tight ? 4 : 8),
                                   Expanded(
                                     flex: tight ? 32 : 34,
-                                    child: Padding(
-                                      padding: EdgeInsets.only(
-                                        top: tight ? 17 : 13,
-                                      ),
+                                    child: Transform.translate(
+                                      offset: Offset(0, tight ? -8 : -10),
                                       child: Align(
                                         alignment: Alignment.topRight,
                                         child: IgnorePointer(
