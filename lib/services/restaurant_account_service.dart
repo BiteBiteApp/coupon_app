@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/coupon.dart';
+import '../models/daily_special.dart';
 import '../models/restaurant.dart';
 
 class RestaurantAccountService {
@@ -15,6 +16,12 @@ class RestaurantAccountService {
     String uid,
   ) {
     return docForUser(uid).collection('coupons');
+  }
+
+  static CollectionReference<Map<String, dynamic>> dailySpecialsCollection(
+    String uid,
+  ) {
+    return docForUser(uid).collection('daily_specials');
   }
 
   static CollectionReference<Map<String, dynamic>> menuImagesCollection(
@@ -398,6 +405,71 @@ class RestaurantAccountService {
     return sanitizedCoupon;
   }
 
+  static Future<DailySpecial> createDailySpecial({
+    required String uid,
+    required DailySpecial dailySpecial,
+  }) async {
+    final trimmedUid = uid.trim();
+    if (trimmedUid.isEmpty) {
+      throw ArgumentError('Restaurant user ID is required.');
+    }
+
+    final doc = dailySpecialsCollection(trimmedUid).doc();
+    final sanitizedSpecial = dailySpecial
+        .copyWith(id: doc.id, restaurantId: trimmedUid, ownerUid: trimmedUid)
+        .sanitizedForSave(id: doc.id);
+    final validationError = sanitizedSpecial.validateForSave();
+    if (validationError != null) {
+      throw ArgumentError(validationError);
+    }
+
+    await doc.set({
+      ...sanitizedSpecial.toFirestoreMap(id: doc.id),
+      DailySpecial.fieldCreatedAt: FieldValue.serverTimestamp(),
+      DailySpecial.fieldUpdatedAt: FieldValue.serverTimestamp(),
+    });
+
+    await docForUser(trimmedUid).set({
+      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    return sanitizedSpecial;
+  }
+
+  static Future<DailySpecial> updateDailySpecial({
+    required String uid,
+    required DailySpecial dailySpecial,
+  }) async {
+    final trimmedUid = uid.trim();
+    if (trimmedUid.isEmpty) {
+      throw ArgumentError('Restaurant user ID is required.');
+    }
+
+    final specialId = dailySpecial.id.trim();
+    if (specialId.isEmpty) {
+      throw ArgumentError('Daily special ID is required for updates.');
+    }
+
+    final sanitizedSpecial = dailySpecial
+        .copyWith(id: specialId, restaurantId: trimmedUid, ownerUid: trimmedUid)
+        .sanitizedForSave(id: specialId);
+    final validationError = sanitizedSpecial.validateForSave();
+    if (validationError != null) {
+      throw ArgumentError(validationError);
+    }
+
+    await dailySpecialsCollection(trimmedUid).doc(specialId).set({
+      ...sanitizedSpecial.toFirestoreMap(id: specialId),
+      DailySpecial.fieldUpdatedAt: FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    await docForUser(trimmedUid).set({
+      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+
+    return sanitizedSpecial;
+  }
+
   static Coupon _sanitizeCouponForSave(Coupon coupon, {String? id}) {
     final trimmedCouponCode = coupon.couponCode?.trim();
     final trimmedDetails = coupon.details?.trim();
@@ -450,6 +522,65 @@ class RestaurantAccountService {
     }
 
     return coupons;
+  }
+
+  static Future<List<DailySpecial>> loadDailySpecialsForRestaurant(
+    String uid,
+  ) async {
+    final trimmedUid = uid.trim();
+    if (trimmedUid.isEmpty) {
+      return const [];
+    }
+
+    final snapshot = await dailySpecialsCollection(
+      trimmedUid,
+    ).orderBy(DailySpecial.fieldCreatedAt, descending: true).get();
+
+    final specials = <DailySpecial>[];
+
+    for (final doc in snapshot.docs) {
+      try {
+        final special = DailySpecial.tryFromFirestore(
+          doc.data(),
+          fallbackId: doc.id,
+          fallbackRestaurantId: trimmedUid,
+        );
+        if (special != null) {
+          specials.add(special);
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+
+    return specials;
+  }
+
+  static Future<List<DailySpecial>> loadActiveDailySpecialsForRestaurant(
+    String uid,
+  ) async {
+    final specials = await loadDailySpecialsForRestaurant(uid);
+    return specials.where((special) => special.isActive).toList();
+  }
+
+  static Future<void> deleteDailySpecial({
+    required String uid,
+    required String dailySpecialId,
+  }) async {
+    final trimmedUid = uid.trim();
+    final trimmedSpecialId = dailySpecialId.trim();
+    if (trimmedUid.isEmpty) {
+      throw ArgumentError('Restaurant user ID is required.');
+    }
+    if (trimmedSpecialId.isEmpty) {
+      throw ArgumentError('Daily special ID is required.');
+    }
+
+    await dailySpecialsCollection(trimmedUid).doc(trimmedSpecialId).delete();
+
+    await docForUser(trimmedUid).set({
+      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
   }
 
   static Future<void> deleteCoupon({
@@ -711,11 +842,17 @@ class RestaurantAccountService {
 
   static Future<void> deleteRestaurantAccount(String uid) async {
     final couponsSnapshot = await couponsCollection(uid).get();
+    final dailySpecialsSnapshot = await dailySpecialsCollection(uid).get();
 
-    if (couponsSnapshot.docs.isNotEmpty) {
+    if (couponsSnapshot.docs.isNotEmpty ||
+        dailySpecialsSnapshot.docs.isNotEmpty) {
       final batch = _firestore.batch();
 
       for (final doc in couponsSnapshot.docs) {
+        batch.delete(doc.reference);
+      }
+
+      for (final doc in dailySpecialsSnapshot.docs) {
         batch.delete(doc.reference);
       }
 
