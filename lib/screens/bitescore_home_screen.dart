@@ -1181,7 +1181,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
             pressedScale: 0.965,
             pressedColor: const Color(0xFFF4F8FD),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 7),
+              padding: const EdgeInsets.fromLTRB(10, 12, 16, 7),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
