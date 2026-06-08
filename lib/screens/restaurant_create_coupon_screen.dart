@@ -5,6 +5,7 @@ import 'package:geocoding/geocoding.dart';
 
 import '../models/bitescore_restaurant.dart';
 import '../models/coupon.dart';
+import '../models/daily_special.dart';
 import '../models/local_coupon_store.dart';
 import '../models/local_restaurant_profile_store.dart';
 import '../models/restaurant.dart';
@@ -46,6 +47,10 @@ class _RestaurantCreateCouponScreenState
   final TextEditingController couponDetailsController = TextEditingController();
   final TextEditingController requestedRestaurantNameController =
       TextEditingController();
+  final TextEditingController dailySpecialTitleController =
+      TextEditingController();
+  final TextEditingController dailySpecialDetailsController =
+      TextEditingController();
 
   String selectedUsageRule = 'Unlimited';
   String selectedCouponType = 'Normal coupon';
@@ -65,12 +70,15 @@ class _RestaurantCreateCouponScreenState
   bool _restaurantImageSectionExpanded = false;
   bool _hoursSectionExpanded = false;
   bool _menuManagementSectionExpanded = false;
+  bool _dailySpecialsSectionExpanded = false;
   bool _couponManagementSectionExpanded = false;
   bool _customerPreviewSectionExpanded = false;
   bool _businessHoursDirty = false;
   bool _subscriptionCheckoutLoading = false;
   bool _customerPortalLoading = false;
   bool _subscriptionStateRefreshing = false;
+  bool _dailySpecialsLoading = true;
+  bool _dailySpecialSaving = false;
   bool _hasCouponPostingAccess = false;
   bool _hasUsedTrial = false;
   bool _showNameChangeRequest = false;
@@ -80,6 +88,16 @@ class _RestaurantCreateCouponScreenState
   DateTime? _trialEndsAt;
   DateTime? couponStartTime;
   DateTime? couponEndTime;
+  String? editingDailySpecialId;
+  bool _dailySpecialIsActive = true;
+  DailySpecialAvailabilityMode _dailySpecialAvailabilityMode =
+      DailySpecialAvailabilityMode.todayOnly;
+  final Set<int> _dailySpecialDaysOfWeek = <int>{};
+  bool _dailySpecialAllDay = true;
+  TimeOfDay? _dailySpecialStartTime;
+  TimeOfDay? _dailySpecialEndTime;
+  bool _dailySpecialHideWhenUnavailable = true;
+  List<DailySpecial> _dailySpecials = const [];
   List<RestaurantBusinessHours> businessHours =
       RestaurantBusinessHours.defaultWeek();
   List<RestaurantBusinessHours> _initialProfileBusinessHours =
@@ -407,6 +425,8 @@ class _RestaurantCreateCouponScreenState
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    dailySpecialTitleController.dispose();
+    dailySpecialDetailsController.dispose();
     stateController.dispose();
     requestedRestaurantNameController.dispose();
     super.dispose();
@@ -539,6 +559,117 @@ class _RestaurantCreateCouponScreenState
     );
   }
 
+  Future<void> _pickDailySpecialTime({required bool isStart}) async {
+    final initialTime = isStart
+        ? _dailySpecialStartTime ?? const TimeOfDay(hour: 9, minute: 0)
+        : _dailySpecialEndTime ?? const TimeOfDay(hour: 17, minute: 0);
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: initialTime,
+    );
+    if (pickedTime == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      if (isStart) {
+        _dailySpecialStartTime = pickedTime;
+      } else {
+        _dailySpecialEndTime = pickedTime;
+      }
+    });
+  }
+
+  Widget _buildTimeOfDayField({
+    required String label,
+    required String hint,
+    required TimeOfDay? value,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: InputDecorator(
+        decoration: buildInputDecoration(label, hint),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                value == null ? hint : value.format(context),
+                style: TextStyle(
+                  color: value == null ? Colors.black45 : Colors.black87,
+                ),
+              ),
+            ),
+            const Icon(Icons.schedule),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String? _formatSpecialTimeForFirestore(TimeOfDay? time) {
+    if (time == null) {
+      return null;
+    }
+
+    return '${time.hour.toString().padLeft(2, '0')}:'
+        '${time.minute.toString().padLeft(2, '0')}';
+  }
+
+  TimeOfDay? _timeOfDayFromSpecialTime(String? value) {
+    if (value == null) {
+      return null;
+    }
+
+    final parts = value.split(':');
+    if (parts.length != 2) {
+      return null;
+    }
+
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null ||
+        minute == null ||
+        hour < 0 ||
+        hour > 23 ||
+        minute < 0 ||
+        minute > 59) {
+      return null;
+    }
+
+    return TimeOfDay(hour: hour, minute: minute);
+  }
+
+  String _specialTimeLabel(String? value) {
+    final time = _timeOfDayFromSpecialTime(value);
+    return time == null ? 'time not set' : time.format(context);
+  }
+
+  String _dailySpecialScheduleSummary(DailySpecial special) {
+    final dayText =
+        special.availabilityMode == DailySpecialAvailabilityMode.todayOnly
+        ? 'Today only'
+        : special.daysOfWeek.map(_shortWeekdayLabel).join(', ');
+    final timeText = special.allDay
+        ? 'all day'
+        : '${_specialTimeLabel(special.startTime)} - ${_specialTimeLabel(special.endTime)}';
+    return '$dayText, $timeText';
+  }
+
+  String _shortWeekdayLabel(int day) {
+    return switch (day) {
+      DateTime.monday => 'Mon',
+      DateTime.tuesday => 'Tue',
+      DateTime.wednesday => 'Wed',
+      DateTime.thursday => 'Thu',
+      DateTime.friday => 'Fri',
+      DateTime.saturday => 'Sat',
+      DateTime.sunday => 'Sun',
+      _ => '',
+    };
+  }
+
   Future<void> _loadSavedProfileAndCoupons() async {
     final localProfile = LocalRestaurantProfileStore.profile.value;
     restaurantNameController.text = localProfile.name;
@@ -574,6 +705,7 @@ class _RestaurantCreateCouponScreenState
         setState(() {
           profileLoading = false;
           couponsLoading = false;
+          _dailySpecialsLoading = false;
         });
       }
       return;
@@ -615,6 +747,7 @@ class _RestaurantCreateCouponScreenState
           setState(() {
             profileLoading = false;
             couponsLoading = false;
+            _dailySpecialsLoading = false;
           });
         }
         return;
@@ -676,6 +809,10 @@ class _RestaurantCreateCouponScreenState
       for (final coupon in loadedCoupons.reversed) {
         LocalCouponStore.addCoupon(coupon);
       }
+      _dailySpecials =
+          await RestaurantAccountService.loadDailySpecialsForRestaurant(
+            user.uid,
+          );
 
       final persistedBusinessHours = _hoursForPersistence();
       LocalRestaurantProfileStore.updateProfile(
@@ -723,6 +860,7 @@ class _RestaurantCreateCouponScreenState
       setState(() {
         profileLoading = false;
         couponsLoading = false;
+        _dailySpecialsLoading = false;
       });
     }
   }
@@ -1057,7 +1195,7 @@ class _RestaurantCreateCouponScreenState
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: accentColor.withOpacity(0.18)),
+        border: Border.all(color: accentColor.withValues(alpha: 0.18)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1068,7 +1206,7 @@ class _RestaurantCreateCouponScreenState
                 width: 40,
                 height: 40,
                 decoration: BoxDecoration(
-                  color: accentColor.withOpacity(0.10),
+                  color: accentColor.withValues(alpha: 0.10),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: accentColor),
@@ -1548,6 +1686,196 @@ class _RestaurantCreateCouponScreenState
           couponSaving = false;
         });
       }
+    }
+  }
+
+  Future<void> _refreshDailySpecials() async {
+    final user = currentUser;
+    if (user == null) {
+      return;
+    }
+
+    final specials =
+        await RestaurantAccountService.loadDailySpecialsForRestaurant(user.uid);
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _dailySpecials = specials;
+    });
+  }
+
+  DailySpecial _buildDraftDailySpecial() {
+    final user = currentUser;
+    final uid = user?.uid ?? '';
+
+    return DailySpecial(
+      id: editingDailySpecialId ?? '',
+      restaurantId: uid,
+      ownerUid: uid,
+      title: dailySpecialTitleController.text.trim(),
+      details: dailySpecialDetailsController.text.trim().isEmpty
+          ? null
+          : dailySpecialDetailsController.text.trim(),
+      isActive: _dailySpecialIsActive,
+      availabilityMode: _dailySpecialAvailabilityMode,
+      daysOfWeek: _dailySpecialDaysOfWeek.toList(),
+      allDay: _dailySpecialAllDay,
+      startTime: _dailySpecialAllDay
+          ? null
+          : _formatSpecialTimeForFirestore(_dailySpecialStartTime),
+      endTime: _dailySpecialAllDay
+          ? null
+          : _formatSpecialTimeForFirestore(_dailySpecialEndTime),
+      hideWhenUnavailable: _dailySpecialHideWhenUnavailable,
+    );
+  }
+
+  Future<void> createOrUpdateDailySpecial() async {
+    final user = currentUser;
+    if (user == null) {
+      _showSnackBar('Please sign in to continue.');
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+
+    final wasEditing = editingDailySpecialId != null;
+    final draftSpecial = _buildDraftDailySpecial();
+    final validationError = draftSpecial.validateForSave();
+    if (validationError != null) {
+      _showSnackBar(validationError);
+      return;
+    }
+
+    setState(() {
+      _dailySpecialSaving = true;
+    });
+
+    try {
+      if (wasEditing) {
+        await RestaurantAccountService.updateDailySpecial(
+          uid: user.uid,
+          dailySpecial: draftSpecial,
+        );
+      } else {
+        await RestaurantAccountService.createDailySpecial(
+          uid: user.uid,
+          dailySpecial: draftSpecial,
+        );
+      }
+
+      await _refreshDailySpecials();
+      if (!mounted) {
+        return;
+      }
+      clearDailySpecialForm();
+      _showSnackBar(
+        wasEditing ? 'Daily special updated.' : 'Daily special created.',
+      );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not save the daily special right now.',
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _dailySpecialSaving = false;
+        });
+      }
+    }
+  }
+
+  void editDailySpecial(DailySpecial special) {
+    setState(() {
+      editingDailySpecialId = special.id;
+      dailySpecialTitleController.text = special.title;
+      dailySpecialDetailsController.text = special.details ?? '';
+      _dailySpecialIsActive = special.isActive;
+      _dailySpecialAvailabilityMode = special.availabilityMode;
+      _dailySpecialDaysOfWeek
+        ..clear()
+        ..addAll(special.daysOfWeek);
+      _dailySpecialAllDay = special.allDay;
+      _dailySpecialStartTime = _timeOfDayFromSpecialTime(special.startTime);
+      _dailySpecialEndTime = _timeOfDayFromSpecialTime(special.endTime);
+      _dailySpecialHideWhenUnavailable = special.hideWhenUnavailable;
+      _dailySpecialsSectionExpanded = true;
+    });
+  }
+
+  void clearDailySpecialForm() {
+    setState(() {
+      editingDailySpecialId = null;
+      dailySpecialTitleController.clear();
+      dailySpecialDetailsController.clear();
+      _dailySpecialIsActive = true;
+      _dailySpecialAvailabilityMode = DailySpecialAvailabilityMode.todayOnly;
+      _dailySpecialDaysOfWeek.clear();
+      _dailySpecialAllDay = true;
+      _dailySpecialStartTime = null;
+      _dailySpecialEndTime = null;
+      _dailySpecialHideWhenUnavailable = true;
+    });
+  }
+
+  Future<void> removeDailySpecial(DailySpecial special) async {
+    final user = currentUser;
+    if (user == null) {
+      return;
+    }
+
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Delete Daily Special?'),
+        content: Text('Remove "${special.title}" from your daily specials?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (shouldDelete != true || !mounted) {
+      return;
+    }
+
+    try {
+      await RestaurantAccountService.deleteDailySpecial(
+        uid: user.uid,
+        dailySpecialId: special.id,
+      );
+      if (editingDailySpecialId == special.id) {
+        clearDailySpecialForm();
+      }
+      await _refreshDailySpecials();
+      if (!mounted) {
+        return;
+      }
+      _showSnackBar('Daily special removed.');
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not remove the daily special right now.',
+        ),
+      );
     }
   }
 
@@ -2123,7 +2451,7 @@ class _RestaurantCreateCouponScreenState
         border: Border.all(color: const Color(0xFFE2E8F0)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 18,
             offset: const Offset(0, 8),
           ),
@@ -2785,6 +3113,304 @@ class _RestaurantCreateCouponScreenState
     );
   }
 
+  Widget _buildDailySpecialsSection() {
+    return _buildOwnerExpandableSection(
+      title: 'Daily Specials',
+      initiallyExpanded: _dailySpecialsSectionExpanded,
+      onExpansionChanged: (expanded) {
+        setState(() {
+          _dailySpecialsSectionExpanded = expanded;
+        });
+      },
+      children: [
+        if (_dailySpecialsLoading)
+          const Center(child: CircularProgressIndicator())
+        else if (_dailySpecials.isNotEmpty)
+          Column(children: _dailySpecials.map(_buildDailySpecialCard).toList()),
+        if (_dailySpecials.isNotEmpty) ...[
+          const SizedBox(height: 12),
+          const Divider(),
+          const SizedBox(height: 12),
+        ],
+        _buildDailySpecialForm(),
+      ],
+    );
+  }
+
+  Widget _buildDailySpecialCard(DailySpecial special) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 10),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    special.title,
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Chip(
+                  visualDensity: VisualDensity.compact,
+                  label: Text(special.isActive ? 'Active' : 'Inactive'),
+                  backgroundColor: special.isActive
+                      ? const Color(0xFFE7F8EE)
+                      : const Color(0xFFF3F4F6),
+                  labelStyle: TextStyle(
+                    color: special.isActive
+                        ? const Color(0xFF166534)
+                        : Colors.black54,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              _dailySpecialScheduleSummary(special),
+              style: const TextStyle(color: Colors.black54),
+            ),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: Wrap(
+                spacing: 8,
+                children: [
+                  TextButton.icon(
+                    onPressed: () => editDailySpecial(special),
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Edit'),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => removeDailySpecial(special),
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Delete'),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDailySpecialForm() {
+    final isEditing = editingDailySpecialId != null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: dailySpecialTitleController,
+          textInputAction: TextInputAction.next,
+          decoration: buildInputDecoration(
+            'Title',
+            'Meatball sub + drink \$9.99',
+          ),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: dailySpecialDetailsController,
+          minLines: 2,
+          maxLines: 4,
+          decoration: buildInputDecoration(
+            'Details (Optional)',
+            'Dine-in only. Served with chips.',
+          ),
+        ),
+        const SizedBox(height: 8),
+        SwitchListTile.adaptive(
+          contentPadding: EdgeInsets.zero,
+          value: _dailySpecialIsActive,
+          onChanged: (value) {
+            setState(() {
+              _dailySpecialIsActive = value;
+            });
+          },
+          title: const Text(
+            'Active',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+        ),
+        const SizedBox(height: 12),
+        const Text(
+          'Availability',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: SegmentedButton<DailySpecialAvailabilityMode>(
+            segments: const [
+              ButtonSegment(
+                value: DailySpecialAvailabilityMode.todayOnly,
+                label: Text('Today only'),
+              ),
+              ButtonSegment(
+                value: DailySpecialAvailabilityMode.specificDays,
+                label: Text('Specific days'),
+              ),
+            ],
+            selected: {_dailySpecialAvailabilityMode},
+            onSelectionChanged: (selection) {
+              setState(() {
+                _dailySpecialAvailabilityMode = selection.first;
+              });
+            },
+          ),
+        ),
+        if (_dailySpecialAvailabilityMode ==
+            DailySpecialAvailabilityMode.specificDays) ...[
+          const SizedBox(height: 4),
+          _buildDailySpecialDayChips(),
+        ],
+        const SizedBox(height: 16),
+        const Text('Time', style: TextStyle(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(value: true, label: Text('Available all day')),
+              ButtonSegment(value: false, label: Text('Specific time window')),
+            ],
+            selected: {_dailySpecialAllDay},
+            onSelectionChanged: (selection) {
+              setState(() {
+                _dailySpecialAllDay = selection.first;
+              });
+            },
+          ),
+        ),
+        if (!_dailySpecialAllDay) ...[
+          const SizedBox(height: 4),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final startField = _buildTimeOfDayField(
+                label: 'Start time',
+                hint: 'Select start',
+                value: _dailySpecialStartTime,
+                onTap: () => _pickDailySpecialTime(isStart: true),
+              );
+              final endField = _buildTimeOfDayField(
+                label: 'End time',
+                hint: 'Select end',
+                value: _dailySpecialEndTime,
+                onTap: () => _pickDailySpecialTime(isStart: false),
+              );
+              if (constraints.maxWidth < 420) {
+                return Column(
+                  children: [startField, const SizedBox(height: 10), endField],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: startField),
+                  const SizedBox(width: 10),
+                  Expanded(child: endField),
+                ],
+              );
+            },
+          ),
+        ],
+        const SizedBox(height: 16),
+        const Text('Visibility', style: TextStyle(fontWeight: FontWeight.w800)),
+        const SizedBox(height: 8),
+        SizedBox(
+          width: double.infinity,
+          child: SegmentedButton<bool>(
+            segments: const [
+              ButtonSegment(
+                value: true,
+                label: Text('Hide when not available'),
+              ),
+              ButtonSegment(
+                value: false,
+                label: Text('Show always with schedule'),
+              ),
+            ],
+            selected: {_dailySpecialHideWhenUnavailable},
+            onSelectionChanged: (selection) {
+              setState(() {
+                _dailySpecialHideWhenUnavailable = selection.first;
+              });
+            },
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          width: double.infinity,
+          child: ElevatedButton.icon(
+            onPressed: _dailySpecialSaving ? null : createOrUpdateDailySpecial,
+            icon: _dailySpecialSaving
+                ? const SizedBox(
+                    width: 16,
+                    height: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.local_fire_department_outlined),
+            label: Text(
+              _dailySpecialSaving
+                  ? 'Saving...'
+                  : isEditing
+                  ? 'Save Daily Special'
+                  : 'Add Daily Special',
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        SizedBox(
+          width: double.infinity,
+          child: OutlinedButton(
+            onPressed: clearDailySpecialForm,
+            child: Text(isEditing ? 'Cancel Editing' : 'Clear Form'),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDailySpecialDayChips() {
+    const days = <(int, String)>[
+      (DateTime.monday, 'Mon'),
+      (DateTime.tuesday, 'Tue'),
+      (DateTime.wednesday, 'Wed'),
+      (DateTime.thursday, 'Thu'),
+      (DateTime.friday, 'Fri'),
+      (DateTime.saturday, 'Sat'),
+      (DateTime.sunday, 'Sun'),
+    ];
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: days.map((day) {
+        final selected = _dailySpecialDaysOfWeek.contains(day.$1);
+        return FilterChip(
+          label: Text(day.$2),
+          selected: selected,
+          onSelected: (isSelected) {
+            setState(() {
+              if (isSelected) {
+                _dailySpecialDaysOfWeek.add(day.$1);
+              } else {
+                _dailySpecialDaysOfWeek.remove(day.$1);
+              }
+            });
+          },
+        );
+      }).toList(),
+    );
+  }
+
   Widget _buildCustomerPreviewSection(RestaurantProfileData profile) {
     return _buildOwnerExpandableSection(
       title: 'Customer Preview',
@@ -3031,7 +3657,7 @@ class _RestaurantCreateCouponScreenState
   Widget build(BuildContext context) {
     final savedProfile = LocalRestaurantProfileStore.profile.value;
 
-    if (profileLoading || couponsLoading) {
+    if (profileLoading || couponsLoading || _dailySpecialsLoading) {
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -3090,6 +3716,7 @@ class _RestaurantCreateCouponScreenState
               const SizedBox(height: 12),
               _buildRestaurantImageSection(),
               _buildMenuManagementSection(),
+              _buildDailySpecialsSection(),
               _buildCouponManagementSection(),
               _buildCustomerPreviewSection(savedProfile),
             ],
