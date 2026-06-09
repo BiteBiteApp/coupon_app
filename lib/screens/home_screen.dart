@@ -2226,10 +2226,11 @@ class _HomeScreenState extends State<HomeScreen> {
       favoriteKey,
     );
     final isDealsExpanded = _expandedRestaurantDealKeys.contains(favoriteKey);
+    final collapsedPromoItems = _buildCollapsedRestaurantPromoItems(promoItems);
     final visiblePromoItems = isDealsExpanded
         ? promoItems
-        : promoItems.take(2).toList();
-    final hiddenPromoCount = promoItems.length - 2;
+        : collapsedPromoItems;
+    final hiddenPromoCount = promoItems.length - collapsedPromoItems.length;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 7),
@@ -2412,6 +2413,31 @@ class _HomeScreenState extends State<HomeScreen> {
       for (final coupon in restaurant.coupons)
         _RestaurantPromoItem.coupon(coupon),
     ];
+  }
+
+  List<_RestaurantPromoItem> _buildCollapsedRestaurantPromoItems(
+    List<_RestaurantPromoItem> promoItems,
+  ) {
+    final specialItems = promoItems
+        .where((item) => item.dailySpecial != null)
+        .toList();
+    final couponItems = promoItems
+        .where((item) => item.coupon != null)
+        .toList();
+
+    if (specialItems.isNotEmpty && couponItems.isNotEmpty) {
+      return <_RestaurantPromoItem>[specialItems.first, couponItems.first];
+    }
+
+    if (specialItems.isNotEmpty) {
+      return specialItems.take(2).toList();
+    }
+
+    if (couponItems.isNotEmpty) {
+      return couponItems.take(2).toList();
+    }
+
+    return const <_RestaurantPromoItem>[];
   }
 
   Widget _buildMoreDealsToggle({

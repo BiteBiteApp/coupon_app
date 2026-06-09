@@ -3,6 +3,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/demo_redemption_store.dart';
 import '../models/coupon.dart';
+import '../models/daily_special.dart';
 import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/app_mode_state_service.dart';
@@ -153,6 +154,67 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     return parts.isEmpty ? 'Coupon details unavailable' : parts.join(' - ');
   }
 
+  bool _isDailySpecialScheduledToday(DailySpecial special, DateTime now) {
+    if (special.availabilityMode == DailySpecialAvailabilityMode.todayOnly) {
+      return true;
+    }
+
+    return special.daysOfWeek.contains(now.toLocal().weekday);
+  }
+
+  bool _isDailySpecialDisplayableNow(DailySpecial special, DateTime now) {
+    if (!special.isActive || !_isDailySpecialScheduledToday(special, now)) {
+      return false;
+    }
+
+    if (special.hideWhenUnavailable) {
+      return special.isAvailableAt(now);
+    }
+
+    return true;
+  }
+
+  String? _dailySpecialScheduleLabel(DailySpecial special) {
+    if (special.allDay) {
+      return null;
+    }
+
+    final start = _formatDailySpecialTime(special.startTime);
+    final end = _formatDailySpecialTime(special.endTime);
+    if (start == null || end == null) {
+      return null;
+    }
+
+    return 'Available $start-$end';
+  }
+
+  String? _formatDailySpecialTime(String? value) {
+    if (value == null) {
+      return null;
+    }
+
+    final parts = value.split(':');
+    if (parts.length != 2) {
+      return null;
+    }
+
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null ||
+        minute == null ||
+        hour < 0 ||
+        hour > 23 ||
+        minute < 0 ||
+        minute > 59) {
+      return null;
+    }
+
+    final displayHour = hour % 12 == 0 ? 12 : hour % 12;
+    final displayMinute = minute.toString().padLeft(2, '0');
+    final suffix = hour >= 12 ? 'PM' : 'AM';
+    return '$displayHour:$displayMinute $suffix';
+  }
+
   Restaurant _withSafeDistanceLabel(Restaurant freshRestaurant) {
     if (!_isFallbackDistanceLabel(freshRestaurant.distance) ||
         _isFallbackDistanceLabel(restaurant.distance)) {
@@ -187,10 +249,14 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
       if (uid != null && uid.isNotEmpty) {
         final accountData = await RestaurantAccountService.getAccountData(uid);
         if (accountData != null) {
+          final dailySpecials =
+              await RestaurantAccountService.loadDailySpecialsForRestaurant(
+                uid,
+              );
           freshRestaurant = Restaurant.fromFirestore(
             accountData,
             coupons: restaurant.coupons,
-            dailySpecials: restaurant.dailySpecials,
+            dailySpecials: dailySpecials,
           );
         }
       }
@@ -595,6 +661,101 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
         const SizedBox(height: 7),
         _buildRestaurantInformationTile(compact: true),
       ],
+    );
+  }
+
+  Widget _buildTodaysSpecialsSection(List<DailySpecial> specials) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "Today's Specials",
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF2B1D14),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Column(
+          children: specials
+              .map(
+                (special) => Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: _buildDailySpecialTile(special),
+                ),
+              )
+              .toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildDailySpecialTile(DailySpecial special) {
+    final details = special.details?.trim();
+    final scheduleLabel = _dailySpecialScheduleLabel(special);
+
+    return _biteSaverRaisedSurface(
+      shadowStrength: 0.66,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF3E6),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFF2B46B), width: 0.8),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Icon(
+              Icons.local_fire_department_outlined,
+              color: Color(0xFFC95F17),
+              size: 19,
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _displayText(special.title, 'Daily special'),
+                    style: const TextStyle(
+                      color: Color(0xFFC95F17),
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                      height: 1.08,
+                    ),
+                  ),
+                  if (details != null && details.isNotEmpty) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      details,
+                      style: const TextStyle(
+                        color: Color(0xFF6B4E35),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        height: 1.22,
+                      ),
+                    ),
+                  ],
+                  if (scheduleLabel != null) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      scheduleLabel,
+                      style: const TextStyle(
+                        color: Color(0xFF8C5A25),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1074,8 +1235,11 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   Widget build(BuildContext context) {
     return ValueListenableBuilder<int>(
       valueListenable: DemoRedemptionStore.changes,
-      builder: (context, _, __) {
+      builder: (context, changes, child) {
         final now = DateTime.now();
+        final displayableDailySpecials = restaurant.dailySpecials
+            .where((special) => _isDailySpecialDisplayableNow(special, now))
+            .toList();
         final activeCoupons = restaurant.coupons
             .where(
               (coupon) =>
@@ -1201,6 +1365,10 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
+                        if (displayableDailySpecials.isNotEmpty) ...[
+                          _buildTodaysSpecialsSection(displayableDailySpecials),
+                          const SizedBox(height: 10),
+                        ],
                         const Text(
                           'Available Coupons',
                           style: TextStyle(
