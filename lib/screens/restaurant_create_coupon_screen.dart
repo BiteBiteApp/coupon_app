@@ -641,33 +641,8 @@ class _RestaurantCreateCouponScreenState
     return TimeOfDay(hour: hour, minute: minute);
   }
 
-  String _specialTimeLabel(String? value) {
-    final time = _timeOfDayFromSpecialTime(value);
-    return time == null ? 'time not set' : time.format(context);
-  }
-
   String _dailySpecialScheduleSummary(DailySpecial special) {
-    final dayText =
-        special.availabilityMode == DailySpecialAvailabilityMode.todayOnly
-        ? 'Today only'
-        : special.daysOfWeek.map(_shortWeekdayLabel).join(', ');
-    final timeText = special.allDay
-        ? 'all day'
-        : '${_specialTimeLabel(special.startTime)} - ${_specialTimeLabel(special.endTime)}';
-    return '$dayText, $timeText';
-  }
-
-  String _shortWeekdayLabel(int day) {
-    return switch (day) {
-      DateTime.monday => 'Mon',
-      DateTime.tuesday => 'Tue',
-      DateTime.wednesday => 'Wed',
-      DateTime.thursday => 'Thu',
-      DateTime.friday => 'Fri',
-      DateTime.saturday => 'Sat',
-      DateTime.sunday => 'Sun',
-      _ => '',
-    };
+    return special.scheduleSummaryText();
   }
 
   Future<void> _loadSavedProfileAndCoupons() async {

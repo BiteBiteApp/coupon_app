@@ -980,24 +980,8 @@ class _HomeScreenState extends State<HomeScreen> {
         _normalizeRestaurantSearchText(special.details ?? '').contains(query);
   }
 
-  bool _isDailySpecialScheduledToday(DailySpecial special, DateTime now) {
-    if (special.availabilityMode == DailySpecialAvailabilityMode.todayOnly) {
-      return true;
-    }
-
-    return special.daysOfWeek.contains(now.toLocal().weekday);
-  }
-
   bool _isDailySpecialDisplayableNow(DailySpecial special, DateTime now) {
-    if (!special.isActive || !_isDailySpecialScheduledToday(special, now)) {
-      return false;
-    }
-
-    if (special.hideWhenUnavailable) {
-      return special.isAvailableAt(now);
-    }
-
-    return true;
+    return special.shouldShowPubliclyAt(now);
   }
 
   String _normalizeRestaurantSearchText(String value) {

@@ -154,65 +154,13 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     return parts.isEmpty ? 'Coupon details unavailable' : parts.join(' - ');
   }
 
-  bool _isDailySpecialScheduledToday(DailySpecial special, DateTime now) {
-    if (special.availabilityMode == DailySpecialAvailabilityMode.todayOnly) {
-      return true;
-    }
-
-    return special.daysOfWeek.contains(now.toLocal().weekday);
-  }
-
   bool _isDailySpecialDisplayableNow(DailySpecial special, DateTime now) {
-    if (!special.isActive || !_isDailySpecialScheduledToday(special, now)) {
-      return false;
-    }
-
-    if (special.hideWhenUnavailable) {
-      return special.isAvailableAt(now);
-    }
-
-    return true;
+    return special.shouldShowPubliclyAt(now);
   }
 
   String? _dailySpecialScheduleLabel(DailySpecial special) {
-    if (special.allDay) {
-      return null;
-    }
-
-    final start = _formatDailySpecialTime(special.startTime);
-    final end = _formatDailySpecialTime(special.endTime);
-    if (start == null || end == null) {
-      return null;
-    }
-
-    return 'Available $start-$end';
-  }
-
-  String? _formatDailySpecialTime(String? value) {
-    if (value == null) {
-      return null;
-    }
-
-    final parts = value.split(':');
-    if (parts.length != 2) {
-      return null;
-    }
-
-    final hour = int.tryParse(parts[0]);
-    final minute = int.tryParse(parts[1]);
-    if (hour == null ||
-        minute == null ||
-        hour < 0 ||
-        hour > 23 ||
-        minute < 0 ||
-        minute > 59) {
-      return null;
-    }
-
-    final displayHour = hour % 12 == 0 ? 12 : hour % 12;
-    final displayMinute = minute.toString().padLeft(2, '0');
-    final suffix = hour >= 12 ? 'PM' : 'AM';
-    return '$displayHour:$displayMinute $suffix';
+    final label = special.scheduleSummaryText();
+    return label.isEmpty ? null : label;
   }
 
   Restaurant _withSafeDistanceLabel(Restaurant freshRestaurant) {

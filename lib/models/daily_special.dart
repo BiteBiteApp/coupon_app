@@ -72,6 +72,60 @@ class DailySpecial {
 
   bool get showAlways => !hideWhenUnavailable;
 
+  bool isScheduledForWeekday(int weekday) {
+    if (availabilityMode == DailySpecialAvailabilityMode.todayOnly) {
+      return weekday >= DateTime.monday && weekday <= DateTime.sunday;
+    }
+
+    return _normalizedDaysOfWeek(daysOfWeek).contains(weekday);
+  }
+
+  bool isScheduledAt(DateTime now) {
+    return isScheduledForWeekday(now.toLocal().weekday);
+  }
+
+  bool isAvailableNow([DateTime? now]) {
+    return isAvailableAt(now ?? DateTime.now());
+  }
+
+  bool shouldShowPubliclyAt(DateTime now) {
+    if (!isActive || !isScheduledAt(now)) {
+      return false;
+    }
+
+    return hideWhenUnavailable ? isAvailableAt(now) : true;
+  }
+
+  String scheduleSummaryText({bool includeToday = true}) {
+    final parts = <String>[];
+    if (availabilityMode == DailySpecialAvailabilityMode.todayOnly) {
+      if (includeToday) {
+        parts.add('Today');
+      }
+    } else {
+      final daysText = _weekdaySummary(_normalizedDaysOfWeek(daysOfWeek));
+      if (daysText != null) {
+        parts.add(daysText);
+      }
+    }
+
+    if (allDay) {
+      parts.add(
+        includeToday && parts.isNotEmpty
+            ? 'available all day'
+            : 'Available all day',
+      );
+    } else {
+      final start = _formatDisplayTime(startTime);
+      final end = _formatDisplayTime(endTime);
+      if (start != null && end != null) {
+        parts.add('$start-$end');
+      }
+    }
+
+    return parts.join(', ');
+  }
+
   String? validateForSave() {
     if (restaurantId.trim().isEmpty) {
       return 'Restaurant ID is required.';
@@ -112,8 +166,7 @@ class DailySpecial {
     }
 
     final localNow = now.toLocal();
-    if (availabilityMode == DailySpecialAvailabilityMode.specificDays &&
-        !_normalizedDaysOfWeek(daysOfWeek).contains(localNow.weekday)) {
+    if (!isScheduledAt(localNow)) {
       return false;
     }
 
@@ -132,11 +185,7 @@ class DailySpecial {
   }
 
   bool shouldShowAt(DateTime now) {
-    if (!isActive) {
-      return false;
-    }
-
-    return isAvailableAt(now) || showAlways;
+    return shouldShowPubliclyAt(now);
   }
 
   DailySpecial copyWith({
@@ -313,6 +362,52 @@ class DailySpecial {
     return int.parse(parts[0]) * 60 + int.parse(parts[1]);
   }
 
+  static String? _formatDisplayTime(String? value) {
+    final normalized = _normalizedTime(value);
+    if (normalized == null) {
+      return null;
+    }
+
+    final parts = normalized.split(':');
+    final hour = int.parse(parts[0]);
+    final minute = int.parse(parts[1]);
+    final displayHour = hour % 12 == 0 ? 12 : hour % 12;
+    final displayMinute = minute.toString().padLeft(2, '0');
+    final suffix = hour >= 12 ? 'PM' : 'AM';
+    return '$displayHour:$displayMinute $suffix';
+  }
+
+  static String? _weekdaySummary(List<int> days) {
+    if (days.isEmpty) {
+      return null;
+    }
+
+    final ranges = <String>[];
+    var rangeStart = days.first;
+    var previous = days.first;
+    for (final day in days.skip(1)) {
+      if (day == previous + 1) {
+        previous = day;
+        continue;
+      }
+
+      ranges.add(_weekdayRangeLabel(rangeStart, previous));
+      rangeStart = day;
+      previous = day;
+    }
+    ranges.add(_weekdayRangeLabel(rangeStart, previous));
+
+    return ranges.join(', ');
+  }
+
+  static String _weekdayRangeLabel(int start, int end) {
+    if (start == end) {
+      return _shortWeekdayNames[start] ?? '';
+    }
+
+    return '${_shortWeekdayNames[start]}-${_shortWeekdayNames[end]}';
+  }
+
   static String? _normalizedTime(String? value) {
     if (value == null) {
       return null;
@@ -404,5 +499,15 @@ class DailySpecial {
     'sat': DateTime.saturday,
     'sunday': DateTime.sunday,
     'sun': DateTime.sunday,
+  };
+
+  static const Map<int, String> _shortWeekdayNames = <int, String>{
+    DateTime.monday: 'Mon',
+    DateTime.tuesday: 'Tue',
+    DateTime.wednesday: 'Wed',
+    DateTime.thursday: 'Thu',
+    DateTime.friday: 'Fri',
+    DateTime.saturday: 'Sat',
+    DateTime.sunday: 'Sun',
   };
 }

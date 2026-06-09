@@ -13,6 +13,8 @@ void main() {
 
       expect(special.isAvailableAt(DateTime(2026, 6, 8, 9)), isTrue);
       expect(special.shouldShowAt(DateTime(2026, 6, 8, 9)), isTrue);
+      expect(special.isScheduledAt(DateTime(2026, 6, 8, 9)), isTrue);
+      expect(special.scheduleSummaryText(), 'Today, available all day');
     });
 
     test('inactive special is unavailable even when showAlways is enabled', () {
@@ -52,6 +54,26 @@ void main() {
 
       expect(special.isAvailableAt(DateTime(2026, 6, 8, 12)), isFalse);
       expect(special.shouldShowAt(DateTime(2026, 6, 8, 12)), isTrue);
+      expect(special.shouldShowPubliclyAt(DateTime(2026, 6, 8, 12)), isTrue);
+    });
+
+    test('showAlways does not display on an unselected weekday', () {
+      final special = DailySpecial(
+        id: 'show-wednesday',
+        restaurantId: 'restaurant-1',
+        ownerUid: 'restaurant-1',
+        title: 'Wednesday Dinner',
+        availabilityMode: DailySpecialAvailabilityMode.specificDays,
+        daysOfWeek: const [DateTime.wednesday],
+        allDay: false,
+        startTime: '17:00',
+        endTime: '21:00',
+        hideWhenUnavailable: false,
+      );
+
+      expect(special.isAvailableAt(DateTime(2026, 6, 8, 18)), isFalse);
+      expect(special.shouldShowPubliclyAt(DateTime(2026, 6, 8, 18)), isFalse);
+      expect(special.shouldShowPubliclyAt(DateTime(2026, 6, 10, 12)), isTrue);
     });
 
     test('specific-days special matches the local weekday', () {
@@ -66,6 +88,8 @@ void main() {
 
       expect(mondaySpecial.isAvailableAt(DateTime(2026, 6, 8, 12)), isTrue);
       expect(mondaySpecial.isAvailableAt(DateTime(2026, 6, 9, 12)), isFalse);
+      expect(mondaySpecial.isScheduledForWeekday(DateTime.monday), isTrue);
+      expect(mondaySpecial.isScheduledForWeekday(DateTime.tuesday), isFalse);
     });
 
     test('timed special is available only within its local time window', () {
@@ -83,6 +107,44 @@ void main() {
       expect(lunchSpecial.isAvailableAt(DateTime(2026, 6, 8, 11)), isTrue);
       expect(lunchSpecial.isAvailableAt(DateTime(2026, 6, 8, 14, 30)), isTrue);
       expect(lunchSpecial.isAvailableAt(DateTime(2026, 6, 8, 14, 31)), isFalse);
+      expect(
+        lunchSpecial.shouldShowPubliclyAt(DateTime(2026, 6, 8, 10, 59)),
+        isFalse,
+      );
+      expect(lunchSpecial.scheduleSummaryText(), 'Today, 11:00 AM-2:30 PM');
+    });
+
+    test('schedule summary compacts consecutive weekdays', () {
+      final weekdayLunch = DailySpecial(
+        id: 'weekday-lunch',
+        restaurantId: 'restaurant-1',
+        ownerUid: 'restaurant-1',
+        title: 'Weekday Lunch',
+        availabilityMode: DailySpecialAvailabilityMode.specificDays,
+        daysOfWeek: const [
+          DateTime.monday,
+          DateTime.tuesday,
+          DateTime.wednesday,
+          DateTime.thursday,
+          DateTime.friday,
+        ],
+        allDay: false,
+        startTime: '10:00',
+        endTime: '14:00',
+      );
+      final splitDays = weekdayLunch.copyWith(
+        daysOfWeek: const [
+          DateTime.monday,
+          DateTime.wednesday,
+          DateTime.friday,
+        ],
+      );
+
+      expect(weekdayLunch.scheduleSummaryText(), 'Mon-Fri, 10:00 AM-2:00 PM');
+      expect(
+        splitDays.scheduleSummaryText(),
+        'Mon, Wed, Fri, 10:00 AM-2:00 PM',
+      );
     });
 
     test('validation requires a day for specific-day specials', () {
