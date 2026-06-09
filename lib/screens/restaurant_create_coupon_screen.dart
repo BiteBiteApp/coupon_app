@@ -1154,12 +1154,14 @@ class _RestaurantCreateCouponScreenState
       icon = Icons.schedule_outlined;
     } else if (_subscriptionStatus == 'active' || _hasCouponPostingAccess) {
       title = 'Subscription active';
-      message = 'Your restaurant can post coupons right now.';
+      message =
+          'Your restaurant can post coupons and daily specials right now.';
       accentColor = const Color(0xFF15803D);
       icon = Icons.verified_outlined;
     } else {
       title = 'Not subscribed';
-      message = 'Start a subscription when you are ready to post coupons.';
+      message =
+          'Start a subscription when you are ready to post coupons or daily specials.';
       accentColor = const Color(0xFF64748B);
       icon = Icons.credit_card_off_outlined;
     }
@@ -1711,6 +1713,11 @@ class _RestaurantCreateCouponScreenState
     final user = currentUser;
     if (user == null) {
       _showSnackBar('Please sign in to continue.');
+      return;
+    }
+
+    if (!_hasCouponPostingAccess) {
+      await _openPaywallScreen();
       return;
     }
 
@@ -2451,8 +2458,8 @@ class _RestaurantCreateCouponScreenState
           const SizedBox(height: 16),
           Text(
             _hasUsedTrial
-                ? 'Subscribe to post coupons'
-                : 'Start your free trial to post coupons',
+                ? 'Subscribe to post coupons and daily specials'
+                : 'Start your free trial to post coupons and daily specials',
             textAlign: TextAlign.center,
             style: const TextStyle(
               fontSize: 17,
@@ -2504,7 +2511,7 @@ class _RestaurantCreateCouponScreenState
           ),
           const SizedBox(height: 12),
           const Text(
-            'Post coupons and reach nearby customers with targeted local deals.',
+            'Post coupons and daily specials to reach nearby customers with local deals.',
             textAlign: TextAlign.center,
             style: TextStyle(
               fontSize: 14,
@@ -2520,6 +2527,16 @@ class _RestaurantCreateCouponScreenState
             children: const [
               Chip(
                 label: Text('Post unlimited coupons'),
+                visualDensity: VisualDensity.compact,
+                backgroundColor: Color(0xFFEFF6FF),
+                side: BorderSide(color: Color(0xFFDBEAFE)),
+                labelStyle: TextStyle(
+                  color: Color(0xFF1E3A8A),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              Chip(
+                label: Text('Add daily specials'),
                 visualDensity: VisualDensity.compact,
                 backgroundColor: Color(0xFFEFF6FF),
                 side: BorderSide(color: Color(0xFFDBEAFE)),
@@ -2620,7 +2637,7 @@ class _RestaurantCreateCouponScreenState
           ),
           const SizedBox(height: 10),
           const Text(
-            'Subscription is only required when you are ready to post a coupon.',
+            'Subscription is only required when you are ready to post coupons or daily specials.',
             style: TextStyle(fontSize: 12, color: Color(0xFF64748B)),
           ),
         ],
@@ -3098,16 +3115,24 @@ class _RestaurantCreateCouponScreenState
         });
       },
       children: [
-        if (_dailySpecialsLoading)
-          const Center(child: CircularProgressIndicator())
-        else if (_dailySpecials.isNotEmpty)
-          Column(children: _dailySpecials.map(_buildDailySpecialCard).toList()),
-        if (_dailySpecials.isNotEmpty) ...[
-          const SizedBox(height: 12),
-          const Divider(),
-          const SizedBox(height: 12),
+        if (!_hasCouponPostingAccess) ...[
+          _buildSubscriptionStatusSection(),
+          const SizedBox(height: 16),
+          _buildSubscriptionPromoSection(),
+        ] else ...[
+          if (_dailySpecialsLoading)
+            const Center(child: CircularProgressIndicator())
+          else if (_dailySpecials.isNotEmpty)
+            Column(
+              children: _dailySpecials.map(_buildDailySpecialCard).toList(),
+            ),
+          if (_dailySpecials.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Divider(),
+            const SizedBox(height: 12),
+          ],
+          _buildDailySpecialForm(),
         ],
-        _buildDailySpecialForm(),
       ],
     );
   }
@@ -3399,7 +3424,37 @@ class _RestaurantCreateCouponScreenState
     );
   }
 
+  Widget _buildPostingToolsLockedSection() {
+    return _buildOwnerExpandableSection(
+      title: 'Coupon & Daily Special Posting',
+      initiallyExpanded: true,
+      onExpansionChanged: (_) {},
+      children: [
+        _buildSubscriptionStatusSection(),
+        const SizedBox(height: 16),
+        _buildSubscriptionPromoSection(),
+      ],
+    );
+  }
+
   Widget _buildCouponManagementSection() {
+    if (!_hasCouponPostingAccess) {
+      return _buildOwnerExpandableSection(
+        title: 'Coupon Management',
+        initiallyExpanded: _couponManagementSectionExpanded,
+        onExpansionChanged: (expanded) {
+          setState(() {
+            _couponManagementSectionExpanded = expanded;
+          });
+        },
+        children: [
+          _buildSubscriptionStatusSection(),
+          const SizedBox(height: 16),
+          _buildSubscriptionPromoSection(),
+        ],
+      );
+    }
+
     return _buildOwnerExpandableSection(
       title: 'Coupon Management',
       initiallyExpanded: _couponManagementSectionExpanded,
@@ -3411,12 +3466,6 @@ class _RestaurantCreateCouponScreenState
       children: [
         _buildSubscriptionStatusSection(),
         const SizedBox(height: 16),
-        if (!_hasCouponPostingAccess) ...[
-          _buildSubscriptionPromoSection(),
-          const SizedBox(height: 24),
-          const Divider(),
-          const SizedBox(height: 16),
-        ],
         Text(
           isEditingCoupon ? 'Edit Coupon' : 'Create a New Coupon',
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
@@ -3691,8 +3740,11 @@ class _RestaurantCreateCouponScreenState
               const SizedBox(height: 12),
               _buildRestaurantImageSection(),
               _buildMenuManagementSection(),
-              _buildDailySpecialsSection(),
-              _buildCouponManagementSection(),
+              if (_hasCouponPostingAccess) ...[
+                _buildDailySpecialsSection(),
+                _buildCouponManagementSection(),
+              ] else
+                _buildPostingToolsLockedSection(),
               _buildCustomerPreviewSection(savedProfile),
             ],
           ),

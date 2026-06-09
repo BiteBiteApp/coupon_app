@@ -409,6 +409,8 @@ class RestaurantAccountService {
     required String uid,
     required DailySpecial dailySpecial,
   }) async {
+    await _ensureCanPostCoupons(uid);
+
     final trimmedUid = uid.trim();
     if (trimmedUid.isEmpty) {
       throw ArgumentError('Restaurant user ID is required.');
@@ -440,6 +442,8 @@ class RestaurantAccountService {
     required String uid,
     required DailySpecial dailySpecial,
   }) async {
+    await _ensureCanPostCoupons(uid);
+
     final trimmedUid = uid.trim();
     if (trimmedUid.isEmpty) {
       throw ArgumentError('Restaurant user ID is required.');
@@ -1004,7 +1008,7 @@ class RestaurantAccountService {
     }
 
     throw StateError(
-      'An approved active subscription is required before creating coupons.',
+      'An approved active subscription is required before posting coupons or daily specials.',
     );
   }
 

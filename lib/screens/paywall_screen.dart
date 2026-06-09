@@ -29,9 +29,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
       }
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()
-        ..showSnackBar(
-          const SnackBar(content: Text('Something went wrong')),
-        );
+        ..showSnackBar(const SnackBar(content: Text('Something went wrong')));
     } finally {
       if (mounted) {
         setState(() {
@@ -46,10 +44,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Subscription'),
-        centerTitle: true,
-      ),
+      appBar: AppBar(title: const Text('Subscription'), centerTitle: true),
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
@@ -68,7 +63,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                       border: Border.all(color: const Color(0xFFE2E8F0)),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.05),
+                          color: Colors.black.withValues(alpha: 0.05),
                           blurRadius: 18,
                           offset: const Offset(0, 8),
                         ),
@@ -91,7 +86,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                         ),
                         const SizedBox(height: 20),
                         Text(
-                          'Upgrade to Post Coupons',
+                          'Upgrade to Post Coupons and Daily Specials',
                           textAlign: TextAlign.center,
                           style: theme.textTheme.headlineSmall?.copyWith(
                             fontWeight: FontWeight.w800,
@@ -100,7 +95,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                         ),
                         const SizedBox(height: 12),
                         const Text(
-                          'Post coupons and reach nearby customers with targeted local deals.',
+                          'Post coupons and daily specials to reach nearby customers with local deals.',
                           textAlign: TextAlign.center,
                           style: TextStyle(
                             fontSize: 15,
@@ -160,6 +155,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                           runSpacing: 10,
                           children: const [
                             _BenefitChip(label: 'Post unlimited coupons'),
+                            _BenefitChip(label: 'Add daily specials'),
                             _BenefitChip(label: 'Reach nearby customers'),
                             _BenefitChip(label: 'Simple monthly pricing'),
                           ],
@@ -195,7 +191,7 @@ class _PaywallScreenState extends State<PaywallScreen> {
                   ),
                   const SizedBox(height: 16),
                   const Text(
-                    'Your current owner access stays the same. You only need a subscription when you are ready to post a coupon.',
+                    'Your current owner access stays the same. You only need a subscription when you are ready to post coupons or daily specials.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       fontSize: 13,
