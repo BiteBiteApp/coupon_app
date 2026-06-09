@@ -899,9 +899,11 @@ class RestaurantAccountService {
         final uid = _readString(normalizedData[Restaurant.fieldUid]) ?? doc.id;
 
         final coupons = await loadCoupons(uid);
+        final dailySpecials = await loadDailySpecialsForRestaurant(uid);
         final restaurant = Restaurant.fromFirestore(
           normalizedData,
           coupons: coupons,
+          dailySpecials: dailySpecials,
         );
 
         if (!restaurant.hasValidRequiredFields) {

@@ -167,6 +167,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
       state: freshRestaurant.state,
       zipCode: freshRestaurant.zipCode,
       coupons: freshRestaurant.coupons,
+      dailySpecials: freshRestaurant.dailySpecials,
       phone: freshRestaurant.phone,
       streetAddress: freshRestaurant.streetAddress,
       website: freshRestaurant.website,
@@ -189,6 +190,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
           freshRestaurant = Restaurant.fromFirestore(
             accountData,
             coupons: restaurant.coupons,
+            dailySpecials: restaurant.dailySpecials,
           );
         }
       }

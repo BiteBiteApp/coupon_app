@@ -10,6 +10,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/coupon.dart';
+import '../models/daily_special.dart';
 import '../models/demo_redemption_store.dart';
 import '../models/restaurant.dart';
 import '../services/app_mode_state_service.dart';
@@ -943,7 +944,7 @@ class _HomeScreenState extends State<HomeScreen> {
     return value.split(',').first.trim().toLowerCase();
   }
 
-  bool matchesGeneralSearch(Restaurant restaurant, Coupon coupon) {
+  bool matchesRestaurantSearch(Restaurant restaurant) {
     final query = _normalizeRestaurantSearchText(generalSearchQuery);
     if (query.isEmpty) {
       return true;
@@ -952,11 +953,51 @@ class _HomeScreenState extends State<HomeScreen> {
     return _normalizeRestaurantSearchText(restaurant.name).contains(query) ||
         _normalizeRestaurantSearchText(restaurant.city).contains(query) ||
         _normalizeRestaurantSearchText(restaurant.zipCode).contains(query) ||
-        _normalizeRestaurantSearchText(restaurant.bio ?? '').contains(query) ||
+        _normalizeRestaurantSearchText(restaurant.bio ?? '').contains(query);
+  }
+
+  bool matchesGeneralSearch(Restaurant restaurant, Coupon coupon) {
+    final query = _normalizeRestaurantSearchText(generalSearchQuery);
+    if (query.isEmpty) {
+      return true;
+    }
+
+    return matchesRestaurantSearch(restaurant) ||
         _normalizeRestaurantSearchText(coupon.title).contains(query) ||
         _normalizeRestaurantSearchText(coupon.restaurant).contains(query) ||
         _normalizeRestaurantSearchText(coupon.usageRule).contains(query) ||
         _normalizeRestaurantSearchText(coupon.couponCode ?? '').contains(query);
+  }
+
+  bool matchesDailySpecialSearch(Restaurant restaurant, DailySpecial special) {
+    final query = _normalizeRestaurantSearchText(generalSearchQuery);
+    if (query.isEmpty) {
+      return true;
+    }
+
+    return matchesRestaurantSearch(restaurant) ||
+        _normalizeRestaurantSearchText(special.title).contains(query) ||
+        _normalizeRestaurantSearchText(special.details ?? '').contains(query);
+  }
+
+  bool _isDailySpecialScheduledToday(DailySpecial special, DateTime now) {
+    if (special.availabilityMode == DailySpecialAvailabilityMode.todayOnly) {
+      return true;
+    }
+
+    return special.daysOfWeek.contains(now.toLocal().weekday);
+  }
+
+  bool _isDailySpecialDisplayableNow(DailySpecial special, DateTime now) {
+    if (!special.isActive || !_isDailySpecialScheduledToday(special, now)) {
+      return false;
+    }
+
+    if (special.hideWhenUnavailable) {
+      return special.isAvailableAt(now);
+    }
+
+    return true;
   }
 
   String _normalizeRestaurantSearchText(String value) {
@@ -1040,6 +1081,7 @@ class _HomeScreenState extends State<HomeScreen> {
         <
           ({
             Restaurant restaurant,
+            List<DailySpecial> dailySpecials,
             List<Coupon> coupons,
             bool exactMatch,
             double distanceMiles,
@@ -1068,8 +1110,14 @@ class _HomeScreenState extends State<HomeScreen> {
 
         return true;
       }).toList();
+      final displayableDailySpecials = restaurant.dailySpecials.where((
+        special,
+      ) {
+        return _isDailySpecialDisplayableNow(special, now) &&
+            matchesDailySpecialSearch(restaurant, special);
+      }).toList();
 
-      if (availableCoupons.isEmpty) {
+      if (availableCoupons.isEmpty && displayableDailySpecials.isEmpty) {
         continue;
       }
 
@@ -1104,6 +1152,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
       results.add((
         restaurant: restaurant,
+        dailySpecials: displayableDailySpecials,
         coupons: availableCoupons,
         exactMatch: exactMatch,
         distanceMiles: distanceMiles,
@@ -1147,6 +1196,7 @@ class _HomeScreenState extends State<HomeScreen> {
         bio: result.restaurant.bio,
         mainImageUrl: result.restaurant.mainImageUrl,
         businessHours: result.restaurant.businessHours,
+        dailySpecials: result.dailySpecials,
         coupons: result.coupons,
         latitude: result.restaurant.latitude,
         longitude: result.restaurant.longitude,
@@ -2165,7 +2215,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required Restaurant restaurant,
     required int index,
   }) {
-    final coupons = restaurant.coupons;
+    final promoItems = _buildRestaurantPromoItems(restaurant);
     final title = restaurant.name.trim().isEmpty
         ? 'Restaurant'
         : restaurant.name.trim();
@@ -2176,8 +2226,10 @@ class _HomeScreenState extends State<HomeScreen> {
       favoriteKey,
     );
     final isDealsExpanded = _expandedRestaurantDealKeys.contains(favoriteKey);
-    final visibleCoupons = isDealsExpanded ? coupons : coupons.take(2).toList();
-    final hiddenCouponCount = coupons.length - 2;
+    final visiblePromoItems = isDealsExpanded
+        ? promoItems
+        : promoItems.take(2).toList();
+    final hiddenPromoCount = promoItems.length - 2;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 7),
@@ -2288,16 +2340,16 @@ class _HomeScreenState extends State<HomeScreen> {
                                   alignment: Alignment.topCenter,
                                   child: Column(
                                     children: [
-                                      for (final coupon in visibleCoupons) ...[
-                                        _buildCouponPreview(coupon, restaurant),
-                                        if (coupon != visibleCoupons.last)
+                                      for (final item in visiblePromoItems) ...[
+                                        _buildPromoPreview(item, restaurant),
+                                        if (item != visiblePromoItems.last)
                                           const SizedBox(height: 4),
                                       ],
-                                      if (hiddenCouponCount > 0) ...[
+                                      if (hiddenPromoCount > 0) ...[
                                         const SizedBox(height: 3),
                                         _buildMoreDealsToggle(
                                           restaurantKey: favoriteKey,
-                                          hiddenCount: hiddenCouponCount,
+                                          hiddenCount: hiddenPromoCount,
                                           isExpanded: isDealsExpanded,
                                         ),
                                       ],
@@ -2353,6 +2405,15 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  List<_RestaurantPromoItem> _buildRestaurantPromoItems(Restaurant restaurant) {
+    return <_RestaurantPromoItem>[
+      for (final special in restaurant.dailySpecials)
+        _RestaurantPromoItem.dailySpecial(special),
+      for (final coupon in restaurant.coupons)
+        _RestaurantPromoItem.coupon(coupon),
+    ];
+  }
+
   Widget _buildMoreDealsToggle({
     required String restaurantKey,
     required int hiddenCount,
@@ -2388,6 +2449,58 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildPromoPreview(_RestaurantPromoItem item, Restaurant restaurant) {
+    final special = item.dailySpecial;
+    if (special != null) {
+      return _buildDailySpecialPreview(special);
+    }
+
+    return _buildCouponPreview(item.coupon!, restaurant);
+  }
+
+  Widget _buildDailySpecialPreview(DailySpecial special) {
+    final title = special.title.trim().isEmpty
+        ? 'Today: Daily special'
+        : 'Today: ${special.title.trim()}';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3E6),
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(
+          color: const Color(0xFFF2B46B),
+          width: 0.75,
+          strokeAlign: BorderSide.strokeAlignInside,
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.local_fire_department_outlined,
+            color: Color(0xFFC95F17),
+            size: 17,
+          ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFFC95F17),
+                fontSize: 14.1,
+                fontWeight: FontWeight.w900,
+                height: 1.05,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -3165,6 +3278,17 @@ class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
         maxExtentHeight != oldDelegate.maxExtentHeight ||
         builder != oldDelegate.builder;
   }
+}
+
+class _RestaurantPromoItem {
+  final DailySpecial? dailySpecial;
+  final Coupon? coupon;
+
+  const _RestaurantPromoItem.dailySpecial(DailySpecial special)
+    : dailySpecial = special,
+      coupon = null;
+
+  const _RestaurantPromoItem.coupon(this.coupon) : dailySpecial = null;
 }
 
 class _ImmediatePressFeedback extends StatelessWidget {

@@ -1,4 +1,5 @@
 import 'coupon.dart';
+import 'daily_special.dart';
 
 class Restaurant {
   static const List<String> businessDayNames = <String>[
@@ -42,6 +43,7 @@ class Restaurant {
   final String state;
   final String zipCode;
   final List<Coupon> coupons;
+  final List<DailySpecial> dailySpecials;
   final String? uid;
   final String? phone;
   final String? streetAddress;
@@ -59,6 +61,7 @@ class Restaurant {
     this.state = '',
     required this.zipCode,
     required this.coupons,
+    this.dailySpecials = const [],
     this.uid,
     this.phone,
     this.streetAddress,
@@ -140,6 +143,7 @@ class Restaurant {
   factory Restaurant.fromFirestore(
     Map<String, dynamic> data, {
     required List<Coupon> coupons,
+    List<DailySpecial> dailySpecials = const [],
   }) {
     return Restaurant(
       uid: _readString(data[fieldUid]),
@@ -167,6 +171,7 @@ class Restaurant {
         data[fieldBusinessHours],
       ),
       coupons: coupons,
+      dailySpecials: dailySpecials,
       latitude: _readDouble(data[fieldLatitude]),
       longitude: _readDouble(data[fieldLongitude]),
     );
