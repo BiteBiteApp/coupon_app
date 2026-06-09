@@ -70,6 +70,7 @@ class _RestaurantCreateCouponScreenState
   bool _restaurantImageSectionExpanded = false;
   bool _hoursSectionExpanded = false;
   bool _menuManagementSectionExpanded = false;
+  bool _subscriptionBillingSectionExpanded = true;
   bool _dailySpecialsSectionExpanded = false;
   bool _couponManagementSectionExpanded = false;
   bool _customerPreviewSectionExpanded = false;
@@ -2509,16 +2510,6 @@ class _RestaurantCreateCouponScreenState
               ],
             ),
           ),
-          const SizedBox(height: 12),
-          const Text(
-            'Post coupons and daily specials to reach nearby customers with local deals.',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              fontSize: 14,
-              color: Color(0xFF475569),
-              height: 1.4,
-            ),
-          ),
           const SizedBox(height: 14),
           Wrap(
             alignment: WrapAlignment.center,
@@ -3115,11 +3106,11 @@ class _RestaurantCreateCouponScreenState
         });
       },
       children: [
-        if (!_hasCouponPostingAccess) ...[
-          _buildSubscriptionStatusSection(),
-          const SizedBox(height: 16),
-          _buildSubscriptionPromoSection(),
-        ] else ...[
+        if (!_hasCouponPostingAccess)
+          _buildPostingToolLockedMessage(
+            message: 'Subscription required to post daily specials.',
+          )
+        else ...[
           if (_dailySpecialsLoading)
             const Center(child: CircularProgressIndicator())
           else if (_dailySpecials.isNotEmpty)
@@ -3424,16 +3415,81 @@ class _RestaurantCreateCouponScreenState
     );
   }
 
-  Widget _buildPostingToolsLockedSection() {
+  Widget _buildSubscriptionBillingSection() {
     return _buildOwnerExpandableSection(
-      title: 'Coupon & Daily Special Posting',
-      initiallyExpanded: true,
-      onExpansionChanged: (_) {},
+      title: 'Subscription / Billing',
+      initiallyExpanded: _subscriptionBillingSectionExpanded,
+      onExpansionChanged: (expanded) {
+        setState(() {
+          _subscriptionBillingSectionExpanded = expanded;
+        });
+      },
       children: [
         _buildSubscriptionStatusSection(),
-        const SizedBox(height: 16),
-        _buildSubscriptionPromoSection(),
+        if (!_hasCouponPostingAccess) ...[
+          const SizedBox(height: 16),
+          _buildSubscriptionPromoSection(),
+        ],
       ],
+    );
+  }
+
+  Widget _buildLockedPostingSection() {
+    return _buildOwnerExpandableSection(
+      title: 'Coupon Management / Daily Specials',
+      initiallyExpanded: true,
+      onExpansionChanged: (_) {},
+      children: [_buildSubscriptionPromoSection()],
+    );
+  }
+
+  Widget _buildPostingToolLockedMessage({required String message}) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7ED),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFED7AA)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.lock_outline, size: 20, color: Color(0xFFB45309)),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  message,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF7C2D12),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                TextButton(
+                  onPressed: _subscriptionCheckoutLoading
+                      ? null
+                      : _openSubscriptionSignupScreen,
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(0, 32),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    _subscriptionCheckoutLoading
+                        ? 'Opening...'
+                        : 'Start Subscription',
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -3448,9 +3504,9 @@ class _RestaurantCreateCouponScreenState
           });
         },
         children: [
-          _buildSubscriptionStatusSection(),
-          const SizedBox(height: 16),
-          _buildSubscriptionPromoSection(),
+          _buildPostingToolLockedMessage(
+            message: 'Subscription required to post coupons.',
+          ),
         ],
       );
     }
@@ -3464,8 +3520,6 @@ class _RestaurantCreateCouponScreenState
         });
       },
       children: [
-        _buildSubscriptionStatusSection(),
-        const SizedBox(height: 16),
         Text(
           isEditingCoupon ? 'Edit Coupon' : 'Create a New Coupon',
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
@@ -3739,12 +3793,13 @@ class _RestaurantCreateCouponScreenState
               _buildSaveProfileButton(),
               const SizedBox(height: 12),
               _buildRestaurantImageSection(),
-              _buildMenuManagementSection(),
               if (_hasCouponPostingAccess) ...[
-                _buildDailySpecialsSection(),
+                _buildSubscriptionBillingSection(),
                 _buildCouponManagementSection(),
+                _buildDailySpecialsSection(),
               ] else
-                _buildPostingToolsLockedSection(),
+                _buildLockedPostingSection(),
+              _buildMenuManagementSection(),
               _buildCustomerPreviewSection(savedProfile),
             ],
           ),
