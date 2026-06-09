@@ -903,7 +903,9 @@ class RestaurantAccountService {
         final uid = _readString(normalizedData[Restaurant.fieldUid]) ?? doc.id;
 
         final coupons = await loadCoupons(uid);
-        final dailySpecials = await loadDailySpecialsForRestaurant(uid);
+        final dailySpecials = hasCouponPostingAccess(normalizedData)
+            ? await loadDailySpecialsForRestaurant(uid)
+            : const <DailySpecial>[];
         final restaurant = Restaurant.fromFirestore(
           normalizedData,
           coupons: coupons,

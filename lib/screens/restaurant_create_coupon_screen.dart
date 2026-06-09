@@ -1497,7 +1497,7 @@ class _RestaurantCreateCouponScreenState
     }
   }
 
-  Future<bool> _ensureRestaurantAddressReadyForCoupons(User user) async {
+  Future<bool> _ensureRestaurantAddressReadyForPosting(User user) async {
     final streetAddress = streetAddressController.text.trim();
     final city = cityController.text.trim();
     final state = stateController.text.trim();
@@ -1508,7 +1508,7 @@ class _RestaurantCreateCouponScreenState
         state.isEmpty ||
         zipCode.isEmpty) {
       _showSnackBar(
-        'Please complete your restaurant address before posting coupons.',
+        'Please complete your restaurant address before posting coupons or daily specials.',
       );
       return false;
     }
@@ -1572,7 +1572,7 @@ class _RestaurantCreateCouponScreenState
       return;
     }
 
-    final addressReady = await _ensureRestaurantAddressReadyForCoupons(user);
+    final addressReady = await _ensureRestaurantAddressReadyForPosting(user);
     if (!addressReady) {
       return;
     }
@@ -1719,6 +1719,14 @@ class _RestaurantCreateCouponScreenState
 
     if (!_hasCouponPostingAccess) {
       await _openPaywallScreen();
+      return;
+    }
+
+    final addressReady = await _ensureRestaurantAddressReadyForPosting(user);
+    if (!addressReady) {
+      return;
+    }
+    if (!mounted) {
       return;
     }
 

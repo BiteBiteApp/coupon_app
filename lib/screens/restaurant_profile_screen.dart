@@ -198,9 +198,11 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
         final accountData = await RestaurantAccountService.getAccountData(uid);
         if (accountData != null) {
           final dailySpecials =
-              await RestaurantAccountService.loadDailySpecialsForRestaurant(
-                uid,
-              );
+              RestaurantAccountService.hasCouponPostingAccess(accountData)
+              ? await RestaurantAccountService.loadDailySpecialsForRestaurant(
+                  uid,
+                )
+              : const <DailySpecial>[];
           freshRestaurant = Restaurant.fromFirestore(
             accountData,
             coupons: restaurant.coupons,
