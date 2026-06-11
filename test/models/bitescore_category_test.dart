@@ -59,6 +59,122 @@ void main() {
       expect(tags, containsAll(['spicy salsa', 'spicy', 'salsa']));
     });
 
+    test('manual keywords are split trimmed lowercase and unique', () {
+      final tags = BitescoreCategories.buildSearchableTags(
+        categoryId: 'deli_sandwiches',
+        manualKeywords: ' Sandwich, deli, hoagie, sandwich ',
+      );
+
+      expect(tags, containsAll(['deli', 'sandwich', 'hoagie']));
+      expect(tags.where((tag) => tag == 'sandwich'), hasLength(1));
+      expect(tags, everyElement(predicate<String>((tag) => tag == tag.trim())));
+      expect(
+        tags,
+        everyElement(predicate<String>((tag) => tag == tag.toLowerCase())),
+      );
+    });
+
+    test('quick pick categories include parent category tags', () {
+      final burgerTags = BitescoreCategories.buildSearchableTags(
+        categoryId: 'burgers',
+      );
+      final tacoTags = BitescoreCategories.buildSearchableTags(
+        categoryId: 'tacos',
+      );
+      final pizzaTags = BitescoreCategories.buildSearchableTags(
+        categoryId: 'pizza',
+      );
+      final donutTags = BitescoreCategories.buildSearchableTags(
+        categoryId: 'donuts',
+      );
+
+      expect(burgerTags, containsAll(['burgers', 'burger', 'american']));
+      expect(tacoTags, containsAll(['tacos', 'taco', 'mexican']));
+      expect(pizzaTags, containsAll(['pizza', 'italian']));
+      expect(
+        donutTags,
+        containsAll([
+          'donuts',
+          'donut',
+          'dessert',
+          'dessert / bakery',
+          'bakery',
+        ]),
+      );
+    });
+
+    test('quick pick categories match parent category searches', () {
+      expect(
+        BitescoreCategories.matchesSearchQuery(
+          categoryName: ' Burgers ',
+          query: ' american ',
+        ),
+        isTrue,
+      );
+      expect(
+        BitescoreCategories.matchesSearchQuery(
+          categoryName: 'Tacos',
+          query: 'Mexican',
+        ),
+        isTrue,
+      );
+      expect(
+        BitescoreCategories.matchesSearchQuery(
+          categoryName: 'Pizza',
+          query: 'Italian',
+        ),
+        isTrue,
+      );
+      expect(
+        BitescoreCategories.matchesSearchQuery(
+          categoryName: 'Donuts',
+          query: 'Dessert / Bakery',
+        ),
+        isTrue,
+      );
+      expect(
+        BitescoreCategories.matchesSearchQuery(
+          categoryName: null,
+          categoryTags: const [],
+          query: 'American',
+        ),
+        isFalse,
+      );
+    });
+
+    test('category and subcategory produce expected searchable tags', () {
+      final tags = BitescoreCategories.buildSearchableTags(
+        categoryId: 'italian',
+        subcategory: 'Pasta',
+      );
+
+      expect(tags, containsAll(['italian', 'pasta']));
+    });
+
+    test('main category Other requires manual keywords', () {
+      expect(
+        BitescoreCategories.validateSelection(category: 'Other'),
+        'Please describe the category.',
+      );
+      expect(
+        BitescoreCategories.validateSelection(
+          category: 'Other',
+          manualKeywords: 'Polish, pierogi, kielbasa',
+        ),
+        isNull,
+      );
+    });
+
+    test('subcategory Other manual keywords are optional', () {
+      expect(
+        BitescoreCategories.validateSelection(
+          category: 'Mexican',
+          subcategory: 'Other',
+        ),
+        isNull,
+      );
+    });
+
     test(
       'more cuisines start at Thai and are alphabetized with Other last',
       () {

@@ -24,14 +24,27 @@ class BitescoreCategories {
 
   static const List<BitescoreCategory> all = [
     BitescoreCategory(id: 'other', displayName: 'Other'),
-    BitescoreCategory(id: 'burgers', displayName: 'Burgers'),
-    BitescoreCategory(id: 'tacos', displayName: 'Tacos'),
+    BitescoreCategory(
+      id: 'burgers',
+      displayName: 'Burgers',
+      searchTags: ['burger', 'american'],
+    ),
+    BitescoreCategory(
+      id: 'tacos',
+      displayName: 'Tacos',
+      searchTags: ['taco', 'mexican'],
+    ),
     BitescoreCategory(
       id: 'pizza',
       displayName: 'Pizza',
       subcategories: [otherLabel, 'Calzone', 'Pizza', 'Stromboli'],
+      searchTags: ['italian'],
     ),
-    BitescoreCategory(id: 'donuts', displayName: 'Donuts'),
+    BitescoreCategory(
+      id: 'donuts',
+      displayName: 'Donuts',
+      searchTags: ['donut', 'dessert', 'dessert / bakery', 'bakery'],
+    ),
     BitescoreCategory(
       id: 'american',
       displayName: 'American',
@@ -605,6 +618,70 @@ class BitescoreCategories {
     return tags.toList(growable: false);
   }
 
+  static bool matchesSearchQuery({
+    String? categoryId,
+    String? categoryName,
+    String? subcategory,
+    String? manualKeywords,
+    Iterable<String> categoryTags = const [],
+    required String query,
+  }) {
+    final queryTerms = <String>{};
+    _addSearchTerms(queryTerms, query);
+    if (queryTerms.isEmpty) {
+      return true;
+    }
+
+    final searchableTerms = <String>{
+      ...buildSearchableTags(
+        categoryId: categoryId,
+        categoryName: categoryName,
+        subcategory: subcategory,
+        manualKeywords: manualKeywords,
+      ),
+    };
+    for (final tag in categoryTags) {
+      _addSearchTerms(searchableTerms, tag);
+    }
+
+    return queryTerms.any(
+      (queryTerm) =>
+          searchableTerms.contains(queryTerm) ||
+          searchableTerms.any((term) => term.contains(queryTerm)),
+    );
+  }
+
+  static String? validateSelection({
+    required String category,
+    String? subcategory,
+    String? manualKeywords,
+  }) {
+    final trimmedCategory = category.trim();
+    if (trimmedCategory.isEmpty) {
+      return 'Please choose a category.';
+    }
+
+    final trimmedSubcategory = subcategory?.trim() ?? '';
+    final trimmedManualKeywords = manualKeywords?.trim() ?? '';
+    final blueprintCategory = byIdOrName(trimmedCategory);
+
+    if (blueprintCategory == null) {
+      return null;
+    }
+
+    if (blueprintCategory.displayName == otherLabel &&
+        !blueprintCategory.hasSubcategories &&
+        trimmedManualKeywords.isEmpty) {
+      return 'Please describe the category.';
+    }
+
+    if (blueprintCategory.hasSubcategories && trimmedSubcategory.isEmpty) {
+      return 'Please choose a subcategory.';
+    }
+
+    return null;
+  }
+
   static String? _normalizeLookup(String? value) {
     final normalized = value?.trim().toLowerCase();
     return normalized == null || normalized.isEmpty ? null : normalized;
@@ -638,13 +715,39 @@ class BitescoreCategories {
     for (final word in normalized.split(RegExp(r'[^a-z0-9]+'))) {
       if (word.length >= 3 && !_searchStopWords.contains(word)) {
         tags.add(word);
+        final singular = _singularTag(word);
+        if (singular != word) {
+          tags.add(singular);
+        }
       }
     }
   }
 
   static String? _normalizeTag(String? value) {
-    final normalized = value?.trim().toLowerCase().replaceAll('’', "'");
+    final normalized = value
+        ?.trim()
+        .toLowerCase()
+        .replaceAll('’', "'")
+        .replaceAll(RegExp(r'\s+'), ' ');
     return normalized == null || normalized.isEmpty ? null : normalized;
+  }
+
+  static String _singularTag(String value) {
+    if (value.length > 3 && value.endsWith('ies')) {
+      return '${value.substring(0, value.length - 3)}y';
+    }
+    if (value.length > 4 &&
+        (value.endsWith('ches') ||
+            value.endsWith('shes') ||
+            value.endsWith('sses') ||
+            value.endsWith('xes') ||
+            value.endsWith('zes'))) {
+      return value.substring(0, value.length - 2);
+    }
+    if (value.length > 3 && value.endsWith('s')) {
+      return value.substring(0, value.length - 1);
+    }
+    return value;
   }
 
   static const Set<String> _searchStopWords = {'and', 'the', 'with'};

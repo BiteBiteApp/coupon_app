@@ -4999,7 +4999,8 @@ class BiteScoreService {
           if (existingCategory != trimmedCategory ||
               (existingDish.subcategory?.trim() ?? '') != trimmedSubcategory ||
               (existingDish.categoryManualKeywords?.trim() ?? '') !=
-                  trimmedManualKeywords) {
+                  trimmedManualKeywords ||
+              !_stringListsEqual(existingDish.categoryTags, categoryTags)) {
             await doc.reference.set({
               'category': trimmedCategory,
               'subcategory': trimmedSubcategory.isEmpty
@@ -6010,28 +6011,23 @@ class BiteScoreService {
     String? subcategory,
     String? manualKeywords,
   }) {
-    final trimmedCategory = category.trim();
-    if (trimmedCategory.isEmpty) {
-      return 'Please choose a category.';
+    return BitescoreCategories.validateSelection(
+      category: category,
+      subcategory: subcategory,
+      manualKeywords: manualKeywords,
+    );
+  }
+
+  static bool _stringListsEqual(List<String> left, List<String> right) {
+    if (left.length != right.length) {
+      return false;
     }
-
-    final trimmedSubcategory = subcategory?.trim() ?? '';
-    final trimmedManualKeywords = manualKeywords?.trim() ?? '';
-
-    final blueprintCategory = BitescoreCategories.byIdOrName(trimmedCategory);
-    if (blueprintCategory == null || !blueprintCategory.hasSubcategories) {
-      if (blueprintCategory?.displayName == BitescoreCategories.otherLabel &&
-          trimmedManualKeywords.isEmpty) {
-        return 'Please describe the category.';
+    for (var index = 0; index < left.length; index += 1) {
+      if (left[index] != right[index]) {
+        return false;
       }
-      return null;
     }
-
-    if (trimmedSubcategory.isEmpty) {
-      return 'Please choose a subcategory.';
-    }
-
-    return null;
+    return true;
   }
 
   static Future<List<QueryDocumentSnapshot<Map<String, dynamic>>>>

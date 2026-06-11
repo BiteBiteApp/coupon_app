@@ -6,6 +6,7 @@ import 'package:geocoding/geocoding.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/bitescore_category.dart';
 import '../models/bitescore_restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/bitescore_sign_in_gate.dart';
@@ -414,7 +415,13 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
           dishQuery.isEmpty ||
           _matchesSearchText(entry.dish.name, dishQuery) ||
           _matchesSearchText(entry.restaurant.name, dishQuery) ||
-          _matchesCategorySearch(entry.dish.category, dishQuery);
+          _matchesDishCategorySearch(
+            category: entry.dish.category,
+            subcategory: entry.dish.subcategory,
+            manualKeywords: entry.dish.categoryManualKeywords,
+            categoryTags: entry.dish.categoryTags,
+            query: dishQuery,
+          );
 
       if (!matchesDishQuery) {
         return false;
@@ -474,6 +481,35 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     return normalizedCategory == normalizedQuery ||
         '${normalizedCategory}s' == normalizedQuery ||
         '${normalizedQuery}s' == normalizedCategory;
+  }
+
+  bool _matchesDishCategorySearch({
+    required String? category,
+    required String? subcategory,
+    required String? manualKeywords,
+    required List<String> categoryTags,
+    required String query,
+  }) {
+    if (_matchesCategorySearch(category, query)) {
+      return true;
+    }
+    if (BitescoreCategories.matchesSearchQuery(
+      categoryName: category,
+      subcategory: subcategory,
+      manualKeywords: manualKeywords,
+      categoryTags: categoryTags,
+      query: query,
+    )) {
+      return true;
+    }
+
+    final searchableText = [
+      if (subcategory?.trim().isNotEmpty ?? false) subcategory!.trim(),
+      if (manualKeywords?.trim().isNotEmpty ?? false) manualKeywords!.trim(),
+      ...categoryTags,
+    ].join(' ');
+
+    return _matchesSearchText(searchableText, query);
   }
 
   Set<String> _searchTerms(String value) {
