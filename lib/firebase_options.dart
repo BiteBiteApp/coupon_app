@@ -23,10 +23,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for macos - '
@@ -60,10 +57,20 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyBQXI3SFvC3gVOwEVMp3hXfbgxH_mjc3Tk',
-    appId: '1:253983587346:android:20730e2db1684eaa48accb',
+    appId: '1:253983587346:android:750437c485d3b0db48accb',
     messagingSenderId: '253983587346',
     projectId: 'coupon-app-29446',
     storageBucket: 'coupon-app-29446.firebasestorage.app',
   );
 
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyCpbE4CwcdXKcR6eP974IVB3m15yfIG3k8',
+    appId: '1:253983587346:ios:9002570d04bd127748accb',
+    messagingSenderId: '253983587346',
+    projectId: 'coupon-app-29446',
+    storageBucket: 'coupon-app-29446.firebasestorage.app',
+    androidClientId: '253983587346-9fh1d0d2m8upp17bv0rla8dj2410tk5a.apps.googleusercontent.com',
+    iosClientId: '253983587346-542ffd5n277c54pmp03kek55u8lp0usn.apps.googleusercontent.com',
+    iosBundleId: 'com.example.couponApp',
+  );
 }
