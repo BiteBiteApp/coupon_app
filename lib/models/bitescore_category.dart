@@ -68,7 +68,7 @@ class BitescoreCategories {
     ),
     BitescoreCategory(
       id: 'chicken_wings',
-      displayName: 'Chicken / Wings',
+      displayName: 'Chicken',
       subcategories: [
         otherLabel,
         'Boneless wings',

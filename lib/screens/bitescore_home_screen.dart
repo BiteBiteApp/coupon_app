@@ -29,6 +29,53 @@ class BiteScoreSearchCenter {
   });
 }
 
+class _BiteScoreCategoryFilter {
+  final String id;
+  final String label;
+  final String query;
+  final String categoryId;
+  final bool isSubcategory;
+
+  const _BiteScoreCategoryFilter({
+    required this.id,
+    required this.label,
+    required this.query,
+    required this.categoryId,
+    required this.isSubcategory,
+  });
+
+  factory _BiteScoreCategoryFilter.category(BitescoreCategory category) {
+    return _BiteScoreCategoryFilter(
+      id: 'category:${category.id}',
+      label: category.displayName,
+      query: category.displayName,
+      categoryId: category.id,
+      isSubcategory: false,
+    );
+  }
+
+  factory _BiteScoreCategoryFilter.subcategory(
+    BitescoreCategory category,
+    String subcategory,
+  ) {
+    return _BiteScoreCategoryFilter(
+      id: 'subcategory:${category.id}:$subcategory',
+      label: subcategory,
+      query: subcategory,
+      categoryId: category.id,
+      isSubcategory: true,
+    );
+  }
+
+  @override
+  bool operator ==(Object other) {
+    return other is _BiteScoreCategoryFilter && other.id == id;
+  }
+
+  @override
+  int get hashCode => id.hashCode;
+}
+
 class BiteScoreHomeScreen extends StatefulWidget {
   const BiteScoreHomeScreen({super.key});
 
@@ -39,6 +86,7 @@ class BiteScoreHomeScreen extends StatefulWidget {
 class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   static const double _collapsedHeaderExtent = 86;
   static const double _expandedHeaderExtent = 190;
+  static const double _homeControlPillWidth = 92;
   static const String _selectedRadiusPreferenceKey = 'selected_radius';
   static const String _defaultSort = 'Highest BiteScore';
 
@@ -56,8 +104,11 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   Position? currentPosition;
   BiteScoreSearchCenter? typedSearchCenter;
   List<BiteScoreHomeEntry> _entries = const <BiteScoreHomeEntry>[];
+  Set<_BiteScoreCategoryFilter> _selectedCategoryFilters =
+      <_BiteScoreCategoryFilter>{};
   bool _isLoading = true;
   Object? _loadError;
+  bool _showAllCategoryFilterChips = false;
 
   @override
   void initState() {
@@ -427,6 +478,11 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         return false;
       }
 
+      if (_selectedCategoryFilters.isNotEmpty &&
+          !_matchesSelectedCategoryFilters(entry)) {
+        return false;
+      }
+
       if (center != null) {
         final distanceMiles = _distanceMilesFor(entry);
         if (distanceMiles == null || distanceMiles > radiusMiles) {
@@ -448,6 +504,18 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     filtered.sort(_compareEntriesForSelectedSort);
 
     return filtered;
+  }
+
+  bool _matchesSelectedCategoryFilters(BiteScoreHomeEntry entry) {
+    return _selectedCategoryFilters.any((filter) {
+      return BitescoreCategories.matchesSearchQuery(
+        categoryName: entry.dish.category,
+        subcategory: entry.dish.subcategory,
+        manualKeywords: entry.dish.categoryManualKeywords,
+        categoryTags: entry.dish.categoryTags,
+        query: filter.query,
+      );
+    });
   }
 
   bool _matchesSearchText(String source, String query) {
@@ -844,65 +912,70 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   }
 
   Widget _buildSortDropdown() {
-    return Container(
+    return SizedBox(
       height: 36,
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: BiteRaterTheme.lineBlue, width: 0.8),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: _normalizeSortOption(selectedSort),
-          isDense: true,
-          isExpanded: false,
-          padding: EdgeInsets.zero,
-          icon: const Icon(Icons.keyboard_arrow_down, size: 18),
-          style: const TextStyle(
-            color: BiteRaterTheme.ink,
-            fontSize: 12,
-            fontWeight: FontWeight.w600,
-            height: 1,
+      child: Container(
+        padding: const EdgeInsets.only(left: 12, right: 10),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: BiteRaterTheme.lineBlue, width: 0.8),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<String>(
+            value: _normalizeSortOption(selectedSort),
+            isDense: true,
+            isExpanded: false,
+            padding: EdgeInsets.zero,
+            icon: const Icon(Icons.keyboard_arrow_down, size: 18),
+            style: const TextStyle(
+              color: BiteRaterTheme.ink,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              height: 1,
+            ),
+            selectedItemBuilder: (context) => const [
+              Text('BiteScore'),
+              Text('Reviews', overflow: TextOverflow.ellipsis),
+              Text('Closest', overflow: TextOverflow.ellipsis),
+              Text('Value', overflow: TextOverflow.ellipsis),
+              Text('Flavor', overflow: TextOverflow.ellipsis),
+              Text('Quality', overflow: TextOverflow.ellipsis),
+              Text('Enjoyed', overflow: TextOverflow.ellipsis),
+            ],
+            items: const [
+              DropdownMenuItem(
+                value: 'Highest BiteScore',
+                child: Text('Highest BiteScore'),
+              ),
+              DropdownMenuItem(
+                value: 'Most Reviewed',
+                child: Text('Most Reviewed'),
+              ),
+              DropdownMenuItem(value: 'Closest', child: Text('Closest')),
+              DropdownMenuItem(value: 'Best Value', child: Text('Best Value')),
+              DropdownMenuItem(
+                value: 'Best Flavor',
+                child: Text('Best Flavor'),
+              ),
+              DropdownMenuItem(
+                value: 'Highest Quality',
+                child: Text('Highest Quality'),
+              ),
+              DropdownMenuItem(
+                value: 'Most Enjoyed',
+                child: Text('Most Enjoyed'),
+              ),
+            ],
+            onChanged: (value) {
+              if (value != null) {
+                setState(() {
+                  selectedSort = _normalizeSortOption(value);
+                });
+              }
+            },
           ),
-          selectedItemBuilder: (context) => const [
-            Text('BiteScore', overflow: TextOverflow.ellipsis),
-            Text('Reviews', overflow: TextOverflow.ellipsis),
-            Text('Closest', overflow: TextOverflow.ellipsis),
-            Text('Value', overflow: TextOverflow.ellipsis),
-            Text('Flavor', overflow: TextOverflow.ellipsis),
-            Text('Quality', overflow: TextOverflow.ellipsis),
-            Text('Enjoyed', overflow: TextOverflow.ellipsis),
-          ],
-          items: const [
-            DropdownMenuItem(
-              value: 'Highest BiteScore',
-              child: Text('Highest BiteScore'),
-            ),
-            DropdownMenuItem(
-              value: 'Most Reviewed',
-              child: Text('Most Reviewed'),
-            ),
-            DropdownMenuItem(value: 'Closest', child: Text('Closest')),
-            DropdownMenuItem(value: 'Best Value', child: Text('Best Value')),
-            DropdownMenuItem(value: 'Best Flavor', child: Text('Best Flavor')),
-            DropdownMenuItem(
-              value: 'Highest Quality',
-              child: Text('Highest Quality'),
-            ),
-            DropdownMenuItem(
-              value: 'Most Enjoyed',
-              child: Text('Most Enjoyed'),
-            ),
-          ],
-          onChanged: (value) {
-            if (value != null) {
-              setState(() {
-                selectedSort = _normalizeSortOption(value);
-              });
-            }
-          },
         ),
       ),
     );
@@ -925,6 +998,265 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
           ),
           const SizedBox(width: 6),
           _buildSortDropdown(),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openCategoryFilterSheet() async {
+    final selection = await showModalBottomSheet<Set<_BiteScoreCategoryFilter>>(
+      context: context,
+      useSafeArea: true,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
+      ),
+      builder: (context) {
+        return _BiteScoreCategoryFilterSheet(
+          selectedFilters: _selectedCategoryFilters,
+        );
+      },
+    );
+
+    if (selection == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _selectedCategoryFilters = selection;
+      if (_selectedCategoryFilters.length <= 3) {
+        _showAllCategoryFilterChips = false;
+      }
+    });
+  }
+
+  void _removeCategoryFilter(_BiteScoreCategoryFilter filter) {
+    setState(() {
+      _selectedCategoryFilters = {..._selectedCategoryFilters}..remove(filter);
+      if (_selectedCategoryFilters.length <= 3) {
+        _showAllCategoryFilterChips = false;
+      }
+    });
+  }
+
+  void _clearCategoryFilters() {
+    setState(() {
+      _selectedCategoryFilters = <_BiteScoreCategoryFilter>{};
+      _showAllCategoryFilterChips = false;
+    });
+  }
+
+  Widget _buildAddDishButton() {
+    return SizedBox(
+      width: _homeControlPillWidth,
+      height: 36,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: const Color(0xFFE8F3FF),
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: const Color(0xFF5AA9F6).withValues(alpha: 0.62),
+            width: 1.1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF2688E8).withValues(alpha: 0.09),
+              blurRadius: 7,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: ElevatedButton(
+          onPressed: _openCreateAndRate,
+          style:
+              ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                foregroundColor: const Color(0xFF1467B3),
+                shadowColor: Colors.transparent,
+                surfaceTintColor: Colors.transparent,
+                elevation: 0,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(18),
+                ),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ).copyWith(
+                minimumSize: const WidgetStatePropertyAll(Size(0, 36)),
+                textStyle: const WidgetStatePropertyAll(
+                  TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.1,
+                  ),
+                ),
+              ),
+          child: const Text(
+            'Add Dish',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterButton() {
+    final hasFilters = _selectedCategoryFilters.isNotEmpty;
+    return SizedBox(
+      width: _homeControlPillWidth,
+      height: 36,
+      child: OutlinedButton(
+        onPressed: _openCategoryFilterSheet,
+        style: OutlinedButton.styleFrom(
+          foregroundColor: hasFilters
+              ? BiteRaterTheme.grape
+              : BiteRaterTheme.ink,
+          backgroundColor: hasFilters ? const Color(0xFFFAF7FF) : Colors.white,
+          side: BorderSide(
+            color: hasFilters
+                ? BiteRaterTheme.grape.withValues(alpha: 0.34)
+                : BiteRaterTheme.lineBlue,
+            width: 0.9,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(18),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        ),
+        child: const Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Filter',
+              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+            ),
+            SizedBox(width: 6),
+            Icon(Icons.tune, size: 17),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFilterChips() {
+    if (_selectedCategoryFilters.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final filters = _selectedCategoryFilters.toList()
+      ..sort((a, b) => a.label.compareTo(b.label));
+    final visibleFilters = _showAllCategoryFilterChips
+        ? filters
+        : filters.take(3).toList();
+    final hiddenCount = filters.length - visibleFilters.length;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 6,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          for (final filter in visibleFilters)
+            InputChip(
+              label: Text(filter.label),
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              onDeleted: () => _removeCategoryFilter(filter),
+              deleteIcon: const Icon(Icons.close, size: 15),
+              backgroundColor: const Color(0xFFF7FAFF),
+              side: BorderSide(
+                color: BiteRaterTheme.ocean.withValues(alpha: 0.18),
+              ),
+              labelStyle: const TextStyle(
+                color: BiteRaterTheme.ink,
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          if (hiddenCount > 0)
+            ActionChip(
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              label: Text('+$hiddenCount'),
+              onPressed: () {
+                setState(() {
+                  _showAllCategoryFilterChips = true;
+                });
+              },
+            ),
+          if (_showAllCategoryFilterChips && filters.length > 3)
+            ActionChip(
+              visualDensity: VisualDensity.compact,
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              label: const Icon(Icons.keyboard_arrow_up_rounded, size: 18),
+              onPressed: () {
+                setState(() {
+                  _showAllCategoryFilterChips = false;
+                });
+              },
+            ),
+          TextButton(
+            onPressed: _clearCategoryFilters,
+            style: TextButton.styleFrom(
+              foregroundColor: BiteRaterTheme.mutedInk,
+              visualDensity: VisualDensity.compact,
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text(
+              'Clear all',
+              style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildResultsControlBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 3),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            height: 1,
+            margin: const EdgeInsets.only(bottom: 4),
+            color: BiteRaterTheme.lineBlue.withValues(alpha: 0.42),
+          ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerLeft,
+                    child: _buildAddDishButton(),
+                  ),
+                ),
+              ),
+              Expanded(child: Center(child: _buildFilterButton())),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FittedBox(
+                    fit: BoxFit.scaleDown,
+                    alignment: Alignment.centerRight,
+                    child: _buildSortControl(),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (_selectedCategoryFilters.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            _buildFilterChips(),
+          ],
         ],
       ),
     );
@@ -1607,100 +1939,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
               ),
             ),
             if (_hasLocationOrZipInput)
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 0, 16, 3),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        height: 1,
-                        margin: const EdgeInsets.only(bottom: 4),
-                        color: BiteRaterTheme.lineBlue.withValues(alpha: 0.42),
-                      ),
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Expanded(
-                            child: Align(
-                              alignment: Alignment.centerLeft,
-                              child: ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 178,
-                                ),
-                                child: SizedBox(
-                                  height: 36,
-                                  child: DecoratedBox(
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(18),
-                                      border: Border.all(
-                                        color: BiteRaterTheme.ocean.withValues(
-                                          alpha: 0.18,
-                                        ),
-                                        width: 1,
-                                      ),
-                                      boxShadow: [
-                                        BoxShadow(
-                                          color: BiteRaterTheme.ocean
-                                              .withValues(alpha: 0.06),
-                                          blurRadius: 7,
-                                          offset: const Offset(0, 2),
-                                        ),
-                                      ],
-                                    ),
-                                    child: ElevatedButton(
-                                      onPressed: _openCreateAndRate,
-                                      style:
-                                          ElevatedButton.styleFrom(
-                                            backgroundColor: Colors.transparent,
-                                            foregroundColor: BiteRaterTheme.ink,
-                                            shadowColor: Colors.transparent,
-                                            surfaceTintColor:
-                                                Colors.transparent,
-                                            elevation: 0,
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                            ),
-                                            shape: RoundedRectangleBorder(
-                                              borderRadius:
-                                                  BorderRadius.circular(18),
-                                            ),
-                                            tapTargetSize: MaterialTapTargetSize
-                                                .shrinkWrap,
-                                          ).copyWith(
-                                            minimumSize:
-                                                const WidgetStatePropertyAll(
-                                                  Size(0, 36),
-                                                ),
-                                            textStyle:
-                                                const WidgetStatePropertyAll(
-                                                  TextStyle(
-                                                    fontSize: 12,
-                                                    fontWeight: FontWeight.w800,
-                                                    letterSpacing: 0.1,
-                                                  ),
-                                                ),
-                                          ),
-                                      child: const Text(
-                                        'Add Dish',
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          _buildSortControl(),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              ),
+              SliverToBoxAdapter(child: _buildResultsControlBar()),
             SliverPadding(
               padding: EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
               sliver: !_hasLocationOrZipInput
@@ -1715,6 +1954,261 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         ),
       ),
     );
+  }
+}
+
+class _BiteScoreCategoryFilterSheet extends StatefulWidget {
+  final Set<_BiteScoreCategoryFilter> selectedFilters;
+
+  const _BiteScoreCategoryFilterSheet({required this.selectedFilters});
+
+  @override
+  State<_BiteScoreCategoryFilterSheet> createState() =>
+      _BiteScoreCategoryFilterSheetState();
+}
+
+class _BiteScoreCategoryFilterSheetState
+    extends State<_BiteScoreCategoryFilterSheet> {
+  late Set<_BiteScoreCategoryFilter> _draftFilters;
+  late Set<String> _expandedCategoryIds;
+  bool _isMoreCuisinesExpanded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _draftFilters = {...widget.selectedFilters};
+    _expandedCategoryIds = {
+      for (final filter in _draftFilters)
+        if (filter.id.startsWith('subcategory:'))
+          filter.id.split(':').length >= 3 ? filter.id.split(':')[1] : '',
+    }..remove('');
+    _isMoreCuisinesExpanded = _draftFilters.any((filter) {
+      return BitescoreCategories.moreCuisineCategories.any(
+        (category) =>
+            filter.id == _BiteScoreCategoryFilter.category(category).id ||
+            filter.id.startsWith('subcategory:${category.id}:'),
+      );
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final bottomPadding = MediaQuery.paddingOf(context).bottom;
+
+    return ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.sizeOf(context).height * 0.84,
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 16, 12, 8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    'Filter',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: BiteRaterTheme.ink,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: 'Close',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close),
+                ),
+              ],
+            ),
+          ),
+          Flexible(
+            child: ListView(
+              shrinkWrap: true,
+              padding: EdgeInsets.fromLTRB(8, 0, 8, bottomPadding + 88),
+              children: [
+                for (final category in BitescoreCategories.commonCategories)
+                  ..._buildCategoryRows(category),
+                if (BitescoreCategories.moreCuisineCategories.isNotEmpty)
+                  _buildMoreCuisinesRow(),
+                if (_isMoreCuisinesExpanded)
+                  for (final category
+                      in BitescoreCategories.moreCuisineCategories)
+                    ..._buildCategoryRows(category),
+              ],
+            ),
+          ),
+          SafeArea(
+            top: false,
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                border: Border(
+                  top: BorderSide(color: BiteRaterTheme.lineBlue, width: 0.8),
+                ),
+              ),
+              child: Row(
+                children: [
+                  TextButton(
+                    onPressed: _draftFilters.isEmpty
+                        ? null
+                        : () {
+                            setState(() {
+                              _draftFilters = <_BiteScoreCategoryFilter>{};
+                            });
+                          },
+                    child: const Text('Clear all'),
+                  ),
+                  const Spacer(),
+                  FilledButton(
+                    onPressed: () => Navigator.of(context).pop(_draftFilters),
+                    child: const Text('Apply'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Widget> _buildCategoryRows(BitescoreCategory category) {
+    final filter = _BiteScoreCategoryFilter.category(category);
+    final isSelected = _draftFilters.contains(filter);
+    final isExpanded = _expandedCategoryIds.contains(category.id);
+    final canExpand =
+        category.hasSubcategories && !_isQuickPickCategory(category);
+
+    return [
+      ListTile(
+        leading: Checkbox(
+          value: isSelected,
+          onChanged: (_) => _toggleCategoryFilter(category),
+        ),
+        title: Text(
+          category.displayName,
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        trailing: canExpand
+            ? IconButton(
+                tooltip: isExpanded ? 'Collapse' : 'Expand',
+                icon: Icon(
+                  isExpanded
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                ),
+                onPressed: () => _toggleCategoryExpansion(category.id),
+              )
+            : null,
+        onTap: () => _toggleCategoryFilter(category),
+      ),
+      if (canExpand && isExpanded) ...[
+        const Padding(
+          padding: EdgeInsets.fromLTRB(72, 0, 16, 4),
+          child: Text(
+            'Optional subcategory',
+            style: TextStyle(
+              color: BiteRaterTheme.mutedInk,
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        for (final subcategory in category.subcategories)
+          Padding(
+            padding: const EdgeInsets.only(left: 24),
+            child: CheckboxListTile(
+              dense: true,
+              controlAffinity: ListTileControlAffinity.leading,
+              value: _draftFilters.contains(
+                _BiteScoreCategoryFilter.subcategory(category, subcategory),
+              ),
+              title: Text(subcategory),
+              onChanged: (_) => _toggleSubcategoryFilter(category, subcategory),
+            ),
+          ),
+      ],
+    ];
+  }
+
+  bool _isQuickPickCategory(BitescoreCategory category) {
+    return const {'burgers', 'tacos', 'donuts', 'pizza'}.contains(category.id);
+  }
+
+  void _toggleCategoryFilter(BitescoreCategory category) {
+    final filter = _BiteScoreCategoryFilter.category(category);
+    final canExpand =
+        category.hasSubcategories && !_isQuickPickCategory(category);
+    setState(() {
+      if (_draftFilters.contains(filter)) {
+        _draftFilters.remove(filter);
+      } else {
+        _draftFilters
+          ..removeWhere(
+            (selected) =>
+                selected.categoryId == category.id && selected.isSubcategory,
+          )
+          ..add(filter);
+        if (canExpand) {
+          _expandedCategoryIds.add(category.id);
+        }
+      }
+    });
+  }
+
+  void _toggleSubcategoryFilter(
+    BitescoreCategory category,
+    String subcategory,
+  ) {
+    final filter = _BiteScoreCategoryFilter.subcategory(category, subcategory);
+    final parentFilter = _BiteScoreCategoryFilter.category(category);
+    setState(() {
+      if (_draftFilters.contains(filter)) {
+        _draftFilters.remove(filter);
+      } else {
+        _draftFilters
+          ..remove(parentFilter)
+          ..add(filter);
+      }
+    });
+  }
+
+  Widget _buildMoreCuisinesRow() {
+    return ListTile(
+      dense: true,
+      title: const Text(
+        'More cuisines',
+        style: TextStyle(
+          color: BiteRaterTheme.mutedInk,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+      trailing: Icon(
+        _isMoreCuisinesExpanded
+            ? Icons.keyboard_arrow_up_rounded
+            : Icons.keyboard_arrow_down_rounded,
+        color: BiteRaterTheme.mutedInk,
+      ),
+      onTap: () {
+        setState(() {
+          _isMoreCuisinesExpanded = !_isMoreCuisinesExpanded;
+        });
+      },
+    );
+  }
+
+  void _toggleCategoryExpansion(String categoryId) {
+    setState(() {
+      if (_expandedCategoryIds.contains(categoryId)) {
+        _expandedCategoryIds.remove(categoryId);
+      } else {
+        _expandedCategoryIds.add(categoryId);
+      }
+    });
   }
 }
 
