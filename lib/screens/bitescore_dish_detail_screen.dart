@@ -15,6 +15,7 @@ import '../services/app_mode_state_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
+import '../widgets/bitescore_category_picker.dart';
 import '../widgets/biterater_theme.dart';
 import '../widgets/owner_dish_merge_dialog.dart';
 import '../widgets/persistent_bottom_navigation.dart';
@@ -47,23 +48,6 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     _reviewSortHighestScore,
     _reviewSortLowestScore,
   ];
-  static const List<String> _dishCategoryOptions = <String>[
-    'Pizza',
-    'Sandwich',
-    'Burger',
-    'Chicken Dish',
-    'Barbecue',
-    'Tacos',
-    'Pasta',
-    'Wings',
-    'Breakfast',
-    'Seafood',
-    'Steak',
-    'Salad',
-    'Dessert',
-    'Appetizer',
-  ];
-
   Future<_DishDetailData>? _detailFuture;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _reviewSectionKey = GlobalKey();
@@ -298,17 +282,16 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       return;
     }
 
-    final category = await showDialog<String>(
+    final selection = await showDialog<BitescoreCategorySelection>(
       context: context,
       builder: (context) {
         return _DishCategoryDialog(
-          initialCategory: dish.category,
-          categoryOptions: _dishCategoryOptions,
+          initialSelection: BitescoreCategorySelection.fromDish(dish),
         );
       },
     );
 
-    if (category == null || !mounted) {
+    if (selection == null || !mounted) {
       return;
     }
 
@@ -316,7 +299,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       await BiteScoreService.updateDishAsOwner(
         dish: dish,
         name: dish.name,
-        category: category,
+        category: selection.categoryForSave ?? '',
+        subcategory: selection.subcategoryForSave,
+        categoryManualKeywords: selection.manualKeywordsForSave,
         priceLabel: dish.priceLabel ?? '',
         isActive: dish.isActive,
       );
@@ -2814,39 +2799,33 @@ class _BiteScoreImageViewerScreenState
 }
 
 class _DishCategoryDialog extends StatefulWidget {
-  final String? initialCategory;
-  final List<String> categoryOptions;
+  final BitescoreCategorySelection initialSelection;
 
-  const _DishCategoryDialog({
-    required this.initialCategory,
-    required this.categoryOptions,
-  });
+  const _DishCategoryDialog({required this.initialSelection});
 
   @override
   State<_DishCategoryDialog> createState() => _DishCategoryDialogState();
 }
 
 class _DishCategoryDialogState extends State<_DishCategoryDialog> {
-  late final TextEditingController _controller;
+  late BitescoreCategorySelection _selection;
+  bool _showCategoryValidation = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.initialCategory ?? '');
+    _selection = widget.initialSelection;
   }
 
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _submitManualCategory() {
-    final category = _controller.text.trim();
-    if (category.isEmpty) {
+  void _submitCategory() {
+    final validationError = _selection.validate();
+    if (validationError != null) {
+      setState(() {
+        _showCategoryValidation = true;
+      });
       return;
     }
-    Navigator.of(context).pop(category);
+    Navigator.of(context).pop(_selection);
   }
 
   @override
@@ -2854,40 +2833,18 @@ class _DishCategoryDialogState extends State<_DishCategoryDialog> {
     return AlertDialog(
       title: const Text('Add category'),
       content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            TextField(
-              controller: _controller,
-              autofocus: true,
-              textInputAction: TextInputAction.done,
-              onSubmitted: (_) => _submitManualCategory(),
-              decoration: InputDecoration(
-                labelText: 'Enter manually',
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: widget.categoryOptions.map((category) {
-                return ActionChip(
-                  label: Text(category),
-                  onPressed: () => Navigator.of(context).pop(category),
-                  backgroundColor: Colors.white,
-                  side: const BorderSide(color: BiteRaterTheme.lineBlue),
-                  labelStyle: const TextStyle(
-                    color: BiteRaterTheme.ink,
-                    fontWeight: FontWeight.w700,
-                  ),
-                );
-              }).toList(),
-            ),
-          ],
+        child: SizedBox(
+          width: 420,
+          child: BitescoreCategoryPicker(
+            selection: _selection,
+            showError: _showCategoryValidation,
+            onChanged: (selection) {
+              setState(() {
+                _selection = selection;
+                _showCategoryValidation = false;
+              });
+            },
+          ),
         ),
       ),
       actions: [
@@ -2896,7 +2853,7 @@ class _DishCategoryDialogState extends State<_DishCategoryDialog> {
           child: const Text('Cancel'),
         ),
         ElevatedButton(
-          onPressed: _submitManualCategory,
+          onPressed: _submitCategory,
           style: BiteRaterTheme.filledButtonStyle(),
           child: const Text('Save'),
         ),
@@ -2916,18 +2873,17 @@ class _DishManagementDialog extends StatefulWidget {
 
 class _DishManagementDialogState extends State<_DishManagementDialog> {
   late final TextEditingController _nameController;
-  late final TextEditingController _categoryController;
   late final TextEditingController _priceController;
+  late BitescoreCategorySelection _categorySelection;
   late bool _isActive;
   bool _isSaving = false;
+  bool _showCategoryValidation = false;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.dish.name);
-    _categoryController = TextEditingController(
-      text: widget.dish.category ?? '',
-    );
+    _categorySelection = BitescoreCategorySelection.fromDish(widget.dish);
     _priceController = TextEditingController(
       text: widget.dish.priceLabel ?? '',
     );
@@ -2937,12 +2893,27 @@ class _DishManagementDialogState extends State<_DishManagementDialog> {
   @override
   void dispose() {
     _nameController.dispose();
-    _categoryController.dispose();
     _priceController.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
+    final categoryValidationError = _categorySelection.validate();
+    if (categoryValidationError != null) {
+      setState(() {
+        _showCategoryValidation = true;
+      });
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(categoryValidationError),
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      return;
+    }
+
     setState(() {
       _isSaving = true;
     });
@@ -2951,7 +2922,9 @@ class _DishManagementDialogState extends State<_DishManagementDialog> {
       await BiteScoreService.updateDishAsOwner(
         dish: widget.dish,
         name: _nameController.text,
-        category: _categoryController.text,
+        category: _categorySelection.categoryForSave ?? '',
+        subcategory: _categorySelection.subcategoryForSave,
+        categoryManualKeywords: _categorySelection.manualKeywordsForSave,
         priceLabel: _priceController.text,
         isActive: _isActive,
       );
@@ -3002,14 +2975,15 @@ class _DishManagementDialogState extends State<_DishManagementDialog> {
                 ),
               ),
               const SizedBox(height: 12),
-              TextField(
-                controller: _categoryController,
-                decoration: InputDecoration(
-                  labelText: 'Category (optional)',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
+              BitescoreCategoryPicker(
+                selection: _categorySelection,
+                showError: _showCategoryValidation,
+                onChanged: (selection) {
+                  setState(() {
+                    _categorySelection = selection;
+                    _showCategoryValidation = false;
+                  });
+                },
               ),
               const SizedBox(height: 12),
               TextField(

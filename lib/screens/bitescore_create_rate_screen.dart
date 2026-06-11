@@ -7,6 +7,7 @@ import '../services/bitescore_image_upload_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
+import '../widgets/bitescore_category_picker.dart';
 import '../widgets/biterater_theme.dart';
 import '../widgets/clickable_phone_text.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
@@ -48,23 +49,6 @@ class BiteScoreCreateRateScreen extends StatefulWidget {
 }
 
 class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
-  static const String _manualCategoryOption = 'Enter manually';
-  static const List<String> _dishCategoryOptions = <String>[
-    'Pizza',
-    'Sandwich',
-    'Burger',
-    'Chicken Dish',
-    'Barbecue',
-    'Tacos',
-    'Pasta',
-    'Wings',
-    'Breakfast',
-    'Seafood',
-    'Steak',
-    'Salad',
-    'Dessert',
-    'Appetizer',
-  ];
   static const List<String> _manualStateOptions = <String>[
     'AL',
     'AK',
@@ -547,9 +531,6 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
   final TextEditingController zipCodeController = TextEditingController();
   final TextEditingController streetAddressController = TextEditingController();
   final TextEditingController dishNameController = TextEditingController();
-  final TextEditingController categoryController = TextEditingController();
-  final MenuController _categoryMenuController = MenuController();
-  final FocusNode _categoryFocusNode = FocusNode();
   final TextEditingController priceLabelController = TextEditingController();
   final TextEditingController headlineController = TextEditingController();
   final TextEditingController notesController = TextEditingController();
@@ -576,6 +557,9 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
   _RestaurantEntryStage _restaurantEntryStage =
       _RestaurantEntryStage.chooseRestaurant;
   BitescoreRestaurant? _closeMatchRestaurant;
+  BitescoreCategorySelection _categorySelection =
+      const BitescoreCategorySelection();
+  bool _showCategoryValidation = false;
 
   bool get isExistingDishMode => widget.existingEntry != null;
   bool get isExistingRestaurantMode =>
@@ -590,11 +574,6 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       tastinessScore != null &&
       qualityScore != null &&
       valueScore != null;
-
-  String get _categoryDisplayText {
-    final category = categoryController.text.trim();
-    return category.isEmpty ? 'Choose a category' : category;
-  }
 
   double get overallBiteScore {
     if (!_hasRequiredScores) {
@@ -612,7 +591,6 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
   @override
   void initState() {
     super.initState();
-    _categoryFocusNode.addListener(_handleCategoryFocusChanged);
     _seedExistingDishValues();
     _seedExistingRestaurantValues();
     if (isRestaurantSelectionMode) {
@@ -632,7 +610,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     zipCodeController.text = entry.restaurant.zipCode;
     streetAddressController.text = entry.restaurant.address;
     dishNameController.text = entry.dish.name;
-    categoryController.text = entry.dish.category ?? '';
+    _categorySelection = BitescoreCategorySelection.fromDish(entry.dish);
     priceLabelController.text = entry.dish.priceLabel ?? '';
   }
 
@@ -649,17 +627,6 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     streetAddressController.text = restaurant.address;
   }
 
-  void _handleCategoryFocusChanged() {
-    if (!_categoryFocusNode.hasFocus) {
-      _categoryMenuController.close();
-    }
-  }
-
-  void _finishManualCategoryEntry() {
-    _categoryFocusNode.unfocus();
-    _categoryMenuController.close();
-  }
-
   @override
   void dispose() {
     restaurantNameController.dispose();
@@ -668,9 +635,6 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     zipCodeController.dispose();
     streetAddressController.dispose();
     dishNameController.dispose();
-    _categoryFocusNode.removeListener(_handleCategoryFocusChanged);
-    _categoryFocusNode.dispose();
-    categoryController.dispose();
     priceLabelController.dispose();
     headlineController.dispose();
     notesController.dispose();
@@ -1186,131 +1150,14 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
   }
 
   Widget _buildCategoryInput() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        return MenuAnchor(
-          controller: _categoryMenuController,
-          menuChildren: [
-            SizedBox(
-              width: constraints.maxWidth,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _manualCategoryOption,
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        color: BiteRaterTheme.ink,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    TextField(
-                      controller: categoryController,
-                      focusNode: _categoryFocusNode,
-                      onChanged: (_) {
-                        setState(() {});
-                      },
-                      onSubmitted: (_) => _finishManualCategoryEntry(),
-                      decoration: InputDecoration(
-                        isDense: true,
-                        filled: true,
-                        fillColor: Colors.white,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 12,
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: BiteRaterTheme.lineBlue,
-                          ),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: const BorderSide(
-                            color: BiteRaterTheme.grape,
-                            width: 1.4,
-                          ),
-                        ),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            ..._dishCategoryOptions.map(
-              (category) => MenuItemButton(
-                onPressed: () {
-                  setState(() {
-                    categoryController.text = category;
-                  });
-                  _categoryMenuController.close();
-                },
-                child: SizedBox(
-                  width: constraints.maxWidth,
-                  child: Text(category),
-                ),
-              ),
-            ),
-          ],
-          builder: (context, controller, child) {
-            return InkWell(
-              borderRadius: BorderRadius.circular(14),
-              onTap: () {
-                if (controller.isOpen) {
-                  controller.close();
-                } else {
-                  controller.open();
-                }
-              },
-              child: InputDecorator(
-                decoration: InputDecoration(
-                  labelText: 'Category (optional)',
-                  filled: true,
-                  fillColor: Colors.white,
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(
-                      color: BiteRaterTheme.lineBlue,
-                    ),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                    borderSide: const BorderSide(
-                      color: BiteRaterTheme.grape,
-                      width: 1.4,
-                    ),
-                  ),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        _categoryDisplayText,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          color: categoryController.text.trim().isEmpty
-                              ? Theme.of(context).hintColor
-                              : BiteRaterTheme.ink,
-                        ),
-                      ),
-                    ),
-                    const Icon(Icons.arrow_drop_down),
-                  ],
-                ),
-              ),
-            );
-          },
-        );
+    return BitescoreCategoryPicker(
+      selection: _categorySelection,
+      showError: _showCategoryValidation,
+      onChanged: (selection) {
+        setState(() {
+          _categorySelection = selection;
+          _showCategoryValidation = false;
+        });
       },
     );
   }
@@ -2258,19 +2105,35 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
         ),
         _buildDishSuggestionList(),
         const SizedBox(height: 16),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: _buildCategoryInput()),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildField(
-                controller: priceLabelController,
-                label: 'Price (Optional)',
-                hint: 'Example: \$14.99',
-              ),
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final canUseTwoColumns = constraints.maxWidth >= 560;
+            final priceField = _buildField(
+              controller: priceLabelController,
+              label: 'Price (Optional)',
+              hint: 'Example: \$14.99',
+            );
+
+            if (!canUseTwoColumns) {
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildCategoryInput(),
+                  const SizedBox(height: 12),
+                  priceField,
+                ],
+              );
+            }
+
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 3, child: _buildCategoryInput()),
+                const SizedBox(width: 12),
+                Expanded(flex: 2, child: priceField),
+              ],
+            );
+          },
         ),
       ],
     );
@@ -2491,6 +2354,15 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       return;
     }
 
+    final categoryValidationError = _categorySelection.validate();
+    if (!isExistingDishMode && categoryValidationError != null) {
+      setState(() {
+        _showCategoryValidation = true;
+      });
+      _showSnackBar(categoryValidationError);
+      return;
+    }
+
     final selectedOverallImpression = overallImpression!;
     final selectedTastinessScore = tastinessScore!;
     final selectedQualityScore = qualityScore!;
@@ -2579,7 +2451,9 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
           saveResult = await BiteScoreService.createDishAndRateForRestaurant(
             restaurant: restaurant,
             dishName: dishNameController.text,
-            category: categoryController.text,
+            category: _categorySelection.categoryForSave ?? '',
+            subcategory: _categorySelection.subcategoryForSave,
+            categoryManualKeywords: _categorySelection.manualKeywordsForSave,
             priceLabel: priceLabelController.text,
             headline: headlineController.text,
             notes: notesController.text,
@@ -2603,7 +2477,9 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
           state: _normalizedState(stateController.text),
           zipCode: zipCodeController.text,
           dishName: dishNameController.text,
-          category: categoryController.text,
+          category: _categorySelection.categoryForSave ?? '',
+          subcategory: _categorySelection.subcategoryForSave,
+          categoryManualKeywords: _categorySelection.manualKeywordsForSave,
           priceLabel: priceLabelController.text,
           headline: headlineController.text,
           notes: notesController.text,

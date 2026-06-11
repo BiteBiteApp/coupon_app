@@ -6,6 +6,7 @@ import '../models/dish_review.dart';
 import '../models/restaurant_claim_request.dart';
 import '../services/app_error_text.dart';
 import '../services/bitescore_service.dart';
+import '../widgets/bitescore_category_picker.dart';
 import '../widgets/biterater_theme.dart';
 import '../widgets/clickable_phone_text.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
@@ -3503,18 +3504,17 @@ class _BiteScoreDishEditDialog extends StatefulWidget {
 
 class _BiteScoreDishEditDialogState extends State<_BiteScoreDishEditDialog> {
   late final TextEditingController _nameController;
-  late final TextEditingController _categoryController;
   late final TextEditingController _priceController;
+  late BitescoreCategorySelection _categorySelection;
   late bool _isActive;
   bool _isSaving = false;
+  bool _showCategoryValidation = false;
 
   @override
   void initState() {
     super.initState();
     _nameController = TextEditingController(text: widget.dish.name);
-    _categoryController = TextEditingController(
-      text: widget.dish.category ?? '',
-    );
+    _categorySelection = BitescoreCategorySelection.fromDish(widget.dish);
     _priceController = TextEditingController(
       text: widget.dish.priceLabel ?? '',
     );
@@ -3524,12 +3524,22 @@ class _BiteScoreDishEditDialogState extends State<_BiteScoreDishEditDialog> {
   @override
   void dispose() {
     _nameController.dispose();
-    _categoryController.dispose();
     _priceController.dispose();
     super.dispose();
   }
 
   Future<void> _save() async {
+    final categoryValidationError = _categorySelection.validate();
+    if (categoryValidationError != null) {
+      setState(() {
+        _showCategoryValidation = true;
+      });
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(categoryValidationError)));
+      return;
+    }
+
     setState(() {
       _isSaving = true;
     });
@@ -3538,7 +3548,9 @@ class _BiteScoreDishEditDialogState extends State<_BiteScoreDishEditDialog> {
       await BiteScoreService.updateDishAsAdmin(
         dish: widget.dish,
         name: _nameController.text,
-        category: _categoryController.text,
+        category: _categorySelection.categoryForSave ?? '',
+        subcategory: _categorySelection.subcategoryForSave,
+        categoryManualKeywords: _categorySelection.manualKeywordsForSave,
         priceLabel: _priceController.text,
         isActive: _isActive,
       );
@@ -3578,9 +3590,15 @@ class _BiteScoreDishEditDialogState extends State<_BiteScoreDishEditDialog> {
             children: [
               _AdminTextField(controller: _nameController, label: 'Dish name'),
               const SizedBox(height: 12),
-              _AdminTextField(
-                controller: _categoryController,
-                label: 'Category (optional)',
+              BitescoreCategoryPicker(
+                selection: _categorySelection,
+                showError: _showCategoryValidation,
+                onChanged: (selection) {
+                  setState(() {
+                    _categorySelection = selection;
+                    _showCategoryValidation = false;
+                  });
+                },
               ),
               const SizedBox(height: 12),
               _AdminTextField(

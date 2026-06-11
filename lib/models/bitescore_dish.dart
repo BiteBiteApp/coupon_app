@@ -9,6 +9,9 @@ class BitescoreDish {
   final String name;
   final String normalizedName;
   final String? category;
+  final String? subcategory;
+  final String? categoryManualKeywords;
+  final List<String> categoryTags;
   final String? priceLabel;
   final String? primaryImageUrl;
   final String? primaryImageId;
@@ -25,6 +28,9 @@ class BitescoreDish {
     required this.name,
     required this.normalizedName,
     this.category,
+    this.subcategory,
+    this.categoryManualKeywords,
+    this.categoryTags = const [],
     this.priceLabel,
     this.primaryImageUrl,
     this.primaryImageId,
@@ -46,6 +52,9 @@ class BitescoreDish {
       'name': name.trim(),
       'normalizedName': normalizedName.trim(),
       'category': category?.trim(),
+      'subcategory': subcategory?.trim(),
+      'categoryManualKeywords': categoryManualKeywords?.trim(),
+      'categoryTags': categoryTags,
       'priceLabel': priceLabel?.trim(),
       'primaryImageUrl': primaryImageUrl?.trim(),
       'primaryImageId': primaryImageId?.trim(),
@@ -85,6 +94,9 @@ class BitescoreDish {
       name: name,
       normalizedName: normalizedName,
       category: _readString(data['category']),
+      subcategory: _readString(data['subcategory']),
+      categoryManualKeywords: _readString(data['categoryManualKeywords']),
+      categoryTags: _readStringList(data['categoryTags']),
       priceLabel: _readString(data['priceLabel']),
       primaryImageUrl: _readString(data['primaryImageUrl']),
       primaryImageId: _readString(data['primaryImageId']),
@@ -119,6 +131,18 @@ class BitescoreDish {
     }
 
     return null;
+  }
+
+  static List<String> _readStringList(dynamic value) {
+    if (value is Iterable) {
+      return value
+          .whereType<String>()
+          .map((tag) => tag.trim())
+          .where((tag) => tag.isNotEmpty)
+          .toList(growable: false);
+    }
+
+    return const [];
   }
 
   static DateTime? _readDateTime(dynamic value) {

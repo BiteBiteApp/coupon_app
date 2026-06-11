@@ -6,6 +6,7 @@ import 'package:geocoding/geocoding.dart';
 
 import 'admin_access_service.dart';
 import '../models/bitescore_dish.dart';
+import '../models/bitescore_category.dart';
 import '../models/bitescore_dish_image.dart';
 import '../models/bitescore_dish_image_vote.dart';
 import '../models/bitescore_restaurant.dart';
@@ -534,6 +535,8 @@ class BiteScoreCreateRequest {
   final String zipCode;
   final String dishName;
   final String category;
+  final String? subcategory;
+  final String? categoryManualKeywords;
   final String priceLabel;
   final String headline;
   final String notes;
@@ -550,6 +553,8 @@ class BiteScoreCreateRequest {
     required this.zipCode,
     required this.dishName,
     required this.category,
+    this.subcategory,
+    this.categoryManualKeywords,
     required this.priceLabel,
     required this.headline,
     required this.notes,
@@ -580,6 +585,15 @@ class BiteScoreCreateRequest {
     }
     if (!BiteScoreService._hasMeaningfulDishName(dishName)) {
       return 'Dish name is required.';
+    }
+    final categoryValidationError =
+        BiteScoreService._validateDishCategorySelection(
+          category: category,
+          subcategory: subcategory,
+          manualKeywords: categoryManualKeywords,
+        );
+    if (categoryValidationError != null) {
+      return categoryValidationError;
     }
     return BiteScoreService._validateRequiredReviewScores(
       overallImpression: overallImpression,
@@ -3785,6 +3799,8 @@ class BiteScoreService {
     required BitescoreRestaurant restaurant,
     required String dishName,
     required String category,
+    String? subcategory,
+    String? categoryManualKeywords,
     required String priceLabel,
     required String headline,
     required String notes,
@@ -3796,6 +3812,14 @@ class BiteScoreService {
   }) async {
     if (!_hasMeaningfulDishName(dishName)) {
       throw ArgumentError('Dish name is required.');
+    }
+    final categoryValidationError = _validateDishCategorySelection(
+      category: category,
+      subcategory: subcategory,
+      manualKeywords: categoryManualKeywords,
+    );
+    if (categoryValidationError != null) {
+      throw ArgumentError(categoryValidationError);
     }
     final validationError = _validateRequiredReviewScores(
       overallImpression: overallImpression,
@@ -3817,6 +3841,8 @@ class BiteScoreService {
       zipCode: restaurant.zipCode,
       dishName: dishName,
       category: category,
+      subcategory: subcategory,
+      categoryManualKeywords: categoryManualKeywords,
       priceLabel: priceLabel,
       headline: headline,
       notes: notes,
@@ -4316,6 +4342,8 @@ class BiteScoreService {
     required BitescoreDish dish,
     required String name,
     required String category,
+    String? subcategory,
+    String? categoryManualKeywords,
     required String priceLabel,
     required bool isActive,
   }) async {
@@ -4328,6 +4356,23 @@ class BiteScoreService {
       throw ArgumentError('Dish name is required.');
     }
     final trimmedCategory = category.trim();
+    final categoryValidationError = _validateDishCategorySelection(
+      category: trimmedCategory,
+      subcategory: subcategory,
+      manualKeywords: categoryManualKeywords,
+    );
+    if (categoryValidationError != null) {
+      throw ArgumentError(categoryValidationError);
+    }
+    final trimmedSubcategory = subcategory?.trim() ?? '';
+    final trimmedManualKeywords = categoryManualKeywords?.trim() ?? '';
+    final categoryTags = BitescoreCategories.buildSearchableTags(
+      categoryName: trimmedCategory,
+      subcategory: trimmedSubcategory,
+      manualKeywords: trimmedManualKeywords,
+      dishName: normalizedDishName,
+      restaurantName: dish.restaurantName,
+    );
 
     final updatedDish = BitescoreDish(
       id: dish.id,
@@ -4335,7 +4380,12 @@ class BiteScoreService {
       restaurantName: dish.restaurantName,
       name: normalizedDishName,
       normalizedName: normalizedName,
-      category: trimmedCategory.isEmpty ? null : trimmedCategory,
+      category: trimmedCategory,
+      subcategory: trimmedSubcategory.isEmpty ? null : trimmedSubcategory,
+      categoryManualKeywords: trimmedManualKeywords.isEmpty
+          ? null
+          : trimmedManualKeywords,
+      categoryTags: categoryTags,
       priceLabel: priceLabel.trim().isEmpty ? null : priceLabel.trim(),
       primaryImageUrl: dish.primaryImageUrl,
       primaryImageId: dish.primaryImageId,
@@ -4369,6 +4419,8 @@ class BiteScoreService {
     required BitescoreDish dish,
     required String name,
     required String category,
+    String? subcategory,
+    String? categoryManualKeywords,
     required String priceLabel,
     required bool isActive,
   }) async {
@@ -4376,6 +4428,8 @@ class BiteScoreService {
       dish: dish,
       name: name,
       category: category,
+      subcategory: subcategory,
+      categoryManualKeywords: categoryManualKeywords,
       priceLabel: priceLabel,
       isActive: isActive,
     );
@@ -4649,6 +4703,9 @@ class BiteScoreService {
         name: dish.name,
         normalizedName: dish.normalizedName,
         category: dish.category,
+        subcategory: dish.subcategory,
+        categoryManualKeywords: dish.categoryManualKeywords,
+        categoryTags: dish.categoryTags,
         priceLabel: dish.priceLabel,
         primaryImageUrl: dish.primaryImageUrl,
         primaryImageId: dish.primaryImageId,
@@ -4907,6 +4964,23 @@ class BiteScoreService {
       throw ArgumentError('Dish name is required.');
     }
     final trimmedCategory = request.category.trim();
+    final categoryValidationError = _validateDishCategorySelection(
+      category: trimmedCategory,
+      subcategory: request.subcategory,
+      manualKeywords: request.categoryManualKeywords,
+    );
+    if (categoryValidationError != null) {
+      throw ArgumentError(categoryValidationError);
+    }
+    final trimmedSubcategory = request.subcategory?.trim() ?? '';
+    final trimmedManualKeywords = request.categoryManualKeywords?.trim() ?? '';
+    final categoryTags = BitescoreCategories.buildSearchableTags(
+      categoryName: trimmedCategory,
+      subcategory: trimmedSubcategory,
+      manualKeywords: trimmedManualKeywords,
+      dishName: dishName,
+      restaurantName: restaurant.name,
+    );
     final snapshot = await dishesCollection()
         .where('restaurantId', isEqualTo: restaurant.id)
         .where('normalizedName', isEqualTo: normalizedDishName)
@@ -4922,10 +4996,19 @@ class BiteScoreService {
             existingDish.isActive &&
             !existingDish.isMerged) {
           final existingCategory = existingDish.category?.trim() ?? '';
-          if (trimmedCategory.isNotEmpty &&
-              existingCategory != trimmedCategory) {
+          if (existingCategory != trimmedCategory ||
+              (existingDish.subcategory?.trim() ?? '') != trimmedSubcategory ||
+              (existingDish.categoryManualKeywords?.trim() ?? '') !=
+                  trimmedManualKeywords) {
             await doc.reference.set({
               'category': trimmedCategory,
+              'subcategory': trimmedSubcategory.isEmpty
+                  ? null
+                  : trimmedSubcategory,
+              'categoryManualKeywords': trimmedManualKeywords.isEmpty
+                  ? null
+                  : trimmedManualKeywords,
+              'categoryTags': categoryTags,
               'updatedAt': FieldValue.serverTimestamp(),
             }, SetOptions(merge: true));
 
@@ -4936,6 +5019,13 @@ class BiteScoreService {
               name: existingDish.name,
               normalizedName: existingDish.normalizedName,
               category: trimmedCategory,
+              subcategory: trimmedSubcategory.isEmpty
+                  ? null
+                  : trimmedSubcategory,
+              categoryManualKeywords: trimmedManualKeywords.isEmpty
+                  ? null
+                  : trimmedManualKeywords,
+              categoryTags: categoryTags,
               priceLabel: existingDish.priceLabel,
               primaryImageUrl: existingDish.primaryImageUrl,
               primaryImageId: existingDish.primaryImageId,
@@ -4959,7 +5049,12 @@ class BiteScoreService {
       restaurantName: restaurant.name,
       name: dishName,
       normalizedName: normalizedDishName,
-      category: trimmedCategory.isEmpty ? null : trimmedCategory,
+      category: trimmedCategory,
+      subcategory: trimmedSubcategory.isEmpty ? null : trimmedSubcategory,
+      categoryManualKeywords: trimmedManualKeywords.isEmpty
+          ? null
+          : trimmedManualKeywords,
+      categoryTags: categoryTags,
       priceLabel: request.priceLabel.trim().isEmpty
           ? null
           : request.priceLabel.trim(),
@@ -5597,6 +5692,9 @@ class BiteScoreService {
             name: proposedName,
             normalizedName: normalizedName,
             category: targetDish.category,
+            subcategory: targetDish.subcategory,
+            categoryManualKeywords: targetDish.categoryManualKeywords,
+            categoryTags: targetDish.categoryTags,
             priceLabel: targetDish.priceLabel,
             primaryImageUrl: targetDish.primaryImageUrl,
             primaryImageId: targetDish.primaryImageId,
@@ -5904,6 +6002,35 @@ class BiteScoreService {
     if (valueScore < 1 || valueScore > 10) {
       return 'Value must be between 1 and 10.';
     }
+    return null;
+  }
+
+  static String? _validateDishCategorySelection({
+    required String category,
+    String? subcategory,
+    String? manualKeywords,
+  }) {
+    final trimmedCategory = category.trim();
+    if (trimmedCategory.isEmpty) {
+      return 'Please choose a category.';
+    }
+
+    final trimmedSubcategory = subcategory?.trim() ?? '';
+    final trimmedManualKeywords = manualKeywords?.trim() ?? '';
+
+    final blueprintCategory = BitescoreCategories.byIdOrName(trimmedCategory);
+    if (blueprintCategory == null || !blueprintCategory.hasSubcategories) {
+      if (blueprintCategory?.displayName == BitescoreCategories.otherLabel &&
+          trimmedManualKeywords.isEmpty) {
+        return 'Please describe the category.';
+      }
+      return null;
+    }
+
+    if (trimmedSubcategory.isEmpty) {
+      return 'Please choose a subcategory.';
+    }
+
     return null;
   }
 
