@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/local_expert.dart';
 import '../models/local_expert_badge.dart';
 import '../models/local_expert_badge_calculator.dart';
+import '../screens/local_expert_reviews_screen.dart';
 import 'biterater_theme.dart';
 
 enum LocalExpertBadgeDisplayMode { compact, full }
@@ -300,14 +301,53 @@ class LocalExpertBadgeOverflowPill extends StatelessWidget {
   }
 }
 
+class LocalExpertBadgeReviewNavigationRequest {
+  final String reviewerUserId;
+  final String reviewerDisplayName;
+  final String expertTypeId;
+  final String expertDisplayName;
+
+  const LocalExpertBadgeReviewNavigationRequest({
+    required this.reviewerUserId,
+    required this.reviewerDisplayName,
+    required this.expertTypeId,
+    required this.expertDisplayName,
+  });
+
+  static LocalExpertBadgeReviewNavigationRequest? tryCreate({
+    required LocalExpertBadge badge,
+    required String? reviewerUserId,
+    required String? reviewerDisplayName,
+  }) {
+    final trimmedReviewerUserId = reviewerUserId?.trim();
+    if (trimmedReviewerUserId == null || trimmedReviewerUserId.isEmpty) {
+      return null;
+    }
+
+    return LocalExpertBadgeReviewNavigationRequest(
+      reviewerUserId: trimmedReviewerUserId,
+      reviewerDisplayName: reviewerDisplayName?.trim().isNotEmpty == true
+          ? reviewerDisplayName!.trim()
+          : 'Reviewer',
+      expertTypeId: badge.expertTypeId,
+      expertDisplayName: badge.displayName,
+    );
+  }
+}
+
 Future<void> showLocalExpertBadgeDetails(
   BuildContext context,
-  LocalExpertBadge badge,
-) {
-  final metadata = LocalExpertBadgeVisuals.metadataFor(
-    expertTypeId: badge.expertTypeId,
-    level: badge.level,
-  );
+  LocalExpertBadge badge, {
+  String? reviewerUserId,
+  String? reviewerDisplayName,
+}) {
+  final parentContext = context;
+  final reviewNavigationRequest =
+      LocalExpertBadgeReviewNavigationRequest.tryCreate(
+        badge: badge,
+        reviewerUserId: reviewerUserId,
+        reviewerDisplayName: reviewerDisplayName,
+      );
 
   return showModalBottomSheet<void>(
     context: context,
@@ -334,24 +374,32 @@ Future<void> showLocalExpertBadgeDetails(
                   ),
                 ],
               ),
-              const SizedBox(height: 18),
-              Text(
-                '${badge.displayName} Expert',
-                style: const TextStyle(
-                  color: BiteRaterTheme.ink,
-                  fontSize: 22,
-                  fontWeight: FontWeight.w900,
+              if (reviewNavigationRequest != null) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.of(context).maybePop();
+                      Navigator.of(parentContext).push(
+                        MaterialPageRoute(
+                          builder: (_) => LocalExpertReviewsScreen(
+                            reviewerUserId:
+                                reviewNavigationRequest.reviewerUserId,
+                            reviewerDisplayName:
+                                reviewNavigationRequest.reviewerDisplayName,
+                            expertTypeId: reviewNavigationRequest.expertTypeId,
+                            expertDisplayName:
+                                reviewNavigationRequest.expertDisplayName,
+                          ),
+                        ),
+                      );
+                    },
+                    icon: const Icon(Icons.rate_review_outlined),
+                    label: Text('View ${badge.displayName} Reviews'),
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                badge.levelLabel,
-                style: TextStyle(
-                  color: metadata.ringColor,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
+              ],
               const SizedBox(height: 16),
               _buildDetailLine(
                 '${badge.totalRestaurantCount} qualifying restaurants',
@@ -361,30 +409,6 @@ Future<void> showLocalExpertBadgeDetails(
                   '${badge.localClusterRestaurantCount} restaurants in the best local cluster',
                 ),
               _buildDetailLine(_qualificationText(badge)),
-              const SizedBox(height: 18),
-              const Text(
-                'Badge levels',
-                style: TextStyle(
-                  color: BiteRaterTheme.ink,
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Level 1: Earned by reviewing this type of dish at 3 different restaurants within one 30-mile area, or 5 restaurants overall.',
-                style: TextStyle(height: 1.35),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Level 2: Earned by reviewing this type of dish at 5 different restaurants within one 30-mile area, or 10 restaurants overall.',
-                style: TextStyle(height: 1.35),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Level 3: Earned by reviewing this type of dish at 25 different restaurants overall.',
-                style: TextStyle(height: 1.35),
-              ),
             ],
           ),
         ),

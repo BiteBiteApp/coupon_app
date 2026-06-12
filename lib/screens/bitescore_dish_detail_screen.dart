@@ -28,14 +28,166 @@ import '../widgets/persistent_bottom_navigation.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
 import 'public_reviewer_profile_screen.dart';
 
+class BiteScoreResponsiveDishTitle extends StatelessWidget {
+  static const double normalFontSize = 26;
+  static const double minFontSize = 18;
+
+  final String title;
+
+  const BiteScoreResponsiveDishTitle({super.key, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth == double.infinity
+            ? MediaQuery.sizeOf(context).width
+            : constraints.maxWidth;
+        final fontSize = fittedFontSizeFor(text: title, availableWidth: width);
+        final displayTitle = hyphenatedTitleFor(
+          text: title,
+          availableWidth: width,
+          fontSize: fontSize,
+        );
+        return Text(
+          displayTitle,
+          softWrap: true,
+          overflow: TextOverflow.visible,
+          style: TextStyle(
+            color: BiteRaterTheme.ink,
+            fontSize: fontSize,
+            fontWeight: FontWeight.w900,
+            letterSpacing: 0.1,
+            height: 1.08,
+          ),
+          textScaler: const TextScaler.linear(1),
+        );
+      },
+    );
+  }
+
+  static double fittedFontSizeFor({
+    required String text,
+    required double availableWidth,
+    double normalFontSize = BiteScoreResponsiveDishTitle.normalFontSize,
+    double minFontSize = BiteScoreResponsiveDishTitle.minFontSize,
+  }) {
+    if (text.trim().isEmpty || availableWidth <= 0) {
+      return normalFontSize;
+    }
+
+    final longestWord = longestWordIn(text);
+    if (longestWord.isEmpty) {
+      return normalFontSize;
+    }
+
+    final longestWordWidth = _textWidth(longestWord, fontSize: normalFontSize);
+
+    if (longestWordWidth <= availableWidth) {
+      return normalFontSize;
+    }
+
+    final scaledSize = normalFontSize * (availableWidth / longestWordWidth);
+    return scaledSize.clamp(minFontSize, normalFontSize).toDouble();
+  }
+
+  static String longestWordIn(String text) {
+    final words = text
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((word) => word.trim().isNotEmpty);
+    if (words.isEmpty) {
+      return '';
+    }
+    return words.reduce((a, b) => a.length >= b.length ? a : b);
+  }
+
+  static String hyphenatedTitleFor({
+    required String text,
+    required double availableWidth,
+    required double fontSize,
+  }) {
+    if (availableWidth <= 0 || text.trim().isEmpty) {
+      return text;
+    }
+
+    final words = text.trim().split(RegExp(r'\s+'));
+    return words
+        .map((word) {
+          if (_textWidth(word, fontSize: fontSize) <= availableWidth) {
+            return word;
+          }
+          return _hyphenateWord(
+            word: word,
+            availableWidth: availableWidth,
+            fontSize: fontSize,
+          );
+        })
+        .join(' ');
+  }
+
+  static String _hyphenateWord({
+    required String word,
+    required double availableWidth,
+    required double fontSize,
+  }) {
+    final buffer = StringBuffer();
+    var remaining = word;
+
+    while (remaining.isNotEmpty &&
+        _textWidth(remaining, fontSize: fontSize) > availableWidth) {
+      var splitIndex = remaining.length - 1;
+      while (splitIndex > 1 &&
+          _textWidth(
+                '${remaining.substring(0, splitIndex)}-',
+                fontSize: fontSize,
+              ) >
+              availableWidth) {
+        splitIndex -= 1;
+      }
+
+      if (splitIndex <= 1) {
+        break;
+      }
+
+      buffer
+        ..write(remaining.substring(0, splitIndex))
+        ..write('-\n');
+      remaining = remaining.substring(splitIndex);
+    }
+
+    buffer.write(remaining);
+    return buffer.toString();
+  }
+
+  static double _textWidth(String text, {required double fontSize}) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          fontSize: fontSize,
+          fontWeight: FontWeight.w900,
+          letterSpacing: 0.1,
+        ),
+      ),
+      maxLines: 1,
+      textDirection: TextDirection.ltr,
+      textScaler: const TextScaler.linear(1),
+    )..layout();
+    return painter.width;
+  }
+}
+
 class BiteScoreDishDetailScreen extends StatefulWidget {
   final BiteScoreHomeEntry entry;
   final String? distanceLabel;
+  final String? targetReviewId;
 
   const BiteScoreDishDetailScreen({
     super.key,
     required this.entry,
     this.distanceLabel,
+    this.targetReviewId,
   });
 
   @override
@@ -57,8 +209,10 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   Future<_DishDetailData>? _detailFuture;
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _reviewSectionKey = GlobalKey();
+  final Map<String, GlobalKey> _reviewCardKeys = <String, GlobalKey>{};
   final TextEditingController _headlineController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
+  Timer? _highlightTimer;
   BiteScorePickedDishImage? _selectedDishImage;
   late BiteScoreHomeEntry _currentEntry;
 
@@ -72,6 +226,8 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   bool _hasDishChanges = false;
   int _visibleReviewCount = 3;
   String _selectedReviewSort = _reviewSortMostHelpful;
+  bool _didHandleTargetReview = false;
+  String? _highlightedReviewId;
   User? get _currentUser => FirebaseAuth.instance.currentUser;
   bool get _isOwner =>
       _currentUser != null &&
@@ -109,6 +265,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
 
   @override
   void dispose() {
+    _highlightTimer?.cancel();
     _scrollController.dispose();
     _headlineController.dispose();
     _notesController.dispose();
@@ -348,6 +505,65 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       curve: Curves.easeOutCubic,
       alignment: 0.05,
     );
+  }
+
+  GlobalKey _reviewCardKeyFor(String reviewId) {
+    return _reviewCardKeys.putIfAbsent(reviewId, GlobalKey.new);
+  }
+
+  void _scheduleTargetReviewReveal(List<DishReview> sortedReviews) {
+    if (_didHandleTargetReview) {
+      return;
+    }
+
+    final targetReviewId = widget.targetReviewId?.trim();
+    if (targetReviewId == null || targetReviewId.isEmpty) {
+      _didHandleTargetReview = true;
+      return;
+    }
+
+    final targetExists = sortedReviews.any(
+      (review) => review.id == targetReviewId,
+    );
+    if (!targetExists) {
+      _didHandleTargetReview = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _showSnackBar('That review could not be located.');
+        }
+      });
+      return;
+    }
+
+    _didHandleTargetReview = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) {
+        return;
+      }
+      final targetContext = _reviewCardKeys[targetReviewId]?.currentContext;
+      if (targetContext == null) {
+        _showSnackBar('That review could not be located.');
+        return;
+      }
+
+      setState(() {
+        _highlightedReviewId = targetReviewId;
+      });
+      await Scrollable.ensureVisible(
+        targetContext,
+        duration: const Duration(milliseconds: 360),
+        curve: Curves.easeOutCubic,
+        alignment: 0.12,
+      );
+      _highlightTimer?.cancel();
+      _highlightTimer = Timer(const Duration(seconds: 2), () {
+        if (mounted && _highlightedReviewId == targetReviewId) {
+          setState(() {
+            _highlightedReviewId = null;
+          });
+        }
+      });
+    });
   }
 
   Future<void> _openRestaurantPage() async {
@@ -1208,6 +1424,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     String? reviewerBadgeLabel,
     String? reviewerDisplayName,
     List<LocalExpertBadge> reviewerLocalExpertBadges,
+    bool isHighlighted,
   ) {
     final headline = (review.headline ?? '').trim();
     final notes = (review.notes ?? '').trim();
@@ -1276,134 +1493,155 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       ),
     );
 
-    return BiteRaterTheme.liftedCard(
-      margin: const EdgeInsets.only(bottom: 8),
-      radius: 22,
-      borderColor: BiteRaterTheme.grape.withOpacity(0.09),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(9, 6, 9, 10),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                Expanded(
-                  child: Wrap(
-                    spacing: 4,
-                    runSpacing: 3,
-                    crossAxisAlignment: WrapCrossAlignment.center,
+    return KeyedSubtree(
+      key: _reviewCardKeyFor(review.id),
+      child: BiteRaterTheme.liftedCard(
+        margin: const EdgeInsets.only(bottom: 8),
+        radius: 22,
+        borderColor: isHighlighted
+            ? BiteRaterTheme.ocean.withValues(alpha: 0.55)
+            : BiteRaterTheme.grape.withOpacity(0.09),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 220),
+          curve: Curves.easeOutCubic,
+          decoration: BoxDecoration(
+            color: isHighlighted
+                ? BiteRaterTheme.ocean.withValues(alpha: 0.06)
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(21),
+          ),
+          padding: const EdgeInsets.fromLTRB(9, 6, 9, 10),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: Wrap(
+                      spacing: 4,
+                      runSpacing: 3,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        reviewerNameWidget,
+                        ?reviewerBadgeWidget,
+                        for (final badge in localExpertSummary.visibleBadges)
+                          InkWell(
+                            borderRadius: BorderRadius.circular(999),
+                            onTap: () => showLocalExpertBadgeDetails(
+                              context,
+                              badge,
+                              reviewerUserId: review.userId,
+                              reviewerDisplayName: publicDisplayName,
+                            ),
+                            child: LocalExpertBadgeWidget(
+                              badge: badge,
+                              mode: LocalExpertBadgeDisplayMode.compact,
+                            ),
+                          ),
+                        if (localExpertSummary.hiddenCount > 0)
+                          InkWell(
+                            borderRadius: BorderRadius.circular(999),
+                            onTap: () => _showLocalExpertBadgeList(
+                              prioritizedLocalExpertBadges,
+                              reviewerUserId: review.userId,
+                              reviewerDisplayName: publicDisplayName,
+                            ),
+                            child: LocalExpertBadgeOverflowPill(
+                              hiddenCount: localExpertSummary.hiddenCount,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      reviewerNameWidget,
-                      ?reviewerBadgeWidget,
-                      for (final badge in localExpertSummary.visibleBadges)
-                        InkWell(
-                          borderRadius: BorderRadius.circular(999),
-                          onTap: () =>
-                              showLocalExpertBadgeDetails(context, badge),
-                          child: LocalExpertBadgeWidget(
-                            badge: badge,
-                            mode: LocalExpertBadgeDisplayMode.compact,
-                          ),
-                        ),
-                      if (localExpertSummary.hiddenCount > 0)
-                        InkWell(
-                          borderRadius: BorderRadius.circular(999),
-                          onTap: () => _showLocalExpertBadgeList(
-                            prioritizedLocalExpertBadges,
-                          ),
-                          child: LocalExpertBadgeOverflowPill(
-                            hiddenCount: localExpertSummary.hiddenCount,
-                          ),
-                        ),
+                      reviewDateWidget,
+                      const SizedBox(width: 3),
+                      reviewMenuWidget,
                     ],
                   ),
-                ),
-                const SizedBox(width: 8),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    reviewDateWidget,
-                    const SizedBox(width: 3),
-                    reviewMenuWidget,
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                _buildReviewScoreBadge(review.overallBiteScore),
-                const Spacer(),
-                if (reviewImage != null)
-                  SizedBox(
-                    width: 74,
-                    child: Align(
-                      alignment: Alignment.centerRight,
-                      child: Padding(
-                        padding: const EdgeInsets.only(right: 2),
-                        child: _buildReviewImageThumbnail(
-                          reviewImage.imageUrl,
-                          dishImages,
+                ],
+              ),
+              const SizedBox(height: 6),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  _buildReviewScoreBadge(review.overallBiteScore),
+                  const Spacer(),
+                  if (reviewImage != null)
+                    SizedBox(
+                      width: 74,
+                      child: Align(
+                        alignment: Alignment.centerRight,
+                        child: Padding(
+                          padding: const EdgeInsets.only(right: 2),
+                          child: _buildReviewImageThumbnail(
+                            reviewImage.imageUrl,
+                            dishImages,
+                          ),
                         ),
                       ),
                     ),
+                ],
+              ),
+              Container(
+                height: 0.5,
+                margin: const EdgeInsets.only(top: 6, bottom: 6),
+                color: BiteRaterTheme.lineBlue.withOpacity(0.35),
+              ),
+              if (headline.isNotEmpty) ...[
+                Text(
+                  headline,
+                  style: const TextStyle(
+                    color: BiteRaterTheme.ink,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
                   ),
-              ],
-            ),
-            Container(
-              height: 0.5,
-              margin: const EdgeInsets.only(top: 6, bottom: 6),
-              color: BiteRaterTheme.lineBlue.withOpacity(0.35),
-            ),
-            if (headline.isNotEmpty) ...[
-              Text(
-                headline,
-                style: const TextStyle(
-                  color: BiteRaterTheme.ink,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w900,
                 ),
+              ],
+              if (notes.isNotEmpty) ...[
+                SizedBox(height: headline.isNotEmpty ? 4 : 0),
+                Text(notes),
+              ],
+              if (headline.isNotEmpty || notes.isNotEmpty)
+                const SizedBox(height: 10),
+              _buildReviewMetricGrid(review),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _buildReviewVoteButton(
+                    icon: Icons.thumb_up_alt_outlined,
+                    label: 'Helpful',
+                    count: trustSummary.helpfulCount,
+                    selected: trustSummary.userMarkedHelpful,
+                    onTap: () => _toggleReviewVote(
+                      review,
+                      ReviewFeedbackVote.voteHelpful,
+                    ),
+                  ),
+                  _buildReviewVoteButton(
+                    icon: Icons.thumb_down_alt_outlined,
+                    label: 'Not Helpful',
+                    count: trustSummary.notHelpfulCount,
+                    selected: trustSummary.userMarkedNotHelpful,
+                    showLabel: false,
+                    onTap: () => _toggleReviewVote(
+                      review,
+                      ReviewFeedbackVote.voteNotHelpful,
+                    ),
+                  ),
+                ],
               ),
             ],
-            if (notes.isNotEmpty) ...[
-              SizedBox(height: headline.isNotEmpty ? 4 : 0),
-              Text(notes),
-            ],
-            if (headline.isNotEmpty || notes.isNotEmpty)
-              const SizedBox(height: 10),
-            _buildReviewMetricGrid(review),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 6,
-              runSpacing: 4,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                _buildReviewVoteButton(
-                  icon: Icons.thumb_up_alt_outlined,
-                  label: 'Helpful',
-                  count: trustSummary.helpfulCount,
-                  selected: trustSummary.userMarkedHelpful,
-                  onTap: () =>
-                      _toggleReviewVote(review, ReviewFeedbackVote.voteHelpful),
-                ),
-                _buildReviewVoteButton(
-                  icon: Icons.thumb_down_alt_outlined,
-                  label: 'Not Helpful',
-                  count: trustSummary.notHelpfulCount,
-                  selected: trustSummary.userMarkedNotHelpful,
-                  showLabel: false,
-                  onTap: () => _toggleReviewVote(
-                    review,
-                    ReviewFeedbackVote.voteNotHelpful,
-                  ),
-                ),
-              ],
-            ),
-          ],
+          ),
         ),
       ),
     );
@@ -1510,7 +1748,11 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     );
   }
 
-  Future<void> _showLocalExpertBadgeList(List<LocalExpertBadge> badges) {
+  Future<void> _showLocalExpertBadgeList(
+    List<LocalExpertBadge> badges, {
+    required String reviewerUserId,
+    required String reviewerDisplayName,
+  }) {
     return showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
@@ -1538,8 +1780,12 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                     for (final badge in badges)
                       InkWell(
                         borderRadius: BorderRadius.circular(18),
-                        onTap: () =>
-                            showLocalExpertBadgeDetails(context, badge),
+                        onTap: () => showLocalExpertBadgeDetails(
+                          context,
+                          badge,
+                          reviewerUserId: reviewerUserId,
+                          reviewerDisplayName: reviewerDisplayName,
+                        ),
                         child: LocalExpertBadgeWidget(badge: badge),
                       ),
                   ],
@@ -2134,8 +2380,25 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
             final currentDish = detail.dish;
             final currentRestaurant = detail.restaurant;
             final sortedReviews = _sortedReviewsForDisplay(detail.reviews);
+            _scheduleTargetReviewReveal(sortedReviews);
+            final targetReviewId = widget.targetReviewId?.trim();
+            final targetReviewIndex =
+                targetReviewId == null || targetReviewId.isEmpty
+                ? -1
+                : sortedReviews.indexWhere(
+                    (review) => review.id == targetReviewId,
+                  );
+            final effectiveVisibleReviewCount = targetReviewIndex >= 0
+                ? (targetReviewIndex + 1 > _visibleReviewCount
+                      ? targetReviewIndex + 1
+                      : _visibleReviewCount)
+                : _visibleReviewCount;
             final visibleReviews = sortedReviews
-                .take(_visibleReviewCount)
+                .take(
+                  effectiveVisibleReviewCount > sortedReviews.length
+                      ? sortedReviews.length
+                      : effectiveVisibleReviewCount,
+                )
                 .toList();
             final hasMoreReviews = sortedReviews.length > visibleReviews.length;
 
@@ -2180,20 +2443,11 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                             crossAxisAlignment:
                                                 CrossAxisAlignment.start,
                                             children: [
-                                              Text(
-                                                _displayText(
+                                              BiteScoreResponsiveDishTitle(
+                                                title: _displayText(
                                                   currentDish.name,
                                                   'Unnamed dish',
                                                 ),
-                                                style: const TextStyle(
-                                                  color: BiteRaterTheme.ink,
-                                                  fontSize: 26,
-                                                  fontWeight: FontWeight.w900,
-                                                  letterSpacing: 0.1,
-                                                  height: 1.08,
-                                                ),
-                                                maxLines: 3,
-                                                overflow: TextOverflow.ellipsis,
                                               ),
                                               const SizedBox(height: 6),
                                               _buildDishCategoryControl(
@@ -2452,6 +2706,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                   detail.localExpertBadgesByUserId[review
                                           .userId] ??
                                       const <LocalExpertBadge>[],
+                                  _highlightedReviewId == review.id,
                                 ),
                               ),
                               if (hasMoreReviews) ...[

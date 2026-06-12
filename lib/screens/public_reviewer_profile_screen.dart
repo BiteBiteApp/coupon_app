@@ -305,7 +305,9 @@ class _PublicReviewerProfileScreenState
     );
   }
 
-  Widget _buildLocalExpertBadgesSection() {
+  Widget _buildLocalExpertBadgesSection(
+    BiteScorePublicReviewerProfileData profileData,
+  ) {
     return FutureBuilder<List<LocalExpertBadge>>(
       future: _localExpertBadgesFuture,
       builder: (context, snapshot) {
@@ -350,7 +352,12 @@ class _PublicReviewerProfileScreenState
                 for (final badge in badges)
                   InkWell(
                     borderRadius: BorderRadius.circular(18),
-                    onTap: () => showLocalExpertBadgeDetails(context, badge),
+                    onTap: () => showLocalExpertBadgeDetails(
+                      context,
+                      badge,
+                      reviewerUserId: profileData.userId,
+                      reviewerDisplayName: profileData.publicDisplayName,
+                    ),
                     child: LocalExpertBadgeWidget(badge: badge),
                   ),
               ],
@@ -371,7 +378,7 @@ class _PublicReviewerProfileScreenState
         padding: const EdgeInsets.all(16),
         children: [
           _buildBadgeCard(profileData),
-          _buildLocalExpertBadgesSection(),
+          _buildLocalExpertBadgesSection(profileData),
           const SizedBox(height: 24),
           const Text(
             'Reviews',

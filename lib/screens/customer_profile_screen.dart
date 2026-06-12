@@ -675,7 +675,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     );
   }
 
-  Widget _buildLocalExpertBadgesSection() {
+  Widget _buildLocalExpertBadgesSection(BiteScoreUserProfileData profileData) {
     return FutureBuilder<List<LocalExpertBadge>>(
       future: _localExpertBadgesFuture,
       builder: (context, snapshot) {
@@ -728,8 +728,13 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                       for (final badge in badges)
                         InkWell(
                           borderRadius: BorderRadius.circular(18),
-                          onTap: () =>
-                              showLocalExpertBadgeDetails(context, badge),
+                          onTap: () => showLocalExpertBadgeDetails(
+                            context,
+                            badge,
+                            reviewerUserId:
+                                FirebaseAuth.instance.currentUser?.uid,
+                            reviewerDisplayName: profileData.publicDisplayName,
+                          ),
                           child: LocalExpertBadgeWidget(badge: badge),
                         ),
                     ],
@@ -760,7 +765,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           _buildPublicUsernameCard(profileData),
           const SizedBox(height: 16),
           _buildBadgeCard(profileData),
-          _buildLocalExpertBadgesSection(),
+          _buildLocalExpertBadgesSection(profileData),
           const SizedBox(height: 24),
           _buildSectionHeader('Saved', Icons.favorite_border),
           const SizedBox(height: 12),
