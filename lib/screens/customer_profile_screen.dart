@@ -7,6 +7,7 @@ import '../models/local_expert_badge.dart';
 import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/bitescore_service.dart';
+import '../services/local_expert_badge_recalculation_service.dart';
 import '../services/local_expert_badge_service.dart';
 import '../widgets/local_expert_badge_widget.dart';
 import 'bitescore_dish_detail_screen.dart';
@@ -26,6 +27,8 @@ class CustomerProfileScreen extends StatefulWidget {
 class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   late Future<BiteScoreUserProfileData> _profileFuture;
   late Future<List<LocalExpertBadge>> _localExpertBadgesFuture;
+  final LocalExpertBadgeProfileRefreshBridge _localExpertBadgeRefreshBridge =
+      LocalExpertBadgeProfileRefreshBridge();
   final TextEditingController _usernameController = TextEditingController();
   bool _hasSeededUsernameField = false;
   bool _isCheckingUsername = false;
@@ -43,9 +46,16 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
   void _refresh() {
     _profileFuture = BiteScoreService.loadCurrentUserProfileData();
-    _localExpertBadgesFuture = LocalExpertBadgeService.loadBadgesForUser(
-      FirebaseAuth.instance.currentUser?.uid,
-    );
+    _localExpertBadgesFuture = _localExpertBadgeRefreshBridge
+        .loadBadgesAfterSessionRecalculation(
+          userId: FirebaseAuth.instance.currentUser?.uid,
+          recalculate: LocalExpertBadgeRecalculationService
+              .recalculateMyLocalExpertBadges,
+          loadBadges: LocalExpertBadgeService.loadBadgesForUser,
+          onRecalculationError: (error, stackTrace) {
+            debugPrint('Local Expert badge recalculation failed: $error');
+          },
+        );
   }
 
   String _displayText(String value, String fallback) {

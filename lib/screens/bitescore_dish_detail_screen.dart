@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -15,6 +17,7 @@ import '../services/bitescore_image_upload_service.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
+import '../services/local_expert_badge_recalculation_service.dart';
 import '../services/local_expert_badge_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/bitescore_category_picker.dart';
@@ -474,6 +477,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       }
 
       _showSnackBar('Review saved.');
+      unawaited(_requestLocalExpertBadgeRecalculation());
 
       setState(() {
         _visibleReviewCount += 1;
@@ -1015,6 +1019,14 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         );
       },
     );
+  }
+
+  Future<void> _requestLocalExpertBadgeRecalculation() async {
+    try {
+      await LocalExpertBadgeRecalculationService.recalculateMyLocalExpertBadges();
+    } catch (error) {
+      debugPrint('Local Expert badge recalculation failed: $error');
+    }
   }
 
   Future<void> _toggleReviewVote(DishReview review, String voteType) async {

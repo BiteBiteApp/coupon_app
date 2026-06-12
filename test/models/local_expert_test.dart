@@ -13,6 +13,40 @@ void main() {
       );
     });
 
+    test('exactly 10 combined headline and body words qualifies', () {
+      expect(
+        LocalExperts.writtenReviewWordCount(
+          headline: 'Great crispy burger',
+          body: 'juicy patty sauce toasted bun excellent value',
+        ),
+        10,
+      );
+      expect(
+        LocalExperts.hasMinimumWrittenReview(
+          headline: 'Great crispy burger',
+          body: 'juicy patty sauce toasted bun excellent value',
+        ),
+        isTrue,
+      );
+    });
+
+    test('nine combined headline and body words fails', () {
+      expect(
+        LocalExperts.writtenReviewWordCount(
+          headline: 'Great crispy burger',
+          body: 'juicy patty sauce toasted bun excellent',
+        ),
+        9,
+      );
+      expect(
+        LocalExperts.hasMinimumWrittenReview(
+          headline: 'Great crispy burger',
+          body: 'juicy patty sauce toasted bun excellent',
+        ),
+        isFalse,
+      );
+    });
+
     test('fewer than 10 written words does not qualify', () {
       expect(
         LocalExperts.hasMinimumWrittenReview(
@@ -34,6 +68,10 @@ void main() {
     });
 
     test('direct mappings resolve common dish names', () {
+      expect(
+        LocalExperts.matchDish(dishName: 'Classic hamburger')?.id,
+        LocalExperts.burger.id,
+      );
       expect(
         LocalExperts.matchDish(dishName: 'Double cheeseburger')?.id,
         LocalExperts.burger.id,
