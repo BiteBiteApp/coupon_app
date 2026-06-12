@@ -47,8 +47,31 @@ class _RestaurantSpecialsScreenState extends State<RestaurantSpecialsScreen> {
   }
 
   String? _scheduleLabel(DailySpecial special) {
-    final label = special.scheduleSummaryText();
-    return label.isEmpty ? null : label;
+    final rawLabel = special.scheduleSummaryText(includeToday: false).trim();
+    if (rawLabel.isEmpty) {
+      return null;
+    }
+
+    final isAllDay = rawLabel.toLowerCase() == 'available all day';
+    final timeLabel = isAllDay
+        ? rawLabel
+        : 'Available ${_spacedRange(rawLabel)}';
+
+    if (special.availabilityMode == DailySpecialAvailabilityMode.todayOnly) {
+      return 'Today only • $timeLabel';
+    }
+
+    return rawLabel
+        .replaceAll(', Available all day', ' • Available all day')
+        .replaceAll(', available all day', ' • Available all day')
+        .replaceAllMapped(
+          RegExp(r',\s*([0-9]{1,2}:[0-9]{2}\s[AP]M-.*)$'),
+          (match) => ' • Available ${_spacedRange(match.group(1)!)}',
+        );
+  }
+
+  String _spacedRange(String value) {
+    return value.replaceAllMapped(RegExp(r'\s*-\s*'), (match) => ' - ');
   }
 
   Widget _buildWhiteboard({

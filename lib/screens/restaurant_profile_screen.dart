@@ -609,17 +609,94 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
           },
         ),
         const SizedBox(height: 7),
-        _buildCompactActionButton(
-          icon: Icons.local_fire_department_outlined,
-          label: "Today's Specials",
-          enabled: true,
-          onPressed: () {
-            _openSpecials(context);
-          },
-        ),
-        const SizedBox(height: 7),
         _buildRestaurantInformationTile(compact: true),
       ],
+    );
+  }
+
+  Widget _buildSpecialsCallout() {
+    return _biteSaverRaisedSurface(
+      borderRadius: BorderRadius.circular(18),
+      innerMargin: const EdgeInsets.all(1.2),
+      shadowStrength: 0.62,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () {
+            _openSpecials(context);
+          },
+          borderRadius: BorderRadius.circular(18),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFFFEFA),
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: const Color(0xFFC9CDD2), width: 1.2),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFF3E6),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFF2B46B)),
+                  ),
+                  child: const Icon(
+                    Icons.local_fire_department_outlined,
+                    color: Color(0xFFC95F17),
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        "Today's Specials",
+                        style: TextStyle(
+                          color: Color(0xFF244E73),
+                          fontSize: 17,
+                          fontWeight: FontWeight.w900,
+                          height: 1.05,
+                        ),
+                      ),
+                      Container(
+                        width: 116,
+                        height: 2.5,
+                        margin: const EdgeInsets.only(top: 5, bottom: 6),
+                        decoration: BoxDecoration(
+                          color: const Color(
+                            0xFFFF8A3D,
+                          ).withValues(alpha: 0.78),
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                      ),
+                      const Text(
+                        "See what's on the board",
+                        style: TextStyle(
+                          color: Color(0xFF315A46),
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          height: 1.15,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right,
+                  color: Color(0xFF8A5226),
+                  size: 22,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -1226,6 +1303,8 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
+                        _buildSpecialsCallout(),
+                        const SizedBox(height: 18),
                         const Text(
                           'Available Coupons',
                           style: TextStyle(
