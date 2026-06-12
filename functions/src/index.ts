@@ -11,6 +11,7 @@ import { defineSecret, defineString } from "firebase-functions/params";
 import {
   onDocumentCreated,
   onDocumentDeleted,
+  onDocumentWritten,
 } from "firebase-functions/v2/firestore";
 import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
 import { setGlobalOptions } from "firebase-functions/v2/options";
@@ -72,6 +73,218 @@ type InstallationData = {
   maxProximityPushesPerDay?: number;
 };
 
+type LocalExpertTypeConfig = {
+  id: string;
+  displayName: string;
+  mappedCategoryNames?: string[];
+  mappedSubcategories?: string[];
+  aliases?: string[];
+  categoryMayQualify?: boolean;
+};
+
+type LocalExpertReviewData = {
+  id?: string;
+  dishId?: string;
+  restaurantId?: string;
+  userId?: string;
+  headline?: string | null;
+  notes?: string | null;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+  isPublic?: boolean;
+  isDeleted?: boolean;
+  hidden?: boolean;
+  isHidden?: boolean;
+  status?: string;
+};
+
+type LocalExpertDishData = {
+  id?: string;
+  name?: string;
+  category?: string;
+  subcategory?: string;
+  categoryTags?: string[];
+  isActive?: boolean;
+  mergedIntoDishId?: string | null;
+};
+
+type LocalExpertRestaurantData = {
+  id?: string;
+  location?: { latitude: number; longitude: number };
+  latitude?: number;
+  longitude?: number;
+  isActive?: boolean;
+  active?: boolean;
+};
+
+type LocalExpertReviewCandidate = {
+  reviewId: string;
+  restaurantId: string;
+  dishName?: string;
+  categoryName?: string;
+  subcategory?: string;
+  categoryTags: string[];
+  headline?: string | null;
+  notes?: string | null;
+  createdAt?: Timestamp;
+  updatedAt?: Timestamp;
+  latitude?: number;
+  longitude?: number;
+};
+
+type LocalExpertResolvedReview = {
+  candidate: LocalExpertReviewCandidate;
+  expertType: LocalExpertTypeConfig;
+};
+
+type LocalExpertBadgeResult = {
+  expertTypeId: string;
+  displayName: string;
+  level: "level1" | "level2" | "level3" | null;
+  totalRestaurantCount: number;
+  localClusterRestaurantCount: number;
+  qualificationMethod: "none" | "localCluster" | "overall" | "both";
+  qualifyingReviewIds: string[];
+  qualifyingRestaurantIds: string[];
+};
+
+const localExpertClusterRadiusMiles = 30;
+const localExpertTypes: LocalExpertTypeConfig[] = [
+  {
+    id: "burger",
+    displayName: "Burger",
+    mappedCategoryNames: ["Burgers"],
+    mappedSubcategories: ["Burgers", "Black bean burger", "Veggie burger"],
+    aliases: ["burger", "burgers", "cheeseburger", "bacon burger"],
+    categoryMayQualify: true,
+  },
+  {
+    id: "pizza",
+    displayName: "Pizza",
+    mappedCategoryNames: ["Pizza"],
+    mappedSubcategories: ["Pizza", "Vegan pizza"],
+    aliases: ["pizza", "pepperoni pizza", "cheese pizza"],
+    categoryMayQualify: true,
+  },
+  {
+    id: "burrito",
+    displayName: "Burrito",
+    mappedSubcategories: ["Burrito", "Breakfast burrito"],
+    aliases: ["burrito", "burritos"],
+  },
+  {
+    id: "tacos",
+    displayName: "Tacos",
+    mappedCategoryNames: ["Tacos"],
+    mappedSubcategories: ["Tacos", "Breakfast tacos", "Vegan tacos"],
+    aliases: ["taco", "tacos"],
+    categoryMayQualify: true,
+  },
+  {
+    id: "wings",
+    displayName: "Wings",
+    mappedSubcategories: ["Boneless wings", "Wings"],
+    aliases: ["wings", "wing", "chicken wings", "boneless wings"],
+  },
+  {
+    id: "lobster",
+    displayName: "Lobster",
+    mappedSubcategories: ["Lobster"],
+    aliases: ["lobster", "lobster roll"],
+  },
+  {
+    id: "pasta",
+    displayName: "Pasta",
+    mappedSubcategories: ["Pasta", "Gnocchi"],
+    aliases: ["pasta", "spaghetti", "fettuccine", "linguine", "rigatoni"],
+  },
+  {
+    id: "ramen",
+    displayName: "Ramen",
+    mappedSubcategories: ["Ramen"],
+    aliases: ["ramen", "tonkotsu ramen", "miso ramen"],
+  },
+  {
+    id: "donuts",
+    displayName: "Donuts",
+    mappedCategoryNames: ["Donuts"],
+    aliases: ["donut", "donuts", "doughnut", "doughnuts"],
+    categoryMayQualify: true,
+  },
+  {
+    id: "steak",
+    displayName: "Steak",
+    mappedCategoryNames: ["Steakhouse"],
+    mappedSubcategories: [
+      "Filet mignon",
+      "Hibachi steak",
+      "New York strip",
+      "Prime rib",
+      "Ribeye",
+      "Sirloin",
+      "Steak",
+      "Steak frites",
+      "Steak sandwich",
+      "Steak tips",
+      "T-bone steak",
+    ],
+    aliases: [
+      "steak",
+      "ribeye",
+      "filet mignon",
+      "new york strip",
+      "sirloin",
+      "t-bone",
+      "t bone",
+      "porterhouse",
+      "prime rib",
+    ],
+  },
+  {
+    id: "chinese",
+    displayName: "Chinese",
+    mappedCategoryNames: ["Chinese"],
+    mappedSubcategories: [
+      "Beef and broccoli",
+      "Chow mein",
+      "Dumplings",
+      "Egg rolls",
+      "Fried rice",
+      "General Tso’s chicken",
+      "Hot and sour soup",
+      "Kung pao chicken",
+      "Lo mein",
+      "Mongolian beef",
+      "Orange chicken",
+      "Sesame chicken",
+      "Sweet and sour chicken",
+      "Wonton soup",
+    ],
+    aliases: ["chinese", "general tsos chicken", "kung pao", "lo mein"],
+    categoryMayQualify: true,
+  },
+  {
+    id: "japanese_sushi",
+    displayName: "Japanese / Sushi",
+    mappedCategoryNames: ["Japanese / Sushi"],
+    mappedSubcategories: [
+      "Bento box",
+      "Gyoza",
+      "Hibachi chicken",
+      "Hibachi steak",
+      "Nigiri",
+      "Sashimi",
+      "Sushi",
+      "Sushi roll",
+      "Tempura",
+      "Teriyaki chicken",
+      "Udon",
+    ],
+    aliases: ["japanese", "sushi", "sashimi", "nigiri", "hibachi", "teriyaki"],
+    categoryMayQualify: true,
+  },
+];
+
 function isPermissionUsable(status: string | undefined): boolean {
   return status === "authorized" || status === "provisional";
 }
@@ -99,6 +312,426 @@ function unixSecondsToTimestamp(seconds?: number | null): Timestamp | null {
     return null;
   }
   return Timestamp.fromMillis(seconds * 1000);
+}
+
+function normalizeTerm(value?: string | null): string | null {
+  const normalized = value
+    ?.trim()
+    .toLowerCase()
+    .replace(/’/g, "'")
+    .replace(/\s+/g, " ");
+  return normalized ? normalized : null;
+}
+
+function readString(value: unknown): string | undefined {
+  return typeof value === "string" && value.trim() ? value.trim() : undefined;
+}
+
+function readNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function readStringList(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((entry): entry is string => typeof entry === "string")
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0)
+    : [];
+}
+
+function writtenReviewWordCount(headline?: string | null, notes?: string | null): number {
+  const combined = [headline, notes]
+    .filter((value): value is string => typeof value === "string")
+    .map((value) => value.trim())
+    .filter((value) => value.length > 0)
+    .join(" ")
+    .replace(/’/g, "'");
+  return combined.match(/[A-Za-z0-9]+(?:'[A-Za-z0-9]+)?/g)?.length ?? 0;
+}
+
+function addSearchTerms(terms: Set<string>, value?: string | null): void {
+  const normalized = normalizeTerm(value);
+  if (!normalized) {
+    return;
+  }
+  terms.add(normalized);
+  for (const part of normalized.split("/")) {
+    const trimmed = part.trim();
+    if (trimmed) {
+      terms.add(trimmed);
+    }
+  }
+}
+
+function normalizedListContains(values: string[] | undefined, normalized: string | null): boolean {
+  if (!normalized) {
+    return false;
+  }
+  return (values ?? []).some((value) => normalizeTerm(value) === normalized);
+}
+
+function matchLocalExpertType(candidate: LocalExpertReviewCandidate):
+LocalExpertTypeConfig | null {
+  const normalizedCategory = normalizeTerm(candidate.categoryName);
+  const normalizedSubcategory = normalizeTerm(candidate.subcategory);
+
+  for (const type of localExpertTypes) {
+    if (normalizedListContains(type.mappedSubcategories, normalizedSubcategory)) {
+      return type;
+    }
+  }
+
+  const searchTerms = new Set<string>();
+  addSearchTerms(searchTerms, candidate.dishName);
+  addSearchTerms(searchTerms, candidate.subcategory);
+  for (const tag of candidate.categoryTags) {
+    addSearchTerms(searchTerms, tag);
+  }
+
+  for (const type of localExpertTypes) {
+    for (const alias of type.aliases ?? []) {
+      const normalizedAlias = normalizeTerm(alias);
+      if (!normalizedAlias) {
+        continue;
+      }
+      if (
+        searchTerms.has(normalizedAlias) ||
+        Array.from(searchTerms).some((term) => term.includes(normalizedAlias))
+      ) {
+        return type;
+      }
+    }
+  }
+
+  for (const type of localExpertTypes) {
+    if (
+      type.categoryMayQualify &&
+      normalizedListContains(type.mappedCategoryNames, normalizedCategory)
+    ) {
+      return type;
+    }
+  }
+
+  return null;
+}
+
+function hasUsableCoordinates(candidate: LocalExpertReviewCandidate): boolean {
+  const lat = candidate.latitude;
+  const lng = candidate.longitude;
+  return (
+    typeof lat === "number" &&
+    typeof lng === "number" &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180
+  );
+}
+
+function distanceMiles(first: LocalExpertReviewCandidate, second: LocalExpertReviewCandidate):
+number {
+  if (!hasUsableCoordinates(first) || !hasUsableCoordinates(second)) {
+    return Number.POSITIVE_INFINITY;
+  }
+  const earthRadiusMiles = 3958.7613;
+  const toRadians = (degrees: number) => degrees * Math.PI / 180;
+  const lat1 = toRadians(first.latitude!);
+  const lat2 = toRadians(second.latitude!);
+  const deltaLat = toRadians(second.latitude! - first.latitude!);
+  const deltaLng = toRadians(second.longitude! - first.longitude!);
+  const a =
+    Math.sin(deltaLat / 2) ** 2 +
+    Math.cos(lat1) *
+      Math.cos(lat2) *
+      Math.sin(deltaLng / 2) ** 2;
+  return earthRadiusMiles * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function bestPairwiseClusterCount(candidates: LocalExpertReviewCandidate[]): number {
+  const byRestaurant = new Map<string, LocalExpertReviewCandidate>();
+  for (const candidate of candidates) {
+    if (hasUsableCoordinates(candidate)) {
+      byRestaurant.set(candidate.restaurantId.trim(), candidate);
+    }
+  }
+  const locations = Array.from(byRestaurant.values())
+    .sort((a, b) => a.restaurantId.localeCompare(b.restaurantId));
+  if (locations.length < 2) {
+    return locations.length;
+  }
+
+  const adjacency = new Map<number, Set<number>>();
+  for (let i = 0; i < locations.length; i += 1) {
+    adjacency.set(i, new Set<number>());
+  }
+  for (let i = 0; i < locations.length; i += 1) {
+    for (let j = i + 1; j < locations.length; j += 1) {
+      if (distanceMiles(locations[i], locations[j]) <= localExpertClusterRadiusMiles) {
+        adjacency.get(i)!.add(j);
+        adjacency.get(j)!.add(i);
+      }
+    }
+  }
+
+  let best = 0;
+  function expand(clique: number[], candidatesToSearch: number[]): void {
+    if (clique.length + candidatesToSearch.length <= best) {
+      return;
+    }
+    if (candidatesToSearch.length === 0) {
+      best = Math.max(best, clique.length);
+      return;
+    }
+    const remaining = [...candidatesToSearch];
+    while (remaining.length > 0) {
+      if (clique.length + remaining.length <= best) {
+        return;
+      }
+      const next = remaining.shift()!;
+      expand(
+        [...clique, next],
+        remaining.filter((candidate) => adjacency.get(next)!.has(candidate)),
+      );
+      best = Math.max(best, clique.length + 1);
+    }
+  }
+
+  expand([], locations.map((_, index) => index));
+  return best;
+}
+
+function representativeTimeMillis(candidate: LocalExpertReviewCandidate): number {
+  return (
+    candidate.updatedAt?.toMillis() ??
+    candidate.createdAt?.toMillis() ??
+    0
+  );
+}
+
+function dedupeKey(userId: string, restaurantId: string, expertTypeId: string): string {
+  return `${userId.trim().toLowerCase()}|${restaurantId.trim().toLowerCase()}|${expertTypeId}`;
+}
+
+function isPublicReview(
+  review: LocalExpertReviewData,
+  dish: LocalExpertDishData,
+  restaurant: LocalExpertRestaurantData,
+): boolean {
+  const status = normalizeTerm(review.status);
+  if (
+    review.isPublic === false ||
+    review.isDeleted === true ||
+    review.hidden === true ||
+    review.isHidden === true ||
+    status === "deleted" ||
+    status === "hidden" ||
+    status === "rejected"
+  ) {
+    return false;
+  }
+  const mergedIntoDishId = readString(dish.mergedIntoDishId);
+  return (
+    dish.isActive !== false &&
+    !mergedIntoDishId &&
+    restaurant.isActive !== false &&
+    restaurant.active !== false
+  );
+}
+
+async function buildLocalExpertCandidatesForUser(userId: string):
+Promise<LocalExpertReviewCandidate[]> {
+  const reviewSnapshot = await db
+    .collection("dish_reviews")
+    .where("userId", "==", userId)
+    .get();
+  const candidates: LocalExpertReviewCandidate[] = [];
+
+  for (const reviewDoc of reviewSnapshot.docs) {
+    try {
+      const review = reviewDoc.data() as LocalExpertReviewData;
+      const dishId = readString(review.dishId);
+      const restaurantId = readString(review.restaurantId);
+      if (!dishId || !restaurantId || writtenReviewWordCount(review.headline, review.notes) < 10) {
+        continue;
+      }
+
+      const [dishDoc, restaurantDoc] = await Promise.all([
+        db.collection("bitescore_dishes").doc(dishId).get(),
+        db.collection("bitescore_restaurants").doc(restaurantId).get(),
+      ]);
+      if (!dishDoc.exists || !restaurantDoc.exists) {
+        continue;
+      }
+
+      const dish = dishDoc.data() as LocalExpertDishData;
+      const restaurant = restaurantDoc.data() as LocalExpertRestaurantData;
+      if (!isPublicReview(review, dish, restaurant)) {
+        continue;
+      }
+
+      const location = restaurant.location;
+      candidates.push({
+        reviewId: readString(review.id) ?? reviewDoc.id,
+        restaurantId,
+        dishName: readString(dish.name),
+        categoryName: readString(dish.category),
+        subcategory: readString(dish.subcategory),
+        categoryTags: readStringList(dish.categoryTags),
+        headline: review.headline,
+        notes: review.notes,
+        createdAt: review.createdAt,
+        updatedAt: review.updatedAt,
+        latitude: location?.latitude ?? readNumber(restaurant.latitude),
+        longitude: location?.longitude ?? readNumber(restaurant.longitude),
+      });
+    } catch (error) {
+      logger.warn("Skipping malformed Local Expert review candidate", {
+        reviewId: reviewDoc.id,
+        userId,
+        error,
+      });
+    }
+  }
+
+  return candidates;
+}
+
+function calculateLocalExpertBadges(candidates: LocalExpertReviewCandidate[]):
+LocalExpertBadgeResult[] {
+  const representativesByKey = new Map<string, LocalExpertResolvedReview>();
+
+  for (const candidate of candidates) {
+    const type = matchLocalExpertType(candidate);
+    if (!type) {
+      continue;
+    }
+
+    const key = dedupeKey("unused", candidate.restaurantId, type.id);
+    const existing = representativesByKey.get(key);
+    if (
+      !existing ||
+      representativeTimeMillis(candidate) > representativeTimeMillis(existing.candidate) ||
+      (
+        representativeTimeMillis(candidate) === representativeTimeMillis(existing.candidate) &&
+        candidate.reviewId.localeCompare(existing.candidate.reviewId) > 0
+      )
+    ) {
+      representativesByKey.set(key, { candidate, expertType: type });
+    }
+  }
+
+  return localExpertTypes.map((type) => {
+    const representatives = Array.from(representativesByKey.values())
+      .filter((entry) => entry.expertType.id === type.id)
+      .sort((a, b) => {
+        const restaurantComparison = a.candidate.restaurantId
+          .localeCompare(b.candidate.restaurantId);
+        return restaurantComparison !== 0
+          ? restaurantComparison
+          : a.candidate.reviewId.localeCompare(b.candidate.reviewId);
+      });
+    const restaurantIds = Array.from(
+      new Set(representatives.map((entry) => entry.candidate.restaurantId.trim())),
+    ).sort();
+    const reviewIds = representatives.map((entry) => entry.candidate.reviewId).sort();
+    const total = restaurantIds.length;
+    const local = bestPairwiseClusterCount(
+      representatives.map((entry) => entry.candidate),
+    );
+
+    let level: LocalExpertBadgeResult["level"] = null;
+    if (total >= 25) {
+      level = "level3";
+    } else if (total >= 10 || local >= 5) {
+      level = "level2";
+    } else if (total >= 5 || local >= 3) {
+      level = "level1";
+    }
+
+    const overallQualified =
+      (level === "level3" && total >= 25) ||
+      (level === "level2" && total >= 10) ||
+      (level === "level1" && total >= 5);
+    const localQualified =
+      (level === "level2" && local >= 5) ||
+      (level === "level1" && local >= 3);
+    const qualificationMethod = !level
+      ? "none"
+      : overallQualified && localQualified
+        ? "both"
+        : localQualified
+          ? "localCluster"
+          : "overall";
+
+    return {
+      expertTypeId: type.id,
+      displayName: type.displayName,
+      level,
+      totalRestaurantCount: total,
+      localClusterRestaurantCount: local,
+      qualificationMethod,
+      qualifyingReviewIds: reviewIds,
+      qualifyingRestaurantIds: restaurantIds,
+    };
+  });
+}
+
+async function persistLocalExpertBadges(userId: string, results: LocalExpertBadgeResult[]):
+Promise<{ earnedBadgeCount: number; removedBadgeCount: number }> {
+  const badgeCollection = db
+    .collection("user_profiles")
+    .doc(userId)
+    .collection("local_expert_badges");
+  const existingSnapshot = await badgeCollection.get();
+  const existingIds = new Set(existingSnapshot.docs.map((doc) => doc.id));
+  const batch = db.batch();
+  let earnedBadgeCount = 0;
+  let removedBadgeCount = 0;
+
+  for (const result of results) {
+    const badgeRef = badgeCollection.doc(result.expertTypeId);
+    if (!result.level) {
+      continue;
+    }
+    const existingDoc = existingSnapshot.docs.find((doc) => doc.id === result.expertTypeId);
+    const existingEarnedAt = existingDoc?.get("earnedAt");
+    earnedBadgeCount += 1;
+    existingIds.delete(result.expertTypeId);
+    batch.set(
+      badgeRef,
+      {
+        expertTypeId: result.expertTypeId,
+        displayName: result.displayName,
+        level: result.level,
+        totalRestaurantCount: result.totalRestaurantCount,
+        localClusterRestaurantCount: result.localClusterRestaurantCount,
+        qualificationMethod: result.qualificationMethod,
+        qualifyingReviewIds: result.qualifyingReviewIds.slice(0, 50),
+        qualifyingRestaurantIds: result.qualifyingRestaurantIds.slice(0, 50),
+        qualifyingReviewIdsTruncated: result.qualifyingReviewIds.length > 50,
+        qualifyingRestaurantIdsTruncated: result.qualifyingRestaurantIds.length > 50,
+        earnedAt: existingEarnedAt ?? FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+        source: "localExpertFunctionsV1",
+      },
+      { merge: true },
+    );
+  }
+
+  for (const staleId of existingIds) {
+    removedBadgeCount += 1;
+    batch.delete(badgeCollection.doc(staleId));
+  }
+
+  await batch.commit();
+  return { earnedBadgeCount, removedBadgeCount };
+}
+
+async function recalculateLocalExpertBadgesForUser(userId: string):
+Promise<{ earnedBadgeCount: number; removedBadgeCount: number }> {
+  const candidates = await buildLocalExpertCandidatesForUser(userId);
+  const results = calculateLocalExpertBadges(candidates);
+  return persistLocalExpertBadges(userId, results);
 }
 
 function mapStripeStatusToAppStatus(status: Stripe.Subscription.Status): string {
@@ -821,5 +1454,49 @@ export const cleanupDeletedRestaurantCoupons = onDocumentDeleted(
     const accountRef =
       event.data?.ref ?? db.collection("restaurant_accounts").doc(uid);
     await db.recursiveDelete(accountRef.collection("coupons"));
+  },
+);
+
+export const recalculateMyLocalExpertBadges = onCall(async (request) => {
+  const uid = request.auth?.uid?.trim();
+  if (!uid) {
+    throw new HttpsError(
+      "unauthenticated",
+      "Sign in to recalculate Local Expert badges.",
+    );
+  }
+
+  const result = await recalculateLocalExpertBadgesForUser(uid);
+  return {
+    ok: true,
+    earnedBadgeCount: result.earnedBadgeCount,
+    removedBadgeCount: result.removedBadgeCount,
+  };
+});
+
+export const recalculateLocalExpertBadgesOnReviewWrite = onDocumentWritten(
+  "dish_reviews/{reviewId}",
+  async (event) => {
+    const userIds = new Set<string>();
+    const beforeUserId = readString(event.data?.before.data()?.userId);
+    const afterUserId = readString(event.data?.after.data()?.userId);
+    if (beforeUserId) {
+      userIds.add(beforeUserId);
+    }
+    if (afterUserId) {
+      userIds.add(afterUserId);
+    }
+
+    for (const userId of userIds) {
+      try {
+        await recalculateLocalExpertBadgesForUser(userId);
+      } catch (error) {
+        logger.error("Failed to recalculate Local Expert badges after review write", {
+          reviewId: event.params.reviewId,
+          userId,
+          error,
+        });
+      }
+    }
   },
 );
