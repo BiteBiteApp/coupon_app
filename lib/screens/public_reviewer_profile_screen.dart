@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 
 import '../models/dish_rating_aggregate.dart';
+import '../models/local_expert_badge.dart';
 import '../services/app_error_text.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/bitescore_service.dart';
+import '../services/local_expert_badge_service.dart';
 import '../widgets/biterater_theme.dart';
+import '../widgets/local_expert_badge_widget.dart';
 import '../widgets/persistent_bottom_navigation.dart';
 import 'bitescore_dish_detail_screen.dart';
 
 class PublicReviewerProfileScreen extends StatefulWidget {
   final String userId;
 
-  const PublicReviewerProfileScreen({
-    super.key,
-    required this.userId,
-  });
+  const PublicReviewerProfileScreen({super.key, required this.userId});
 
   @override
   State<PublicReviewerProfileScreen> createState() =>
@@ -24,6 +24,7 @@ class PublicReviewerProfileScreen extends StatefulWidget {
 class _PublicReviewerProfileScreenState
     extends State<PublicReviewerProfileScreen> {
   late Future<BiteScorePublicReviewerProfileData> _profileFuture;
+  late Future<List<LocalExpertBadge>> _localExpertBadgesFuture;
 
   @override
   void initState() {
@@ -32,8 +33,12 @@ class _PublicReviewerProfileScreenState
   }
 
   void _refresh() {
-    _profileFuture =
-        BiteScoreService.loadPublicReviewerProfileData(widget.userId);
+    _profileFuture = BiteScoreService.loadPublicReviewerProfileData(
+      widget.userId,
+    );
+    _localExpertBadgesFuture = LocalExpertBadgeService.loadBadgesForUser(
+      widget.userId,
+    );
   }
 
   void _showSnackBar(String message) {
@@ -44,10 +49,7 @@ class _PublicReviewerProfileScreenState
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(
-          content: Text(message),
-          duration: const Duration(seconds: 3),
-        ),
+        SnackBar(content: Text(message), duration: const Duration(seconds: 3)),
       );
   }
 
@@ -87,13 +89,9 @@ class _PublicReviewerProfileScreenState
     }
 
     try {
-      final aggregate = await BiteScoreService.loadDishRatingAggregate(
-            dish.id,
-          ) ??
-          DishRatingAggregate(
-            dishId: dish.id,
-            restaurantId: restaurant.id,
-          );
+      final aggregate =
+          await BiteScoreService.loadDishRatingAggregate(dish.id) ??
+          DishRatingAggregate(dishId: dish.id, restaurantId: restaurant.id);
       if (!mounted) {
         return;
       }
@@ -126,21 +124,12 @@ class _PublicReviewerProfileScreenState
   Widget _buildBadgeCard(BiteScorePublicReviewerProfileData profileData) {
     final badgeStyle = switch (profileData.badgeLabel) {
       'Top Contributor' => (
-          BiteRaterTheme.ocean,
-          Icons.workspace_premium_outlined,
-        ),
-      'Trusted Reviewer' => (
-          BiteRaterTheme.grape,
-          Icons.verified_outlined,
-        ),
-      'Active Reviewer' => (
-          BiteRaterTheme.ocean,
-          Icons.auto_awesome_outlined,
-        ),
-      _ => (
-          BiteRaterTheme.coral,
-          Icons.local_fire_department_outlined,
-        ),
+        BiteRaterTheme.ocean,
+        Icons.workspace_premium_outlined,
+      ),
+      'Trusted Reviewer' => (BiteRaterTheme.grape, Icons.verified_outlined),
+      'Active Reviewer' => (BiteRaterTheme.ocean, Icons.auto_awesome_outlined),
+      _ => (BiteRaterTheme.coral, Icons.local_fire_department_outlined),
     };
 
     return BiteRaterTheme.liftedCard(
@@ -159,11 +148,7 @@ class _PublicReviewerProfileScreenState
                     color: badgeStyle.$1.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: Icon(
-                    badgeStyle.$2,
-                    color: badgeStyle.$1,
-                    size: 24,
-                  ),
+                  child: Icon(badgeStyle.$2, color: badgeStyle.$1, size: 24),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -223,18 +208,12 @@ class _PublicReviewerProfileScreenState
       decoration: BoxDecoration(
         color: BiteRaterTheme.ocean.withOpacity(0.08),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: BiteRaterTheme.ocean.withOpacity(0.14),
-        ),
+        border: Border.all(color: BiteRaterTheme.ocean.withOpacity(0.14)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 14,
-            color: BiteRaterTheme.ocean,
-          ),
+          Icon(icon, size: 14, color: BiteRaterTheme.ocean),
           const SizedBox(width: 6),
           Text(
             label,
@@ -309,23 +288,76 @@ class _PublicReviewerProfileScreenState
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
               ],
-              if (notes.isNotEmpty) ...[
-                const SizedBox(height: 6),
-                Text(notes),
-              ],
+              if (notes.isNotEmpty) ...[const SizedBox(height: 6), Text(notes)],
               const SizedBox(height: 10),
               Text(
                 _dateLabel(entry.review.createdAt),
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: BiteRaterTheme.mutedInk,
-                    fontWeight: FontWeight.w600,
-                  ),
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: BiteRaterTheme.mutedInk,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildLocalExpertBadgesSection() {
+    return FutureBuilder<List<LocalExpertBadge>>(
+      future: _localExpertBadgesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.only(top: 16),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+
+        if (snapshot.hasError ||
+            snapshot.data == null ||
+            snapshot.data!.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        final badges = snapshot.data!;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 24),
+            const Text(
+              'Local Expert Badges',
+              style: TextStyle(
+                color: BiteRaterTheme.ink,
+                fontSize: 18,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final badge in badges)
+                  InkWell(
+                    borderRadius: BorderRadius.circular(18),
+                    onTap: () => showLocalExpertBadgeDetails(context, badge),
+                    child: LocalExpertBadgeWidget(badge: badge),
+                  ),
+              ],
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -339,6 +371,7 @@ class _PublicReviewerProfileScreenState
         padding: const EdgeInsets.all(16),
         children: [
           _buildBadgeCard(profileData),
+          _buildLocalExpertBadgesSection(),
           const SizedBox(height: 24),
           const Text(
             'Reviews',
@@ -427,7 +460,8 @@ class _PublicReviewerProfileScreenState
             );
           }
 
-          final profileData = snapshot.data ??
+          final profileData =
+              snapshot.data ??
               BiteScorePublicReviewerProfileData(
                 userId: widget.userId,
                 publicDisplayName: 'Reviewer',

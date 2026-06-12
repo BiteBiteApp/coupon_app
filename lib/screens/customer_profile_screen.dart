@@ -1,10 +1,14 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/bitescore_restaurant.dart';
 import '../models/coupon.dart';
+import '../models/local_expert_badge.dart';
 import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/bitescore_service.dart';
+import '../services/local_expert_badge_service.dart';
+import '../widgets/local_expert_badge_widget.dart';
 import 'bitescore_dish_detail_screen.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
 import 'coupon_detail_screen.dart';
@@ -21,6 +25,7 @@ class CustomerProfileScreen extends StatefulWidget {
 
 class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   late Future<BiteScoreUserProfileData> _profileFuture;
+  late Future<List<LocalExpertBadge>> _localExpertBadgesFuture;
   final TextEditingController _usernameController = TextEditingController();
   bool _hasSeededUsernameField = false;
   bool _isCheckingUsername = false;
@@ -38,6 +43,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
   void _refresh() {
     _profileFuture = BiteScoreService.loadCurrentUserProfileData();
+    _localExpertBadgesFuture = LocalExpertBadgeService.loadBadgesForUser(
+      FirebaseAuth.instance.currentUser?.uid,
+    );
   }
 
   String _displayText(String value, String fallback) {
@@ -657,6 +665,74 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     );
   }
 
+  Widget _buildLocalExpertBadgesSection() {
+    return FutureBuilder<List<LocalExpertBadge>>(
+      future: _localExpertBadgesFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.only(top: 16),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              ),
+            ),
+          );
+        }
+
+        final badges = snapshot.hasError
+            ? const <LocalExpertBadge>[]
+            : snapshot.data ?? const <LocalExpertBadge>[];
+
+        return Card(
+          margin: const EdgeInsets.only(top: 16),
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Local Expert Badges',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+                ),
+                if (badges.isEmpty) ...[
+                  const SizedBox(height: 8),
+                  const Text(
+                    'Write qualifying reviews at different restaurants to earn Local Expert badges.',
+                    style: TextStyle(
+                      color: Colors.black54,
+                      fontSize: 13,
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ] else ...[
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 10,
+                    runSpacing: 10,
+                    children: [
+                      for (final badge in badges)
+                        InkWell(
+                          borderRadius: BorderRadius.circular(18),
+                          onTap: () =>
+                              showLocalExpertBadgeDetails(context, badge),
+                          child: LocalExpertBadgeWidget(badge: badge),
+                        ),
+                    ],
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   Widget _buildProfileBody(BiteScoreUserProfileData profileData) {
     if (!_hasSeededUsernameField) {
       _usernameController.text = profileData.chosenUsername ?? '';
@@ -674,6 +750,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           _buildPublicUsernameCard(profileData),
           const SizedBox(height: 16),
           _buildBadgeCard(profileData),
+          _buildLocalExpertBadgesSection(),
           const SizedBox(height: 24),
           _buildSectionHeader('Saved', Icons.favorite_border),
           const SizedBox(height: 12),
