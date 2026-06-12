@@ -17,6 +17,7 @@ import '../widgets/clickable_phone_text.dart';
 import '../widgets/persistent_bottom_navigation.dart';
 import 'coupon_detail_screen.dart';
 import 'restaurant_menu_screen.dart';
+import 'restaurant_specials_screen.dart';
 
 class RestaurantProfileScreen extends StatefulWidget {
   final Restaurant restaurant;
@@ -152,15 +153,6 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
       coupon.usageRule.trim(),
     ].where((part) => part.isNotEmpty).toList();
     return parts.isEmpty ? 'Coupon details unavailable' : parts.join(' - ');
-  }
-
-  bool _isDailySpecialDisplayableNow(DailySpecial special, DateTime now) {
-    return special.shouldShowPubliclyAt(now);
-  }
-
-  String? _dailySpecialScheduleLabel(DailySpecial special) {
-    final label = special.scheduleSummaryText();
-    return label.isEmpty ? null : label;
   }
 
   Restaurant _withSafeDistanceLabel(Restaurant freshRestaurant) {
@@ -331,6 +323,14 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
           restaurantName: _displayText(restaurant.name, 'Restaurant'),
           source: source,
         ),
+      ),
+    );
+  }
+
+  void _openSpecials(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => RestaurantSpecialsScreen(restaurant: restaurant),
       ),
     );
   }
@@ -609,103 +609,17 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
           },
         ),
         const SizedBox(height: 7),
+        _buildCompactActionButton(
+          icon: Icons.local_fire_department_outlined,
+          label: "Today's Specials",
+          enabled: true,
+          onPressed: () {
+            _openSpecials(context);
+          },
+        ),
+        const SizedBox(height: 7),
         _buildRestaurantInformationTile(compact: true),
       ],
-    );
-  }
-
-  Widget _buildTodaysSpecialsSection(List<DailySpecial> specials) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          "Today's Specials",
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: Color(0xFF2B1D14),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Column(
-          children: specials
-              .map(
-                (special) => Padding(
-                  padding: const EdgeInsets.only(bottom: 10),
-                  child: _buildDailySpecialTile(special),
-                ),
-              )
-              .toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDailySpecialTile(DailySpecial special) {
-    final details = special.details?.trim();
-    final scheduleLabel = _dailySpecialScheduleLabel(special);
-
-    return _biteSaverRaisedSurface(
-      shadowStrength: 0.66,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFF3E6),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFF2B46B), width: 0.8),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Icon(
-              Icons.local_fire_department_outlined,
-              color: Color(0xFFC95F17),
-              size: 19,
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _displayText(special.title, 'Daily special'),
-                    style: const TextStyle(
-                      color: Color(0xFFC95F17),
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      height: 1.08,
-                    ),
-                  ),
-                  if (details != null && details.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      details,
-                      style: const TextStyle(
-                        color: Color(0xFF6B4E35),
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        height: 1.22,
-                      ),
-                    ),
-                  ],
-                  if (scheduleLabel != null) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      scheduleLabel,
-                      style: const TextStyle(
-                        color: Color(0xFF8C5A25),
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -1187,9 +1101,6 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
       valueListenable: DemoRedemptionStore.changes,
       builder: (context, changes, child) {
         final now = DateTime.now();
-        final displayableDailySpecials = restaurant.dailySpecials
-            .where((special) => _isDailySpecialDisplayableNow(special, now))
-            .toList();
         final activeCoupons = restaurant.coupons
             .where(
               (coupon) =>
@@ -1315,10 +1226,6 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                           ),
                         ),
                         const SizedBox(height: 20),
-                        if (displayableDailySpecials.isNotEmpty) ...[
-                          _buildTodaysSpecialsSection(displayableDailySpecials),
-                          const SizedBox(height: 10),
-                        ],
                         const Text(
                           'Available Coupons',
                           style: TextStyle(

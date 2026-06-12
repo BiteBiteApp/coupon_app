@@ -22,6 +22,7 @@ import '../services/shared_location_state_service.dart';
 import '../widgets/pressable_scale.dart';
 import 'coupon_detail_screen.dart';
 import 'restaurant_profile_screen.dart';
+import 'restaurant_specials_screen.dart';
 
 class SearchCenter {
   final double latitude;
@@ -2466,51 +2467,66 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildPromoPreview(_RestaurantPromoItem item, Restaurant restaurant) {
     final special = item.dailySpecial;
     if (special != null) {
-      return _buildDailySpecialPreview(special);
+      return _buildDailySpecialPreview(special, restaurant);
     }
 
     return _buildCouponPreview(item.coupon!, restaurant);
   }
 
-  Widget _buildDailySpecialPreview(DailySpecial special) {
+  Widget _buildDailySpecialPreview(
+    DailySpecial special,
+    Restaurant restaurant,
+  ) {
     final title = special.title.trim().isEmpty
         ? 'Today: Daily special'
         : 'Today: ${special.title.trim()}';
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFFFFF3E6),
-        borderRadius: BorderRadius.circular(11),
-        border: Border.all(
-          color: const Color(0xFFF2B46B),
-          width: 0.75,
-          strokeAlign: BorderSide.strokeAlignInside,
-        ),
-      ),
-      child: Row(
-        children: [
-          const Icon(
-            Icons.local_fire_department_outlined,
-            color: Color(0xFFC95F17),
-            size: 17,
+    return InkWell(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) =>
+                RestaurantSpecialsScreen(restaurant: restaurant),
           ),
-          const SizedBox(width: 6),
-          Expanded(
-            child: Text(
-              title,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(
-                color: Color(0xFFC95F17),
-                fontSize: 14.1,
-                fontWeight: FontWeight.w900,
-                height: 1.05,
+        );
+      },
+      borderRadius: BorderRadius.circular(11),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF3E6),
+          borderRadius: BorderRadius.circular(11),
+          border: Border.all(
+            color: const Color(0xFFF2B46B),
+            width: 0.75,
+            strokeAlign: BorderSide.strokeAlignInside,
+          ),
+        ),
+        child: Row(
+          children: [
+            const Icon(
+              Icons.local_fire_department_outlined,
+              color: Color(0xFFC95F17),
+              size: 17,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Color(0xFFC95F17),
+                  fontSize: 14.1,
+                  fontWeight: FontWeight.w900,
+                  height: 1.05,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
