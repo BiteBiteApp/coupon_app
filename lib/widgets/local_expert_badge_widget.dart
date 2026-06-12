@@ -50,9 +50,9 @@ class LocalExpertBadgeVisuals {
       },
       icon: iconForName(iconName),
       levelMarker: switch (level) {
-        LocalExpertBadgeLevel.level1 => 'I',
-        LocalExpertBadgeLevel.level2 => 'II',
-        LocalExpertBadgeLevel.level3 => 'III',
+        LocalExpertBadgeLevel.level1 => '1',
+        LocalExpertBadgeLevel.level2 => '2',
+        LocalExpertBadgeLevel.level3 => '3',
       },
       usesCrown: false,
     );
@@ -105,7 +105,7 @@ class LocalExpertBadgeWidget extends StatelessWidget {
         metadata: metadata,
         size: 26,
         iconSize: 13,
-        markerFontSize: 6.5,
+        markerFontSize: 9,
       ),
     );
   }
@@ -137,7 +137,7 @@ class LocalExpertBadgeWidget extends StatelessWidget {
             metadata: metadata,
             size: 38,
             iconSize: 19,
-            markerFontSize: 8,
+            markerFontSize: 11,
           ),
           const SizedBox(width: 9),
           Flexible(
@@ -216,23 +216,24 @@ class _BadgeMedallion extends StatelessWidget {
       height: size,
       child: Stack(
         alignment: Alignment.center,
-        clipBehavior: Clip.none,
+        clipBehavior: Clip.hardEdge,
         children: [
           Positioned.fill(child: ring),
           Positioned(
-            right: -1,
-            bottom: -2,
+            bottom: size * 0.08,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
+              width: size * 0.38,
+              height: size * 0.30,
+              alignment: Alignment.center,
               decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(999),
-                border: Border.all(color: metadata.ringColor, width: 0.8),
+                color: metadata.ringColor,
+                borderRadius: BorderRadius.circular(size * 0.12),
+                border: Border.all(color: Colors.white, width: 0.9),
               ),
               child: Text(
                 metadata.levelMarker,
                 style: TextStyle(
-                  color: metadata.ringColor,
+                  color: Colors.white,
                   fontSize: markerFontSize,
                   fontWeight: FontWeight.w900,
                   height: 1,
@@ -335,6 +336,60 @@ class LocalExpertBadgeReviewNavigationRequest {
   }
 }
 
+class LocalExpertBadgeNextLevelProgress {
+  final LocalExpertBadgeLevel? nextLevel;
+  final int? localClusterCurrent;
+  final int? localClusterTarget;
+  final int overallCurrent;
+  final int overallTarget;
+
+  const LocalExpertBadgeNextLevelProgress({
+    required this.nextLevel,
+    this.localClusterCurrent,
+    this.localClusterTarget,
+    required this.overallCurrent,
+    required this.overallTarget,
+  });
+
+  bool get isHighestLevel => nextLevel == null;
+
+  String get nextLevelLabel {
+    return switch (nextLevel) {
+      LocalExpertBadgeLevel.level1 => 'Level 1',
+      LocalExpertBadgeLevel.level2 => 'Level 2',
+      LocalExpertBadgeLevel.level3 => 'Level 3',
+      null => '',
+    };
+  }
+
+  static LocalExpertBadgeNextLevelProgress forBadge(LocalExpertBadge badge) {
+    final nextLevel = switch (badge.level) {
+      LocalExpertBadgeLevel.level1 => LocalExpertBadgeLevel.level2,
+      LocalExpertBadgeLevel.level2 => LocalExpertBadgeLevel.level3,
+      LocalExpertBadgeLevel.level3 => null,
+    };
+
+    if (nextLevel == null) {
+      return LocalExpertBadgeNextLevelProgress(
+        nextLevel: null,
+        overallCurrent: badge.totalRestaurantCount,
+        overallTarget: badge.totalRestaurantCount,
+      );
+    }
+
+    final threshold = LocalExpertBadgeThresholds.forLevel(nextLevel);
+    return LocalExpertBadgeNextLevelProgress(
+      nextLevel: nextLevel,
+      localClusterCurrent: threshold.distinctRestaurantsInCluster == null
+          ? null
+          : badge.localClusterRestaurantCount,
+      localClusterTarget: threshold.distinctRestaurantsInCluster,
+      overallCurrent: badge.totalRestaurantCount,
+      overallTarget: threshold.distinctRestaurantsOverall,
+    );
+  }
+}
+
 Future<void> showLocalExpertBadgeDetails(
   BuildContext context,
   LocalExpertBadge badge, {
@@ -409,11 +464,98 @@ Future<void> showLocalExpertBadgeDetails(
                   '${badge.localClusterRestaurantCount} restaurants in the best local cluster',
                 ),
               _buildDetailLine(_qualificationText(badge)),
+              const SizedBox(height: 8),
+              _buildNextLevelProgress(
+                LocalExpertBadgeNextLevelProgress.forBadge(badge),
+              ),
             ],
           ),
         ),
       );
     },
+  );
+}
+
+Widget _buildNextLevelProgress(LocalExpertBadgeNextLevelProgress progress) {
+  if (progress.isHighestLevel) {
+    return const Text(
+      'Highest expert level reached',
+      style: TextStyle(
+        color: BiteRaterTheme.ink,
+        fontSize: 14,
+        fontWeight: FontWeight.w900,
+      ),
+    );
+  }
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        'Progress toward ${progress.nextLevelLabel}',
+        style: const TextStyle(
+          color: BiteRaterTheme.ink,
+          fontSize: 14,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      const SizedBox(height: 8),
+      if (progress.localClusterCurrent != null &&
+          progress.localClusterTarget != null)
+        _buildProgressLine(
+          label: 'Local cluster',
+          current: progress.localClusterCurrent!,
+          target: progress.localClusterTarget!,
+        ),
+      _buildProgressLine(
+        label: 'Overall restaurants',
+        current: progress.overallCurrent,
+        target: progress.overallTarget,
+      ),
+    ],
+  );
+}
+
+Widget _buildProgressLine({
+  required String label,
+  required int current,
+  required int target,
+}) {
+  final safeTarget = target <= 0 ? 1 : target;
+  final clampedCurrent = current.clamp(0, safeTarget).toInt();
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '$label: $current of $target restaurants',
+                style: const TextStyle(
+                  color: BiteRaterTheme.mutedInk,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 5),
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: LinearProgressIndicator(
+            value: clampedCurrent / safeTarget,
+            minHeight: 5,
+            backgroundColor: BiteRaterTheme.lineBlue.withValues(alpha: 0.55),
+            valueColor: const AlwaysStoppedAnimation<Color>(
+              BiteRaterTheme.ocean,
+            ),
+          ),
+        ),
+      ],
+    ),
   );
 }
 
