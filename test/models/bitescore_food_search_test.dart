@@ -26,17 +26,43 @@ void main() {
   });
 
   group('BiteScore food search aliases', () {
-    test('sandwich family is symmetric', () {
+    test('generic sandwich search includes specific sub-family terms', () {
       expect(
-        BiteScoreFoodSearch.matchesFoodText('Turkey sandwich', 'sub'),
+        BiteScoreFoodSearch.matchesFoodText('Barbecue Sandwich', 'sandwich'),
         isTrue,
       );
       expect(
-        BiteScoreFoodSearch.matchesFoodText('Italian sub', 'sandwich'),
+        BiteScoreFoodSearch.matchesFoodText('Italian Sub', 'sandwich'),
         isTrue,
       );
       expect(
-        BiteScoreFoodSearch.matchesFoodText('Meatball grinder', 'hoagie'),
+        BiteScoreFoodSearch.matchesFoodText('Meatball Hoagie', 'sandwich'),
+        isTrue,
+      );
+      expect(
+        BiteScoreFoodSearch.matchesFoodText('Turkey Grinder', 'sandwich'),
+        isTrue,
+      );
+    });
+
+    test('specific sub-family aliases are mutually equivalent', () {
+      expect(
+        BiteScoreFoodSearch.matchesFoodText('Italian Hoagie', 'sub'),
+        isTrue,
+      );
+      expect(
+        BiteScoreFoodSearch.matchesFoodText('Meatball Grinder', 'sub'),
+        isTrue,
+      );
+      expect(
+        BiteScoreFoodSearch.matchesFoodText('Turkey Sub', 'hoagie'),
+        isTrue,
+      );
+      expect(
+        BiteScoreFoodSearch.matchesFoodText(
+          'Italian Submarine Sandwich',
+          'hero',
+        ),
         isTrue,
       );
     });
@@ -147,6 +173,41 @@ void main() {
         isFalse,
       );
     });
+
+    test('specific sub-family search does not match generic sandwiches', () {
+      expect(
+        BiteScoreFoodSearch.matchesFoodText('Barbecue Sandwich', 'sub'),
+        isFalse,
+      );
+      expect(
+        BiteScoreFoodSearch.matchesFoodText('Grilled Chicken Sandwich', 'sub'),
+        isFalse,
+      );
+      expect(
+        BiteScoreFoodSearch.matchesFoodText('Pulled Pork Sandwich', 'hoagie'),
+        isFalse,
+      );
+      expect(
+        BiteScoreFoodSearch.matchesFoodText(
+          'Grilled Cheese Sandwich',
+          'grinder',
+        ),
+        isFalse,
+      );
+    });
+
+    test(
+      'generic sandwich with independent sub metadata can still qualify',
+      () {
+        expect(
+          BiteScoreFoodSearch.matchesAnyFoodText([
+            'Barbecue Sandwich',
+            'sub',
+          ], 'sub'),
+          isTrue,
+        );
+      },
+    );
   });
 
   group('BiteScore food search fuzzy matching', () {
@@ -179,6 +240,30 @@ void main() {
         BiteScoreFoodSearch.matchesFoodText(
           'Turkey sandwich',
           'sandwhich',
+          enableFuzzy: true,
+        ),
+        isTrue,
+      );
+      expect(
+        BiteScoreFoodSearch.matchesFoodText(
+          'Italian Sub',
+          'sandwhich',
+          enableFuzzy: true,
+        ),
+        isTrue,
+      );
+      expect(
+        BiteScoreFoodSearch.matchesFoodText(
+          'Pulled Pork Sandwich',
+          'hogie',
+          enableFuzzy: true,
+        ),
+        isFalse,
+      );
+      expect(
+        BiteScoreFoodSearch.matchesFoodText(
+          'Meatball Grinder',
+          'hogie',
           enableFuzzy: true,
         ),
         isTrue,
@@ -242,6 +327,30 @@ void main() {
 
   group('BiteScore food search filters and sorting', () {
     test('category alias expansion works without fuzzy matching', () {
+      expect(
+        BitescoreCategories.matchesSearchQuery(
+          categoryName: 'Deli / Sandwiches',
+          subcategory: 'Italian sub',
+          query: 'sandwich',
+        ),
+        isTrue,
+      );
+      expect(
+        BitescoreCategories.matchesSearchQuery(
+          subcategory: 'Barbecue Sandwich',
+          query: 'sub',
+        ),
+        isFalse,
+      );
+      expect(
+        BitescoreCategories.matchesSearchQuery(
+          categoryName: 'Deli / Sandwiches',
+          subcategory: 'Barbecue Sandwich',
+          categoryTags: const ['sub'],
+          query: 'sub',
+        ),
+        isTrue,
+      );
       expect(
         BitescoreCategories.matchesSearchQuery(
           categoryName: 'Deli / Sandwiches',

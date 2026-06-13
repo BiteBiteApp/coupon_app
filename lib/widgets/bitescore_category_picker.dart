@@ -280,7 +280,7 @@ class _BitescoreCategoryPickerSheetState
     final selectedId = selectedCategory?.id;
     _isMoreCuisinesExpanded =
         selectedId != null &&
-        BitescoreCategories.moreCuisineCategories.any(
+        BitescoreCategories.addDishMoreCuisineCategories.any(
           (category) => category.id == selectedId,
         );
   }
@@ -331,13 +331,14 @@ class _BitescoreCategoryPickerSheetState
               children: [
                 if (widget.selection.legacyCategory != null)
                   _buildLegacyTile(context),
-                for (final category in BitescoreCategories.commonCategories)
+                for (final category
+                    in BitescoreCategories.addDishCommonCategories)
                   ..._buildCategoryTiles(context, category),
-                if (BitescoreCategories.moreCuisineCategories.isNotEmpty)
+                if (BitescoreCategories.addDishMoreCuisineCategories.isNotEmpty)
                   _buildMoreCuisinesTile(context),
                 if (_isMoreCuisinesExpanded)
                   for (final category
-                      in BitescoreCategories.moreCuisineCategories)
+                      in BitescoreCategories.addDishMoreCuisineCategories)
                     ..._buildCategoryTiles(context, category),
               ],
             ),
@@ -362,7 +363,9 @@ class _BitescoreCategoryPickerSheetState
   ) {
     final isExpanded = _expandedCategoryId == category.id;
     final isSelected = _currentSelection.category?.id == category.id;
-    final hasSubcategories = category.hasSubcategories;
+    final hasSubcategories =
+        category.hasSubcategories &&
+        !BitescoreCategories.isFeaturedCategory(category);
 
     return [
       ListTile(

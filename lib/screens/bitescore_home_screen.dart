@@ -1922,7 +1922,7 @@ class _BiteScoreCategoryFilterSheetState
           filter.id.split(':').length >= 3 ? filter.id.split(':')[1] : '',
     }..remove('');
     _isMoreCuisinesExpanded = _draftFilters.any((filter) {
-      return BitescoreCategories.moreCuisineCategories.any(
+      return BitescoreCategories.filterMoreCuisineCategories.any(
         (category) =>
             filter.id == _BiteScoreCategoryFilter.category(category).id ||
             filter.id.startsWith('subcategory:${category.id}:'),
@@ -1968,13 +1968,14 @@ class _BiteScoreCategoryFilterSheetState
               shrinkWrap: true,
               padding: EdgeInsets.fromLTRB(8, 0, 8, bottomPadding + 88),
               children: [
-                for (final category in BitescoreCategories.commonCategories)
+                for (final category
+                    in BitescoreCategories.filterCommonCategories)
                   ..._buildCategoryRows(category),
-                if (BitescoreCategories.moreCuisineCategories.isNotEmpty)
+                if (BitescoreCategories.filterMoreCuisineCategories.isNotEmpty)
                   _buildMoreCuisinesRow(),
                 if (_isMoreCuisinesExpanded)
                   for (final category
-                      in BitescoreCategories.moreCuisineCategories)
+                      in BitescoreCategories.filterMoreCuisineCategories)
                     ..._buildCategoryRows(category),
               ],
             ),
@@ -2075,7 +2076,7 @@ class _BiteScoreCategoryFilterSheetState
   }
 
   bool _isQuickPickCategory(BitescoreCategory category) {
-    return const {'burgers', 'tacos', 'donuts', 'pizza'}.contains(category.id);
+    return BitescoreCategories.isFeaturedCategory(category);
   }
 
   void _toggleCategoryFilter(BitescoreCategory category) {

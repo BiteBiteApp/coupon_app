@@ -1,53 +1,195 @@
 import 'package:coupon_app/models/bitescore_category.dart';
+import 'package:coupon_app/models/bitescore_food_search.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  group('BitescoreCategories', () {
-    test('Other appears first in main categories', () {
-      expect(BitescoreCategories.all.first.displayName, 'Other');
-      expect(BitescoreCategories.commonCategories.first.displayName, 'Other');
+  group('BitescoreCategories sections', () {
+    test('Section A includes Subs and keeps the existing featured order', () {
+      final names = BitescoreCategories.featuredCategories
+          .map((category) => category.displayName)
+          .toList();
+
+      expect(names, ['Burgers', 'Tacos', 'Pizza', 'Donuts', 'Subs']);
+      expect(names, isNot(equals([...names]..sort())));
+      expect(BitescoreCategories.byId('subs')?.hasSubcategories, isFalse);
     });
 
-    test('Other appears first in subcategory lists', () {
-      for (final category in BitescoreCategories.all) {
-        if (!category.hasSubcategories) {
-          continue;
-        }
-
-        expect(
-          category.subcategories.first,
-          BitescoreCategories.otherLabel,
-          reason: '${category.displayName} should put Other first.',
-        );
-      }
+    test('Subs appears in Add a Dish and Filter Section A', () {
+      expect(
+        BitescoreCategories.addDishCommonCategories
+            .take(6)
+            .map((category) => category.displayName),
+        ['Other', 'Burgers', 'Tacos', 'Pizza', 'Donuts', 'Subs'],
+      );
+      expect(
+        BitescoreCategories.filterCommonCategories
+            .take(5)
+            .map((category) => category.displayName),
+        ['Burgers', 'Tacos', 'Pizza', 'Donuts', 'Subs'],
+      );
     });
 
-    test('subcategories are alphabetized after Other', () {
-      for (final category in BitescoreCategories.all) {
-        if (category.subcategories.length <= 2) {
-          continue;
-        }
-
-        final subcategoriesAfterOther = category.subcategories.skip(1).toList();
-        final sortedSubcategories = [...subcategoriesAfterOther]
+    test(
+      'Section B main categories are alphabetized without Section A or C',
+      () {
+        final sectionB = BitescoreCategories.sectionBMainCategories;
+        final names = sectionB.map((category) => category.displayName).toList();
+        final sortedNames = [...names]
           ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 
+        expect(names, sortedNames);
+        expect(names.first, 'American');
+        expect(names, contains('Deli / Sandwiches'));
         expect(
-          subcategoriesAfterOther,
-          sortedSubcategories,
-          reason: '${category.displayName} subcategories should be sorted.',
+          names.indexOf('Deli / Sandwiches'),
+          names.indexOf('Coffee / Drinks') + 1,
         );
-      }
+        expect(
+          names.indexOf('Deli / Sandwiches'),
+          lessThan(names.indexOf('Dessert / Bakery')),
+        );
+        expect(
+          sectionB.map((category) => category.id),
+          isNot(containsAll(['burgers', 'tacos', 'pizza', 'donuts', 'subs'])),
+        );
+        expect(names, isNot(contains('Thai')));
+        expect(names, isNot(contains('Sandwiches')));
+      },
+    );
+
+    test('Section C raw cuisine list stays alphabetized with Other last', () {
+      final moreCuisineNames = BitescoreCategories.moreCuisineCategories
+          .map((category) => category.displayName)
+          .toList();
+      final sortedNames = [
+        ...moreCuisineNames.where(
+          (name) => name != BitescoreCategories.otherLabel,
+        ),
+      ]..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+
+      expect(moreCuisineNames.first, 'French');
+      expect(
+        moreCuisineNames.take(moreCuisineNames.length - 1).toList(),
+        sortedNames,
+      );
+      expect(moreCuisineNames.last, BitescoreCategories.otherLabel);
+      expect(moreCuisineNames, contains('Thai'));
     });
 
-    test('categories with no subcategories are handled', () {
-      final burgers = BitescoreCategories.byId('burgers');
+    test('Add and filter category lists do not duplicate category rows', () {
+      final addIds = [
+        ...BitescoreCategories.addDishCommonCategories,
+        ...BitescoreCategories.addDishMoreCuisineCategories,
+      ].map((category) => category.id).toList();
+      final filterIds = [
+        ...BitescoreCategories.filterCommonCategories,
+        ...BitescoreCategories.filterMoreCuisineCategories,
+      ].map((category) => category.id).toList();
 
-      expect(burgers, isNotNull);
-      expect(burgers!.hasSubcategories, isFalse);
-      expect(burgers.subcategories, isEmpty);
+      expect(addIds.toSet(), hasLength(addIds.length));
+      expect(filterIds.toSet(), hasLength(filterIds.length));
+    });
+  });
+
+  group('Deli / Sandwiches children', () {
+    test('Sandwiches and Subs lead the Add a Dish Deli child list', () {
+      final deli = BitescoreCategories.byId('deli_sandwiches');
+
+      expect(deli, isNotNull);
+      expect(deli!.subcategories.take(4), [
+        'Sandwiches',
+        'Subs',
+        BitescoreCategories.otherLabel,
+        'BLT',
+      ]);
+      expect(
+        deli.subcategories.where((value) => value == 'Sandwiches'),
+        hasLength(1),
+      );
+      expect(
+        deli.subcategories.where((value) => value == 'Subs'),
+        hasLength(1),
+      );
+      expect(deli.subcategories.skip(3).take(4), [
+        'BLT',
+        'Chicken salad sandwich',
+        'Club sandwich',
+        'Cuban sandwich',
+      ]);
     });
 
+    test('Filter Deli child list removes Other but keeps order', () {
+      final deli = BitescoreCategories.filterCommonCategories.firstWhere(
+        (category) => category.id == 'deli_sandwiches',
+      );
+
+      expect(deli.subcategories.take(5), [
+        'Sandwiches',
+        'Subs',
+        'BLT',
+        'Chicken salad sandwich',
+        'Club sandwich',
+      ]);
+      expect(
+        deli.subcategories,
+        isNot(contains(BitescoreCategories.otherLabel)),
+      );
+    });
+  });
+
+  group('Other category behavior', () {
+    test('Other remains available in Add a Dish but not Filter Categories', () {
+      expect(
+        BitescoreCategories.addDishCommonCategories.map(
+          (category) => category.displayName,
+        ),
+        contains(BitescoreCategories.otherLabel),
+      );
+      expect(
+        BitescoreCategories.filterCommonCategories.map(
+          (category) => category.displayName,
+        ),
+        isNot(contains(BitescoreCategories.otherLabel)),
+      );
+      expect(
+        BitescoreCategories.filterMoreCuisineCategories.map(
+          (category) => category.displayName,
+        ),
+        isNot(contains(BitescoreCategories.otherLabel)),
+      );
+      expect(
+        BitescoreCategories.filterCommonCategories.expand(
+          (category) => category.subcategories,
+        ),
+        isNot(contains(BitescoreCategories.otherLabel)),
+      );
+    });
+
+    test('main category Other still validates as an Add a Dish value', () {
+      expect(
+        BitescoreCategories.validateSelection(category: 'Other'),
+        'Please describe the category.',
+      );
+      expect(
+        BitescoreCategories.validateSelection(
+          category: 'Other',
+          manualKeywords: 'Polish, pierogi, kielbasa',
+        ),
+        isNull,
+      );
+    });
+
+    test('existing Other dish values remain searchable data values', () {
+      final tags = BitescoreCategories.buildSearchableTags(
+        categoryName: 'Other',
+        manualKeywords: 'Pierogi, Polish',
+      );
+
+      expect(tags, containsAll(['other', 'pierogi', 'polish']));
+    });
+  });
+
+  group('Category search compatibility', () {
     test('search tags include category subcategory and manual keywords', () {
       final tags = BitescoreCategories.buildSearchableTags(
         categoryId: 'mexican',
@@ -74,135 +216,59 @@ void main() {
       );
     });
 
-    test('quick pick categories include parent category tags', () {
-      final burgerTags = BitescoreCategories.buildSearchableTags(
-        categoryId: 'burgers',
-      );
-      final tacoTags = BitescoreCategories.buildSearchableTags(
-        categoryId: 'tacos',
-      );
-      final pizzaTags = BitescoreCategories.buildSearchableTags(
-        categoryId: 'pizza',
-      );
-      final donutTags = BitescoreCategories.buildSearchableTags(
-        categoryId: 'donuts',
+    test('featured categories include parent category tags', () {
+      final subsTags = BitescoreCategories.buildSearchableTags(
+        categoryId: 'subs',
       );
 
-      expect(burgerTags, containsAll(['burgers', 'burger', 'american']));
-      expect(tacoTags, containsAll(['tacos', 'taco', 'mexican']));
-      expect(pizzaTags, containsAll(['pizza', 'italian']));
       expect(
-        donutTags,
-        containsAll([
-          'donuts',
-          'donut',
-          'dessert',
-          'dessert / bakery',
-          'bakery',
-        ]),
+        subsTags,
+        containsAll(['subs', 'sub', 'submarine sandwich', 'hoagie']),
       );
     });
 
-    test('quick pick categories match parent category searches', () {
+    test('Subs uses specific sub-family matching', () {
       expect(
-        BitescoreCategories.matchesSearchQuery(
-          categoryName: ' Burgers ',
-          query: ' american ',
-        ),
+        BiteScoreFoodSearch.matchesFoodText('Italian hoagie', 'Subs'),
         isTrue,
       );
       expect(
-        BitescoreCategories.matchesSearchQuery(
-          categoryName: 'Tacos',
-          query: 'Mexican',
-        ),
+        BiteScoreFoodSearch.matchesFoodText('Turkey grinder', 'Subs'),
         isTrue,
       );
       expect(
-        BitescoreCategories.matchesSearchQuery(
-          categoryName: 'Pizza',
-          query: 'Italian',
-        ),
-        isTrue,
-      );
-      expect(
-        BitescoreCategories.matchesSearchQuery(
-          categoryName: 'Donuts',
-          query: 'Dessert / Bakery',
-        ),
-        isTrue,
-      );
-      expect(
-        BitescoreCategories.matchesSearchQuery(
-          categoryName: null,
-          categoryTags: const [],
-          query: 'American',
-        ),
+        BiteScoreFoodSearch.matchesFoodText('Barbecue sandwich', 'Subs'),
         isFalse,
       );
     });
 
-    test('category and subcategory produce expected searchable tags', () {
-      final tags = BitescoreCategories.buildSearchableTags(
-        categoryId: 'italian',
-        subcategory: 'Pasta',
+    test('Sandwiches uses broad sandwich matching', () {
+      expect(
+        BiteScoreFoodSearch.matchesFoodText('Barbecue sandwich', 'Sandwiches'),
+        isTrue,
       );
-
-      expect(tags, containsAll(['italian', 'pasta']));
+      expect(
+        BiteScoreFoodSearch.matchesFoodText('Italian sub', 'Sandwiches'),
+        isTrue,
+      );
     });
 
-    test('main category Other requires manual keywords', () {
-      expect(
-        BitescoreCategories.validateSelection(category: 'Other'),
-        'Please describe the category.',
-      );
+    test('Add a Dish accepts new Deli / Sandwiches child values', () {
       expect(
         BitescoreCategories.validateSelection(
-          category: 'Other',
-          manualKeywords: 'Polish, pierogi, kielbasa',
+          category: 'Deli / Sandwiches',
+          subcategory: 'Sandwiches',
         ),
         isNull,
       );
-    });
-
-    test('subcategory Other manual keywords are optional', () {
       expect(
         BitescoreCategories.validateSelection(
-          category: 'Mexican',
-          subcategory: 'Other',
+          category: 'Deli / Sandwiches',
+          subcategory: 'Subs',
         ),
         isNull,
       );
+      expect(BitescoreCategories.validateSelection(category: 'Subs'), isNull);
     });
-
-    test(
-      'more cuisines start at Thai and are alphabetized with Other last',
-      () {
-        expect(
-          BitescoreCategories.commonCategories.last.displayName,
-          'Japanese / Sushi',
-        );
-        expect(
-          BitescoreCategories.moreCuisineCategories.first.displayName,
-          'French',
-        );
-
-        final moreCuisineNames = BitescoreCategories.moreCuisineCategories
-            .map((category) => category.displayName)
-            .toList();
-        final sortedNames = [
-          ...moreCuisineNames.where(
-            (name) => name != BitescoreCategories.otherLabel,
-          ),
-        ]..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
-
-        expect(
-          moreCuisineNames.take(moreCuisineNames.length - 1).toList(),
-          sortedNames,
-        );
-        expect(moreCuisineNames.last, BitescoreCategories.otherLabel);
-        expect(moreCuisineNames, contains('Thai'));
-      },
-    );
   });
 }

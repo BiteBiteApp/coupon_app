@@ -48,6 +48,18 @@ class BitescoreCategories {
       searchTags: ['donut', 'dessert', 'dessert / bakery', 'bakery'],
     ),
     BitescoreCategory(
+      id: 'subs',
+      displayName: 'Subs',
+      searchTags: [
+        'sub',
+        'submarine sandwich',
+        'hoagie',
+        'grinder',
+        'hero',
+        'deli',
+      ],
+    ),
+    BitescoreCategory(
       id: 'american',
       displayName: 'American',
       subcategories: [
@@ -214,6 +226,8 @@ class BitescoreCategories {
       id: 'deli_sandwiches',
       displayName: 'Deli / Sandwiches',
       subcategories: [
+        'Sandwiches',
+        'Subs',
         otherLabel,
         'BLT',
         'Chicken salad sandwich',
@@ -555,14 +569,68 @@ class BitescoreCategories {
     return byId(value) ?? byName(value);
   }
 
-  static List<BitescoreCategory> get commonCategories {
+  static List<BitescoreCategory> get featuredCategories {
+    return _featuredCategoryIds
+        .map(byId)
+        .whereType<BitescoreCategory>()
+        .toList(growable: false);
+  }
+
+  static bool isFeaturedCategory(BitescoreCategory category) {
+    return _featuredCategoryIds.contains(category.id);
+  }
+
+  static List<BitescoreCategory> get sectionBMainCategories {
     final splitIndex = all.indexWhere(
       (category) => category.id == moreCuisinesStartId,
     );
-    if (splitIndex <= 0) {
-      return all;
-    }
-    return all.take(splitIndex).toList(growable: false);
+    final visibleCategories = splitIndex <= 0 ? all : all.take(splitIndex);
+    final categories =
+        visibleCategories
+            .where(
+              (category) =>
+                  category.id != 'other' &&
+                  !isFeaturedCategory(category) &&
+                  category.hasSubcategories,
+            )
+            .toList()
+          ..sort(
+            (a, b) => a.displayName.toLowerCase().compareTo(
+              b.displayName.toLowerCase(),
+            ),
+          );
+    return categories.toList(growable: false);
+  }
+
+  static List<BitescoreCategory> get addDishCommonCategories {
+    return [?byId('other'), ...featuredCategories, ...sectionBMainCategories];
+  }
+
+  static List<BitescoreCategory> get addDishMoreCuisineCategories {
+    final visibleIds = addDishCommonCategories
+        .map((category) => category.id)
+        .toSet();
+    return moreCuisineCategories
+        .where((category) => !visibleIds.contains(category.id))
+        .toList(growable: false);
+  }
+
+  static List<BitescoreCategory> get filterCommonCategories {
+    return [
+      ...featuredCategories.map(_withoutOtherSubcategory),
+      ...sectionBMainCategories.map(_withoutOtherSubcategory),
+    ];
+  }
+
+  static List<BitescoreCategory> get filterMoreCuisineCategories {
+    return moreCuisineCategories
+        .where((category) => category.id != 'other')
+        .map(_withoutOtherSubcategory)
+        .toList(growable: false);
+  }
+
+  static List<BitescoreCategory> get commonCategories {
+    return addDishCommonCategories;
   }
 
   static List<BitescoreCategory> get moreCuisineCategories {
@@ -590,6 +658,22 @@ class BitescoreCategories {
       return a.displayName.toLowerCase().compareTo(b.displayName.toLowerCase());
     });
     return categories.toList(growable: false);
+  }
+
+  static BitescoreCategory _withoutOtherSubcategory(
+    BitescoreCategory category,
+  ) {
+    if (!category.subcategories.contains(otherLabel)) {
+      return category;
+    }
+    return BitescoreCategory(
+      id: category.id,
+      displayName: category.displayName,
+      subcategories: category.subcategories
+          .where((subcategory) => subcategory != otherLabel)
+          .toList(growable: false),
+      searchTags: category.searchTags,
+    );
   }
 
   static List<String> buildSearchableTags({
@@ -746,4 +830,12 @@ class BitescoreCategories {
   }
 
   static const Set<String> _searchStopWords = {'and', 'the', 'with'};
+
+  static const List<String> _featuredCategoryIds = [
+    'burgers',
+    'tacos',
+    'pizza',
+    'donuts',
+    'subs',
+  ];
 }

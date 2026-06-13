@@ -1,6 +1,9 @@
 class BiteScoreFoodSearch {
   static final Map<String, Set<String>> _aliasTermsByTerm =
-      _buildAliasTermsByTerm(_aliasGroups);
+      _buildAliasTermsByTerm(
+        symmetricGroups: _aliasGroups,
+        directionalGroups: _directionalAliasGroups,
+      );
   static final Set<String> _knownAliasTerms = _aliasTermsByTerm.keys.toSet();
 
   static String normalize(String value) {
@@ -299,17 +302,35 @@ class BiteScoreFoodSearch {
     return min;
   }
 
-  static Map<String, Set<String>> _buildAliasTermsByTerm(
-    List<List<String>> groups,
-  ) {
+  static Map<String, Set<String>> _buildAliasTermsByTerm({
+    required List<List<String>> symmetricGroups,
+    required List<_DirectionalAliasGroup> directionalGroups,
+  }) {
     final map = <String, Set<String>>{};
-    for (final group in groups) {
+    for (final group in symmetricGroups) {
       // Alias groups are intentionally symmetric: any term in a reviewed
       // group can match every other normalized term in that same group.
       final lookupTerms = <String>{};
       final expandedTerms = <String>{};
       for (final alias in group) {
         lookupTerms.addAll(termsFor(alias));
+        expandedTerms.addAll(_aliasValueTerms(alias));
+      }
+      for (final term in lookupTerms.where(_isSafeAliasLookupTerm)) {
+        map[term] = {...?map[term], ...expandedTerms};
+      }
+    }
+
+    for (final group in directionalGroups) {
+      // Directional groups are one-way: source terms expand to target terms,
+      // but target terms do not expand back to the source.
+      final lookupTerms = <String>{};
+      final expandedTerms = <String>{};
+      for (final alias in group.from) {
+        lookupTerms.addAll(termsFor(alias));
+        expandedTerms.addAll(_aliasValueTerms(alias));
+      }
+      for (final alias in group.to) {
         expandedTerms.addAll(_aliasValueTerms(alias));
       }
       for (final term in lookupTerms.where(_isSafeAliasLookupTerm)) {
@@ -421,21 +442,33 @@ class BiteScoreFoodSearch {
 
   static const Set<String> _searchStopWords = {'and', 'the', 'with'};
 
+  static const List<String> _genericSandwichAliases = [
+    'sandwich',
+    'sandwiches',
+  ];
+
+  static const List<String> _specificSubFamilyAliases = [
+    'sub',
+    'subs',
+    'submarine',
+    'submarine sandwich',
+    'hoagie',
+    'hoagies',
+    'grinder',
+    'grinders',
+    'hero',
+    'heroes',
+  ];
+
+  static const List<_DirectionalAliasGroup> _directionalAliasGroups = [
+    _DirectionalAliasGroup(
+      from: _genericSandwichAliases,
+      to: _specificSubFamilyAliases,
+    ),
+  ];
+
   static const List<List<String>> _aliasGroups = [
-    [
-      'sandwich',
-      'sandwiches',
-      'sub',
-      'subs',
-      'submarine',
-      'submarine sandwich',
-      'hoagie',
-      'hoagies',
-      'grinder',
-      'grinders',
-      'hero',
-      'heroes',
-    ],
+    _specificSubFamilyAliases,
     ['coleslaw', 'cole slaw', 'slaw'],
     [
       'burger',
@@ -608,4 +641,11 @@ class BiteScoreFoodSearch {
 
 extension on String {
   String get joined => replaceAll(' ', '');
+}
+
+class _DirectionalAliasGroup {
+  final List<String> from;
+  final List<String> to;
+
+  const _DirectionalAliasGroup({required this.from, required this.to});
 }
