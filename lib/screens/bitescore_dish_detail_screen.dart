@@ -25,6 +25,7 @@ import '../widgets/biterater_theme.dart';
 import '../widgets/local_expert_badge_widget.dart';
 import '../widgets/owner_dish_merge_dialog.dart';
 import '../widgets/persistent_bottom_navigation.dart';
+import '../widgets/reviewer_activity_pill.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
 import 'public_reviewer_profile_screen.dart';
 
@@ -321,7 +322,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         reviews,
         currentUserId: _currentUser?.uid,
       ),
-      BiteScoreService.loadReviewerBadgeLabels(reviews),
+      BiteScoreService.loadReviewerPublicReviewCounts(reviews),
       BiteScoreService.loadReviewerDisplayNames(reviews),
       LocalExpertBadgeService.loadBadgesForUsers(
         reviews.map((review) => review.userId),
@@ -329,8 +330,8 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     ]);
     final trustByReviewId =
         reviewMetadataResults[0] as Map<String, ReviewTrustSummary>;
-    final reviewerBadgesByUserId =
-        reviewMetadataResults[1] as Map<String, String>;
+    final reviewerReviewCountsByUserId =
+        reviewMetadataResults[1] as Map<String, int>;
     final reviewerNamesByUserId =
         reviewMetadataResults[2] as Map<String, String>;
     final localExpertBadgesByUserId =
@@ -369,7 +370,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       dishImages: dishImages,
       trustByReviewId: trustByReviewId,
       reviewImageByReviewId: reviewImageByReviewId,
-      reviewerBadgesByUserId: reviewerBadgesByUserId,
+      reviewerReviewCountsByUserId: reviewerReviewCountsByUserId,
       reviewerNamesByUserId: reviewerNamesByUserId,
       localExpertBadgesByUserId: localExpertBadgesByUserId,
     );
@@ -1421,7 +1422,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     ReviewTrustSummary trustSummary,
     BiteScoreDishImage? reviewImage,
     List<BiteScoreDishImage>? dishImages,
-    String? reviewerBadgeLabel,
+    int reviewerPublicReviewCount,
     String? reviewerDisplayName,
     List<LocalExpertBadge> reviewerLocalExpertBadges,
     bool isHighlighted,
@@ -1446,10 +1447,6 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         ),
       ),
     );
-    final reviewerBadgeWidget =
-        reviewerBadgeLabel != null && reviewerBadgeLabel.trim().isNotEmpty
-        ? _buildReviewerBadgeChip(reviewerBadgeLabel)
-        : null;
     final prioritizedLocalExpertBadges =
         LocalExpertBadgePrioritizer.prioritizeForDish(
           badges: reviewerLocalExpertBadges,
@@ -1525,7 +1522,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                       crossAxisAlignment: WrapCrossAlignment.center,
                       children: [
                         reviewerNameWidget,
-                        ?reviewerBadgeWidget,
+                        ReviewerActivityPill(
+                          reviewCount: reviewerPublicReviewCount,
+                        ),
                         for (final badge in localExpertSummary.visibleBadges)
                           InkWell(
                             borderRadius: BorderRadius.circular(999),
@@ -1713,37 +1712,6 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
           letterSpacing: -0.25,
         ),
         textAlign: TextAlign.center,
-      ),
-    );
-  }
-
-  Widget _buildReviewerBadgeChip(String badgeLabel) {
-    final badgeStyle = switch (badgeLabel) {
-      'Top Contributor' => (
-        BiteRaterTheme.ocean,
-        Icons.workspace_premium_outlined,
-      ),
-      'Trusted Reviewer' => (BiteRaterTheme.grape, Icons.verified_outlined),
-      'Active Reviewer' => (BiteRaterTheme.ocean, Icons.auto_awesome_outlined),
-      _ => (BiteRaterTheme.coral, Icons.local_fire_department_outlined),
-    };
-
-    return Container(
-      width: 18,
-      height: 18,
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        color: badgeStyle.$1.withOpacity(0.07),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: badgeStyle.$1.withOpacity(0.14)),
-      ),
-      child: Tooltip(
-        message: badgeLabel,
-        child: Icon(
-          badgeStyle.$2,
-          size: 11,
-          color: badgeStyle.$1.withOpacity(0.84),
-        ),
       ),
     );
   }
@@ -2372,7 +2340,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                   dishImages: const <BiteScoreDishImage>[],
                   trustByReviewId: const <String, ReviewTrustSummary>{},
                   reviewImageByReviewId: const <String, BiteScoreDishImage>{},
-                  reviewerBadgesByUserId: const <String, String>{},
+                  reviewerReviewCountsByUserId: const <String, int>{},
                   reviewerNamesByUserId: const <String, String>{},
                   localExpertBadgesByUserId:
                       const <String, List<LocalExpertBadge>>{},
@@ -2701,7 +2669,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                       const ReviewTrustSummary(),
                                   detail.reviewImageByReviewId[review.id],
                                   detail.dishImages,
-                                  detail.reviewerBadgesByUserId[review.userId],
+                                  detail.reviewerReviewCountsByUserId[review
+                                          .userId] ??
+                                      0,
                                   detail.reviewerNamesByUserId[review.userId],
                                   detail.localExpertBadgesByUserId[review
                                           .userId] ??
@@ -2751,7 +2721,7 @@ class _DishDetailData {
   final List<BiteScoreDishImage>? _dishImages;
   final Map<String, ReviewTrustSummary> trustByReviewId;
   final Map<String, BiteScoreDishImage> reviewImageByReviewId;
-  final Map<String, String> reviewerBadgesByUserId;
+  final Map<String, int> reviewerReviewCountsByUserId;
   final Map<String, String> reviewerNamesByUserId;
   final Map<String, List<LocalExpertBadge>> localExpertBadgesByUserId;
 
@@ -2766,7 +2736,7 @@ class _DishDetailData {
     required List<BiteScoreDishImage>? dishImages,
     required this.trustByReviewId,
     required this.reviewImageByReviewId,
-    required this.reviewerBadgesByUserId,
+    required this.reviewerReviewCountsByUserId,
     required this.reviewerNamesByUserId,
     required this.localExpertBadgesByUserId,
   }) : _dishImages = dishImages;

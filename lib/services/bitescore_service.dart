@@ -2994,6 +2994,7 @@ class BiteScoreService {
 
     final reviews =
         reviewSnapshot.docs
+            .where((doc) => _isPublicReviewData(doc.data()))
             .map(
               (doc) =>
                   DishReview.tryFromFirestore(doc.data(), fallbackId: doc.id),
@@ -3070,6 +3071,7 @@ class BiteScoreService {
         .get();
     final reviews =
         reviewSnapshot.docs
+            .where((doc) => _isPublicReviewData(doc.data()))
             .map(
               (doc) =>
                   DishReview.tryFromFirestore(doc.data(), fallbackId: doc.id),
@@ -3371,6 +3373,39 @@ class BiteScoreService {
     }
 
     return badgeLabelsByUserId;
+  }
+
+  static Future<Map<String, int>> loadReviewerPublicReviewCounts(
+    List<DishReview> reviews,
+  ) async {
+    final reviewerIds = reviews
+        .map((review) => review.userId.trim())
+        .where((userId) => userId.isNotEmpty)
+        .toSet();
+    if (reviewerIds.isEmpty) {
+      return const <String, int>{};
+    }
+
+    final countsByUserId = <String, int>{};
+    for (final userId in reviewerIds) {
+      try {
+        final reviewSnapshot = await reviewsCollection()
+            .where('userId', isEqualTo: userId)
+            .get();
+        countsByUserId[userId] = reviewSnapshot.docs
+            .where((doc) => _isPublicReviewData(doc.data()))
+            .map(
+              (doc) =>
+                  DishReview.tryFromFirestore(doc.data(), fallbackId: doc.id),
+            )
+            .whereType<DishReview>()
+            .length;
+      } catch (_) {
+        countsByUserId[userId] = 0;
+      }
+    }
+
+    return countsByUserId;
   }
 
   static Future<Map<String, String>> loadReviewerDisplayNames(
@@ -5497,6 +5532,22 @@ class BiteScoreService {
     return 'New Reviewer';
   }
 
+  static bool _isPublicReviewData(Map<String, dynamic>? data) {
+    if (data == null) {
+      return false;
+    }
+    if (data['isPublic'] == false ||
+        data['isHidden'] == true ||
+        data['hidden'] == true ||
+        data['deleted'] == true ||
+        data['rejected'] == true) {
+      return false;
+    }
+
+    final status = _readString(data['status'])?.toLowerCase();
+    return status != 'deleted' && status != 'hidden' && status != 'rejected';
+  }
+
   static Future<String> _loadReviewerBadgeLabel(String userId) async {
     final trimmedUserId = userId.trim();
     if (trimmedUserId.isEmpty) {
@@ -5507,6 +5558,7 @@ class BiteScoreService {
         .where('userId', isEqualTo: trimmedUserId)
         .get();
     final reviewerReviews = reviewSnapshot.docs
+        .where((doc) => _isPublicReviewData(doc.data()))
         .map(
           (doc) => DishReview.tryFromFirestore(doc.data(), fallbackId: doc.id),
         )

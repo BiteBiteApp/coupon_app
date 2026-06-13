@@ -9,6 +9,7 @@ import '../services/local_expert_badge_service.dart';
 import '../widgets/biterater_theme.dart';
 import '../widgets/local_expert_badge_widget.dart';
 import '../widgets/persistent_bottom_navigation.dart';
+import '../widgets/reviewer_activity_pill.dart';
 import 'bitescore_dish_detail_screen.dart';
 
 class PublicReviewerProfileScreen extends StatefulWidget {
@@ -122,59 +123,28 @@ class _PublicReviewerProfileScreenState
   }
 
   Widget _buildBadgeCard(BiteScorePublicReviewerProfileData profileData) {
-    final badgeStyle = switch (profileData.badgeLabel) {
-      'Top Contributor' => (
-        BiteRaterTheme.ocean,
-        Icons.workspace_premium_outlined,
-      ),
-      'Trusted Reviewer' => (BiteRaterTheme.grape, Icons.verified_outlined),
-      'Active Reviewer' => (BiteRaterTheme.ocean, Icons.auto_awesome_outlined),
-      _ => (BiteRaterTheme.coral, Icons.local_fire_department_outlined),
-    };
-
     return BiteRaterTheme.liftedCard(
       radius: 24,
-      borderColor: badgeStyle.$1.withOpacity(0.18),
+      borderColor: BiteRaterTheme.ocean.withValues(alpha: 0.18),
       child: Padding(
         padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: badgeStyle.$1.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(badgeStyle.$2, color: badgeStyle.$1, size: 24),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        profileData.publicDisplayName,
-                        style: const TextStyle(
-                          color: BiteRaterTheme.ink,
-                          fontSize: 24,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        profileData.badgeLabel,
-                        style: TextStyle(
-                          color: badgeStyle.$1,
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
+                Text(
+                  profileData.publicDisplayName,
+                  style: const TextStyle(
+                    color: BiteRaterTheme.ink,
+                    fontSize: 24,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
+                ReviewerActivityPill(reviewCount: profileData.reviewCount),
               ],
             ),
             const SizedBox(height: 14),

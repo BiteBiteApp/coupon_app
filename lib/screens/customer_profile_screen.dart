@@ -10,6 +10,7 @@ import '../services/bitescore_service.dart';
 import '../services/local_expert_badge_recalculation_service.dart';
 import '../services/local_expert_badge_service.dart';
 import '../widgets/local_expert_badge_widget.dart';
+import '../widgets/reviewer_activity_pill.dart';
 import 'bitescore_dish_detail_screen.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
 import 'coupon_detail_screen.dart';
@@ -941,54 +942,34 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   }
 
   Widget _buildBadgeCard(BiteScoreUserProfileData profileData) {
-    final badgeColors = _badgeColors(profileData.badgeLabel);
-
     return Card(
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(16),
           border: Border(
-            left: BorderSide(color: badgeColors.$1.withOpacity(0.35), width: 4),
+            left: BorderSide(
+              color: Colors.blue.shade700.withValues(alpha: 0.28),
+              width: 4,
+            ),
           ),
         ),
         padding: const EdgeInsets.all(18),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: badgeColors.$1.withOpacity(0.14),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  child: Icon(badgeColors.$2, color: badgeColors.$1, size: 24),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Reviewer Badge',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.black54,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        profileData.badgeLabel,
-                        style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ],
+                Text(
+                  profileData.publicDisplayName,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
                   ),
                 ),
+                ReviewerActivityPill(reviewCount: profileData.reviewCount),
               ],
             ),
             const SizedBox(height: 14),
@@ -1039,19 +1020,6 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         ],
       ),
     );
-  }
-
-  (Color, IconData) _badgeColors(String badgeLabel) {
-    switch (badgeLabel) {
-      case 'Top Contributor':
-        return (Colors.deepPurple, Icons.workspace_premium_outlined);
-      case 'Trusted Reviewer':
-        return (Colors.green.shade700, Icons.verified_outlined);
-      case 'Active Reviewer':
-        return (Colors.blue.shade700, Icons.auto_awesome_outlined);
-      default:
-        return (Colors.orange.shade700, Icons.local_fire_department_outlined);
-    }
   }
 
   @override

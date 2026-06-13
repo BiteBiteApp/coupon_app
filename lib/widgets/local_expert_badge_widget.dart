@@ -9,21 +9,49 @@ import 'biterater_theme.dart';
 enum LocalExpertBadgeDisplayMode { compact, full }
 
 class LocalExpertBadgeVisualMetadata {
+  final LocalExpertBadgeLevel level;
   final Color ringColor;
   final Color fillColor;
+  final Color highlightColor;
+  final Color edgeColor;
+  final Color innerRimColor;
+  final Color iconColor;
+  final Color levelTextColor;
+  final double borderWidth;
+  final double outerRingWidth;
+  final double innerRimWidth;
+  final double shadowBlur;
+  final double shadowAlpha;
+  final double haloAlpha;
+  final bool hasGlint;
   final int ringCount;
   final IconData icon;
-  final String levelMarker;
   final bool usesCrown;
 
   const LocalExpertBadgeVisualMetadata({
+    required this.level,
     required this.ringColor,
     required this.fillColor,
+    required this.highlightColor,
+    required this.edgeColor,
+    required this.innerRimColor,
+    required this.iconColor,
+    required this.levelTextColor,
+    required this.borderWidth,
+    required this.outerRingWidth,
+    required this.innerRimWidth,
+    required this.shadowBlur,
+    required this.shadowAlpha,
+    required this.haloAlpha,
+    required this.hasGlint,
     required this.ringCount,
     required this.icon,
-    required this.levelMarker,
     this.usesCrown = false,
   });
+
+  bool get isPlain => level == LocalExpertBadgeLevel.level1;
+  bool get isSilverMedal => level == LocalExpertBadgeLevel.level2;
+  bool get isGoldPremium => level == LocalExpertBadgeLevel.level3;
 }
 
 class LocalExpertBadgeVisuals {
@@ -33,15 +61,72 @@ class LocalExpertBadgeVisuals {
   }) {
     final iconName = LocalExperts.byId(expertTypeId)?.iconName;
     return LocalExpertBadgeVisualMetadata(
+      level: level,
       ringColor: switch (level) {
-        LocalExpertBadgeLevel.level1 => const Color(0xFFB66D37),
-        LocalExpertBadgeLevel.level2 => const Color(0xFF8E99A8),
-        LocalExpertBadgeLevel.level3 => const Color(0xFFE0A71E),
+        LocalExpertBadgeLevel.level1 => const Color(0xFFA8AFB7),
+        LocalExpertBadgeLevel.level2 => const Color(0xFFC8D0D8),
+        LocalExpertBadgeLevel.level3 => const Color(0xFFE6B43A),
       },
       fillColor: switch (level) {
-        LocalExpertBadgeLevel.level1 => const Color(0xFFFFF4EA),
-        LocalExpertBadgeLevel.level2 => const Color(0xFFF3F6FA),
-        LocalExpertBadgeLevel.level3 => const Color(0xFFFFF7D8),
+        LocalExpertBadgeLevel.level1 => const Color(0xFFF8FAFC),
+        LocalExpertBadgeLevel.level2 => const Color(0xFFF4F7FA),
+        LocalExpertBadgeLevel.level3 => const Color(0xFFFFF3C8),
+      },
+      highlightColor: switch (level) {
+        LocalExpertBadgeLevel.level1 => Colors.white,
+        LocalExpertBadgeLevel.level2 => const Color(0xFFFFFFFF),
+        LocalExpertBadgeLevel.level3 => const Color(0xFFFFF8DF),
+      },
+      edgeColor: switch (level) {
+        LocalExpertBadgeLevel.level1 => const Color(0xFF7E8791),
+        LocalExpertBadgeLevel.level2 => const Color(0xFF707A86),
+        LocalExpertBadgeLevel.level3 => const Color(0xFF9B6500),
+      },
+      innerRimColor: switch (level) {
+        LocalExpertBadgeLevel.level1 => Colors.transparent,
+        LocalExpertBadgeLevel.level2 => const Color(0xFF8E98A4),
+        LocalExpertBadgeLevel.level3 => const Color(0xFFB37A05),
+      },
+      iconColor: const Color(0xFF15191F),
+      levelTextColor: switch (level) {
+        LocalExpertBadgeLevel.level1 => const Color(0xFF3D4651),
+        LocalExpertBadgeLevel.level2 => const Color(0xFF3F4A56),
+        LocalExpertBadgeLevel.level3 => const Color(0xFF684300),
+      },
+      borderWidth: switch (level) {
+        LocalExpertBadgeLevel.level1 => 1.35,
+        LocalExpertBadgeLevel.level2 => 1.35,
+        LocalExpertBadgeLevel.level3 => 1.45,
+      },
+      outerRingWidth: switch (level) {
+        LocalExpertBadgeLevel.level1 => 1.4,
+        LocalExpertBadgeLevel.level2 => 4.2,
+        LocalExpertBadgeLevel.level3 => 4.6,
+      },
+      innerRimWidth: switch (level) {
+        LocalExpertBadgeLevel.level1 => 0,
+        LocalExpertBadgeLevel.level2 => 1.1,
+        LocalExpertBadgeLevel.level3 => 1.2,
+      },
+      shadowBlur: switch (level) {
+        LocalExpertBadgeLevel.level1 => 0,
+        LocalExpertBadgeLevel.level2 => 7,
+        LocalExpertBadgeLevel.level3 => 11,
+      },
+      shadowAlpha: switch (level) {
+        LocalExpertBadgeLevel.level1 => 0,
+        LocalExpertBadgeLevel.level2 => 0.2,
+        LocalExpertBadgeLevel.level3 => 0.28,
+      },
+      haloAlpha: switch (level) {
+        LocalExpertBadgeLevel.level1 => 0,
+        LocalExpertBadgeLevel.level2 => 0,
+        LocalExpertBadgeLevel.level3 => 0.2,
+      },
+      hasGlint: switch (level) {
+        LocalExpertBadgeLevel.level1 => false,
+        LocalExpertBadgeLevel.level2 => true,
+        LocalExpertBadgeLevel.level3 => true,
       },
       ringCount: switch (level) {
         LocalExpertBadgeLevel.level1 => 1,
@@ -49,11 +134,6 @@ class LocalExpertBadgeVisuals {
         LocalExpertBadgeLevel.level3 => 3,
       },
       icon: iconForName(iconName),
-      levelMarker: switch (level) {
-        LocalExpertBadgeLevel.level1 => '1',
-        LocalExpertBadgeLevel.level2 => '2',
-        LocalExpertBadgeLevel.level3 => '3',
-      },
       usesCrown: false,
     );
   }
@@ -101,12 +181,7 @@ class LocalExpertBadgeWidget extends StatelessWidget {
     );
     return Tooltip(
       message: '${badge.displayName} Expert • ${badge.levelLabel}',
-      child: _BadgeMedallion(
-        metadata: metadata,
-        size: 26,
-        iconSize: 13,
-        markerFontSize: 9,
-      ),
+      child: _BadgeMedallion(metadata: metadata, size: 28, iconSize: 20),
     );
   }
 
@@ -133,12 +208,7 @@ class LocalExpertBadgeWidget extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _BadgeMedallion(
-            metadata: metadata,
-            size: 38,
-            iconSize: 19,
-            markerFontSize: 11,
-          ),
+          _BadgeMedallion(metadata: metadata, size: 42, iconSize: 30),
           const SizedBox(width: 9),
           Flexible(
             child: Column(
@@ -159,7 +229,7 @@ class LocalExpertBadgeWidget extends StatelessWidget {
                 Text(
                   badge.levelLabel,
                   style: TextStyle(
-                    color: metadata.ringColor,
+                    color: metadata.levelTextColor,
                     fontSize: 11,
                     fontWeight: FontWeight.w800,
                   ),
@@ -177,98 +247,135 @@ class _BadgeMedallion extends StatelessWidget {
   final LocalExpertBadgeVisualMetadata metadata;
   final double size;
   final double iconSize;
-  final double markerFontSize;
 
   const _BadgeMedallion({
     required this.metadata,
     required this.size,
     required this.iconSize,
-    required this.markerFontSize,
   });
 
   @override
   Widget build(BuildContext context) {
-    Widget ring = _BadgeRing(
-      color: metadata.ringColor,
-      fillColor: metadata.fillColor,
-      icon: metadata.icon,
-      iconSize: iconSize,
-    );
+    final ring = _BadgeRing(metadata: metadata, iconSize: iconSize);
 
-    for (var i = 1; i < metadata.ringCount; i += 1) {
-      ring = Padding(
-        padding: const EdgeInsets.all(2),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: metadata.ringColor.withValues(alpha: 0.72),
-              width: 1.15,
-            ),
-          ),
-          child: ring,
-        ),
-      );
-    }
-
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Stack(
-        alignment: Alignment.center,
-        clipBehavior: Clip.hardEdge,
-        children: [
-          Positioned.fill(child: ring),
-          Positioned(
-            bottom: size * 0.08,
-            child: Container(
-              width: size * 0.38,
-              height: size * 0.30,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(
-                color: metadata.ringColor,
-                borderRadius: BorderRadius.circular(size * 0.12),
-                border: Border.all(color: Colors.white, width: 0.9),
-              ),
-              child: Text(
-                metadata.levelMarker,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: markerFontSize,
-                  fontWeight: FontWeight.w900,
-                  height: 1,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
+    return SizedBox(width: size, height: size, child: ring);
   }
 }
 
 class _BadgeRing extends StatelessWidget {
-  final Color color;
-  final Color fillColor;
-  final IconData icon;
+  final LocalExpertBadgeVisualMetadata metadata;
   final double iconSize;
 
-  const _BadgeRing({
-    required this.color,
-    required this.fillColor,
-    required this.icon,
-    required this.iconSize,
-  });
+  const _BadgeRing({required this.metadata, required this.iconSize});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: fillColor,
-        shape: BoxShape.circle,
-        border: Border.all(color: color, width: 1.5),
-      ),
-      child: Icon(icon, size: iconSize, color: color),
+    final outerDecoration = metadata.isPlain
+        ? BoxDecoration(
+            color: metadata.fillColor,
+            shape: BoxShape.circle,
+            border: Border.all(
+              color: metadata.edgeColor,
+              width: metadata.borderWidth,
+            ),
+          )
+        : BoxDecoration(
+            shape: BoxShape.circle,
+            gradient: SweepGradient(
+              startAngle: -0.9,
+              endAngle: 5.4,
+              colors: metadata.isSilverMedal
+                  ? const [
+                      Color(0xFFFFFFFF),
+                      Color(0xFFBFC8D1),
+                      Color(0xFF6F7883),
+                      Color(0xFFE9EDF1),
+                      Color(0xFFFFFFFF),
+                    ]
+                  : const [
+                      Color(0xFFFFF5C8),
+                      Color(0xFFE6B43A),
+                      Color(0xFF9B6500),
+                      Color(0xFFFFD978),
+                      Color(0xFFFFF5C8),
+                    ],
+            ),
+            border: Border.all(
+              color: metadata.edgeColor,
+              width: metadata.borderWidth,
+            ),
+            boxShadow: [
+              if (metadata.haloAlpha > 0)
+                BoxShadow(
+                  color: metadata.ringColor.withValues(
+                    alpha: metadata.haloAlpha,
+                  ),
+                  blurRadius: metadata.shadowBlur + 4,
+                  spreadRadius: 1,
+                ),
+              BoxShadow(
+                color: metadata.edgeColor.withValues(
+                  alpha: metadata.shadowAlpha,
+                ),
+                blurRadius: metadata.shadowBlur,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          );
+
+    return Stack(
+      alignment: Alignment.center,
+      clipBehavior: Clip.none,
+      children: [
+        Positioned.fill(child: DecoratedBox(decoration: outerDecoration)),
+        Positioned.fill(
+          child: Padding(
+            padding: EdgeInsets.all(metadata.outerRingWidth),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                gradient: metadata.isPlain
+                    ? null
+                    : LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          metadata.highlightColor,
+                          metadata.fillColor,
+                          metadata.ringColor.withValues(alpha: 0.46),
+                        ],
+                        stops: const [0.0, 0.62, 1.0],
+                      ),
+                color: metadata.isPlain ? metadata.fillColor : null,
+                border: metadata.innerRimWidth <= 0
+                    ? null
+                    : Border.all(
+                        color: metadata.innerRimColor.withValues(alpha: 0.78),
+                        width: metadata.innerRimWidth,
+                      ),
+              ),
+            ),
+          ),
+        ),
+        if (metadata.hasGlint)
+          Positioned(
+            top: 4,
+            right: 3,
+            child: Transform.rotate(
+              angle: -0.72,
+              child: Container(
+                key: const ValueKey('local-expert-badge-glint'),
+                width: 13,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.78),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
+            ),
+          ),
+        Icon(metadata.icon, size: iconSize, color: metadata.iconColor),
+      ],
     );
   }
 }
@@ -410,65 +517,71 @@ Future<void> showLocalExpertBadgeDetails(
     isScrollControlled: true,
     builder: (context) {
       return SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  LocalExpertBadgeWidget(badge: badge),
-                  const Spacer(),
-                  IconButton(
-                    tooltip: MaterialLocalizations.of(
-                      context,
-                    ).closeButtonTooltip,
-                    onPressed: () => Navigator.of(context).maybePop(),
-                    icon: const Icon(Icons.close),
+        child: SingleChildScrollView(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.viewInsetsOf(context).bottom,
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    LocalExpertBadgeWidget(badge: badge),
+                    const Spacer(),
+                    IconButton(
+                      tooltip: MaterialLocalizations.of(
+                        context,
+                      ).closeButtonTooltip,
+                      onPressed: () => Navigator.of(context).maybePop(),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ],
+                ),
+                if (reviewNavigationRequest != null) ...[
+                  const SizedBox(height: 16),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).maybePop();
+                        Navigator.of(parentContext).push(
+                          MaterialPageRoute(
+                            builder: (_) => LocalExpertReviewsScreen(
+                              reviewerUserId:
+                                  reviewNavigationRequest.reviewerUserId,
+                              reviewerDisplayName:
+                                  reviewNavigationRequest.reviewerDisplayName,
+                              expertTypeId:
+                                  reviewNavigationRequest.expertTypeId,
+                              expertDisplayName:
+                                  reviewNavigationRequest.expertDisplayName,
+                            ),
+                          ),
+                        );
+                      },
+                      icon: const Icon(Icons.rate_review_outlined),
+                      label: Text('View ${badge.displayName} Reviews'),
+                    ),
                   ),
                 ],
-              ),
-              if (reviewNavigationRequest != null) ...[
                 const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: () {
-                      Navigator.of(context).maybePop();
-                      Navigator.of(parentContext).push(
-                        MaterialPageRoute(
-                          builder: (_) => LocalExpertReviewsScreen(
-                            reviewerUserId:
-                                reviewNavigationRequest.reviewerUserId,
-                            reviewerDisplayName:
-                                reviewNavigationRequest.reviewerDisplayName,
-                            expertTypeId: reviewNavigationRequest.expertTypeId,
-                            expertDisplayName:
-                                reviewNavigationRequest.expertDisplayName,
-                          ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.rate_review_outlined),
-                    label: Text('View ${badge.displayName} Reviews'),
+                _buildDetailLine(
+                  '${badge.totalRestaurantCount} qualifying restaurants',
+                ),
+                if (badge.localClusterRestaurantCount > 0)
+                  _buildDetailLine(
+                    '${badge.localClusterRestaurantCount} restaurants in the best local cluster',
                   ),
+                _buildDetailLine(_qualificationText(badge)),
+                const SizedBox(height: 8),
+                _buildNextLevelProgress(
+                  LocalExpertBadgeNextLevelProgress.forBadge(badge),
                 ),
               ],
-              const SizedBox(height: 16),
-              _buildDetailLine(
-                '${badge.totalRestaurantCount} qualifying restaurants',
-              ),
-              if (badge.localClusterRestaurantCount > 0)
-                _buildDetailLine(
-                  '${badge.localClusterRestaurantCount} restaurants in the best local cluster',
-                ),
-              _buildDetailLine(_qualificationText(badge)),
-              const SizedBox(height: 8),
-              _buildNextLevelProgress(
-                LocalExpertBadgeNextLevelProgress.forBadge(badge),
-              ),
-            ],
+            ),
           ),
         ),
       );
@@ -500,15 +613,7 @@ Widget _buildNextLevelProgress(LocalExpertBadgeNextLevelProgress progress) {
         ),
       ),
       const SizedBox(height: 8),
-      if (progress.localClusterCurrent != null &&
-          progress.localClusterTarget != null)
-        _buildProgressLine(
-          label: 'Local cluster',
-          current: progress.localClusterCurrent!,
-          target: progress.localClusterTarget!,
-        ),
       _buildProgressLine(
-        label: 'Overall restaurants',
         current: progress.overallCurrent,
         target: progress.overallTarget,
       ),
@@ -516,45 +621,19 @@ Widget _buildNextLevelProgress(LocalExpertBadgeNextLevelProgress progress) {
   );
 }
 
-Widget _buildProgressLine({
-  required String label,
-  required int current,
-  required int target,
-}) {
+Widget _buildProgressLine({required int current, required int target}) {
   final safeTarget = target <= 0 ? 1 : target;
   final clampedCurrent = current.clamp(0, safeTarget).toInt();
   return Padding(
     padding: const EdgeInsets.only(bottom: 8),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                '$label: $current of $target restaurants',
-                style: const TextStyle(
-                  color: BiteRaterTheme.mutedInk,
-                  fontSize: 12.5,
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 5),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: LinearProgressIndicator(
-            value: clampedCurrent / safeTarget,
-            minHeight: 5,
-            backgroundColor: BiteRaterTheme.lineBlue.withValues(alpha: 0.55),
-            valueColor: const AlwaysStoppedAnimation<Color>(
-              BiteRaterTheme.ocean,
-            ),
-          ),
-        ),
-      ],
+    child: ClipRRect(
+      borderRadius: BorderRadius.circular(999),
+      child: LinearProgressIndicator(
+        value: clampedCurrent / safeTarget,
+        minHeight: 5,
+        backgroundColor: BiteRaterTheme.lineBlue.withValues(alpha: 0.55),
+        valueColor: const AlwaysStoppedAnimation<Color>(BiteRaterTheme.ocean),
+      ),
     ),
   );
 }
