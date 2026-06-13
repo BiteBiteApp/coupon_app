@@ -748,6 +748,76 @@ class BiteScoreService {
     return (normalizedTenPointScore * 10).clamp(1, 100).toDouble();
   }
 
+  static String normalizedDishIdentityText(String input) {
+    return input.trim().toLowerCase().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  static String dishIdentityKey({
+    required String restaurantId,
+    required String dishName,
+  }) {
+    final normalizedRestaurantId = restaurantId.trim();
+    final normalizedDishName = normalizedDishIdentityText(dishName);
+    if (normalizedRestaurantId.isEmpty || normalizedDishName.isEmpty) {
+      return '';
+    }
+    return '$normalizedRestaurantId::$normalizedDishName';
+  }
+
+  static String dishIdentityKeyForDish(BitescoreDish dish) {
+    final normalizedName = dish.normalizedName.trim().isNotEmpty
+        ? dish.normalizedName
+        : dish.name;
+    return dishIdentityKey(
+      restaurantId: dish.restaurantId,
+      dishName: normalizedName,
+    );
+  }
+
+  static List<BiteScoreHomeEntry> deduplicateHomeEntriesForDisplay(
+    Iterable<BiteScoreHomeEntry> entries,
+  ) {
+    final seenDishIds = <String>{};
+    final seenDishIdentityKeys = <String>{};
+    final deduped = <BiteScoreHomeEntry>[];
+
+    for (final entry in entries) {
+      final dishId = entry.dish.id.trim();
+      if (dishId.isNotEmpty && !seenDishIds.add(dishId)) {
+        continue;
+      }
+
+      final identityKey = dishIdentityKeyForDish(entry.dish);
+      if (identityKey.isNotEmpty && !seenDishIdentityKeys.add(identityKey)) {
+        continue;
+      }
+
+      deduped.add(entry);
+    }
+
+    return deduped;
+  }
+
+  static List<DishReview> deduplicateReviewsForAggregate(
+    Iterable<DishReview> reviews,
+  ) {
+    final reviewsByUserDish = <String, DishReview>{};
+
+    for (final review in reviews) {
+      final key = '${review.dishId.trim()}::${review.userId.trim()}';
+      if (key == '::') {
+        continue;
+      }
+
+      final existing = reviewsByUserDish[key];
+      if (existing == null || _compareReviewFreshness(review, existing) > 0) {
+        reviewsByUserDish[key] = review;
+      }
+    }
+
+    return reviewsByUserDish.values.toList();
+  }
+
   static Future<List<BitescoreRestaurant>> loadRestaurants() async {
     final snapshot = await restaurantsCollection().get();
 
@@ -2160,7 +2230,6 @@ class BiteScoreService {
 
   static Future<List<BitescoreRestaurant>> loadRestaurantsForFinder() async {
     final docs = await _loadAllRestaurantDocuments();
-    final importedCount = docs.where(_looksLikeImportedRestaurantDoc).length;
 
     final parsedRestaurants = docs
         .map(
@@ -2336,7 +2405,7 @@ class BiteScoreService {
       );
     }
 
-    return entries;
+    return deduplicateHomeEntriesForDisplay(entries);
   }
 
   static Future<List<BiteScoreHomeEntry>> loadEntriesForRestaurant(
@@ -3276,6 +3345,29 @@ class BiteScoreService {
         )
         .whereType<DishReview>()
         .toList();
+  }
+
+  static Future<DishReview?> _loadExistingReviewForUserDish({
+    required String dishId,
+    required String userId,
+  }) async {
+    final snapshot = await reviewsCollection()
+        .where('dishId', isEqualTo: dishId.trim())
+        .where('userId', isEqualTo: userId.trim())
+        .get();
+
+    final reviews = snapshot.docs
+        .map(
+          (doc) => DishReview.tryFromFirestore(doc.data(), fallbackId: doc.id),
+        )
+        .whereType<DishReview>()
+        .toList();
+    if (reviews.isEmpty) {
+      return null;
+    }
+
+    reviews.sort((a, b) => _compareReviewFreshness(b, a));
+    return reviews.first;
   }
 
   static Future<Map<String, ReviewTrustSummary>> loadReviewTrustSummaries(
@@ -5021,60 +5113,58 @@ class BiteScoreService {
         .where('normalizedName', isEqualTo: normalizedDishName)
         .get();
 
-    if (allowExistingMatch) {
-      for (final doc in snapshot.docs) {
-        final existingDish = BitescoreDish.tryFromFirestore(
-          doc.data(),
-          fallbackId: doc.id,
-        );
-        if (existingDish != null &&
-            existingDish.isActive &&
-            !existingDish.isMerged) {
-          final existingCategory = existingDish.category?.trim() ?? '';
-          if (existingCategory != trimmedCategory ||
-              (existingDish.subcategory?.trim() ?? '') != trimmedSubcategory ||
-              (existingDish.categoryManualKeywords?.trim() ?? '') !=
-                  trimmedManualKeywords ||
-              !_stringListsEqual(existingDish.categoryTags, categoryTags)) {
-            await doc.reference.set({
-              'category': trimmedCategory,
-              'subcategory': trimmedSubcategory.isEmpty
-                  ? null
-                  : trimmedSubcategory,
-              'categoryManualKeywords': trimmedManualKeywords.isEmpty
-                  ? null
-                  : trimmedManualKeywords,
-              'categoryTags': categoryTags,
-              'updatedAt': FieldValue.serverTimestamp(),
-            }, SetOptions(merge: true));
+    for (final doc in snapshot.docs) {
+      final existingDish = BitescoreDish.tryFromFirestore(
+        doc.data(),
+        fallbackId: doc.id,
+      );
+      if (existingDish != null &&
+          existingDish.isActive &&
+          !existingDish.isMerged) {
+        final existingCategory = existingDish.category?.trim() ?? '';
+        if (allowExistingMatch &&
+            (existingCategory != trimmedCategory ||
+                (existingDish.subcategory?.trim() ?? '') !=
+                    trimmedSubcategory ||
+                (existingDish.categoryManualKeywords?.trim() ?? '') !=
+                    trimmedManualKeywords ||
+                !_stringListsEqual(existingDish.categoryTags, categoryTags))) {
+          await doc.reference.set({
+            'category': trimmedCategory,
+            'subcategory': trimmedSubcategory.isEmpty
+                ? null
+                : trimmedSubcategory,
+            'categoryManualKeywords': trimmedManualKeywords.isEmpty
+                ? null
+                : trimmedManualKeywords,
+            'categoryTags': categoryTags,
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
 
-            return BitescoreDish(
-              id: existingDish.id,
-              restaurantId: existingDish.restaurantId,
-              restaurantName: existingDish.restaurantName,
-              name: existingDish.name,
-              normalizedName: existingDish.normalizedName,
-              category: trimmedCategory,
-              subcategory: trimmedSubcategory.isEmpty
-                  ? null
-                  : trimmedSubcategory,
-              categoryManualKeywords: trimmedManualKeywords.isEmpty
-                  ? null
-                  : trimmedManualKeywords,
-              categoryTags: categoryTags,
-              priceLabel: existingDish.priceLabel,
-              primaryImageUrl: existingDish.primaryImageUrl,
-              primaryImageId: existingDish.primaryImageId,
-              imageCount: existingDish.imageCount,
-              isActive: existingDish.isActive,
-              mergedIntoDishId: existingDish.mergedIntoDishId,
-              createdAt: existingDish.createdAt,
-              updatedAt: DateTime.now(),
-            );
-          }
-
-          return existingDish;
+          return BitescoreDish(
+            id: existingDish.id,
+            restaurantId: existingDish.restaurantId,
+            restaurantName: existingDish.restaurantName,
+            name: existingDish.name,
+            normalizedName: existingDish.normalizedName,
+            category: trimmedCategory,
+            subcategory: trimmedSubcategory.isEmpty ? null : trimmedSubcategory,
+            categoryManualKeywords: trimmedManualKeywords.isEmpty
+                ? null
+                : trimmedManualKeywords,
+            categoryTags: categoryTags,
+            priceLabel: existingDish.priceLabel,
+            primaryImageUrl: existingDish.primaryImageUrl,
+            primaryImageId: existingDish.primaryImageId,
+            imageCount: existingDish.imageCount,
+            isActive: existingDish.isActive,
+            mergedIntoDishId: existingDish.mergedIntoDishId,
+            createdAt: existingDish.createdAt,
+            updatedAt: DateTime.now(),
+          );
         }
+
+        return existingDish;
       }
     }
 
@@ -5154,8 +5244,16 @@ class BiteScoreService {
     return '${reviewId.trim()}_${userId.trim()}';
   }
 
+  static String _reviewDocumentId(String dishId, String userId) {
+    return '${_safeDocumentIdPart(dishId)}_${_safeDocumentIdPart(userId)}';
+  }
+
   static String _dishImageVoteDocumentId(String imageId, String userId) {
     return '${imageId.trim()}_${userId.trim()}';
+  }
+
+  static String _safeDocumentIdPart(String value) {
+    return Uri.encodeComponent(value.trim());
   }
 
   static List<List<String>> _chunkStrings(
@@ -5213,10 +5311,6 @@ class BiteScoreService {
     }
 
     return user;
-  }
-
-  static User _requireSignedInSuggestionUser() {
-    return _requireSignedInBiteScoreUser();
   }
 
   static Future<User> _requireFreshSignedInSuggestionUser() async {
@@ -5279,6 +5373,22 @@ class BiteScoreService {
       return value;
     }
     return null;
+  }
+
+  static int _compareReviewFreshness(DishReview left, DishReview right) {
+    final leftDate =
+        left.updatedAt ??
+        left.createdAt ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+    final rightDate =
+        right.updatedAt ??
+        right.createdAt ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+    final byDate = leftDate.compareTo(rightDate);
+    if (byDate != 0) {
+      return byDate;
+    }
+    return left.id.compareTo(right.id);
   }
 
   static Future<_PublicReviewerIdentity>
@@ -5793,7 +5903,9 @@ class BiteScoreService {
     required String dishId,
     required String restaurantId,
   }) async {
-    final reviews = await _loadAllDishReviewsForDish(dishId);
+    final reviews = deduplicateReviewsForAggregate(
+      await _loadAllDishReviewsForDish(dishId),
+    );
 
     if (reviews.isEmpty) {
       await ratingAggregatesCollection().doc(dishId).set({
@@ -6003,12 +6115,19 @@ class BiteScoreService {
       valueScore: valueScore,
     );
 
-    final reviewRef = reviewsCollection().doc();
+    final trimmedUserId = userId.trim();
+    final existingReview = await _loadExistingReviewForUserDish(
+      dishId: dish.id,
+      userId: trimmedUserId,
+    );
+    final reviewRef = existingReview == null
+        ? reviewsCollection().doc(_reviewDocumentId(dish.id, trimmedUserId))
+        : reviewsCollection().doc(existingReview.id);
     final review = DishReview(
       id: reviewRef.id,
       dishId: dish.id,
       restaurantId: restaurant.id,
-      userId: userId,
+      userId: trimmedUserId,
       headline: headline.trim().isEmpty ? null : headline.trim(),
       notes: notes.trim().isEmpty ? null : notes.trim(),
       overallImpression: overallImpression,
@@ -6016,13 +6135,15 @@ class BiteScoreService {
       qualityScore: qualityScore,
       valueScore: valueScore,
       overallBiteScore: overallBiteScore,
+      createdAt: existingReview?.createdAt,
     );
+    final reviewData = review.toFirestoreMap()..remove('createdAt');
 
     await reviewRef.set({
-      ...review.toFirestoreMap(),
-      'createdAt': FieldValue.serverTimestamp(),
+      ...reviewData,
+      if (existingReview == null) 'createdAt': FieldValue.serverTimestamp(),
       'updatedAt': FieldValue.serverTimestamp(),
-    });
+    }, SetOptions(merge: true));
 
     await _rebuildDishAggregate(dishId: dish.id, restaurantId: restaurant.id);
     return review;
@@ -6239,16 +6360,6 @@ class BiteScoreService {
     }
 
     return words.toList();
-  }
-
-  static bool _looksLikeImportedRestaurantDoc(
-    QueryDocumentSnapshot<Map<String, dynamic>> doc,
-  ) {
-    final data = doc.data();
-    return data.containsKey('active') ||
-        data.containsKey('formattedAddress') ||
-        ((data['address'] is String) &&
-            (data['address'] as String).toUpperCase().contains(', USA'));
   }
 
   static String _finderRestaurantKey(BitescoreRestaurant restaurant) {
