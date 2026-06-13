@@ -1,4 +1,5 @@
 import 'package:coupon_app/models/daily_special.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -9,12 +10,130 @@ void main() {
         restaurantId: 'restaurant-1',
         ownerUid: 'restaurant-1',
         title: 'Soup of the Day',
+        expiresAt: DateTime(2026, 6, 9),
       );
 
       expect(special.isAvailableAt(DateTime(2026, 6, 8, 9)), isTrue);
       expect(special.shouldShowAt(DateTime(2026, 6, 8, 9)), isTrue);
       expect(special.isScheduledAt(DateTime(2026, 6, 8, 9)), isTrue);
       expect(special.scheduleSummaryText(), 'Today, available all day');
+    });
+
+    test('today-only special created today expires at local midnight', () {
+      final special = DailySpecial(
+        id: 'today',
+        restaurantId: 'restaurant-1',
+        ownerUid: 'restaurant-1',
+        title: 'Today Taco',
+      ).sanitizedForSave(now: DateTime(2026, 6, 12, 14, 30));
+
+      expect(special.expiresAt, DateTime(2026, 6, 13));
+      expect(special.shouldShowAt(DateTime(2026, 6, 12, 23, 59)), isTrue);
+      expect(special.shouldShowAt(DateTime(2026, 6, 13)), isFalse);
+      expect(special.isExpiredAt(DateTime(2026, 6, 13)), isTrue);
+    });
+
+    test('firestore map stores expiresAt only for today-only specials', () {
+      final todayOnlyMap = DailySpecial(
+        id: 'today',
+        restaurantId: 'restaurant-1',
+        ownerUid: 'restaurant-1',
+        title: 'Today Taco',
+      ).toFirestoreMap(now: DateTime(2026, 6, 12, 14, 30));
+      final recurringMap = DailySpecial(
+        id: 'recurring',
+        restaurantId: 'restaurant-1',
+        ownerUid: 'restaurant-1',
+        title: 'Monday Pasta',
+        availabilityMode: DailySpecialAvailabilityMode.specificDays,
+        daysOfWeek: const [DateTime.monday],
+      ).toFirestoreMap(now: DateTime(2026, 6, 12, 14, 30));
+
+      expect(
+        todayOnlyMap[DailySpecial.fieldExpiresAt],
+        isA<Timestamp>().having(
+          (timestamp) => timestamp.toDate(),
+          'date',
+          DateTime(2026, 6, 13),
+        ),
+      );
+      expect(recurringMap[DailySpecial.fieldExpiresAt], isNull);
+    });
+
+    test('expired today-only special is filtered even if document remains', () {
+      final special = DailySpecial(
+        id: 'stale',
+        restaurantId: 'restaurant-1',
+        ownerUid: 'restaurant-1',
+        title: 'Yesterday Burger',
+        availabilityMode: DailySpecialAvailabilityMode.todayOnly,
+        expiresAt: DateTime(2026, 6, 13),
+      );
+
+      expect(special.shouldShowAt(DateTime(2026, 6, 12, 18)), isTrue);
+      expect(special.shouldShowAt(DateTime(2026, 6, 13, 0, 1)), isFalse);
+      expect(
+        DailySpecial.visibleSpecialsAt([special], DateTime(2026, 6, 13, 0, 1)),
+        isEmpty,
+      );
+    });
+
+    test('legacy today-only special falls back to created date expiration', () {
+      final special = DailySpecial(
+        id: 'legacy',
+        restaurantId: 'restaurant-1',
+        ownerUid: 'restaurant-1',
+        title: 'Legacy Plate',
+        availabilityMode: DailySpecialAvailabilityMode.todayOnly,
+        createdAt: DateTime(2026, 6, 12, 10),
+      );
+
+      expect(special.shouldShowAt(DateTime(2026, 6, 12, 20)), isTrue);
+      expect(special.shouldShowAt(DateTime(2026, 6, 13, 1)), isFalse);
+    });
+
+    test('cleanup targets only expired today-only specials', () {
+      final expiredTodayOnly = DailySpecial(
+        id: 'expired',
+        restaurantId: 'restaurant-1',
+        ownerUid: 'restaurant-1',
+        title: 'Expired',
+        expiresAt: DateTime(2026, 6, 13),
+      );
+      final recurringWeekday = DailySpecial(
+        id: 'weekday',
+        restaurantId: 'restaurant-1',
+        ownerUid: 'restaurant-1',
+        title: 'Monday Pasta',
+        availabilityMode: DailySpecialAvailabilityMode.specificDays,
+        daysOfWeek: const [DateTime.monday],
+      );
+      final disabledRecurring = recurringWeekday.copyWith(
+        id: 'disabled',
+        isActive: false,
+      );
+
+      expect(
+        DailySpecial.shouldCleanupExpiredTodayOnly(
+          expiredTodayOnly,
+          now: DateTime(2026, 6, 13, 0, 1),
+        ),
+        isTrue,
+      );
+      expect(
+        DailySpecial.shouldCleanupExpiredTodayOnly(
+          recurringWeekday,
+          now: DateTime(2026, 6, 13, 0, 1),
+        ),
+        isFalse,
+      );
+      expect(
+        DailySpecial.shouldCleanupExpiredTodayOnly(
+          disabledRecurring,
+          now: DateTime(2026, 6, 13, 0, 1),
+        ),
+        isFalse,
+      );
     });
 
     test('inactive special is unavailable even when showAlways is enabled', () {
@@ -90,6 +209,12 @@ void main() {
       expect(mondaySpecial.isAvailableAt(DateTime(2026, 6, 9, 12)), isFalse);
       expect(mondaySpecial.isScheduledForWeekday(DateTime.monday), isTrue);
       expect(mondaySpecial.isScheduledForWeekday(DateTime.tuesday), isFalse);
+      expect(
+        DailySpecial.visibleSpecialsAt([
+          mondaySpecial,
+        ], DateTime(2026, 6, 8, 12)),
+        [mondaySpecial],
+      );
     });
 
     test('timed special is available only within its local time window', () {
@@ -111,7 +236,53 @@ void main() {
         lunchSpecial.shouldShowPubliclyAt(DateTime(2026, 6, 8, 10, 59)),
         isFalse,
       );
+      expect(
+        DailySpecial.visibleSpecialsAt([
+          lunchSpecial,
+        ], DateTime(2026, 6, 8, 10, 59)),
+        isEmpty,
+      );
+      expect(
+        DailySpecial.visibleSpecialsAt([
+          lunchSpecial,
+        ], DateTime(2026, 6, 8, 11)),
+        [lunchSpecial],
+      );
       expect(lunchSpecial.scheduleSummaryText(), 'Today, 11:00 AM-2:30 PM');
+    });
+
+    test('shared BiteSaver display filtering respects expiration', () {
+      final visibleToday = DailySpecial(
+        id: 'visible',
+        restaurantId: 'restaurant-1',
+        ownerUid: 'restaurant-1',
+        title: 'Visible Today',
+        expiresAt: DateTime(2026, 6, 13),
+      );
+      final expired = DailySpecial(
+        id: 'expired',
+        restaurantId: 'restaurant-1',
+        ownerUid: 'restaurant-1',
+        title: 'Expired Today Only',
+        expiresAt: DateTime(2026, 6, 12),
+      );
+      final recurring = DailySpecial(
+        id: 'recurring',
+        restaurantId: 'restaurant-1',
+        ownerUid: 'restaurant-1',
+        title: 'Friday Fish',
+        availabilityMode: DailySpecialAvailabilityMode.specificDays,
+        daysOfWeek: const [DateTime.friday],
+      );
+
+      expect(
+        DailySpecial.visibleSpecialsAt([
+          visibleToday,
+          expired,
+          recurring,
+        ], DateTime(2026, 6, 12, 12)).map((special) => special.id),
+        ['visible', 'recurring'],
+      );
     });
 
     test('schedule summary compacts consecutive weekdays', () {

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
@@ -417,16 +419,17 @@ class RestaurantAccountService {
     }
 
     final doc = dailySpecialsCollection(trimmedUid).doc();
+    final now = DateTime.now();
     final sanitizedSpecial = dailySpecial
         .copyWith(id: doc.id, restaurantId: trimmedUid, ownerUid: trimmedUid)
-        .sanitizedForSave(id: doc.id);
+        .sanitizedForSave(id: doc.id, now: now);
     final validationError = sanitizedSpecial.validateForSave();
     if (validationError != null) {
       throw ArgumentError(validationError);
     }
 
     await doc.set({
-      ...sanitizedSpecial.toFirestoreMap(id: doc.id),
+      ...sanitizedSpecial.toFirestoreMap(id: doc.id, now: now),
       DailySpecial.fieldCreatedAt: FieldValue.serverTimestamp(),
       DailySpecial.fieldUpdatedAt: FieldValue.serverTimestamp(),
     });
@@ -454,16 +457,17 @@ class RestaurantAccountService {
       throw ArgumentError('Daily special ID is required for updates.');
     }
 
+    final now = DateTime.now();
     final sanitizedSpecial = dailySpecial
         .copyWith(id: specialId, restaurantId: trimmedUid, ownerUid: trimmedUid)
-        .sanitizedForSave(id: specialId);
+        .sanitizedForSave(id: specialId, now: now);
     final validationError = sanitizedSpecial.validateForSave();
     if (validationError != null) {
       throw ArgumentError(validationError);
     }
 
     await dailySpecialsCollection(trimmedUid).doc(specialId).set({
-      ...sanitizedSpecial.toFirestoreMap(id: specialId),
+      ...sanitizedSpecial.toFirestoreMap(id: specialId, now: now),
       DailySpecial.fieldUpdatedAt: FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
@@ -541,6 +545,8 @@ class RestaurantAccountService {
     ).orderBy(DailySpecial.fieldCreatedAt, descending: true).get();
 
     final specials = <DailySpecial>[];
+    final expiredDocRefs = <DocumentReference<Map<String, dynamic>>>[];
+    final now = DateTime.now();
 
     for (final doc in snapshot.docs) {
       try {
@@ -550,6 +556,10 @@ class RestaurantAccountService {
           fallbackRestaurantId: trimmedUid,
         );
         if (special != null) {
+          if (DailySpecial.shouldCleanupExpiredTodayOnly(special, now: now)) {
+            expiredDocRefs.add(doc.reference);
+            continue;
+          }
           specials.add(special);
         }
       } catch (_) {
@@ -557,6 +567,9 @@ class RestaurantAccountService {
       }
     }
 
+    unawaited(
+      _deleteExpiredDailySpecialDocs(expiredDocRefs).catchError((_) {}),
+    );
     return specials;
   }
 
@@ -564,7 +577,64 @@ class RestaurantAccountService {
     String uid,
   ) async {
     final specials = await loadDailySpecialsForRestaurant(uid);
-    return specials.where((special) => special.isActive).toList();
+    final now = DateTime.now();
+    return specials
+        .where((special) => special.isActive && !special.isExpiredAt(now))
+        .toList();
+  }
+
+  static Future<void> cleanupExpiredTodayOnlyDailySpecialsForRestaurant(
+    String uid, {
+    DateTime? now,
+  }) async {
+    final trimmedUid = uid.trim();
+    if (trimmedUid.isEmpty) {
+      return;
+    }
+
+    final snapshot = await dailySpecialsCollection(trimmedUid)
+        .where(
+          DailySpecial.fieldAvailabilityMode,
+          isEqualTo: DailySpecialAvailabilityMode.todayOnly.firestoreValue,
+        )
+        .get();
+    final effectiveNow = now ?? DateTime.now();
+    final expiredDocRefs = <DocumentReference<Map<String, dynamic>>>[];
+
+    for (final doc in snapshot.docs) {
+      try {
+        final special = DailySpecial.tryFromFirestore(
+          doc.data(),
+          fallbackId: doc.id,
+          fallbackRestaurantId: trimmedUid,
+        );
+        if (special != null &&
+            DailySpecial.shouldCleanupExpiredTodayOnly(
+              special,
+              now: effectiveNow,
+            )) {
+          expiredDocRefs.add(doc.reference);
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+
+    await _deleteExpiredDailySpecialDocs(expiredDocRefs);
+  }
+
+  static Future<void> _deleteExpiredDailySpecialDocs(
+    List<DocumentReference<Map<String, dynamic>>> docRefs,
+  ) async {
+    if (docRefs.isEmpty) {
+      return;
+    }
+
+    final batch = _firestore.batch();
+    for (final docRef in docRefs) {
+      batch.delete(docRef);
+    }
+    await batch.commit();
   }
 
   static Future<void> deleteDailySpecial({

@@ -37,6 +37,7 @@ class DailySpecial {
   static const String fieldStartTime = 'startTime';
   static const String fieldEndTime = 'endTime';
   static const String fieldHideWhenUnavailable = 'hideWhenUnavailable';
+  static const String fieldExpiresAt = 'expiresAt';
 
   final String id;
   final String restaurantId;
@@ -52,6 +53,7 @@ class DailySpecial {
   final String? startTime;
   final String? endTime;
   final bool hideWhenUnavailable;
+  final DateTime? expiresAt;
 
   const DailySpecial({
     required this.id,
@@ -68,9 +70,26 @@ class DailySpecial {
     this.startTime,
     this.endTime,
     this.hideWhenUnavailable = true,
+    this.expiresAt,
   });
 
   bool get showAlways => !hideWhenUnavailable;
+
+  bool get isTodayOnly =>
+      availabilityMode == DailySpecialAvailabilityMode.todayOnly;
+
+  bool isExpiredAt(DateTime now) {
+    if (!isTodayOnly) {
+      return false;
+    }
+
+    final effectiveExpiration = expiresAt ?? _fallbackTodayOnlyExpiration();
+    if (effectiveExpiration == null) {
+      return false;
+    }
+
+    return !now.toLocal().isBefore(effectiveExpiration.toLocal());
+  }
 
   bool isScheduledForWeekday(int weekday) {
     if (availabilityMode == DailySpecialAvailabilityMode.todayOnly) {
@@ -89,7 +108,7 @@ class DailySpecial {
   }
 
   bool shouldShowPubliclyAt(DateTime now) {
-    if (!isActive || !isScheduledAt(now)) {
+    if (!isActive || isExpiredAt(now) || !isScheduledAt(now)) {
       return false;
     }
 
@@ -165,6 +184,10 @@ class DailySpecial {
       return false;
     }
 
+    if (isExpiredAt(now)) {
+      return false;
+    }
+
     final localNow = now.toLocal();
     if (!isScheduledAt(localNow)) {
       return false;
@@ -203,6 +226,7 @@ class DailySpecial {
     String? startTime,
     String? endTime,
     bool? hideWhenUnavailable,
+    DateTime? expiresAt,
   }) {
     return DailySpecial(
       id: id ?? this.id,
@@ -219,11 +243,12 @@ class DailySpecial {
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
       hideWhenUnavailable: hideWhenUnavailable ?? this.hideWhenUnavailable,
+      expiresAt: expiresAt ?? this.expiresAt,
     );
   }
 
-  Map<String, dynamic> toFirestoreMap({String? id}) {
-    final sanitized = sanitizedForSave(id: id);
+  Map<String, dynamic> toFirestoreMap({String? id, DateTime? now}) {
+    final sanitized = sanitizedForSave(id: id, now: now);
     final validationError = sanitized.validateForSave();
     if (validationError != null) {
       throw ArgumentError(validationError);
@@ -242,12 +267,20 @@ class DailySpecial {
       fieldStartTime: sanitized.allDay ? null : sanitized.startTime,
       fieldEndTime: sanitized.allDay ? null : sanitized.endTime,
       fieldHideWhenUnavailable: sanitized.hideWhenUnavailable,
+      fieldExpiresAt: sanitized.expiresAt == null
+          ? null
+          : Timestamp.fromDate(sanitized.expiresAt!),
     };
   }
 
-  DailySpecial sanitizedForSave({String? id}) {
+  DailySpecial sanitizedForSave({String? id, DateTime? now}) {
     final trimmedDetails = details?.trim();
     final sanitizedAllDay = allDay;
+    final sanitizedAvailabilityMode = availabilityMode;
+    final sanitizedExpiresAt =
+        sanitizedAvailabilityMode == DailySpecialAvailabilityMode.todayOnly
+        ? endOfLocalDay(now ?? DateTime.now())
+        : null;
     return DailySpecial(
       id: id ?? this.id.trim(),
       restaurantId: restaurantId.trim(),
@@ -259,14 +292,16 @@ class DailySpecial {
       createdAt: createdAt,
       updatedAt: updatedAt,
       isActive: isActive,
-      availabilityMode: availabilityMode,
-      daysOfWeek: availabilityMode == DailySpecialAvailabilityMode.specificDays
+      availabilityMode: sanitizedAvailabilityMode,
+      daysOfWeek:
+          sanitizedAvailabilityMode == DailySpecialAvailabilityMode.specificDays
           ? _normalizedDaysOfWeek(daysOfWeek)
           : const [],
       allDay: sanitizedAllDay,
       startTime: sanitizedAllDay ? null : _normalizedTime(startTime),
       endTime: sanitizedAllDay ? null : _normalizedTime(endTime),
       hideWhenUnavailable: hideWhenUnavailable,
+      expiresAt: sanitizedExpiresAt,
     );
   }
 
@@ -304,7 +339,42 @@ class DailySpecial {
       startTime: _normalizedTime(_readString(data[fieldStartTime])),
       endTime: _normalizedTime(_readString(data[fieldEndTime])),
       hideWhenUnavailable: _readBool(data[fieldHideWhenUnavailable]) ?? true,
+      expiresAt: _coerceDateTime(data[fieldExpiresAt]),
     );
+  }
+
+  static DateTime endOfLocalDay(DateTime value) {
+    final local = value.toLocal();
+    return DateTime(local.year, local.month, local.day + 1);
+  }
+
+  static bool shouldCleanupExpiredTodayOnly(
+    DailySpecial special, {
+    DateTime? now,
+  }) {
+    return special.isTodayOnly && special.isExpiredAt(now ?? DateTime.now());
+  }
+
+  static List<DailySpecial> visibleSpecialsAt(
+    Iterable<DailySpecial> specials,
+    DateTime now,
+  ) {
+    return specials
+        .where((special) => special.shouldShowPubliclyAt(now))
+        .toList();
+  }
+
+  DateTime? _fallbackTodayOnlyExpiration() {
+    if (!isTodayOnly) {
+      return null;
+    }
+
+    final basis = createdAt ?? updatedAt;
+    if (basis == null) {
+      return null;
+    }
+
+    return endOfLocalDay(basis);
   }
 
   static List<int> _readDaysOfWeek(dynamic value) {

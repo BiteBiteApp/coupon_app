@@ -981,10 +981,6 @@ class _HomeScreenState extends State<HomeScreen> {
         _normalizeRestaurantSearchText(special.details ?? '').contains(query);
   }
 
-  bool _isDailySpecialDisplayableNow(DailySpecial special, DateTime now) {
-    return special.shouldShowPubliclyAt(now);
-  }
-
   String _normalizeRestaurantSearchText(String value) {
     return value
         .trim()
@@ -1095,12 +1091,12 @@ class _HomeScreenState extends State<HomeScreen> {
 
         return true;
       }).toList();
-      final displayableDailySpecials = restaurant.dailySpecials.where((
-        special,
-      ) {
-        return _isDailySpecialDisplayableNow(special, now) &&
-            matchesDailySpecialSearch(restaurant, special);
-      }).toList();
+      final displayableDailySpecials =
+          DailySpecial.visibleSpecialsAt(restaurant.dailySpecials, now)
+              .where(
+                (special) => matchesDailySpecialSearch(restaurant, special),
+              )
+              .toList();
 
       if (availableCoupons.isEmpty && displayableDailySpecials.isEmpty) {
         continue;

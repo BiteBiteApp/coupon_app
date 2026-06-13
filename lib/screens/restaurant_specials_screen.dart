@@ -41,9 +41,7 @@ class _RestaurantSpecialsScreenState extends State<RestaurantSpecialsScreen> {
     }
 
     final now = DateTime.now();
-    return specials
-        .where((special) => special.shouldShowPubliclyAt(now))
-        .toList();
+    return DailySpecial.visibleSpecialsAt(specials, now);
   }
 
   String? _scheduleLabel(DailySpecial special) {
