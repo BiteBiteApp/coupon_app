@@ -1,3 +1,5 @@
+import 'bitescore_food_search.dart';
+
 class BitescoreCategory {
   final String id;
   final String displayName;
@@ -625,29 +627,22 @@ class BitescoreCategories {
     String? manualKeywords,
     Iterable<String> categoryTags = const [],
     required String query,
+    bool enableFuzzy = false,
   }) {
-    final queryTerms = <String>{};
-    _addSearchTerms(queryTerms, query);
-    if (queryTerms.isEmpty) {
-      return true;
-    }
-
-    final searchableTerms = <String>{
+    final searchableTerms = <String>[
       ...buildSearchableTags(
         categoryId: categoryId,
         categoryName: categoryName,
         subcategory: subcategory,
         manualKeywords: manualKeywords,
       ),
-    };
-    for (final tag in categoryTags) {
-      _addSearchTerms(searchableTerms, tag);
-    }
+      ...categoryTags,
+    ];
 
-    return queryTerms.any(
-      (queryTerm) =>
-          searchableTerms.contains(queryTerm) ||
-          searchableTerms.any((term) => term.contains(queryTerm)),
+    return BiteScoreFoodSearch.matchesAnyFoodText(
+      searchableTerms,
+      query,
+      enableFuzzy: enableFuzzy,
     );
   }
 

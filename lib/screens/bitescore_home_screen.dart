@@ -7,6 +7,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/bitescore_category.dart';
+import '../models/bitescore_food_search.dart';
 import '../models/bitescore_restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/bitescore_sign_in_gate.dart';
@@ -456,7 +457,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   }
 
   List<BiteScoreHomeEntry> _filteredEntries(List<BiteScoreHomeEntry> entries) {
-    final dishQuery = dishSearchController.text.trim().toLowerCase();
+    final dishQuery = dishSearchController.text.trim();
     final locationQuery = locationSearchController.text.trim().toLowerCase();
     final radiusMiles = _radiusMiles();
     final center = _activeSearchCenter();
@@ -464,8 +465,15 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     final filtered = entries.where((entry) {
       final matchesDishQuery =
           dishQuery.isEmpty ||
-          _matchesSearchText(entry.dish.name, dishQuery) ||
-          _matchesSearchText(entry.restaurant.name, dishQuery) ||
+          BiteScoreFoodSearch.matchesFoodText(
+            entry.dish.name,
+            dishQuery,
+            enableFuzzy: true,
+          ) ||
+          BiteScoreFoodSearch.matchesPlainText(
+            entry.restaurant.name,
+            dishQuery,
+          ) ||
           _matchesDishCategorySearch(
             category: entry.dish.category,
             subcategory: entry.dish.subcategory,
@@ -514,41 +522,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         manualKeywords: entry.dish.categoryManualKeywords,
         categoryTags: entry.dish.categoryTags,
         query: filter.query,
+        enableFuzzy: false,
       );
     });
-  }
-
-  bool _matchesSearchText(String source, String query) {
-    final normalizedSource = _normalizeSearchText(source);
-    final normalizedQuery = _normalizeSearchText(query);
-    if (normalizedQuery.isEmpty) {
-      return true;
-    }
-    if (normalizedSource.contains(normalizedQuery)) {
-      return true;
-    }
-
-    final sourceTerms = _searchTerms(normalizedSource);
-    final queryTerms = _searchTerms(normalizedQuery);
-    return queryTerms.any(sourceTerms.contains);
-  }
-
-  bool _matchesCategorySearch(String? category, String query) {
-    final normalizedCategory = _normalizeSearchText(category ?? '');
-    final normalizedQuery = _normalizeSearchText(query);
-    if (normalizedQuery.isEmpty) {
-      return true;
-    }
-    if (normalizedCategory.isEmpty) {
-      return false;
-    }
-    if ((normalizedCategory == 'barbecue' || normalizedCategory == 'bbq') &&
-        (normalizedQuery == 'barbecue' || normalizedQuery == 'bbq')) {
-      return true;
-    }
-    return normalizedCategory == normalizedQuery ||
-        '${normalizedCategory}s' == normalizedQuery ||
-        '${normalizedQuery}s' == normalizedCategory;
   }
 
   bool _matchesDishCategorySearch({
@@ -558,15 +534,13 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     required List<String> categoryTags,
     required String query,
   }) {
-    if (_matchesCategorySearch(category, query)) {
-      return true;
-    }
     if (BitescoreCategories.matchesSearchQuery(
       categoryName: category,
       subcategory: subcategory,
       manualKeywords: manualKeywords,
       categoryTags: categoryTags,
       query: query,
+      enableFuzzy: true,
     )) {
       return true;
     }
@@ -577,46 +551,11 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
       ...categoryTags,
     ].join(' ');
 
-    return _matchesSearchText(searchableText, query);
-  }
-
-  Set<String> _searchTerms(String value) {
-    final terms = <String>{};
-    final normalized = _normalizeSearchText(value);
-    if (normalized.isNotEmpty) {
-      terms.add(normalized);
-    }
-    for (final token in normalized.split(' ')) {
-      if (token.isEmpty) {
-        continue;
-      }
-      terms.add(token);
-      terms.add(_singularSearchTerm(token));
-    }
-    return terms;
-  }
-
-  String _normalizeSearchText(String value) {
-    return value
-        .trim()
-        .toLowerCase()
-        .replaceAll(RegExp(r"[\u2018\u2019\u201B\u2032']"), '')
-        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
-        .replaceAll(RegExp(r'\s+'), ' ')
-        .trim();
-  }
-
-  String _singularSearchTerm(String value) {
-    if (value.length > 3 && value.endsWith('ies')) {
-      return '${value.substring(0, value.length - 3)}y';
-    }
-    if (value.length > 3 && value.endsWith('es')) {
-      return value.substring(0, value.length - 2);
-    }
-    if (value.length > 2 && value.endsWith('s')) {
-      return value.substring(0, value.length - 1);
-    }
-    return value;
+    return BiteScoreFoodSearch.matchesFoodText(
+      searchableText,
+      query,
+      enableFuzzy: true,
+    );
   }
 
   int _compareEntriesForSelectedSort(
