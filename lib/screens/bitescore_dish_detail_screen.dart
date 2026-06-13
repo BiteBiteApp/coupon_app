@@ -25,7 +25,7 @@ import '../widgets/biterater_theme.dart';
 import '../widgets/local_expert_badge_widget.dart';
 import '../widgets/owner_dish_merge_dialog.dart';
 import '../widgets/persistent_bottom_navigation.dart';
-import '../widgets/reviewer_activity_pill.dart';
+import '../widgets/reviewer_identity_badge_row.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
 import 'public_reviewer_profile_screen.dart';
 
@@ -1516,42 +1516,22 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
-                    child: Wrap(
-                      spacing: 4,
-                      runSpacing: 3,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        reviewerNameWidget,
-                        ReviewerActivityPill(
-                          reviewCount: reviewerPublicReviewCount,
-                        ),
-                        for (final badge in localExpertSummary.visibleBadges)
-                          InkWell(
-                            borderRadius: BorderRadius.circular(999),
-                            onTap: () => showLocalExpertBadgeDetails(
-                              context,
-                              badge,
-                              reviewerUserId: review.userId,
-                              reviewerDisplayName: publicDisplayName,
-                            ),
-                            child: LocalExpertBadgeWidget(
-                              badge: badge,
-                              mode: LocalExpertBadgeDisplayMode.compact,
-                            ),
-                          ),
-                        if (localExpertSummary.hiddenCount > 0)
-                          InkWell(
-                            borderRadius: BorderRadius.circular(999),
-                            onTap: () => _showLocalExpertBadgeList(
-                              prioritizedLocalExpertBadges,
-                              reviewerUserId: review.userId,
-                              reviewerDisplayName: publicDisplayName,
-                            ),
-                            child: LocalExpertBadgeOverflowPill(
-                              hiddenCount: localExpertSummary.hiddenCount,
-                            ),
-                          ),
-                      ],
+                    child: ReviewerIdentityBadgeRow(
+                      reviewerName: reviewerNameWidget,
+                      reviewCount: reviewerPublicReviewCount,
+                      visibleBadges: localExpertSummary.visibleBadges,
+                      hiddenBadgeCount: localExpertSummary.hiddenCount,
+                      onBadgeTap: (badge) => showLocalExpertBadgeDetails(
+                        context,
+                        badge,
+                        reviewerUserId: review.userId,
+                        reviewerDisplayName: publicDisplayName,
+                      ),
+                      onOverflowTap: () => _showLocalExpertBadgeList(
+                        prioritizedLocalExpertBadges,
+                        reviewerUserId: review.userId,
+                        reviewerDisplayName: publicDisplayName,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 8),
