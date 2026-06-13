@@ -12,6 +12,7 @@ import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_menu_service.dart';
+import '../widgets/bitesaver_colors.dart';
 import '../widgets/bitesaver_report_dialog.dart';
 import '../widgets/clickable_phone_text.dart';
 import '../widgets/persistent_bottom_navigation.dart';
@@ -456,12 +457,12 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   List<BoxShadow> _biteSaverTileShadows({double strength = 0.9}) {
     return [
       BoxShadow(
-        color: Color.fromRGBO(84, 48, 18, 0.16 * strength),
+        color: BiteSaverColors.coolShadow.withValues(alpha: 0.10 * strength),
         blurRadius: 14,
         offset: const Offset(0, 8),
       ),
       BoxShadow(
-        color: Color.fromRGBO(120, 80, 40, 0.10 * strength),
+        color: BiteSaverColors.coolShadow.withValues(alpha: 0.05 * strength),
         blurRadius: 3,
         offset: const Offset(0, 2),
       ),
@@ -488,17 +489,17 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
-            Color(0xFFEEDBC9),
-            Color(0xFFD8BEA3),
-            Color(0xFFC7A17B),
-            Color(0xFFB58B63),
+            BiteSaverColors.surface,
+            BiteSaverColors.secondaryBackground,
+            BiteSaverColors.subtleSurface,
+            BiteSaverColors.border,
           ],
           stops: [0.0, 0.34, 0.72, 1.0],
         ),
-        border: Border.all(color: const Color(0x66EED8B2), width: 1),
+        border: Border.all(color: BiteSaverColors.border, width: 1),
         boxShadow: [
           const BoxShadow(
-            color: Color.fromRGBO(120, 80, 40, 0.30),
+            color: Color.fromRGBO(15, 23, 42, 0.10),
             offset: Offset(0, 2),
             blurRadius: 0,
           ),
@@ -513,7 +514,11 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
             gradient: const LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
-              colors: [Color(0xFFFFFBF8), Color(0xFFF7EDE3), Color(0xFFEEDDCB)],
+              colors: [
+                BiteSaverColors.surface,
+                BiteSaverColors.secondaryBackground,
+                BiteSaverColors.subtleSurface,
+              ],
             ),
             border: Border.all(color: const Color(0xF7FFFFFF), width: 0.7),
           ),
@@ -541,9 +546,9 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
           label: Text(label, overflow: TextOverflow.ellipsis),
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.transparent,
-            foregroundColor: const Color(0xFF9F4F34),
+            foregroundColor: BiteSaverColors.orangeDark,
             disabledBackgroundColor: Colors.transparent,
-            disabledForegroundColor: const Color(0xFF9A8B80),
+            disabledForegroundColor: BiteSaverColors.mutedInk,
             elevation: 0,
             shadowColor: Colors.transparent,
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -630,7 +635,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
             decoration: BoxDecoration(
-              color: const Color(0xFFFFFEFA),
+              color: BiteSaverColors.surface,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: const Color(0xFFC9CDD2), width: 1.2),
             ),
@@ -640,7 +645,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                   width: 34,
                   height: 34,
                   decoration: BoxDecoration(
-                    color: const Color(0xFFFFF3E6),
+                    color: BiteSaverColors.secondaryBackground,
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(color: const Color(0xFFF2B46B)),
                   ),
@@ -689,7 +694,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                 ),
                 const Icon(
                   Icons.chevron_right,
-                  color: Color(0xFF8A5226),
+                  color: BiteSaverColors.orangeDark,
                   size: 22,
                 ),
               ],
@@ -728,7 +733,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                       title,
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: const Color(0xFF9F4F34),
+                        color: BiteSaverColors.orangeDark,
                         fontSize: compact ? 13 : 14,
                         fontWeight: FontWeight.w700,
                       ),
@@ -742,7 +747,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                         child: const Icon(
                           Icons.expand_more,
                           size: 20,
-                          color: Color(0xFF9F4F34),
+                          color: BiteSaverColors.orangeDark,
                         ),
                       ),
                     ),
@@ -937,7 +942,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
         return Container(
           width: double.infinity,
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-          color: const Color(0xFFF8F1EA),
+          color: BiteSaverColors.secondaryBackground,
           child: LayoutBuilder(
             builder: (context, constraints) {
               final width = constraints.maxWidth;
@@ -985,7 +990,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                     ),
                     borderRadius: BorderRadius.circular(26),
                     border: Border.all(
-                      color: const Color(0xFFF9EEE4).withValues(alpha: 0.46),
+                      color: BiteSaverColors.border.withValues(alpha: 0.70),
                     ),
                     boxShadow: [
                       BoxShadow(
@@ -1043,7 +1048,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                   ),
                                   border: Border.all(
                                     color: const Color(
-                                      0xFFFFF6EE,
+                                      0xFFFFFFFF,
                                     ).withValues(alpha: 0.62),
                                     width: 0.8,
                                   ),
@@ -1187,7 +1192,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
             .toList();
 
         return Scaffold(
-          backgroundColor: const Color(0xFFF8F1EA),
+          backgroundColor: BiteSaverColors.pageBackground,
           appBar: AppBar(
             leadingWidth: 64,
             leading: IconButton(
@@ -1197,8 +1202,8 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
               constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
               icon: const BackButtonIcon(),
             ),
-            backgroundColor: const Color(0xFFF8F1EA),
-            surfaceTintColor: const Color(0xFFF8F1EA),
+            backgroundColor: BiteSaverColors.pageBackground,
+            surfaceTintColor: BiteSaverColors.pageBackground,
             elevation: 0,
           ),
           bottomNavigationBar: const PersistentBottomNavigation(
@@ -1234,7 +1239,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                     _displayText(restaurant.name, 'Restaurant'),
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
-                                      color: Color(0xFF2B1D14),
+                                      color: BiteSaverColors.ink,
                                       fontSize: 24,
                                       fontWeight: FontWeight.w800,
                                       height: 1.05,
@@ -1246,7 +1251,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
                                       fontSize: 14,
-                                      color: Color(0xFF7F6D5F),
+                                      color: BiteSaverColors.mutedInk,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
@@ -1267,7 +1272,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                     : Icons.favorite_border,
                                 color: _isFavoriteRestaurant
                                     ? Colors.red.shade400
-                                    : const Color(0xFF9F4F34),
+                                    : BiteSaverColors.orangeDark,
                               ),
                             ),
                           ],
@@ -1294,7 +1299,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                 ? null
                                 : _reportRestaurant,
                             style: TextButton.styleFrom(
-                              foregroundColor: const Color(0xFF7F6D5F),
+                              foregroundColor: BiteSaverColors.mutedInk,
                               padding: EdgeInsets.zero,
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
@@ -1310,7 +1315,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF2B1D14),
+                            color: BiteSaverColors.ink,
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -1322,7 +1327,9 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                               padding: const EdgeInsets.all(14),
                               child: const Text(
                                 'No available coupons right now.',
-                                style: TextStyle(color: Color(0xFF7F6D5F)),
+                                style: TextStyle(
+                                  color: BiteSaverColors.mutedInk,
+                                ),
                               ),
                             ),
                           )
@@ -1356,13 +1363,12 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                                     ) => Container(
                                                       width: 52,
                                                       height: 52,
-                                                      color: const Color(
-                                                        0xFFF4E8DC,
-                                                      ),
+                                                      color: BiteSaverColors
+                                                          .imageFallback,
                                                       child: const Icon(
                                                         Icons.local_offer,
                                                         color: Color(
-                                                          0xFF94482E,
+                                                          0xFFB7542D,
                                                         ),
                                                       ),
                                                     ),
@@ -1403,7 +1409,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                               'Untitled coupon',
                                             ),
                                             style: const TextStyle(
-                                              color: Color(0xFF2B1D14),
+                                              color: BiteSaverColors.ink,
                                               fontWeight: FontWeight.w700,
                                             ),
                                           ),
@@ -1416,12 +1422,12 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                                   ? _couponSubtitle(coupon)
                                                   : '${_couponSubtitle(coupon)} - Code: ${coupon.couponCode}'),
                                         style: const TextStyle(
-                                          color: Color(0xFF7F6D5F),
+                                          color: BiteSaverColors.mutedInk,
                                         ),
                                       ),
                                       trailing: const Icon(
                                         Icons.chevron_right,
-                                        color: Color(0xFF94482E),
+                                        color: BiteSaverColors.orangeDark,
                                       ),
                                       onTap: () {
                                         Navigator.push(

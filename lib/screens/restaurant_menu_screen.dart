@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_menu_service.dart';
+import '../widgets/bitesaver_colors.dart';
 import '../widgets/persistent_bottom_navigation.dart';
 import '../widgets/restaurant_menu_section_card.dart';
 
@@ -168,7 +169,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                       width: 86,
                       height: 76,
                       alignment: Alignment.center,
-                      color: const Color(0xFFF3E8DD),
+                      color: BiteSaverColors.imageFallback,
                       child: const Icon(Icons.menu_book_outlined),
                     ),
                   ),
@@ -214,7 +215,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
           Text(
             entry.key,
             style: const TextStyle(
-              color: Color(0xFF2B1D14),
+              color: BiteSaverColors.ink,
               fontSize: 18,
               fontWeight: FontWeight.w800,
             ),
@@ -225,12 +226,12 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
               padding: const EdgeInsets.only(bottom: 10),
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFFEFB),
+                  color: BiteSaverColors.surface,
                   borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFFE8D8C8)),
+                  border: Border.all(color: BiteSaverColors.border),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color.fromRGBO(64, 42, 22, 0.06),
+                      color: Color.fromRGBO(15, 23, 42, 0.06),
                       blurRadius: 10,
                       offset: Offset(0, 4),
                     ),
@@ -250,7 +251,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                               style: const TextStyle(
                                 fontWeight: FontWeight.w800,
                                 fontSize: 15,
-                                color: Color(0xFF2B1D14),
+                                color: BiteSaverColors.ink,
                               ),
                             ),
                           ),
@@ -269,7 +270,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                         Text(
                           item.description,
                           style: const TextStyle(
-                            color: Color(0xFF7F6D5F),
+                            color: BiteSaverColors.mutedInk,
                             height: 1.25,
                           ),
                         ),
@@ -315,7 +316,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                   fit: BoxFit.contain,
                   errorBuilder: (context, error, stackTrace) => Container(
                     alignment: Alignment.center,
-                    color: const Color(0xFFF3E8DD),
+                    color: BiteSaverColors.imageFallback,
                     child: const Text('Menu image unavailable'),
                   ),
                 ),
@@ -370,7 +371,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
               'Menu not available yet.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Color(0xFF2B1D14),
+                color: BiteSaverColors.ink,
                 fontSize: 17,
                 fontWeight: FontWeight.w800,
               ),
@@ -380,7 +381,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
               'Please check back later.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: Color(0xFF7F6D5F),
+                color: BiteSaverColors.mutedInk,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),
@@ -394,11 +395,11 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F1EA),
+      backgroundColor: BiteSaverColors.pageBackground,
       appBar: AppBar(
         title: Text('${widget.restaurantName} Menu'),
-        backgroundColor: const Color(0xFFF8F1EA),
-        surfaceTintColor: const Color(0xFFF8F1EA),
+        backgroundColor: BiteSaverColors.pageBackground,
+        surfaceTintColor: BiteSaverColors.pageBackground,
         elevation: 0,
       ),
       bottomNavigationBar: PersistentBottomNavigation(mode: widget.mode),
@@ -481,11 +482,11 @@ class _RestaurantMenuImageViewerState
     final hasMultipleImages = widget.images.length > 1;
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F1EA),
+      backgroundColor: BiteSaverColors.pageBackground,
       appBar: AppBar(
         title: Text('${widget.restaurantName} Menu'),
-        backgroundColor: const Color(0xFFF8F1EA),
-        surfaceTintColor: const Color(0xFFF8F1EA),
+        backgroundColor: BiteSaverColors.pageBackground,
+        surfaceTintColor: BiteSaverColors.pageBackground,
         elevation: 0,
       ),
       body: Column(
@@ -504,7 +505,7 @@ class _RestaurantMenuImageViewerState
                     fit: BoxFit.contain,
                     errorBuilder: (context, error, stackTrace) => Container(
                       alignment: Alignment.center,
-                      color: const Color(0xFFF3E8DD),
+                      color: BiteSaverColors.imageFallback,
                       child: const Text('Menu image unavailable'),
                     ),
                   ),
@@ -531,7 +532,7 @@ class _RestaurantMenuImageViewerState
                         border: Border.all(
                           color: isSelected
                               ? const Color(0xFF2563EB)
-                              : const Color(0xFFE8D8C8),
+                              : BiteSaverColors.border,
                           width: isSelected ? 2 : 1,
                         ),
                       ),
@@ -547,7 +548,7 @@ class _RestaurantMenuImageViewerState
                                 width: 54,
                                 height: 48,
                                 alignment: Alignment.center,
-                                color: const Color(0xFFF3E8DD),
+                                color: BiteSaverColors.imageFallback,
                                 child: const Icon(
                                   Icons.menu_book_outlined,
                                   size: 16,

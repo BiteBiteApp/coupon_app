@@ -19,6 +19,7 @@ import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/shared_location_state_service.dart';
+import '../widgets/bitesaver_colors.dart';
 import '../widgets/pressable_scale.dart';
 import 'coupon_detail_screen.dart';
 import 'restaurant_profile_screen.dart';
@@ -1227,12 +1228,16 @@ class _HomeScreenState extends State<HomeScreen> {
   }) {
     return [
       BoxShadow(
-        color: const Color(0xFF5E3E1E).withOpacity(0.062 + opacityBoost / 2),
+        color: BiteSaverColors.coolShadow.withValues(
+          alpha: 0.06 + opacityBoost / 2,
+        ),
         blurRadius: 10.5 * strength,
         offset: Offset(0, 6 * strength),
       ),
       BoxShadow(
-        color: const Color(0xFF704D24).withOpacity(0.15 + opacityBoost / 2),
+        color: BiteSaverColors.coolShadow.withValues(
+          alpha: 0.10 + opacityBoost / 2,
+        ),
         blurRadius: 2.1 * strength,
         offset: Offset(0, 2.4 * strength),
       ),
@@ -1250,47 +1255,46 @@ class _HomeScreenState extends State<HomeScreen> {
     required Widget child,
     required BorderRadius shellRadius,
     required BorderRadius faceRadius,
-    Color shellBorderColor = const Color(0x66F2DDBB),
+    Color shellBorderColor = BiteSaverColors.border,
     Color highlightBorderColor = const Color(0xF7FFFFFF),
     Color faceBorderColor = Colors.transparent,
     Gradient shellGradient = const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
       colors: [
-        Color(0xFFF7EEE4),
-        Color(0xFFE6D0BD),
-        Color(0xFFD7B79D),
-        Color(0xFFC7A382),
+        BiteSaverColors.surface,
+        BiteSaverColors.secondaryBackground,
+        BiteSaverColors.subtleSurface,
+        BiteSaverColors.border,
       ],
       stops: [0.0, 0.34, 0.72, 1.0],
     ),
     Gradient faceGradient = const LinearGradient(
       begin: Alignment.topCenter,
       end: Alignment.bottomCenter,
-      colors: [Color(0xFFFFFCFA), Color(0xFFFAF5EF), Color(0xFFF4EBE2)],
+      colors: [
+        BiteSaverColors.surface,
+        BiteSaverColors.secondaryBackground,
+        BiteSaverColors.subtleSurface,
+      ],
     ),
     EdgeInsetsGeometry innerMargin = const EdgeInsets.all(1.8),
     List<BoxShadow>? shadows,
   }) {
     final shellColors = _biteSaverGradientColors(shellGradient);
     final faceColors = _biteSaverGradientColors(faceGradient);
-    final warmedFaceColors = faceColors.isNotEmpty
-        ? faceColors
-              .map(
-                (color) =>
-                    Color.lerp(color, const Color(0xFFF1E5D8), 0.08) ?? color,
-              )
-              .toList(growable: false)
+    final adjustedFaceColors = faceColors.isNotEmpty
+        ? faceColors.toList(growable: false)
         : const <Color>[
-            Color(0xFFFFFCFA),
-            Color(0xFFFAF5EF),
-            Color(0xFFF4EBE2),
+            BiteSaverColors.surface,
+            BiteSaverColors.secondaryBackground,
+            BiteSaverColors.subtleSurface,
           ];
     final adjustedFaceGradient = faceGradient is LinearGradient
         ? LinearGradient(
             begin: faceGradient.begin,
             end: faceGradient.end,
-            colors: warmedFaceColors,
+            colors: adjustedFaceColors,
             stops: faceGradient.stops,
             tileMode: faceGradient.tileMode,
             transform: faceGradient.transform,
@@ -1299,7 +1303,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ? RadialGradient(
             center: faceGradient.center,
             radius: faceGradient.radius,
-            colors: warmedFaceColors,
+            colors: adjustedFaceColors,
             stops: faceGradient.stops,
             tileMode: faceGradient.tileMode,
             focal: faceGradient.focal,
@@ -1311,7 +1315,7 @@ class _HomeScreenState extends State<HomeScreen> {
             center: faceGradient.center,
             startAngle: faceGradient.startAngle,
             endAngle: faceGradient.endAngle,
-            colors: warmedFaceColors,
+            colors: adjustedFaceColors,
             stops: faceGradient.stops,
             tileMode: faceGradient.tileMode,
             transform: faceGradient.transform,
@@ -1319,36 +1323,36 @@ class _HomeScreenState extends State<HomeScreen> {
         : faceGradient;
     final rawShellBottomColor = shellColors.isNotEmpty
         ? shellColors.last
-        : const Color(0xFFC6944F);
+        : BiteSaverColors.borderStrong;
     final shellBottomColor =
-        Color.lerp(rawShellBottomColor, const Color(0xFF9D6E3A), 0.14) ??
+        Color.lerp(rawShellBottomColor, BiteSaverColors.borderStrong, 0.14) ??
         rawShellBottomColor;
-    final faceTopColor = warmedFaceColors.isNotEmpty
-        ? warmedFaceColors.first
-        : const Color(0xFFFFFCF8);
+    final faceTopColor = adjustedFaceColors.isNotEmpty
+        ? adjustedFaceColors.first
+        : BiteSaverColors.surface;
     final lipColor =
-        Color.lerp(shellBottomColor, const Color(0xFF8E6030), 0.28) ??
+        Color.lerp(shellBottomColor, BiteSaverColors.borderStrong, 0.28) ??
         shellBottomColor;
     final resolvedShadows = <BoxShadow>[
       const BoxShadow(
-        color: Color.fromRGBO(90, 60, 30, 0.28),
+        color: Color.fromRGBO(15, 23, 42, 0.12),
         blurRadius: 1,
         spreadRadius: 0,
         offset: Offset(0, -1),
       ),
       const BoxShadow(
-        color: Color.fromRGBO(90, 60, 30, 0.18),
+        color: Color.fromRGBO(15, 23, 42, 0.08),
         blurRadius: 1,
         spreadRadius: 0,
         offset: Offset(0, 0),
       ),
       const BoxShadow(
-        color: Color.fromRGBO(90, 60, 30, 0.06),
+        color: Color.fromRGBO(15, 23, 42, 0.04),
         blurRadius: 8,
         offset: Offset(0, -1),
       ),
       const BoxShadow(
-        color: Color.fromRGBO(90, 60, 30, 0.04),
+        color: Color.fromRGBO(15, 23, 42, 0.03),
         blurRadius: 6,
         offset: Offset(0, 0),
       ),
@@ -1404,7 +1408,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF704D24).withOpacity(0.14),
+                    color: BiteSaverColors.coolShadow.withValues(alpha: 0.08),
                     blurRadius: 1.5,
                     offset: const Offset(0, 1.3),
                   ),
@@ -1475,9 +1479,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(
-                                  0xFF704D24,
-                                ).withOpacity(0.05),
+                                color: BiteSaverColors.coolShadow.withValues(
+                                  alpha: 0.035,
+                                ),
                                 blurRadius: 1.8,
                                 offset: const Offset(0, 1.0),
                               ),
@@ -1562,29 +1566,33 @@ class _HomeScreenState extends State<HomeScreen> {
         child: _biteSaverTile(
           shellRadius: BorderRadius.circular(17),
           faceRadius: BorderRadius.circular(15.5),
-          shellBorderColor: const Color(0x66F2DDBB),
+          shellBorderColor: BiteSaverColors.border,
           highlightBorderColor: const Color(0xF7FFFFFF),
           faceBorderColor: Colors.transparent,
           shellGradient: const LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
             colors: [
-              Color(0xFFEFDECD),
-              Color(0xFFDBC1AA),
-              Color(0xFFCBA783),
-              Color(0xFFBA9168),
+              BiteSaverColors.surface,
+              BiteSaverColors.secondaryBackground,
+              BiteSaverColors.subtleSurface,
+              BiteSaverColors.border,
             ],
             stops: [0.0, 0.34, 0.72, 1.0],
           ),
           faceGradient: const LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFFCFA), Color(0xFFF6ECE2), Color(0xFFEBD9C7)],
+            colors: [
+              BiteSaverColors.surface,
+              BiteSaverColors.secondaryBackground,
+              BiteSaverColors.subtleSurface,
+            ],
           ),
           innerMargin: const EdgeInsets.all(1.7),
           shadows: [
             const BoxShadow(
-              color: Color.fromRGBO(120, 80, 40, 0.36),
+              color: Color.fromRGBO(15, 23, 42, 0.12),
               offset: Offset(0, 2),
               blurRadius: 0,
               spreadRadius: 0,
@@ -1628,7 +1636,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         ? 'Untitled coupon'
                         : coupon.title.trim(),
                     style: const TextStyle(
-                      color: Color(0xFF2B1D14),
+                      color: BiteSaverColors.ink,
                       fontSize: 16.4,
                       fontWeight: FontWeight.w700,
                       height: 1.06,
@@ -1643,7 +1651,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Center(
                   child: Icon(
                     Icons.chevron_right,
-                    color: Color(0xFF94482E),
+                    color: BiteSaverColors.orangeDark,
                     size: 21,
                   ),
                 ),
@@ -2108,12 +2116,12 @@ class _HomeScreenState extends State<HomeScreen> {
               padding: const EdgeInsets.fromLTRB(0, 8, 0, 8),
               child: Container(
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFFCF7),
+                  color: BiteSaverColors.surface,
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: const Color(0xFFEADFD3)),
+                  border: Border.all(color: BiteSaverColors.border),
                   boxShadow: const [
                     BoxShadow(
-                      color: Color.fromRGBO(91, 63, 32, 0.08),
+                      color: Color.fromRGBO(15, 23, 42, 0.08),
                       blurRadius: 18,
                       offset: Offset(0, 10),
                     ),
@@ -2133,7 +2141,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         'No nearby deals yet',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Color(0xFF271A12),
+                          color: BiteSaverColors.ink,
                           fontSize: 18,
                           fontWeight: FontWeight.w800,
                         ),
@@ -2222,17 +2230,17 @@ class _HomeScreenState extends State<HomeScreen> {
           borderRadius: BorderRadius.circular(15),
           child: Ink(
             decoration: BoxDecoration(
-              color: const Color(0xFFFFFEFB),
+              color: BiteSaverColors.surface,
               borderRadius: BorderRadius.circular(15),
-              border: Border.all(color: const Color(0xFFEDE3D8), width: 0.7),
+              border: Border.all(color: BiteSaverColors.border, width: 0.7),
               boxShadow: const [
                 BoxShadow(
-                  color: Color.fromRGBO(64, 42, 22, 0.065),
+                  color: Color.fromRGBO(15, 23, 42, 0.065),
                   blurRadius: 13,
                   offset: Offset(0, 6),
                 ),
                 BoxShadow(
-                  color: Color.fromRGBO(64, 42, 22, 0.035),
+                  color: Color.fromRGBO(15, 23, 42, 0.035),
                   blurRadius: 3,
                   offset: Offset(0, 1),
                 ),
@@ -2277,7 +2285,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: TextStyle(
-                                          color: const Color(0xFF24170F),
+                                          color: BiteSaverColors.ink,
                                           fontSize: compact ? 16.7 : 17.6,
                                           fontWeight: FontWeight.w800,
                                           height: 1.08,
@@ -2307,7 +2315,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
-                                          color: Color(0xFF5E564E),
+                                          color: BiteSaverColors.mutedInk,
                                           fontSize: 12.7,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -2367,7 +2375,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 size: 18,
                                 shadows: const [
                                   Shadow(
-                                    color: Color.fromRGBO(64, 42, 22, 0.22),
+                                    color: Color.fromRGBO(15, 23, 42, 0.18),
                                     blurRadius: 5,
                                     offset: Offset(0, 2),
                                   ),
@@ -2450,7 +2458,7 @@ class _HomeScreenState extends State<HomeScreen> {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: const TextStyle(
-              color: Color(0xFF24170F),
+              color: BiteSaverColors.ink,
               fontSize: 11.6,
               fontWeight: FontWeight.w800,
             ),
@@ -2492,10 +2500,10 @@ class _HomeScreenState extends State<HomeScreen> {
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
-          color: const Color(0xFFFFF3E6),
+          color: BiteSaverColors.secondaryBackground,
           borderRadius: BorderRadius.circular(11),
           border: Border.all(
-            color: const Color(0xFFF2B46B),
+            color: BiteSaverColors.borderStrong,
             width: 0.75,
             strokeAlign: BorderSide.strokeAlignInside,
           ),
@@ -2583,7 +2591,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        color: Color(0xFF665C54),
+                        color: BiteSaverColors.mutedInk,
                         fontSize: 11.2,
                         fontWeight: FontWeight.w600,
                       ),
@@ -2619,14 +2627,14 @@ class _HomeScreenState extends State<HomeScreen> {
     }) {
       return InputDecoration(
         filled: true,
-        fillColor: const Color(0xFFFFFEFC),
+        fillColor: BiteSaverColors.surface,
         hintText: hint,
         hintStyle: const TextStyle(
-          color: Color(0xFF7B7168),
+          color: BiteSaverColors.mutedInk,
           fontSize: 12.6,
           fontWeight: FontWeight.w500,
         ),
-        prefixIcon: Icon(icon, color: const Color(0xFF24170F), size: 21),
+        prefixIcon: Icon(icon, color: BiteSaverColors.ink, size: 21),
         prefixIconConstraints: const BoxConstraints(
           minWidth: 32,
           minHeight: 36,
@@ -2639,15 +2647,18 @@ class _HomeScreenState extends State<HomeScreen> {
         contentPadding: contentPadding,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(13),
-          borderSide: const BorderSide(color: Color(0xFFE5DBD2)),
+          borderSide: const BorderSide(color: BiteSaverColors.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(13),
-          borderSide: const BorderSide(color: Color(0xFFE5DBD2)),
+          borderSide: const BorderSide(color: BiteSaverColors.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(13),
-          borderSide: const BorderSide(color: Color(0xFFD79A32), width: 1.25),
+          borderSide: const BorderSide(
+            color: BiteSaverColors.orange,
+            width: 1.25,
+          ),
         ),
       );
     }
@@ -2731,7 +2742,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     )
                   : const Icon(
                       Icons.arrow_forward,
-                      color: Color(0xFF24170F),
+                      color: BiteSaverColors.ink,
                       size: 18,
                     ),
             ),
@@ -2749,7 +2760,7 @@ class _HomeScreenState extends State<HomeScreen> {
               initialValue: selectedRadius,
               decoration: InputDecoration(
                 filled: true,
-                fillColor: const Color(0xFFFFFEFC),
+                fillColor: BiteSaverColors.surface,
                 isDense: true,
                 contentPadding: EdgeInsets.symmetric(
                   horizontal: tight ? 7 : 8,
@@ -2757,11 +2768,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(11),
-                  borderSide: const BorderSide(color: Color(0xFFE5DBD2)),
+                  borderSide: const BorderSide(color: BiteSaverColors.border),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(11),
-                  borderSide: const BorderSide(color: Color(0xFFE5DBD2)),
+                  borderSide: const BorderSide(color: BiteSaverColors.border),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(11),
@@ -2769,7 +2780,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
               style: TextStyle(
-                color: const Color(0xFF2A1B12),
+                color: BiteSaverColors.ink,
                 fontSize: tight ? 11.7 : 12.2,
                 fontWeight: FontWeight.w700,
               ),
@@ -2826,7 +2837,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     tooltip: 'Clear search',
                     icon: const Icon(
                       Icons.close,
-                      color: Color(0xFF9A8D80),
+                      color: BiteSaverColors.softMutedInk,
                       size: 17,
                     ),
                   ),
@@ -2835,7 +2846,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   tooltip: 'Search',
                   icon: const Icon(
                     Icons.arrow_forward,
-                    color: Color(0xFF24170F),
+                    color: BiteSaverColors.ink,
                     size: 18,
                   ),
                 ),
@@ -2847,7 +2858,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return Material(
-      color: const Color(0xFFFFFCF7),
+      color: BiteSaverColors.secondaryBackground,
       child: AnimatedSwitcher(
         duration: const Duration(milliseconds: 180),
         layoutBuilder: (currentChild, previousChildren) {
@@ -2865,12 +2876,12 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Container(
                     padding: const EdgeInsets.only(left: 13, right: 5),
                     decoration: BoxDecoration(
-                      color: const Color(0xFFFFFEFC),
+                      color: BiteSaverColors.surface,
                       borderRadius: BorderRadius.circular(18),
-                      border: Border.all(color: const Color(0xFFEDE3D8)),
+                      border: Border.all(color: BiteSaverColors.border),
                       boxShadow: const [
                         BoxShadow(
-                          color: Color.fromRGBO(64, 42, 22, 0.07),
+                          color: Color.fromRGBO(15, 23, 42, 0.07),
                           blurRadius: 12,
                           offset: Offset(0, 5),
                         ),
@@ -2886,7 +2897,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
-                              color: Color(0xFF2A1B12),
+                              color: BiteSaverColors.ink,
                               fontSize: 13.4,
                               fontWeight: FontWeight.w800,
                             ),
@@ -2929,7 +2940,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         gradient: LinearGradient(
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
-                          colors: [Color(0xFFFFFCF7), Color(0xFFFFF8EF)],
+                          colors: [
+                            BiteSaverColors.secondaryBackground,
+                            BiteSaverColors.pageBackground,
+                          ],
                         ),
                       ),
                       child: Column(
@@ -2963,7 +2977,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 'Eat well.',
                                                 style: TextStyle(
                                                   color: const Color(
-                                                    0xFF2A1B12,
+                                                    0xFF111827,
                                                   ),
                                                   fontSize: tight ? 28 : 33,
                                                   fontWeight: FontWeight.w900,
@@ -2990,7 +3004,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           maxLines: 2,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
-                                            color: const Color(0xFF4A3324),
+                                            color: BiteSaverColors.valueInk,
                                             fontSize: tight ? 12.2 : 13.4,
                                             height: 1.18,
                                             fontWeight: FontWeight.w600,
@@ -3040,15 +3054,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                   tight ? 3 : 5,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: const Color(0xFFFFFEFC),
+                                  color: BiteSaverColors.surface,
                                   borderRadius: BorderRadius.circular(15),
                                   border: Border.all(
-                                    color: const Color(0xFFEDE3D8),
+                                    color: BiteSaverColors.border,
                                     width: 0.8,
                                   ),
                                   boxShadow: const [
                                     BoxShadow(
-                                      color: Color.fromRGBO(64, 42, 22, 0.085),
+                                      color: Color.fromRGBO(15, 23, 42, 0.085),
                                       blurRadius: 18,
                                       offset: Offset(0, 7),
                                     ),
@@ -3186,13 +3200,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 136.0 + MediaQuery.of(context).viewPadding.bottom;
 
             return Scaffold(
-              backgroundColor: const Color(0xFFFCF9F5),
+              backgroundColor: BiteSaverColors.pageBackground,
               body: Container(
                 decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
-                    colors: [Color(0xFFFFFEFC), Color(0xFFF8F1E9)],
+                    colors: [
+                      BiteSaverColors.pageBackground,
+                      BiteSaverColors.secondaryBackground,
+                    ],
                   ),
                 ),
                 child: ScrollConfiguration(
@@ -3355,10 +3372,10 @@ class _SoftRestaurantImageFrame extends StatelessWidget {
               clipper: const _SquircleClipper(),
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE8D6C1),
+                  color: BiteSaverColors.borderStrong,
                   boxShadow: const [
                     BoxShadow(
-                      color: Color.fromRGBO(64, 42, 22, 0.16),
+                      color: Color.fromRGBO(15, 23, 42, 0.14),
                       blurRadius: 9,
                       offset: Offset(0, 4),
                     ),
@@ -3372,11 +3389,8 @@ class _SoftRestaurantImageFrame extends StatelessWidget {
               clipper: const _SquircleClipper(),
               child: DecoratedBox(
                 decoration: BoxDecoration(
-                  color: const Color(0xFFFFF9F1),
-                  border: Border.all(
-                    color: const Color(0xFFFFF7EC),
-                    width: 1.2,
-                  ),
+                  color: BiteSaverColors.surface,
+                  border: Border.all(color: BiteSaverColors.border, width: 1.2),
                 ),
                 child: _RestaurantCardImage(
                   imageUrl: imageUrl,

@@ -4,6 +4,7 @@ import '../models/daily_special.dart';
 import '../models/restaurant.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/restaurant_account_service.dart';
+import '../widgets/bitesaver_colors.dart';
 import '../widgets/persistent_bottom_navigation.dart';
 
 class RestaurantSpecialsScreen extends StatefulWidget {
@@ -80,12 +81,12 @@ class _RestaurantSpecialsScreenState extends State<RestaurantSpecialsScreen> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(18, 18, 18, 12),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFFEFA),
+        color: BiteSaverColors.surface,
         borderRadius: BorderRadius.circular(22),
         border: Border.all(color: const Color(0xFFC9CDD2), width: 1.8),
         boxShadow: const [
           BoxShadow(
-            color: Color.fromRGBO(42, 33, 24, 0.16),
+            color: Color.fromRGBO(15, 23, 42, 0.12),
             blurRadius: 22,
             offset: Offset(0, 12),
           ),
@@ -206,7 +207,7 @@ class _RestaurantSpecialsScreenState extends State<RestaurantSpecialsScreen> {
                   Text(
                     scheduleLabel,
                     style: const TextStyle(
-                      color: Color(0xFF8A5226),
+                      color: BiteSaverColors.orangeDark,
                       fontSize: 13,
                       fontWeight: FontWeight.w800,
                       height: 1.2,
@@ -240,7 +241,7 @@ class _RestaurantSpecialsScreenState extends State<RestaurantSpecialsScreen> {
           borderRadius: BorderRadius.circular(999),
           boxShadow: const [
             BoxShadow(
-              color: Color.fromRGBO(61, 54, 48, 0.16),
+              color: Color.fromRGBO(15, 23, 42, 0.12),
               blurRadius: 4,
               offset: Offset(0, 2),
             ),
@@ -286,11 +287,11 @@ class _RestaurantSpecialsScreenState extends State<RestaurantSpecialsScreen> {
     final restaurantName = _displayText(widget.restaurant.name, 'Restaurant');
 
     return Scaffold(
-      backgroundColor: const Color(0xFFF8F1EA),
+      backgroundColor: BiteSaverColors.pageBackground,
       appBar: AppBar(
         title: const Text("Today's Specials"),
-        backgroundColor: const Color(0xFFF8F1EA),
-        surfaceTintColor: const Color(0xFFF8F1EA),
+        backgroundColor: BiteSaverColors.pageBackground,
+        surfaceTintColor: BiteSaverColors.pageBackground,
         elevation: 0,
       ),
       bottomNavigationBar: const PersistentBottomNavigation(

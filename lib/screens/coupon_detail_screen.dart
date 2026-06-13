@@ -13,6 +13,7 @@ import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
+import '../widgets/bitesaver_colors.dart';
 import '../widgets/bitesaver_report_dialog.dart';
 import '../widgets/persistent_bottom_navigation.dart';
 import 'customer_account_screen.dart';
@@ -29,12 +30,12 @@ class CouponDetailScreen extends StatefulWidget {
 }
 
 class _CouponDetailScreenState extends State<CouponDetailScreen> {
-  static const Color _pageBackground = Color(0xFFFFFEFC);
-  static const Color _warmInk = Color(0xFF1E120B);
-  static const Color _warmLabelInk = Color(0xFF332014);
-  static const Color _warmValueInk = Color(0xFF665040);
-  static const Color _warmMutedInk = Color(0xFF6F5A4A);
-  static const Color _warmAccent = Color(0xFFB7613F);
+  static const Color _pageBackground = BiteSaverColors.pageBackground;
+  static const Color _detailInk = BiteSaverColors.ink;
+  static const Color _detailLabelInk = BiteSaverColors.labelInk;
+  static const Color _detailValueInk = BiteSaverColors.valueInk;
+  static const Color _detailMutedInk = BiteSaverColors.mutedInk;
+  static const Color _detailAccent = BiteSaverColors.orangeDark;
 
   bool isLoading = true;
   bool isRedeeming = false;
@@ -385,7 +386,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
       onPressed: _isSavingFavoriteCoupon ? null : _toggleCouponFavorite,
       icon: Icon(
         _isFavoriteCoupon ? Icons.favorite : Icons.favorite_border,
-        color: _isFavoriteCoupon ? Colors.red.shade400 : _warmAccent,
+        color: _isFavoriteCoupon ? Colors.red.shade400 : _detailAccent,
       ),
     );
   }
@@ -399,17 +400,21 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
         gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFFFFEFB), Color(0xFFFBF4EC), Color(0xFFF1DFCE)],
+          colors: [
+            BiteSaverColors.surface,
+            BiteSaverColors.secondaryBackground,
+            BiteSaverColors.subtleSurface,
+          ],
         ),
-        border: Border.all(color: const Color(0xFFE6C79F), width: 1.15),
+        border: Border.all(color: BiteSaverColors.border, width: 1.15),
         boxShadow: const [
           BoxShadow(
-            color: Color.fromRGBO(91, 50, 20, 0.15),
+            color: Color.fromRGBO(15, 23, 42, 0.10),
             blurRadius: 18,
             offset: Offset(0, 9),
           ),
           BoxShadow(
-            color: Color.fromRGBO(122, 72, 29, 0.12),
+            color: Color.fromRGBO(15, 23, 42, 0.05),
             blurRadius: 0,
             offset: Offset(0, 3),
           ),
@@ -441,7 +446,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
       child: RichText(
         text: TextSpan(
           style: const TextStyle(
-            color: _warmValueInk,
+            color: _detailValueInk,
             fontSize: 14,
             height: 1.25,
           ),
@@ -449,7 +454,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
             TextSpan(
               text: '$label: ',
               style: const TextStyle(
-                color: _warmLabelInk,
+                color: _detailLabelInk,
                 fontWeight: FontWeight.w800,
                 letterSpacing: 0.08,
               ),
@@ -478,16 +483,18 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
             : const LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0xFFEADFD5), Color(0xFFD8C9BC)],
+                colors: [BiteSaverColors.subtleSurface, BiteSaverColors.border],
               ),
         border: Border.all(
-          color: enabled ? const Color(0xFFFFD2B4) : const Color(0xFFD7C7B9),
+          color: enabled
+              ? const Color(0xFFFFD2B4)
+              : BiteSaverColors.borderStrong,
           width: 0.8,
         ),
         boxShadow: enabled
             ? const [
                 BoxShadow(
-                  color: Color.fromRGBO(90, 42, 18, 0.22),
+                  color: Color.fromRGBO(15, 23, 42, 0.16),
                   blurRadius: 12,
                   offset: Offset(0, 7),
                 ),
@@ -589,7 +596,10 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                 gradient: LinearGradient(
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
-                  colors: [_pageBackground, Color(0xFFF8F1E9)],
+                  colors: [
+                    _pageBackground,
+                    BiteSaverColors.secondaryBackground,
+                  ],
                 ),
               ),
               child: SingleChildScrollView(
@@ -621,10 +631,10 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                                       Container(
                                         height: 180,
                                         alignment: Alignment.center,
-                                        color: const Color(0xFFF4E8DC),
+                                        color: BiteSaverColors.imageFallback,
                                         child: const Icon(
                                           Icons.local_offer_outlined,
-                                          color: _warmAccent,
+                                          color: _detailAccent,
                                           size: 34,
                                         ),
                                       ),
@@ -639,7 +649,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                                   child: Text(
                                     titleLabel,
                                     style: const TextStyle(
-                                      color: _warmInk,
+                                      color: _detailInk,
                                       fontSize: 22,
                                       fontWeight: FontWeight.w800,
                                       height: 1.08,
@@ -669,9 +679,9 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                                   : const Icon(Icons.storefront_outlined),
                               label: const Text('View Restaurant'),
                               style: OutlinedButton.styleFrom(
-                                foregroundColor: _warmAccent,
+                                foregroundColor: _detailAccent,
                                 side: const BorderSide(
-                                  color: Color(0xFFE3C7B3),
+                                  color: BiteSaverColors.borderStrong,
                                 ),
                                 shape: RoundedRectangleBorder(
                                   borderRadius: BorderRadius.circular(999),
@@ -692,7 +702,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                               const Text(
                                 'Details',
                                 style: TextStyle(
-                                  color: _warmInk,
+                                  color: _detailInk,
                                   fontSize: 16,
                                   fontWeight: FontWeight.w800,
                                 ),
@@ -701,7 +711,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                               Text(
                                 coupon.details!,
                                 style: const TextStyle(
-                                  color: _warmValueInk,
+                                  color: _detailValueInk,
                                   height: 1.35,
                                 ),
                               ),
@@ -737,7 +747,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                                     ? null
                                     : _reportCoupon,
                                 style: TextButton.styleFrom(
-                                  foregroundColor: _warmMutedInk,
+                                  foregroundColor: _detailMutedInk,
                                   padding: EdgeInsets.zero,
                                   tapTargetSize:
                                       MaterialTapTargetSize.shrinkWrap,
@@ -764,7 +774,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                               backgroundColor: Colors.transparent,
                               disabledBackgroundColor: Colors.transparent,
                               foregroundColor: Colors.white,
-                              disabledForegroundColor: _warmMutedInk,
+                              disabledForegroundColor: _detailMutedInk,
                               elevation: 0,
                               shadowColor: Colors.transparent,
                               padding: const EdgeInsets.symmetric(vertical: 15),
@@ -793,7 +803,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                         Text(
                           'Timer active: ${_formatDuration(remaining)} remaining.',
                           style: const TextStyle(
-                            color: _warmAccent,
+                            color: _detailAccent,
                             fontWeight: FontWeight.w700,
                           ),
                         )
@@ -808,7 +818,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                       else if (canStartRedeemTimer)
                         const Text(
                           'Tapping redeem starts a 5-minute timer. Tap when ready to pay.',
-                          style: TextStyle(color: _warmMutedInk),
+                          style: TextStyle(color: _detailMutedInk),
                         ),
                     ],
                   ],

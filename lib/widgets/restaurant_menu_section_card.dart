@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'bitesaver_colors.dart';
+
 class RestaurantMenuSectionCard extends StatelessWidget {
   final String title;
   final String body;
@@ -18,12 +20,12 @@ class RestaurantMenuSectionCard extends StatelessWidget {
       padding: margin,
       child: DecoratedBox(
         decoration: BoxDecoration(
-          color: const Color(0xFFFFFEFB),
+          color: BiteSaverColors.surface,
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: const Color(0xFFE8D8C8)),
+          border: Border.all(color: BiteSaverColors.border),
           boxShadow: const [
             BoxShadow(
-              color: Color.fromRGBO(64, 42, 22, 0.06),
+              color: Color.fromRGBO(15, 23, 42, 0.06),
               blurRadius: 10,
               offset: Offset(0, 4),
             ),
@@ -37,7 +39,7 @@ class RestaurantMenuSectionCard extends StatelessWidget {
               Text(
                 title,
                 style: const TextStyle(
-                  color: Color(0xFF2B1D14),
+                  color: BiteSaverColors.ink,
                   fontSize: 18,
                   fontWeight: FontWeight.w900,
                 ),
@@ -46,7 +48,7 @@ class RestaurantMenuSectionCard extends StatelessWidget {
               Text(
                 body,
                 style: const TextStyle(
-                  color: Color(0xFF514235),
+                  color: BiteSaverColors.valueInk,
                   height: 1.35,
                   fontWeight: FontWeight.w600,
                 ),

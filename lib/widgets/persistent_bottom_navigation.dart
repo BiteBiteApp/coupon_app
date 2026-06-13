@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../screens/main_navigation_screen.dart';
 import '../services/app_mode_state_service.dart';
+import 'bitesaver_colors.dart';
 
 class PersistentBottomNavigation extends StatelessWidget {
   final AppMode mode;
@@ -16,10 +17,8 @@ class PersistentBottomNavigation extends StatelessWidget {
   void _openDestination(BuildContext context, int index) {
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
-        builder: (_) => MainNavigationScreen(
-          initialMode: mode,
-          initialIndex: index,
-        ),
+        builder: (_) =>
+            MainNavigationScreen(initialMode: mode, initialIndex: index),
       ),
       (route) => false,
     );
@@ -51,7 +50,11 @@ class PersistentBottomNavigation extends StatelessWidget {
         icon: Icons.admin_panel_settings_outlined,
         selectedIcon: Icons.admin_panel_settings,
       ),
-      (label: 'Account', icon: Icons.person_outline, selectedIcon: Icons.person),
+      (
+        label: 'Account',
+        icon: Icons.person_outline,
+        selectedIcon: Icons.person,
+      ),
     ];
 
     final navigationBar = SizedBox(
@@ -79,7 +82,7 @@ class PersistentBottomNavigation extends StatelessWidget {
                                   : item.value.icon,
                               color: item.key == selectedIndex
                                   ? selectedIconColor
-                                  : const Color(0xFF766D61),
+                                  : BiteSaverColors.mutedInk,
                               size: item.key == selectedIndex ? 21 : 19.5,
                             ),
                           ),
@@ -93,7 +96,7 @@ class PersistentBottomNavigation extends StatelessWidget {
                               style: TextStyle(
                                 color: item.key == selectedIndex
                                     ? selectedTextColor
-                                    : const Color(0xFF766D61),
+                                    : BiteSaverColors.mutedInk,
                                 fontWeight: item.key == selectedIndex
                                     ? FontWeight.w700
                                     : FontWeight.w500,
@@ -129,12 +132,12 @@ class PersistentBottomNavigation extends StatelessWidget {
           decoration: BoxDecoration(
             color: isBiteScore
                 ? const Color(0xFFF7FAFE)
-                : const Color(0xFFFFFEFC),
+                : BiteSaverColors.surface,
             borderRadius: BorderRadius.circular(isBiteScore ? 20 : 21),
             border: Border.all(
               color: isBiteScore
                   ? const Color(0xFFD8E4F3)
-                  : const Color(0xFFEFE1D1),
+                  : BiteSaverColors.border,
               width: 1,
             ),
             boxShadow: [

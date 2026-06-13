@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../services/app_mode_state_service.dart';
+import 'bitesaver_colors.dart';
 
 class AppModeSwitcherBar extends StatefulWidget {
   final AppMode selectedMode;
@@ -70,7 +71,7 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
       decoration: BoxDecoration(
         color: widget.selectedMode == AppMode.biteScore
             ? const Color(0xFFEFF4FA)
-            : const Color(0xFFFFFEFC),
+            : BiteSaverColors.pageBackground,
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -106,7 +107,7 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                 ),
                 borderRadius: BorderRadius.circular(21),
                 border: Border.all(
-                  color: const Color(0xFFF9EEE4).withValues(alpha: 0.46),
+                  color: BiteSaverColors.border.withValues(alpha: 0.70),
                 ),
                 boxShadow: [
                   BoxShadow(
@@ -166,7 +167,7 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
                               ),
                               border: Border.all(
                                 color: const Color(
-                                  0xFFFFF6EE,
+                                  0xFFFFFFFF,
                                 ).withValues(alpha: 0.62),
                                 width: 0.8,
                               ),
