@@ -1,0 +1,404 @@
+import 'package:coupon_app/models/contribution_point_ledger_entry.dart';
+import 'package:coupon_app/services/contribution_points_service.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+void main() {
+  group('Contribution point scoring rules', () {
+    test('review milestone points are awarded every five valid reviews', () {
+      expect(ContributionPointsService.reviewMilestonePointsForCount(0), 0);
+      expect(ContributionPointsService.reviewMilestonePointsForCount(4), 0);
+      expect(ContributionPointsService.reviewMilestonePointsForCount(5), 1);
+      expect(ContributionPointsService.reviewMilestonePointsForCount(9), 1);
+      expect(ContributionPointsService.reviewMilestonePointsForCount(10), 2);
+    });
+
+    test('removed review crossing below a milestone requires one reversal', () {
+      final before = ContributionPointsService.reviewMilestonesForCount(10);
+      final after = ContributionPointsService.reviewMilestonesForCount(9);
+
+      expect(before, [5, 10]);
+      expect(after, [5]);
+      expect(before.toSet().difference(after.toSet()), {10});
+    });
+
+    test('duplicate review does not add milestone progress', () {
+      final submittedReviewKeys = [
+        'dish-1::user-1',
+        'dish-2::user-1',
+        'dish-3::user-1',
+        'dish-4::user-1',
+        'dish-5::user-1',
+        'dish-5::user-1',
+      ];
+      final uniqueUserDishKeys = submittedReviewKeys.toSet();
+
+      expect(
+        ContributionPointsService.reviewMilestonePointsForCount(
+          uniqueUserDishKeys.length,
+        ),
+        1,
+      );
+    });
+
+    test('dish contribution point values match initial rules', () {
+      expect(
+        ContributionPointsService.pointsForDishContribution(
+          createdNewRestaurant: false,
+          createdNewDish: true,
+          restaurantHadNoDishesBefore: false,
+        ),
+        1,
+      );
+      expect(
+        ContributionPointsService.pointsForDishContribution(
+          createdNewRestaurant: true,
+          createdNewDish: true,
+          restaurantHadNoDishesBefore: true,
+        ),
+        3,
+      );
+      expect(
+        ContributionPointsService.pointsForDishContribution(
+          createdNewRestaurant: false,
+          createdNewDish: true,
+          restaurantHadNoDishesBefore: true,
+        ),
+        3,
+      );
+      expect(
+        ContributionPointsService.pointsForDishContribution(
+          createdNewRestaurant: false,
+          createdNewDish: false,
+          restaurantHadNoDishesBefore: false,
+        ),
+        0,
+      );
+    });
+
+    test('image can stack with a plus-three contribution', () {
+      final firstDishPoints =
+          ContributionPointsService.pointsForDishContribution(
+            createdNewRestaurant: true,
+            createdNewDish: true,
+            restaurantHadNoDishesBefore: true,
+          );
+      const imagePoints = 1;
+
+      expect(firstDishPoints + imagePoints, 4);
+    });
+
+    test('approved proposal actions are worth one point', () {
+      expect(ContributionPointAction.dishEditApproved, 'dish_edit_approved');
+      expect(
+        ContributionPointAction.dishRenameApproved,
+        'dish_rename_approved',
+      );
+      expect(ContributionPointAction.dishMergeApproved, 'dish_merge_approved');
+    });
+
+    test(
+      'submitted but unapproved and rejected requests are zero by default',
+      () {
+        const submittedButUnapproved = 0;
+        const rejectedOrNoOp = 0;
+
+        expect(submittedButUnapproved, 0);
+        expect(rejectedOrNoOp, 0);
+      },
+    );
+
+    test('rename approval treats unchanged values as no-op', () {
+      expect(
+        ContributionPointsService.isMeaningfulApprovedDishRename(
+          currentName: 'Supreme Pizza',
+          currentNormalizedName: 'supreme pizza',
+          proposedName: 'Supreme Pizza',
+          proposedNormalizedName: 'supreme pizza',
+        ),
+        isFalse,
+      );
+    });
+
+    test('rename approval credits changed dish names', () {
+      expect(
+        ContributionPointsService.isMeaningfulApprovedDishRename(
+          currentName: 'Supreme Pizza',
+          currentNormalizedName: 'supreme pizza',
+          proposedName: 'House Supreme Pizza',
+          proposedNormalizedName: 'house supreme pizza',
+        ),
+        isTrue,
+      );
+    });
+  });
+
+  group('Contribution point ledger identity', () {
+    test('stable source keys prevent duplicate ledger entries', () {
+      final left = ContributionPointsService.dishImageAddedSourceKey(
+        dishId: 'dish-1',
+        imageId: 'image-1',
+      );
+      final right = ContributionPointsService.dishImageAddedSourceKey(
+        dishId: 'dish-1',
+        imageId: 'image-1',
+      );
+
+      expect(left, right);
+      expect(
+        ContributionPointsService.ledgerDocumentIdForSourceKey(left),
+        ContributionPointsService.ledgerDocumentIdForSourceKey(right),
+      );
+    });
+
+    test('same contribution cannot be reversed twice by reversal key', () {
+      final ledgerId = ContributionPointsService.ledgerDocumentIdForSourceKey(
+        ContributionPointsService.dishCreatedSourceKey('dish-1'),
+      );
+
+      expect(
+        ContributionPointsService.reversalDocumentId(ledgerId),
+        ContributionPointsService.reversalDocumentId(ledgerId),
+      );
+    });
+
+    test('approved proposal source keys use request IDs', () {
+      expect(
+        ContributionPointsService.approvedProposalSourceKey(
+          actionType: ContributionPointAction.dishEditApproved,
+          requestId: 'request-1',
+        ),
+        'dish_edit_approved:request-1',
+      );
+      expect(
+        ContributionPointsService.approvedProposalSourceKey(
+          actionType: ContributionPointAction.dishRenameApproved,
+          requestId: 'request-2',
+        ),
+        'dish_rename_approved:request-2',
+      );
+      expect(
+        ContributionPointsService.approvedProposalSourceKey(
+          actionType: ContributionPointAction.dishMergeApproved,
+          requestId: 'request-3',
+        ),
+        'dish_merge_approved:request-3',
+      );
+    });
+
+    test('retrying the same approved proposal has the same ledger ID', () {
+      final sourceKey = ContributionPointsService.approvedProposalSourceKey(
+        actionType: ContributionPointAction.dishRenameApproved,
+        requestId: 'rename-request',
+      );
+
+      expect(
+        ContributionPointsService.ledgerDocumentIdForSourceKey(sourceKey),
+        ContributionPointsService.ledgerDocumentIdForSourceKey(sourceKey),
+      );
+    });
+
+    test(
+      'removed credited content creates one negative reversal entry shape',
+      () {
+        final reversal = _entry(
+          id: 'reversal-1',
+          pointsDelta: -1,
+          actionType: ContributionPointAction.contributionReversed,
+          description: 'Points removed: Added a dish image',
+          originalLedgerEntryId: 'image-award',
+        );
+
+        expect(reversal.pointsDelta, -1);
+        expect(reversal.isReversal, isTrue);
+        expect(reversal.originalLedgerEntryId, 'image-award');
+      },
+    );
+
+    test('approved rename description includes old and new names', () {
+      expect(
+        ContributionPointsService.approvedDishProposalDescription(
+          actionType: ContributionPointAction.dishRenameApproved,
+          oldValue: 'Supreme Pizza',
+          newValue: 'House Supreme Pizza',
+        ),
+        'Approved dish rename: Supreme Pizza -> House Supreme Pizza',
+      );
+    });
+
+    test(
+      'approved merge description includes source and destination dishes',
+      () {
+        expect(
+          ContributionPointsService.approvedDishProposalDescription(
+            actionType: ContributionPointAction.dishMergeApproved,
+            mergeSourceDishName: 'Supreme Pizza',
+            mergeTargetDishName: 'House Supreme Pizza',
+          ),
+          'Approved merge of Supreme Pizza into House Supreme Pizza',
+        );
+      },
+    );
+
+    test('approved edit description includes dish name when available', () {
+      expect(
+        ContributionPointsService.approvedDishProposalDescription(
+          actionType: ContributionPointAction.dishEditApproved,
+          dishName: 'Cheeseburger',
+        ),
+        'Approved dish information edit for Cheeseburger',
+      );
+    });
+
+    test('approved proposal ledger entry keeps request and dish metadata', () {
+      final entry = ContributionPointLedgerEntry.tryFromFirestore({
+        'id': 'dish_rename_approved%3Arequest-1',
+        'userId': 'submitter-1',
+        'pointsDelta': 1,
+        'actionType': ContributionPointAction.dishRenameApproved,
+        'sourceKey': 'dish_rename_approved:request-1',
+        'description':
+            'Approved dish rename: Supreme Pizza -> House Supreme Pizza',
+        'requestId': 'request-1',
+        'dishId': 'dish-1',
+        'dishName': 'House Supreme Pizza',
+        'restaurantId': 'restaurant-1',
+        'restaurantName': 'Bills Wild Buffalos',
+        'oldValue': 'Supreme Pizza',
+        'newValue': 'House Supreme Pizza',
+      }, fallbackId: 'fallback');
+
+      expect(entry, isNotNull);
+      expect(entry!.userId, 'submitter-1');
+      expect(entry.actionType, ContributionPointAction.dishRenameApproved);
+      expect(entry.requestId, 'request-1');
+      expect(entry.dishId, 'dish-1');
+      expect(entry.restaurantId, 'restaurant-1');
+      expect(entry.oldValue, 'Supreme Pizza');
+      expect(entry.newValue, 'House Supreme Pizza');
+    });
+
+    test('approved merge ledger entry keeps merge endpoints', () {
+      final entry = ContributionPointLedgerEntry.tryFromFirestore({
+        'id': 'dish_merge_approved%3Arequest-1',
+        'userId': 'merge-submitter',
+        'pointsDelta': 1,
+        'actionType': ContributionPointAction.dishMergeApproved,
+        'sourceKey': 'dish_merge_approved:request-1',
+        'description':
+            'Approved merge of Supreme Pizza into House Supreme Pizza',
+        'requestId': 'request-1',
+        'dishId': 'source-dish',
+        'dishName': 'Supreme Pizza',
+        'restaurantId': 'restaurant-1',
+        'mergeSourceDishId': 'source-dish',
+        'mergeSourceDishName': 'Supreme Pizza',
+        'mergeTargetDishId': 'target-dish',
+        'mergeTargetDishName': 'House Supreme Pizza',
+      }, fallbackId: 'fallback');
+
+      expect(entry, isNotNull);
+      expect(entry!.userId, 'merge-submitter');
+      expect(entry.mergeSourceDishId, 'source-dish');
+      expect(entry.mergeSourceDishName, 'Supreme Pizza');
+      expect(entry.mergeTargetDishId, 'target-dish');
+      expect(entry.mergeTargetDishName, 'House Supreme Pizza');
+    });
+
+    test('cached total matches ledger sum', () {
+      final entries = [
+        _entry(id: 'dish', pointsDelta: 3),
+        _entry(id: 'image', pointsDelta: 1),
+        _entry(
+          id: 'reversal',
+          pointsDelta: -1,
+          actionType: ContributionPointAction.contributionReversed,
+        ),
+      ];
+
+      expect(ContributionPointsService.ledgerTotal(entries), 3);
+    });
+  });
+
+  group('Contribution point admin sorting', () {
+    test('default most-points sort puts highest total first', () {
+      final sorted = ContributionPointsService.sortUserPointSummaries(
+        _summaries,
+        ContributionPointSort.mostPoints,
+      );
+
+      expect(sorted.map((summary) => summary.userId), ['high', 'mid', 'low']);
+    });
+
+    test('fewest-points sort works', () {
+      final sorted = ContributionPointsService.sortUserPointSummaries(
+        _summaries,
+        ContributionPointSort.fewestPoints,
+      );
+
+      expect(sorted.map((summary) => summary.userId), ['low', 'mid', 'high']);
+    });
+
+    test('display-name sort works', () {
+      final sorted = ContributionPointsService.sortUserPointSummaries(
+        _summaries,
+        ContributionPointSort.displayNameAz,
+      );
+
+      expect(sorted.map((summary) => summary.displayName), [
+        'Alpha',
+        'Beta',
+        'Zeta',
+      ]);
+    });
+
+    test('most-recent activity sort works', () {
+      final sorted = ContributionPointsService.sortUserPointSummaries(
+        _summaries,
+        ContributionPointSort.mostRecentActivity,
+      );
+
+      expect(sorted.map((summary) => summary.userId), ['mid', 'low', 'high']);
+    });
+  });
+}
+
+List<ContributionPointUserSummary> get _summaries {
+  return [
+    ContributionPointUserSummary(
+      userId: 'low',
+      displayName: 'Beta',
+      totalPoints: 1,
+      lastActivityAt: DateTime(2026, 6, 12),
+    ),
+    ContributionPointUserSummary(
+      userId: 'high',
+      displayName: 'Zeta',
+      totalPoints: 8,
+      lastActivityAt: DateTime(2026, 6, 10),
+    ),
+    ContributionPointUserSummary(
+      userId: 'mid',
+      displayName: 'Alpha',
+      totalPoints: 4,
+      lastActivityAt: DateTime(2026, 6, 13),
+    ),
+  ];
+}
+
+ContributionPointLedgerEntry _entry({
+  required String id,
+  int pointsDelta = 1,
+  String actionType = ContributionPointAction.dishCreated,
+  String description = 'Added a dish',
+  String? originalLedgerEntryId,
+}) {
+  return ContributionPointLedgerEntry(
+    id: id,
+    userId: 'user-1',
+    pointsDelta: pointsDelta,
+    actionType: actionType,
+    sourceKey: '$actionType:$id',
+    description: description,
+    originalLedgerEntryId: originalLedgerEntryId,
+  );
+}

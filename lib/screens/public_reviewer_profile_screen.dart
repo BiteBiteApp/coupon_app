@@ -450,6 +450,7 @@ class _PublicReviewerProfileScreenState
                 helpfulVotesReceived: 0,
                 accountAgeDays: 0,
                 moderationFlagCount: 0,
+                contributionPoints: 0,
               );
           return _buildBody(profileData);
         },

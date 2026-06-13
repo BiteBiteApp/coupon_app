@@ -9,6 +9,7 @@ import '../services/app_error_text.dart';
 import '../services/bitescore_service.dart';
 import '../services/local_expert_badge_recalculation_service.dart';
 import '../services/local_expert_badge_service.dart';
+import '../widgets/contribution_points_card.dart';
 import '../widgets/local_expert_badge_widget.dart';
 import '../widgets/reviewer_activity_pill.dart';
 import 'bitescore_dish_detail_screen.dart';
@@ -766,6 +767,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           _buildPublicUsernameCard(profileData),
           const SizedBox(height: 16),
           _buildBadgeCard(profileData),
+          const SizedBox(height: 16),
+          ContributionPointsCard(points: profileData.contributionPoints),
           _buildLocalExpertBadgesSection(profileData),
           const SizedBox(height: 24),
           _buildSectionHeader('Saved', Icons.favorite_border),
@@ -1079,6 +1082,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   helpfulVotesReceived: 0,
                   accountAgeDays: 0,
                   moderationFlagCount: 0,
+                  contributionPoints: 0,
                 ),
           );
         },

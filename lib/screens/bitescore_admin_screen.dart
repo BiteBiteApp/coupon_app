@@ -2,10 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../models/bitescore_dish.dart';
 import '../models/bitescore_restaurant.dart';
+import '../models/contribution_point_ledger_entry.dart';
 import '../models/dish_review.dart';
 import '../models/restaurant_claim_request.dart';
 import '../services/app_error_text.dart';
 import '../services/bitescore_service.dart';
+import '../services/contribution_points_service.dart';
 import '../widgets/bitescore_category_picker.dart';
 import '../widgets/biterater_theme.dart';
 import '../widgets/clickable_phone_text.dart';
@@ -26,7 +28,7 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 9, vsync: this);
+    _tabController = TabController(length: 10, vsync: this);
   }
 
   @override
@@ -51,7 +53,7 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
-          side: BorderSide(color: BiteRaterTheme.grape.withOpacity(0.14)),
+          side: BorderSide(color: BiteRaterTheme.grape.withValues(alpha: 0.14)),
         ),
       ),
     );
@@ -64,7 +66,7 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
             child: BiteRaterTheme.liftedCard(
               radius: 16,
-              borderColor: BiteRaterTheme.grape.withOpacity(0.16),
+              borderColor: BiteRaterTheme.grape.withValues(alpha: 0.16),
               child: TabBar(
                 controller: _tabController,
                 isScrollable: true,
@@ -81,6 +83,7 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
                   Tab(text: 'Dish Suggestions'),
                   Tab(text: 'Claimed Restaurants'),
                   Tab(text: 'Users'),
+                  Tab(text: 'User Points'),
                 ],
               ),
             ),
@@ -102,6 +105,7 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
                 const _BiteScoreDishSuggestionAdminList(),
                 const _BiteScoreApprovedOwnershipAdminList(),
                 const _BiteScoreUsersAdminList(),
+                const _BiteScoreUserPointsAdminList(),
               ],
             ),
           ),
@@ -219,7 +223,7 @@ class _AdminEmptyStateCard extends StatelessWidget {
           constraints: const BoxConstraints(maxWidth: 520),
           child: BiteRaterTheme.liftedCard(
             radius: 22,
-            borderColor: BiteRaterTheme.grape.withOpacity(0.16),
+            borderColor: BiteRaterTheme.grape.withValues(alpha: 0.16),
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -2011,10 +2015,10 @@ class _BiteScoreDataReportSection extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: BiteRaterTheme.ocean.withOpacity(0.16)),
+        border: Border.all(color: BiteRaterTheme.ocean.withValues(alpha: 0.16)),
         boxShadow: [
           BoxShadow(
-            color: BiteRaterTheme.ocean.withOpacity(0.08),
+            color: BiteRaterTheme.ocean.withValues(alpha: 0.08),
             blurRadius: 14,
             offset: const Offset(0, 6),
           ),
@@ -2103,7 +2107,7 @@ class _BiteScoreRestaurantMergeDialogState
                 ),
                 const SizedBox(height: 16),
                 DropdownButtonFormField<String>(
-                  value: _selectedRestaurantId,
+                  initialValue: _selectedRestaurantId,
                   decoration: const InputDecoration(
                     labelText: 'Surviving restaurant',
                     border: OutlineInputBorder(),
@@ -3264,6 +3268,300 @@ class _BiteScoreUsersAdminListState extends State<_BiteScoreUsersAdminList> {
                   ),
                 );
               }),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _BiteScoreUserPointsAdminList extends StatefulWidget {
+  const _BiteScoreUserPointsAdminList();
+
+  @override
+  State<_BiteScoreUserPointsAdminList> createState() =>
+      _BiteScoreUserPointsAdminListState();
+}
+
+class _BiteScoreUserPointsAdminListState
+    extends State<_BiteScoreUserPointsAdminList> {
+  ContributionPointSort _sort = ContributionPointSort.mostPoints;
+  Future<List<ContributionPointUserSummary>>? _summaryFuture;
+  String? _expandedUserId;
+  final Map<String, Future<List<ContributionPointLedgerEntry>>> _ledgerFutures =
+      <String, Future<List<ContributionPointLedgerEntry>>>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _summaryFuture = ContributionPointsService.loadUserPointSummaries(
+      sort: _sort,
+    );
+  }
+
+  void _refresh() {
+    _summaryFuture = ContributionPointsService.loadUserPointSummaries(
+      sort: _sort,
+    );
+    _ledgerFutures.clear();
+  }
+
+  void _setSort(ContributionPointSort sort) {
+    setState(() {
+      _sort = sort;
+      _refresh();
+    });
+  }
+
+  void _toggleExpanded(String userId) {
+    setState(() {
+      _expandedUserId = _expandedUserId == userId ? null : userId;
+      if (_expandedUserId == userId) {
+        _ledgerFutures.putIfAbsent(
+          userId,
+          () => ContributionPointsService.loadLedgerForAdmin(userId),
+        );
+      }
+    });
+  }
+
+  String _sortLabel(ContributionPointSort sort) {
+    return switch (sort) {
+      ContributionPointSort.mostPoints => 'Most points',
+      ContributionPointSort.fewestPoints => 'Fewest points',
+      ContributionPointSort.displayNameAz => 'Display name A-Z',
+      ContributionPointSort.mostRecentActivity => 'Most recent point activity',
+    };
+  }
+
+  String _dateLabel(DateTime? date) {
+    if (date == null) {
+      return 'No date';
+    }
+    final local = date.toLocal();
+    return '${local.month}/${local.day}/${local.year} '
+        '${local.hour.toString().padLeft(2, '0')}:'
+        '${local.minute.toString().padLeft(2, '0')}';
+  }
+
+  Widget _buildSortControl() {
+    return Row(
+      children: [
+        const Text(
+          'Sort',
+          style: TextStyle(
+            color: BiteRaterTheme.mutedInk,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(width: 10),
+        DropdownButton<ContributionPointSort>(
+          value: _sort,
+          onChanged: (value) {
+            if (value != null) {
+              _setSort(value);
+            }
+          },
+          items: ContributionPointSort.values
+              .map(
+                (sort) => DropdownMenuItem<ContributionPointSort>(
+                  value: sort,
+                  child: Text(_sortLabel(sort)),
+                ),
+              )
+              .toList(),
+        ),
+        const Spacer(),
+        IconButton(
+          tooltip: 'Refresh points',
+          onPressed: () => setState(_refresh),
+          icon: const Icon(Icons.refresh),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSummaryCard(ContributionPointUserSummary summary) {
+    final isExpanded = _expandedUserId == summary.userId;
+    return BiteRaterTheme.liftedCard(
+      margin: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        children: [
+          ListTile(
+            onTap: () => _toggleExpanded(summary.userId),
+            title: Text(
+              summary.displayName,
+              style: const TextStyle(fontWeight: FontWeight.w900),
+            ),
+            subtitle: Text('UID: ${summary.userId}'),
+            leading: CircleAvatar(
+              backgroundColor: BiteRaterTheme.ocean.withValues(alpha: 0.18),
+              child: Text(
+                summary.totalPoints.toString(),
+                style: const TextStyle(
+                  color: BiteRaterTheme.grape,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            trailing: Icon(
+              isExpanded ? Icons.expand_less : Icons.expand_more,
+              color: BiteRaterTheme.grape,
+            ),
+          ),
+          if (isExpanded) _buildLedgerDetails(summary.userId),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLedgerDetails(String userId) {
+    final future = _ledgerFutures[userId];
+    if (future == null) {
+      return const Padding(
+        padding: EdgeInsets.all(16),
+        child: CircularProgressIndicator(),
+      );
+    }
+
+    return FutureBuilder<List<ContributionPointLedgerEntry>>(
+      future: future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.all(16),
+            child: LinearProgressIndicator(),
+          );
+        }
+        if (snapshot.hasError) {
+          return Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Text(AppErrorText.load('point history')),
+          );
+        }
+
+        final entries = snapshot.data ?? const <ContributionPointLedgerEntry>[];
+        if (entries.isEmpty) {
+          return const Padding(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: Text('No point history found.'),
+          );
+        }
+
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(children: entries.map(_buildLedgerRow).toList()),
+        );
+      },
+    );
+  }
+
+  Widget _buildLedgerRow(ContributionPointLedgerEntry entry) {
+    final isReversal = entry.pointsDelta < 0;
+    final amount = entry.pointsDelta > 0
+        ? '+${entry.pointsDelta}'
+        : entry.pointsDelta.toString();
+    final details = <String>[
+      _dateLabel(entry.createdAt),
+      if ((entry.dishName ?? '').trim().isNotEmpty) 'Dish: ${entry.dishName}',
+      if ((entry.restaurantName ?? '').trim().isNotEmpty)
+        'Restaurant: ${entry.restaurantName}',
+      if ((entry.restaurantCity ?? '').trim().isNotEmpty ||
+          (entry.restaurantState ?? '').trim().isNotEmpty)
+        'Location: ${[entry.restaurantCity, entry.restaurantState].where((part) => (part ?? '').trim().isNotEmpty).join(', ')}',
+      if ((entry.restaurantAddress ?? '').trim().isNotEmpty)
+        'Address: ${entry.restaurantAddress}',
+      if ((entry.restaurantPhone ?? '').trim().isNotEmpty)
+        'Phone: ${entry.restaurantPhone}',
+      if ((entry.dishId ?? '').trim().isNotEmpty) 'Dish ID: ${entry.dishId}',
+      if ((entry.restaurantId ?? '').trim().isNotEmpty)
+        'Restaurant ID: ${entry.restaurantId}',
+      if ((entry.requestId ?? '').trim().isNotEmpty)
+        'Request ID: ${entry.requestId}',
+      if ((entry.reason ?? '').trim().isNotEmpty) 'Reason: ${entry.reason}',
+    ];
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: isReversal ? Colors.red.shade50 : Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isReversal ? Colors.red.shade200 : Colors.blue.shade100,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            amount,
+            style: TextStyle(
+              color: isReversal ? Colors.red.shade800 : Colors.blue.shade900,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry.description,
+                  style: const TextStyle(fontWeight: FontWeight.w900),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  details.join('\n'),
+                  style: const TextStyle(
+                    color: BiteRaterTheme.mutedInk,
+                    fontSize: 12,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<ContributionPointUserSummary>>(
+      future: _summaryFuture,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        if (snapshot.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(AppErrorText.load('user points')),
+            ),
+          );
+        }
+
+        final summaries =
+            snapshot.data ?? const <ContributionPointUserSummary>[];
+        return ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            _buildSortControl(),
+            const SizedBox(height: 12),
+            if (summaries.isEmpty)
+              const _AdminEmptyStateCard(
+                icon: Icons.emoji_events_outlined,
+                title: 'No User Points Yet',
+                message:
+                    'Contribution point activity will appear here after users earn or lose points.',
+              )
+            else
+              ...summaries.map(_buildSummaryCard),
           ],
         );
       },
