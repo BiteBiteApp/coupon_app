@@ -14,6 +14,7 @@ import '../services/restaurant_account_service.dart';
 import '../services/restaurant_menu_service.dart';
 import '../widgets/bitesaver_colors.dart';
 import '../widgets/bitesaver_report_dialog.dart';
+import '../widgets/bitesaver_restaurant_images.dart';
 import '../widgets/clickable_phone_text.dart';
 import '../widgets/persistent_bottom_navigation.dart';
 import 'coupon_detail_screen.dart';
@@ -31,12 +32,6 @@ class RestaurantProfileScreen extends StatefulWidget {
 }
 
 class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
-  static const List<String> _restaurantPlaceholderImages = [
-    'assets/images/placeholder_outside.png',
-    'assets/images/placeholder_kitchen.png',
-    'assets/images/placeholder_dining.png',
-  ];
-
   bool _isFavoriteRestaurant = false;
   bool _isSavingFavoriteRestaurant = false;
   bool _showRestaurantInfo = false;
@@ -257,8 +252,9 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
       0,
       (value, unit) => (value * 31 + unit) & 0x7fffffff,
     );
-    return _restaurantPlaceholderImages[hash %
-        _restaurantPlaceholderImages.length];
+    return BiteSaverRestaurantPlaceholderImages.assetForPlaceholderOnlyIndex(
+      hash,
+    );
   }
 
   Future<void> _showLaunchError(BuildContext context, String message) async {
@@ -1251,7 +1247,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                     textAlign: TextAlign.center,
                                     style: const TextStyle(
                                       fontSize: 14,
-                                      color: BiteSaverColors.mutedInk,
+                                      color: BiteSaverColors.secondaryText,
                                       fontWeight: FontWeight.w500,
                                     ),
                                   ),
@@ -1328,7 +1324,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                               child: const Text(
                                 'No available coupons right now.',
                                 style: TextStyle(
-                                  color: BiteSaverColors.mutedInk,
+                                  color: BiteSaverColors.secondaryText,
                                 ),
                               ),
                             ),
@@ -1410,7 +1406,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                             ),
                                             style: const TextStyle(
                                               color: BiteSaverColors.ink,
-                                              fontWeight: FontWeight.w700,
+                                              fontWeight: FontWeight.w800,
                                             ),
                                           ),
                                         ],
@@ -1422,7 +1418,8 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                                   ? _couponSubtitle(coupon)
                                                   : '${_couponSubtitle(coupon)} - Code: ${coupon.couponCode}'),
                                         style: const TextStyle(
-                                          color: BiteSaverColors.mutedInk,
+                                          color: BiteSaverColors.secondaryText,
+                                          fontWeight: FontWeight.w600,
                                         ),
                                       ),
                                       trailing: const Icon(

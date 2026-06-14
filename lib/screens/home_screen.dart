@@ -20,6 +20,7 @@ import '../services/bitescore_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/shared_location_state_service.dart';
 import '../widgets/bitesaver_colors.dart';
+import '../widgets/bitesaver_restaurant_images.dart';
 import '../widgets/pressable_scale.dart';
 import 'coupon_detail_screen.dart';
 import 'restaurant_profile_screen.dart';
@@ -48,12 +49,6 @@ class _HomeScreenState extends State<HomeScreen> {
   static const double _collapsedHeaderExtent = 60;
   static const double _expandedHeaderExtent = 219;
   static const String _selectedRadiusPreferenceKey = 'selected_radius';
-  static const List<String> _restaurantPlaceholderImages = [
-    'assets/images/placeholder_outside.png',
-    'assets/images/placeholder_kitchen.png',
-    'assets/images/placeholder_dining.png',
-  ];
-
   String selectedRadius = '15 miles';
   String searchQuery = '';
   final TextEditingController searchController = TextEditingController();
@@ -1033,28 +1028,6 @@ class _HomeScreenState extends State<HomeScreen> {
     return parts.join(' • ');
   }
 
-  int _stableRestaurantImageIndex(Restaurant restaurant, int index) {
-    final key = [
-      restaurant.uid,
-      restaurant.name,
-      restaurant.streetAddress,
-      restaurant.city,
-      index.toString(),
-    ].whereType<String>().join('|');
-    var hash = 0;
-    for (final codeUnit in key.codeUnits) {
-      hash = ((hash * 31) + codeUnit) & 0x7fffffff;
-    }
-    return hash % _restaurantPlaceholderImages.length;
-  }
-
-  String _placeholderImageForRestaurant(Restaurant restaurant, int index) {
-    return _restaurantPlaceholderImages[_stableRestaurantImageIndex(
-      restaurant,
-      index,
-    )];
-  }
-
   List<Restaurant> filterRestaurants(List<Restaurant> allRestaurants) {
     final radius = selectedRadiusMiles();
     final center = activeSearchCenter;
@@ -1998,7 +1971,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       'Use your location or enter a ZIP code to see nearby deals and top-rated dishes.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.black54,
+                        color: BiteSaverColors.secondaryText,
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
                         height: 1.45,
@@ -2086,7 +2059,10 @@ class _HomeScreenState extends State<HomeScreen> {
                     fallback: 'Please try again in a moment.',
                   ),
                   textAlign: TextAlign.center,
-                  style: const TextStyle(color: Colors.black54, height: 1.35),
+                  style: const TextStyle(
+                    color: BiteSaverColors.secondaryText,
+                    height: 1.35,
+                  ),
                 ),
                 const SizedBox(height: 14),
                 ElevatedButton(
@@ -2105,6 +2081,11 @@ class _HomeScreenState extends State<HomeScreen> {
     List<Restaurant> allRestaurants,
     List<Restaurant> filteredRestaurants,
   ) {
+    final fallbackImagePaths =
+        BiteSaverRestaurantPlaceholderImages.fallbackPathsForVisibleCards(
+          filteredRestaurants.map((restaurant) => restaurant.mainImageUrl),
+        );
+
     return SliverList(
       delegate: SliverChildBuilderDelegate(
         (context, index) {
@@ -2150,7 +2131,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       const Text(
                         'Try a larger radius, another ZIP code, or switch to BiteScore to find highly rated dishes nearby.',
                         textAlign: TextAlign.center,
-                        style: TextStyle(color: Colors.black54, height: 1.35),
+                        style: TextStyle(
+                          color: BiteSaverColors.secondaryText,
+                          height: 1.35,
+                        ),
                       ),
                       const SizedBox(height: 14),
                       Wrap(
@@ -2191,6 +2175,7 @@ class _HomeScreenState extends State<HomeScreen> {
           return _buildModernRestaurantCard(
             restaurant: restaurant,
             index: index,
+            fallbackImagePath: fallbackImagePaths[index],
           );
         },
         childCount: filteredRestaurants.isEmpty
@@ -2203,6 +2188,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildModernRestaurantCard({
     required Restaurant restaurant,
     required int index,
+    required String fallbackImagePath,
   }) {
     final promoItems = _buildRestaurantPromoItems(restaurant);
     final title = restaurant.name.trim().isEmpty
@@ -2265,10 +2251,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             height: compact ? 98 : 113,
                             child: _SoftRestaurantImageFrame(
                               imageUrl: restaurant.mainImageUrl,
-                              fallbackImagePath: _placeholderImageForRestaurant(
-                                restaurant,
-                                index,
-                              ),
+                              fallbackImagePath: fallbackImagePath,
                               verticalOffset: imageRhythmOffset,
                             ),
                           ),
@@ -2315,7 +2298,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                         maxLines: 1,
                                         overflow: TextOverflow.ellipsis,
                                         style: const TextStyle(
-                                          color: BiteSaverColors.mutedInk,
+                                          color: BiteSaverColors.secondaryText,
                                           fontSize: 12.7,
                                           fontWeight: FontWeight.w600,
                                         ),
@@ -2485,7 +2468,7 @@ class _HomeScreenState extends State<HomeScreen> {
         ? 'Today: Daily special'
         : 'Today: ${special.title.trim()}';
 
-    return InkWell(
+    return BiteSaverHomeDealBubble(
       onTap: () {
         Navigator.push(
           context,
@@ -2495,42 +2478,30 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         );
       },
-      borderRadius: BorderRadius.circular(11),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: BiteSaverColors.secondaryBackground,
-          borderRadius: BorderRadius.circular(11),
-          border: Border.all(
-            color: BiteSaverColors.borderStrong,
-            width: 0.75,
-            strokeAlign: BorderSide.strokeAlignInside,
+      backgroundColor: BiteSaverColors.secondaryBackground,
+      borderColor: BiteSaverColors.borderStrong,
+      child: Row(
+        children: [
+          const Icon(
+            Icons.local_fire_department_outlined,
+            color: Color(0xFFC95F17),
+            size: 17,
           ),
-        ),
-        child: Row(
-          children: [
-            const Icon(
-              Icons.local_fire_department_outlined,
-              color: Color(0xFFC95F17),
-              size: 17,
-            ),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFFC95F17),
-                  fontSize: 14.1,
-                  fontWeight: FontWeight.w900,
-                  height: 1.05,
-                ),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Color(0xFFC95F17),
+                fontSize: 14.1,
+                fontWeight: FontWeight.w900,
+                height: 1.05,
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -2541,7 +2512,7 @@ class _HomeScreenState extends State<HomeScreen> {
       proximityOnly: isProximityCoupon(coupon),
     );
 
-    return InkWell(
+    return BiteSaverHomeDealBubble(
       onTap: () async {
         await Navigator.push(
           context,
@@ -2552,58 +2523,46 @@ class _HomeScreenState extends State<HomeScreen> {
         );
         setState(() {});
       },
-      borderRadius: BorderRadius.circular(11),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8FCF2),
-          borderRadius: BorderRadius.circular(11),
-          border: Border.all(
-            color: const Color(0xFFB9D99E),
-            width: 0.75,
-            strokeAlign: BorderSide.strokeAlignInside,
-          ),
-        ),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+      backgroundColor: const Color(0xFFF8FCF2),
+      borderColor: const Color(0xFFB9D99E),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  coupon.title.trim().isEmpty
+                      ? 'Limited time deal'
+                      : coupon.title.trim(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: const Color(0xFF4E7B20),
+                    fontSize: 14.1,
+                    fontWeight: FontWeight.w900,
+                    height: 1.05,
+                  ),
+                ),
+                if (metaLine.isNotEmpty) ...[
+                  const SizedBox(height: 2),
                   Text(
-                    coupon.title.trim().isEmpty
-                        ? 'Limited time deal'
-                        : coupon.title.trim(),
+                    metaLine,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: const Color(0xFF4E7B20),
-                      fontSize: 14.1,
-                      fontWeight: FontWeight.w900,
-                      height: 1.05,
+                    style: const TextStyle(
+                      color: BiteSaverColors.secondaryText,
+                      fontSize: 11.2,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
-                  if (metaLine.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      metaLine,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                        color: BiteSaverColors.mutedInk,
-                        fontSize: 11.2,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
                 ],
-              ),
+              ],
             ),
-            const SizedBox(width: 7),
-            Icon(Icons.chevron_right, color: const Color(0xFF5F8F25), size: 18),
-          ],
-        ),
+          ),
+          const SizedBox(width: 7),
+          Icon(Icons.chevron_right, color: const Color(0xFF5F8F25), size: 18),
+        ],
       ),
     );
   }
@@ -2961,7 +2920,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Expanded(
-                                    flex: tight ? 68 : 66,
+                                    flex: tight ? 58 : 56,
                                     child: Column(
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
@@ -3013,20 +2972,21 @@ class _HomeScreenState extends State<HomeScreen> {
                                       ],
                                     ),
                                   ),
-                                  SizedBox(width: tight ? 4 : 8),
+                                  SizedBox(width: tight ? 12 : 16),
                                   Expanded(
-                                    flex: tight ? 32 : 34,
+                                    flex: tight ? 42 : 44,
                                     child: Transform.translate(
-                                      offset: Offset(0, tight ? -8 : -10),
+                                      offset: Offset(
+                                        0,
+                                        BiteSaverHomeHeroLogo.verticalOffsetFor(
+                                          tight: tight,
+                                        ),
+                                      ),
                                       child: Align(
-                                        alignment: Alignment.topRight,
+                                        alignment: Alignment.centerRight,
                                         child: IgnorePointer(
-                                          child: FractionallySizedBox(
-                                            widthFactor: tight ? 0.82 : 0.78,
-                                            child: Image.asset(
-                                              'assets/images/hero.png',
-                                              fit: BoxFit.contain,
-                                            ),
+                                          child: BiteSaverHomeHeroLogo(
+                                            tight: tight,
                                           ),
                                         ),
                                       ),
@@ -3157,7 +3117,9 @@ class _HomeScreenState extends State<HomeScreen> {
                         const Text(
                           'Please try again in a moment.',
                           textAlign: TextAlign.center,
-                          style: TextStyle(color: Colors.black54),
+                          style: TextStyle(
+                            color: BiteSaverColors.secondaryText,
+                          ),
                         ),
                         const SizedBox(height: 16),
                         ElevatedButton(
@@ -3330,6 +3292,154 @@ class _RestaurantPromoItem {
   const _RestaurantPromoItem.coupon(this.coupon) : dailySpecial = null;
 }
 
+class BiteSaverHomeDealBubble extends StatelessWidget {
+  static const double previousVerticalPadding = 6;
+  static const double verticalPadding = 10;
+  static const double horizontalPadding = 12;
+  static const double previousApproximateCouponHeight = 40;
+  static const double minHeight = previousApproximateCouponHeight * 1.25;
+
+  final VoidCallback? onTap;
+  final Color backgroundColor;
+  final Color borderColor;
+  final Widget child;
+
+  const BiteSaverHomeDealBubble({
+    super.key,
+    required this.onTap,
+    required this.backgroundColor,
+    required this.borderColor,
+    required this.child,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const clipper = BiteSaverHomeDealBubbleClipper();
+
+    return CustomPaint(
+      foregroundPainter: _BiteSaverHomeDealBubbleBorderPainter(
+        clipper: clipper,
+        color: borderColor,
+      ),
+      child: ClipPath(
+        clipper: clipper,
+        child: Material(
+          color: backgroundColor,
+          child: InkWell(
+            onTap: onTap,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(
+                minWidth: double.infinity,
+                minHeight: minHeight,
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: horizontalPadding,
+                  vertical: verticalPadding,
+                ),
+                child: Align(alignment: Alignment.center, child: child),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class BiteSaverHomeDealBubbleClipper extends CustomClipper<Path> {
+  const BiteSaverHomeDealBubbleClipper();
+
+  @override
+  Path getClip(Size size) {
+    final width = size.width;
+    final height = size.height;
+    final bodyTop = height * 0.18;
+    final bodyBottom = height * 0.82;
+    final centerX = width * 0.52;
+    final horizontalRadius = height * 0.54;
+    final shoulderWidth = horizontalRadius * 0.72;
+    final endRadius = (bodyBottom - bodyTop) * 0.28;
+    final left = 0.0;
+    final right = width;
+
+    final leftShoulder = (centerX - shoulderWidth)
+        .clamp(left, right)
+        .toDouble();
+    final rightShoulder = (centerX + shoulderWidth)
+        .clamp(left, right)
+        .toDouble();
+
+    return Path()
+      ..moveTo(left + endRadius, bodyTop)
+      ..lineTo(leftShoulder, bodyTop)
+      ..quadraticBezierTo(centerX - horizontalRadius * 0.62, 0, centerX, 0)
+      ..quadraticBezierTo(
+        centerX + horizontalRadius * 0.62,
+        0,
+        rightShoulder,
+        bodyTop,
+      )
+      ..lineTo(right - endRadius, bodyTop)
+      ..quadraticBezierTo(right, bodyTop, right, bodyTop + endRadius)
+      ..lineTo(right, bodyBottom - endRadius)
+      ..quadraticBezierTo(right, bodyBottom, right - endRadius, bodyBottom)
+      ..lineTo(rightShoulder, bodyBottom)
+      ..quadraticBezierTo(
+        centerX + horizontalRadius * 0.62,
+        height,
+        centerX,
+        height,
+      )
+      ..quadraticBezierTo(
+        centerX - horizontalRadius * 0.62,
+        height,
+        leftShoulder,
+        bodyBottom,
+      )
+      ..lineTo(left + endRadius, bodyBottom)
+      ..quadraticBezierTo(left, bodyBottom, left, bodyBottom - endRadius)
+      ..lineTo(left, bodyTop + endRadius)
+      ..quadraticBezierTo(left, bodyTop, left + endRadius, bodyTop)
+      ..close();
+  }
+
+  @override
+  bool shouldReclip(covariant BiteSaverHomeDealBubbleClipper oldClipper) {
+    return false;
+  }
+}
+
+class _BiteSaverHomeDealBubbleBorderPainter extends CustomPainter {
+  final BiteSaverHomeDealBubbleClipper clipper;
+  final Color color;
+
+  const _BiteSaverHomeDealBubbleBorderPainter({
+    required this.clipper,
+    required this.color,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 0.75;
+
+    canvas.drawPath(
+      clipper.getClip(size).shift(const Offset(0.375, 0.375)),
+      paint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(
+    covariant _BiteSaverHomeDealBubbleBorderPainter oldDelegate,
+  ) {
+    return color != oldDelegate.color || clipper != oldDelegate.clipper;
+  }
+}
+
 class _ImmediatePressFeedback extends StatelessWidget {
   final Widget child;
   final BorderRadius borderRadius;
@@ -3392,7 +3502,7 @@ class _SoftRestaurantImageFrame extends StatelessWidget {
                   color: BiteSaverColors.surface,
                   border: Border.all(color: BiteSaverColors.border, width: 1.2),
                 ),
-                child: _RestaurantCardImage(
+                child: BiteSaverRestaurantCardImage(
                   imageUrl: imageUrl,
                   fallbackImagePath: fallbackImagePath,
                 ),
@@ -3402,31 +3512,6 @@ class _SoftRestaurantImageFrame extends StatelessWidget {
         ],
       ),
     );
-  }
-}
-
-class _RestaurantCardImage extends StatelessWidget {
-  final String? imageUrl;
-  final String fallbackImagePath;
-
-  const _RestaurantCardImage({
-    required this.imageUrl,
-    required this.fallbackImagePath,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final trimmedImageUrl = imageUrl?.trim();
-    if (trimmedImageUrl != null && trimmedImageUrl.isNotEmpty) {
-      return Image.network(
-        trimmedImageUrl,
-        fit: BoxFit.cover,
-        errorBuilder: (context, error, stackTrace) =>
-            Image.asset(fallbackImagePath, fit: BoxFit.cover),
-      );
-    }
-
-    return Image.asset(fallbackImagePath, fit: BoxFit.cover);
   }
 }
 

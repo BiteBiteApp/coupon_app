@@ -270,8 +270,9 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
                         Text(
                           item.description,
                           style: const TextStyle(
-                            color: BiteSaverColors.mutedInk,
+                            color: BiteSaverColors.secondaryText,
                             height: 1.25,
+                            fontWeight: FontWeight.w500,
                           ),
                         ),
                       ],
@@ -381,7 +382,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
               'Please check back later.',
               textAlign: TextAlign.center,
               style: TextStyle(
-                color: BiteSaverColors.mutedInk,
+                color: BiteSaverColors.secondaryText,
                 fontSize: 14,
                 fontWeight: FontWeight.w600,
               ),

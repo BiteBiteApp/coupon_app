@@ -10,6 +10,7 @@ class Coupon {
   static const String fieldEndTime = 'endTime';
   static const String fieldUsageRule = 'usageRule';
   static const String fieldCouponCode = 'couponCode';
+  static const String fieldCouponNumber = 'couponNumber';
   static const String fieldIsProximityOnly = 'isProximityOnly';
   static const String fieldProximityRadiusMiles = 'proximityRadiusMiles';
   static const String fieldDetails = 'details';
@@ -27,6 +28,7 @@ class Coupon {
   final DateTime? endTime;
   final String usageRule;
   final String? couponCode;
+  final String? couponNumber;
   final bool isProximityOnly;
   final double? proximityRadiusMiles;
   final String? details;
@@ -42,6 +44,7 @@ class Coupon {
     this.endTime,
     required this.usageRule,
     this.couponCode,
+    this.couponNumber,
     this.isProximityOnly = false,
     this.proximityRadiusMiles,
     this.details,
@@ -127,6 +130,10 @@ class Coupon {
     return endTime != null && now.isAfter(endTime!);
   }
 
+  String? get formattedCouponNumber => formatCouponNumber(couponNumber);
+
+  bool get hasPersistedCouponNumber => formattedCouponNumber != null;
+
   Coupon copyWith({
     String? id,
     String? restaurant,
@@ -137,6 +144,7 @@ class Coupon {
     DateTime? endTime,
     String? usageRule,
     String? couponCode,
+    String? couponNumber,
     bool? isProximityOnly,
     double? proximityRadiusMiles,
     String? details,
@@ -152,6 +160,7 @@ class Coupon {
       endTime: endTime ?? this.endTime,
       usageRule: usageRule ?? this.usageRule,
       couponCode: couponCode ?? this.couponCode,
+      couponNumber: couponNumber ?? this.couponNumber,
       isProximityOnly: isProximityOnly ?? this.isProximityOnly,
       proximityRadiusMiles: proximityRadiusMiles ?? this.proximityRadiusMiles,
       details: details ?? this.details,
@@ -178,6 +187,8 @@ class Coupon {
       fieldCouponCode: couponCode?.trim().isEmpty == true
           ? null
           : couponCode?.trim(),
+      if (formattedCouponNumber != null)
+        fieldCouponNumber: formattedCouponNumber,
       fieldIsProximityOnly: isProximityOnly,
       fieldProximityRadiusMiles: proximityRadiusMiles,
       fieldDetails: details?.trim().isEmpty == true ? null : details?.trim(),
@@ -204,6 +215,7 @@ class Coupon {
         _coerceDateTime(data[fieldExpires]);
     final usageRule = _readString(data[fieldUsageRule]) ?? defaultUsageRule;
     final couponCode = _readString(data[fieldCouponCode]);
+    final couponNumber = _readCouponNumber(data[fieldCouponNumber]);
     final details = _readString(data[fieldDetails]);
     final imageUrl = _readString(data[fieldImageUrl]);
     final isProximityOnly = _readBool(data[fieldIsProximityOnly]) ?? false;
@@ -219,6 +231,7 @@ class Coupon {
       endTime: parsedEndTime,
       usageRule: usageRule,
       couponCode: couponCode,
+      couponNumber: couponNumber,
       isProximityOnly: isProximityOnly,
       proximityRadiusMiles: proximityRadiusMiles,
       details: details,
@@ -275,6 +288,36 @@ class Coupon {
     }
 
     return null;
+  }
+
+  static String? _readCouponNumber(dynamic value) {
+    if (value is int) {
+      return formatCouponNumber(value.toString());
+    }
+
+    if (value is String) {
+      return formatCouponNumber(value);
+    }
+
+    return null;
+  }
+
+  static String? formatCouponNumber(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+
+    if (!RegExp(r'^\d+$').hasMatch(trimmed)) {
+      return null;
+    }
+
+    final parsed = int.tryParse(trimmed);
+    if (parsed == null || parsed < 0 || parsed > 9999) {
+      return null;
+    }
+
+    return parsed.toString().padLeft(4, '0');
   }
 
   static bool? _readBool(dynamic value) {

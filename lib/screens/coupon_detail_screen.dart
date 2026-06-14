@@ -29,9 +29,428 @@ class CouponDetailScreen extends StatefulWidget {
   State<CouponDetailScreen> createState() => _CouponDetailScreenState();
 }
 
+class BiteSaverCouponDetailInfoSection extends StatefulWidget {
+  static const ValueKey<String> titleKey = ValueKey(
+    'bitesaver_coupon_detail_title',
+  );
+  static const ValueKey<String> detailsKey = ValueKey(
+    'bitesaver_coupon_detail_details',
+  );
+  static const ValueKey<String> expiresKey = ValueKey(
+    'bitesaver_coupon_detail_expires',
+  );
+  static const ValueKey<String> restaurantPillKey = ValueKey(
+    'bitesaver_coupon_detail_restaurant_pill',
+  );
+  static const ValueKey<String> usageKey = ValueKey(
+    'bitesaver_coupon_detail_usage',
+  );
+  static const ValueKey<String> statusKey = ValueKey(
+    'bitesaver_coupon_detail_status',
+  );
+  static const ValueKey<String> detailsToggleKey = ValueKey(
+    'bitesaver_coupon_detail_details_toggle',
+  );
+
+  final String title;
+  final String? details;
+  final String expiresLabel;
+  final String restaurantName;
+  final String usageRule;
+  final String? unavailableStatus;
+  final bool isOpeningRestaurant;
+  final VoidCallback? onOpenRestaurant;
+  final Widget? trailingTitleAction;
+
+  const BiteSaverCouponDetailInfoSection({
+    super.key,
+    required this.title,
+    required this.details,
+    required this.expiresLabel,
+    required this.restaurantName,
+    required this.usageRule,
+    required this.unavailableStatus,
+    required this.isOpeningRestaurant,
+    required this.onOpenRestaurant,
+    this.trailingTitleAction,
+  });
+
+  static bool hasMeaningfulDetails(String? details) =>
+      details != null && details.trim().isNotEmpty;
+
+  static bool isUnlimitedUsage(String usageRule) =>
+      usageRule.trim().toLowerCase() == 'unlimited';
+
+  @override
+  State<BiteSaverCouponDetailInfoSection> createState() =>
+      _BiteSaverCouponDetailInfoSectionState();
+}
+
+class _BiteSaverCouponDetailInfoSectionState
+    extends State<BiteSaverCouponDetailInfoSection> {
+  static const int _collapsedDetailsLines = 3;
+  static const int _longDetailsCharacterHint = 130;
+
+  bool _detailsExpanded = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final details = widget.details;
+    final showDetails = BiteSaverCouponDetailInfoSection.hasMeaningfulDetails(
+      details,
+    );
+    final detailsText = details?.trim() ?? '';
+    final trimmedRestaurantName = widget.restaurantName.trim();
+    final showRestaurantPill = trimmedRestaurantName.isNotEmpty;
+    final showUsage = !BiteSaverCouponDetailInfoSection.isUnlimitedUsage(
+      widget.usageRule,
+    );
+    final status = widget.unavailableStatus?.trim();
+    final showDetailsToggle =
+        showDetails && detailsText.length > _longDetailsCharacterHint;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Text(
+                widget.title,
+                key: BiteSaverCouponDetailInfoSection.titleKey,
+                style: const TextStyle(
+                  color: BiteSaverColors.ink,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w800,
+                  height: 1.08,
+                  letterSpacing: 0.05,
+                ),
+              ),
+            ),
+            if (widget.trailingTitleAction != null) ...[
+              const SizedBox(width: 8),
+              widget.trailingTitleAction!,
+            ],
+          ],
+        ),
+        if (showDetails) ...[
+          const SizedBox(height: 7),
+          RichText(
+            key: BiteSaverCouponDetailInfoSection.detailsKey,
+            maxLines: _detailsExpanded ? null : _collapsedDetailsLines,
+            overflow: _detailsExpanded
+                ? TextOverflow.visible
+                : TextOverflow.ellipsis,
+            text: TextSpan(
+              style: const TextStyle(
+                color: BiteSaverColors.valueInk,
+                fontSize: 14,
+                height: 1.25,
+                fontWeight: FontWeight.w500,
+              ),
+              children: [
+                const TextSpan(
+                  text: 'Details: ',
+                  style: TextStyle(
+                    color: BiteSaverColors.labelInk,
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.08,
+                  ),
+                ),
+                TextSpan(text: detailsText),
+              ],
+            ),
+          ),
+          if (showDetailsToggle)
+            Padding(
+              padding: const EdgeInsets.only(top: 2),
+              child: TextButton(
+                key: BiteSaverCouponDetailInfoSection.detailsToggleKey,
+                onPressed: () {
+                  setState(() {
+                    _detailsExpanded = !_detailsExpanded;
+                  });
+                },
+                style: TextButton.styleFrom(
+                  foregroundColor: BiteSaverColors.blue,
+                  padding: EdgeInsets.zero,
+                  minimumSize: const Size(44, 30),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  alignment: Alignment.centerLeft,
+                  textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+                child: Text(_detailsExpanded ? 'Less' : 'More'),
+              ),
+            ),
+        ],
+        const SizedBox(height: 7),
+        Wrap(
+          spacing: 16,
+          runSpacing: 3,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            _InlineCouponDetail(
+              key: BiteSaverCouponDetailInfoSection.expiresKey,
+              label: 'Expires',
+              value: widget.expiresLabel,
+            ),
+            if (showUsage)
+              _InlineCouponDetail(
+                key: BiteSaverCouponDetailInfoSection.usageKey,
+                label: 'Usage',
+                value: widget.usageRule,
+              ),
+          ],
+        ),
+        if (status != null && status.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 5),
+            child: _CouponDetailLine(
+              key: BiteSaverCouponDetailInfoSection.statusKey,
+              label: 'Status',
+              value: status,
+              valueColor: Colors.red,
+              labelColor: Colors.red,
+            ),
+          ),
+        if (showRestaurantPill) ...[
+          const SizedBox(height: 8),
+          BiteSaverCouponRestaurantLink(
+            key: BiteSaverCouponDetailInfoSection.restaurantPillKey,
+            restaurantName: trimmedRestaurantName,
+            isOpening: widget.isOpeningRestaurant,
+            onTap: widget.isOpeningRestaurant ? null : widget.onOpenRestaurant,
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class BiteSaverCouponRestaurantLink extends StatelessWidget {
+  final String restaurantName;
+  final bool isOpening;
+  final VoidCallback? onTap;
+
+  const BiteSaverCouponRestaurantLink({
+    super.key,
+    required this.restaurantName,
+    required this.isOpening,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      enabled: onTap != null,
+      label: 'Restaurant: $restaurantName',
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 5),
+          child: Row(
+            children: [
+              const Text(
+                'Restaurant: ',
+                style: TextStyle(
+                  color: BiteSaverColors.labelInk,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                ),
+              ),
+              Expanded(
+                child: Text(
+                  restaurantName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: BiteSaverColors.blue,
+                    fontWeight: FontWeight.w800,
+                    fontSize: 14,
+                    height: 1.2,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 4),
+              if (isOpening)
+                const SizedBox(
+                  width: 14,
+                  height: 14,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                const Icon(
+                  Icons.chevron_right,
+                  color: BiteSaverColors.blue,
+                  size: 18,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class BiteSaverCouponReportRow extends StatelessWidget {
+  static const ValueKey<String> reportButtonKey = ValueKey(
+    'bitesaver_coupon_report_button',
+  );
+  static const ValueKey<String> couponNumberKey = ValueKey(
+    'bitesaver_coupon_number',
+  );
+
+  final bool isSubmittingReport;
+  final VoidCallback? onReport;
+  final String? couponNumberLabel;
+
+  const BiteSaverCouponReportRow({
+    super.key,
+    required this.isSubmittingReport,
+    required this.onReport,
+    required this.couponNumberLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final formattedNumber = Coupon.formatCouponNumber(couponNumberLabel);
+
+    return Row(
+      children: [
+        TextButton.icon(
+          key: reportButtonKey,
+          onPressed: isSubmittingReport ? null : onReport,
+          style: TextButton.styleFrom(
+            foregroundColor: BiteSaverColors.mutedInk,
+            padding: EdgeInsets.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+          ),
+          icon: const Icon(Icons.flag_outlined, size: 16),
+          label: const Text('Report'),
+        ),
+        const Spacer(),
+        if (formattedNumber != null)
+          Flexible(
+            child: Text(
+              'Code: $formattedNumber',
+              key: couponNumberKey,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: BiteSaverColors.secondaryText,
+                fontSize: 13,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class BiteSaverCouponNumberVisibility {
+  const BiteSaverCouponNumberVisibility._();
+
+  static bool shouldShow({
+    required bool supportsRedeemTimer,
+    required bool hasActiveTimer,
+  }) {
+    return !supportsRedeemTimer || hasActiveTimer;
+  }
+}
+
+class _InlineCouponDetail extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _InlineCouponDetail({
+    super.key,
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return RichText(
+      text: TextSpan(
+        style: const TextStyle(
+          color: BiteSaverColors.valueInk,
+          fontSize: 14,
+          height: 1.25,
+          fontWeight: FontWeight.w500,
+        ),
+        children: [
+          TextSpan(
+            text: '$label: ',
+            style: const TextStyle(
+              color: BiteSaverColors.labelInk,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.08,
+            ),
+          ),
+          TextSpan(text: trimmed),
+        ],
+      ),
+    );
+  }
+}
+
+class _CouponDetailLine extends StatelessWidget {
+  final String label;
+  final String value;
+  final Color valueColor;
+  final Color labelColor;
+
+  const _CouponDetailLine({
+    super.key,
+    required this.label,
+    required this.value,
+    this.valueColor = BiteSaverColors.valueInk,
+    this.labelColor = BiteSaverColors.labelInk,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final trimmed = value.trim();
+    if (trimmed.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return RichText(
+      text: TextSpan(
+        style: TextStyle(
+          color: valueColor,
+          fontSize: 14,
+          height: 1.25,
+          fontWeight: FontWeight.w500,
+        ),
+        children: [
+          TextSpan(
+            text: '$label: ',
+            style: TextStyle(
+              color: labelColor,
+              fontWeight: FontWeight.w800,
+              letterSpacing: 0.08,
+            ),
+          ),
+          TextSpan(text: trimmed),
+        ],
+      ),
+    );
+  }
+}
+
 class _CouponDetailScreenState extends State<CouponDetailScreen> {
   static const Color _pageBackground = BiteSaverColors.pageBackground;
-  static const Color _detailInk = BiteSaverColors.ink;
   static const Color _detailLabelInk = BiteSaverColors.labelInk;
   static const Color _detailValueInk = BiteSaverColors.valueInk;
   static const Color _detailMutedInk = BiteSaverColors.mutedInk;
@@ -325,44 +744,6 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     return null;
   }
 
-  String _availabilityText() {
-    final now = DateTime.now();
-
-    if (widget.coupon.isScheduledForFutureAt(now)) {
-      return widget.coupon.startsLabel ?? 'Scheduled';
-    }
-
-    if (widget.coupon.isExpiredAt(now)) {
-      return 'Expired';
-    }
-
-    if (!_supportsRedeemTimer) {
-      return 'Available now';
-    }
-
-    if (DemoRedemptionStore.hasActiveRedeemTimer(widget.coupon.id)) {
-      final remaining = DemoRedemptionStore.activeTimerRemaining(
-        widget.coupon.id,
-      );
-      if (remaining == null) {
-        return _expiredMessage();
-      }
-
-      return 'Redeem timer: ${_formatDuration(remaining)} remaining';
-    }
-
-    final available = DemoRedemptionStore.isAvailable(
-      widget.coupon.id,
-      widget.coupon.usageRule,
-    );
-
-    if (available) {
-      return 'Available now';
-    }
-
-    return _expiredMessage();
-  }
-
   String _expiredMessage() {
     return switch (widget.coupon.usageRule.trim().toLowerCase()) {
       'once per customer' =>
@@ -371,6 +752,31 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
         'This coupon has expired for today and will be available again tomorrow.',
       _ => 'This coupon is no longer available.',
     };
+  }
+
+  String? _unavailableStatusText({
+    required DateTime now,
+    required bool isWithinSchedule,
+    required bool isAvailableByUsage,
+    required bool hasActiveTimer,
+  }) {
+    if (widget.coupon.isScheduledForFutureAt(now)) {
+      return widget.coupon.startsLabel ?? 'Currently unavailable';
+    }
+
+    if (widget.coupon.isExpiredAt(now)) {
+      return 'Coupon expired';
+    }
+
+    if (!isWithinSchedule) {
+      return 'Currently unavailable';
+    }
+
+    if (_supportsRedeemTimer && !hasActiveTimer && !isAvailableByUsage) {
+      return _expiredMessage();
+    }
+
+    return null;
   }
 
   String _formatDuration(Duration duration) {
@@ -449,6 +855,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
             color: _detailValueInk,
             fontSize: 14,
             height: 1.25,
+            fontWeight: FontWeight.w500,
           ),
           children: [
             TextSpan(
@@ -561,11 +968,29 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
         ? DemoRedemptionStore.activeTimerRemaining(coupon.id)
         : null;
     final titleLabel = _displayText(coupon.title, 'Untitled coupon');
-    final restaurantLabel = _displayText(coupon.restaurant, 'Restaurant');
+    final restaurantLabel = _displayText(
+      coupon.restaurant,
+      widget.restaurant?.name ?? '',
+    );
     final usageRuleLabel = _displayText(
       coupon.usageRule,
       Coupon.defaultUsageRule,
     );
+    final unavailableStatus = _unavailableStatusText(
+      now: now,
+      isWithinSchedule: isWithinSchedule,
+      isAvailableByUsage: isAvailableByUsage,
+      hasActiveTimer: hasActiveTimer,
+    );
+    final couponNumberLabel = coupon.formattedCouponNumber;
+    final visibleCouponNumberLabel =
+        couponNumberLabel != null &&
+            BiteSaverCouponNumberVisibility.shouldShow(
+              supportsRedeemTimer: _supportsRedeemTimer,
+              hasActiveTimer: hasActiveTimer,
+            )
+        ? couponNumberLabel
+        : null;
 
     return Scaffold(
       backgroundColor: _pageBackground,
@@ -614,7 +1039,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                   children: [
                     _couponSurface(
                       child: Padding(
-                        padding: const EdgeInsets.all(18),
+                        padding: const EdgeInsets.all(14),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -625,11 +1050,11 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                                 child: Image.network(
                                   coupon.imageUrl!,
                                   width: double.infinity,
-                                  height: 180,
+                                  height: 168,
                                   fit: BoxFit.cover,
                                   errorBuilder: (context, error, stackTrace) =>
                                       Container(
-                                        height: 180,
+                                        height: 168,
                                         alignment: Alignment.center,
                                         color: BiteSaverColors.imageFallback,
                                         child: const Icon(
@@ -640,81 +1065,24 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                                       ),
                                 ),
                               ),
-                              const SizedBox(height: 16),
+                              const SizedBox(height: 12),
                             ],
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    titleLabel,
-                                    style: const TextStyle(
-                                      color: _detailInk,
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.w800,
-                                      height: 1.08,
-                                      letterSpacing: 0.05,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                _buildFavoriteAction(),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            _detailLine('Restaurant', restaurantLabel),
-                            const SizedBox(height: 8),
-                            OutlinedButton.icon(
-                              onPressed: _isOpeningRestaurant
+                            BiteSaverCouponDetailInfoSection(
+                              title: titleLabel,
+                              details: coupon.details,
+                              expiresLabel: coupon.shortExpiresLabel,
+                              restaurantName: restaurantLabel,
+                              usageRule: usageRuleLabel,
+                              unavailableStatus: unavailableStatus,
+                              isOpeningRestaurant: _isOpeningRestaurant,
+                              onOpenRestaurant: restaurantLabel.trim().isEmpty
                                   ? null
                                   : _openRestaurantProfile,
-                              icon: _isOpeningRestaurant
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.storefront_outlined),
-                              label: const Text('View Restaurant'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: _detailAccent,
-                                side: const BorderSide(
-                                  color: BiteSaverColors.borderStrong,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                              ),
+                              trailingTitleAction: _buildFavoriteAction(),
                             ),
-                            const SizedBox(height: 8),
-                            _detailLine('Expires', coupon.shortExpiresLabel),
-                            _detailLine('Usage', usageRuleLabel),
-                            _detailLine('Status', _availabilityText()),
                             if (coupon.couponCode != null &&
                                 coupon.couponCode!.trim().isNotEmpty) ...[
                               _detailLine('Code', coupon.couponCode!),
-                            ],
-                            if (coupon.details != null &&
-                                coupon.details!.trim().isNotEmpty) ...[
-                              const SizedBox(height: 16),
-                              const Text(
-                                'Details',
-                                style: TextStyle(
-                                  color: _detailInk,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w800,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Text(
-                                coupon.details!,
-                                style: const TextStyle(
-                                  color: _detailValueInk,
-                                  height: 1.35,
-                                ),
-                              ),
                             ],
                             if (coupon.isProximityOnly) ...[
                               const SizedBox(height: 16),
@@ -739,29 +1107,18 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                                 ),
                               ),
                             ],
-                            const SizedBox(height: 10),
-                            Align(
-                              alignment: Alignment.centerLeft,
-                              child: TextButton.icon(
-                                onPressed: _isSubmittingReport
-                                    ? null
-                                    : _reportCoupon,
-                                style: TextButton.styleFrom(
-                                  foregroundColor: _detailMutedInk,
-                                  padding: EdgeInsets.zero,
-                                  tapTargetSize:
-                                      MaterialTapTargetSize.shrinkWrap,
-                                ),
-                                icon: const Icon(Icons.flag_outlined, size: 16),
-                                label: const Text('Report'),
-                              ),
+                            const SizedBox(height: 4),
+                            BiteSaverCouponReportRow(
+                              isSubmittingReport: _isSubmittingReport,
+                              onReport: _reportCoupon,
+                              couponNumberLabel: visibleCouponNumberLabel,
                             ),
                           ],
                         ),
                       ),
                     ),
                     if (_supportsRedeemTimer) ...[
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 16),
                       SizedBox(
                         width: double.infinity,
                         child: _redeemButtonShell(

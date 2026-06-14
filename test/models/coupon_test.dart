@@ -1,5 +1,6 @@
 import 'package:coupon_app/models/coupon.dart';
 import 'package:coupon_app/models/restaurant.dart';
+import 'package:coupon_app/services/restaurant_account_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -100,6 +101,92 @@ void main() {
       expect(coupon.expires, 'Expires tomorrow');
       expect(coupon.isActiveAt(DateTime(2026, 3, 27, 12)), isTrue);
     });
+
+    test('coupon number formatting keeps exactly four digits', () {
+      expect(Coupon.formatCouponNumber('47'), '0047');
+      expect(Coupon.formatCouponNumber('0047'), '0047');
+      expect(Coupon.formatCouponNumber('9999'), '9999');
+      expect(Coupon.formatCouponNumber('10000'), isNull);
+      expect(Coupon.formatCouponNumber('abcd'), isNull);
+    });
+
+    test('coupon number is persisted in firestore maps', () {
+      final coupon = Coupon(
+        id: 'numbered',
+        restaurant: 'BiteSaver Test',
+        title: 'Numbered Coupon',
+        distance: '1 mile away',
+        startTime: DateTime(2026, 3, 27, 9),
+        endTime: DateTime(2026, 3, 27, 18),
+        usageRule: 'Unlimited',
+        couponNumber: '47',
+      );
+
+      final map = coupon.toFirestoreMap(id: 'numbered');
+
+      expect(map[Coupon.fieldCouponNumber], '0047');
+    });
+
+    test(
+      'coupon number parses from string or int and old coupons are safe',
+      () {
+        final stringCoupon = Coupon.tryFromFirestore({
+          Coupon.fieldRestaurant: 'BiteSaver Test',
+          Coupon.fieldTitle: 'String Coupon',
+          Coupon.fieldDistance: '1 mile away',
+          Coupon.fieldExpires: 'Expires tomorrow',
+          Coupon.fieldUsageRule: 'Unlimited',
+          Coupon.fieldCouponNumber: '0047',
+        }, fallbackId: 'string');
+        final intCoupon = Coupon.tryFromFirestore({
+          Coupon.fieldRestaurant: 'BiteSaver Test',
+          Coupon.fieldTitle: 'Int Coupon',
+          Coupon.fieldDistance: '1 mile away',
+          Coupon.fieldExpires: 'Expires tomorrow',
+          Coupon.fieldUsageRule: 'Unlimited',
+          Coupon.fieldCouponNumber: 47,
+        }, fallbackId: 'int');
+        final oldCoupon = Coupon.tryFromFirestore({
+          Coupon.fieldRestaurant: 'BiteSaver Test',
+          Coupon.fieldTitle: 'Old Coupon',
+          Coupon.fieldDistance: '1 mile away',
+          Coupon.fieldExpires: 'Expires tomorrow',
+          Coupon.fieldUsageRule: 'Unlimited',
+        }, fallbackId: 'old');
+
+        expect(stringCoupon?.formattedCouponNumber, '0047');
+        expect(intCoupon?.formattedCouponNumber, '0047');
+        expect(oldCoupon?.formattedCouponNumber, isNull);
+      },
+    );
+
+    test(
+      'stable coupon number generation is deterministic and four digits',
+      () {
+        final first = RestaurantAccountService.stableCouponNumberForId(
+          'coupon-doc-1',
+        );
+        final second = RestaurantAccountService.stableCouponNumberForId(
+          'coupon-doc-1',
+        );
+
+        expect(second, first);
+        expect(first, matches(RegExp(r'^\d{4}$')));
+      },
+    );
+
+    test('stable coupon number generation probes past reserved numbers', () {
+      final first = RestaurantAccountService.stableCouponNumberForId(
+        'coupon-doc-1',
+      );
+      final next = RestaurantAccountService.stableCouponNumberForId(
+        'coupon-doc-1',
+        reservedNumbers: {first},
+      );
+
+      expect(next, isNot(first));
+      expect(next, matches(RegExp(r'^\d{4}$')));
+    });
   });
 
   group('Restaurant validation', () {
@@ -112,7 +199,10 @@ void main() {
         coupons: const [],
       );
 
-      expect(restaurant.validateRequiredFields(), 'Restaurant name is required.');
+      expect(
+        restaurant.validateRequiredFields(),
+        'Restaurant name is required.',
+      );
     });
   });
 }

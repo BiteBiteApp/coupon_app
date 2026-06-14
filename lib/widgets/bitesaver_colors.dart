@@ -13,6 +13,10 @@ class BiteSaverColors {
   static const Color valueInk = Color(0xFF475569);
   static const Color mutedInk = Color(0xFF64748B);
   static const Color softMutedInk = Color(0xFF94A3B8);
+  static const Color primaryText = ink;
+  static const Color secondaryText = valueInk;
+  static const Color mutedText = mutedInk;
+  static const Color disabledText = softMutedInk;
   static const Color coolShadow = Color(0xFF0F172A);
   static const Color orange = Color(0xFFD06C3B);
   static const Color orangeDark = Color(0xFFB7542D);

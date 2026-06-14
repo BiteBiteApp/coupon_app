@@ -358,15 +358,17 @@ class RestaurantAccountService {
     }
 
     final doc = couponsCollection(uid).doc();
+    final couponNumber = await _couponNumberForNewCoupon(uid, doc.id);
+    final numberedCoupon = sanitizedCoupon.copyWith(couponNumber: couponNumber);
     await _ensureNoDuplicateCoupon(
       uid: uid,
-      title: sanitizedCoupon.title,
-      startTime: sanitizedCoupon.startTime!,
-      endTime: sanitizedCoupon.endTime!,
+      title: numberedCoupon.title,
+      startTime: numberedCoupon.startTime!,
+      endTime: numberedCoupon.endTime!,
     );
 
     await doc.set({
-      ...sanitizedCoupon.toFirestoreMap(id: doc.id),
+      ...numberedCoupon.toFirestoreMap(id: doc.id),
       Coupon.fieldCreatedAt: FieldValue.serverTimestamp(),
       Coupon.fieldUpdatedAt: FieldValue.serverTimestamp(),
     });
@@ -375,7 +377,7 @@ class RestaurantAccountService {
       Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
-    return sanitizedCoupon.copyWith(id: doc.id);
+    return numberedCoupon.copyWith(id: doc.id);
   }
 
   static Future<Coupon> updateCoupon({
@@ -394,9 +396,13 @@ class RestaurantAccountService {
     if (validationError != null) {
       throw ArgumentError(validationError);
     }
+    final couponNumber =
+        sanitizedCoupon.formattedCouponNumber ??
+        await _couponNumberForExistingCoupon(uid, couponId);
+    final numberedCoupon = sanitizedCoupon.copyWith(couponNumber: couponNumber);
 
     await couponsCollection(uid).doc(couponId).set({
-      ...sanitizedCoupon.toFirestoreMap(id: couponId),
+      ...numberedCoupon.toFirestoreMap(id: couponId),
       Coupon.fieldUpdatedAt: FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
@@ -404,7 +410,7 @@ class RestaurantAccountService {
       Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
-    return sanitizedCoupon;
+    return numberedCoupon;
   }
 
   static Future<DailySpecial> createDailySpecial({
@@ -500,6 +506,7 @@ class RestaurantAccountService {
       couponCode: trimmedCouponCode == null || trimmedCouponCode.isEmpty
           ? null
           : trimmedCouponCode,
+      couponNumber: Coupon.formatCouponNumber(coupon.couponNumber),
       isProximityOnly: coupon.isProximityOnly,
       proximityRadiusMiles: coupon.proximityRadiusMiles,
       details: trimmedDetails == null || trimmedDetails.isEmpty
@@ -511,22 +518,123 @@ class RestaurantAccountService {
     );
   }
 
+  static Future<String> _couponNumberForNewCoupon(
+    String uid,
+    String couponId,
+  ) async {
+    final usedNumbers = await _loadExistingCouponNumbers(uid);
+    return stableCouponNumberForId(couponId, reservedNumbers: usedNumbers);
+  }
+
+  static Future<String> _couponNumberForExistingCoupon(
+    String uid,
+    String couponId,
+  ) async {
+    final doc = await couponsCollection(uid).doc(couponId).get();
+    final existingCouponNumber = Coupon.formatCouponNumber(
+      doc.data()?[Coupon.fieldCouponNumber]?.toString(),
+    );
+    if (existingCouponNumber != null) {
+      return existingCouponNumber;
+    }
+
+    final usedNumbers = await _loadExistingCouponNumbers(
+      uid,
+      excludeCouponId: couponId,
+    );
+    return stableCouponNumberForId(couponId, reservedNumbers: usedNumbers);
+  }
+
+  static Future<Set<String>> _loadExistingCouponNumbers(
+    String uid, {
+    String? excludeCouponId,
+  }) async {
+    final snapshot = await couponsCollection(uid).get();
+    final usedNumbers = <String>{};
+
+    for (final doc in snapshot.docs) {
+      if (excludeCouponId != null && doc.id == excludeCouponId) {
+        continue;
+      }
+      final formattedNumber = Coupon.formatCouponNumber(
+        doc.data()[Coupon.fieldCouponNumber]?.toString(),
+      );
+      if (formattedNumber != null) {
+        usedNumbers.add(formattedNumber);
+      }
+    }
+
+    return usedNumbers;
+  }
+
+  static String stableCouponNumberForId(
+    String couponId, {
+    Set<String> reservedNumbers = const <String>{},
+  }) {
+    var hash = 0;
+    for (final codeUnit in couponId.trim().codeUnits) {
+      hash = ((hash * 31) + codeUnit) & 0x7fffffff;
+    }
+
+    for (var offset = 0; offset < 10000; offset += 1) {
+      final candidate = ((hash + offset) % 10000).toString().padLeft(4, '0');
+      if (!reservedNumbers.contains(candidate)) {
+        return candidate;
+      }
+    }
+
+    return (hash % 10000).toString().padLeft(4, '0');
+  }
+
   static Future<List<Coupon>> loadCoupons(String uid) async {
     final snapshot = await couponsCollection(
       uid,
     ).orderBy(Coupon.fieldCreatedAt, descending: true).get();
 
     final coupons = <Coupon>[];
+    final usedCouponNumbers = <String>{};
+    final parsedCoupons =
+        <({QueryDocumentSnapshot<Map<String, dynamic>> doc, Coupon coupon})>[];
 
     for (final doc in snapshot.docs) {
       try {
         final coupon = Coupon.tryFromFirestore(doc.data(), fallbackId: doc.id);
         if (coupon != null) {
-          coupons.add(coupon);
+          parsedCoupons.add((doc: doc, coupon: coupon));
+          final formattedNumber = coupon.formattedCouponNumber;
+          if (formattedNumber != null) {
+            usedCouponNumbers.add(formattedNumber);
+          }
         }
       } catch (_) {
         continue;
       }
+    }
+
+    WriteBatch? backfillBatch;
+    for (final entry in parsedCoupons) {
+      final formattedNumber = entry.coupon.formattedCouponNumber;
+      if (formattedNumber != null) {
+        coupons.add(entry.coupon);
+        continue;
+      }
+
+      backfillBatch ??= _firestore.batch();
+      final doc = entry.doc;
+      final coupon = entry.coupon;
+      final couponNumber = stableCouponNumberForId(
+        doc.id,
+        reservedNumbers: usedCouponNumbers,
+      );
+      usedCouponNumbers.add(couponNumber);
+      coupons.add(coupon.copyWith(couponNumber: couponNumber));
+      backfillBatch.set(doc.reference, {
+        Coupon.fieldCouponNumber: couponNumber,
+      }, SetOptions(merge: true));
+    }
+
+    if (backfillBatch != null) {
+      unawaited(backfillBatch.commit().catchError((_) {}));
     }
 
     return coupons;
