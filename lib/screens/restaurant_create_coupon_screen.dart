@@ -342,7 +342,7 @@ class _RestaurantCreateCouponScreenState
       if (enabled) {
         final restaurantId = matchedBiteScoreRestaurantId?.trim();
         if (restaurantId == null || restaurantId.isEmpty) {
-          _showSnackBar('Matching BiteRater restaurant is required.');
+          _showSnackBar('Matching BiteScore restaurant is required.');
           return;
         }
         if (await RestaurantMenuService.biteScoreUsesBiteSaverMenu(
@@ -356,7 +356,7 @@ class _RestaurantCreateCouponScreenState
           biteScoreRestaurantId: restaurantId,
           updatedBy: user.uid,
         );
-        _showSnackBar('Menu is managed on BiteRater.');
+        _showSnackBar('Menu is managed on BiteScore.');
       } else {
         await RestaurantMenuService.clearBiteSaverMenuSourceRouting(
           uid: user.uid,
@@ -3261,18 +3261,18 @@ class _RestaurantCreateCouponScreenState
                                 state?.matchedBiteScoreRestaurant?.id,
                           ),
                     title: const Text(
-                      'Use BiteRater menu',
+                      'Use BiteScore menu',
                       style: TextStyle(fontWeight: FontWeight.w800),
                     ),
                   ),
                   Text(
                     usesBiteRater
-                        ? 'Menu is managed on BiteRater'
+                        ? 'Menu is managed on BiteScore'
                         : isAlreadyUsedByOtherSide
                         ? 'This menu is already being used by the other side.'
                         : hasMatch
-                        ? 'This restaurant matches your BiteRater profile.'
-                        : 'Matching BiteRater restaurant required.',
+                        ? 'This restaurant matches your BiteScore profile.'
+                        : 'Matching BiteScore restaurant required.',
                     style: TextStyle(
                       color: usesBiteRater
                           ? const Color(0xFF2563EB)

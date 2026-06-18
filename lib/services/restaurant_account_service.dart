@@ -269,6 +269,48 @@ class RestaurantAccountService {
     return _canPostCouponsFromData(data);
   }
 
+  static List<Coupon> customerVisibleCouponsForAccountData(
+    Map<String, dynamic>? data,
+    List<Coupon> coupons,
+  ) {
+    if (!hasCouponPostingAccess(data)) {
+      return const <Coupon>[];
+    }
+
+    return coupons;
+  }
+
+  static Future<bool> isCouponCustomerVisible(
+    Coupon coupon, {
+    Restaurant? restaurant,
+  }) async {
+    if (!coupon.isActiveAt(DateTime.now())) {
+      return false;
+    }
+
+    final restaurantUid = restaurant?.uid?.trim();
+    if (restaurantUid != null && restaurantUid.isNotEmpty) {
+      final data = await getAccountData(restaurantUid);
+      return hasCouponPostingAccess(data);
+    }
+
+    final couponRestaurantName = coupon.restaurant.trim().toLowerCase();
+    if (couponRestaurantName.isEmpty) {
+      return true;
+    }
+
+    final restaurants = await loadApprovedRestaurantsWithCoupons();
+    for (final restaurant in restaurants) {
+      if (restaurant.name.trim().toLowerCase() != couponRestaurantName) {
+        continue;
+      }
+
+      return restaurant.coupons.any((candidate) => candidate.id == coupon.id);
+    }
+
+    return true;
+  }
+
   static bool hasSubmittedCouponApplication(Map<String, dynamic>? data) {
     if (data == null) {
       return false;
@@ -1327,9 +1369,14 @@ class RestaurantAccountService {
           fallbackUid: doc.id,
         );
         final uid = _readString(normalizedData[Restaurant.fieldUid]) ?? doc.id;
+        final canShowCustomerOffers = hasCouponPostingAccess(normalizedData);
 
-        final coupons = await loadCoupons(uid);
-        final dailySpecials = hasCouponPostingAccess(normalizedData)
+        final allCoupons = await loadCoupons(uid);
+        final coupons = customerVisibleCouponsForAccountData(
+          normalizedData,
+          allCoupons,
+        );
+        final dailySpecials = canShowCustomerOffers
             ? await loadDailySpecialsForRestaurant(uid)
             : const <DailySpecial>[];
         final restaurant = Restaurant.fromFirestore(

@@ -5,6 +5,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../models/local_expert.dart';
 import '../models/local_expert_badge_celebration.dart';
 import '../models/local_expert_badge_calculator.dart';
 import '../widgets/local_expert_badge_celebration_overlay.dart';
@@ -23,6 +24,14 @@ class LocalExpertBadgeCelebrationService {
   static bool _soundPlaying = false;
 
   const LocalExpertBadgeCelebrationService._();
+
+  static Duration displayDurationForLevel(LocalExpertBadgeLevel level) {
+    return switch (level) {
+      LocalExpertBadgeLevel.level1 => displayDuration,
+      LocalExpertBadgeLevel.level2 => const Duration(milliseconds: 5600),
+      LocalExpertBadgeLevel.level3 => const Duration(milliseconds: 6000),
+    };
+  }
 
   static CollectionReference<Map<String, dynamic>> _collection(String userId) {
     return _firestore
@@ -150,11 +159,11 @@ class LocalExpertBadgeCelebrationService {
     entry = OverlayEntry(
       builder: (context) => LocalExpertBadgeCelebrationOverlay(
         celebration: celebration,
-        displayDuration: displayDuration,
+        displayDuration: displayDurationForLevel(celebration.level),
         onDismiss: dismiss,
         onLanded: () {
-          unawaited(_playCelebrationHaptics());
-          unawaited(_playAchievementSound());
+          unawaited(_playCelebrationHaptics(celebration.level));
+          unawaited(_playAchievementSound(celebration.level));
         },
       ),
     );
@@ -182,14 +191,14 @@ class LocalExpertBadgeCelebrationService {
     _queuedEventKeys.remove(eventKey);
   }
 
-  static Future<void> _playAchievementSound() async {
+  static Future<void> _playAchievementSound(LocalExpertBadgeLevel level) async {
     if (_soundPlaying) {
       return;
     }
     _soundPlaying = true;
     final player = AudioPlayer();
     try {
-      await player.setVolume(0.4);
+      await player.setVolume(_soundVolumeForLevel(level));
       await player.play(AssetSource(soundAsset));
       await Future<void>.delayed(const Duration(milliseconds: 950));
     } catch (_) {
@@ -199,7 +208,17 @@ class LocalExpertBadgeCelebrationService {
     }
   }
 
-  static Future<void> _playCelebrationHaptics() async {
+  static double _soundVolumeForLevel(LocalExpertBadgeLevel level) {
+    return switch (level) {
+      LocalExpertBadgeLevel.level1 => 0.4,
+      LocalExpertBadgeLevel.level2 => 0.45,
+      LocalExpertBadgeLevel.level3 => 0.5,
+    };
+  }
+
+  static Future<void> _playCelebrationHaptics(
+    LocalExpertBadgeLevel level,
+  ) async {
     try {
       await HapticFeedback.heavyImpact();
       await Future<void>.delayed(const Duration(milliseconds: 140));
@@ -208,11 +227,31 @@ class LocalExpertBadgeCelebrationService {
       await HapticFeedback.selectionClick();
       await Future<void>.delayed(const Duration(milliseconds: 160));
       await HapticFeedback.heavyImpact();
-      await Future<void>.delayed(const Duration(milliseconds: 180));
-      await HapticFeedback.selectionClick();
-      await Future<void>.delayed(const Duration(milliseconds: 160));
-      await HapticFeedback.mediumImpact();
+      if (level == LocalExpertBadgeLevel.level1) {
+        return;
+      }
+
       await Future<void>.delayed(const Duration(milliseconds: 170));
+      await HapticFeedback.selectionClick();
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      await HapticFeedback.mediumImpact();
+      if (level == LocalExpertBadgeLevel.level2) {
+        return;
+      }
+
+      await Future<void>.delayed(const Duration(milliseconds: 160));
+      await HapticFeedback.selectionClick();
+      await Future<void>.delayed(const Duration(milliseconds: 170));
+      await HapticFeedback.heavyImpact();
+      await Future<void>.delayed(const Duration(milliseconds: 180));
+      await HapticFeedback.mediumImpact();
+      await Future<void>.delayed(const Duration(milliseconds: 150));
+      await HapticFeedback.selectionClick();
+      await Future<void>.delayed(const Duration(milliseconds: 170));
+      await HapticFeedback.mediumImpact();
+      await Future<void>.delayed(const Duration(milliseconds: 160));
+      await HapticFeedback.selectionClick();
+      await Future<void>.delayed(const Duration(milliseconds: 190));
       await HapticFeedback.heavyImpact();
     } catch (_) {}
   }

@@ -751,9 +751,9 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
               ),
               const SizedBox(height: 16),
               _buildBiteRaterAccessCard(
-                title: 'Claim Your Restaurant on BiteRater',
+                title: 'Claim Your Restaurant on BiteScore',
                 message:
-                    'While your coupon-side application is being reviewed, you can still browse BiteRater and claim your restaurant on the rating side.',
+                    'While your coupon-side application is being reviewed, you can still browse BiteScore and claim your restaurant on the rating side.',
               ),
             ],
           ),
@@ -803,7 +803,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
   }
 
   Widget _buildBiteRaterAccessCard({
-    String title = 'BiteRater Side',
+    String title = 'BiteScore Side',
     String message =
         'Claim your restaurant on the rating side to manage dishes and restaurant tools.',
   }) {
@@ -846,7 +846,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
                     ),
                   );
                 },
-                child: const Text('Browse BiteRater and Claim'),
+                child: const Text('Browse BiteScore and Claim'),
               ),
             ),
             const SizedBox(height: 10),

@@ -5,6 +5,29 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('Coupon scheduling', () {
+    final visibleCoupon = Coupon(
+      id: 'visible',
+      restaurant: 'BiteSaver Test',
+      title: 'Lunch Special',
+      distance: '1 mile away',
+      startTime: DateTime(2026, 3, 27, 9),
+      endTime: DateTime(2026, 3, 27, 18),
+      usageRule: 'Once per customer',
+      details: 'Valid for lunch only.',
+    );
+
+    Map<String, dynamic> accountData({
+      String approvalStatus = 'approved',
+      String subscriptionStatus = 'active',
+      DateTime? trialEndsAt,
+    }) {
+      return {
+        Restaurant.fieldApprovalStatus: approvalStatus,
+        'subscriptionStatus': subscriptionStatus,
+        'trialEndsAt': trialEndsAt,
+      };
+    }
+
     test('coupon is active within its structured time window', () {
       final now = DateTime(2026, 3, 27, 12);
       final coupon = Coupon(
@@ -258,6 +281,60 @@ void main() {
         isNull,
       );
     });
+
+    test('customer-visible coupons require an active subscription', () {
+      final coupons = [visibleCoupon];
+
+      expect(
+        RestaurantAccountService.customerVisibleCouponsForAccountData(
+          accountData(),
+          coupons,
+        ),
+        coupons,
+      );
+      expect(
+        RestaurantAccountService.customerVisibleCouponsForAccountData(
+          accountData(subscriptionStatus: 'inactive'),
+          coupons,
+        ),
+        isEmpty,
+      );
+      expect(
+        RestaurantAccountService.customerVisibleCouponsForAccountData(
+          accountData(subscriptionStatus: 'canceled'),
+          coupons,
+        ),
+        isEmpty,
+      );
+    });
+
+    test(
+      'customer-visible coupons allow current trials but not expired trials',
+      () {
+        final coupons = [visibleCoupon];
+
+        expect(
+          RestaurantAccountService.customerVisibleCouponsForAccountData(
+            accountData(
+              subscriptionStatus: 'trialing',
+              trialEndsAt: DateTime.now().add(const Duration(days: 1)),
+            ),
+            coupons,
+          ),
+          coupons,
+        );
+        expect(
+          RestaurantAccountService.customerVisibleCouponsForAccountData(
+            accountData(
+              subscriptionStatus: 'trialing',
+              trialEndsAt: DateTime.now().subtract(const Duration(days: 1)),
+            ),
+            coupons,
+          ),
+          isEmpty,
+        );
+      },
+    );
   });
 
   group('Restaurant validation', () {

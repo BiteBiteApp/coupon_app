@@ -10,7 +10,11 @@ import '../widgets/biterater_theme.dart';
 import '../widgets/local_expert_badge_widget.dart';
 
 typedef ExpertBadgePreviewCallback =
-    Future<void> Function(BuildContext context, LocalExpertType type);
+    Future<void> Function(
+      BuildContext context,
+      LocalExpertType type,
+      LocalExpertBadgeLevel level,
+    );
 typedef PointCelebrationPreviewCallback =
     Future<void> Function(BuildContext context);
 
@@ -130,10 +134,31 @@ class _ExpertBadgeGalleryPreviewPanelState
                     .toList(growable: false),
               ),
               FilledButton.icon(
-                key: const ValueKey('preview-local-expert-celebration-button'),
-                onPressed: () => _previewBadge(context),
+                key: const ValueKey(
+                  'preview-local-expert-celebration-level1-button',
+                ),
+                onPressed: () =>
+                    _previewBadge(context, LocalExpertBadgeLevel.level1),
                 icon: const Icon(Icons.workspace_premium_rounded),
-                label: const Text('Local Expert'),
+                label: const Text('Preview Level 1 Badge Celebration'),
+              ),
+              FilledButton.icon(
+                key: const ValueKey(
+                  'preview-local-expert-celebration-level2-button',
+                ),
+                onPressed: () =>
+                    _previewBadge(context, LocalExpertBadgeLevel.level2),
+                icon: const Icon(Icons.workspace_premium_rounded),
+                label: const Text('Preview Level 2 Badge Celebration'),
+              ),
+              FilledButton.icon(
+                key: const ValueKey(
+                  'preview-local-expert-celebration-level3-button',
+                ),
+                onPressed: () =>
+                    _previewBadge(context, LocalExpertBadgeLevel.level3),
+                icon: const Icon(Icons.workspace_premium_rounded),
+                label: const Text('Preview Level 3 Badge Celebration'),
               ),
               OutlinedButton.icon(
                 key: const ValueKey('preview-point-celebration-button'),
@@ -148,9 +173,12 @@ class _ExpertBadgeGalleryPreviewPanelState
     );
   }
 
-  Future<void> _previewBadge(BuildContext context) async {
+  Future<void> _previewBadge(
+    BuildContext context,
+    LocalExpertBadgeLevel level,
+  ) async {
     final callback = widget.onPreviewBadge ?? _showBadgePreview;
-    await callback(context, _selectedBadge);
+    await callback(context, _selectedBadge, level);
   }
 
   Future<void> _previewPoint(BuildContext context) async {
@@ -168,15 +196,19 @@ class _ExpertBadgeGalleryPreviewPanelState
   static Future<void> _showBadgePreview(
     BuildContext context,
     LocalExpertType type,
+    LocalExpertBadgeLevel level,
   ) {
     return LocalExpertBadgeCelebrationService.show(
       context,
       celebration: LocalExpertBadgeCelebration(
-        eventKey: 'preview_${type.id}_${DateTime.now().microsecondsSinceEpoch}',
+        eventKey:
+            'preview_${type.id}_${level.name}_${DateTime.now().microsecondsSinceEpoch}',
         expertTypeId: type.id,
         displayName: type.displayName,
-        level: LocalExpertBadgeLevel.level1,
-        kind: LocalExpertBadgeCelebrationKind.earned,
+        level: level,
+        kind: level == LocalExpertBadgeLevel.level1
+            ? LocalExpertBadgeCelebrationKind.earned
+            : LocalExpertBadgeCelebrationKind.levelUp,
       ),
     );
   }

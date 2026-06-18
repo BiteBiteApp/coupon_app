@@ -278,7 +278,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
           restaurantId: restaurant.id,
           updatedBy: widget.currentUser.uid,
         );
-        _showSnackBar('BiteRater menu management restored.');
+        _showSnackBar('BiteScore menu management restored.');
       }
       if (mounted) {
         setState(_refresh);
@@ -1594,7 +1594,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
                   const Icon(Icons.storefront_outlined, size: 52),
                   const SizedBox(height: 16),
                   const Text(
-                    'No BiteRater Restaurant Claimed Yet',
+                    'No BiteScore Restaurant Claimed Yet',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: BiteRaterTheme.ink,
@@ -1604,7 +1604,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    'You’ll need to claim a restaurant before you can use BiteRater tools.',
+                    'You’ll need to claim a restaurant before you can use BiteScore tools.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: BiteRaterTheme.mutedInk,
@@ -1621,8 +1621,11 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
                     width: double.infinity,
                     child: FilledButton(
                       onPressed: _openBiteScoreBrowse,
-                      child: const Text(
-                        'Browse BiteRater and Claim a Restaurant',
+                      child: const Center(
+                        child: Text(
+                          'Browse BiteScore Restaurants',
+                          textAlign: TextAlign.center,
+                        ),
                       ),
                     ),
                   ),

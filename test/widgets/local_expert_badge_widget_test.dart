@@ -348,7 +348,21 @@ void main() {
       );
 
       expect(
-        find.byKey(const ValueKey('preview-local-expert-celebration-button')),
+        find.byKey(
+          const ValueKey('preview-local-expert-celebration-level1-button'),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.byKey(
+          const ValueKey('preview-local-expert-celebration-level2-button'),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.byKey(
+          const ValueKey('preview-local-expert-celebration-level3-button'),
+        ),
         findsNothing,
       );
       expect(
@@ -365,7 +379,21 @@ void main() {
       );
 
       expect(
-        find.byKey(const ValueKey('preview-local-expert-celebration-button')),
+        find.byKey(
+          const ValueKey('preview-local-expert-celebration-level1-button'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const ValueKey('preview-local-expert-celebration-level2-button'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const ValueKey('preview-local-expert-celebration-level3-button'),
+        ),
         findsOneWidget,
       );
       expect(
@@ -378,6 +406,7 @@ void main() {
       tester,
     ) async {
       LocalExpertType? previewedBadge;
+      final previewedLevels = <LocalExpertBadgeLevel>[];
       var previewedPoints = 0;
       var simulatedFirestoreWrites = 0;
 
@@ -386,8 +415,9 @@ void main() {
           home: Scaffold(
             body: ExpertBadgeGalleryScreen(
               showPreviewControls: true,
-              onPreviewBadge: (context, type) async {
+              onPreviewBadge: (context, type, level) async {
                 previewedBadge = type;
+                previewedLevels.add(level);
               },
               onPreviewPoint: (context) async {
                 previewedPoints += 1;
@@ -398,7 +428,21 @@ void main() {
       );
 
       await tester.tap(
-        find.byKey(const ValueKey('preview-local-expert-celebration-button')),
+        find.byKey(
+          const ValueKey('preview-local-expert-celebration-level1-button'),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(
+        find.byKey(
+          const ValueKey('preview-local-expert-celebration-level2-button'),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(
+        find.byKey(
+          const ValueKey('preview-local-expert-celebration-level3-button'),
+        ),
       );
       await tester.pump();
       await tester.tap(
@@ -407,6 +451,11 @@ void main() {
       await tester.pump();
 
       expect(previewedBadge?.id, 'bbq');
+      expect(previewedLevels, [
+        LocalExpertBadgeLevel.level1,
+        LocalExpertBadgeLevel.level2,
+        LocalExpertBadgeLevel.level3,
+      ]);
       expect(previewedPoints, 1);
       expect(simulatedFirestoreWrites, 0);
     });

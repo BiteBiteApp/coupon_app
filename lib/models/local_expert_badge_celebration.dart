@@ -31,10 +31,19 @@ class LocalExpertBadgeCelebration {
   String get message {
     return switch (kind) {
       LocalExpertBadgeCelebrationKind.earned =>
-        'You just earned the $displayName Expert Badge!',
+        'You just earned the $displayName Expert Badge — ${levelLabel(level)}!',
       LocalExpertBadgeCelebrationKind.levelUp =>
         'Your $displayName Expert Badge reached ${levelLabel(level)}!',
     };
+  }
+
+  List<String> get messageLines {
+    if (kind == LocalExpertBadgeCelebrationKind.earned &&
+        level == LocalExpertBadgeLevel.level1) {
+      return ['You just earned', '$displayName Badge ${levelLabel(level)}'];
+    }
+
+    return [message];
   }
 
   LocalExpertBadge get badge {

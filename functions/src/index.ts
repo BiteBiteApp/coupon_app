@@ -1115,6 +1115,14 @@ function localExpertLevelRank(level?: string | null): number {
   }
 }
 
+function localExpertCelebrationEventKey(
+  userId: string,
+  expertTypeId: string,
+  level: string,
+): string {
+  return `${userId}_${expertTypeId}_${level}`;
+}
+
 function isPublicReview(
   review: LocalExpertReviewData,
   dish: LocalExpertDishData,
@@ -1351,7 +1359,11 @@ Promise<LocalExpertBadgePersistenceResult> {
     );
 
     if (celebrationKind) {
-      const eventKey = `${result.expertTypeId}_${result.level}`;
+      const eventKey = localExpertCelebrationEventKey(
+        userId,
+        result.expertTypeId,
+        result.level,
+      );
       const celebrationRef = celebrationCollection.doc(eventKey);
       const celebrationDoc = await celebrationRef.get();
       if (!celebrationDoc.exists) {

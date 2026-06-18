@@ -11,11 +11,11 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   tearDown(LocalExpertBadgeCelebrationService.resetForTesting);
 
-  test('new badge and level-up messages use the real display name', () {
-    expect(
-      _celebration(displayName: 'Pizza').message,
-      'You just earned the Pizza Expert Badge!',
-    );
+  test('badge celebration messages always include the reached level', () {
+    expect(_celebration(displayName: 'Pizza').messageLines, [
+      'You just earned',
+      'Pizza Badge Level 1',
+    ]);
     expect(
       _celebration(
         displayName: 'Subs / Sandwiches',
@@ -23,6 +23,14 @@ void main() {
         kind: LocalExpertBadgeCelebrationKind.levelUp,
       ).message,
       'Your Subs / Sandwiches Expert Badge reached Level 2!',
+    );
+    expect(
+      _celebration(
+        displayName: 'Chicken Pie / Chicken Pot Pie',
+        level: LocalExpertBadgeLevel.level3,
+        kind: LocalExpertBadgeCelebrationKind.levelUp,
+      ).message,
+      'Your Chicken Pie / Chicken Pot Pie Expert Badge reached Level 3!',
     );
   });
 
@@ -58,15 +66,78 @@ void main() {
     );
   });
 
-  test('badge celebration uses longer display timing and sparkle sound', () {
+  test('badge celebration uses level-aware timing and sparkle sound', () {
     expect(
       LocalExpertBadgeCelebrationService.displayDuration,
       const Duration(milliseconds: 5200),
     );
     expect(
+      LocalExpertBadgeCelebrationService.displayDurationForLevel(
+        LocalExpertBadgeLevel.level1,
+      ),
+      const Duration(milliseconds: 5200),
+    );
+    expect(
+      LocalExpertBadgeCelebrationService.displayDurationForLevel(
+        LocalExpertBadgeLevel.level2,
+      ),
+      const Duration(milliseconds: 5600),
+    );
+    expect(
+      LocalExpertBadgeCelebrationService.displayDurationForLevel(
+        LocalExpertBadgeLevel.level3,
+      ),
+      const Duration(milliseconds: 6000),
+    );
+    expect(
       LocalExpertBadgeCelebrationService.soundAsset,
       'sounds/badge_sparkle.wav',
     );
+  });
+
+  test('level celebration styles become richer without changing level 1', () {
+    final level1 = LocalExpertBadgeCelebrationLevelStyle.forLevel(
+      LocalExpertBadgeLevel.level1,
+    );
+    final level2 = LocalExpertBadgeCelebrationLevelStyle.forLevel(
+      LocalExpertBadgeLevel.level2,
+    );
+    final level3 = LocalExpertBadgeCelebrationLevelStyle.forLevel(
+      LocalExpertBadgeLevel.level3,
+    );
+
+    expect(level1.fireworkBurstCount, 5);
+    expect(level1.particlesPerBurst, 14);
+    expect(level1.hasLandingPulse, isFalse);
+    expect(level1.hasBadgeSpin, isFalse);
+    expect(level1.hasBadgeFlare, isFalse);
+    expect(level1.hasCornerSparklers, isFalse);
+    expect(level2.fireworkBurstCount, greaterThan(level1.fireworkBurstCount));
+    expect(level2.particlesPerBurst, level1.particlesPerBurst);
+    expect(level2.hasLandingPulse, isTrue);
+    expect(level2.hasBadgeSpin, isFalse);
+    expect(level2.hasCornerSparklers, isFalse);
+    expect(level3.fireworkDurationScale, 2);
+    expect(level3.particlesPerBurst, greaterThanOrEqualTo(42));
+    expect(level3.particlesPerBurst, greaterThan(level2.particlesPerBurst * 3));
+    expect(level3.hasBadgeSpin, isTrue);
+    expect(level3.hasBadgeFlare, isTrue);
+    expect(level3.hasCornerSparklers, isTrue);
+  });
+
+  test('level 1 uses the existing simple visual style', () {
+    final level1 = LocalExpertBadgeCelebrationLevelStyle.forLevel(
+      LocalExpertBadgeLevel.level1,
+    );
+
+    expect(level1.fireworkBurstCount, 5);
+    expect(level1.particlesPerBurst, 14);
+    expect(level1.sparkleDotsPerBurst, 7);
+    expect(level1.fireworkDurationScale, 1);
+    expect(level1.hasLandingPulse, isFalse);
+    expect(level1.hasBadgeSpin, isFalse);
+    expect(level1.hasBadgeFlare, isFalse);
+    expect(level1.hasCornerSparklers, isFalse);
   });
 
   testWidgets('overlay uses real badge artwork and level-up text', (
@@ -123,7 +194,11 @@ void main() {
         home: MediaQuery(
           data: const MediaQueryData(disableAnimations: true),
           child: LocalExpertBadgeCelebrationOverlay(
-            celebration: _celebration(displayName: 'Pizza'),
+            celebration: _celebration(
+              displayName: 'Pizza',
+              level: LocalExpertBadgeLevel.level3,
+              kind: LocalExpertBadgeCelebrationKind.levelUp,
+            ),
             displayDuration: const Duration(milliseconds: 1200),
             onDismiss: () {},
           ),
@@ -135,6 +210,92 @@ void main() {
       find.byType(LocalExpertBadgeFireworks),
     );
     expect(fireworks.reducedMotion, isTrue);
+    expect(fireworks.levelStyle.hasBadgeSpin, isTrue);
+    expect(fireworks.levelStyle.hasCornerSparklers, isTrue);
+  });
+
+  testWidgets('level 1 overlay uses the requested stacked wording', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocalExpertBadgeCelebrationOverlay(
+          celebration: _celebration(
+            displayName: 'Chicken Pie / Chicken Pot Pie',
+          ),
+          displayDuration: const Duration(milliseconds: 1200),
+          onDismiss: () {},
+        ),
+      ),
+    );
+
+    await tester.pump(const Duration(milliseconds: 700));
+
+    expect(find.text('Congratulations!'), findsOneWidget);
+    expect(find.text('You just earned'), findsOneWidget);
+    expect(
+      find.text('Chicken Pie / Chicken Pot Pie Badge Level 1'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Expert Badge — Level 1'), findsNothing);
+  });
+
+  testWidgets('level 3 spins the badge artwork but not the card', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: LocalExpertBadgeCelebrationOverlay(
+          celebration: _celebration(
+            displayName: 'Pizza',
+            level: LocalExpertBadgeLevel.level3,
+            kind: LocalExpertBadgeCelebrationKind.levelUp,
+          ),
+          displayDuration: const Duration(milliseconds: 2400),
+          onDismiss: () {},
+        ),
+      ),
+    );
+
+    await tester.pump(const Duration(milliseconds: 450));
+
+    final cardFinder = find.byKey(
+      const ValueKey('local-expert-celebration-card'),
+    );
+    final badgeSpin = tester.widget<Transform>(
+      find.byKey(const ValueKey('local-expert-celebration-badge-spin')),
+    );
+
+    expect(cardFinder, findsOneWidget);
+    expect(_hasRotation(badgeSpin.transform), isTrue);
+  });
+
+  testWidgets('reduced motion disables the level 3 badge spin transform', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MediaQuery(
+          data: const MediaQueryData(disableAnimations: true),
+          child: LocalExpertBadgeCelebrationOverlay(
+            celebration: _celebration(
+              displayName: 'Pizza',
+              level: LocalExpertBadgeLevel.level3,
+              kind: LocalExpertBadgeCelebrationKind.levelUp,
+            ),
+            displayDuration: const Duration(milliseconds: 2400),
+            onDismiss: () {},
+          ),
+        ),
+      ),
+    );
+
+    await tester.pump(const Duration(milliseconds: 450));
+
+    final badgeSpin = tester.widget<Transform>(
+      find.byKey(const ValueKey('local-expert-celebration-badge-spin')),
+    );
+    expect(_hasRotation(badgeSpin.transform), isFalse);
   });
 
   testWidgets('multiple celebrations queue instead of stacking', (
@@ -165,11 +326,8 @@ void main() {
     );
     await tester.pump();
 
-    expect(
-      find.text('You just earned the Burger Expert Badge!'),
-      findsOneWidget,
-    );
-    expect(find.text('You just earned the Pizza Expert Badge!'), findsNothing);
+    expect(find.text('Burger Badge Level 1'), findsOneWidget);
+    expect(find.text('Pizza Badge Level 1'), findsNothing);
 
     await tester.tap(find.byTooltip('Close'));
     await tester.pump();
@@ -177,11 +335,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 700));
 
-    expect(find.text('You just earned the Burger Expert Badge!'), findsNothing);
-    expect(
-      find.text('You just earned the Pizza Expert Badge!'),
-      findsOneWidget,
-    );
+    expect(find.text('Burger Badge Level 1'), findsNothing);
+    expect(find.text('Pizza Badge Level 1'), findsOneWidget);
 
     await tester.tap(find.byTooltip('Close'));
     await tester.pump();
@@ -213,14 +368,68 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 700));
 
-    expect(
-      find.text('You just earned the Burger Expert Badge!'),
-      findsOneWidget,
-    );
+    expect(find.text('Burger Badge Level 1'), findsOneWidget);
     await tester.tap(find.byTooltip('Close'));
     await tester.pump();
 
     expect(await showFuture, ['burger_l1']);
+  });
+
+  testWidgets('same badge can queue separate celebrations for each level', (
+    tester,
+  ) async {
+    late BuildContext hostContext;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            hostContext = context;
+            return const Scaffold(body: Text('Home'));
+          },
+        ),
+      ),
+    );
+
+    final showFuture = LocalExpertBadgeCelebrationService.showAll(
+      hostContext,
+      celebrations: [
+        _celebration(displayName: 'BBQ', eventKey: 'user_bbq_level1'),
+        _celebration(
+          displayName: 'BBQ',
+          eventKey: 'user_bbq_level2',
+          level: LocalExpertBadgeLevel.level2,
+          kind: LocalExpertBadgeCelebrationKind.levelUp,
+        ),
+        _celebration(
+          displayName: 'BBQ',
+          eventKey: 'user_bbq_level3',
+          level: LocalExpertBadgeLevel.level3,
+          kind: LocalExpertBadgeCelebrationKind.levelUp,
+        ),
+      ],
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+
+    expect(find.text('BBQ Badge Level 1'), findsOneWidget);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+
+    expect(find.text('Your BBQ Expert Badge reached Level 2!'), findsOneWidget);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 700));
+
+    expect(find.text('Your BBQ Expert Badge reached Level 3!'), findsOneWidget);
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pump();
+
+    expect(await showFuture, [
+      'user_bbq_level1',
+      'user_bbq_level2',
+      'user_bbq_level3',
+    ]);
   });
 
   testWidgets('host loads and marks pending celebrations while foregrounded', (
@@ -253,6 +462,11 @@ void main() {
     expect(loadCount, 1);
     expect(marked, ['burger_l1']);
   });
+}
+
+bool _hasRotation(Matrix4 matrix) {
+  final values = matrix.storage;
+  return values[1].abs() > 0.0001 || values[4].abs() > 0.0001;
 }
 
 LocalExpertBadgeCelebration _celebration({

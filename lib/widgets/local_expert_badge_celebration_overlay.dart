@@ -3,9 +3,87 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../models/local_expert.dart';
 import '../models/local_expert_badge_celebration.dart';
 import 'biterater_theme.dart';
 import 'local_expert_badge_widget.dart';
+
+class LocalExpertBadgeCelebrationLevelStyle {
+  final LocalExpertBadgeLevel level;
+  final int fireworkBurstCount;
+  final int particlesPerBurst;
+  final int sparkleDotsPerBurst;
+  final int reducedMotionSparkleCount;
+  final double fireworkDurationScale;
+  final bool hasLandingPulse;
+  final bool hasBadgeSpin;
+  final bool hasBadgeFlare;
+  final bool hasCornerSparklers;
+  final int badgeSparkCount;
+
+  const LocalExpertBadgeCelebrationLevelStyle._({
+    required this.level,
+    required this.fireworkBurstCount,
+    required this.particlesPerBurst,
+    required this.sparkleDotsPerBurst,
+    required this.reducedMotionSparkleCount,
+    required this.fireworkDurationScale,
+    required this.hasLandingPulse,
+    required this.hasBadgeSpin,
+    required this.hasBadgeFlare,
+    required this.hasCornerSparklers,
+    required this.badgeSparkCount,
+  });
+
+  factory LocalExpertBadgeCelebrationLevelStyle.forLevel(
+    LocalExpertBadgeLevel level,
+  ) {
+    return switch (level) {
+      LocalExpertBadgeLevel.level1 =>
+        const LocalExpertBadgeCelebrationLevelStyle._(
+          level: LocalExpertBadgeLevel.level1,
+          fireworkBurstCount: 5,
+          particlesPerBurst: 14,
+          sparkleDotsPerBurst: 7,
+          reducedMotionSparkleCount: 5,
+          fireworkDurationScale: 1,
+          hasLandingPulse: false,
+          hasBadgeSpin: false,
+          hasBadgeFlare: false,
+          hasCornerSparklers: false,
+          badgeSparkCount: 0,
+        ),
+      LocalExpertBadgeLevel.level2 =>
+        const LocalExpertBadgeCelebrationLevelStyle._(
+          level: LocalExpertBadgeLevel.level2,
+          fireworkBurstCount: 7,
+          particlesPerBurst: 14,
+          sparkleDotsPerBurst: 7,
+          reducedMotionSparkleCount: 5,
+          fireworkDurationScale: 1,
+          hasLandingPulse: true,
+          hasBadgeSpin: false,
+          hasBadgeFlare: false,
+          hasCornerSparklers: false,
+          badgeSparkCount: 0,
+        ),
+      LocalExpertBadgeLevel.level3 =>
+        const LocalExpertBadgeCelebrationLevelStyle._(
+          level: LocalExpertBadgeLevel.level3,
+          fireworkBurstCount: 9,
+          particlesPerBurst: 48,
+          sparkleDotsPerBurst: 24,
+          reducedMotionSparkleCount: 6,
+          fireworkDurationScale: 2,
+          hasLandingPulse: true,
+          hasBadgeSpin: true,
+          hasBadgeFlare: true,
+          hasCornerSparklers: true,
+          badgeSparkCount: 28,
+        ),
+    };
+  }
+}
 
 class LocalExpertBadgeCelebrationOverlay extends StatefulWidget {
   @visibleForTesting
@@ -79,6 +157,9 @@ class _LocalExpertBadgeCelebrationOverlayState
     final mediaQuery = MediaQuery.of(context);
     final reducedMotion =
         mediaQuery.disableAnimations || mediaQuery.accessibleNavigation;
+    final levelStyle = LocalExpertBadgeCelebrationLevelStyle.forLevel(
+      widget.celebration.level,
+    );
 
     return Material(
       color: Colors.transparent,
@@ -95,6 +176,7 @@ class _LocalExpertBadgeCelebrationOverlayState
                     return LocalExpertBadgeFireworks(
                       progress: _controller.value,
                       reducedMotion: reducedMotion,
+                      levelStyle: levelStyle,
                     );
                   },
                 ),
@@ -120,7 +202,10 @@ class _LocalExpertBadgeCelebrationOverlayState
                               (progress / 0.42).clamp(0, 1),
                             ),
                           )
-                        : 1.0;
+                        : _badgeScale(progress, levelStyle);
+                    final badgeRotation = reducedMotion
+                        ? 0.0
+                        : _badgeRotation(progress, levelStyle);
 
                     return Opacity(
                       opacity: opacity.toDouble(),
@@ -139,6 +224,10 @@ class _LocalExpertBadgeCelebrationOverlayState
                           child: _LocalExpertBadgeCelebrationCard(
                             celebration: widget.celebration,
                             textOpacity: textOpacity.toDouble(),
+                            motionProgress: progress,
+                            badgeRotation: badgeRotation,
+                            reducedMotion: reducedMotion,
+                            levelStyle: levelStyle,
                             onDismiss: widget.onDismiss,
                           ),
                         ),
@@ -169,16 +258,43 @@ class _LocalExpertBadgeCelebrationOverlayState
     }
     return 0;
   }
+
+  double _badgeScale(
+    double progress,
+    LocalExpertBadgeCelebrationLevelStyle levelStyle,
+  ) {
+    if (!levelStyle.hasLandingPulse || progress < 0.42 || progress > 0.78) {
+      return 1;
+    }
+
+    final localProgress = ((progress - 0.42) / 0.36).clamp(0, 1).toDouble();
+    final pulse = math.sin(localProgress * math.pi) * 0.055;
+    return 1 + pulse;
+  }
+
+  double _badgeRotation(
+    double progress,
+    LocalExpertBadgeCelebrationLevelStyle levelStyle,
+  ) {
+    if (!levelStyle.hasBadgeSpin || progress >= 0.58) {
+      return 0;
+    }
+
+    final t = Curves.easeOutCubic.transform((progress / 0.58).clamp(0, 1));
+    return -math.pi * 4 * (1 - t);
+  }
 }
 
 class LocalExpertBadgeFireworks extends StatelessWidget {
   final double progress;
   final bool reducedMotion;
+  final LocalExpertBadgeCelebrationLevelStyle levelStyle;
 
   const LocalExpertBadgeFireworks({
     super.key,
     required this.progress,
     required this.reducedMotion,
+    required this.levelStyle,
   });
 
   @override
@@ -188,6 +304,7 @@ class LocalExpertBadgeFireworks extends StatelessWidget {
         painter: _LocalExpertBadgeFireworksPainter(
           progress: progress,
           reducedMotion: reducedMotion,
+          levelStyle: levelStyle,
         ),
         size: Size.infinite,
       ),
@@ -227,14 +344,40 @@ class _LocalExpertBadgeFireworksPainter extends CustomPainter {
       radius: 76,
       color: Color(0xFF9B7BFF),
     ),
+    _FireworkBurst(
+      origin: Offset(0.22, 0.48),
+      start: 0.56,
+      radius: 70,
+      color: Color(0xFFFF9F43),
+    ),
+    _FireworkBurst(
+      origin: Offset(0.78, 0.50),
+      start: 0.60,
+      radius: 74,
+      color: Color(0xFF5BE7C4),
+    ),
+    _FireworkBurst(
+      origin: Offset(0.44, 0.22),
+      start: 0.63,
+      radius: 68,
+      color: Color(0xFFFFF0A6),
+    ),
+    _FireworkBurst(
+      origin: Offset(0.56, 0.22),
+      start: 0.66,
+      radius: 68,
+      color: Color(0xFFFFD166),
+    ),
   ];
 
   final double progress;
   final bool reducedMotion;
+  final LocalExpertBadgeCelebrationLevelStyle levelStyle;
 
   const _LocalExpertBadgeFireworksPainter({
     required this.progress,
     required this.reducedMotion,
+    required this.levelStyle,
   });
 
   @override
@@ -248,8 +391,10 @@ class _LocalExpertBadgeFireworksPainter extends CustomPainter {
       return;
     }
 
-    for (final burst in _bursts) {
-      final localProgress = ((progress - burst.start) / 0.34).clamp(0, 1);
+    for (final burst in _bursts.take(levelStyle.fireworkBurstCount)) {
+      final localProgress =
+          ((progress - burst.start) / (0.34 * levelStyle.fireworkDurationScale))
+              .clamp(0, 1);
       if (localProgress <= 0 || localProgress >= 1) {
         continue;
       }
@@ -261,26 +406,76 @@ class _LocalExpertBadgeFireworksPainter extends CustomPainter {
       );
       final radius = burst.radius * eased;
 
-      for (var index = 0; index < 14; index += 1) {
-        final angle = (math.pi * 2 / 14) * index + burst.start * math.pi;
+      for (var index = 0; index < levelStyle.particlesPerBurst; index += 1) {
+        final angle =
+            (math.pi * 2 / levelStyle.particlesPerBurst) * index +
+            burst.start * math.pi;
         final start = center + Offset(math.cos(angle), math.sin(angle)) * 18;
         final end = center + Offset(math.cos(angle), math.sin(angle)) * radius;
         paint
-          ..color = burst.color.withValues(alpha: 0.54 * fade)
-          ..strokeWidth = 2.4 - localProgress;
+          ..color = burst.color.withValues(alpha: 0.42 * fade)
+          ..strokeWidth = math.max(0.9, 2.4 - localProgress);
         canvas.drawLine(start, end, paint);
       }
 
       paint
         ..style = PaintingStyle.fill
-        ..color = burst.color.withValues(alpha: 0.22 * fade);
-      for (var index = 0; index < 7; index += 1) {
-        final angle = (math.pi * 2 / 7) * index + math.pi / 9;
+        ..color = burst.color.withValues(alpha: 0.18 * fade);
+      for (var index = 0; index < levelStyle.sparkleDotsPerBurst; index += 1) {
+        final angle =
+            (math.pi * 2 / levelStyle.sparkleDotsPerBurst) * index +
+            math.pi / 9;
         final point =
             center + Offset(math.cos(angle), math.sin(angle)) * radius * 0.72;
-        canvas.drawCircle(point, 3.8 * (1 - localProgress) + 1.4, paint);
+        canvas.drawCircle(point, 2.8 * (1 - localProgress) + 1.1, paint);
       }
       paint.style = PaintingStyle.stroke;
+    }
+
+    if (levelStyle.hasCornerSparklers) {
+      _paintCornerSparklers(canvas, size, paint);
+    }
+  }
+
+  void _paintCornerSparklers(Canvas canvas, Size size, Paint paint) {
+    final localProgress = ((progress - 0.18) / 0.70).clamp(0, 1).toDouble();
+    if (localProgress <= 0 || localProgress >= 1) {
+      return;
+    }
+
+    final fade = math.sin(localProgress * math.pi).clamp(0, 1).toDouble();
+    final corners = [
+      Offset.zero,
+      Offset(size.width, 0),
+      Offset(0, size.height),
+      Offset(size.width, size.height),
+    ];
+    final directions = [
+      const Offset(1, 1),
+      const Offset(-1, 1),
+      const Offset(1, -1),
+      const Offset(-1, -1),
+    ];
+
+    for (var cornerIndex = 0; cornerIndex < corners.length; cornerIndex += 1) {
+      final corner = corners[cornerIndex];
+      final direction = directions[cornerIndex];
+      for (var index = 0; index < 18; index += 1) {
+        final spread = -0.85 + (1.7 / 17) * index;
+        final angle = math.atan2(direction.dy, direction.dx) + spread;
+        final length = 24 + 42 * ((index % 5) / 4) + 24 * localProgress;
+        final start =
+            corner +
+            Offset(math.cos(angle), math.sin(angle)) * (16 + index % 4 * 6);
+        final end = start + Offset(math.cos(angle), math.sin(angle)) * length;
+        paint
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2 + (index % 3) * 0.35
+          ..color =
+              (index.isEven ? const Color(0xFFFFD166) : const Color(0xFFFFF3C8))
+                  .withValues(alpha: 0.38 * fade);
+        canvas.drawLine(start, end, paint);
+      }
     }
   }
 
@@ -297,8 +492,9 @@ class _LocalExpertBadgeFireworksPainter extends CustomPainter {
       Offset(0.42, 0.58),
       Offset(0.60, 0.57),
       Offset(0.50, 0.28),
+      Offset(0.50, 0.64),
     ];
-    for (final sparkle in sparkles) {
+    for (final sparkle in sparkles.take(levelStyle.reducedMotionSparkleCount)) {
       final center = Offset(size.width * sparkle.dx, size.height * sparkle.dy);
       canvas.drawCircle(center, 5, paint);
       paint
@@ -313,7 +509,8 @@ class _LocalExpertBadgeFireworksPainter extends CustomPainter {
   @override
   bool shouldRepaint(covariant _LocalExpertBadgeFireworksPainter oldDelegate) {
     return progress != oldDelegate.progress ||
-        reducedMotion != oldDelegate.reducedMotion;
+        reducedMotion != oldDelegate.reducedMotion ||
+        levelStyle != oldDelegate.levelStyle;
   }
 }
 
@@ -334,11 +531,19 @@ class _FireworkBurst {
 class _LocalExpertBadgeCelebrationCard extends StatelessWidget {
   final LocalExpertBadgeCelebration celebration;
   final double textOpacity;
+  final double motionProgress;
+  final double badgeRotation;
+  final bool reducedMotion;
+  final LocalExpertBadgeCelebrationLevelStyle levelStyle;
   final VoidCallback onDismiss;
 
   const _LocalExpertBadgeCelebrationCard({
     required this.celebration,
     required this.textOpacity,
+    required this.motionProgress,
+    required this.badgeRotation,
+    required this.reducedMotion,
+    required this.levelStyle,
     required this.onDismiss,
   });
 
@@ -347,6 +552,7 @@ class _LocalExpertBadgeCelebrationCard extends StatelessWidget {
     return GestureDetector(
       onTap: () {},
       child: Container(
+        key: const ValueKey('local-expert-celebration-card'),
         constraints: const BoxConstraints(maxWidth: 330),
         margin: const EdgeInsets.symmetric(horizontal: 24),
         padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
@@ -367,15 +573,38 @@ class _LocalExpertBadgeCelebrationCard extends StatelessWidget {
           children: [
             Semantics(
               label: '${celebration.displayName} Expert Badge',
-              child: Transform.scale(
-                scale: 1.9,
-                child: LocalExpertBadgeWidget(
-                  badge: celebration.badge,
-                  mode: LocalExpertBadgeDisplayMode.compact,
+              child: SizedBox(
+                width: 132,
+                height: 132,
+                child: Stack(
+                  alignment: Alignment.center,
+                  children: [
+                    if (levelStyle.hasBadgeFlare && !reducedMotion)
+                      CustomPaint(
+                        painter: _LocalExpertBadgeFlarePainter(
+                          progress: motionProgress,
+                          sparkCount: levelStyle.badgeSparkCount,
+                        ),
+                        size: const Size.square(132),
+                      ),
+                    Transform.rotate(
+                      key: const ValueKey(
+                        'local-expert-celebration-badge-spin',
+                      ),
+                      angle: badgeRotation,
+                      child: Transform.scale(
+                        scale: 1.9,
+                        child: LocalExpertBadgeWidget(
+                          badge: celebration.badge,
+                          mode: LocalExpertBadgeDisplayMode.compact,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            const SizedBox(height: 30),
+            const SizedBox(height: 10),
             Opacity(
               opacity: textOpacity,
               child: Column(
@@ -391,16 +620,21 @@ class _LocalExpertBadgeCelebrationCard extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    celebration.message,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      color: BiteRaterTheme.mutedInk,
-                      fontSize: 15,
-                      fontWeight: FontWeight.w800,
-                      height: 1.25,
+                  for (final line in celebration.messageLines) ...[
+                    Text(
+                      line,
+                      textAlign: TextAlign.center,
+                      softWrap: true,
+                      style: const TextStyle(
+                        color: BiteRaterTheme.mutedInk,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w800,
+                        height: 1.25,
+                      ),
                     ),
-                  ),
+                    if (line != celebration.messageLines.last)
+                      const SizedBox(height: 2),
+                  ],
                   const SizedBox(height: 16),
                   IconButton(
                     tooltip: 'Close',
@@ -414,5 +648,53 @@ class _LocalExpertBadgeCelebrationCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _LocalExpertBadgeFlarePainter extends CustomPainter {
+  final double progress;
+  final int sparkCount;
+
+  const _LocalExpertBadgeFlarePainter({
+    required this.progress,
+    required this.sparkCount,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final center = Offset(size.width / 2, size.height / 2);
+    final localProgress = ((progress - 0.38) / 0.36).clamp(0, 1).toDouble();
+    if (localProgress <= 0) {
+      return;
+    }
+
+    final fade = math.sin(localProgress * math.pi).clamp(0, 1).toDouble();
+    final paint = Paint()
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..color = const Color(0xFFFFD166).withValues(alpha: 0.72 * fade);
+    final radius = 43 + 17 * Curves.easeOutCubic.transform(localProgress);
+
+    for (var index = 0; index < sparkCount; index += 1) {
+      final angle = (math.pi * 2 / sparkCount) * index;
+      final inner = center + Offset(math.cos(angle), math.sin(angle)) * radius;
+      final outer =
+          center +
+          Offset(math.cos(angle), math.sin(angle)) * (radius + 10 + index % 4);
+      canvas.drawLine(inner, outer, paint);
+    }
+
+    paint
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..color = const Color(0xFFFFF3C8).withValues(alpha: 0.5 * fade);
+    canvas.drawCircle(center, radius + 5, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _LocalExpertBadgeFlarePainter oldDelegate) {
+    return progress != oldDelegate.progress ||
+        sparkCount != oldDelegate.sparkCount;
   }
 }

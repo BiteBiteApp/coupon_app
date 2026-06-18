@@ -462,6 +462,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   bool _isSavingFavoriteCoupon = false;
   bool _isSubmittingReport = false;
   bool _isOpeningRestaurant = false;
+  bool _isCustomerVisibleOffer = true;
   Timer? _countdownTicker;
 
   bool get _supportsRedeemTimer =>
@@ -492,6 +493,15 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
       _isFavoriteCoupon = await BiteScoreService.isCouponFavoritedByCurrentUser(
         widget.coupon.id,
       );
+      try {
+        _isCustomerVisibleOffer =
+            await RestaurantAccountService.isCouponCustomerVisible(
+              widget.coupon,
+              restaurant: widget.restaurant,
+            );
+      } catch (_) {
+        _isCustomerVisibleOffer = true;
+      }
       _syncCountdownTicker();
     } finally {
       if (mounted) {
@@ -499,6 +509,24 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
           isLoading = false;
         });
       }
+    }
+  }
+
+  Future<bool> _refreshCustomerVisibleOffer() async {
+    try {
+      final isCustomerVisibleOffer =
+          await RestaurantAccountService.isCouponCustomerVisible(
+            widget.coupon,
+            restaurant: widget.restaurant,
+          );
+      if (mounted) {
+        setState(() {
+          _isCustomerVisibleOffer = isCustomerVisibleOffer;
+        });
+      }
+      return isCustomerVisibleOffer;
+    } catch (_) {
+      return false;
     }
   }
 
@@ -543,6 +571,10 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
 
   Future<void> _startRedeemTimer() async {
     if (isRedeeming || !_supportsRedeemTimer) return;
+    if (!_isCustomerVisibleOffer) {
+      _showSnackBar('This offer is no longer available.');
+      return;
+    }
 
     if (FirebaseAuth.instance.currentUser == null) {
       await Navigator.of(context).push(
@@ -554,6 +586,15 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
       if (!mounted || FirebaseAuth.instance.currentUser == null) {
         return;
       }
+    }
+
+    final isCustomerVisibleOffer = await _refreshCustomerVisibleOffer();
+    if (!mounted) {
+      return;
+    }
+    if (!isCustomerVisibleOffer) {
+      _showSnackBar('This offer is no longer available.');
+      return;
     }
 
     setState(() {
@@ -762,6 +803,10 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     required bool isAvailableByUsage,
     required bool hasActiveTimer,
   }) {
+    if (!_isCustomerVisibleOffer) {
+      return 'This offer is no longer available.';
+    }
+
     if (widget.coupon.isScheduledForFutureAt(now)) {
       return widget.coupon.startsLabel ?? 'Currently unavailable';
     }
@@ -958,6 +1003,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
         DemoRedemptionStore.isAvailable(coupon.id, coupon.usageRule);
     final canStartRedeemTimer =
         _supportsRedeemTimer &&
+        _isCustomerVisibleOffer &&
         isWithinSchedule &&
         isAvailableByUsage &&
         !hasActiveTimer;
@@ -1170,6 +1216,14 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                         Text(
                           _expiredMessage(),
                           style: const TextStyle(
+                            color: Colors.red,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        )
+                      else if (!_isCustomerVisibleOffer)
+                        const Text(
+                          'This offer is no longer available.',
+                          style: TextStyle(
                             color: Colors.red,
                             fontWeight: FontWeight.w600,
                           ),

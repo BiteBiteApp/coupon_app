@@ -177,7 +177,7 @@ class RestaurantMenuService {
     if (sourceSide == menuSourceBiteScore) {
       return RestaurantMenuManageAccess.blocked(
         managedBy: RestaurantMenuAppSide.biteScore,
-        message: 'Menu is managed on BiteRater',
+        message: 'Menu is managed on BiteScore',
       );
     }
 
@@ -294,7 +294,7 @@ class RestaurantMenuService {
     final trimmedUid = uid.trim();
     final trimmedRestaurantId = biteScoreRestaurantId.trim();
     if (trimmedUid.isEmpty || trimmedRestaurantId.isEmpty) {
-      throw ArgumentError('Matching BiteRater restaurant is required.');
+      throw ArgumentError('Matching BiteScore restaurant is required.');
     }
     final biteScoreRestaurant = await _loadBiteScoreRestaurantById(
       trimmedRestaurantId,
@@ -302,7 +302,7 @@ class RestaurantMenuService {
     if (biteScoreRestaurant == null ||
         biteScoreRestaurant.ownerUserId?.trim() != trimmedUid ||
         !biteScoreRestaurant.isClaimed) {
-      throw StateError('Matching BiteRater restaurant is required.');
+      throw StateError('Matching BiteScore restaurant is required.');
     }
     if (await biteScoreUsesBiteSaverMenu(trimmedRestaurantId)) {
       throw StateError('This menu is already being used by the other side.');
