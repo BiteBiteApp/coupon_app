@@ -183,6 +183,25 @@ class RestaurantInvitePreview {
   }
 }
 
+class RestaurantInviteRedemptionResult {
+  final String inviteId;
+  final String restaurantName;
+
+  const RestaurantInviteRedemptionResult({
+    required this.inviteId,
+    required this.restaurantName,
+  });
+
+  factory RestaurantInviteRedemptionResult.fromCallableData(
+    Map<String, dynamic> data,
+  ) {
+    return RestaurantInviteRedemptionResult(
+      inviteId: _readString(data['inviteId']),
+      restaurantName: _readString(data['restaurantName']),
+    );
+  }
+}
+
 class RestaurantInviteService {
   static final FirebaseFunctions _functions = FirebaseFunctions.instanceFor(
     region: 'us-central1',
@@ -279,6 +298,16 @@ class RestaurantInviteService {
       'side': side.trim(),
     });
     return RestaurantInvitePreview.fromCallableData(response.data);
+  }
+
+  static Future<RestaurantInviteRedemptionResult> redeemCouponInvite({
+    required String token,
+  }) async {
+    final callable = _functions.httpsCallable('redeemCouponRestaurantInvite');
+    final response = await callable.call<Map<String, dynamic>>({
+      'token': token.trim(),
+    });
+    return RestaurantInviteRedemptionResult.fromCallableData(response.data);
   }
 
   static RestaurantInviteDeepLink? parseInviteDeepLink(Uri uri) {

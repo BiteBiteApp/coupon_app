@@ -1,6 +1,10 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../services/app_error_text.dart';
 import '../services/restaurant_invite_service.dart';
+import '../services/user_profile_service.dart';
+import 'restaurant_create_coupon_screen.dart';
 
 class RestaurantInvitePreviewScreen extends StatefulWidget {
   final String side;
@@ -20,6 +24,11 @@ class RestaurantInvitePreviewScreen extends StatefulWidget {
 class _RestaurantInvitePreviewScreenState
     extends State<RestaurantInvitePreviewScreen> {
   late Future<RestaurantInvitePreview> _previewFuture;
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+  bool _isRedeeming = false;
 
   @override
   void initState() {
@@ -30,17 +39,21 @@ class _RestaurantInvitePreviewScreenState
     );
   }
 
+  @override
+  void dispose() {
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
   String get _title {
     return widget.side == 'bitescore'
         ? 'BiteScore Claim Invite'
         : 'Coupon Invite';
   }
 
-  String get _disabledActionLabel {
-    return widget.side == 'bitescore'
-        ? 'Claim setup coming next'
-        : 'Account signup coming next';
-  }
+  String get _disabledActionLabel => 'Claim setup coming next';
 
   Widget _buildInvalidInvite() {
     return Center(
@@ -118,6 +131,178 @@ class _RestaurantInvitePreviewScreenState
     return _detailLine('Address', preview.restaurantAddressSummary);
   }
 
+  void _showSnackBar(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<User?> _ensureInviteUser() async {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser != null && !currentUser.isAnonymous) {
+      await currentUser.reload();
+      await FirebaseAuth.instance.currentUser?.getIdToken(true);
+      return FirebaseAuth.instance.currentUser ?? currentUser;
+    }
+
+    final email = _emailController.text.trim();
+    final password = _passwordController.text.trim();
+    final confirmPassword = _confirmPasswordController.text.trim();
+    if (email.isEmpty || password.isEmpty) {
+      _showSnackBar('Please enter both email and password.');
+      return null;
+    }
+    if (confirmPassword.isEmpty) {
+      _showSnackBar('Please confirm your password.');
+      return null;
+    }
+    if (password != confirmPassword) {
+      _showSnackBar('Passwords do not match.');
+      return null;
+    }
+
+    final credential = await FirebaseAuth.instance
+        .createUserWithEmailAndPassword(email: email, password: password);
+    final user = credential.user;
+    if (user == null) {
+      throw StateError('Could not create your account.');
+    }
+    if (!user.emailVerified) {
+      await user.sendEmailVerification();
+    }
+    await user.reload();
+    await FirebaseAuth.instance.currentUser?.getIdToken(true);
+    final refreshedUser = FirebaseAuth.instance.currentUser ?? user;
+    await UserProfileService.upsertSignedInUserProfile(refreshedUser);
+    return refreshedUser;
+  }
+
+  Future<void> _redeemCouponInvite() async {
+    if (_isRedeeming) {
+      return;
+    }
+
+    setState(() {
+      _isRedeeming = true;
+    });
+
+    try {
+      final user = await _ensureInviteUser();
+      if (user == null) {
+        return;
+      }
+
+      await RestaurantInviteService.redeemCouponInvite(token: widget.token);
+      if (!mounted) {
+        return;
+      }
+
+      final navigator = Navigator.of(context);
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      navigator.pushAndRemoveUntil(
+        MaterialPageRoute(
+          settings: const RouteSettings(
+            name: RestaurantCreateCouponScreen.routeName,
+          ),
+          builder: (_) => const RestaurantCreateCouponScreen(),
+        ),
+        (route) => route.isFirst,
+      );
+      scaffoldMessenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Restaurant account created. Welcome to BiteSaver.'),
+          ),
+        );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not redeem this invite right now.',
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRedeeming = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildCouponRedemptionForm() {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    final signedInUser = currentUser != null && !currentUser.isAnonymous
+        ? currentUser
+        : null;
+
+    if (signedInUser != null) {
+      final email = signedInUser.email?.trim();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            email?.isNotEmpty == true
+                ? 'Signed in as $email'
+                : 'Signed in to BiteSaver',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: _isRedeeming ? null : _redeemCouponInvite,
+            child: Text(
+              _isRedeeming
+                  ? 'Creating Account...'
+                  : 'Create Restaurant Account',
+            ),
+          ),
+        ],
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: _emailController,
+          keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.email],
+          decoration: const InputDecoration(labelText: 'Email'),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _passwordController,
+          obscureText: true,
+          textInputAction: TextInputAction.next,
+          autofillHints: const [AutofillHints.newPassword],
+          decoration: const InputDecoration(labelText: 'Password'),
+        ),
+        const SizedBox(height: 12),
+        TextField(
+          controller: _confirmPasswordController,
+          obscureText: true,
+          textInputAction: TextInputAction.done,
+          autofillHints: const [AutofillHints.newPassword],
+          decoration: const InputDecoration(labelText: 'Confirm password'),
+        ),
+        const SizedBox(height: 16),
+        FilledButton(
+          onPressed: _isRedeeming ? null : _redeemCouponInvite,
+          child: Text(_isRedeeming ? 'Creating Account...' : 'Create Account'),
+        ),
+      ],
+    );
+  }
+
   Widget _buildPreview(RestaurantInvitePreview preview) {
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -152,13 +337,33 @@ class _RestaurantInvitePreviewScreenState
           ),
         ),
         const SizedBox(height: 16),
-        FilledButton(onPressed: null, child: Text(_disabledActionLabel)),
-        const SizedBox(height: 10),
-        const Text(
-          'Full invite redemption will be available in the next stage.',
-          textAlign: TextAlign.center,
-          style: TextStyle(color: Colors.black54),
-        ),
+        if (preview.isCoupon) ...[
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'This invite verifies your restaurant for BiteSaver. You may still need to verify your email.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.black54),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildCouponRedemptionForm(),
+                ],
+              ),
+            ),
+          ),
+        ] else ...[
+          FilledButton(onPressed: null, child: Text(_disabledActionLabel)),
+          const SizedBox(height: 10),
+          const Text(
+            'Full BiteScore claim redemption will be available in a later stage.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.black54),
+          ),
+        ],
       ],
     );
   }

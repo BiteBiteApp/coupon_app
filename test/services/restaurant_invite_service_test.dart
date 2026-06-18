@@ -236,4 +236,16 @@ void main() {
       expect(preview.couponPrefill, isNull);
     });
   });
+
+  group('RestaurantInviteRedemptionResult', () {
+    test('parses coupon redemption response', () {
+      final result = RestaurantInviteRedemptionResult.fromCallableData({
+        'inviteId': 'invite_coupon',
+        'restaurantName': 'Redeemed Restaurant',
+      });
+
+      expect(result.inviteId, 'invite_coupon');
+      expect(result.restaurantName, 'Redeemed Restaurant');
+    });
+  });
 }

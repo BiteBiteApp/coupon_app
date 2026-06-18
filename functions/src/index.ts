@@ -1165,6 +1165,146 @@ export const previewRestaurantInvite = onCall(async (request) => {
   return safePreview;
 });
 
+export const redeemCouponRestaurantInvite = onCall(async (request) => {
+  const uid = request.auth?.uid?.trim();
+  const userEmail = readString(request.auth?.token.email);
+  if (!uid || !userEmail) {
+    throw new HttpsError(
+      "unauthenticated",
+      "Please sign in before redeeming this invite.",
+    );
+  }
+
+  const data = readRecord(request.data);
+  const token = readString(data.token);
+  if (!token) {
+    throw new HttpsError("invalid-argument", "Invite token is required.");
+  }
+
+  const tokenHash = hashInviteToken(token);
+  const inviteQuery = db
+    .collection(restaurantInviteCollection)
+    .where("tokenHash", "==", tokenHash)
+    .limit(1);
+  const accountRef = db.collection("restaurant_accounts").doc(uid);
+
+  const result = await db.runTransaction(async (transaction) => {
+    const inviteSnapshot = await transaction.get(inviteQuery);
+    if (inviteSnapshot.empty) {
+      throw new HttpsError(
+        "not-found",
+        "This invite link is no longer valid.",
+      );
+    }
+
+    const inviteDoc = inviteSnapshot.docs[0];
+    const invite = serializeInviteDoc(inviteDoc);
+    const unavailableReason = invitePreviewUnavailableReason(
+      invite,
+      "coupon",
+    );
+    if (unavailableReason !== null) {
+      throw new HttpsError(
+        "failed-precondition",
+        unavailableReason === "used"
+          ? "This invite has already been used."
+          : "This invite link is no longer valid.",
+        { reason: unavailableReason },
+      );
+    }
+
+    if (invite.type !== "coupon_invite" || invite.side !== "coupon") {
+      throw new HttpsError(
+        "failed-precondition",
+        "This invite link is no longer valid.",
+        { reason: "wrong-type" },
+      );
+    }
+
+    const inviteData = inviteDoc.data();
+    const couponPrefill = readRecord(inviteData.couponPrefill);
+    const restaurantName =
+      readString(inviteData.restaurantName) ??
+      readString(couponPrefill.restaurantName);
+    if (!restaurantName) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This invite link is no longer valid.",
+        { reason: "missing-restaurant-name" },
+      );
+    }
+
+    const accountSnapshot = await transaction.get(accountRef);
+    const accountData = accountSnapshot.data() ?? {};
+    const existingRestaurantName = readString(accountData.restaurantName);
+    const existingSubmitted = accountData.couponApplicationSubmitted === true;
+    const existingApprovalStatus = readString(accountData.approvalStatus);
+    const hasExistingCouponAccount =
+      Boolean(existingRestaurantName) ||
+      existingSubmitted ||
+      Boolean(existingApprovalStatus);
+    if (
+      hasExistingCouponAccount &&
+      (
+        !existingRestaurantName ||
+        existingRestaurantName.trim().toLowerCase() !==
+          restaurantName.trim().toLowerCase()
+      )
+    ) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This signed-in account already has a different coupon-side restaurant account.",
+        { reason: "conflicting-account" },
+      );
+    }
+
+    const latitude = readOptionalNumber(couponPrefill.latitude);
+    const longitude = readOptionalNumber(couponPrefill.longitude);
+    const accountUpdate: Record<string, unknown> = {
+      uid,
+      email: userEmail,
+      restaurantName,
+      streetAddress: readString(couponPrefill.streetAddress) ?? null,
+      city: readString(couponPrefill.city) ?? "",
+      state: readString(couponPrefill.state) ?? "",
+      zipCode: readString(couponPrefill.zipCode) ?? "",
+      phone: readString(couponPrefill.phone) ?? null,
+      website: readString(couponPrefill.website) ?? null,
+      couponApplicationSubmitted: true,
+      approvalStatus: "approved",
+      emailVerified: request.auth?.token.email_verified === true,
+      inviteId: invite.id,
+      inviteRestaurantKey: invite.pendingRestaurantKey || null,
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+    if (latitude !== null) {
+      accountUpdate.latitude = latitude;
+    }
+    if (longitude !== null) {
+      accountUpdate.longitude = longitude;
+    }
+    if (!accountSnapshot.exists || accountData.createdAt == null) {
+      accountUpdate.createdAt = FieldValue.serverTimestamp();
+    }
+
+    transaction.set(accountRef, accountUpdate, { merge: true });
+    transaction.set(inviteDoc.ref, {
+      status: "used",
+      usedAt: FieldValue.serverTimestamp(),
+      usedByUid: uid,
+      usedByEmail: userEmail,
+      useCount: (readNumber(inviteDoc.data().useCount) ?? 0) + 1,
+    }, { merge: true });
+
+    return {
+      inviteId: invite.id,
+      restaurantName,
+    };
+  });
+
+  return result;
+});
+
 function writtenReviewWordCount(headline?: string | null, notes?: string | null): number {
   const combined = [headline, notes]
     .filter((value): value is string => typeof value === "string")
