@@ -28,7 +28,9 @@ import {
   filterAndSortInviteSummaries,
   generateInviteToken,
   hashInviteToken,
+  invitePreviewUnavailableReason,
   inviteLink,
+  normalizeInviteSide,
 } from "./restaurant_invite_helpers.js";
 
 initializeApp();
@@ -1087,6 +1089,80 @@ export const listRestaurantInvites = onCall(async (request) => {
   return {
     invites: filterAndSortInviteSummaries(invites, side, limit),
   };
+});
+
+export const previewRestaurantInvite = onCall(async (request) => {
+  const data = readRecord(request.data);
+  const token = readString(data.token);
+  if (!token) {
+    throw new HttpsError("invalid-argument", "Invite token is required.");
+  }
+
+  const expectedSide = normalizeInviteSide(readString(data.side));
+  const tokenHash = hashInviteToken(token);
+  const snapshot = await db
+    .collection(restaurantInviteCollection)
+    .where("tokenHash", "==", tokenHash)
+    .limit(1)
+    .get();
+
+  if (snapshot.empty) {
+    throw new HttpsError("not-found", "This invite link is no longer valid.");
+  }
+
+  const inviteDoc = snapshot.docs[0];
+  const invite = serializeInviteDoc(inviteDoc);
+  const unavailableReason = invitePreviewUnavailableReason(
+    invite,
+    expectedSide,
+  );
+  if (unavailableReason !== null) {
+    throw new HttpsError(
+      "failed-precondition",
+      "This invite link is no longer valid.",
+      { reason: unavailableReason },
+    );
+  }
+
+  const inviteData = inviteDoc.data();
+  const side = normalizeInviteSide(invite.side);
+  if (!side) {
+    throw new HttpsError(
+      "failed-precondition",
+      "This invite link is no longer valid.",
+      { reason: "missing-side" },
+    );
+  }
+
+  const safePreview: Record<string, unknown> = {
+    inviteId: invite.id,
+    side,
+    type: invite.type,
+    status: invite.status,
+    restaurantName: invite.restaurantName,
+    expiresAtMillis: invite.expiresAtMillis,
+  };
+
+  if (side === "coupon") {
+    const couponPrefill = readRecord(inviteData.couponPrefill);
+    safePreview.pendingRestaurantKey = invite.pendingRestaurantKey;
+    safePreview.couponPrefill = {
+      streetAddress: readString(couponPrefill.streetAddress) ?? null,
+      city: readString(couponPrefill.city) ?? null,
+      state: readString(couponPrefill.state) ?? null,
+      zipCode: readString(couponPrefill.zipCode) ?? null,
+      phone: readString(couponPrefill.phone) ?? null,
+      website: readString(couponPrefill.website) ?? null,
+      latitude: readOptionalNumber(couponPrefill.latitude),
+      longitude: readOptionalNumber(couponPrefill.longitude),
+    };
+  } else {
+    safePreview.restaurantId = invite.restaurantId;
+    safePreview.restaurantAddressSummary =
+      readString(inviteData.restaurantAddressSummary) ?? "";
+  }
+
+  return safePreview;
 });
 
 function writtenReviewWordCount(headline?: string | null, notes?: string | null): number {

@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/app_mode_state_service.dart';
+import '../services/restaurant_invite_service.dart';
 import '../services/subscription_return_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/admin_content_insets.dart';
@@ -14,6 +15,7 @@ import 'customer_account_screen.dart';
 import 'home_screen.dart';
 import 'restaurant_auth_screen.dart';
 import 'restaurant_create_coupon_screen.dart';
+import 'restaurant_invite_preview_screen.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
@@ -104,6 +106,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       return;
     }
 
+    final inviteLink = RestaurantInviteService.parseInviteDeepLink(uri);
+    if (inviteLink != null) {
+      _handleInviteLink(inviteLink);
+      return;
+    }
+
     if (uri.scheme == 'bitesaver' && uri.host == 'subscription-success') {
       _handleSubscriptionReturn(SubscriptionCheckoutReturnStatus.success);
       return;
@@ -128,6 +136,23 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     } else if (status == 'cancel') {
       _handleSubscriptionReturn(SubscriptionCheckoutReturnStatus.cancel);
     }
+  }
+
+  void _handleInviteLink(RestaurantInviteDeepLink inviteLink) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+
+      rootNavigatorKey.currentState?.push(
+        MaterialPageRoute(
+          builder: (_) => RestaurantInvitePreviewScreen(
+            side: inviteLink.side,
+            token: inviteLink.token,
+          ),
+        ),
+      );
+    });
   }
 
   void _handleSubscriptionReturn(SubscriptionCheckoutReturnStatus status) {

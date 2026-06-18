@@ -88,6 +88,101 @@ class RestaurantInviteAdminEntry {
   }
 }
 
+class RestaurantInviteDeepLink {
+  final String side;
+  final String token;
+
+  const RestaurantInviteDeepLink({required this.side, required this.token});
+}
+
+class CouponInvitePrefillPreview {
+  final String streetAddress;
+  final String city;
+  final String state;
+  final String zipCode;
+  final String phone;
+  final String website;
+  final double? latitude;
+  final double? longitude;
+
+  const CouponInvitePrefillPreview({
+    required this.streetAddress,
+    required this.city,
+    required this.state,
+    required this.zipCode,
+    required this.phone,
+    required this.website,
+    required this.latitude,
+    required this.longitude,
+  });
+
+  factory CouponInvitePrefillPreview.fromCallableData(
+    Map<String, dynamic> data,
+  ) {
+    return CouponInvitePrefillPreview(
+      streetAddress: _readString(data['streetAddress']),
+      city: _readString(data['city']),
+      state: _readString(data['state']),
+      zipCode: _readString(data['zipCode']),
+      phone: _readString(data['phone']),
+      website: _readString(data['website']),
+      latitude: _readDouble(data['latitude']),
+      longitude: _readDouble(data['longitude']),
+    );
+  }
+}
+
+class RestaurantInvitePreview {
+  final String inviteId;
+  final String side;
+  final String type;
+  final String status;
+  final String restaurantName;
+  final DateTime? expiresAt;
+  final String pendingRestaurantKey;
+  final CouponInvitePrefillPreview? couponPrefill;
+  final String restaurantId;
+  final String restaurantAddressSummary;
+
+  const RestaurantInvitePreview({
+    required this.inviteId,
+    required this.side,
+    required this.type,
+    required this.status,
+    required this.restaurantName,
+    required this.expiresAt,
+    required this.pendingRestaurantKey,
+    required this.couponPrefill,
+    required this.restaurantId,
+    required this.restaurantAddressSummary,
+  });
+
+  bool get isCoupon => side == 'coupon';
+  bool get isBiteScore => side == 'bitescore';
+
+  factory RestaurantInvitePreview.fromCallableData(Map<String, dynamic> data) {
+    final rawPrefill = data['couponPrefill'];
+    final prefill = rawPrefill is Map
+        ? CouponInvitePrefillPreview.fromCallableData(
+            Map<String, dynamic>.from(rawPrefill),
+          )
+        : null;
+
+    return RestaurantInvitePreview(
+      inviteId: _readString(data['inviteId']),
+      side: _readString(data['side']),
+      type: _readString(data['type']),
+      status: _readString(data['status']),
+      restaurantName: _readString(data['restaurantName']),
+      expiresAt: _readDateTimeFromMillis(data['expiresAtMillis']),
+      pendingRestaurantKey: _readString(data['pendingRestaurantKey']),
+      couponPrefill: prefill,
+      restaurantId: _readString(data['restaurantId']),
+      restaurantAddressSummary: _readString(data['restaurantAddressSummary']),
+    );
+  }
+}
+
 class RestaurantInviteService {
   static final FirebaseFunctions _functions = FirebaseFunctions.instanceFor(
     region: 'us-central1',
@@ -173,6 +268,78 @@ class RestaurantInviteService {
     final callable = _functions.httpsCallable('revokeRestaurantInvite');
     await callable.call<Map<String, dynamic>>({'inviteId': inviteId.trim()});
   }
+
+  static Future<RestaurantInvitePreview> previewInvite({
+    required String token,
+    required String side,
+  }) async {
+    final callable = _functions.httpsCallable('previewRestaurantInvite');
+    final response = await callable.call<Map<String, dynamic>>({
+      'token': token.trim(),
+      'side': side.trim(),
+    });
+    return RestaurantInvitePreview.fromCallableData(response.data);
+  }
+
+  static RestaurantInviteDeepLink? parseInviteDeepLink(Uri uri) {
+    if (uri.scheme != 'bitesaver') {
+      return null;
+    }
+
+    final segments = _normalizedInviteSegments(
+      host: uri.host,
+      pathSegments: uri.pathSegments,
+    );
+    return _parseInviteSegments(segments);
+  }
+
+  static RestaurantInviteDeepLink? parseInviteRouteName(String? routeName) {
+    final uri = Uri.tryParse(routeName ?? '');
+    if (uri == null) {
+      return null;
+    }
+
+    return _parseInviteSegments(uri.pathSegments);
+  }
+
+  static List<String> _normalizedInviteSegments({
+    required String host,
+    required List<String> pathSegments,
+  }) {
+    final normalizedHost = host.trim().toLowerCase();
+    if (normalizedHost == 'invite') {
+      return pathSegments;
+    }
+    if (normalizedHost.isEmpty) {
+      return pathSegments;
+    }
+
+    return const <String>[];
+  }
+
+  static RestaurantInviteDeepLink? _parseInviteSegments(
+    List<String> rawSegments,
+  ) {
+    final segments = rawSegments
+        .map((segment) => segment.trim())
+        .where((segment) => segment.isNotEmpty)
+        .toList(growable: false);
+
+    final inviteOffset = segments.isNotEmpty && segments.first == 'invite'
+        ? 1
+        : 0;
+    if (segments.length < inviteOffset + 2) {
+      return null;
+    }
+
+    final side = segments[inviteOffset].trim().toLowerCase();
+    final token = segments[inviteOffset + 1].trim();
+    if ((side != 'coupon' && side != 'bitescore') || token.isEmpty) {
+      return null;
+    }
+
+    return RestaurantInviteDeepLink(side: side, token: token);
+  }
 }
 
 String _readString(dynamic value) {
@@ -190,6 +357,16 @@ int? _readInt(dynamic value) {
   }
   if (value is num) {
     return value.toInt();
+  }
+  return null;
+}
+
+double? _readDouble(dynamic value) {
+  if (value is num) {
+    return value.toDouble();
+  }
+  if (value is String) {
+    return double.tryParse(value.trim());
   }
   return null;
 }

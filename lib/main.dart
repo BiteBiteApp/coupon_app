@@ -1,6 +1,8 @@
 import 'package:coupon_app/firebase_options.dart';
 import 'package:coupon_app/screens/main_navigation_screen.dart';
+import 'package:coupon_app/screens/restaurant_invite_preview_screen.dart';
 import 'package:coupon_app/services/customer_session_service.dart';
+import 'package:coupon_app/services/restaurant_invite_service.dart';
 import 'package:coupon_app/services/user_profile_service.dart';
 import 'package:coupon_app/widgets/contribution_points_celebration_host.dart';
 import 'package:coupon_app/widgets/local_expert_badge_celebration_host.dart';
@@ -31,6 +33,23 @@ Future<void> ensureUserSignedIn() async {
 class CouponApp extends StatelessWidget {
   const CouponApp({super.key});
 
+  Route<dynamic>? _onGenerateRoute(RouteSettings settings) {
+    final inviteLink = RestaurantInviteService.parseInviteRouteName(
+      settings.name,
+    );
+    if (inviteLink == null) {
+      return null;
+    }
+
+    return MaterialPageRoute(
+      settings: settings,
+      builder: (_) => RestaurantInvitePreviewScreen(
+        side: inviteLink.side,
+        token: inviteLink.token,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     const colorScheme = ColorScheme(
@@ -59,6 +78,7 @@ class CouponApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       navigatorKey: rootNavigatorKey,
       scaffoldMessengerKey: rootScaffoldMessengerKey,
+      onGenerateRoute: _onGenerateRoute,
       builder: (context, child) {
         return LocalExpertBadgeCelebrationHost(
           child: ContributionPointsCelebrationHost(

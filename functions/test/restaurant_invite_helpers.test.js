@@ -6,6 +6,7 @@ const {
   filterAndSortInviteSummaries,
   generateInviteToken,
   hashInviteToken,
+  invitePreviewUnavailableReason,
   inviteLink,
 } = require("../lib/restaurant_invite_helpers.js");
 
@@ -109,4 +110,88 @@ test("invite listing does not require plaintext tokens", () => {
   assert.equal(listed[0].id, "invite_123");
   assert.equal(Object.hasOwn(listed[0], "token"), false);
   assert.equal(listed[0].tokenHash, "hash-only");
+});
+
+test("valid coupon invite preview is available", () => {
+  const reason = invitePreviewUnavailableReason(
+    {
+      side: "coupon",
+      status: "active",
+      expiresAtMillis: 2000,
+      maxUses: 1,
+      useCount: 0,
+    },
+    "coupon",
+    1000,
+  );
+
+  assert.equal(reason, null);
+});
+
+test("preview rejects revoked invites", () => {
+  assert.equal(
+    invitePreviewUnavailableReason(
+      {
+        side: "coupon",
+        status: "revoked",
+        expiresAtMillis: 2000,
+        maxUses: 1,
+        useCount: 0,
+      },
+      "coupon",
+      1000,
+    ),
+    "inactive",
+  );
+});
+
+test("preview rejects expired invites", () => {
+  assert.equal(
+    invitePreviewUnavailableReason(
+      {
+        side: "coupon",
+        status: "active",
+        expiresAtMillis: 1000,
+        maxUses: 1,
+        useCount: 0,
+      },
+      "coupon",
+      1000,
+    ),
+    "expired",
+  );
+});
+
+test("preview rejects used invites", () => {
+  assert.equal(
+    invitePreviewUnavailableReason(
+      {
+        side: "bitescore",
+        status: "active",
+        expiresAtMillis: 2000,
+        maxUses: 1,
+        useCount: 1,
+      },
+      "bitescore",
+      1000,
+    ),
+    "used",
+  );
+});
+
+test("preview rejects wrong side", () => {
+  assert.equal(
+    invitePreviewUnavailableReason(
+      {
+        side: "bitescore",
+        status: "active",
+        expiresAtMillis: 2000,
+        maxUses: 1,
+        useCount: 0,
+      },
+      "coupon",
+      1000,
+    ),
+    "wrong-side",
+  );
 });

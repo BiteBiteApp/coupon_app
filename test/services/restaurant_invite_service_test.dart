@@ -86,5 +86,154 @@ void main() {
         throwsArgumentError,
       );
     });
+
+    test('parses double-slash coupon invite custom-scheme links', () {
+      final link = RestaurantInviteService.parseInviteDeepLink(
+        Uri.parse('bitesaver://invite/coupon/token123'),
+      );
+
+      expect(link, isNotNull);
+      expect(link!.side, 'coupon');
+      expect(link.token, 'token123');
+    });
+
+    test('parses triple-slash coupon invite custom-scheme links', () {
+      final link = RestaurantInviteService.parseInviteDeepLink(
+        Uri.parse('bitesaver:///invite/coupon/token123'),
+      );
+
+      expect(link, isNotNull);
+      expect(link!.side, 'coupon');
+      expect(link.token, 'token123');
+    });
+
+    test('parses double-slash BiteScore invite custom-scheme links', () {
+      final link = RestaurantInviteService.parseInviteDeepLink(
+        Uri.parse('bitesaver://invite/bitescore/token123'),
+      );
+
+      expect(link, isNotNull);
+      expect(link!.side, 'bitescore');
+      expect(link.token, 'token123');
+    });
+
+    test('parses triple-slash BiteScore invite custom-scheme links', () {
+      final link = RestaurantInviteService.parseInviteDeepLink(
+        Uri.parse('bitesaver:///invite/bitescore/token123'),
+      );
+
+      expect(link, isNotNull);
+      expect(link!.side, 'bitescore');
+      expect(link.token, 'token123');
+    });
+
+    test('parses Flutter startup coupon invite route name', () {
+      final link = RestaurantInviteService.parseInviteRouteName(
+        '/coupon/token123',
+      );
+
+      expect(link, isNotNull);
+      expect(link!.side, 'coupon');
+      expect(link.token, 'token123');
+    });
+
+    test('parses Flutter startup BiteScore invite route name', () {
+      final link = RestaurantInviteService.parseInviteRouteName(
+        '/bitescore/token123',
+      );
+
+      expect(link, isNotNull);
+      expect(link!.side, 'bitescore');
+      expect(link.token, 'token123');
+    });
+
+    test('parses explicit invite route name', () {
+      final link = RestaurantInviteService.parseInviteRouteName(
+        '/invite/coupon/token123',
+      );
+
+      expect(link, isNotNull);
+      expect(link!.side, 'coupon');
+      expect(link.token, 'token123');
+    });
+
+    test('ignores existing subscription deep links', () {
+      final link = RestaurantInviteService.parseInviteDeepLink(
+        Uri.parse('bitesaver://subscription-success'),
+      );
+
+      expect(link, isNull);
+    });
+
+    test('ignores existing subscription route names', () {
+      final success = RestaurantInviteService.parseInviteRouteName(
+        '/subscription-success',
+      );
+      final cancel = RestaurantInviteService.parseInviteRouteName(
+        '/subscription-cancel',
+      );
+
+      expect(success, isNull);
+      expect(cancel, isNull);
+    });
+
+    test('ignores unsupported invite routes', () {
+      final link = RestaurantInviteService.parseInviteDeepLink(
+        Uri.parse('bitesaver://invite/other/token123'),
+      );
+
+      expect(link, isNull);
+    });
+  });
+
+  group('RestaurantInvitePreview', () {
+    test('parses safe coupon preview data', () {
+      final preview = RestaurantInvitePreview.fromCallableData({
+        'inviteId': 'invite_coupon',
+        'side': 'coupon',
+        'type': 'coupon_invite',
+        'status': 'active',
+        'restaurantName': 'Preview Restaurant',
+        'pendingRestaurantKey': 'pending_invite_coupon',
+        'expiresAtMillis': 1767225600000,
+        'couponPrefill': {
+          'streetAddress': '123 Main St',
+          'city': 'Lecanto',
+          'state': 'FL',
+          'zipCode': '34461',
+          'phone': '(352) 555-1234',
+          'website': 'https://example.com',
+          'latitude': 28.8,
+          'longitude': -82.4,
+        },
+      });
+
+      expect(preview.isCoupon, isTrue);
+      expect(preview.restaurantName, 'Preview Restaurant');
+      expect(preview.pendingRestaurantKey, 'pending_invite_coupon');
+      expect(preview.couponPrefill?.streetAddress, '123 Main St');
+      expect(preview.couponPrefill?.latitude, 28.8);
+    });
+
+    test('parses safe BiteScore preview data', () {
+      final preview = RestaurantInvitePreview.fromCallableData({
+        'inviteId': 'invite_bitescore',
+        'side': 'bitescore',
+        'type': 'bitescore_claim_invite',
+        'status': 'active',
+        'restaurantId': 'restaurant_123',
+        'restaurantName': 'Claim Restaurant',
+        'restaurantAddressSummary': '123 Main St, Lecanto, FL, 34461',
+        'expiresAtMillis': 1767225600000,
+      });
+
+      expect(preview.isBiteScore, isTrue);
+      expect(preview.restaurantId, 'restaurant_123');
+      expect(
+        preview.restaurantAddressSummary,
+        '123 Main St, Lecanto, FL, 34461',
+      );
+      expect(preview.couponPrefill, isNull);
+    });
   });
 }

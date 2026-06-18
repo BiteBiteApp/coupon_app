@@ -34,6 +34,14 @@ export type InviteListSummary = {
   createdAtMillis?: unknown;
 };
 
+export type InvitePreviewSummary = {
+  side?: unknown;
+  status?: unknown;
+  expiresAtMillis?: unknown;
+  maxUses?: unknown;
+  useCount?: unknown;
+};
+
 export function filterAndSortInviteSummaries<T extends InviteListSummary>(
   invites: T[],
   side?: string | null,
@@ -59,4 +67,37 @@ export function filterAndSortInviteSummaries<T extends InviteListSummary>(
       return bCreatedAt - aCreatedAt;
     })
     .slice(0, safeLimit);
+}
+
+export function normalizeInviteSide(value: unknown): "coupon" | "bitescore" | null {
+  return value === "coupon" || value === "bitescore" ? value : null;
+}
+
+export function invitePreviewUnavailableReason(
+  invite: InvitePreviewSummary,
+  expectedSide?: string | null,
+  nowMillis = Date.now(),
+): string | null {
+  const normalizedExpectedSide = normalizeInviteSide(expectedSide);
+  if (normalizedExpectedSide && invite.side !== normalizedExpectedSide) {
+    return "wrong-side";
+  }
+
+  if (invite.status !== "active") {
+    return "inactive";
+  }
+
+  const expiresAtMillis =
+    typeof invite.expiresAtMillis === "number" ? invite.expiresAtMillis : null;
+  if (expiresAtMillis === null || expiresAtMillis <= nowMillis) {
+    return "expired";
+  }
+
+  const maxUses = typeof invite.maxUses === "number" ? invite.maxUses : 1;
+  const useCount = typeof invite.useCount === "number" ? invite.useCount : 0;
+  if (useCount >= maxUses) {
+    return "used";
+  }
+
+  return null;
 }
