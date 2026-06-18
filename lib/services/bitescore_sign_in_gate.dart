@@ -52,9 +52,13 @@ class BiteScoreSignInGate {
 
     _showAuthSnackBar(context, message: message);
 
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const CustomerAccountScreen()));
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) =>
+            _SignInReturnRoute(canReturn: BiteScoreSignInGate._canUserWrite),
+        fullscreenDialog: true,
+      ),
+    );
 
     return canCurrentUserWrite;
   }
@@ -71,18 +75,14 @@ class BiteScoreSignInGate {
 
     _showAuthSnackBar(context, message: message);
 
-    if (returnToOriginAfterSignIn) {
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => const _FavoriteSignInReturnRoute(),
-          fullscreenDialog: true,
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => _SignInReturnRoute(
+          canReturn: BiteScoreSignInGate._canUserSaveFavorites,
         ),
-      );
-    } else {
-      await Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => const CustomerAccountScreen()));
-    }
+        fullscreenDialog: true,
+      ),
+    );
 
     return canCurrentUserSaveFavorites;
   }
@@ -150,16 +150,16 @@ class BiteScoreSignInGate {
   }
 }
 
-class _FavoriteSignInReturnRoute extends StatefulWidget {
-  const _FavoriteSignInReturnRoute();
+class _SignInReturnRoute extends StatefulWidget {
+  final bool Function(User? user) canReturn;
+
+  const _SignInReturnRoute({required this.canReturn});
 
   @override
-  State<_FavoriteSignInReturnRoute> createState() =>
-      _FavoriteSignInReturnRouteState();
+  State<_SignInReturnRoute> createState() => _SignInReturnRouteState();
 }
 
-class _FavoriteSignInReturnRouteState
-    extends State<_FavoriteSignInReturnRoute> {
+class _SignInReturnRouteState extends State<_SignInReturnRoute> {
   bool _hasReturnedAfterSignIn = false;
   late final StreamSubscription<User?> _authSubscription;
 
@@ -178,8 +178,7 @@ class _FavoriteSignInReturnRouteState
   }
 
   void _returnAfterSignIn(User? user) {
-    if (_hasReturnedAfterSignIn ||
-        !BiteScoreSignInGate._canUserSaveFavorites(user)) {
+    if (_hasReturnedAfterSignIn || !widget.canReturn(user)) {
       return;
     }
 

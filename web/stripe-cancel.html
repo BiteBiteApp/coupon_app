@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Subscription Canceled</title>
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      background: #f8fafc;
+      color: #0f172a;
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 420px;
+      padding: 30px;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+    }
+
+    .icon {
+      font-size: 48px;
+      color: #d97706;
+    }
+
+    h1 {
+      margin: 10px 0 0;
+      font-size: 22px;
+    }
+
+    p {
+      color: #555555;
+      margin: 15px 0;
+    }
+
+    .btn {
+      display: inline-block;
+      margin-top: 20px;
+      padding: 12px 20px;
+      background: #2563eb;
+      color: #ffffff;
+      text-decoration: none;
+      border-radius: 10px;
+      font-weight: bold;
+    }
+
+    .hint {
+      margin-top: 12px;
+      color: #64748b;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <div class="icon">↩</div>
+    <h1>Subscription Canceled</h1>
+    <p>No charge was made.</p>
+    <p>Tap below to return to BiteSaver.</p>
+
+    <a class="btn" id="return-link" href="bitesaver://subscription-cancel">
+      Open BiteSaver
+    </a>
+    <p class="hint">If BiteSaver does not open, switch back to the app to continue.</p>
+  </main>
+</body>
+</html>

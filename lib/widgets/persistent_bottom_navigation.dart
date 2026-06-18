@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../screens/main_navigation_screen.dart';
 import '../services/app_mode_state_service.dart';
+import 'admin_content_insets.dart';
 import 'bitesaver_colors.dart';
 
 class PersistentBottomNavigation extends StatelessWidget {
@@ -58,7 +59,7 @@ class PersistentBottomNavigation extends StatelessWidget {
     ];
 
     final navigationBar = SizedBox(
-      height: 48,
+      height: AdminContentInsets.bottomNavigationHeight,
       child: Row(
         children: [
           for (final item in items.asMap().entries)
@@ -126,7 +127,7 @@ class PersistentBottomNavigation extends StatelessWidget {
           isBiteScore ? 16 : 22,
           0,
           isBiteScore ? 16 : 22,
-          3 + extraBottomInset,
+          AdminContentInsets.bottomNavigationOuterPadding + extraBottomInset,
         ),
         child: Container(
           decoration: BoxDecoration(

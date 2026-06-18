@@ -1,10 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/coupon.dart';
 import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/restaurant_account_service.dart';
+import '../utils/phone_number_formatter.dart';
 import '../widgets/clickable_phone_text.dart';
 
 class AdminReviewScreen extends StatefulWidget {
@@ -1216,12 +1218,16 @@ class _AdminTextField extends StatelessWidget {
   final String label;
   final String? hint;
   final int maxLines;
+  final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
 
   const _AdminTextField({
     required this.controller,
     required this.label,
     this.hint,
     this.maxLines = 1,
+    this.keyboardType,
+    this.inputFormatters,
   });
 
   @override
@@ -1229,6 +1235,8 @@ class _AdminTextField extends StatelessWidget {
     return TextField(
       controller: controller,
       maxLines: maxLines,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
@@ -1283,7 +1291,9 @@ class _CouponRestaurantEditDialogState
       text: _readString(widget.data, Restaurant.fieldEmail),
     );
     _phoneController = TextEditingController(
-      text: _readString(widget.data, Restaurant.fieldPhone),
+      text: formatPhoneNumberForDisplay(
+        _readString(widget.data, Restaurant.fieldPhone),
+      ),
     );
     _addressController = TextEditingController(
       text: _readString(widget.data, Restaurant.fieldStreetAddress),
@@ -1428,7 +1438,12 @@ class _CouponRestaurantEditDialogState
               const SizedBox(height: 12),
               _AdminTextField(controller: _emailController, label: 'Email'),
               const SizedBox(height: 12),
-              _AdminTextField(controller: _phoneController, label: 'Phone'),
+              _AdminTextField(
+                controller: _phoneController,
+                label: 'Phone',
+                keyboardType: TextInputType.phone,
+                inputFormatters: usPhoneNumberInputFormatters,
+              ),
               const SizedBox(height: 12),
               _AdminTextField(
                 controller: _addressController,

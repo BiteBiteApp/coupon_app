@@ -133,6 +133,18 @@ void main() {
         isTrue,
       );
       expect(
+        BiteScoreFoodSearch.matchesFoodText('Ropa vieja', 'ropa viejo'),
+        isTrue,
+      );
+      expect(
+        BiteScoreFoodSearch.matchesFoodText('Cuban tamal', 'cuban tamale'),
+        isTrue,
+      );
+      expect(
+        BiteScoreFoodSearch.matchesFoodText('Chicken Pie', 'chicken pot pie'),
+        isTrue,
+      );
+      expect(
         BiteScoreFoodSearch.matchesFoodText(
           "General Tso's chicken",
           'General Tao chicken',

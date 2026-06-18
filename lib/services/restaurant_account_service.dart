@@ -8,6 +8,20 @@ import '../models/daily_special.dart';
 import '../models/restaurant.dart';
 
 class RestaurantAccountService {
+  static const int maxCouponNumberGenerationAttempts = 10000;
+  static const String _couponNumberReservationsCollection =
+      'coupon_number_reservations';
+  static const String _couponCodeReservationsCollection =
+      'coupon_code_reservations';
+  static const String _couponNumberReservationCouponIdField = 'couponId';
+  static const String _couponNumberReservationCouponNumberField =
+      'couponNumber';
+  static const String _couponCodeReservationCouponCodeField = 'couponCode';
+  static const String _couponCodeReservationNormalizedCouponCodeField =
+      'normalizedCouponCode';
+  static const String _couponNumberReservationCreatedAtField = 'createdAt';
+  static const String _couponNumberReservationUpdatedAtField = 'updatedAt';
+
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   static DocumentReference<Map<String, dynamic>> docForUser(String uid) {
@@ -18,6 +32,16 @@ class RestaurantAccountService {
     String uid,
   ) {
     return docForUser(uid).collection('coupons');
+  }
+
+  static CollectionReference<Map<String, dynamic>>
+  couponNumberReservationsCollection(String uid) {
+    return docForUser(uid).collection(_couponNumberReservationsCollection);
+  }
+
+  static CollectionReference<Map<String, dynamic>>
+  couponCodeReservationsCollection(String uid) {
+    return docForUser(uid).collection(_couponCodeReservationsCollection);
   }
 
   static CollectionReference<Map<String, dynamic>> dailySpecialsCollection(
@@ -357,27 +381,23 @@ class RestaurantAccountService {
       throw ArgumentError(validationError);
     }
 
-    final doc = couponsCollection(uid).doc();
-    final couponNumber = await _couponNumberForNewCoupon(uid, doc.id);
-    final numberedCoupon = sanitizedCoupon.copyWith(couponNumber: couponNumber);
     await _ensureNoDuplicateCoupon(
       uid: uid,
-      title: numberedCoupon.title,
-      startTime: numberedCoupon.startTime!,
-      endTime: numberedCoupon.endTime!,
+      title: sanitizedCoupon.title,
+      startTime: sanitizedCoupon.startTime!,
+      endTime: sanitizedCoupon.endTime!,
+    );
+    await _ensureNoDuplicateCouponCode(
+      uid: uid,
+      couponCode: sanitizedCoupon.couponCode,
     );
 
-    await doc.set({
-      ...numberedCoupon.toFirestoreMap(id: doc.id),
-      Coupon.fieldCreatedAt: FieldValue.serverTimestamp(),
-      Coupon.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    });
-
-    await docForUser(uid).set({
-      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-
-    return numberedCoupon.copyWith(id: doc.id);
+    final doc = couponsCollection(uid).doc();
+    return _createCouponWithUniqueNumber(
+      uid: uid,
+      doc: doc,
+      coupon: sanitizedCoupon,
+    );
   }
 
   static Future<Coupon> updateCoupon({
@@ -396,21 +416,24 @@ class RestaurantAccountService {
     if (validationError != null) {
       throw ArgumentError(validationError);
     }
-    final couponNumber =
-        sanitizedCoupon.formattedCouponNumber ??
-        await _couponNumberForExistingCoupon(uid, couponId);
-    final numberedCoupon = sanitizedCoupon.copyWith(couponNumber: couponNumber);
-
-    await couponsCollection(uid).doc(couponId).set({
-      ...numberedCoupon.toFirestoreMap(id: couponId),
-      Coupon.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-
-    await docForUser(uid).set({
-      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-
-    return numberedCoupon;
+    await _ensureNoDuplicateCouponCode(
+      uid: uid,
+      couponCode: sanitizedCoupon.couponCode,
+      excludeCouponId: couponId,
+    );
+    final existingCouponNumber = sanitizedCoupon.formattedCouponNumber;
+    if (existingCouponNumber == null) {
+      return _updateCouponWithGeneratedNumber(
+        uid: uid,
+        couponId: couponId,
+        coupon: sanitizedCoupon,
+      );
+    }
+    return _updateCouponWithExistingNumber(
+      uid: uid,
+      couponId: couponId,
+      coupon: sanitizedCoupon.copyWith(couponNumber: existingCouponNumber),
+    );
   }
 
   static Future<DailySpecial> createDailySpecial({
@@ -518,33 +541,6 @@ class RestaurantAccountService {
     );
   }
 
-  static Future<String> _couponNumberForNewCoupon(
-    String uid,
-    String couponId,
-  ) async {
-    final usedNumbers = await _loadExistingCouponNumbers(uid);
-    return stableCouponNumberForId(couponId, reservedNumbers: usedNumbers);
-  }
-
-  static Future<String> _couponNumberForExistingCoupon(
-    String uid,
-    String couponId,
-  ) async {
-    final doc = await couponsCollection(uid).doc(couponId).get();
-    final existingCouponNumber = Coupon.formatCouponNumber(
-      doc.data()?[Coupon.fieldCouponNumber]?.toString(),
-    );
-    if (existingCouponNumber != null) {
-      return existingCouponNumber;
-    }
-
-    final usedNumbers = await _loadExistingCouponNumbers(
-      uid,
-      excludeCouponId: couponId,
-    );
-    return stableCouponNumberForId(couponId, reservedNumbers: usedNumbers);
-  }
-
   static Future<Set<String>> _loadExistingCouponNumbers(
     String uid, {
     String? excludeCouponId,
@@ -567,23 +563,248 @@ class RestaurantAccountService {
     return usedNumbers;
   }
 
+  static Future<Coupon> _createCouponWithUniqueNumber({
+    required String uid,
+    required DocumentReference<Map<String, dynamic>> doc,
+    required Coupon coupon,
+  }) async {
+    final usedNumbers = await _loadExistingCouponNumbers(uid);
+
+    return _firestore.runTransaction<Coupon>((transaction) async {
+      final existingCouponDoc = await transaction.get(doc);
+      if (existingCouponDoc.exists) {
+        throw StateError('Could not create a unique coupon record.');
+      }
+
+      return _writeCouponWithReservedNumber(
+        transaction: transaction,
+        uid: uid,
+        couponId: doc.id,
+        doc: doc,
+        coupon: coupon,
+        reservedNumbers: usedNumbers,
+        isCreate: true,
+      );
+    });
+  }
+
+  static Future<Coupon> _updateCouponWithGeneratedNumber({
+    required String uid,
+    required String couponId,
+    required Coupon coupon,
+  }) async {
+    final usedNumbers = await _loadExistingCouponNumbers(
+      uid,
+      excludeCouponId: couponId,
+    );
+    final doc = couponsCollection(uid).doc(couponId);
+
+    return _firestore.runTransaction<Coupon>((transaction) async {
+      final existingCouponDoc = await transaction.get(doc);
+      if (!existingCouponDoc.exists) {
+        throw ArgumentError('Coupon ID is required for updates.');
+      }
+
+      final existingCouponNumber = Coupon.formatCouponNumber(
+        existingCouponDoc.data()?[Coupon.fieldCouponNumber]?.toString(),
+      );
+      if (existingCouponNumber != null) {
+        final numberedCoupon = coupon.copyWith(
+          id: couponId,
+          couponNumber: existingCouponNumber,
+        );
+        transaction.set(doc, {
+          ...numberedCoupon.toFirestoreMap(id: couponId),
+          Coupon.fieldUpdatedAt: FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+        transaction.set(docForUser(uid), {
+          Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+        return numberedCoupon;
+      }
+
+      return _writeCouponWithReservedNumber(
+        transaction: transaction,
+        uid: uid,
+        couponId: couponId,
+        doc: doc,
+        coupon: coupon,
+        reservedNumbers: usedNumbers,
+        isCreate: false,
+      );
+    });
+  }
+
+  static Future<Coupon> _updateCouponWithExistingNumber({
+    required String uid,
+    required String couponId,
+    required Coupon coupon,
+  }) async {
+    final doc = couponsCollection(uid).doc(couponId);
+
+    return _firestore.runTransaction<Coupon>((transaction) async {
+      final existingCouponDoc = await transaction.get(doc);
+      if (!existingCouponDoc.exists) {
+        throw ArgumentError('Coupon ID is required for updates.');
+      }
+
+      await _reserveManualCouponCodeIfNeeded(
+        transaction: transaction,
+        uid: uid,
+        couponId: couponId,
+        couponCode: coupon.couponCode,
+      );
+
+      transaction.set(doc, {
+        ...coupon.toFirestoreMap(id: couponId),
+        Coupon.fieldUpdatedAt: FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      transaction.set(docForUser(uid), {
+        Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      return coupon;
+    });
+  }
+
+  static Future<Coupon> _writeCouponWithReservedNumber({
+    required Transaction transaction,
+    required String uid,
+    required String couponId,
+    required DocumentReference<Map<String, dynamic>> doc,
+    required Coupon coupon,
+    required Set<String> reservedNumbers,
+    required bool isCreate,
+  }) async {
+    for (
+      var attempt = 0;
+      attempt < maxCouponNumberGenerationAttempts;
+      attempt += 1
+    ) {
+      final candidate = couponNumberCandidateForId(couponId, attempt: attempt);
+      if (reservedNumbers.contains(candidate)) {
+        continue;
+      }
+
+      final reservationRef = couponNumberReservationsCollection(
+        uid,
+      ).doc(candidate);
+      final reservationDoc = await transaction.get(reservationRef);
+      if (reservationDoc.exists) {
+        continue;
+      }
+
+      final numberedCoupon = coupon.copyWith(
+        id: couponId,
+        couponNumber: candidate,
+      );
+      await _reserveManualCouponCodeIfNeeded(
+        transaction: transaction,
+        uid: uid,
+        couponId: couponId,
+        couponCode: numberedCoupon.couponCode,
+      );
+      transaction.set(reservationRef, {
+        _couponNumberReservationCouponIdField: couponId,
+        _couponNumberReservationCouponNumberField: candidate,
+        if (isCreate)
+          _couponNumberReservationCreatedAtField: FieldValue.serverTimestamp(),
+        _couponNumberReservationUpdatedAtField: FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      transaction.set(doc, {
+        ...numberedCoupon.toFirestoreMap(id: couponId),
+        if (isCreate) Coupon.fieldCreatedAt: FieldValue.serverTimestamp(),
+        Coupon.fieldUpdatedAt: FieldValue.serverTimestamp(),
+      }, SetOptions(merge: !isCreate));
+      transaction.set(docForUser(uid), {
+        Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
+      }, SetOptions(merge: true));
+      return numberedCoupon;
+    }
+
+    throw StateError(
+      'No unique coupon number is available for this restaurant right now.',
+    );
+  }
+
+  static Future<void> _reserveManualCouponCodeIfNeeded({
+    required Transaction transaction,
+    required String uid,
+    required String couponId,
+    required String? couponCode,
+  }) async {
+    final normalizedCouponCode = normalizedCouponCodeForComparison(couponCode);
+    if (normalizedCouponCode == null) {
+      return;
+    }
+
+    final reservationRef = couponCodeReservationsCollection(
+      uid,
+    ).doc(Uri.encodeComponent(normalizedCouponCode));
+    final reservationDoc = await transaction.get(reservationRef);
+    final existingCouponId = reservationDoc
+        .data()?[_couponNumberReservationCouponIdField]
+        ?.toString()
+        .trim();
+    if (reservationDoc.exists &&
+        existingCouponId != null &&
+        existingCouponId.isNotEmpty &&
+        existingCouponId != couponId) {
+      throw ArgumentError(
+        'That coupon code is already used by this restaurant.',
+      );
+    }
+
+    transaction.set(reservationRef, {
+      _couponNumberReservationCouponIdField: couponId,
+      _couponCodeReservationCouponCodeField: couponCode?.trim(),
+      _couponCodeReservationNormalizedCouponCodeField: normalizedCouponCode,
+      if (!reservationDoc.exists)
+        _couponNumberReservationCreatedAtField: FieldValue.serverTimestamp(),
+      _couponNumberReservationUpdatedAtField: FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
+
   static String stableCouponNumberForId(
     String couponId, {
     Set<String> reservedNumbers = const <String>{},
+    int maxAttempts = maxCouponNumberGenerationAttempts,
   }) {
-    var hash = 0;
-    for (final codeUnit in couponId.trim().codeUnits) {
-      hash = ((hash * 31) + codeUnit) & 0x7fffffff;
-    }
-
-    for (var offset = 0; offset < 10000; offset += 1) {
-      final candidate = ((hash + offset) % 10000).toString().padLeft(4, '0');
+    for (var attempt = 0; attempt < maxAttempts; attempt += 1) {
+      final candidate = couponNumberCandidateForId(couponId, attempt: attempt);
       if (!reservedNumbers.contains(candidate)) {
         return candidate;
       }
     }
 
-    return (hash % 10000).toString().padLeft(4, '0');
+    throw StateError(
+      'No unique coupon number is available for this restaurant right now.',
+    );
+  }
+
+  static String couponNumberCandidateForId(
+    String couponId, {
+    required int attempt,
+  }) {
+    if (attempt < 0 || attempt >= maxCouponNumberGenerationAttempts) {
+      throw RangeError.range(
+        attempt,
+        0,
+        maxCouponNumberGenerationAttempts - 1,
+        'attempt',
+      );
+    }
+
+    var hash = 0;
+    for (final codeUnit in couponId.trim().codeUnits) {
+      hash = ((hash * 31) + codeUnit) & 0x7fffffff;
+    }
+
+    return ((hash + attempt) % 10000).toString().padLeft(4, '0');
+  }
+
+  static String? normalizedCouponCodeForComparison(String? couponCode) {
+    final normalized = couponCode?.trim().toUpperCase();
+    return normalized == null || normalized.isEmpty ? null : normalized;
   }
 
   static Future<List<Coupon>> loadCoupons(String uid) async {
@@ -1061,6 +1282,33 @@ class RestaurantAccountService {
       throw ArgumentError(
         'A coupon with the same title and schedule already exists.',
       );
+    }
+  }
+
+  static Future<void> _ensureNoDuplicateCouponCode({
+    required String uid,
+    required String? couponCode,
+    String? excludeCouponId,
+  }) async {
+    final normalizedCouponCode = normalizedCouponCodeForComparison(couponCode);
+    if (normalizedCouponCode == null) {
+      return;
+    }
+
+    final snapshot = await couponsCollection(uid).get();
+    for (final doc in snapshot.docs) {
+      if (excludeCouponId != null && doc.id == excludeCouponId) {
+        continue;
+      }
+
+      final existingCouponCode = normalizedCouponCodeForComparison(
+        doc.data()[Coupon.fieldCouponCode]?.toString(),
+      );
+      if (existingCouponCode == normalizedCouponCode) {
+        throw ArgumentError(
+          'That coupon code is already used by this restaurant.',
+        );
+      }
     }
   }
 

@@ -2040,6 +2040,7 @@ class _BiteScoreCategoryFilterSheetState
                   isExpanded
                       ? Icons.keyboard_arrow_up_rounded
                       : Icons.keyboard_arrow_down_rounded,
+                  color: BiteRaterTheme.mutedInk,
                 ),
                 onPressed: () => _toggleCategoryExpansion(category.id),
               )

@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/bitescore_dish.dart';
 import '../models/bitescore_restaurant.dart';
@@ -9,6 +10,7 @@ import '../services/app_error_text.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/bitescore_service.dart';
 import '../services/restaurant_menu_service.dart';
+import '../utils/phone_number_formatter.dart';
 import '../widgets/bitescore_category_picker.dart';
 import '../widgets/biterater_theme.dart';
 import '../widgets/clickable_phone_text.dart';
@@ -1795,12 +1797,14 @@ class _OwnerTextField extends StatelessWidget {
   final String label;
   final int maxLines;
   final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
 
   const _OwnerTextField({
     required this.controller,
     required this.label,
     this.maxLines = 1,
     this.keyboardType,
+    this.inputFormatters,
   });
 
   @override
@@ -1809,6 +1813,7 @@ class _OwnerTextField extends StatelessWidget {
       controller: controller,
       maxLines: maxLines,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -1857,7 +1862,7 @@ class _OwnerRestaurantEditDialogState
     _stateController = TextEditingController(text: widget.restaurant.state);
     _zipController = TextEditingController(text: widget.restaurant.zipCode);
     _phoneController = TextEditingController(
-      text: widget.restaurant.phone ?? '',
+      text: formatPhoneNumberForDisplay(widget.restaurant.phone),
     );
     _websiteController = TextEditingController(
       text: widget.restaurant.website ?? '',
@@ -2319,6 +2324,8 @@ class _OwnerRestaurantEditDialogState
                       child: _OwnerTextField(
                         controller: _phoneController,
                         label: 'Phone',
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: usPhoneNumberInputFormatters,
                       ),
                     ),
                   ],

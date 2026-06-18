@@ -105,6 +105,7 @@ class _PublicReviewerProfileScreenState
               restaurant: restaurant,
               aggregate: aggregate,
             ),
+            targetReviewId: entry.review.id,
           ),
         ),
       );
@@ -201,6 +202,7 @@ class _PublicReviewerProfileScreenState
   Widget _buildReviewCard(BiteScoreUserReviewEntry entry) {
     final headline = entry.review.headline?.trim() ?? '';
     final notes = entry.review.notes?.trim() ?? '';
+    final category = entry.categoryDisplayName;
 
     return BiteRaterTheme.liftedCard(
       margin: const EdgeInsets.only(top: 12),
@@ -237,6 +239,17 @@ class _PublicReviewerProfileScreenState
                             fontWeight: FontWeight.w700,
                           ),
                         ),
+                        if (category != null) ...[
+                          const SizedBox(height: 3),
+                          Text(
+                            category,
+                            style: const TextStyle(
+                              color: BiteRaterTheme.mutedInk,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ],
                     ),
                   ),

@@ -26,11 +26,15 @@ class LocalExpertRestaurantLocation {
   final String restaurantId;
   final double? latitude;
   final double? longitude;
+  final String? county;
+  final String? state;
 
   const LocalExpertRestaurantLocation({
     required this.restaurantId,
     this.latitude,
     this.longitude,
+    this.county,
+    this.state,
   });
 
   bool get hasUsableCoordinates {
@@ -43,7 +47,109 @@ class LocalExpertRestaurantLocation {
         lng >= -180 &&
         lng <= 180;
   }
+
+  String? get countyKey {
+    final normalizedCounty = LocalExpertCountyKey.normalizeCounty(county);
+    final normalizedState = LocalExpertCountyKey.normalizeState(state);
+    if (normalizedCounty == null || normalizedState == null) {
+      return null;
+    }
+    return '$normalizedState:$normalizedCounty';
+  }
 }
+
+class LocalExpertCountyKey {
+  static String? normalizeCounty(String? value) {
+    var normalized = value
+        ?.trim()
+        .toLowerCase()
+        .replaceAll('&', ' and ')
+        .replaceAll(RegExp(r"[\u2018\u2019\u201B\u2032']"), '')
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    if (normalized == null || normalized.isEmpty) {
+      return null;
+    }
+    normalized = normalized.replaceFirst(RegExp(r'\s+county$'), '').trim();
+    return normalized.isEmpty ? null : normalized;
+  }
+
+  static String? normalizeState(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+    final stateName = trimmed
+        .toUpperCase()
+        .replaceAll(RegExp(r'[^A-Z0-9]+'), ' ')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    final stateCode = _localExpertStateNameToCode[stateName];
+    if (stateCode != null) {
+      return stateCode;
+    }
+    final normalized = trimmed.toUpperCase().replaceAll(
+      RegExp(r'[^A-Z0-9]+'),
+      '',
+    );
+    return normalized.isEmpty ? null : normalized;
+  }
+}
+
+const Map<String, String> _localExpertStateNameToCode = {
+  'ALABAMA': 'AL',
+  'ALASKA': 'AK',
+  'ARIZONA': 'AZ',
+  'ARKANSAS': 'AR',
+  'CALIFORNIA': 'CA',
+  'COLORADO': 'CO',
+  'CONNECTICUT': 'CT',
+  'DELAWARE': 'DE',
+  'FLORIDA': 'FL',
+  'GEORGIA': 'GA',
+  'HAWAII': 'HI',
+  'IDAHO': 'ID',
+  'ILLINOIS': 'IL',
+  'INDIANA': 'IN',
+  'IOWA': 'IA',
+  'KANSAS': 'KS',
+  'KENTUCKY': 'KY',
+  'LOUISIANA': 'LA',
+  'MAINE': 'ME',
+  'MARYLAND': 'MD',
+  'MASSACHUSETTS': 'MA',
+  'MICHIGAN': 'MI',
+  'MINNESOTA': 'MN',
+  'MISSISSIPPI': 'MS',
+  'MISSOURI': 'MO',
+  'MONTANA': 'MT',
+  'NEBRASKA': 'NE',
+  'NEVADA': 'NV',
+  'NEW HAMPSHIRE': 'NH',
+  'NEW JERSEY': 'NJ',
+  'NEW MEXICO': 'NM',
+  'NEW YORK': 'NY',
+  'NORTH CAROLINA': 'NC',
+  'NORTH DAKOTA': 'ND',
+  'OHIO': 'OH',
+  'OKLAHOMA': 'OK',
+  'OREGON': 'OR',
+  'PENNSYLVANIA': 'PA',
+  'RHODE ISLAND': 'RI',
+  'SOUTH CAROLINA': 'SC',
+  'SOUTH DAKOTA': 'SD',
+  'TENNESSEE': 'TN',
+  'TEXAS': 'TX',
+  'UTAH': 'UT',
+  'VERMONT': 'VT',
+  'VIRGINIA': 'VA',
+  'WASHINGTON': 'WA',
+  'WEST VIRGINIA': 'WV',
+  'WISCONSIN': 'WI',
+  'WYOMING': 'WY',
+  'DISTRICT OF COLUMBIA': 'DC',
+};
 
 class LocalExpertReviewCandidate {
   final String reviewId;
@@ -60,6 +166,8 @@ class LocalExpertReviewCandidate {
   final DateTime? updatedAt;
   final double? restaurantLatitude;
   final double? restaurantLongitude;
+  final String? restaurantCounty;
+  final String? restaurantState;
   final bool isPublic;
 
   const LocalExpertReviewCandidate({
@@ -77,6 +185,8 @@ class LocalExpertReviewCandidate {
     this.updatedAt,
     this.restaurantLatitude,
     this.restaurantLongitude,
+    this.restaurantCounty,
+    this.restaurantState,
     this.isPublic = true,
   });
 
@@ -99,6 +209,8 @@ class LocalExpertReviewCandidate {
       updatedAt: review.updatedAt,
       restaurantLatitude: restaurant?.latitude,
       restaurantLongitude: restaurant?.longitude,
+      restaurantCounty: restaurant?.county,
+      restaurantState: restaurant?.state,
       isPublic:
           (dish == null || (dish.isActive && !dish.isMerged)) &&
           (restaurant == null || restaurant.isActive),
@@ -111,6 +223,8 @@ class LocalExpertReviewCandidate {
     restaurantId: restaurantId,
     latitude: restaurantLatitude,
     longitude: restaurantLongitude,
+    county: restaurantCounty,
+    state: restaurantState,
   );
 }
 
@@ -120,6 +234,7 @@ class LocalExpertBadgeResult {
   final LocalExpertBadgeLevel? earnedLevel;
   final int totalDistinctRestaurantCount;
   final int bestLocalClusterRestaurantCount;
+  final int bestSameCountyRestaurantCount;
   final List<String> qualifyingReviewIds;
   final List<String> qualifyingRestaurantIds;
   final LocalExpertQualificationMethod qualificationMethod;
@@ -131,6 +246,7 @@ class LocalExpertBadgeResult {
     required this.earnedLevel,
     required this.totalDistinctRestaurantCount,
     required this.bestLocalClusterRestaurantCount,
+    required this.bestSameCountyRestaurantCount,
     required this.qualifyingReviewIds,
     required this.qualifyingRestaurantIds,
     required this.qualificationMethod,
@@ -195,7 +311,12 @@ class LocalExpertBadgeCalculation {
     final removals =
         existingBadgeTypeIds
             .map((id) => id.trim().toLowerCase())
-            .where((id) => id.isNotEmpty && !earnedTypeIds.contains(id))
+            .where(
+              (id) =>
+                  id.isNotEmpty &&
+                  !earnedTypeIds.contains(id) &&
+                  !LocalExperts.legacyExpertTypeIds.contains(id),
+            )
             .toSet()
             .toList()
           ..sort();
@@ -228,29 +349,32 @@ class LocalExpertBadgeCalculator {
         continue;
       }
 
-      final expertType = LocalExperts.matchDish(
+      final expertTypes = LocalExperts.matchDishes(
         dishName: review.dishName,
         categoryId: review.categoryId,
         categoryName: review.categoryName,
         subcategory: review.subcategory,
         categoryTags: review.categoryTags,
       );
-      if (expertType == null) {
+      if (expertTypes.isEmpty) {
         continue;
       }
 
-      final resolved = _ResolvedExpertReviewCandidate(
-        review: review,
-        expertType: expertType,
-      );
-      final dedupKey = LocalExperts.deduplicationKey(
-        userId: normalizedUserId,
-        restaurantId: review.restaurantId,
-        expertTypeId: expertType.id,
-      );
-      final existing = representativesByDedupKey[dedupKey];
-      if (existing == null || _isPreferredRepresentative(resolved, existing)) {
-        representativesByDedupKey[dedupKey] = resolved;
+      for (final expertType in expertTypes) {
+        final resolved = _ResolvedExpertReviewCandidate(
+          review: review,
+          expertType: expertType,
+        );
+        final dedupKey = LocalExperts.deduplicationKey(
+          userId: normalizedUserId,
+          restaurantId: review.restaurantId,
+          expertTypeId: expertType.id,
+        );
+        final existing = representativesByDedupKey[dedupKey];
+        if (existing == null ||
+            _isPreferredRepresentative(resolved, existing)) {
+          representativesByDedupKey[dedupKey] = resolved;
+        }
       }
     }
 
@@ -307,14 +431,19 @@ class LocalExpertBadgeCalculator {
       representatives.map((candidate) => candidate.review.location),
       clusterRadiusMiles: clusterRadiusMiles,
     );
+    final bestSameCountyRestaurantCount = _bestSameCountyCount(
+      representatives.map((candidate) => candidate.review.location),
+    );
     final level = _highestQualifiedLevel(
       totalRestaurantCount: totalRestaurantCount,
       bestLocalClusterRestaurantCount: bestLocalClusterRestaurantCount,
+      bestSameCountyRestaurantCount: bestSameCountyRestaurantCount,
     );
     final qualificationMethod = _qualificationMethodFor(
       level: level,
       totalRestaurantCount: totalRestaurantCount,
       bestLocalClusterRestaurantCount: bestLocalClusterRestaurantCount,
+      bestSameCountyRestaurantCount: bestSameCountyRestaurantCount,
     );
 
     return LocalExpertBadgeResult(
@@ -323,6 +452,7 @@ class LocalExpertBadgeCalculator {
       earnedLevel: level,
       totalDistinctRestaurantCount: totalRestaurantCount,
       bestLocalClusterRestaurantCount: bestLocalClusterRestaurantCount,
+      bestSameCountyRestaurantCount: bestSameCountyRestaurantCount,
       qualifyingReviewIds: reviewIds,
       qualifyingRestaurantIds: restaurantIds,
       qualificationMethod: qualificationMethod,
@@ -333,6 +463,7 @@ class LocalExpertBadgeCalculator {
   static LocalExpertBadgeLevel? _highestQualifiedLevel({
     required int totalRestaurantCount,
     required int bestLocalClusterRestaurantCount,
+    required int bestSameCountyRestaurantCount,
   }) {
     if (_qualifiesOverall(LocalExpertBadgeLevel.level3, totalRestaurantCount)) {
       return LocalExpertBadgeLevel.level3;
@@ -341,6 +472,7 @@ class LocalExpertBadgeCalculator {
       LocalExpertBadgeLevel.level2,
       totalRestaurantCount: totalRestaurantCount,
       bestLocalClusterRestaurantCount: bestLocalClusterRestaurantCount,
+      bestSameCountyRestaurantCount: bestSameCountyRestaurantCount,
     )) {
       return LocalExpertBadgeLevel.level2;
     }
@@ -348,6 +480,7 @@ class LocalExpertBadgeCalculator {
       LocalExpertBadgeLevel.level1,
       totalRestaurantCount: totalRestaurantCount,
       bestLocalClusterRestaurantCount: bestLocalClusterRestaurantCount,
+      bestSameCountyRestaurantCount: bestSameCountyRestaurantCount,
     )) {
       return LocalExpertBadgeLevel.level1;
     }
@@ -358,9 +491,11 @@ class LocalExpertBadgeCalculator {
     LocalExpertBadgeLevel level, {
     required int totalRestaurantCount,
     required int bestLocalClusterRestaurantCount,
+    required int bestSameCountyRestaurantCount,
   }) {
     return _qualifiesOverall(level, totalRestaurantCount) ||
-        _qualifiesLocal(level, bestLocalClusterRestaurantCount);
+        _qualifiesLocal(level, bestLocalClusterRestaurantCount) ||
+        _qualifiesLocal(level, bestSameCountyRestaurantCount);
   }
 
   static bool _qualifiesOverall(
@@ -386,16 +521,16 @@ class LocalExpertBadgeCalculator {
     required LocalExpertBadgeLevel? level,
     required int totalRestaurantCount,
     required int bestLocalClusterRestaurantCount,
+    required int bestSameCountyRestaurantCount,
   }) {
     if (level == null) {
       return LocalExpertQualificationMethod.none;
     }
 
     final qualifiesOverall = _qualifiesOverall(level, totalRestaurantCount);
-    final qualifiesLocal = _qualifiesLocal(
-      level,
-      bestLocalClusterRestaurantCount,
-    );
+    final qualifiesLocal =
+        _qualifiesLocal(level, bestLocalClusterRestaurantCount) ||
+        _qualifiesLocal(level, bestSameCountyRestaurantCount);
     if (qualifiesOverall && qualifiesLocal) {
       return LocalExpertQualificationMethod.both;
     }
@@ -463,6 +598,28 @@ class LocalExpertBadgeCalculator {
       List<int>.generate(sortedLocations.length, (index) => index),
     );
     return best;
+  }
+
+  static int _bestSameCountyCount(
+    Iterable<LocalExpertRestaurantLocation> locations,
+  ) {
+    final restaurantIdsByCounty = <String, Set<String>>{};
+    for (final location in locations) {
+      final countyKey = location.countyKey;
+      final restaurantId = location.restaurantId.trim();
+      if (countyKey == null || restaurantId.isEmpty) {
+        continue;
+      }
+      restaurantIdsByCounty
+          .putIfAbsent(countyKey, () => <String>{})
+          .add(restaurantId);
+    }
+    if (restaurantIdsByCounty.isEmpty) {
+      return 0;
+    }
+    return restaurantIdsByCounty.values
+        .map((restaurantIds) => restaurantIds.length)
+        .reduce(math.max);
   }
 
   static double distanceMiles(

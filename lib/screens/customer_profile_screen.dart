@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import '../models/bitescore_restaurant.dart';
 import '../models/coupon.dart';
+import '../models/dish_rating_aggregate.dart';
 import '../models/local_expert_badge.dart';
 import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
@@ -221,6 +222,48 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
     if (mounted) {
       setState(_refresh);
+    }
+  }
+
+  Future<void> _openDishReview(BiteScoreUserReviewEntry entry) async {
+    final dish = entry.dish;
+    final restaurant = entry.restaurant;
+    if (dish == null || restaurant == null) {
+      _showSnackBar('This dish is no longer available.');
+      return;
+    }
+
+    try {
+      final aggregate =
+          await BiteScoreService.loadDishRatingAggregate(dish.id) ??
+          DishRatingAggregate(dishId: dish.id, restaurantId: restaurant.id);
+      if (!mounted) {
+        return;
+      }
+
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => BiteScoreDishDetailScreen(
+            entry: BiteScoreHomeEntry(
+              dish: dish,
+              restaurant: restaurant,
+              aggregate: aggregate,
+            ),
+            targetReviewId: entry.review.id,
+          ),
+        ),
+      );
+
+      if (mounted) {
+        setState(_refresh);
+      }
+    } catch (error) {
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not open that dish right now.',
+        ),
+      );
     }
   }
 
@@ -615,63 +658,79 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   Widget _buildReviewCard(BiteScoreUserReviewEntry entry) {
     final headline = entry.review.headline?.trim();
     final notes = entry.review.notes?.trim();
+    final category = entry.categoryDisplayName;
 
     return Card(
       margin: const EdgeInsets.only(top: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: Text(
-                    entry.dishName,
-                    style: const TextStyle(
-                      fontSize: 16,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: () => _openDishReview(entry),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      entry.dishName,
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    _scoreLabel(entry.review.overallBiteScore),
+                    style: TextStyle(
+                      color: Colors.red.shade700,
+                      fontSize: 18,
                       fontWeight: FontWeight.w800,
                     ),
                   ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                entry.restaurantName,
+                style: const TextStyle(
+                  color: Colors.black54,
+                  fontWeight: FontWeight.w600,
                 ),
-                const SizedBox(width: 12),
+              ),
+              if (category != null) ...[
+                const SizedBox(height: 4),
                 Text(
-                  _scoreLabel(entry.review.overallBiteScore),
-                  style: TextStyle(
-                    color: Colors.red.shade700,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
+                  category,
+                  style: const TextStyle(
+                    color: Colors.black54,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
               ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              entry.restaurantName,
-              style: const TextStyle(
-                color: Colors.black54,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 8),
-            if (headline != null && headline.isNotEmpty)
+              const SizedBox(height: 8),
+              if (headline != null && headline.isNotEmpty)
+                Text(
+                  headline,
+                  style: const TextStyle(fontWeight: FontWeight.w700),
+                ),
+              if (headline != null &&
+                  headline.isNotEmpty &&
+                  notes != null &&
+                  notes.isNotEmpty)
+                const SizedBox(height: 4),
+              if (notes != null && notes.isNotEmpty) Text(notes),
+              const SizedBox(height: 10),
               Text(
-                headline,
-                style: const TextStyle(fontWeight: FontWeight.w700),
+                _dateLabel(entry.review.createdAt),
+                style: const TextStyle(fontSize: 12, color: Colors.black54),
               ),
-            if (headline != null &&
-                headline.isNotEmpty &&
-                notes != null &&
-                notes.isNotEmpty)
-              const SizedBox(height: 4),
-            if (notes != null && notes.isNotEmpty) Text(notes),
-            const SizedBox(height: 10),
-            Text(
-              _dateLabel(entry.review.createdAt),
-              style: const TextStyle(fontSize: 12, color: Colors.black54),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

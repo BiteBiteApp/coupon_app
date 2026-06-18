@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../widgets/admin_content_insets.dart';
 import 'bitescore_owner_screen.dart';
 import 'main_navigation_screen.dart';
 import 'restaurant_create_coupon_screen.dart';
@@ -8,14 +9,14 @@ import 'restaurant_create_coupon_screen.dart';
 class RestaurantOwnerHubScreen extends StatelessWidget {
   final User currentUser;
 
-  const RestaurantOwnerHubScreen({
-    super.key,
-    required this.currentUser,
-  });
+  const RestaurantOwnerHubScreen({super.key, required this.currentUser});
 
   Future<void> _openCouponSide(BuildContext context) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
+        settings: const RouteSettings(
+          name: RestaurantCreateCouponScreen.routeName,
+        ),
         builder: (_) => const RestaurantCreateCouponScreen(),
       ),
     );
@@ -24,9 +25,7 @@ class RestaurantOwnerHubScreen extends StatelessWidget {
   Future<void> _openRatingSide(BuildContext context) async {
     await Navigator.of(context).push(
       MaterialPageRoute(
-        builder: (_) => BiteScoreOwnerScreen(
-          currentUser: currentUser,
-        ),
+        builder: (_) => BiteScoreOwnerScreen(currentUser: currentUser),
       ),
     );
   }
@@ -49,7 +48,13 @@ class RestaurantOwnerHubScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
+        padding: AdminContentInsets.scrollPadding(
+          context,
+          left: 24,
+          top: 24,
+          right: 24,
+          bottom: 24,
+        ),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 520),
           child: Card(
@@ -70,10 +75,7 @@ class RestaurantOwnerHubScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   const Text(
                     'Owner Hub',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 10),
                   const Text(

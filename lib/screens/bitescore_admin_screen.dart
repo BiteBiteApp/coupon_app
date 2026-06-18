@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/bitescore_dish.dart';
 import '../models/bitescore_restaurant.dart';
@@ -8,10 +10,12 @@ import '../models/restaurant_claim_request.dart';
 import '../services/app_error_text.dart';
 import '../services/bitescore_service.dart';
 import '../services/contribution_points_service.dart';
+import '../utils/phone_number_formatter.dart';
 import '../widgets/bitescore_category_picker.dart';
 import '../widgets/biterater_theme.dart';
 import '../widgets/clickable_phone_text.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
+import 'expert_badge_gallery_screen.dart';
 
 class BiteScoreAdminScreen extends StatefulWidget {
   const BiteScoreAdminScreen({super.key});
@@ -28,7 +32,7 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 10, vsync: this);
+    _tabController = TabController(length: kDebugMode ? 11 : 10, vsync: this);
   }
 
   @override
@@ -73,17 +77,18 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
                 labelColor: BiteRaterTheme.grape,
                 unselectedLabelColor: BiteRaterTheme.mutedInk,
                 indicatorColor: BiteRaterTheme.coral,
-                tabs: const [
-                  Tab(text: 'Restaurants'),
-                  Tab(text: 'Dishes'),
-                  Tab(text: 'Reviews'),
-                  Tab(text: 'Reported Reviews'),
-                  Tab(text: 'Data Reports'),
-                  Tab(text: 'Claims'),
-                  Tab(text: 'Dish Suggestions'),
-                  Tab(text: 'Claimed Restaurants'),
-                  Tab(text: 'Users'),
-                  Tab(text: 'User Points'),
+                tabs: [
+                  const Tab(text: 'Restaurants'),
+                  const Tab(text: 'Dishes'),
+                  const Tab(text: 'Reviews'),
+                  const Tab(text: 'Reported Reviews'),
+                  const Tab(text: 'Data Reports'),
+                  const Tab(text: 'Claims'),
+                  const Tab(text: 'Dish Suggestions'),
+                  const Tab(text: 'Claimed Restaurants'),
+                  const Tab(text: 'Users'),
+                  const Tab(text: 'User Points'),
+                  if (kDebugMode) const Tab(text: 'Expert Badges'),
                 ],
               ),
             ),
@@ -106,6 +111,8 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
                 const _BiteScoreApprovedOwnershipAdminList(),
                 const _BiteScoreUsersAdminList(),
                 const _BiteScoreUserPointsAdminList(),
+                if (kDebugMode)
+                  const ExpertBadgeGalleryScreen(showPreviewControls: true),
               ],
             ),
           ),
@@ -3574,12 +3581,16 @@ class _AdminTextField extends StatelessWidget {
   final String label;
   final String? hint;
   final int maxLines;
+  final TextInputType? keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
 
   const _AdminTextField({
     required this.controller,
     required this.label,
     this.hint,
     this.maxLines = 1,
+    this.keyboardType,
+    this.inputFormatters,
   });
 
   @override
@@ -3587,6 +3598,8 @@ class _AdminTextField extends StatelessWidget {
     return TextField(
       controller: controller,
       maxLines: maxLines,
+      keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
@@ -3628,7 +3641,7 @@ class _BiteScoreRestaurantEditDialogState
     _stateController = TextEditingController(text: widget.restaurant.state);
     _zipController = TextEditingController(text: widget.restaurant.zipCode);
     _phoneController = TextEditingController(
-      text: widget.restaurant.phone ?? '',
+      text: formatPhoneNumberForDisplay(widget.restaurant.phone),
     );
     _bioController = TextEditingController(text: widget.restaurant.bio ?? '');
     _cuisineController = TextEditingController(
@@ -3745,6 +3758,8 @@ class _BiteScoreRestaurantEditDialogState
                     child: _AdminTextField(
                       controller: _phoneController,
                       label: 'Phone',
+                      keyboardType: TextInputType.phone,
+                      inputFormatters: usPhoneNumberInputFormatters,
                     ),
                   ),
                 ],

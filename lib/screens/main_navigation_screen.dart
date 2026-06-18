@@ -5,12 +5,15 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/app_mode_state_service.dart';
+import '../services/subscription_return_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
+import '../widgets/admin_content_insets.dart';
 import 'admin_gate_screen.dart';
 import 'bitescore_home_screen.dart';
 import 'customer_account_screen.dart';
 import 'home_screen.dart';
 import 'restaurant_auth_screen.dart';
+import 'restaurant_create_coupon_screen.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
@@ -102,10 +105,16 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
 
     if (uri.scheme == 'bitesaver' && uri.host == 'subscription-success') {
-      _openMainScreenWithMessage(
-        message: 'Subscription active',
-        mode: AppMode.biteSaver,
-      );
+      _handleSubscriptionReturn(SubscriptionCheckoutReturnStatus.success);
+      return;
+    }
+
+    if (uri.scheme == 'bitesaver' && uri.host == 'subscription-cancel') {
+      _handleSubscriptionReturn(SubscriptionCheckoutReturnStatus.cancel);
+      return;
+    }
+
+    if (uri.scheme == 'couponapp' && uri.host == 'open') {
       return;
     }
 
@@ -114,31 +123,54 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
 
     final status = uri.queryParameters['status']?.trim().toLowerCase();
-    String? message;
     if (status == 'success') {
-      message = 'Subscription started successfully';
+      _handleSubscriptionReturn(SubscriptionCheckoutReturnStatus.success);
     } else if (status == 'cancel') {
-      message = 'Subscription checkout canceled';
+      _handleSubscriptionReturn(SubscriptionCheckoutReturnStatus.cancel);
     }
-
-    if (message == null) {
-      return;
-    }
-
-    _openMainScreenWithMessage(message: message, mode: AppMode.biteSaver);
   }
 
-  void _openMainScreenWithMessage({
-    required String message,
-    required AppMode mode,
-  }) {
+  void _handleSubscriptionReturn(SubscriptionCheckoutReturnStatus status) {
+    final message = switch (status) {
+      SubscriptionCheckoutReturnStatus.success =>
+        'Subscription started successfully. Refreshing restaurant tools...',
+      SubscriptionCheckoutReturnStatus.cancel =>
+        'Subscription checkout canceled.',
+    };
+
     if (mounted) {
       setState(() {
-        selectedIndex = 0;
-        selectedMode = mode;
+        selectedIndex = 1;
+        selectedMode = AppMode.biteSaver;
       });
     }
-    AppModeStateService.setMode(mode);
+    AppModeStateService.setMode(AppMode.biteSaver);
+    unawaited(SubscriptionReturnService.dispatchReturn(status));
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+
+      if (SubscriptionReturnService.hasActiveRestaurantHub) {
+        rootNavigatorKey.currentState?.popUntil(
+          (route) =>
+              route.isFirst ||
+              route.settings.name == RestaurantCreateCouponScreen.routeName,
+        );
+      } else {
+        rootNavigatorKey.currentState?.pushAndRemoveUntil(
+          MaterialPageRoute(
+            settings: const RouteSettings(
+              name: RestaurantCreateCouponScreen.routeName,
+            ),
+            builder: (_) => const RestaurantCreateCouponScreen(),
+          ),
+          (route) => route.isFirst,
+        );
+      }
+    });
+
     rootScaffoldMessengerKey.currentState
       ?..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
@@ -234,7 +266,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         : const Color(0xFF4F7D1F);
 
     final navigationBar = SizedBox(
-      height: 48,
+      height: AdminContentInsets.bottomNavigationHeight,
       child: Row(
         children: [
           for (final item in [
@@ -335,7 +367,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         top: false,
         child: Container(
           color: Colors.transparent,
-          padding: EdgeInsets.fromLTRB(22, 0, 22, 3 + extraBottomInset),
+          padding: EdgeInsets.fromLTRB(
+            22,
+            0,
+            22,
+            AdminContentInsets.bottomNavigationOuterPadding + extraBottomInset,
+          ),
           child: Container(
             decoration: BoxDecoration(
               color: const Color(0xFFFFFEFC),
@@ -363,7 +400,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       top: false,
       child: Container(
         color: Colors.transparent,
-        padding: EdgeInsets.fromLTRB(16, 0, 16, 3 + extraBottomInset),
+        padding: EdgeInsets.fromLTRB(
+          16,
+          0,
+          16,
+          AdminContentInsets.bottomNavigationOuterPadding + extraBottomInset,
+        ),
         child: Container(
           decoration: BoxDecoration(
             color: const Color(0xFFF7FAFE),

@@ -127,6 +127,155 @@ void main() {
       );
     });
 
+    test('Mexican replaces Taco and Burrito review matching', () {
+      expect(
+        _qualifies(
+          _fixture('taco', dishName: 'Street tacos', category: 'Tacos'),
+          'mexican',
+        ),
+        isTrue,
+      );
+      expect(
+        _qualifies(
+          _fixture(
+            'burrito',
+            dishName: 'Smothered burrito',
+            category: 'Mexican',
+            subcategory: 'Burrito',
+          ),
+          'mexican',
+        ),
+        isTrue,
+      );
+      expect(
+        _qualifies(_fixture('taco', dishName: 'Street tacos'), 'tacos'),
+        isFalse,
+      );
+    });
+
+    test('Cuban sandwich beneath Deli appears for Cuban and Subs', () {
+      final fixture = _fixture(
+        'cuban',
+        dishName: 'Cuban sandwich',
+        category: 'Deli / Sandwiches',
+        subcategory: 'Cuban sandwich',
+        categoryTags: const ['cuban_sandwich', 'cuban', 'deli', 'sandwich'],
+      );
+
+      expect(_qualifies(fixture, 'cuban'), isTrue);
+      expect(_qualifies(fixture, 'subs_sandwiches'), isTrue);
+      expect(_qualifies(fixture, 'chicken_sandwich'), isFalse);
+    });
+
+    test('Cuban sandwich beneath Cuban appears for Cuban and Subs', () {
+      final fixture = _fixture(
+        'cuban',
+        dishName: 'Cuban sandwich',
+        category: 'Cuban',
+        subcategory: 'Cuban sandwich',
+        categoryTags: const ['cuban_sandwich', 'cuban', 'deli', 'sandwich'],
+      );
+
+      expect(_qualifies(fixture, 'cuban'), isTrue);
+      expect(_qualifies(fixture, 'subs_sandwiches'), isTrue);
+    });
+
+    test('Subs appear for structured Deli sandwiches', () {
+      final fixture = _fixture(
+        'hoagie',
+        dishName: 'Turkey hoagie',
+        category: 'Deli / Sandwiches',
+        subcategory: 'Subs',
+      );
+
+      expect(_qualifies(fixture, 'subs_sandwiches'), isTrue);
+    });
+
+    test('Chili appears for structured and clear chili dishes', () {
+      final structured = _fixture(
+        'chili',
+        dishName: 'Chili',
+        category: 'American',
+        subcategory: 'Chili',
+      );
+      final whiteChicken = _fixture(
+        'white-chicken-chili',
+        dishName: 'White chicken chili',
+        category: null,
+      );
+
+      expect(_qualifies(structured, 'chili'), isTrue);
+      expect(_qualifies(whiteChicken, 'chili'), isTrue);
+    });
+
+    test('Chili dog appears for Chili and Hot Dogs', () {
+      final fixture = _fixture(
+        'chili-dog',
+        dishName: 'Chili dog',
+        category: null,
+      );
+
+      expect(_qualifies(fixture, 'chili'), isTrue);
+      expect(_qualifies(fixture, 'hot_dogs_corn_dogs'), isTrue);
+    });
+
+    test('Chili sauce oil and unrelated chicken do not appear for Chili', () {
+      expect(
+        _qualifies(
+          _fixture('chili-sauce', dishName: 'Chili sauce', category: null),
+          'chili',
+        ),
+        isFalse,
+      );
+      expect(
+        _qualifies(
+          _fixture('chili-oil', dishName: 'Chili oil', category: null),
+          'chili',
+        ),
+        isFalse,
+      );
+      expect(
+        _qualifies(
+          _fixture('chili-chicken', dishName: 'Chili chicken', category: null),
+          'chili',
+        ),
+        isFalse,
+      );
+    });
+
+    test('Fried chicken sandwich appears for both applicable badges', () {
+      final fixture = _fixture(
+        'fried-chicken-sandwich',
+        dishName: 'Fried chicken sandwich',
+        category: 'Chicken',
+        subcategory: 'Chicken sandwich',
+      );
+
+      expect(_qualifies(fixture, 'fried_chicken'), isTrue);
+      expect(_qualifies(fixture, 'chicken_sandwich'), isTrue);
+      expect(_qualifies(fixture, 'subs_sandwiches'), isFalse);
+    });
+
+    test('BBQ and chicken sandwiches do not appear for Subs', () {
+      final bbq = _fixture(
+        'bbq-sandwich',
+        dishName: 'BBQ pulled pork sandwich',
+        category: 'BBQ',
+        subcategory: 'BBQ sandwich',
+      );
+      final chicken = _fixture(
+        'chicken-sandwich',
+        dishName: 'Grilled chicken sandwich',
+        category: 'Chicken',
+        subcategory: 'Chicken sandwich',
+      );
+
+      expect(_qualifies(bbq, 'bbq'), isTrue);
+      expect(_qualifies(bbq, 'subs_sandwiches'), isFalse);
+      expect(_qualifies(chicken, 'chicken_sandwich'), isTrue);
+      expect(_qualifies(chicken, 'subs_sandwiches'), isFalse);
+    });
+
     test('hidden deleted and rejected reviews are excluded', () {
       expect(
         _qualifies(
@@ -246,6 +395,7 @@ _ReviewFixture _fixture(
   String dishName = 'Burger',
   String? category = 'Burgers',
   String? subcategory,
+  List<String> categoryTags = const [],
   String headline = 'Great crispy burger',
   String notes = 'juicy patty sauce toasted bun excellent value',
   BitescoreRestaurant? restaurant,
@@ -266,6 +416,7 @@ _ReviewFixture _fixture(
       name: dishName,
       category: category,
       subcategory: subcategory,
+      categoryTags: categoryTags,
     ),
     restaurant: resolvedRestaurant,
     rawReviewData: rawReviewData,
@@ -298,6 +449,7 @@ BitescoreDish _dish({
   String name = 'Burger',
   String? category = 'Burgers',
   String? subcategory,
+  List<String> categoryTags = const [],
 }) {
   return BitescoreDish(
     id: id,
@@ -307,10 +459,9 @@ BitescoreDish _dish({
     normalizedName: name.toLowerCase(),
     category: category,
     subcategory: subcategory,
-    categoryTags: [
-      name.toLowerCase(),
-      if (category != null) category.toLowerCase(),
-    ],
+    categoryTags: categoryTags.isEmpty
+        ? [name.toLowerCase(), if (category != null) category.toLowerCase()]
+        : categoryTags,
   );
 }
 

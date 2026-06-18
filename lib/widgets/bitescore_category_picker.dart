@@ -373,7 +373,14 @@ class _BitescoreCategoryPickerSheetState
           category.displayName,
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
-        trailing: !hasSubcategories && isSelected
+        trailing: hasSubcategories
+            ? Icon(
+                isExpanded
+                    ? Icons.keyboard_arrow_up_rounded
+                    : Icons.keyboard_arrow_down_rounded,
+                color: BiteRaterTheme.mutedInk,
+              )
+            : !hasSubcategories && isSelected
             ? const Icon(Icons.check_rounded)
             : null,
         onTap: () {

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/admin_access_service.dart';
+import '../widgets/admin_content_insets.dart';
 import 'admin_review_screen.dart';
 import 'bitescore_admin_screen.dart';
 
@@ -132,29 +133,34 @@ class AdminGateScreen extends StatelessWidget {
                 ),
               ],
             ),
-            body: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: const TabBar(
-                      tabs: [
-                        Tab(text: 'Coupon Side'),
-                        Tab(text: 'Rating Side'),
-                      ],
+            body: Padding(
+              padding: EdgeInsets.only(
+                bottom: AdminContentInsets.bottomNavigationObstruction(context),
+              ),
+              child: Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade100,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const TabBar(
+                        tabs: [
+                          Tab(text: 'Coupon Side'),
+                          Tab(text: 'Rating Side'),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-                const Expanded(
-                  child: TabBarView(
-                    children: [AdminReviewScreen(), BiteScoreAdminScreen()],
+                  const Expanded(
+                    child: TabBarView(
+                      children: [AdminReviewScreen(), BiteScoreAdminScreen()],
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         );

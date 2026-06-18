@@ -1,5 +1,6 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../models/bitescore_dish.dart';
@@ -11,6 +12,7 @@ import '../services/app_mode_state_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../services/restaurant_menu_service.dart';
+import '../utils/phone_number_formatter.dart';
 import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/bitescore_category_picker.dart';
 import '../widgets/biterater_theme.dart';
@@ -1325,6 +1327,7 @@ class _OwnerTextField extends StatelessWidget {
   final int maxLines;
   final TextInputType? keyboardType;
   final bool readOnly;
+  final List<TextInputFormatter>? inputFormatters;
 
   const _OwnerTextField({
     required this.controller,
@@ -1332,6 +1335,7 @@ class _OwnerTextField extends StatelessWidget {
     this.maxLines = 1,
     this.keyboardType,
     this.readOnly = false,
+    this.inputFormatters,
   });
 
   @override
@@ -1341,6 +1345,7 @@ class _OwnerTextField extends StatelessWidget {
       maxLines: maxLines,
       keyboardType: keyboardType,
       readOnly: readOnly,
+      inputFormatters: inputFormatters,
       decoration: InputDecoration(
         labelText: label,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
@@ -1383,7 +1388,7 @@ class _RestaurantClaimDialogState extends State<_RestaurantClaimDialog> {
     );
     _emailController = TextEditingController(text: _authEmail);
     _phoneController = TextEditingController(
-      text: widget.currentUser.phoneNumber ?? '',
+      text: formatPhoneNumberForDisplay(widget.currentUser.phoneNumber),
     );
     _messageController = TextEditingController();
   }
@@ -1463,6 +1468,7 @@ class _RestaurantClaimDialogState extends State<_RestaurantClaimDialog> {
                 controller: _phoneController,
                 label: 'Phone',
                 keyboardType: TextInputType.phone,
+                inputFormatters: usPhoneNumberInputFormatters,
               ),
               const SizedBox(height: 12),
               _OwnerTextField(
@@ -1646,7 +1652,7 @@ class _OwnerRestaurantEditDialogState
     _stateController = TextEditingController(text: widget.restaurant.state);
     _zipController = TextEditingController(text: widget.restaurant.zipCode);
     _phoneController = TextEditingController(
-      text: widget.restaurant.phone ?? '',
+      text: formatPhoneNumberForDisplay(widget.restaurant.phone),
     );
     _websiteController = TextEditingController(
       text: widget.restaurant.website ?? '',
@@ -2108,6 +2114,8 @@ class _OwnerRestaurantEditDialogState
                       child: _OwnerTextField(
                         controller: _phoneController,
                         label: 'Phone',
+                        keyboardType: TextInputType.phone,
+                        inputFormatters: usPhoneNumberInputFormatters,
                       ),
                     ),
                   ],

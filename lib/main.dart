@@ -2,15 +2,15 @@ import 'package:coupon_app/firebase_options.dart';
 import 'package:coupon_app/screens/main_navigation_screen.dart';
 import 'package:coupon_app/services/customer_session_service.dart';
 import 'package:coupon_app/services/user_profile_service.dart';
+import 'package:coupon_app/widgets/contribution_points_celebration_host.dart';
+import 'package:coupon_app/widgets/local_expert_badge_celebration_host.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   await ensureUserSignedIn();
 
@@ -59,6 +59,13 @@ class CouponApp extends StatelessWidget {
       debugShowCheckedModeBanner: false,
       navigatorKey: rootNavigatorKey,
       scaffoldMessengerKey: rootScaffoldMessengerKey,
+      builder: (context, child) {
+        return LocalExpertBadgeCelebrationHost(
+          child: ContributionPointsCelebrationHost(
+            child: child ?? const SizedBox.shrink(),
+          ),
+        );
+      },
       theme: ThemeData(
         useMaterial3: true,
         colorScheme: colorScheme,
@@ -79,42 +86,29 @@ class CouponApp extends StatelessWidget {
           margin: EdgeInsets.zero,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(18),
-            side: const BorderSide(
-              color: Color(0xFFD7D7D1),
-            ),
+            side: const BorderSide(color: Color(0xFFD7D7D1)),
           ),
         ),
         inputDecorationTheme: InputDecorationTheme(
           filled: true,
           fillColor: const Color(0xFFF8F8F5),
-          labelStyle: const TextStyle(
-            color: Color(0xFF4B4B47),
-          ),
-          hintStyle: const TextStyle(
-            color: Color(0xFF7C7C76),
-          ),
+          labelStyle: const TextStyle(color: Color(0xFF4B4B47)),
+          hintStyle: const TextStyle(color: Color(0xFF7C7C76)),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 14,
             vertical: 14,
           ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(
-              color: Color(0xFFD7D7D1),
-            ),
+            borderSide: const BorderSide(color: Color(0xFFD7D7D1)),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(
-              color: Color(0xFFD7D7D1),
-            ),
+            borderSide: const BorderSide(color: Color(0xFFD7D7D1)),
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(12),
-            borderSide: const BorderSide(
-              color: Color(0xFF111111),
-              width: 1.2,
-            ),
+            borderSide: const BorderSide(color: Color(0xFF111111), width: 1.2),
           ),
         ),
         navigationBarTheme: NavigationBarThemeData(

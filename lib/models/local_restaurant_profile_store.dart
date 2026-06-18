@@ -72,7 +72,7 @@ class RestaurantProfileData {
 
 class LocalRestaurantProfileStore {
   static final RestaurantProfileData emptyProfile = RestaurantProfileData(
-    name: 'Your Restaurant Preview',
+    name: '',
     city: 'Lecanto',
     state: 'FL',
     zipCode: '34461',

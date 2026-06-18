@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -16,11 +18,15 @@ import '../services/restaurant_account_service.dart';
 import '../services/restaurant_auth_service.dart';
 import '../services/restaurant_menu_service.dart';
 import '../services/subscription_checkout_service.dart';
+import '../services/subscription_return_service.dart';
+import '../utils/phone_number_formatter.dart';
 import '../widgets/clickable_phone_text.dart';
 import 'restaurant_menu_management_screen.dart';
 import 'paywall_screen.dart';
 
 class RestaurantCreateCouponScreen extends StatefulWidget {
+  static const String routeName = '/restaurant-hub/coupon-side';
+
   const RestaurantCreateCouponScreen({super.key});
 
   @override
@@ -51,6 +57,12 @@ class _RestaurantCreateCouponScreenState
       TextEditingController();
   final TextEditingController dailySpecialDetailsController =
       TextEditingController();
+  final ScrollController _hubScrollController = ScrollController();
+  final GlobalKey _couponEditorKey = GlobalKey();
+  final GlobalKey _couponTitleFieldKey = GlobalKey();
+  final GlobalKey _couponStartTimeFieldKey = GlobalKey();
+  final GlobalKey _couponEndTimeFieldKey = GlobalKey();
+  final GlobalKey _dailySpecialEditorKey = GlobalKey();
 
   String selectedUsageRule = 'Unlimited';
   String selectedCouponType = 'Normal coupon';
@@ -70,10 +82,12 @@ class _RestaurantCreateCouponScreenState
   bool _restaurantImageSectionExpanded = false;
   bool _hoursSectionExpanded = false;
   bool _menuManagementSectionExpanded = false;
-  bool _subscriptionBillingSectionExpanded = true;
+  bool _subscriptionBillingSectionExpanded = false;
   bool _dailySpecialsSectionExpanded = false;
   bool _couponManagementSectionExpanded = false;
   bool _customerPreviewSectionExpanded = false;
+  bool _couponSubmitAttempted = false;
+  int? _lastHandledSubscriptionReturnId;
   bool _businessHoursDirty = false;
   bool _subscriptionCheckoutLoading = false;
   bool _customerPortalLoading = false;
@@ -104,6 +118,8 @@ class _RestaurantCreateCouponScreenState
   List<RestaurantBusinessHours> _initialProfileBusinessHours =
       RestaurantBusinessHours.defaultWeek();
   Map<TextEditingController, String> _initialProfileTextValues = {};
+  Set<_CouponValidationField> _couponValidationHighlights =
+      <_CouponValidationField>{};
   final Map<String, bool> copyPreviousDay = {
     for (final day in Restaurant.businessDayNames) day: false,
   };
@@ -201,8 +217,10 @@ class _RestaurantCreateCouponScreenState
     });
 
     try {
+      await SubscriptionReturnService.markRestaurantHubCheckoutStarted();
       await SubscriptionCheckoutService.startCheckout();
     } catch (_) {
+      await SubscriptionReturnService.clearPendingReturnContext();
       if (!mounted) {
         return;
       }
@@ -419,13 +437,27 @@ class _RestaurantCreateCouponScreenState
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    SubscriptionReturnService.registerRestaurantHub();
+    SubscriptionReturnService.latestReturn.addListener(
+      _handleSubscriptionReturnNotification,
+    );
     _resetCouponSchedule();
     _loadSavedProfileAndCoupons();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _handleSubscriptionReturnEvent(
+        SubscriptionReturnService.latestReturn.value,
+      );
+    });
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
+    SubscriptionReturnService.latestReturn.removeListener(
+      _handleSubscriptionReturnNotification,
+    );
+    SubscriptionReturnService.unregisterRestaurantHub();
+    _hubScrollController.dispose();
     dailySpecialTitleController.dispose();
     dailySpecialDetailsController.dispose();
     stateController.dispose();
@@ -437,6 +469,34 @@ class _RestaurantCreateCouponScreenState
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
       _refreshSubscriptionStateOnly();
+    }
+  }
+
+  void _handleSubscriptionReturnNotification() {
+    _handleSubscriptionReturnEvent(
+      SubscriptionReturnService.latestReturn.value,
+    );
+  }
+
+  void _handleSubscriptionReturnEvent(SubscriptionCheckoutReturnEvent? event) {
+    if (event == null || event.id == _lastHandledSubscriptionReturnId) {
+      return;
+    }
+    _lastHandledSubscriptionReturnId = event.id;
+    unawaited(_refreshAfterSubscriptionReturn(event.status));
+  }
+
+  Future<void> _refreshAfterSubscriptionReturn(
+    SubscriptionCheckoutReturnStatus status,
+  ) async {
+    await _refreshSubscriptionStateOnly();
+    if (status != SubscriptionCheckoutReturnStatus.success) {
+      return;
+    }
+
+    await Future<void>.delayed(const Duration(seconds: 3));
+    if (mounted) {
+      await _refreshSubscriptionStateOnly();
     }
   }
 
@@ -529,6 +589,9 @@ class _RestaurantCreateCouponScreenState
       } else {
         couponEndTime = selectedDateTime;
       }
+      if (_couponSubmitAttempted) {
+        _couponValidationHighlights = _invalidCouponFields();
+      }
     });
   }
 
@@ -537,12 +600,13 @@ class _RestaurantCreateCouponScreenState
     required String hint,
     required DateTime? value,
     required VoidCallback onTap,
+    String? errorText,
   }) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: InputDecorator(
-        decoration: buildInputDecoration(label, hint),
+        decoration: buildInputDecoration(label, hint, errorText: errorText),
         child: Row(
           children: [
             Expanded(
@@ -654,7 +718,7 @@ class _RestaurantCreateCouponScreenState
     zipCodeController.text = localProfile.zipCode;
     distanceController.text = '';
     emailController.text = currentUser?.email ?? localProfile.email;
-    phoneController.text = localProfile.phone;
+    phoneController.text = formatPhoneNumberForDisplay(localProfile.phone);
     streetAddressController.text = localProfile.streetAddress;
     websiteController.text = localProfile.website;
     bioController.text = localProfile.bio;
@@ -752,7 +816,7 @@ class _RestaurantCreateCouponScreenState
             : emailController.text;
         phoneController.text =
             (data['phone'] as String?)?.trim().isNotEmpty == true
-            ? data['phone'] as String
+            ? formatPhoneNumberForDisplay(data['phone'] as String)
             : phoneController.text;
         streetAddressController.text =
             (data['streetAddress'] as String?)?.trim().isNotEmpty == true
@@ -793,9 +857,7 @@ class _RestaurantCreateCouponScreenState
       final persistedBusinessHours = _hoursForPersistence();
       LocalRestaurantProfileStore.updateProfile(
         RestaurantProfileData(
-          name: restaurantNameController.text.trim().isEmpty
-              ? 'Your Restaurant Preview'
-              : restaurantNameController.text.trim(),
+          name: restaurantNameController.text.trim(),
           city: cityController.text.trim().isEmpty
               ? 'Lecanto'
               : cityController.text.trim(),
@@ -1264,6 +1326,122 @@ class _RestaurantCreateCouponScreenState
     return draftCoupon.validateForSave();
   }
 
+  Set<_CouponValidationField> _invalidCouponFields() {
+    final invalidFields = <_CouponValidationField>{};
+    final title = titleController.text.trim();
+    final startTime = couponStartTime;
+    final endTime = couponEndTime;
+
+    if (title.isEmpty) {
+      invalidFields.add(_CouponValidationField.title);
+    }
+    if (startTime == null) {
+      invalidFields.add(_CouponValidationField.startTime);
+    }
+    if (endTime == null) {
+      invalidFields.add(_CouponValidationField.endTime);
+    } else if (startTime != null && !endTime.isAfter(startTime)) {
+      invalidFields.add(_CouponValidationField.endTime);
+    }
+
+    return invalidFields;
+  }
+
+  String _couponValidationMessage(Set<_CouponValidationField> invalidFields) {
+    if (invalidFields.contains(_CouponValidationField.title)) {
+      return 'Coupon title is required.';
+    }
+    if (invalidFields.contains(_CouponValidationField.startTime)) {
+      return 'Coupon start time is required.';
+    }
+    if (invalidFields.contains(_CouponValidationField.endTime)) {
+      return couponEndTime == null
+          ? 'Coupon end time is required.'
+          : 'Coupon end time must be after the start time.';
+    }
+    return 'Please complete the required coupon fields.';
+  }
+
+  GlobalKey? _firstInvalidCouponFieldKey(
+    Set<_CouponValidationField> invalidFields,
+  ) {
+    if (invalidFields.contains(_CouponValidationField.title)) {
+      return _couponTitleFieldKey;
+    }
+    if (invalidFields.contains(_CouponValidationField.startTime)) {
+      return _couponStartTimeFieldKey;
+    }
+    if (invalidFields.contains(_CouponValidationField.endTime)) {
+      return _couponEndTimeFieldKey;
+    }
+    return null;
+  }
+
+  void _refreshCouponValidationHighlights() {
+    if (!_couponSubmitAttempted) {
+      return;
+    }
+
+    setState(() {
+      _couponValidationHighlights = _invalidCouponFields();
+    });
+  }
+
+  void _scrollToKey(GlobalKey key, {double alignment = 0.12}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future<void>.delayed(const Duration(milliseconds: 320));
+      if (!mounted) {
+        return;
+      }
+
+      final targetContext = key.currentContext;
+      if (targetContext == null || !targetContext.mounted) {
+        return;
+      }
+
+      await Scrollable.ensureVisible(
+        targetContext,
+        duration: const Duration(milliseconds: 350),
+        curve: Curves.easeOutCubic,
+        alignment: alignment,
+      );
+    });
+  }
+
+  void _scrollToFirstInvalidCouponField(
+    Set<_CouponValidationField> invalidFields,
+  ) {
+    final key = _firstInvalidCouponFieldKey(invalidFields);
+    if (key != null) {
+      _scrollToKey(key, alignment: 0.18);
+    }
+  }
+
+  String? _couponTitleErrorText() {
+    if (!_couponValidationHighlights.contains(_CouponValidationField.title)) {
+      return null;
+    }
+    return 'Coupon title is required.';
+  }
+
+  String? _couponStartTimeErrorText() {
+    if (!_couponValidationHighlights.contains(
+      _CouponValidationField.startTime,
+    )) {
+      return null;
+    }
+    return 'Coupon start time is required.';
+  }
+
+  String? _couponEndTimeErrorText() {
+    if (!_couponValidationHighlights.contains(_CouponValidationField.endTime)) {
+      return null;
+    }
+    return couponEndTime == null
+        ? 'Coupon end time is required.'
+        : 'End time must be after start time.';
+  }
+
   Coupon _buildDraftCoupon() {
     final profile = LocalRestaurantProfileStore.profile.value;
 
@@ -1577,13 +1755,23 @@ class _RestaurantCreateCouponScreenState
       return;
     }
 
-    if (couponEndTime == null) {
-      _showSnackBar('Please select an expiration date');
+    final invalidCouponFields = _invalidCouponFields();
+    if (invalidCouponFields.isNotEmpty) {
+      setState(() {
+        _couponSubmitAttempted = true;
+        _couponValidationHighlights = invalidCouponFields;
+        _couponManagementSectionExpanded = true;
+      });
+      _scrollToFirstInvalidCouponField(invalidCouponFields);
+      _showSnackBar(_couponValidationMessage(invalidCouponFields));
       return;
     }
 
     final couponError = _validateCouponInput();
     if (couponError != null) {
+      setState(() {
+        _couponSubmitAttempted = true;
+      });
       _showSnackBar(couponError);
       return;
     }
@@ -1800,6 +1988,7 @@ class _RestaurantCreateCouponScreenState
       _dailySpecialHideWhenUnavailable = special.hideWhenUnavailable;
       _dailySpecialsSectionExpanded = true;
     });
+    _scrollToKey(_dailySpecialEditorKey);
   }
 
   void clearDailySpecialForm() {
@@ -1904,7 +2093,11 @@ class _RestaurantCreateCouponScreenState
           coupon.isProximityOnly && coupon.proximityRadiusMiles != null
           ? '${coupon.proximityRadiusMiles!.toStringAsFixed(0)} ${coupon.proximityRadiusMiles == 1 ? 'mile' : 'miles'}'
           : '1 mile';
+      _couponSubmitAttempted = false;
+      _couponValidationHighlights = <_CouponValidationField>{};
+      _couponManagementSectionExpanded = true;
     });
+    _scrollToKey(_couponEditorKey);
   }
 
   void clearCouponForm() {
@@ -1917,6 +2110,8 @@ class _RestaurantCreateCouponScreenState
       selectedUsageRule = 'Unlimited';
       selectedCouponType = 'Normal coupon';
       selectedProximityRadius = '1 mile';
+      _couponSubmitAttempted = false;
+      _couponValidationHighlights = <_CouponValidationField>{};
       _resetCouponSchedule();
     });
   }
@@ -2717,6 +2912,7 @@ class _RestaurantCreateCouponScreenState
                       controller: phoneController,
                       keyboardType: TextInputType.phone,
                       textInputAction: TextInputAction.done,
+                      inputFormatters: usPhoneNumberInputFormatters,
                       decoration: buildInputDecoration(
                         'Phone Number',
                         'Example: (352) 555-1234',
@@ -2770,10 +2966,16 @@ class _RestaurantCreateCouponScreenState
     );
   }
 
-  InputDecoration buildInputDecoration(String label, String hint) {
+  InputDecoration buildInputDecoration(
+    String label,
+    String hint, {
+    String? errorText,
+  }) {
     return InputDecoration(
       labelText: label,
       hintText: hint,
+      errorText: errorText,
+      errorMaxLines: 2,
       border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
     );
   }
@@ -2902,6 +3104,7 @@ class _RestaurantCreateCouponScreenState
         TextField(
           controller: phoneController,
           keyboardType: TextInputType.phone,
+          inputFormatters: usPhoneNumberInputFormatters,
           decoration: buildInputDecoration(
             'Phone Number',
             'Example: (352) 555-1234',
@@ -2949,6 +3152,8 @@ class _RestaurantCreateCouponScreenState
             'Tell customers a little about your restaurant',
           ),
         ),
+        const SizedBox(height: 18),
+        _buildSaveProfileButton(label: 'Save Basic Information'),
       ],
     );
   }
@@ -2985,11 +3190,15 @@ class _RestaurantCreateCouponScreenState
           _hoursSectionExpanded = expanded;
         });
       },
-      children: [_buildBusinessHoursEditor()],
+      children: [
+        _buildBusinessHoursEditor(),
+        const SizedBox(height: 16),
+        _buildSaveProfileButton(label: 'Save Hours'),
+      ],
     );
   }
 
-  Widget _buildSaveProfileButton() {
+  Widget _buildSaveProfileButton({required String label}) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
@@ -3003,7 +3212,7 @@ class _RestaurantCreateCouponScreenState
             borderRadius: BorderRadius.circular(14),
           ),
         ),
-        child: Text(profileSaving ? 'Saving...' : 'Save Restaurant Profile'),
+        child: Text(profileSaving ? 'Saving...' : label),
       ),
     );
   }
@@ -3205,6 +3414,7 @@ class _RestaurantCreateCouponScreenState
   Widget _buildDailySpecialForm() {
     final isEditing = editingDailySpecialId != null;
     return Column(
+      key: _dailySpecialEditorKey,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         TextField(
@@ -3349,6 +3559,21 @@ class _RestaurantCreateCouponScreenState
           width: double.infinity,
           child: ElevatedButton.icon(
             onPressed: _dailySpecialSaving ? null : createOrUpdateDailySpecial,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2563EB),
+              foregroundColor: Colors.white,
+              disabledForegroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(50),
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
             icon: _dailySpecialSaving
                 ? const SizedBox(
                     width: 16,
@@ -3357,11 +3582,7 @@ class _RestaurantCreateCouponScreenState
                   )
                 : const Icon(Icons.local_fire_department_outlined),
             label: Text(
-              _dailySpecialSaving
-                  ? 'Saving...'
-                  : isEditing
-                  ? 'Save Daily Special'
-                  : 'Add Daily Special',
+              _dailySpecialSaving ? 'Saving...' : 'Save Daily Special',
             ),
           ),
         ),
@@ -3445,7 +3666,7 @@ class _RestaurantCreateCouponScreenState
   Widget _buildLockedPostingSection() {
     return _buildOwnerExpandableSection(
       title: 'Coupon Management / Daily Specials',
-      initiallyExpanded: true,
+      initiallyExpanded: false,
       onExpansionChanged: (_) {},
       children: [_buildSubscriptionPromoSection()],
     );
@@ -3529,6 +3750,7 @@ class _RestaurantCreateCouponScreenState
       },
       children: [
         Text(
+          key: _couponEditorKey,
           isEditingCoupon ? 'Edit Coupon' : 'Create a New Coupon',
           style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
         ),
@@ -3540,11 +3762,16 @@ class _RestaurantCreateCouponScreenState
           ),
         ],
         const SizedBox(height: 16),
-        TextField(
-          controller: titleController,
-          decoration: buildInputDecoration(
-            'Coupon Title',
-            'Example: 50% Off Any Large Pizza',
+        KeyedSubtree(
+          key: _couponTitleFieldKey,
+          child: TextField(
+            controller: titleController,
+            onChanged: (_) => _refreshCouponValidationHighlights(),
+            decoration: buildInputDecoration(
+              'Coupon Title',
+              'Example: 50% Off Any Large Pizza',
+              errorText: _couponTitleErrorText(),
+            ),
           ),
         ),
         const SizedBox(height: 16),
@@ -3573,22 +3800,30 @@ class _RestaurantCreateCouponScreenState
           style: TextStyle(fontSize: 12, color: Colors.black54),
         ),
         const SizedBox(height: 16),
-        buildDateTimeField(
-          label: 'Start Time',
-          hint: 'Select when this coupon becomes active',
-          value: couponStartTime,
-          onTap: () {
-            _pickCouponDateTime(isStart: true);
-          },
+        KeyedSubtree(
+          key: _couponStartTimeFieldKey,
+          child: buildDateTimeField(
+            label: 'Start Time',
+            hint: 'Select when this coupon becomes active',
+            value: couponStartTime,
+            errorText: _couponStartTimeErrorText(),
+            onTap: () {
+              _pickCouponDateTime(isStart: true);
+            },
+          ),
         ),
         const SizedBox(height: 16),
-        buildDateTimeField(
-          label: 'End Time',
-          hint: 'Select expiration date',
-          value: couponEndTime,
-          onTap: () {
-            _pickCouponDateTime(isStart: false);
-          },
+        KeyedSubtree(
+          key: _couponEndTimeFieldKey,
+          child: buildDateTimeField(
+            label: 'End Time',
+            hint: 'Select expiration date',
+            value: couponEndTime,
+            errorText: _couponEndTimeErrorText(),
+            onTap: () {
+              _pickCouponDateTime(isStart: false);
+            },
+          ),
         ),
         const SizedBox(height: 8),
         const Text(
@@ -3786,7 +4021,13 @@ class _RestaurantCreateCouponScreenState
           ],
         ),
         body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
+          controller: _hubScrollController,
+          padding: EdgeInsets.fromLTRB(
+            16,
+            16,
+            16,
+            16 + MediaQuery.paddingOf(context).bottom + 72,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -3797,9 +4038,6 @@ class _RestaurantCreateCouponScreenState
               const SizedBox(height: 16),
               _buildBasicRestaurantInformationSection(),
               _buildHoursSection(),
-              const SizedBox(height: 2),
-              _buildSaveProfileButton(),
-              const SizedBox(height: 12),
               _buildRestaurantImageSection(),
               if (_hasCouponPostingAccess) ...[
                 _buildSubscriptionBillingSection(),
@@ -3826,6 +4064,8 @@ enum _CouponAccountAccessState {
   rejected,
   loadFailed,
 }
+
+enum _CouponValidationField { title, startTime, endTime }
 
 class _BiteSaverMenuRoutingState {
   final bool usesBiteRater;

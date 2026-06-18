@@ -12,6 +12,7 @@ void main() {
       expect(names, ['Burgers', 'Tacos', 'Pizza', 'Donuts', 'Subs']);
       expect(names, isNot(equals([...names]..sort())));
       expect(BitescoreCategories.byId('subs')?.hasSubcategories, isFalse);
+      expect(BitescoreCategories.byId('pizza')?.hasSubcategories, isFalse);
     });
 
     test('Subs appears in Add a Dish and Filter Section A', () {
@@ -29,6 +30,23 @@ void main() {
       );
     });
 
+    test('Section A Pizza is standalone but Italian still offers Pizza', () {
+      final addPizza = BitescoreCategories.addDishCommonCategories.firstWhere(
+        (category) => category.id == 'pizza',
+      );
+      final filterPizza = BitescoreCategories.filterCommonCategories.firstWhere(
+        (category) => category.id == 'pizza',
+      );
+      final italian = BitescoreCategories.byId('italian');
+
+      expect(addPizza.hasSubcategories, isFalse);
+      expect(filterPizza.hasSubcategories, isFalse);
+      expect(addPizza.displayName, 'Pizza');
+      expect(filterPizza.displayName, 'Pizza');
+      expect(italian?.subcategories, contains('Pizza'));
+      expect(BitescoreCategories.validateSelection(category: 'Pizza'), isNull);
+    });
+
     test(
       'Section B main categories are alphabetized without Section A or C',
       () {
@@ -39,11 +57,14 @@ void main() {
 
         expect(names, sortedNames);
         expect(names.first, 'American');
-        expect(names, contains('Deli / Sandwiches'));
+        expect(names, contains('Cuban'));
+        expect(names.indexOf('Cuban'), names.indexOf('Coffee / Drinks') + 1);
         expect(
-          names.indexOf('Deli / Sandwiches'),
-          names.indexOf('Coffee / Drinks') + 1,
+          names.indexOf('Cuban'),
+          lessThan(names.indexOf('Deli / Sandwiches')),
         );
+        expect(names, contains('Deli / Sandwiches'));
+        expect(names.indexOf('Deli / Sandwiches'), names.indexOf('Cuban') + 1);
         expect(
           names.indexOf('Deli / Sandwiches'),
           lessThan(names.indexOf('Dessert / Bakery')),
@@ -54,6 +75,7 @@ void main() {
         );
         expect(names, isNot(contains('Thai')));
         expect(names, isNot(contains('Sandwiches')));
+        expect(names, isNot(contains('Latin / Caribbean')));
       },
     );
 
@@ -74,6 +96,7 @@ void main() {
       );
       expect(moreCuisineNames.last, BitescoreCategories.otherLabel);
       expect(moreCuisineNames, contains('Thai'));
+      expect(moreCuisineNames, isNot(contains('Cuban')));
     });
 
     test('Add and filter category lists do not duplicate category rows', () {
@@ -133,6 +156,219 @@ void main() {
       expect(
         deli.subcategories,
         isNot(contains(BitescoreCategories.otherLabel)),
+      );
+    });
+  });
+
+  group('Cuban category', () {
+    test('Cuban is a Section B category in Add a Dish and Filter lists', () {
+      final addNames = BitescoreCategories.addDishCommonCategories
+          .map((category) => category.displayName)
+          .toList();
+      final filterNames = BitescoreCategories.filterCommonCategories
+          .map((category) => category.displayName)
+          .toList();
+
+      expect(addNames, contains('Cuban'));
+      expect(filterNames, contains('Cuban'));
+      expect(
+        addNames.indexOf('Cuban'),
+        lessThan(addNames.indexOf('Deli / Sandwiches')),
+      );
+      expect(
+        filterNames.indexOf('Cuban'),
+        lessThan(filterNames.indexOf('Deli / Sandwiches')),
+      );
+      expect(
+        BitescoreCategories.addDishMoreCuisineCategories.map(
+          (category) => category.displayName,
+        ),
+        isNot(contains('Cuban')),
+      );
+      expect(
+        BitescoreCategories.filterMoreCuisineCategories.map(
+          (category) => category.displayName,
+        ),
+        isNot(contains('Cuban')),
+      );
+    });
+
+    test('Cuban includes the practical reviewed dish list', () {
+      final cuban = BitescoreCategories.byId('cuban');
+
+      expect(cuban, isNotNull);
+      expect(cuban!.displayName, 'Cuban');
+      expect(
+        cuban.subcategories,
+        containsAll([
+          'Cuban sandwich',
+          'Medianoche',
+          'Ropa vieja',
+          'Picadillo',
+          'Lechón / roast pork',
+          'Masitas de puerco',
+          'Vaca frita',
+          'Arroz con pollo',
+          'Palomilla steak',
+          'Bistec empanizado',
+          'Croquetas',
+          'Potato balls / papas rellenas',
+          'Empanadas',
+          'Black beans and rice',
+          'Moros y cristianos',
+          'Yuca with mojo',
+          'Tostones',
+          'Maduros / sweet plantains',
+          'Cuban tamal',
+          'Cuban-style chicken',
+          'Cuban coffee',
+          'Flan',
+        ]),
+      );
+    });
+
+    test(
+      'Cuban sandwich has shared Cuban and Deli tags from either parent',
+      () {
+        final fromDeli = BitescoreCategories.buildSearchableTags(
+          categoryName: 'Deli / Sandwiches',
+          subcategory: 'Cuban sandwich',
+        );
+        final fromCuban = BitescoreCategories.buildSearchableTags(
+          categoryName: 'Cuban',
+          subcategory: 'Cuban sandwich',
+        );
+
+        expect(
+          fromDeli,
+          containsAll([
+            BitescoreCategories.cubanSandwichCanonicalId,
+            'cuban',
+            'deli',
+            'sandwich',
+          ]),
+        );
+        expect(
+          fromCuban,
+          containsAll([
+            BitescoreCategories.cubanSandwichCanonicalId,
+            'cuban',
+            'deli',
+            'sandwich',
+          ]),
+        );
+        expect(
+          BitescoreCategories.matchesSearchQuery(
+            categoryName: 'Cuban',
+            subcategory: 'Cuban sandwich',
+            categoryTags: fromCuban,
+            query: 'Deli / Sandwiches',
+          ),
+          isTrue,
+        );
+        expect(
+          BitescoreCategories.matchesSearchQuery(
+            categoryName: 'Deli / Sandwiches',
+            subcategory: 'Cuban sandwich',
+            categoryTags: fromDeli,
+            query: 'Cuban',
+          ),
+          isTrue,
+        );
+        expect(
+          BitescoreCategories.matchesSearchQuery(
+            categoryName: 'Deli / Sandwiches',
+            subcategory: 'Cuban sandwich',
+            query: 'Cuban',
+          ),
+          isTrue,
+        );
+        expect(
+          BitescoreCategories.matchesSearchQuery(
+            categoryName: 'Cuban',
+            subcategory: 'Cuban sandwich',
+            query: 'Deli / Sandwiches',
+          ),
+          isTrue,
+        );
+        expect(
+          BitescoreCategories.canonicalDishClassificationIdFor(
+            'Cuban sandwich',
+          ),
+          BitescoreCategories.cubanSandwichCanonicalId,
+        );
+      },
+    );
+  });
+
+  group('American Chicken Pie category', () {
+    test('Chicken Pie / Chicken Pot Pie appears beneath American', () {
+      final american = BitescoreCategories.byId('american');
+      final filterAmerican = BitescoreCategories.filterCommonCategories
+          .firstWhere((category) => category.id == 'american');
+
+      expect(american, isNotNull);
+      expect(
+        american!.subcategories,
+        contains('Chicken Pie / Chicken Pot Pie'),
+      );
+      expect(
+        american.subcategories.indexOf('Chicken Pie / Chicken Pot Pie'),
+        lessThan(american.subcategories.indexOf('Chicken tenders')),
+      );
+      expect(
+        filterAmerican.subcategories,
+        contains('Chicken Pie / Chicken Pot Pie'),
+      );
+    });
+
+    test('Chicken Pie aliases resolve to one canonical classification id', () {
+      for (final value in [
+        'Chicken Pie / Chicken Pot Pie',
+        'chicken pie',
+        'Chicken Pies',
+        'chicken pot pie',
+        'Chicken Pot Pies',
+      ]) {
+        expect(
+          BitescoreCategories.canonicalDishClassificationIdFor(value),
+          BitescoreCategories.chickenPieCanonicalId,
+        );
+      }
+    });
+
+    test('Chicken Pie save metadata includes canonical and alias tags', () {
+      final tags = BitescoreCategories.buildSearchableTags(
+        categoryName: 'American',
+        subcategory: 'Chicken Pie / Chicken Pot Pie',
+      );
+
+      expect(
+        tags,
+        containsAll([
+          BitescoreCategories.chickenPieCanonicalId,
+          'chicken pie',
+          'chicken pot pie',
+          'american',
+        ]),
+      );
+      expect(
+        BitescoreCategories.matchesSearchQuery(
+          categoryName: 'American',
+          subcategory: 'Chicken Pie / Chicken Pot Pie',
+          categoryTags: tags,
+          query: 'chicken pot pie',
+        ),
+        isTrue,
+      );
+      expect(
+        BitescoreCategories.matchesSearchQuery(
+          categoryName: 'American',
+          subcategory: 'Chicken Pie / Chicken Pot Pie',
+          categoryTags: tags,
+          query: 'chicken pie',
+        ),
+        isTrue,
       );
     });
   });

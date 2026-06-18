@@ -46,6 +46,7 @@ dependencies:
   shared_preferences: ^2.5.5
   firebase_storage: ^13.4.1
   image_picker: ^1.2.2
+  audioplayers: ^6.7.1
 
 dev_dependencies:
   flutter_test:
@@ -69,6 +70,7 @@ flutter:
 
   assets:
     - assets/images/
+    - assets/sounds/
 
 
   # To add assets to your application, add an assets section, like this:

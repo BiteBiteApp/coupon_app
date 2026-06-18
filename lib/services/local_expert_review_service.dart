@@ -39,13 +39,13 @@ class LocalExpertReviewQualification {
       return false;
     }
 
-    final matchedExpertType = LocalExperts.matchDish(
+    final matchedExpertTypes = LocalExperts.matchDishes(
       dishName: dish.name,
       categoryName: dish.category,
       subcategory: dish.subcategory,
       categoryTags: dish.categoryTags,
     );
-    return matchedExpertType?.id == trimmedExpertTypeId;
+    return matchedExpertTypes.any((type) => type.id == trimmedExpertTypeId);
   }
 
   static bool qualifies({

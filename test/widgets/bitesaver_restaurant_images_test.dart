@@ -29,33 +29,48 @@ void main() {
       expect(image.height, isNull);
     });
 
-    test(
-      'hero logo constraints make the transparent logo larger and higher',
-      () {
-        expect(
-          BiteSaverHomeHeroLogo.widthFactorFor(tight: false),
-          greaterThan(BiteSaverHomeHeroLogo.previousLayoutRegularWidthFactor),
-        );
-        expect(
-          BiteSaverHomeHeroLogo.widthFactorFor(tight: true),
-          greaterThan(BiteSaverHomeHeroLogo.previousLayoutTightWidthFactor),
-        );
-        expect(
-          BiteSaverHomeHeroLogo.verticalOffsetFor(tight: false),
-          lessThan(BiteSaverHomeHeroLogo.previousLayoutRegularVerticalOffset),
-        );
-        expect(
-          BiteSaverHomeHeroLogo.verticalOffsetFor(tight: true),
-          lessThan(BiteSaverHomeHeroLogo.previousLayoutTightVerticalOffset),
-        );
-      },
-    );
+    test('hero logo constraints make the logo larger and higher-right', () {
+      expect(
+        BiteSaverHomeHeroLogo.widthFactorFor(tight: false),
+        closeTo(
+          BiteSaverHomeHeroLogo.preHeroRefinementRegularWidthFactor * 1.3,
+          0.01,
+        ),
+      );
+      expect(
+        BiteSaverHomeHeroLogo.widthFactorFor(tight: true),
+        closeTo(
+          BiteSaverHomeHeroLogo.preHeroRefinementTightWidthFactor * 1.3,
+          0.01,
+        ),
+      );
+      expect(
+        BiteSaverHomeHeroLogo.verticalOffsetFor(tight: false),
+        lessThan(BiteSaverHomeHeroLogo.preHeroRefinementRegularVerticalOffset),
+      );
+      expect(
+        BiteSaverHomeHeroLogo.verticalOffsetFor(tight: true),
+        lessThan(BiteSaverHomeHeroLogo.preHeroRefinementTightVerticalOffset),
+      );
+      expect(
+        BiteSaverHomeHeroLogo.horizontalOffsetFor(tight: false),
+        BiteSaverHomeHeroLogo.regularHorizontalOffset,
+      );
+      expect(
+        BiteSaverHomeHeroLogo.horizontalOffsetFor(tight: true),
+        BiteSaverHomeHeroLogo.tightHorizontalOffset,
+      );
+      expect(
+        BiteSaverHomeHeroLogo.horizontalOffsetFor(tight: false),
+        greaterThan(BiteSaverHomeHeroLogo.horizontalOffsetFor(tight: true)),
+      );
+    });
 
     testWidgets('larger logo builds without overflow or text collision', (
       tester,
     ) async {
       await tester.pumpWidget(
-        const MaterialApp(
+        MaterialApp(
           home: Scaffold(
             body: SizedBox(
               width: 320,
@@ -71,9 +86,15 @@ void main() {
                   SizedBox(width: 12),
                   Expanded(
                     flex: 42,
-                    child: Align(
-                      alignment: Alignment.topRight,
-                      child: BiteSaverHomeHeroLogo(tight: true),
+                    child: Transform.translate(
+                      offset: Offset(
+                        BiteSaverHomeHeroLogo.horizontalOffsetFor(tight: true),
+                        BiteSaverHomeHeroLogo.verticalOffsetFor(tight: true),
+                      ),
+                      child: const Align(
+                        alignment: Alignment.topRight,
+                        child: BiteSaverHomeHeroLogo(tight: true),
+                      ),
                     ),
                   ),
                 ],

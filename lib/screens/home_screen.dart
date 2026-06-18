@@ -2313,13 +2313,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                   alignment: Alignment.topCenter,
                                   child: Column(
                                     children: [
-                                      for (final item in visiblePromoItems) ...[
-                                        _buildPromoPreview(item, restaurant),
-                                        if (item != visiblePromoItems.last)
-                                          const SizedBox(height: 4),
-                                      ],
+                                      if (visiblePromoItems.isNotEmpty)
+                                        _buildStaggeredPromoPreviewStack(
+                                          visiblePromoItems,
+                                          restaurant,
+                                          compact: compact,
+                                        ),
                                       if (hiddenPromoCount > 0) ...[
-                                        const SizedBox(height: 3),
+                                        const SizedBox(height: 5),
                                         _buildMoreDealsToggle(
                                           restaurantKey: favoriteKey,
                                           hiddenCount: hiddenPromoCount,
@@ -2451,19 +2452,119 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildPromoPreview(_RestaurantPromoItem item, Restaurant restaurant) {
+  Widget _buildStaggeredPromoPreviewStack(
+    List<_RestaurantPromoItem> items,
+    Restaurant restaurant, {
+    required bool compact,
+  }) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final availableWidth = constraints.maxWidth;
+        final horizontalOffset =
+            BiteSaverHomeDealBubbleStagger.horizontalOffsetFor(
+              availableWidth: availableWidth,
+              compact: compact,
+            );
+        final showBubble = items.length > 1;
+
+        return SizedBox(
+          height: BiteSaverHomeDealBubbleStagger.stackHeightFor(
+            itemCount: items.length,
+            compact: compact,
+          ),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              for (var index = 0; index < items.length; index += 1)
+                _buildStaggeredPromoPreviewPosition(
+                  item: items[index],
+                  restaurant: restaurant,
+                  index: index,
+                  compact: compact,
+                  availableWidth: availableWidth,
+                  horizontalOffset: horizontalOffset,
+                  showBubble: showBubble,
+                ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildStaggeredPromoPreviewPosition({
+    required _RestaurantPromoItem item,
+    required Restaurant restaurant,
+    required int index,
+    required bool compact,
+    required double availableWidth,
+    required double horizontalOffset,
+    required bool showBubble,
+  }) {
+    final shiftsBubbleLeft = BiteSaverHomeDealBubbleStagger.isLeftPosition(
+      index,
+    );
+    final bodyLeadingInset = showBubble && shiftsBubbleLeft
+        ? horizontalOffset
+        : 0.0;
+    final positionedLeft = showBubble && shiftsBubbleLeft
+        ? -horizontalOffset
+        : 0.0;
+    final bubbleCenterX = showBubble && shiftsBubbleLeft
+        ? availableWidth * BiteSaverHomeDealBubbleClipper.bubbleCenterFraction
+        : null;
+
+    return Positioned(
+      top: BiteSaverHomeDealBubbleStagger.topFor(
+        index: index,
+        compact: compact,
+      ),
+      left: positionedLeft,
+      width: availableWidth + bodyLeadingInset,
+      child: _buildPromoPreview(
+        item,
+        restaurant,
+        rectangularBodyLeadingInset: bodyLeadingInset,
+        bubbleCenterX: bubbleCenterX,
+        showBubble: showBubble,
+      ),
+    );
+  }
+
+  Widget _buildPromoPreview(
+    _RestaurantPromoItem item,
+    Restaurant restaurant, {
+    double rectangularBodyLeadingInset = 0,
+    double? bubbleCenterX,
+    bool showBubble = false,
+  }) {
     final special = item.dailySpecial;
     if (special != null) {
-      return _buildDailySpecialPreview(special, restaurant);
+      return _buildDailySpecialPreview(
+        special,
+        restaurant,
+        rectangularBodyLeadingInset: rectangularBodyLeadingInset,
+        bubbleCenterX: bubbleCenterX,
+        showBubble: showBubble,
+      );
     }
 
-    return _buildCouponPreview(item.coupon!, restaurant);
+    return _buildCouponPreview(
+      item.coupon!,
+      restaurant,
+      rectangularBodyLeadingInset: rectangularBodyLeadingInset,
+      bubbleCenterX: bubbleCenterX,
+      showBubble: showBubble,
+    );
   }
 
   Widget _buildDailySpecialPreview(
     DailySpecial special,
-    Restaurant restaurant,
-  ) {
+    Restaurant restaurant, {
+    double rectangularBodyLeadingInset = 0,
+    double? bubbleCenterX,
+    bool showBubble = false,
+  }) {
     final title = special.title.trim().isEmpty
         ? 'Today: Daily special'
         : 'Today: ${special.title.trim()}';
@@ -2480,6 +2581,9 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       backgroundColor: BiteSaverColors.secondaryBackground,
       borderColor: BiteSaverColors.borderStrong,
+      rectangularBodyLeadingInset: rectangularBodyLeadingInset,
+      bubbleCenterX: bubbleCenterX,
+      showBubble: showBubble,
       child: Row(
         children: [
           const Icon(
@@ -2506,7 +2610,13 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildCouponPreview(Coupon coupon, Restaurant restaurant) {
+  Widget _buildCouponPreview(
+    Coupon coupon,
+    Restaurant restaurant, {
+    double rectangularBodyLeadingInset = 0,
+    double? bubbleCenterX,
+    bool showBubble = false,
+  }) {
     final metaLine = _formatCouponMetaLine(
       coupon,
       proximityOnly: isProximityCoupon(coupon),
@@ -2525,10 +2635,14 @@ class _HomeScreenState extends State<HomeScreen> {
       },
       backgroundColor: const Color(0xFFF8FCF2),
       borderColor: const Color(0xFFB9D99E),
+      rectangularBodyLeadingInset: rectangularBodyLeadingInset,
+      bubbleCenterX: bubbleCenterX,
+      showBubble: showBubble,
       child: Row(
         children: [
           Expanded(
             child: Column(
+              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
@@ -2977,13 +3091,15 @@ class _HomeScreenState extends State<HomeScreen> {
                                     flex: tight ? 42 : 44,
                                     child: Transform.translate(
                                       offset: Offset(
-                                        0,
+                                        BiteSaverHomeHeroLogo.horizontalOffsetFor(
+                                          tight: tight,
+                                        ),
                                         BiteSaverHomeHeroLogo.verticalOffsetFor(
                                           tight: tight,
                                         ),
                                       ),
                                       child: Align(
-                                        alignment: Alignment.centerRight,
+                                        alignment: Alignment.topRight,
                                         child: IgnorePointer(
                                           child: BiteSaverHomeHeroLogo(
                                             tight: tight,
@@ -3294,15 +3410,20 @@ class _RestaurantPromoItem {
 
 class BiteSaverHomeDealBubble extends StatelessWidget {
   static const double previousVerticalPadding = 6;
-  static const double verticalPadding = 10;
+  static const double verticalPadding = 6;
   static const double horizontalPadding = 12;
   static const double previousApproximateCouponHeight = 40;
-  static const double minHeight = previousApproximateCouponHeight * 1.25;
+  static const double bodyHeight = previousApproximateCouponHeight;
+  static const double bubbleDiameter = previousApproximateCouponHeight * 1.25;
+  static const double minHeight = bubbleDiameter;
 
   final VoidCallback? onTap;
   final Color backgroundColor;
   final Color borderColor;
   final Widget child;
+  final double rectangularBodyLeadingInset;
+  final double? bubbleCenterX;
+  final bool showBubble;
 
   const BiteSaverHomeDealBubble({
     super.key,
@@ -3310,11 +3431,22 @@ class BiteSaverHomeDealBubble extends StatelessWidget {
     required this.backgroundColor,
     required this.borderColor,
     required this.child,
+    this.rectangularBodyLeadingInset = 0,
+    this.bubbleCenterX,
+    this.showBubble = false,
   });
 
   @override
   Widget build(BuildContext context) {
-    const clipper = BiteSaverHomeDealBubbleClipper();
+    final safeBodyLeadingInset = rectangularBodyLeadingInset < 0
+        ? 0.0
+        : rectangularBodyLeadingInset;
+    final bannerHeight = showBubble ? bubbleDiameter : bodyHeight;
+    final clipper = BiteSaverHomeDealBubbleClipper(
+      rectangularBodyLeadingInset: safeBodyLeadingInset,
+      bubbleCenterX: bubbleCenterX,
+      showBubble: showBubble,
+    );
 
     return CustomPaint(
       foregroundPainter: _BiteSaverHomeDealBubbleBorderPainter(
@@ -3327,15 +3459,15 @@ class BiteSaverHomeDealBubble extends StatelessWidget {
           color: backgroundColor,
           child: InkWell(
             onTap: onTap,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                minWidth: double.infinity,
-                minHeight: minHeight,
-              ),
+            child: SizedBox(
+              width: double.infinity,
+              height: bannerHeight,
               child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: horizontalPadding,
-                  vertical: verticalPadding,
+                padding: EdgeInsets.only(
+                  left: horizontalPadding + safeBodyLeadingInset,
+                  right: horizontalPadding,
+                  top: verticalPadding,
+                  bottom: verticalPadding,
                 ),
                 child: Align(alignment: Alignment.center, child: child),
               ),
@@ -3347,66 +3479,123 @@ class BiteSaverHomeDealBubble extends StatelessWidget {
   }
 }
 
+class BiteSaverHomeDealBubbleStagger {
+  const BiteSaverHomeDealBubbleStagger._();
+
+  static const double bubbleGap = 1;
+  static const double visibleShapeHeight =
+      BiteSaverHomeDealBubble.bubbleDiameter;
+  static const double regularStep = visibleShapeHeight + bubbleGap;
+  static const double compactStep = visibleShapeHeight + bubbleGap;
+  static const double regularOffsetFraction = 0.16;
+  static const double compactOffsetFraction = 0.16;
+  static const double regularMinOffset = 36;
+  static const double compactMinOffset = 28;
+  static const double regularMaxOffset = 64;
+  static const double compactMaxOffset = 64;
+
+  static bool isLeftPosition(int index) => index.isEven;
+
+  static double topFor({required int index, required bool compact}) {
+    final safeIndex = index < 0 ? 0 : index;
+    final verticalStep = compact ? compactStep : regularStep;
+    return safeIndex * verticalStep;
+  }
+
+  static double stackHeightFor({
+    required int itemCount,
+    required bool compact,
+  }) {
+    if (itemCount <= 0) {
+      return 0;
+    }
+
+    return BiteSaverHomeDealBubble.minHeight +
+        topFor(index: itemCount - 1, compact: compact);
+  }
+
+  static double horizontalOffsetFor({
+    required double availableWidth,
+    required bool compact,
+  }) {
+    if (availableWidth <= 0) {
+      return 0;
+    }
+
+    final fraction = compact ? compactOffsetFraction : regularOffsetFraction;
+    final minOffset = compact ? compactMinOffset : regularMinOffset;
+    final maxOffset = compact ? compactMaxOffset : regularMaxOffset;
+    final maxSafeOffset = availableWidth * 0.28;
+
+    return (availableWidth * fraction)
+        .clamp(minOffset, maxOffset)
+        .clamp(0.0, maxSafeOffset)
+        .toDouble();
+  }
+}
+
 class BiteSaverHomeDealBubbleClipper extends CustomClipper<Path> {
-  const BiteSaverHomeDealBubbleClipper();
+  static const double bubbleCenterFraction = 0.52;
+
+  final double rectangularBodyLeadingInset;
+  final double? bubbleCenterX;
+  final bool showBubble;
+
+  const BiteSaverHomeDealBubbleClipper({
+    this.rectangularBodyLeadingInset = 0,
+    this.bubbleCenterX,
+    this.showBubble = false,
+  });
 
   @override
   Path getClip(Size size) {
     final width = size.width;
     final height = size.height;
-    final bodyTop = height * 0.18;
-    final bodyBottom = height * 0.82;
-    final centerX = width * 0.52;
-    final horizontalRadius = height * 0.54;
-    final shoulderWidth = horizontalRadius * 0.72;
-    final endRadius = (bodyBottom - bodyTop) * 0.28;
-    final left = 0.0;
+    final left = rectangularBodyLeadingInset.clamp(0.0, width).toDouble();
     final right = width;
+    final bodyTop = showBubble
+        ? (height - BiteSaverHomeDealBubble.bodyHeight) / 2
+        : 0.0;
+    final bodyBottom = showBubble
+        ? bodyTop + BiteSaverHomeDealBubble.bodyHeight
+        : height;
+    final bodyRadius = (bodyBottom - bodyTop) / 2;
+    final bodyPath = Path()
+      ..addRRect(
+        RRect.fromLTRBR(
+          left,
+          bodyTop,
+          right,
+          bodyBottom,
+          Radius.circular(bodyRadius),
+        ),
+      );
 
-    final leftShoulder = (centerX - shoulderWidth)
-        .clamp(left, right)
-        .toDouble();
-    final rightShoulder = (centerX + shoulderWidth)
-        .clamp(left, right)
-        .toDouble();
+    if (!showBubble) {
+      return bodyPath;
+    }
 
-    return Path()
-      ..moveTo(left + endRadius, bodyTop)
-      ..lineTo(leftShoulder, bodyTop)
-      ..quadraticBezierTo(centerX - horizontalRadius * 0.62, 0, centerX, 0)
-      ..quadraticBezierTo(
-        centerX + horizontalRadius * 0.62,
-        0,
-        rightShoulder,
-        bodyTop,
-      )
-      ..lineTo(right - endRadius, bodyTop)
-      ..quadraticBezierTo(right, bodyTop, right, bodyTop + endRadius)
-      ..lineTo(right, bodyBottom - endRadius)
-      ..quadraticBezierTo(right, bodyBottom, right - endRadius, bodyBottom)
-      ..lineTo(rightShoulder, bodyBottom)
-      ..quadraticBezierTo(
-        centerX + horizontalRadius * 0.62,
-        height,
-        centerX,
-        height,
-      )
-      ..quadraticBezierTo(
-        centerX - horizontalRadius * 0.62,
-        height,
-        leftShoulder,
-        bodyBottom,
-      )
-      ..lineTo(left + endRadius, bodyBottom)
-      ..quadraticBezierTo(left, bodyBottom, left, bodyBottom - endRadius)
-      ..lineTo(left, bodyTop + endRadius)
-      ..quadraticBezierTo(left, bodyTop, left + endRadius, bodyTop)
-      ..close();
+    final circleRadius = height / 2;
+    final centerX = (bubbleCenterX ?? width * bubbleCenterFraction)
+        .clamp(left + circleRadius, right - circleRadius)
+        .toDouble();
+    final circlePath = Path()
+      ..addOval(
+        Rect.fromCircle(
+          center: Offset(centerX, height / 2),
+          radius: circleRadius,
+        ),
+      );
+
+    return Path.combine(PathOperation.union, bodyPath, circlePath);
   }
 
   @override
   bool shouldReclip(covariant BiteSaverHomeDealBubbleClipper oldClipper) {
-    return false;
+    return rectangularBodyLeadingInset !=
+            oldClipper.rectangularBodyLeadingInset ||
+        bubbleCenterX != oldClipper.bubbleCenterX ||
+        showBubble != oldClipper.showBubble;
   }
 }
 
@@ -3436,7 +3625,11 @@ class _BiteSaverHomeDealBubbleBorderPainter extends CustomPainter {
   bool shouldRepaint(
     covariant _BiteSaverHomeDealBubbleBorderPainter oldDelegate,
   ) {
-    return color != oldDelegate.color || clipper != oldDelegate.clipper;
+    return color != oldDelegate.color ||
+        clipper.rectangularBodyLeadingInset !=
+            oldDelegate.clipper.rectangularBodyLeadingInset ||
+        clipper.bubbleCenterX != oldDelegate.clipper.bubbleCenterX ||
+        clipper.showBubble != oldDelegate.clipper.showBubble;
   }
 }
 

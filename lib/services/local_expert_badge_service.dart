@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/local_expert_badge.dart';
 import '../models/local_expert_badge_calculator.dart';
+import '../models/local_expert.dart';
 
 class LocalExpertBadgeService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -32,7 +33,9 @@ class LocalExpertBadgeService {
           ),
         )
         .whereType<LocalExpertBadge>();
-    return LocalExpertBadge.sortBadges(badges);
+    return LocalExpertBadge.sortBadges(
+      badges.where((badge) => LocalExperts.byId(badge.expertTypeId) != null),
+    );
   }
 
   static Future<Map<String, List<LocalExpertBadge>>> loadBadgesForUsers(

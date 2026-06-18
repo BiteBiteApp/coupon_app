@@ -26,6 +26,8 @@ class LocalExpertBadgeVisualMetadata {
   final bool hasGlint;
   final int ringCount;
   final IconData icon;
+  final String? abbreviation;
+  final String? customArtwork;
   final bool usesCrown;
 
   const LocalExpertBadgeVisualMetadata({
@@ -46,6 +48,8 @@ class LocalExpertBadgeVisualMetadata {
     required this.hasGlint,
     required this.ringCount,
     required this.icon,
+    this.abbreviation,
+    this.customArtwork,
     this.usesCrown = false,
   });
 
@@ -134,6 +138,8 @@ class LocalExpertBadgeVisuals {
         LocalExpertBadgeLevel.level3 => 3,
       },
       icon: iconForName(iconName),
+      abbreviation: abbreviationForName(iconName),
+      customArtwork: customArtworkForName(iconName),
       usesCrown: false,
     );
   }
@@ -148,10 +154,38 @@ class LocalExpertBadgeVisuals {
       'lunch_dining' => Icons.lunch_dining,
       'outdoor_grill' => Icons.outdoor_grill,
       'ramen_dining' => Icons.ramen_dining,
-      'restaurant' => Icons.restaurant,
       'set_meal' => Icons.set_meal,
       'sports_bar' => Icons.sports_bar,
       _ => Icons.restaurant_menu,
+    };
+  }
+
+  static String? abbreviationForName(String? iconName) {
+    final trimmed = iconName?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return null;
+    }
+    return switch (trimmed) {
+      'bakery_dining' ||
+      'dinner_dining' ||
+      'donut_large' ||
+      'fastfood' ||
+      'local_pizza' ||
+      'lunch_dining' ||
+      'outdoor_grill' ||
+      'ramen_dining' ||
+      'set_meal' ||
+      'sports_bar' => null,
+      'restaurant' || 'restaurant_menu' => null,
+      _ => trimmed.length <= 4 ? trimmed : null,
+    };
+  }
+
+  static String? customArtworkForName(String? iconName) {
+    return switch (iconName?.trim()) {
+      'chicken_wing' => 'chicken_wing',
+      'donut_ring' => 'donut_ring',
+      _ => null,
     };
   }
 }
@@ -374,9 +408,195 @@ class _BadgeRing extends StatelessWidget {
               ),
             ),
           ),
-        Icon(metadata.icon, size: iconSize, color: metadata.iconColor),
+        if (metadata.customArtwork != null)
+          _CustomBadgeArtwork(
+            artwork: metadata.customArtwork!,
+            color: metadata.iconColor,
+            size: iconSize,
+          )
+        else if (metadata.abbreviation == null)
+          Icon(metadata.icon, size: iconSize, color: metadata.iconColor)
+        else
+          Text(
+            metadata.abbreviation!,
+            textAlign: TextAlign.center,
+            maxLines: 1,
+            style: TextStyle(
+              color: metadata.iconColor,
+              fontSize:
+                  iconSize * _abbreviationFontScale(metadata.abbreviation!),
+              fontWeight: FontWeight.w900,
+              height: 1,
+              letterSpacing: 0,
+            ),
+          ),
       ],
     );
+  }
+
+  double _abbreviationFontScale(String abbreviation) {
+    return switch (abbreviation.length) {
+      <= 2 => 0.58,
+      3 => 0.48,
+      _ => 0.38,
+    };
+  }
+}
+
+class _CustomBadgeArtwork extends StatelessWidget {
+  final String artwork;
+  final Color color;
+  final double size;
+
+  const _CustomBadgeArtwork({
+    required this.artwork,
+    required this.color,
+    required this.size,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final painter = switch (artwork) {
+      'chicken_wing' => _ChickenWingPainter(color),
+      'donut_ring' => _DonutRingPainter(color),
+      _ => null,
+    };
+    if (painter == null) {
+      return Icon(Icons.restaurant_menu, size: size, color: color);
+    }
+    return CustomPaint(
+      key: ValueKey('local-expert-badge-artwork-$artwork'),
+      size: Size.square(size),
+      painter: painter,
+    );
+  }
+}
+
+class _ChickenWingPainter extends CustomPainter {
+  final Color color;
+
+  const _ChickenWingPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.shortestSide;
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+    final strokePaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = scale * 0.08
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    final wing = Path()
+      ..moveTo(scale * 0.2, scale * 0.64)
+      ..cubicTo(
+        scale * 0.16,
+        scale * 0.42,
+        scale * 0.34,
+        scale * 0.18,
+        scale * 0.58,
+        scale * 0.16,
+      )
+      ..cubicTo(
+        scale * 0.78,
+        scale * 0.14,
+        scale * 0.91,
+        scale * 0.29,
+        scale * 0.88,
+        scale * 0.47,
+      )
+      ..cubicTo(
+        scale * 0.84,
+        scale * 0.71,
+        scale * 0.56,
+        scale * 0.86,
+        scale * 0.34,
+        scale * 0.77,
+      )
+      ..cubicTo(
+        scale * 0.27,
+        scale * 0.74,
+        scale * 0.22,
+        scale * 0.69,
+        scale * 0.2,
+        scale * 0.64,
+      )
+      ..close();
+    canvas.drawPath(wing, paint);
+
+    final bone = Path()
+      ..moveTo(scale * 0.27, scale * 0.69)
+      ..lineTo(scale * 0.12, scale * 0.83);
+    canvas.drawPath(bone, strokePaint);
+    canvas.drawCircle(Offset(scale * 0.09, scale * 0.85), scale * 0.075, paint);
+    canvas.drawCircle(Offset(scale * 0.18, scale * 0.9), scale * 0.065, paint);
+
+    final highlight = Paint()
+      ..color = Colors.white.withValues(alpha: 0.34)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = scale * 0.06
+      ..strokeCap = StrokeCap.round;
+    canvas.drawArc(
+      Rect.fromLTWH(scale * 0.38, scale * 0.28, scale * 0.34, scale * 0.28),
+      -2.7,
+      1.6,
+      false,
+      highlight,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _ChickenWingPainter oldDelegate) {
+    return oldDelegate.color != color;
+  }
+}
+
+class _DonutRingPainter extends CustomPainter {
+  final Color color;
+
+  const _DonutRingPainter(this.color);
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final scale = size.shortestSide;
+    final center = Offset(scale / 2, scale / 2);
+    final ringPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = scale * 0.2
+      ..strokeCap = StrokeCap.round;
+    canvas.drawCircle(center, scale * 0.31, ringPaint);
+
+    final sprinklePaint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.76)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = scale * 0.045
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(
+      Offset(scale * 0.42, scale * 0.28),
+      Offset(scale * 0.5, scale * 0.23),
+      sprinklePaint,
+    );
+    canvas.drawLine(
+      Offset(scale * 0.66, scale * 0.43),
+      Offset(scale * 0.75, scale * 0.47),
+      sprinklePaint,
+    );
+    canvas.drawLine(
+      Offset(scale * 0.35, scale * 0.65),
+      Offset(scale * 0.43, scale * 0.72),
+      sprinklePaint,
+    );
+  }
+
+  @override
+  bool shouldRepaint(covariant _DonutRingPainter oldDelegate) {
+    return oldDelegate.color != color;
   }
 }
 

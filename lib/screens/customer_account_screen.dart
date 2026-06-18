@@ -9,7 +9,9 @@ import '../widgets/phone_auth_sheet.dart';
 import 'customer_profile_screen.dart';
 
 class CustomerAccountScreen extends StatefulWidget {
-  const CustomerAccountScreen({super.key});
+  final bool showAppBar;
+
+  const CustomerAccountScreen({super.key, this.showAppBar = false});
 
   @override
   State<CustomerAccountScreen> createState() => _CustomerAccountScreenState();
@@ -751,9 +753,11 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
       stream: FirebaseAuth.instance.userChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            appBar: null,
-            body: Center(child: CircularProgressIndicator()),
+          return Scaffold(
+            appBar: widget.showAppBar
+                ? AppBar(title: const Text('Account'), centerTitle: true)
+                : null,
+            body: const Center(child: CircularProgressIndicator()),
           );
         }
 
@@ -761,6 +765,9 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
         final isGuest = user == null || user.isAnonymous;
 
         return Scaffold(
+          appBar: widget.showAppBar
+              ? AppBar(title: const Text('Account'), centerTitle: true)
+              : null,
           body: SafeArea(
             child: LayoutBuilder(
               builder: (context, constraints) {

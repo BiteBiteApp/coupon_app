@@ -1,22 +1,32 @@
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+import '../models/local_expert_badge_celebration.dart';
 import '../models/local_expert_badge.dart';
 
 class LocalExpertBadgeRecalculationResult {
   final int earnedBadgeCount;
   final int removedBadgeCount;
+  final List<LocalExpertBadgeCelebration> celebrations;
 
   const LocalExpertBadgeRecalculationResult({
     required this.earnedBadgeCount,
     required this.removedBadgeCount,
+    this.celebrations = const <LocalExpertBadgeCelebration>[],
   });
 
   factory LocalExpertBadgeRecalculationResult.fromData(dynamic data) {
     final map = data is Map ? data : const <Object?, Object?>{};
+    final rawCelebrations = map['celebrations'];
     return LocalExpertBadgeRecalculationResult(
       earnedBadgeCount: _readInt(map['earnedBadgeCount']) ?? 0,
       removedBadgeCount: _readInt(map['removedBadgeCount']) ?? 0,
+      celebrations: rawCelebrations is Iterable
+          ? rawCelebrations
+                .map(LocalExpertBadgeCelebration.tryFromCallableData)
+                .whereType<LocalExpertBadgeCelebration>()
+                .toList(growable: false)
+          : const <LocalExpertBadgeCelebration>[],
     );
   }
 

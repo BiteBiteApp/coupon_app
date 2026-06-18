@@ -902,6 +902,9 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
                           onPressed: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
+                                settings: const RouteSettings(
+                                  name: RestaurantCreateCouponScreen.routeName,
+                                ),
                                 builder: (_) =>
                                     const RestaurantCreateCouponScreen(),
                               ),

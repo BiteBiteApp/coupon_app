@@ -23,6 +23,8 @@ class BitescoreCategories {
   static const String requiredManualKeywordHelperText =
       'Required: separate keywords with commas';
   static const String moreCuisinesStartId = 'thai';
+  static const String cubanSandwichCanonicalId = 'cuban_sandwich';
+  static const String chickenPieCanonicalId = 'chicken_pie';
 
   static const List<BitescoreCategory> all = [
     BitescoreCategory(id: 'other', displayName: 'Other'),
@@ -39,7 +41,6 @@ class BitescoreCategories {
     BitescoreCategory(
       id: 'pizza',
       displayName: 'Pizza',
-      subcategories: [otherLabel, 'Calzone', 'Pizza', 'Stromboli'],
       searchTags: ['italian'],
     ),
     BitescoreCategory(
@@ -65,6 +66,7 @@ class BitescoreCategories {
       subcategories: [
         otherLabel,
         'Burgers',
+        'Chicken Pie / Chicken Pot Pie',
         'Chicken tenders',
         'Chili',
         'Club sandwich',
@@ -244,6 +246,36 @@ class BitescoreCategories {
         'Wrap',
       ],
       searchTags: ['deli', 'sandwich', 'sandwiches', 'subs', 'wraps'],
+    ),
+    BitescoreCategory(
+      id: 'cuban',
+      displayName: 'Cuban',
+      subcategories: [
+        otherLabel,
+        'Arroz con pollo',
+        'Bistec empanizado',
+        'Black beans and rice',
+        'Croquetas',
+        'Cuban coffee',
+        'Cuban sandwich',
+        'Cuban-style chicken',
+        'Cuban tamal',
+        'Empanadas',
+        'Flan',
+        'Lechón / roast pork',
+        'Maduros / sweet plantains',
+        'Masitas de puerco',
+        'Medianoche',
+        'Moros y cristianos',
+        'Palomilla steak',
+        'Picadillo',
+        'Potato balls / papas rellenas',
+        'Ropa vieja',
+        'Tostones',
+        'Vaca frita',
+        'Yuca with mojo',
+      ],
+      searchTags: ['cubano', 'cuban cuisine'],
     ),
     BitescoreCategory(
       id: 'seafood',
@@ -700,6 +732,12 @@ class BitescoreCategories {
     _addCommaSeparatedSearchTerms(tags, manualKeywords);
     _addSearchTerms(tags, dishName);
     _addSearchTerms(tags, restaurantName);
+    _addCanonicalClassificationTerms(
+      tags,
+      category: category,
+      subcategory: subcategory,
+      dishName: dishName,
+    );
 
     return tags.toList(growable: false);
   }
@@ -800,6 +838,90 @@ class BitescoreCategories {
         }
       }
     }
+  }
+
+  static void _addCanonicalClassificationTerms(
+    Set<String> tags, {
+    required BitescoreCategory? category,
+    required String? subcategory,
+    required String? dishName,
+  }) {
+    final canonicalIds = {
+      ?canonicalDishClassificationIdFor(subcategory),
+      ?canonicalDishClassificationIdFor(dishName),
+    };
+
+    for (final canonicalId in canonicalIds) {
+      switch (canonicalId) {
+        case cubanSandwichCanonicalId:
+          _addCubanSandwichClassificationTerms(tags, category);
+        case chickenPieCanonicalId:
+          _addChickenPieClassificationTerms(tags, category);
+      }
+    }
+  }
+
+  static void _addCubanSandwichClassificationTerms(
+    Set<String> tags,
+    BitescoreCategory? category,
+  ) {
+    const sharedTerms = [
+      cubanSandwichCanonicalId,
+      'cuban sandwich',
+      'cubano',
+      'cuban',
+      'deli_sandwiches',
+      'deli',
+      'sandwich',
+      'sandwiches',
+    ];
+    for (final term in sharedTerms) {
+      _addSearchTerms(tags, term);
+    }
+    if (category != null) {
+      _addSearchTerms(tags, category.id);
+    }
+  }
+
+  static void _addChickenPieClassificationTerms(
+    Set<String> tags,
+    BitescoreCategory? category,
+  ) {
+    const sharedTerms = [
+      chickenPieCanonicalId,
+      'chicken pie',
+      'chicken pies',
+      'chicken pot pie',
+      'chicken pot pies',
+      'pot pie',
+      'pot pies',
+      'american',
+    ];
+    for (final term in sharedTerms) {
+      _addSearchTerms(tags, term);
+    }
+    if (category != null) {
+      _addSearchTerms(tags, category.id);
+    }
+  }
+
+  static String? canonicalDishClassificationIdFor(String? value) {
+    final normalized = BiteScoreFoodSearch.normalize(value ?? '');
+    if (normalized.isEmpty) {
+      return null;
+    }
+
+    return switch (normalized) {
+      'cuban sandwich' ||
+      'cuban sandwiches' ||
+      'cubano' => cubanSandwichCanonicalId,
+      'chicken pie' ||
+      'chicken pies' ||
+      'chicken pot pie' ||
+      'chicken pot pies' ||
+      'chicken pie chicken pot pie' => chickenPieCanonicalId,
+      _ => null,
+    };
   }
 
   static String? _normalizeTag(String? value) {

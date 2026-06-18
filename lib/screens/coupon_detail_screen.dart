@@ -545,9 +545,11 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     if (isRedeeming || !_supportsRedeemTimer) return;
 
     if (FirebaseAuth.instance.currentUser == null) {
-      await Navigator.of(
-        context,
-      ).push(MaterialPageRoute(builder: (_) => const CustomerAccountScreen()));
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => const CustomerAccountScreen(showAppBar: true),
+        ),
+      );
 
       if (!mounted || FirebaseAuth.instance.currentUser == null) {
         return;

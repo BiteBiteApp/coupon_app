@@ -12,6 +12,7 @@ class BitescoreRestaurant {
   final String city;
   final String state;
   final String zipCode;
+  final String? county;
   final GeoPoint location;
   final String? phone;
   final String? website;
@@ -33,6 +34,7 @@ class BitescoreRestaurant {
     required this.city,
     required this.state,
     required this.zipCode,
+    this.county,
     required this.location,
     this.phone,
     this.website,
@@ -78,6 +80,7 @@ class BitescoreRestaurant {
       'zip': normalizedZip,
       'zipCode': normalizedZip,
       'postalCode': normalizedZip,
+      if (county?.trim().isNotEmpty == true) 'county': county!.trim(),
       'location': location,
       'geoPoint': location,
       'latitude': location.latitude,
@@ -108,6 +111,7 @@ class BitescoreRestaurant {
     String? city,
     String? state,
     String? zipCode,
+    String? county,
     GeoPoint? location,
     String? phone,
     String? website,
@@ -129,6 +133,7 @@ class BitescoreRestaurant {
       city: city ?? this.city,
       state: state ?? this.state,
       zipCode: zipCode ?? this.zipCode,
+      county: county ?? this.county,
       location: location ?? this.location,
       phone: phone ?? this.phone,
       website: website ?? this.website,
@@ -184,6 +189,10 @@ class BitescoreRestaurant {
       city: city,
       state: state,
       zipCode: zipCode,
+      county:
+          _readString(data['county']) ??
+          _readString(data['countyName']) ??
+          _readString(data['normalizedCounty']),
       location: location,
       phone: _readString(data['phone']),
       website: _readString(data['website']) ?? _readString(data['websiteUrl']),
@@ -269,6 +278,10 @@ class BitescoreRestaurant {
       city: city,
       state: state ?? '',
       zipCode: zipCode,
+      county:
+          _readString(data['county']) ??
+          _readString(data['countyName']) ??
+          _readString(data['normalizedCounty']),
       location: location,
       phone: _readString(data['phone']) ?? _readString(data['phoneNumber']),
       website:

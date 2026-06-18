@@ -1,6 +1,7 @@
 import 'package:coupon_app/models/local_expert_badge.dart';
 import 'package:coupon_app/models/local_expert_badge_calculator.dart';
 import 'package:coupon_app/models/local_expert.dart';
+import 'package:coupon_app/screens/expert_badge_gallery_screen.dart';
 import 'package:coupon_app/widgets/local_expert_badge_widget.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -75,7 +76,7 @@ void main() {
       expect(metadata.haloAlpha, greaterThan(0));
       expect(metadata.hasGlint, isTrue);
       expect(metadata.usesCrown, isFalse);
-      expect(metadata.icon, Icons.restaurant_menu);
+      expect(metadata.abbreviation, 'ST');
     });
 
     test('level materials progress while food icon stays high contrast', () {
@@ -88,7 +89,7 @@ void main() {
         level: LocalExpertBadgeLevel.level2,
       );
       final level3 = LocalExpertBadgeVisuals.metadataFor(
-        expertTypeId: 'tacos',
+        expertTypeId: 'mexican',
         level: LocalExpertBadgeLevel.level3,
       );
 
@@ -132,8 +133,8 @@ void main() {
       );
     });
 
-    test('burger pizza and tacos all use shared level styling rules', () {
-      for (final expertTypeId in <String>['burger', 'pizza', 'tacos']) {
+    test('burger pizza and mexican all use shared level styling rules', () {
+      for (final expertTypeId in <String>['burger', 'pizza', 'mexican']) {
         final level1 = LocalExpertBadgeVisuals.metadataFor(
           expertTypeId: expertTypeId,
           level: LocalExpertBadgeLevel.level1,
@@ -197,6 +198,217 @@ void main() {
         LocalExpertBadgeVisuals.iconForName('not_a_known_icon'),
         Icons.restaurant_menu,
       );
+    });
+
+    test('Wings and Donuts use custom inner artwork only', () {
+      final wings = LocalExpertBadgeVisuals.metadataFor(
+        expertTypeId: LocalExperts.wings.id,
+        level: LocalExpertBadgeLevel.level1,
+      );
+      final donuts = LocalExpertBadgeVisuals.metadataFor(
+        expertTypeId: LocalExperts.donuts.id,
+        level: LocalExpertBadgeLevel.level1,
+      );
+      final bbq = LocalExpertBadgeVisuals.metadataFor(
+        expertTypeId: LocalExperts.bbq.id,
+        level: LocalExpertBadgeLevel.level1,
+      );
+
+      expect(wings.customArtwork, 'chicken_wing');
+      expect(wings.icon, isNot(Icons.sports_bar));
+      expect(donuts.customArtwork, 'donut_ring');
+      expect(donuts.icon, isNot(Icons.bakery_dining));
+      expect(bbq.customArtwork, isNull);
+      expect(bbq.icon, Icons.outdoor_grill);
+    });
+
+    testWidgets('Wings and Donuts render custom painted symbols', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: Row(
+              children: [
+                LocalExpertBadgeWidget(
+                  badge: _badge(
+                    expertTypeId: LocalExperts.wings.id,
+                    displayName: LocalExperts.wings.displayName,
+                  ),
+                ),
+                LocalExpertBadgeWidget(
+                  badge: _badge(
+                    expertTypeId: LocalExperts.donuts.id,
+                    displayName: LocalExperts.donuts.displayName,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+
+      expect(
+        find.byKey(const ValueKey('local-expert-badge-artwork-chicken_wing')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('local-expert-badge-artwork-donut_ring')),
+        findsOneWidget,
+      );
+      expect(find.byIcon(Icons.sports_bar), findsNothing);
+      expect(find.byIcon(Icons.bakery_dining), findsNothing);
+    });
+
+    test('Subs badge uses the unique SUB abbreviation', () {
+      final metadata = LocalExpertBadgeVisuals.metadataFor(
+        expertTypeId: LocalExperts.subsSandwiches.id,
+        level: LocalExpertBadgeLevel.level1,
+      );
+
+      expect(metadata.abbreviation, 'SUB');
+      expect(metadata.icon, Icons.restaurant_menu);
+    });
+
+    test('Chili badge uses the unique CI abbreviation', () {
+      final metadata = LocalExpertBadgeVisuals.metadataFor(
+        expertTypeId: LocalExperts.chili.id,
+        level: LocalExpertBadgeLevel.level1,
+      );
+
+      expect(metadata.abbreviation, 'CI');
+      expect(metadata.icon, Icons.restaurant_menu);
+    });
+
+    test('final badge list uses icons or unique abbreviations', () {
+      final abbreviations = <String>{};
+
+      for (final type in LocalExperts.all) {
+        final metadata = LocalExpertBadgeVisuals.metadataFor(
+          expertTypeId: type.id,
+          level: LocalExpertBadgeLevel.level1,
+        );
+        final abbreviation = metadata.abbreviation;
+        if (abbreviation != null) {
+          expect(abbreviation.trim(), isNotEmpty);
+          expect(abbreviations.add(abbreviation), isTrue);
+        } else if (metadata.customArtwork != null) {
+          expect(metadata.customArtwork!.trim(), isNotEmpty);
+        } else {
+          expect(metadata.icon, isNot(Icons.restaurant));
+          expect(metadata.icon, isNot(Icons.restaurant_menu));
+        }
+      }
+      expect(
+        LocalExperts.all.map((type) => type.id),
+        isNot(containsAll(['burrito', 'tacos', 'lobster', 'pasta'])),
+      );
+    });
+
+    testWidgets('temporary gallery includes Subs badge', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: ExpertBadgeGalleryScreen())),
+      );
+
+      await tester.drag(
+        find.byKey(const ValueKey('expert-badge-gallery-grid')),
+        const Offset(0, -1600),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Subs / Sandwiches'), findsOneWidget);
+      expect(find.text('subs_sandwiches'), findsOneWidget);
+      expect(find.text('Chili'), findsOneWidget);
+      expect(find.text('chili'), findsOneWidget);
+    });
+
+    test('gallery preview controls are admin or debug gated', () {
+      expect(
+        expertBadgeGalleryPreviewControlsVisible(
+          isAdmin: false,
+          isDebug: false,
+        ),
+        isFalse,
+      );
+      expect(
+        expertBadgeGalleryPreviewControlsVisible(isAdmin: true, isDebug: false),
+        isTrue,
+      );
+      expect(
+        expertBadgeGalleryPreviewControlsVisible(isAdmin: false, isDebug: true),
+        isTrue,
+      );
+    });
+
+    testWidgets('gallery preview controls are hidden unless enabled', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(home: Scaffold(body: ExpertBadgeGalleryScreen())),
+      );
+
+      expect(
+        find.byKey(const ValueKey('preview-local-expert-celebration-button')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('preview-point-celebration-button')),
+        findsNothing,
+      );
+
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: ExpertBadgeGalleryScreen(showPreviewControls: true),
+          ),
+        ),
+      );
+
+      expect(
+        find.byKey(const ValueKey('preview-local-expert-celebration-button')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('preview-point-celebration-button')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('gallery preview buttons use local callbacks only', (
+      tester,
+    ) async {
+      LocalExpertType? previewedBadge;
+      var previewedPoints = 0;
+      var simulatedFirestoreWrites = 0;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ExpertBadgeGalleryScreen(
+              showPreviewControls: true,
+              onPreviewBadge: (context, type) async {
+                previewedBadge = type;
+              },
+              onPreviewPoint: (context) async {
+                previewedPoints += 1;
+              },
+            ),
+          ),
+        ),
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('preview-local-expert-celebration-button')),
+      );
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const ValueKey('preview-point-celebration-button')),
+      );
+      await tester.pump();
+
+      expect(previewedBadge?.id, 'bbq');
+      expect(previewedPoints, 1);
+      expect(simulatedFirestoreWrites, 0);
     });
 
     test(
@@ -322,8 +534,8 @@ void main() {
       await _openBadgeSheet(
         tester,
         _badge(
-          expertTypeId: 'tacos',
-          displayName: 'Tacos',
+          expertTypeId: 'mexican',
+          displayName: 'Mexican',
           totalRestaurantCount: 6,
           localClusterCount: 5,
           method: LocalExpertQualificationMethod.both,
@@ -332,8 +544,8 @@ void main() {
         reviewerDisplayName: 'Alex',
       );
 
-      expect(find.text('Tacos Expert'), findsOneWidget);
-      expect(find.text('View Tacos Reviews'), findsOneWidget);
+      expect(find.text('Mexican Expert'), findsOneWidget);
+      expect(find.text('View Mexican Reviews'), findsOneWidget);
       expect(find.text('6 qualifying restaurants'), findsOneWidget);
       expect(find.text('Progress toward Level 2'), findsOneWidget);
       expect(find.byType(LinearProgressIndicator), findsOneWidget);

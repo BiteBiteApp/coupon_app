@@ -39,8 +39,8 @@ const hostedStripeCheckoutCancelUrl =
   "https://coupon-app-29446.web.app/stripe-cancel.html";
 const stripePriceId = "price_1TJKGjBwoT6e93tVkesJPfxD";
 const stripeTrialDays = 60;
-const subscriptionReturnSuccessUri = "couponapp://subscription-return?status=success";
-const subscriptionReturnCancelUri = "couponapp://subscription-return?status=cancel";
+const subscriptionReturnSuccessUri = "bitesaver://subscription-success";
+const subscriptionReturnCancelUri = "bitesaver://subscription-cancel";
 
 type PushRequestData = {
   requestId?: string;
@@ -78,7 +78,11 @@ type LocalExpertTypeConfig = {
   displayName: string;
   mappedCategoryNames?: string[];
   mappedSubcategories?: string[];
+  exactAliases?: string[];
   aliases?: string[];
+  excludedCategoryNames?: string[];
+  excludedSubcategories?: string[];
+  excludedAliases?: string[];
   categoryMayQualify?: boolean;
 };
 
@@ -113,6 +117,13 @@ type LocalExpertRestaurantData = {
   location?: { latitude: number; longitude: number };
   latitude?: number;
   longitude?: number;
+  county?: string;
+  countyName?: string;
+  normalizedCounty?: string;
+  state?: string;
+  stateCode?: string;
+  region?: string;
+  province?: string;
   isActive?: boolean;
   active?: boolean;
 };
@@ -130,6 +141,8 @@ type LocalExpertReviewCandidate = {
   updatedAt?: Timestamp;
   latitude?: number;
   longitude?: number;
+  county?: string;
+  state?: string;
 };
 
 type LocalExpertResolvedReview = {
@@ -148,7 +161,79 @@ type LocalExpertBadgeResult = {
   qualifyingRestaurantIds: string[];
 };
 
+type LocalExpertBadgeCelebrationEvent = {
+  eventKey: string;
+  expertTypeId: string;
+  displayName: string;
+  level: "level1" | "level2" | "level3";
+  kind: "earned" | "levelUp";
+  status: "pending";
+};
+
+type LocalExpertBadgePersistenceResult = {
+  earnedBadgeCount: number;
+  removedBadgeCount: number;
+  celebrations: LocalExpertBadgeCelebrationEvent[];
+};
+
 const localExpertClusterRadiusMiles = 30;
+const localExpertCelebrationSubcollection = "local_expert_badge_celebrations";
+const cubanSandwichCanonicalId = "cuban_sandwich";
+const chickenPieCanonicalId = "chicken_pie";
+const legacyLocalExpertTypeIds = new Set(["burrito", "tacos", "lobster", "pasta"]);
+const localExpertStateNameToCode = new Map<string, string>([
+  ["ALABAMA", "AL"],
+  ["ALASKA", "AK"],
+  ["ARIZONA", "AZ"],
+  ["ARKANSAS", "AR"],
+  ["CALIFORNIA", "CA"],
+  ["COLORADO", "CO"],
+  ["CONNECTICUT", "CT"],
+  ["DELAWARE", "DE"],
+  ["FLORIDA", "FL"],
+  ["GEORGIA", "GA"],
+  ["HAWAII", "HI"],
+  ["IDAHO", "ID"],
+  ["ILLINOIS", "IL"],
+  ["INDIANA", "IN"],
+  ["IOWA", "IA"],
+  ["KANSAS", "KS"],
+  ["KENTUCKY", "KY"],
+  ["LOUISIANA", "LA"],
+  ["MAINE", "ME"],
+  ["MARYLAND", "MD"],
+  ["MASSACHUSETTS", "MA"],
+  ["MICHIGAN", "MI"],
+  ["MINNESOTA", "MN"],
+  ["MISSISSIPPI", "MS"],
+  ["MISSOURI", "MO"],
+  ["MONTANA", "MT"],
+  ["NEBRASKA", "NE"],
+  ["NEVADA", "NV"],
+  ["NEW HAMPSHIRE", "NH"],
+  ["NEW JERSEY", "NJ"],
+  ["NEW MEXICO", "NM"],
+  ["NEW YORK", "NY"],
+  ["NORTH CAROLINA", "NC"],
+  ["NORTH DAKOTA", "ND"],
+  ["OHIO", "OH"],
+  ["OKLAHOMA", "OK"],
+  ["OREGON", "OR"],
+  ["PENNSYLVANIA", "PA"],
+  ["RHODE ISLAND", "RI"],
+  ["SOUTH CAROLINA", "SC"],
+  ["SOUTH DAKOTA", "SD"],
+  ["TENNESSEE", "TN"],
+  ["TEXAS", "TX"],
+  ["UTAH", "UT"],
+  ["VERMONT", "VT"],
+  ["VIRGINIA", "VA"],
+  ["WASHINGTON", "WA"],
+  ["WEST VIRGINIA", "WV"],
+  ["WISCONSIN", "WI"],
+  ["WYOMING", "WY"],
+  ["DISTRICT OF COLUMBIA", "DC"],
+]);
 const localExpertTypes: LocalExpertTypeConfig[] = [
   {
     id: "burger",
@@ -163,21 +248,7 @@ const localExpertTypes: LocalExpertTypeConfig[] = [
     displayName: "Pizza",
     mappedCategoryNames: ["Pizza"],
     mappedSubcategories: ["Pizza", "Vegan pizza"],
-    aliases: ["pizza", "pepperoni pizza", "cheese pizza"],
-    categoryMayQualify: true,
-  },
-  {
-    id: "burrito",
-    displayName: "Burrito",
-    mappedSubcategories: ["Burrito", "Breakfast burrito"],
-    aliases: ["burrito", "burritos"],
-  },
-  {
-    id: "tacos",
-    displayName: "Tacos",
-    mappedCategoryNames: ["Tacos"],
-    mappedSubcategories: ["Tacos", "Breakfast tacos", "Vegan tacos"],
-    aliases: ["taco", "tacos"],
+    aliases: ["pizza", "pepperoni pizza", "cheese pizza", "vegan pizza"],
     categoryMayQualify: true,
   },
   {
@@ -185,18 +256,6 @@ const localExpertTypes: LocalExpertTypeConfig[] = [
     displayName: "Wings",
     mappedSubcategories: ["Boneless wings", "Wings"],
     aliases: ["wings", "wing", "chicken wings", "boneless wings"],
-  },
-  {
-    id: "lobster",
-    displayName: "Lobster",
-    mappedSubcategories: ["Lobster"],
-    aliases: ["lobster", "lobster roll"],
-  },
-  {
-    id: "pasta",
-    displayName: "Pasta",
-    mappedSubcategories: ["Pasta", "Gnocchi"],
-    aliases: ["pasta", "spaghetti", "fettuccine", "linguine", "rigatoni"],
   },
   {
     id: "ramen",
@@ -281,6 +340,436 @@ const localExpertTypes: LocalExpertTypeConfig[] = [
       "Udon",
     ],
     aliases: ["japanese", "sushi", "sashimi", "nigiri", "hibachi", "teriyaki"],
+    categoryMayQualify: true,
+  },
+  {
+    id: "mexican",
+    displayName: "Mexican",
+    mappedCategoryNames: ["Mexican", "Tacos"],
+    mappedSubcategories: [
+      "Burrito",
+      "Breakfast burrito",
+      "Breakfast tacos",
+      "Carne asada",
+      "Chilaquiles",
+      "Chile relleno",
+      "Chimichanga",
+      "Elote / street corn",
+      "Enchiladas",
+      "Fajitas",
+      "Guacamole",
+      "Nachos",
+      "Quesadilla",
+      "Rice bowl",
+      "Tacos",
+      "Tamales",
+      "Tostada",
+      "Vegan tacos",
+    ],
+    aliases: [
+      "mexican",
+      "taco",
+      "tacos",
+      "burrito",
+      "burritos",
+      "enchiladas",
+      "quesadilla",
+      "quesadillas",
+      "tamale",
+      "tamales",
+      "fajita",
+      "fajitas",
+      "nachos",
+      "chilaquiles",
+      "chile relleno",
+      "carne asada",
+    ],
+    categoryMayQualify: true,
+  },
+  {
+    id: "seafood",
+    displayName: "Seafood",
+    mappedCategoryNames: ["Seafood"],
+    mappedSubcategories: [
+      "Clam chowder",
+      "Crab",
+      "Fish",
+      "Grouper",
+      "Lobster",
+      "Oysters",
+      "Salmon",
+      "Scallops",
+      "Seafood platter",
+      "Shrimp",
+    ],
+    aliases: [
+      "seafood",
+      "lobster",
+      "lobster roll",
+      "shrimp",
+      "crab",
+      "oysters",
+      "oyster",
+      "scallops",
+      "scallop",
+      "clams",
+      "clam",
+      "mussels",
+      "mussel",
+      "fish",
+      "grouper",
+      "salmon",
+    ],
+    excludedCategoryNames: ["Japanese / Sushi"],
+    excludedSubcategories: ["Sushi", "Sushi roll", "Sashimi", "Nigiri"],
+    excludedAliases: ["sushi", "sushi roll", "sashimi", "nigiri"],
+    categoryMayQualify: true,
+  },
+  {
+    id: "italian",
+    displayName: "Italian",
+    mappedCategoryNames: ["Italian"],
+    mappedSubcategories: [
+      "Breadsticks",
+      "Bruschetta",
+      "Calzone",
+      "Chicken parmesan",
+      "Eggplant parmesan",
+      "Garlic knots",
+      "Gnocchi",
+      "Italian sub",
+      "Meatballs",
+      "Pasta",
+      "Risotto",
+      "Stromboli",
+    ],
+    aliases: [
+      "italian",
+      "spaghetti",
+      "lasagna",
+      "ravioli",
+      "pasta",
+      "fettuccine",
+      "linguine",
+      "rigatoni",
+      "gnocchi",
+      "chicken parmesan",
+      "chicken parm",
+      "chicken parmigiana",
+      "eggplant parmesan",
+      "meatballs",
+    ],
+    excludedSubcategories: ["Pizza", "Vegan pizza"],
+    excludedAliases: ["pizza", "pepperoni pizza", "cheese pizza"],
+    categoryMayQualify: true,
+  },
+  {
+    id: "bbq",
+    displayName: "BBQ",
+    mappedCategoryNames: ["BBQ"],
+    mappedSubcategories: [
+      "BBQ chicken",
+      "BBQ sandwich",
+      "Brisket",
+      "Burnt ends",
+      "Pulled pork",
+      "Ribs",
+    ],
+    aliases: [
+      "bbq",
+      "barbecue",
+      "barbeque",
+      "bar-b-q",
+      "bar-b-que",
+      "bbq sandwich",
+      "ribs",
+      "bbq ribs",
+      "pulled pork",
+      "brisket",
+      "bbq brisket",
+      "bbq chicken",
+      "burnt ends",
+    ],
+    categoryMayQualify: true,
+  },
+  {
+    id: "hot_dogs_corn_dogs",
+    displayName: "Hot Dogs / Corn Dogs",
+    mappedSubcategories: ["Hot dogs"],
+    aliases: [
+      "hot dog",
+      "hot dogs",
+      "hotdog",
+      "hotdogs",
+      "corn dog",
+      "corn dogs",
+      "corndog",
+      "corndogs",
+      "coney",
+      "coney dog",
+      "chili dog",
+      "chili dogs",
+    ],
+  },
+  {
+    id: "chili",
+    displayName: "Chili",
+    mappedCategoryNames: ["American", "Soup"],
+    mappedSubcategories: ["Chili"],
+    exactAliases: ["chili", "chilli"],
+    aliases: [
+      "chili con carne",
+      "chilli con carne",
+      "texas chili",
+      "beef chili",
+      "bowl of chili",
+      "chili bowl",
+      "white chicken chili",
+      "vegetarian chili",
+      "chili dog",
+      "chili dogs",
+      "chili cheese dog",
+      "chili cheese dogs",
+    ],
+    excludedAliases: [
+      "chili sauce",
+      "sweet chili sauce",
+      "chili oil",
+      "chili pepper",
+      "chili peppers",
+      "green chili",
+      "green chili pepper",
+    ],
+  },
+  {
+    id: "mac_and_cheese",
+    displayName: "Mac and Cheese",
+    mappedSubcategories: ["Mac and cheese"],
+    aliases: [
+      "mac and cheese",
+      "mac & cheese",
+      "macaroni and cheese",
+      "macaroni & cheese",
+      "mac n cheese",
+      "mac 'n' cheese",
+    ],
+  },
+  {
+    id: "meatloaf",
+    displayName: "Meatloaf",
+    mappedSubcategories: ["Meatloaf"],
+    aliases: ["meatloaf", "meat loaf", "meatloaves"],
+  },
+  {
+    id: "chicken_pie",
+    displayName: "Chicken Pie / Chicken Pot Pie",
+    mappedSubcategories: ["Chicken Pie / Chicken Pot Pie"],
+    aliases: [
+      chickenPieCanonicalId,
+      "chicken pie",
+      "chicken pies",
+      "chicken pot pie",
+      "chicken pot pies",
+    ],
+  },
+  {
+    id: "chicken_sandwich",
+    displayName: "Chicken Sandwich",
+    mappedSubcategories: ["Chicken sandwich"],
+    aliases: [
+      "chicken sandwich",
+      "fried chicken sandwich",
+      "grilled chicken sandwich",
+      "spicy chicken sandwich",
+    ],
+    excludedSubcategories: ["Cuban sandwich"],
+    excludedAliases: [cubanSandwichCanonicalId, "cuban sandwich", "cubano"],
+  },
+  {
+    id: "fried_chicken",
+    displayName: "Fried Chicken",
+    mappedSubcategories: ["Chicken tenders", "Fried chicken"],
+    aliases: [
+      "fried chicken",
+      "fried chicken pieces",
+      "fried chicken dinner",
+      "chicken tenders",
+      "chicken tender",
+      "chicken fingers",
+      "chicken finger",
+      "chicken strips",
+      "chicken strip",
+      "fried chicken sandwich",
+    ],
+    excludedSubcategories: ["Boneless wings", "Wings"],
+    excludedAliases: ["wings", "wing", "chicken wings", "boneless wings"],
+  },
+  {
+    id: "cuban",
+    displayName: "Cuban",
+    mappedCategoryNames: ["Cuban"],
+    mappedSubcategories: [
+      "Arroz con pollo",
+      "Bistec empanizado",
+      "Black beans and rice",
+      "Croquetas",
+      "Cuban coffee",
+      "Cuban sandwich",
+      "Cuban-style chicken",
+      "Cuban tamal",
+      "Empanadas",
+      "Flan",
+      "Lechón / roast pork",
+      "Maduros / sweet plantains",
+      "Masitas de puerco",
+      "Medianoche",
+      "Moros y cristianos",
+      "Palomilla steak",
+      "Picadillo",
+      "Potato balls / papas rellenas",
+      "Ropa vieja",
+      "Tostones",
+      "Vaca frita",
+      "Yuca with mojo",
+    ],
+    aliases: [
+      cubanSandwichCanonicalId,
+      "cuban",
+      "cubano",
+      "cuban sandwich",
+      "medianoche",
+      "ropa vieja",
+      "ropa viejo",
+      "picadillo",
+      "lechon",
+      "lechón",
+      "roast pork",
+      "masitas de puerco",
+      "vaca frita",
+      "arroz con pollo",
+      "palomilla steak",
+      "bistec empanizado",
+      "croquetas",
+      "papas rellenas",
+      "papa rellena",
+      "potato ball",
+      "potato balls",
+      "black beans and rice",
+      "moros y cristianos",
+      "yuca with mojo",
+      "tostones",
+      "maduros",
+      "sweet plantains",
+      "cuban tamal",
+      "cuban tamale",
+      "cuban-style chicken",
+      "cuban coffee",
+    ],
+    categoryMayQualify: true,
+  },
+  {
+    id: "subs_sandwiches",
+    displayName: "Subs / Sandwiches",
+    mappedCategoryNames: ["Subs", "Deli / Sandwiches", "subs", "deli_sandwiches"],
+    mappedSubcategories: [
+      "Sandwiches",
+      "Subs",
+      "BLT",
+      "Chicken salad sandwich",
+      "Club sandwich",
+      "Cuban sandwich",
+      "Ham sandwich",
+      "Italian sub",
+      "Pastrami sandwich",
+      "Philly cheesesteak",
+      "Reuben",
+      "Roast beef sandwich",
+      "Tuna sandwich",
+      "Turkey sandwich",
+      "Wrap",
+    ],
+    aliases: [
+      cubanSandwichCanonicalId,
+      "sub",
+      "subs",
+      "sub sandwich",
+      "sub sandwiches",
+      "submarine",
+      "submarine sandwich",
+      "submarine sandwiches",
+      "hoagie",
+      "hoagies",
+      "grinder",
+      "grinders",
+      "hero",
+      "heroes",
+      "hero sandwich",
+      "hero sandwiches",
+      "deli sandwich",
+      "deli sandwiches",
+      "torpedo",
+      "torpedo sandwich",
+      "torpedo sandwiches",
+      "cuban sandwich",
+      "cubano",
+    ],
+    excludedCategoryNames: [
+      "BBQ",
+      "Burgers",
+      "Chicken",
+      "Mexican",
+      "Tacos",
+      "Breakfast / Brunch",
+      "bbq",
+      "burgers",
+      "chicken_wings",
+      "mexican",
+      "tacos",
+      "breakfast_brunch",
+    ],
+    excludedSubcategories: [
+      "BBQ sandwich",
+      "Burgers",
+      "Chicken sandwich",
+      "Fried chicken",
+      "Grilled chicken",
+      "Hot dogs",
+      "Breakfast sandwich",
+      "Breakfast burrito",
+      "Breakfast tacos",
+      "Burrito",
+      "Tacos",
+    ],
+    excludedAliases: [
+      "bbq sandwich",
+      "barbecue sandwich",
+      "barbeque sandwich",
+      "pulled pork sandwich",
+      "brisket sandwich",
+      "chicken sandwich",
+      "fried chicken sandwich",
+      "grilled chicken sandwich",
+      "spicy chicken sandwich",
+      "breakfast sandwich",
+      "burger",
+      "burgers",
+      "hamburger",
+      "hamburgers",
+      "cheeseburger",
+      "cheeseburgers",
+      "hot dog",
+      "hot dogs",
+      "hotdog",
+      "hotdogs",
+      "corn dog",
+      "corn dogs",
+      "corndog",
+      "corndogs",
+      "taco",
+      "tacos",
+      "burrito",
+      "burritos",
+    ],
     categoryMayQualify: true,
   },
 ];
@@ -370,49 +859,96 @@ function normalizedListContains(values: string[] | undefined, normalized: string
   return (values ?? []).some((value) => normalizeTerm(value) === normalized);
 }
 
-function matchLocalExpertType(candidate: LocalExpertReviewCandidate):
-LocalExpertTypeConfig | null {
+function matchesAliases(aliases: string[] | undefined, sources: string[]): boolean {
+  const searchTerms = new Set<string>();
+  for (const source of sources) {
+    addSearchTerms(searchTerms, source);
+  }
+  for (const alias of aliases ?? []) {
+    const normalizedAlias = normalizeTerm(alias);
+    if (!normalizedAlias) {
+      continue;
+    }
+    if (
+      searchTerms.has(normalizedAlias) ||
+      Array.from(searchTerms).some((term) => term.includes(normalizedAlias))
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function matchesExactAliases(aliases: string[] | undefined, sources: string[]): boolean {
+  const normalizedSources = new Set(
+    sources
+      .map((source) => normalizeTerm(source))
+      .filter((source): source is string => !!source),
+  );
+  for (const alias of aliases ?? []) {
+    const normalizedAlias = normalizeTerm(alias);
+    if (normalizedAlias && normalizedSources.has(normalizedAlias)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function isExcludedFromLocalExpertType(
+  type: LocalExpertTypeConfig,
+  normalizedCategory: string | null,
+  normalizedSubcategory: string | null,
+  searchSources: string[],
+): boolean {
+  return (
+    normalizedListContains(type.excludedCategoryNames, normalizedCategory) ||
+    normalizedListContains(type.excludedSubcategories, normalizedSubcategory) ||
+    matchesAliases(type.excludedAliases, searchSources)
+  );
+}
+
+function matchLocalExpertTypes(candidate: LocalExpertReviewCandidate):
+LocalExpertTypeConfig[] {
   const normalizedCategory = normalizeTerm(candidate.categoryName);
   const normalizedSubcategory = normalizeTerm(candidate.subcategory);
+  const searchSources = [
+    candidate.dishName,
+    candidate.subcategory,
+    ...candidate.categoryTags,
+  ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+  const matches: LocalExpertTypeConfig[] = [];
 
   for (const type of localExpertTypes) {
+    if (
+      isExcludedFromLocalExpertType(
+        type,
+        normalizedCategory,
+        normalizedSubcategory,
+        searchSources,
+      )
+    ) {
+      continue;
+    }
     if (normalizedListContains(type.mappedSubcategories, normalizedSubcategory)) {
-      return type;
+      matches.push(type);
+      continue;
     }
-  }
-
-  const searchTerms = new Set<string>();
-  addSearchTerms(searchTerms, candidate.dishName);
-  addSearchTerms(searchTerms, candidate.subcategory);
-  for (const tag of candidate.categoryTags) {
-    addSearchTerms(searchTerms, tag);
-  }
-
-  for (const type of localExpertTypes) {
-    for (const alias of type.aliases ?? []) {
-      const normalizedAlias = normalizeTerm(alias);
-      if (!normalizedAlias) {
-        continue;
-      }
-      if (
-        searchTerms.has(normalizedAlias) ||
-        Array.from(searchTerms).some((term) => term.includes(normalizedAlias))
-      ) {
-        return type;
-      }
+    if (matchesExactAliases(type.exactAliases, searchSources)) {
+      matches.push(type);
+      continue;
     }
-  }
-
-  for (const type of localExpertTypes) {
+    if (matchesAliases(type.aliases, searchSources)) {
+      matches.push(type);
+      continue;
+    }
     if (
       type.categoryMayQualify &&
       normalizedListContains(type.mappedCategoryNames, normalizedCategory)
     ) {
-      return type;
+      matches.push(type);
     }
   }
-
-  return null;
+  return matches;
 }
 
 function hasUsableCoordinates(candidate: LocalExpertReviewCandidate): boolean {
@@ -500,6 +1036,60 @@ function bestPairwiseClusterCount(candidates: LocalExpertReviewCandidate[]): num
   return best;
 }
 
+function normalizeCountyKey(value?: string | null): string | null {
+  const normalized = value
+    ?.trim()
+    .toLowerCase()
+    .replace(/&/g, " and ")
+    .replace(/[\u2018\u2019\u201B\u2032']/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .replace(/\s+county$/, "")
+    .trim();
+  return normalized && normalized.length > 0 ? normalized : null;
+}
+
+function normalizeStateKey(value?: string | null): string | null {
+  const stateName = value
+    ?.trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const stateCode = stateName ? localExpertStateNameToCode.get(stateName) : null;
+  if (stateCode) {
+    return stateCode;
+  }
+  const normalized = value?.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "");
+  return normalized && normalized.length > 0 ? normalized : null;
+}
+
+function sameCountyKey(candidate: LocalExpertReviewCandidate): string | null {
+  const county = normalizeCountyKey(candidate.county);
+  const state = normalizeStateKey(candidate.state);
+  return county && state ? `${state}:${county}` : null;
+}
+
+function bestSameCountyCount(candidates: LocalExpertReviewCandidate[]): number {
+  const restaurantIdsByCounty = new Map<string, Set<string>>();
+  for (const candidate of candidates) {
+    const key = sameCountyKey(candidate);
+    const restaurantId = candidate.restaurantId.trim();
+    if (!key || restaurantId.length === 0) {
+      continue;
+    }
+    const restaurants = restaurantIdsByCounty.get(key) ?? new Set<string>();
+    restaurants.add(restaurantId);
+    restaurantIdsByCounty.set(key, restaurants);
+  }
+  let best = 0;
+  for (const restaurantIds of restaurantIdsByCounty.values()) {
+    best = Math.max(best, restaurantIds.size);
+  }
+  return best;
+}
+
 function representativeTimeMillis(candidate: LocalExpertReviewCandidate): number {
   return (
     candidate.updatedAt?.toMillis() ??
@@ -510,6 +1100,19 @@ function representativeTimeMillis(candidate: LocalExpertReviewCandidate): number
 
 function dedupeKey(userId: string, restaurantId: string, expertTypeId: string): string {
   return `${userId.trim().toLowerCase()}|${restaurantId.trim().toLowerCase()}|${expertTypeId}`;
+}
+
+function localExpertLevelRank(level?: string | null): number {
+  switch (level) {
+    case "level1":
+      return 1;
+    case "level2":
+      return 2;
+    case "level3":
+      return 3;
+    default:
+      return 0;
+  }
 }
 
 function isPublicReview(
@@ -570,6 +1173,15 @@ Promise<LocalExpertReviewCandidate[]> {
       }
 
       const location = restaurant.location;
+      const county =
+        readString(restaurant.county) ??
+        readString(restaurant.countyName) ??
+        readString(restaurant.normalizedCounty);
+      const state =
+        readString(restaurant.state) ??
+        readString(restaurant.stateCode) ??
+        readString(restaurant.region) ??
+        readString(restaurant.province);
       candidates.push({
         reviewId: readString(review.id) ?? reviewDoc.id,
         restaurantId,
@@ -583,6 +1195,8 @@ Promise<LocalExpertReviewCandidate[]> {
         updatedAt: review.updatedAt,
         latitude: location?.latitude ?? readNumber(restaurant.latitude),
         longitude: location?.longitude ?? readNumber(restaurant.longitude),
+        county,
+        state,
       });
     } catch (error) {
       logger.warn("Skipping malformed Local Expert review candidate", {
@@ -601,22 +1215,24 @@ LocalExpertBadgeResult[] {
   const representativesByKey = new Map<string, LocalExpertResolvedReview>();
 
   for (const candidate of candidates) {
-    const type = matchLocalExpertType(candidate);
-    if (!type) {
+    const types = matchLocalExpertTypes(candidate);
+    if (types.length === 0) {
       continue;
     }
 
-    const key = dedupeKey("unused", candidate.restaurantId, type.id);
-    const existing = representativesByKey.get(key);
-    if (
-      !existing ||
-      representativeTimeMillis(candidate) > representativeTimeMillis(existing.candidate) ||
-      (
-        representativeTimeMillis(candidate) === representativeTimeMillis(existing.candidate) &&
-        candidate.reviewId.localeCompare(existing.candidate.reviewId) > 0
-      )
-    ) {
-      representativesByKey.set(key, { candidate, expertType: type });
+    for (const type of types) {
+      const key = dedupeKey("unused", candidate.restaurantId, type.id);
+      const existing = representativesByKey.get(key);
+      if (
+        !existing ||
+        representativeTimeMillis(candidate) > representativeTimeMillis(existing.candidate) ||
+        (
+          representativeTimeMillis(candidate) === representativeTimeMillis(existing.candidate) &&
+          candidate.reviewId.localeCompare(existing.candidate.reviewId) > 0
+        )
+      ) {
+        representativesByKey.set(key, { candidate, expertType: type });
+      }
     }
   }
 
@@ -638,13 +1254,17 @@ LocalExpertBadgeResult[] {
     const local = bestPairwiseClusterCount(
       representatives.map((entry) => entry.candidate),
     );
+    const county = bestSameCountyCount(
+      representatives.map((entry) => entry.candidate),
+    );
+    const localOrCounty = Math.max(local, county);
 
     let level: LocalExpertBadgeResult["level"] = null;
     if (total >= 25) {
       level = "level3";
-    } else if (total >= 10 || local >= 5) {
+    } else if (total >= 10 || localOrCounty >= 5) {
       level = "level2";
-    } else if (total >= 5 || local >= 3) {
+    } else if (total >= 5 || localOrCounty >= 3) {
       level = "level1";
     }
 
@@ -653,8 +1273,8 @@ LocalExpertBadgeResult[] {
       (level === "level2" && total >= 10) ||
       (level === "level1" && total >= 5);
     const localQualified =
-      (level === "level2" && local >= 5) ||
-      (level === "level1" && local >= 3);
+      (level === "level2" && localOrCounty >= 5) ||
+      (level === "level1" && localOrCounty >= 3);
     const qualificationMethod = !level
       ? "none"
       : overallQualified && localQualified
@@ -677,16 +1297,21 @@ LocalExpertBadgeResult[] {
 }
 
 async function persistLocalExpertBadges(userId: string, results: LocalExpertBadgeResult[]):
-Promise<{ earnedBadgeCount: number; removedBadgeCount: number }> {
+Promise<LocalExpertBadgePersistenceResult> {
   const badgeCollection = db
     .collection("user_profiles")
     .doc(userId)
     .collection("local_expert_badges");
+  const celebrationCollection = db
+    .collection("user_profiles")
+    .doc(userId)
+    .collection(localExpertCelebrationSubcollection);
   const existingSnapshot = await badgeCollection.get();
   const existingIds = new Set(existingSnapshot.docs.map((doc) => doc.id));
   const batch = db.batch();
   let earnedBadgeCount = 0;
   let removedBadgeCount = 0;
+  const celebrations: LocalExpertBadgeCelebrationEvent[] = [];
 
   for (const result of results) {
     const badgeRef = badgeCollection.doc(result.expertTypeId);
@@ -695,6 +1320,14 @@ Promise<{ earnedBadgeCount: number; removedBadgeCount: number }> {
     }
     const existingDoc = existingSnapshot.docs.find((doc) => doc.id === result.expertTypeId);
     const existingEarnedAt = existingDoc?.get("earnedAt");
+    const existingLevel = readString(existingDoc?.get("level"));
+    const existingLevelRank = localExpertLevelRank(existingLevel);
+    const newLevelRank = localExpertLevelRank(result.level);
+    const celebrationKind = existingLevelRank === 0
+      ? "earned"
+      : existingLevelRank < newLevelRank
+        ? "levelUp"
+        : null;
     earnedBadgeCount += 1;
     existingIds.delete(result.expertTypeId);
     batch.set(
@@ -716,19 +1349,45 @@ Promise<{ earnedBadgeCount: number; removedBadgeCount: number }> {
       },
       { merge: true },
     );
+
+    if (celebrationKind) {
+      const eventKey = `${result.expertTypeId}_${result.level}`;
+      const celebrationRef = celebrationCollection.doc(eventKey);
+      const celebrationDoc = await celebrationRef.get();
+      if (!celebrationDoc.exists) {
+        const celebration: LocalExpertBadgeCelebrationEvent = {
+          eventKey,
+          expertTypeId: result.expertTypeId,
+          displayName: result.displayName,
+          level: result.level,
+          kind: celebrationKind,
+          status: "pending",
+        };
+        celebrations.push(celebration);
+        batch.set(celebrationRef, {
+          ...celebration,
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp(),
+          source: "localExpertFunctionsV1",
+        });
+      }
+    }
   }
 
   for (const staleId of existingIds) {
+    if (legacyLocalExpertTypeIds.has(staleId)) {
+      continue;
+    }
     removedBadgeCount += 1;
     batch.delete(badgeCollection.doc(staleId));
   }
 
   await batch.commit();
-  return { earnedBadgeCount, removedBadgeCount };
+  return { earnedBadgeCount, removedBadgeCount, celebrations };
 }
 
 async function recalculateLocalExpertBadgesForUser(userId: string):
-Promise<{ earnedBadgeCount: number; removedBadgeCount: number }> {
+Promise<LocalExpertBadgePersistenceResult> {
   const candidates = await buildLocalExpertCandidatesForUser(userId);
   const results = calculateLocalExpertBadges(candidates);
   return persistLocalExpertBadges(userId, results);
@@ -1143,11 +1802,8 @@ function renderSubscriptionReturnPage(params: {
       <h1>${escapedTitle}</h1>
       <p>${escapedMessage}</p>
       <a class="button" href="${escapedReturnUri}">${escapedButton}</a>
-      <p class="hint">If the app does not open automatically, tap the button above.</p>
+      <p class="hint">If BiteSaver does not open, switch back to the app to continue.</p>
     </div>
-    <script>
-      window.location.replace("${params.returnUri}");
-    </script>
   </body>
 </html>`;
 }
@@ -1155,10 +1811,10 @@ function renderSubscriptionReturnPage(params: {
 export const subscriptionCheckoutSuccess = onRequest((request, response) => {
   response.status(200).send(
     renderSubscriptionReturnPage({
-      title: "Subscription started successfully",
-      message: "Your subscription has started. You can return to the app now.",
+      title: "Subscription Active",
+      message: "Your subscription was successful. Tap below to return to BiteSaver.",
       returnUri: subscriptionReturnSuccessUri,
-      buttonLabel: "Return to app",
+      buttonLabel: "Open BiteSaver",
     }),
   );
 });
@@ -1166,10 +1822,10 @@ export const subscriptionCheckoutSuccess = onRequest((request, response) => {
 export const subscriptionCheckoutCancel = onRequest((request, response) => {
   response.status(200).send(
     renderSubscriptionReturnPage({
-      title: "Subscription checkout canceled",
-      message: "No changes were made. You can return to the app now.",
+      title: "Subscription Canceled",
+      message: "No changes were made. Tap below to return to BiteSaver.",
       returnUri: subscriptionReturnCancelUri,
-      buttonLabel: "Return to app",
+      buttonLabel: "Open BiteSaver",
     }),
   );
 });
@@ -1454,6 +2110,10 @@ export const cleanupDeletedRestaurantCoupons = onDocumentDeleted(
     const accountRef =
       event.data?.ref ?? db.collection("restaurant_accounts").doc(uid);
     await db.recursiveDelete(accountRef.collection("coupons"));
+    await db.recursiveDelete(
+      accountRef.collection("coupon_number_reservations"),
+    );
+    await db.recursiveDelete(accountRef.collection("coupon_code_reservations"));
   },
 );
 
@@ -1471,6 +2131,7 @@ export const recalculateMyLocalExpertBadges = onCall(async (request) => {
     ok: true,
     earnedBadgeCount: result.earnedBadgeCount,
     removedBadgeCount: result.removedBadgeCount,
+    celebrations: result.celebrations,
   };
 });
 

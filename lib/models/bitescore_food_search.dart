@@ -617,6 +617,9 @@ class BiteScoreFoodSearch {
       'steak and cheese sandwich',
     ],
     ['cuban sandwich', 'cuban sandwiches', 'cuban', 'cubano'],
+    ['ropa vieja', 'ropa viejo'],
+    ['cuban tamal', 'cuban tamale', 'cuban tamales'],
+    ['chicken pie', 'chicken pies', 'chicken pot pie', 'chicken pot pies'],
     ['chicken parmesan', 'chicken parm', 'chicken parmigiana'],
     ['eggplant parmesan', 'eggplant parm', 'eggplant parmigiana'],
     [

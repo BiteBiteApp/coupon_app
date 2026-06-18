@@ -41,11 +41,33 @@ class BiteScoreReviewSaveResult {
   final BitescoreDish dish;
   final BitescoreRestaurant restaurant;
   final DishReview review;
+  final ContributionPointAwardResult contributionPointAward;
 
   const BiteScoreReviewSaveResult({
     required this.dish,
     required this.restaurant,
     required this.review,
+    this.contributionPointAward = const ContributionPointAwardResult(),
+  });
+}
+
+class BiteScoreDishImageSaveResult {
+  final BiteScoreDishImage image;
+  final ContributionPointAwardResult contributionPointAward;
+
+  const BiteScoreDishImageSaveResult({
+    required this.image,
+    this.contributionPointAward = const ContributionPointAwardResult(),
+  });
+}
+
+class _BiteScoreReviewWriteResult {
+  final DishReview review;
+  final ContributionPointAwardResult milestoneAward;
+
+  const _BiteScoreReviewWriteResult({
+    required this.review,
+    required this.milestoneAward,
   });
 }
 
@@ -95,6 +117,19 @@ class BiteScoreUserReviewEntry {
   String get dishName => dish?.name ?? 'Dish no longer available';
   String get restaurantName =>
       restaurant?.name ?? dish?.restaurantName ?? 'Unknown restaurant';
+  String? get categoryDisplayName {
+    final subcategory = dish?.subcategory?.trim();
+    if (subcategory != null && subcategory.isNotEmpty) {
+      return subcategory;
+    }
+
+    final category = dish?.category?.trim();
+    if (category != null && category.isNotEmpty) {
+      return category;
+    }
+
+    return null;
+  }
 }
 
 class BiteScoreUserProfileData {
@@ -2542,13 +2577,82 @@ class BiteScoreService {
     }
   }
 
-  static Future<BiteScoreDishImage> addDishImageRecord({
+  static Future<BiteScoreDishImageSaveResult> addDishImageRecord({
     required BitescoreDish dish,
     required BitescoreRestaurant restaurant,
     required String uploadedByUserId,
     required String imageUrl,
     required String storagePath,
     String? reviewId,
+  }) async {
+    final image = await _addDishImageRecordWithoutAward(
+      dish: dish,
+      restaurant: restaurant,
+      uploadedByUserId: uploadedByUserId,
+      imageUrl: imageUrl,
+      storagePath: storagePath,
+      reviewId: reviewId,
+    );
+    final award = await ContributionPointsService.awardDishImage(
+      userId: uploadedByUserId,
+      imageId: image.id,
+      dish: dish,
+      restaurant: restaurant,
+    );
+
+    return BiteScoreDishImageSaveResult(
+      image: image,
+      contributionPointAward: award,
+    );
+  }
+
+  static Future<BiteScoreDishImageSaveResult> addMissingDishImageRecord({
+    required BitescoreDish dish,
+    required BitescoreRestaurant restaurant,
+    required String uploadedByUserId,
+    required String imageUrl,
+    required String storagePath,
+  }) async {
+    final image = await _addDishImageRecordWithoutAward(
+      dish: dish,
+      restaurant: restaurant,
+      uploadedByUserId: uploadedByUserId,
+      imageUrl: imageUrl,
+      storagePath: storagePath,
+      requireMissingDishImage: true,
+    );
+
+    return BiteScoreDishImageSaveResult(image: image);
+  }
+
+  static Future<BiteScoreDishImageSaveResult> addDishImageToGallery({
+    required BitescoreDish dish,
+    required BitescoreRestaurant restaurant,
+    required String uploadedByUserId,
+    required String imageUrl,
+    required String storagePath,
+  }) async {
+    final image = await _addDishImageRecordWithoutAward(
+      dish: dish,
+      restaurant: restaurant,
+      uploadedByUserId: uploadedByUserId,
+      imageUrl: imageUrl,
+      storagePath: storagePath,
+      requireExistingDish: true,
+    );
+
+    return BiteScoreDishImageSaveResult(image: image);
+  }
+
+  static Future<BiteScoreDishImage> _addDishImageRecordWithoutAward({
+    required BitescoreDish dish,
+    required BitescoreRestaurant restaurant,
+    required String uploadedByUserId,
+    required String imageUrl,
+    required String storagePath,
+    String? reviewId,
+    bool requireMissingDishImage = false,
+    bool requireExistingDish = false,
   }) async {
     final imageRef = dishImagesCollection().doc();
     final dishRef = dishesCollection().doc(dish.id);
@@ -2565,10 +2669,19 @@ class BiteScoreService {
 
     await _firestore.runTransaction((transaction) async {
       final dishSnapshot = await transaction.get(dishRef);
+      if ((requireMissingDishImage || requireExistingDish) &&
+          !dishSnapshot.exists) {
+        throw ArgumentError('This dish is no longer available.');
+      }
       final data = dishSnapshot.data();
       final existingPrimaryImageUrl = _readAdminString(
         data?['primaryImageUrl'],
       );
+      final existingImageCount = _readAdminInt(data?['imageCount']) ?? 0;
+      if (requireMissingDishImage &&
+          (existingPrimaryImageUrl != null || existingImageCount > 0)) {
+        throw ArgumentError('This dish already has an image.');
+      }
       final update = <String, dynamic>{
         'imageCount': FieldValue.increment(1),
         'updatedAt': FieldValue.serverTimestamp(),
@@ -2588,12 +2701,6 @@ class BiteScoreService {
     });
 
     await _refreshPrimaryDishImageForDish(dish.id);
-    await ContributionPointsService.awardDishImage(
-      userId: uploadedByUserId,
-      imageId: image.id,
-      dish: dish,
-      restaurant: restaurant,
-    );
 
     return image;
   }
@@ -2796,11 +2903,14 @@ class BiteScoreService {
     BiteScoreDishImage a,
     BiteScoreDishImage b,
   ) {
-    final byHelpfulScore = _dishImageHelpfulScore(
-      b,
-    ).compareTo(_dishImageHelpfulScore(a));
-    if (byHelpfulScore != 0) {
-      return byHelpfulScore;
+    final byHelpfulCount = b.helpfulCount.compareTo(a.helpfulCount);
+    if (byHelpfulCount != 0) {
+      return byHelpfulCount;
+    }
+
+    final bySortOrder = a.sortOrder.compareTo(b.sortOrder);
+    if (bySortOrder != 0) {
+      return bySortOrder;
     }
 
     final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
@@ -2811,10 +2921,6 @@ class BiteScoreService {
     }
 
     return a.id.compareTo(b.id);
-  }
-
-  static int _dishImageHelpfulScore(BiteScoreDishImage image) {
-    return image.helpfulCount - image.notHelpfulCount;
   }
 
   static Future<bool> isRestaurantFavoritedByCurrentUser(
@@ -3407,9 +3513,11 @@ class BiteScoreService {
     return deduplicateReviewsForAggregate(reviews).length;
   }
 
-  static Future<void> _reconcileReviewMilestonesForUser(String userId) async {
+  static Future<ContributionPointAwardResult> _reconcileReviewMilestonesForUser(
+    String userId,
+  ) async {
     final validReviewCount = await _validPublicReviewCountForUser(userId);
-    await ContributionPointsService.reconcileReviewMilestones(
+    return ContributionPointsService.reconcileReviewMilestones(
       userId: userId,
       validPublicReviewCount: validReviewCount,
     );
@@ -3715,7 +3823,7 @@ class BiteScoreService {
     final restaurant = restaurantResolution.restaurant;
     final dishResolution = await _findOrCreateDish(request, restaurant);
     final dish = dishResolution.dish;
-    final review = await _createReviewAndRebuildAggregate(
+    final reviewResult = await _createReviewAndRebuildAggregate(
       userId: user.uid,
       dish: dish,
       restaurant: restaurant,
@@ -3726,7 +3834,7 @@ class BiteScoreService {
       headline: request.headline,
       notes: request.notes,
     );
-    await ContributionPointsService.awardDishContribution(
+    final dishAward = await ContributionPointsService.awardDishContribution(
       userId: user.uid,
       dish: dish,
       restaurant: restaurant,
@@ -3738,7 +3846,11 @@ class BiteScoreService {
     return BiteScoreReviewSaveResult(
       dish: dish,
       restaurant: restaurant,
-      review: review,
+      review: reviewResult.review,
+      contributionPointAward: ContributionPointAwardResult.combine(
+        <ContributionPointAwardResult>[reviewResult.milestoneAward, dishAward],
+        actionGroupId: 'create_and_rate:${reviewResult.review.id}',
+      ),
     );
   }
 
@@ -3764,7 +3876,7 @@ class BiteScoreService {
 
     final user = await _requireFreshSignedInBiteScoreUser();
 
-    final review = await _createReviewAndRebuildAggregate(
+    final reviewResult = await _createReviewAndRebuildAggregate(
       userId: user.uid,
       dish: dish,
       restaurant: restaurant,
@@ -3779,7 +3891,8 @@ class BiteScoreService {
     return BiteScoreReviewSaveResult(
       dish: dish,
       restaurant: restaurant,
-      review: review,
+      review: reviewResult.review,
+      contributionPointAward: reviewResult.milestoneAward,
     );
   }
 
@@ -4063,7 +4176,7 @@ class BiteScoreService {
       allowExistingMatch: !forceCreateNewDish,
     );
     final dish = dishResolution.dish;
-    final review = await _createReviewAndRebuildAggregate(
+    final reviewResult = await _createReviewAndRebuildAggregate(
       userId: user.uid,
       dish: dish,
       restaurant: restaurant,
@@ -4074,7 +4187,7 @@ class BiteScoreService {
       headline: headline,
       notes: notes,
     );
-    await ContributionPointsService.awardDishContribution(
+    final dishAward = await ContributionPointsService.awardDishContribution(
       userId: user.uid,
       dish: dish,
       restaurant: restaurant,
@@ -4086,7 +4199,11 @@ class BiteScoreService {
     return BiteScoreReviewSaveResult(
       dish: dish,
       restaurant: restaurant,
-      review: review,
+      review: reviewResult.review,
+      contributionPointAward: ContributionPointAwardResult.combine(
+        <ContributionPointAwardResult>[reviewResult.milestoneAward, dishAward],
+        actionGroupId: 'create_dish_and_rate:${reviewResult.review.id}',
+      ),
     );
   }
 
@@ -5393,6 +5510,13 @@ class BiteScoreService {
     return '${_safeDocumentIdPart(dishId)}_${_safeDocumentIdPart(userId)}';
   }
 
+  static String dishImageVoteDocumentIdForTesting({
+    required String imageId,
+    required String userId,
+  }) {
+    return _dishImageVoteDocumentId(imageId, userId);
+  }
+
   static String _dishImageVoteDocumentId(String imageId, String userId) {
     return '${imageId.trim()}_${userId.trim()}';
   }
@@ -6262,7 +6386,7 @@ class BiteScoreService {
     return previousRow.last;
   }
 
-  static Future<DishReview> _createReviewAndRebuildAggregate({
+  static Future<_BiteScoreReviewWriteResult> _createReviewAndRebuildAggregate({
     required String userId,
     required BitescoreDish dish,
     required BitescoreRestaurant restaurant,
@@ -6328,8 +6452,13 @@ class BiteScoreService {
     }, SetOptions(merge: true));
 
     await _rebuildDishAggregate(dishId: dish.id, restaurantId: restaurant.id);
-    await _reconcileReviewMilestonesForUser(trimmedUserId);
-    return review;
+    final milestoneAward = await _reconcileReviewMilestonesForUser(
+      trimmedUserId,
+    );
+    return _BiteScoreReviewWriteResult(
+      review: review,
+      milestoneAward: milestoneAward,
+    );
   }
 
   static String? _validateRequiredReviewScores({

@@ -187,6 +187,77 @@ void main() {
       expect(next, isNot(first));
       expect(next, matches(RegExp(r'^\d{4}$')));
     });
+
+    test('stable coupon number generation stops after max attempts', () {
+      final first = RestaurantAccountService.stableCouponNumberForId(
+        'coupon-doc-1',
+        maxAttempts: 1,
+      );
+
+      expect(
+        () => RestaurantAccountService.stableCouponNumberForId(
+          'coupon-doc-1',
+          reservedNumbers: {first},
+          maxAttempts: 1,
+        ),
+        throwsA(isA<StateError>()),
+      );
+    });
+
+    test('same coupon number can be generated for separate restaurants', () {
+      final restaurantAReservedNumbers = <String>{};
+      final restaurantBReservedNumbers = <String>{};
+
+      final first = RestaurantAccountService.stableCouponNumberForId(
+        'coupon-doc-1',
+        reservedNumbers: restaurantAReservedNumbers,
+      );
+      final second = RestaurantAccountService.stableCouponNumberForId(
+        'coupon-doc-1',
+        reservedNumbers: restaurantBReservedNumbers,
+      );
+
+      expect(second, first);
+    });
+
+    test('coupon number candidates are four digits and range checked', () {
+      expect(
+        RestaurantAccountService.couponNumberCandidateForId(
+          'coupon-doc-1',
+          attempt: 0,
+        ),
+        matches(RegExp(r'^\d{4}$')),
+      );
+      expect(
+        () => RestaurantAccountService.couponNumberCandidateForId(
+          'coupon-doc-1',
+          attempt: -1,
+        ),
+        throwsRangeError,
+      );
+      expect(
+        () => RestaurantAccountService.couponNumberCandidateForId(
+          'coupon-doc-1',
+          attempt: RestaurantAccountService.maxCouponNumberGenerationAttempts,
+        ),
+        throwsRangeError,
+      );
+    });
+
+    test('manual coupon code comparison is trimmed and case-insensitive', () {
+      expect(
+        RestaurantAccountService.normalizedCouponCodeForComparison(' joe50 '),
+        'JOE50',
+      );
+      expect(
+        RestaurantAccountService.normalizedCouponCodeForComparison('JOE50'),
+        'JOE50',
+      );
+      expect(
+        RestaurantAccountService.normalizedCouponCodeForComparison('   '),
+        isNull,
+      );
+    });
   });
 
   group('Restaurant validation', () {

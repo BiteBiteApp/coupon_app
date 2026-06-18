@@ -6,6 +6,8 @@ class ContributionPointLedgerEntry {
   static const String statusActive = 'active';
   static const String statusReversed = 'reversed';
   static const String statusReversal = 'reversal';
+  static const String celebrationStatusPending = 'pending';
+  static const String celebrationStatusCelebrated = 'celebrated';
 
   final String id;
   final String userId;
@@ -34,6 +36,8 @@ class ContributionPointLedgerEntry {
   final String? mergeTargetDishId;
   final String? mergeTargetDishName;
   final String? reason;
+  final String? celebrationStatus;
+  final DateTime? celebratedAt;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -65,6 +69,8 @@ class ContributionPointLedgerEntry {
     this.mergeTargetDishId,
     this.mergeTargetDishName,
     this.reason,
+    this.celebrationStatus,
+    this.celebratedAt,
     this.createdAt,
     this.updatedAt,
   });
@@ -100,6 +106,10 @@ class ContributionPointLedgerEntry {
       'mergeTargetDishId': mergeTargetDishId?.trim(),
       'mergeTargetDishName': mergeTargetDishName?.trim(),
       'reason': reason?.trim(),
+      'celebrationStatus': celebrationStatus?.trim(),
+      'celebratedAt': celebratedAt == null
+          ? null
+          : Timestamp.fromDate(celebratedAt!),
       'createdAt': createdAt == null ? null : Timestamp.fromDate(createdAt!),
       'updatedAt': updatedAt == null ? null : Timestamp.fromDate(updatedAt!),
     };
@@ -154,6 +164,8 @@ class ContributionPointLedgerEntry {
       mergeTargetDishId: _readString(data['mergeTargetDishId']),
       mergeTargetDishName: _readString(data['mergeTargetDishName']),
       reason: _readString(data['reason']),
+      celebrationStatus: _readString(data['celebrationStatus']),
+      celebratedAt: _readDateTime(data['celebratedAt']),
       createdAt: _readDateTime(data['createdAt']),
       updatedAt: _readDateTime(data['updatedAt']),
     );

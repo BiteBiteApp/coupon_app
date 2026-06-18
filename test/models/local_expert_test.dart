@@ -86,7 +86,7 @@ void main() {
       );
       expect(
         LocalExperts.matchDish(dishName: 'Smothered burrito')?.id,
-        LocalExperts.burrito.id,
+        LocalExperts.mexican.id,
       );
       expect(
         LocalExperts.matchDish(dishName: 'Ribeye')?.id,
@@ -129,24 +129,253 @@ void main() {
     });
 
     test('expert type IDs are stable', () {
+      expect(LocalExperts.all.map((type) => type.id), [
+        'burger',
+        'pizza',
+        'wings',
+        'ramen',
+        'donuts',
+        'steak',
+        'chinese',
+        'japanese_sushi',
+        'mexican',
+        'seafood',
+        'italian',
+        'bbq',
+        'hot_dogs_corn_dogs',
+        'chili',
+        'mac_and_cheese',
+        'meatloaf',
+        'chicken_pie',
+        'chicken_sandwich',
+        'fried_chicken',
+        'cuban',
+        'subs_sandwiches',
+      ]);
       expect(
         LocalExperts.all.map((type) => type.id),
-        containsAll([
-          'burger',
-          'pizza',
-          'burrito',
-          'tacos',
-          'wings',
-          'lobster',
-          'pasta',
-          'ramen',
-          'donuts',
-          'chinese',
-          'japanese_sushi',
-          'steak',
-        ]),
+        isNot(containsAll(['burrito', 'tacos', 'lobster', 'pasta'])),
       );
       expect(LocalExperts.byId('Japanese_Sushi')?.id, 'japanese_sushi');
+    });
+
+    test('new grouped badge mappings resolve targeted dishes', () {
+      expect(
+        LocalExperts.matchDish(dishName: 'Birria tacos')?.id,
+        LocalExperts.mexican.id,
+      );
+      expect(
+        LocalExperts.matchDish(dishName: 'Lobster roll')?.id,
+        LocalExperts.seafood.id,
+      );
+      expect(
+        LocalExperts.matchDish(dishName: 'Pulled pork')?.id,
+        LocalExperts.bbq.id,
+      );
+      expect(
+        LocalExperts.matchDish(dishName: 'Corn dog')?.id,
+        LocalExperts.hotDogsCornDogs.id,
+      );
+      expect(
+        LocalExperts.matchDish(
+          dishName: 'Chili',
+          categoryName: 'American',
+          subcategory: 'Chili',
+        )?.id,
+        LocalExperts.chili.id,
+      );
+      expect(
+        LocalExperts.matchDish(dishName: 'Mac & Cheese')?.id,
+        LocalExperts.macAndCheese.id,
+      );
+      expect(
+        LocalExperts.matchDish(dishName: 'Meat loaf')?.id,
+        LocalExperts.meatloaf.id,
+      );
+      expect(
+        LocalExperts.matchDish(
+          subcategory: 'Chicken Pie / Chicken Pot Pie',
+        )?.id,
+        LocalExperts.chickenPie.id,
+      );
+      expect(
+        LocalExperts.matchDish(categoryId: 'subs', categoryName: 'Subs')?.id,
+        LocalExperts.subsSandwiches.id,
+      );
+    });
+
+    test('pizza is excluded from Italian but other Italian dishes qualify', () {
+      expect(
+        LocalExperts.matchDishes(
+          dishName: 'Pepperoni pizza',
+          categoryName: 'Italian',
+          subcategory: 'Pizza',
+        ).map((type) => type.id),
+        [LocalExperts.pizza.id],
+      );
+      expect(
+        LocalExperts.matchDishes(
+          dishName: 'Spaghetti marinara',
+          categoryName: 'Italian',
+        ).map((type) => type.id),
+        contains(LocalExperts.italian.id),
+      );
+    });
+
+    test('seafood does not claim sushi without seafood classification', () {
+      final matches = LocalExperts.matchDishes(
+        dishName: 'Salmon sushi roll',
+        categoryName: 'Japanese / Sushi',
+        subcategory: 'Sushi roll',
+      ).map((type) => type.id);
+
+      expect(matches, contains(LocalExperts.japaneseSushi.id));
+      expect(matches, isNot(contains(LocalExperts.seafood.id)));
+    });
+
+    test('intentional multi-badge dishes resolve to each applicable badge', () {
+      expect(
+        LocalExperts.matchDishes(
+          dishName: 'Fried chicken sandwich',
+          subcategory: 'Chicken sandwich',
+        ).map((type) => type.id),
+        containsAll([
+          LocalExperts.chickenSandwich.id,
+          LocalExperts.friedChicken.id,
+        ]),
+      );
+      expect(
+        LocalExperts.matchDishes(
+          dishName: 'Cuban sandwich',
+          categoryName: 'Deli / Sandwiches',
+          subcategory: 'Cuban sandwich',
+          categoryTags: const ['cuban_sandwich', 'cuban', 'deli'],
+        ).map((type) => type.id),
+        containsAll([LocalExperts.cuban.id, LocalExperts.subsSandwiches.id]),
+      );
+      expect(
+        LocalExperts.matchDishes(
+          dishName: 'Chili cheese dog',
+        ).map((type) => type.id),
+        containsAll([LocalExperts.chili.id, LocalExperts.hotDogsCornDogs.id]),
+      );
+    });
+
+    test('Subs / Sandwiches resolves structured deli and sub dishes', () {
+      expect(
+        LocalExperts.matchDishes(
+          dishName: 'Italian sub',
+          categoryName: 'Deli / Sandwiches',
+          subcategory: 'Italian sub',
+        ).map((type) => type.id),
+        contains(LocalExperts.subsSandwiches.id),
+      );
+      expect(
+        LocalExperts.matchDishes(
+          dishName: 'Turkey hoagie',
+        ).map((type) => type.id),
+        contains(LocalExperts.subsSandwiches.id),
+      );
+      expect(
+        LocalExperts.matchDishes(
+          dishName: 'Meatball grinder',
+        ).map((type) => type.id),
+        contains(LocalExperts.subsSandwiches.id),
+      );
+      expect(
+        LocalExperts.matchDishes(
+          dishName: 'Ham sandwich',
+          categoryId: 'deli_sandwiches',
+          categoryName: 'Deli / Sandwiches',
+          subcategory: 'Ham sandwich',
+        ).map((type) => type.id),
+        contains(LocalExperts.subsSandwiches.id),
+      );
+    });
+
+    test('Chili resolves clear chili dishes without broad sauce matches', () {
+      expect(
+        LocalExperts.matchDishes(
+          dishName: 'Chili con carne',
+        ).map((type) => type.id),
+        contains(LocalExperts.chili.id),
+      );
+      expect(
+        LocalExperts.matchDishes(
+          dishName: 'White chicken chili',
+        ).map((type) => type.id),
+        contains(LocalExperts.chili.id),
+      );
+      expect(
+        LocalExperts.matchDishes(
+          dishName: 'Vegetarian chili',
+        ).map((type) => type.id),
+        contains(LocalExperts.chili.id),
+      );
+      expect(
+        LocalExperts.matchDishes(
+          dishName: 'Chili sauce',
+        ).map((type) => type.id),
+        isNot(contains(LocalExperts.chili.id)),
+      );
+      expect(
+        LocalExperts.matchDishes(dishName: 'Chili oil').map((type) => type.id),
+        isNot(contains(LocalExperts.chili.id)),
+      );
+      expect(
+        LocalExperts.matchDishes(
+          dishName: 'Chili chicken',
+        ).map((type) => type.id),
+        isNot(contains(LocalExperts.chili.id)),
+      );
+    });
+
+    test('explicit exclusions prevent false multi-badge matches', () {
+      expect(
+        LocalExperts.matchDishes(
+          dishName: 'Cuban sandwich',
+          subcategory: 'Cuban sandwich',
+          categoryTags: const ['cuban_sandwich', 'cuban', 'sandwich'],
+        ).map((type) => type.id),
+        isNot(contains(LocalExperts.chickenSandwich.id)),
+      );
+      expect(
+        LocalExperts.matchDishes(
+          dishName: 'Buffalo wings',
+          subcategory: 'Wings',
+        ).map((type) => type.id),
+        isNot(contains(LocalExperts.friedChicken.id)),
+      );
+      expect(
+        LocalExperts.matchDishes(
+          dishName: 'BBQ pulled pork sandwich',
+          categoryName: 'BBQ',
+          subcategory: 'BBQ sandwich',
+        ).map((type) => type.id),
+        isNot(contains(LocalExperts.subsSandwiches.id)),
+      );
+      expect(
+        LocalExperts.matchDishes(
+          dishName: 'Grilled chicken sandwich',
+          categoryName: 'Chicken',
+          subcategory: 'Chicken sandwich',
+        ).map((type) => type.id),
+        isNot(contains(LocalExperts.subsSandwiches.id)),
+      );
+      expect(
+        LocalExperts.matchDishes(
+          dishName: 'Cheeseburger',
+          categoryName: 'Burgers',
+        ).map((type) => type.id),
+        isNot(contains(LocalExperts.subsSandwiches.id)),
+      );
+      expect(
+        LocalExperts.matchDishes(
+          dishName: 'Hot dog',
+          subcategory: 'Hot dogs',
+        ).map((type) => type.id),
+        isNot(contains(LocalExperts.subsSandwiches.id)),
+      );
     });
 
     test('badge thresholds are shared constants', () {

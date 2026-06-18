@@ -69,6 +69,63 @@ class ContributionPointAwardDraft {
   });
 }
 
+class ContributionPointAwardEntryResult {
+  final String ledgerEntryId;
+  final int points;
+  final bool wasCreated;
+
+  const ContributionPointAwardEntryResult({
+    required this.ledgerEntryId,
+    required this.points,
+    required this.wasCreated,
+  });
+}
+
+class ContributionPointAwardResult {
+  final List<ContributionPointAwardEntryResult> entries;
+  final String? actionGroupId;
+
+  const ContributionPointAwardResult({
+    this.entries = const <ContributionPointAwardEntryResult>[],
+    this.actionGroupId,
+  });
+
+  int get newlyAwardedPoints => entries.fold<int>(
+    0,
+    (total, entry) => entry.wasCreated ? total + entry.points : total,
+  );
+
+  List<String> get newlyCreatedLedgerEntryIds => entries
+      .where((entry) => entry.wasCreated && entry.points > 0)
+      .map((entry) => entry.ledgerEntryId)
+      .toList(growable: false);
+
+  bool get hasNewPositivePoints => newlyAwardedPoints > 0;
+
+  ContributionPointAwardResult merge(
+    ContributionPointAwardResult other, {
+    String? actionGroupId,
+  }) {
+    return ContributionPointAwardResult(
+      entries: <ContributionPointAwardEntryResult>[
+        ...entries,
+        ...other.entries,
+      ],
+      actionGroupId: actionGroupId ?? this.actionGroupId ?? other.actionGroupId,
+    );
+  }
+
+  static ContributionPointAwardResult combine(
+    Iterable<ContributionPointAwardResult> results, {
+    String? actionGroupId,
+  }) {
+    return ContributionPointAwardResult(
+      entries: results.expand((result) => result.entries).toList(),
+      actionGroupId: actionGroupId,
+    );
+  }
+}
+
 class ContributionPointUserSummary {
   final String userId;
   final String displayName;
@@ -81,6 +138,25 @@ class ContributionPointUserSummary {
     required this.totalPoints,
     this.lastActivityAt,
   });
+}
+
+class ContributionPointCelebrationMarkResult {
+  final Set<String> attemptedEntryIds;
+  final Set<String> markedEntryIds;
+  final Set<String> alreadyCelebratedEntryIds;
+  final Set<String> missingEntryIds;
+  final Set<String> ignoredEntryIds;
+
+  const ContributionPointCelebrationMarkResult({
+    this.attemptedEntryIds = const <String>{},
+    this.markedEntryIds = const <String>{},
+    this.alreadyCelebratedEntryIds = const <String>{},
+    this.missingEntryIds = const <String>{},
+    this.ignoredEntryIds = const <String>{},
+  });
+
+  bool get hasProblems =>
+      missingEntryIds.isNotEmpty || ignoredEntryIds.isNotEmpty;
 }
 
 enum ContributionPointSort {
@@ -280,7 +356,7 @@ class ContributionPointsService {
     return 0;
   }
 
-  static Future<void> awardDishContribution({
+  static Future<ContributionPointAwardResult> awardDishContribution({
     required String userId,
     required BitescoreDish dish,
     required BitescoreRestaurant restaurant,
@@ -294,7 +370,7 @@ class ContributionPointsService {
       restaurantHadNoDishesBefore: restaurantHadNoDishesBefore,
     );
     if (points == 0) {
-      return;
+      return const ContributionPointAwardResult();
     }
 
     final sourceKey = createdNewRestaurant
@@ -314,7 +390,7 @@ class ContributionPointsService {
         ? 'Added the first dish to an existing restaurant'
         : 'Added a dish to an existing restaurant';
 
-    await awardPoints(
+    return awardPoints(
       ContributionPointAwardDraft(
         userId: userId,
         points: points,
@@ -337,13 +413,13 @@ class ContributionPointsService {
     );
   }
 
-  static Future<void> awardDishImage({
+  static Future<ContributionPointAwardResult> awardDishImage({
     required String userId,
     required String imageId,
     required BitescoreDish dish,
     required BitescoreRestaurant restaurant,
   }) async {
-    await awardPoints(
+    return awardPoints(
       ContributionPointAwardDraft(
         userId: userId,
         points: 1,
@@ -363,7 +439,7 @@ class ContributionPointsService {
     );
   }
 
-  static Future<void> awardApprovedDishProposal({
+  static Future<ContributionPointAwardResult> awardApprovedDishProposal({
     required DishEditProposal proposal,
     required BitescoreDish? dish,
     required BitescoreRestaurant? restaurant,
@@ -386,7 +462,7 @@ class ContributionPointsService {
       mergeTargetDishName: mergeTargetDish?.name,
     );
 
-    await awardPoints(
+    return awardPoints(
       ContributionPointAwardDraft(
         userId: proposal.userId,
         points: 1,
@@ -415,29 +491,32 @@ class ContributionPointsService {
     );
   }
 
-  static Future<void> reconcileReviewMilestones({
+  static Future<ContributionPointAwardResult> reconcileReviewMilestones({
     required String userId,
     required int validPublicReviewCount,
   }) async {
     final trimmedUserId = userId.trim();
     if (trimmedUserId.isEmpty) {
-      return;
+      return const ContributionPointAwardResult();
     }
 
     final earnedMilestones = reviewMilestonesForCount(
       validPublicReviewCount,
     ).toSet();
+    final awardResults = <ContributionPointAwardResult>[];
     for (final milestone in earnedMilestones) {
-      await awardPoints(
-        ContributionPointAwardDraft(
-          userId: trimmedUserId,
-          points: 1,
-          actionType: ContributionPointAction.reviewMilestone,
-          sourceKey: reviewMilestoneSourceKey(
+      awardResults.add(
+        await awardPoints(
+          ContributionPointAwardDraft(
             userId: trimmedUserId,
-            milestone: milestone,
+            points: 1,
+            actionType: ContributionPointAction.reviewMilestone,
+            sourceKey: reviewMilestoneSourceKey(
+              userId: trimmedUserId,
+              milestone: milestone,
+            ),
+            description: 'Reached $milestone valid public reviews',
           ),
-          description: 'Reached $milestone valid public reviews',
         ),
       );
     }
@@ -465,23 +544,32 @@ class ContributionPointsService {
         );
       }
     }
+
+    return ContributionPointAwardResult.combine(
+      awardResults,
+      actionGroupId: 'review_milestones:$trimmedUserId:$validPublicReviewCount',
+    );
   }
 
-  static Future<void> awardPoints(ContributionPointAwardDraft draft) async {
+  static Future<ContributionPointAwardResult> awardPoints(
+    ContributionPointAwardDraft draft,
+  ) async {
     if (draft.userId.trim().isEmpty || draft.points <= 0) {
-      return;
+      return const ContributionPointAwardResult();
     }
 
     final sourceKey = draft.sourceKey.trim();
     if (sourceKey.isEmpty) {
-      return;
+      return const ContributionPointAwardResult();
     }
 
     final documentId = ledgerDocumentIdForSourceKey(sourceKey);
     final entryRef = ledgerCollection().doc(documentId);
     final userRef = userProfileDocument(draft.userId);
 
-    await _firestore.runTransaction((transaction) async {
+    final createdEntryId = await _firestore.runTransaction<String?>((
+      transaction,
+    ) async {
       final existingSnapshot = await transaction.get(entryRef);
       if (existingSnapshot.exists) {
         final existing = ContributionPointLedgerEntry.tryFromFirestore(
@@ -490,13 +578,13 @@ class ContributionPointsService {
         );
         if (existing == null ||
             existing.status == ContributionPointLedgerEntry.statusActive) {
-          return;
+          return null;
         }
 
         final restoreRef = ledgerCollection().doc('restore:$documentId');
         final restoreSnapshot = await transaction.get(restoreRef);
         if (restoreSnapshot.exists) {
-          return;
+          return null;
         }
         transaction.set(restoreRef, {
           ..._entryMap(
@@ -507,12 +595,37 @@ class ContributionPointsService {
           'originalLedgerEntryId': existing.id,
         });
         _incrementCachedTotal(transaction, userRef, draft.points);
-        return;
+        return restoreRef.id;
       }
 
       transaction.set(entryRef, _entryMap(id: entryRef.id, draft: draft));
       _incrementCachedTotal(transaction, userRef, draft.points);
+      return entryRef.id;
     });
+
+    if (createdEntryId == null) {
+      return ContributionPointAwardResult(
+        entries: <ContributionPointAwardEntryResult>[
+          ContributionPointAwardEntryResult(
+            ledgerEntryId: documentId,
+            points: draft.points,
+            wasCreated: false,
+          ),
+        ],
+        actionGroupId: sourceKey,
+      );
+    }
+
+    return ContributionPointAwardResult(
+      entries: <ContributionPointAwardEntryResult>[
+        ContributionPointAwardEntryResult(
+          ledgerEntryId: createdEntryId,
+          points: draft.points,
+          wasCreated: true,
+        ),
+      ],
+      actionGroupId: sourceKey,
+    );
   }
 
   static Future<void> reverseBySourceKey({
@@ -529,6 +642,105 @@ class ContributionPointsService {
     if (entry != null) {
       await reverseLedgerEntry(entry, reason: reason);
     }
+  }
+
+  static Future<List<ContributionPointLedgerEntry>>
+  loadUncelebratedPositiveLedgerEntries(String userId, {int limit = 30}) async {
+    final trimmedUserId = userId.trim();
+    if (trimmedUserId.isEmpty) {
+      return const <ContributionPointLedgerEntry>[];
+    }
+
+    final snapshot = await ledgerCollection()
+        .where('userId', isEqualTo: trimmedUserId)
+        .where('status', isEqualTo: ContributionPointLedgerEntry.statusActive)
+        .where(
+          'celebrationStatus',
+          isEqualTo: ContributionPointLedgerEntry.celebrationStatusPending,
+        )
+        .get();
+    final entries = snapshot.docs
+        .map(
+          (doc) => ContributionPointLedgerEntry.tryFromFirestore(
+            doc.data(),
+            fallbackId: doc.id,
+          ),
+        )
+        .whereType<ContributionPointLedgerEntry>()
+        .where((entry) => entry.pointsDelta > 0 && !entry.isReversal)
+        .toList();
+    entries.sort((a, b) {
+      final aDate = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bDate = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return aDate.compareTo(bDate);
+    });
+    return entries.take(limit).toList(growable: false);
+  }
+
+  static Future<ContributionPointCelebrationMarkResult>
+  markCelebratedLedgerEntries({
+    required String userId,
+    required Iterable<String> ledgerEntryIds,
+  }) async {
+    final trimmedUserId = userId.trim();
+    final ids = ledgerEntryIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    if (trimmedUserId.isEmpty || ids.isEmpty) {
+      return ContributionPointCelebrationMarkResult(attemptedEntryIds: ids);
+    }
+
+    final markedEntryIds = <String>{};
+    final alreadyCelebratedEntryIds = <String>{};
+    final missingEntryIds = <String>{};
+    final ignoredEntryIds = <String>{};
+
+    await _firestore.runTransaction((transaction) async {
+      for (final id in ids) {
+        final ref = ledgerCollection().doc(id);
+        final snapshot = await transaction.get(ref);
+        if (!snapshot.exists) {
+          missingEntryIds.add(id);
+          continue;
+        }
+        final entry = ContributionPointLedgerEntry.tryFromFirestore(
+          snapshot.data(),
+          fallbackId: snapshot.id,
+        );
+        if (entry == null || entry.userId != trimmedUserId) {
+          ignoredEntryIds.add(id);
+          continue;
+        }
+        if (entry.celebrationStatus ==
+            ContributionPointLedgerEntry.celebrationStatusCelebrated) {
+          alreadyCelebratedEntryIds.add(id);
+          continue;
+        }
+        if (entry.pointsDelta <= 0 ||
+            entry.status != ContributionPointLedgerEntry.statusActive ||
+            entry.celebrationStatus !=
+                ContributionPointLedgerEntry.celebrationStatusPending) {
+          ignoredEntryIds.add(id);
+          continue;
+        }
+        transaction.set(ref, {
+          'celebrationStatus':
+              ContributionPointLedgerEntry.celebrationStatusCelebrated,
+          'celebratedAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+        markedEntryIds.add(id);
+      }
+    });
+
+    return ContributionPointCelebrationMarkResult(
+      attemptedEntryIds: ids,
+      markedEntryIds: markedEntryIds,
+      alreadyCelebratedEntryIds: alreadyCelebratedEntryIds,
+      missingEntryIds: missingEntryIds,
+      ignoredEntryIds: ignoredEntryIds,
+    );
   }
 
   static Future<void> reverseActiveEntriesForDish({
@@ -702,6 +914,9 @@ class ContributionPointsService {
       'sourceKey': draft.sourceKey.trim(),
       'description': (description ?? draft.description).trim(),
       'status': ContributionPointLedgerEntry.statusActive,
+      if (draft.points > 0)
+        'celebrationStatus':
+            ContributionPointLedgerEntry.celebrationStatusPending,
       'dishId': draft.dishId?.trim(),
       'dishName': draft.dishName?.trim(),
       'restaurantId': draft.restaurantId?.trim(),

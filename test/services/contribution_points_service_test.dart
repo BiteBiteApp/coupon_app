@@ -40,6 +40,22 @@ void main() {
       );
     });
 
+    test('multi-badge review remains one ordinary review identity', () {
+      final submittedReviewKeys = [
+        'cuban-sandwich-dish::user-1',
+        'cuban-sandwich-dish::user-1',
+        'chili-dog-dish::user-1',
+        'chili-dog-dish::user-1',
+      ];
+
+      expect(
+        ContributionPointsService.reviewMilestonePointsForCount(
+          submittedReviewKeys.toSet().length,
+        ),
+        0,
+      );
+    });
+
     test('dish contribution point values match initial rules', () {
       expect(
         ContributionPointsService.pointsForDishContribution(
@@ -133,6 +149,75 @@ void main() {
   });
 
   group('Contribution point ledger identity', () {
+    test(
+      'award results aggregate one completed action into one point total',
+      () {
+        const dishAward = ContributionPointAwardResult(
+          entries: <ContributionPointAwardEntryResult>[
+            ContributionPointAwardEntryResult(
+              ledgerEntryId: 'new-restaurant-first-dish',
+              points: 3,
+              wasCreated: true,
+            ),
+          ],
+        );
+        const imageAward = ContributionPointAwardResult(
+          entries: <ContributionPointAwardEntryResult>[
+            ContributionPointAwardEntryResult(
+              ledgerEntryId: 'dish-image',
+              points: 1,
+              wasCreated: true,
+            ),
+          ],
+        );
+
+        final plusThree = ContributionPointAwardResult.combine([dishAward]);
+        final plusFour = ContributionPointAwardResult.combine([
+          dishAward,
+          imageAward,
+        ]);
+
+        expect(plusThree.newlyAwardedPoints, 3);
+        expect(plusFour.newlyAwardedPoints, 4);
+        expect(plusFour.newlyCreatedLedgerEntryIds, [
+          'new-restaurant-first-dish',
+          'dish-image',
+        ]);
+      },
+    );
+
+    test('duplicate award entries do not contribute celebration points', () {
+      const result = ContributionPointAwardResult(
+        entries: <ContributionPointAwardEntryResult>[
+          ContributionPointAwardEntryResult(
+            ledgerEntryId: 'dish-created',
+            points: 1,
+            wasCreated: false,
+          ),
+        ],
+      );
+
+      expect(result.newlyAwardedPoints, 0);
+      expect(result.newlyCreatedLedgerEntryIds, isEmpty);
+      expect(result.hasNewPositivePoints, isFalse);
+    });
+
+    test('celebration mark result exposes nonfatal ledger states', () {
+      const clean = ContributionPointCelebrationMarkResult(
+        attemptedEntryIds: {'ledger-1'},
+        markedEntryIds: {'ledger-1'},
+      );
+      const withMissing = ContributionPointCelebrationMarkResult(
+        attemptedEntryIds: {'ledger-1', 'ledger-2'},
+        markedEntryIds: {'ledger-1'},
+        missingEntryIds: {'ledger-2'},
+      );
+
+      expect(clean.hasProblems, isFalse);
+      expect(withMissing.hasProblems, isTrue);
+      expect(withMissing.missingEntryIds, {'ledger-2'});
+    });
+
     test('stable source keys prevent duplicate ledger entries', () {
       final left = ContributionPointsService.dishImageAddedSourceKey(
         dishId: 'dish-1',
@@ -275,6 +360,27 @@ void main() {
       expect(entry.restaurantId, 'restaurant-1');
       expect(entry.oldValue, 'Supreme Pizza');
       expect(entry.newValue, 'House Supreme Pizza');
+    });
+
+    test('new positive awards carry pending celebration metadata', () {
+      final entry = ContributionPointLedgerEntry.tryFromFirestore({
+        'id': 'dish_created%3Adish-1',
+        'userId': 'submitter-1',
+        'pointsDelta': 1,
+        'actionType': ContributionPointAction.dishCreated,
+        'sourceKey': 'dish_created:dish-1',
+        'description': 'Added a dish',
+        'status': ContributionPointLedgerEntry.statusActive,
+        'celebrationStatus':
+            ContributionPointLedgerEntry.celebrationStatusPending,
+      }, fallbackId: 'fallback');
+
+      expect(entry, isNotNull);
+      expect(
+        entry!.celebrationStatus,
+        ContributionPointLedgerEntry.celebrationStatusPending,
+      );
+      expect(entry.isReversal, isFalse);
     });
 
     test('approved merge ledger entry keeps merge endpoints', () {

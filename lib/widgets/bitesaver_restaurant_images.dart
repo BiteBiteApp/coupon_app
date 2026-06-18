@@ -56,10 +56,20 @@ class BiteSaverHomeHeroLogo extends StatelessWidget {
   static const double previousLayoutRegularWidthFactor = 1.3;
   static const double previousLayoutTightVerticalOffset = 10;
   static const double previousLayoutRegularVerticalOffset = 8;
-  static const double tightWidthFactor = 1.42;
-  static const double regularWidthFactor = 1.48;
-  static const double tightVerticalOffset = -2;
-  static const double regularVerticalOffset = -4;
+  static const double preStaggerTightWidthFactor = 1.42;
+  static const double preStaggerRegularWidthFactor = 1.48;
+  static const double preStaggerTightVerticalOffset = -2;
+  static const double preStaggerRegularVerticalOffset = -4;
+  static const double preHeroRefinementTightWidthFactor = 1.54;
+  static const double preHeroRefinementRegularWidthFactor = 1.62;
+  static const double preHeroRefinementTightVerticalOffset = -14;
+  static const double preHeroRefinementRegularVerticalOffset = -16;
+  static const double tightWidthFactor = 2.0;
+  static const double regularWidthFactor = 2.1;
+  static const double tightVerticalOffset = -22;
+  static const double regularVerticalOffset = -24;
+  static const double tightHorizontalOffset = 75;
+  static const double regularHorizontalOffset = 88;
 
   final bool tight;
 
@@ -70,6 +80,9 @@ class BiteSaverHomeHeroLogo extends StatelessWidget {
 
   static double verticalOffsetFor({required bool tight}) =>
       tight ? tightVerticalOffset : regularVerticalOffset;
+
+  static double horizontalOffsetFor({required bool tight}) =>
+      tight ? tightHorizontalOffset : regularHorizontalOffset;
 
   @override
   Widget build(BuildContext context) {
