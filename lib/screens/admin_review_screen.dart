@@ -6,8 +6,10 @@ import '../models/coupon.dart';
 import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/restaurant_account_service.dart';
+import '../services/restaurant_invite_service.dart';
 import '../utils/phone_number_formatter.dart';
 import '../widgets/clickable_phone_text.dart';
+import '../widgets/restaurant_invite_admin_panel.dart';
 
 class AdminReviewScreen extends StatefulWidget {
   const AdminReviewScreen({super.key});
@@ -357,6 +359,124 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
         ),
       );
     }
+  }
+
+  Future<void> _showGeneratedInviteLink(
+    BuildContext context,
+    RestaurantInviteCreationResult result,
+  ) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Coupon Invite Created'),
+          content: SizedBox(
+            width: 460,
+            child: SelectableText(result.inviteUrl),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+            FilledButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: result.inviteUrl));
+                if (!context.mounted) {
+                  return;
+                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Invite link copied.')),
+                );
+              },
+              icon: const Icon(Icons.copy),
+              label: const Text('Copy Link'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _createCouponInviteFromAccount(
+    BuildContext context, {
+    required String uid,
+    required Map<String, dynamic> data,
+  }) async {
+    final restaurantName = _readString(data, Restaurant.fieldName);
+    if (restaurantName.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Restaurant name is required before creating invite.'),
+        ),
+      );
+      return;
+    }
+
+    try {
+      final result = await RestaurantInviteService.createCouponInvite(
+        restaurantId: uid,
+        restaurantName: restaurantName,
+        streetAddress: _readString(data, Restaurant.fieldStreetAddress),
+        city: _readString(data, Restaurant.fieldCity),
+        state: _readString(data, Restaurant.fieldState),
+        zipCode: _readString(data, Restaurant.fieldZipCode),
+        phone: _readString(data, Restaurant.fieldPhone),
+        website: _readString(data, Restaurant.fieldWebsite),
+        latitude: _readDouble(data, Restaurant.fieldLatitude),
+        longitude: _readDouble(data, Restaurant.fieldLongitude),
+      );
+      if (!context.mounted) {
+        return;
+      }
+      await _showGeneratedInviteLink(context, result);
+    } catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppErrorText.friendly(
+              error,
+              fallback: 'Could not create the coupon invite right now.',
+            ),
+          ),
+        ),
+      );
+    }
+  }
+
+  Future<void> _createManualCouponInvite(BuildContext context) async {
+    final result = await showDialog<RestaurantInviteCreationResult>(
+      context: context,
+      builder: (context) => const _CouponInvitePrefillDialog(),
+    );
+    if (result != null && context.mounted) {
+      await _showGeneratedInviteLink(context, result);
+    }
+  }
+
+  Future<void> _showCouponInviteManager(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Coupon Invites'),
+          content: const SizedBox(
+            width: 560,
+            height: 520,
+            child: RestaurantInviteAdminPanel(side: 'coupon'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   Future<void> _approveRestaurantNameChangeRequest(
@@ -808,16 +928,35 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
               ),
             ),
             const SizedBox(width: 8),
-            OutlinedButton(
-              onPressed: () {
-                setState(() {
-                  _showAllRestaurants = !_showAllRestaurants;
-                });
-              },
-              child: Text(
-                _showAllRestaurants
-                    ? 'Show Pending Only'
-                    : 'View All Restaurants',
+            Flexible(
+              child: Wrap(
+                alignment: WrapAlignment.end,
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  FilledButton.icon(
+                    onPressed: () => _createManualCouponInvite(context),
+                    icon: const Icon(Icons.add_link),
+                    label: const Text('Create Coupon Invite'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => _showCouponInviteManager(context),
+                    icon: const Icon(Icons.manage_search),
+                    label: const Text('Manage Invites'),
+                  ),
+                  OutlinedButton(
+                    onPressed: () {
+                      setState(() {
+                        _showAllRestaurants = !_showAllRestaurants;
+                      });
+                    },
+                    child: Text(
+                      _showAllRestaurants
+                          ? 'Show Pending Only'
+                          : 'View All Restaurants',
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -1014,7 +1153,7 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
                           decoration: BoxDecoration(
                             color: statusColor(
                               approvalStatus,
-                            ).withOpacity(0.12),
+                            ).withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(999),
                           ),
                           child: Text(
@@ -1068,6 +1207,19 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
                                 },
                           icon: const Icon(Icons.edit_outlined),
                           label: const Text('Edit Restaurant'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: uid.isEmpty
+                              ? null
+                              : () {
+                                  _createCouponInviteFromAccount(
+                                    context,
+                                    uid: uid,
+                                    data: data,
+                                  );
+                                },
+                          icon: const Icon(Icons.add_link),
+                          label: const Text('Create Invite'),
                         ),
                         TextButton.icon(
                           onPressed: uid.isEmpty
@@ -1242,6 +1394,188 @@ class _AdminTextField extends StatelessWidget {
         hintText: hint,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
+    );
+  }
+}
+
+class _CouponInvitePrefillDialog extends StatefulWidget {
+  const _CouponInvitePrefillDialog();
+
+  @override
+  State<_CouponInvitePrefillDialog> createState() =>
+      _CouponInvitePrefillDialogState();
+}
+
+class _CouponInvitePrefillDialogState
+    extends State<_CouponInvitePrefillDialog> {
+  final TextEditingController _restaurantIdController = TextEditingController();
+  final TextEditingController _nameController = TextEditingController();
+  final TextEditingController _addressController = TextEditingController();
+  final TextEditingController _cityController = TextEditingController();
+  final TextEditingController _stateController = TextEditingController();
+  final TextEditingController _zipController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  final TextEditingController _websiteController = TextEditingController();
+  final TextEditingController _latitudeController = TextEditingController();
+  final TextEditingController _longitudeController = TextEditingController();
+  bool _isSaving = false;
+
+  @override
+  void dispose() {
+    _restaurantIdController.dispose();
+    _nameController.dispose();
+    _addressController.dispose();
+    _cityController.dispose();
+    _stateController.dispose();
+    _zipController.dispose();
+    _phoneController.dispose();
+    _websiteController.dispose();
+    _latitudeController.dispose();
+    _longitudeController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _createInvite() async {
+    if (_nameController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Restaurant name is required.')),
+      );
+      return;
+    }
+
+    setState(() {
+      _isSaving = true;
+    });
+
+    try {
+      final result = await RestaurantInviteService.createCouponInvite(
+        restaurantId: _restaurantIdController.text,
+        restaurantName: _nameController.text,
+        streetAddress: _addressController.text,
+        city: _cityController.text,
+        state: _stateController.text,
+        zipCode: _zipController.text,
+        phone: _phoneController.text,
+        website: _websiteController.text,
+        latitude: double.tryParse(_latitudeController.text.trim()),
+        longitude: double.tryParse(_longitudeController.text.trim()),
+      );
+      if (!mounted) {
+        return;
+      }
+      Navigator.of(context).pop(result);
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            AppErrorText.friendly(
+              error,
+              fallback: 'Could not create the coupon invite right now.',
+            ),
+          ),
+        ),
+      );
+      setState(() {
+        _isSaving = false;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Create Coupon Invite'),
+      content: SizedBox(
+        width: 460,
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _AdminTextField(
+                controller: _restaurantIdController,
+                label: 'Restaurant ID / key',
+                hint: 'Optional; leave blank for a new restaurant',
+              ),
+              const SizedBox(height: 12),
+              _AdminTextField(
+                controller: _nameController,
+                label: 'Restaurant name',
+              ),
+              const SizedBox(height: 12),
+              _AdminTextField(
+                controller: _addressController,
+                label: 'Street address',
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _AdminTextField(
+                      controller: _cityController,
+                      label: 'City',
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _AdminTextField(
+                      controller: _stateController,
+                      label: 'State',
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _AdminTextField(
+                      controller: _zipController,
+                      label: 'ZIP',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              _AdminTextField(
+                controller: _phoneController,
+                label: 'Phone',
+                keyboardType: TextInputType.phone,
+                inputFormatters: usPhoneNumberInputFormatters,
+              ),
+              const SizedBox(height: 12),
+              _AdminTextField(controller: _websiteController, label: 'Website'),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _AdminTextField(
+                      controller: _latitudeController,
+                      label: 'Latitude',
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _AdminTextField(
+                      controller: _longitudeController,
+                      label: 'Longitude',
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton.icon(
+          onPressed: _isSaving ? null : _createInvite,
+          icon: const Icon(Icons.add_link),
+          label: Text(_isSaving ? 'Creating...' : 'Create Invite'),
+        ),
+      ],
     );
   }
 }

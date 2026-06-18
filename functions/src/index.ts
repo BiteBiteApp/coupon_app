@@ -2,6 +2,8 @@ import { initializeApp } from "firebase-admin/app";
 import {
   FieldValue,
   Firestore,
+  DocumentData,
+  QueryDocumentSnapshot,
   Timestamp,
   getFirestore,
 } from "firebase-admin/firestore";
@@ -13,9 +15,21 @@ import {
   onDocumentDeleted,
   onDocumentWritten,
 } from "firebase-functions/v2/firestore";
-import { HttpsError, onCall, onRequest } from "firebase-functions/v2/https";
+import {
+  CallableRequest,
+  HttpsError,
+  onCall,
+  onRequest,
+} from "firebase-functions/v2/https";
 import { setGlobalOptions } from "firebase-functions/v2/options";
 import Stripe from "stripe";
+import {
+  couponInviteRestaurantIdentity,
+  filterAndSortInviteSummaries,
+  generateInviteToken,
+  hashInviteToken,
+  inviteLink,
+} from "./restaurant_invite_helpers.js";
 
 initializeApp();
 
@@ -41,6 +55,9 @@ const stripePriceId = "price_1TJKGjBwoT6e93tVkesJPfxD";
 const stripeTrialDays = 60;
 const subscriptionReturnSuccessUri = "bitesaver://subscription-success";
 const subscriptionReturnCancelUri = "bitesaver://subscription-cancel";
+const restaurantInviteCollection = "restaurant_invites";
+const restaurantInviteExpirationDays = 90;
+const adminInviteEmails = new Set(["schuyler.cole@gmail.com"]);
 
 type PushRequestData = {
   requestId?: string;
@@ -827,6 +844,250 @@ function readStringList(value: unknown): string[] {
       .filter((entry) => entry.length > 0)
     : [];
 }
+
+type AdminInviteContext = {
+  uid: string;
+  email: string;
+};
+
+function requireAdminInviteAccess(
+  request: CallableRequest<unknown>,
+): AdminInviteContext {
+  const uid = request.auth?.uid?.trim();
+  const email = readString(request.auth?.token.email)?.toLowerCase();
+
+  if (!uid || !email || !adminInviteEmails.has(email)) {
+    throw new HttpsError(
+      "permission-denied",
+      "Admin access is required to create restaurant invites.",
+    );
+  }
+
+  return { uid, email };
+}
+
+function readRecord(value: unknown): Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+}
+
+function readOptionalNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function inviteExpirationTimestamp(): Timestamp {
+  return Timestamp.fromMillis(
+    Date.now() + restaurantInviteExpirationDays * 24 * 60 * 60 * 1000,
+  );
+}
+
+function timestampMillis(value: unknown): number | null {
+  return value instanceof Timestamp ? value.toMillis() : null;
+}
+
+function serializeInviteDoc(
+  doc: QueryDocumentSnapshot<DocumentData>,
+): Record<string, unknown> {
+  const data = doc.data();
+  return {
+    id: doc.id,
+    type: readString(data.type) ?? "",
+    side: readString(data.side) ?? "",
+    status: readString(data.status) ?? "",
+    restaurantId: readString(data.restaurantId) ?? "",
+    pendingRestaurantKey: readString(data.pendingRestaurantKey) ?? "",
+    restaurantName: readString(data.restaurantName) ?? "",
+    createdByUid: readString(data.createdByUid) ?? "",
+    createdByEmail: readString(data.createdByEmail) ?? "",
+    createdAtMillis: timestampMillis(data.createdAt),
+    expiresAtMillis: timestampMillis(data.expiresAt),
+    usedAtMillis: timestampMillis(data.usedAt),
+    usedByUid: readString(data.usedByUid) ?? "",
+    usedByEmail: readString(data.usedByEmail) ?? "",
+    maxUses: readNumber(data.maxUses) ?? 1,
+    useCount: readNumber(data.useCount) ?? 0,
+    lastAccessedAtMillis: timestampMillis(data.lastAccessedAt),
+    revokedAtMillis: timestampMillis(data.revokedAt),
+    revokedByUid: readString(data.revokedByUid) ?? "",
+  };
+}
+
+export const createCouponRestaurantInvite = onCall(async (request) => {
+  const admin = requireAdminInviteAccess(request);
+  const data = readRecord(request.data);
+  const token = generateInviteToken();
+  const tokenHash = hashInviteToken(token);
+  const inviteRef = db.collection(restaurantInviteCollection).doc();
+
+  const restaurantName = readString(data.restaurantName);
+  if (!restaurantName) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Restaurant name is required for a coupon invite.",
+    );
+  }
+
+  const { restaurantId, pendingRestaurantKey } =
+    couponInviteRestaurantIdentity(data.restaurantId, inviteRef.id);
+  const couponPrefill = {
+    restaurantName,
+    streetAddress: readString(data.streetAddress) ?? null,
+    city: readString(data.city) ?? null,
+    state: readString(data.state) ?? null,
+    zipCode: readString(data.zipCode) ?? null,
+    phone: readString(data.phone) ?? null,
+    website: readString(data.website) ?? null,
+    latitude: readOptionalNumber(data.latitude),
+    longitude: readOptionalNumber(data.longitude),
+  };
+  const expiresAt = inviteExpirationTimestamp();
+
+  await inviteRef.set({
+    tokenHash,
+    type: "coupon_invite",
+    side: "coupon",
+    status: "active",
+    restaurantId,
+    pendingRestaurantKey,
+    restaurantName,
+    couponPrefill,
+    createdAt: FieldValue.serverTimestamp(),
+    createdByUid: admin.uid,
+    createdByEmail: admin.email,
+    expiresAt,
+    usedAt: null,
+    usedByUid: null,
+    usedByEmail: null,
+    maxUses: 1,
+    useCount: 0,
+    lastAccessedAt: null,
+    revokedAt: null,
+    revokedByUid: null,
+  });
+
+  return {
+    inviteId: inviteRef.id,
+    token,
+    inviteUrl: inviteLink("coupon", token),
+    expiresAtMillis: expiresAt.toMillis(),
+  };
+});
+
+export const createBiteScoreRestaurantClaimInvite = onCall(async (request) => {
+  const admin = requireAdminInviteAccess(request);
+  const data = readRecord(request.data);
+  const restaurantId = readString(data.restaurantId);
+  if (!restaurantId) {
+    throw new HttpsError(
+      "invalid-argument",
+      "BiteScore restaurant ID is required.",
+    );
+  }
+
+  const restaurantSnapshot = await db
+    .collection("bitescore_restaurants")
+    .doc(restaurantId)
+    .get();
+  if (!restaurantSnapshot.exists) {
+    throw new HttpsError(
+      "not-found",
+      "The selected BiteScore restaurant was not found.",
+    );
+  }
+
+  const restaurantData = restaurantSnapshot.data() ?? {};
+  const restaurantName =
+    readString(restaurantData.name) ??
+    readString(restaurantData.restaurantName);
+  if (!restaurantName) {
+    throw new HttpsError(
+      "failed-precondition",
+      "The selected BiteScore restaurant is missing a name.",
+    );
+  }
+
+  const token = generateInviteToken();
+  const tokenHash = hashInviteToken(token);
+  const expiresAt = inviteExpirationTimestamp();
+  const inviteRef = db.collection(restaurantInviteCollection).doc();
+  const addressParts = [
+    readString(restaurantData.address) ??
+      readString(restaurantData.streetAddress),
+    readString(restaurantData.city),
+    readString(restaurantData.state) ??
+      readString(restaurantData.stateCode),
+    readString(restaurantData.zipCode) ??
+      readString(restaurantData.zip) ??
+      readString(restaurantData.postalCode),
+  ].filter((part): part is string => Boolean(part));
+
+  await inviteRef.set({
+    tokenHash,
+    type: "bitescore_claim_invite",
+    side: "bitescore",
+    status: "active",
+    restaurantId,
+    restaurantName,
+    restaurantAddressSummary: addressParts.join(", "),
+    createdAt: FieldValue.serverTimestamp(),
+    createdByUid: admin.uid,
+    createdByEmail: admin.email,
+    expiresAt,
+    usedAt: null,
+    usedByUid: null,
+    usedByEmail: null,
+    maxUses: 1,
+    useCount: 0,
+    lastAccessedAt: null,
+    revokedAt: null,
+    revokedByUid: null,
+  });
+
+  return {
+    inviteId: inviteRef.id,
+    token,
+    inviteUrl: inviteLink("bitescore", token),
+    expiresAtMillis: expiresAt.toMillis(),
+  };
+});
+
+export const revokeRestaurantInvite = onCall(async (request) => {
+  const admin = requireAdminInviteAccess(request);
+  const data = readRecord(request.data);
+  const inviteId = readString(data.inviteId);
+  if (!inviteId) {
+    throw new HttpsError("invalid-argument", "Invite ID is required.");
+  }
+
+  const inviteRef = db.collection(restaurantInviteCollection).doc(inviteId);
+  const inviteSnapshot = await inviteRef.get();
+  if (!inviteSnapshot.exists) {
+    throw new HttpsError("not-found", "Invite not found.");
+  }
+
+  await inviteRef.set({
+    status: "revoked",
+    revokedAt: FieldValue.serverTimestamp(),
+    revokedByUid: admin.uid,
+  }, { merge: true });
+
+  return { inviteId, status: "revoked" };
+});
+
+export const listRestaurantInvites = onCall(async (request) => {
+  requireAdminInviteAccess(request);
+  const data = readRecord(request.data);
+  const side = readString(data.side);
+  const limitInput = readNumber(data.limit);
+  const limit = Math.min(Math.max(limitInput ?? 50, 1), 100);
+
+  const snapshot = await db.collection(restaurantInviteCollection).get();
+  const invites = snapshot.docs.map(serializeInviteDoc);
+  return {
+    invites: filterAndSortInviteSummaries(invites, side, limit),
+  };
+});
 
 function writtenReviewWordCount(headline?: string | null, notes?: string | null): number {
   const combined = [headline, notes]

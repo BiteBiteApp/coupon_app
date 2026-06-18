@@ -30,6 +30,9 @@ class BiteScoreOwnerScreen extends StatefulWidget {
 }
 
 class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
+  static const String _biteScoreClaimHelperText =
+      'Don’t see your restaurant? Use the Add a Dish button to create it.';
+
   Future<_OwnerRatingData>? _dataFuture;
   String? _selectedRestaurantId;
   bool _bioExpanded = false;
@@ -1604,23 +1607,19 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
                   ),
                   const SizedBox(height: 12),
                   const Text(
-                    'You’ll need to claim a restaurant before you can use BiteScore tools.',
+                    'Claim your restaurant to start using BiteScore tools.',
                     textAlign: TextAlign.center,
                     style: TextStyle(
                       color: BiteRaterTheme.mutedInk,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  const Text(
-                    'Submit a restaurant claim to get started.',
-                    textAlign: TextAlign.center,
-                  ),
                   const SizedBox(height: 20),
                   SizedBox(
                     width: double.infinity,
-                    child: FilledButton(
+                    child: ElevatedButton(
                       onPressed: _openBiteScoreBrowse,
+                      style: _browseBiteScoreRestaurantsButtonStyle(),
                       child: const Center(
                         child: Text(
                           'Browse BiteScore Restaurants',
@@ -1629,12 +1628,36 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    _biteScoreClaimHelperText,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: BiteRaterTheme.mutedInk,
+                      fontSize: 13,
+                      height: 1.35,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
         ),
       ),
+    );
+  }
+
+  ButtonStyle _browseBiteScoreRestaurantsButtonStyle() {
+    return ElevatedButton.styleFrom(
+      backgroundColor: BiteRaterTheme.ocean,
+      foregroundColor: Colors.white,
+      elevation: 4,
+      shadowColor: BiteRaterTheme.ocean.withValues(alpha: 0.24),
+      minimumSize: const Size.fromHeight(48),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     );
   }
 

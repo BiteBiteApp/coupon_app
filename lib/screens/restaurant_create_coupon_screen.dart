@@ -2627,6 +2627,10 @@ class _RestaurantCreateCouponScreenState
   }
 
   Widget _buildSubscriptionPromoSection() {
+    final VoidCallback? startSubscription = _subscriptionCheckoutLoading
+        ? null
+        : _openSubscriptionSignupScreen;
+
     return Container(
       width: double.infinity,
       margin: const EdgeInsets.only(top: 24),
@@ -2672,45 +2676,96 @@ class _RestaurantCreateCouponScreenState
             ),
           ),
           const SizedBox(height: 16),
-          Container(
+          SizedBox(
             width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-            decoration: BoxDecoration(
+            child: Material(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFE2E8F0)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                if (!_hasUsedTrial) ...[
-                  const Text(
-                    'First 2 months free',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: Color(0xFFB45309),
-                    ),
+              elevation: 2,
+              shadowColor: const Color(0xFF2563EB).withValues(alpha: 0.14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+                side: const BorderSide(color: Color(0xFFBFDBFE), width: 1.2),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: startSubscription,
+                splashColor: const Color(0xFF2563EB).withValues(alpha: 0.10),
+                highlightColor: const Color(0xFF2563EB).withValues(alpha: 0.06),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
                   ),
-                  const SizedBox(height: 6),
-                ],
-                const Text(
-                  '\$24.95/month',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 26,
-                    fontWeight: FontWeight.w800,
-                    color: Color(0xFF111827),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      if (!_hasUsedTrial) ...[
+                        const Text(
+                          'First 2 months free',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFFB45309),
+                          ),
+                        ),
+                        const SizedBox(height: 6),
+                      ],
+                      const Text(
+                        '\$24.95/month',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFF111827),
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      const Text(
+                        'Cancel anytime',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Color(0xFF64748B),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 7,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFF6FF),
+                          borderRadius: BorderRadius.circular(999),
+                          border: Border.all(color: const Color(0xFFDBEAFE)),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(
+                              Icons.touch_app_outlined,
+                              size: 16,
+                              color: Color(0xFF2563EB),
+                            ),
+                            const SizedBox(width: 6),
+                            Text(
+                              _subscriptionCheckoutLoading
+                                  ? 'Opening checkout...'
+                                  : 'Tap to start',
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w800,
+                                color: Color(0xFF1D4ED8),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Cancel anytime',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13, color: Color(0xFF64748B)),
-                ),
-              ],
+              ),
             ),
           ),
           const SizedBox(height: 14),
@@ -2807,12 +2862,14 @@ class _RestaurantCreateCouponScreenState
           SizedBox(
             width: double.infinity,
             child: FilledButton(
-              onPressed: _subscriptionCheckoutLoading
-                  ? null
-                  : _openSubscriptionSignupScreen,
+              onPressed: startSubscription,
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF111827),
+                backgroundColor: const Color(0xFF2563EB),
+                disabledBackgroundColor: const Color(0xFF93C5FD),
                 foregroundColor: Colors.white,
+                disabledForegroundColor: Colors.white,
+                elevation: 3,
+                shadowColor: const Color(0xFF2563EB).withValues(alpha: 0.28),
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 textStyle: const TextStyle(
                   fontSize: 15,

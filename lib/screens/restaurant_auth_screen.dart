@@ -27,6 +27,8 @@ class RestaurantAuthScreen extends StatefulWidget {
 class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
     with WidgetsBindingObserver {
   static const String _lastSignInMethodKey = 'last_restaurant_sign_in_method';
+  static const String _biteScoreClaimHelperText =
+      'Don’t see your restaurant? Use the Add a Dish button to create it.';
 
   final TextEditingController phoneController = TextEditingController();
   final TextEditingController emailController = TextEditingController();
@@ -835,7 +837,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
             const SizedBox(height: 18),
             SizedBox(
               width: double.infinity,
-              child: OutlinedButton(
+              child: ElevatedButton(
                 onPressed: () {
                   Navigator.of(context).push(
                     MaterialPageRoute(
@@ -846,12 +848,16 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
                     ),
                   );
                 },
-                child: const Text('Browse BiteScore and Claim'),
+                style: _restaurantHubActionButtonStyle(),
+                child: const Text(
+                  'Browse BiteScore and Claim',
+                  textAlign: TextAlign.center,
+                ),
               ),
             ),
             const SizedBox(height: 10),
             const Text(
-              'If you don\'t see your restaurant, use Create & Rate to add it.',
+              _biteScoreClaimHelperText,
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontSize: 13,
@@ -892,13 +898,13 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
                       ),
                       const SizedBox(height: 10),
                       const Text(
-                        'Apply to post coupons for your restaurant and manage BiteSaver offers.',
+                        'Apply to post coupons and specials for your restaurant.',
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 18),
                       SizedBox(
                         width: double.infinity,
-                        child: FilledButton(
+                        child: ElevatedButton(
                           onPressed: () {
                             Navigator.of(context).push(
                               MaterialPageRoute(
@@ -910,7 +916,11 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
                               ),
                             );
                           },
-                          child: const Text('Apply for Coupon Side'),
+                          style: _restaurantHubActionButtonStyle(),
+                          child: const Text(
+                            'Apply for Coupon Side',
+                            textAlign: TextAlign.center,
+                          ),
                         ),
                       ),
                     ],
@@ -1036,6 +1046,19 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
           },
         );
       },
+    );
+  }
+
+  ButtonStyle _restaurantHubActionButtonStyle() {
+    return ElevatedButton.styleFrom(
+      backgroundColor: Colors.blue.shade700,
+      foregroundColor: Colors.white,
+      elevation: 4,
+      shadowColor: Colors.blue.shade900.withValues(alpha: 0.22),
+      minimumSize: const Size.fromHeight(48),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      textStyle: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
     );
   }
 

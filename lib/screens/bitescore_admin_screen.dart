@@ -10,10 +10,12 @@ import '../models/restaurant_claim_request.dart';
 import '../services/app_error_text.dart';
 import '../services/bitescore_service.dart';
 import '../services/contribution_points_service.dart';
+import '../services/restaurant_invite_service.dart';
 import '../utils/phone_number_formatter.dart';
 import '../widgets/bitescore_category_picker.dart';
 import '../widgets/biterater_theme.dart';
 import '../widgets/clickable_phone_text.dart';
+import '../widgets/restaurant_invite_admin_panel.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
 import 'expert_badge_gallery_screen.dart';
 
@@ -370,6 +372,91 @@ class _BiteScoreRestaurantAdminListState
     }
   }
 
+  Future<void> _showGeneratedInviteLink(
+    BuildContext context,
+    RestaurantInviteCreationResult result,
+  ) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('BiteScore Claim Invite Created'),
+          content: SizedBox(
+            width: 460,
+            child: SelectableText(result.inviteUrl),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+            FilledButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: result.inviteUrl));
+                if (!context.mounted) {
+                  return;
+                }
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Invite link copied.')),
+                );
+              },
+              icon: const Icon(Icons.copy),
+              label: const Text('Copy Link'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _createClaimInvite(
+    BuildContext context,
+    BitescoreRestaurant restaurant,
+  ) async {
+    try {
+      final result = await RestaurantInviteService.createBiteScoreClaimInvite(
+        restaurantId: restaurant.id,
+      );
+      if (!context.mounted) {
+        return;
+      }
+      await _showGeneratedInviteLink(context, result);
+    } catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+      _showSnackBar(
+        context,
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not create the BiteScore claim invite right now.',
+        ),
+      );
+    }
+  }
+
+  Future<void> _showClaimInviteManager(BuildContext context) async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('BiteScore Claim Invites'),
+          content: const SizedBox(
+            width: 560,
+            height: 520,
+            child: RestaurantInviteAdminPanel(side: 'bitescore'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   Widget _buildRestaurantSearchControls() {
     return Column(
       children: [
@@ -381,17 +468,30 @@ class _BiteScoreRestaurantAdminListState
         const SizedBox(height: 12),
         Align(
           alignment: Alignment.centerRight,
-          child: OutlinedButton(
-            onPressed: () {
-              setState(() {
-                _showAllBiteScoreRestaurants = !_showAllBiteScoreRestaurants;
-              });
-            },
-            child: Text(
-              _showAllBiteScoreRestaurants
-                  ? 'Hide All Restaurants'
-                  : 'View All Restaurants',
-            ),
+          child: Wrap(
+            alignment: WrapAlignment.end,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: () => _showClaimInviteManager(context),
+                icon: const Icon(Icons.manage_search),
+                label: const Text('Manage Claim Invites'),
+              ),
+              OutlinedButton(
+                onPressed: () {
+                  setState(() {
+                    _showAllBiteScoreRestaurants =
+                        !_showAllBiteScoreRestaurants;
+                  });
+                },
+                child: Text(
+                  _showAllBiteScoreRestaurants
+                      ? 'Hide All Restaurants'
+                      : 'View All Restaurants',
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -520,6 +620,12 @@ class _BiteScoreRestaurantAdminListState
                     trailing: Wrap(
                       spacing: 4,
                       children: [
+                        IconButton(
+                          tooltip: 'Create claim invite',
+                          icon: const Icon(Icons.add_link),
+                          onPressed: () =>
+                              _createClaimInvite(context, restaurant),
+                        ),
                         IconButton(
                           tooltip: 'Manage this restaurant\'s dishes',
                           icon: const Icon(Icons.restaurant_menu_outlined),
