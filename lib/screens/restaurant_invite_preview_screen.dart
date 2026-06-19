@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 
 import '../services/app_error_text.dart';
 import '../services/restaurant_invite_service.dart';
+import '../services/restaurant_auth_service.dart';
 import '../services/user_profile_service.dart';
+import 'bitescore_owner_screen.dart';
+import 'restaurant_auth_screen.dart';
 import 'restaurant_create_coupon_screen.dart';
 
 class RestaurantInvitePreviewScreen extends StatefulWidget {
@@ -53,7 +56,10 @@ class _RestaurantInvitePreviewScreenState
         : 'Coupon Invite';
   }
 
-  String get _disabledActionLabel => 'Claim setup coming next';
+  static const String _couponInviteVerificationMessage =
+      'Your restaurant was verified by invite. Please verify your email to protect your account.';
+  static const String _biteScoreInviteVerificationMessage =
+      'Your restaurant claim is approved. Please verify your email before using owner tools.';
 
   Widget _buildInvalidInvite() {
     return Center(
@@ -145,7 +151,9 @@ class _RestaurantInvitePreviewScreenState
     if (currentUser != null && !currentUser.isAnonymous) {
       await currentUser.reload();
       await FirebaseAuth.instance.currentUser?.getIdToken(true);
-      return FirebaseAuth.instance.currentUser ?? currentUser;
+      final refreshedUser = FirebaseAuth.instance.currentUser ?? currentUser;
+      await _sendVerificationEmailIfNeeded(refreshedUser);
+      return refreshedUser;
     }
 
     final email = _emailController.text.trim();
@@ -170,14 +178,53 @@ class _RestaurantInvitePreviewScreenState
     if (user == null) {
       throw StateError('Could not create your account.');
     }
-    if (!user.emailVerified) {
-      await user.sendEmailVerification();
-    }
+    await _sendVerificationEmailIfNeeded(user);
     await user.reload();
     await FirebaseAuth.instance.currentUser?.getIdToken(true);
     final refreshedUser = FirebaseAuth.instance.currentUser ?? user;
     await UserProfileService.upsertSignedInUserProfile(refreshedUser);
     return refreshedUser;
+  }
+
+  Future<void> _sendVerificationEmailIfNeeded(User user) async {
+    if (!RestaurantAuthService.requiresEmailVerification(user)) {
+      return;
+    }
+    try {
+      await user.sendEmailVerification();
+    } catch (_) {
+      // Redemption still succeeds; the verification gate offers resend.
+    }
+  }
+
+  Future<User> _refreshedCurrentUser(User fallbackUser) async {
+    await FirebaseAuth.instance.currentUser?.reload();
+    await FirebaseAuth.instance.currentUser?.getIdToken(true);
+    return FirebaseAuth.instance.currentUser ?? fallbackUser;
+  }
+
+  void _openVerificationGate(String message) {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => RestaurantAuthScreen(emailVerificationMessage: message),
+      ),
+      (route) => route.isFirst,
+    );
+  }
+
+  void _openBiteScoreVerificationGate({
+    required String message,
+    required String restaurantId,
+  }) {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) => RestaurantAuthScreen(
+          emailVerificationMessage: message,
+          postVerificationBiteScoreRestaurantId: restaurantId,
+        ),
+      ),
+      (route) => route.isFirst,
+    );
   }
 
   Future<void> _redeemCouponInvite() async {
@@ -200,8 +247,27 @@ class _RestaurantInvitePreviewScreenState
         return;
       }
 
+      final refreshedUser = await _refreshedCurrentUser(user);
+      if (!mounted) {
+        return;
+      }
+
       final navigator = Navigator.of(context);
       final scaffoldMessenger = ScaffoldMessenger.of(context);
+      if (RestaurantAuthService.requiresEmailVerification(refreshedUser)) {
+        _openVerificationGate(_couponInviteVerificationMessage);
+        scaffoldMessenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Restaurant account approved. Please verify your email.',
+              ),
+            ),
+          );
+        return;
+      }
+
       navigator.pushAndRemoveUntil(
         MaterialPageRoute(
           settings: const RouteSettings(
@@ -237,7 +303,95 @@ class _RestaurantInvitePreviewScreenState
     }
   }
 
-  Widget _buildCouponRedemptionForm() {
+  Future<void> _redeemBiteScoreInvite() async {
+    if (_isRedeeming) {
+      return;
+    }
+
+    setState(() {
+      _isRedeeming = true;
+    });
+
+    try {
+      final user = await _ensureInviteUser();
+      if (user == null) {
+        return;
+      }
+
+      final redemption =
+          await RestaurantInviteService.redeemBiteScoreClaimInvite(
+            token: widget.token,
+          );
+      if (!mounted) {
+        return;
+      }
+
+      final refreshedUser = await _refreshedCurrentUser(user);
+      if (!mounted) {
+        return;
+      }
+
+      final navigator = Navigator.of(context);
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      if (RestaurantAuthService.requiresEmailVerification(refreshedUser)) {
+        _openBiteScoreVerificationGate(
+          message: _biteScoreInviteVerificationMessage,
+          restaurantId: redemption.restaurantId,
+        );
+        scaffoldMessenger
+          ..hideCurrentSnackBar()
+          ..showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Restaurant claim approved. Please verify your email.',
+              ),
+            ),
+          );
+        return;
+      }
+
+      navigator.pushAndRemoveUntil(
+        MaterialPageRoute(
+          builder: (_) => BiteScoreOwnerScreen(
+            currentUser: refreshedUser,
+            initialRestaurantId: redemption.restaurantId,
+          ),
+        ),
+        (route) => route.isFirst,
+      );
+      scaffoldMessenger
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Restaurant claimed. Welcome to BiteScore.'),
+          ),
+        );
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not redeem this invite right now.',
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRedeeming = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildInviteAccountForm({
+    required String signedInButtonLabel,
+    required String signedInBusyLabel,
+    required String signedOutButtonLabel,
+    required String signedOutBusyLabel,
+    required VoidCallback onRedeem,
+  }) {
     final currentUser = FirebaseAuth.instance.currentUser;
     final signedInUser = currentUser != null && !currentUser.isAnonymous
         ? currentUser
@@ -257,12 +411,8 @@ class _RestaurantInvitePreviewScreenState
           ),
           const SizedBox(height: 12),
           FilledButton(
-            onPressed: _isRedeeming ? null : _redeemCouponInvite,
-            child: Text(
-              _isRedeeming
-                  ? 'Creating Account...'
-                  : 'Create Restaurant Account',
-            ),
+            onPressed: _isRedeeming ? null : onRedeem,
+            child: Text(_isRedeeming ? signedInBusyLabel : signedInButtonLabel),
           ),
         ],
       );
@@ -296,10 +446,54 @@ class _RestaurantInvitePreviewScreenState
         ),
         const SizedBox(height: 16),
         FilledButton(
-          onPressed: _isRedeeming ? null : _redeemCouponInvite,
-          child: Text(_isRedeeming ? 'Creating Account...' : 'Create Account'),
+          onPressed: _isRedeeming ? null : onRedeem,
+          child: Text(_isRedeeming ? signedOutBusyLabel : signedOutButtonLabel),
         ),
       ],
+    );
+  }
+
+  Widget _buildCouponRedemptionForm() {
+    return _buildInviteAccountForm(
+      signedInButtonLabel: 'Create Restaurant Account',
+      signedInBusyLabel: 'Creating Account...',
+      signedOutButtonLabel: 'Create Account',
+      signedOutBusyLabel: 'Creating Account...',
+      onRedeem: _redeemCouponInvite,
+    );
+  }
+
+  Widget _buildBiteScoreRedemptionForm() {
+    return _buildInviteAccountForm(
+      signedInButtonLabel: 'Claim Restaurant',
+      signedInBusyLabel: 'Claiming Restaurant...',
+      signedOutButtonLabel: 'Create Account & Claim Restaurant',
+      signedOutBusyLabel: 'Creating Account...',
+      onRedeem: _redeemBiteScoreInvite,
+    );
+  }
+
+  Widget _buildBiteScoreVisibilityNote() {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.blue.shade100),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.visibility_outlined, color: Colors.blue.shade700),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Add your first dish to make your restaurant visible on BiteScore.',
+              style: TextStyle(fontWeight: FontWeight.w700, height: 1.3),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -356,12 +550,24 @@ class _RestaurantInvitePreviewScreenState
             ),
           ),
         ] else ...[
-          FilledButton(onPressed: null, child: Text(_disabledActionLabel)),
-          const SizedBox(height: 10),
-          const Text(
-            'Full BiteScore claim redemption will be available in a later stage.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.black54),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'This invite verifies your restaurant claim for BiteScore. You may still need to verify your email.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.black54),
+                  ),
+                  const SizedBox(height: 16),
+                  _buildBiteScoreVisibilityNote(),
+                  const SizedBox(height: 16),
+                  _buildBiteScoreRedemptionForm(),
+                ],
+              ),
+            ),
           ),
         ],
       ],

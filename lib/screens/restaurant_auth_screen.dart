@@ -13,12 +13,20 @@ import '../services/restaurant_account_service.dart';
 import '../services/restaurant_auth_service.dart';
 import '../services/user_profile_service.dart';
 import '../widgets/phone_auth_sheet.dart';
+import 'bitescore_owner_screen.dart';
 import 'main_navigation_screen.dart';
 import 'restaurant_create_coupon_screen.dart';
 import 'restaurant_owner_hub_screen.dart';
 
 class RestaurantAuthScreen extends StatefulWidget {
-  const RestaurantAuthScreen({super.key});
+  final String? emailVerificationMessage;
+  final String? postVerificationBiteScoreRestaurantId;
+
+  const RestaurantAuthScreen({
+    super.key,
+    this.emailVerificationMessage,
+    this.postVerificationBiteScoreRestaurantId,
+  });
 
   @override
   State<RestaurantAuthScreen> createState() => _RestaurantAuthScreenState();
@@ -39,6 +47,8 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
   bool isLoginMode = true;
   bool isLoading = false;
   String? _lastUsedMethod;
+  bool _handledPostVerificationRedirect = false;
+  bool _shownPostVerificationFallbackMessage = false;
 
   @override
   void initState() {
@@ -653,7 +663,9 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
                   ),
                   const SizedBox(height: 12),
                   Text(
-                    'A verification email has been sent to ${user.email ?? 'your email address'}. Please verify your email before continuing.',
+                    widget.emailVerificationMessage?.trim().isNotEmpty == true
+                        ? widget.emailVerificationMessage!.trim()
+                        : 'A verification email has been sent to ${user.email ?? 'your email address'}. Please verify your email before continuing.',
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 20),
@@ -987,6 +999,73 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
     );
   }
 
+  String? get _postVerificationBiteScoreRestaurantId {
+    final trimmed = widget.postVerificationBiteScoreRestaurantId?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
+  Widget? _buildPostVerificationBiteScoreRedirect({
+    required User user,
+    required List<BitescoreRestaurant> ownedRestaurants,
+  }) {
+    final requestedRestaurantId = _postVerificationBiteScoreRestaurantId;
+    if (requestedRestaurantId == null) {
+      return null;
+    }
+
+    BitescoreRestaurant? targetRestaurant;
+    for (final restaurant in ownedRestaurants) {
+      if (restaurant.id == requestedRestaurantId) {
+        targetRestaurant = restaurant;
+        break;
+      }
+    }
+    if (targetRestaurant == null && ownedRestaurants.length == 1) {
+      targetRestaurant = ownedRestaurants.first;
+    }
+
+    if (targetRestaurant == null) {
+      if (!_shownPostVerificationFallbackMessage) {
+        _shownPostVerificationFallbackMessage = true;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) {
+            return;
+          }
+          ScaffoldMessenger.of(context)
+            ..hideCurrentSnackBar()
+            ..showSnackBar(
+              const SnackBar(
+                content: Text(
+                  'Your email is verified. Open BiteScore tools from the Restaurant Hub.',
+                ),
+              ),
+            );
+        });
+      }
+      return null;
+    }
+
+    if (!_handledPostVerificationRedirect) {
+      _handledPostVerificationRedirect = true;
+      final targetRestaurantId = targetRestaurant.id;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => BiteScoreOwnerScreen(
+              currentUser: user,
+              initialRestaurantId: targetRestaurantId,
+            ),
+          ),
+        );
+      });
+    }
+
+    return const Center(child: CircularProgressIndicator());
+  }
+
   Widget buildRestaurantGate(User user) {
     return StreamBuilder<DocumentSnapshot<Map<String, dynamic>>>(
       stream: RestaurantAccountService.accountStream(user.uid),
@@ -1018,7 +1097,18 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
                 ownerSnapshot.data ?? const <BitescoreRestaurant>[];
             final hasBiteScoreAccess = ownedRestaurants.isNotEmpty;
 
-            if (hasCouponAccess || hasBiteScoreAccess) {
+            if (!requiresEmailVerification) {
+              final redirect = _buildPostVerificationBiteScoreRedirect(
+                user: user,
+                ownedRestaurants: ownedRestaurants,
+              );
+              if (redirect != null) {
+                return redirect;
+              }
+            }
+
+            if (!requiresEmailVerification &&
+                (hasCouponAccess || hasBiteScoreAccess)) {
               return RestaurantOwnerHubScreen(currentUser: user);
             }
 

@@ -63,6 +63,16 @@
                     android:scheme="bitesaver"
                     android:host="subscription-cancel" />
             </intent-filter>
+
+            <!-- Stage 1 installed-app custom-scheme links.
+                 Keep this scheme-level filter broad so Android resolves both
+                 bitesaver://invite/... and bitesaver:///r/... test URLs. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="bitesaver" />
+            </intent-filter>
         </activity>
 
         <meta-data

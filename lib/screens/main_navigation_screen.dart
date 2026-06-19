@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/app_mode_state_service.dart';
+import '../services/restaurant_customer_link_service.dart';
 import '../services/restaurant_invite_service.dart';
 import '../services/subscription_return_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
@@ -15,11 +16,13 @@ import 'customer_account_screen.dart';
 import 'home_screen.dart';
 import 'restaurant_auth_screen.dart';
 import 'restaurant_create_coupon_screen.dart';
+import 'restaurant_customer_deep_link_screen.dart';
 import 'restaurant_invite_preview_screen.dart';
 
 final GlobalKey<NavigatorState> rootNavigatorKey = GlobalKey<NavigatorState>();
 final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
+const String _customerDeepLinkRoutePrefix = '/deep-link/customer-restaurant/';
 
 class MainNavigationScreen extends StatefulWidget {
   final AppMode initialMode;
@@ -43,6 +46,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   final AppLinks _appLinks = AppLinks();
   StreamSubscription<Uri>? _subscriptionReturnSubscription;
   bool _showOnboarding = false;
+  int _deepLinkGeneration = 0;
+  String? _lastHandledDeepLinkKey;
+  DateTime? _lastHandledDeepLinkAt;
 
   @override
   void initState() {
@@ -106,9 +112,21 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       return;
     }
 
+    if (_isDuplicateDeepLink(uri)) {
+      return;
+    }
+
+    final generation = ++_deepLinkGeneration;
     final inviteLink = RestaurantInviteService.parseInviteDeepLink(uri);
     if (inviteLink != null) {
-      _handleInviteLink(inviteLink);
+      _handleInviteLink(inviteLink, generation: generation);
+      return;
+    }
+
+    final restaurantLink =
+        RestaurantCustomerLinkService.parseRestaurantDeepLink(uri);
+    if (restaurantLink != null) {
+      _handleRestaurantLink(restaurantLink, generation: generation);
       return;
     }
 
@@ -138,19 +156,106 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     }
   }
 
-  void _handleInviteLink(RestaurantInviteDeepLink inviteLink) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
+  bool _isDuplicateDeepLink(Uri uri) {
+    final key = uri.toString();
+    final now = DateTime.now();
+    final lastAt = _lastHandledDeepLinkAt;
+    if (_lastHandledDeepLinkKey == key &&
+        lastAt != null &&
+        now.difference(lastAt) < const Duration(milliseconds: 750)) {
+      return true;
+    }
 
-      rootNavigatorKey.currentState?.push(
-        MaterialPageRoute(
-          builder: (_) => RestaurantInvitePreviewScreen(
-            side: inviteLink.side,
-            token: inviteLink.token,
-          ),
+    _lastHandledDeepLinkKey = key;
+    _lastHandledDeepLinkAt = now;
+    return false;
+  }
+
+  void _handleInviteLink(
+    RestaurantInviteDeepLink inviteLink, {
+    required int generation,
+  }) {
+    _pushDeepLinkRoute(
+      MaterialPageRoute(
+        builder: (_) => RestaurantInvitePreviewScreen(
+          side: inviteLink.side,
+          token: inviteLink.token,
         ),
+      ),
+      generation: generation,
+    );
+  }
+
+  void _handleRestaurantLink(
+    RestaurantCustomerDeepLink restaurantLink, {
+    required int generation,
+  }) {
+    if (!mounted || generation != _deepLinkGeneration) {
+      return;
+    }
+
+    final nextMode = restaurantLink.isBiteScore
+        ? AppMode.biteScore
+        : AppMode.biteSaver;
+    if (selectedIndex != 0 || selectedMode != nextMode) {
+      setState(() {
+        selectedIndex = 0;
+        selectedMode = nextMode;
+      });
+    }
+    AppModeStateService.setMode(nextMode);
+
+    _pushDeepLinkRoute(
+      MaterialPageRoute(
+        settings: RouteSettings(
+          name:
+              '$_customerDeepLinkRoutePrefix${restaurantLink.side}/${restaurantLink.restaurantId}',
+        ),
+        builder: (_) => RestaurantCustomerDeepLinkScreen(
+          side: restaurantLink.side,
+          restaurantId: restaurantLink.restaurantId,
+        ),
+      ),
+      generation: generation,
+      replaceCustomerDeepLinks: true,
+    );
+  }
+
+  void _pushDeepLinkRoute(
+    Route<void> route, {
+    required int generation,
+    bool replaceCustomerDeepLinks = false,
+    int attempt = 0,
+  }) {
+    if (!mounted || generation != _deepLinkGeneration) {
+      return;
+    }
+
+    final navigator =
+        rootNavigatorKey.currentState ??
+        Navigator.maybeOf(context, rootNavigator: true);
+    if (navigator != null) {
+      if (replaceCustomerDeepLinks) {
+        navigator.pushAndRemoveUntil(route, (existingRoute) {
+          final name = existingRoute.settings.name;
+          return name == null || !name.startsWith(_customerDeepLinkRoutePrefix);
+        });
+      } else {
+        navigator.push(route);
+      }
+      return;
+    }
+
+    if (attempt >= 8) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pushDeepLinkRoute(
+        route,
+        generation: generation,
+        replaceCustomerDeepLinks: replaceCustomerDeepLinks,
+        attempt: attempt + 1,
       );
     });
   }

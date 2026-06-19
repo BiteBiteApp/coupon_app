@@ -44,8 +44,10 @@ const db: Firestore = getFirestore();
 const stripeSecret = defineSecret("STRIPE_SECRET_KEY");
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
-const stripeCheckoutSuccessUrl = "https://coupon-app-29446.web.app/stripe-success.html";
-const stripeCheckoutCancelUrl = "https://coupon-app-29446.web.app/stripe-cancel.html";
+const stripeCheckoutSuccessUrl =
+  "https://coupon-app-29446.web.app/stripe-success.html";
+const stripeCheckoutCancelUrl =
+  "https://coupon-app-29446.web.app/stripe-cancel.html";
 const stripeCustomerPortalReturnUrl = defineString(
   "STRIPE_CUSTOMER_PORTAL_RETURN_URL",
 );
@@ -199,7 +201,12 @@ const localExpertClusterRadiusMiles = 30;
 const localExpertCelebrationSubcollection = "local_expert_badge_celebrations";
 const cubanSandwichCanonicalId = "cuban_sandwich";
 const chickenPieCanonicalId = "chicken_pie";
-const legacyLocalExpertTypeIds = new Set(["burrito", "tacos", "lobster", "pasta"]);
+const legacyLocalExpertTypeIds = new Set([
+  "burrito",
+  "tacos",
+  "lobster",
+  "pasta",
+]);
 const localExpertStateNameToCode = new Map<string, string>([
   ["ALABAMA", "AL"],
   ["ALASKA", "AK"],
@@ -689,7 +696,12 @@ const localExpertTypes: LocalExpertTypeConfig[] = [
   {
     id: "subs_sandwiches",
     displayName: "Subs / Sandwiches",
-    mappedCategoryNames: ["Subs", "Deli / Sandwiches", "subs", "deli_sandwiches"],
+    mappedCategoryNames: [
+      "Subs",
+      "Deli / Sandwiches",
+      "subs",
+      "deli_sandwiches",
+    ],
     mappedSubcategories: [
       "Sandwiches",
       "Subs",
@@ -816,7 +828,11 @@ function buildNotificationBody(data: PushRequestData): string {
 }
 
 function unixSecondsToTimestamp(seconds?: number | null): Timestamp | null {
-  if (typeof seconds !== "number" || !Number.isFinite(seconds) || seconds <= 0) {
+  if (
+    typeof seconds !== "number" ||
+    !Number.isFinite(seconds) ||
+    seconds <= 0
+  ) {
     return null;
   }
   return Timestamp.fromMillis(seconds * 1000);
@@ -836,14 +852,17 @@ function readString(value: unknown): string | undefined {
 }
 
 function readNumber(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+  return typeof value === "number" && Number.isFinite(value)
+    ? value
+    : undefined;
 }
 
 function readStringList(value: unknown): string[] {
   return Array.isArray(value)
-    ? value.filter((entry): entry is string => typeof entry === "string")
-      .map((entry) => entry.trim())
-      .filter((entry) => entry.length > 0)
+    ? value
+        .filter((entry): entry is string => typeof entry === "string")
+        .map((entry) => entry.trim())
+        .filter((entry) => entry.length > 0)
     : [];
 }
 
@@ -870,7 +889,7 @@ function requireAdminInviteAccess(
 
 function readRecord(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value)
-    ? value as Record<string, unknown>
+    ? (value as Record<string, unknown>)
     : {};
 }
 
@@ -930,8 +949,10 @@ export const createCouponRestaurantInvite = onCall(async (request) => {
     );
   }
 
-  const { restaurantId, pendingRestaurantKey } =
-    couponInviteRestaurantIdentity(data.restaurantId, inviteRef.id);
+  const { restaurantId, pendingRestaurantKey } = couponInviteRestaurantIdentity(
+    data.restaurantId,
+    inviteRef.id,
+  );
   const couponPrefill = {
     restaurantName,
     streetAddress: readString(data.streetAddress) ?? null,
@@ -1017,8 +1038,7 @@ export const createBiteScoreRestaurantClaimInvite = onCall(async (request) => {
     readString(restaurantData.address) ??
       readString(restaurantData.streetAddress),
     readString(restaurantData.city),
-    readString(restaurantData.state) ??
-      readString(restaurantData.stateCode),
+    readString(restaurantData.state) ?? readString(restaurantData.stateCode),
     readString(restaurantData.zipCode) ??
       readString(restaurantData.zip) ??
       readString(restaurantData.postalCode),
@@ -1068,11 +1088,14 @@ export const revokeRestaurantInvite = onCall(async (request) => {
     throw new HttpsError("not-found", "Invite not found.");
   }
 
-  await inviteRef.set({
-    status: "revoked",
-    revokedAt: FieldValue.serverTimestamp(),
-    revokedByUid: admin.uid,
-  }, { merge: true });
+  await inviteRef.set(
+    {
+      status: "revoked",
+      revokedAt: FieldValue.serverTimestamp(),
+      revokedByUid: admin.uid,
+    },
+    { merge: true },
+  );
 
   return { inviteId, status: "revoked" };
 });
@@ -1191,18 +1214,12 @@ export const redeemCouponRestaurantInvite = onCall(async (request) => {
   const result = await db.runTransaction(async (transaction) => {
     const inviteSnapshot = await transaction.get(inviteQuery);
     if (inviteSnapshot.empty) {
-      throw new HttpsError(
-        "not-found",
-        "This invite link is no longer valid.",
-      );
+      throw new HttpsError("not-found", "This invite link is no longer valid.");
     }
 
     const inviteDoc = inviteSnapshot.docs[0];
     const invite = serializeInviteDoc(inviteDoc);
-    const unavailableReason = invitePreviewUnavailableReason(
-      invite,
-      "coupon",
-    );
+    const unavailableReason = invitePreviewUnavailableReason(invite, "coupon");
     if (unavailableReason !== null) {
       throw new HttpsError(
         "failed-precondition",
@@ -1245,11 +1262,9 @@ export const redeemCouponRestaurantInvite = onCall(async (request) => {
       Boolean(existingApprovalStatus);
     if (
       hasExistingCouponAccount &&
-      (
-        !existingRestaurantName ||
+      (!existingRestaurantName ||
         existingRestaurantName.trim().toLowerCase() !==
-          restaurantName.trim().toLowerCase()
-      )
+          restaurantName.trim().toLowerCase())
     ) {
       throw new HttpsError(
         "failed-precondition",
@@ -1288,13 +1303,17 @@ export const redeemCouponRestaurantInvite = onCall(async (request) => {
     }
 
     transaction.set(accountRef, accountUpdate, { merge: true });
-    transaction.set(inviteDoc.ref, {
-      status: "used",
-      usedAt: FieldValue.serverTimestamp(),
-      usedByUid: uid,
-      usedByEmail: userEmail,
-      useCount: (readNumber(inviteDoc.data().useCount) ?? 0) + 1,
-    }, { merge: true });
+    transaction.set(
+      inviteDoc.ref,
+      {
+        status: "used",
+        usedAt: FieldValue.serverTimestamp(),
+        usedByUid: uid,
+        usedByEmail: userEmail,
+        useCount: (readNumber(inviteDoc.data().useCount) ?? 0) + 1,
+      },
+      { merge: true },
+    );
 
     return {
       inviteId: invite.id,
@@ -1305,7 +1324,160 @@ export const redeemCouponRestaurantInvite = onCall(async (request) => {
   return result;
 });
 
-function writtenReviewWordCount(headline?: string | null, notes?: string | null): number {
+export const redeemBiteScoreRestaurantClaimInvite = onCall(async (request) => {
+  const uid = request.auth?.uid?.trim();
+  const userEmail = readString(request.auth?.token.email);
+  const userName =
+    readString(request.auth?.token.name) ??
+    userEmail ??
+    "Invited restaurant owner";
+  if (!uid || !userEmail) {
+    throw new HttpsError(
+      "unauthenticated",
+      "Please sign in before redeeming this invite.",
+    );
+  }
+
+  const data = readRecord(request.data);
+  const token = readString(data.token);
+  if (!token) {
+    throw new HttpsError("invalid-argument", "Invite token is required.");
+  }
+
+  const tokenHash = hashInviteToken(token);
+  const inviteQuery = db
+    .collection(restaurantInviteCollection)
+    .where("tokenHash", "==", tokenHash)
+    .limit(1);
+
+  const result = await db.runTransaction(async (transaction) => {
+    const inviteSnapshot = await transaction.get(inviteQuery);
+    if (inviteSnapshot.empty) {
+      throw new HttpsError("not-found", "This invite link is no longer valid.");
+    }
+
+    const inviteDoc = inviteSnapshot.docs[0];
+    const invite = serializeInviteDoc(inviteDoc);
+    const unavailableReason = invitePreviewUnavailableReason(
+      invite,
+      "bitescore",
+    );
+    if (unavailableReason !== null) {
+      throw new HttpsError(
+        "failed-precondition",
+        unavailableReason === "used"
+          ? "This invite has already been used."
+          : "This invite link is no longer valid.",
+        { reason: unavailableReason },
+      );
+    }
+
+    if (
+      invite.type !== "bitescore_claim_invite" ||
+      invite.side !== "bitescore"
+    ) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This invite link is no longer valid.",
+        { reason: "wrong-type" },
+      );
+    }
+
+    const restaurantId = readString(inviteDoc.data().restaurantId);
+    if (!restaurantId) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This invite link is no longer valid.",
+        { reason: "missing-restaurant-id" },
+      );
+    }
+
+    const restaurantRef = db
+      .collection("bitescore_restaurants")
+      .doc(restaurantId);
+    const restaurantSnapshot = await transaction.get(restaurantRef);
+    if (!restaurantSnapshot.exists) {
+      throw new HttpsError(
+        "not-found",
+        "The invited BiteScore restaurant was not found.",
+      );
+    }
+
+    const restaurantData = restaurantSnapshot.data() ?? {};
+    const restaurantName =
+      readString(restaurantData.name) ??
+      readString(restaurantData.restaurantName) ??
+      readString(inviteDoc.data().restaurantName);
+    if (!restaurantName) {
+      throw new HttpsError(
+        "failed-precondition",
+        "The invited BiteScore restaurant is missing a name.",
+        { reason: "missing-restaurant-name" },
+      );
+    }
+
+    const existingOwnerUid = readString(restaurantData.ownerUserId);
+    if (existingOwnerUid && existingOwnerUid !== uid) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This BiteScore restaurant has already been claimed.",
+        { reason: "already-claimed" },
+      );
+    }
+
+    const claimRef = db.collection("restaurant_claim_requests").doc();
+    transaction.set(claimRef, {
+      id: claimRef.id,
+      restaurantId,
+      restaurantName,
+      requesterUserId: uid,
+      claimantName: userName,
+      email: userEmail,
+      phone: "Not provided",
+      message: "Approved by secure BiteScore invite token.",
+      status: "approved",
+      inviteId: invite.id,
+      inviteType: invite.type,
+      approvedBy: "invite",
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
+      approvedAt: FieldValue.serverTimestamp(),
+    });
+    transaction.set(
+      restaurantRef,
+      {
+        ownerUserId: uid,
+        isClaimed: true,
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    transaction.set(
+      inviteDoc.ref,
+      {
+        status: "used",
+        usedAt: FieldValue.serverTimestamp(),
+        usedByUid: uid,
+        usedByEmail: userEmail,
+        useCount: (readNumber(inviteDoc.data().useCount) ?? 0) + 1,
+      },
+      { merge: true },
+    );
+
+    return {
+      inviteId: invite.id,
+      restaurantId,
+      restaurantName,
+    };
+  });
+
+  return result;
+});
+
+function writtenReviewWordCount(
+  headline?: string | null,
+  notes?: string | null,
+): number {
   const combined = [headline, notes]
     .filter((value): value is string => typeof value === "string")
     .map((value) => value.trim())
@@ -1329,14 +1501,20 @@ function addSearchTerms(terms: Set<string>, value?: string | null): void {
   }
 }
 
-function normalizedListContains(values: string[] | undefined, normalized: string | null): boolean {
+function normalizedListContains(
+  values: string[] | undefined,
+  normalized: string | null,
+): boolean {
   if (!normalized) {
     return false;
   }
   return (values ?? []).some((value) => normalizeTerm(value) === normalized);
 }
 
-function matchesAliases(aliases: string[] | undefined, sources: string[]): boolean {
+function matchesAliases(
+  aliases: string[] | undefined,
+  sources: string[],
+): boolean {
   const searchTerms = new Set<string>();
   for (const source of sources) {
     addSearchTerms(searchTerms, source);
@@ -1356,7 +1534,10 @@ function matchesAliases(aliases: string[] | undefined, sources: string[]): boole
   return false;
 }
 
-function matchesExactAliases(aliases: string[] | undefined, sources: string[]): boolean {
+function matchesExactAliases(
+  aliases: string[] | undefined,
+  sources: string[],
+): boolean {
   const normalizedSources = new Set(
     sources
       .map((source) => normalizeTerm(source))
@@ -1384,15 +1565,19 @@ function isExcludedFromLocalExpertType(
   );
 }
 
-function matchLocalExpertTypes(candidate: LocalExpertReviewCandidate):
-LocalExpertTypeConfig[] {
+function matchLocalExpertTypes(
+  candidate: LocalExpertReviewCandidate,
+): LocalExpertTypeConfig[] {
   const normalizedCategory = normalizeTerm(candidate.categoryName);
   const normalizedSubcategory = normalizeTerm(candidate.subcategory);
   const searchSources = [
     candidate.dishName,
     candidate.subcategory,
     ...candidate.categoryTags,
-  ].filter((value): value is string => typeof value === "string" && value.trim().length > 0);
+  ].filter(
+    (value): value is string =>
+      typeof value === "string" && value.trim().length > 0,
+  );
   const matches: LocalExpertTypeConfig[] = [];
 
   for (const type of localExpertTypes) {
@@ -1406,7 +1591,9 @@ LocalExpertTypeConfig[] {
     ) {
       continue;
     }
-    if (normalizedListContains(type.mappedSubcategories, normalizedSubcategory)) {
+    if (
+      normalizedListContains(type.mappedSubcategories, normalizedSubcategory)
+    ) {
       matches.push(type);
       continue;
     }
@@ -1441,34 +1628,37 @@ function hasUsableCoordinates(candidate: LocalExpertReviewCandidate): boolean {
   );
 }
 
-function distanceMiles(first: LocalExpertReviewCandidate, second: LocalExpertReviewCandidate):
-number {
+function distanceMiles(
+  first: LocalExpertReviewCandidate,
+  second: LocalExpertReviewCandidate,
+): number {
   if (!hasUsableCoordinates(first) || !hasUsableCoordinates(second)) {
     return Number.POSITIVE_INFINITY;
   }
   const earthRadiusMiles = 3958.7613;
-  const toRadians = (degrees: number) => degrees * Math.PI / 180;
+  const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
   const lat1 = toRadians(first.latitude!);
   const lat2 = toRadians(second.latitude!);
   const deltaLat = toRadians(second.latitude! - first.latitude!);
   const deltaLng = toRadians(second.longitude! - first.longitude!);
   const a =
     Math.sin(deltaLat / 2) ** 2 +
-    Math.cos(lat1) *
-      Math.cos(lat2) *
-      Math.sin(deltaLng / 2) ** 2;
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(deltaLng / 2) ** 2;
   return earthRadiusMiles * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
-function bestPairwiseClusterCount(candidates: LocalExpertReviewCandidate[]): number {
+function bestPairwiseClusterCount(
+  candidates: LocalExpertReviewCandidate[],
+): number {
   const byRestaurant = new Map<string, LocalExpertReviewCandidate>();
   for (const candidate of candidates) {
     if (hasUsableCoordinates(candidate)) {
       byRestaurant.set(candidate.restaurantId.trim(), candidate);
     }
   }
-  const locations = Array.from(byRestaurant.values())
-    .sort((a, b) => a.restaurantId.localeCompare(b.restaurantId));
+  const locations = Array.from(byRestaurant.values()).sort((a, b) =>
+    a.restaurantId.localeCompare(b.restaurantId),
+  );
   if (locations.length < 2) {
     return locations.length;
   }
@@ -1479,7 +1669,10 @@ function bestPairwiseClusterCount(candidates: LocalExpertReviewCandidate[]): num
   }
   for (let i = 0; i < locations.length; i += 1) {
     for (let j = i + 1; j < locations.length; j += 1) {
-      if (distanceMiles(locations[i], locations[j]) <= localExpertClusterRadiusMiles) {
+      if (
+        distanceMiles(locations[i], locations[j]) <=
+        localExpertClusterRadiusMiles
+      ) {
         adjacency.get(i)!.add(j);
         adjacency.get(j)!.add(i);
       }
@@ -1509,7 +1702,10 @@ function bestPairwiseClusterCount(candidates: LocalExpertReviewCandidate[]): num
     }
   }
 
-  expand([], locations.map((_, index) => index));
+  expand(
+    [],
+    locations.map((_, index) => index),
+  );
   return best;
 }
 
@@ -1534,11 +1730,16 @@ function normalizeStateKey(value?: string | null): string | null {
     .replace(/[^A-Z0-9]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
-  const stateCode = stateName ? localExpertStateNameToCode.get(stateName) : null;
+  const stateCode = stateName
+    ? localExpertStateNameToCode.get(stateName)
+    : null;
   if (stateCode) {
     return stateCode;
   }
-  const normalized = value?.trim().toUpperCase().replace(/[^A-Z0-9]+/g, "");
+  const normalized = value
+    ?.trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "");
   return normalized && normalized.length > 0 ? normalized : null;
 }
 
@@ -1567,15 +1768,19 @@ function bestSameCountyCount(candidates: LocalExpertReviewCandidate[]): number {
   return best;
 }
 
-function representativeTimeMillis(candidate: LocalExpertReviewCandidate): number {
+function representativeTimeMillis(
+  candidate: LocalExpertReviewCandidate,
+): number {
   return (
-    candidate.updatedAt?.toMillis() ??
-    candidate.createdAt?.toMillis() ??
-    0
+    candidate.updatedAt?.toMillis() ?? candidate.createdAt?.toMillis() ?? 0
   );
 }
 
-function dedupeKey(userId: string, restaurantId: string, expertTypeId: string): string {
+function dedupeKey(
+  userId: string,
+  restaurantId: string,
+  expertTypeId: string,
+): string {
   return `${userId.trim().toLowerCase()}|${restaurantId.trim().toLowerCase()}|${expertTypeId}`;
 }
 
@@ -1626,8 +1831,9 @@ function isPublicReview(
   );
 }
 
-async function buildLocalExpertCandidatesForUser(userId: string):
-Promise<LocalExpertReviewCandidate[]> {
+async function buildLocalExpertCandidatesForUser(
+  userId: string,
+): Promise<LocalExpertReviewCandidate[]> {
   const reviewSnapshot = await db
     .collection("dish_reviews")
     .where("userId", "==", userId)
@@ -1639,7 +1845,11 @@ Promise<LocalExpertReviewCandidate[]> {
       const review = reviewDoc.data() as LocalExpertReviewData;
       const dishId = readString(review.dishId);
       const restaurantId = readString(review.restaurantId);
-      if (!dishId || !restaurantId || writtenReviewWordCount(review.headline, review.notes) < 10) {
+      if (
+        !dishId ||
+        !restaurantId ||
+        writtenReviewWordCount(review.headline, review.notes) < 10
+      ) {
         continue;
       }
 
@@ -1695,8 +1905,9 @@ Promise<LocalExpertReviewCandidate[]> {
   return candidates;
 }
 
-function calculateLocalExpertBadges(candidates: LocalExpertReviewCandidate[]):
-LocalExpertBadgeResult[] {
+function calculateLocalExpertBadges(
+  candidates: LocalExpertReviewCandidate[],
+): LocalExpertBadgeResult[] {
   const representativesByKey = new Map<string, LocalExpertResolvedReview>();
 
   for (const candidate of candidates) {
@@ -1710,11 +1921,11 @@ LocalExpertBadgeResult[] {
       const existing = representativesByKey.get(key);
       if (
         !existing ||
-        representativeTimeMillis(candidate) > representativeTimeMillis(existing.candidate) ||
-        (
-          representativeTimeMillis(candidate) === representativeTimeMillis(existing.candidate) &&
-          candidate.reviewId.localeCompare(existing.candidate.reviewId) > 0
-        )
+        representativeTimeMillis(candidate) >
+          representativeTimeMillis(existing.candidate) ||
+        (representativeTimeMillis(candidate) ===
+          representativeTimeMillis(existing.candidate) &&
+          candidate.reviewId.localeCompare(existing.candidate.reviewId) > 0)
       ) {
         representativesByKey.set(key, { candidate, expertType: type });
       }
@@ -1725,16 +1936,21 @@ LocalExpertBadgeResult[] {
     const representatives = Array.from(representativesByKey.values())
       .filter((entry) => entry.expertType.id === type.id)
       .sort((a, b) => {
-        const restaurantComparison = a.candidate.restaurantId
-          .localeCompare(b.candidate.restaurantId);
+        const restaurantComparison = a.candidate.restaurantId.localeCompare(
+          b.candidate.restaurantId,
+        );
         return restaurantComparison !== 0
           ? restaurantComparison
           : a.candidate.reviewId.localeCompare(b.candidate.reviewId);
       });
     const restaurantIds = Array.from(
-      new Set(representatives.map((entry) => entry.candidate.restaurantId.trim())),
+      new Set(
+        representatives.map((entry) => entry.candidate.restaurantId.trim()),
+      ),
     ).sort();
-    const reviewIds = representatives.map((entry) => entry.candidate.reviewId).sort();
+    const reviewIds = representatives
+      .map((entry) => entry.candidate.reviewId)
+      .sort();
     const total = restaurantIds.length;
     const local = bestPairwiseClusterCount(
       representatives.map((entry) => entry.candidate),
@@ -1781,8 +1997,10 @@ LocalExpertBadgeResult[] {
   });
 }
 
-async function persistLocalExpertBadges(userId: string, results: LocalExpertBadgeResult[]):
-Promise<LocalExpertBadgePersistenceResult> {
+async function persistLocalExpertBadges(
+  userId: string,
+  results: LocalExpertBadgeResult[],
+): Promise<LocalExpertBadgePersistenceResult> {
   const badgeCollection = db
     .collection("user_profiles")
     .doc(userId)
@@ -1803,16 +2021,19 @@ Promise<LocalExpertBadgePersistenceResult> {
     if (!result.level) {
       continue;
     }
-    const existingDoc = existingSnapshot.docs.find((doc) => doc.id === result.expertTypeId);
+    const existingDoc = existingSnapshot.docs.find(
+      (doc) => doc.id === result.expertTypeId,
+    );
     const existingEarnedAt = existingDoc?.get("earnedAt");
     const existingLevel = readString(existingDoc?.get("level"));
     const existingLevelRank = localExpertLevelRank(existingLevel);
     const newLevelRank = localExpertLevelRank(result.level);
-    const celebrationKind = existingLevelRank === 0
-      ? "earned"
-      : existingLevelRank < newLevelRank
-        ? "levelUp"
-        : null;
+    const celebrationKind =
+      existingLevelRank === 0
+        ? "earned"
+        : existingLevelRank < newLevelRank
+          ? "levelUp"
+          : null;
     earnedBadgeCount += 1;
     existingIds.delete(result.expertTypeId);
     batch.set(
@@ -1827,7 +2048,8 @@ Promise<LocalExpertBadgePersistenceResult> {
         qualifyingReviewIds: result.qualifyingReviewIds.slice(0, 50),
         qualifyingRestaurantIds: result.qualifyingRestaurantIds.slice(0, 50),
         qualifyingReviewIdsTruncated: result.qualifyingReviewIds.length > 50,
-        qualifyingRestaurantIdsTruncated: result.qualifyingRestaurantIds.length > 50,
+        qualifyingRestaurantIdsTruncated:
+          result.qualifyingRestaurantIds.length > 50,
         earnedAt: existingEarnedAt ?? FieldValue.serverTimestamp(),
         updatedAt: FieldValue.serverTimestamp(),
         source: "localExpertFunctionsV1",
@@ -1875,14 +2097,17 @@ Promise<LocalExpertBadgePersistenceResult> {
   return { earnedBadgeCount, removedBadgeCount, celebrations };
 }
 
-async function recalculateLocalExpertBadgesForUser(userId: string):
-Promise<LocalExpertBadgePersistenceResult> {
+async function recalculateLocalExpertBadgesForUser(
+  userId: string,
+): Promise<LocalExpertBadgePersistenceResult> {
   const candidates = await buildLocalExpertCandidatesForUser(userId);
   const results = calculateLocalExpertBadges(candidates);
   return persistLocalExpertBadges(userId, results);
 }
 
-function mapStripeStatusToAppStatus(status: Stripe.Subscription.Status): string {
+function mapStripeStatusToAppStatus(
+  status: Stripe.Subscription.Status,
+): string {
   switch (status) {
     case "trialing":
       return "trialing";
@@ -1942,7 +2167,7 @@ async function syncRestaurantSubscriptionFromStripe(
   const stripeCustomerId =
     typeof subscription.customer === "string"
       ? subscription.customer
-      : subscription.customer?.id ?? null;
+      : (subscription.customer?.id ?? null);
 
   const restaurantUid = await resolveRestaurantAccountUid({
     ownerUid: metadata.ownerUid,
@@ -1951,20 +2176,24 @@ async function syncRestaurantSubscriptionFromStripe(
   });
 
   if (!restaurantUid) {
-    logger.warn("Could not resolve restaurant account for Stripe subscription", {
-      subscriptionId: subscription.id,
-      stripeCustomerId,
-      metadata,
-    });
+    logger.warn(
+      "Could not resolve restaurant account for Stripe subscription",
+      {
+        subscriptionId: subscription.id,
+        stripeCustomerId,
+        metadata,
+      },
+    );
     return;
   }
 
   const subscriptionStatus = mapStripeStatusToAppStatus(subscription.status);
   const couponPostingEnabled =
     subscriptionStatus === "active" || subscriptionStatus === "trialing";
-  const trialEndsAt = subscriptionStatus === "trialing"
-    ? unixSecondsToTimestamp(subscription.trial_end)
-    : null;
+  const trialEndsAt =
+    subscriptionStatus === "trialing"
+      ? unixSecondsToTimestamp(subscription.trial_end)
+      : null;
   const updateData: Record<string, unknown> = {
     subscriptionStatus,
     trialEndsAt,
@@ -1983,15 +2212,11 @@ async function syncRestaurantSubscriptionFromStripe(
     updateData.hasUsedTrial = true;
   }
 
-  await db.collection("restaurant_accounts").doc(restaurantUid).set(
-    updateData,
-    { merge: true },
-  );
+  await db
+    .collection("restaurant_accounts")
+    .doc(restaurantUid)
+    .set(updateData, { merge: true });
 }
-
-
-
-
 
 export const createSubscriptionCheckoutSession = onCall(
   {
@@ -2004,8 +2229,7 @@ export const createSubscriptionCheckoutSession = onCall(
 
     const successUrl =
       stripeCheckoutSuccessUrl || hostedStripeCheckoutSuccessUrl;
-    const cancelUrl =
-      stripeCheckoutCancelUrl || hostedStripeCheckoutCancelUrl;
+    const cancelUrl = stripeCheckoutCancelUrl || hostedStripeCheckoutCancelUrl;
     if (!successUrl || !cancelUrl) {
       throw new HttpsError(
         "failed-precondition",
@@ -2028,7 +2252,6 @@ export const createSubscriptionCheckoutSession = onCall(
             source: "bitesaver_subscription",
           },
         };
-      
 
       const session = await stripe.checkout.sessions.create({
         mode: "subscription",
@@ -2055,7 +2278,6 @@ export const createSubscriptionCheckoutSession = onCall(
           "Stripe Checkout did not return a URL.",
         );
       }
-      
 
       return {
         checkoutUrl: session.url,
@@ -2086,8 +2308,7 @@ export const createCheckoutSession = onCall(
 
     const successUrl =
       stripeCheckoutSuccessUrl || hostedStripeCheckoutSuccessUrl;
-    const cancelUrl =
-      stripeCheckoutCancelUrl || hostedStripeCheckoutCancelUrl;
+    const cancelUrl = stripeCheckoutCancelUrl || hostedStripeCheckoutCancelUrl;
     if (!successUrl || !cancelUrl) {
       throw new HttpsError(
         "failed-precondition",
@@ -2101,11 +2322,11 @@ export const createCheckoutSession = onCall(
       });
 
       const ownerUid = request.auth.uid;
-     const accountRef = db.collection("restaurant_accounts").doc(ownerUid);
-const accountSnap = await accountRef.get();
-const hasUsedTrial = accountSnap.data()?.hasUsedTrial === true;
+      const accountRef = db.collection("restaurant_accounts").doc(ownerUid);
+      const accountSnap = await accountRef.get();
+      const hasUsedTrial = accountSnap.data()?.hasUsedTrial === true;
 
-const includeTrial = !hasUsedTrial;
+      const includeTrial = !hasUsedTrial;
       const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData =
         {
           metadata: {
@@ -2229,17 +2450,26 @@ function renderSubscriptionReturnPage(params: {
   buttonLabel: string;
 }): string {
   const escapedTitle = params.title
-    .split("&").join("&amp;")
-.split("<").join("&lt;")
-.split(">").join("&gt;");
+    .split("&")
+    .join("&amp;")
+    .split("<")
+    .join("&lt;")
+    .split(">")
+    .join("&gt;");
   const escapedMessage = params.message
-    .split("&").join("&amp;")
-.split("<").join("&lt;")
-.split(">").join("&gt;");
+    .split("&")
+    .join("&amp;")
+    .split("<")
+    .join("&lt;")
+    .split(">")
+    .join("&gt;");
   const escapedButton = params.buttonLabel
-    .split("&").join("&amp;")
-.split("<").join("&lt;")
-.split(">").join("&gt;");
+    .split("&")
+    .join("&amp;")
+    .split("<")
+    .join("&lt;")
+    .split(">")
+    .join("&gt;");
   const escapedReturnUri = params.returnUri.split("&").join("&amp;");
 
   return `<!DOCTYPE html>
@@ -2301,7 +2531,8 @@ export const subscriptionCheckoutSuccess = onRequest((request, response) => {
   response.status(200).send(
     renderSubscriptionReturnPage({
       title: "Subscription Active",
-      message: "Your subscription was successful. Tap below to return to BiteSaver.",
+      message:
+        "Your subscription was successful. Tap below to return to BiteSaver.",
       returnUri: subscriptionReturnSuccessUri,
       buttonLabel: "Open BiteSaver",
     }),
@@ -2479,8 +2710,9 @@ export const processProximityPushRequest = onDocumentCreated(
         .doc(installationId);
 
       const installationSnap = await installationRef.get();
-      const installation =
-        installationSnap.data() as InstallationData | undefined;
+      const installation = installationSnap.data() as
+        | InstallationData
+        | undefined;
 
       if (!installationSnap.exists || !installation) {
         await requestRef.set(
@@ -2641,11 +2873,14 @@ export const recalculateLocalExpertBadgesOnReviewWrite = onDocumentWritten(
       try {
         await recalculateLocalExpertBadgesForUser(userId);
       } catch (error) {
-        logger.error("Failed to recalculate Local Expert badges after review write", {
-          reviewId: event.params.reviewId,
-          userId,
-          error,
-        });
+        logger.error(
+          "Failed to recalculate Local Expert badges after review write",
+          {
+            reviewId: event.params.reviewId,
+            userId,
+            error,
+          },
+        );
       }
     }
   },

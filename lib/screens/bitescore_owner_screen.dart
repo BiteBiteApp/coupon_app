@@ -9,6 +9,7 @@ import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/bitescore_service.dart';
+import '../services/restaurant_auth_service.dart';
 import '../services/restaurant_menu_service.dart';
 import '../utils/phone_number_formatter.dart';
 import '../widgets/bitescore_category_picker.dart';
@@ -22,8 +23,13 @@ import 'restaurant_menu_management_screen.dart';
 
 class BiteScoreOwnerScreen extends StatefulWidget {
   final User currentUser;
+  final String? initialRestaurantId;
 
-  const BiteScoreOwnerScreen({super.key, required this.currentUser});
+  const BiteScoreOwnerScreen({
+    super.key,
+    required this.currentUser,
+    this.initialRestaurantId,
+  });
 
   @override
   State<BiteScoreOwnerScreen> createState() => _BiteScoreOwnerScreenState();
@@ -41,6 +47,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
   @override
   void initState() {
     super.initState();
+    _selectedRestaurantId = widget.initialRestaurantId?.trim();
     _refresh();
   }
 
@@ -232,6 +239,37 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
     }
   }
 
+  Future<void> _resendVerificationEmail() async {
+    try {
+      await widget.currentUser.sendEmailVerification();
+      _showSnackBar('Verification email sent.');
+    } catch (error) {
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not send the verification email right now.',
+        ),
+      );
+    }
+  }
+
+  Future<void> _refreshVerificationStatus() async {
+    try {
+      await widget.currentUser.reload();
+      await FirebaseAuth.instance.currentUser?.getIdToken(true);
+      if (mounted) {
+        setState(_refresh);
+      }
+    } catch (error) {
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not refresh verification status right now.',
+        ),
+      );
+    }
+  }
+
   Future<_BiteScoreMenuRoutingState> _loadBiteScoreMenuRoutingState(
     BitescoreRestaurant restaurant,
   ) async {
@@ -343,6 +381,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
     final restaurants = data.restaurants;
     final hasPhone =
         restaurant.phone != null && restaurant.phone!.trim().isNotEmpty;
+    final hasNoDishes = data.entries.isEmpty;
 
     return BiteRaterTheme.liftedCard(
       radius: 24,
@@ -457,8 +496,41 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
                 ),
               ],
             ),
+            if (hasNoDishes) ...[
+              const SizedBox(height: 12),
+              _buildNoDishesVisibilityWarning(),
+            ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildNoDishesVisibilityWarning() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF3E0),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFFFB74D)),
+      ),
+      child: const Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.warning_amber_rounded, color: Color(0xFFB85D00)),
+          SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              'Add your first dish to make your restaurant visible on BiteScore.',
+              style: TextStyle(
+                color: Color(0xFF6A3B00),
+                fontWeight: FontWeight.w800,
+                height: 1.3,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -1648,6 +1720,69 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
     );
   }
 
+  Widget _buildEmailVerificationRequiredState() {
+    final email = widget.currentUser.email?.trim().isNotEmpty == true
+        ? widget.currentUser.email!.trim()
+        : 'your email address';
+
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 520),
+          child: BiteRaterTheme.liftedCard(
+            radius: 24,
+            borderColor: BiteRaterTheme.ocean.withValues(alpha: 0.16),
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.mark_email_read_outlined, size: 52),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Email Verification Required',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      color: BiteRaterTheme.ink,
+                      fontSize: 24,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'Your restaurant claim is approved. Please verify $email before using owner tools.',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: BiteRaterTheme.mutedInk,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: _resendVerificationEmail,
+                      child: const Text('Resend Verification Email'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SizedBox(
+                    width: double.infinity,
+                    child: OutlinedButton(
+                      onPressed: _refreshVerificationStatus,
+                      child: const Text('Refresh Verification'),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   ButtonStyle _browseBiteScoreRestaurantsButtonStyle() {
     return ElevatedButton.styleFrom(
       backgroundColor: BiteRaterTheme.ocean,
@@ -1663,6 +1798,22 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final refreshedUser = FirebaseAuth.instance.currentUser;
+    final currentUser =
+        refreshedUser != null && refreshedUser.uid == widget.currentUser.uid
+        ? refreshedUser
+        : widget.currentUser;
+    if (RestaurantAuthService.requiresEmailVerification(currentUser)) {
+      return Scaffold(
+        backgroundColor: BiteRaterTheme.pageBackground,
+        appBar: AppBar(
+          title: const Text('Rating Side Owner'),
+          centerTitle: true,
+        ),
+        body: _buildEmailVerificationRequiredState(),
+      );
+    }
+
     return Scaffold(
       backgroundColor: BiteRaterTheme.pageBackground,
       appBar: AppBar(title: const Text('Rating Side Owner'), centerTitle: true),

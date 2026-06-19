@@ -245,7 +245,20 @@ void main() {
       });
 
       expect(result.inviteId, 'invite_coupon');
+      expect(result.restaurantId, isEmpty);
       expect(result.restaurantName, 'Redeemed Restaurant');
+    });
+
+    test('parses BiteScore claim redemption response', () {
+      final result = RestaurantInviteRedemptionResult.fromCallableData({
+        'inviteId': 'invite_bitescore',
+        'restaurantId': 'restaurant_123',
+        'restaurantName': 'Claimed Restaurant',
+      });
+
+      expect(result.inviteId, 'invite_bitescore');
+      expect(result.restaurantId, 'restaurant_123');
+      expect(result.restaurantName, 'Claimed Restaurant');
     });
   });
 }

@@ -185,10 +185,12 @@ class RestaurantInvitePreview {
 
 class RestaurantInviteRedemptionResult {
   final String inviteId;
+  final String restaurantId;
   final String restaurantName;
 
   const RestaurantInviteRedemptionResult({
     required this.inviteId,
+    required this.restaurantId,
     required this.restaurantName,
   });
 
@@ -197,6 +199,7 @@ class RestaurantInviteRedemptionResult {
   ) {
     return RestaurantInviteRedemptionResult(
       inviteId: _readString(data['inviteId']),
+      restaurantId: _readString(data['restaurantId']),
       restaurantName: _readString(data['restaurantName']),
     );
   }
@@ -304,6 +307,18 @@ class RestaurantInviteService {
     required String token,
   }) async {
     final callable = _functions.httpsCallable('redeemCouponRestaurantInvite');
+    final response = await callable.call<Map<String, dynamic>>({
+      'token': token.trim(),
+    });
+    return RestaurantInviteRedemptionResult.fromCallableData(response.data);
+  }
+
+  static Future<RestaurantInviteRedemptionResult> redeemBiteScoreClaimInvite({
+    required String token,
+  }) async {
+    final callable = _functions.httpsCallable(
+      'redeemBiteScoreRestaurantClaimInvite',
+    );
     final response = await callable.call<Map<String, dynamic>>({
       'token': token.trim(),
     });
