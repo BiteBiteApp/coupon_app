@@ -36,7 +36,7 @@ class CouponApp extends StatelessWidget {
   Route<dynamic>? _onGenerateRoute(RouteSettings settings) {
     final restaurantLink =
         RestaurantCustomerLinkService.parseRestaurantRouteName(settings.name);
-    if (restaurantLink?.isBiteScore == true) {
+    if (restaurantLink != null) {
       return MaterialPageRoute(
         settings: settings,
         builder: (_) =>

@@ -335,6 +335,23 @@ void main() {
         );
       },
     );
+
+    test('canonical restaurant account UID uses stored uid when present', () {
+      final uid = RestaurantAccountService.canonicalAccountUidForAccountData({
+        Restaurant.fieldUid: 'owner-uid-123',
+        Restaurant.fieldName: 'BiteSaver Test',
+      }, fallbackUid: 'restaurant-account-doc');
+
+      expect(uid, 'owner-uid-123');
+    });
+
+    test('canonical restaurant account UID falls back to document id', () {
+      final uid = RestaurantAccountService.canonicalAccountUidForAccountData({
+        Restaurant.fieldName: 'BiteSaver Test',
+      }, fallbackUid: 'restaurant-account-doc');
+
+      expect(uid, 'restaurant-account-doc');
+    });
   });
 
   group('Restaurant validation', () {

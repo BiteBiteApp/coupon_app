@@ -2,10 +2,21 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 
 import '../models/coupon.dart';
 import '../models/daily_special.dart';
 import '../models/restaurant.dart';
+
+class ResolvedRestaurantAccount {
+  final String accountUid;
+  final Map<String, dynamic> accountData;
+
+  const ResolvedRestaurantAccount({
+    required this.accountUid,
+    required this.accountData,
+  });
+}
 
 class RestaurantAccountService {
   static const int maxCouponNumberGenerationAttempts = 10000;
@@ -258,6 +269,31 @@ class RestaurantAccountService {
     }
 
     return _normalizedRestaurantAccountData(data, fallbackUid: uid);
+  }
+
+  static Future<ResolvedRestaurantAccount?> resolveCustomerRestaurantAccount(
+    String restaurantId,
+  ) async {
+    final trimmedRestaurantId = restaurantId.trim();
+    if (trimmedRestaurantId.isEmpty) {
+      return null;
+    }
+
+    final directSnapshot = await docForUser(trimmedRestaurantId).get();
+    if (directSnapshot.data() != null) {
+      return _resolvedRestaurantAccountFromSnapshot(directSnapshot);
+    }
+
+    final uidSnapshot = await _firestore
+        .collection('restaurant_accounts')
+        .where(Restaurant.fieldUid, isEqualTo: trimmedRestaurantId)
+        .limit(1)
+        .get();
+    if (uidSnapshot.docs.isEmpty) {
+      return null;
+    }
+
+    return _resolvedRestaurantAccountFromSnapshot(uidSnapshot.docs.first);
   }
 
   static Future<bool> canPostCoupons(String uid) async {
@@ -1368,7 +1404,10 @@ class RestaurantAccountService {
           doc.data(),
           fallbackUid: doc.id,
         );
-        final uid = _readString(normalizedData[Restaurant.fieldUid]) ?? doc.id;
+        final uid = _canonicalAccountUidFromNormalizedData(
+          normalizedData,
+          fallbackUid: doc.id,
+        );
         final canShowCustomerOffers = hasCouponPostingAccess(normalizedData);
 
         final allCoupons = await loadCoupons(uid);
@@ -1396,6 +1435,50 @@ class RestaurantAccountService {
     }
 
     return restaurants;
+  }
+
+  static ResolvedRestaurantAccount? _resolvedRestaurantAccountFromSnapshot(
+    DocumentSnapshot<Map<String, dynamic>> snapshot,
+  ) {
+    final data = snapshot.data();
+    if (data == null) {
+      return null;
+    }
+
+    final normalizedData = _normalizedRestaurantAccountData(
+      data,
+      fallbackUid: snapshot.id,
+    );
+    final accountUid = _canonicalAccountUidFromNormalizedData(
+      normalizedData,
+      fallbackUid: snapshot.id,
+    );
+    return ResolvedRestaurantAccount(
+      accountUid: accountUid,
+      accountData: normalizedData,
+    );
+  }
+
+  @visibleForTesting
+  static String canonicalAccountUidForAccountData(
+    Map<String, dynamic> data, {
+    required String fallbackUid,
+  }) {
+    final normalizedData = _normalizedRestaurantAccountData(
+      data,
+      fallbackUid: fallbackUid,
+    );
+    return _canonicalAccountUidFromNormalizedData(
+      normalizedData,
+      fallbackUid: fallbackUid,
+    );
+  }
+
+  static String _canonicalAccountUidFromNormalizedData(
+    Map<String, dynamic> normalizedData, {
+    required String fallbackUid,
+  }) {
+    return _readString(normalizedData[Restaurant.fieldUid]) ?? fallbackUid;
   }
 
   static Map<String, dynamic> _normalizedRestaurantAccountData(
