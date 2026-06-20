@@ -95,6 +95,19 @@ void main() {
       expect(RestaurantInviteService.parseInviteDeepLink(uri), isNotNull);
     });
 
+    test(
+      'ignores BiteScore invite links so invite parsing remains separate',
+      () {
+        final uri = Uri.parse('bitesaver://invite/bitescore/token123');
+
+        expect(
+          RestaurantCustomerLinkService.parseRestaurantDeepLink(uri),
+          isNull,
+        );
+        expect(RestaurantInviteService.parseInviteDeepLink(uri), isNotNull);
+      },
+    );
+
     test('ignores subscription links', () {
       expect(
         RestaurantCustomerLinkService.parseRestaurantDeepLink(

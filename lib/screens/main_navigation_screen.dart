@@ -28,12 +28,14 @@ class MainNavigationScreen extends StatefulWidget {
   final AppMode initialMode;
   final int initialIndex;
   final RestaurantCustomerDeepLink? initialCustomerDeepLink;
+  final RestaurantInviteDeepLink? initialInviteDeepLink;
 
   const MainNavigationScreen({
     super.key,
     this.initialMode = AppMode.biteSaver,
     this.initialIndex = 0,
     this.initialCustomerDeepLink,
+    this.initialInviteDeepLink,
   });
 
   @override
@@ -57,8 +59,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   void initState() {
     super.initState();
     final initialCustomerDeepLink = widget.initialCustomerDeepLink;
-    selectedIndex = initialCustomerDeepLink == null ? widget.initialIndex : 0;
-    selectedMode = initialCustomerDeepLink?.isBiteScore == true
+    final initialInviteDeepLink = widget.initialInviteDeepLink;
+    final initialInviteIsBiteScore = initialInviteDeepLink?.side == 'bitescore';
+    selectedIndex =
+        initialCustomerDeepLink == null && initialInviteDeepLink == null
+        ? widget.initialIndex
+        : 0;
+    selectedMode =
+        initialCustomerDeepLink?.isBiteScore == true || initialInviteIsBiteScore
         ? AppMode.biteScore
         : widget.initialMode;
     AppModeStateService.setMode(selectedMode);
@@ -68,6 +76,11 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final generation = ++_deepLinkGeneration;
         _handleRestaurantLink(initialCustomerDeepLink, generation: generation);
+      });
+    } else if (initialInviteDeepLink != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final generation = ++_deepLinkGeneration;
+        _handleInviteLink(initialInviteDeepLink, generation: generation);
       });
     }
     unawaited(_loadOnboardingState());

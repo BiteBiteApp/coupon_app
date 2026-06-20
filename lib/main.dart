@@ -34,6 +34,16 @@ class CouponApp extends StatelessWidget {
   const CouponApp({super.key});
 
   Route<dynamic>? _onGenerateRoute(RouteSettings settings) {
+    final inviteLink = RestaurantInviteService.parseInviteRouteName(
+      settings.name,
+    );
+    if (inviteLink != null) {
+      return MaterialPageRoute(
+        settings: settings,
+        builder: (_) => MainNavigationScreen(initialInviteDeepLink: inviteLink),
+      );
+    }
+
     final restaurantLink =
         RestaurantCustomerLinkService.parseRestaurantRouteName(settings.name);
     if (restaurantLink != null) {
@@ -44,17 +54,7 @@ class CouponApp extends StatelessWidget {
       );
     }
 
-    final inviteLink = RestaurantInviteService.parseInviteRouteName(
-      settings.name,
-    );
-    if (inviteLink == null) {
-      return null;
-    }
-
-    return MaterialPageRoute(
-      settings: settings,
-      builder: (_) => const MainNavigationScreen(),
-    );
+    return null;
   }
 
   @override
