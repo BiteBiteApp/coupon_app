@@ -46,6 +46,48 @@ void main() {
       expect(link.restaurantId, 'bitescore_restaurant_123');
     });
 
+    test('parses HTTPS coupon restaurant links on colesmartllc.com', () {
+      final link = RestaurantCustomerLinkService.parseRestaurantDeepLink(
+        Uri.parse('https://colesmartllc.com/r/coupons/test-restaurant-id'),
+      );
+
+      expect(link, isNotNull);
+      expect(link!.side, 'coupons');
+      expect(link.restaurantId, 'test-restaurant-id');
+    });
+
+    test('parses HTTPS BiteScore restaurant links on colesmartllc.com', () {
+      final link = RestaurantCustomerLinkService.parseRestaurantDeepLink(
+        Uri.parse('https://colesmartllc.com/r/bitescore/test-restaurant-id'),
+      );
+
+      expect(link, isNotNull);
+      expect(link!.side, 'bitescore');
+      expect(link.restaurantId, 'test-restaurant-id');
+    });
+
+    test('parses HTTPS coupon restaurant links on www colesmartllc.com', () {
+      final link = RestaurantCustomerLinkService.parseRestaurantDeepLink(
+        Uri.parse('https://www.colesmartllc.com/r/coupons/test-restaurant-id'),
+      );
+
+      expect(link, isNotNull);
+      expect(link!.side, 'coupons');
+      expect(link.restaurantId, 'test-restaurant-id');
+    });
+
+    test('parses HTTPS BiteScore restaurant links on www colesmartllc.com', () {
+      final link = RestaurantCustomerLinkService.parseRestaurantDeepLink(
+        Uri.parse(
+          'https://www.colesmartllc.com/r/bitescore/test-restaurant-id',
+        ),
+      );
+
+      expect(link, isNotNull);
+      expect(link!.side, 'bitescore');
+      expect(link.restaurantId, 'test-restaurant-id');
+    });
+
     test('decodes encoded restaurant IDs', () {
       final link = RestaurantCustomerLinkService.parseRestaurantDeepLink(
         Uri.parse('bitesaver://r/coupons/restaurant%20123'),
@@ -126,6 +168,30 @@ void main() {
     test('ignores unsupported restaurant link sides', () {
       final link = RestaurantCustomerLinkService.parseRestaurantDeepLink(
         Uri.parse('bitesaver://r/menus/restaurant123'),
+      );
+
+      expect(link, isNull);
+    });
+
+    test('ignores restaurant HTTPS links on untrusted hosts', () {
+      final link = RestaurantCustomerLinkService.parseRestaurantDeepLink(
+        Uri.parse('https://evil.com/r/coupons/test-restaurant-id'),
+      );
+
+      expect(link, isNull);
+    });
+
+    test('ignores random HTTPS paths on colesmartllc.com', () {
+      final link = RestaurantCustomerLinkService.parseRestaurantDeepLink(
+        Uri.parse('https://colesmartllc.com/random/path'),
+      );
+
+      expect(link, isNull);
+    });
+
+    test('ignores plain HTTP restaurant links on colesmartllc.com', () {
+      final link = RestaurantCustomerLinkService.parseRestaurantDeepLink(
+        Uri.parse('http://colesmartllc.com/r/coupons/test-restaurant-id'),
       );
 
       expect(link, isNull);

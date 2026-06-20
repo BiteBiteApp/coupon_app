@@ -206,6 +206,11 @@ class RestaurantInviteRedemptionResult {
 }
 
 class RestaurantInviteService {
+  static const Set<String> _trustedHttpsHosts = {
+    'colesmartllc.com',
+    'www.colesmartllc.com',
+  };
+
   static final FirebaseFunctions _functions = FirebaseFunctions.instanceFor(
     region: 'us-central1',
   );
@@ -326,8 +331,16 @@ class RestaurantInviteService {
   }
 
   static RestaurantInviteDeepLink? parseInviteDeepLink(Uri uri) {
-    if (uri.scheme != 'bitesaver') {
+    final isCustomScheme = uri.scheme == 'bitesaver';
+    final isTrustedHttps =
+        uri.scheme == 'https' &&
+        _trustedHttpsHosts.contains(uri.host.trim().toLowerCase());
+    if (!isCustomScheme && !isTrustedHttps) {
       return null;
+    }
+
+    if (isTrustedHttps) {
+      return _parseInviteSegments(uri.pathSegments);
     }
 
     final segments = _normalizedInviteSegments(

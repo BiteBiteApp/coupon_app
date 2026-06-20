@@ -12,9 +12,22 @@ class RestaurantCustomerDeepLink {
 }
 
 class RestaurantCustomerLinkService {
+  static const Set<String> _trustedHttpsHosts = {
+    'colesmartllc.com',
+    'www.colesmartllc.com',
+  };
+
   static RestaurantCustomerDeepLink? parseRestaurantDeepLink(Uri uri) {
-    if (uri.scheme != 'bitesaver') {
+    final isCustomScheme = uri.scheme == 'bitesaver';
+    final isTrustedHttps =
+        uri.scheme == 'https' &&
+        _trustedHttpsHosts.contains(uri.host.trim().toLowerCase());
+    if (!isCustomScheme && !isTrustedHttps) {
       return null;
+    }
+
+    if (isTrustedHttps) {
+      return _parseRestaurantSegments(uri.pathSegments);
     }
 
     final segments = _normalizedRestaurantSegments(

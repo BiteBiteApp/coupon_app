@@ -127,6 +127,46 @@ void main() {
       expect(link.token, 'token123');
     });
 
+    test('parses HTTPS coupon invite links on colesmartllc.com', () {
+      final link = RestaurantInviteService.parseInviteDeepLink(
+        Uri.parse('https://colesmartllc.com/invite/coupon/test-token'),
+      );
+
+      expect(link, isNotNull);
+      expect(link!.side, 'coupon');
+      expect(link.token, 'test-token');
+    });
+
+    test('parses HTTPS BiteScore invite links on colesmartllc.com', () {
+      final link = RestaurantInviteService.parseInviteDeepLink(
+        Uri.parse('https://colesmartllc.com/invite/bitescore/test-token'),
+      );
+
+      expect(link, isNotNull);
+      expect(link!.side, 'bitescore');
+      expect(link.token, 'test-token');
+    });
+
+    test('parses HTTPS coupon invite links on www colesmartllc.com', () {
+      final link = RestaurantInviteService.parseInviteDeepLink(
+        Uri.parse('https://www.colesmartllc.com/invite/coupon/test-token'),
+      );
+
+      expect(link, isNotNull);
+      expect(link!.side, 'coupon');
+      expect(link.token, 'test-token');
+    });
+
+    test('parses HTTPS BiteScore invite links on www colesmartllc.com', () {
+      final link = RestaurantInviteService.parseInviteDeepLink(
+        Uri.parse('https://www.colesmartllc.com/invite/bitescore/test-token'),
+      );
+
+      expect(link, isNotNull);
+      expect(link!.side, 'bitescore');
+      expect(link.token, 'test-token');
+    });
+
     test('parses Flutter startup coupon invite route name', () {
       final link = RestaurantInviteService.parseInviteRouteName(
         '/coupon/token123',
@@ -180,6 +220,30 @@ void main() {
     test('ignores unsupported invite routes', () {
       final link = RestaurantInviteService.parseInviteDeepLink(
         Uri.parse('bitesaver://invite/other/token123'),
+      );
+
+      expect(link, isNull);
+    });
+
+    test('ignores invite HTTPS links on untrusted hosts', () {
+      final link = RestaurantInviteService.parseInviteDeepLink(
+        Uri.parse('https://evil.com/invite/coupon/test-token'),
+      );
+
+      expect(link, isNull);
+    });
+
+    test('ignores random HTTPS paths on colesmartllc.com', () {
+      final link = RestaurantInviteService.parseInviteDeepLink(
+        Uri.parse('https://colesmartllc.com/random/path'),
+      );
+
+      expect(link, isNull);
+    });
+
+    test('ignores plain HTTP invite links on colesmartllc.com', () {
+      final link = RestaurantInviteService.parseInviteDeepLink(
+        Uri.parse('http://colesmartllc.com/invite/coupon/test-token'),
       );
 
       expect(link, isNull);
