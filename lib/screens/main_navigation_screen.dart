@@ -27,11 +27,13 @@ const String _customerDeepLinkRoutePrefix = '/deep-link/customer-restaurant/';
 class MainNavigationScreen extends StatefulWidget {
   final AppMode initialMode;
   final int initialIndex;
+  final RestaurantCustomerDeepLink? initialCustomerDeepLink;
 
   const MainNavigationScreen({
     super.key,
     this.initialMode = AppMode.biteSaver,
     this.initialIndex = 0,
+    this.initialCustomerDeepLink,
   });
 
   @override
@@ -40,6 +42,7 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   static const String _onboardingSeenKey = 'first_time_onboarding_seen';
+  static final Set<String> _handledInitialDeepLinkKeys = <String>{};
 
   late int selectedIndex;
   late AppMode selectedMode;
@@ -53,11 +56,20 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   void initState() {
     super.initState();
-    selectedIndex = widget.initialIndex;
-    selectedMode = widget.initialMode;
-    AppModeStateService.setMode(widget.initialMode);
+    final initialCustomerDeepLink = widget.initialCustomerDeepLink;
+    selectedIndex = initialCustomerDeepLink == null ? widget.initialIndex : 0;
+    selectedMode = initialCustomerDeepLink?.isBiteScore == true
+        ? AppMode.biteScore
+        : widget.initialMode;
+    AppModeStateService.setMode(selectedMode);
     AppModeStateService.selectedMode.addListener(_syncSelectedMode);
     _listenForSubscriptionReturnLinks();
+    if (initialCustomerDeepLink != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final generation = ++_deepLinkGeneration;
+        _handleRestaurantLink(initialCustomerDeepLink, generation: generation);
+      });
+    }
     unawaited(_loadOnboardingState());
   }
 
@@ -71,13 +83,23 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   Future<void> _listenForSubscriptionReturnLinks() async {
     try {
       final initialUri = await _appLinks.getInitialLink();
-      _handleIncomingDeepLink(initialUri);
+      if (_shouldHandleInitialDeepLink(initialUri)) {
+        _handleIncomingDeepLink(initialUri);
+      }
     } catch (_) {}
 
     _subscriptionReturnSubscription = _appLinks.uriLinkStream.listen(
       _handleIncomingDeepLink,
       onError: (_) {},
     );
+  }
+
+  bool _shouldHandleInitialDeepLink(Uri? uri) {
+    if (uri == null) {
+      return false;
+    }
+
+    return _handledInitialDeepLinkKeys.add(uri.toString());
   }
 
   Future<void> _loadOnboardingState() async {

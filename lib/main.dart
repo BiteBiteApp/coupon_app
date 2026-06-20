@@ -1,7 +1,7 @@
 import 'package:coupon_app/firebase_options.dart';
 import 'package:coupon_app/screens/main_navigation_screen.dart';
-import 'package:coupon_app/screens/restaurant_invite_preview_screen.dart';
 import 'package:coupon_app/services/customer_session_service.dart';
+import 'package:coupon_app/services/restaurant_customer_link_service.dart';
 import 'package:coupon_app/services/restaurant_invite_service.dart';
 import 'package:coupon_app/services/user_profile_service.dart';
 import 'package:coupon_app/widgets/contribution_points_celebration_host.dart';
@@ -34,6 +34,16 @@ class CouponApp extends StatelessWidget {
   const CouponApp({super.key});
 
   Route<dynamic>? _onGenerateRoute(RouteSettings settings) {
+    final restaurantLink =
+        RestaurantCustomerLinkService.parseRestaurantRouteName(settings.name);
+    if (restaurantLink?.isBiteScore == true) {
+      return MaterialPageRoute(
+        settings: settings,
+        builder: (_) =>
+            MainNavigationScreen(initialCustomerDeepLink: restaurantLink),
+      );
+    }
+
     final inviteLink = RestaurantInviteService.parseInviteRouteName(
       settings.name,
     );
@@ -43,10 +53,7 @@ class CouponApp extends StatelessWidget {
 
     return MaterialPageRoute(
       settings: settings,
-      builder: (_) => RestaurantInvitePreviewScreen(
-        side: inviteLink.side,
-        token: inviteLink.token,
-      ),
+      builder: (_) => const MainNavigationScreen(),
     );
   }
 

@@ -75,6 +75,16 @@ void main() {
       expect(link.restaurantId, 'restaurant123');
     });
 
+    test('parses double-slash BiteScore startup route name', () {
+      final link = RestaurantCustomerLinkService.parseRestaurantRouteName(
+        '/bitescore/restaurant123',
+      );
+
+      expect(link, isNotNull);
+      expect(link!.side, 'bitescore');
+      expect(link.restaurantId, 'restaurant123');
+    });
+
     test('ignores invite links so invite parsing remains separate', () {
       final uri = Uri.parse('bitesaver://invite/coupon/token123');
 
