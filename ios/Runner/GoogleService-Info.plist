@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>253983587346-542ffd5n277c54pmp03kek55u8lp0usn.apps.googleusercontent.com</string>
+	<string>253983587346-2ofh0de9kqh45r57obv13gii570cih3r.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.253983587346-542ffd5n277c54pmp03kek55u8lp0usn</string>
+	<string>com.googleusercontent.apps.253983587346-2ofh0de9kqh45r57obv13gii570cih3r</string>
 	<key>ANDROID_CLIENT_ID</key>
 	<string>253983587346-9fh1d0d2m8upp17bv0rla8dj2410tk5a.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
@@ -15,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.example.couponApp</string>
+	<string>com.colesmartllc.bitesaver</string>
 	<key>PROJECT_ID</key>
 	<string>coupon-app-29446</string>
 	<key>STORAGE_BUCKET</key>
@@ -31,6 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:253983587346:ios:9002570d04bd127748accb</string>
+	<string>1:253983587346:ios:2c7ff7d7b243e4e248accb</string>
 </dict>
 </plist>
