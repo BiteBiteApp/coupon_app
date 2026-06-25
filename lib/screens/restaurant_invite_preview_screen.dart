@@ -473,30 +473,6 @@ class _RestaurantInvitePreviewScreenState
     );
   }
 
-  Widget _buildBiteScoreVisibilityNote() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.blue.shade50,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.blue.shade100),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(Icons.visibility_outlined, color: Colors.blue.shade700),
-          const SizedBox(width: 10),
-          const Expanded(
-            child: Text(
-              'Add your first dish to make your restaurant visible on BiteScore.',
-              style: TextStyle(fontWeight: FontWeight.w700, height: 1.3),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   Widget _buildPreview(RestaurantInvitePreview preview) {
     return ListView(
       padding: const EdgeInsets.all(20),
@@ -561,8 +537,6 @@ class _RestaurantInvitePreviewScreenState
                     textAlign: TextAlign.center,
                     style: TextStyle(color: Colors.black54),
                   ),
-                  const SizedBox(height: 16),
-                  _buildBiteScoreVisibilityNote(),
                   const SizedBox(height: 16),
                   _buildBiteScoreRedemptionForm(),
                 ],
