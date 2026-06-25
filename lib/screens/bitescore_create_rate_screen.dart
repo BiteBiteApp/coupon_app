@@ -536,6 +536,8 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
   final TextEditingController priceLabelController = TextEditingController();
   final TextEditingController headlineController = TextEditingController();
   final TextEditingController notesController = TextEditingController();
+  final GlobalKey _manualCitySuggestionsKey = GlobalKey();
+  final GlobalKey _manualRestaurantSuggestionsKey = GlobalKey();
   BiteScorePickedDishImage? _selectedDishImage;
 
   double? overallImpression;
@@ -708,6 +710,26 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     setState(() {
       _dishSuggestions = const <DishCatalogSuggestion>[];
       _isLoadingDishSuggestions = false;
+    });
+  }
+
+  void _scrollSuggestionIntoView(GlobalKey key) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+
+      final suggestionContext = key.currentContext;
+      if (suggestionContext == null) {
+        return;
+      }
+
+      Scrollable.ensureVisible(
+        suggestionContext,
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+        alignment: 0.82,
+      );
     });
   }
 
@@ -1027,10 +1049,14 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
               .toList()
         : const <String>[];
 
+    final visibleSuggestions = query.isEmpty ? const <String>[] : suggestions;
     setState(() {
-      _manualCitySuggestions = query.isEmpty ? const <String>[] : suggestions;
+      _manualCitySuggestions = visibleSuggestions;
       _manualRestaurantSuggestions = const <BitescoreRestaurant>[];
     });
+    if (visibleSuggestions.isNotEmpty) {
+      _scrollSuggestionIntoView(_manualCitySuggestionsKey);
+    }
   }
 
   void _applyManualCitySuggestion(String city) {
@@ -1090,6 +1116,9 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     setState(() {
       _manualRestaurantSuggestions = suggestions;
     });
+    if (suggestions.isNotEmpty) {
+      _scrollSuggestionIntoView(_manualRestaurantSuggestionsKey);
+    }
   }
 
   void _applyManualRestaurantSuggestion(BitescoreRestaurant restaurant) {
@@ -1197,7 +1226,9 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
         if (_manualCitySuggestions.isNotEmpty) ...[
           const SizedBox(height: 8),
           Container(
+            key: _manualCitySuggestionsKey,
             width: double.infinity,
+            constraints: const BoxConstraints(maxHeight: 240),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(14),
@@ -1210,34 +1241,38 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
                 ),
               ],
             ),
-            child: Column(
-              children: _manualCitySuggestions.asMap().entries.map((entry) {
-                final index = entry.key;
-                final city = entry.value;
+            child: SingleChildScrollView(
+              child: Column(
+                children: _manualCitySuggestions.asMap().entries.map((entry) {
+                  final index = entry.key;
+                  final city = entry.value;
 
-                return Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: () => _applyManualCitySuggestion(city),
-                    borderRadius: BorderRadius.vertical(
-                      top: index == 0 ? const Radius.circular(12) : Radius.zero,
-                      bottom: index == _manualCitySuggestions.length - 1
-                          ? const Radius.circular(12)
-                          : Radius.zero,
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
+                  return Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: () => _applyManualCitySuggestion(city),
+                      borderRadius: BorderRadius.vertical(
+                        top: index == 0
+                            ? const Radius.circular(12)
+                            : Radius.zero,
+                        bottom: index == _manualCitySuggestions.length - 1
+                            ? const Radius.circular(12)
+                            : Radius.zero,
                       ),
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Text(city),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 10,
+                        ),
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Text(city),
+                        ),
                       ),
                     ),
-                  ),
-                );
-              }).toList(),
+                  );
+                }).toList(),
+              ),
             ),
           ),
         ],
@@ -1251,8 +1286,10 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     }
 
     return Container(
+      key: _manualRestaurantSuggestionsKey,
       width: double.infinity,
       margin: const EdgeInsets.only(top: 8),
+      constraints: const BoxConstraints(maxHeight: 260),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -1265,49 +1302,51 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
           ),
         ],
       ),
-      child: Column(
-        children: _manualRestaurantSuggestions.asMap().entries.map((entry) {
-          final index = entry.key;
-          final restaurant = entry.value;
+      child: SingleChildScrollView(
+        child: Column(
+          children: _manualRestaurantSuggestions.asMap().entries.map((entry) {
+            final index = entry.key;
+            final restaurant = entry.value;
 
-          return Material(
-            color: Colors.transparent,
-            child: InkWell(
-              onTap: () => _applyManualRestaurantSuggestion(restaurant),
-              borderRadius: BorderRadius.vertical(
-                top: index == 0 ? const Radius.circular(12) : Radius.zero,
-                bottom: index == _manualRestaurantSuggestions.length - 1
-                    ? const Radius.circular(12)
-                    : Radius.zero,
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 10,
+            return Material(
+              color: Colors.transparent,
+              child: InkWell(
+                onTap: () => _applyManualRestaurantSuggestion(restaurant),
+                borderRadius: BorderRadius.vertical(
+                  top: index == 0 ? const Radius.circular(12) : Radius.zero,
+                  bottom: index == _manualRestaurantSuggestions.length - 1
+                      ? const Radius.circular(12)
+                      : Radius.zero,
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      restaurant.name,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      '${restaurant.city}, ${restaurant.state}',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.black54,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        restaurant.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 2),
+                      Text(
+                        '${restaurant.city}, ${restaurant.state}',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.black54,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-          );
-        }).toList(),
+            );
+          }).toList(),
+        ),
       ),
     );
   }
@@ -2622,6 +2661,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
         : isExistingRestaurantMode
         ? 'Add Dish'
         : 'Create and Rate';
+    final keyboardBottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
     return Scaffold(
       backgroundColor: BiteRaterTheme.pageBackground,
@@ -2649,7 +2689,12 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
                 ).copyWith(overscroll: false),
                 child: SingleChildScrollView(
                   physics: const ClampingScrollPhysics(),
-                  padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
+                  padding: EdgeInsets.fromLTRB(
+                    16,
+                    16,
+                    16,
+                    24 + keyboardBottomInset,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
