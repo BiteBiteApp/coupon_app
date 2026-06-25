@@ -1168,6 +1168,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     int minLines = 1,
     int maxLines = 1,
     TextInputType? keyboardType,
+    bool disableKeyboardSuggestions = false,
   }) {
     return TextField(
       controller: controller,
@@ -1176,6 +1177,14 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       minLines: minLines,
       maxLines: maxLines,
       keyboardType: keyboardType,
+      autocorrect: !disableKeyboardSuggestions,
+      enableSuggestions: !disableKeyboardSuggestions,
+      smartQuotesType: disableKeyboardSuggestions
+          ? SmartQuotesType.disabled
+          : SmartQuotesType.enabled,
+      smartDashesType: disableKeyboardSuggestions
+          ? SmartDashesType.disabled
+          : SmartDashesType.enabled,
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
@@ -1215,6 +1224,10 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
           controller: cityController,
           enabled: _isManualCityEnabled,
           onChanged: _handleManualCityChanged,
+          autocorrect: false,
+          enableSuggestions: false,
+          smartQuotesType: SmartQuotesType.disabled,
+          smartDashesType: SmartDashesType.disabled,
           decoration: InputDecoration(
             labelText: 'City',
             hintText: _isManualCityEnabled
@@ -1930,6 +1943,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
               label: 'Restaurant Name',
               hint: 'Example: Joe\'s Pizza',
               onChanged: _handleManualRestaurantNameChanged,
+              disableKeyboardSuggestions: true,
             ),
             _buildManualRestaurantSuggestionList(),
             const SizedBox(height: 16),
