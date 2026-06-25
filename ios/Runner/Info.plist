@@ -29,6 +29,18 @@
 				<string>bitesaver</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
+			<key>CFBundleURLName</key>
+			<string>google-sign-in</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>com.googleusercontent.apps.253983587346-542ffd5n277c54pmp03kek55u8lp0usn</string>
+				<string>com.googleusercontent.apps.253983587346-2ofh0de9kqh45r57obv13gii570cih3r</string>
+				<string>com.googleusercontent.apps.253983587346-2ofh0de9kqh45f57obv13gif57Ocih3r</string>
+			</array>
+		</dict>
 	</array>
 	<key>CFBundleName</key>
 	<string>coupon_app</string>
