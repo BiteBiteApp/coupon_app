@@ -450,49 +450,54 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
             BiteRaterTheme.softDivider(),
             _buildBiteScoreMenuRoutingControl(restaurant),
             const SizedBox(height: 10),
-            Wrap(
-              spacing: 10,
-              runSpacing: 10,
+            Column(
               children: [
-                SizedBox(
-                  width: 180,
-                  child: _buildOwnerActionButton(
-                    onPressed: () => _openRestaurantEditor(restaurant),
-                    icon: Icons.edit_outlined,
-                    label: 'Edit Restaurant Info',
-                  ),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildOwnerActionButton(
+                        onPressed: () => _openRestaurantEditor(restaurant),
+                        icon: Icons.edit_outlined,
+                        label: 'Edit Restaurant Info',
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FutureBuilder<_BiteScoreMenuRoutingState>(
+                        future: _loadBiteScoreMenuRoutingState(restaurant),
+                        builder: (context, snapshot) {
+                          final disabled = snapshot.data?.usesBiteSaver == true;
+                          return _buildOwnerActionButton(
+                            onPressed: disabled
+                                ? null
+                                : () => _openManageMenu(restaurant),
+                            icon: Icons.menu_book_outlined,
+                            label: 'Manage Menu',
+                          );
+                        },
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(
-                  width: 150,
-                  child: FutureBuilder<_BiteScoreMenuRoutingState>(
-                    future: _loadBiteScoreMenuRoutingState(restaurant),
-                    builder: (context, snapshot) {
-                      final disabled = snapshot.data?.usesBiteSaver == true;
-                      return _buildOwnerActionButton(
-                        onPressed: disabled
-                            ? null
-                            : () => _openManageMenu(restaurant),
-                        icon: Icons.menu_book_outlined,
-                        label: 'Manage Menu',
-                      );
-                    },
-                  ),
-                ),
-                SizedBox(
-                  width: 140,
-                  child: _buildOwnerActionButton(
-                    onPressed: () => _openAddDish(restaurant),
-                    icon: Icons.add,
-                    label: 'Add Dish',
-                  ),
-                ),
-                SizedBox(
-                  width: 160,
-                  child: _buildOwnerActionButton(
-                    onPressed: () => _openMergeDialog(data.entries),
-                    icon: Icons.merge_type,
-                    label: 'Merge Dishes',
-                  ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _buildOwnerActionButton(
+                        onPressed: () => _openAddDish(restaurant),
+                        icon: Icons.add,
+                        label: 'Add Dish',
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _buildOwnerActionButton(
+                        onPressed: () => _openMergeDialog(data.entries),
+                        icon: Icons.merge_type,
+                        label: 'Merge Dishes',
+                      ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -850,7 +855,12 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
       onPressed: onPressed,
       style: _ownerActionButtonStyle(),
       icon: Icon(icon, size: 18),
-      label: Text(label),
+      label: Text(
+        label,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        textAlign: TextAlign.center,
+      ),
     );
   }
 
