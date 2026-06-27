@@ -39,32 +39,45 @@ class ExpertBadgeGalleryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final galleryGrid = GridView.builder(
-      key: const ValueKey('expert-badge-gallery-grid'),
-      padding: EdgeInsets.fromLTRB(16, showPreviewControls ? 8 : 14, 16, 28),
-      gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-        maxCrossAxisExtent: 260,
-        mainAxisExtent: 206,
-        mainAxisSpacing: 12,
-        crossAxisSpacing: 12,
-      ),
-      itemCount: LocalExperts.all.length,
-      itemBuilder: (context, index) {
-        return _ExpertBadgeGalleryCard(type: LocalExperts.all[index]);
-      },
+    final bottomPadding = 28 + MediaQuery.paddingOf(context).bottom;
+    const gridDelegate = SliverGridDelegateWithMaxCrossAxisExtent(
+      maxCrossAxisExtent: 260,
+      mainAxisExtent: 206,
+      mainAxisSpacing: 12,
+      crossAxisSpacing: 12,
     );
 
     if (!showPreviewControls) {
-      return galleryGrid;
+      return GridView.builder(
+        key: const ValueKey('expert-badge-gallery-grid'),
+        padding: EdgeInsets.fromLTRB(16, 14, 16, bottomPadding),
+        gridDelegate: gridDelegate,
+        itemCount: LocalExperts.all.length,
+        itemBuilder: (context, index) {
+          return _ExpertBadgeGalleryCard(type: LocalExperts.all[index]);
+        },
+      );
     }
 
-    return Column(
-      children: [
-        ExpertBadgeGalleryPreviewPanel(
-          onPreviewBadge: onPreviewBadge,
-          onPreviewPoint: onPreviewPoint,
+    return CustomScrollView(
+      key: const ValueKey('expert-badge-gallery-scroll-view'),
+      slivers: [
+        SliverToBoxAdapter(
+          child: ExpertBadgeGalleryPreviewPanel(
+            onPreviewBadge: onPreviewBadge,
+            onPreviewPoint: onPreviewPoint,
+          ),
         ),
-        Expanded(child: galleryGrid),
+        SliverPadding(
+          padding: EdgeInsets.fromLTRB(16, 8, 16, bottomPadding),
+          sliver: SliverGrid(
+            key: const ValueKey('expert-badge-gallery-grid'),
+            gridDelegate: gridDelegate,
+            delegate: SliverChildBuilderDelegate((context, index) {
+              return _ExpertBadgeGalleryCard(type: LocalExperts.all[index]);
+            }, childCount: LocalExperts.all.length),
+          ),
+        ),
       ],
     );
   }
