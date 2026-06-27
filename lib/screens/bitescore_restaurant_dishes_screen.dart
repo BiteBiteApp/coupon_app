@@ -107,7 +107,7 @@ class _BiteScoreRestaurantDishesScreenState
 
   Widget _buildEmptyDishState() {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 12),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 28),
       child: Column(
         children: [
           Icon(
@@ -791,22 +791,30 @@ class _BiteScoreRestaurantDishesScreenState
                       style: TextStyle(fontWeight: FontWeight.w800),
                     ),
                     const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        todaySummary,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: BiteRaterTheme.ink,
-                          fontWeight: FontWeight.w700,
-                        ),
+                    Flexible(
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              todaySummary,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                color: BiteRaterTheme.ink,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 2),
+                          Icon(
+                            _hoursExpanded
+                                ? Icons.keyboard_arrow_up_rounded
+                                : Icons.keyboard_arrow_down_rounded,
+                            color: BiteRaterTheme.mutedInk,
+                          ),
+                        ],
                       ),
-                    ),
-                    Icon(
-                      _hoursExpanded
-                          ? Icons.keyboard_arrow_up_rounded
-                          : Icons.keyboard_arrow_down_rounded,
-                      color: BiteRaterTheme.mutedInk,
                     ),
                   ],
                 ),
