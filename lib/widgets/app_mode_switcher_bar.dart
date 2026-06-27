@@ -18,7 +18,8 @@ class AppModeSwitcherBar extends StatefulWidget {
 }
 
 class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
-  double _dragProgress = 0;
+  double? _dragPosition;
+  double _dragThumbGrabOffset = 0;
   AppMode? _pressedMode;
 
   Color _accentColor() {
@@ -30,22 +31,43 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
   double get _selectedPosition =>
       widget.selectedMode == AppMode.biteSaver ? 0 : 1;
 
+  void _handleDragStart(DragStartDetails details, BoxConstraints constraints) {
+    final width = constraints.maxWidth;
+    if (width <= 0) return;
+    final thumbWidth = (width - 4) / 2;
+    final thumbLeft = 2 + (_selectedPosition * thumbWidth);
+
+    setState(() {
+      _dragPosition = _selectedPosition;
+      _dragThumbGrabOffset = (details.localPosition.dx - thumbLeft).clamp(
+        0,
+        thumbWidth,
+      );
+    });
+  }
+
   void _handleDragUpdate(
     DragUpdateDetails details,
     BoxConstraints constraints,
   ) {
     final width = constraints.maxWidth;
     if (width <= 0) return;
+    final thumbWidth = (width - 4) / 2;
+    if (thumbWidth <= 0) return;
+
+    final thumbLeft = details.localPosition.dx - _dragThumbGrabOffset;
+    final position = ((thumbLeft - 2) / thumbWidth).clamp(0.0, 1.0);
 
     setState(() {
-      _dragProgress = (_dragProgress + (details.delta.dx / width)).clamp(-1, 1);
+      _dragPosition = position;
     });
   }
 
   void _handleDragEnd() {
-    final targetPosition = (_selectedPosition + _dragProgress) >= 0.5 ? 1 : 0;
+    final targetPosition = (_dragPosition ?? _selectedPosition) >= 0.5 ? 1 : 0;
     setState(() {
-      _dragProgress = 0;
+      _dragPosition = null;
+      _dragThumbGrabOffset = 0;
       _pressedMode = null;
     });
     widget.onModeSelected(
@@ -77,12 +99,14 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
         builder: (context, constraints) {
           final width = constraints.maxWidth;
           final thumbWidth = (width - 4) / 2;
-          final visualPosition = (_selectedPosition + _dragProgress)
-              .clamp(0, 1)
-              .toDouble();
+          final visualPosition = _dragPosition ?? _selectedPosition;
           final left = 2 + (visualPosition * thumbWidth);
+          final isDragging = _dragPosition != null;
 
           return GestureDetector(
+            onHorizontalDragStart: (details) {
+              _handleDragStart(details, constraints);
+            },
             onHorizontalDragUpdate: (details) {
               _handleDragUpdate(details, constraints);
             },
@@ -120,7 +144,9 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
               child: Stack(
                 children: [
                   AnimatedPositioned(
-                    duration: const Duration(milliseconds: 300),
+                    duration: isDragging
+                        ? Duration.zero
+                        : const Duration(milliseconds: 300),
                     curve: Curves.easeOutCubic,
                     left: left,
                     top: 1,
