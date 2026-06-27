@@ -511,6 +511,7 @@ class _BitescoreCategoryPickerSheetState
             onSubmitted: (_) => _submitOther(),
             decoration: InputDecoration(
               labelText: BitescoreCategories.otherLabel,
+              hintText: 'Optional',
               helperText: isRequired
                   ? BitescoreCategories.requiredManualKeywordHelperText
                   : BitescoreCategories.manualKeywordHelperText,

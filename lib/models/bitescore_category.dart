@@ -214,6 +214,7 @@ class BitescoreCategories {
         'Breakfast burrito',
         'Breakfast sandwich',
         'Breakfast tacos',
+        'Eggs',
         'Eggs Benedict',
         'French toast',
         'Grits',
