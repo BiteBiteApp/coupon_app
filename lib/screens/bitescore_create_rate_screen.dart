@@ -556,9 +556,6 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
   List<BitescoreRestaurant> _manualRestaurantSuggestions =
       const <BitescoreRestaurant>[];
   String? _selectedManualRestaurantId;
-  String? selectedFinderState;
-  String? selectedFinderCity;
-  String? selectedFinderRestaurantId;
   _RestaurantEntryStage _restaurantEntryStage =
       _RestaurantEntryStage.chooseRestaurant;
   BitescoreRestaurant? _closeMatchRestaurant;
@@ -1014,7 +1011,11 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
 
   bool get _isManualCityEnabled => _selectedManualState != null;
   bool get _canSuggestManualRestaurant =>
-      _isManualCityEnabled && cityController.text.trim().isNotEmpty;
+      _isManualCityEnabled && restaurantNameController.text.trim().length >= 2;
+
+  bool _looksLikeZipFilter(String value) {
+    return RegExp(r'^\d+$').hasMatch(value.trim());
+  }
 
   void _handleManualStateChanged(String? value) {
     setState(() {
@@ -1024,6 +1025,8 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       _manualRestaurantSuggestions = const <BitescoreRestaurant>[];
       _selectedManualRestaurantId = null;
     });
+
+    _refreshManualRestaurantSuggestions();
   }
 
   void _handleManualCityChanged(String value) {
@@ -1042,7 +1045,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     }
 
     final query = value.trim().toLowerCase();
-    final suggestions = selectedState == 'FL'
+    final suggestions = selectedState == 'FL' && !_looksLikeZipFilter(query)
         ? _floridaCities
               .where((city) => city.toLowerCase().contains(query))
               .take(8)
@@ -1057,6 +1060,8 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     if (visibleSuggestions.isNotEmpty) {
       _scrollSuggestionIntoView(_manualCitySuggestionsKey);
     }
+
+    _refreshManualRestaurantSuggestions();
   }
 
   void _applyManualCitySuggestion(String city) {
@@ -1070,11 +1075,17 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       _manualRestaurantSuggestions = const <BitescoreRestaurant>[];
       _selectedManualRestaurantId = null;
     });
+
+    _refreshManualRestaurantSuggestions();
   }
 
-  Future<void> _handleManualRestaurantNameChanged(String value) async {
+  Future<void> _handleManualRestaurantNameChanged(String value) {
     _selectedManualRestaurantId = null;
 
+    return _refreshManualRestaurantSuggestions();
+  }
+
+  Future<void> _refreshManualRestaurantSuggestions() async {
     if (!_canSuggestManualRestaurant) {
       if (_manualRestaurantSuggestions.isEmpty) {
         return;
@@ -1086,7 +1097,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       return;
     }
 
-    final query = value.trim();
+    final query = restaurantNameController.text.trim();
     if (query.isEmpty) {
       setState(() {
         _manualRestaurantSuggestions = const <BitescoreRestaurant>[];
@@ -1094,24 +1105,43 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       return;
     }
 
+    final selectedState = _selectedManualState;
+    if (selectedState == null) {
+      return;
+    }
+
+    final filter = cityController.text.trim();
+    final normalizedFilter = _normalizeText(filter);
+    final isZipFilter = _looksLikeZipFilter(filter);
     final restaurants = await _loadFinderRestaurants();
     if (!mounted) {
       return;
     }
 
-    final suggestions =
-        _restaurantsForManualLocation(
-              restaurants,
-              city: cityController.text,
-              state: stateController.text,
-            )
-            .where((restaurant) {
-              return _normalizeText(
-                restaurant.name,
-              ).contains(_normalizeText(query));
-            })
-            .take(8)
-            .toList(growable: false);
+    final suggestions = restaurants
+        .where((restaurant) {
+          if (_normalizedState(restaurant.state) != selectedState) {
+            return false;
+          }
+
+          if (!_normalizeText(
+            restaurant.name,
+          ).contains(_normalizeText(query))) {
+            return false;
+          }
+
+          if (filter.isEmpty) {
+            return true;
+          }
+
+          if (isZipFilter) {
+            return restaurant.zipCode.trim().startsWith(filter);
+          }
+
+          return _normalizeText(restaurant.city).contains(normalizedFilter);
+        })
+        .take(8)
+        .toList(growable: false);
 
     setState(() {
       _manualRestaurantSuggestions = suggestions;
@@ -1121,15 +1151,56 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     }
   }
 
-  void _applyManualRestaurantSuggestion(BitescoreRestaurant restaurant) {
+  Future<void> _applyManualRestaurantSuggestion(
+    BitescoreRestaurant restaurant,
+  ) async {
     restaurantNameController.text = restaurant.name;
     restaurantNameController.selection = TextSelection.fromPosition(
       TextPosition(offset: restaurant.name.length),
     );
+    cityController.text = restaurant.city;
+    stateController.text = restaurant.state;
+    zipCodeController.text = restaurant.zipCode;
 
     setState(() {
       _selectedManualRestaurantId = restaurant.id;
       _manualRestaurantSuggestions = const <BitescoreRestaurant>[];
+      _manualCitySuggestions = const <String>[];
+    });
+
+    await _openSelectedRestaurant(restaurant);
+  }
+
+  void _continueAddingNewRestaurant() {
+    final manualName = restaurantNameController.text.trim();
+    final manualState = _normalizedState(stateController.text);
+    final locationFilter = cityController.text.trim();
+
+    if (manualState.isEmpty) {
+      _showSnackBar('State is required.');
+      return;
+    }
+
+    if (manualName.isEmpty) {
+      _showSnackBar('Restaurant name is required.');
+      return;
+    }
+
+    if (locationFilter.isNotEmpty && !_looksLikeZipFilter(locationFilter)) {
+      _continueWithManualRestaurant();
+      return;
+    }
+
+    setState(() {
+      stateController.text = manualState;
+      if (_looksLikeZipFilter(locationFilter)) {
+        zipCodeController.text = locationFilter;
+        cityController.clear();
+      }
+      _restaurantEntryStage = _RestaurantEntryStage.createNewRestaurant;
+      _manualCitySuggestions = const <String>[];
+      _manualRestaurantSuggestions = const <BitescoreRestaurant>[];
+      _selectedManualRestaurantId = null;
     });
   }
 
@@ -1169,9 +1240,11 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     int maxLines = 1,
     TextInputType? keyboardType,
     bool disableKeyboardSuggestions = false,
+    bool enabled = true,
   }) {
     return TextField(
       controller: controller,
+      enabled: enabled,
       onChanged: onChanged,
       onTapOutside: onTapOutside == null ? null : (_) => onTapOutside(),
       minLines: minLines,
@@ -1216,7 +1289,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     );
   }
 
-  Widget _buildManualCityField() {
+  Widget _buildManualCityField({bool optionalFilter = false}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1229,9 +1302,11 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
           smartQuotesType: SmartQuotesType.disabled,
           smartDashesType: SmartDashesType.disabled,
           decoration: InputDecoration(
-            labelText: 'City',
+            labelText: optionalFilter ? 'City or ZIP (optional)' : 'City',
             hintText: _isManualCityEnabled
-                ? 'Example: Lecanto'
+                ? optionalFilter
+                      ? 'Narrow by city or ZIP'
+                      : 'Example: Lecanto'
                 : 'Select a state first',
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
           ),
@@ -1339,18 +1414,31 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        restaurant.name,
+                      RichText(
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        '${restaurant.city}, ${restaurant.state}',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.black54,
+                        text: TextSpan(
+                          style: const TextStyle(
+                            color: BiteRaterTheme.ink,
+                            fontSize: 14,
+                          ),
+                          children: [
+                            TextSpan(
+                              text: restaurant.name,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            TextSpan(
+                              text:
+                                  ' — ${restaurant.city}, '
+                                  '${restaurant.state}',
+                              style: const TextStyle(
+                                color: Colors.black54,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
                     ],
@@ -1565,10 +1653,6 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     );
   }
 
-  Widget _buildDropdownText(String text) {
-    return Text(text, maxLines: 1, overflow: TextOverflow.ellipsis);
-  }
-
   Widget _buildScoreSlider({
     required String label,
     required String helperText,
@@ -1640,259 +1724,6 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     );
   }
 
-  List<String> _availableStates(List<BitescoreRestaurant> restaurants) {
-    final states =
-        restaurants
-            .map((restaurant) => restaurant.state.trim())
-            .where((state) => state.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
-    return states;
-  }
-
-  List<String> _availableCities(List<BitescoreRestaurant> restaurants) {
-    if (selectedFinderState == null || selectedFinderState!.isEmpty) {
-      return const <String>[];
-    }
-
-    final cities =
-        restaurants
-            .where((restaurant) => restaurant.state == selectedFinderState)
-            .map((restaurant) => restaurant.city.trim())
-            .where((city) => city.isNotEmpty)
-            .toSet()
-            .toList()
-          ..sort();
-    return cities;
-  }
-
-  List<BitescoreRestaurant> _availableRestaurants(
-    List<BitescoreRestaurant> restaurants,
-  ) {
-    if (selectedFinderState == null ||
-        selectedFinderState!.isEmpty ||
-        selectedFinderCity == null ||
-        selectedFinderCity!.isEmpty) {
-      return const <BitescoreRestaurant>[];
-    }
-
-    final filtered =
-        restaurants
-            .where(
-              (restaurant) =>
-                  restaurant.state == selectedFinderState &&
-                  restaurant.city == selectedFinderCity,
-            )
-            .toList()
-          ..sort(
-            (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-          );
-    return filtered;
-  }
-
-  Widget _buildExistingRestaurantFinder() {
-    return FutureBuilder<List<BitescoreRestaurant>>(
-      future: _restaurantsFuture,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return BiteRaterTheme.liftedCard(
-            radius: 22,
-            borderColor: BiteRaterTheme.ocean.withOpacity(0.16),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Row(
-                children: const [
-                  SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  SizedBox(width: 12),
-                  Text('Loading existing restaurants...'),
-                ],
-              ),
-            ),
-          );
-        }
-
-        if (snapshot.hasError) {
-          return BiteRaterTheme.liftedCard(
-            radius: 22,
-            borderColor: BiteRaterTheme.coral.withOpacity(0.16),
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Could not load existing restaurants.',
-                    style: TextStyle(fontWeight: FontWeight.w600),
-                  ),
-                  const SizedBox(height: 12),
-                  OutlinedButton(
-                    onPressed: () {
-                      setState(() {
-                        _restaurantsFuture =
-                            BiteScoreService.loadRestaurantsForFinder();
-                      });
-                    },
-                    style: BiteRaterTheme.outlinedButtonStyle(
-                      accentColor: BiteRaterTheme.coral,
-                    ),
-                    child: const Text('Try Again'),
-                  ),
-                ],
-              ),
-            ),
-          );
-        }
-
-        final restaurants = snapshot.data ?? const <BitescoreRestaurant>[];
-        final states = _availableStates(restaurants);
-        final cities = _availableCities(restaurants);
-        final availableRestaurants = _availableRestaurants(restaurants);
-
-        return BiteRaterTheme.liftedCard(
-          radius: 24,
-          borderColor: BiteRaterTheme.grape.withOpacity(0.16),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildSectionTitle(
-                  'Find existing restaurant',
-                  'Choose an existing BiteScore restaurant to open its page and use the restaurant page\'s Add Dish button.',
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: states.contains(selectedFinderState)
-                            ? selectedFinderState
-                            : null,
-                        decoration: InputDecoration(
-                          labelText: 'State',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        items: states
-                            .map(
-                              (state) => DropdownMenuItem(
-                                value: state,
-                                child: Text(state),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: (value) {
-                          setState(() {
-                            selectedFinderState = value;
-                            selectedFinderCity = null;
-                            selectedFinderRestaurantId = null;
-                          });
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: DropdownButtonFormField<String>(
-                        initialValue: cities.contains(selectedFinderCity)
-                            ? selectedFinderCity
-                            : null,
-                        isExpanded: true,
-                        decoration: InputDecoration(
-                          labelText: 'City',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        items: cities
-                            .map(
-                              (city) => DropdownMenuItem(
-                                value: city,
-                                child: Text(
-                                  city,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                            )
-                            .toList(),
-                        onChanged: selectedFinderState == null
-                            ? null
-                            : (value) {
-                                setState(() {
-                                  selectedFinderCity = value;
-                                  selectedFinderRestaurantId = null;
-                                });
-                              },
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                DropdownButtonFormField<String>(
-                  initialValue:
-                      availableRestaurants.any(
-                        (restaurant) =>
-                            restaurant.id == selectedFinderRestaurantId,
-                      )
-                      ? selectedFinderRestaurantId
-                      : null,
-                  isExpanded: true,
-                  decoration: InputDecoration(
-                    labelText: 'Restaurant',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  items: availableRestaurants
-                      .map(
-                        (restaurant) => DropdownMenuItem(
-                          value: restaurant.id,
-                          child: _buildDropdownText(restaurant.name),
-                        ),
-                      )
-                      .toList(),
-                  selectedItemBuilder: (context) {
-                    return availableRestaurants
-                        .map(
-                          (restaurant) => Align(
-                            alignment: Alignment.centerLeft,
-                            child: _buildDropdownText(restaurant.name),
-                          ),
-                        )
-                        .toList();
-                  },
-                  onChanged: selectedFinderCity == null
-                      ? null
-                      : (value) {
-                          if (value == null) {
-                            return;
-                          }
-
-                          final restaurant = availableRestaurants.firstWhere(
-                            (item) => item.id == value,
-                          );
-
-                          setState(() {
-                            selectedFinderRestaurantId = value;
-                          });
-
-                          _openSelectedRestaurant(restaurant);
-                        },
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
   Widget _buildManualRestaurantChooser() {
     return BiteRaterTheme.liftedCard(
       radius: 24,
@@ -1903,72 +1734,88 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildSectionTitle(
-              'Enter a new restaurant',
-              'Start with the restaurant name, city, and state. We\'ll check for a match before showing dish entry.',
+              'Find or Add Restaurant',
+              'Select a state, search by name, and narrow by city or ZIP if needed.',
             ),
             const SizedBox(height: 16),
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(
-                  child: DropdownButtonFormField<String>(
-                    initialValue:
-                        _manualStateOptions.contains(_selectedManualState)
-                        ? _selectedManualState
-                        : null,
-                    decoration: InputDecoration(
-                      labelText: 'State',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    items: _manualStateOptions
-                        .map(
-                          (state) => DropdownMenuItem<String>(
-                            value: state,
-                            child: Text(state),
-                          ),
-                        )
-                        .toList(),
-                    onChanged: _handleManualStateChanged,
-                  ),
+            DropdownButtonFormField<String>(
+              initialValue: _manualStateOptions.contains(_selectedManualState)
+                  ? _selectedManualState
+                  : null,
+              decoration: InputDecoration(
+                labelText: 'State',
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
                 ),
-                const SizedBox(width: 12),
-                Expanded(flex: 2, child: _buildManualCityField()),
-              ],
+              ),
+              items: _manualStateOptions
+                  .map(
+                    (state) => DropdownMenuItem<String>(
+                      value: state,
+                      child: Text(state),
+                    ),
+                  )
+                  .toList(),
+              onChanged: _handleManualStateChanged,
             ),
             const SizedBox(height: 16),
             _buildField(
               controller: restaurantNameController,
               label: 'Restaurant Name',
-              hint: 'Example: Joe\'s Pizza',
-              onChanged: _handleManualRestaurantNameChanged,
+              hint: _isManualCityEnabled
+                  ? 'Example: Joe\'s Pizza'
+                  : 'Select a state first',
+              enabled: _isManualCityEnabled,
+              onChanged: _isManualCityEnabled
+                  ? _handleManualRestaurantNameChanged
+                  : null,
               disableKeyboardSuggestions: true,
             ),
-            _buildManualRestaurantSuggestionList(),
             const SizedBox(height: 16),
+            _buildManualCityField(optionalFilter: true),
+            _buildManualRestaurantSuggestionList(),
+            const SizedBox(height: 18),
+            Center(
+              child: Text(
+                "Don't see it?",
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: BiteRaterTheme.mutedInk,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
+              child: OutlinedButton(
                 onPressed: _isContinuingRestaurant
                     ? null
-                    : _continueWithManualRestaurant,
-                style: ElevatedButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  backgroundColor: BiteRaterTheme.grape,
-                  minimumSize: const Size.fromHeight(48),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+                    : _continueAddingNewRestaurant,
+                style: BiteRaterTheme.outlinedButtonStyle(
+                  accentColor: BiteRaterTheme.grape,
                 ),
                 child: Text(
-                  _isContinuingRestaurant ? 'Checking...' : 'Continue',
+                  _isContinuingRestaurant
+                      ? 'Checking...'
+                      : 'Continue adding a new restaurant',
+                  textAlign: TextAlign.center,
                 ),
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildCreateRestaurantCityField() {
+    if (cityController.text.trim().isNotEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [_buildManualCityField(), const SizedBox(height: 16)],
     );
   }
 
@@ -2150,10 +1997,18 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
   }
 
   Widget _buildManualRestaurantHeader() {
+    final city = cityController.text.trim();
+    final state = _normalizedState(stateController.text);
+    final zip = zipCodeController.text.trim();
+    final locationParts = [
+      if (city.isNotEmpty) city,
+      if (state.isNotEmpty) state,
+      if (zip.isNotEmpty) zip,
+    ];
+
     return _buildRestaurantSummaryCard(
       title: restaurantNameController.text.trim(),
-      subtitle:
-          '${cityController.text.trim()}, ${_normalizedState(stateController.text)}',
+      subtitle: locationParts.join(', '),
     );
   }
 
@@ -2736,8 +2591,6 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
                       ] else ...[
                         if (_restaurantEntryStage ==
                             _RestaurantEntryStage.chooseRestaurant) ...[
-                          _buildExistingRestaurantFinder(),
-                          const SizedBox(height: 20),
                           _buildManualRestaurantChooser(),
                         ],
                         if (_restaurantEntryStage ==
@@ -2747,6 +2600,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
                             _RestaurantEntryStage.createNewRestaurant) ...[
                           _buildManualRestaurantHeader(),
                           const SizedBox(height: 20),
+                          _buildCreateRestaurantCityField(),
                           _buildField(
                             controller: streetAddressController,
                             label: 'Street Address',
