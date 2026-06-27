@@ -1373,82 +1373,106 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       return const SizedBox.shrink();
     }
 
-    return Container(
+    return Column(
       key: _manualRestaurantSuggestionsKey,
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 8),
-      constraints: const BoxConstraints(maxHeight: 260),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: BiteRaterTheme.grape.withOpacity(0.16)),
-        boxShadow: [
-          BoxShadow(
-            color: BiteRaterTheme.grape.withOpacity(0.08),
-            blurRadius: 14,
-            offset: const Offset(0, 6),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 10),
+        const Text(
+          'Matching restaurants',
+          style: TextStyle(
+            color: BiteRaterTheme.mutedInk,
+            fontSize: 12,
+            fontWeight: FontWeight.w800,
           ),
-        ],
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          children: _manualRestaurantSuggestions.asMap().entries.map((entry) {
-            final index = entry.key;
-            final restaurant = entry.value;
-
-            return Material(
-              color: Colors.transparent,
-              child: InkWell(
-                onTap: () => _applyManualRestaurantSuggestion(restaurant),
-                borderRadius: BorderRadius.vertical(
-                  top: index == 0 ? const Radius.circular(12) : Radius.zero,
-                  bottom: index == _manualRestaurantSuggestions.length - 1
-                      ? const Radius.circular(12)
-                      : Radius.zero,
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 10,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      RichText(
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        text: TextSpan(
-                          style: const TextStyle(
-                            color: BiteRaterTheme.ink,
-                            fontSize: 14,
-                          ),
-                          children: [
-                            TextSpan(
-                              text: restaurant.name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            TextSpan(
-                              text:
-                                  ' — ${restaurant.city}, '
-                                  '${restaurant.state}',
-                              style: const TextStyle(
-                                color: Colors.black54,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
         ),
-      ),
+        const SizedBox(height: 6),
+        Container(
+          width: double.infinity,
+          constraints: const BoxConstraints(maxHeight: 260),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: BiteRaterTheme.grape.withOpacity(0.2)),
+            boxShadow: [
+              BoxShadow(
+                color: BiteRaterTheme.grape.withOpacity(0.1),
+                blurRadius: 14,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: SingleChildScrollView(
+            child: Column(
+              children: _manualRestaurantSuggestions.asMap().entries.map((
+                entry,
+              ) {
+                final index = entry.key;
+                final restaurant = entry.value;
+
+                return Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: () => _applyManualRestaurantSuggestion(restaurant),
+                    borderRadius: BorderRadius.vertical(
+                      top: index == 0 ? const Radius.circular(12) : Radius.zero,
+                      bottom: index == _manualRestaurantSuggestions.length - 1
+                          ? const Radius.circular(12)
+                          : Radius.zero,
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 12,
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: RichText(
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              text: TextSpan(
+                                style: const TextStyle(
+                                  color: BiteRaterTheme.ink,
+                                  fontSize: 14,
+                                ),
+                                children: [
+                                  TextSpan(
+                                    text: restaurant.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  TextSpan(
+                                    text:
+                                        ' — ${restaurant.city}, '
+                                        '${restaurant.state}',
+                                    style: const TextStyle(
+                                      color: Colors.black54,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          const Icon(
+                            Icons.chevron_right_rounded,
+                            color: BiteRaterTheme.grape,
+                            size: 22,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ),
+      ],
     );
   }
 
@@ -1771,9 +1795,9 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
                   : null,
               disableKeyboardSuggestions: true,
             ),
+            _buildManualRestaurantSuggestionList(),
             const SizedBox(height: 16),
             _buildManualCityField(optionalFilter: true),
-            _buildManualRestaurantSuggestionList(),
             const SizedBox(height: 18),
             Center(
               child: Text(
