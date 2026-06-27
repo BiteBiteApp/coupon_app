@@ -14,6 +14,14 @@
       },
       "oauth_client": [
         {
+          "client_id": "253983587346-4q5l70crjhe9m4f151ah3irbr67cenfa.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.bitesaver.app",
+            "certificate_hash": "7fef62d974e0fb0065fa58c8f5daa9f8676456f6"
+          }
+        },
+        {
           "client_id": "253983587346-9fh1d0d2m8upp17bv0rla8dj2410tk5a.apps.googleusercontent.com",
           "client_type": 1,
           "android_info": {
@@ -39,10 +47,10 @@
               "client_type": 3
             },
             {
-              "client_id": "253983587346-542ffd5n277c54pmp03kek55u8lp0usn.apps.googleusercontent.com",
+              "client_id": "253983587346-2ofh0de9kqh45r57obv13gii570cih3r.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.example.couponApp"
+                "bundle_id": "com.colesmartllc.bitesaver"
               }
             }
           ]
@@ -83,10 +91,10 @@
               "client_type": 3
             },
             {
-              "client_id": "253983587346-542ffd5n277c54pmp03kek55u8lp0usn.apps.googleusercontent.com",
+              "client_id": "253983587346-2ofh0de9kqh45r57obv13gii570cih3r.apps.googleusercontent.com",
               "client_type": 2,
               "ios_info": {
-                "bundle_id": "com.example.couponApp"
+                "bundle_id": "com.colesmartllc.bitesaver"
               }
             }
           ]

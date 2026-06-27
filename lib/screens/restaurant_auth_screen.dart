@@ -550,11 +550,35 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
                     method: 'google',
                     child: SizedBox(
                       width: double.infinity,
-                      child: ElevatedButton.icon(
+                      child: OutlinedButton(
                         onPressed: isLoading ? null : continueWithGoogle,
-                        icon: const Icon(Icons.login),
-                        label: Text(
-                          isLoading ? 'Please wait...' : 'Continue with Google',
+                        style: OutlinedButton.styleFrom(
+                          side: const BorderSide(color: Color(0xFFD9E4F3)),
+                          backgroundColor: Colors.white,
+                          padding: const EdgeInsets.fromLTRB(12, 10, 18, 10),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Image.asset(
+                              'assets/images/google_g_logo.png',
+                              width: 30,
+                              height: 30,
+                            ),
+                            const Expanded(
+                              child: Text(
+                                'Sign in with Google',
+                                textAlign: TextAlign.center,
+                                style: TextStyle(
+                                  color: Color(0xFF1F2933),
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 30),
+                          ],
                         ),
                       ),
                     ),

@@ -548,26 +548,35 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
               method: 'google',
               child: SizedBox(
                 width: double.infinity,
-                child: OutlinedButton.icon(
+                child: OutlinedButton(
                   onPressed: isSubmitting ? null : _handleGoogleSignIn,
-                  icon: const Icon(Icons.login, color: Color(0xFF2F5FB3)),
-                  label: Text(
-                    isSubmitting ? 'Please wait...' : 'Continue with Google',
-                    style: const TextStyle(
-                      color: Color(0xFF2F5FB3),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
                   style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: Color(0xFFD3DEF4)),
-                    backgroundColor: const Color(0xFFF7FAFF),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 14,
-                    ),
+                    side: const BorderSide(color: Color(0xFFD9E4F3)),
+                    backgroundColor: Colors.white,
+                    padding: const EdgeInsets.fromLTRB(12, 10, 18, 10),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(14),
                     ),
+                  ),
+                  child: Row(
+                    children: [
+                      Image.asset(
+                        'assets/images/google_g_logo.png',
+                        width: 30,
+                        height: 30,
+                      ),
+                      const Expanded(
+                        child: Text(
+                          'Sign in with Google',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: Color(0xFF1F2933),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 30),
+                    ],
                   ),
                 ),
               ),
