@@ -107,7 +107,7 @@ class _BiteScoreRestaurantDishesScreenState
 
   Widget _buildEmptyDishState() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 28),
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 28),
       child: Column(
         children: [
           Icon(
