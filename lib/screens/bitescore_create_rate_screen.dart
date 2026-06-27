@@ -1398,6 +1398,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     return BitescoreCategoryPicker(
       selection: _categorySelection,
       showError: _showCategoryValidation,
+      enableTopLevelOtherUndo: true,
       onChanged: (selection) {
         setState(() {
           _categorySelection = selection;

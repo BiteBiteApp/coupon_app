@@ -134,6 +134,7 @@ class BitescoreCategoryPicker extends StatefulWidget {
   final ValueChanged<BitescoreCategorySelection> onChanged;
   final bool enabled;
   final bool showError;
+  final bool enableTopLevelOtherUndo;
 
   const BitescoreCategoryPicker({
     super.key,
@@ -141,6 +142,7 @@ class BitescoreCategoryPicker extends StatefulWidget {
     required this.onChanged,
     this.enabled = true,
     this.showError = false,
+    this.enableTopLevelOtherUndo = false,
   });
 
   @override
@@ -152,16 +154,7 @@ class _BitescoreCategoryPickerState extends State<BitescoreCategoryPicker> {
   @override
   Widget build(BuildContext context) {
     final selection = widget.selection;
-    final categoryError = widget.showError && !selection.hasCategory;
-    final subcategoryError =
-        widget.showError &&
-        selection.hasCategory &&
-        !selection.hasRequiredSubcategory;
-    final errorText = categoryError
-        ? 'Please choose a category.'
-        : subcategoryError
-        ? 'Please choose a subcategory.'
-        : null;
+    final errorText = widget.showError ? selection.validate() : null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -212,7 +205,10 @@ class _BitescoreCategoryPickerState extends State<BitescoreCategoryPicker> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(22)),
       ),
       builder: (context) {
-        return _BitescoreCategoryPickerSheet(selection: widget.selection);
+        return _BitescoreCategoryPickerSheet(
+          selection: widget.selection,
+          enableTopLevelOtherUndo: widget.enableTopLevelOtherUndo,
+        );
       },
     );
 
@@ -248,8 +244,12 @@ class _BitescoreCategoryPickerState extends State<BitescoreCategoryPicker> {
 
 class _BitescoreCategoryPickerSheet extends StatefulWidget {
   final BitescoreCategorySelection selection;
+  final bool enableTopLevelOtherUndo;
 
-  const _BitescoreCategoryPickerSheet({required this.selection});
+  const _BitescoreCategoryPickerSheet({
+    required this.selection,
+    required this.enableTopLevelOtherUndo,
+  });
 
   @override
   State<_BitescoreCategoryPickerSheet> createState() =>
@@ -363,12 +363,31 @@ class _BitescoreCategoryPickerSheetState
   ) {
     final isExpanded = _expandedCategoryId == category.id;
     final isSelected = _currentSelection.category?.id == category.id;
+    final isTopLevelOther =
+        widget.enableTopLevelOtherUndo && category.id == 'other';
     final hasSubcategories =
         category.hasSubcategories &&
         !BitescoreCategories.isFeaturedCategory(category);
 
     return [
       ListTile(
+        leading: isTopLevelOther
+            ? Checkbox(
+                value: isSelected && _currentSelection.isMainCategoryOther,
+                onChanged: (checked) {
+                  if (checked == true) {
+                    _showOtherEntryFor(
+                      BitescoreCategorySelection(
+                        category: category,
+                        manualKeywords: _currentSelection.manualKeywords,
+                      ),
+                    );
+                  } else {
+                    _clearTopLevelOtherSelection();
+                  }
+                },
+              )
+            : null,
         title: Text(
           category.displayName,
           style: const TextStyle(fontWeight: FontWeight.w700),
@@ -380,7 +399,7 @@ class _BitescoreCategoryPickerSheetState
                     : Icons.keyboard_arrow_down_rounded,
                 color: BiteRaterTheme.mutedInk,
               )
-            : !hasSubcategories && isSelected
+            : !isTopLevelOther && !hasSubcategories && isSelected
             ? const Icon(Icons.check_rounded)
             : null,
         onTap: () {
@@ -476,6 +495,14 @@ class _BitescoreCategoryPickerSheetState
     });
   }
 
+  void _clearTopLevelOtherSelection() {
+    setState(() {
+      _currentSelection = const BitescoreCategorySelection();
+      _otherController.clear();
+      _showOtherKeywordError = false;
+    });
+  }
+
   bool _isCurrentOther({
     required BitescoreCategory category,
     String? subcategory,
@@ -511,7 +538,7 @@ class _BitescoreCategoryPickerSheetState
             onSubmitted: (_) => _submitOther(),
             decoration: InputDecoration(
               labelText: BitescoreCategories.otherLabel,
-              hintText: 'Optional',
+              hintText: isRequired ? null : 'Optional',
               helperText: isRequired
                   ? BitescoreCategories.requiredManualKeywordHelperText
                   : BitescoreCategories.manualKeywordHelperText,

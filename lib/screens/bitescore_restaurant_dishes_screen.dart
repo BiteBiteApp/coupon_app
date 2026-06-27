@@ -105,6 +105,45 @@ class _BiteScoreRestaurantDishesScreenState
     );
   }
 
+  Widget _buildEmptyDishState() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 12),
+      child: Column(
+        children: [
+          Icon(
+            Icons.restaurant_menu_rounded,
+            color: BiteRaterTheme.grape.withValues(alpha: 0.72),
+            size: 34,
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'No dishes yet',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: BiteRaterTheme.ink,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Know something good here? Add the first dish so others know what to order.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: BiteRaterTheme.mutedInk, height: 1.35),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            width: double.infinity,
+            child: _buildBiteScoreActionButton(
+              label: 'Add a Dish',
+              onPressed: _isRefreshing ? null : _openAddDish,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   ButtonStyle _reportActionButtonStyle() {
     return BiteRaterTheme.outlinedButtonStyle(
       accentColor: BiteRaterTheme.grape,
@@ -1093,13 +1132,7 @@ class _BiteScoreRestaurantDishesScreenState
                       ),
                     ),
                     if (_entries.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 32),
-                        child: Text(
-                          'No dishes found for this restaurant yet.',
-                          textAlign: TextAlign.center,
-                        ),
-                      )
+                      _buildEmptyDishState()
                     else
                       ..._entries.map((entry) {
                         final scoreLabel = entry.aggregate.overallBiteScore > 0
