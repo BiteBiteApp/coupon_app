@@ -365,26 +365,19 @@ class _BitescoreCategoryPickerSheetState
     final isSelected = _currentSelection.category?.id == category.id;
     final isTopLevelOther =
         widget.enableTopLevelOtherUndo && category.id == 'other';
+    final showTopLevelOtherCheckbox =
+        isTopLevelOther && isSelected && _currentSelection.isMainCategoryOther;
     final hasSubcategories =
         category.hasSubcategories &&
         !BitescoreCategories.isFeaturedCategory(category);
 
     return [
       ListTile(
-        leading: isTopLevelOther
+        leading: showTopLevelOtherCheckbox
             ? Checkbox(
-                value: isSelected && _currentSelection.isMainCategoryOther,
+                value: true,
                 onChanged: (checked) {
-                  if (checked == true) {
-                    _showOtherEntryFor(
-                      BitescoreCategorySelection(
-                        category: category,
-                        manualKeywords: _currentSelection.manualKeywords,
-                      ),
-                    );
-                  } else {
-                    _clearTopLevelOtherSelection();
-                  }
+                  _clearTopLevelOtherSelection();
                 },
               )
             : null,
@@ -403,6 +396,11 @@ class _BitescoreCategoryPickerSheetState
             ? const Icon(Icons.check_rounded)
             : null,
         onTap: () {
+          if (showTopLevelOtherCheckbox) {
+            _clearTopLevelOtherSelection();
+            return;
+          }
+
           if (!hasSubcategories) {
             final selection = BitescoreCategorySelection(
               category: category,

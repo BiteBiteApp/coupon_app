@@ -764,21 +764,53 @@ class _BiteScoreRestaurantDishesScreenState
       _restaurant.businessHours,
     );
     final todayHours = weeklyHours[DateTime.now().weekday % 7];
+    final todaySummary = todayHours.closed
+        ? 'Closed today'
+        : 'Open today: ${todayHours.opensAt} - ${todayHours.closesAt}';
 
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Hours', style: TextStyle(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 6),
-          Text(
-            todayHours.closed
-                ? 'Closed today'
-                : 'Open today: ${todayHours.opensAt} - ${todayHours.closesAt}',
-            style: const TextStyle(
-              color: BiteRaterTheme.ink,
-              fontWeight: FontWeight.w700,
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(10),
+              onTap: () {
+                setState(() {
+                  _hoursExpanded = !_hoursExpanded;
+                });
+              },
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    const Text(
+                      'Hours:',
+                      style: TextStyle(fontWeight: FontWeight.w800),
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        todaySummary,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: BiteRaterTheme.ink,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    Icon(
+                      _hoursExpanded
+                          ? Icons.keyboard_arrow_up_rounded
+                          : Icons.keyboard_arrow_down_rounded,
+                      color: BiteRaterTheme.mutedInk,
+                    ),
+                  ],
+                ),
+              ),
             ),
           ),
           if (_hoursExpanded) ...[
@@ -796,17 +828,6 @@ class _BiteScoreRestaurantDishesScreenState
               ),
             ),
           ],
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton(
-              onPressed: () {
-                setState(() {
-                  _hoursExpanded = !_hoursExpanded;
-                });
-              },
-              child: Text(_hoursExpanded ? 'Hide hours' : 'Show all hours'),
-            ),
-          ),
         ],
       ),
     );
