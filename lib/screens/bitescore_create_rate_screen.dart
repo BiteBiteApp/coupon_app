@@ -562,6 +562,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
   BitescoreCategorySelection _categorySelection =
       const BitescoreCategorySelection();
   bool _showCategoryValidation = false;
+  bool _showStateRequiredError = false;
 
   bool get isExistingDishMode => widget.existingEntry != null;
   bool get isExistingRestaurantMode =>
@@ -1024,9 +1025,20 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       _manualCitySuggestions = const <String>[];
       _manualRestaurantSuggestions = const <BitescoreRestaurant>[];
       _selectedManualRestaurantId = null;
+      _showStateRequiredError = false;
     });
 
     _refreshManualRestaurantSuggestions();
+  }
+
+  void _showStateRequiredForRestaurantName() {
+    if (_isManualCityEnabled && !_showStateRequiredError) {
+      return;
+    }
+
+    setState(() {
+      _showStateRequiredError = true;
+    });
   }
 
   void _handleManualCityChanged(String value) {
@@ -1241,10 +1253,14 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     TextInputType? keyboardType,
     bool disableKeyboardSuggestions = false,
     bool enabled = true,
+    bool readOnly = false,
+    VoidCallback? onTap,
   }) {
     return TextField(
       controller: controller,
       enabled: enabled,
+      readOnly: readOnly,
+      onTap: onTap,
       onChanged: onChanged,
       onTapOutside: onTapOutside == null ? null : (_) => onTapOutside(),
       minLines: minLines,
@@ -1768,8 +1784,42 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
                   : null,
               decoration: InputDecoration(
                 labelText: 'State',
+                errorText: _showStateRequiredError
+                    ? 'Select a state first'
+                    : null,
+                filled: true,
+                fillColor: Colors.white,
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                    color: _showStateRequiredError
+                        ? Theme.of(context).colorScheme.error
+                        : BiteRaterTheme.lineBlue,
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: const BorderSide(
+                    color: BiteRaterTheme.grape,
+                    width: 1.4,
+                  ),
+                ),
+                errorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).colorScheme.error,
+                    width: 1.2,
+                  ),
+                ),
+                focusedErrorBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(14),
+                  borderSide: BorderSide(
+                    color: Theme.of(context).colorScheme.error,
+                    width: 1.4,
+                  ),
+                ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
               ),
               items: _manualStateOptions
@@ -1789,7 +1839,10 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
               hint: _isManualCityEnabled
                   ? 'Example: Joe\'s Pizza'
                   : 'Select a state first',
-              enabled: _isManualCityEnabled,
+              readOnly: !_isManualCityEnabled,
+              onTap: !_isManualCityEnabled
+                  ? _showStateRequiredForRestaurantName
+                  : null,
               onChanged: _isManualCityEnabled
                   ? _handleManualRestaurantNameChanged
                   : null,
