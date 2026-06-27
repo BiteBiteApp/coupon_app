@@ -992,6 +992,79 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
         .replaceAll(RegExp(r'\s+'), ' ');
   }
 
+  String _normalizeRestaurantNameForSearch(String value) {
+    return value
+        .toLowerCase()
+        .replaceAll('&', ' and ')
+        .replaceAll(RegExp(r"[’'`]+"), '')
+        .replaceAll(RegExp(r'[^a-z0-9]+'), ' ')
+        .trim()
+        .replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  Set<String> _restaurantSearchTokens(String normalizedValue) {
+    return normalizedValue
+        .split(' ')
+        .map((token) => token.trim())
+        .where((token) => token.isNotEmpty)
+        .expand((token) sync* {
+          yield token;
+          if (token.length > 3 && token.endsWith('s')) {
+            yield token.substring(0, token.length - 1);
+          }
+        })
+        .toSet();
+  }
+
+  bool _restaurantTokenMatches(String queryToken, Set<String> candidateTokens) {
+    if (candidateTokens.contains(queryToken)) {
+      return true;
+    }
+
+    return candidateTokens.any(
+      (candidateToken) =>
+          queryToken.length >= 3 && candidateToken.startsWith(queryToken),
+    );
+  }
+
+  int _restaurantNameSuggestionScore({
+    required String query,
+    required String restaurantName,
+  }) {
+    final normalizedQuery = _normalizeRestaurantNameForSearch(query);
+    final normalizedName = _normalizeRestaurantNameForSearch(restaurantName);
+    if (normalizedQuery.isEmpty || normalizedName.isEmpty) {
+      return 0;
+    }
+
+    if (normalizedName == normalizedQuery) {
+      return 100;
+    }
+    if (normalizedName.startsWith(normalizedQuery)) {
+      return 90;
+    }
+    if (normalizedName.contains(normalizedQuery)) {
+      return 80;
+    }
+
+    final queryTokens = _restaurantSearchTokens(normalizedQuery);
+    if (queryTokens.isEmpty) {
+      return 0;
+    }
+
+    final candidateTokens = _restaurantSearchTokens(normalizedName);
+    final matchedTokenCount = queryTokens
+        .where((token) => _restaurantTokenMatches(token, candidateTokens))
+        .length;
+    if (matchedTokenCount == queryTokens.length) {
+      return 70;
+    }
+
+    return matchedTokenCount > 0 && matchedTokenCount == queryTokens.length - 1
+        ? 55
+        : 0;
+  }
+
   String _normalizedState(String value) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) {
@@ -1130,28 +1203,57 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       return;
     }
 
-    final suggestions = restaurants
-        .where((restaurant) {
-          if (_normalizedState(restaurant.state) != selectedState) {
-            return false;
-          }
+    final scoredSuggestions =
+        restaurants
+            .map((restaurant) {
+              if (_normalizedState(restaurant.state) != selectedState) {
+                return (restaurant: restaurant, score: 0);
+              }
 
-          if (!_normalizeText(
-            restaurant.name,
-          ).contains(_normalizeText(query))) {
-            return false;
-          }
+              final score = _restaurantNameSuggestionScore(
+                query: query,
+                restaurantName: restaurant.name,
+              );
+              if (score == 0) {
+                return (restaurant: restaurant, score: 0);
+              }
 
-          if (filter.isEmpty) {
-            return true;
-          }
+              if (filter.isEmpty) {
+                return (restaurant: restaurant, score: score);
+              }
 
-          if (isZipFilter) {
-            return restaurant.zipCode.trim().startsWith(filter);
-          }
+              if (isZipFilter) {
+                return (
+                  restaurant: restaurant,
+                  score: restaurant.zipCode.trim().startsWith(filter)
+                      ? score
+                      : 0,
+                );
+              }
 
-          return _normalizeText(restaurant.city).contains(normalizedFilter);
-        })
+              return (
+                restaurant: restaurant,
+                score:
+                    _normalizeText(restaurant.city).contains(normalizedFilter)
+                    ? score
+                    : 0,
+              );
+            })
+            .where((match) => match.score > 0)
+            .toList(growable: false)
+          ..sort((a, b) {
+            final byScore = b.score.compareTo(a.score);
+            if (byScore != 0) {
+              return byScore;
+            }
+
+            return a.restaurant.name.toLowerCase().compareTo(
+              b.restaurant.name.toLowerCase(),
+            );
+          });
+
+    final suggestions = scoredSuggestions
+        .map((match) => match.restaurant)
         .take(8)
         .toList(growable: false);
 
