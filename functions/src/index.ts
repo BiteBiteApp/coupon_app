@@ -26,6 +26,7 @@ import Stripe from "stripe";
 import {
   awardDishImageContributionPointsCallableHandler,
   awardContributionPointsCallableHandler,
+  awardCreatedDishContributionPointsCallableHandler,
   awardReviewMilestoneContributionPointsCallableHandler,
   markContributionPointLedgerEntriesCelebratedCallableHandler,
   reverseContributionPointLedgerEntryCallableHandler,
@@ -2875,6 +2876,10 @@ export const awardReviewMilestoneContributionPoints = onCall(
 
 export const awardDishImageContributionPoints = onCall(async (request) => {
   return awardDishImageContributionPointsCallableHandler(db, request);
+});
+
+export const awardCreatedDishContributionPoints = onCall(async (request) => {
+  return awardCreatedDishContributionPointsCallableHandler(db, request);
 });
 
 export const markContributionPointLedgerEntriesCelebrated = onCall(

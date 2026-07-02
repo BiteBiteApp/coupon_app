@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const {
+  awardCreatedDishContributionPointsCallableHandler,
   awardDishImageContributionPointsCallableHandler,
   awardContributionPointsCallableHandler,
   awardContributionPointsTransaction,
@@ -484,10 +485,341 @@ test("duplicate dish image callable does not double-award", async () => {
   assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 1);
 });
 
+test("created dish callable awards one point for a new dish at an existing restaurant", async () => {
+  const db = new FakeFirestore();
+  seedCreatedDishAwardData(db, {
+    userId: "user-1",
+    restaurantId: "restaurant-1",
+    dishId: "dish-2",
+    reviewId: "review-1",
+  });
+  db.seed("bitescore_dishes/dish-1", {
+    __createTimeMillis: 1000,
+    id: "dish-1",
+    name: "Garlic Knots",
+    restaurantId: "restaurant-1",
+    isActive: true,
+  });
+
+  const response = await awardCreatedDishContributionPointsCallableHandler(
+    db,
+    callableRequest({
+      auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+      data: {
+        restaurantId: "restaurant-1",
+        dishId: "dish-2",
+        reviewId: "review-1",
+        points: 99,
+        createdNewRestaurant: true,
+      },
+    }),
+    { fieldValues: fakeFieldValues },
+  );
+  const ledgerId = buildContributionLedgerDocumentIdFromSourceKey(
+    "dish_created:dish-2",
+  );
+  const entry = db.get(ledgerPath(ledgerId));
+
+  assert.equal(response.ok, true);
+  assert.deepEqual(response.result.entries, [
+    { ledgerEntryId: ledgerId, points: 1, wasCreated: true },
+  ]);
+  assert.equal(entry.userId, "user-1");
+  assert.equal(entry.pointsDelta, 1);
+  assert.equal(entry.actionType, "dish_created");
+  assert.equal(entry.sourceKey, "dish_created:dish-2");
+  assert.equal(entry.reviewId, "review-1");
+  assert.equal(entry.dishId, "dish-2");
+  assert.equal(entry.restaurantId, "restaurant-1");
+  assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 1);
+});
+
+test("created dish callable awards first-dish points for an existing restaurant", async () => {
+  const db = new FakeFirestore();
+  seedCreatedDishAwardData(db, {
+    userId: "user-1",
+    restaurantId: "restaurant-1",
+    dishId: "dish-1",
+    reviewId: "review-1",
+  });
+
+  const response = await awardCreatedDishContributionPointsCallableHandler(
+    db,
+    callableRequest({
+      auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+      data: {
+        restaurantId: "restaurant-1",
+        dishId: "dish-1",
+        reviewId: "review-1",
+      },
+    }),
+    { fieldValues: fakeFieldValues },
+  );
+  const ledgerId = buildContributionLedgerDocumentIdFromSourceKey(
+    "restaurant_first_dish:restaurant-1:dish-1",
+  );
+  const entry = db.get(ledgerPath(ledgerId));
+
+  assert.deepEqual(response.result.entries, [
+    { ledgerEntryId: ledgerId, points: 3, wasCreated: true },
+  ]);
+  assert.equal(entry.actionType, "restaurant_first_dish");
+  assert.equal(entry.description, "Added the first dish to an existing restaurant");
+  assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 3);
+});
+
+test("created dish callable treats unrelated restaurant provenance as existing restaurant context", async () => {
+  const db = new FakeFirestore();
+  seedCreatedDishAwardData(db, {
+    userId: "user-1",
+    restaurantId: "restaurant-1",
+    dishId: "dish-1",
+    reviewId: "review-1",
+    restaurantOverrides: {
+      createdByUserId: "user-2",
+      createdFromDishId: "other-dish",
+      createdFromReviewId: "other-review",
+      createdFromCreateFlow: true,
+    },
+  });
+
+  const response = await awardCreatedDishContributionPointsCallableHandler(
+    db,
+    callableRequest({
+      auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+      data: {
+        restaurantId: "restaurant-1",
+        dishId: "dish-1",
+        reviewId: "review-1",
+      },
+    }),
+    { fieldValues: fakeFieldValues },
+  );
+  const ledgerId = buildContributionLedgerDocumentIdFromSourceKey(
+    "restaurant_first_dish:restaurant-1:dish-1",
+  );
+
+  assert.deepEqual(response.result.entries, [
+    { ledgerEntryId: ledgerId, points: 3, wasCreated: true },
+  ]);
+  assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 3);
+});
+
+test("created dish callable awards new-restaurant first-dish points with matching restaurant provenance", async () => {
+  const db = new FakeFirestore();
+  seedCreatedDishAwardData(db, {
+    userId: "user-1",
+    restaurantId: "restaurant-1",
+    dishId: "dish-1",
+    reviewId: "review-1",
+    newRestaurant: true,
+  });
+
+  const response = await awardCreatedDishContributionPointsCallableHandler(
+    db,
+    callableRequest({
+      auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+      data: {
+        restaurantId: "restaurant-1",
+        dishId: "dish-1",
+        reviewId: "review-1",
+      },
+    }),
+    { fieldValues: fakeFieldValues },
+  );
+  const ledgerId = buildContributionLedgerDocumentIdFromSourceKey(
+    "new_restaurant_first_dish:restaurant-1:dish-1",
+  );
+  const entry = db.get(ledgerPath(ledgerId));
+
+  assert.deepEqual(response.result.entries, [
+    { ledgerEntryId: ledgerId, points: 3, wasCreated: true },
+  ]);
+  assert.equal(entry.actionType, "new_restaurant_first_dish");
+  assert.equal(entry.description, "Added a new restaurant and its first dish");
+  assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 3);
+});
+
+test("created dish callable does not award old dishes without creation provenance", async () => {
+  const db = new FakeFirestore();
+  seedCreatedDishAwardData(db, {
+    userId: "user-1",
+    restaurantId: "restaurant-1",
+    dishId: "dish-1",
+    reviewId: "review-1",
+    dishOverrides: {
+      createdByUserId: undefined,
+      createdFromReviewId: undefined,
+      createdWithRestaurantId: undefined,
+      createdFromCreateFlow: undefined,
+    },
+  });
+
+  const response = await awardCreatedDishContributionPointsCallableHandler(
+    db,
+    callableRequest({
+      auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+      data: {
+        restaurantId: "restaurant-1",
+        dishId: "dish-1",
+        reviewId: "review-1",
+      },
+    }),
+    { fieldValues: fakeFieldValues },
+  );
+
+  assert.deepEqual(response.result, { entries: [] });
+  assert.equal(db.get(userProfilePath("user-1")), undefined);
+});
+
+test("created dish callable rejects review and provenance ownership mismatches", async () => {
+  const db = new FakeFirestore();
+  seedCreatedDishAwardData(db, {
+    userId: "user-2",
+    restaurantId: "restaurant-1",
+    dishId: "dish-1",
+    reviewId: "review-1",
+  });
+
+  await assert.rejects(
+    () =>
+      awardCreatedDishContributionPointsCallableHandler(
+        db,
+        callableRequest({
+          auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+          data: {
+            restaurantId: "restaurant-1",
+            dishId: "dish-1",
+            reviewId: "review-1",
+          },
+        }),
+        { fieldValues: fakeFieldValues },
+      ),
+    (error) => error.code === "permission-denied",
+  );
+
+  db.seed("dish_reviews/review-1", {
+    id: "review-1",
+    userId: "user-1",
+    dishId: "dish-1",
+    restaurantId: "restaurant-1",
+  });
+
+  await assert.rejects(
+    () =>
+      awardCreatedDishContributionPointsCallableHandler(
+        db,
+        callableRequest({
+          auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+          data: {
+            restaurantId: "restaurant-1",
+            dishId: "dish-1",
+            reviewId: "review-1",
+          },
+        }),
+        { fieldValues: fakeFieldValues },
+      ),
+    (error) => error.code === "permission-denied",
+  );
+
+  db.seed("bitescore_dishes/dish-1", {
+    __createTimeMillis: 2000,
+    id: "dish-1",
+    name: "Pizza",
+    restaurantId: "restaurant-1",
+    isActive: true,
+    createdByUserId: "user-1",
+    createdFromReviewId: "review-1",
+    createdWithRestaurantId: "restaurant-1",
+    createdFromCreateFlow: true,
+  });
+  db.seed("bitescore_restaurants/restaurant-1", {
+    id: "restaurant-1",
+    name: "Pizza Place",
+    city: "Lecanto",
+    state: "FL",
+    address: "1 Main St",
+    phone: "555-0100",
+    createdByUserId: "user-2",
+    createdFromDishId: "dish-1",
+    createdFromReviewId: "review-1",
+    createdFromCreateFlow: true,
+  });
+
+  await assert.rejects(
+    () =>
+      awardCreatedDishContributionPointsCallableHandler(
+        db,
+        callableRequest({
+          auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+          data: {
+            restaurantId: "restaurant-1",
+            dishId: "dish-1",
+            reviewId: "review-1",
+          },
+        }),
+        { fieldValues: fakeFieldValues },
+      ),
+    (error) => error.code === "permission-denied",
+  );
+});
+
+test("duplicate created dish callable does not double-award", async () => {
+  const db = new FakeFirestore();
+  seedCreatedDishAwardData(db, {
+    userId: "user-1",
+    restaurantId: "restaurant-1",
+    dishId: "dish-1",
+    reviewId: "review-1",
+    newRestaurant: true,
+  });
+
+  await awardCreatedDishContributionPointsCallableHandler(
+    db,
+    callableRequest({
+      auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+      data: {
+        restaurantId: "restaurant-1",
+        dishId: "dish-1",
+        reviewId: "review-1",
+      },
+    }),
+    { fieldValues: fakeFieldValues },
+  );
+  const duplicate = await awardCreatedDishContributionPointsCallableHandler(
+    db,
+    callableRequest({
+      auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+      data: {
+        restaurantId: "restaurant-1",
+        dishId: "dish-1",
+        reviewId: "review-1",
+      },
+    }),
+    { fieldValues: fakeFieldValues },
+  );
+
+  assert.equal(duplicate.result.entries[0].wasCreated, false);
+  assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 3);
+});
+
 test("source-specific callables share the cached contribution total", async () => {
   const db = new FakeFirestore();
   seedPublicReviews(db, { userId: "user-1", count: 5 });
   seedDishImageAwardData(db, { userId: "user-1" });
+  seedCreatedDishAwardData(db, {
+    userId: "user-1",
+    restaurantId: "restaurant-1",
+    dishId: "dish-2",
+    reviewId: "review-created-dish",
+  });
+  db.seed("bitescore_dishes/dish-1", {
+    __createTimeMillis: 1000,
+    id: "dish-1",
+    name: "Garlic Knots",
+    restaurantId: "restaurant-1",
+    isActive: true,
+  });
 
   await awardReviewMilestoneContributionPointsCallableHandler(
     db,
@@ -505,8 +837,20 @@ test("source-specific callables share the cached contribution total", async () =
     }),
     { fieldValues: fakeFieldValues },
   );
+  await awardCreatedDishContributionPointsCallableHandler(
+    db,
+    callableRequest({
+      auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+      data: {
+        restaurantId: "restaurant-1",
+        dishId: "dish-2",
+        reviewId: "review-created-dish",
+      },
+    }),
+    { fieldValues: fakeFieldValues },
+  );
 
-  assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 2);
+  assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 3);
 });
 
 test("celebration callable marks caller's pending entry celebrated", async () => {
@@ -804,6 +1148,54 @@ function seedDishImageAwardData(db, { userId }) {
   });
 }
 
+function seedCreatedDishAwardData(db, {
+  userId,
+  restaurantId,
+  dishId,
+  reviewId,
+  newRestaurant = false,
+  dishOverrides = {},
+  restaurantOverrides = {},
+}) {
+  db.seed(`dish_reviews/${reviewId}`, {
+    id: reviewId,
+    userId,
+    dishId,
+    restaurantId,
+    isPublic: true,
+    overallBiteScore: 8,
+  });
+  db.seed(`bitescore_dishes/${dishId}`, {
+    __createTimeMillis: 2000,
+    id: dishId,
+    name: "Pizza",
+    restaurantId,
+    isActive: true,
+    createdByUserId: userId,
+    createdFromReviewId: reviewId,
+    createdWithRestaurantId: restaurantId,
+    createdFromCreateFlow: true,
+    ...dishOverrides,
+  });
+  db.seed(`bitescore_restaurants/${restaurantId}`, {
+    id: restaurantId,
+    name: "Pizza Place",
+    city: "Lecanto",
+    state: "FL",
+    address: "1 Main St",
+    phone: "555-0100",
+    ...(newRestaurant
+      ? {
+          createdByUserId: userId,
+          createdFromDishId: dishId,
+          createdFromReviewId: reviewId,
+          createdFromCreateFlow: true,
+        }
+      : {}),
+    ...restaurantOverrides,
+  });
+}
+
 class FakeFirestore {
   constructor() {
     this.store = new Map();
@@ -946,6 +1338,11 @@ class FakeDocumentSnapshot {
   constructor(id, data) {
     this.id = id;
     this._data = data;
+    const createTimeMillis = data && data.__createTimeMillis;
+    this.createTime =
+      typeof createTimeMillis === "number"
+        ? { toMillis: () => createTimeMillis }
+        : undefined;
   }
 
   get exists() {
@@ -953,7 +1350,11 @@ class FakeDocumentSnapshot {
   }
 
   data() {
-    return cloneValue(this._data);
+    const cloned = cloneValue(this._data);
+    if (cloned && Object.prototype.hasOwnProperty.call(cloned, "__createTimeMillis")) {
+      delete cloned.__createTimeMillis;
+    }
+    return cloned;
   }
 }
 

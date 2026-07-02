@@ -3848,14 +3848,13 @@ class BiteScoreService {
       headline: request.headline,
       notes: request.notes,
     );
-    final dishAward = await ContributionPointsService.awardDishContribution(
-      userId: creatorUserId,
-      dish: dish,
-      restaurant: restaurant,
-      createdNewRestaurant: restaurantResolution.wasCreated,
-      createdNewDish: dishResolution.wasCreated,
-      restaurantHadNoDishesBefore: dishResolution.restaurantHadNoDishesBefore,
-    );
+    final dishAward = dishResolution.wasCreated
+        ? await ContributionPointsService.awardCreatedDishContributionPoints(
+            restaurantId: restaurant.id,
+            dishId: dish.id,
+            reviewId: reviewResult.review.id,
+          )
+        : const ContributionPointAwardResult();
 
     return BiteScoreReviewSaveResult(
       dish: dish,
@@ -4203,14 +4202,13 @@ class BiteScoreService {
       headline: headline,
       notes: notes,
     );
-    final dishAward = await ContributionPointsService.awardDishContribution(
-      userId: creatorUserId,
-      dish: dish,
-      restaurant: restaurant,
-      createdNewRestaurant: false,
-      createdNewDish: dishResolution.wasCreated,
-      restaurantHadNoDishesBefore: dishResolution.restaurantHadNoDishesBefore,
-    );
+    final dishAward = dishResolution.wasCreated
+        ? await ContributionPointsService.awardCreatedDishContributionPoints(
+            restaurantId: restaurant.id,
+            dishId: dish.id,
+            reviewId: reviewResult.review.id,
+          )
+        : const ContributionPointAwardResult();
 
     return BiteScoreReviewSaveResult(
       dish: dish,

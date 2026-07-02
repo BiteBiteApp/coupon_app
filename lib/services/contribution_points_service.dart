@@ -569,6 +569,30 @@ class ContributionPointsService {
     return ContributionPointAwardResult.fromCallableData(response);
   }
 
+  static Future<ContributionPointAwardResult>
+  awardCreatedDishContributionPoints({
+    required String restaurantId,
+    required String dishId,
+    required String reviewId,
+    ContributionPointCallable? callable,
+  }) async {
+    final trimmedRestaurantId = restaurantId.trim();
+    final trimmedDishId = dishId.trim();
+    final trimmedReviewId = reviewId.trim();
+    if (trimmedRestaurantId.isEmpty ||
+        trimmedDishId.isEmpty ||
+        trimmedReviewId.isEmpty) {
+      return const ContributionPointAwardResult();
+    }
+
+    final response = await (callable ?? _awardCreatedDishCallable)({
+      'restaurantId': trimmedRestaurantId,
+      'dishId': trimmedDishId,
+      'reviewId': trimmedReviewId,
+    });
+    return ContributionPointAwardResult.fromCallableData(response);
+  }
+
   static Future<ContributionPointAwardResult> awardApprovedDishProposal({
     required DishEditProposal proposal,
     required BitescoreDish? dish,
@@ -772,6 +796,15 @@ class ContributionPointsService {
   ) async {
     return _callContributionPointAwardFunction(
       'awardDishImageContributionPoints',
+      payload,
+    );
+  }
+
+  static Future<Object?> _awardCreatedDishCallable(
+    Map<String, dynamic> payload,
+  ) async {
+    return _callContributionPointAwardFunction(
+      'awardCreatedDishContributionPoints',
       payload,
     );
   }

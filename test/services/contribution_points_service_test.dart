@@ -494,6 +494,68 @@ void main() {
       ]);
     });
 
+    test('created dish wrapper calls source-specific function shape', () async {
+      final payloads = <Map<String, dynamic>>[];
+
+      final result =
+          await ContributionPointsService.awardCreatedDishContributionPoints(
+            restaurantId: ' restaurant-1 ',
+            dishId: ' dish-1 ',
+            reviewId: ' review-1 ',
+            callable: (payload) async {
+              payloads.add(payload);
+              return {
+                'ok': true,
+                'result': {
+                  'entries': [
+                    {
+                      'ledgerEntryId':
+                          'new_restaurant_first_dish%3Arestaurant-1%3Adish-1',
+                      'points': 3,
+                      'wasCreated': true,
+                    },
+                  ],
+                  'actionGroupId':
+                      'new_restaurant_first_dish:restaurant-1:dish-1',
+                },
+              };
+            },
+          );
+
+      expect(payloads.single, {
+        'restaurantId': 'restaurant-1',
+        'dishId': 'dish-1',
+        'reviewId': 'review-1',
+      });
+      expect(
+        result.actionGroupId,
+        'new_restaurant_first_dish:restaurant-1:dish-1',
+      );
+      expect(result.newlyAwardedPoints, 3);
+      expect(result.newlyCreatedLedgerEntryIds, [
+        'new_restaurant_first_dish%3Arestaurant-1%3Adish-1',
+      ]);
+    });
+
+    test('created dish wrapper treats empty identifiers as no-award', () async {
+      var called = false;
+
+      final result =
+          await ContributionPointsService.awardCreatedDishContributionPoints(
+            restaurantId: 'restaurant-1',
+            dishId: ' ',
+            reviewId: 'review-1',
+            callable: (payload) async {
+              called = true;
+              return payload;
+            },
+          );
+
+      expect(called, isFalse);
+      expect(result.entries, isEmpty);
+      expect(result.hasNewPositivePoints, isFalse);
+    });
+
     test('callable duplicate no-op preserves celebration behavior', () {
       final result = ContributionPointAwardResult.fromCallableData({
         'ok': true,

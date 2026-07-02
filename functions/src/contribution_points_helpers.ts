@@ -19,7 +19,10 @@ export const contributionPointCelebrationStatus = {
 
 export const contributionPointAction = {
   reviewMilestone: "review_milestone",
+  dishCreated: "dish_created",
   dishImageAdded: "dish_image_added",
+  restaurantFirstDish: "restaurant_first_dish",
+  newRestaurantFirstDish: "new_restaurant_first_dish",
   contributionReversed: "contribution_reversed",
 } as const;
 
@@ -82,6 +85,7 @@ type DocumentReferenceLike = {
 type DocumentSnapshotLike = {
   id: string;
   exists: boolean;
+  createTime?: { toMillis(): number };
   data(): Record<string, unknown> | undefined;
 };
 
@@ -507,6 +511,142 @@ export async function awardDishImageContributionPointsCallableHandler(
   };
 }
 
+export async function awardCreatedDishContributionPointsCallableHandler(
+  db: FirestoreLike,
+  request: CallableRequest<unknown>,
+  options: HelperOptions = {},
+): Promise<{ ok: true; result: ContributionPointAwardResult }> {
+  const uid = requireCallableUid(request.auth);
+  const data = readRecord(request.data);
+  const restaurantId = readRequiredString(data.restaurantId, "restaurantId");
+  const dishId = readRequiredString(data.dishId, "dishId");
+  const reviewId = readRequiredString(data.reviewId, "reviewId");
+
+  const reviewSnapshot = await db.collection("dish_reviews").doc(reviewId).get();
+  if (!reviewSnapshot.exists) {
+    throw new HttpsError("not-found", "Review not found.");
+  }
+  const reviewData = reviewSnapshot.data() ?? {};
+  if (readOptionalString(reviewData.userId) !== uid) {
+    throw new HttpsError(
+      "permission-denied",
+      "You can only claim points for your own review-created dishes.",
+    );
+  }
+  if (
+    readOptionalString(reviewData.dishId) !== dishId ||
+    readOptionalString(reviewData.restaurantId) !== restaurantId
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Review does not match the requested dish and restaurant.",
+    );
+  }
+
+  const dishSnapshot = await db.collection("bitescore_dishes").doc(dishId).get();
+  if (!dishSnapshot.exists) {
+    throw new HttpsError("not-found", "Dish not found.");
+  }
+  const dishData = dishSnapshot.data() ?? {};
+  if (!isActiveDishData(dishData)) {
+    return noAwardResponse();
+  }
+  if (!dishCreationProvenanceMatches(dishData, {
+    uid,
+    restaurantId,
+    reviewId,
+  })) {
+    return noAwardResponse();
+  }
+
+  const restaurantSnapshot = await db
+    .collection("bitescore_restaurants")
+    .doc(restaurantId)
+    .get();
+  if (!restaurantSnapshot.exists) {
+    throw new HttpsError("not-found", "Restaurant not found.");
+  }
+  const restaurantData = restaurantSnapshot.data() ?? {};
+  const restaurantProvenance = restaurantCreationProvenanceState(
+    restaurantData,
+    {
+      uid,
+      dishId,
+      reviewId,
+    },
+  );
+  const isFirstDish = await isFirstActiveDishForRestaurant(db, {
+    restaurantId,
+    dishId,
+    dishSnapshot,
+    dishData,
+  });
+
+  if (restaurantProvenance === "matching" && isFirstDish) {
+    return {
+      ok: true,
+      result: await awardContributionPointsTransaction(
+        db,
+        createdDishAwardDraft({
+          uid,
+          points: 3,
+          actionType: contributionPointAction.newRestaurantFirstDish,
+          sourceKey: newRestaurantFirstDishSourceKey(restaurantId, dishId),
+          description: "Added a new restaurant and its first dish",
+          dishId,
+          reviewId,
+          dishData,
+          restaurantId,
+          restaurantData,
+        }),
+        options,
+      ),
+    };
+  }
+
+  if (isFirstDish) {
+    return {
+      ok: true,
+      result: await awardContributionPointsTransaction(
+        db,
+        createdDishAwardDraft({
+          uid,
+          points: 3,
+          actionType: contributionPointAction.restaurantFirstDish,
+          sourceKey: restaurantFirstDishSourceKey(restaurantId, dishId),
+          description: "Added the first dish to an existing restaurant",
+          dishId,
+          reviewId,
+          dishData,
+          restaurantId,
+          restaurantData,
+        }),
+        options,
+      ),
+    };
+  }
+
+  return {
+    ok: true,
+    result: await awardContributionPointsTransaction(
+      db,
+      createdDishAwardDraft({
+        uid,
+        points: 1,
+        actionType: contributionPointAction.dishCreated,
+        sourceKey: dishCreatedSourceKey(dishId),
+        description: "Added a dish to an existing restaurant",
+        dishId,
+        reviewId,
+        dishData,
+        restaurantId,
+        restaurantData,
+      }),
+      options,
+    ),
+  };
+}
+
 export async function markContributionPointLedgerEntriesCelebratedTransaction(
   db: FirestoreLike,
   params: { userId: string; ledgerEntryIds: string[] },
@@ -705,6 +845,24 @@ function dishImageAddedSourceKey(dishId: string, imageId: string): string {
   return `dish_image_added:${dishId.trim()}:${imageId.trim()}`;
 }
 
+function dishCreatedSourceKey(dishId: string): string {
+  return `dish_created:${dishId.trim()}`;
+}
+
+function restaurantFirstDishSourceKey(
+  restaurantId: string,
+  dishId: string,
+): string {
+  return `restaurant_first_dish:${restaurantId.trim()}:${dishId.trim()}`;
+}
+
+function newRestaurantFirstDishSourceKey(
+  restaurantId: string,
+  dishId: string,
+): string {
+  return `new_restaurant_first_dish:${restaurantId.trim()}:${dishId.trim()}`;
+}
+
 async function loadValidPublicReviewCountForUser(
   db: FirestoreLike,
   userId: string,
@@ -750,6 +908,198 @@ function isPublicReviewData(data: Record<string, unknown>): boolean {
     return false;
   }
   return true;
+}
+
+function noAwardResponse(): { ok: true; result: ContributionPointAwardResult } {
+  return { ok: true, result: { entries: [] } };
+}
+
+function dishCreationProvenanceMatches(
+  dishData: Record<string, unknown>,
+  params: { uid: string; restaurantId: string; reviewId: string },
+): boolean {
+  const createdByUserId = readOptionalString(dishData.createdByUserId);
+  const createdFromReviewId = readOptionalString(dishData.createdFromReviewId);
+  const createdWithRestaurantId = readOptionalString(
+    dishData.createdWithRestaurantId,
+  );
+
+  if (
+    createdByUserId === null &&
+    createdFromReviewId === null &&
+    createdWithRestaurantId === null &&
+    dishData.createdFromCreateFlow !== true
+  ) {
+    return false;
+  }
+  if (createdByUserId !== params.uid) {
+    throw new HttpsError(
+      "permission-denied",
+      "Dish creator provenance belongs to another user.",
+    );
+  }
+  return (
+    createdFromReviewId === params.reviewId &&
+    createdWithRestaurantId === params.restaurantId &&
+    dishData.createdFromCreateFlow === true
+  );
+}
+
+function restaurantCreationProvenanceState(
+  restaurantData: Record<string, unknown>,
+  params: { uid: string; dishId: string; reviewId: string },
+): "matching" | "absent-or-mismatch" {
+  const createdByUserId = readOptionalString(restaurantData.createdByUserId);
+  const createdFromDishId = readOptionalString(restaurantData.createdFromDishId);
+  const createdFromReviewId = readOptionalString(
+    restaurantData.createdFromReviewId,
+  );
+  const hasProvenance =
+    createdByUserId !== null ||
+    createdFromDishId !== null ||
+    createdFromReviewId !== null ||
+    restaurantData.createdFromCreateFlow === true;
+
+  if (
+    restaurantData.createdFromCreateFlow === true &&
+    createdFromDishId === params.dishId &&
+    createdFromReviewId === params.reviewId
+  ) {
+    if (createdByUserId !== params.uid) {
+      throw new HttpsError(
+        "permission-denied",
+        "Restaurant creator provenance belongs to another user.",
+      );
+    }
+    return "matching";
+  }
+  if (!hasProvenance) {
+    return "absent-or-mismatch";
+  }
+  return "absent-or-mismatch";
+}
+
+async function isFirstActiveDishForRestaurant(
+  db: FirestoreLike,
+  params: {
+    restaurantId: string;
+    dishId: string;
+    dishSnapshot: DocumentSnapshotLike;
+    dishData: Record<string, unknown>;
+  },
+): Promise<boolean> {
+  const targetCreatedAt = snapshotCreateMillis(
+    params.dishSnapshot,
+    params.dishData,
+  );
+  if (targetCreatedAt === null) {
+    return false;
+  }
+
+  const snapshot = await db
+    .collection("bitescore_dishes")
+    .where("restaurantId", "==", params.restaurantId)
+    .get();
+
+  for (const doc of snapshot.docs) {
+    const data = doc.data() ?? {};
+    if (!isActiveDishData(data)) {
+      continue;
+    }
+    const docId = readOptionalString(data.id) ?? doc.id;
+    if (doc.id === params.dishId || docId === params.dishId) {
+      continue;
+    }
+    const otherCreatedAt = snapshotCreateMillis(doc, data);
+    if (otherCreatedAt === null || otherCreatedAt <= targetCreatedAt) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function isActiveDishData(data: Record<string, unknown>): boolean {
+  return (
+    data.isActive !== false &&
+    readOptionalString(data.mergedIntoDishId) === null
+  );
+}
+
+function snapshotCreateMillis(
+  snapshot: DocumentSnapshotLike,
+  data: Record<string, unknown>,
+): number | null {
+  return coerceTimestampMillis(snapshot.createTime) ??
+    coerceTimestampMillis(data.createdAt);
+}
+
+function coerceTimestampMillis(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (value instanceof Date) {
+    return value.getTime();
+  }
+  if (value !== null && typeof value === "object") {
+    const timestamp = value as {
+      toMillis?: () => number;
+      seconds?: number;
+      nanoseconds?: number;
+    };
+    if (typeof timestamp.toMillis === "function") {
+      const millis = timestamp.toMillis();
+      return Number.isFinite(millis) ? millis : null;
+    }
+    if (
+      typeof timestamp.seconds === "number" &&
+      Number.isFinite(timestamp.seconds)
+    ) {
+      const nanoseconds =
+        typeof timestamp.nanoseconds === "number" &&
+        Number.isFinite(timestamp.nanoseconds)
+          ? timestamp.nanoseconds
+          : 0;
+      return timestamp.seconds * 1000 + Math.floor(nanoseconds / 1000000);
+    }
+  }
+  return null;
+}
+
+function createdDishAwardDraft(params: {
+  uid: string;
+  points: number;
+  actionType: string;
+  sourceKey: string;
+  description: string;
+  dishId: string;
+  reviewId: string;
+  dishData: Record<string, unknown>;
+  restaurantId: string;
+  restaurantData: Record<string, unknown>;
+}): ContributionPointAwardDraft {
+  const restaurantName =
+    readOptionalString(params.restaurantData.name) ??
+    readOptionalString(params.restaurantData.restaurantName);
+
+  return {
+    userId: params.uid,
+    points: params.points,
+    actionType: params.actionType,
+    sourceKey: params.sourceKey,
+    description: params.description,
+    dishId: params.dishId,
+    dishName: readOptionalString(params.dishData.name),
+    restaurantId: params.restaurantId,
+    restaurantName,
+    restaurantCity: readOptionalString(params.restaurantData.city),
+    restaurantState: readOptionalString(params.restaurantData.state),
+    restaurantAddress:
+      readOptionalString(params.restaurantData.address) ??
+      readOptionalString(params.restaurantData.streetAddress),
+    restaurantPhone: readOptionalString(params.restaurantData.phone),
+    reviewId: params.reviewId,
+  };
 }
 
 function combineContributionPointAwardResults(
