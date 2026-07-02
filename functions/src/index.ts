@@ -24,6 +24,10 @@ import {
 import { setGlobalOptions } from "firebase-functions/v2/options";
 import Stripe from "stripe";
 import {
+  awardContributionPointsCallableHandler,
+  reverseContributionPointLedgerEntryCallableHandler,
+} from "./contribution_points_helpers.js";
+import {
   couponInviteRestaurantIdentity,
   filterAndSortInviteSummaries,
   generateInviteToken,
@@ -2854,6 +2858,14 @@ export const recalculateMyLocalExpertBadges = onCall(async (request) => {
     removedBadgeCount: result.removedBadgeCount,
     celebrations: result.celebrations,
   };
+});
+
+export const awardContributionPoints = onCall(async (request) => {
+  return awardContributionPointsCallableHandler(db, request);
+});
+
+export const reverseContributionPointLedgerEntry = onCall(async (request) => {
+  return reverseContributionPointLedgerEntryCallableHandler(db, request);
 });
 
 export const recalculateLocalExpertBadgesOnReviewWrite = onDocumentWritten(
