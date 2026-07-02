@@ -2,27 +2,657 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    function developmentAccessOpen() {
-      return request.time < timestamp.date(2026, 12, 31);
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function emailVerified() {
+      return signedIn() &&
+        request.auth.token.keys().hasAny(['email_verified']) &&
+        request.auth.token.email_verified == true;
+    }
+
+    function betaAdminEmails() {
+      return ['schuyler.cole@gmail.com'];
+    }
+
+    function hasAdminClaim() {
+      return signedIn() &&
+        request.auth.token.keys().hasAny(['admin']) &&
+        request.auth.token.admin == true;
+    }
+
+    function hasBetaAdminEmail() {
+      return signedIn() &&
+        request.auth.token.keys().hasAny(['email']) &&
+        request.auth.token.email in betaAdminEmails();
+    }
+
+    function isAdmin() {
+      return hasAdminClaim() || hasBetaAdminEmail();
+    }
+
+    function isSelf(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function changedKeys() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    function isApprovedRestaurantAccount(restaurantUid) {
+      return exists(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)) &&
+        get(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)).data.approvalStatus == 'approved';
+    }
+
+    function restaurantAccountHasPostingAccess(restaurantUid) {
+      return exists(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)) &&
+        get(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)).data.approvalStatus == 'approved' &&
+        (
+          get(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)).data.couponPostingEnabled == true ||
+          get(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)).data.subscriptionStatus in ['active', 'trialing']
+        );
+    }
+
+    function canManageRestaurantContent(restaurantUid) {
+      return isAdmin() || (isSelf(restaurantUid) && restaurantAccountHasPostingAccess(restaurantUid));
+    }
+
+    function restaurantAccountProtectedFields() {
+      return [
+        'approvalStatus',
+        'approvedAt',
+        'approvedByUid',
+        'billingPlanName',
+        'couponPostingEnabled',
+        'hasUsedTrial',
+        'lastSubscriptionSyncAt',
+        'stripeCheckoutSessionId',
+        'stripeCustomerId',
+        'stripePriceId',
+        'stripeSubscriptionId',
+        'subscriptionEndsAt',
+        'subscriptionStatus',
+        'trialEndsAt'
+      ];
+    }
+
+    function restaurantAccountOwnerLockedFields() {
+      return [
+        'uid',
+        'createdAt',
+        'deletedAt',
+        'deletedByUid',
+        'inviteId',
+        'inviteRestaurantKey',
+        'inviteTokenHash',
+        'tokenHash'
+      ];
+    }
+
+    function restaurantAccountClientWritableFields() {
+      return [
+        'uid',
+        'email',
+        'phoneNumber',
+        'displayName',
+        'restaurantName',
+        'name',
+        'streetAddress',
+        'address',
+        'city',
+        'state',
+        'zipCode',
+        'postalCode',
+        'phone',
+        'website',
+        'description',
+        'businessHours',
+        'latitude',
+        'longitude',
+        'emailVerified',
+        'couponApplicationSubmitted',
+        'approvalStatus',
+        'createdAt',
+        'updatedAt'
+      ];
+    }
+
+    function canCreateOwnRestaurantAccount(restaurantUid) {
+      return isSelf(restaurantUid) &&
+        request.resource.data.uid == restaurantUid &&
+        request.resource.data.keys().hasOnly(restaurantAccountClientWritableFields()) &&
+        (!('approvalStatus' in request.resource.data) ||
+          request.resource.data.approvalStatus == 'pending') &&
+        !request.resource.data.keys().hasAny([
+          'approvedAt',
+          'approvedByUid',
+          'billingPlanName',
+          'couponPostingEnabled',
+          'hasUsedTrial',
+          'lastSubscriptionSyncAt',
+          'stripeCheckoutSessionId',
+          'stripeCustomerId',
+          'stripePriceId',
+          'stripeSubscriptionId',
+          'subscriptionEndsAt',
+          'subscriptionStatus',
+          'trialEndsAt'
+        ]);
+    }
+
+    function canUpdateOwnRestaurantAccount(restaurantUid) {
+      return isSelf(restaurantUid) &&
+        request.resource.data.uid == restaurantUid &&
+        !changedKeys().hasAny(restaurantAccountProtectedFields()) &&
+        !changedKeys().hasAny(restaurantAccountOwnerLockedFields()) &&
+        changedKeys().hasOnly(restaurantAccountClientWritableFields());
+    }
+
+    function profileWritableFields() {
+      return [
+        'userId',
+        'email',
+        'phoneNumber',
+        'displayName',
+        'photoURL',
+        'providerIds',
+        'isAnonymous',
+        'updatedAt'
+      ];
+    }
+
+    function canCreateOwnProfile(userId) {
+      return isSelf(userId) &&
+        request.resource.data.userId == userId &&
+        request.resource.data.keys().hasOnly(profileWritableFields());
+    }
+
+    function canUpdateOwnProfile(userId) {
+      return isSelf(userId) &&
+        request.resource.data.userId == userId &&
+        changedKeys().hasOnly(profileWritableFields());
+    }
+
+    function userOwnedCreate(userId) {
+      return isSelf(userId) && request.resource.data.userId == userId;
+    }
+
+    function userOwnedUpdate(userId) {
+      return isSelf(userId) &&
+        resource.data.userId == userId &&
+        request.resource.data.userId == userId;
+    }
+
+    function ownerOfBiteScoreRestaurant(restaurantId) {
+      return signedIn() &&
+        restaurantId is string &&
+        exists(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)) &&
+        get(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)).data.isClaimed == true &&
+        get(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)).data.ownerUserId == request.auth.uid;
+    }
+
+    function ownsSharedRestaurantMenu(menuId) {
+      return signedIn() &&
+        exists(/databases/$(database)/documents/restaurant_menus/$(menuId)) &&
+        get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data.createdByUserId == request.auth.uid;
+    }
+
+    function biteScoreRestaurantOwnerFields() {
+      return [
+        'name',
+        'restaurantName',
+        'normalizedName',
+        'address',
+        'streetAddress',
+        'formattedAddress',
+        'fullAddress',
+        'city',
+        'state',
+        'stateCode',
+        'zipCode',
+        'postalCode',
+        'phone',
+        'website',
+        'bio',
+        'businessHours',
+        'cuisineTags',
+        'location',
+        'geoPoint',
+        'latitude',
+        'longitude',
+        'sharedMenuId',
+        'menuSourceSide',
+        'menuSourceUpdatedAt',
+        'menuSourceUpdatedBy',
+        'updatedAt'
+      ];
+    }
+
+    function canOwnerUpdateBiteScoreRestaurant(restaurantId) {
+      return ownerOfBiteScoreRestaurant(restaurantId) &&
+        changedKeys().hasOnly(biteScoreRestaurantOwnerFields());
+    }
+
+    function canCreatePublicBiteScoreRestaurant(restaurantId) {
+      return emailVerified() &&
+        request.resource.data.id == restaurantId &&
+        (!('ownerUserId' in request.resource.data) ||
+          request.resource.data.ownerUserId == null ||
+          request.resource.data.ownerUserId == '') &&
+        (!('isClaimed' in request.resource.data) ||
+          request.resource.data.isClaimed == false) &&
+        (!('isActive' in request.resource.data) ||
+          request.resource.data.isActive == true) &&
+        (!('active' in request.resource.data) ||
+          request.resource.data.active == true);
+    }
+
+    function createsOwnReview() {
+      return emailVerified() && request.resource.data.userId == request.auth.uid;
+    }
+
+    function updatesOwnReview() {
+      return emailVerified() &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == request.auth.uid;
+    }
+
+    function createsOwnReport(reportingField) {
+      return emailVerified() &&
+        request.resource.data[reportingField] == request.auth.uid &&
+        request.resource.data.status == 'pending';
+    }
+
+    function readsOwnReport(reportingField) {
+      return signedIn() && resource.data[reportingField] == request.auth.uid;
+    }
+
+    function updatesOwnReport(reportingField) {
+      return emailVerified() &&
+        resource.data[reportingField] == request.auth.uid &&
+        request.resource.data[reportingField] == request.auth.uid &&
+        changedKeys().hasOnly(['reason', 'message', 'note', 'updatedAt']);
+    }
+
+    function createsOwnDishEditProposal() {
+      return emailVerified() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.status == 'pending';
+    }
+
+    function readsOwnDishEditProposal() {
+      return signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    function createsOwnClaimRequest() {
+      return emailVerified() &&
+        request.resource.data.requesterUserId == request.auth.uid &&
+        request.resource.data.status == 'pending';
+    }
+
+    function readsOwnClaimRequest() {
+      return signedIn() && resource.data.requesterUserId == request.auth.uid;
+    }
+
+    function publicProfileWriteFields() {
+      return [
+        'userId',
+        'publicDisplayName',
+        'fallbackUsername',
+        'username',
+        'photoURL',
+        'reviewCount',
+        'createdAt',
+        'updatedAt'
+      ];
+    }
+
+    function canWriteOwnPublicReviewerProfile(userId) {
+      return isSelf(userId) &&
+        request.resource.data.userId == userId &&
+        request.resource.data.keys().hasOnly(publicProfileWriteFields());
+    }
+
+    function canUpdateOwnPublicReviewerProfile(userId) {
+      return isSelf(userId) &&
+        resource.data.userId == userId &&
+        request.resource.data.userId == userId &&
+        changedKeys().hasOnly(publicProfileWriteFields());
+    }
+
+    match /restaurant_accounts/{restaurantUid} {
+      allow get, list: if isAdmin() ||
+        isSelf(restaurantUid) ||
+        resource.data.approvalStatus == 'approved';
+      allow create: if isAdmin() || canCreateOwnRestaurantAccount(restaurantUid);
+      allow update: if isAdmin() || canUpdateOwnRestaurantAccount(restaurantUid);
+      allow delete: if isAdmin();
+
+      match /coupons/{couponId} {
+        allow read: if isAdmin() ||
+          isSelf(restaurantUid) ||
+          isApprovedRestaurantAccount(restaurantUid);
+        allow create, update: if canManageRestaurantContent(restaurantUid) &&
+          request.resource.data.id == couponId;
+        allow delete: if canManageRestaurantContent(restaurantUid);
+      }
+
+      match /daily_specials/{specialId} {
+        allow read: if isAdmin() ||
+          isSelf(restaurantUid) ||
+          isApprovedRestaurantAccount(restaurantUid);
+        allow create, update: if canManageRestaurantContent(restaurantUid) &&
+          request.resource.data.id == specialId &&
+          request.resource.data.restaurantId == restaurantUid &&
+          request.resource.data.ownerUid == restaurantUid;
+        allow delete: if canManageRestaurantContent(restaurantUid);
+      }
+
+      match /menu_images/{imageId} {
+        allow read: if isAdmin() ||
+          isSelf(restaurantUid) ||
+          isApprovedRestaurantAccount(restaurantUid);
+        allow create, update: if canManageRestaurantContent(restaurantUid) &&
+          request.resource.data.id == imageId;
+        allow delete: if canManageRestaurantContent(restaurantUid);
+      }
+
+      match /menu_items/{itemId} {
+        allow read: if isAdmin() ||
+          isSelf(restaurantUid) ||
+          isApprovedRestaurantAccount(restaurantUid);
+        allow create, update: if canManageRestaurantContent(restaurantUid) &&
+          request.resource.data.id == itemId;
+        allow delete: if canManageRestaurantContent(restaurantUid);
+      }
+
+      match /menu_sections/{sectionId} {
+        allow read: if isAdmin() ||
+          isSelf(restaurantUid) ||
+          isApprovedRestaurantAccount(restaurantUid);
+        allow create, update: if canManageRestaurantContent(restaurantUid) &&
+          request.resource.data.id == sectionId;
+        allow delete: if canManageRestaurantContent(restaurantUid);
+      }
+
+      match /coupon_number_reservations/{reservationId} {
+        allow read, create, update, delete: if canManageRestaurantContent(restaurantUid);
+      }
+
+      match /coupon_code_reservations/{reservationId} {
+        allow read, create, update, delete: if canManageRestaurantContent(restaurantUid);
+      }
+
+      match /{document=**} {
+        allow read, write: if false;
+      }
+    }
+
+    match /restaurant_name_change_requests/{requestId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
+      allow create: if signedIn() &&
+        request.resource.data.uid == request.auth.uid &&
+        request.resource.data.status == 'pending';
+      allow update, delete: if isAdmin();
     }
 
     match /user_profiles/{userId} {
-      allow read, write: if developmentAccessOpen();
+      allow read: if isAdmin() || isSelf(userId);
+      allow create: if isAdmin() || canCreateOwnProfile(userId);
+      allow update: if isAdmin() || canUpdateOwnProfile(userId);
+      allow delete: if isAdmin();
+
+      match /favorite_restaurants/{favoriteId} {
+        allow read: if isAdmin() || isSelf(userId);
+        allow create: if userOwnedCreate(userId);
+        allow update: if userOwnedUpdate(userId);
+        allow delete: if isAdmin() || isSelf(userId);
+      }
+
+      match /favorite_dishes/{favoriteId} {
+        allow read: if isAdmin() || isSelf(userId);
+        allow create: if userOwnedCreate(userId);
+        allow update: if userOwnedUpdate(userId);
+        allow delete: if isAdmin() || isSelf(userId);
+      }
+
+      match /favorite_coupons/{favoriteId} {
+        allow read: if isAdmin() || isSelf(userId);
+        allow create: if userOwnedCreate(userId);
+        allow update: if userOwnedUpdate(userId);
+        allow delete: if isAdmin() || isSelf(userId);
+      }
 
       match /local_expert_badges/{badgeId} {
-        allow read: if developmentAccessOpen();
+        allow read: if true;
         allow write: if false;
       }
 
-      match /{subcollection}/{document=**} {
-        allow read, write: if developmentAccessOpen() &&
-          subcollection != 'local_expert_badges';
+      match /local_expert_badge_celebrations/{eventId} {
+        allow read: if isAdmin() || isSelf(userId);
+        allow create: if false;
+        allow update: if isSelf(userId) &&
+          changedKeys().hasOnly(['celebrationStatus', 'celebratedAt', 'updatedAt']);
+        allow delete: if false;
+      }
+
+      match /{document=**} {
+        allow read, write: if false;
       }
     }
 
-    match /{collection}/{document=**} {
-      allow read, write: if developmentAccessOpen() &&
-        collection != 'user_profiles';
+    match /customer_redemptions/{userId}/coupon_redemptions/{couponId} {
+      allow read: if isAdmin() || isSelf(userId);
+      allow create, update: if isSelf(userId) &&
+        request.resource.data.couponId == couponId;
+      allow delete: if isAdmin() || isSelf(userId);
+    }
+
+    match /public_reviewer_profiles/{userId} {
+      allow read: if true;
+      allow create: if isAdmin() || canWriteOwnPublicReviewerProfile(userId);
+      allow update: if isAdmin() || canUpdateOwnPublicReviewerProfile(userId);
+      allow delete: if isAdmin();
+    }
+
+    match /public_usernames/{username} {
+      allow read: if true;
+      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if signedIn() &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == request.auth.uid;
+      allow delete: if isAdmin() ||
+        (signedIn() && resource.data.userId == request.auth.uid);
+    }
+
+    match /bitescore_restaurants/{restaurantId} {
+      allow read: if true;
+      allow create: if isAdmin() ||
+        canCreatePublicBiteScoreRestaurant(restaurantId);
+      allow update: if isAdmin() || canOwnerUpdateBiteScoreRestaurant(restaurantId);
+      allow delete: if isAdmin();
+    }
+
+    match /bitescore_dishes/{dishId} {
+      allow read: if true;
+      allow create: if isAdmin() || emailVerified();
+      allow update: if isAdmin() ||
+        ownerOfBiteScoreRestaurant(resource.data.restaurantId) ||
+        (
+          emailVerified() &&
+          changedKeys().hasOnly([
+            'category',
+            'subcategory',
+            'categoryManualKeywords',
+            'categoryTags',
+            'imageCount',
+            'primaryImageId',
+            'primaryImageUrl',
+            'updatedAt'
+          ])
+        );
+      allow delete: if isAdmin();
+    }
+
+    match /dish_catalog/{catalogId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /dish_rating_aggregates/{dishId} {
+      allow read: if true;
+      allow create, update: if isAdmin() || emailVerified();
+      allow delete: if isAdmin();
+    }
+
+    match /dish_reviews/{reviewId} {
+      allow read: if true;
+      allow create: if createsOwnReview();
+      allow update: if isAdmin() || updatesOwnReview();
+      allow delete: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+    }
+
+    match /bitescore_dish_images/{imageId} {
+      allow read: if true;
+      allow create: if isAdmin() ||
+        (emailVerified() && request.resource.data.uploadedByUserId == request.auth.uid);
+      allow update: if isAdmin() ||
+        ownerOfBiteScoreRestaurant(resource.data.restaurantId) ||
+        (
+          emailVerified() &&
+          changedKeys().hasOnly([
+            'helpfulCount',
+            'notHelpfulCount',
+            'primary',
+            'sortOrder',
+            'updatedAt'
+          ])
+        );
+      allow delete: if isAdmin() ||
+        (signedIn() && resource.data.uploadedByUserId == request.auth.uid);
+    }
+
+    match /bitescore_dish_image_votes/{voteId} {
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow create: if emailVerified() && request.resource.data.userId == request.auth.uid;
+      allow update: if emailVerified() &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == request.auth.uid;
+      allow delete: if signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    match /review_feedback_votes/{voteId} {
+      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow create: if emailVerified() && request.resource.data.userId == request.auth.uid;
+      allow update: if emailVerified() &&
+        resource.data.userId == request.auth.uid &&
+        request.resource.data.userId == request.auth.uid;
+      allow delete: if signedIn() && resource.data.userId == request.auth.uid;
+    }
+
+    match /review_reports/{reportId} {
+      allow read: if isAdmin() || readsOwnReport('reportingUserId');
+      allow create: if createsOwnReport('reportingUserId');
+      allow update: if isAdmin() || updatesOwnReport('reportingUserId');
+      allow delete: if isAdmin();
+    }
+
+    match /restaurant_reports/{reportId} {
+      allow read: if isAdmin() || readsOwnReport('reportingUserId');
+      allow create: if createsOwnReport('reportingUserId');
+      allow update: if isAdmin() || updatesOwnReport('reportingUserId');
+      allow delete: if isAdmin();
+    }
+
+    match /dish_reports/{reportId} {
+      allow read: if isAdmin() || readsOwnReport('reportingUserId');
+      allow create: if createsOwnReport('reportingUserId');
+      allow update: if isAdmin() || updatesOwnReport('reportingUserId');
+      allow delete: if isAdmin();
+    }
+
+    match /duplicate_restaurant_reports/{reportId} {
+      allow read: if isAdmin() || readsOwnReport('reportingUserId');
+      allow create: if createsOwnReport('reportingUserId');
+      allow update: if isAdmin() || updatesOwnReport('reportingUserId');
+      allow delete: if isAdmin();
+    }
+
+    match /dish_edit_proposals/{proposalId} {
+      allow read: if isAdmin() || readsOwnDishEditProposal();
+      allow create: if createsOwnDishEditProposal();
+      allow update, delete: if isAdmin();
+    }
+
+    match /restaurant_claim_requests/{requestId} {
+      allow read: if isAdmin() || readsOwnClaimRequest();
+      allow create: if createsOwnClaimRequest();
+      allow update, delete: if isAdmin();
+    }
+
+    match /bitesaver_reports/{reportId} {
+      allow read: if isAdmin();
+      allow create: if request.resource.data.status == 'open' &&
+        (!('reporterUid' in request.resource.data) ||
+          (signedIn() && request.resource.data.reporterUid == request.auth.uid));
+      allow update, delete: if isAdmin();
+    }
+
+    match /restaurant_menus/{menuId} {
+      allow read: if true;
+      allow create: if isAdmin() ||
+        (
+          emailVerified() &&
+          request.resource.data.createdByUserId == request.auth.uid &&
+          request.resource.data.bitescoreRestaurantId is string &&
+          ownerOfBiteScoreRestaurant(request.resource.data.bitescoreRestaurantId)
+        );
+      allow update: if isAdmin() || ownsSharedRestaurantMenu(menuId);
+      allow delete: if isAdmin();
+
+      match /menu_images/{imageId} {
+        allow read: if true;
+        allow create, update: if isAdmin() || ownsSharedRestaurantMenu(menuId);
+        allow delete: if isAdmin() || ownsSharedRestaurantMenu(menuId);
+      }
+
+      match /menu_items/{itemId} {
+        allow read: if true;
+        allow create, update: if isAdmin() || ownsSharedRestaurantMenu(menuId);
+        allow delete: if isAdmin() || ownsSharedRestaurantMenu(menuId);
+      }
+
+      match /menu_sections/{sectionId} {
+        allow read: if true;
+        allow create, update: if isAdmin() || ownsSharedRestaurantMenu(menuId);
+        allow delete: if isAdmin() || ownsSharedRestaurantMenu(menuId);
+      }
+
+      match /{document=**} {
+        allow read, write: if false;
+      }
+    }
+
+    match /restaurant_invites/{inviteId} {
+      allow read, write: if false;
+    }
+
+    match /bitescore_contribution_point_ledger/{entryId} {
+      allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow write: if false;
+    }
+
+    match /proximity_push_requests/{requestId} {
+      allow read, write: if false;
+    }
+
+    match /customer_device_installations/{installationId} {
+      allow read, write: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }
