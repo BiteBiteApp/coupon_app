@@ -301,8 +301,8 @@ service cloud.firestore {
         'publicDisplayName',
         'fallbackUsername',
         'username',
-        'photoURL',
-        'reviewCount',
+        'chosenUsername',
+        'chosenUsernameNormalized',
         'createdAt',
         'updatedAt'
       ];

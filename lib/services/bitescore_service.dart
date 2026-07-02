@@ -5666,8 +5666,6 @@ class BiteScoreService {
     if (userId.isEmpty || user.isAnonymous) {
       throw ArgumentError(loginRequiredMessage);
     }
-    final phoneNumber = user.phoneNumber?.trim();
-
     return _firestore.runTransaction((transaction) async {
       final profileRef = publicReviewerProfileDocument(userId);
       final profileSnapshot = await transaction.get(profileRef);
@@ -5689,8 +5687,6 @@ class BiteScoreService {
           ),
           'fallbackUsername': existingIdentity.fallbackUsername,
           'userId': userId,
-          if (phoneNumber != null && phoneNumber.isNotEmpty)
-            'phoneNumber': phoneNumber,
           'createdAt': existingIdentity.createdAt == null
               ? FieldValue.serverTimestamp()
               : Timestamp.fromDate(existingIdentity.createdAt!),
@@ -5733,8 +5729,6 @@ class BiteScoreService {
           'chosenUsernameNormalized': null,
           'fallbackUsername': candidateFallback,
           'userId': userId,
-          if (phoneNumber != null && phoneNumber.isNotEmpty)
-            'phoneNumber': phoneNumber,
           'createdAt': FieldValue.serverTimestamp(),
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));

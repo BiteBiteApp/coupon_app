@@ -214,6 +214,8 @@ async function seedFirestore() {
       userId: "customer-a",
       publicDisplayName: "Customer A",
       fallbackUsername: "anon_customer_a",
+      chosenUsername: "CustomerA",
+      chosenUsernameNormalized: "customera",
       createdAt: seededAt,
       updatedAt: seededAt,
     });
@@ -497,6 +499,162 @@ test("users cannot write another user's private profile", async () => {
       },
       { merge: true },
     ),
+  );
+});
+
+test("users can create/update their own public reviewer profile safe fields", async () => {
+  const db = dbFor("wrongCustomer");
+  const profileRef = db.doc("public_reviewer_profiles/customer-b");
+
+  await assertSucceeds(
+    profileRef.set({
+      userId: "customer-b",
+      publicDisplayName: "Slice Queen",
+      fallbackUsername: "anon_customer_b",
+      chosenUsername: "SliceQueen",
+      chosenUsernameNormalized: "slicequeen",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }),
+  );
+
+  await assertSucceeds(
+    profileRef.set(
+      {
+        publicDisplayName: "Slice Queen Updated",
+        chosenUsername: "SliceQueenUpdated",
+        chosenUsernameNormalized: "slicequeenupdated",
+        userId: "customer-b",
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+});
+
+test("users cannot write phoneNumber to public reviewer profiles", async () => {
+  await assertFails(
+    dbFor("wrongCustomer").doc("public_reviewer_profiles/customer-b").set({
+      userId: "customer-b",
+      publicDisplayName: "Customer B",
+      fallbackUsername: "anon_customer_b",
+      phoneNumber: "+15550100",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }),
+  );
+
+  await assertFails(
+    dbFor("customer").doc("public_reviewer_profiles/customer-a").set(
+      {
+        userId: "customer-a",
+        phoneNumber: "+15550100",
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+});
+
+test("users cannot write another user's public reviewer profile", async () => {
+  await assertFails(
+    dbFor("wrongCustomer").doc("public_reviewer_profiles/customer-a").set(
+      {
+        userId: "customer-a",
+        publicDisplayName: "Forged Public Name",
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+});
+
+test("users cannot forge userId on their public reviewer profile", async () => {
+  await assertFails(
+    dbFor("customer").doc("public_reviewer_profiles/customer-a").set(
+      {
+        userId: "customer-b",
+        publicDisplayName: "Forged User",
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+});
+
+test("public can read public reviewer profiles", async () => {
+  const snapshot = await assertSucceeds(
+    dbFor("unauthenticated").doc("public_reviewer_profiles/customer-a").get(),
+  );
+  assert.equal(snapshot.exists, true);
+  assert.equal(snapshot.data().chosenUsernameNormalized, "customera");
+});
+
+test("username reservations remain owner-managed", async () => {
+  const db = dbFor("customer");
+  await assertSucceeds(
+    db.doc("public_usernames/customer_a_custom").set({
+      username: "customer_a_custom",
+      userId: "customer-a",
+      reservationType: "custom",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }),
+  );
+
+  await assertFails(
+    dbFor("wrongCustomer").doc("public_usernames/anon_customer_a").set(
+      {
+        username: "anon_customer_a",
+        userId: "customer-b",
+        reservationType: "custom",
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+});
+
+test("reviewer identity setup and review creation are allowed for verified users", async () => {
+  const db = dbFor("customer");
+
+  await assertSucceeds(
+    db.runTransaction(async (transaction) => {
+      transaction.set(db.doc("public_usernames/customer_a_reviews"), {
+        username: "customer_a_reviews",
+        userId: "customer-a",
+        reservationType: "custom",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+      transaction.set(
+        db.doc("public_reviewer_profiles/customer-a"),
+        {
+          userId: "customer-a",
+          publicDisplayName: "Customer A Reviews",
+          fallbackUsername: "anon_customer_a",
+          chosenUsername: "CustomerAReviews",
+          chosenUsernameNormalized: "customer_a_reviews",
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      );
+    }),
+  );
+
+  await assertSucceeds(
+    db.doc("dish_reviews/dish-1_customer-a_identity").set({
+      id: "dish-1_customer-a_identity",
+      dishId: "dish-1",
+      restaurantId: "bs-1",
+      userId: "customer-a",
+      overallImpression: 9,
+      overallBiteScore: 90,
+      headline: "Great after identity setup",
+      notes: "Identity setup did not block this review.",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }),
   );
 });
 
