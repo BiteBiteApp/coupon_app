@@ -23,6 +23,10 @@ class BitescoreRestaurant {
   final List<String> cuisineTags;
   final bool isClaimed;
   final bool isActive;
+  final String? createdByUserId;
+  final String? createdFromDishId;
+  final String? createdFromReviewId;
+  final bool createdFromCreateFlow;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -45,6 +49,10 @@ class BitescoreRestaurant {
     this.cuisineTags = const <String>[],
     this.isClaimed = false,
     this.isActive = true,
+    this.createdByUserId,
+    this.createdFromDishId,
+    this.createdFromReviewId,
+    this.createdFromCreateFlow = false,
     this.createdAt,
     this.updatedAt,
   });
@@ -98,6 +106,13 @@ class BitescoreRestaurant {
       'isClaimed': isClaimed,
       'isActive': isActive,
       'active': isActive,
+      if (createdByUserId?.trim().isNotEmpty == true)
+        'createdByUserId': createdByUserId!.trim(),
+      if (createdFromDishId?.trim().isNotEmpty == true)
+        'createdFromDishId': createdFromDishId!.trim(),
+      if (createdFromReviewId?.trim().isNotEmpty == true)
+        'createdFromReviewId': createdFromReviewId!.trim(),
+      if (createdFromCreateFlow) 'createdFromCreateFlow': true,
       'createdAt': createdAt == null ? null : Timestamp.fromDate(createdAt!),
       'updatedAt': updatedAt == null ? null : Timestamp.fromDate(updatedAt!),
     };
@@ -122,6 +137,10 @@ class BitescoreRestaurant {
     List<String>? cuisineTags,
     bool? isClaimed,
     bool? isActive,
+    String? createdByUserId,
+    String? createdFromDishId,
+    String? createdFromReviewId,
+    bool? createdFromCreateFlow,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -144,6 +163,11 @@ class BitescoreRestaurant {
       cuisineTags: cuisineTags ?? this.cuisineTags,
       isClaimed: isClaimed ?? this.isClaimed,
       isActive: isActive ?? this.isActive,
+      createdByUserId: createdByUserId ?? this.createdByUserId,
+      createdFromDishId: createdFromDishId ?? this.createdFromDishId,
+      createdFromReviewId: createdFromReviewId ?? this.createdFromReviewId,
+      createdFromCreateFlow:
+          createdFromCreateFlow ?? this.createdFromCreateFlow,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -205,6 +229,10 @@ class BitescoreRestaurant {
       cuisineTags: _readStringList(data['cuisineTags']),
       isClaimed: _readBool(data['isClaimed']) ?? false,
       isActive: _readBool(data['isActive']) ?? true,
+      createdByUserId: _readString(data['createdByUserId']),
+      createdFromDishId: _readString(data['createdFromDishId']),
+      createdFromReviewId: _readString(data['createdFromReviewId']),
+      createdFromCreateFlow: _readBool(data['createdFromCreateFlow']) ?? false,
       createdAt: _readDateTime(data['createdAt']),
       updatedAt: _readDateTime(data['updatedAt']),
     );
@@ -298,6 +326,10 @@ class BitescoreRestaurant {
       isClaimed: _readBool(data['isClaimed']) ?? false,
       isActive:
           _readBool(data['isActive']) ?? _readBool(data['active']) ?? true,
+      createdByUserId: _readString(data['createdByUserId']),
+      createdFromDishId: _readString(data['createdFromDishId']),
+      createdFromReviewId: _readString(data['createdFromReviewId']),
+      createdFromCreateFlow: _readBool(data['createdFromCreateFlow']) ?? false,
       createdAt: _readDateTime(data['createdAt']),
       updatedAt: _readDateTime(data['updatedAt']),
     );

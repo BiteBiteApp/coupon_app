@@ -18,6 +18,10 @@ class BitescoreDish {
   final int imageCount;
   final bool isActive;
   final String? mergedIntoDishId;
+  final String? createdByUserId;
+  final String? createdFromReviewId;
+  final String? createdWithRestaurantId;
+  final bool createdFromCreateFlow;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -37,6 +41,10 @@ class BitescoreDish {
     this.imageCount = 0,
     this.isActive = true,
     this.mergedIntoDishId,
+    this.createdByUserId,
+    this.createdFromReviewId,
+    this.createdWithRestaurantId,
+    this.createdFromCreateFlow = false,
     this.createdAt,
     this.updatedAt,
   });
@@ -61,6 +69,13 @@ class BitescoreDish {
       'imageCount': imageCount,
       'isActive': isActive,
       'mergedIntoDishId': mergedIntoDishId?.trim(),
+      if (createdByUserId?.trim().isNotEmpty == true)
+        'createdByUserId': createdByUserId!.trim(),
+      if (createdFromReviewId?.trim().isNotEmpty == true)
+        'createdFromReviewId': createdFromReviewId!.trim(),
+      if (createdWithRestaurantId?.trim().isNotEmpty == true)
+        'createdWithRestaurantId': createdWithRestaurantId!.trim(),
+      if (createdFromCreateFlow) 'createdFromCreateFlow': true,
       'createdAt': createdAt == null ? null : Timestamp.fromDate(createdAt!),
       'updatedAt': updatedAt == null ? null : Timestamp.fromDate(updatedAt!),
     };
@@ -103,6 +118,10 @@ class BitescoreDish {
       imageCount: _readInt(data['imageCount']) ?? 0,
       isActive: _readBool(data['isActive']) ?? true,
       mergedIntoDishId: _readString(data['mergedIntoDishId']),
+      createdByUserId: _readString(data['createdByUserId']),
+      createdFromReviewId: _readString(data['createdFromReviewId']),
+      createdWithRestaurantId: _readString(data['createdWithRestaurantId']),
+      createdFromCreateFlow: _readBool(data['createdFromCreateFlow']) ?? false,
       createdAt: _readDateTime(data['createdAt']),
       updatedAt: _readDateTime(data['updatedAt']),
     );

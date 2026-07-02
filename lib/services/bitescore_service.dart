@@ -3818,12 +3818,27 @@ class BiteScoreService {
 
     final user = await _requireFreshSignedInBiteScoreUser();
 
-    final restaurantResolution = await _findOrCreateRestaurant(request);
-    final restaurant = restaurantResolution.restaurant;
-    final dishResolution = await _findOrCreateDish(request, restaurant);
+    final creatorUserId = user.uid.trim();
+    final restaurantResolution = await _findOrCreateRestaurant(
+      request,
+      creatorUserId: creatorUserId,
+    );
+    var restaurant = restaurantResolution.restaurant;
+    final dishResolution = await _findOrCreateDish(
+      request,
+      restaurant,
+      creatorUserId: creatorUserId,
+    );
     final dish = dishResolution.dish;
+    if (restaurantResolution.wasCreated && dishResolution.wasCreated) {
+      restaurant = await _completeNewRestaurantCreationProvenance(
+        restaurant: restaurant,
+        dishId: dish.id,
+        creatorUserId: creatorUserId,
+      );
+    }
     final reviewResult = await _createReviewAndRebuildAggregate(
-      userId: user.uid,
+      userId: creatorUserId,
       dish: dish,
       restaurant: restaurant,
       overallImpression: request.overallImpression,
@@ -3834,7 +3849,7 @@ class BiteScoreService {
       notes: request.notes,
     );
     final dishAward = await ContributionPointsService.awardDishContribution(
-      userId: user.uid,
+      userId: creatorUserId,
       dish: dish,
       restaurant: restaurant,
       createdNewRestaurant: restaurantResolution.wasCreated,
@@ -4169,14 +4184,16 @@ class BiteScoreService {
       valueScore: valueScore,
     );
 
+    final creatorUserId = user.uid.trim();
     final dishResolution = await _findOrCreateDish(
       request,
       restaurant,
+      creatorUserId: creatorUserId,
       allowExistingMatch: !forceCreateNewDish,
     );
     final dish = dishResolution.dish;
     final reviewResult = await _createReviewAndRebuildAggregate(
-      userId: user.uid,
+      userId: creatorUserId,
       dish: dish,
       restaurant: restaurant,
       overallImpression: overallImpression,
@@ -4187,7 +4204,7 @@ class BiteScoreService {
       notes: notes,
     );
     final dishAward = await ContributionPointsService.awardDishContribution(
-      userId: user.uid,
+      userId: creatorUserId,
       dish: dish,
       restaurant: restaurant,
       createdNewRestaurant: false,
@@ -5263,8 +5280,9 @@ class BiteScoreService {
   }
 
   static Future<_BiteScoreRestaurantResolution> _findOrCreateRestaurant(
-    BiteScoreCreateRequest request,
-  ) async {
+    BiteScoreCreateRequest request, {
+    required String creatorUserId,
+  }) async {
     final normalizedRestaurantName = _normalize(request.restaurantName);
     final zipCode = request.zipCode.trim();
 
@@ -5289,6 +5307,9 @@ class BiteScoreService {
 
     final verifiedLocation = await _verifyRestaurantAddress(request);
     final restaurantRef = restaurantsCollection().doc();
+    final provenance = _restaurantCreationProvenanceFields(
+      createdByUserId: creatorUserId,
+    );
     final restaurant = BitescoreRestaurant(
       id: restaurantRef.id,
       name: request.restaurantName.trim(),
@@ -5298,6 +5319,8 @@ class BiteScoreService {
       state: request.state.trim(),
       zipCode: request.zipCode.trim(),
       location: GeoPoint(verifiedLocation.latitude, verifiedLocation.longitude),
+      createdByUserId: _readString(provenance['createdByUserId']),
+      createdFromCreateFlow: provenance['createdFromCreateFlow'] == true,
     );
 
     await restaurantRef.set({
@@ -5312,9 +5335,38 @@ class BiteScoreService {
     );
   }
 
+  static Future<BitescoreRestaurant> _completeNewRestaurantCreationProvenance({
+    required BitescoreRestaurant restaurant,
+    required String dishId,
+    required String creatorUserId,
+  }) async {
+    final provenance = _restaurantCreationProvenanceFields(
+      createdByUserId: creatorUserId,
+      createdFromDishId: dishId,
+      createdFromReviewId: _reviewDocumentId(dishId, creatorUserId),
+    );
+    if (provenance.isEmpty) {
+      return restaurant;
+    }
+
+    await restaurantsCollection()
+        .doc(restaurant.id)
+        .set(provenance, SetOptions(merge: true));
+
+    return restaurant.copyWith(
+      createdByUserId: _readString(provenance['createdByUserId']),
+      createdFromDishId: _readString(provenance['createdFromDishId']),
+      createdFromReviewId: _readString(provenance['createdFromReviewId']),
+      createdFromCreateFlow:
+          provenance['createdFromCreateFlow'] == true ||
+          restaurant.createdFromCreateFlow,
+    );
+  }
+
   static Future<_BiteScoreDishResolution> _findOrCreateDish(
     BiteScoreCreateRequest request,
     BitescoreRestaurant restaurant, {
+    required String creatorUserId,
     bool allowExistingMatch = true,
   }) async {
     if (restaurant.latitude == null || restaurant.longitude == null) {
@@ -5409,6 +5461,10 @@ class BiteScoreService {
               imageCount: existingDish.imageCount,
               isActive: existingDish.isActive,
               mergedIntoDishId: existingDish.mergedIntoDishId,
+              createdByUserId: existingDish.createdByUserId,
+              createdFromReviewId: existingDish.createdFromReviewId,
+              createdWithRestaurantId: existingDish.createdWithRestaurantId,
+              createdFromCreateFlow: existingDish.createdFromCreateFlow,
               createdAt: existingDish.createdAt,
               updatedAt: DateTime.now(),
             ),
@@ -5426,6 +5482,11 @@ class BiteScoreService {
     }
 
     final dishRef = dishesCollection().doc();
+    final provenance = _dishCreationProvenanceFields(
+      createdByUserId: creatorUserId,
+      dishId: dishRef.id,
+      restaurantId: restaurant.id,
+    );
     final dish = BitescoreDish(
       id: dishRef.id,
       restaurantId: restaurant.id,
@@ -5441,6 +5502,12 @@ class BiteScoreService {
       priceLabel: request.priceLabel.trim().isEmpty
           ? null
           : request.priceLabel.trim(),
+      createdByUserId: _readString(provenance['createdByUserId']),
+      createdFromReviewId: _readString(provenance['createdFromReviewId']),
+      createdWithRestaurantId: _readString(
+        provenance['createdWithRestaurantId'],
+      ),
+      createdFromCreateFlow: provenance['createdFromCreateFlow'] == true,
     );
 
     await dishRef.set({
@@ -5507,6 +5574,78 @@ class BiteScoreService {
 
   static String _reviewDocumentId(String dishId, String userId) {
     return '${_safeDocumentIdPart(dishId)}_${_safeDocumentIdPart(userId)}';
+  }
+
+  static Map<String, dynamic> dishCreationProvenanceFieldsForTesting({
+    required String createdByUserId,
+    required String dishId,
+    required String restaurantId,
+  }) {
+    return Map<String, dynamic>.unmodifiable(
+      _dishCreationProvenanceFields(
+        createdByUserId: createdByUserId,
+        dishId: dishId,
+        restaurantId: restaurantId,
+      ),
+    );
+  }
+
+  static Map<String, dynamic> restaurantCreationProvenanceFieldsForTesting({
+    required String createdByUserId,
+    String? createdFromDishId,
+    String? createdFromReviewId,
+  }) {
+    return Map<String, dynamic>.unmodifiable(
+      _restaurantCreationProvenanceFields(
+        createdByUserId: createdByUserId,
+        createdFromDishId: createdFromDishId,
+        createdFromReviewId: createdFromReviewId,
+      ),
+    );
+  }
+
+  static Map<String, dynamic> _dishCreationProvenanceFields({
+    required String createdByUserId,
+    required String dishId,
+    required String restaurantId,
+  }) {
+    final creatorUid = createdByUserId.trim();
+    if (creatorUid.isEmpty) {
+      return const <String, dynamic>{};
+    }
+
+    final trimmedDishId = dishId.trim();
+    final trimmedRestaurantId = restaurantId.trim();
+    return <String, dynamic>{
+      'createdByUserId': creatorUid,
+      if (trimmedDishId.isNotEmpty)
+        'createdFromReviewId': _reviewDocumentId(trimmedDishId, creatorUid),
+      if (trimmedRestaurantId.isNotEmpty)
+        'createdWithRestaurantId': trimmedRestaurantId,
+      'createdFromCreateFlow': true,
+    };
+  }
+
+  static Map<String, dynamic> _restaurantCreationProvenanceFields({
+    required String createdByUserId,
+    String? createdFromDishId,
+    String? createdFromReviewId,
+  }) {
+    final creatorUid = createdByUserId.trim();
+    if (creatorUid.isEmpty) {
+      return const <String, dynamic>{};
+    }
+
+    final trimmedDishId = createdFromDishId?.trim();
+    final trimmedReviewId = createdFromReviewId?.trim();
+    return <String, dynamic>{
+      'createdByUserId': creatorUid,
+      if (trimmedDishId != null && trimmedDishId.isNotEmpty)
+        'createdFromDishId': trimmedDishId,
+      if (trimmedReviewId != null && trimmedReviewId.isNotEmpty)
+        'createdFromReviewId': trimmedReviewId,
+      'createdFromCreateFlow': true,
+    };
   }
 
   static String dishImageVoteDocumentIdForTesting({
