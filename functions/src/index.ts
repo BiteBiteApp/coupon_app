@@ -30,6 +30,8 @@ import {
   awardCreatedDishContributionPointsCallableHandler,
   awardReviewMilestoneContributionPointsCallableHandler,
   markContributionPointLedgerEntriesCelebratedCallableHandler,
+  reconcileReviewMilestoneContributionPointsAfterModerationCallableHandler,
+  reverseContributionPointsForDishCallableHandler,
   reverseContributionPointLedgerEntryCallableHandler,
 } from "./contribution_points_helpers.js";
 import {
@@ -2895,6 +2897,19 @@ export const awardApprovedDishProposalContributionPoints = onCall(
 export const markContributionPointLedgerEntriesCelebrated = onCall(
   async (request) => {
     return markContributionPointLedgerEntriesCelebratedCallableHandler(
+      db,
+      request,
+    );
+  },
+);
+
+export const reverseContributionPointsForDish = onCall(async (request) => {
+  return reverseContributionPointsForDishCallableHandler(db, request);
+});
+
+export const reconcileReviewMilestoneContributionPointsAfterModeration = onCall(
+  async (request) => {
+    return reconcileReviewMilestoneContributionPointsAfterModerationCallableHandler(
       db,
       request,
     );

@@ -3493,32 +3493,10 @@ class BiteScoreService {
         .toList();
   }
 
-  static Future<int> _validPublicReviewCountForUser(String userId) async {
-    final trimmedUserId = userId.trim();
-    if (trimmedUserId.isEmpty) {
-      return 0;
-    }
-
-    final snapshot = await reviewsCollection()
-        .where('userId', isEqualTo: trimmedUserId)
-        .get();
-    final reviews = snapshot.docs
-        .where((doc) => _isPublicReviewData(doc.data()))
-        .map(
-          (doc) => DishReview.tryFromFirestore(doc.data(), fallbackId: doc.id),
-        )
-        .whereType<DishReview>()
-        .toList();
-    return deduplicateReviewsForAggregate(reviews).length;
-  }
-
-  static Future<ContributionPointAwardResult> _reconcileReviewMilestonesForUser(
-    String userId,
-  ) async {
-    final validReviewCount = await _validPublicReviewCountForUser(userId);
-    return ContributionPointsService.reconcileReviewMilestones(
+  static Future<ContributionPointMilestoneReconcileResult>
+  _reconcileReviewMilestonesForUser(String userId) async {
+    return ContributionPointsService.reconcileReviewMilestoneContributionPointsAfterModeration(
       userId: userId,
-      validPublicReviewCount: validReviewCount,
     );
   }
 
@@ -4559,7 +4537,7 @@ class BiteScoreService {
       await doc.reference.delete();
     }
 
-    await ContributionPointsService.reverseActiveEntriesForDish(
+    await ContributionPointsService.reverseContributionPointsForDish(
       dishId: dishId,
       reason: 'Dish was deleted by moderation',
     );

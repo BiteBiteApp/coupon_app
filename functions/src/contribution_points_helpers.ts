@@ -80,6 +80,32 @@ export type ContributionPointCelebrationMarkResult = {
   ignoredEntryIds: string[];
 };
 
+export type ContributionPointModerationReverseError = {
+  ledgerEntryId: string;
+  message: string;
+};
+
+export type ContributionPointDishReverseResult = {
+  dishId: string;
+  attemptedCount: number;
+  reversedEntryIds: string[];
+  alreadyReversedEntryIds: string[];
+  missingEntryIds: string[];
+  ignoredEntryIds: string[];
+  errors: ContributionPointModerationReverseError[];
+};
+
+export type ContributionPointMilestoneReconcileResult = {
+  userId: string;
+  validReviewCount: number;
+  awardResult: ContributionPointAwardResult;
+  reversedEntryIds: string[];
+  alreadyReversedEntryIds: string[];
+  missingEntryIds: string[];
+  ignoredEntryIds: string[];
+  errors: ContributionPointModerationReverseError[];
+};
+
 type DocumentReferenceLike = {
   id: string;
   get(): Promise<DocumentSnapshotLike>;
@@ -715,6 +741,115 @@ export async function awardApprovedDishProposalContributionPointsCallableHandler
   };
 }
 
+export async function reverseContributionPointsForDishCallableHandler(
+  db: FirestoreLike,
+  request: CallableRequest<unknown>,
+  options: HelperOptions = {},
+): Promise<{ ok: true; result: ContributionPointDishReverseResult }> {
+  requireContributionPointAdmin(request.auth);
+  const data = readRecord(request.data);
+  const dishId = readRequiredString(data.dishId, "dishId");
+  const reason =
+    readOptionalString(data.reason) ?? "Dish was deleted by moderation";
+  const snapshot = await db
+    .collection(contributionPointLedgerCollection)
+    .where("dishId", "==", dishId)
+    .get();
+  const result = emptyDishReverseResult(dishId);
+
+  for (const doc of snapshot.docs) {
+    const data = doc.data() ?? {};
+    const pointsDelta = readNumber(data.pointsDelta);
+    if (pointsDelta === null || pointsDelta <= 0) {
+      result.ignoredEntryIds.push(doc.id);
+      continue;
+    }
+
+    result.attemptedCount += 1;
+    await reverseEntryForModerationResult(db, {
+      ledgerEntryId: doc.id,
+      reason,
+      result,
+      options,
+    });
+  }
+
+  return { ok: true, result };
+}
+
+export async function reconcileReviewMilestoneContributionPointsAfterModerationCallableHandler(
+  db: FirestoreLike,
+  request: CallableRequest<unknown>,
+  options: HelperOptions = {},
+): Promise<{ ok: true; result: ContributionPointMilestoneReconcileResult }> {
+  requireContributionPointAdmin(request.auth);
+  const data = readRecord(request.data);
+  const userId = readRequiredString(data.userId, "userId");
+  const validReviewCount = await loadValidPublicReviewCountForUser(db, userId);
+  const earnedMilestones = new Set(reviewMilestonesForCount(validReviewCount));
+  const awardResults: ContributionPointAwardResult[] = [];
+
+  for (const milestone of earnedMilestones) {
+    awardResults.push(
+      await awardContributionPointsTransaction(
+        db,
+        {
+          userId,
+          points: 1,
+          actionType: contributionPointAction.reviewMilestone,
+          sourceKey: reviewMilestoneSourceKey(userId, milestone),
+          description: `Reached ${milestone} valid public reviews`,
+        },
+        options,
+      ),
+    );
+  }
+
+  const result: ContributionPointMilestoneReconcileResult = {
+    userId,
+    validReviewCount,
+    awardResult: combineContributionPointAwardResults(awardResults, {
+      actionGroupId: `review_milestones:${userId}:${validReviewCount}`,
+    }),
+    reversedEntryIds: [],
+    alreadyReversedEntryIds: [],
+    missingEntryIds: [],
+    ignoredEntryIds: [],
+    errors: [],
+  };
+  const snapshot = await db
+    .collection(contributionPointLedgerCollection)
+    .where("userId", "==", userId)
+    .where("actionType", "==", contributionPointAction.reviewMilestone)
+    .get();
+
+  for (const doc of snapshot.docs) {
+    const entry = parseLedgerEntry(doc);
+    if (!entry || entry.pointsDelta <= 0) {
+      result.ignoredEntryIds.push(doc.id);
+      continue;
+    }
+
+    const milestone = reviewMilestoneFromSourceKey(entry.sourceKey);
+    if (milestone === null) {
+      result.ignoredEntryIds.push(entry.id);
+      continue;
+    }
+    if (earnedMilestones.has(milestone)) {
+      continue;
+    }
+
+    await reverseEntryForModerationResult(db, {
+      ledgerEntryId: entry.id,
+      reason: `Valid public review count dropped below ${milestone}`,
+      result,
+      options,
+    });
+  }
+
+  return { ok: true, result };
+}
+
 export async function markContributionPointLedgerEntriesCelebratedTransaction(
   db: FirestoreLike,
   params: { userId: string; ledgerEntryIds: string[] },
@@ -909,6 +1044,18 @@ function reviewMilestoneSourceKey(userId: string, milestone: number): string {
   return `review_milestone:${userId.trim()}:${milestone}`;
 }
 
+function reviewMilestoneFromSourceKey(sourceKey: string): number | null {
+  const parts = sourceKey.trim().split(":");
+  if (
+    parts.length < 3 ||
+    parts[0] !== contributionPointAction.reviewMilestone
+  ) {
+    return null;
+  }
+  const milestone = Number.parseInt(parts[parts.length - 1], 10);
+  return Number.isInteger(milestone) ? milestone : null;
+}
+
 function dishImageAddedSourceKey(dishId: string, imageId: string): string {
   return `dish_image_added:${dishId.trim()}:${imageId.trim()}`;
 }
@@ -980,6 +1127,76 @@ function isPublicReviewData(data: Record<string, unknown>): boolean {
 
 function noAwardResponse(): { ok: true; result: ContributionPointAwardResult } {
   return { ok: true, result: { entries: [] } };
+}
+
+function emptyDishReverseResult(
+  dishId: string,
+): ContributionPointDishReverseResult {
+  return {
+    dishId,
+    attemptedCount: 0,
+    reversedEntryIds: [],
+    alreadyReversedEntryIds: [],
+    missingEntryIds: [],
+    ignoredEntryIds: [],
+    errors: [],
+  };
+}
+
+async function reverseEntryForModerationResult(
+  db: FirestoreLike,
+  params: {
+    ledgerEntryId: string;
+    reason: string;
+    result:
+      | ContributionPointDishReverseResult
+      | ContributionPointMilestoneReconcileResult;
+    options: HelperOptions;
+  },
+): Promise<ContributionPointReverseResult> {
+  try {
+    const reverseResult = await reverseContributionPointLedgerEntryTransaction(
+      db,
+      {
+        ledgerEntryId: params.ledgerEntryId,
+        reason: params.reason,
+      },
+      params.options,
+    );
+    switch (reverseResult.status) {
+      case "reversed":
+        params.result.reversedEntryIds.push(reverseResult.ledgerEntryId);
+        break;
+      case "already-reversed":
+        params.result.alreadyReversedEntryIds.push(reverseResult.ledgerEntryId);
+        break;
+      case "missing":
+        params.result.missingEntryIds.push(reverseResult.ledgerEntryId);
+        break;
+      case "invalid":
+      case "not-active":
+        params.result.ignoredEntryIds.push(reverseResult.ledgerEntryId);
+        break;
+    }
+    return reverseResult;
+  } catch (error) {
+    params.result.errors.push({
+      ledgerEntryId: params.ledgerEntryId,
+      message: moderationErrorMessage(error),
+    });
+    return {
+      ledgerEntryId: params.ledgerEntryId,
+      pointsDelta: 0,
+      status: "invalid",
+    };
+  }
+}
+
+function moderationErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message.trim();
+  }
+  return "Unknown contribution point reversal error.";
 }
 
 function dishCreationProvenanceMatches(

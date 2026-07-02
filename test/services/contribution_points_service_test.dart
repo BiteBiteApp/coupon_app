@@ -619,6 +619,128 @@ void main() {
       },
     );
 
+    test(
+      'dish reversal wrapper calls source-specific function shape',
+      () async {
+        final payloads = <Map<String, dynamic>>[];
+
+        final result =
+            await ContributionPointsService.reverseContributionPointsForDish(
+              dishId: ' dish-1 ',
+              reason: ' Dish was deleted by moderation ',
+              callable: (payload) async {
+                payloads.add(payload);
+                return {
+                  'ok': true,
+                  'result': {
+                    'dishId': 'dish-1',
+                    'attemptedCount': 2,
+                    'reversedEntryIds': ['dish_created%3Adish-1'],
+                    'alreadyReversedEntryIds': [
+                      'dish_image_added%3Adish-1%3Aimage-1',
+                    ],
+                    'missingEntryIds': [],
+                    'ignoredEntryIds': ['reversal%3Aold-entry'],
+                    'errors': [],
+                  },
+                };
+              },
+            );
+
+        expect(payloads.single, {
+          'dishId': 'dish-1',
+          'reason': 'Dish was deleted by moderation',
+        });
+        expect(result.dishId, 'dish-1');
+        expect(result.attemptedCount, 2);
+        expect(result.reversedEntryIds, {'dish_created%3Adish-1'});
+        expect(result.alreadyReversedEntryIds, {
+          'dish_image_added%3Adish-1%3Aimage-1',
+        });
+        expect(result.ignoredEntryIds, {'reversal%3Aold-entry'});
+        expect(result.hasErrors, isFalse);
+      },
+    );
+
+    test('dish reversal wrapper surfaces server errors', () async {
+      expect(
+        () => ContributionPointsService.reverseContributionPointsForDish(
+          dishId: 'dish-1',
+          callable: (_) async => {
+            'ok': true,
+            'result': {
+              'dishId': 'dish-1',
+              'attemptedCount': 1,
+              'reversedEntryIds': [],
+              'alreadyReversedEntryIds': [],
+              'missingEntryIds': [],
+              'ignoredEntryIds': [],
+              'errors': [
+                {'ledgerEntryId': 'ledger-1', 'message': 'boom'},
+              ],
+            },
+          },
+        ),
+        throwsStateError,
+      );
+    });
+
+    test(
+      'milestone moderation wrapper calls source-specific function shape',
+      () async {
+        final payloads = <Map<String, dynamic>>[];
+
+        final result =
+            await ContributionPointsService.reconcileReviewMilestoneContributionPointsAfterModeration(
+              userId: ' user-1 ',
+              callable: (payload) async {
+                payloads.add(payload);
+                return {
+                  'ok': true,
+                  'result': {
+                    'userId': 'user-1',
+                    'validReviewCount': 4,
+                    'awardResult': {
+                      'entries': [],
+                      'actionGroupId': 'review_milestones:user-1:4',
+                    },
+                    'reversedEntryIds': ['review_milestone%3Auser-1%3A5'],
+                    'alreadyReversedEntryIds': [],
+                    'missingEntryIds': [],
+                    'ignoredEntryIds': [],
+                    'errors': [],
+                  },
+                };
+              },
+            );
+
+        expect(payloads.single, {'userId': 'user-1'});
+        expect(result.userId, 'user-1');
+        expect(result.validReviewCount, 4);
+        expect(result.awardResult.actionGroupId, 'review_milestones:user-1:4');
+        expect(result.reversedEntryIds, {'review_milestone%3Auser-1%3A5'});
+        expect(result.hasErrors, isFalse);
+      },
+    );
+
+    test('milestone moderation wrapper treats empty user ID as no-op', () async {
+      var called = false;
+
+      final result =
+          await ContributionPointsService.reconcileReviewMilestoneContributionPointsAfterModeration(
+            userId: ' ',
+            callable: (payload) async {
+              called = true;
+              return payload;
+            },
+          );
+
+      expect(called, isFalse);
+      expect(result.userId, isNull);
+      expect(result.awardResult.entries, isEmpty);
+      expect(result.reversedEntryIds, isEmpty);
+    });
+
     test('callable duplicate no-op preserves celebration behavior', () {
       final result = ContributionPointAwardResult.fromCallableData({
         'ok': true,

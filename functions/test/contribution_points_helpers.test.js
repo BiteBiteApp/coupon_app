@@ -15,6 +15,8 @@ const {
   contributionPointStatus,
   contributionUserProfilesCollection,
   markContributionPointLedgerEntriesCelebratedCallableHandler,
+  reconcileReviewMilestoneContributionPointsAfterModerationCallableHandler,
+  reverseContributionPointsForDishCallableHandler,
   reverseContributionPointLedgerEntryCallableHandler,
   reverseContributionPointLedgerEntryTransaction,
 } = require("../lib/contribution_points_helpers.js");
@@ -1000,6 +1002,230 @@ test("duplicate approved proposal callable does not double-award", async () => {
   assert.equal(db.get(userProfilePath("submitter-1")).contributionPoints, 1);
 });
 
+test("admin can reverse all active positive contribution entries for a dish", async () => {
+  const db = new FakeFirestore();
+  const dishEntryId = seedLedgerEntry(db, {
+    sourceKey: "dish_created:dish-1",
+    userId: "user-1",
+    pointsDelta: 3,
+  });
+  const imageEntryId = seedLedgerEntry(db, {
+    sourceKey: "dish_image_added:dish-1:image-1",
+    userId: "user-2",
+    pointsDelta: 1,
+    actionType: "dish_image_added",
+  });
+  const ignoredEntryId = seedLedgerEntry(db, {
+    sourceKey: "reversal:dish_created:dish-previous",
+    userId: "user-3",
+    pointsDelta: -1,
+    actionType: "contribution_reversed",
+  });
+  const alreadyReversedEntryId = seedLedgerEntry(db, {
+    sourceKey: "dish_rename_approved:proposal-1",
+    userId: "user-4",
+    pointsDelta: 1,
+    actionType: "dish_rename_approved",
+    status: contributionPointStatus.reversed,
+  });
+  db.seed(userProfilePath("user-1"), {
+    userId: "user-1",
+    contributionPoints: 3,
+  });
+  db.seed(userProfilePath("user-2"), {
+    userId: "user-2",
+    contributionPoints: 1,
+  });
+
+  const response = await reverseContributionPointsForDishCallableHandler(
+    db,
+    callableRequest({
+      auth: adminAuth(),
+      data: { dishId: "dish-1", reason: "Dish was deleted by moderation" },
+    }),
+    { fieldValues: fakeFieldValues },
+  );
+
+  assert.equal(response.ok, true);
+  assert.equal(response.result.dishId, "dish-1");
+  assert.equal(response.result.attemptedCount, 3);
+  assert.deepEqual(response.result.reversedEntryIds.sort(), [
+    dishEntryId,
+    imageEntryId,
+  ].sort());
+  assert.deepEqual(response.result.alreadyReversedEntryIds, [
+    alreadyReversedEntryId,
+  ]);
+  assert.deepEqual(response.result.ignoredEntryIds, [ignoredEntryId]);
+  assert.deepEqual(response.result.errors, []);
+  assert.equal(db.get(ledgerPath(dishEntryId)).status, contributionPointStatus.reversed);
+  assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 0);
+  assert.equal(db.get(userProfilePath("user-2")).contributionPoints, 0);
+});
+
+test("dish contribution reversal callable rejects non-admins and missing input", async () => {
+  const db = new FakeFirestore();
+  seedLedgerEntry(db, { sourceKey: "dish_created:dish-1" });
+
+  await assert.rejects(
+    () =>
+      reverseContributionPointsForDishCallableHandler(
+        db,
+        callableRequest({
+          auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+          data: { dishId: "dish-1" },
+        }),
+        { fieldValues: fakeFieldValues },
+      ),
+    (error) => error.code === "permission-denied",
+  );
+  await assert.rejects(
+    () =>
+      reverseContributionPointsForDishCallableHandler(
+        db,
+        callableRequest({ auth: adminAuth(), data: { dishId: " " } }),
+        { fieldValues: fakeFieldValues },
+      ),
+    (error) => error.code === "invalid-argument",
+  );
+});
+
+test("duplicate dish contribution reversal does not double-decrement totals", async () => {
+  const db = new FakeFirestore();
+  const ledgerId = seedLedgerEntry(db, {
+    sourceKey: "dish_created:dish-1",
+    userId: "user-1",
+    pointsDelta: 3,
+  });
+  db.seed(userProfilePath("user-1"), {
+    userId: "user-1",
+    contributionPoints: 3,
+  });
+  const request = callableRequest({
+    auth: adminAuth(),
+    data: { dishId: "dish-1", reason: "Dish deleted" },
+  });
+
+  await reverseContributionPointsForDishCallableHandler(
+    db,
+    request,
+    { fieldValues: fakeFieldValues },
+  );
+  const duplicate = await reverseContributionPointsForDishCallableHandler(
+    db,
+    request,
+    { fieldValues: fakeFieldValues },
+  );
+
+  assert.deepEqual(duplicate.result.reversedEntryIds, []);
+  assert.deepEqual(duplicate.result.alreadyReversedEntryIds, [ledgerId]);
+  assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 0);
+});
+
+test("admin milestone moderation reconcile reverses stale milestone entries", async () => {
+  const db = new FakeFirestore();
+  seedPublicReviews(db, { userId: "user-1", count: 4 });
+  const milestoneId = seedLedgerEntry(db, {
+    sourceKey: "review_milestone:user-1:5",
+    userId: "user-1",
+    dishId: null,
+    pointsDelta: 1,
+    actionType: "review_milestone",
+    description: "Reached 5 valid public reviews",
+  });
+  db.seed(userProfilePath("user-1"), {
+    userId: "user-1",
+    contributionPoints: 1,
+  });
+
+  const response =
+    await reconcileReviewMilestoneContributionPointsAfterModerationCallableHandler(
+      db,
+      callableRequest({ auth: adminAuth(), data: { userId: "user-1" } }),
+      { fieldValues: fakeFieldValues },
+    );
+
+  assert.equal(response.result.validReviewCount, 4);
+  assert.deepEqual(response.result.awardResult.entries, []);
+  assert.deepEqual(response.result.reversedEntryIds, [milestoneId]);
+  assert.equal(db.get(ledgerPath(milestoneId)).status, contributionPointStatus.reversed);
+  assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 0);
+});
+
+test("admin milestone moderation reconcile awards missing valid milestones", async () => {
+  const db = new FakeFirestore();
+  seedPublicReviews(db, { userId: "user-1", count: 5 });
+
+  const response =
+    await reconcileReviewMilestoneContributionPointsAfterModerationCallableHandler(
+      db,
+      callableRequest({ auth: adminAuth(), data: { userId: "user-1" } }),
+      { fieldValues: fakeFieldValues },
+    );
+  const milestoneId = buildContributionLedgerDocumentIdFromSourceKey(
+    "review_milestone:user-1:5",
+  );
+
+  assert.equal(response.result.validReviewCount, 5);
+  assert.deepEqual(response.result.awardResult.entries, [
+    { ledgerEntryId: milestoneId, points: 1, wasCreated: true },
+  ]);
+  assert.deepEqual(response.result.reversedEntryIds, []);
+  assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 1);
+});
+
+test("admin milestone moderation reconcile is idempotent", async () => {
+  const db = new FakeFirestore();
+  seedPublicReviews(db, { userId: "user-1", count: 5 });
+  const request = callableRequest({
+    auth: adminAuth(),
+    data: { userId: "user-1" },
+  });
+
+  await reconcileReviewMilestoneContributionPointsAfterModerationCallableHandler(
+    db,
+    request,
+    { fieldValues: fakeFieldValues },
+  );
+  const duplicate =
+    await reconcileReviewMilestoneContributionPointsAfterModerationCallableHandler(
+      db,
+      request,
+      { fieldValues: fakeFieldValues },
+    );
+
+  assert.equal(duplicate.result.awardResult.entries[0].wasCreated, false);
+  assert.deepEqual(duplicate.result.reversedEntryIds, []);
+  assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 1);
+});
+
+test("milestone moderation reconcile rejects non-admins and missing user input", async () => {
+  const db = new FakeFirestore();
+  seedPublicReviews(db, { userId: "user-1", count: 5 });
+
+  await assert.rejects(
+    () =>
+      reconcileReviewMilestoneContributionPointsAfterModerationCallableHandler(
+        db,
+        callableRequest({
+          auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+          data: { userId: "user-1" },
+        }),
+        { fieldValues: fakeFieldValues },
+      ),
+    (error) => error.code === "permission-denied",
+  );
+  await assert.rejects(
+    () =>
+      reconcileReviewMilestoneContributionPointsAfterModerationCallableHandler(
+        db,
+        callableRequest({ auth: adminAuth(), data: { userId: " " } }),
+        { fieldValues: fakeFieldValues },
+      ),
+    (error) => error.code === "invalid-argument",
+  );
+});
+
 test("source-specific callables share the cached contribution total", async () => {
   const db = new FakeFirestore();
   seedPublicReviews(db, { userId: "user-1", count: 5 });
@@ -1290,6 +1516,29 @@ function pendingLedgerEntry(overrides = {}) {
     celebrationStatus: contributionPointCelebrationStatus.pending,
     ...overrides,
   };
+}
+
+function seedLedgerEntry(db, {
+  sourceKey,
+  userId = "user-1",
+  dishId = "dish-1",
+  pointsDelta = 1,
+  actionType = "dish_created",
+  description = "Added a dish",
+  status = contributionPointStatus.active,
+}) {
+  const id = buildContributionLedgerDocumentIdFromSourceKey(sourceKey);
+  db.seed(ledgerPath(id), {
+    id,
+    userId,
+    pointsDelta,
+    actionType,
+    sourceKey,
+    description,
+    status,
+    dishId,
+  });
+  return id;
 }
 
 function adminAuth() {

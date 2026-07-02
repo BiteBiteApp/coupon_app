@@ -199,6 +199,16 @@ Set<String> _callableStringSet(Object? value) {
   return value.map(_callableString).whereType<String>().toSet();
 }
 
+List<ContributionPointFunctionError> _callableErrors(Object? value) {
+  if (value is! Iterable) {
+    return const <ContributionPointFunctionError>[];
+  }
+  return value
+      .map(ContributionPointFunctionError.fromCallableData)
+      .where((error) => error.message.trim().isNotEmpty)
+      .toList(growable: false);
+}
+
 class ContributionPointUserSummary {
   final String userId;
   final String displayName;
@@ -249,6 +259,113 @@ class ContributionPointCelebrationMarkResult {
 
   bool get hasProblems =>
       missingEntryIds.isNotEmpty || ignoredEntryIds.isNotEmpty;
+}
+
+class ContributionPointFunctionError {
+  final String ledgerEntryId;
+  final String message;
+
+  const ContributionPointFunctionError({
+    required this.ledgerEntryId,
+    required this.message,
+  });
+
+  factory ContributionPointFunctionError.fromCallableData(Object? data) {
+    final map = _callableMap(data);
+    return ContributionPointFunctionError(
+      ledgerEntryId: _callableString(map?['ledgerEntryId']) ?? '',
+      message: _callableString(map?['message']) ?? 'Unknown error.',
+    );
+  }
+}
+
+class ContributionPointDishReversalResult {
+  final String? dishId;
+  final int attemptedCount;
+  final Set<String> reversedEntryIds;
+  final Set<String> alreadyReversedEntryIds;
+  final Set<String> missingEntryIds;
+  final Set<String> ignoredEntryIds;
+  final List<ContributionPointFunctionError> errors;
+
+  const ContributionPointDishReversalResult({
+    this.dishId,
+    this.attemptedCount = 0,
+    this.reversedEntryIds = const <String>{},
+    this.alreadyReversedEntryIds = const <String>{},
+    this.missingEntryIds = const <String>{},
+    this.ignoredEntryIds = const <String>{},
+    this.errors = const <ContributionPointFunctionError>[],
+  });
+
+  factory ContributionPointDishReversalResult.fromCallableData(Object? data) {
+    final envelope = _callableMap(data);
+    if (envelope == null) {
+      return const ContributionPointDishReversalResult();
+    }
+    final result = _callableMap(envelope['result']) ?? envelope;
+    return ContributionPointDishReversalResult(
+      dishId: _callableString(result['dishId']),
+      attemptedCount: _callableInt(result['attemptedCount']) ?? 0,
+      reversedEntryIds: _callableStringSet(result['reversedEntryIds']),
+      alreadyReversedEntryIds: _callableStringSet(
+        result['alreadyReversedEntryIds'],
+      ),
+      missingEntryIds: _callableStringSet(result['missingEntryIds']),
+      ignoredEntryIds: _callableStringSet(result['ignoredEntryIds']),
+      errors: _callableErrors(result['errors']),
+    );
+  }
+
+  bool get hasErrors => errors.isNotEmpty;
+}
+
+class ContributionPointMilestoneReconcileResult {
+  final String? userId;
+  final int validReviewCount;
+  final ContributionPointAwardResult awardResult;
+  final Set<String> reversedEntryIds;
+  final Set<String> alreadyReversedEntryIds;
+  final Set<String> missingEntryIds;
+  final Set<String> ignoredEntryIds;
+  final List<ContributionPointFunctionError> errors;
+
+  const ContributionPointMilestoneReconcileResult({
+    this.userId,
+    this.validReviewCount = 0,
+    this.awardResult = const ContributionPointAwardResult(),
+    this.reversedEntryIds = const <String>{},
+    this.alreadyReversedEntryIds = const <String>{},
+    this.missingEntryIds = const <String>{},
+    this.ignoredEntryIds = const <String>{},
+    this.errors = const <ContributionPointFunctionError>[],
+  });
+
+  factory ContributionPointMilestoneReconcileResult.fromCallableData(
+    Object? data,
+  ) {
+    final envelope = _callableMap(data);
+    if (envelope == null) {
+      return const ContributionPointMilestoneReconcileResult();
+    }
+    final result = _callableMap(envelope['result']) ?? envelope;
+    return ContributionPointMilestoneReconcileResult(
+      userId: _callableString(result['userId']),
+      validReviewCount: _callableInt(result['validReviewCount']) ?? 0,
+      awardResult: ContributionPointAwardResult.fromCallableData(
+        result['awardResult'],
+      ),
+      reversedEntryIds: _callableStringSet(result['reversedEntryIds']),
+      alreadyReversedEntryIds: _callableStringSet(
+        result['alreadyReversedEntryIds'],
+      ),
+      missingEntryIds: _callableStringSet(result['missingEntryIds']),
+      ignoredEntryIds: _callableStringSet(result['ignoredEntryIds']),
+      errors: _callableErrors(result['errors']),
+    );
+  }
+
+  bool get hasErrors => errors.isNotEmpty;
 }
 
 enum ContributionPointSort {
@@ -851,6 +968,24 @@ class ContributionPointsService {
     );
   }
 
+  static Future<Object?> _reverseContributionPointsForDishCallable(
+    Map<String, dynamic> payload,
+  ) async {
+    return _callContributionPointAwardFunction(
+      'reverseContributionPointsForDish',
+      payload,
+    );
+  }
+
+  static Future<Object?> _reconcileReviewMilestoneAfterModerationCallable(
+    Map<String, dynamic> payload,
+  ) async {
+    return _callContributionPointAwardFunction(
+      'reconcileReviewMilestoneContributionPointsAfterModeration',
+      payload,
+    );
+  }
+
   static Future<Object?> _callContributionPointAwardFunction(
     String functionName,
     Map<String, dynamic> payload,
@@ -927,6 +1062,52 @@ class ContributionPointsService {
       'ledgerEntryIds': ids.toList(growable: false),
     });
     return ContributionPointCelebrationMarkResult.fromCallableData(response);
+  }
+
+  static Future<ContributionPointDishReversalResult>
+  reverseContributionPointsForDish({
+    required String dishId,
+    String? reason,
+    ContributionPointCallable? callable,
+  }) async {
+    final trimmedDishId = dishId.trim();
+    final trimmedReason = reason?.trim();
+    if (trimmedDishId.isEmpty) {
+      return const ContributionPointDishReversalResult();
+    }
+
+    final response =
+        await (callable ?? _reverseContributionPointsForDishCallable)({
+          'dishId': trimmedDishId,
+          if (trimmedReason != null && trimmedReason.isNotEmpty)
+            'reason': trimmedReason,
+        });
+    final result = ContributionPointDishReversalResult.fromCallableData(
+      response,
+    );
+    _throwIfContributionPointErrors(result.errors);
+    return result;
+  }
+
+  static Future<ContributionPointMilestoneReconcileResult>
+  reconcileReviewMilestoneContributionPointsAfterModeration({
+    required String userId,
+    ContributionPointCallable? callable,
+  }) async {
+    final trimmedUserId = userId.trim();
+    if (trimmedUserId.isEmpty) {
+      return const ContributionPointMilestoneReconcileResult();
+    }
+
+    final response =
+        await (callable ?? _reconcileReviewMilestoneAfterModerationCallable)({
+          'userId': trimmedUserId,
+        });
+    final result = ContributionPointMilestoneReconcileResult.fromCallableData(
+      response,
+    );
+    _throwIfContributionPointErrors(result.errors);
+    return result;
   }
 
   static Future<void> reverseActiveEntriesForDish({
@@ -1011,6 +1192,18 @@ class ContributionPointsService {
       });
       _incrementCachedTotal(transaction, userRef, -freshEntry.pointsDelta);
     });
+  }
+
+  static void _throwIfContributionPointErrors(
+    List<ContributionPointFunctionError> errors,
+  ) {
+    if (errors.isEmpty) {
+      return;
+    }
+    final details = errors
+        .map((error) => '${error.ledgerEntryId}: ${error.message}')
+        .join('; ');
+    throw StateError('Contribution point moderation failed: $details');
   }
 
   static Future<List<ContributionPointUserSummary>> loadUserPointSummaries({
