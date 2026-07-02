@@ -2593,12 +2593,11 @@ class BiteScoreService {
       storagePath: storagePath,
       reviewId: reviewId,
     );
-    final award = await ContributionPointsService.awardDishImage(
-      userId: uploadedByUserId,
-      imageId: image.id,
-      dish: dish,
-      restaurant: restaurant,
-    );
+    final award =
+        await ContributionPointsService.awardDishImageContributionPoints(
+          imageId: image.id,
+          dishId: dish.id,
+        );
 
     return BiteScoreDishImageSaveResult(
       image: image,
@@ -6446,9 +6445,10 @@ class BiteScoreService {
     }, SetOptions(merge: true));
 
     await _rebuildDishAggregate(dishId: dish.id, restaurantId: restaurant.id);
-    final milestoneAward = await _reconcileReviewMilestonesForUser(
-      trimmedUserId,
-    );
+    final milestoneAward =
+        await ContributionPointsService.awardReviewMilestoneContributionPoints(
+          userId: trimmedUserId,
+        );
     return _BiteScoreReviewWriteResult(
       review: review,
       milestoneAward: milestoneAward,

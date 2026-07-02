@@ -24,7 +24,9 @@ import {
 import { setGlobalOptions } from "firebase-functions/v2/options";
 import Stripe from "stripe";
 import {
+  awardDishImageContributionPointsCallableHandler,
   awardContributionPointsCallableHandler,
+  awardReviewMilestoneContributionPointsCallableHandler,
   reverseContributionPointLedgerEntryCallableHandler,
 } from "./contribution_points_helpers.js";
 import {
@@ -2862,6 +2864,16 @@ export const recalculateMyLocalExpertBadges = onCall(async (request) => {
 
 export const awardContributionPoints = onCall(async (request) => {
   return awardContributionPointsCallableHandler(db, request);
+});
+
+export const awardReviewMilestoneContributionPoints = onCall(
+  async (request) => {
+    return awardReviewMilestoneContributionPointsCallableHandler(db, request);
+  },
+);
+
+export const awardDishImageContributionPoints = onCall(async (request) => {
+  return awardDishImageContributionPointsCallableHandler(db, request);
 });
 
 export const reverseContributionPointLedgerEntry = onCall(async (request) => {

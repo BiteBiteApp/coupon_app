@@ -425,6 +425,96 @@ void main() {
     });
   });
 
+  group('Contribution point callable wrappers', () {
+    test(
+      'review milestone wrapper calls source-specific function shape',
+      () async {
+        final payloads = <Map<String, dynamic>>[];
+
+        final result =
+            await ContributionPointsService.awardReviewMilestoneContributionPoints(
+              userId: ' user-1 ',
+              callable: (payload) async {
+                payloads.add(payload);
+                return {
+                  'ok': true,
+                  'result': {
+                    'entries': [
+                      {
+                        'ledgerEntryId': 'review_milestone%3Auser-1%3A5',
+                        'points': 1,
+                        'wasCreated': true,
+                      },
+                    ],
+                    'actionGroupId': 'review_milestones:user-1:5',
+                  },
+                };
+              },
+            );
+
+        expect(payloads.single, {'userId': 'user-1'});
+        expect(result.actionGroupId, 'review_milestones:user-1:5');
+        expect(result.newlyAwardedPoints, 1);
+        expect(result.newlyCreatedLedgerEntryIds, [
+          'review_milestone%3Auser-1%3A5',
+        ]);
+      },
+    );
+
+    test('dish image wrapper calls source-specific function shape', () async {
+      final payloads = <Map<String, dynamic>>[];
+
+      final result =
+          await ContributionPointsService.awardDishImageContributionPoints(
+            imageId: ' image-1 ',
+            dishId: ' dish-1 ',
+            callable: (payload) async {
+              payloads.add(payload);
+              return {
+                'ok': true,
+                'result': {
+                  'entries': [
+                    {
+                      'ledgerEntryId': 'dish_image_added%3Adish-1%3Aimage-1',
+                      'points': 1,
+                      'wasCreated': true,
+                    },
+                  ],
+                  'actionGroupId': 'dish_image_added:dish-1:image-1',
+                },
+              };
+            },
+          );
+
+      expect(payloads.single, {'imageId': 'image-1', 'dishId': 'dish-1'});
+      expect(result.actionGroupId, 'dish_image_added:dish-1:image-1');
+      expect(result.newlyAwardedPoints, 1);
+      expect(result.newlyCreatedLedgerEntryIds, [
+        'dish_image_added%3Adish-1%3Aimage-1',
+      ]);
+    });
+
+    test('callable duplicate no-op preserves celebration behavior', () {
+      final result = ContributionPointAwardResult.fromCallableData({
+        'ok': true,
+        'result': {
+          'entries': [
+            {
+              'ledgerEntryId': 'dish_image_added%3Adish-1%3Aimage-1',
+              'points': 1,
+              'wasCreated': false,
+            },
+          ],
+          'actionGroupId': 'dish_image_added:dish-1:image-1',
+        },
+      });
+
+      expect(result.newlyAwardedPoints, 0);
+      expect(result.newlyCreatedLedgerEntryIds, isEmpty);
+      expect(result.hasNewPositivePoints, isFalse);
+    });
+  });
+
   group('Contribution point admin sorting', () {
     test('default most-points sort puts highest total first', () {
       final sorted = ContributionPointsService.sortUserPointSummaries(

@@ -1,4 +1,5 @@
 import { FieldValue } from "firebase-admin/firestore";
+import type { WhereFilterOp } from "firebase-admin/firestore";
 import { CallableRequest, HttpsError } from "firebase-functions/v2/https";
 
 export const contributionPointLedgerCollection =
@@ -17,6 +18,8 @@ export const contributionPointCelebrationStatus = {
 } as const;
 
 export const contributionPointAction = {
+  reviewMilestone: "review_milestone",
+  dishImageAdded: "dish_image_added",
   contributionReversed: "contribution_reversed",
 } as const;
 
@@ -65,6 +68,7 @@ export type ContributionPointReverseResult = {
 
 type DocumentReferenceLike = {
   id: string;
+  get(): Promise<DocumentSnapshotLike>;
 };
 
 type DocumentSnapshotLike = {
@@ -75,6 +79,16 @@ type DocumentSnapshotLike = {
 
 type CollectionReferenceLike = {
   doc(id: string): DocumentReferenceLike;
+  where(fieldPath: string, opStr: WhereFilterOp, value: unknown): QueryLike;
+};
+
+type QueryLike = {
+  where(fieldPath: string, opStr: WhereFilterOp, value: unknown): QueryLike;
+  get(): Promise<QuerySnapshotLike>;
+};
+
+type QuerySnapshotLike = {
+  docs: DocumentSnapshotLike[];
 };
 
 type TransactionLike = {
@@ -364,6 +378,126 @@ export async function reverseContributionPointSourceKeyTransaction(
   );
 }
 
+export async function awardReviewMilestoneContributionPointsCallableHandler(
+  db: FirestoreLike,
+  request: CallableRequest<unknown>,
+  options: HelperOptions = {},
+): Promise<{ ok: true; result: ContributionPointAwardResult }> {
+  const targetUserId = requireCallableTargetUserId(request);
+  const validReviewCount = await loadValidPublicReviewCountForUser(
+    db,
+    targetUserId,
+  );
+  const earnedMilestones = reviewMilestonesForCount(validReviewCount);
+  const awardResults: ContributionPointAwardResult[] = [];
+
+  for (const milestone of earnedMilestones) {
+    awardResults.push(
+      await awardContributionPointsTransaction(
+        db,
+        {
+          userId: targetUserId,
+          points: 1,
+          actionType: contributionPointAction.reviewMilestone,
+          sourceKey: reviewMilestoneSourceKey(targetUserId, milestone),
+          description: `Reached ${milestone} valid public reviews`,
+        },
+        options,
+      ),
+    );
+  }
+
+  return {
+    ok: true,
+    result: combineContributionPointAwardResults(awardResults, {
+      actionGroupId: `review_milestones:${targetUserId}:${validReviewCount}`,
+    }),
+  };
+}
+
+export async function awardDishImageContributionPointsCallableHandler(
+  db: FirestoreLike,
+  request: CallableRequest<unknown>,
+  options: HelperOptions = {},
+): Promise<{ ok: true; result: ContributionPointAwardResult }> {
+  const uid = requireCallableUid(request.auth);
+  const data = readRecord(request.data);
+  const imageId = readRequiredString(data.imageId, "imageId");
+  const expectedDishId = readOptionalString(data.dishId);
+  const imageSnapshot = await db
+    .collection("bitescore_dish_images")
+    .doc(imageId)
+    .get();
+  if (!imageSnapshot.exists) {
+    throw new HttpsError("not-found", "Dish image not found.");
+  }
+
+  const imageData = imageSnapshot.data() ?? {};
+  const uploadedByUserId = readOptionalString(imageData.uploadedByUserId);
+  const dishId = readOptionalString(imageData.dishId);
+  const restaurantId = readOptionalString(imageData.restaurantId);
+  if (!uploadedByUserId || !dishId || !restaurantId) {
+    throw new HttpsError("failed-precondition", "Dish image is incomplete.");
+  }
+  if (uploadedByUserId !== uid) {
+    throw new HttpsError(
+      "permission-denied",
+      "You can only claim points for your own dish images.",
+    );
+  }
+  if (expectedDishId !== null && expectedDishId !== dishId) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Dish ID does not match the image.",
+    );
+  }
+
+  const dishSnapshot = await db.collection("bitescore_dishes").doc(dishId).get();
+  if (!dishSnapshot.exists) {
+    throw new HttpsError("not-found", "Dish not found.");
+  }
+  const restaurantSnapshot = await db
+    .collection("bitescore_restaurants")
+    .doc(restaurantId)
+    .get();
+  if (!restaurantSnapshot.exists) {
+    throw new HttpsError("not-found", "Restaurant not found.");
+  }
+
+  const dishData = dishSnapshot.data() ?? {};
+  const restaurantData = restaurantSnapshot.data() ?? {};
+  const restaurantName =
+    readOptionalString(restaurantData.name) ??
+    readOptionalString(restaurantData.restaurantName);
+
+  return {
+    ok: true,
+    result: await awardContributionPointsTransaction(
+      db,
+      {
+        userId: uid,
+        points: 1,
+        actionType: contributionPointAction.dishImageAdded,
+        sourceKey: dishImageAddedSourceKey(dishId, imageId),
+        description: "Added a dish image",
+        dishId,
+        dishName: readOptionalString(dishData.name),
+        restaurantId,
+        restaurantName,
+        restaurantCity: readOptionalString(restaurantData.city),
+        restaurantState: readOptionalString(restaurantData.state),
+        restaurantAddress:
+          readOptionalString(restaurantData.address) ??
+          readOptionalString(restaurantData.streetAddress),
+        restaurantPhone: readOptionalString(restaurantData.phone),
+        reviewId: readOptionalString(imageData.reviewId),
+        imageId,
+      },
+      options,
+    ),
+  };
+}
+
 export async function awardContributionPointsCallableHandler(
   db: FirestoreLike,
   request: CallableRequest<unknown>,
@@ -419,6 +553,106 @@ function requireContributionPointAdmin(
       "Admin access is required to mutate contribution points.",
     );
   }
+}
+
+function requireCallableUid(auth: CallableAuthLike | null | undefined): string {
+  const uid = readOptionalString(auth?.uid);
+  if (uid === null) {
+    throw new HttpsError("unauthenticated", "Sign in to earn points.");
+  }
+  return uid;
+}
+
+function requireCallableTargetUserId(request: CallableRequest<unknown>): string {
+  const uid = requireCallableUid(request.auth);
+  const data = readRecord(request.data);
+  const targetUserId = readOptionalString(data.userId) ?? uid;
+  if (targetUserId !== uid && !isContributionPointAdmin(request.auth)) {
+    throw new HttpsError(
+      "permission-denied",
+      "You can only reconcile your own contribution points.",
+    );
+  }
+  return targetUserId;
+}
+
+function reviewMilestonePointsForCount(validReviewCount: number): number {
+  if (validReviewCount <= 0) {
+    return 0;
+  }
+  return Math.floor(validReviewCount / 5);
+}
+
+function reviewMilestonesForCount(validReviewCount: number): number[] {
+  return Array.from(
+    { length: reviewMilestonePointsForCount(validReviewCount) },
+    (_, index) => (index + 1) * 5,
+  );
+}
+
+function reviewMilestoneSourceKey(userId: string, milestone: number): string {
+  return `review_milestone:${userId.trim()}:${milestone}`;
+}
+
+function dishImageAddedSourceKey(dishId: string, imageId: string): string {
+  return `dish_image_added:${dishId.trim()}:${imageId.trim()}`;
+}
+
+async function loadValidPublicReviewCountForUser(
+  db: FirestoreLike,
+  userId: string,
+): Promise<number> {
+  const trimmedUserId = userId.trim();
+  const snapshot = await db
+    .collection("dish_reviews")
+    .where("userId", "==", trimmedUserId)
+    .get();
+  const uniqueReviewKeys = new Set<string>();
+  for (const doc of snapshot.docs) {
+    const data = doc.data() ?? {};
+    if (!isPublicReviewData(data)) {
+      continue;
+    }
+    const dishId = readOptionalString(data.dishId);
+    const reviewUserId = readOptionalString(data.userId);
+    if (dishId === null || reviewUserId !== trimmedUserId) {
+      continue;
+    }
+    uniqueReviewKeys.add(`${dishId}::${reviewUserId}`);
+  }
+  return uniqueReviewKeys.size;
+}
+
+function isPublicReviewData(data: Record<string, unknown>): boolean {
+  if (
+    data.isPublic === false ||
+    data.isHidden === true ||
+    data.hidden === true ||
+    data.deleted === true ||
+    data.isDeleted === true ||
+    data.rejected === true
+  ) {
+    return false;
+  }
+  const status = readOptionalString(data.status)?.toLowerCase();
+  if (
+    status === "deleted" ||
+    status === "hidden" ||
+    status === "rejected"
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function combineContributionPointAwardResults(
+  results: Iterable<ContributionPointAwardResult>,
+  params: { actionGroupId: string },
+): ContributionPointAwardResult {
+  return {
+    entries: Array.from(results).flatMap((result) => result.entries),
+    actionGroupId: params.actionGroupId,
+  };
 }
 
 function readAwardDraftFromCallable(data: unknown): ContributionPointAwardDraft {

@@ -2,8 +2,10 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const {
+  awardDishImageContributionPointsCallableHandler,
   awardContributionPointsCallableHandler,
   awardContributionPointsTransaction,
+  awardReviewMilestoneContributionPointsCallableHandler,
   buildContributionLedgerDocumentIdFromSourceKey,
   buildContributionReversalDocumentId,
   contributionPointCelebrationStatus,
@@ -268,6 +270,244 @@ test("ordinary callable user cannot mutate another user's total", async () => {
   assert.equal(db.get(userProfilePath("user-1")), undefined);
 });
 
+test("review milestone callable awards verified milestone points", async () => {
+  const db = new FakeFirestore();
+  seedPublicReviews(db, { userId: "user-1", count: 5 });
+
+  const response = await awardReviewMilestoneContributionPointsCallableHandler(
+    db,
+    callableRequest({
+      auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+      data: { userId: "user-1", validPublicReviewCount: 999 },
+    }),
+    { fieldValues: fakeFieldValues },
+  );
+  const ledgerId = buildContributionLedgerDocumentIdFromSourceKey(
+    "review_milestone:user-1:5",
+  );
+
+  assert.equal(response.ok, true);
+  assert.equal(response.result.actionGroupId, "review_milestones:user-1:5");
+  assert.deepEqual(response.result.entries, [
+    { ledgerEntryId: ledgerId, points: 1, wasCreated: true },
+  ]);
+  assert.equal(db.get(ledgerPath(ledgerId)).actionType, "review_milestone");
+  assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 1);
+});
+
+test("review milestone callable ignores hidden, duplicate, and private reviews", async () => {
+  const db = new FakeFirestore();
+  seedPublicReviews(db, { userId: "user-1", count: 4 });
+  db.seed("dish_reviews/private", {
+    userId: "user-1",
+    dishId: "dish-private",
+    isPublic: false,
+  });
+  db.seed("dish_reviews/hidden", {
+    userId: "user-1",
+    dishId: "dish-hidden",
+    hidden: true,
+  });
+  db.seed("dish_reviews/duplicate", {
+    userId: "user-1",
+    dishId: "dish-1",
+  });
+
+  const response = await awardReviewMilestoneContributionPointsCallableHandler(
+    db,
+    callableRequest({
+      auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+      data: { userId: "user-1", validPublicReviewCount: 5 },
+    }),
+    { fieldValues: fakeFieldValues },
+  );
+
+  assert.equal(response.result.actionGroupId, "review_milestones:user-1:4");
+  assert.deepEqual(response.result.entries, []);
+  assert.equal(db.get(userProfilePath("user-1")), undefined);
+});
+
+test("duplicate review milestone callable does not double-award", async () => {
+  const db = new FakeFirestore();
+  seedPublicReviews(db, { userId: "user-1", count: 5 });
+
+  await awardReviewMilestoneContributionPointsCallableHandler(
+    db,
+    callableRequest({
+      auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+      data: { userId: "user-1" },
+    }),
+    { fieldValues: fakeFieldValues },
+  );
+  const duplicate = await awardReviewMilestoneContributionPointsCallableHandler(
+    db,
+    callableRequest({
+      auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+      data: { userId: "user-1" },
+    }),
+    { fieldValues: fakeFieldValues },
+  );
+
+  assert.equal(duplicate.result.entries[0].wasCreated, false);
+  assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 1);
+});
+
+test("review milestone callable requires auth and own user unless admin", async () => {
+  const db = new FakeFirestore();
+  seedPublicReviews(db, { userId: "user-1", count: 5 });
+
+  await assert.rejects(
+    () =>
+      awardReviewMilestoneContributionPointsCallableHandler(
+        db,
+        callableRequest({ auth: null, data: { userId: "user-1" } }),
+        { fieldValues: fakeFieldValues },
+      ),
+    (error) => error.code === "unauthenticated",
+  );
+  await assert.rejects(
+    () =>
+      awardReviewMilestoneContributionPointsCallableHandler(
+        db,
+        callableRequest({
+          auth: { uid: "user-2", token: { email: "user-2@example.com" } },
+          data: { userId: "user-1" },
+        }),
+        { fieldValues: fakeFieldValues },
+      ),
+    (error) => error.code === "permission-denied",
+  );
+
+  const adminResponse = await awardReviewMilestoneContributionPointsCallableHandler(
+    db,
+    callableRequest({ auth: adminAuth(), data: { userId: "user-1" } }),
+    { fieldValues: fakeFieldValues },
+  );
+  assert.equal(adminResponse.result.entries[0].wasCreated, true);
+});
+
+test("dish image callable awards when image belongs to caller", async () => {
+  const db = new FakeFirestore();
+  seedDishImageAwardData(db, { userId: "user-1" });
+
+  const response = await awardDishImageContributionPointsCallableHandler(
+    db,
+    callableRequest({
+      auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+      data: { imageId: "image-1", dishId: "dish-1", points: 99 },
+    }),
+    { fieldValues: fakeFieldValues },
+  );
+  const ledgerId = buildContributionLedgerDocumentIdFromSourceKey(
+    "dish_image_added:dish-1:image-1",
+  );
+  const entry = db.get(ledgerPath(ledgerId));
+
+  assert.equal(response.ok, true);
+  assert.deepEqual(response.result.entries, [
+    { ledgerEntryId: ledgerId, points: 1, wasCreated: true },
+  ]);
+  assert.equal(entry.userId, "user-1");
+  assert.equal(entry.pointsDelta, 1);
+  assert.equal(entry.actionType, "dish_image_added");
+  assert.equal(entry.imageId, "image-1");
+  assert.equal(entry.dishId, "dish-1");
+  assert.equal(entry.restaurantId, "restaurant-1");
+  assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 1);
+});
+
+test("dish image callable rejects missing or mismatched images", async () => {
+  const db = new FakeFirestore();
+  seedDishImageAwardData(db, { userId: "user-1" });
+
+  await assert.rejects(
+    () =>
+      awardDishImageContributionPointsCallableHandler(
+        db,
+        callableRequest({
+          auth: { uid: "user-2", token: { email: "user-2@example.com" } },
+          data: { imageId: "image-1" },
+        }),
+        { fieldValues: fakeFieldValues },
+      ),
+    (error) => error.code === "permission-denied",
+  );
+  await assert.rejects(
+    () =>
+      awardDishImageContributionPointsCallableHandler(
+        db,
+        callableRequest({
+          auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+          data: { imageId: "missing-image" },
+        }),
+        { fieldValues: fakeFieldValues },
+      ),
+    (error) => error.code === "not-found",
+  );
+  await assert.rejects(
+    () =>
+      awardDishImageContributionPointsCallableHandler(
+        db,
+        callableRequest({
+          auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+          data: { imageId: "image-1", dishId: "wrong-dish" },
+        }),
+        { fieldValues: fakeFieldValues },
+      ),
+    (error) => error.code === "invalid-argument",
+  );
+});
+
+test("duplicate dish image callable does not double-award", async () => {
+  const db = new FakeFirestore();
+  seedDishImageAwardData(db, { userId: "user-1" });
+
+  await awardDishImageContributionPointsCallableHandler(
+    db,
+    callableRequest({
+      auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+      data: { imageId: "image-1", dishId: "dish-1" },
+    }),
+    { fieldValues: fakeFieldValues },
+  );
+  const duplicate = await awardDishImageContributionPointsCallableHandler(
+    db,
+    callableRequest({
+      auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+      data: { imageId: "image-1", dishId: "dish-1" },
+    }),
+    { fieldValues: fakeFieldValues },
+  );
+
+  assert.equal(duplicate.result.entries[0].wasCreated, false);
+  assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 1);
+});
+
+test("source-specific callables share the cached contribution total", async () => {
+  const db = new FakeFirestore();
+  seedPublicReviews(db, { userId: "user-1", count: 5 });
+  seedDishImageAwardData(db, { userId: "user-1" });
+
+  await awardReviewMilestoneContributionPointsCallableHandler(
+    db,
+    callableRequest({
+      auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+      data: { userId: "user-1" },
+    }),
+    { fieldValues: fakeFieldValues },
+  );
+  await awardDishImageContributionPointsCallableHandler(
+    db,
+    callableRequest({
+      auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+      data: { imageId: "image-1", dishId: "dish-1" },
+    }),
+    { fieldValues: fakeFieldValues },
+  );
+
+  assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 2);
+});
+
 function awardDraft(overrides = {}) {
   return {
     userId: "user-1",
@@ -303,6 +543,43 @@ function userProfilePath(userId) {
   return `${contributionUserProfilesCollection}/${userId}`;
 }
 
+function seedPublicReviews(db, { userId, count }) {
+  for (let index = 1; index <= count; index += 1) {
+    db.seed(`dish_reviews/review-${index}`, {
+      id: `review-${index}`,
+      userId,
+      dishId: `dish-${index}`,
+      restaurantId: `restaurant-${index}`,
+      isPublic: true,
+      overallBiteScore: 8,
+    });
+  }
+}
+
+function seedDishImageAwardData(db, { userId }) {
+  db.seed("bitescore_dish_images/image-1", {
+    id: "image-1",
+    dishId: "dish-1",
+    restaurantId: "restaurant-1",
+    uploadedByUserId: userId,
+    reviewId: "review-1",
+    imageUrl: "https://example.com/image.jpg",
+  });
+  db.seed("bitescore_dishes/dish-1", {
+    id: "dish-1",
+    name: "Pizza",
+    restaurantId: "restaurant-1",
+  });
+  db.seed("bitescore_restaurants/restaurant-1", {
+    id: "restaurant-1",
+    name: "Pizza Place",
+    city: "Lecanto",
+    state: "FL",
+    address: "1 Main St",
+    phone: "555-0100",
+  });
+}
+
 class FakeFirestore {
   constructor() {
     this.store = new Map();
@@ -315,9 +592,7 @@ class FakeFirestore {
   }
 
   collection(path) {
-    return {
-      doc: (id) => new FakeDocumentReference(`${path}/${id}`, id),
-    };
+    return new FakeCollectionReference(this, path);
   }
 
   async runTransaction(updateFunction) {
@@ -373,9 +648,73 @@ class FakeTransaction {
 }
 
 class FakeDocumentReference {
-  constructor(path, id) {
+  constructor(db, path, id) {
+    this.db = db;
     this.path = path;
     this.id = id;
+  }
+
+  async get() {
+    return new FakeDocumentSnapshot(this.id, this.db.store.get(this.path));
+  }
+}
+
+class FakeCollectionReference {
+  constructor(db, path) {
+    this.db = db;
+    this.path = path;
+  }
+
+  doc(id) {
+    return new FakeDocumentReference(this.db, `${this.path}/${id}`, id);
+  }
+
+  where(fieldPath, opStr, value) {
+    return new FakeQuery(this.db, this.path, [
+      { fieldPath, opStr, value },
+    ]);
+  }
+}
+
+class FakeQuery {
+  constructor(db, path, filters) {
+    this.db = db;
+    this.path = path;
+    this.filters = filters;
+  }
+
+  where(fieldPath, opStr, value) {
+    return new FakeQuery(this.db, this.path, [
+      ...this.filters,
+      { fieldPath, opStr, value },
+    ]);
+  }
+
+  async get() {
+    const docs = [];
+    const prefix = `${this.path}/`;
+    for (const [path, data] of this.db.store.entries()) {
+      if (!path.startsWith(prefix)) {
+        continue;
+      }
+      const id = path.slice(prefix.length);
+      if (id.includes("/")) {
+        continue;
+      }
+      if (this.matches(data)) {
+        docs.push(new FakeDocumentSnapshot(id, data));
+      }
+    }
+    return { docs };
+  }
+
+  matches(data) {
+    return this.filters.every((filter) => {
+      if (filter.opStr !== "==") {
+        throw new Error(`Unsupported fake query operator ${filter.opStr}`);
+      }
+      return data && data[filter.fieldPath] === filter.value;
+    });
   }
 }
 

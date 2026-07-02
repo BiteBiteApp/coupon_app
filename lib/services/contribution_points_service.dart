@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../models/bitescore_dish.dart';
@@ -6,6 +7,9 @@ import '../models/bitescore_restaurant.dart';
 import '../models/contribution_point_ledger_entry.dart';
 import '../models/dish_edit_proposal.dart';
 import 'admin_access_service.dart';
+
+typedef ContributionPointCallable =
+    Future<Object?> Function(Map<String, dynamic> payload);
 
 class ContributionPointAction {
   static const reviewMilestone = 'review_milestone';
@@ -79,6 +83,21 @@ class ContributionPointAwardEntryResult {
     required this.points,
     required this.wasCreated,
   });
+
+  factory ContributionPointAwardEntryResult.fromCallableData(Object? data) {
+    final map = _callableMap(data);
+    final ledgerEntryId = _callableString(map?['ledgerEntryId']);
+    final points = _callableInt(map?['points']);
+    final wasCreated = _callableBool(map?['wasCreated']);
+    if (ledgerEntryId == null || points == null || wasCreated == null) {
+      throw const FormatException('Invalid contribution point award entry.');
+    }
+    return ContributionPointAwardEntryResult(
+      ledgerEntryId: ledgerEntryId,
+      points: points,
+      wasCreated: wasCreated,
+    );
+  }
 }
 
 class ContributionPointAwardResult {
@@ -89,6 +108,24 @@ class ContributionPointAwardResult {
     this.entries = const <ContributionPointAwardEntryResult>[],
     this.actionGroupId,
   });
+
+  factory ContributionPointAwardResult.fromCallableData(Object? data) {
+    final envelope = _callableMap(data);
+    if (envelope == null) {
+      return const ContributionPointAwardResult();
+    }
+    final result = _callableMap(envelope['result']) ?? envelope;
+    final rawEntries = result['entries'];
+    final entries = rawEntries is Iterable
+        ? rawEntries
+              .map(ContributionPointAwardEntryResult.fromCallableData)
+              .toList(growable: false)
+        : const <ContributionPointAwardEntryResult>[];
+    return ContributionPointAwardResult(
+      entries: entries,
+      actionGroupId: _callableString(result['actionGroupId']),
+    );
+  }
 
   int get newlyAwardedPoints => entries.fold<int>(
     0,
@@ -124,6 +161,35 @@ class ContributionPointAwardResult {
       actionGroupId: actionGroupId,
     );
   }
+}
+
+Map<Object?, Object?>? _callableMap(Object? value) {
+  if (value is Map) {
+    return value;
+  }
+  return null;
+}
+
+String? _callableString(Object? value) {
+  if (value is String) {
+    final trimmed = value.trim();
+    return trimmed.isEmpty ? null : trimmed;
+  }
+  return null;
+}
+
+int? _callableInt(Object? value) {
+  if (value is int) {
+    return value;
+  }
+  if (value is num) {
+    return value.toInt();
+  }
+  return null;
+}
+
+bool? _callableBool(Object? value) {
+  return value is bool ? value : null;
 }
 
 class ContributionPointUserSummary {
@@ -168,6 +234,9 @@ enum ContributionPointSort {
 
 class ContributionPointsService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static final FirebaseFunctions _functions = FirebaseFunctions.instanceFor(
+    region: 'us-central1',
+  );
 
   static CollectionReference<Map<String, dynamic>> ledgerCollection() {
     return _firestore.collection(ContributionPointLedgerEntry.collectionName);
@@ -439,6 +508,41 @@ class ContributionPointsService {
     );
   }
 
+  static Future<ContributionPointAwardResult>
+  awardReviewMilestoneContributionPoints({
+    required String userId,
+    ContributionPointCallable? callable,
+  }) async {
+    final trimmedUserId = userId.trim();
+    if (trimmedUserId.isEmpty) {
+      return const ContributionPointAwardResult();
+    }
+
+    final response = await (callable ?? _awardReviewMilestoneCallable)({
+      'userId': trimmedUserId,
+    });
+    return ContributionPointAwardResult.fromCallableData(response);
+  }
+
+  static Future<ContributionPointAwardResult> awardDishImageContributionPoints({
+    required String imageId,
+    String? dishId,
+    ContributionPointCallable? callable,
+  }) async {
+    final trimmedImageId = imageId.trim();
+    final trimmedDishId = dishId?.trim();
+    if (trimmedImageId.isEmpty) {
+      return const ContributionPointAwardResult();
+    }
+
+    final response = await (callable ?? _awardDishImageCallable)({
+      'imageId': trimmedImageId,
+      if (trimmedDishId != null && trimmedDishId.isNotEmpty)
+        'dishId': trimmedDishId,
+    });
+    return ContributionPointAwardResult.fromCallableData(response);
+  }
+
   static Future<ContributionPointAwardResult> awardApprovedDishProposal({
     required DishEditProposal proposal,
     required BitescoreDish? dish,
@@ -626,6 +730,32 @@ class ContributionPointsService {
       ],
       actionGroupId: sourceKey,
     );
+  }
+
+  static Future<Object?> _awardReviewMilestoneCallable(
+    Map<String, dynamic> payload,
+  ) async {
+    return _callContributionPointAwardFunction(
+      'awardReviewMilestoneContributionPoints',
+      payload,
+    );
+  }
+
+  static Future<Object?> _awardDishImageCallable(
+    Map<String, dynamic> payload,
+  ) async {
+    return _callContributionPointAwardFunction(
+      'awardDishImageContributionPoints',
+      payload,
+    );
+  }
+
+  static Future<Object?> _callContributionPointAwardFunction(
+    String functionName,
+    Map<String, dynamic> payload,
+  ) async {
+    final result = await _functions.httpsCallable(functionName).call(payload);
+    return result.data;
   }
 
   static Future<void> reverseBySourceKey({
