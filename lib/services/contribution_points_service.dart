@@ -192,6 +192,13 @@ bool? _callableBool(Object? value) {
   return value is bool ? value : null;
 }
 
+Set<String> _callableStringSet(Object? value) {
+  if (value is! Iterable) {
+    return const <String>{};
+  }
+  return value.map(_callableString).whereType<String>().toSet();
+}
+
 class ContributionPointUserSummary {
   final String userId;
   final String displayName;
@@ -220,6 +227,25 @@ class ContributionPointCelebrationMarkResult {
     this.missingEntryIds = const <String>{},
     this.ignoredEntryIds = const <String>{},
   });
+
+  factory ContributionPointCelebrationMarkResult.fromCallableData(
+    Object? data,
+  ) {
+    final envelope = _callableMap(data);
+    if (envelope == null) {
+      return const ContributionPointCelebrationMarkResult();
+    }
+    final result = _callableMap(envelope['result']) ?? envelope;
+    return ContributionPointCelebrationMarkResult(
+      attemptedEntryIds: _callableStringSet(result['attemptedEntryIds']),
+      markedEntryIds: _callableStringSet(result['markedEntryIds']),
+      alreadyCelebratedEntryIds: _callableStringSet(
+        result['alreadyCelebratedEntryIds'],
+      ),
+      missingEntryIds: _callableStringSet(result['missingEntryIds']),
+      ignoredEntryIds: _callableStringSet(result['ignoredEntryIds']),
+    );
+  }
 
   bool get hasProblems =>
       missingEntryIds.isNotEmpty || ignoredEntryIds.isNotEmpty;
@@ -750,6 +776,15 @@ class ContributionPointsService {
     );
   }
 
+  static Future<Object?> _markCelebratedLedgerEntriesCallable(
+    Map<String, dynamic> payload,
+  ) async {
+    return _callContributionPointAwardFunction(
+      'markContributionPointLedgerEntriesCelebrated',
+      payload,
+    );
+  }
+
   static Future<Object?> _callContributionPointAwardFunction(
     String functionName,
     Map<String, dynamic> payload,
@@ -811,6 +846,7 @@ class ContributionPointsService {
   markCelebratedLedgerEntries({
     required String userId,
     required Iterable<String> ledgerEntryIds,
+    ContributionPointCallable? callable,
   }) async {
     final trimmedUserId = userId.trim();
     final ids = ledgerEntryIds
@@ -821,56 +857,10 @@ class ContributionPointsService {
       return ContributionPointCelebrationMarkResult(attemptedEntryIds: ids);
     }
 
-    final markedEntryIds = <String>{};
-    final alreadyCelebratedEntryIds = <String>{};
-    final missingEntryIds = <String>{};
-    final ignoredEntryIds = <String>{};
-
-    await _firestore.runTransaction((transaction) async {
-      for (final id in ids) {
-        final ref = ledgerCollection().doc(id);
-        final snapshot = await transaction.get(ref);
-        if (!snapshot.exists) {
-          missingEntryIds.add(id);
-          continue;
-        }
-        final entry = ContributionPointLedgerEntry.tryFromFirestore(
-          snapshot.data(),
-          fallbackId: snapshot.id,
-        );
-        if (entry == null || entry.userId != trimmedUserId) {
-          ignoredEntryIds.add(id);
-          continue;
-        }
-        if (entry.celebrationStatus ==
-            ContributionPointLedgerEntry.celebrationStatusCelebrated) {
-          alreadyCelebratedEntryIds.add(id);
-          continue;
-        }
-        if (entry.pointsDelta <= 0 ||
-            entry.status != ContributionPointLedgerEntry.statusActive ||
-            entry.celebrationStatus !=
-                ContributionPointLedgerEntry.celebrationStatusPending) {
-          ignoredEntryIds.add(id);
-          continue;
-        }
-        transaction.set(ref, {
-          'celebrationStatus':
-              ContributionPointLedgerEntry.celebrationStatusCelebrated,
-          'celebratedAt': FieldValue.serverTimestamp(),
-          'updatedAt': FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
-        markedEntryIds.add(id);
-      }
+    final response = await (callable ?? _markCelebratedLedgerEntriesCallable)({
+      'ledgerEntryIds': ids.toList(growable: false),
     });
-
-    return ContributionPointCelebrationMarkResult(
-      attemptedEntryIds: ids,
-      markedEntryIds: markedEntryIds,
-      alreadyCelebratedEntryIds: alreadyCelebratedEntryIds,
-      missingEntryIds: missingEntryIds,
-      ignoredEntryIds: ignoredEntryIds,
-    );
+    return ContributionPointCelebrationMarkResult.fromCallableData(response);
   }
 
   static Future<void> reverseActiveEntriesForDish({

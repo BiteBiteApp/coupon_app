@@ -12,6 +12,7 @@ const {
   contributionPointLedgerCollection,
   contributionPointStatus,
   contributionUserProfilesCollection,
+  markContributionPointLedgerEntriesCelebratedCallableHandler,
   reverseContributionPointLedgerEntryCallableHandler,
   reverseContributionPointLedgerEntryTransaction,
 } = require("../lib/contribution_points_helpers.js");
@@ -508,6 +509,215 @@ test("source-specific callables share the cached contribution total", async () =
   assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 2);
 });
 
+test("celebration callable marks caller's pending entry celebrated", async () => {
+  const db = new FakeFirestore();
+  db.seed(ledgerPath("ledger-1"), pendingLedgerEntry({ id: "ledger-1" }));
+
+  const response =
+    await markContributionPointLedgerEntriesCelebratedCallableHandler(
+      db,
+      callableRequest({
+        auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+        data: { ledgerEntryIds: ["ledger-1"] },
+      }),
+      { fieldValues: fakeFieldValues },
+    );
+  const entry = db.get(ledgerPath("ledger-1"));
+
+  assert.equal(response.ok, true);
+  assert.deepEqual(response.result, {
+    attemptedEntryIds: ["ledger-1"],
+    markedEntryIds: ["ledger-1"],
+    alreadyCelebratedEntryIds: [],
+    missingEntryIds: [],
+    ignoredEntryIds: [],
+  });
+  assert.equal(
+    entry.celebrationStatus,
+    contributionPointCelebrationStatus.celebrated,
+  );
+  assert.ok(entry.celebratedAt.startsWith("timestamp-"));
+});
+
+test("celebration callable marks multiple own pending entries", async () => {
+  const db = new FakeFirestore();
+  db.seed(ledgerPath("ledger-1"), pendingLedgerEntry({ id: "ledger-1" }));
+  db.seed(ledgerPath("ledger-2"), pendingLedgerEntry({
+    id: "ledger-2",
+    sourceKey: "dish_image_added:dish-1:image-2",
+  }));
+
+  const response =
+    await markContributionPointLedgerEntriesCelebratedCallableHandler(
+      db,
+      callableRequest({
+        auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+        data: { ledgerEntryIds: ["ledger-1", "ledger-2", "ledger-1"] },
+      }),
+      { fieldValues: fakeFieldValues },
+    );
+
+  assert.deepEqual(response.result.markedEntryIds, ["ledger-1", "ledger-2"]);
+  assert.deepEqual(response.result.attemptedEntryIds, ["ledger-1", "ledger-2"]);
+  assert.equal(
+    db.get(ledgerPath("ledger-1")).celebrationStatus,
+    contributionPointCelebrationStatus.celebrated,
+  );
+  assert.equal(
+    db.get(ledgerPath("ledger-2")).celebrationStatus,
+    contributionPointCelebrationStatus.celebrated,
+  );
+});
+
+test("celebration callable treats already-celebrated entries as safe success", async () => {
+  const db = new FakeFirestore();
+  db.seed(ledgerPath("ledger-1"), pendingLedgerEntry({
+    id: "ledger-1",
+    celebrationStatus: contributionPointCelebrationStatus.celebrated,
+    celebratedAt: "existing-timestamp",
+  }));
+
+  const response =
+    await markContributionPointLedgerEntriesCelebratedCallableHandler(
+      db,
+      callableRequest({
+        auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+        data: { ledgerEntryIds: ["ledger-1"] },
+      }),
+      { fieldValues: fakeFieldValues },
+    );
+
+  assert.deepEqual(response.result.alreadyCelebratedEntryIds, ["ledger-1"]);
+  assert.deepEqual(response.result.markedEntryIds, []);
+  assert.equal(db.get(ledgerPath("ledger-1")).celebratedAt, "existing-timestamp");
+});
+
+test("celebration callable rejects attempts to mark another user's entry", async () => {
+  const db = new FakeFirestore();
+  db.seed(ledgerPath("ledger-1"), pendingLedgerEntry({
+    id: "ledger-1",
+    userId: "user-2",
+  }));
+
+  await assert.rejects(
+    () =>
+      markContributionPointLedgerEntriesCelebratedCallableHandler(
+        db,
+        callableRequest({
+          auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+          data: { ledgerEntryIds: ["ledger-1"] },
+        }),
+        { fieldValues: fakeFieldValues },
+      ),
+    (error) => error.code === "permission-denied",
+  );
+  assert.equal(
+    db.get(ledgerPath("ledger-1")).celebrationStatus,
+    contributionPointCelebrationStatus.pending,
+  );
+});
+
+test("celebration callable reports missing entries safely", async () => {
+  const db = new FakeFirestore();
+
+  const response =
+    await markContributionPointLedgerEntriesCelebratedCallableHandler(
+      db,
+      callableRequest({
+        auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+        data: { ledgerEntryIds: ["missing-ledger"] },
+      }),
+      { fieldValues: fakeFieldValues },
+    );
+
+  assert.deepEqual(response.result, {
+    attemptedEntryIds: ["missing-ledger"],
+    markedEntryIds: [],
+    alreadyCelebratedEntryIds: [],
+    missingEntryIds: ["missing-ledger"],
+    ignoredEntryIds: [],
+  });
+});
+
+test("celebration callable only changes celebration bookkeeping fields", async () => {
+  const db = new FakeFirestore();
+  db.seed(ledgerPath("ledger-1"), pendingLedgerEntry({
+    id: "ledger-1",
+    pointsDelta: 7,
+    sourceKey: "review_milestone:user-1:35",
+    unrelatedField: "keep-me",
+  }));
+  db.seed(userProfilePath("user-1"), {
+    userId: "user-1",
+    contributionPoints: 42,
+    lastContributionAt: "unchanged",
+  });
+
+  await markContributionPointLedgerEntriesCelebratedCallableHandler(
+    db,
+    callableRequest({
+      auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+      data: { ledgerEntryIds: ["ledger-1"] },
+    }),
+    { fieldValues: fakeFieldValues },
+  );
+  const entry = db.get(ledgerPath("ledger-1"));
+  const userProfile = db.get(userProfilePath("user-1"));
+
+  assert.equal(entry.pointsDelta, 7);
+  assert.equal(entry.sourceKey, "review_milestone:user-1:35");
+  assert.equal(entry.status, contributionPointStatus.active);
+  assert.equal(entry.unrelatedField, "keep-me");
+  assert.equal(
+    entry.celebrationStatus,
+    contributionPointCelebrationStatus.celebrated,
+  );
+  assert.deepEqual(userProfile, {
+    userId: "user-1",
+    contributionPoints: 42,
+    lastContributionAt: "unchanged",
+  });
+});
+
+test("celebration callable rejects unauthenticated callers", async () => {
+  const db = new FakeFirestore();
+
+  await assert.rejects(
+    () =>
+      markContributionPointLedgerEntriesCelebratedCallableHandler(
+        db,
+        callableRequest({
+          auth: null,
+          data: { ledgerEntryIds: ["ledger-1"] },
+        }),
+        { fieldValues: fakeFieldValues },
+      ),
+    (error) => error.code === "unauthenticated",
+  );
+});
+
+test("celebration callable rejects oversized input lists", async () => {
+  const db = new FakeFirestore();
+
+  await assert.rejects(
+    () =>
+      markContributionPointLedgerEntriesCelebratedCallableHandler(
+        db,
+        callableRequest({
+          auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+          data: {
+            ledgerEntryIds: Array.from(
+              { length: 31 },
+              (_, index) => `ledger-${index}`,
+            ),
+          },
+        }),
+        { fieldValues: fakeFieldValues },
+      ),
+    (error) => error.code === "invalid-argument",
+  );
+});
+
 function awardDraft(overrides = {}) {
   return {
     userId: "user-1",
@@ -523,6 +733,20 @@ function awardDraft(overrides = {}) {
     restaurantState: "FL",
     restaurantAddress: "1 Main St",
     restaurantPhone: "555-0100",
+    ...overrides,
+  };
+}
+
+function pendingLedgerEntry(overrides = {}) {
+  return {
+    id: "ledger-1",
+    userId: "user-1",
+    pointsDelta: 1,
+    actionType: "dish_image_added",
+    sourceKey: "dish_image_added:dish-1:image-1",
+    description: "Added a dish image",
+    status: contributionPointStatus.active,
+    celebrationStatus: contributionPointCelebrationStatus.pending,
     ...overrides,
   };
 }

@@ -66,6 +66,14 @@ export type ContributionPointReverseResult = {
   status: "missing" | "invalid" | "not-active" | "already-reversed" | "reversed";
 };
 
+export type ContributionPointCelebrationMarkResult = {
+  attemptedEntryIds: string[];
+  markedEntryIds: string[];
+  alreadyCelebratedEntryIds: string[];
+  missingEntryIds: string[];
+  ignoredEntryIds: string[];
+};
+
 type DocumentReferenceLike = {
   id: string;
   get(): Promise<DocumentSnapshotLike>;
@@ -122,6 +130,7 @@ type CallableAuthLike = {
 };
 
 const betaAdminEmails = new Set(["schuyler.cole@gmail.com"]);
+const maxCelebrationLedgerEntryIds = 30;
 
 const adminServerFieldValues: ServerFieldValues = {
   serverTimestamp: () => FieldValue.serverTimestamp(),
@@ -498,6 +507,104 @@ export async function awardDishImageContributionPointsCallableHandler(
   };
 }
 
+export async function markContributionPointLedgerEntriesCelebratedTransaction(
+  db: FirestoreLike,
+  params: { userId: string; ledgerEntryIds: string[] },
+  options: HelperOptions = {},
+): Promise<ContributionPointCelebrationMarkResult> {
+  const userId = params.userId.trim();
+  const attemptedEntryIds = normalizeLedgerEntryIds(params.ledgerEntryIds);
+  const markedEntryIds = new Set<string>();
+  const alreadyCelebratedEntryIds = new Set<string>();
+  const missingEntryIds = new Set<string>();
+  const ignoredEntryIds = new Set<string>();
+  const fieldValues = options.fieldValues ?? adminServerFieldValues;
+
+  await db.runTransaction(async (transaction) => {
+    for (const ledgerEntryId of attemptedEntryIds) {
+      const entryRef = ledgerDocument(db, ledgerEntryId);
+      const snapshot = await transaction.get(entryRef);
+      if (!snapshot.exists) {
+        missingEntryIds.add(ledgerEntryId);
+        continue;
+      }
+
+      const data = snapshot.data() ?? {};
+      const ownerUserId = readOptionalString(data.userId);
+      if (ownerUserId !== null && ownerUserId !== userId) {
+        throw new HttpsError(
+          "permission-denied",
+          "You can only mark your own contribution points celebrated.",
+        );
+      }
+      if (ownerUserId === null) {
+        ignoredEntryIds.add(ledgerEntryId);
+        continue;
+      }
+
+      const currentCelebrationStatus = readOptionalString(
+        data.celebrationStatus,
+      );
+      if (
+        currentCelebrationStatus ===
+        contributionPointCelebrationStatus.celebrated
+      ) {
+        alreadyCelebratedEntryIds.add(ledgerEntryId);
+        continue;
+      }
+
+      const entry = parseLedgerEntry(snapshot);
+      if (
+        !entry ||
+        entry.pointsDelta <= 0 ||
+        entry.status !== contributionPointStatus.active ||
+        entry.celebrationStatus !== contributionPointCelebrationStatus.pending
+      ) {
+        ignoredEntryIds.add(ledgerEntryId);
+        continue;
+      }
+
+      transaction.set(
+        entryRef,
+        {
+          celebrationStatus: contributionPointCelebrationStatus.celebrated,
+          celebratedAt: fieldValues.serverTimestamp(),
+          updatedAt: fieldValues.serverTimestamp(),
+        },
+        { merge: true },
+      );
+      markedEntryIds.add(ledgerEntryId);
+    }
+  });
+
+  return {
+    attemptedEntryIds,
+    markedEntryIds: Array.from(markedEntryIds),
+    alreadyCelebratedEntryIds: Array.from(alreadyCelebratedEntryIds),
+    missingEntryIds: Array.from(missingEntryIds),
+    ignoredEntryIds: Array.from(ignoredEntryIds),
+  };
+}
+
+export async function markContributionPointLedgerEntriesCelebratedCallableHandler(
+  db: FirestoreLike,
+  request: CallableRequest<unknown>,
+  options: HelperOptions = {},
+): Promise<{ ok: true; result: ContributionPointCelebrationMarkResult }> {
+  const userId = requireCallableUid(request.auth);
+  const data = readRecord(request.data);
+  const ledgerEntryIds = readLedgerEntryIdsFromCallable(data.ledgerEntryIds);
+
+  return {
+    ok: true,
+    result: await markContributionPointLedgerEntriesCelebratedTransaction(
+      db,
+      { userId, ledgerEntryIds },
+      options,
+    ),
+  };
+}
+
 export async function awardContributionPointsCallableHandler(
   db: FirestoreLike,
   request: CallableRequest<unknown>,
@@ -655,6 +762,50 @@ function combineContributionPointAwardResults(
   };
 }
 
+function readLedgerEntryIdsFromCallable(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    throw new HttpsError(
+      "invalid-argument",
+      "ledgerEntryIds must be a non-empty list.",
+    );
+  }
+  if (value.length === 0) {
+    throw new HttpsError(
+      "invalid-argument",
+      "ledgerEntryIds must include at least one entry.",
+    );
+  }
+  if (value.length > maxCelebrationLedgerEntryIds) {
+    throw new HttpsError(
+      "invalid-argument",
+      `ledgerEntryIds may include at most ${maxCelebrationLedgerEntryIds} entries.`,
+    );
+  }
+
+  const ledgerEntryIds: string[] = [];
+  for (const item of value) {
+    const ledgerEntryId = readOptionalString(item);
+    if (ledgerEntryId === null) {
+      throw new HttpsError(
+        "invalid-argument",
+        "ledgerEntryIds must only contain non-empty strings.",
+      );
+    }
+    ledgerEntryIds.push(ledgerEntryId);
+  }
+  return normalizeLedgerEntryIds(ledgerEntryIds);
+}
+
+function normalizeLedgerEntryIds(ledgerEntryIds: string[]): string[] {
+  return Array.from(
+    new Set(
+      ledgerEntryIds
+        .map((ledgerEntryId) => ledgerEntryId.trim())
+        .filter((ledgerEntryId) => ledgerEntryId.length > 0),
+    ),
+  );
+}
+
 function readAwardDraftFromCallable(data: unknown): ContributionPointAwardDraft {
   const record = readRecord(data);
   const draft = readRecord(record.draft ?? record);
@@ -787,6 +938,7 @@ type ParsedLedgerEntry = {
   sourceKey: string;
   description: string;
   status: string;
+  celebrationStatus: string | null;
   dishId: string | null;
   dishName: string | null;
   restaurantId: string | null;
@@ -837,6 +989,7 @@ function parseLedgerEntry(
     sourceKey,
     description,
     status: readOptionalString(data.status) ?? contributionPointStatus.active,
+    celebrationStatus: readOptionalString(data.celebrationStatus),
     dishId: readOptionalString(data.dishId),
     dishName: readOptionalString(data.dishName),
     restaurantId: readOptionalString(data.restaurantId),

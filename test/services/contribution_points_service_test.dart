@@ -513,6 +513,54 @@ void main() {
       expect(result.newlyCreatedLedgerEntryIds, isEmpty);
       expect(result.hasNewPositivePoints, isFalse);
     });
+
+    test('celebration marker wrapper calls callable with ledger IDs', () async {
+      final payloads = <Map<String, dynamic>>[];
+
+      final result =
+          await ContributionPointsService.markCelebratedLedgerEntries(
+            userId: ' user-1 ',
+            ledgerEntryIds: [' ledger-1 ', 'ledger-2', 'ledger-1', ' '],
+            callable: (payload) async {
+              payloads.add(payload);
+              return {
+                'ok': true,
+                'result': {
+                  'attemptedEntryIds': ['ledger-1', 'ledger-2'],
+                  'markedEntryIds': ['ledger-1'],
+                  'alreadyCelebratedEntryIds': ['ledger-2'],
+                  'missingEntryIds': [],
+                  'ignoredEntryIds': [],
+                },
+              };
+            },
+          );
+
+      expect(payloads.single, {
+        'ledgerEntryIds': ['ledger-1', 'ledger-2'],
+      });
+      expect(result.attemptedEntryIds, {'ledger-1', 'ledger-2'});
+      expect(result.markedEntryIds, {'ledger-1'});
+      expect(result.alreadyCelebratedEntryIds, {'ledger-2'});
+      expect(result.hasProblems, isFalse);
+    });
+
+    test('celebration marker result reports nonfatal problem buckets', () {
+      final result = ContributionPointCelebrationMarkResult.fromCallableData({
+        'ok': true,
+        'result': {
+          'attemptedEntryIds': ['ledger-1', 'ledger-2'],
+          'markedEntryIds': ['ledger-1'],
+          'alreadyCelebratedEntryIds': [],
+          'missingEntryIds': ['ledger-2'],
+          'ignoredEntryIds': ['ledger-3'],
+        },
+      });
+
+      expect(result.hasProblems, isTrue);
+      expect(result.missingEntryIds, {'ledger-2'});
+      expect(result.ignoredEntryIds, {'ledger-3'});
+    });
   });
 
   group('Contribution point admin sorting', () {

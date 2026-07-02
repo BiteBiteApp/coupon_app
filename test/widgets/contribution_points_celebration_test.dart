@@ -64,6 +64,91 @@ void main() {
     expect(find.text('Congratulations!'), findsNothing);
   });
 
+  testWidgets('award result celebration is nonfatal if marking fails', (
+    tester,
+  ) async {
+    late BuildContext hostContext;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            hostContext = context;
+            return const Scaffold(body: Text('Home'));
+          },
+        ),
+      ),
+    );
+
+    final showFuture = ContributionPointsCelebrationService.showAwardResult(
+      hostContext,
+      userId: 'user-1',
+      award: _awardResult('ledger-1', points: 2),
+      markCelebrated: ({required userId, required ledgerEntryIds}) async {
+        throw StateError('Injected marker failure');
+      },
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 260));
+
+    expect(find.text('Congratulations!'), findsOneWidget);
+    expect(find.text('You just earned 2 points!'), findsOneWidget);
+
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pump();
+    expect(await showFuture, isTrue);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('award result celebration does not repeat in one session', (
+    tester,
+  ) async {
+    late BuildContext hostContext;
+    var markCalls = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Builder(
+          builder: (context) {
+            hostContext = context;
+            return const Scaffold(body: Text('Home'));
+          },
+        ),
+      ),
+    );
+
+    final firstShowFuture =
+        ContributionPointsCelebrationService.showAwardResult(
+          hostContext,
+          userId: 'user-1',
+          award: _awardResult('ledger-1'),
+          markCelebrated: ({required userId, required ledgerEntryIds}) async {
+            markCalls += 1;
+            return ContributionPointCelebrationMarkResult(
+              attemptedEntryIds: ledgerEntryIds.toSet(),
+              markedEntryIds: ledgerEntryIds.toSet(),
+            );
+          },
+        );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 260));
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pump();
+    expect(await firstShowFuture, isTrue);
+
+    final secondShown =
+        await ContributionPointsCelebrationService.showAwardResult(
+          hostContext,
+          userId: 'user-1',
+          award: _awardResult('ledger-1'),
+          markCelebrated: ({required userId, required ledgerEntryIds}) async {
+            markCalls += 1;
+            return const ContributionPointCelebrationMarkResult();
+          },
+        );
+
+    expect(secondShown, isFalse);
+    expect(markCalls, 1);
+  });
+
   test(
     'delayed celebration totals ignore reversals and zero-point entries',
     () {
@@ -128,6 +213,21 @@ void main() {
       ['ledger-2'],
     );
   });
+}
+
+ContributionPointAwardResult _awardResult(
+  String ledgerEntryId, {
+  int points = 1,
+}) {
+  return ContributionPointAwardResult(
+    entries: [
+      ContributionPointAwardEntryResult(
+        ledgerEntryId: ledgerEntryId,
+        points: points,
+        wasCreated: true,
+      ),
+    ],
+  );
 }
 
 ContributionPointLedgerEntry _entry({

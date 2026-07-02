@@ -6,6 +6,12 @@ import 'package:flutter/material.dart';
 
 import 'contribution_points_service.dart';
 
+typedef ContributionPointCelebrationMarker =
+    Future<ContributionPointCelebrationMarkResult> Function({
+      required String userId,
+      required Iterable<String> ledgerEntryIds,
+    });
+
 class ContributionPointsCelebrationService {
   static const Duration displayDuration = Duration(milliseconds: 4100);
   static const String popSoundAsset = 'sounds/contribution_pop.wav';
@@ -75,6 +81,7 @@ class ContributionPointsCelebrationService {
     required String userId,
     required ContributionPointAwardResult award,
     String debugSource = 'contribution_points_award',
+    ContributionPointCelebrationMarker? markCelebrated,
   }) async {
     final ledgerIds = unshownLedgerEntryIdsThisSession(
       award.newlyCreatedLedgerEntryIds,
@@ -99,7 +106,8 @@ class ContributionPointsCelebrationService {
         rememberLedgerEntriesShownThisSession(ledgerIds);
         try {
           final result =
-              await ContributionPointsService.markCelebratedLedgerEntries(
+              await (markCelebrated ??
+                  ContributionPointsService.markCelebratedLedgerEntries)(
                 userId: userId,
                 ledgerEntryIds: ledgerIds,
               );

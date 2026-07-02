@@ -27,6 +27,7 @@ import {
   awardDishImageContributionPointsCallableHandler,
   awardContributionPointsCallableHandler,
   awardReviewMilestoneContributionPointsCallableHandler,
+  markContributionPointLedgerEntriesCelebratedCallableHandler,
   reverseContributionPointLedgerEntryCallableHandler,
 } from "./contribution_points_helpers.js";
 import {
@@ -2875,6 +2876,15 @@ export const awardReviewMilestoneContributionPoints = onCall(
 export const awardDishImageContributionPoints = onCall(async (request) => {
   return awardDishImageContributionPointsCallableHandler(db, request);
 });
+
+export const markContributionPointLedgerEntriesCelebrated = onCall(
+  async (request) => {
+    return markContributionPointLedgerEntriesCelebratedCallableHandler(
+      db,
+      request,
+    );
+  },
+);
 
 export const reverseContributionPointLedgerEntry = onCall(async (request) => {
   return reverseContributionPointLedgerEntryCallableHandler(db, request);
