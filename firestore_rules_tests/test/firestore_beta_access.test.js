@@ -72,6 +72,56 @@ function dbFor(actorName) {
   return actors[actorName].firestore();
 }
 
+function biteScoreRestaurantCreateData({
+  id = "new-restaurant-1",
+  createdByUserId = "customer-a",
+} = {}) {
+  return {
+    id,
+    name: "New Provenance Pizza",
+    restaurantName: "New Provenance Pizza",
+    normalizedName: "new provenance pizza",
+    address: "2 Main St",
+    streetAddress: "2 Main St",
+    city: "Lecanto",
+    state: "FL",
+    zipCode: "34461",
+    location: new firebase.firestore.GeoPoint(28.8517, -82.487),
+    isClaimed: false,
+    isActive: true,
+    active: true,
+    createdByUserId,
+    createdFromCreateFlow: true,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+}
+
+function biteScoreDishCreateData({
+  id = "new-dish-1",
+  restaurantId = "bs-1",
+  createdByUserId = "customer-a",
+  createdFromReviewId = "new-dish-1_customer-a",
+  createdWithRestaurantId = restaurantId,
+} = {}) {
+  return {
+    id,
+    restaurantId,
+    restaurantName: "BiteScore Pizza",
+    name: "New Pizza Slice",
+    normalizedName: "new pizza slice",
+    category: "Pizza",
+    isActive: true,
+    imageCount: 0,
+    createdByUserId,
+    createdFromReviewId,
+    createdWithRestaurantId,
+    createdFromCreateFlow: true,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+}
+
 async function seedFirestore() {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
@@ -805,6 +855,200 @@ test("wrong users cannot manage a claimed BiteScore owner's content", async () =
     dbFor("wrongRestaurantOwner").doc("bitescore_restaurants/bs-1").set(
       {
         bio: "Forged bio",
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+});
+
+test("BiteScore dish provenance owner can create with own provenance", async () => {
+  await assertSucceeds(
+    dbFor("customer")
+      .doc("bitescore_dishes/new-dish-1")
+      .set(biteScoreDishCreateData()),
+  );
+});
+
+test("BiteScore dish provenance cannot be forged on create", async () => {
+  await assertFails(
+    dbFor("customer").doc("bitescore_dishes/forged-dish-1").set(
+      biteScoreDishCreateData({
+        id: "forged-dish-1",
+        createdByUserId: "customer-b",
+      }),
+    ),
+  );
+});
+
+test("BiteScore dish provenance cannot change after create", async () => {
+  const db = dbFor("customer");
+  await assertSucceeds(
+    db.doc("bitescore_dishes/new-dish-2").set(
+      biteScoreDishCreateData({
+        id: "new-dish-2",
+        createdFromReviewId: "new-dish-2_customer-a",
+      }),
+    ),
+  );
+
+  await assertFails(
+    db.doc("bitescore_dishes/new-dish-2").set(
+      { createdByUserId: "customer-b" },
+      { merge: true },
+    ),
+  );
+  await assertFails(
+    db.doc("bitescore_dishes/new-dish-2").set(
+      { createdFromReviewId: "forged-review" },
+      { merge: true },
+    ),
+  );
+  await assertFails(
+    db.doc("bitescore_dishes/new-dish-2").set(
+      { createdWithRestaurantId: "forged-restaurant" },
+      { merge: true },
+    ),
+  );
+});
+
+test("BiteScore dish provenance cannot be added later to old dishes", async () => {
+  await assertFails(
+    dbFor("customer").doc("bitescore_dishes/dish-1").set(
+      {
+        createdByUserId: "customer-a",
+        createdFromReviewId: "dish-1_customer-a",
+        createdWithRestaurantId: "bs-1",
+        createdFromCreateFlow: true,
+      },
+      { merge: true },
+    ),
+  );
+});
+
+test("old BiteScore dish docs without provenance remain readable and updatable", async () => {
+  const db = dbFor("customer");
+  await assertSucceeds(db.doc("bitescore_dishes/dish-1").get());
+  await assertSucceeds(
+    db.doc("bitescore_dishes/dish-1").set(
+      {
+        category: "Pizza",
+        subcategory: "Slices",
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+});
+
+test("BiteScore restaurant provenance owner can create initial provenance", async () => {
+  await assertSucceeds(
+    dbFor("customer")
+      .doc("bitescore_restaurants/new-restaurant-1")
+      .set(biteScoreRestaurantCreateData()),
+  );
+});
+
+test("BiteScore restaurant provenance cannot be forged on create", async () => {
+  await assertFails(
+    dbFor("customer").doc("bitescore_restaurants/forged-restaurant-1").set(
+      biteScoreRestaurantCreateData({
+        id: "forged-restaurant-1",
+        createdByUserId: "customer-b",
+      }),
+    ),
+  );
+});
+
+test("BiteScore restaurant creator can complete provenance once", async () => {
+  const db = dbFor("customer");
+  await assertSucceeds(
+    db.doc("bitescore_restaurants/new-restaurant-2").set(
+      biteScoreRestaurantCreateData({ id: "new-restaurant-2" }),
+    ),
+  );
+
+  await assertSucceeds(
+    db.doc("bitescore_restaurants/new-restaurant-2").set(
+      {
+        createdFromDishId: "new-dish-2",
+        createdFromReviewId: "new-dish-2_customer-a",
+      },
+      { merge: true },
+    ),
+  );
+});
+
+test("wrong user cannot complete BiteScore restaurant provenance", async () => {
+  await assertSucceeds(
+    dbFor("customer").doc("bitescore_restaurants/new-restaurant-3").set(
+      biteScoreRestaurantCreateData({ id: "new-restaurant-3" }),
+    ),
+  );
+
+  await assertFails(
+    dbFor("wrongCustomer").doc("bitescore_restaurants/new-restaurant-3").set(
+      {
+        createdFromDishId: "new-dish-3",
+        createdFromReviewId: "new-dish-3_customer-a",
+      },
+      { merge: true },
+    ),
+  );
+});
+
+test("BiteScore restaurant completed provenance cannot change", async () => {
+  const db = dbFor("customer");
+  await assertSucceeds(
+    db.doc("bitescore_restaurants/new-restaurant-4").set(
+      biteScoreRestaurantCreateData({ id: "new-restaurant-4" }),
+    ),
+  );
+  await assertSucceeds(
+    db.doc("bitescore_restaurants/new-restaurant-4").set(
+      {
+        createdFromDishId: "new-dish-4",
+        createdFromReviewId: "new-dish-4_customer-a",
+      },
+      { merge: true },
+    ),
+  );
+
+  await assertFails(
+    db.doc("bitescore_restaurants/new-restaurant-4").set(
+      { createdFromDishId: "forged-dish" },
+      { merge: true },
+    ),
+  );
+  await assertFails(
+    db.doc("bitescore_restaurants/new-restaurant-4").set(
+      { createdFromReviewId: "forged-review" },
+      { merge: true },
+    ),
+  );
+});
+
+test("BiteScore restaurant provenance cannot be added later to old restaurants", async () => {
+  await assertFails(
+    dbFor("biteScoreOwner").doc("bitescore_restaurants/bs-1").set(
+      {
+        createdByUserId: "bitescore-owner",
+        createdFromDishId: "dish-1",
+        createdFromReviewId: "dish-1_bitescore-owner",
+        createdFromCreateFlow: true,
+      },
+      { merge: true },
+    ),
+  );
+});
+
+test("old BiteScore restaurant docs without provenance remain readable and updatable", async () => {
+  const db = dbFor("biteScoreOwner");
+  await assertSucceeds(db.doc("bitescore_restaurants/bs-1").get());
+  await assertSucceeds(
+    db.doc("bitescore_restaurants/bs-1").set(
+      {
+        bio: "Still owner editable",
         updatedAt: serverTimestamp(),
       },
       { merge: true },

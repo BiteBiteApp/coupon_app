@@ -234,9 +234,89 @@ service cloud.firestore {
         changedKeys().hasOnly(biteScoreRestaurantOwnerFields());
     }
 
+    function nonEmptyRequestString(fieldName) {
+      return request.resource.data[fieldName] is string &&
+        request.resource.data[fieldName].size() > 0;
+    }
+
+    function biteScoreDishProvenanceFields() {
+      return [
+        'createdByUserId',
+        'createdFromReviewId',
+        'createdWithRestaurantId',
+        'createdFromCreateFlow'
+      ];
+    }
+
+    function biteScoreRestaurantProvenanceFields() {
+      return [
+        'createdByUserId',
+        'createdFromDishId',
+        'createdFromReviewId',
+        'createdFromCreateFlow'
+      ];
+    }
+
+    function biteScoreRestaurantCompletionFields() {
+      return [
+        'createdFromDishId',
+        'createdFromReviewId'
+      ];
+    }
+
+    function validBiteScoreDishCreateProvenance() {
+      return request.resource.data.createdByUserId == request.auth.uid &&
+        request.resource.data.createdFromCreateFlow == true &&
+        nonEmptyRequestString('createdFromReviewId') &&
+        nonEmptyRequestString('createdWithRestaurantId') &&
+        request.resource.data.createdWithRestaurantId == request.resource.data.restaurantId;
+    }
+
+    function biteScoreDishProvenanceUnchanged() {
+      return !changedKeys().hasAny(biteScoreDishProvenanceFields());
+    }
+
+    function validBiteScoreRestaurantInitialProvenance() {
+      return request.resource.data.createdByUserId == request.auth.uid &&
+        request.resource.data.createdFromCreateFlow == true &&
+        !('createdFromDishId' in request.resource.data) &&
+        !('createdFromReviewId' in request.resource.data);
+    }
+
+    function completesMissingRestaurantDishProvenance() {
+      return !changedKeys().hasAny(['createdFromDishId']) ||
+        (
+          !('createdFromDishId' in resource.data) &&
+          nonEmptyRequestString('createdFromDishId')
+        );
+    }
+
+    function completesMissingRestaurantReviewProvenance() {
+      return !changedKeys().hasAny(['createdFromReviewId']) ||
+        (
+          !('createdFromReviewId' in resource.data) &&
+          nonEmptyRequestString('createdFromReviewId')
+        );
+    }
+
+    function canCompleteBiteScoreRestaurantProvenance() {
+      return emailVerified() &&
+        resource.data.createdByUserId == request.auth.uid &&
+        resource.data.createdFromCreateFlow == true &&
+        changedKeys().hasOnly(biteScoreRestaurantCompletionFields()) &&
+        changedKeys().hasAny(biteScoreRestaurantCompletionFields()) &&
+        completesMissingRestaurantDishProvenance() &&
+        completesMissingRestaurantReviewProvenance();
+    }
+
+    function biteScoreRestaurantProvenanceUnchanged() {
+      return !changedKeys().hasAny(biteScoreRestaurantProvenanceFields());
+    }
+
     function canCreatePublicBiteScoreRestaurant(restaurantId) {
       return emailVerified() &&
         request.resource.data.id == restaurantId &&
+        validBiteScoreRestaurantInitialProvenance() &&
         (!('ownerUserId' in request.resource.data) ||
           request.resource.data.ownerUserId == null ||
           request.resource.data.ownerUserId == '') &&
@@ -470,28 +550,44 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isAdmin() ||
         canCreatePublicBiteScoreRestaurant(restaurantId);
-      allow update: if isAdmin() || canOwnerUpdateBiteScoreRestaurant(restaurantId);
+      allow update: if (
+          isAdmin() ||
+          canOwnerUpdateBiteScoreRestaurant(restaurantId) ||
+          canCompleteBiteScoreRestaurantProvenance()
+        ) &&
+        (
+          biteScoreRestaurantProvenanceUnchanged() ||
+          canCompleteBiteScoreRestaurantProvenance()
+        );
       allow delete: if isAdmin();
     }
 
     match /bitescore_dishes/{dishId} {
       allow read: if true;
-      allow create: if isAdmin() || emailVerified();
-      allow update: if isAdmin() ||
-        ownerOfBiteScoreRestaurant(resource.data.restaurantId) ||
+      allow create: if isAdmin() ||
         (
           emailVerified() &&
-          changedKeys().hasOnly([
-            'category',
-            'subcategory',
-            'categoryManualKeywords',
-            'categoryTags',
-            'imageCount',
-            'primaryImageId',
-            'primaryImageUrl',
-            'updatedAt'
-          ])
+          request.resource.data.id == dishId &&
+          validBiteScoreDishCreateProvenance()
         );
+      allow update: if (
+          isAdmin() ||
+          ownerOfBiteScoreRestaurant(resource.data.restaurantId) ||
+          (
+            emailVerified() &&
+            changedKeys().hasOnly([
+              'category',
+              'subcategory',
+              'categoryManualKeywords',
+              'categoryTags',
+              'imageCount',
+              'primaryImageId',
+              'primaryImageUrl',
+              'updatedAt'
+            ])
+          )
+        ) &&
+        biteScoreDishProvenanceUnchanged();
       allow delete: if isAdmin();
     }
 
