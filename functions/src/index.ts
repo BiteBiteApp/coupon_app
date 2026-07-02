@@ -24,6 +24,7 @@ import {
 import { setGlobalOptions } from "firebase-functions/v2/options";
 import Stripe from "stripe";
 import {
+  awardApprovedDishProposalContributionPointsCallableHandler,
   awardDishImageContributionPointsCallableHandler,
   awardContributionPointsCallableHandler,
   awardCreatedDishContributionPointsCallableHandler,
@@ -2881,6 +2882,15 @@ export const awardDishImageContributionPoints = onCall(async (request) => {
 export const awardCreatedDishContributionPoints = onCall(async (request) => {
   return awardCreatedDishContributionPointsCallableHandler(db, request);
 });
+
+export const awardApprovedDishProposalContributionPoints = onCall(
+  async (request) => {
+    return awardApprovedDishProposalContributionPointsCallableHandler(
+      db,
+      request,
+    );
+  },
+);
 
 export const markContributionPointLedgerEntriesCelebrated = onCall(
   async (request) => {

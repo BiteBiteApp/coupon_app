@@ -23,6 +23,9 @@ export const contributionPointAction = {
   dishImageAdded: "dish_image_added",
   restaurantFirstDish: "restaurant_first_dish",
   newRestaurantFirstDish: "new_restaurant_first_dish",
+  dishEditApproved: "dish_edit_approved",
+  dishRenameApproved: "dish_rename_approved",
+  dishMergeApproved: "dish_merge_approved",
   contributionReversed: "contribution_reversed",
 } as const;
 
@@ -647,6 +650,71 @@ export async function awardCreatedDishContributionPointsCallableHandler(
   };
 }
 
+export async function awardApprovedDishProposalContributionPointsCallableHandler(
+  db: FirestoreLike,
+  request: CallableRequest<unknown>,
+  options: HelperOptions = {},
+): Promise<{ ok: true; result: ContributionPointAwardResult }> {
+  requireContributionPointAdmin(request.auth);
+  const data = readRecord(request.data);
+  const proposalId = readRequiredString(data.proposalId, "proposalId");
+  const proposalSnapshot = await db
+    .collection("dish_edit_proposals")
+    .doc(proposalId)
+    .get();
+  if (!proposalSnapshot.exists) {
+    throw new HttpsError("not-found", "Dish edit proposal not found.");
+  }
+
+  const proposal = parseDishEditProposal(proposalSnapshot);
+  if (!proposal) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Dish edit proposal is incomplete.",
+    );
+  }
+  if (!isAwardableDishEditProposalStatus(proposal.status)) {
+    return noAwardResponse();
+  }
+
+  const targetDishSnapshot = await db
+    .collection("bitescore_dishes")
+    .doc(proposal.targetDishId)
+    .get();
+  const targetDishData = targetDishSnapshot.data() ?? {};
+  const restaurantSnapshot = await db
+    .collection("bitescore_restaurants")
+    .doc(proposal.restaurantId)
+    .get();
+  const restaurantData = restaurantSnapshot.data() ?? {};
+  const mergeTargetDishSnapshot = proposal.mergeTargetDishId
+    ? await db
+      .collection("bitescore_dishes")
+      .doc(proposal.mergeTargetDishId)
+      .get()
+    : null;
+  const mergeTargetDishData = mergeTargetDishSnapshot?.data() ?? {};
+  const oldValueFromClient = readOptionalString(data.oldValue);
+  const newValueFromClient = readOptionalString(data.newValue);
+
+  const draft = approvedDishProposalAwardDraft({
+    proposal,
+    targetDishData,
+    mergeTargetDishData,
+    restaurantData,
+    oldValueFromClient,
+    newValueFromClient,
+  });
+  if (!draft) {
+    return noAwardResponse();
+  }
+
+  return {
+    ok: true,
+    result: await awardContributionPointsTransaction(db, draft, options),
+  };
+}
+
 export async function markContributionPointLedgerEntriesCelebratedTransaction(
   db: FirestoreLike,
   params: { userId: string; ledgerEntryIds: string[] },
@@ -1100,6 +1168,222 @@ function createdDishAwardDraft(params: {
     restaurantPhone: readOptionalString(params.restaurantData.phone),
     reviewId: params.reviewId,
   };
+}
+
+type ParsedDishEditProposal = {
+  id: string;
+  type: string;
+  restaurantId: string;
+  targetDishId: string;
+  mergeTargetDishId: string | null;
+  proposedName: string | null;
+  userId: string;
+  status: string;
+};
+
+function parseDishEditProposal(
+  snapshot: DocumentSnapshotLike,
+): ParsedDishEditProposal | null {
+  const data = snapshot.data();
+  if (!data) {
+    return null;
+  }
+
+  const type = readOptionalString(data.type) ??
+    readOptionalString(data.targetType);
+  const restaurantId = readOptionalString(data.restaurantId);
+  const sourceDishId = readOptionalString(data.sourceDishId);
+  const storedTargetDishId = readOptionalString(data.targetDishId) ??
+    readOptionalString(data.targetId);
+  const targetDishId = sourceDishId ?? storedTargetDishId;
+  const mergeTargetDishId = readOptionalString(data.mergeTargetDishId) ??
+    (type === "merge" && sourceDishId !== null ? storedTargetDishId : null);
+  const userId = readOptionalString(data.userId) ??
+    readOptionalString(data.createdByUserId);
+
+  if (
+    type === null ||
+    restaurantId === null ||
+    targetDishId === null ||
+    userId === null
+  ) {
+    return null;
+  }
+
+  return {
+    id: readOptionalString(data.id) ?? snapshot.id,
+    type,
+    restaurantId,
+    targetDishId,
+    mergeTargetDishId,
+    proposedName: readOptionalString(data.proposedName),
+    userId,
+    status: readOptionalString(data.status) ?? "pending",
+  };
+}
+
+function isAwardableDishEditProposalStatus(status: string): boolean {
+  const normalizedStatus = status.trim().toLowerCase();
+  return normalizedStatus === "pending" || normalizedStatus === "approved";
+}
+
+function approvedDishProposalAwardDraft(params: {
+  proposal: ParsedDishEditProposal;
+  targetDishData: Record<string, unknown>;
+  mergeTargetDishData: Record<string, unknown>;
+  restaurantData: Record<string, unknown>;
+  oldValueFromClient: string | null;
+  newValueFromClient: string | null;
+}): ContributionPointAwardDraft | null {
+  const { proposal, targetDishData, mergeTargetDishData, restaurantData } =
+    params;
+  const actionType = approvedDishProposalActionType(proposal);
+  const targetDishName = readOptionalString(targetDishData.name) ??
+    proposal.proposedName;
+  const mergeTargetDishName = readOptionalString(mergeTargetDishData.name);
+  const oldValue = proposal.type === "rename"
+    ? params.oldValueFromClient
+    : targetDishName;
+  const newValue = proposal.type === "rename"
+    ? proposal.proposedName ?? params.newValueFromClient ?? targetDishName
+    : mergeTargetDishName;
+
+  if (
+    proposal.type === "rename" &&
+    proposal.proposedName !== null &&
+    params.newValueFromClient !== null &&
+    proposal.proposedName !== params.newValueFromClient
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      "New value does not match the proposal.",
+    );
+  }
+
+  if (
+    proposal.type === "rename" &&
+    !isMeaningfulApprovedDishRename({
+      currentName: oldValue,
+      proposedName: newValue,
+    })
+  ) {
+    return null;
+  }
+  if (proposal.type === "merge" && proposal.mergeTargetDishId === null) {
+    return null;
+  }
+  if (
+    proposal.type === "merge" &&
+    (targetDishName === null || mergeTargetDishName === null)
+  ) {
+    return null;
+  }
+
+  const restaurantName =
+    readOptionalString(restaurantData.name) ??
+    readOptionalString(restaurantData.restaurantName);
+
+  return {
+    userId: proposal.userId,
+    points: 1,
+    actionType,
+    sourceKey: approvedProposalSourceKey({
+      actionType,
+      requestId: proposal.id,
+    }),
+    description: approvedDishProposalDescription({
+      actionType,
+      dishName: targetDishName,
+      oldValue,
+      newValue,
+      mergeSourceDishName: proposal.type === "merge" ? targetDishName : null,
+      mergeTargetDishName: proposal.type === "merge" ? mergeTargetDishName : null,
+    }),
+    dishId: proposal.targetDishId,
+    dishName: targetDishName,
+    restaurantId: proposal.restaurantId,
+    restaurantName,
+    restaurantCity: readOptionalString(restaurantData.city),
+    restaurantState: readOptionalString(restaurantData.state),
+    restaurantAddress:
+      readOptionalString(restaurantData.address) ??
+      readOptionalString(restaurantData.streetAddress),
+    restaurantPhone: readOptionalString(restaurantData.phone),
+    requestId: proposal.id,
+    oldValue,
+    newValue,
+    mergeSourceDishId: proposal.type === "merge" ? proposal.targetDishId : null,
+    mergeSourceDishName: proposal.type === "merge" ? targetDishName : null,
+    mergeTargetDishId: proposal.type === "merge"
+      ? proposal.mergeTargetDishId
+      : null,
+    mergeTargetDishName: proposal.type === "merge" ? mergeTargetDishName : null,
+  };
+}
+
+function approvedDishProposalActionType(
+  proposal: ParsedDishEditProposal,
+): string {
+  if (proposal.type === "merge") {
+    return contributionPointAction.dishMergeApproved;
+  }
+  if (proposal.type === "rename") {
+    return contributionPointAction.dishRenameApproved;
+  }
+  return contributionPointAction.dishEditApproved;
+}
+
+function approvedProposalSourceKey(params: {
+  actionType: string;
+  requestId: string;
+}): string {
+  return `${params.actionType.trim()}:${params.requestId.trim()}`;
+}
+
+function approvedDishProposalDescription(params: {
+  actionType: string;
+  dishName: string | null;
+  oldValue: string | null;
+  newValue: string | null;
+  mergeSourceDishName: string | null;
+  mergeTargetDishName: string | null;
+}): string {
+  const dishName = nullableTrim(params.dishName);
+  const oldValue = nullableTrim(params.oldValue);
+  const newValue = nullableTrim(params.newValue);
+  const mergeSourceDishName = nullableTrim(params.mergeSourceDishName);
+  const mergeTargetDishName = nullableTrim(params.mergeTargetDishName);
+
+  if (params.actionType === contributionPointAction.dishMergeApproved) {
+    if (mergeSourceDishName !== null && mergeTargetDishName !== null) {
+      return `Approved merge of ${mergeSourceDishName} into ${mergeTargetDishName}`;
+    }
+    return "Approved dish merge contribution";
+  }
+
+  if (params.actionType === contributionPointAction.dishRenameApproved) {
+    if (oldValue !== null && newValue !== null) {
+      return `Approved dish rename: ${oldValue} -> ${newValue}`;
+    }
+    return "Approved dish rename contribution";
+  }
+
+  if (dishName !== null) {
+    return `Approved dish information edit for ${dishName}`;
+  }
+  return "Approved dish edit contribution";
+}
+
+function isMeaningfulApprovedDishRename(params: {
+  currentName: string | null;
+  proposedName: string | null;
+}): boolean {
+  const currentName = nullableTrim(params.currentName);
+  const proposedName = nullableTrim(params.proposedName);
+  if (currentName === null || proposedName === null) {
+    return false;
+  }
+  return currentName !== proposedName;
 }
 
 function combineContributionPointAwardResults(

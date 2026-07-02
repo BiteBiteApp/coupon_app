@@ -2,6 +2,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const {
+  awardApprovedDishProposalContributionPointsCallableHandler,
   awardCreatedDishContributionPointsCallableHandler,
   awardDishImageContributionPointsCallableHandler,
   awardContributionPointsCallableHandler,
@@ -803,6 +804,202 @@ test("duplicate created dish callable does not double-award", async () => {
   assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 3);
 });
 
+test("approved proposal callable lets admins award rename proposal points", async () => {
+  const db = new FakeFirestore();
+  seedApprovedProposalAwardData(db, {
+    proposalId: "proposal-1",
+    userId: "submitter-1",
+    type: "rename",
+  });
+
+  const response =
+    await awardApprovedDishProposalContributionPointsCallableHandler(
+      db,
+      callableRequest({
+        auth: adminAuth(),
+        data: {
+          proposalId: "proposal-1",
+          oldValue: "Pizza",
+          newValue: "House Pizza",
+          points: 99,
+          userId: "attacker",
+        },
+      }),
+      { fieldValues: fakeFieldValues },
+    );
+  const ledgerId = buildContributionLedgerDocumentIdFromSourceKey(
+    "dish_rename_approved:proposal-1",
+  );
+  const entry = db.get(ledgerPath(ledgerId));
+
+  assert.equal(response.ok, true);
+  assert.deepEqual(response.result.entries, [
+    { ledgerEntryId: ledgerId, points: 1, wasCreated: true },
+  ]);
+  assert.equal(entry.userId, "submitter-1");
+  assert.equal(entry.pointsDelta, 1);
+  assert.equal(entry.actionType, "dish_rename_approved");
+  assert.equal(entry.sourceKey, "dish_rename_approved:proposal-1");
+  assert.equal(entry.description, "Approved dish rename: Pizza -> House Pizza");
+  assert.equal(entry.dishId, "dish-1");
+  assert.equal(entry.dishName, "House Pizza");
+  assert.equal(entry.restaurantId, "restaurant-1");
+  assert.equal(entry.restaurantName, "Pizza Place");
+  assert.equal(entry.requestId, "proposal-1");
+  assert.equal(entry.oldValue, "Pizza");
+  assert.equal(entry.newValue, "House Pizza");
+  assert.equal(db.get(userProfilePath("submitter-1")).contributionPoints, 1);
+  assert.equal(db.get(userProfilePath("attacker")), undefined);
+});
+
+test("approved proposal callable lets admins award merge proposal points", async () => {
+  const db = new FakeFirestore();
+  seedApprovedProposalAwardData(db, {
+    proposalId: "merge-proposal",
+    userId: "submitter-1",
+    type: "merge",
+  });
+
+  const response =
+    await awardApprovedDishProposalContributionPointsCallableHandler(
+      db,
+      callableRequest({
+        auth: adminAuth(),
+        data: { proposalId: "merge-proposal" },
+      }),
+      { fieldValues: fakeFieldValues },
+    );
+  const ledgerId = buildContributionLedgerDocumentIdFromSourceKey(
+    "dish_merge_approved:merge-proposal",
+  );
+  const entry = db.get(ledgerPath(ledgerId));
+
+  assert.deepEqual(response.result.entries, [
+    { ledgerEntryId: ledgerId, points: 1, wasCreated: true },
+  ]);
+  assert.equal(entry.actionType, "dish_merge_approved");
+  assert.equal(entry.description, "Approved merge of Pizza into House Pizza");
+  assert.equal(entry.oldValue, "Pizza");
+  assert.equal(entry.newValue, "House Pizza");
+  assert.equal(entry.mergeSourceDishId, "dish-1");
+  assert.equal(entry.mergeSourceDishName, "Pizza");
+  assert.equal(entry.mergeTargetDishId, "dish-2");
+  assert.equal(entry.mergeTargetDishName, "House Pizza");
+  assert.equal(db.get(userProfilePath("submitter-1")).contributionPoints, 1);
+});
+
+test("approved proposal callable rejects non-admins and missing proposals", async () => {
+  const db = new FakeFirestore();
+  seedApprovedProposalAwardData(db, {
+    proposalId: "proposal-1",
+    userId: "submitter-1",
+    type: "rename",
+  });
+
+  await assert.rejects(
+    () =>
+      awardApprovedDishProposalContributionPointsCallableHandler(
+        db,
+        callableRequest({
+          auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+          data: { proposalId: "proposal-1", oldValue: "Pizza" },
+        }),
+        { fieldValues: fakeFieldValues },
+      ),
+    (error) => error.code === "permission-denied",
+  );
+  await assert.rejects(
+    () =>
+      awardApprovedDishProposalContributionPointsCallableHandler(
+        db,
+        callableRequest({
+          auth: adminAuth(),
+          data: { proposalId: "missing-proposal" },
+        }),
+        { fieldValues: fakeFieldValues },
+      ),
+    (error) => error.code === "not-found",
+  );
+  assert.equal(db.get(userProfilePath("submitter-1")), undefined);
+});
+
+test("approved proposal callable safely no-ops rejected and no-op rename proposals", async () => {
+  const db = new FakeFirestore();
+  seedApprovedProposalAwardData(db, {
+    proposalId: "rejected-proposal",
+    userId: "submitter-1",
+    type: "rename",
+    status: "rejected",
+  });
+  seedApprovedProposalAwardData(db, {
+    proposalId: "noop-proposal",
+    userId: "submitter-1",
+    type: "rename",
+  });
+
+  const rejected =
+    await awardApprovedDishProposalContributionPointsCallableHandler(
+      db,
+      callableRequest({
+        auth: adminAuth(),
+        data: {
+          proposalId: "rejected-proposal",
+          oldValue: "Pizza",
+          newValue: "House Pizza",
+        },
+      }),
+      { fieldValues: fakeFieldValues },
+    );
+  const noOp = await awardApprovedDishProposalContributionPointsCallableHandler(
+    db,
+    callableRequest({
+      auth: adminAuth(),
+      data: {
+        proposalId: "noop-proposal",
+        oldValue: "House Pizza",
+        newValue: "House Pizza",
+      },
+    }),
+    { fieldValues: fakeFieldValues },
+  );
+
+  assert.deepEqual(rejected.result, { entries: [] });
+  assert.deepEqual(noOp.result, { entries: [] });
+  assert.equal(db.get(userProfilePath("submitter-1")), undefined);
+});
+
+test("duplicate approved proposal callable does not double-award", async () => {
+  const db = new FakeFirestore();
+  seedApprovedProposalAwardData(db, {
+    proposalId: "proposal-1",
+    userId: "submitter-1",
+    type: "rename",
+  });
+  const request = callableRequest({
+    auth: adminAuth(),
+    data: {
+      proposalId: "proposal-1",
+      oldValue: "Pizza",
+      newValue: "House Pizza",
+    },
+  });
+
+  await awardApprovedDishProposalContributionPointsCallableHandler(
+    db,
+    request,
+    { fieldValues: fakeFieldValues },
+  );
+  const duplicate =
+    await awardApprovedDishProposalContributionPointsCallableHandler(
+      db,
+      request,
+      { fieldValues: fakeFieldValues },
+    );
+
+  assert.equal(duplicate.result.entries[0].wasCreated, false);
+  assert.equal(db.get(userProfilePath("submitter-1")).contributionPoints, 1);
+});
+
 test("source-specific callables share the cached contribution total", async () => {
   const db = new FakeFirestore();
   seedPublicReviews(db, { userId: "user-1", count: 5 });
@@ -1193,6 +1390,44 @@ function seedCreatedDishAwardData(db, {
         }
       : {}),
     ...restaurantOverrides,
+  });
+}
+
+function seedApprovedProposalAwardData(db, {
+  proposalId,
+  userId,
+  type,
+  status = "pending",
+}) {
+  db.seed(`dish_edit_proposals/${proposalId}`, {
+    id: proposalId,
+    type,
+    restaurantId: "restaurant-1",
+    targetDishId: "dish-1",
+    mergeTargetDishId: type === "merge" ? "dish-2" : null,
+    proposedName: type === "rename" ? "House Pizza" : null,
+    userId,
+    status,
+  });
+  db.seed("bitescore_dishes/dish-1", {
+    id: "dish-1",
+    name: type === "rename" ? "House Pizza" : "Pizza",
+    restaurantId: "restaurant-1",
+    isActive: true,
+  });
+  db.seed("bitescore_dishes/dish-2", {
+    id: "dish-2",
+    name: "House Pizza",
+    restaurantId: "restaurant-1",
+    isActive: true,
+  });
+  db.seed("bitescore_restaurants/restaurant-1", {
+    id: "restaurant-1",
+    name: "Pizza Place",
+    city: "Lecanto",
+    state: "FL",
+    address: "1 Main St",
+    phone: "555-0100",
   });
 }
 

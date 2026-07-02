@@ -6238,12 +6238,8 @@ class BiteScoreService {
     required String approvedStatus,
   }) async {
     var shouldAwardApprovedContribution = false;
-    BitescoreDish? awardDish = entry.targetDish;
-    BitescoreRestaurant? awardRestaurant;
     String? awardOldValue;
     String? awardNewValue;
-    BitescoreDish? awardMergeSourceDish;
-    BitescoreDish? awardMergeTargetDish;
     if (entry.isRename) {
       final targetDish = entry.targetDish;
       final proposedName = _normalizeDishNameForSave(entry.proposedName ?? '');
@@ -6285,7 +6281,6 @@ class BiteScoreService {
               : Timestamp.fromDate(targetDish.createdAt!),
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
-        awardDish = updatedDish;
         awardOldValue = targetDish.name;
         awardNewValue = proposedName;
       }
@@ -6309,26 +6304,18 @@ class BiteScoreService {
         mergeTargetDish: freshMergeTargetDish!,
       );
       shouldAwardApprovedContribution = true;
-      awardDish = freshTargetDish;
       awardOldValue = freshTargetDish.name;
       awardNewValue = freshMergeTargetDish.name;
-      awardMergeSourceDish = freshTargetDish;
-      awardMergeTargetDish = freshMergeTargetDish;
     } else {
       throw ArgumentError('Unknown dish edit suggestion type.');
     }
 
     if (shouldAwardApprovedContribution) {
-      awardRestaurant = await loadRestaurantById(entry.restaurantId);
       for (final proposal in entry.proposals) {
-        await ContributionPointsService.awardApprovedDishProposal(
-          proposal: proposal,
-          dish: awardDish,
-          restaurant: awardRestaurant,
+        await ContributionPointsService.awardApprovedDishProposalContributionPoints(
+          proposalId: proposal.id,
           oldValue: awardOldValue,
           newValue: awardNewValue,
-          mergeSourceDish: awardMergeSourceDish,
-          mergeTargetDish: awardMergeTargetDish,
         );
       }
     }

@@ -645,6 +645,30 @@ class ContributionPointsService {
     );
   }
 
+  static Future<ContributionPointAwardResult>
+  awardApprovedDishProposalContributionPoints({
+    required String proposalId,
+    String? oldValue,
+    String? newValue,
+    ContributionPointCallable? callable,
+  }) async {
+    final trimmedProposalId = proposalId.trim();
+    final trimmedOldValue = oldValue?.trim();
+    final trimmedNewValue = newValue?.trim();
+    if (trimmedProposalId.isEmpty) {
+      return const ContributionPointAwardResult();
+    }
+
+    final response = await (callable ?? _awardApprovedDishProposalCallable)({
+      'proposalId': trimmedProposalId,
+      if (trimmedOldValue != null && trimmedOldValue.isNotEmpty)
+        'oldValue': trimmedOldValue,
+      if (trimmedNewValue != null && trimmedNewValue.isNotEmpty)
+        'newValue': trimmedNewValue,
+    });
+    return ContributionPointAwardResult.fromCallableData(response);
+  }
+
   static Future<ContributionPointAwardResult> reconcileReviewMilestones({
     required String userId,
     required int validPublicReviewCount,
@@ -805,6 +829,15 @@ class ContributionPointsService {
   ) async {
     return _callContributionPointAwardFunction(
       'awardCreatedDishContributionPoints',
+      payload,
+    );
+  }
+
+  static Future<Object?> _awardApprovedDishProposalCallable(
+    Map<String, dynamic> payload,
+  ) async {
+    return _callContributionPointAwardFunction(
+      'awardApprovedDishProposalContributionPoints',
       payload,
     );
   }

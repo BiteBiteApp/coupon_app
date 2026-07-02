@@ -556,6 +556,69 @@ void main() {
       expect(result.hasNewPositivePoints, isFalse);
     });
 
+    test(
+      'approved proposal wrapper calls source-specific function shape',
+      () async {
+        final payloads = <Map<String, dynamic>>[];
+
+        final result =
+            await ContributionPointsService.awardApprovedDishProposalContributionPoints(
+              proposalId: ' proposal-1 ',
+              oldValue: ' Pizza ',
+              newValue: ' House Pizza ',
+              callable: (payload) async {
+                payloads.add(payload);
+                return {
+                  'ok': true,
+                  'result': {
+                    'entries': [
+                      {
+                        'ledgerEntryId': 'dish_rename_approved%3Aproposal-1',
+                        'points': 1,
+                        'wasCreated': true,
+                      },
+                    ],
+                    'actionGroupId': 'dish_rename_approved:proposal-1',
+                  },
+                };
+              },
+            );
+
+        expect(payloads.single, {
+          'proposalId': 'proposal-1',
+          'oldValue': 'Pizza',
+          'newValue': 'House Pizza',
+        });
+        expect(result.actionGroupId, 'dish_rename_approved:proposal-1');
+        expect(result.newlyAwardedPoints, 1);
+        expect(result.newlyCreatedLedgerEntryIds, [
+          'dish_rename_approved%3Aproposal-1',
+        ]);
+      },
+    );
+
+    test(
+      'approved proposal wrapper treats empty proposal ID as no-award',
+      () async {
+        var called = false;
+
+        final result =
+            await ContributionPointsService.awardApprovedDishProposalContributionPoints(
+              proposalId: ' ',
+              oldValue: 'Pizza',
+              newValue: 'House Pizza',
+              callable: (payload) async {
+                called = true;
+                return payload;
+              },
+            );
+
+        expect(called, isFalse);
+        expect(result.entries, isEmpty);
+        expect(result.hasNewPositivePoints, isFalse);
+      },
+    );
+
     test('callable duplicate no-op preserves celebration behavior', () {
       final result = ContributionPointAwardResult.fromCallableData({
         'ok': true,
