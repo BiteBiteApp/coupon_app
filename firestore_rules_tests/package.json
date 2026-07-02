@@ -1,0 +1,12 @@
+{
+  "name": "coupon-app-firestore-rules-tests",
+  "private": true,
+  "type": "commonjs",
+  "scripts": {
+    "test": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-coupon-app-rules \"node --test test/*.test.js\""
+  },
+  "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.1",
+    "firebase": "^12.15.0"
+  }
+}
