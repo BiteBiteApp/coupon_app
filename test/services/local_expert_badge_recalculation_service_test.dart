@@ -1,5 +1,6 @@
 import 'package:coupon_app/models/local_expert.dart';
 import 'package:coupon_app/models/local_expert_badge.dart';
+import 'package:coupon_app/models/local_expert_badge_celebration.dart';
 import 'package:coupon_app/models/local_expert_badge_calculator.dart';
 import 'package:coupon_app/services/local_expert_badge_recalculation_service.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,6 +31,47 @@ void main() {
       expect(callCount, 1);
       expect(result.earnedBadgeCount, 2);
       expect(result.removedBadgeCount, 1);
+    });
+  });
+
+  group('localExpertReviewSaveCelebrationsToShow', () {
+    test('ignores old pending celebrations after an unrelated review save', () {
+      final stalePending = _celebration(
+        eventKey: 'user_bbq_level2',
+        expertTypeId: 'bbq',
+        displayName: 'BBQ',
+        level: LocalExpertBadgeLevel.level2,
+      );
+      const result = LocalExpertBadgeRecalculationResult(
+        earnedBadgeCount: 2,
+        removedBadgeCount: 0,
+      );
+
+      final celebrations = localExpertReviewSaveCelebrationsToShow(
+        recalculationResult: result,
+      );
+
+      expect(celebrations, isEmpty);
+      expect(celebrations, isNot(contains(stalePending)));
+    });
+
+    test('keeps newly created celebrations from the current recalculation', () {
+      final currentCelebration = _celebration(
+        eventKey: 'user_pizza_level1',
+        expertTypeId: 'pizza',
+        displayName: 'Pizza',
+      );
+      final result = LocalExpertBadgeRecalculationResult(
+        earnedBadgeCount: 3,
+        removedBadgeCount: 0,
+        celebrations: [currentCelebration],
+      );
+
+      final celebrations = localExpertReviewSaveCelebrationsToShow(
+        recalculationResult: result,
+      );
+
+      expect(celebrations, [currentCelebration]);
     });
   });
 
@@ -110,6 +152,23 @@ void main() {
       expect(bridge.hasRequestedRecalculation, isTrue);
     });
   });
+}
+
+LocalExpertBadgeCelebration _celebration({
+  required String eventKey,
+  required String expertTypeId,
+  required String displayName,
+  LocalExpertBadgeLevel level = LocalExpertBadgeLevel.level1,
+}) {
+  return LocalExpertBadgeCelebration(
+    eventKey: eventKey,
+    expertTypeId: expertTypeId,
+    displayName: displayName,
+    level: level,
+    kind: level == LocalExpertBadgeLevel.level1
+        ? LocalExpertBadgeCelebrationKind.earned
+        : LocalExpertBadgeCelebrationKind.levelUp,
+  );
 }
 
 LocalExpertBadge _badge() {

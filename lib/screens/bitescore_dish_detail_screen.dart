@@ -1558,25 +1558,13 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         return;
       }
 
-      final shown =
-          await LocalExpertBadgeCelebrationService.showAllAndMarkCelebrated(
-            context,
-            userId: userId,
-            celebrations: result.celebrations,
-          );
-      if (!shown && mounted) {
-        final pending =
-            await LocalExpertBadgeCelebrationService.loadPendingCelebrations(
-              userId,
-            );
-        if (mounted && pending.isNotEmpty) {
-          await LocalExpertBadgeCelebrationService.showAllAndMarkCelebrated(
-            context,
-            userId: userId,
-            celebrations: pending,
-          );
-        }
-      }
+      await LocalExpertBadgeCelebrationService.showAllAndMarkCelebrated(
+        context,
+        userId: userId,
+        celebrations: localExpertReviewSaveCelebrationsToShow(
+          recalculationResult: result,
+        ),
+      );
     } catch (error) {
       debugPrint('Local Expert badge recalculation failed: $error');
     }

@@ -39,6 +39,12 @@ class LocalExpertBadgeRecalculationResult {
   }
 }
 
+List<LocalExpertBadgeCelebration> localExpertReviewSaveCelebrationsToShow({
+  required LocalExpertBadgeRecalculationResult recalculationResult,
+}) {
+  return recalculationResult.celebrations.toList(growable: false);
+}
+
 typedef LocalExpertRecalculationCallable = Future<dynamic> Function();
 typedef LocalExpertCurrentUserIdProvider = String? Function();
 
