@@ -6,7 +6,7 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
 
     <application
-        android:label="BitBite"
+        android:label="BiteBite"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
 
