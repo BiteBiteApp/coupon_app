@@ -58,6 +58,38 @@ class LocalExpertBadgeCelebrationService {
         .toList(growable: false);
   }
 
+  static Future<List<LocalExpertBadgeCelebration>>
+  loadPendingCelebrationsCreatedSince(String userId, DateTime createdAt) async {
+    final trimmedUserId = userId.trim();
+    if (trimmedUserId.isEmpty) {
+      return const <LocalExpertBadgeCelebration>[];
+    }
+
+    final snapshot = await _collection(trimmedUserId)
+        .where(
+          'createdAt',
+          isGreaterThanOrEqualTo: Timestamp.fromDate(createdAt),
+        )
+        .limit(20)
+        .get();
+    final celebrations = snapshot.docs
+        .map((doc) => doc.toLocalExpertBadgeCelebration())
+        .whereType<LocalExpertBadgeCelebration>()
+        .where((celebration) {
+          final celebrationCreatedAt = celebration.createdAt;
+          return celebration.isPending &&
+              celebrationCreatedAt != null &&
+              !celebrationCreatedAt.isBefore(createdAt);
+        })
+        .toList(growable: false);
+    celebrations.sort((a, b) {
+      final aCreatedAt = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bCreatedAt = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return aCreatedAt.compareTo(bCreatedAt);
+    });
+    return celebrations;
+  }
+
   static Future<void> markCelebrated({
     required String userId,
     required Iterable<String> eventKeys,

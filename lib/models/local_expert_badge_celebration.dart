@@ -16,6 +16,7 @@ class LocalExpertBadgeCelebration {
   final LocalExpertBadgeLevel level;
   final LocalExpertBadgeCelebrationKind kind;
   final String status;
+  final DateTime? createdAt;
 
   const LocalExpertBadgeCelebration({
     required this.eventKey,
@@ -24,6 +25,7 @@ class LocalExpertBadgeCelebration {
     required this.level,
     required this.kind,
     this.status = pendingStatus,
+    this.createdAt,
   });
 
   String get headline => 'Congratulations!';
@@ -60,7 +62,7 @@ class LocalExpertBadgeCelebration {
   bool get isPending => status == pendingStatus;
 
   Map<String, dynamic> toFirestoreMap() {
-    return {
+    final map = <String, dynamic>{
       'eventKey': eventKey,
       'expertTypeId': expertTypeId,
       'displayName': displayName,
@@ -68,6 +70,10 @@ class LocalExpertBadgeCelebration {
       'kind': kind.name,
       'status': status,
     };
+    if (createdAt != null) {
+      map['createdAt'] = Timestamp.fromDate(createdAt!);
+    }
+    return map;
   }
 
   static LocalExpertBadgeCelebration? tryFromMap(
@@ -99,6 +105,7 @@ class LocalExpertBadgeCelebration {
       level: level,
       kind: kind,
       status: _readString(data['status']) ?? pendingStatus,
+      createdAt: _readDateTime(data['createdAt']),
     );
   }
 
@@ -154,6 +161,18 @@ class LocalExpertBadgeCelebration {
       final trimmed = value.trim();
       return trimmed.isEmpty ? null : trimmed;
     }
+    return null;
+  }
+
+  static DateTime? _readDateTime(dynamic value) {
+    if (value is Timestamp) {
+      return value.toDate().toLocal();
+    }
+
+    if (value is DateTime) {
+      return value.toLocal();
+    }
+
     return null;
   }
 }

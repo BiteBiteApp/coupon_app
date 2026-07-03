@@ -36,11 +36,13 @@ void main() {
 
   group('localExpertReviewSaveCelebrationsToShow', () {
     test('ignores old pending celebrations after an unrelated review save', () {
+      final reviewSaveStartedAt = DateTime(2026, 7, 3, 15, 55);
       final stalePending = _celebration(
         eventKey: 'user_bbq_level2',
         expertTypeId: 'bbq',
         displayName: 'BBQ',
         level: LocalExpertBadgeLevel.level2,
+        createdAt: reviewSaveStartedAt.subtract(const Duration(days: 17)),
       );
       const result = LocalExpertBadgeRecalculationResult(
         earnedBadgeCount: 2,
@@ -49,11 +51,38 @@ void main() {
 
       final celebrations = localExpertReviewSaveCelebrationsToShow(
         recalculationResult: result,
+        freshPendingCelebrations: [stalePending],
+        reviewSaveStartedAt: reviewSaveStartedAt,
       );
 
       expect(celebrations, isEmpty);
       expect(celebrations, isNot(contains(stalePending)));
     });
+
+    test(
+      'keeps pending celebrations created during the review save window',
+      () {
+        final reviewSaveStartedAt = DateTime(2026, 7, 3, 15, 55);
+        final freshPending = _celebration(
+          eventKey: 'pizza_level1',
+          expertTypeId: 'pizza',
+          displayName: 'Pizza',
+          createdAt: reviewSaveStartedAt.add(const Duration(seconds: 2)),
+        );
+        const result = LocalExpertBadgeRecalculationResult(
+          earnedBadgeCount: 1,
+          removedBadgeCount: 0,
+        );
+
+        final celebrations = localExpertReviewSaveCelebrationsToShow(
+          recalculationResult: result,
+          freshPendingCelebrations: [freshPending],
+          reviewSaveStartedAt: reviewSaveStartedAt,
+        );
+
+        expect(celebrations, [freshPending]);
+      },
+    );
 
     test('keeps newly created celebrations from the current recalculation', () {
       final currentCelebration = _celebration(
@@ -72,6 +101,64 @@ void main() {
       );
 
       expect(celebrations, [currentCelebration]);
+    });
+
+    test('dedupes direct-result and fresh-pending celebrations', () {
+      final reviewSaveStartedAt = DateTime(2026, 7, 3, 15, 55);
+      final directCelebration = _celebration(
+        eventKey: 'pizza_level1',
+        expertTypeId: 'pizza',
+        displayName: 'Pizza',
+      );
+      final freshPending = _celebration(
+        eventKey: 'pizza_level1',
+        expertTypeId: 'pizza',
+        displayName: 'Pizza',
+        createdAt: reviewSaveStartedAt.add(const Duration(seconds: 1)),
+      );
+      final result = LocalExpertBadgeRecalculationResult(
+        earnedBadgeCount: 1,
+        removedBadgeCount: 0,
+        celebrations: [directCelebration],
+      );
+
+      final celebrations = localExpertReviewSaveCelebrationsToShow(
+        recalculationResult: result,
+        freshPendingCelebrations: [freshPending],
+        reviewSaveStartedAt: reviewSaveStartedAt,
+      );
+
+      expect(celebrations, [directCelebration]);
+    });
+
+    test('keeps separate level-aware celebration event ids', () {
+      final reviewSaveStartedAt = DateTime(2026, 7, 3, 15, 55);
+      final level1 = _celebration(
+        eventKey: 'pizza_level1',
+        expertTypeId: 'pizza',
+        displayName: 'Pizza',
+        level: LocalExpertBadgeLevel.level1,
+        createdAt: reviewSaveStartedAt.add(const Duration(seconds: 1)),
+      );
+      final level2 = _celebration(
+        eventKey: 'pizza_level2',
+        expertTypeId: 'pizza',
+        displayName: 'Pizza',
+        level: LocalExpertBadgeLevel.level2,
+        createdAt: reviewSaveStartedAt.add(const Duration(seconds: 2)),
+      );
+      const result = LocalExpertBadgeRecalculationResult(
+        earnedBadgeCount: 1,
+        removedBadgeCount: 0,
+      );
+
+      final celebrations = localExpertReviewSaveCelebrationsToShow(
+        recalculationResult: result,
+        freshPendingCelebrations: [level1, level2],
+        reviewSaveStartedAt: reviewSaveStartedAt,
+      );
+
+      expect(celebrations, [level1, level2]);
     });
   });
 
@@ -159,6 +246,7 @@ LocalExpertBadgeCelebration _celebration({
   required String expertTypeId,
   required String displayName,
   LocalExpertBadgeLevel level = LocalExpertBadgeLevel.level1,
+  DateTime? createdAt,
 }) {
   return LocalExpertBadgeCelebration(
     eventKey: eventKey,
@@ -168,6 +256,7 @@ LocalExpertBadgeCelebration _celebration({
     kind: level == LocalExpertBadgeLevel.level1
         ? LocalExpertBadgeCelebrationKind.earned
         : LocalExpertBadgeCelebrationKind.levelUp,
+    createdAt: createdAt,
   );
 }
 

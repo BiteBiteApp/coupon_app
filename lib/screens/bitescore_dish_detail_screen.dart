@@ -10,6 +10,7 @@ import '../models/bitescore_restaurant.dart';
 import '../models/dish_rating_aggregate.dart';
 import '../models/dish_review.dart';
 import '../models/local_expert_badge.dart';
+import '../models/local_expert_badge_celebration.dart';
 import '../models/review_feedback_vote.dart';
 import '../services/admin_access_service.dart';
 import '../services/app_error_text.dart';
@@ -865,6 +866,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       return;
     }
 
+    final reviewSaveStartedAt = DateTime.now();
     setState(() {
       _isSaving = true;
     });
@@ -933,7 +935,12 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     }
 
     _showSnackBar('Review saved.');
-    unawaited(_requestLocalExpertBadgeRecalculation(showCelebrations: true));
+    unawaited(
+      _requestLocalExpertBadgeRecalculation(
+        showCelebrations: true,
+        reviewSaveStartedAt: reviewSaveStartedAt,
+      ),
+    );
 
     setState(() {
       _visibleReviewCount += 1;
@@ -1545,6 +1552,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
 
   Future<void> _requestLocalExpertBadgeRecalculation({
     bool showCelebrations = false,
+    DateTime? reviewSaveStartedAt,
   }) async {
     try {
       final result =
@@ -1558,11 +1566,25 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         return;
       }
 
+      final freshPendingCelebrations = reviewSaveStartedAt == null
+          ? const <LocalExpertBadgeCelebration>[]
+          : await LocalExpertBadgeCelebrationService.loadPendingCelebrationsCreatedSince(
+              userId,
+              reviewSaveStartedAt.subtract(
+                localExpertReviewSaveCelebrationFreshPendingTolerance,
+              ),
+            );
+      if (!mounted) {
+        return;
+      }
+
       await LocalExpertBadgeCelebrationService.showAllAndMarkCelebrated(
         context,
         userId: userId,
         celebrations: localExpertReviewSaveCelebrationsToShow(
           recalculationResult: result,
+          freshPendingCelebrations: freshPendingCelebrations,
+          reviewSaveStartedAt: reviewSaveStartedAt,
         ),
       );
     } catch (error) {

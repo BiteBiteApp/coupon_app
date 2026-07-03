@@ -39,10 +39,50 @@ class LocalExpertBadgeRecalculationResult {
   }
 }
 
+const Duration localExpertReviewSaveCelebrationFreshPendingTolerance = Duration(
+  seconds: 5,
+);
+
 List<LocalExpertBadgeCelebration> localExpertReviewSaveCelebrationsToShow({
   required LocalExpertBadgeRecalculationResult recalculationResult,
+  Iterable<LocalExpertBadgeCelebration> freshPendingCelebrations = const [],
+  DateTime? reviewSaveStartedAt,
+  Duration freshPendingTolerance =
+      localExpertReviewSaveCelebrationFreshPendingTolerance,
 }) {
-  return recalculationResult.celebrations.toList(growable: false);
+  final celebrations = <LocalExpertBadgeCelebration>[];
+  final seenEventKeys = <String>{};
+
+  void addIfNew(LocalExpertBadgeCelebration celebration) {
+    final eventKey = celebration.eventKey.trim();
+    if (eventKey.isEmpty || !seenEventKeys.add(eventKey)) {
+      return;
+    }
+    celebrations.add(celebration);
+  }
+
+  for (final celebration in recalculationResult.celebrations) {
+    addIfNew(celebration);
+  }
+
+  if (reviewSaveStartedAt == null) {
+    return celebrations;
+  }
+
+  final earliestFreshCreatedAt = reviewSaveStartedAt.subtract(
+    freshPendingTolerance,
+  );
+  for (final celebration in freshPendingCelebrations) {
+    final createdAt = celebration.createdAt;
+    if (!celebration.isPending ||
+        createdAt == null ||
+        createdAt.isBefore(earliestFreshCreatedAt)) {
+      continue;
+    }
+    addIfNew(celebration);
+  }
+
+  return celebrations;
 }
 
 typedef LocalExpertRecalculationCallable = Future<dynamic> Function();
