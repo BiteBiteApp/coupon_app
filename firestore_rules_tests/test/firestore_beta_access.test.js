@@ -205,7 +205,7 @@ async function seedFirestore() {
     });
 
     batch.set(db.doc("restaurant_name_change_requests/request-1"), {
-      uid: "owner-1",
+      userId: "owner-1",
       currentRestaurantName: "Approved Tacos",
       requestedRestaurantName: "Approved Taco Co.",
       status: "pending",
@@ -227,6 +227,24 @@ async function seedFirestore() {
       displayName: "Customer B",
       updatedAt: seededAt,
     });
+    batch.set(
+      db.doc(
+        "user_profiles/customer-a/local_expert_badge_celebrations/pizza_level2",
+      ),
+      {
+        eventKey: "pizza_level2",
+        expertTypeId: "pizza",
+        displayName: "Pizza",
+        level: "level2",
+        kind: "levelUp",
+        status: "pending",
+        totalRestaurantCount: 5,
+        localClusterRestaurantCount: 5,
+        earnedAt: seededAt,
+        createdAt: seededAt,
+        updatedAt: seededAt,
+      },
+    );
     batch.set(db.doc("user_profiles/customer-a/favorite_restaurants/bs-1"), {
       userId: "customer-a",
       restaurantId: "bs-1",
@@ -552,6 +570,69 @@ test("users cannot write another user's private profile", async () => {
   );
 });
 
+test("users can acknowledge their own Local Expert badge celebrations", async () => {
+  await assertSucceeds(
+    dbFor("customer")
+      .doc("user_profiles/customer-a/local_expert_badge_celebrations/pizza_level2")
+      .set(
+        {
+          status: "celebrated",
+          celebratedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      ),
+  );
+});
+
+test("users cannot modify Local Expert badge award details", async () => {
+  await assertFails(
+    dbFor("customer")
+      .doc("user_profiles/customer-a/local_expert_badge_celebrations/pizza_level2")
+      .set(
+        {
+          displayName: "Forged BBQ",
+          level: "level3",
+          status: "celebrated",
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      ),
+  );
+});
+
+test("users cannot acknowledge another user's Local Expert badge celebration", async () => {
+  await assertFails(
+    dbFor("wrongCustomer")
+      .doc("user_profiles/customer-a/local_expert_badge_celebrations/pizza_level2")
+      .set(
+        {
+          status: "celebrated",
+          celebratedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      ),
+  );
+});
+
+test("clients cannot create fake Local Expert badge celebrations", async () => {
+  await assertFails(
+    dbFor("customer")
+      .doc("user_profiles/customer-a/local_expert_badge_celebrations/forged_level3")
+      .set({
+        eventKey: "forged_level3",
+        expertTypeId: "bbq",
+        displayName: "BBQ",
+        level: "level3",
+        kind: "levelUp",
+        status: "pending",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }),
+  );
+});
+
 test("users can create/update their own public reviewer profile safe fields", async () => {
   const db = dbFor("wrongCustomer");
   const profileRef = db.doc("public_reviewer_profiles/customer-b");
@@ -804,7 +885,106 @@ test("wrong restaurant owners cannot manage another owner's content", async () =
         couponNumber: "9999",
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
-      }),
+    }),
+  );
+});
+
+test("restaurant owners can update their own safe public profile fields", async () => {
+  await assertSucceeds(
+    dbFor("restaurantOwner").doc("restaurant_accounts/owner-1").set(
+      {
+        bio: "Family-owned taco counter with fresh salsa.",
+        mainImageUrl: "https://example.com/approved-tacos.jpg",
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+});
+
+test("wrong restaurant owners cannot update another owner's public profile fields", async () => {
+  await assertFails(
+    dbFor("wrongRestaurantOwner").doc("restaurant_accounts/owner-1").set(
+      {
+        bio: "Forged profile",
+        mainImageUrl: "https://example.com/forged.jpg",
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+});
+
+test("restaurant owners can update their own BiteSaver menu-routing fields", async () => {
+  const db = dbFor("restaurantOwner");
+  const accountRef = db.doc("restaurant_accounts/owner-1");
+
+  await assertSucceeds(
+    accountRef.set(
+      {
+        menuSourceSide: "biteScore",
+        linkedBiteScoreRestaurantId: "bs-1",
+        menuSourceUpdatedAt: serverTimestamp(),
+        menuSourceUpdatedBy: "owner-1",
+      },
+      { merge: true },
+    ),
+  );
+
+  await assertSucceeds(
+    accountRef.set(
+      {
+        menuSourceSide: "biteSaver",
+        linkedBiteScoreRestaurantId: firebase.firestore.FieldValue.delete(),
+        menuSourceUpdatedAt: serverTimestamp(),
+        menuSourceUpdatedBy: "owner-1",
+      },
+      { merge: true },
+    ),
+  );
+});
+
+test("wrong restaurant owners cannot update BiteSaver menu-routing fields", async () => {
+  await assertFails(
+    dbFor("wrongRestaurantOwner").doc("restaurant_accounts/owner-1").set(
+      {
+        menuSourceSide: "biteScore",
+        linkedBiteScoreRestaurantId: "bs-1",
+        menuSourceUpdatedAt: serverTimestamp(),
+        menuSourceUpdatedBy: "owner-2",
+      },
+      { merge: true },
+    ),
+  );
+});
+
+test("restaurant owners cannot combine menu-routing updates with protected fields", async () => {
+  await assertFails(
+    dbFor("restaurantOwner").doc("restaurant_accounts/owner-1").set(
+      {
+        menuSourceSide: "biteScore",
+        linkedBiteScoreRestaurantId: "bs-1",
+        menuSourceUpdatedAt: serverTimestamp(),
+        menuSourceUpdatedBy: "owner-1",
+        stripeCustomerId: "cus_forged",
+        subscriptionStatus: "active",
+      },
+      { merge: true },
+    ),
+  );
+});
+
+test("restaurant owners cannot forge menu-routing updater identity", async () => {
+  await assertFails(
+    dbFor("restaurantOwner").doc("restaurant_accounts/owner-1").set(
+      {
+        menuSourceSide: "biteScore",
+        linkedBiteScoreRestaurantId: "bs-1",
+        menuSourceUpdatedAt: serverTimestamp(),
+        menuSourceUpdatedBy: "owner-2",
+      },
+      { merge: true },
+    ),
   );
 });
 
@@ -850,12 +1030,85 @@ test("BiteScore claimed restaurant owners can manage linked public content", asy
   );
 });
 
+test("BiteScore claimed restaurant owners can link and unlink BiteSaver routing", async () => {
+  const db = dbFor("biteScoreOwner");
+  const restaurantRef = db.doc("bitescore_restaurants/bs-1");
+
+  await assertSucceeds(
+    restaurantRef.set(
+      {
+        menuSourceSide: "biteSaver",
+        linkedBiteSaverUid: "owner-1",
+        menuSourceUpdatedAt: serverTimestamp(),
+        menuSourceUpdatedBy: "bitescore-owner",
+      },
+      { merge: true },
+    ),
+  );
+
+  await assertSucceeds(
+    restaurantRef.set(
+      {
+        menuSourceSide: "biteScore",
+        linkedBiteSaverUid: firebase.firestore.FieldValue.delete(),
+        menuSourceUpdatedAt: serverTimestamp(),
+        menuSourceUpdatedBy: "bitescore-owner",
+      },
+      { merge: true },
+    ),
+  );
+});
+
 test("wrong users cannot manage a claimed BiteScore owner's content", async () => {
   await assertFails(
     dbFor("wrongRestaurantOwner").doc("bitescore_restaurants/bs-1").set(
       {
         bio: "Forged bio",
         updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+});
+
+test("wrong users cannot update BiteScore linked BiteSaver routing", async () => {
+  await assertFails(
+    dbFor("wrongRestaurantOwner").doc("bitescore_restaurants/bs-1").set(
+      {
+        menuSourceSide: "biteSaver",
+        linkedBiteSaverUid: "owner-1",
+        menuSourceUpdatedAt: serverTimestamp(),
+        menuSourceUpdatedBy: "owner-2",
+      },
+      { merge: true },
+    ),
+  );
+});
+
+test("BiteScore owners cannot combine routing updates with ownership changes", async () => {
+  await assertFails(
+    dbFor("biteScoreOwner").doc("bitescore_restaurants/bs-1").set(
+      {
+        menuSourceSide: "biteSaver",
+        linkedBiteSaverUid: "owner-1",
+        menuSourceUpdatedAt: serverTimestamp(),
+        menuSourceUpdatedBy: "bitescore-owner",
+        ownerUserId: "owner-2",
+        isClaimed: false,
+      },
+      { merge: true },
+    ),
+  );
+});
+
+test("BiteScore owners cannot forge routing updater identity", async () => {
+  await assertFails(
+    dbFor("biteScoreOwner").doc("bitescore_restaurants/bs-1").set(
+      {
+        menuSourceSide: "biteSaver",
+        linkedBiteSaverUid: "owner-1",
+        menuSourceUpdatedAt: serverTimestamp(),
+        menuSourceUpdatedBy: "owner-2",
       },
       { merge: true },
     ),
@@ -1128,6 +1381,54 @@ test("users cannot forge another userId on reports or proposals", async () => {
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     }),
+  );
+});
+
+test("restaurant owners can create own name-change requests with userId", async () => {
+  await assertSucceeds(
+    dbFor("restaurantOwner").doc("restaurant_name_change_requests/request-2").set({
+      userId: "owner-1",
+      currentRestaurantName: "Approved Tacos",
+      requestedRestaurantName: "Approved Taco Kitchen",
+      status: "pending",
+      createdAt: serverTimestamp(),
+    }),
+  );
+});
+
+test("restaurant owners cannot forge another userId on name-change requests", async () => {
+  await assertFails(
+    dbFor("restaurantOwner").doc("restaurant_name_change_requests/request-forged").set({
+      userId: "owner-2",
+      currentRestaurantName: "Approved Tacos",
+      requestedRestaurantName: "Forged Taco Kitchen",
+      status: "pending",
+      createdAt: serverTimestamp(),
+    }),
+  );
+});
+
+test("normal users cannot create name-change requests for restaurant owners", async () => {
+  await assertFails(
+    dbFor("customer").doc("restaurant_name_change_requests/request-customer").set({
+      userId: "owner-1",
+      currentRestaurantName: "Approved Tacos",
+      requestedRestaurantName: "Customer Forged Name",
+      status: "pending",
+      createdAt: serverTimestamp(),
+    }),
+  );
+});
+
+test("admins can update name-change request moderation fields", async () => {
+  await assertSucceeds(
+    dbFor("admin").doc("restaurant_name_change_requests/request-1").set(
+      {
+        status: "approved",
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
   );
 });
 

@@ -106,22 +106,59 @@ service cloud.firestore {
         'postalCode',
         'phone',
         'website',
+        'bio',
         'description',
+        'mainImageUrl',
         'businessHours',
         'latitude',
         'longitude',
         'emailVerified',
         'couponApplicationSubmitted',
         'approvalStatus',
+        'menuSourceSide',
+        'linkedBiteScoreRestaurantId',
+        'menuSourceUpdatedAt',
+        'menuSourceUpdatedBy',
         'createdAt',
         'updatedAt'
       ];
+    }
+
+    function restaurantAccountMenuRoutingFields() {
+      return [
+        'menuSourceSide',
+        'linkedBiteScoreRestaurantId',
+        'menuSourceUpdatedAt',
+        'menuSourceUpdatedBy'
+      ];
+    }
+
+    function validRestaurantAccountMenuRoutingState() {
+      return !('menuSourceSide' in request.resource.data) ||
+        (
+          request.resource.data.menuSourceSide == 'biteSaver' &&
+          !('linkedBiteScoreRestaurantId' in request.resource.data)
+        ) ||
+        (
+          request.resource.data.menuSourceSide == 'biteScore' &&
+          request.resource.data.linkedBiteScoreRestaurantId is string &&
+          request.resource.data.linkedBiteScoreRestaurantId.size() > 0
+        );
+    }
+
+    function validRestaurantAccountMenuRoutingUpdate() {
+      return !changedKeys().hasAny(restaurantAccountMenuRoutingFields()) ||
+        (
+          request.resource.data.menuSourceUpdatedBy == request.auth.uid &&
+          validRestaurantAccountMenuRoutingState()
+        );
     }
 
     function canCreateOwnRestaurantAccount(restaurantUid) {
       return isSelf(restaurantUid) &&
         request.resource.data.uid == restaurantUid &&
         request.resource.data.keys().hasOnly(restaurantAccountClientWritableFields()) &&
+        !request.resource.data.keys().hasAny(restaurantAccountMenuRoutingFields()) &&
         (!('approvalStatus' in request.resource.data) ||
           request.resource.data.approvalStatus == 'pending') &&
         !request.resource.data.keys().hasAny([
@@ -146,7 +183,8 @@ service cloud.firestore {
         request.resource.data.uid == restaurantUid &&
         !changedKeys().hasAny(restaurantAccountProtectedFields()) &&
         !changedKeys().hasAny(restaurantAccountOwnerLockedFields()) &&
-        changedKeys().hasOnly(restaurantAccountClientWritableFields());
+        changedKeys().hasOnly(restaurantAccountClientWritableFields()) &&
+        validRestaurantAccountMenuRoutingUpdate();
     }
 
     function profileWritableFields() {
@@ -223,15 +261,47 @@ service cloud.firestore {
         'longitude',
         'sharedMenuId',
         'menuSourceSide',
+        'linkedBiteSaverUid',
         'menuSourceUpdatedAt',
         'menuSourceUpdatedBy',
         'updatedAt'
       ];
     }
 
+    function biteScoreRestaurantMenuRoutingFields() {
+      return [
+        'menuSourceSide',
+        'linkedBiteSaverUid',
+        'menuSourceUpdatedAt',
+        'menuSourceUpdatedBy'
+      ];
+    }
+
+    function validBiteScoreRestaurantMenuRoutingState() {
+      return !('menuSourceSide' in request.resource.data) ||
+        (
+          request.resource.data.menuSourceSide == 'biteScore' &&
+          !('linkedBiteSaverUid' in request.resource.data)
+        ) ||
+        (
+          request.resource.data.menuSourceSide == 'biteSaver' &&
+          request.resource.data.linkedBiteSaverUid is string &&
+          request.resource.data.linkedBiteSaverUid.size() > 0
+        );
+    }
+
+    function validBiteScoreRestaurantMenuRoutingUpdate() {
+      return !changedKeys().hasAny(biteScoreRestaurantMenuRoutingFields()) ||
+        (
+          request.resource.data.menuSourceUpdatedBy == request.auth.uid &&
+          validBiteScoreRestaurantMenuRoutingState()
+        );
+    }
+
     function canOwnerUpdateBiteScoreRestaurant(restaurantId) {
       return ownerOfBiteScoreRestaurant(restaurantId) &&
-        changedKeys().hasOnly(biteScoreRestaurantOwnerFields());
+        changedKeys().hasOnly(biteScoreRestaurantOwnerFields()) &&
+        validBiteScoreRestaurantMenuRoutingUpdate();
     }
 
     function nonEmptyRequestString(fieldName) {
@@ -401,6 +471,32 @@ service cloud.firestore {
         changedKeys().hasOnly(publicProfileWriteFields());
     }
 
+    function canAcknowledgeOwnLocalExpertBadgeCelebration(userId) {
+      return isSelf(userId) &&
+        changedKeys().hasOnly(['status', 'celebratedAt', 'updatedAt']) &&
+        (
+          !changedKeys().hasAny(['status']) ||
+          request.resource.data.status == 'celebrated'
+        );
+    }
+
+    function restaurantNameChangeRequestCreateFields() {
+      return [
+        'userId',
+        'currentRestaurantName',
+        'requestedRestaurantName',
+        'status',
+        'createdAt'
+      ];
+    }
+
+    function canCreateOwnRestaurantNameChangeRequest() {
+      return signedIn() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.status == 'pending' &&
+        request.resource.data.keys().hasOnly(restaurantNameChangeRequestCreateFields());
+    }
+
     match /restaurant_accounts/{restaurantUid} {
       allow get, list: if isAdmin() ||
         isSelf(restaurantUid) ||
@@ -470,10 +566,8 @@ service cloud.firestore {
     }
 
     match /restaurant_name_change_requests/{requestId} {
-      allow read: if isAdmin() || (signedIn() && resource.data.uid == request.auth.uid);
-      allow create: if signedIn() &&
-        request.resource.data.uid == request.auth.uid &&
-        request.resource.data.status == 'pending';
+      allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow create: if canCreateOwnRestaurantNameChangeRequest();
       allow update, delete: if isAdmin();
     }
 
@@ -512,8 +606,7 @@ service cloud.firestore {
       match /local_expert_badge_celebrations/{eventId} {
         allow read: if isAdmin() || isSelf(userId);
         allow create: if false;
-        allow update: if isSelf(userId) &&
-          changedKeys().hasOnly(['celebrationStatus', 'celebratedAt', 'updatedAt']);
+        allow update: if canAcknowledgeOwnLocalExpertBadgeCelebration(userId);
         allow delete: if false;
       }
 
