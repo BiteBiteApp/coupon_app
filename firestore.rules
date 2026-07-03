@@ -732,7 +732,7 @@ service cloud.firestore {
     }
 
     match /review_feedback_votes/{voteId} {
-      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      allow read: if true;
       allow create: if emailVerified() && request.resource.data.userId == request.auth.uid;
       allow update: if emailVerified() &&
         resource.data.userId == request.auth.uid &&

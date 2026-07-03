@@ -345,6 +345,16 @@ async function seedFirestore() {
       createdAt: seededAt,
       updatedAt: seededAt,
     });
+    batch.set(db.doc("review_feedback_votes/dish-1_customer-a_customer-b"), {
+      id: "dish-1_customer-a_customer-b",
+      reviewId: "dish-1_customer-a",
+      dishId: "dish-1",
+      restaurantId: "bs-1",
+      userId: "customer-b",
+      voteType: "helpful",
+      createdAt: seededAt,
+      updatedAt: seededAt,
+    });
     batch.set(db.doc("bitescore_dish_images/image-1"), {
       id: "image-1",
       dishId: "dish-1",
@@ -536,6 +546,18 @@ test("public read of approved/public restaurant content is allowed", async () =>
   await assertSucceeds(db.doc("bitescore_dishes/dish-1").get());
   await assertSucceeds(db.doc("dish_rating_aggregates/dish-1").get());
   await assertSucceeds(db.doc("dish_reviews/dish-1_customer-a").get());
+});
+
+test("public can read review feedback votes for dish detail trust summaries", async () => {
+  const snapshot = await assertSucceeds(
+    dbFor("unauthenticated")
+      .collection("review_feedback_votes")
+      .where("reviewId", "in", ["dish-1_customer-a"])
+      .get(),
+  );
+
+  assert.equal(snapshot.size, 1);
+  assert.equal(snapshot.docs[0].data().voteType, "helpful");
 });
 
 test("users can read/update their own user profile safe fields", async () => {
@@ -1378,6 +1400,21 @@ test("users cannot forge another userId on reports or proposals", async () => {
       proposedName: "Forged",
       userId: "customer-b",
       status: "pending",
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }),
+  );
+});
+
+test("users cannot write another user's review feedback vote", async () => {
+  await assertFails(
+    dbFor("customer").doc("review_feedback_votes/forged-vote").set({
+      id: "forged-vote",
+      reviewId: "dish-1_customer-a",
+      dishId: "dish-1",
+      restaurantId: "bs-1",
+      userId: "customer-b",
+      voteType: "helpful",
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     }),
