@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/dish_rating_aggregate.dart';
@@ -81,7 +82,17 @@ class _PublicReviewerProfileScreenState
     return '${months[local.month - 1]} ${local.day}, ${local.year}';
   }
 
-  Future<void> _openDishReview(BiteScoreUserReviewEntry entry) async {
+  bool _canEditReview(BiteScoreUserReviewEntry entry) {
+    final user = FirebaseAuth.instance.currentUser;
+    return user != null &&
+        !user.isAnonymous &&
+        entry.review.userId.trim() == user.uid;
+  }
+
+  Future<void> _openDishReview(
+    BiteScoreUserReviewEntry entry, {
+    bool editReview = false,
+  }) async {
     final dish = entry.dish;
     final restaurant = entry.restaurant;
     if (dish == null || restaurant == null) {
@@ -105,7 +116,9 @@ class _PublicReviewerProfileScreenState
               restaurant: restaurant,
               aggregate: aggregate,
             ),
-            targetReviewId: entry.review.id,
+            targetReviewId: editReview ? null : entry.review.id,
+            scrollToReviewSection: editReview,
+            editReviewId: editReview ? entry.review.id : null,
           ),
         ),
       );
@@ -203,6 +216,7 @@ class _PublicReviewerProfileScreenState
     final headline = entry.review.headline?.trim() ?? '';
     final notes = entry.review.notes?.trim() ?? '';
     final category = entry.categoryDisplayName;
+    final canEditReview = _canEditReview(entry);
 
     return BiteRaterTheme.liftedCard(
       margin: const EdgeInsets.only(top: 12),
@@ -281,6 +295,33 @@ class _PublicReviewerProfileScreenState
                   fontWeight: FontWeight.w600,
                 ),
               ),
+              if (canEditReview) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _openDishReview(entry, editReview: true),
+                    icon: const Icon(Icons.edit_outlined, size: 15),
+                    label: const Text('Edit review'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: BiteRaterTheme.grape,
+                      side: BorderSide(
+                        color: BiteRaterTheme.grape.withValues(alpha: 0.22),
+                      ),
+                      visualDensity: const VisualDensity(
+                        horizontal: -2,
+                        vertical: -2,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

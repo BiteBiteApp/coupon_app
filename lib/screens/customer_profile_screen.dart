@@ -225,7 +225,17 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     }
   }
 
-  Future<void> _openDishReview(BiteScoreUserReviewEntry entry) async {
+  bool _canEditReview(BiteScoreUserReviewEntry entry) {
+    final user = FirebaseAuth.instance.currentUser;
+    return user != null &&
+        !user.isAnonymous &&
+        entry.review.userId.trim() == user.uid;
+  }
+
+  Future<void> _openDishReview(
+    BiteScoreUserReviewEntry entry, {
+    bool editReview = false,
+  }) async {
     final dish = entry.dish;
     final restaurant = entry.restaurant;
     if (dish == null || restaurant == null) {
@@ -249,7 +259,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
               restaurant: restaurant,
               aggregate: aggregate,
             ),
-            targetReviewId: entry.review.id,
+            targetReviewId: editReview ? null : entry.review.id,
+            scrollToReviewSection: editReview,
+            editReviewId: editReview ? entry.review.id : null,
           ),
         ),
       );
@@ -659,6 +671,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     final headline = entry.review.headline?.trim();
     final notes = entry.review.notes?.trim();
     final category = entry.categoryDisplayName;
+    final canEditReview = _canEditReview(entry);
 
     return Card(
       margin: const EdgeInsets.only(top: 12),
@@ -729,6 +742,29 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                 _dateLabel(entry.review.createdAt),
                 style: const TextStyle(fontSize: 12, color: Colors.black54),
               ),
+              if (canEditReview) ...[
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    onPressed: () => _openDishReview(entry, editReview: true),
+                    icon: const Icon(Icons.edit_outlined, size: 15),
+                    label: const Text('Edit review'),
+                    style: OutlinedButton.styleFrom(
+                      visualDensity: const VisualDensity(
+                        horizontal: -2,
+                        vertical: -2,
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 6,
+                      ),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ),
+              ],
             ],
           ),
         ),

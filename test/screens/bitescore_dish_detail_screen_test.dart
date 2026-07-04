@@ -94,11 +94,17 @@ void main() {
         entry: _entry(),
         scrollToReviewSection: true,
       );
+      final editFocused = BiteScoreDishDetailScreen(
+        entry: _entry(),
+        editReviewId: 'review-1',
+      );
 
       expect(normal.targetReviewId, isNull);
       expect(normal.scrollToReviewSection, isFalse);
+      expect(normal.editReviewId, isNull);
       expect(targeted.targetReviewId, 'review-1');
       expect(reviewFocused.scrollToReviewSection, isTrue);
+      expect(editFocused.editReviewId, 'review-1');
     },
   );
 

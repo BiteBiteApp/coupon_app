@@ -348,6 +348,7 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
   final String? distanceLabel;
   final String? targetReviewId;
   final bool scrollToReviewSection;
+  final String? editReviewId;
 
   const BiteScoreDishDetailScreen({
     super.key,
@@ -355,6 +356,7 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
     this.distanceLabel,
     this.targetReviewId,
     this.scrollToReviewSection = false,
+    this.editReviewId,
   });
 
   @override
@@ -444,7 +446,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   String _selectedReviewSort = _reviewSortMostHelpful;
   bool _didHandleTargetReview = false;
   bool _didHandleInitialReviewSectionScroll = false;
+  bool _didHandleInitialEditReview = false;
   String? _highlightedReviewId;
+  DishReview? _editingReview;
   User? get _currentUser => FirebaseAuth.instance.currentUser;
   bool get _isOwner =>
       _currentUser != null &&
@@ -710,12 +714,86 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     );
   }
 
+  bool _isCurrentUserReview(DishReview review) {
+    final user = _currentUser;
+    return user != null &&
+        !user.isAnonymous &&
+        review.userId.trim() == user.uid;
+  }
+
+  void _prefillReviewForm(DishReview review) {
+    _headlineController.text = review.headline ?? '';
+    _notesController.text = review.notes ?? '';
+    _overallImpression = review.overallImpression;
+    _tastinessScore = review.tastinessScore;
+    _qualityScore = review.qualityScore;
+    _valueScore = review.valueScore;
+    _selectedDishImage = null;
+    _editingReview = review;
+  }
+
+  Future<void> _startEditingReview(
+    DishReview review, {
+    bool showMessage = true,
+  }) async {
+    if (!_isCurrentUserReview(review)) {
+      _showSnackBar('You can only edit your own reviews.');
+      return;
+    }
+
+    setState(() {
+      _prefillReviewForm(review);
+    });
+
+    await _scrollToReviewSection();
+    if (showMessage) {
+      _showSnackBar('Editing your review.');
+    }
+  }
+
   GlobalKey _reviewCardKeyFor(String reviewId) {
     return _reviewCardKeys.putIfAbsent(reviewId, GlobalKey.new);
   }
 
+  void _scheduleInitialEditReview(List<DishReview> sortedReviews) {
+    if (_didHandleInitialEditReview) {
+      return;
+    }
+
+    final editReviewId = widget.editReviewId?.trim();
+    if (editReviewId == null || editReviewId.isEmpty) {
+      _didHandleInitialEditReview = true;
+      return;
+    }
+
+    DishReview? review;
+    for (final candidate in sortedReviews) {
+      if (candidate.id == editReviewId) {
+        review = candidate;
+        break;
+      }
+    }
+    _didHandleInitialEditReview = true;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!mounted) {
+        return;
+      }
+      if (review == null) {
+        _showSnackBar('That review could not be located.');
+        return;
+      }
+      await _startEditingReview(review, showMessage: false);
+    });
+  }
+
   void _scheduleInitialReviewSectionScroll() {
     if (!widget.scrollToReviewSection || _didHandleInitialReviewSectionScroll) {
+      return;
+    }
+
+    final editReviewId = widget.editReviewId?.trim();
+    if (editReviewId != null && editReviewId.isNotEmpty) {
       return;
     }
 
@@ -888,6 +966,12 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     if (!canWrite || !mounted) {
       return;
     }
+    final editingReview = _editingReview;
+    final isEditingReview = editingReview != null;
+    if (editingReview != null && !_isCurrentUserReview(editingReview)) {
+      _showSnackBar('You can only edit your own reviews.');
+      return;
+    }
 
     final reviewSaveStartedAt = DateTime.now();
     setState(() {
@@ -922,6 +1006,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       _headlineController.clear();
       _notesController.clear();
       _selectedDishImage = null;
+      _editingReview = null;
 
       if (!mounted) {
         return;
@@ -957,7 +1042,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       return;
     }
 
-    _showSnackBar('Review saved.');
+    _showSnackBar(isEditingReview ? 'Review updated.' : 'Review saved.');
     unawaited(
       _requestLocalExpertBadgeRecalculation(
         showCelebrations: true,
@@ -966,7 +1051,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     );
 
     setState(() {
-      _visibleReviewCount += 1;
+      if (!isEditingReview) {
+        _visibleReviewCount += 1;
+      }
       _isSaving = false;
       _refresh();
     });
@@ -1824,12 +1911,24 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         fontWeight: FontWeight.w600,
       ),
     );
+    final canEditReview = _isCurrentUserReview(review);
     final reviewMenuWidget = PopupMenuButton<String>(
       tooltip: 'Review actions',
       padding: EdgeInsets.zero,
       position: PopupMenuPosition.under,
-      onSelected: (_) => _reportReview(review),
+      onSelected: (value) {
+        if (value == 'edit') {
+          unawaited(_startEditingReview(review));
+          return;
+        }
+        _reportReview(review);
+      },
       itemBuilder: (context) => [
+        if (canEditReview)
+          const PopupMenuItem<String>(
+            value: 'edit',
+            child: Text('Edit review'),
+          ),
         PopupMenuItem<String>(
           value: 'report',
           enabled: !trustSummary.hasPendingUserReport,
@@ -2107,6 +2206,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
 
   Widget _buildInlineReviewForm() {
     final calculatedBiteScore = _overallBiteScore;
+    final isEditingReview = _editingReview != null;
 
     return Container(
       key: _reviewSectionKey,
@@ -2118,18 +2218,20 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Rate & Review',
-                style: TextStyle(
+              Text(
+                isEditingReview ? 'Edit Review' : 'Rate & Review',
+                style: const TextStyle(
                   color: BiteRaterTheme.ink,
                   fontSize: 20,
                   fontWeight: FontWeight.w900,
                 ),
               ),
               const SizedBox(height: 4),
-              const Text(
-                'All four score sliders are required for a complete BiteScore review.',
-                style: TextStyle(
+              Text(
+                isEditingReview
+                    ? 'Update your score or notes for this dish.'
+                    : 'All four score sliders are required for a complete BiteScore review.',
+                style: const TextStyle(
                   color: BiteRaterTheme.mutedInk,
                   fontWeight: FontWeight.w600,
                 ),
@@ -2256,7 +2358,13 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                           const Size.fromHeight(48),
                         ),
                       ),
-                  child: Text(_isSaving ? 'Saving...' : 'Save Review'),
+                  child: Text(
+                    _isSaving
+                        ? 'Saving...'
+                        : isEditingReview
+                        ? 'Save Changes'
+                        : 'Save Review',
+                  ),
                 ),
               ),
             ],
@@ -2688,6 +2796,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
             final currentRestaurant = detail.restaurant;
             final sortedReviews = _sortedReviewsForDisplay(detail.reviews);
             _scheduleTargetReviewReveal(sortedReviews);
+            _scheduleInitialEditReview(sortedReviews);
             _scheduleInitialReviewSectionScroll();
             final targetReviewId = widget.targetReviewId?.trim();
             final targetReviewIndex =
