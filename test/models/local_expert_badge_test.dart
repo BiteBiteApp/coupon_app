@@ -82,6 +82,47 @@ void main() {
       expect(summary.visibleBadges.first.expertTypeId, 'burger');
     });
 
+    test('prioritized summary preserves incoming relevant badge order', () {
+      final prioritized = LocalExpertBadgePrioritizer.prioritizeForDish(
+        badges: [
+          _badge('burger', 'Burger', LocalExpertBadgeLevel.level1),
+          _badge('pizza', 'Pizza', LocalExpertBadgeLevel.level1),
+        ],
+        dishName: 'Supreme Pizza',
+        categoryName: 'Pizza',
+        categoryTags: const ['pizza'],
+      );
+      final summary = LocalExpertBadgeOverflowSummary.fromPrioritizedBadges(
+        prioritized,
+        maxVisible: 1,
+      );
+
+      expect(summary.visibleBadges, hasLength(1));
+      expect(summary.visibleBadges.single.expertTypeId, 'pizza');
+      expect(summary.hiddenCount, 1);
+    });
+
+    test(
+      'prioritized summary keeps sorted fallback when no dish match exists',
+      () {
+        final prioritized = LocalExpertBadgePrioritizer.prioritizeForDish(
+          badges: [
+            _badge('pizza', 'Pizza', LocalExpertBadgeLevel.level1),
+            _badge('burger', 'Burger', LocalExpertBadgeLevel.level1),
+          ],
+          dishName: 'Mystery dish',
+          categoryName: null,
+        );
+        final summary = LocalExpertBadgeOverflowSummary.fromPrioritizedBadges(
+          prioritized,
+          maxVisible: 1,
+        );
+
+        expect(summary.visibleBadges.single.expertTypeId, 'burger');
+        expect(summary.hiddenCount, 1);
+      },
+    );
+
     test('matching dish type is prioritized before other badges', () {
       final prioritized = LocalExpertBadgePrioritizer.prioritizeForDish(
         badges: [

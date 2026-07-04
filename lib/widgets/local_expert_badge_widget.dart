@@ -608,19 +608,20 @@ class LocalExpertBadgeOverflowPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      height: 24,
-      padding: const EdgeInsets.symmetric(horizontal: 7),
+      height: 20,
+      constraints: const BoxConstraints(minWidth: 22),
+      padding: const EdgeInsets.symmetric(horizontal: 5),
       alignment: Alignment.center,
       decoration: BoxDecoration(
-        color: BiteRaterTheme.ocean.withValues(alpha: 0.08),
+        color: BiteRaterTheme.ocean.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: BiteRaterTheme.ocean.withValues(alpha: 0.16)),
+        border: Border.all(color: BiteRaterTheme.ocean.withValues(alpha: 0.14)),
       ),
       child: Text(
         '+$hiddenCount',
         style: const TextStyle(
           color: BiteRaterTheme.ocean,
-          fontSize: 11,
+          fontSize: 9.5,
           fontWeight: FontWeight.w900,
           height: 1,
         ),

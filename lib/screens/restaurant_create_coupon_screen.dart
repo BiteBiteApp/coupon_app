@@ -3981,6 +3981,21 @@ class _RestaurantCreateCouponScreenState
           width: double.infinity,
           child: ElevatedButton(
             onPressed: couponSaving ? null : createOrUpdateCoupon,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2563EB),
+              foregroundColor: Colors.white,
+              disabledForegroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(50),
+              elevation: 0,
+              padding: const EdgeInsets.symmetric(vertical: 15),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(14),
+              ),
+              textStyle: const TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
             child: Text(
               couponSaving
                   ? (isEditingCoupon ? 'Saving Changes...' : 'Saving Coupon...')

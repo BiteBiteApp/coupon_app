@@ -944,23 +944,15 @@ class _BiteScoreRestaurantDishesScreenState
     if (category.isNotEmpty) {
       return Align(
         alignment: Alignment.centerLeft,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: BiteRaterTheme.ocean.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-              color: BiteRaterTheme.ocean.withValues(alpha: 0.18),
-            ),
-          ),
-          child: Text(
-            category,
-            style: const TextStyle(
-              color: BiteRaterTheme.ocean,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              height: 1.0,
-            ),
+        child: Text(
+          'Category: $category',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            color: BiteRaterTheme.mutedInk.withValues(alpha: 0.82),
+            fontSize: 11.2,
+            fontWeight: FontWeight.w600,
+            height: 1.1,
           ),
         ),
       );

@@ -1211,7 +1211,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         child: DecoratedBox(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(20),
-            color: const Color(0xFFFDFDFC),
+            color: const Color(0xFFFFFCF6),
             boxShadow: const [
               BoxShadow(
                 color: Color(0x10000000),
@@ -1232,164 +1232,190 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
           ),
           child: BiteRaterTheme.liftedCard(
             radius: 20,
-            borderColor: BiteRaterTheme.coral.withOpacity(0.28),
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (collapsed)
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: _expandHeader,
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 2),
-                            child: Column(
-                              children: [
-                                Text(
-                                  'Expand search',
-                                  style: TextStyle(
-                                    color: BiteRaterTheme.grape,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w800,
+            borderColor: BiteRaterTheme.coral.withValues(alpha: 0.28),
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFFCF6),
+                borderRadius: BorderRadius.circular(18),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (collapsed)
+                      Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          InkWell(
+                            borderRadius: BorderRadius.circular(16),
+                            onTap: _expandHeader,
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 2),
+                              child: Column(
+                                children: [
+                                  Text(
+                                    'Expand search',
+                                    style: TextStyle(
+                                      color: BiteRaterTheme.grape,
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                    ),
                                   ),
+                                  const SizedBox(height: 1),
+                                  Icon(
+                                    Icons.keyboard_arrow_down,
+                                    color: BiteRaterTheme.grape,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    else
+                      const SizedBox.shrink(),
+                    ClipRect(
+                      child: Align(
+                        alignment: Alignment.topCenter,
+                        heightFactor: expansionT,
+                        child: IgnorePointer(
+                          ignoring: collapsed,
+                          child: Opacity(
+                            opacity: expansionT,
+                            child: Stack(
+                              children: [
+                                Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildSearchField(
+                                      controller: dishSearchController,
+                                      hintText: 'Search dishes or restaurants',
+                                      prefixIcon: Icons.restaurant_menu,
+                                      onSearch: () {
+                                        setState(() {});
+                                      },
+                                      showArrowIcon: false,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    _buildSearchField(
+                                      controller: locationSearchController,
+                                      focusNode: _locationSearchFocusNode,
+                                      hintText: 'City or zip code',
+                                      prefixIcon: Icons.search,
+                                      onSearch: _searchLocation,
+                                      showArrowIcon: false,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          flex: 7,
+                                          child: _buildLocationActionRow(
+                                            minHeight: 40,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 10),
+                                        SizedBox(
+                                          width: 116,
+                                          height: 40,
+                                          child: DropdownButtonFormField<String>(
+                                            initialValue: selectedRadius,
+                                            isExpanded: true,
+                                            decoration:
+                                                _inputDecoration(
+                                                  hintText: 'Radius',
+                                                ).copyWith(
+                                                  contentPadding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 12,
+                                                        vertical: 9,
+                                                      ),
+                                                ),
+                                            selectedItemBuilder: (context) =>
+                                                const [
+                                                  Text('1 mi'),
+                                                  Text('3 mi'),
+                                                  Text('5 mi'),
+                                                  Text('10 mi'),
+                                                  Text('15 mi'),
+                                                  Text('20 mi'),
+                                                  Text('30 mi'),
+                                                ],
+                                            items: const [
+                                              DropdownMenuItem(
+                                                value: '1 mile',
+                                                child: Text('1 mi'),
+                                              ),
+                                              DropdownMenuItem(
+                                                value: '3 miles',
+                                                child: Text('3 mi'),
+                                              ),
+                                              DropdownMenuItem(
+                                                value: '5 miles',
+                                                child: Text('5 mi'),
+                                              ),
+                                              DropdownMenuItem(
+                                                value: '10 miles',
+                                                child: Text('10 mi'),
+                                              ),
+                                              DropdownMenuItem(
+                                                value: '15 miles',
+                                                child: Text('15 mi'),
+                                              ),
+                                              DropdownMenuItem(
+                                                value: '20 miles',
+                                                child: Text('20 mi'),
+                                              ),
+                                              DropdownMenuItem(
+                                                value: '30 miles',
+                                                child: Text('30 mi'),
+                                              ),
+                                            ],
+                                            onChanged: (value) {
+                                              if (value != null) {
+                                                setState(() {
+                                                  selectedRadius = value;
+                                                });
+                                                _saveSelectedRadius(value);
+                                              }
+                                            },
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                  ],
                                 ),
-                                const SizedBox(height: 1),
-                                Icon(
-                                  Icons.keyboard_arrow_down,
-                                  color: BiteRaterTheme.grape,
-                                ),
+                                if (isSearchingLocation)
+                                  Positioned.fill(
+                                    child: DecoratedBox(
+                                      decoration: BoxDecoration(
+                                        color: BiteRaterTheme.cardSurface
+                                            .withValues(alpha: 0.74),
+                                        borderRadius: BorderRadius.circular(18),
+                                      ),
+                                      child: const Center(
+                                        child: SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: BiteRaterTheme.ocean,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
                               ],
                             ),
                           ),
                         ),
-                      ],
-                    )
-                  else
-                    const SizedBox.shrink(),
-                  ClipRect(
-                    child: Align(
-                      alignment: Alignment.topCenter,
-                      heightFactor: expansionT,
-                      child: IgnorePointer(
-                        ignoring: collapsed,
-                        child: Opacity(
-                          opacity: expansionT,
-                          child: Stack(
-                            children: [
-                              Column(
-                                mainAxisSize: MainAxisSize.min,
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  _buildSearchField(
-                                    controller: dishSearchController,
-                                    hintText: 'Search dishes or restaurants',
-                                    prefixIcon: Icons.restaurant_menu,
-                                    onSearch: () {
-                                      setState(() {});
-                                    },
-                                    showArrowIcon: false,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  _buildSearchField(
-                                    controller: locationSearchController,
-                                    focusNode: _locationSearchFocusNode,
-                                    hintText: 'City or zip code',
-                                    prefixIcon: Icons.search,
-                                    onSearch: _searchLocation,
-                                    showArrowIcon: false,
-                                  ),
-                                  const SizedBox(height: 4),
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        flex: 7,
-                                        child: _buildLocationActionRow(
-                                          minHeight: 40,
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      SizedBox(
-                                        width: 116,
-                                        height: 40,
-                                        child: DropdownButtonFormField<String>(
-                                          initialValue: selectedRadius,
-                                          isExpanded: true,
-                                          decoration:
-                                              _inputDecoration(
-                                                hintText: 'Radius',
-                                              ).copyWith(
-                                                contentPadding:
-                                                    const EdgeInsets.symmetric(
-                                                      horizontal: 12,
-                                                      vertical: 9,
-                                                    ),
-                                              ),
-                                          selectedItemBuilder: (context) =>
-                                              const [
-                                                Text('1 mi'),
-                                                Text('3 mi'),
-                                                Text('5 mi'),
-                                                Text('10 mi'),
-                                                Text('15 mi'),
-                                                Text('20 mi'),
-                                                Text('30 mi'),
-                                              ],
-                                          items: const [
-                                            DropdownMenuItem(
-                                              value: '1 mile',
-                                              child: Text('1 mi'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: '3 miles',
-                                              child: Text('3 mi'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: '5 miles',
-                                              child: Text('5 mi'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: '10 miles',
-                                              child: Text('10 mi'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: '15 miles',
-                                              child: Text('15 mi'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: '20 miles',
-                                              child: Text('20 mi'),
-                                            ),
-                                            DropdownMenuItem(
-                                              value: '30 miles',
-                                              child: Text('30 mi'),
-                                            ),
-                                          ],
-                                          onChanged: (value) {
-                                            if (value != null) {
-                                              setState(() {
-                                                selectedRadius = value;
-                                              });
-                                              _saveSelectedRadius(value);
-                                            }
-                                          },
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 4),
-                                ],
-                              ),
-                            ],
-                          ),
-                        ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
@@ -1484,7 +1510,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
             restingColor: const Color(0xFFFFFCF6),
             pressedColor: const Color(0xFFFFF7EA),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(12, 14, 16, 12),
+              padding: const EdgeInsets.fromLTRB(12, 10, 16, 8),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -1511,15 +1537,15 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  const SizedBox(width: 8),
                   if ((entry.dish.primaryImageUrl ?? '').trim().isNotEmpty)
                     SizedBox(
-                      width: 74,
+                      width: 76,
                       child: Align(
                         alignment: Alignment.centerLeft,
                         child: _buildDishThumbnail(
                           entry.dish.primaryImageUrl,
-                          size: 58,
+                          size: 66,
                         ),
                       ),
                     ),

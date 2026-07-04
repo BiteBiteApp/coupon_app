@@ -185,6 +185,18 @@ class LocalExpertBadgeOverflowSummary {
       hiddenCount: sorted.length > limit ? sorted.length - limit : 0,
     );
   }
+
+  factory LocalExpertBadgeOverflowSummary.fromPrioritizedBadges(
+    Iterable<LocalExpertBadge> badges, {
+    int maxVisible = 2,
+  }) {
+    final limit = maxVisible < 0 ? 0 : maxVisible;
+    final ordered = badges.toList(growable: false);
+    return LocalExpertBadgeOverflowSummary(
+      visibleBadges: ordered.take(limit).toList(growable: false),
+      hiddenCount: ordered.length > limit ? ordered.length - limit : 0,
+    );
+  }
 }
 
 class LocalExpertBadgePrioritizer {
