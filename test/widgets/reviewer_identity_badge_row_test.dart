@@ -32,8 +32,9 @@ void main() {
       );
       expect(
         find.byKey(const ValueKey('reviewer-local-expert-badge-burger')),
-        findsOneWidget,
+        findsNothing,
       );
+      expect(find.text('+1'), findsOneWidget);
     });
 
     testWidgets('omits separator when no expert badges exist', (tester) async {
@@ -51,10 +52,11 @@ void main() {
       expect(find.byType(LocalExpertBadgeWidget), findsNothing);
     });
 
-    testWidgets('each expert badge remains independently tappable', (
+    testWidgets('visible badge and overflow remain independently tappable', (
       tester,
     ) async {
       final tappedExpertIds = <String>[];
+      var overflowTapped = false;
 
       await tester.pumpWidget(
         MaterialApp(
@@ -62,6 +64,7 @@ void main() {
             body: _row(
               badges: [_badge('pizza', 'Pizza'), _badge('burger', 'Burger')],
               onBadgeTap: (badge) => tappedExpertIds.add(badge.expertTypeId),
+              onOverflowTap: () => overflowTapped = true,
             ),
           ),
         ),
@@ -71,10 +74,11 @@ void main() {
         find.byKey(const ValueKey('reviewer-local-expert-badge-pizza')),
       );
       await tester.tap(
-        find.byKey(const ValueKey('reviewer-local-expert-badge-burger')),
+        find.byKey(const ValueKey('reviewer-local-expert-badge-overflow')),
       );
 
-      expect(tappedExpertIds, ['pizza', 'burger']);
+      expect(tappedExpertIds, ['pizza']);
+      expect(overflowTapped, isTrue);
     });
 
     testWidgets('tapping one expert badge opens correct expert detail', (
@@ -131,14 +135,12 @@ void main() {
       expect(find.text('Pizza Expert'), findsNothing);
     });
 
-    testWidgets('wraps cleanly on narrow width with multiple expert badges', (
-      tester,
-    ) async {
+    testWidgets('shows one badge with compact overflow count', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
             body: SizedBox(
-              width: 132,
+              width: 240,
               child: _row(
                 reviewerName: 'LongReviewerName',
                 badges: [
@@ -158,7 +160,16 @@ void main() {
         find.byKey(const ValueKey('reviewer-expert-badge-separator')),
         findsOneWidget,
       );
-      expect(find.byType(LocalExpertBadgeWidget), findsNWidgets(3));
+      expect(find.byType(LocalExpertBadgeWidget), findsOneWidget);
+      expect(find.text('+2'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('reviewer-local-expert-badge-burger')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('reviewer-local-expert-badge-tacos')),
+        findsNothing,
+      );
       expect(tester.takeException(), isNull);
     });
   });
@@ -167,7 +178,9 @@ void main() {
 Widget _row({
   String reviewerName = 'FoodDood',
   List<LocalExpertBadge> badges = const <LocalExpertBadge>[],
+  int hiddenBadgeCount = 0,
   ValueChanged<LocalExpertBadge>? onBadgeTap,
+  VoidCallback? onOverflowTap,
 }) {
   return ReviewerIdentityBadgeRow(
     reviewerName: Text(
@@ -176,8 +189,9 @@ Widget _row({
     ),
     reviewCount: 3,
     visibleBadges: badges,
-    hiddenBadgeCount: 0,
+    hiddenBadgeCount: hiddenBadgeCount,
     onBadgeTap: onBadgeTap ?? (_) {},
+    onOverflowTap: onOverflowTap,
   );
 }
 

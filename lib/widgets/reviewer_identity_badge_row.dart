@@ -26,18 +26,32 @@ class ReviewerIdentityBadgeRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 4,
-      runSpacing: 3,
-      crossAxisAlignment: WrapCrossAlignment.center,
+    final visibleExpertBadges = visibleBadges.take(1).toList();
+    final effectiveHiddenBadgeCount =
+        hiddenBadgeCount + (visibleBadges.length - visibleExpertBadges.length);
+
+    return Row(
+      mainAxisSize: MainAxisSize.max,
+      crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        reviewerName,
-        ReviewerActivityPill(reviewCount: reviewCount),
-        if (_hasExpertBadges)
-          const _ReviewerExpertBadgeSeparator(
-            key: ValueKey('reviewer-expert-badge-separator'),
+        Flexible(
+          child: DefaultTextStyle.merge(
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            child: reviewerName,
           ),
-        for (final badge in visibleBadges)
+        ),
+        const SizedBox(width: 4),
+        Flexible(child: ReviewerActivityPill(reviewCount: reviewCount)),
+        if (_hasExpertBadges)
+          const Padding(
+            padding: EdgeInsets.only(left: 4),
+            child: _ReviewerExpertBadgeSeparator(
+              key: ValueKey('reviewer-expert-badge-separator'),
+            ),
+          ),
+        for (final badge in visibleExpertBadges) ...[
+          const SizedBox(width: 4),
           InkWell(
             key: ValueKey('reviewer-local-expert-badge-${badge.expertTypeId}'),
             borderRadius: BorderRadius.circular(999),
@@ -47,13 +61,18 @@ class ReviewerIdentityBadgeRow extends StatelessWidget {
               mode: LocalExpertBadgeDisplayMode.compact,
             ),
           ),
-        if (hiddenBadgeCount > 0)
+        ],
+        if (effectiveHiddenBadgeCount > 0) ...[
+          const SizedBox(width: 4),
           InkWell(
             key: const ValueKey('reviewer-local-expert-badge-overflow'),
             borderRadius: BorderRadius.circular(999),
             onTap: onOverflowTap,
-            child: LocalExpertBadgeOverflowPill(hiddenCount: hiddenBadgeCount),
+            child: LocalExpertBadgeOverflowPill(
+              hiddenCount: effectiveHiddenBadgeCount,
+            ),
           ),
+        ],
       ],
     );
   }

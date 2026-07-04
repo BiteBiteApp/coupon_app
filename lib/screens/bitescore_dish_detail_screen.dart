@@ -1788,10 +1788,11 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
           subcategory: _currentEntry.dish.subcategory,
           categoryTags: _currentEntry.dish.categoryTags,
         );
-    final localExpertSummary = LocalExpertBadgeOverflowSummary.fromBadges(
-      prioritizedLocalExpertBadges,
-      maxVisible: 2,
-    );
+    final localExpertSummary =
+        LocalExpertBadgeOverflowSummary.fromPrioritizedBadges(
+          prioritizedLocalExpertBadges,
+          maxVisible: 1,
+        );
     final reviewDateWidget = Text(
       _dateLabel(review.createdAt),
       style: const TextStyle(
