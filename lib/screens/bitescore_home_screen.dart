@@ -1480,73 +1480,33 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
           BiteRaterTheme.pressableSection(
             onTap: () => _openDishDetail(entry),
             borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-            border: const Border(
-              top: BorderSide(color: BiteRaterTheme.lineBlue),
-              left: BorderSide(color: BiteRaterTheme.lineBlue),
-              right: BorderSide(color: BiteRaterTheme.lineBlue),
-            ),
             pressedScale: 0.965,
-            pressedColor: const Color(0xFFF4F8FD),
+            restingColor: const Color(0xFFFFFCF6),
+            pressedColor: const Color(0xFFFFF7EA),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(10, 12, 16, 7),
+              padding: const EdgeInsets.fromLTRB(12, 14, 16, 12),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(
                     child: Align(
                       alignment: Alignment.centerLeft,
-                      child: Container(
+                      child: Padding(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 9,
+                          horizontal: 4,
+                          vertical: 8,
                         ),
-                        decoration: BoxDecoration(
-                          gradient: const LinearGradient(
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                            colors: [
-                              Color(0xFFFEFFFF),
-                              Color(0xFFF7FAFF),
-                              Color(0xFFFBF8FF),
-                            ],
+                        child: Text(
+                          _displayText(entry.dish.name, 'Unnamed dish'),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: BiteRaterTheme.ink,
+                            fontSize: 19.0,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: 0.0,
+                            height: 1.08,
                           ),
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: const Color(
-                              0xFFC8D5F0,
-                            ).withValues(alpha: 0.72),
-                            width: 1.05,
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.white.withValues(alpha: 0.86),
-                              blurRadius: 0,
-                              offset: const Offset(0, -1),
-                            ),
-                            BoxShadow(
-                              color: const Color(
-                                0xFF7389C9,
-                              ).withValues(alpha: 0.08),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              _displayText(entry.dish.name, 'Unnamed dish'),
-                              style: const TextStyle(
-                                color: BiteRaterTheme.ink,
-                                fontSize: 18.6,
-                                fontWeight: FontWeight.w900,
-                                letterSpacing: 0.0,
-                                height: 1.08,
-                              ),
-                            ),
-                          ],
                         ),
                       ),
                     ),
@@ -1559,7 +1519,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                         alignment: Alignment.centerLeft,
                         child: _buildDishThumbnail(
                           entry.dish.primaryImageUrl,
-                          size: 56,
+                          size: 58,
                         ),
                       ),
                     ),
@@ -1588,7 +1548,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                               fontSize: 8.1,
                               fontWeight: FontWeight.w600,
                               letterSpacing: 0.12,
-                              color: BiteRaterTheme.mutedInk.withOpacity(0.66),
+                              color: BiteRaterTheme.mutedInk.withValues(
+                                alpha: 0.66,
+                              ),
                               height: 0.90,
                             ),
                           ),
@@ -1597,7 +1559,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontSize: 9,
-                              color: BiteRaterTheme.mutedInk.withOpacity(0.60),
+                              color: BiteRaterTheme.mutedInk.withValues(
+                                alpha: 0.60,
+                              ),
                               fontWeight: FontWeight.w500,
                               height: 0.90,
                             ),
@@ -1612,8 +1576,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
           ),
           Container(
             height: 0.5,
-            margin: const EdgeInsets.symmetric(horizontal: 18),
-            color: BiteRaterTheme.lineBlue.withOpacity(0.16),
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            color: BiteRaterTheme.lineBlue.withValues(alpha: 0.45),
           ),
           BiteRaterTheme.pressableSection(
             onTap: () => _openRestaurantPage(
@@ -1623,15 +1587,11 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
             borderRadius: const BorderRadius.vertical(
               bottom: Radius.circular(20),
             ),
-            border: const Border(
-              left: BorderSide(color: BiteRaterTheme.lineBlue),
-              right: BorderSide(color: BiteRaterTheme.lineBlue),
-              bottom: BorderSide(color: BiteRaterTheme.lineBlue),
-            ),
+            restingColor: const Color(0xFFF8FAFC),
             pressedScale: 0.99,
-            pressedColor: const Color(0xFFFCFDFE),
+            pressedColor: const Color(0xFFF1F5FA),
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 7, 16, 9),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 10),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
@@ -1642,10 +1602,10 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                         Text(
                           _displayText(entry.restaurant.name, 'Restaurant'),
                           style: TextStyle(
-                            color: BiteRaterTheme.restaurantTitle.withOpacity(
-                              0.88,
+                            color: BiteRaterTheme.restaurantTitle.withValues(
+                              alpha: 0.80,
                             ),
-                            fontSize: 13,
+                            fontSize: 12.8,
                             fontWeight: FontWeight.w600,
                             height: 1.12,
                           ),
@@ -1654,8 +1614,10 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                         Text(
                           _restaurantMetaLabel(entry),
                           style: TextStyle(
-                            color: BiteRaterTheme.mutedInk.withOpacity(0.74),
-                            fontSize: 11,
+                            color: BiteRaterTheme.mutedInk.withValues(
+                              alpha: 0.72,
+                            ),
+                            fontSize: 10.8,
                             fontWeight: FontWeight.w400,
                             height: 1.15,
                           ),
