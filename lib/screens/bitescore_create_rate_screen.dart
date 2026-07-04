@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/bitescore_dish.dart';
 import '../models/bitescore_restaurant.dart';
@@ -536,8 +537,13 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
   final TextEditingController priceLabelController = TextEditingController();
   final TextEditingController headlineController = TextEditingController();
   final TextEditingController notesController = TextEditingController();
+  final ScrollController _scrollController = ScrollController();
+  final FocusNode _createAnywaySaveTransitionFocusNode = FocusNode(
+    debugLabel: 'createAnywaySaveTransition',
+  );
   final GlobalKey _manualCitySuggestionsKey = GlobalKey();
   final GlobalKey _manualRestaurantSuggestionsKey = GlobalKey();
+  final GlobalKey _saveActionKey = GlobalKey();
   BiteScorePickedDishImage? _selectedDishImage;
 
   double? overallImpression;
@@ -641,6 +647,8 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     priceLabelController.dispose();
     headlineController.dispose();
     notesController.dispose();
+    _scrollController.dispose();
+    _createAnywaySaveTransitionFocusNode.dispose();
     super.dispose();
   }
 
@@ -740,6 +748,49 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       _dishSuggestions = const <DishCatalogSuggestion>[];
       _isLoadingDishSuggestions = false;
     });
+  }
+
+  void _handoffCreateAnywaySaveFocus() {
+    FocusManager.instance.primaryFocus?.unfocus();
+    FocusScope.of(context).requestFocus(_createAnywaySaveTransitionFocusNode);
+    SystemChannels.textInput.invokeMethod<void>('TextInput.hide');
+  }
+
+  void _anchorCreateAnywaySaveAction() {
+    void scrollToBottomAfterFrame() {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+
+        _handoffCreateAnywaySaveFocus();
+        if (!_scrollController.hasClients) {
+          return;
+        }
+
+        final position = _scrollController.position;
+        if (!position.hasContentDimensions) {
+          return;
+        }
+
+        final target = position.maxScrollExtent
+            .clamp(position.minScrollExtent, position.maxScrollExtent)
+            .toDouble();
+        _scrollController
+            .animateTo(
+              target,
+              duration: const Duration(milliseconds: 220),
+              curve: Curves.easeOut,
+            )
+            .catchError((_) {});
+      });
+    }
+
+    scrollToBottomAfterFrame();
+    Future<void>.delayed(
+      const Duration(milliseconds: 320),
+      scrollToBottomAfterFrame,
+    );
   }
 
   Future<void> _openSelectedRestaurant(BitescoreRestaurant restaurant) async {
@@ -1701,77 +1752,123 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       context: context,
       showDragHandle: true,
       builder: (sheetContext) {
-        return SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text(
-                  'Did you mean one of these?',
-                  style: TextStyle(
-                    color: BiteRaterTheme.ink,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Flexible(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    itemCount: dishes.length,
-                    separatorBuilder: (_, __) => const SizedBox(height: 8),
-                    itemBuilder: (_, index) {
-                      final dish = dishes[index];
-                      return BiteRaterTheme.liftedCard(
-                        margin: EdgeInsets.zero,
-                        radius: 18,
-                        borderColor: BiteRaterTheme.ocean.withOpacity(0.16),
-                        child: ListTile(
-                          title: Text(
-                            dish.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: const TextStyle(
-                              color: BiteRaterTheme.ink,
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          subtitle: Text(
-                            [
-                              if ((dish.category ?? '').trim().isNotEmpty)
-                                dish.category!.trim(),
-                              dish.restaurantName,
-                            ].join(' | '),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          trailing: const Icon(Icons.chevron_right),
-                          onTap: () => Navigator.of(
-                            sheetContext,
-                          ).pop(_DuplicateDishSaveChoice.useExistingDish(dish)),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.of(
-                      sheetContext,
-                    ).pop(const _DuplicateDishSaveChoice.createNewDishAnyway()),
-                    style: BiteRaterTheme.outlinedButtonStyle(
-                      accentColor: BiteRaterTheme.grape,
+        var isResolvingChoice = false;
+        BitescoreDish? resolvingDish;
+        var resolvingCreateAnyway = false;
+
+        return StatefulBuilder(
+          builder: (context, setSheetState) {
+            void resolveChoice(_DuplicateDishSaveChoice choice) {
+              if (isResolvingChoice) {
+                return;
+              }
+
+              setSheetState(() {
+                isResolvingChoice = true;
+                resolvingDish = choice.dish;
+                resolvingCreateAnyway =
+                    choice.action ==
+                    _DuplicateDishSaveAction.createNewDishAnyway;
+              });
+              Navigator.of(sheetContext).pop(choice);
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Did you mean one of these?',
+                      style: TextStyle(
+                        color: BiteRaterTheme.ink,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
                     ),
-                    child: const Text('No, create new dish anyway'),
-                  ),
+                    const SizedBox(height: 12),
+                    Flexible(
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: dishes.length,
+                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        itemBuilder: (_, index) {
+                          final dish = dishes[index];
+                          final isResolvingThisDish =
+                              isResolvingChoice && resolvingDish?.id == dish.id;
+                          return BiteRaterTheme.liftedCard(
+                            margin: EdgeInsets.zero,
+                            radius: 18,
+                            borderColor: BiteRaterTheme.ocean.withValues(
+                              alpha: 0.16,
+                            ),
+                            child: ListTile(
+                              enabled: !isResolvingChoice,
+                              title: Text(
+                                dish.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: BiteRaterTheme.ink,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              subtitle: Text(
+                                [
+                                  if ((dish.category ?? '').trim().isNotEmpty)
+                                    dish.category!.trim(),
+                                  dish.restaurantName,
+                                ].join(' | '),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              trailing: isResolvingThisDish
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.chevron_right),
+                              onTap: isResolvingChoice
+                                  ? null
+                                  : () => resolveChoice(
+                                      _DuplicateDishSaveChoice.useExistingDish(
+                                        dish,
+                                      ),
+                                    ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: OutlinedButton(
+                        onPressed: isResolvingChoice
+                            ? null
+                            : () => resolveChoice(
+                                const _DuplicateDishSaveChoice.createNewDishAnyway(),
+                              ),
+                        style: BiteRaterTheme.outlinedButtonStyle(
+                          accentColor: BiteRaterTheme.grape,
+                        ),
+                        child: Text(
+                          resolvingCreateAnyway
+                              ? 'Saving new dish...'
+                              : 'No, create new dish anyway',
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
@@ -2506,6 +2603,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
 
     var forceCreateNewDish = false;
     BitescoreDish? selectedExistingDish;
+    var keepSaveActionVisibleAfterDuplicateChoice = false;
 
     if (isExistingRestaurantMode) {
       final restaurant = widget.existingRestaurant!;
@@ -2525,6 +2623,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       }
 
       if (matchingDishes.isNotEmpty) {
+        FocusScope.of(context).unfocus();
         final selection = await _showDidYouMeanDishDialog(matchingDishes);
         if (!mounted) {
           return;
@@ -2542,6 +2641,8 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
           }
         } else {
           forceCreateNewDish = true;
+          keepSaveActionVisibleAfterDuplicateChoice = true;
+          _handoffCreateAnywaySaveFocus();
         }
       }
     }
@@ -2549,6 +2650,9 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     setState(() {
       isSaving = true;
     });
+    if (keepSaveActionVisibleAfterDuplicateChoice) {
+      _anchorCreateAnywaySaveAction();
+    }
 
     late final BiteScoreReviewSaveResult saveResult;
     late final ContributionPointAwardResult combinedAward;
@@ -2728,6 +2832,11 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       ),
       body: Column(
         children: [
+          Focus(
+            focusNode: _createAnywaySaveTransitionFocusNode,
+            skipTraversal: true,
+            child: const SizedBox.shrink(),
+          ),
           buildPersistentAppModeSwitcher(context),
           Expanded(
             child: SafeArea(
@@ -2737,6 +2846,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
                   context,
                 ).copyWith(overscroll: false),
                 child: SingleChildScrollView(
+                  controller: _scrollController,
                   physics: const ClampingScrollPhysics(),
                   padding: EdgeInsets.fromLTRB(
                     16,
@@ -2808,6 +2918,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
                       if (!isRestaurantSelectionMode ||
                           showDishCreationForManualRestaurant)
                         SizedBox(
+                          key: _saveActionKey,
                           width: double.infinity,
                           child: ElevatedButton(
                             onPressed: isSaving || _saveSucceeded
