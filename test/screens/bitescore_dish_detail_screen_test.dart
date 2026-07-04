@@ -90,9 +90,15 @@ void main() {
         entry: _entry(),
         targetReviewId: 'review-1',
       );
+      final reviewFocused = BiteScoreDishDetailScreen(
+        entry: _entry(),
+        scrollToReviewSection: true,
+      );
 
       expect(normal.targetReviewId, isNull);
+      expect(normal.scrollToReviewSection, isFalse);
       expect(targeted.targetReviewId, 'review-1');
+      expect(reviewFocused.scrollToReviewSection, isTrue);
     },
   );
 

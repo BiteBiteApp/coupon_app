@@ -211,14 +211,12 @@ class _BiteScoreRestaurantDishesScreenState
   }
 
   Future<void> _openExistingDishReview(BiteScoreHomeEntry entry) async {
-    final canWrite = await BiteScoreSignInGate.ensureSignedInForWrite(context);
-    if (!canWrite || !mounted) {
-      return;
-    }
-
     final created = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => BiteScoreCreateRateScreen(existingEntry: entry),
+        builder: (_) => BiteScoreDishDetailScreen(
+          entry: entry,
+          scrollToReviewSection: true,
+        ),
       ),
     );
 

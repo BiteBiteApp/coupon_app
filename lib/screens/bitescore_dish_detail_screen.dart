@@ -347,12 +347,14 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
   final BiteScoreHomeEntry entry;
   final String? distanceLabel;
   final String? targetReviewId;
+  final bool scrollToReviewSection;
 
   const BiteScoreDishDetailScreen({
     super.key,
     required this.entry,
     this.distanceLabel,
     this.targetReviewId,
+    this.scrollToReviewSection = false,
   });
 
   @override
@@ -441,6 +443,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   int _visibleReviewCount = 3;
   String _selectedReviewSort = _reviewSortMostHelpful;
   bool _didHandleTargetReview = false;
+  bool _didHandleInitialReviewSectionScroll = false;
   String? _highlightedReviewId;
   User? get _currentUser => FirebaseAuth.instance.currentUser;
   bool get _isOwner =>
@@ -709,6 +712,26 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
 
   GlobalKey _reviewCardKeyFor(String reviewId) {
     return _reviewCardKeys.putIfAbsent(reviewId, GlobalKey.new);
+  }
+
+  void _scheduleInitialReviewSectionScroll() {
+    if (!widget.scrollToReviewSection || _didHandleInitialReviewSectionScroll) {
+      return;
+    }
+
+    final targetReviewId = widget.targetReviewId?.trim();
+    if (targetReviewId != null && targetReviewId.isNotEmpty) {
+      return;
+    }
+
+    _didHandleInitialReviewSectionScroll = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      if (!mounted) {
+        return;
+      }
+      await _scrollToReviewSection();
+    });
   }
 
   void _scheduleTargetReviewReveal(List<DishReview> sortedReviews) {
@@ -2665,6 +2688,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
             final currentRestaurant = detail.restaurant;
             final sortedReviews = _sortedReviewsForDisplay(detail.reviews);
             _scheduleTargetReviewReveal(sortedReviews);
+            _scheduleInitialReviewSectionScroll();
             final targetReviewId = widget.targetReviewId?.trim();
             final targetReviewIndex =
                 targetReviewId == null || targetReviewId.isEmpty
@@ -2747,127 +2771,99 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                         ),
                                         const SizedBox(width: 16),
                                         Flexible(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              _buildBiteScoreActionButton(
-                                                onPressed:
-                                                    _scrollToReviewSection,
-                                                label: 'Rate & Review',
-                                              ),
-                                              const SizedBox(height: 5),
-                                              Padding(
-                                                padding: const EdgeInsets.only(
-                                                  left: 18,
-                                                ),
-                                                child: InkWell(
-                                                  onTap: _openRestaurantPage,
-                                                  borderRadius:
-                                                      BorderRadius.circular(8),
-                                                  splashColor: BiteRaterTheme
-                                                      .ocean
-                                                      .withValues(alpha: 0.08),
-                                                  highlightColor: BiteRaterTheme
-                                                      .ocean
-                                                      .withValues(alpha: 0.04),
-                                                  child: Padding(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          vertical: 2,
-                                                        ),
-                                                    child: Column(
-                                                      crossAxisAlignment:
-                                                          CrossAxisAlignment
-                                                              .start,
-                                                      children: [
-                                                        Row(
-                                                          mainAxisSize:
-                                                              MainAxisSize.min,
-                                                          children: [
-                                                            Flexible(
-                                                              child: Text(
-                                                                _displayText(
-                                                                  currentRestaurant
-                                                                      .name,
-                                                                  'Restaurant',
-                                                                ),
-                                                                style: const TextStyle(
-                                                                  fontSize:
-                                                                      14.5,
-                                                                  fontWeight:
-                                                                      FontWeight
-                                                                          .w900,
-                                                                  color: BiteRaterTheme
-                                                                      .restaurantTitle,
-                                                                ),
-                                                                maxLines: 1,
-                                                                overflow:
-                                                                    TextOverflow
-                                                                        .ellipsis,
-                                                              ),
-                                                            ),
-                                                            const SizedBox(
-                                                              width: 3,
-                                                            ),
-                                                            const Icon(
-                                                              Icons
-                                                                  .chevron_right,
-                                                              size: 15,
-                                                              color: BiteRaterTheme
-                                                                  .restaurantTitle,
-                                                            ),
-                                                          ],
-                                                        ),
-                                                        const SizedBox(
-                                                          height: 0,
-                                                        ),
-                                                        Text(
-                                                          _restaurantLocationLabel(
-                                                            currentRestaurant,
+                                          child: InkWell(
+                                            onTap: _openRestaurantPage,
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            splashColor: BiteRaterTheme.ocean
+                                                .withValues(alpha: 0.08),
+                                            highlightColor: BiteRaterTheme.ocean
+                                                .withValues(alpha: 0.04),
+                                            child: Padding(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    vertical: 2,
+                                                  ),
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Row(
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      Flexible(
+                                                        child: Text(
+                                                          _displayText(
+                                                            currentRestaurant
+                                                                .name,
+                                                            'Restaurant',
                                                           ),
                                                           style: const TextStyle(
-                                                            color:
-                                                                BiteRaterTheme
-                                                                    .mutedInk,
-                                                            fontSize: 12,
+                                                            fontSize: 14.5,
                                                             fontWeight:
-                                                                FontWeight.w500,
+                                                                FontWeight.w900,
+                                                            color: BiteRaterTheme
+                                                                .restaurantTitle,
                                                           ),
+                                                          maxLines: 1,
+                                                          overflow: TextOverflow
+                                                              .ellipsis,
                                                         ),
-                                                        if (widget.distanceLabel
-                                                                ?.trim()
-                                                                .isNotEmpty ==
-                                                            true) ...[
-                                                          const SizedBox(
-                                                            height: 0,
-                                                          ),
-                                                          Text(
-                                                            widget
-                                                                .distanceLabel!
-                                                                .trim(),
-                                                            style: const TextStyle(
-                                                              color:
-                                                                  BiteRaterTheme
-                                                                      .mutedInk,
-                                                              fontSize: 12,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w500,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ],
+                                                      ),
+                                                      const SizedBox(width: 3),
+                                                      const Icon(
+                                                        Icons.chevron_right,
+                                                        size: 15,
+                                                        color: BiteRaterTheme
+                                                            .restaurantTitle,
+                                                      ),
+                                                    ],
+                                                  ),
+                                                  Text(
+                                                    _restaurantLocationLabel(
+                                                      currentRestaurant,
+                                                    ),
+                                                    style: const TextStyle(
+                                                      color: BiteRaterTheme
+                                                          .mutedInk,
+                                                      fontSize: 12,
+                                                      fontWeight:
+                                                          FontWeight.w500,
                                                     ),
                                                   ),
-                                                ),
+                                                  if (widget.distanceLabel
+                                                          ?.trim()
+                                                          .isNotEmpty ==
+                                                      true)
+                                                    Text(
+                                                      widget.distanceLabel!
+                                                          .trim(),
+                                                      style: const TextStyle(
+                                                        color: BiteRaterTheme
+                                                            .mutedInk,
+                                                        fontSize: 12,
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                      ),
+                                                    ),
+                                                ],
                                               ),
-                                            ],
+                                            ),
                                           ),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 6),
+                                    const SizedBox(height: 12),
+                                    SizedBox(
+                                      width: double.infinity,
+                                      child: _buildBiteScoreActionButton(
+                                        onPressed: _scrollToReviewSection,
+                                        label: 'Rate & Review',
+                                      ),
+                                    ),
+                                    const SizedBox(height: 2),
                                     BiteRaterTheme.softDivider(),
                                     const SizedBox(height: 8),
                                     Center(
