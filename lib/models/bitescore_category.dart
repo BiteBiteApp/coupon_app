@@ -25,6 +25,8 @@ class BitescoreCategories {
   static const String moreCuisinesStartId = 'thai';
   static const String cubanSandwichCanonicalId = 'cuban_sandwich';
   static const String chickenPieCanonicalId = 'chicken_pie';
+  static const String frenchFriesLabel = 'French Fries';
+  static const String legacyFriesLoadedLabel = 'Fries / loaded fries';
 
   static const List<BitescoreCategory> all = [
     BitescoreCategory(id: 'other', displayName: 'Other'),
@@ -71,7 +73,7 @@ class BitescoreCategories {
         'Chili',
         'Club sandwich',
         'Fried chicken',
-        'Fries / loaded fries',
+        frenchFriesLabel,
         'Grilled cheese',
         'Grilled chicken',
         'Hot dogs',
@@ -730,6 +732,7 @@ class BitescoreCategories {
     }
 
     _addSearchTerms(tags, subcategory);
+    _addRenamedSubcategoryCompatibilityTerms(tags, subcategory);
     _addCommaSeparatedSearchTerms(tags, manualKeywords);
     _addSearchTerms(tags, dishName);
     _addSearchTerms(tags, restaurantName);
@@ -859,6 +862,19 @@ class BitescoreCategories {
         case chickenPieCanonicalId:
           _addChickenPieClassificationTerms(tags, category);
       }
+    }
+  }
+
+  static void _addRenamedSubcategoryCompatibilityTerms(
+    Set<String> tags,
+    String? subcategory,
+  ) {
+    final normalizedSubcategory = _normalizeLookup(subcategory);
+    if (normalizedSubcategory == _normalizeLookup(frenchFriesLabel)) {
+      _addSearchTerms(tags, legacyFriesLoadedLabel);
+    } else if (normalizedSubcategory ==
+        _normalizeLookup(legacyFriesLoadedLabel)) {
+      _addSearchTerms(tags, frenchFriesLabel);
     }
   }
 

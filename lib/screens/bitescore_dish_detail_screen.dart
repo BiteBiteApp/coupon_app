@@ -2207,6 +2207,23 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   Widget _buildInlineReviewForm() {
     final calculatedBiteScore = _overallBiteScore;
     final isEditingReview = _editingReview != null;
+    final submitButtonStyle =
+        (isEditingReview
+                ? ElevatedButton.styleFrom(
+                    foregroundColor: Colors.white,
+                    backgroundColor: BiteRaterTheme.ocean,
+                    shadowColor: BiteRaterTheme.ocean.withValues(alpha: 0.2),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w800),
+                  )
+                : BiteRaterTheme.outlinedButtonStyle(
+                    accentColor: BiteRaterTheme.coral,
+                  ))
+            .copyWith(
+              minimumSize: WidgetStateProperty.all(const Size.fromHeight(48)),
+            );
 
     return Container(
       key: _reviewSectionKey,
@@ -2350,14 +2367,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: _isSaving ? null : _submitReview,
-                  style:
-                      BiteRaterTheme.outlinedButtonStyle(
-                        accentColor: BiteRaterTheme.coral,
-                      ).copyWith(
-                        minimumSize: WidgetStateProperty.all(
-                          const Size.fromHeight(48),
-                        ),
-                      ),
+                  style: submitButtonStyle,
                   child: Text(
                     _isSaving
                         ? 'Saving...'

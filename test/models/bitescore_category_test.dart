@@ -426,6 +426,52 @@ void main() {
   });
 
   group('Category search compatibility', () {
+    test(
+      'French Fries display label remains compatible with old saved values',
+      () {
+        final american = BitescoreCategories.byId('american');
+        final filterAmerican = BitescoreCategories.filterCommonCategories
+            .firstWhere((category) => category.id == 'american');
+
+        expect(american?.subcategories, contains('French Fries'));
+        expect(
+          american?.subcategories,
+          isNot(contains('Fries / loaded fries')),
+        );
+        expect(filterAmerican.subcategories, contains('French Fries'));
+
+        final oldSavedTags = BitescoreCategories.buildSearchableTags(
+          categoryName: 'American',
+          subcategory: 'Fries / loaded fries',
+        );
+        final newSavedTags = BitescoreCategories.buildSearchableTags(
+          categoryName: 'American',
+          subcategory: 'French Fries',
+        );
+
+        expect(oldSavedTags, contains('french fries'));
+        expect(newSavedTags, contains('fries / loaded fries'));
+        expect(
+          BitescoreCategories.matchesSearchQuery(
+            categoryName: 'American',
+            subcategory: 'Fries / loaded fries',
+            categoryTags: oldSavedTags,
+            query: 'French Fries',
+          ),
+          isTrue,
+        );
+        expect(
+          BitescoreCategories.matchesSearchQuery(
+            categoryName: 'American',
+            subcategory: 'French Fries',
+            categoryTags: newSavedTags,
+            query: 'Fries / loaded fries',
+          ),
+          isTrue,
+        );
+      },
+    );
+
     test('search tags include category subcategory and manual keywords', () {
       final tags = BitescoreCategories.buildSearchableTags(
         categoryId: 'mexican',
