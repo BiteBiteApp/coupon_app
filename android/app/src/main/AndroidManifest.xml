@@ -76,6 +76,94 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="bitesaver" />
             </intent-filter>
+
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="go.colesmartllc.com"
+                    android:pathPrefix="/r/coupons/" />
+                <data
+                    android:scheme="https"
+                    android:host="go.colesmartllc.com"
+                    android:pathPrefix="/r/bitescore/" />
+                <data
+                    android:scheme="https"
+                    android:host="go.colesmartllc.com"
+                    android:pathPrefix="/invite/coupon/" />
+                <data
+                    android:scheme="https"
+                    android:host="go.colesmartllc.com"
+                    android:pathPrefix="/invite/bitescore/" />
+            </intent-filter>
+
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="app.colesmartllc.com"
+                    android:pathPrefix="/r/coupons/" />
+                <data
+                    android:scheme="https"
+                    android:host="app.colesmartllc.com"
+                    android:pathPrefix="/r/bitescore/" />
+                <data
+                    android:scheme="https"
+                    android:host="app.colesmartllc.com"
+                    android:pathPrefix="/invite/coupon/" />
+                <data
+                    android:scheme="https"
+                    android:host="app.colesmartllc.com"
+                    android:pathPrefix="/invite/bitescore/" />
+            </intent-filter>
+
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="colesmartllc.com"
+                    android:pathPrefix="/r/coupons/" />
+                <data
+                    android:scheme="https"
+                    android:host="colesmartllc.com"
+                    android:pathPrefix="/r/bitescore/" />
+                <data
+                    android:scheme="https"
+                    android:host="colesmartllc.com"
+                    android:pathPrefix="/invite/coupon/" />
+                <data
+                    android:scheme="https"
+                    android:host="colesmartllc.com"
+                    android:pathPrefix="/invite/bitescore/" />
+            </intent-filter>
+
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="www.colesmartllc.com"
+                    android:pathPrefix="/r/coupons/" />
+                <data
+                    android:scheme="https"
+                    android:host="www.colesmartllc.com"
+                    android:pathPrefix="/r/bitescore/" />
+                <data
+                    android:scheme="https"
+                    android:host="www.colesmartllc.com"
+                    android:pathPrefix="/invite/coupon/" />
+                <data
+                    android:scheme="https"
+                    android:host="www.colesmartllc.com"
+                    android:pathPrefix="/invite/bitescore/" />
+            </intent-filter>
         </activity>
 
         <meta-data

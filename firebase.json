@@ -56,8 +56,29 @@
     "public": "build/web",
     "ignore": [
       "firebase.json",
-      "**/.*",
+      "**/.DS_Store",
+      "**/.git/**",
       "**/node_modules/**"
+    ],
+    "headers": [
+      {
+        "source": "/.well-known/assetlinks.json",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      },
+      {
+        "source": "/.well-known/apple-app-site-association",
+        "headers": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ]
+      }
     ],
     "rewrites": [
       {
