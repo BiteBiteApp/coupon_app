@@ -46,46 +46,42 @@ void main() {
       expect(link.restaurantId, 'bitescore_restaurant_123');
     });
 
-    test('parses HTTPS coupon restaurant links on colesmartllc.com', () {
-      final link = RestaurantCustomerLinkService.parseRestaurantDeepLink(
-        Uri.parse('https://colesmartllc.com/r/coupons/test-restaurant-id'),
-      );
+    test('parses HTTPS coupon restaurant links on trusted QR hosts', () {
+      const trustedHosts = [
+        'go.colesmartllc.com',
+        'app.colesmartllc.com',
+        'colesmartllc.com',
+        'www.colesmartllc.com',
+      ];
 
-      expect(link, isNotNull);
-      expect(link!.side, 'coupons');
-      expect(link.restaurantId, 'test-restaurant-id');
+      for (final host in trustedHosts) {
+        final link = RestaurantCustomerLinkService.parseRestaurantDeepLink(
+          Uri.parse('https://$host/r/coupons/test-restaurant-id'),
+        );
+
+        expect(link, isNotNull, reason: host);
+        expect(link!.side, 'coupons', reason: host);
+        expect(link.restaurantId, 'test-restaurant-id', reason: host);
+      }
     });
 
-    test('parses HTTPS BiteScore restaurant links on colesmartllc.com', () {
-      final link = RestaurantCustomerLinkService.parseRestaurantDeepLink(
-        Uri.parse('https://colesmartllc.com/r/bitescore/test-restaurant-id'),
-      );
+    test('parses HTTPS BiteScore restaurant links on trusted QR hosts', () {
+      const trustedHosts = [
+        'go.colesmartllc.com',
+        'app.colesmartllc.com',
+        'colesmartllc.com',
+        'www.colesmartllc.com',
+      ];
 
-      expect(link, isNotNull);
-      expect(link!.side, 'bitescore');
-      expect(link.restaurantId, 'test-restaurant-id');
-    });
+      for (final host in trustedHosts) {
+        final link = RestaurantCustomerLinkService.parseRestaurantDeepLink(
+          Uri.parse('https://$host/r/bitescore/test-restaurant-id'),
+        );
 
-    test('parses HTTPS coupon restaurant links on www colesmartllc.com', () {
-      final link = RestaurantCustomerLinkService.parseRestaurantDeepLink(
-        Uri.parse('https://www.colesmartllc.com/r/coupons/test-restaurant-id'),
-      );
-
-      expect(link, isNotNull);
-      expect(link!.side, 'coupons');
-      expect(link.restaurantId, 'test-restaurant-id');
-    });
-
-    test('parses HTTPS BiteScore restaurant links on www colesmartllc.com', () {
-      final link = RestaurantCustomerLinkService.parseRestaurantDeepLink(
-        Uri.parse(
-          'https://www.colesmartllc.com/r/bitescore/test-restaurant-id',
-        ),
-      );
-
-      expect(link, isNotNull);
-      expect(link!.side, 'bitescore');
-      expect(link.restaurantId, 'test-restaurant-id');
+        expect(link, isNotNull, reason: host);
+        expect(link!.side, 'bitescore', reason: host);
+        expect(link.restaurantId, 'test-restaurant-id', reason: host);
+      }
     });
 
     test('decodes encoded restaurant IDs', () {

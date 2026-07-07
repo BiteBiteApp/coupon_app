@@ -127,44 +127,42 @@ void main() {
       expect(link.token, 'token123');
     });
 
-    test('parses HTTPS coupon invite links on colesmartllc.com', () {
-      final link = RestaurantInviteService.parseInviteDeepLink(
-        Uri.parse('https://colesmartllc.com/invite/coupon/test-token'),
-      );
+    test('parses HTTPS coupon invite links on trusted QR hosts', () {
+      const trustedHosts = [
+        'go.colesmartllc.com',
+        'app.colesmartllc.com',
+        'colesmartllc.com',
+        'www.colesmartllc.com',
+      ];
 
-      expect(link, isNotNull);
-      expect(link!.side, 'coupon');
-      expect(link.token, 'test-token');
+      for (final host in trustedHosts) {
+        final link = RestaurantInviteService.parseInviteDeepLink(
+          Uri.parse('https://$host/invite/coupon/test-token'),
+        );
+
+        expect(link, isNotNull, reason: host);
+        expect(link!.side, 'coupon', reason: host);
+        expect(link.token, 'test-token', reason: host);
+      }
     });
 
-    test('parses HTTPS BiteScore invite links on colesmartllc.com', () {
-      final link = RestaurantInviteService.parseInviteDeepLink(
-        Uri.parse('https://colesmartllc.com/invite/bitescore/test-token'),
-      );
+    test('parses HTTPS BiteScore invite links on trusted QR hosts', () {
+      const trustedHosts = [
+        'go.colesmartllc.com',
+        'app.colesmartllc.com',
+        'colesmartllc.com',
+        'www.colesmartllc.com',
+      ];
 
-      expect(link, isNotNull);
-      expect(link!.side, 'bitescore');
-      expect(link.token, 'test-token');
-    });
+      for (final host in trustedHosts) {
+        final link = RestaurantInviteService.parseInviteDeepLink(
+          Uri.parse('https://$host/invite/bitescore/test-token'),
+        );
 
-    test('parses HTTPS coupon invite links on www colesmartllc.com', () {
-      final link = RestaurantInviteService.parseInviteDeepLink(
-        Uri.parse('https://www.colesmartllc.com/invite/coupon/test-token'),
-      );
-
-      expect(link, isNotNull);
-      expect(link!.side, 'coupon');
-      expect(link.token, 'test-token');
-    });
-
-    test('parses HTTPS BiteScore invite links on www colesmartllc.com', () {
-      final link = RestaurantInviteService.parseInviteDeepLink(
-        Uri.parse('https://www.colesmartllc.com/invite/bitescore/test-token'),
-      );
-
-      expect(link, isNotNull);
-      expect(link!.side, 'bitescore');
-      expect(link.token, 'test-token');
+        expect(link, isNotNull, reason: host);
+        expect(link!.side, 'bitescore', reason: host);
+        expect(link.token, 'test-token', reason: host);
+      }
     });
 
     test('parses Flutter startup coupon invite route name', () {

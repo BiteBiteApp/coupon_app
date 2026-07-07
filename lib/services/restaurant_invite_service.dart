@@ -207,6 +207,8 @@ class RestaurantInviteRedemptionResult {
 
 class RestaurantInviteService {
   static const Set<String> _trustedHttpsHosts = {
+    'go.colesmartllc.com',
+    'app.colesmartllc.com',
     'colesmartllc.com',
     'www.colesmartllc.com',
   };
