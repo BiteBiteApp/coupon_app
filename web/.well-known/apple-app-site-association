@@ -1,0 +1,25 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "WXLXQ5D769.com.colesmartllc.bitesaver"
+        ],
+        "components": [
+          {
+            "/": "/r/coupons/*"
+          },
+          {
+            "/": "/r/bitescore/*"
+          },
+          {
+            "/": "/invite/coupon/*"
+          },
+          {
+            "/": "/invite/bitescore/*"
+          }
+        ]
+      }
+    ]
+  }
+}
