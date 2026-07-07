@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class BiteSaverImageAssets {
-  static const String hero = 'assets/images/compact_logo_1_BGR.png';
+  static const String hero = 'assets/images/br_logo_black.png';
   static const String firstPlaceholder = 'assets/images/placeholder_main.png';
   static const String secondPlaceholder =
       'assets/images/Placeholder_second.png';
