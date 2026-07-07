@@ -1,5 +1,6 @@
 import 'dart:io' show Platform;
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:geocoding/geocoding.dart';
@@ -10,6 +11,7 @@ import '../models/bitescore_category.dart';
 import '../models/bitescore_food_search.dart';
 import '../models/bitescore_restaurant.dart';
 import '../services/app_error_text.dart';
+import '../services/bitescore_image_upload_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../services/shared_location_state_service.dart';
@@ -90,6 +92,10 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   static const double _homeControlPillWidth = 92;
   static const String _selectedRadiusPreferenceKey = 'selected_radius';
   static const String _defaultSort = 'Highest BiteScore';
+  static const String _placeholderImageA =
+      'assets/images/bitescore_placeholder_a.png';
+  static const String _placeholderImageB =
+      'assets/images/bitescore_placeholder_b.png';
 
   final TextEditingController dishSearchController = TextEditingController();
   final TextEditingController locationSearchController =
@@ -110,6 +116,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   bool _isLoading = true;
   Object? _loadError;
   bool _showAllCategoryFilterChips = false;
+  String? _addingFirstPhotoDishId;
 
   @override
   void initState() {
@@ -148,6 +155,27 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
       if (distance.isNotEmpty) distance,
     ];
     return parts.isEmpty ? 'Location unavailable' : parts.join(' • ');
+  }
+
+  bool _hasVisibleDishImage(BiteScoreHomeEntry entry) {
+    return (entry.dish.primaryImageUrl ?? '').trim().isNotEmpty;
+  }
+
+  bool _canAddFirstPhotoFromHome(BiteScoreHomeEntry entry) {
+    return !_hasVisibleDishImage(entry) && entry.dish.imageCount <= 0;
+  }
+
+  String _placeholderImageForNoPhotoOrdinal(int ordinal) {
+    return ordinal.isEven ? _placeholderImageA : _placeholderImageB;
+  }
+
+  void _showHomeSnackBar(String message) {
+    if (!mounted) {
+      return;
+    }
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
   }
 
   Future<void> _loadSelectedRadius() async {
@@ -207,6 +235,82 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         _isLoading = false;
         _loadError = error;
       });
+    }
+  }
+
+  Future<void> _addFirstPhotoToDish(BiteScoreHomeEntry entry) async {
+    if (_addingFirstPhotoDishId != null) {
+      return;
+    }
+
+    final dishId = entry.dish.id.trim();
+    if (dishId.isEmpty) {
+      return;
+    }
+
+    setState(() {
+      _addingFirstPhotoDishId = dishId;
+    });
+
+    try {
+      final canWrite = await BiteScoreSignInGate.ensureSignedInForWrite(
+        context,
+        message: 'Please sign in to add a dish image.',
+      );
+      if (!canWrite || !mounted) {
+        return;
+      }
+
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null || user.isAnonymous) {
+        _showHomeSnackBar('Please sign in to add a dish image.');
+        return;
+      }
+
+      final pickedImage = await BiteScoreImageUploadService.pickDishImage();
+      if (pickedImage == null) {
+        return;
+      }
+
+      final freshDish = await BiteScoreService.loadDishById(dishId);
+      if (freshDish == null) {
+        _showHomeSnackBar('This dish is no longer available.');
+        return;
+      }
+      if ((freshDish.primaryImageUrl ?? '').trim().isNotEmpty ||
+          freshDish.imageCount > 0) {
+        _showHomeSnackBar('This dish already has an image.');
+        await _refreshEntries();
+        return;
+      }
+
+      final uploadedImage = await BiteScoreImageUploadService.uploadDishImage(
+        dishId: freshDish.id,
+        pickedImage: pickedImage,
+      );
+      await BiteScoreService.addMissingDishImageRecord(
+        dish: freshDish,
+        restaurant: entry.restaurant,
+        uploadedByUserId: user.uid,
+        imageUrl: uploadedImage.imageUrl,
+        storagePath: uploadedImage.storagePath,
+      );
+
+      _showHomeSnackBar('Dish image added.');
+      await _refreshEntries();
+    } catch (error) {
+      _showHomeSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not upload the dish image right now.',
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _addingFirstPhotoDishId = null;
+        });
+      }
     }
   }
 
@@ -1430,36 +1534,125 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     required double width,
     required double height,
     required BorderRadius borderRadius,
+    String? placeholderAssetPath,
+    bool showAddFirstPhotoOverlay = false,
+    bool isAddingFirstPhoto = false,
   }) {
     final trimmedUrl = imageUrl?.trim();
 
     Widget buildPlaceholder() {
-      return Container(
-        width: width,
-        height: height,
-        decoration: BoxDecoration(
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFFFFF7EA), Color(0xFFF3F6FB)],
-          ),
-          borderRadius: borderRadius,
-        ),
-        alignment: Alignment.center,
-        child: Container(
-          width: 46,
-          height: 46,
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.78),
-            shape: BoxShape.circle,
-            border: Border.all(
-              color: BiteRaterTheme.coral.withValues(alpha: 0.18),
-            ),
-          ),
-          child: Icon(
-            Icons.restaurant_menu_rounded,
-            size: 24,
-            color: BiteRaterTheme.coral.withValues(alpha: 0.70),
+      final placeholderImage = placeholderAssetPath == null
+          ? Container(
+              width: width,
+              height: height,
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFFFF7EA), Color(0xFFF3F6FB)],
+                ),
+              ),
+              alignment: Alignment.center,
+              child: Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.78),
+                  shape: BoxShape.circle,
+                  border: Border.all(
+                    color: BiteRaterTheme.coral.withValues(alpha: 0.18),
+                  ),
+                ),
+                child: Icon(
+                  Icons.restaurant_menu_rounded,
+                  size: 24,
+                  color: BiteRaterTheme.coral.withValues(alpha: 0.70),
+                ),
+              ),
+            )
+          : Image.asset(
+              placeholderAssetPath,
+              width: width,
+              height: height,
+              fit: BoxFit.cover,
+            );
+
+      return ClipRRect(
+        borderRadius: borderRadius,
+        child: SizedBox(
+          width: width,
+          height: height,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              placeholderImage,
+              if (showAddFirstPhotoOverlay) ...[
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.black.withValues(alpha: 0.02),
+                          Colors.black.withValues(alpha: 0.34),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  left: 10,
+                  right: 10,
+                  bottom: 10,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.88),
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: Colors.white.withValues(alpha: 0.72),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 5,
+                      ),
+                      child: Text(
+                        isAddingFirstPhoto
+                            ? 'Adding photo...'
+                            : 'Add first photo',
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          color: BiteRaterTheme.ink,
+                          fontSize: 11.2,
+                          fontWeight: FontWeight.w900,
+                          height: 1,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+              if (isAddingFirstPhoto)
+                Positioned.fill(
+                  child: ColoredBox(
+                    color: Colors.black.withValues(alpha: 0.18),
+                    child: const Center(
+                      child: SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2.6,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
           ),
         ),
       );
@@ -1481,9 +1674,52 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     );
   }
 
+  Widget _buildDishImageAction({
+    required BiteScoreHomeEntry entry,
+    required BorderRadius borderRadius,
+    required double width,
+    required double height,
+    required String? placeholderAssetPath,
+  }) {
+    final canAddFirstPhoto = _canAddFirstPhotoFromHome(entry);
+    final isAddingFirstPhoto = _addingFirstPhotoDishId == entry.dish.id;
+    final imageSection = BiteRaterTheme.pressableSection(
+      onTap: canAddFirstPhoto
+          ? () => _addFirstPhotoToDish(entry)
+          : () => _openDishDetail(entry),
+      borderRadius: borderRadius,
+      pressedScale: 0.965,
+      restingColor: const Color(0xFFFFFCF6),
+      pressedColor: const Color(0xFFFFF7EA),
+      child: _buildDishThumbnail(
+        entry.dish.primaryImageUrl,
+        width: width,
+        height: height,
+        borderRadius: borderRadius,
+        placeholderAssetPath: placeholderAssetPath,
+        showAddFirstPhotoOverlay: canAddFirstPhoto,
+        isAddingFirstPhoto: isAddingFirstPhoto,
+      ),
+    );
+
+    if (!canAddFirstPhoto) {
+      return imageSection;
+    }
+
+    return Tooltip(
+      message: 'Add first photo',
+      child: Semantics(
+        button: true,
+        label: 'Add first photo',
+        child: imageSection,
+      ),
+    );
+  }
+
   Widget _buildEntryCard(
     BiteScoreHomeEntry entry,
     List<BiteScoreHomeEntry> entries,
+    String? placeholderAssetPath,
   ) {
     final biteScore = entry.aggregate.overallBiteScore;
     final displayedScore = biteScore.isFinite && biteScore > 0
@@ -1522,18 +1758,12 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
             children: [
               SizedBox(
                 width: imageWidth,
-                child: BiteRaterTheme.pressableSection(
-                  onTap: () => _openDishDetail(entry),
+                child: _buildDishImageAction(
+                  entry: entry,
                   borderRadius: imageRadius,
-                  pressedScale: 0.965,
-                  restingColor: const Color(0xFFFFFCF6),
-                  pressedColor: const Color(0xFFFFF7EA),
-                  child: _buildDishThumbnail(
-                    entry.dish.primaryImageUrl,
-                    width: imageWidth,
-                    height: cardHeight,
-                    borderRadius: imageRadius,
-                  ),
+                  width: imageWidth,
+                  height: cardHeight,
+                  placeholderAssetPath: placeholderAssetPath,
                 ),
               ),
               Expanded(
@@ -1875,6 +2105,17 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   }
 
   Widget _buildResultsSliver(List<BiteScoreHomeEntry> entries) {
+    final placeholderAssetsByDishId = <String, String>{};
+    var noPhotoOrdinal = 0;
+    for (final entry in entries) {
+      if (!_canAddFirstPhotoFromHome(entry)) {
+        continue;
+      }
+      placeholderAssetsByDishId[entry.dish.id] =
+          _placeholderImageForNoPhotoOrdinal(noPhotoOrdinal);
+      noPhotoOrdinal += 1;
+    }
+
     return SliverList(
       delegate: SliverChildBuilderDelegate((context, index) {
         if (entries.isEmpty) {
@@ -1899,7 +2140,12 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
           );
         }
 
-        return _buildEntryCard(entries[index], _entries);
+        final entry = entries[index];
+        return _buildEntryCard(
+          entry,
+          _entries,
+          placeholderAssetsByDishId[entry.dish.id],
+        );
       }, childCount: entries.isEmpty ? 1 : entries.length),
     );
   }
