@@ -1485,10 +1485,13 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     BiteScoreHomeEntry entry,
     List<BiteScoreHomeEntry> entries,
   ) {
-    final scoreLabel = entry.aggregate.overallBiteScore > 0
-        ? entry.aggregate.overallBiteScore.toStringAsFixed(0)
-        : '--';
+    final biteScore = entry.aggregate.overallBiteScore;
+    final displayedScore = biteScore.isFinite && biteScore > 0
+        ? int.tryParse(biteScore.toStringAsFixed(0))
+        : null;
+    final scoreLabel = displayedScore?.toString() ?? '--';
     final scorePillLabel = '$scoreLabel/100';
+    final scorePalette = _ScorePillPalette.forDisplayedScore(displayedScore);
     final restaurantEntries = entries
         .where((item) => item.restaurant.id == entry.restaurant.id)
         .toList();
@@ -1585,23 +1588,20 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                                               vertical: 3,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: BiteRaterTheme.scoreFlame
-                                                  .withValues(alpha: 0.10),
+                                              color: scorePalette.background,
                                               borderRadius:
                                                   BorderRadius.circular(999),
                                               border: Border.all(
-                                                color: BiteRaterTheme.scoreFlame
-                                                    .withValues(alpha: 0.18),
+                                                color: scorePalette.border,
                                               ),
                                             ),
                                             child: Text(
                                               scorePillLabel,
                                               textAlign: TextAlign.center,
-                                              style: const TextStyle(
+                                              style: TextStyle(
                                                 fontSize: 14,
                                                 fontWeight: FontWeight.w900,
-                                                color:
-                                                    BiteRaterTheme.scoreFlame,
+                                                color: scorePalette.foreground,
                                                 height: 1,
                                               ),
                                             ),
@@ -2252,5 +2252,53 @@ class _BiteScoreHeaderDelegate extends SliverPersistentHeaderDelegate {
     return minExtentHeight != oldDelegate.minExtentHeight ||
         maxExtentHeight != oldDelegate.maxExtentHeight ||
         builder != oldDelegate.builder;
+  }
+}
+
+class _ScorePillPalette {
+  final Color background;
+  final Color border;
+  final Color foreground;
+
+  const _ScorePillPalette({
+    required this.background,
+    required this.border,
+    required this.foreground,
+  });
+
+  factory _ScorePillPalette.forDisplayedScore(int? score) {
+    if (score == null) {
+      return const _ScorePillPalette(
+        background: Color(0xFFF1F5F9),
+        border: Color(0xFFD6DEE8),
+        foreground: Color(0xFF64748B),
+      );
+    }
+    if (score >= 90) {
+      return const _ScorePillPalette(
+        background: Color(0xFFE7F7ED),
+        border: Color(0xFF9AD6AE),
+        foreground: Color(0xFF197A3A),
+      );
+    }
+    if (score >= 80) {
+      return const _ScorePillPalette(
+        background: Color(0xFFFFF4D7),
+        border: Color(0xFFEBC96B),
+        foreground: Color(0xFF9A6500),
+      );
+    }
+    if (score >= 70) {
+      return const _ScorePillPalette(
+        background: Color(0xFFFFE9D6),
+        border: Color(0xFFFFB16F),
+        foreground: Color(0xFFB64B00),
+      );
+    }
+    return const _ScorePillPalette(
+      background: Color(0xFFFFE6E0),
+      border: Color(0xFFFFA197),
+      foreground: Color(0xFFC53123),
+    );
   }
 }
