@@ -82,6 +82,22 @@
     ],
     "rewrites": [
       {
+        "source": "/r/coupons/**",
+        "destination": "/qr-fallback.html"
+      },
+      {
+        "source": "/r/bitescore/**",
+        "destination": "/qr-fallback.html"
+      },
+      {
+        "source": "/invite/coupon/**",
+        "destination": "/qr-fallback.html"
+      },
+      {
+        "source": "/invite/bitescore/**",
+        "destination": "/qr-fallback.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

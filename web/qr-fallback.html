@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex">
+  <title>BiteSaver Link</title>
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="stylesheet" href="/qr-fallback.css">
+</head>
+<body>
+  <main class="card">
+    <div class="brand" aria-label="BiteSaver and BiteScore">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span>BiteSaver / BiteScore</span>
+    </div>
+
+    <h1 id="fallback-title">Open this BiteSaver link in the app</h1>
+    <p id="fallback-message">
+      Install BiteSaver, or open the app if it is already on this device.
+    </p>
+
+    <div class="actions">
+      <a
+        id="open-app-link"
+        class="button button-orange"
+        href="https://app.colesmartllc.com/"
+      >
+        Already installed? Open in app
+      </a>
+
+      <a
+        id="ios-install-link"
+        class="button button-disabled"
+        aria-disabled="true"
+        role="button"
+        tabindex="-1"
+      >
+        Install on iPhone
+      </a>
+      <a
+        id="android-install-link"
+        class="button button-disabled"
+        aria-disabled="true"
+        role="button"
+        tabindex="-1"
+      >
+        Install on Android
+      </a>
+    </div>
+
+    <p id="install-note" class="note">
+      App Store and Google Play links are not configured yet.
+    </p>
+
+    <p class="footer">
+      For invite links, the secure invitation is handled inside the app after sign-in.
+    </p>
+  </main>
+
+  <script src="/qr-fallback.js"></script>
+</body>
+</html>
