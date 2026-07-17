@@ -23,7 +23,7 @@ void main() {
       final image = tester.widget<Image>(find.byType(Image));
       final provider = image.image as AssetImage;
 
-      expect(provider.assetName, 'assets/images/compact_logo_1_BGR.png');
+      expect(provider.assetName, BiteSaverImageAssets.hero);
       expect(image.fit, BoxFit.contain);
       expect(image.width, isNull);
       expect(image.height, isNull);

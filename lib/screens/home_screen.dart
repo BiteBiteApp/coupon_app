@@ -3101,8 +3101,12 @@ class _HomeScreenState extends State<HomeScreen> {
                                       child: Align(
                                         alignment: Alignment.topRight,
                                         child: IgnorePointer(
-                                          child: BiteSaverHomeHeroLogo(
-                                            tight: tight,
+                                          child: Transform.scale(
+                                            scale: 1.25,
+                                            alignment: Alignment.center,
+                                            child: BiteSaverHomeHeroLogo(
+                                              tight: tight,
+                                            ),
                                           ),
                                         ),
                                       ),

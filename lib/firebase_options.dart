@@ -57,12 +57,11 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyBQXI3SFvC3gVOwEVMp3hXfbgxH_mjc3Tk',
-    appId: '1:253983587346:android:750437c485d3b0db48accb',
+    appId: '1:253983587346:android:f3d5e70ac2ff915c48accb',
     messagingSenderId: '253983587346',
     projectId: 'coupon-app-29446',
     storageBucket: 'coupon-app-29446.firebasestorage.app',
   );
-
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCpbE4CwcdXKcR6eP974IVB3m15yfIG3k8',
     appId: '1:253983587346:ios:2c7ff7d7b243e4e248accb',
@@ -71,8 +70,7 @@ class DefaultFirebaseOptions {
     storageBucket: 'coupon-app-29446.firebasestorage.app',
     androidClientId:
         '253983587346-9fh1d0d2m8upp17bv0rla8dj2410tk5a.apps.googleusercontent.com',
-    iosClientId:
-        '253983587346-2ofh0de9kqh45r57obv13gii570cih3r.apps.googleusercontent.com',
+    iosClientId: '253983587346-2ofh0de9kqh45r57obv13gii570cih3r.apps.googleusercontent.com',
     iosBundleId: 'com.colesmartllc.bitesaver',
   );
 }
