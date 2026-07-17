@@ -2532,7 +2532,7 @@ function renderSubscriptionReturnPage(params: {
       <h1>${escapedTitle}</h1>
       <p>${escapedMessage}</p>
       <a class="button" href="${escapedReturnUri}">${escapedButton}</a>
-      <p class="hint">If BiteSaver does not open, switch back to the app to continue.</p>
+      <p class="hint">If BiteStar does not open, switch back to the app to continue.</p>
     </div>
   </body>
 </html>`;
@@ -2543,9 +2543,9 @@ export const subscriptionCheckoutSuccess = onRequest((request, response) => {
     renderSubscriptionReturnPage({
       title: "Subscription Active",
       message:
-        "Your subscription was successful. Tap below to return to BiteSaver.",
+        "Your subscription was successful. Tap below to return to BiteStar.",
       returnUri: subscriptionReturnSuccessUri,
-      buttonLabel: "Open BiteSaver",
+      buttonLabel: "Open BiteStar",
     }),
   );
 });
@@ -2554,9 +2554,9 @@ export const subscriptionCheckoutCancel = onRequest((request, response) => {
   response.status(200).send(
     renderSubscriptionReturnPage({
       title: "Subscription Canceled",
-      message: "No changes were made. Tap below to return to BiteSaver.",
+      message: "No changes were made. Tap below to return to BiteStar.",
       returnUri: subscriptionReturnCancelUri,
-      buttonLabel: "Open BiteSaver",
+      buttonLabel: "Open BiteStar",
     }),
   );
 });
