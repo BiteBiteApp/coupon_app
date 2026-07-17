@@ -24,8 +24,8 @@
       message: 'Claim this restaurant securely in the app after verifying your email.',
     },
     generic: {
-      title: 'Open this BiteSaver link in the app',
-      message: 'Install BiteSaver, or open the app if it is already on this device.',
+      title: 'Open this BiteStar link in the app',
+      message: 'Install BiteStar, or open the app if it is already on this device.',
     },
   };
 
