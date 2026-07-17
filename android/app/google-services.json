@@ -66,6 +66,22 @@
       },
       "oauth_client": [
         {
+          "client_id": "253983587346-6sviteh8faa0mg2fvrbfhb5v3t4qbe1f.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.colesmart.bitestar",
+            "certificate_hash": "69cfd69a25e1470467675b398d7d919e743ca20a"
+          }
+        },
+        {
+          "client_id": "253983587346-sn4jhr1e72kqj76772ll76kdejmmc12q.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.colesmart.bitestar",
+            "certificate_hash": "7fef62d974e0fb0065fa58c8f5daa9f8676456f6"
+          }
+        },
+        {
           "client_id": "253983587346-bqkv4qsf93390ctdjctpq9nuup2r9lhe.apps.googleusercontent.com",
           "client_type": 3
         }
