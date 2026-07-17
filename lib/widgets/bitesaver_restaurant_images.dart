@@ -66,10 +66,11 @@ class BiteSaverHomeHeroLogo extends StatelessWidget {
   static const double preHeroRefinementRegularVerticalOffset = -16;
   static const double tightWidthFactor = 2.0;
   static const double regularWidthFactor = 2.1;
-  static const double tightVerticalOffset = -22;
-  static const double regularVerticalOffset = -24;
-  static const double tightHorizontalOffset = 75;
-  static const double regularHorizontalOffset = 88;
+  static const double tightHorizontalOffset = 104;
+  static const double regularHorizontalOffset = 118;
+
+  static const double tightVerticalOffset = -15;
+  static const double regularVerticalOffset = -17;
 
   final bool tight;
 
