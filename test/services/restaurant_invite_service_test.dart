@@ -129,6 +129,8 @@ void main() {
 
     test('parses HTTPS coupon invite links on trusted QR hosts', () {
       const trustedHosts = [
+        'go.bitestar.app',
+        'app.bitestar.app',
         'go.biteranger.com',
         'app.biteranger.com',
         'go.colesmartllc.com',
@@ -150,6 +152,8 @@ void main() {
 
     test('parses HTTPS BiteScore invite links on trusted QR hosts', () {
       const trustedHosts = [
+        'go.bitestar.app',
+        'app.bitestar.app',
         'go.biteranger.com',
         'app.biteranger.com',
         'go.colesmartllc.com',

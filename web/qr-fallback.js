@@ -4,7 +4,7 @@
   // TODO: Set these when real App Store/TestFlight and Google Play links exist.
   const IOS_INSTALL_URL = '';
   const ANDROID_INSTALL_URL = '';
-  const APP_HOST = 'app.biteranger.com';
+  const APP_HOST = 'app.bitestar.app';
 
   const fallbackCopy = {
     couponRestaurant: {

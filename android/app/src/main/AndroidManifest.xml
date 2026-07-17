@@ -83,6 +83,50 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data
                     android:scheme="https"
+                    android:host="go.bitestar.app"
+                    android:pathPrefix="/r/coupons/" />
+                <data
+                    android:scheme="https"
+                    android:host="go.bitestar.app"
+                    android:pathPrefix="/r/bitescore/" />
+                <data
+                    android:scheme="https"
+                    android:host="go.bitestar.app"
+                    android:pathPrefix="/invite/coupon/" />
+                <data
+                    android:scheme="https"
+                    android:host="go.bitestar.app"
+                    android:pathPrefix="/invite/bitescore/" />
+            </intent-filter>
+
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
+                    android:host="app.bitestar.app"
+                    android:pathPrefix="/r/coupons/" />
+                <data
+                    android:scheme="https"
+                    android:host="app.bitestar.app"
+                    android:pathPrefix="/r/bitescore/" />
+                <data
+                    android:scheme="https"
+                    android:host="app.bitestar.app"
+                    android:pathPrefix="/invite/coupon/" />
+                <data
+                    android:scheme="https"
+                    android:host="app.bitestar.app"
+                    android:pathPrefix="/invite/bitescore/" />
+            </intent-filter>
+
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="https"
                     android:host="go.biteranger.com"
                     android:pathPrefix="/r/coupons/" />
                 <data

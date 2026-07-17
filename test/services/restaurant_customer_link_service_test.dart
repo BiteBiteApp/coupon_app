@@ -48,6 +48,8 @@ void main() {
 
     test('parses HTTPS coupon restaurant links on trusted QR hosts', () {
       const trustedHosts = [
+        'go.bitestar.app',
+        'app.bitestar.app',
         'go.biteranger.com',
         'app.biteranger.com',
         'go.colesmartllc.com',
@@ -69,6 +71,8 @@ void main() {
 
     test('parses HTTPS BiteScore restaurant links on trusted QR hosts', () {
       const trustedHosts = [
+        'go.bitestar.app',
+        'app.bitestar.app',
         'go.biteranger.com',
         'app.biteranger.com',
         'go.colesmartllc.com',

@@ -4,6 +4,8 @@
 <dict>
 	<key>com.apple.developer.associated-domains</key>
 	<array>
+		<string>applinks:go.bitestar.app</string>
+		<string>applinks:app.bitestar.app</string>
 		<string>applinks:go.biteranger.com</string>
 		<string>applinks:app.biteranger.com</string>
 		<string>applinks:go.colesmartllc.com</string>

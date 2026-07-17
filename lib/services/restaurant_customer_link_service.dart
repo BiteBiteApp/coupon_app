@@ -13,6 +13,8 @@ class RestaurantCustomerDeepLink {
 
 class RestaurantCustomerLinkService {
   static const Set<String> _trustedHttpsHosts = {
+    'go.bitestar.app',
+    'app.bitestar.app',
     'go.biteranger.com',
     'app.biteranger.com',
     'go.colesmartllc.com',
