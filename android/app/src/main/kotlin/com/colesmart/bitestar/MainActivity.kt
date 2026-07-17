@@ -1,4 +1,4 @@
-package com.bitesaver.app
+package com.colesmart.bitestar
 
 import io.flutter.embedding.android.FlutterActivity
 

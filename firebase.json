@@ -4,7 +4,7 @@
       "android": {
         "default": {
           "projectId": "coupon-app-29446",
-          "appId": "1:253983587346:android:750437c485d3b0db48accb",
+          "appId": "1:253983587346:android:f3d5e70ac2ff915c48accb",
           "fileOutput": "android/app/google-services.json"
         }
       },
@@ -12,6 +12,7 @@
         "lib/firebase_options.dart": {
           "projectId": "coupon-app-29446",
           "configurations": {
+            "android": "1:253983587346:android:f3d5e70ac2ff915c48accb",
             "ios": "1:253983587346:ios:9002570d04bd127748accb"
           }
         }

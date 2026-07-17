@@ -59,6 +59,42 @@
     },
     {
       "client_info": {
+        "mobilesdk_app_id": "1:253983587346:android:f3d5e70ac2ff915c48accb",
+        "android_client_info": {
+          "package_name": "com.colesmart.bitestar"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "253983587346-bqkv4qsf93390ctdjctpq9nuup2r9lhe.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBQXI3SFvC3gVOwEVMp3hXfbgxH_mjc3Tk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "253983587346-bqkv4qsf93390ctdjctpq9nuup2r9lhe.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "253983587346-2ofh0de9kqh45r57obv13gii570cih3r.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.colesmartllc.bitesaver"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:253983587346:android:750437c485d3b0db48accb",
         "android_client_info": {
           "package_name": "com.example.coupon_app"
