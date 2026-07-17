@@ -81,7 +81,7 @@ class CouponApp extends StatelessWidget {
     );
 
     return MaterialApp(
-      title: 'BiteSaver',
+      title: 'BiteStar',
       debugShowCheckedModeBanner: false,
       navigatorKey: rootNavigatorKey,
       scaffoldMessengerKey: rootScaffoldMessengerKey,
