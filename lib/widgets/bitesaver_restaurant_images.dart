@@ -68,6 +68,8 @@ class BiteSaverHomeHeroLogo extends StatelessWidget {
   static const double regularWidthFactor = 2.1;
   static const double tightHorizontalOffset = 104;
   static const double regularHorizontalOffset = 118;
+  static const double tightMaxHorizontalOffsetFraction = 0.22;
+  static const double regularMaxHorizontalOffsetFraction = 0.24;
 
   static const double tightVerticalOffset = -15;
   static const double regularVerticalOffset = -17;
@@ -82,8 +84,21 @@ class BiteSaverHomeHeroLogo extends StatelessWidget {
   static double verticalOffsetFor({required bool tight}) =>
       tight ? tightVerticalOffset : regularVerticalOffset;
 
-  static double horizontalOffsetFor({required bool tight}) =>
-      tight ? tightHorizontalOffset : regularHorizontalOffset;
+  static double horizontalOffsetFor({
+    required bool tight,
+    double? availableWidth,
+  }) {
+    final baseOffset = tight ? tightHorizontalOffset : regularHorizontalOffset;
+    final width = availableWidth;
+    if (width == null || width <= 0) {
+      return baseOffset;
+    }
+
+    final maxOffsetFraction = tight
+        ? tightMaxHorizontalOffsetFraction
+        : regularMaxHorizontalOffsetFraction;
+    return baseOffset.clamp(0.0, width * maxOffsetFraction).toDouble();
+  }
 
   @override
   Widget build(BuildContext context) {

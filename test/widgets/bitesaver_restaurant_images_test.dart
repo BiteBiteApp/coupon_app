@@ -64,6 +64,20 @@ void main() {
         BiteSaverHomeHeroLogo.horizontalOffsetFor(tight: false),
         greaterThan(BiteSaverHomeHeroLogo.horizontalOffsetFor(tight: true)),
       );
+      expect(
+        BiteSaverHomeHeroLogo.horizontalOffsetFor(
+          tight: true,
+          availableWidth: 320,
+        ),
+        320 * BiteSaverHomeHeroLogo.tightMaxHorizontalOffsetFraction,
+      );
+      expect(
+        BiteSaverHomeHeroLogo.horizontalOffsetFor(
+          tight: false,
+          availableWidth: 520,
+        ),
+        BiteSaverHomeHeroLogo.regularHorizontalOffset,
+      );
     });
 
     testWidgets('larger logo builds without overflow or text collision', (
@@ -88,7 +102,10 @@ void main() {
                     flex: 42,
                     child: Transform.translate(
                       offset: Offset(
-                        BiteSaverHomeHeroLogo.horizontalOffsetFor(tight: true),
+                        BiteSaverHomeHeroLogo.horizontalOffsetFor(
+                          tight: true,
+                          availableWidth: 320,
+                        ),
                         BiteSaverHomeHeroLogo.verticalOffsetFor(tight: true),
                       ),
                       child: const Align(

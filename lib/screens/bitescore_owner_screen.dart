@@ -12,6 +12,7 @@ import '../services/bitescore_service.dart';
 import '../services/restaurant_auth_service.dart';
 import '../services/restaurant_menu_service.dart';
 import '../utils/phone_number_formatter.dart';
+import '../widgets/admin_content_insets.dart';
 import '../widgets/bitescore_category_picker.dart';
 import '../widgets/biterater_theme.dart';
 import '../widgets/clickable_phone_text.dart';
@@ -1856,7 +1857,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
               .toList(growable: false);
 
           return SingleChildScrollView(
-            padding: const EdgeInsets.all(16),
+            padding: AdminContentInsets.systemScrollPadding(context),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

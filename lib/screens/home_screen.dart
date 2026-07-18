@@ -3093,6 +3093,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                       offset: Offset(
                                         BiteSaverHomeHeroLogo.horizontalOffsetFor(
                                           tight: tight,
+                                          availableWidth: width,
                                         ),
                                         BiteSaverHomeHeroLogo.verticalOffsetFor(
                                           tight: tight,

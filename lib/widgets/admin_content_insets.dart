@@ -28,4 +28,19 @@ class AdminContentInsets {
       bottom + bottomNavigationObstruction(context),
     );
   }
+
+  static EdgeInsets systemScrollPadding(
+    BuildContext context, {
+    double left = 16,
+    double top = 16,
+    double right = 16,
+    double bottom = 16,
+  }) {
+    return EdgeInsets.fromLTRB(
+      left,
+      top,
+      right,
+      bottom + MediaQuery.viewPaddingOf(context).bottom + bottomBreathingRoom,
+    );
+  }
 }
