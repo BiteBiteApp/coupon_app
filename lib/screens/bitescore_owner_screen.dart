@@ -395,6 +395,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
               DropdownButtonFormField<String>(
                 key: ValueKey<String>(restaurant.id),
                 initialValue: restaurant.id,
+                isExpanded: true,
                 decoration: const InputDecoration(
                   labelText: 'Restaurant',
                   border: OutlineInputBorder(),
@@ -403,7 +404,11 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
                     .map(
                       (item) => DropdownMenuItem<String>(
                         value: item.id,
-                        child: Text(item.name),
+                        child: Text(
+                          item.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     )
                     .toList(),
