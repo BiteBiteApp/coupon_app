@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 
-export const restaurantInviteBaseUrl = "https://colesmartllc.com/invite";
+export const restaurantInviteBaseUrl = "https://go.bitestar.app/invite";
 
 export function generateInviteToken(): string {
   return randomBytes(32).toString("base64url");

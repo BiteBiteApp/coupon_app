@@ -27,14 +27,14 @@ test("coupon invite preserves existing restaurant ID when provided", () => {
   assert.equal(identity.pendingRestaurantKey, null);
 });
 
-test("invite links use colesmartllc.com HTTPS URLs", () => {
+test("invite links use BiteStar HTTPS URLs", () => {
   assert.equal(
     inviteLink("coupon", "token_123"),
-    "https://colesmartllc.com/invite/coupon/token_123",
+    "https://go.bitestar.app/invite/coupon/token_123",
   );
   assert.equal(
     inviteLink("bitescore", "token_456"),
-    "https://colesmartllc.com/invite/bitescore/token_456",
+    "https://go.bitestar.app/invite/bitescore/token_456",
   );
 });
 
