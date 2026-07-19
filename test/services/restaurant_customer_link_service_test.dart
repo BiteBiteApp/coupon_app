@@ -4,6 +4,84 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('RestaurantCustomerLinkService', () {
+    test(
+      'builds coupon customer restaurant URLs on canonical BiteStar host',
+      () {
+        expect(
+          RestaurantCustomerLinkService.couponRestaurantUrl('restaurant123'),
+          'https://go.bitestar.app/r/coupons/restaurant123',
+        );
+      },
+    );
+
+    test(
+      'builds BiteScore customer restaurant URLs on canonical BiteStar host',
+      () {
+        expect(
+          RestaurantCustomerLinkService.biteScoreRestaurantUrl(
+            'bitescore_restaurant_123',
+          ),
+          'https://go.bitestar.app/r/bitescore/bitescore_restaurant_123',
+        );
+      },
+    );
+
+    test('generated coupon customer URLs parse back to coupon deep links', () {
+      final url = RestaurantCustomerLinkService.couponRestaurantUrl(
+        'restaurant123',
+      );
+      final link = RestaurantCustomerLinkService.parseRestaurantDeepLink(
+        Uri.parse(url),
+      );
+
+      expect(link, isNotNull);
+      expect(link!.side, 'coupons');
+      expect(link.restaurantId, 'restaurant123');
+      expect(link.isCoupon, isTrue);
+    });
+
+    test(
+      'generated BiteScore customer URLs parse back to BiteScore deep links',
+      () {
+        final url = RestaurantCustomerLinkService.biteScoreRestaurantUrl(
+          'bitescore_restaurant_123',
+        );
+        final link = RestaurantCustomerLinkService.parseRestaurantDeepLink(
+          Uri.parse(url),
+        );
+
+        expect(link, isNotNull);
+        expect(link!.side, 'bitescore');
+        expect(link.restaurantId, 'bitescore_restaurant_123');
+        expect(link.isBiteScore, isTrue);
+      },
+    );
+
+    test('customer URL builders path-encode restaurant IDs', () {
+      final url = RestaurantCustomerLinkService.couponRestaurantUrl(
+        'restaurant 123',
+      );
+
+      expect(url, 'https://go.bitestar.app/r/coupons/restaurant%20123');
+
+      final link = RestaurantCustomerLinkService.parseRestaurantDeepLink(
+        Uri.parse(url),
+      );
+      expect(link, isNotNull);
+      expect(link!.restaurantId, 'restaurant 123');
+    });
+
+    test('customer URL builders reject empty restaurant IDs', () {
+      expect(
+        () => RestaurantCustomerLinkService.couponRestaurantUrl(''),
+        throwsArgumentError,
+      );
+      expect(
+        () => RestaurantCustomerLinkService.biteScoreRestaurantUrl('  '),
+        throwsArgumentError,
+      );
+    });
+
     test('parses double-slash coupon restaurant links', () {
       final link = RestaurantCustomerLinkService.parseRestaurantDeepLink(
         Uri.parse('bitesaver://r/coupons/restaurant123'),

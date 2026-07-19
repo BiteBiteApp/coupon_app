@@ -12,6 +12,7 @@ class RestaurantCustomerDeepLink {
 }
 
 class RestaurantCustomerLinkService {
+  static const String _canonicalCustomerQrHost = 'go.bitestar.app';
   static const Set<String> _trustedHttpsHosts = {
     'go.bitestar.app',
     'app.bitestar.app',
@@ -22,6 +23,14 @@ class RestaurantCustomerLinkService {
     'colesmartllc.com',
     'www.colesmartllc.com',
   };
+
+  static String couponRestaurantUrl(String restaurantId) {
+    return _restaurantUrl(side: 'coupons', restaurantId: restaurantId);
+  }
+
+  static String biteScoreRestaurantUrl(String restaurantId) {
+    return _restaurantUrl(side: 'bitescore', restaurantId: restaurantId);
+  }
 
   static RestaurantCustomerDeepLink? parseRestaurantDeepLink(Uri uri) {
     final isCustomScheme = uri.scheme == 'bitesaver';
@@ -93,5 +102,21 @@ class RestaurantCustomerLinkService {
     }
 
     return RestaurantCustomerDeepLink(side: side, restaurantId: restaurantId);
+  }
+
+  static String _restaurantUrl({
+    required String side,
+    required String restaurantId,
+  }) {
+    final trimmedRestaurantId = restaurantId.trim();
+    if (trimmedRestaurantId.isEmpty) {
+      throw ArgumentError('Restaurant ID is required.');
+    }
+
+    return Uri(
+      scheme: 'https',
+      host: _canonicalCustomerQrHost,
+      pathSegments: ['r', side, trimmedRestaurantId],
+    ).toString();
   }
 }
