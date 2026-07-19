@@ -64,13 +64,13 @@ class DefaultFirebaseOptions {
   );
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyCpbE4CwcdXKcR6eP974IVB3m15yfIG3k8',
-    appId: '1:253983587346:ios:2c7ff7d7b243e4e248accb',
+    appId: '1:253983587346:ios:9e02bea4dfc6bdb548accb',
     messagingSenderId: '253983587346',
     projectId: 'coupon-app-29446',
     storageBucket: 'coupon-app-29446.firebasestorage.app',
     androidClientId:
         '253983587346-9fh1d0d2m8upp17bv0rla8dj2410tk5a.apps.googleusercontent.com',
-    iosClientId: '253983587346-2ofh0de9kqh45r57obv13gii570cih3r.apps.googleusercontent.com',
-    iosBundleId: 'com.colesmartllc.bitesaver',
+    iosClientId: '253983587346-rdqimuapjngq4f91m4h816l87oup8bn0.apps.googleusercontent.com',
+    iosBundleId: 'com.colesmart.bitestar',
   );
 }

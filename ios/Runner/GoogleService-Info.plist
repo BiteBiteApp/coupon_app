@@ -3,11 +3,11 @@
 <plist version="1.0">
 <dict>
 	<key>CLIENT_ID</key>
-	<string>253983587346-2ofh0de9kqh45r57obv13gii570cih3r.apps.googleusercontent.com</string>
+	<string>253983587346-rdqimuapjngq4f91m4h816l87oup8bn0.apps.googleusercontent.com</string>
 	<key>REVERSED_CLIENT_ID</key>
-	<string>com.googleusercontent.apps.253983587346-2ofh0de9kqh45r57obv13gii570cih3r</string>
+	<string>com.googleusercontent.apps.253983587346-rdqimuapjngq4f91m4h816l87oup8bn0</string>
 	<key>ANDROID_CLIENT_ID</key>
-	<string>253983587346-9fh1d0d2m8upp17bv0rla8dj2410tk5a.apps.googleusercontent.com</string>
+	<string>253983587346-4q5l70crjhe9m4f151ah3irbr67cenfa.apps.googleusercontent.com</string>
 	<key>API_KEY</key>
 	<string>AIzaSyCpbE4CwcdXKcR6eP974IVB3m15yfIG3k8</string>
 	<key>GCM_SENDER_ID</key>
@@ -15,7 +15,7 @@
 	<key>PLIST_VERSION</key>
 	<string>1</string>
 	<key>BUNDLE_ID</key>
-	<string>com.colesmartllc.bitesaver</string>
+	<string>com.colesmart.bitestar</string>
 	<key>PROJECT_ID</key>
 	<string>coupon-app-29446</string>
 	<key>STORAGE_BUCKET</key>
@@ -31,6 +31,6 @@
 	<key>IS_SIGNIN_ENABLED</key>
 	<true></true>
 	<key>GOOGLE_APP_ID</key>
-	<string>1:253983587346:ios:2c7ff7d7b243e4e248accb</string>
+	<string>1:253983587346:ios:9e02bea4dfc6bdb548accb</string>
 </dict>
 </plist>
