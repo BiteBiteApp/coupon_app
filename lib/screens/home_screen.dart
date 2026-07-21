@@ -39,7 +39,16 @@ class SearchCenter {
 }
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final Stream<QuerySnapshot<Map<String, dynamic>>>? approvedAccountsStream;
+  final Future<List<Restaurant>> Function()? restaurantLoader;
+  final bool initializeFirebaseBackedState;
+
+  const HomeScreen({
+    super.key,
+    this.approvedAccountsStream,
+    this.restaurantLoader,
+    this.initializeFirebaseBackedState = true,
+  });
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();
@@ -47,7 +56,8 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   static const double _collapsedHeaderExtent = 60;
-  static const double _expandedHeaderExtent = 219;
+  static const double _tightExpandedHeaderExtent = 219;
+  static const double _regularExpandedHeaderExtent = 222;
   static const String _selectedRadiusPreferenceKey = 'selected_radius';
   String selectedRadius = '15 miles';
   String searchQuery = '';
@@ -294,7 +304,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    DemoRedemptionStore.ensureInitialized();
+    if (widget.initializeFirebaseBackedState) {
+      DemoRedemptionStore.ensureInitialized();
+    }
     _loadSelectedRadius();
     _restoreSharedLocationState();
     _loadRestaurants();
@@ -389,7 +401,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
     try {
       final restaurants =
-          await RestaurantAccountService.loadApprovedRestaurantsWithCoupons();
+          await (widget.restaurantLoader?.call() ??
+              RestaurantAccountService.loadApprovedRestaurantsWithCoupons());
       if (!mounted) {
         return;
       }
@@ -439,6 +452,27 @@ class _HomeScreenState extends State<HomeScreen> {
         usingTypedSearchLocation ||
         searchController.text.trim().isNotEmpty ||
         searchQuery.trim().isNotEmpty;
+  }
+
+  static bool _usesTightHeaderLayout(double width) => width < 430;
+
+  static double _heroTextScaleHeightAdjustment(
+    double width,
+    TextScaler textScaler,
+  ) {
+    final heroFontSize = _usesTightHeaderLayout(width) ? 28.0 : 33.0;
+    final scaledFontSize = textScaler.scale(heroFontSize);
+    return ((scaledFontSize - heroFontSize) * 2 * 1.04).clamp(
+      0,
+      double.infinity,
+    );
+  }
+
+  static double _expandedHeaderExtentFor(double width, TextScaler textScaler) {
+    final baseExtent = _usesTightHeaderLayout(width)
+        ? _tightExpandedHeaderExtent
+        : _regularExpandedHeaderExtent;
+    return baseExtent + _heroTextScaleHeightAdjustment(width, textScaler);
   }
 
   bool get supportsReverseGeocodingOnThisPlatform {
@@ -2831,6 +2865,7 @@ class _HomeScreenState extends State<HomeScreen> {
           builder: (context, constraints) {
             return DropdownButtonFormField<String>(
               initialValue: selectedRadius,
+              isExpanded: true,
               decoration: InputDecoration(
                 filled: true,
                 fillColor: BiteSaverColors.surface,
@@ -2858,13 +2893,41 @@ class _HomeScreenState extends State<HomeScreen> {
                 fontWeight: FontWeight.w700,
               ),
               selectedItemBuilder: (context) => const [
-                Text('1 mi'),
-                Text('3 mi'),
-                Text('5 mi'),
-                Text('10 mi'),
-                Text('15 mi'),
-                Text('20 mi'),
-                Text('30 mi'),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text('1 mi'),
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text('3 mi'),
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text('5 mi'),
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text('10 mi'),
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text('15 mi'),
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text('20 mi'),
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text('30 mi'),
+                ),
               ],
               items: const [
                 DropdownMenuItem(value: '1 mile', child: Text('1 mile')),
@@ -3002,9 +3065,17 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: LayoutBuilder(
                   builder: (context, constraints) {
                     final width = constraints.maxWidth;
-                    final tight = width < 430;
+                    final tight = _usesTightHeaderLayout(width);
                     final controlHeight = tight ? 38.0 : 43.0;
-                    final heroHeight = tight ? 120.0 : 128.0;
+                    final heroVisualHeight = tight ? 120.0 : 128.0;
+                    final searchPanelOverlap = tight ? 10.0 : 12.0;
+                    final heroLayoutHeight =
+                        heroVisualHeight -
+                        searchPanelOverlap +
+                        _heroTextScaleHeightAdjustment(
+                          width,
+                          MediaQuery.textScalerOf(context),
+                        );
                     final horizontalPadding = tight ? 8.0 : 10.0;
                     final searchPadding = tight ? 5.0 : 7.0;
 
@@ -3022,7 +3093,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       child: Column(
                         children: [
                           SizedBox(
-                            height: heroHeight,
+                            key: const ValueKey('bitesaver-home-hero'),
+                            height: heroLayoutHeight,
                             child: Padding(
                               padding: EdgeInsets.fromLTRB(
                                 horizontalPadding + 4,
@@ -3117,81 +3189,79 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                             ),
                           ),
-                          Transform.translate(
-                            offset: Offset(0, tight ? -10 : -12),
-                            child: Padding(
+                          Padding(
+                            key: const ValueKey('bitesaver-home-search-panel'),
+                            padding: EdgeInsets.fromLTRB(
+                              horizontalPadding,
+                              0,
+                              horizontalPadding,
+                              0,
+                            ),
+                            child: Container(
+                              width: double.infinity,
                               padding: EdgeInsets.fromLTRB(
-                                horizontalPadding,
-                                0,
-                                horizontalPadding,
-                                0,
+                                searchPadding,
+                                tight ? 3 : 5,
+                                searchPadding,
+                                tight ? 3 : 5,
                               ),
-                              child: Container(
-                                width: double.infinity,
-                                padding: EdgeInsets.fromLTRB(
-                                  searchPadding,
-                                  tight ? 3 : 5,
-                                  searchPadding,
-                                  tight ? 3 : 5,
+                              decoration: BoxDecoration(
+                                color: BiteSaverColors.surface,
+                                borderRadius: BorderRadius.circular(15),
+                                border: Border.all(
+                                  color: BiteSaverColors.border,
+                                  width: 0.8,
                                 ),
-                                decoration: BoxDecoration(
-                                  color: BiteSaverColors.surface,
-                                  borderRadius: BorderRadius.circular(15),
-                                  border: Border.all(
-                                    color: BiteSaverColors.border,
-                                    width: 0.8,
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color.fromRGBO(15, 23, 42, 0.085),
+                                    blurRadius: 18,
+                                    offset: Offset(0, 7),
                                   ),
-                                  boxShadow: const [
-                                    BoxShadow(
-                                      color: Color.fromRGBO(15, 23, 42, 0.085),
-                                      blurRadius: 18,
-                                      offset: Offset(0, 7),
-                                    ),
-                                  ],
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          flex: 49,
-                                          child: currentLocationButton(
-                                            tight,
-                                            controlHeight,
-                                          ),
+                                ],
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 49,
+                                        child: currentLocationButton(
+                                          tight,
+                                          controlHeight,
                                         ),
-                                        SizedBox(width: tight ? 8 : 10),
-                                        Expanded(
-                                          flex: 51,
-                                          child: typedLocationButton(
-                                            tight,
-                                            controlHeight,
-                                          ),
+                                      ),
+                                      SizedBox(width: tight ? 8 : 10),
+                                      Expanded(
+                                        flex: 51,
+                                        child: typedLocationButton(
+                                          tight,
+                                          controlHeight,
                                         ),
-                                      ],
-                                    ),
-                                    SizedBox(height: tight ? 2 : 3),
-                                    Row(
-                                      children: [
-                                        Expanded(
-                                          child: restaurantSearchField(
-                                            tight,
-                                            controlHeight,
-                                          ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: tight ? 2 : 3),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: restaurantSearchField(
+                                          tight,
+                                          controlHeight,
                                         ),
-                                        SizedBox(width: tight ? 5 : 7),
-                                        SizedBox(
-                                          width: tight ? 92 : 100,
-                                          child: radiusDropdown(
-                                            tight,
-                                            controlHeight,
-                                          ),
+                                      ),
+                                      SizedBox(width: tight ? 5 : 7),
+                                      SizedBox(
+                                        width: tight ? 92 : 100,
+                                        child: radiusDropdown(
+                                          tight,
+                                          controlHeight,
                                         ),
-                                      ],
-                                    ),
-                                  ],
-                                ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
                               ),
                             ),
                           ),
@@ -3211,7 +3281,9 @@ class _HomeScreenState extends State<HomeScreen> {
       valueListenable: DemoRedemptionStore.changes,
       builder: (context, changes, child) {
         return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream: RestaurantAccountService.approvedAccountsStream(),
+          stream:
+              widget.approvedAccountsStream ??
+              RestaurantAccountService.approvedAccountsStream(),
           builder: (context, snapshot) {
             if (snapshot.hasError) {
               return Scaffold(
@@ -3270,15 +3342,21 @@ class _HomeScreenState extends State<HomeScreen> {
               firestoreRestaurants: _restaurants,
               sampleRestaurants: sampleRestaurants,
             );
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) {
-                _loadRestaurantFavoriteStatuses(allRestaurants);
-              }
-            });
+            if (widget.initializeFirebaseBackedState) {
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) {
+                  _loadRestaurantFavoriteStatuses(allRestaurants);
+                }
+              });
+            }
 
             detectAndShowNewCouponNotifications(allRestaurants);
 
             final filteredRestaurants = filterRestaurants(allRestaurants);
+            final expandedHeaderExtent = _expandedHeaderExtentFor(
+              MediaQuery.sizeOf(context).width,
+              MediaQuery.textScalerOf(context),
+            );
             final bottomContentPadding =
                 136.0 + MediaQuery.of(context).viewPadding.bottom;
 
@@ -3307,7 +3385,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         pinned: true,
                         delegate: _HomeHeaderDelegate(
                           minExtentHeight: _collapsedHeaderExtent,
-                          maxExtentHeight: _expandedHeaderExtent,
+                          maxExtentHeight: expandedHeaderExtent,
                           builder: (context, expansionT) => _buildHeader(
                             allRestaurants: allRestaurants,
                             filteredRestaurants: filteredRestaurants,
