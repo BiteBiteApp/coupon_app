@@ -4,13 +4,23 @@ import 'package:flutter/material.dart';
 
 import '../services/admin_access_service.dart';
 import '../widgets/admin_content_insets.dart';
+import 'admin_link_generation_screen.dart';
 import 'admin_review_screen.dart';
 import 'bitescore_admin_screen.dart';
 
 class AdminGateScreen extends StatelessWidget {
   final Stream<User?>? userStream;
+  final WidgetBuilder? couponAdminBuilder;
+  final WidgetBuilder? ratingAdminBuilder;
+  final WidgetBuilder? linkGenerationBuilder;
 
-  const AdminGateScreen({super.key, @visibleForTesting this.userStream});
+  const AdminGateScreen({
+    super.key,
+    @visibleForTesting this.userStream,
+    @visibleForTesting this.couponAdminBuilder,
+    @visibleForTesting this.ratingAdminBuilder,
+    @visibleForTesting this.linkGenerationBuilder,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -120,8 +130,16 @@ class AdminGateScreen extends StatelessWidget {
           );
         }
 
+        final couponAdminScreen =
+            couponAdminBuilder?.call(context) ?? const AdminReviewScreen();
+        final ratingAdminScreen =
+            ratingAdminBuilder?.call(context) ?? const BiteScoreAdminScreen();
+        final linkGenerationScreen =
+            linkGenerationBuilder?.call(context) ??
+            const AdminLinkGenerationScreen();
+
         return DefaultTabController(
-          length: 2,
+          length: 3,
           child: Scaffold(
             appBar: AppBar(
               title: const Text('Admin'),
@@ -149,16 +167,23 @@ class AdminGateScreen extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: const TabBar(
+                        isScrollable: true,
+                        tabAlignment: TabAlignment.start,
                         tabs: [
                           Tab(text: 'Coupon Side'),
                           Tab(text: 'Rating Side'),
+                          Tab(text: 'Link Generation'),
                         ],
                       ),
                     ),
                   ),
-                  const Expanded(
+                  Expanded(
                     child: TabBarView(
-                      children: [AdminReviewScreen(), BiteScoreAdminScreen()],
+                      children: [
+                        couponAdminScreen,
+                        ratingAdminScreen,
+                        linkGenerationScreen,
+                      ],
                     ),
                   ),
                 ],
