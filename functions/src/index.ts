@@ -16,7 +16,6 @@ import {
   onDocumentWritten,
 } from "firebase-functions/v2/firestore";
 import {
-  CallableRequest,
   HttpsError,
   onCall,
   onRequest,
@@ -34,6 +33,11 @@ import {
   reverseContributionPointsForDishCallableHandler,
   reverseContributionPointLedgerEntryCallableHandler,
 } from "./contribution_points_helpers.js";
+import { requireAdminInviteAccess } from "./admin_authorization.js";
+import {
+  AdminRestaurantQueryPlan,
+  executeAdminRestaurantSearch,
+} from "./admin_restaurant_search_helpers.js";
 import {
   couponInviteRestaurantIdentity,
   filterAndSortInviteSummaries,
@@ -60,6 +64,7 @@ const db: Firestore = getFirestore();
 const stripeSecret = defineSecret("STRIPE_SECRET_KEY");
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
+const googleMapsApiKey = defineSecret("GOOGLE_MAPS_API_KEY");
 const stripeCheckoutSuccessUrl =
   "https://coupon-app-29446.web.app/stripe-success.html";
 const stripeCheckoutCancelUrl =
@@ -77,7 +82,6 @@ const subscriptionReturnSuccessUri = "bitesaver://subscription-success";
 const subscriptionReturnCancelUri = "bitesaver://subscription-cancel";
 const restaurantInviteCollection = "restaurant_invites";
 const restaurantInviteExpirationDays = 90;
-const adminInviteEmails = new Set(["schuyler.cole@gmail.com"]);
 
 type PushRequestData = {
   requestId?: string;
@@ -882,25 +886,24 @@ function readStringList(value: unknown): string[] {
     : [];
 }
 
-type AdminInviteContext = {
-  uid: string;
-  email: string;
-};
+async function executeAdminRestaurantQueryPlan(
+  plan: AdminRestaurantQueryPlan,
+) {
+  const collection = db.collection(plan.collectionName);
+  const geographicallyBoundedQuery = plan.requiresActiveRestaurant
+    ? collection.where("isActive", "==", true)
+    : collection;
+  const snapshot = await geographicallyBoundedQuery
+    .orderBy("geohash")
+    .startAt(plan.geohashStart)
+    .endAt(plan.geohashEnd)
+    .limit(plan.candidateLimit)
+    .get();
 
-function requireAdminInviteAccess(
-  request: CallableRequest<unknown>,
-): AdminInviteContext {
-  const uid = request.auth?.uid?.trim();
-  const email = readString(request.auth?.token.email)?.toLowerCase();
-
-  if (!uid || !email || !adminInviteEmails.has(email)) {
-    throw new HttpsError(
-      "permission-denied",
-      "Admin access is required to create restaurant invites.",
-    );
-  }
-
-  return { uid, email };
+  return snapshot.docs.map((document) => ({
+    documentId: document.id,
+    data: document.data(),
+  }));
 }
 
 function readRecord(value: unknown): Record<string, unknown> {
@@ -1129,6 +1132,20 @@ export const listRestaurantInvites = onCall(async (request) => {
     invites: filterAndSortInviteSummaries(invites, side, limit),
   };
 });
+
+export const searchAdminRestaurants = onCall(
+  {
+    secrets: [googleMapsApiKey],
+  },
+  async (request) => {
+    requireAdminInviteAccess(request);
+    return executeAdminRestaurantSearch(request.data, {
+      getGeocodingApiKey: () => googleMapsApiKey.value(),
+      fetchGeocoding: (url, init) => fetch(url, init),
+      executeQueryPlan: executeAdminRestaurantQueryPlan,
+    });
+  },
+);
 
 export const previewRestaurantInvite = onCall(async (request) => {
   const data = readRecord(request.data);
