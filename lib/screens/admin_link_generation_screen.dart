@@ -6,6 +6,9 @@ import '../services/admin_link_generation_service.dart';
 import '../services/app_error_text.dart';
 import '../services/restaurant_customer_link_service.dart';
 import '../services/restaurant_invite_service.dart';
+import '../services/restaurant_qr_export.dart';
+import '../services/restaurant_qr_image_service.dart';
+import '../widgets/restaurant_qr_preview_dialog.dart';
 
 typedef AdminRestaurantSearchCallback =
     Future<AdminRestaurantLinkSearchResult> Function({
@@ -35,12 +38,20 @@ typedef AdminBiteScoreClaimInviteCallback =
     });
 
 typedef AdminClipboardWriteCallback = Future<void> Function(String text);
+typedef AdminQrImageRenderCallback =
+    Future<RestaurantQrImageResult> Function({
+      required String restaurantName,
+      required String url,
+      required RestaurantQrLinkType linkType,
+    });
 
 class AdminLinkGenerationScreen extends StatefulWidget {
   final AdminRestaurantSearchCallback? searchRestaurants;
   final AdminCouponInviteCallback? createCouponInvite;
   final AdminBiteScoreClaimInviteCallback? createBiteScoreClaimInvite;
   final AdminClipboardWriteCallback? writeClipboard;
+  final AdminQrImageRenderCallback? renderQrImage;
+  final RestaurantQrExporter? qrExporter;
 
   const AdminLinkGenerationScreen({
     super.key,
@@ -48,6 +59,8 @@ class AdminLinkGenerationScreen extends StatefulWidget {
     @visibleForTesting this.createCouponInvite,
     @visibleForTesting this.createBiteScoreClaimInvite,
     @visibleForTesting this.writeClipboard,
+    @visibleForTesting this.renderQrImage,
+    @visibleForTesting this.qrExporter,
   });
 
   @override
@@ -197,6 +210,26 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
     }
   }
 
+  Future<RestaurantQrImageResult> _renderQrImage({
+    required String restaurantName,
+    required String url,
+    required RestaurantQrLinkType linkType,
+  }) {
+    final render = widget.renderQrImage;
+    if (render != null) {
+      return render(
+        restaurantName: restaurantName,
+        url: url,
+        linkType: linkType,
+      );
+    }
+    return const RestaurantQrImageService().render(
+      restaurantName: restaurantName,
+      url: url,
+      linkType: linkType,
+    );
+  }
+
   Future<void> _generateCouponInvite(AdminRestaurantLinkRecord record) async {
     await _runBusyAction(record, 'coupon-invite', () async {
       try {
@@ -232,6 +265,8 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
         await _showInviteDialog(
           title: 'Coupon Invite Created',
           inviteUrl: result.inviteUrl,
+          restaurantName: record.restaurantName,
+          linkType: RestaurantQrLinkType.couponInvite,
         );
       } catch (error) {
         if (!mounted) {
@@ -267,6 +302,8 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
         await _showInviteDialog(
           title: 'BiteScore Claim Invite Created',
           inviteUrl: result.inviteUrl,
+          restaurantName: record.restaurantName,
+          linkType: RestaurantQrLinkType.biteScoreClaimInvite,
         );
       } catch (error) {
         if (!mounted) {
@@ -304,6 +341,44 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
     });
   }
 
+  Future<void> _createCustomerQr(AdminRestaurantLinkRecord record) async {
+    await _runBusyAction(record, 'customer-qr', () async {
+      try {
+        final link = record.isBiteScore
+            ? RestaurantCustomerLinkService.biteScoreRestaurantUrl(
+                record.documentId,
+              )
+            : RestaurantCustomerLinkService.couponRestaurantUrl(
+                record.actionId,
+              );
+        final image = await _renderQrImage(
+          restaurantName: record.restaurantName,
+          url: link,
+          linkType: record.isBiteScore
+              ? RestaurantQrLinkType.customerBiteScore
+              : RestaurantQrLinkType.customerBiteSaver,
+        );
+        if (!mounted) {
+          return;
+        }
+        await showRestaurantQrPreviewDialog(
+          context: context,
+          image: image,
+          isSensitive: false,
+          exporter: widget.qrExporter,
+        );
+      } catch (error) {
+        if (mounted) {
+          _showSnackBar(
+            error is RestaurantQrImageException
+                ? error.message
+                : 'Could not create the customer QR image.',
+          );
+        }
+      }
+    });
+  }
+
   Future<void> _writeClipboard(String text) async {
     final writeClipboard = widget.writeClipboard;
     if (writeClipboard != null) {
@@ -316,65 +391,127 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
   Future<void> _showInviteDialog({
     required String title,
     required String inviteUrl,
+    required String restaurantName,
+    required RestaurantQrLinkType linkType,
   }) async {
-    await showDialog<void>(
-      context: context,
-      builder: (dialogContext) {
-        var isCopying = false;
-        return StatefulBuilder(
-          builder: (context, setDialogState) {
-            return AlertDialog(
-              title: Text(title),
-              content: SingleChildScrollView(
-                child: SelectableText(
-                  inviteUrl,
-                  key: const ValueKey('admin-secure-invite-url'),
+    while (mounted) {
+      final image = await showDialog<RestaurantQrImageResult>(
+        context: context,
+        builder: (dialogContext) {
+          var isCopying = false;
+          var isCreatingQr = false;
+          return StatefulBuilder(
+            builder: (context, setDialogState) {
+              return AlertDialog(
+                title: Text(title),
+                content: SingleChildScrollView(
+                  child: SelectableText(
+                    inviteUrl,
+                    key: const ValueKey('admin-secure-invite-url'),
+                  ),
                 ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text('Close'),
-                ),
-                FilledButton.icon(
-                  key: const ValueKey('copy-secure-invite-link'),
-                  onPressed: isCopying
-                      ? null
-                      : () async {
-                          setDialogState(() {
-                            isCopying = true;
-                          });
-                          try {
-                            await _writeClipboard(inviteUrl);
-                            if (mounted) {
-                              _showSnackBar('Invite link copied.');
+                actions: [
+                  TextButton(
+                    onPressed: () => Navigator.of(dialogContext).pop(),
+                    child: const Text('Close'),
+                  ),
+                  OutlinedButton.icon(
+                    key: const ValueKey('create-secure-invite-qr'),
+                    onPressed: isCreatingQr
+                        ? null
+                        : () async {
+                            setDialogState(() {
+                              isCreatingQr = true;
+                            });
+                            try {
+                              final generatedImage = await _renderQrImage(
+                                restaurantName: restaurantName,
+                                url: inviteUrl,
+                                linkType: linkType,
+                              );
+                              if (dialogContext.mounted) {
+                                Navigator.of(dialogContext).pop(generatedImage);
+                              }
+                            } catch (error) {
+                              if (mounted) {
+                                _showSnackBar(
+                                  error is RestaurantQrImageException
+                                      ? error.message
+                                      : 'Could not create the invitation QR image.',
+                                );
+                              }
+                              if (dialogContext.mounted) {
+                                setDialogState(() {
+                                  isCreatingQr = false;
+                                });
+                              }
                             }
-                          } catch (_) {
-                            if (mounted) {
-                              _showSnackBar('Could not copy the invite link.');
+                          },
+                    icon: isCreatingQr
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.qr_code_2),
+                    label: Text(
+                      isCreatingQr ? 'Creating...' : 'Create QR Image',
+                    ),
+                  ),
+                  FilledButton.icon(
+                    key: const ValueKey('copy-secure-invite-link'),
+                    onPressed: isCopying
+                        ? null
+                        : () async {
+                            setDialogState(() {
+                              isCopying = true;
+                            });
+                            try {
+                              await _writeClipboard(inviteUrl);
+                              if (mounted) {
+                                _showSnackBar('Invite link copied.');
+                              }
+                            } catch (_) {
+                              if (mounted) {
+                                _showSnackBar(
+                                  'Could not copy the invite link.',
+                                );
+                              }
+                            } finally {
+                              if (dialogContext.mounted) {
+                                setDialogState(() {
+                                  isCopying = false;
+                                });
+                              }
                             }
-                          } finally {
-                            if (dialogContext.mounted) {
-                              setDialogState(() {
-                                isCopying = false;
-                              });
-                            }
-                          }
-                        },
-                  icon: isCopying
-                      ? const SizedBox.square(
-                          dimension: 16,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.copy),
-                  label: Text(isCopying ? 'Copying...' : 'Copy Link'),
-                ),
-              ],
-            );
-          },
-        );
-      },
-    );
+                          },
+                    icon: isCopying
+                        ? const SizedBox.square(
+                            dimension: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.copy),
+                    label: Text(isCopying ? 'Copying...' : 'Copy Link'),
+                  ),
+                ],
+              );
+            },
+          );
+        },
+      );
+      if (!mounted || image == null) {
+        return;
+      }
+      final exit = await showRestaurantQrPreviewDialog(
+        context: context,
+        image: image,
+        isSensitive: true,
+        showBack: true,
+        exporter: widget.qrExporter,
+      );
+      if (!mounted || exit != RestaurantQrPreviewExit.back) {
+        return;
+      }
+    }
   }
 
   void _showSnackBar(String message) {
@@ -643,6 +780,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
     final isCouponInviteBusy = _isActionBusy(record, 'coupon-invite');
     final isClaimInviteBusy = _isActionBusy(record, 'claim-invite');
     final isCustomerLinkBusy = _isActionBusy(record, 'customer-link');
+    final isCustomerQrBusy = _isActionBusy(record, 'customer-qr');
 
     return Card(
       key: ValueKey('admin-link-record-${record.recordKey}'),
@@ -766,6 +904,28 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
                               : 'Copy Customer BiteScore Link',
                         ),
                       ),
+                    if (record.isBiteScore && record.isActive == true)
+                      OutlinedButton.icon(
+                        key: ValueKey('${record.recordKey}:customer-qr'),
+                        onPressed: isCustomerQrBusy
+                            ? null
+                            : () => _createCustomerQr(record),
+                        icon: isCustomerQrBusy
+                            ? const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.qr_code_2),
+                        label: Text(
+                          isCustomerQrBusy
+                              ? 'Creating...'
+                              : compactLabels
+                              ? 'Customer QR'
+                              : 'Create Customer QR',
+                        ),
+                      ),
                     if (record.isBiteSaver)
                       OutlinedButton.icon(
                         key: ValueKey('${record.recordKey}:customer-link'),
@@ -781,6 +941,28 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
                               : compactLabels
                               ? 'Coupon Link'
                               : 'Copy Customer Coupon Link',
+                        ),
+                      ),
+                    if (record.canCopyCouponCustomerLink)
+                      OutlinedButton.icon(
+                        key: ValueKey('${record.recordKey}:customer-qr'),
+                        onPressed: isCustomerQrBusy
+                            ? null
+                            : () => _createCustomerQr(record),
+                        icon: isCustomerQrBusy
+                            ? const SizedBox.square(
+                                dimension: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.qr_code_2),
+                        label: Text(
+                          isCustomerQrBusy
+                              ? 'Creating...'
+                              : compactLabels
+                              ? 'Customer QR'
+                              : 'Create Customer QR',
                         ),
                       ),
                   ],

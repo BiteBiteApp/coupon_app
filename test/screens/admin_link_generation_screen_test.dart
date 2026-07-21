@@ -1,9 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:coupon_app/models/admin_restaurant_link_record.dart';
 import 'package:coupon_app/screens/admin_link_generation_screen.dart';
 import 'package:coupon_app/services/admin_link_generation_service.dart';
 import 'package:coupon_app/services/restaurant_invite_service.dart';
+import 'package:coupon_app/services/restaurant_qr_export.dart';
+import 'package:coupon_app/services/restaurant_qr_image_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -606,6 +609,271 @@ void main() {
   );
 
   testWidgets(
+    'customer QR actions use existing helper URLs and approval eligibility',
+    (tester) async {
+      final rendered =
+          <
+            ({String restaurantName, String url, RestaurantQrLinkType linkType})
+          >[];
+      await _pumpScreen(
+        tester,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+            }) async => _result(
+              records: [
+                _biteScoreRecord(
+                  documentId: 'score-qr-doc',
+                  name: 'Score Place',
+                ),
+                _biteSaverRecord(
+                  documentId: 'saver-qr-doc',
+                  actionId: 'approved-account-uid',
+                  approvalStatus: 'approved',
+                ),
+                _biteSaverRecord(
+                  documentId: 'pending-qr-doc',
+                  actionId: 'pending-account-uid',
+                ),
+              ],
+            ),
+        renderQrImage:
+            ({required restaurantName, required url, required linkType}) async {
+              rendered.add((
+                restaurantName: restaurantName,
+                url: url,
+                linkType: linkType,
+              ));
+              return _qrImage(restaurantName, linkType);
+            },
+      );
+      await _submitSearch(tester);
+
+      final scoreQr = find.byKey(
+        const ValueKey('biteScore:score-qr-doc:customer-qr'),
+      );
+      await tester.ensureVisible(scoreQr);
+      await tester.tap(scoreQr);
+      await _pumpOpenDialog(tester);
+      expect(
+        find.byKey(const ValueKey('restaurant-qr-preview-dialog')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('restaurant-qr-sensitive-warning')),
+        findsNothing,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('restaurant-qr-preview-close')),
+      );
+      await tester.pumpAndSettle();
+
+      final saverQr = find.byKey(
+        const ValueKey('biteSaver:saver-qr-doc:customer-qr'),
+      );
+      await tester.ensureVisible(saverQr);
+      await tester.tap(saverQr);
+      await _pumpOpenDialog(tester);
+      await tester.tap(
+        find.byKey(const ValueKey('restaurant-qr-preview-close')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('biteSaver:pending-qr-doc:customer-qr')),
+        findsNothing,
+      );
+      expect(rendered, [
+        (
+          restaurantName: 'Score Place',
+          url: 'https://go.bitestar.app/r/bitescore/score-qr-doc',
+          linkType: RestaurantQrLinkType.customerBiteScore,
+        ),
+        (
+          restaurantName: 'River Grill',
+          url: 'https://go.bitestar.app/r/coupons/approved-account-uid',
+          linkType: RestaurantQrLinkType.customerBiteSaver,
+        ),
+      ]);
+    },
+  );
+
+  testWidgets('secure invite QR reuses each invitation URL exactly once', (
+    tester,
+  ) async {
+    var couponCalls = 0;
+    var claimCalls = 0;
+    final rendered =
+        <
+          ({String restaurantName, String url, RestaurantQrLinkType linkType})
+        >[];
+    await _pumpScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+          }) async => _result(
+            records: [
+              _biteScoreRecord(
+                documentId: 'secure-qr-doc',
+                name: 'Secure River Grill',
+              ),
+            ],
+          ),
+      createCouponInvite:
+          ({
+            required restaurantName,
+            required restaurantId,
+            required streetAddress,
+            required city,
+            required state,
+            required zipCode,
+            required phone,
+            required website,
+            required latitude,
+            required longitude,
+          }) async {
+            couponCalls += 1;
+            return _invite(
+              'https://go.bitestar.app/invite/coupon/fake-secure-token',
+            );
+          },
+      createClaimInvite: ({required restaurantId}) async {
+        claimCalls += 1;
+        return _invite(
+          'https://go.bitestar.app/invite/bitescore/fake-claim-token',
+        );
+      },
+      renderQrImage:
+          ({required restaurantName, required url, required linkType}) async {
+            rendered.add((
+              restaurantName: restaurantName,
+              url: url,
+              linkType: linkType,
+            ));
+            return _qrImage(restaurantName, linkType);
+          },
+    );
+    await _submitSearch(tester);
+
+    final couponInvite = find.byKey(
+      const ValueKey('biteScore:secure-qr-doc:coupon-invite'),
+    );
+    await tester.ensureVisible(couponInvite);
+    await tester.tap(couponInvite);
+    await _pumpOpenDialog(tester);
+    expect(couponCalls, 1);
+    await tester.tap(find.byKey(const ValueKey('create-secure-invite-qr')));
+    await _pumpOpenDialog(tester);
+    expect(
+      find.byKey(const ValueKey('restaurant-qr-sensitive-warning')),
+      findsOneWidget,
+    );
+    expect(find.textContaining('fake-secure-token'), findsNothing);
+    await tester.tap(find.byKey(const ValueKey('restaurant-qr-preview-back')));
+    await _pumpOpenDialog(tester);
+    expect(couponCalls, 1);
+    expect(
+      find.byKey(const ValueKey('admin-secure-invite-url')),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+
+    final claimInvite = find.byKey(
+      const ValueKey('biteScore:secure-qr-doc:claim-invite'),
+    );
+    await tester.ensureVisible(claimInvite);
+    await tester.tap(claimInvite);
+    await _pumpOpenDialog(tester);
+    expect(claimCalls, 1);
+    await tester.tap(find.byKey(const ValueKey('create-secure-invite-qr')));
+    await _pumpOpenDialog(tester);
+    await tester.tap(find.byKey(const ValueKey('restaurant-qr-preview-close')));
+    await tester.pumpAndSettle();
+
+    expect(couponCalls, 1);
+    expect(claimCalls, 1);
+    expect(rendered, [
+      (
+        restaurantName: 'Secure River Grill',
+        url: 'https://go.bitestar.app/invite/coupon/fake-secure-token',
+        linkType: RestaurantQrLinkType.couponInvite,
+      ),
+      (
+        restaurantName: 'Secure River Grill',
+        url: 'https://go.bitestar.app/invite/bitescore/fake-claim-token',
+        linkType: RestaurantQrLinkType.biteScoreClaimInvite,
+      ),
+    ]);
+  });
+
+  testWidgets(
+    'per-record QR busy state prevents duplicates without blocking peers',
+    (tester) async {
+      final completer = Completer<RestaurantQrImageResult>();
+      var firstCalls = 0;
+      await _pumpScreen(
+        tester,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+            }) async => _result(
+              records: [
+                _biteScoreRecord(documentId: 'qr-busy-one', name: 'Busy One'),
+                _biteScoreRecord(documentId: 'qr-busy-two', name: 'Busy Two'),
+              ],
+            ),
+        renderQrImage:
+            ({required restaurantName, required url, required linkType}) {
+              if (restaurantName == 'Busy One') {
+                firstCalls += 1;
+                return completer.future;
+              }
+              return Future.value(_qrImage(restaurantName, linkType));
+            },
+      );
+      await _submitSearch(tester);
+
+      final first = find.byKey(
+        const ValueKey('biteScore:qr-busy-one:customer-qr'),
+      );
+      final second = find.byKey(
+        const ValueKey('biteScore:qr-busy-two:customer-qr'),
+      );
+      await tester.ensureVisible(first);
+      await tester.tap(first);
+      await tester.pump();
+
+      expect(tester.widget<OutlinedButton>(first).onPressed, isNull);
+      expect(tester.widget<OutlinedButton>(second).onPressed, isNotNull);
+      expect(firstCalls, 1);
+      await tester.tap(first, warnIfMissed: false);
+      await tester.pump();
+      expect(firstCalls, 1);
+
+      completer.complete(
+        _qrImage('Busy One', RestaurantQrLinkType.customerBiteScore),
+      );
+      await _pumpOpenDialog(tester);
+      await tester.tap(
+        find.byKey(const ValueKey('restaurant-qr-preview-close')),
+      );
+      await tester.pumpAndSettle();
+      expect(firstCalls, 1);
+    },
+  );
+
+  testWidgets(
     'per-record busy state prevents duplicates without blocking peers',
     (tester) async {
       final completer = Completer<RestaurantInviteCreationResult>();
@@ -691,6 +959,8 @@ Future<void> _pumpScreen(
   AdminCouponInviteCallback? createCouponInvite,
   AdminBiteScoreClaimInviteCallback? createClaimInvite,
   AdminClipboardWriteCallback? writeClipboard,
+  AdminQrImageRenderCallback? renderQrImage,
+  RestaurantQrExporter? qrExporter,
   double textScale = 1,
   bool configureView = true,
 }) async {
@@ -714,6 +984,8 @@ Future<void> _pumpScreen(
           createCouponInvite: createCouponInvite,
           createBiteScoreClaimInvite: createClaimInvite,
           writeClipboard: writeClipboard,
+          renderQrImage: renderQrImage,
+          qrExporter: qrExporter ?? _unsupportedQrExporter(),
         ),
       ),
     ),
@@ -804,6 +1076,40 @@ AdminRestaurantLinkRecord _biteSaverRecord({
     approvalStatus: approvalStatus,
     couponApplicationSubmitted: true,
     uid: actionId,
+  );
+}
+
+RestaurantQrImageResult _qrImage(
+  String restaurantName,
+  RestaurantQrLinkType linkType,
+) {
+  return RestaurantQrImageResult(
+    pngBytes: base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8'
+      '/x8AAusB9Y9Zl1EAAAAASUVORK5CYII=',
+    ),
+    width: 1200,
+    height: 1306,
+    qrWidth: 1200,
+    moduleCount: 41,
+    modulePixels: 24,
+    headerHeight: 106,
+    titleLineCount: 1,
+    safeFilename: RestaurantQrImageService.safeFilename(
+      restaurantName: restaurantName,
+      linkType: linkType,
+    ),
+  );
+}
+
+RestaurantQrExporter _unsupportedQrExporter() {
+  return RestaurantQrExporter(
+    capabilities: const RestaurantQrExportCapabilities(
+      canCopyImage: false,
+      canDownloadPng: false,
+    ),
+    copyPng: (_) async {},
+    downloadPng: (_, _) async {},
   );
 }
 

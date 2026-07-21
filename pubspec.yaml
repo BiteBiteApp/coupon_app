@@ -47,6 +47,8 @@ dependencies:
   firebase_storage: ^13.4.1
   image_picker: ^1.2.2
   audioplayers: ^6.7.1
+  qr: ^4.0.0
+  web: ^1.1.1
 
 dev_dependencies:
   flutter_test:
