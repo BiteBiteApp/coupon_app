@@ -8,17 +8,20 @@ import 'bitesaver_colors.dart';
 class PersistentBottomNavigation extends StatelessWidget {
   final AppMode mode;
   final int selectedIndex;
+  final Widget Function(AppMode mode, int index)? destinationBuilder;
 
   const PersistentBottomNavigation({
     super.key,
     required this.mode,
     this.selectedIndex = 0,
+    this.destinationBuilder,
   });
 
   void _openDestination(BuildContext context, int index) {
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
         builder: (_) =>
+            destinationBuilder?.call(mode, index) ??
             MainNavigationScreen(initialMode: mode, initialIndex: index),
       ),
       (route) => false,
@@ -39,30 +42,11 @@ class PersistentBottomNavigation extends StatelessWidget {
     final selectedTextColor = isBiteScore
         ? const Color(0xFF244F9E)
         : const Color(0xFF4F7D1F);
-    final items = [
-      (label: 'Home', icon: Icons.home_outlined, selectedIcon: Icons.home),
-      (
-        label: 'Restaurant\nHub',
-        icon: Icons.storefront_outlined,
-        selectedIcon: Icons.storefront,
-      ),
-      (
-        label: 'Admin',
-        icon: Icons.admin_panel_settings_outlined,
-        selectedIcon: Icons.admin_panel_settings,
-      ),
-      (
-        label: 'Account',
-        icon: Icons.person_outline,
-        selectedIcon: Icons.person,
-      ),
-    ];
-
     final navigationBar = SizedBox(
       height: AdminContentInsets.bottomNavigationHeight,
       child: Row(
         children: [
-          for (final item in items.asMap().entries)
+          for (final item in mainNavigationItems.asMap().entries)
             Expanded(
               child: InkWell(
                 onTap: () => _openDestination(context, item.key),
@@ -89,8 +73,10 @@ class PersistentBottomNavigation extends StatelessWidget {
                           ),
                         ),
                         SizedBox(
+                          width: double.infinity,
                           height: 22,
-                          child: Center(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
                             child: Text(
                               item.value.label,
                               textAlign: TextAlign.center,

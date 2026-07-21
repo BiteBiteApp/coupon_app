@@ -10,7 +10,6 @@ import '../services/restaurant_invite_service.dart';
 import '../services/subscription_return_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/admin_content_insets.dart';
-import 'admin_gate_screen.dart';
 import 'bitescore_home_screen.dart';
 import 'customer_account_screen.dart';
 import 'home_screen.dart';
@@ -24,11 +23,33 @@ final GlobalKey<ScaffoldMessengerState> rootScaffoldMessengerKey =
     GlobalKey<ScaffoldMessengerState>();
 const String _customerDeepLinkRoutePrefix = '/deep-link/customer-restaurant/';
 
+typedef MainNavigationItem = ({
+  String label,
+  IconData icon,
+  IconData selectedIcon,
+});
+
+const List<MainNavigationItem> mainNavigationItems = <MainNavigationItem>[
+  (label: 'Home', icon: Icons.home_outlined, selectedIcon: Icons.home),
+  (
+    label: 'Restaurant\nHub',
+    icon: Icons.storefront_outlined,
+    selectedIcon: Icons.storefront,
+  ),
+  (label: 'Account', icon: Icons.person_outline, selectedIcon: Icons.person),
+];
+
+int normalizeMainNavigationIndex(int index) {
+  return index >= 0 && index < mainNavigationItems.length ? index : 0;
+}
+
 class MainNavigationScreen extends StatefulWidget {
   final AppMode initialMode;
   final int initialIndex;
   final RestaurantCustomerDeepLink? initialCustomerDeepLink;
   final RestaurantInviteDeepLink? initialInviteDeepLink;
+  final List<Widget> Function(AppMode mode)? testPagesBuilder;
+  final bool initializePlatformServices;
 
   const MainNavigationScreen({
     super.key,
@@ -36,6 +57,8 @@ class MainNavigationScreen extends StatefulWidget {
     this.initialIndex = 0,
     this.initialCustomerDeepLink,
     this.initialInviteDeepLink,
+    @visibleForTesting this.testPagesBuilder,
+    @visibleForTesting this.initializePlatformServices = true,
   });
 
   @override
@@ -63,7 +86,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     final initialInviteIsBiteScore = initialInviteDeepLink?.side == 'bitescore';
     selectedIndex =
         initialCustomerDeepLink == null && initialInviteDeepLink == null
-        ? widget.initialIndex
+        ? normalizeMainNavigationIndex(widget.initialIndex)
         : 0;
     selectedMode =
         initialCustomerDeepLink?.isBiteScore == true || initialInviteIsBiteScore
@@ -71,7 +94,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         : widget.initialMode;
     AppModeStateService.setMode(selectedMode);
     AppModeStateService.selectedMode.addListener(_syncSelectedMode);
-    _listenForSubscriptionReturnLinks();
+    if (widget.initializePlatformServices) {
+      _listenForSubscriptionReturnLinks();
+    }
     if (initialCustomerDeepLink != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         final generation = ++_deepLinkGeneration;
@@ -83,7 +108,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         _handleInviteLink(initialInviteDeepLink, generation: generation);
       });
     }
-    unawaited(_loadOnboardingState());
+    if (widget.initializePlatformServices) {
+      unawaited(_loadOnboardingState());
+    }
   }
 
   @override
@@ -358,12 +385,19 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         : const BiteScoreHomeScreen(key: ValueKey('bitescore-home'));
   }
 
-  List<Widget> get pages => [
-    _buildModeHomePage(),
-    const RestaurantAuthScreen(),
-    const AdminGateScreen(),
-    const CustomerAccountScreen(),
-  ];
+  List<Widget> get pages {
+    final testPages = widget.testPagesBuilder?.call(selectedMode);
+    if (testPages != null) {
+      assert(testPages.length == mainNavigationItems.length);
+      return testPages;
+    }
+
+    return [
+      _buildModeHomePage(),
+      const RestaurantAuthScreen(),
+      const CustomerAccountScreen(),
+    ];
+  }
 
   void _setMode(AppMode mode) {
     if (selectedMode == mode) return;
@@ -372,7 +406,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   void _selectTab(int index) {
     setState(() {
-      selectedIndex = index;
+      selectedIndex = normalizeMainNavigationIndex(index);
     });
   }
 
@@ -384,9 +418,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       color: const Color(0xFFFFFEFC),
       itemBuilder: (context) => const [
         PopupMenuItem(value: 0, child: Text('Home')),
-        PopupMenuItem(value: 2, child: Text('Admin')),
         PopupMenuItem(value: 1, child: Text('Restaurant Hub')),
-        PopupMenuItem(value: 3, child: Text('Account')),
+        PopupMenuItem(value: 2, child: Text('Account')),
       ],
       child: Container(
         width: 38,
@@ -409,11 +442,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   Widget _buildCurrentPage() {
+    final currentPages = pages;
     if (selectedIndex != 0) {
-      return IndexedStack(index: selectedIndex, children: pages);
+      return IndexedStack(index: selectedIndex, children: currentPages);
     }
 
-    return _buildModeHomePage();
+    return widget.testPagesBuilder == null
+        ? _buildModeHomePage()
+        : currentPages.first;
   }
 
   Widget _buildBottomNavigationBar() {
@@ -434,28 +470,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       height: AdminContentInsets.bottomNavigationHeight,
       child: Row(
         children: [
-          for (final item in [
-            (
-              label: 'Home',
-              icon: Icons.home_outlined,
-              selectedIcon: Icons.home,
-            ),
-            (
-              label: 'Restaurant\nHub',
-              icon: Icons.storefront_outlined,
-              selectedIcon: Icons.storefront,
-            ),
-            (
-              label: 'Admin',
-              icon: Icons.admin_panel_settings_outlined,
-              selectedIcon: Icons.admin_panel_settings,
-            ),
-            (
-              label: 'Account',
-              icon: Icons.person_outline,
-              selectedIcon: Icons.person,
-            ),
-          ].asMap().entries)
+          for (final item in mainNavigationItems.asMap().entries)
             Expanded(
               child: InkWell(
                 onTap: () => _selectTab(item.key),
@@ -494,7 +509,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
                                 ),
                                 SizedBox(
                                   height: 22,
-                                  child: Center(
+                                  child: FittedBox(
+                                    fit: BoxFit.scaleDown,
                                     child: Text(
                                       item.value.label,
                                       textAlign: TextAlign.center,

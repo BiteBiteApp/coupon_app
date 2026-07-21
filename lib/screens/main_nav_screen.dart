@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'admin_gate_screen.dart';
 import 'browse_screen.dart';
 import 'home_screen.dart';
 import 'restaurant_auth_screen.dart';
@@ -18,7 +17,6 @@ class _MainNavScreenState extends State<MainNavScreen> {
     HomeScreen(),
     BrowseScreen(),
     RestaurantAuthScreen(),
-    AdminGateScreen(),
   ];
 
   void _onItemTapped(int index) {
@@ -46,10 +44,6 @@ class _MainNavScreenState extends State<MainNavScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.storefront),
               label: 'Restaurant',
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.admin_panel_settings),
-              label: 'Admin',
             ),
           ],
         ),

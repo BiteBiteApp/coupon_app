@@ -3,15 +3,24 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/admin_access_service.dart';
 import '../services/app_error_text.dart';
 import '../services/customer_auth_service.dart';
 import '../widgets/phone_auth_sheet.dart';
+import 'admin_gate_screen.dart';
 import 'customer_profile_screen.dart';
 
 class CustomerAccountScreen extends StatefulWidget {
   final bool showAppBar;
+  final Stream<User?>? userStream;
+  final WidgetBuilder? adminDestinationBuilder;
 
-  const CustomerAccountScreen({super.key, this.showAppBar = false});
+  const CustomerAccountScreen({
+    super.key,
+    this.showAppBar = false,
+    @visibleForTesting this.userStream,
+    @visibleForTesting this.adminDestinationBuilder,
+  });
 
   @override
   State<CustomerAccountScreen> createState() => _CustomerAccountScreenState();
@@ -742,6 +751,34 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
               ),
             ),
             const SizedBox(height: 12),
+            if (AdminAccessService.isAdminUser(user)) ...[
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: isSubmitting
+                      ? null
+                      : () {
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder:
+                                  widget.adminDestinationBuilder ??
+                                  (_) => const AdminGateScreen(),
+                            ),
+                          );
+                        },
+                  icon: const Icon(Icons.admin_panel_settings_outlined),
+                  label: const Text('Admin Workspace'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    textStyle: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -759,7 +796,7 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.userChanges(),
+      stream: widget.userStream ?? FirebaseAuth.instance.userChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return Scaffold(

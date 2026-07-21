@@ -8,12 +8,14 @@ import 'admin_review_screen.dart';
 import 'bitescore_admin_screen.dart';
 
 class AdminGateScreen extends StatelessWidget {
-  const AdminGateScreen({super.key});
+  final Stream<User?>? userStream;
+
+  const AdminGateScreen({super.key, @visibleForTesting this.userStream});
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.userChanges(),
+      stream: userStream ?? FirebaseAuth.instance.userChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
