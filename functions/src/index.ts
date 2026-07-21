@@ -43,6 +43,11 @@ import {
   inviteLink,
   normalizeInviteSide,
 } from "./restaurant_invite_helpers.js";
+import {
+  decideRestaurantGeohashWrite,
+  extractBiteSaverRestaurantCoordinates,
+  extractBiteScoreRestaurantCoordinates,
+} from "./restaurant_geo_helpers.js";
 
 initializeApp();
 
@@ -2846,6 +2851,60 @@ export const cleanupDeletedRestaurantCoupons = onDocumentDeleted(
       accountRef.collection("coupon_number_reservations"),
     );
     await db.recursiveDelete(accountRef.collection("coupon_code_reservations"));
+  },
+);
+
+export const maintainBiteScoreRestaurantGeohash = onDocumentWritten(
+  "bitescore_restaurants/{restaurantId}",
+  async (event) => {
+    const after = event.data?.after;
+    if (!after?.exists) {
+      return;
+    }
+
+    await db.runTransaction(async (transaction) => {
+      const current = await transaction.get(after.ref);
+      if (!current.exists) {
+        return;
+      }
+
+      const decision = decideRestaurantGeohashWrite(
+        current.data(),
+        extractBiteScoreRestaurantCoordinates,
+      );
+      if (decision.type === "set") {
+        transaction.update(current.ref, { geohash: decision.geohash });
+      } else if (decision.type === "delete") {
+        transaction.update(current.ref, { geohash: FieldValue.delete() });
+      }
+    });
+  },
+);
+
+export const maintainBiteSaverRestaurantGeohash = onDocumentWritten(
+  "restaurant_accounts/{accountId}",
+  async (event) => {
+    const after = event.data?.after;
+    if (!after?.exists) {
+      return;
+    }
+
+    await db.runTransaction(async (transaction) => {
+      const current = await transaction.get(after.ref);
+      if (!current.exists) {
+        return;
+      }
+
+      const decision = decideRestaurantGeohashWrite(
+        current.data(),
+        extractBiteSaverRestaurantCoordinates,
+      );
+      if (decision.type === "set") {
+        transaction.update(current.ref, { geohash: decision.geohash });
+      } else if (decision.type === "delete") {
+        transaction.update(current.ref, { geohash: FieldValue.delete() });
+      }
+    });
   },
 );
 
