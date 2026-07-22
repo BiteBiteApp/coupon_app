@@ -1182,108 +1182,108 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
     );
   }
 
-  Widget _buildRestaurantsTab() {
-    return StreamBuilder<List<AdminCouponAccountRecord>>(
-      stream: _pendingAccountsStream,
-      builder: (context, snapshot) {
-        final pendingAccounts =
-            List<AdminCouponAccountRecord>.from(
-              snapshot.data ?? const <AdminCouponAccountRecord>[],
-              growable: true,
-            )..sort((a, b) {
-              final byStatus =
-                  _statusSortPriority(
-                    _readString(a.data, Restaurant.fieldApprovalStatus),
-                  ).compareTo(
-                    _statusSortPriority(
-                      _readString(b.data, Restaurant.fieldApprovalStatus),
-                    ),
-                  );
-              if (byStatus != 0) {
-                return byStatus;
-              }
-              final aDate =
-                  _readDateTime(a.data, Restaurant.fieldUpdatedAt) ??
-                  _readDateTime(a.data, Restaurant.fieldCreatedAt) ??
-                  DateTime.fromMillisecondsSinceEpoch(0);
-              final bDate =
-                  _readDateTime(b.data, Restaurant.fieldUpdatedAt) ??
-                  _readDateTime(b.data, Restaurant.fieldCreatedAt) ??
-                  DateTime.fromMillisecondsSinceEpoch(0);
-              return bDate.compareTo(aDate);
-            });
-        final pendingDocumentIds = pendingAccounts
-            .map((record) => record.documentId)
-            .toSet();
+  Widget _buildRestaurantsTab(Set<String> pendingDocumentIds) {
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _buildAdminHeaderCard(
+          title: 'Find Restaurants',
+          description:
+              'Enter a ZIP code or City, ST to find coupon-side restaurant '
+              'accounts.',
+        ),
+        _buildRestaurantSearchControls(),
+        const SizedBox(height: 14),
+        _buildRestaurantSearchState(pendingDocumentIds),
+      ],
+    );
+  }
 
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            Align(
-              alignment: Alignment.centerRight,
-              child: Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: [
-                  FilledButton.icon(
-                    onPressed: () => _createManualCouponInvite(context),
-                    icon: const Icon(Icons.add_link),
-                    label: const Text('Create Coupon Invite'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: () => _showCouponInviteManager(context),
-                    icon: const Icon(Icons.manage_search),
-                    label: const Text('Manage Invites'),
-                  ),
-                ],
+  Widget _buildPendingApplicationsTab(
+    AsyncSnapshot<List<AdminCouponAccountRecord>> snapshot,
+  ) {
+    final pendingAccounts =
+        List<AdminCouponAccountRecord>.from(
+          snapshot.data ?? const <AdminCouponAccountRecord>[],
+          growable: true,
+        )..sort((a, b) {
+          final byStatus =
+              _statusSortPriority(
+                _readString(a.data, Restaurant.fieldApprovalStatus),
+              ).compareTo(
+                _statusSortPriority(
+                  _readString(b.data, Restaurant.fieldApprovalStatus),
+                ),
+              );
+          if (byStatus != 0) {
+            return byStatus;
+          }
+          final aDate =
+              _readDateTime(a.data, Restaurant.fieldUpdatedAt) ??
+              _readDateTime(a.data, Restaurant.fieldCreatedAt) ??
+              DateTime.fromMillisecondsSinceEpoch(0);
+          final bDate =
+              _readDateTime(b.data, Restaurant.fieldUpdatedAt) ??
+              _readDateTime(b.data, Restaurant.fieldCreatedAt) ??
+              DateTime.fromMillisecondsSinceEpoch(0);
+          return bDate.compareTo(aDate);
+        });
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.icon(
+                onPressed: () => _createManualCouponInvite(context),
+                icon: const Icon(Icons.add_link),
+                label: const Text('Create Coupon Invite'),
+              ),
+              OutlinedButton.icon(
+                onPressed: () => _showCouponInviteManager(context),
+                icon: const Icon(Icons.manage_search),
+                label: const Text('Manage Invites'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 14),
+        _buildAdminHeaderCard(
+          title: 'Pending Applications',
+          description:
+              'Review coupon-side applications without requiring location '
+              'search data.',
+        ),
+        if (snapshot.connectionState == ConnectionState.waiting)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(20),
+              child: Center(child: CircularProgressIndicator()),
+            ),
+          )
+        else if (snapshot.hasError)
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                AppErrorText.load('pending restaurant applications'),
+                style: const TextStyle(color: Colors.red),
               ),
             ),
-            const SizedBox(height: 14),
-            _buildAdminHeaderCard(
-              title: 'Pending Applications',
-              description:
-                  'Review coupon-side applications without requiring location '
-                  'search data.',
+          )
+        else if (pendingAccounts.isEmpty)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text('No pending restaurant approvals found.'),
             ),
-            if (snapshot.connectionState == ConnectionState.waiting)
-              const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(20),
-                  child: Center(child: CircularProgressIndicator()),
-                ),
-              )
-            else if (snapshot.hasError)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    AppErrorText.load('pending restaurant applications'),
-                    style: const TextStyle(color: Colors.red),
-                  ),
-                ),
-              )
-            else if (pendingAccounts.isEmpty)
-              const Card(
-                child: Padding(
-                  padding: EdgeInsets.all(16),
-                  child: Text('No pending restaurant approvals found.'),
-                ),
-              )
-            else
-              ...pendingAccounts.map(_buildPendingAccountCard),
-            const SizedBox(height: 18),
-            _buildAdminHeaderCard(
-              title: 'Find Restaurants',
-              description:
-                  'Enter a ZIP code or City, ST to find coupon-side restaurant '
-                  'accounts.',
-            ),
-            _buildRestaurantSearchControls(),
-            const SizedBox(height: 14),
-            _buildRestaurantSearchState(pendingDocumentIds),
-          ],
-        );
-      },
+          )
+        else
+          ...pendingAccounts.map(_buildPendingAccountCard),
+      ],
     );
   }
 
@@ -1958,33 +1958,43 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return DefaultTabController(
-      length: 3,
-      child: Column(
-        children: [
-          const Padding(
-            padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: TabBar(
-              isScrollable: true,
-              tabAlignment: TabAlignment.start,
-              tabs: [
-                Tab(text: 'Restaurants'),
-                Tab(text: 'Name Changes'),
-                Tab(text: 'Reports'),
-              ],
-            ),
+    return StreamBuilder<List<AdminCouponAccountRecord>>(
+      stream: _pendingAccountsStream,
+      builder: (context, pendingSnapshot) {
+        final pendingDocumentIds = (pendingSnapshot.data ?? const [])
+            .map((record) => record.documentId)
+            .toSet();
+        return DefaultTabController(
+          length: 4,
+          child: Column(
+            children: [
+              const Padding(
+                padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
+                child: TabBar(
+                  isScrollable: true,
+                  tabAlignment: TabAlignment.start,
+                  tabs: [
+                    Tab(text: 'Restaurants'),
+                    Tab(text: 'Pending Applications'),
+                    Tab(text: 'Name Changes'),
+                    Tab(text: 'Reports'),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: TabBarView(
+                  children: [
+                    _buildRestaurantsTab(pendingDocumentIds),
+                    _buildPendingApplicationsTab(pendingSnapshot),
+                    _buildNameChangesTab(),
+                    _buildReportsTab(),
+                  ],
+                ),
+              ),
+            ],
           ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _buildRestaurantsTab(),
-                _buildNameChangesTab(),
-                _buildReportsTab(),
-              ],
-            ),
-          ),
-        ],
-      ),
+        );
+      },
     );
   }
 }

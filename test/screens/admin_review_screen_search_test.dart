@@ -12,7 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   testWidgets(
-    'initial state preserves pending queue and performs no general search',
+    'four tabs separate pending queue from the initial Restaurants view',
     (tester) async {
       var searchCalls = 0;
       var pendingListened = false;
@@ -36,6 +36,24 @@ void main() {
               return _result();
             },
       );
+
+      expect(
+        tester.widgetList<Tab>(find.byType(Tab)).map((tab) => tab.text),
+        <String>[
+          'Restaurants',
+          'Pending Applications',
+          'Name Changes',
+          'Reports',
+        ],
+      );
+      expect(searchCalls, 0);
+      expect(find.text('Find Restaurants'), findsOneWidget);
+      expect(find.text('Pending Applications'), findsOneWidget);
+      expect(find.text('No pending restaurant approvals found.'), findsNothing);
+      expect(find.text('Pending Without Geohash'), findsNothing);
+      expect(find.text('View All Restaurants'), findsNothing);
+
+      await _openTab(tester, 'Pending Applications');
       pendingController.add([
         _pendingAccount(
           documentId: 'pending-without-location',
@@ -47,19 +65,65 @@ void main() {
 
       expect(pendingListened, isTrue);
       expect(searchCalls, 0);
-      expect(find.text('Pending Applications'), findsOneWidget);
+      expect(find.text('Pending Applications'), findsNWidgets(2));
       expect(find.text('Pending Without Geohash'), findsOneWidget);
-      expect(find.text('Find Restaurants'), findsOneWidget);
-      expect(
-        find.text(
-          'Enter a ZIP code or City, ST to find coupon-side restaurant '
-          'accounts.',
-        ),
-        findsNWidgets(2),
-      );
+      expect(find.text('Find Restaurants'), findsNothing);
       expect(find.text('View All Restaurants'), findsNothing);
     },
   );
+
+  testWidgets('Pending Applications preserves its empty state', (tester) async {
+    await _pumpScreen(tester);
+    await _openTab(tester, 'Pending Applications');
+
+    expect(find.text('No pending restaurant approvals found.'), findsOneWidget);
+  });
+
+  testWidgets('Pending Applications preserves existing actions', (
+    tester,
+  ) async {
+    await _pumpScreen(
+      tester,
+      pendingAccounts: Stream.value([
+        _pendingAccount(
+          documentId: 'pending-actions',
+          actionId: 'pending-owner',
+          name: 'Pending Actions Cafe',
+        ),
+      ]),
+    );
+    await _openTab(tester, 'Pending Applications');
+
+    final pendingCard = find.byKey(const ValueKey('pending:pending-actions'));
+    expect(pendingCard, findsOneWidget);
+    expect(
+      find.descendant(of: pendingCard, matching: find.text('Approve')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: pendingCard, matching: find.text('Reject')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: pendingCard, matching: find.text('Edit Restaurant')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: pendingCard, matching: find.text('Create Invite')),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: pendingCard,
+        matching: find.text('Delete Restaurant'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(of: pendingCard, matching: find.text('Coupons')),
+      findsOneWidget,
+    );
+  });
 
   testWidgets('invalid location is rejected and typing does not search', (
     tester,
@@ -311,7 +375,7 @@ void main() {
     expect(find.textContaining('private provider payload'), findsNothing);
   });
 
-  testWidgets('filters BiteScore records and avoids pending duplication', (
+  testWidgets('Restaurants filters BiteScore without rendering pending queue', (
     tester,
   ) async {
     await _pumpScreen(
@@ -347,7 +411,7 @@ void main() {
     );
 
     await _submitSearch(tester);
-    expect(find.text('Pending Duplicate'), findsOneWidget);
+    expect(find.text('Pending Duplicate'), findsNothing);
     expect(find.text('Coupon Result'), findsOneWidget);
     expect(find.text('Rating Result'), findsNothing);
     expect(find.text('BiteScore'), findsNothing);
@@ -552,6 +616,7 @@ void main() {
       },
     );
 
+    await _openTab(tester, 'Pending Applications');
     expect(calls, 0);
     final pendingCard = find.byKey(const ValueKey('pending:pending-error'));
     final coupons = find.descendant(
@@ -603,6 +668,22 @@ void main() {
         isNull,
         reason: '${scenario.size} initial layout',
       );
+      expect(
+        tester.widgetList<Tab>(find.byType(Tab)).map((tab) => tab.text),
+        <String>[
+          'Restaurants',
+          'Pending Applications',
+          'Name Changes',
+          'Reports',
+        ],
+      );
+      await _openTab(tester, 'Pending Applications');
+      expect(
+        tester.takeException(),
+        isNull,
+        reason: '${scenario.size} pending tab layout',
+      );
+      await _openTab(tester, 'Restaurants');
       await _scrollToLocationField(tester);
       final searchControlsException = tester.takeException();
       if (searchControlsException != null) {
@@ -712,6 +793,14 @@ Future<AdminRestaurantLinkSearchResult> _emptySearch({
   required String? restaurantName,
   required Set<AdminRestaurantLinkSource> sources,
 }) async => _result();
+
+Future<void> _openTab(WidgetTester tester, String label) async {
+  final tab = find.widgetWithText(Tab, label);
+  await tester.ensureVisible(tab);
+  await tester.tap(tab);
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 400));
+}
 
 Future<void> _tapSearch(WidgetTester tester) async {
   final searchButton = find.byKey(const ValueKey('coupon-admin-search-button'));
