@@ -2,8 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../models/admin_restaurant_link_record.dart';
 import '../models/coupon.dart';
 import '../models/restaurant.dart';
+import '../services/admin_link_generation_service.dart';
 import '../services/app_error_text.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_invite_service.dart';
@@ -11,66 +13,147 @@ import '../utils/phone_number_formatter.dart';
 import '../widgets/clickable_phone_text.dart';
 import '../widgets/restaurant_invite_admin_panel.dart';
 
+typedef AdminCouponRestaurantSearchCallback =
+    Future<AdminRestaurantLinkSearchResult> Function({
+      required String locationQuery,
+      required int radiusMiles,
+      required String? restaurantName,
+      required Set<AdminRestaurantLinkSource> sources,
+    });
+
+typedef AdminCouponAccountLoader =
+    Future<Map<String, dynamic>?> Function(String documentId);
+typedef AdminCouponAccountAction = Future<void> Function(String documentId);
+typedef AdminCouponLoader = Future<List<Coupon>> Function(String documentId);
+typedef AdminCouponDeleteAction =
+    Future<void> Function({
+      required String documentId,
+      required String couponId,
+    });
+typedef AdminCouponEditAction =
+    Future<bool?> Function({
+      required BuildContext context,
+      required String documentId,
+      required Map<String, dynamic> data,
+    });
+typedef AdminCouponInviteAction =
+    Future<RestaurantInviteCreationResult> Function({
+      required String restaurantId,
+      required String restaurantName,
+      required String streetAddress,
+      required String city,
+      required String state,
+      required String zipCode,
+      required String phone,
+      required String website,
+      required double? latitude,
+      required double? longitude,
+    });
+
+@immutable
+class AdminCouponAccountRecord {
+  final String documentId;
+  final Map<String, dynamic> data;
+
+  const AdminCouponAccountRecord({
+    required this.documentId,
+    required this.data,
+  });
+}
+
 class AdminReviewScreen extends StatefulWidget {
-  const AdminReviewScreen({super.key});
+  final Stream<List<AdminCouponAccountRecord>>? pendingAccountsStream;
+  final Stream<QuerySnapshot<Map<String, dynamic>>>? nameChangeRequestsStream;
+  final Stream<QuerySnapshot<Map<String, dynamic>>>? reportsStream;
+  final AdminCouponRestaurantSearchCallback? searchRestaurants;
+  final AdminCouponAccountLoader? loadAccount;
+  final AdminCouponAccountAction? approveAccount;
+  final AdminCouponAccountAction? rejectAccount;
+  final AdminCouponAccountAction? deleteAccount;
+  final AdminCouponLoader? loadCoupons;
+  final AdminCouponDeleteAction? deleteCoupon;
+  final AdminCouponEditAction? editAccount;
+  final AdminCouponInviteAction? createCouponInvite;
+
+  const AdminReviewScreen({
+    super.key,
+    @visibleForTesting this.pendingAccountsStream,
+    @visibleForTesting this.nameChangeRequestsStream,
+    @visibleForTesting this.reportsStream,
+    @visibleForTesting this.searchRestaurants,
+    @visibleForTesting this.loadAccount,
+    @visibleForTesting this.approveAccount,
+    @visibleForTesting this.rejectAccount,
+    @visibleForTesting this.deleteAccount,
+    @visibleForTesting this.loadCoupons,
+    @visibleForTesting this.deleteCoupon,
+    @visibleForTesting this.editAccount,
+    @visibleForTesting this.createCouponInvite,
+  });
 
   @override
   State<AdminReviewScreen> createState() => _AdminReviewScreenState();
 }
 
 class _AdminReviewScreenState extends State<AdminReviewScreen> {
-  final TextEditingController _searchController = TextEditingController();
-  late final Stream<QuerySnapshot<Map<String, dynamic>>> _pendingAccountsStream;
-  late final Stream<QuerySnapshot<Map<String, dynamic>>> _allAccountsStream;
+  static const int _resultPageSize = 25;
+  static const String _truncatedResultsMessage =
+      'Results were limited. Narrow the radius or add a restaurant name to '
+      'refine the search.';
+
+  final GlobalKey<FormState> _restaurantSearchFormKey = GlobalKey<FormState>();
+  final TextEditingController _locationController = TextEditingController();
+  final TextEditingController _restaurantNameController =
+      TextEditingController();
+  final AdminLinkGenerationService _restaurantSearchService =
+      AdminLinkGenerationService();
+  final Map<String, Future<List<Coupon>>> _couponFutures =
+      <String, Future<List<Coupon>>>{};
+  final Set<String> _expandedCouponAccounts = <String>{};
+  final Set<String> _busyActions = <String>{};
+
+  late final Stream<List<AdminCouponAccountRecord>> _pendingAccountsStream;
   late final Stream<QuerySnapshot<Map<String, dynamic>>>
   _nameChangeRequestsStream;
   late final Stream<QuerySnapshot<Map<String, dynamic>>> _reportsStream;
-  List<QueryDocumentSnapshot<Map<String, dynamic>>> _fullRestaurantList =
-      const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-  List<QueryDocumentSnapshot<Map<String, dynamic>>> _filteredRestaurantList =
-      const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-  bool _showAllRestaurants = false;
-  String _restaurantSearchQuery = '';
+  int _radiusMiles = AdminLinkGenerationService.defaultRadiusMiles;
+  int _visibleResultCount = _resultPageSize;
+  bool _isSearching = false;
+  bool _hasSubmittedSearch = false;
+  AdminRestaurantLinkSearchResult? _restaurantSearchResult;
+  String? _restaurantSearchError;
 
   @override
   void initState() {
     super.initState();
-    _pendingAccountsStream = RestaurantAccountService.pendingAccountsStream();
-    _allAccountsStream = RestaurantAccountService.allAccountsStream();
+    _pendingAccountsStream =
+        widget.pendingAccountsStream ??
+        RestaurantAccountService.pendingAccountsStream().map(
+          (snapshot) => snapshot.docs
+              .map(
+                (doc) => AdminCouponAccountRecord(
+                  documentId: doc.id,
+                  data: doc.data(),
+                ),
+              )
+              .toList(growable: false),
+        );
     _nameChangeRequestsStream =
+        widget.nameChangeRequestsStream ??
         RestaurantAccountService.pendingRestaurantNameChangeRequestsStream();
-    _reportsStream = FirebaseFirestore.instance
-        .collection('bitesaver_reports')
-        .where('status', isEqualTo: 'open')
-        .snapshots();
+    _reportsStream =
+        widget.reportsStream ??
+        FirebaseFirestore.instance
+            .collection('bitesaver_reports')
+            .where('status', isEqualTo: 'open')
+            .snapshots();
   }
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _locationController.dispose();
+    _restaurantNameController.dispose();
     super.dispose();
-  }
-
-  void _runRestaurantSearch() {
-    final query = _searchController.text.trim();
-    setState(() {
-      _restaurantSearchQuery = query;
-      _filteredRestaurantList = _buildFilteredRestaurantList(
-        _fullRestaurantList,
-        query,
-      );
-    });
-  }
-
-  void _clearRestaurantSearch() {
-    _searchController.clear();
-    setState(() {
-      _restaurantSearchQuery = '';
-      _filteredRestaurantList = _buildFilteredRestaurantList(
-        _fullRestaurantList,
-        '',
-      );
-    });
   }
 
   Color statusColor(String status) {
@@ -79,8 +162,10 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
         return Colors.green;
       case 'rejected':
         return Colors.red;
-      default:
+      case 'pending':
         return Colors.orange;
+      default:
+        return Colors.grey;
     }
   }
 
@@ -90,8 +175,10 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
         return 'Approved';
       case 'rejected':
         return 'Rejected';
-      default:
+      case 'pending':
         return 'Pending';
+      default:
+        return 'Unknown';
     }
   }
 
@@ -147,71 +234,180 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
     }
   }
 
-  Stream<QuerySnapshot<Map<String, dynamic>>> _restaurantAccountsStream() {
-    if (_showAllRestaurants || _restaurantSearchQuery.isNotEmpty) {
-      return _allAccountsStream;
-    }
-    return _pendingAccountsStream;
+  String? get _normalizedOptionalRestaurantName {
+    final value = _restaurantNameController.text.trim();
+    return value.isEmpty ? null : value;
   }
 
-  List<QueryDocumentSnapshot<Map<String, dynamic>>>
-  _buildFilteredRestaurantList(
-    List<QueryDocumentSnapshot<Map<String, dynamic>>> restaurants,
-    String query,
-  ) {
-    final normalizedQuery = query.trim().toLowerCase();
-    if (normalizedQuery.isEmpty) {
-      return List<QueryDocumentSnapshot<Map<String, dynamic>>>.from(
-        restaurants,
-        growable: false,
-      );
+  Future<void> _submitRestaurantSearch() async {
+    if (_isSearching) {
+      return;
+    }
+    final isValid = _restaurantSearchFormKey.currentState?.validate() ?? false;
+    if (!isValid) {
+      setState(() {
+        _hasSubmittedSearch = true;
+      });
+      return;
     }
 
-    return restaurants
-        .where((doc) {
-          final data = doc.data();
-          final streetAddress = _readString(
-            data,
-            Restaurant.fieldStreetAddress,
-          );
-          final legacyStreetAddress = _readString(
-            data,
-            Restaurant.legacyFieldStreetAddress,
-          );
-          final city = _readString(data, Restaurant.fieldCity);
-          final state = _readString(data, Restaurant.fieldState);
-          final zipCode = _readString(data, Restaurant.fieldZipCode);
-          final legacyZipCode = _readString(
-            data,
-            Restaurant.legacyFieldZipCode,
-          );
-          final fullAddress = [
-            streetAddress.isNotEmpty ? streetAddress : legacyStreetAddress,
-            city,
-            state,
-            zipCode.isNotEmpty ? zipCode : legacyZipCode,
-          ].where((part) => part.isNotEmpty).join(' ');
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _hasSubmittedSearch = true;
+      _isSearching = true;
+      _restaurantSearchResult = null;
+      _restaurantSearchError = null;
+      _visibleResultCount = _resultPageSize;
+    });
 
-          final values = <String>[
-            _readString(data, Restaurant.fieldName),
-            _readString(data, Restaurant.legacyFieldName),
-            _readString(data, Restaurant.fieldEmail),
-            _readString(data, 'phoneNumber'),
-            _readString(data, Restaurant.fieldPhone),
-            city,
-            state,
-            zipCode,
-            legacyZipCode,
-            streetAddress,
-            legacyStreetAddress,
-            fullAddress,
-          ];
+    try {
+      final search = widget.searchRestaurants;
+      final result = search != null
+          ? await search(
+              locationQuery: _locationController.text,
+              radiusMiles: _radiusMiles,
+              restaurantName: _normalizedOptionalRestaurantName,
+              sources: const <AdminRestaurantLinkSource>{
+                AdminRestaurantLinkSource.biteSaver,
+              },
+            )
+          : await _restaurantSearchService.search(
+              locationQuery: _locationController.text,
+              radiusMiles: _radiusMiles,
+              restaurantName: _normalizedOptionalRestaurantName,
+              sources: const <AdminRestaurantLinkSource>{
+                AdminRestaurantLinkSource.biteSaver,
+              },
+            );
+      if (!mounted) {
+        return;
+      }
 
-          return values.any(
-            (value) => value.toLowerCase().contains(normalizedQuery),
+      final biteSaverResults = result.results
+          .where((record) => record.isBiteSaver)
+          .toList(growable: false);
+      setState(() {
+        _restaurantSearchResult = AdminRestaurantLinkSearchResult(
+          searchCenter: result.searchCenter,
+          radiusMiles: result.radiusMiles,
+          results: biteSaverResults,
+          resultsMayBeTruncated: result.resultsMayBeTruncated,
+          returnedCount: biteSaverResults.length,
+          queriedSources: const <AdminRestaurantLinkSource>[
+            AdminRestaurantLinkSource.biteSaver,
+          ],
+        );
+      });
+    } catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        _restaurantSearchError = error is AdminLinkGenerationException
+            ? error.message
+            : 'Could not search restaurants right now. Please try again.';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSearching = false;
+        });
+      }
+    }
+  }
+
+  String _actionKey(String recordKey, String action) => '$recordKey:$action';
+
+  bool _isActionBusy(String recordKey, String action) {
+    return _busyActions.contains(_actionKey(recordKey, action));
+  }
+
+  Future<void> _runBusyAction(
+    String recordKey,
+    String action,
+    Future<void> Function() callback,
+  ) async {
+    final key = _actionKey(recordKey, action);
+    if (_busyActions.contains(key)) {
+      return;
+    }
+    setState(() {
+      _busyActions.add(key);
+    });
+    try {
+      await callback();
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busyActions.remove(key);
+        });
+      }
+    }
+  }
+
+  void _updateSearchApprovalStatus(String documentId, String status) {
+    final result = _restaurantSearchResult;
+    if (result == null) {
+      return;
+    }
+    final updated = result.results
+        .map((record) {
+          if (record.documentId != documentId) {
+            return record;
+          }
+          return AdminRestaurantLinkRecord(
+            source: record.source,
+            documentId: record.documentId,
+            actionId: record.actionId,
+            restaurantName: record.restaurantName,
+            streetAddress: record.streetAddress,
+            city: record.city,
+            state: record.state,
+            zipCode: record.zipCode,
+            phone: record.phone,
+            website: record.website,
+            latitude: record.latitude,
+            longitude: record.longitude,
+            distanceMiles: record.distanceMiles,
+            approvalStatus: status,
+            couponApplicationSubmitted: record.couponApplicationSubmitted,
+            uid: record.uid,
+            linkedBiteScoreRestaurantId: record.linkedBiteScoreRestaurantId,
           );
         })
         .toList(growable: false);
+    setState(() {
+      _restaurantSearchResult = AdminRestaurantLinkSearchResult(
+        searchCenter: result.searchCenter,
+        radiusMiles: result.radiusMiles,
+        results: updated,
+        resultsMayBeTruncated: result.resultsMayBeTruncated,
+        returnedCount: updated.length,
+        queriedSources: result.queriedSources,
+      );
+    });
+  }
+
+  void _removeSearchResult(String documentId) {
+    final result = _restaurantSearchResult;
+    if (result == null) {
+      return;
+    }
+    final remaining = result.results
+        .where((record) => record.documentId != documentId)
+        .toList(growable: false);
+    setState(() {
+      _restaurantSearchResult = AdminRestaurantLinkSearchResult(
+        searchCenter: result.searchCenter,
+        radiusMiles: result.radiusMiles,
+        results: remaining,
+        resultsMayBeTruncated: result.resultsMayBeTruncated,
+        returnedCount: remaining.length,
+        queriedSources: result.queriedSources,
+      );
+      _couponFutures.remove(documentId);
+      _expandedCouponAccounts.remove(documentId);
+    });
   }
 
   Future<bool> _confirmDelete(
@@ -242,7 +438,10 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
     return confirmed == true;
   }
 
-  Future<void> _deleteRestaurant(BuildContext context, String uid) async {
+  Future<bool> _deleteRestaurant(
+    BuildContext context,
+    String documentId,
+  ) async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
     final confirmed = await _confirmDelete(
       context,
@@ -251,14 +450,20 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
           'Delete this restaurant account and all of its coupons from BiteSaver?',
     );
     if (!confirmed || !context.mounted) {
-      return;
+      return false;
     }
 
     try {
-      await RestaurantAccountService.deleteRestaurantAccount(uid);
+      final delete = widget.deleteAccount;
+      if (delete != null) {
+        await delete(documentId);
+      } else {
+        await RestaurantAccountService.deleteRestaurantAccount(documentId);
+      }
       scaffoldMessenger.showSnackBar(
         const SnackBar(content: Text('Restaurant account deleted.')),
       );
+      return true;
     } catch (error) {
       scaffoldMessenger.showSnackBar(
         SnackBar(
@@ -270,12 +475,13 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
           ),
         ),
       );
+      return false;
     }
   }
 
   Future<void> _deleteCoupon(
     BuildContext context, {
-    required String uid,
+    required String documentId,
     required String couponId,
   }) async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
@@ -289,7 +495,20 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
     }
 
     try {
-      await RestaurantAccountService.deleteCoupon(uid: uid, couponId: couponId);
+      final delete = widget.deleteCoupon;
+      if (delete != null) {
+        await delete(documentId: documentId, couponId: couponId);
+      } else {
+        await RestaurantAccountService.deleteCoupon(
+          uid: documentId,
+          couponId: couponId,
+        );
+      }
+      if (mounted) {
+        setState(() {
+          _couponFutures[documentId] = _loadCoupons(documentId);
+        });
+      }
       scaffoldMessenger.showSnackBar(
         const SnackBar(content: Text('Coupon deleted.')),
       );
@@ -309,15 +528,18 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
 
   Future<void> _editRestaurant(
     BuildContext context, {
-    required String uid,
+    required String documentId,
     required Map<String, dynamic> data,
   }) async {
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return _CouponRestaurantEditDialog(uid: uid, data: data);
-      },
-    );
+    final edit = widget.editAccount;
+    final saved = edit != null
+        ? await edit(context: context, documentId: documentId, data: data)
+        : await showDialog<bool>(
+            context: context,
+            builder: (context) {
+              return _CouponRestaurantEditDialog(uid: documentId, data: data);
+            },
+          );
 
     if (saved == true && context.mounted) {
       ScaffoldMessenger.of(
@@ -326,18 +548,77 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
     }
   }
 
+  Future<Map<String, dynamic>?> _loadAccount(String documentId) {
+    final load = widget.loadAccount;
+    if (load != null) {
+      return load(documentId);
+    }
+    return RestaurantAccountService.loadAccountByDocumentId(documentId);
+  }
+
+  Future<void> _editSearchRestaurant(
+    BuildContext context,
+    AdminRestaurantLinkRecord record,
+  ) async {
+    await _runBusyAction(record.recordKey, 'edit', () async {
+      try {
+        final data = await _loadAccount(record.documentId);
+        if (!context.mounted) {
+          return;
+        }
+        if (data == null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Restaurant account was not found.')),
+          );
+          return;
+        }
+        await _editRestaurant(
+          context,
+          documentId: record.documentId,
+          data: data,
+        );
+      } catch (_) {
+        if (!context.mounted) {
+          return;
+        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Could not load the restaurant account right now.'),
+          ),
+        );
+      }
+    });
+  }
+
   Future<void> _updateApprovalStatus(
     BuildContext context, {
-    required String uid,
+    required String documentId,
     required bool approved,
+    bool updateSearchResult = false,
   }) async {
     final scaffoldMessenger = ScaffoldMessenger.of(context);
 
     try {
       if (approved) {
-        await RestaurantAccountService.approveAccount(uid);
+        final approve = widget.approveAccount;
+        if (approve != null) {
+          await approve(documentId);
+        } else {
+          await RestaurantAccountService.approveAccount(documentId);
+        }
       } else {
-        await RestaurantAccountService.rejectAccount(uid);
+        final reject = widget.rejectAccount;
+        if (reject != null) {
+          await reject(documentId);
+        } else {
+          await RestaurantAccountService.rejectAccount(documentId);
+        }
+      }
+      if (updateSearchResult && mounted) {
+        _updateSearchApprovalStatus(
+          documentId,
+          approved ? 'approved' : 'rejected',
+        );
       }
 
       scaffoldMessenger.showSnackBar(
@@ -400,7 +681,7 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
 
   Future<void> _createCouponInviteFromAccount(
     BuildContext context, {
-    required String uid,
+    required String actionId,
     required Map<String, dynamic> data,
   }) async {
     final restaurantName = _readString(data, Restaurant.fieldName);
@@ -414,18 +695,32 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
     }
 
     try {
-      final result = await RestaurantInviteService.createCouponInvite(
-        restaurantId: uid,
-        restaurantName: restaurantName,
-        streetAddress: _readString(data, Restaurant.fieldStreetAddress),
-        city: _readString(data, Restaurant.fieldCity),
-        state: _readString(data, Restaurant.fieldState),
-        zipCode: _readString(data, Restaurant.fieldZipCode),
-        phone: _readString(data, Restaurant.fieldPhone),
-        website: _readString(data, Restaurant.fieldWebsite),
-        latitude: _readDouble(data, Restaurant.fieldLatitude),
-        longitude: _readDouble(data, Restaurant.fieldLongitude),
-      );
+      final createInvite = widget.createCouponInvite;
+      final result = createInvite != null
+          ? await createInvite(
+              restaurantId: actionId,
+              restaurantName: restaurantName,
+              streetAddress: _readString(data, Restaurant.fieldStreetAddress),
+              city: _readString(data, Restaurant.fieldCity),
+              state: _readString(data, Restaurant.fieldState),
+              zipCode: _readString(data, Restaurant.fieldZipCode),
+              phone: _readString(data, Restaurant.fieldPhone),
+              website: _readString(data, Restaurant.fieldWebsite),
+              latitude: _readDouble(data, Restaurant.fieldLatitude),
+              longitude: _readDouble(data, Restaurant.fieldLongitude),
+            )
+          : await RestaurantInviteService.createCouponInvite(
+              restaurantId: actionId,
+              restaurantName: restaurantName,
+              streetAddress: _readString(data, Restaurant.fieldStreetAddress),
+              city: _readString(data, Restaurant.fieldCity),
+              state: _readString(data, Restaurant.fieldState),
+              zipCode: _readString(data, Restaurant.fieldZipCode),
+              phone: _readString(data, Restaurant.fieldPhone),
+              website: _readString(data, Restaurant.fieldWebsite),
+              latitude: _readDouble(data, Restaurant.fieldLatitude),
+              longitude: _readDouble(data, Restaurant.fieldLongitude),
+            );
       if (!context.mounted) {
         return;
       }
@@ -887,50 +1182,46 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
     );
   }
 
-  Widget _buildRestaurantSearchControls({required bool showingAllAccounts}) {
-    return Column(
-      children: [
-        TextField(
-          controller: _searchController,
-          textInputAction: TextInputAction.search,
-          onSubmitted: (_) => _runRestaurantSearch(),
-          decoration: InputDecoration(
-            hintText: 'Search restaurants',
-            prefixIcon: const Icon(Icons.search),
-            suffixIcon: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                IconButton(
-                  tooltip: 'Search',
-                  onPressed: _runRestaurantSearch,
-                  icon: const Icon(Icons.search),
-                ),
-                if (_restaurantSearchQuery.isNotEmpty)
-                  IconButton(
-                    tooltip: 'Clear search',
-                    onPressed: _clearRestaurantSearch,
-                    icon: const Icon(Icons.clear),
-                  ),
-              ],
-            ),
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
+  Widget _buildRestaurantsTab() {
+    return StreamBuilder<List<AdminCouponAccountRecord>>(
+      stream: _pendingAccountsStream,
+      builder: (context, snapshot) {
+        final pendingAccounts =
+            List<AdminCouponAccountRecord>.from(
+              snapshot.data ?? const <AdminCouponAccountRecord>[],
+              growable: true,
+            )..sort((a, b) {
+              final byStatus =
+                  _statusSortPriority(
+                    _readString(a.data, Restaurant.fieldApprovalStatus),
+                  ).compareTo(
+                    _statusSortPriority(
+                      _readString(b.data, Restaurant.fieldApprovalStatus),
+                    ),
+                  );
+              if (byStatus != 0) {
+                return byStatus;
+              }
+              final aDate =
+                  _readDateTime(a.data, Restaurant.fieldUpdatedAt) ??
+                  _readDateTime(a.data, Restaurant.fieldCreatedAt) ??
+                  DateTime.fromMillisecondsSinceEpoch(0);
+              final bDate =
+                  _readDateTime(b.data, Restaurant.fieldUpdatedAt) ??
+                  _readDateTime(b.data, Restaurant.fieldCreatedAt) ??
+                  DateTime.fromMillisecondsSinceEpoch(0);
+              return bDate.compareTo(aDate);
+            });
+        final pendingDocumentIds = pendingAccounts
+            .map((record) => record.documentId)
+            .toSet();
+
+        return ListView(
+          padding: const EdgeInsets.all(16),
           children: [
-            Expanded(
-              child: Text(
-                showingAllAccounts
-                    ? 'Showing all restaurant accounts.'
-                    : 'Showing pending restaurant approvals only.',
-                style: const TextStyle(color: Colors.black54),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Flexible(
+            Align(
+              alignment: Alignment.centerRight,
               child: Wrap(
-                alignment: WrapAlignment.end,
                 spacing: 8,
                 runSpacing: 8,
                 children: [
@@ -944,328 +1235,655 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
                     icon: const Icon(Icons.manage_search),
                     label: const Text('Manage Invites'),
                   ),
-                  OutlinedButton(
-                    onPressed: () {
-                      setState(() {
-                        _showAllRestaurants = !_showAllRestaurants;
-                      });
-                    },
-                    child: Text(
-                      _showAllRestaurants
-                          ? 'Show Pending Only'
-                          : 'View All Restaurants',
-                    ),
-                  ),
                 ],
               ),
             ),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRestaurantsTab() {
-    return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-      stream: _restaurantAccountsStream(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (snapshot.hasError) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                AppErrorText.load('restaurants'),
-                textAlign: TextAlign.center,
-              ),
+            const SizedBox(height: 14),
+            _buildAdminHeaderCard(
+              title: 'Pending Applications',
+              description:
+                  'Review coupon-side applications without requiring location '
+                  'search data.',
             ),
-          );
-        }
-
-        final docs =
-            snapshot.data?.docs ??
-            const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-        final sortedDocs =
-            List<QueryDocumentSnapshot<Map<String, dynamic>>>.from(
-              docs,
-              growable: true,
-            )..sort((a, b) {
-              final aData = a.data();
-              final bData = b.data();
-              final byStatus =
-                  _statusSortPriority(
-                    _readString(aData, Restaurant.fieldApprovalStatus),
-                  ).compareTo(
-                    _statusSortPriority(
-                      _readString(bData, Restaurant.fieldApprovalStatus),
-                    ),
-                  );
-              if (byStatus != 0) {
-                return byStatus;
-              }
-
-              final aTimestamp =
-                  _readDateTime(aData, Restaurant.fieldUpdatedAt) ??
-                  _readDateTime(aData, Restaurant.fieldCreatedAt) ??
-                  DateTime.fromMillisecondsSinceEpoch(0);
-              final bTimestamp =
-                  _readDateTime(bData, Restaurant.fieldUpdatedAt) ??
-                  _readDateTime(bData, Restaurant.fieldCreatedAt) ??
-                  DateTime.fromMillisecondsSinceEpoch(0);
-              return bTimestamp.compareTo(aTimestamp);
-            });
-        _fullRestaurantList =
-            List<QueryDocumentSnapshot<Map<String, dynamic>>>.from(
-              sortedDocs,
-              growable: false,
-            );
-        _filteredRestaurantList = _buildFilteredRestaurantList(
-          _fullRestaurantList,
-          _restaurantSearchQuery,
-        );
-        final isSearching = _restaurantSearchQuery.isNotEmpty;
-        final showingAllAccounts = _showAllRestaurants || isSearching;
-
-        if (_filteredRestaurantList.isEmpty) {
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-            children: [
-              _buildRestaurantSearchControls(
-                showingAllAccounts: showingAllAccounts,
-              ),
-              const SizedBox(height: 24),
-              Text(
-                _restaurantSearchQuery.isEmpty
-                    ? showingAllAccounts
-                          ? 'No restaurants found.'
-                          : 'No pending restaurant approvals found.'
-                    : 'No restaurants match your search.',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 16),
-              ),
-            ],
-          );
-        }
-
-        return ListView.builder(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
-          itemCount: _filteredRestaurantList.length + 1,
-          itemBuilder: (context, index) {
-            if (index == 0) {
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _buildRestaurantSearchControls(
-                  showingAllAccounts: showingAllAccounts,
+            if (snapshot.connectionState == ConnectionState.waiting)
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(20),
+                  child: Center(child: CircularProgressIndicator()),
                 ),
-              );
-            }
-
-            final doc = _filteredRestaurantList[index - 1];
-            final data = doc.data();
-
-            final uid = _readString(data, Restaurant.fieldUid).isEmpty
-                ? doc.id
-                : _readString(data, Restaurant.fieldUid);
-            final restaurantName =
-                _readString(data, Restaurant.fieldName).isEmpty
-                ? 'Unnamed Restaurant'
-                : _readString(data, Restaurant.fieldName);
-            final email = _readString(data, Restaurant.fieldEmail).isEmpty
-                ? 'No email'
-                : _readString(data, Restaurant.fieldEmail);
-            final phoneNumber = _readString(data, 'phoneNumber');
-            final applicantPhone = _readString(data, Restaurant.fieldPhone);
-            final contactPhone = phoneNumber.isNotEmpty
-                ? phoneNumber
-                : applicantPhone;
-            final streetAddress = _readString(
-              data,
-              Restaurant.fieldStreetAddress,
-            );
-            final city = _readString(data, Restaurant.fieldCity);
-            final state = _readString(data, Restaurant.fieldState);
-            final zipCode = _readString(data, Restaurant.fieldZipCode);
-            final locationParts = <String>[
-              if (city.isNotEmpty) city,
-              if (state.isNotEmpty) state,
-              if (zipCode.isNotEmpty) zipCode,
-            ];
-            final website = _readString(data, Restaurant.fieldWebsite);
-            final approvalStatus =
-                _readString(data, Restaurant.fieldApprovalStatus).isEmpty
-                ? 'pending'
-                : _readString(data, Restaurant.fieldApprovalStatus);
-
-            return Card(
-              margin: const EdgeInsets.only(bottom: 14),
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      restaurantName,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    if (email == 'No email' && contactPhone.isNotEmpty)
-                      ClickablePhoneText(phone: contactPhone, prefix: 'Phone: ')
-                    else
-                      Text(email),
-                    if (email != 'No email' && contactPhone.isNotEmpty)
-                      ClickablePhoneText(
-                        phone: contactPhone,
-                        prefix: 'Phone: ',
-                      ),
-                    if (applicantPhone.isNotEmpty &&
-                        phoneNumber.isNotEmpty &&
-                        applicantPhone != phoneNumber)
-                      ClickablePhoneText(
-                        phone: applicantPhone,
-                        prefix: 'Applicant phone: ',
-                      ),
-                    if (streetAddress.isNotEmpty ||
-                        city.isNotEmpty ||
-                        state.isNotEmpty ||
-                        zipCode.isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      if (streetAddress.isNotEmpty)
-                        Text('Street: $streetAddress'),
-                      if (locationParts.isNotEmpty)
-                        Text('Location: ${locationParts.join(', ')}'),
-                    ],
-                    if (website.isNotEmpty) Text('Website: $website'),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        const Text('Status: '),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 4,
-                          ),
-                          decoration: BoxDecoration(
-                            color: statusColor(
-                              approvalStatus,
-                            ).withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(999),
-                          ),
-                          child: Text(
-                            labelForStatus(approvalStatus),
-                            style: TextStyle(
-                              color: statusColor(approvalStatus),
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        ElevatedButton(
-                          onPressed: uid.isEmpty
-                              ? null
-                              : () {
-                                  _updateApprovalStatus(
-                                    context,
-                                    uid: uid,
-                                    approved: true,
-                                  );
-                                },
-                          child: const Text('Approve'),
-                        ),
-                        OutlinedButton(
-                          onPressed: uid.isEmpty
-                              ? null
-                              : () {
-                                  _updateApprovalStatus(
-                                    context,
-                                    uid: uid,
-                                    approved: false,
-                                  );
-                                },
-                          child: const Text('Reject'),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: uid.isEmpty
-                              ? null
-                              : () {
-                                  _editRestaurant(
-                                    context,
-                                    uid: uid,
-                                    data: data,
-                                  );
-                                },
-                          icon: const Icon(Icons.edit_outlined),
-                          label: const Text('Edit Restaurant'),
-                        ),
-                        OutlinedButton.icon(
-                          onPressed: uid.isEmpty
-                              ? null
-                              : () {
-                                  _createCouponInviteFromAccount(
-                                    context,
-                                    uid: uid,
-                                    data: data,
-                                  );
-                                },
-                          icon: const Icon(Icons.add_link),
-                          label: const Text('Create Invite'),
-                        ),
-                        TextButton.icon(
-                          onPressed: uid.isEmpty
-                              ? null
-                              : () {
-                                  _deleteRestaurant(context, uid);
-                                },
-                          icon: const Icon(Icons.delete_outline),
-                          label: const Text('Delete Restaurant'),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    ExpansionTile(
-                      tilePadding: EdgeInsets.zero,
-                      childrenPadding: EdgeInsets.zero,
-                      title: const Text(
-                        'Coupons',
-                        style: TextStyle(fontWeight: FontWeight.w600),
-                      ),
-                      subtitle: const Text('View or delete restaurant coupons'),
-                      children: [
-                        _buildCouponSection(
-                          context,
-                          uid: uid,
-                          restaurantName: restaurantName,
-                        ),
-                      ],
-                    ),
-                  ],
+              )
+            else if (snapshot.hasError)
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    AppErrorText.load('pending restaurant applications'),
+                    style: const TextStyle(color: Colors.red),
+                  ),
                 ),
-              ),
-            );
-          },
+              )
+            else if (pendingAccounts.isEmpty)
+              const Card(
+                child: Padding(
+                  padding: EdgeInsets.all(16),
+                  child: Text('No pending restaurant approvals found.'),
+                ),
+              )
+            else
+              ...pendingAccounts.map(_buildPendingAccountCard),
+            const SizedBox(height: 18),
+            _buildAdminHeaderCard(
+              title: 'Find Restaurants',
+              description:
+                  'Enter a ZIP code or City, ST to find coupon-side restaurant '
+                  'accounts.',
+            ),
+            _buildRestaurantSearchControls(),
+            const SizedBox(height: 14),
+            _buildRestaurantSearchState(pendingDocumentIds),
+          ],
         );
       },
     );
   }
 
-  Widget _buildCouponSection(
-    BuildContext context, {
-    required String uid,
+  Widget _buildRestaurantSearchControls() {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _restaurantSearchFormKey,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 680;
+              final wideFieldWidth = (constraints.maxWidth - 12) / 2;
+              final fieldWidth = isNarrow
+                  ? constraints.maxWidth
+                  : wideFieldWidth;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: fieldWidth,
+                        child: TextFormField(
+                          key: const ValueKey('coupon-admin-location-field'),
+                          controller: _locationController,
+                          enabled: !_isSearching,
+                          textInputAction: TextInputAction.search,
+                          onFieldSubmitted: (_) => _submitRestaurantSearch(),
+                          validator: (value) =>
+                              AdminLinkGenerationService.locationValidationError(
+                                value ?? '',
+                              ),
+                          decoration: InputDecoration(
+                            labelText: 'Location',
+                            hintText: 'ZIP code or City, ST',
+                            prefixIcon: isNarrow
+                                ? null
+                                : const Icon(Icons.location_on_outlined),
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: fieldWidth,
+                        child: TextFormField(
+                          key: const ValueKey(
+                            'coupon-admin-restaurant-name-field',
+                          ),
+                          controller: _restaurantNameController,
+                          enabled: !_isSearching,
+                          textInputAction: TextInputAction.search,
+                          onFieldSubmitted: (_) => _submitRestaurantSearch(),
+                          validator: (value) {
+                            if ((value ?? '').trim().length > 100) {
+                              return 'Restaurant name must be no more than 100 '
+                                  'characters.';
+                            }
+                            return null;
+                          },
+                          decoration: InputDecoration(
+                            labelText: 'Restaurant name',
+                            hintText: 'Optional',
+                            prefixIcon: isNarrow
+                                ? null
+                                : const Icon(Icons.storefront_outlined),
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      ConstrainedBox(
+                        constraints: BoxConstraints(
+                          minWidth: isNarrow ? constraints.maxWidth : 180,
+                          maxWidth: isNarrow ? constraints.maxWidth : 240,
+                        ),
+                        child: DropdownButtonFormField<int>(
+                          key: const ValueKey('coupon-admin-radius-field'),
+                          initialValue: _radiusMiles,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Radius',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: AdminLinkGenerationService.radiusOptionsMiles
+                              .map(
+                                (radius) => DropdownMenuItem<int>(
+                                  value: radius,
+                                  child: Text(
+                                    '$radius ${radius == 1 ? 'mile' : 'miles'}',
+                                  ),
+                                ),
+                              )
+                              .toList(growable: false),
+                          onChanged: _isSearching
+                              ? null
+                              : (value) {
+                                  if (value != null) {
+                                    setState(() {
+                                      _radiusMiles = value;
+                                    });
+                                  }
+                                },
+                        ),
+                      ),
+                      FilledButton.icon(
+                        key: const ValueKey('coupon-admin-search-button'),
+                        onPressed: _isSearching
+                            ? null
+                            : _submitRestaurantSearch,
+                        icon: _isSearching
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.search),
+                        label: Text(_isSearching ? 'Searching...' : 'Search'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Only accounts with valid location data appear in '
+                    'geographic search.',
+                    style: TextStyle(color: Colors.black54),
+                  ),
+                ],
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRestaurantSearchState(Set<String> pendingDocumentIds) {
+    if (!_hasSubmittedSearch) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Text(
+            'Enter a ZIP code or City, ST to find coupon-side restaurant '
+            'accounts.',
+          ),
+        ),
+      );
+    }
+    if (_isSearching) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+    if (_restaurantSearchError != null) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(
+            _restaurantSearchError!,
+            style: const TextStyle(color: Colors.red),
+          ),
+        ),
+      );
+    }
+
+    final result = _restaurantSearchResult;
+    if (result == null) {
+      return const SizedBox.shrink();
+    }
+    final availableResults = result.results
+        .where((record) => !pendingDocumentIds.contains(record.documentId))
+        .toList(growable: false);
+    if (availableResults.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (result.resultsMayBeTruncated) _buildTruncationNotice(),
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'No matching coupon-side restaurants were found within this '
+                'search area.',
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    final visibleResults = availableResults
+        .take(_visibleResultCount)
+        .toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (result.resultsMayBeTruncated) _buildTruncationNotice(),
+        Text(
+          'Showing ${visibleResults.length} of ${availableResults.length} '
+          'returned restaurants.',
+          style: const TextStyle(color: Colors.black54),
+        ),
+        const SizedBox(height: 10),
+        ...visibleResults.map(_buildSearchResultCard),
+        if (visibleResults.length < availableResults.length)
+          Align(
+            alignment: Alignment.center,
+            child: OutlinedButton.icon(
+              key: const ValueKey('coupon-admin-show-more-button'),
+              onPressed: () {
+                setState(() {
+                  _visibleResultCount += _resultPageSize;
+                });
+              },
+              icon: const Icon(Icons.expand_more),
+              label: const Text('Show 25 More'),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildTruncationNotice() {
+    return Card(
+      color: Colors.amber.shade50,
+      child: const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text(_truncatedResultsMessage),
+      ),
+    );
+  }
+
+  Widget _buildPendingAccountCard(AdminCouponAccountRecord account) {
+    final data = account.data;
+    final documentId = account.documentId;
+    final actionId = _readString(data, Restaurant.fieldUid).isEmpty
+        ? documentId
+        : _readString(data, Restaurant.fieldUid);
+    final recordKey = 'pending:$documentId';
+    final restaurantName = _readString(data, Restaurant.fieldName).isEmpty
+        ? 'Unnamed Restaurant'
+        : _readString(data, Restaurant.fieldName);
+    final email = _readString(data, Restaurant.fieldEmail).isEmpty
+        ? 'No email'
+        : _readString(data, Restaurant.fieldEmail);
+    final phoneNumber = _readString(data, 'phoneNumber');
+    final applicantPhone = _readString(data, Restaurant.fieldPhone);
+    final contactPhone = phoneNumber.isNotEmpty ? phoneNumber : applicantPhone;
+    final streetAddress = _readString(data, Restaurant.fieldStreetAddress);
+    final city = _readString(data, Restaurant.fieldCity);
+    final state = _readString(data, Restaurant.fieldState);
+    final zipCode = _readString(data, Restaurant.fieldZipCode);
+    final location = [
+      city,
+      state,
+      zipCode,
+    ].where((part) => part.isNotEmpty).join(', ');
+    final website = _readString(data, Restaurant.fieldWebsite);
+    final approvalStatus =
+        _readString(data, Restaurant.fieldApprovalStatus).isEmpty
+        ? 'pending'
+        : _readString(data, Restaurant.fieldApprovalStatus);
+
+    return Card(
+      key: ValueKey(recordKey),
+      margin: const EdgeInsets.only(bottom: 14),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              restaurantName,
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 6),
+            if (email == 'No email' && contactPhone.isNotEmpty)
+              ClickablePhoneText(phone: contactPhone, prefix: 'Phone: ')
+            else
+              Text(email),
+            if (email != 'No email' && contactPhone.isNotEmpty)
+              ClickablePhoneText(phone: contactPhone, prefix: 'Phone: '),
+            if (applicantPhone.isNotEmpty &&
+                phoneNumber.isNotEmpty &&
+                applicantPhone != phoneNumber)
+              ClickablePhoneText(
+                phone: applicantPhone,
+                prefix: 'Applicant phone: ',
+              ),
+            if (streetAddress.isNotEmpty) Text('Street: $streetAddress'),
+            if (location.isNotEmpty) Text('Location: $location'),
+            if (website.isNotEmpty) Text('Website: $website'),
+            const SizedBox(height: 10),
+            _buildStatusChip(approvalStatus),
+            const SizedBox(height: 12),
+            _buildRestaurantActions(
+              recordKey: recordKey,
+              documentId: documentId,
+              actionId: actionId,
+              data: data,
+              isSearchResult: false,
+            ),
+            _buildCouponExpansion(
+              sectionKey: recordKey,
+              documentId: documentId,
+              restaurantName: restaurantName,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSearchResultCard(AdminRestaurantLinkRecord record) {
+    final recordKey = record.recordKey;
+    final approvalStatus = record.approvalStatus?.trim().toLowerCase() ?? '';
+    final locality = [
+      record.city,
+      record.state,
+      record.zipCode,
+    ].where((part) => part.trim().isNotEmpty).join(', ');
+    final data = <String, dynamic>{
+      Restaurant.fieldUid: record.uid ?? record.actionId,
+      Restaurant.fieldName: record.restaurantName,
+      Restaurant.fieldStreetAddress: record.streetAddress,
+      Restaurant.fieldCity: record.city,
+      Restaurant.fieldState: record.state,
+      Restaurant.fieldZipCode: record.zipCode,
+      Restaurant.fieldPhone: record.phone,
+      Restaurant.fieldWebsite: record.website,
+      Restaurant.fieldLatitude: record.latitude,
+      Restaurant.fieldLongitude: record.longitude,
+      Restaurant.fieldApprovalStatus: approvalStatus,
+      'couponApplicationSubmitted': record.couponApplicationSubmitted,
+    };
+
+    return Card(
+      key: ValueKey(recordKey),
+      margin: const EdgeInsets.only(bottom: 14),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                Text(
+                  record.restaurantName,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.secondaryContainer,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: const Text('BiteSaver / Coupon Side'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            if (record.streetAddress.isNotEmpty) Text(record.streetAddress),
+            if (locality.isNotEmpty) Text(locality),
+            Text('${record.distanceMiles.toStringAsFixed(1)} miles away'),
+            if (record.phone.isNotEmpty)
+              ClickablePhoneText(phone: record.phone, prefix: 'Phone: '),
+            if (record.website.isNotEmpty) Text('Website: ${record.website}'),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 12,
+              runSpacing: 8,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                _buildStatusChip(approvalStatus),
+                Text(
+                  'Application submitted: '
+                  '${record.couponApplicationSubmitted == true ? 'Yes' : 'No'}',
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _buildRestaurantActions(
+              recordKey: recordKey,
+              documentId: record.documentId,
+              actionId: record.actionId,
+              data: data,
+              isSearchResult: true,
+              searchRecord: record,
+            ),
+            _buildCouponExpansion(
+              sectionKey: recordKey,
+              documentId: record.documentId,
+              restaurantName: record.restaurantName,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatusChip(String status) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text('Status: '),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: statusColor(status).withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            labelForStatus(status),
+            style: TextStyle(
+              color: statusColor(status),
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRestaurantActions({
+    required String recordKey,
+    required String documentId,
+    required String actionId,
+    required Map<String, dynamic> data,
+    required bool isSearchResult,
+    AdminRestaurantLinkRecord? searchRecord,
+  }) {
+    final approving = _isActionBusy(recordKey, 'approve');
+    final rejecting = _isActionBusy(recordKey, 'reject');
+    final editing = _isActionBusy(recordKey, 'edit');
+    final inviting = _isActionBusy(recordKey, 'invite');
+    final deleting = _isActionBusy(recordKey, 'delete');
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        ElevatedButton(
+          key: ValueKey('$recordKey:approve'),
+          onPressed: approving
+              ? null
+              : () => _runBusyAction(recordKey, 'approve', () async {
+                  await _updateApprovalStatus(
+                    context,
+                    documentId: documentId,
+                    approved: true,
+                    updateSearchResult: isSearchResult,
+                  );
+                }),
+          child: Text(approving ? 'Approving...' : 'Approve'),
+        ),
+        OutlinedButton(
+          key: ValueKey('$recordKey:reject'),
+          onPressed: rejecting
+              ? null
+              : () => _runBusyAction(recordKey, 'reject', () async {
+                  await _updateApprovalStatus(
+                    context,
+                    documentId: documentId,
+                    approved: false,
+                    updateSearchResult: isSearchResult,
+                  );
+                }),
+          child: Text(rejecting ? 'Rejecting...' : 'Reject'),
+        ),
+        OutlinedButton.icon(
+          key: ValueKey('$recordKey:edit'),
+          onPressed: editing
+              ? null
+              : () {
+                  if (isSearchResult && searchRecord != null) {
+                    _editSearchRestaurant(context, searchRecord);
+                    return;
+                  }
+                  _runBusyAction(recordKey, 'edit', () async {
+                    await _editRestaurant(
+                      context,
+                      documentId: documentId,
+                      data: data,
+                    );
+                  });
+                },
+          icon: editing
+              ? const SizedBox.square(
+                  dimension: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.edit_outlined),
+          label: Text(editing ? 'Loading...' : 'Edit Restaurant'),
+        ),
+        OutlinedButton.icon(
+          key: ValueKey('$recordKey:invite'),
+          onPressed: inviting
+              ? null
+              : () => _runBusyAction(recordKey, 'invite', () async {
+                  await _createCouponInviteFromAccount(
+                    context,
+                    actionId: actionId,
+                    data: data,
+                  );
+                }),
+          icon: const Icon(Icons.add_link),
+          label: Text(inviting ? 'Creating...' : 'Create Invite'),
+        ),
+        TextButton.icon(
+          key: ValueKey('$recordKey:delete'),
+          onPressed: deleting
+              ? null
+              : () => _runBusyAction(recordKey, 'delete', () async {
+                  final deleted = await _deleteRestaurant(context, documentId);
+                  if (deleted && isSearchResult) {
+                    _removeSearchResult(documentId);
+                  }
+                }),
+          icon: const Icon(Icons.delete_outline),
+          label: Text(deleting ? 'Deleting...' : 'Delete Restaurant'),
+        ),
+      ],
+    );
+  }
+
+  Future<List<Coupon>> _loadCoupons(String documentId) {
+    final load = widget.loadCoupons;
+    if (load != null) {
+      return load(documentId);
+    }
+    return RestaurantAccountService.loadCoupons(documentId);
+  }
+
+  void _handleCouponExpansion(String documentId, bool expanded) {
+    setState(() {
+      if (expanded) {
+        _expandedCouponAccounts.add(documentId);
+      } else {
+        _expandedCouponAccounts.remove(documentId);
+      }
+    });
+  }
+
+  Widget _buildCouponExpansion({
+    required String sectionKey,
+    required String documentId,
     required String restaurantName,
   }) {
+    final isExpanded = _expandedCouponAccounts.contains(documentId);
+    final couponsFuture = isExpanded
+        ? _couponFutures.putIfAbsent(documentId, () => _loadCoupons(documentId))
+        : null;
+    return ExpansionTile(
+      key: PageStorageKey<String>('coupons:$sectionKey'),
+      tilePadding: EdgeInsets.zero,
+      childrenPadding: EdgeInsets.zero,
+      onExpansionChanged: (expanded) {
+        _handleCouponExpansion(documentId, expanded);
+      },
+      title: const Text(
+        'Coupons',
+        style: TextStyle(fontWeight: FontWeight.w600),
+      ),
+      subtitle: const Text('View or delete restaurant coupons'),
+      children: [
+        if (isExpanded)
+          _buildCouponSection(
+            context,
+            documentId: documentId,
+            restaurantName: restaurantName,
+            couponsFuture: couponsFuture!,
+          ),
+      ],
+    );
+  }
+
+  Widget _buildCouponSection(
+    BuildContext context, {
+    required String documentId,
+    required String restaurantName,
+    required Future<List<Coupon>> couponsFuture,
+  }) {
     return FutureBuilder<List<Coupon>>(
-      future: RestaurantAccountService.loadCoupons(uid),
+      future: couponsFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Padding(
@@ -1322,7 +1940,11 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
                 trailing: IconButton(
                   tooltip: 'Delete coupon',
                   onPressed: () {
-                    _deleteCoupon(context, uid: uid, couponId: coupon.id);
+                    _deleteCoupon(
+                      context,
+                      documentId: documentId,
+                      couponId: coupon.id,
+                    );
                   },
                   icon: const Icon(Icons.delete_outline),
                 ),
@@ -1343,6 +1965,8 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 12, 16, 0),
             child: TabBar(
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
               tabs: [
                 Tab(text: 'Restaurants'),
                 Tab(text: 'Name Changes'),

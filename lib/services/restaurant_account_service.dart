@@ -271,6 +271,28 @@ class RestaurantAccountService {
     return _normalizedRestaurantAccountData(data, fallbackUid: uid);
   }
 
+  static Future<Map<String, dynamic>?> loadAccountByDocumentId(
+    String documentId,
+  ) async {
+    final trimmedDocumentId = documentId.trim();
+    if (trimmedDocumentId.isEmpty) {
+      throw ArgumentError('Restaurant document ID is required.');
+    }
+
+    final snapshot = await _firestore
+        .collection('restaurant_accounts')
+        .doc(trimmedDocumentId)
+        .get();
+    final data = snapshot.data();
+    if (data == null) {
+      return null;
+    }
+    return _normalizedRestaurantAccountData(
+      data,
+      fallbackUid: trimmedDocumentId,
+    );
+  }
+
   static Future<ResolvedRestaurantAccount?> resolveCustomerRestaurantAccount(
     String restaurantId,
   ) async {
