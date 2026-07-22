@@ -307,6 +307,19 @@ void main() {
       );
       await _submitSearch(tester);
       expect(tester.takeException(), isNull, reason: '${sizes[index]}');
+      final customerLink = find.byKey(
+        ValueKey('biteScore:responsive-$index:customer-link'),
+      );
+      await tester.ensureVisible(customerLink);
+      await tester.tap(customerLink);
+      await _pumpOpenDialog(tester);
+      expect(tester.takeException(), isNull, reason: '${sizes[index]} dialog');
+      expect(
+        find.byKey(const ValueKey('admin-link-action-dialog')),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const ValueKey('close-link-action-dialog')));
+      await tester.pumpAndSettle();
     }
   });
 
@@ -374,16 +387,13 @@ void main() {
     expect(couponArguments?['restaurantId'], isNull);
     expect(couponArguments?['restaurantName'], 'River Grill');
     expect(couponArguments?['streetAddress'], '1 Main Street');
-    expect(
-      find.byKey(const ValueKey('admin-secure-invite-url')),
-      findsOneWidget,
-    );
-    await tester.tap(find.byKey(const ValueKey('copy-secure-invite-link')));
+    expect(find.byKey(const ValueKey('admin-link-action-url')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('copy-link-action')));
     await tester.pump();
     expect(copiedLinks, ['https://go.bitestar.app/invite/coupon/secure-token']);
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('admin-secure-invite-url')), findsNothing);
+    expect(find.byKey(const ValueKey('admin-link-action-url')), findsNothing);
 
     final claimButton = find.byKey(
       const ValueKey('biteScore:actual-score-doc:claim-invite'),
@@ -429,7 +439,7 @@ void main() {
     expect(claimCalls, 0);
   });
 
-  testWidgets('customer links use source-specific existing URL helpers', (
+  testWidgets('customer links use one source-specific action and dialog', (
     tester,
   ) async {
     final copied = <String>[];
@@ -460,28 +470,60 @@ void main() {
     );
     await _submitSearch(tester);
 
-    final biteScoreCopy = find.byKey(
+    final biteScoreLink = find.byKey(
       const ValueKey('biteScore:score-link-doc:customer-link'),
     );
-    await tester.ensureVisible(biteScoreCopy);
-    await tester.tap(biteScoreCopy);
+    await tester.ensureVisible(biteScoreLink);
+    expect(find.text('Customer BiteScore Link'), findsOneWidget);
+    await tester.tap(biteScoreLink);
+    await _pumpOpenDialog(tester);
+    expect(find.text('Customer BiteScore Link'), findsOneWidget);
+    expect(
+      find.text('https://go.bitestar.app/r/bitescore/score-link-doc'),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('copy-link-action')), findsOneWidget);
+    expect(find.byKey(const ValueKey('create-link-qr')), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('copy-link-action')));
     await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('close-link-action-dialog')));
+    await tester.pumpAndSettle();
 
-    final biteSaverCopy = find.byKey(
+    final biteSaverLink = find.byKey(
       const ValueKey('biteSaver:saver-link-doc:customer-link'),
     );
-    await tester.ensureVisible(biteSaverCopy);
-    await tester.tap(biteSaverCopy);
+    await tester.ensureVisible(biteSaverLink);
+    expect(find.text('Customer BiteSaver Link'), findsOneWidget);
+    await tester.tap(biteSaverLink);
+    await _pumpOpenDialog(tester);
+    expect(
+      find.text('https://go.bitestar.app/r/coupons/canonical-account-uid'),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('copy-link-action')));
     await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('close-link-action-dialog')));
+    await tester.pumpAndSettle();
 
     expect(copied, [
       'https://go.bitestar.app/r/bitescore/score-link-doc',
       'https://go.bitestar.app/r/coupons/canonical-account-uid',
     ]);
-    final pendingButton = tester.widget<OutlinedButton>(
+    expect(
       find.byKey(const ValueKey('biteSaver:pending-doc:customer-link')),
+      findsNothing,
     );
-    expect(pendingButton.onPressed, isNull);
+    expect(
+      find.byKey(const ValueKey('biteScore:score-link-doc:customer-qr')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('biteSaver:saver-link-doc:customer-qr')),
+      findsNothing,
+    );
+    expect(find.text('Copy Customer BiteScore Link'), findsNothing);
+    expect(find.text('Copy Customer Coupon Link'), findsNothing);
+    expect(find.text('Create Customer QR'), findsNothing);
 
     final saverCard = find.byKey(
       const ValueKey('admin-link-record-biteSaver:saver-link-doc'),
@@ -496,7 +538,18 @@ void main() {
     expect(
       find.descendant(
         of: saverCard,
-        matching: find.text('Copy Customer BiteScore Link'),
+        matching: find.text('Customer BiteScore Link'),
+      ),
+      findsNothing,
+    );
+
+    final scoreCard = find.byKey(
+      const ValueKey('admin-link-record-biteScore:score-link-doc'),
+    );
+    expect(
+      find.descendant(
+        of: scoreCard,
+        matching: find.text('Customer BiteSaver Link'),
       ),
       findsNothing,
     );
@@ -585,13 +638,17 @@ void main() {
       );
       await _submitSearch(tester);
 
-      final customerCopy = find.byKey(
+      final customerLink = find.byKey(
         const ValueKey('biteScore:clipboard-doc:customer-link'),
       );
-      await tester.ensureVisible(customerCopy);
-      await tester.tap(customerCopy);
+      await tester.ensureVisible(customerLink);
+      await tester.tap(customerLink);
+      await _pumpOpenDialog(tester);
+      await tester.tap(find.byKey(const ValueKey('copy-link-action')));
       await tester.pump();
-      expect(find.text('Could not copy the customer link.'), findsOneWidget);
+      expect(find.text('Could not copy the link.'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('close-link-action-dialog')));
+      await tester.pumpAndSettle();
 
       final inviteButton = find.byKey(
         const ValueKey('biteScore:clipboard-doc:coupon-invite'),
@@ -599,17 +656,17 @@ void main() {
       await tester.ensureVisible(inviteButton);
       await tester.tap(inviteButton);
       await _pumpOpenDialog(tester);
-      await tester.tap(find.byKey(const ValueKey('copy-secure-invite-link')));
+      await tester.tap(find.byKey(const ValueKey('copy-link-action')));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 600));
-      expect(find.text('Could not copy the invite link.'), findsOneWidget);
-      await tester.tap(find.text('Close'));
+      expect(find.text('Could not copy the link.'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('close-link-action-dialog')));
       await tester.pumpAndSettle();
     },
   );
 
   testWidgets(
-    'customer QR actions use existing helper URLs and approval eligibility',
+    'customer dialogs create QR images from the displayed helper URL',
     (tester) async {
       final rendered =
           <
@@ -652,11 +709,17 @@ void main() {
       );
       await _submitSearch(tester);
 
-      final scoreQr = find.byKey(
-        const ValueKey('biteScore:score-qr-doc:customer-qr'),
+      final scoreLink = find.byKey(
+        const ValueKey('biteScore:score-qr-doc:customer-link'),
       );
-      await tester.ensureVisible(scoreQr);
-      await tester.tap(scoreQr);
+      await tester.ensureVisible(scoreLink);
+      await tester.tap(scoreLink);
+      await _pumpOpenDialog(tester);
+      expect(
+        find.text('https://go.bitestar.app/r/bitescore/score-qr-doc'),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const ValueKey('create-link-qr')));
       await _pumpOpenDialog(tester);
       expect(
         find.byKey(const ValueKey('restaurant-qr-preview-dialog')),
@@ -671,11 +734,17 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      final saverQr = find.byKey(
-        const ValueKey('biteSaver:saver-qr-doc:customer-qr'),
+      final saverLink = find.byKey(
+        const ValueKey('biteSaver:saver-qr-doc:customer-link'),
       );
-      await tester.ensureVisible(saverQr);
-      await tester.tap(saverQr);
+      await tester.ensureVisible(saverLink);
+      await tester.tap(saverLink);
+      await _pumpOpenDialog(tester);
+      expect(
+        find.text('https://go.bitestar.app/r/coupons/approved-account-uid'),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const ValueKey('create-link-qr')));
       await _pumpOpenDialog(tester);
       await tester.tap(
         find.byKey(const ValueKey('restaurant-qr-preview-close')),
@@ -683,7 +752,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.byKey(const ValueKey('biteSaver:pending-qr-doc:customer-qr')),
+        find.byKey(const ValueKey('biteSaver:pending-qr-doc:customer-link')),
         findsNothing,
       );
       expect(rendered, [
@@ -769,7 +838,7 @@ void main() {
     await tester.tap(couponInvite);
     await _pumpOpenDialog(tester);
     expect(couponCalls, 1);
-    await tester.tap(find.byKey(const ValueKey('create-secure-invite-qr')));
+    await tester.tap(find.byKey(const ValueKey('create-link-qr')));
     await _pumpOpenDialog(tester);
     expect(
       find.byKey(const ValueKey('restaurant-qr-sensitive-warning')),
@@ -779,10 +848,7 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('restaurant-qr-preview-back')));
     await _pumpOpenDialog(tester);
     expect(couponCalls, 1);
-    expect(
-      find.byKey(const ValueKey('admin-secure-invite-url')),
-      findsOneWidget,
-    );
+    expect(find.byKey(const ValueKey('admin-link-action-url')), findsOneWidget);
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
 
@@ -793,7 +859,7 @@ void main() {
     await tester.tap(claimInvite);
     await _pumpOpenDialog(tester);
     expect(claimCalls, 1);
-    await tester.tap(find.byKey(const ValueKey('create-secure-invite-qr')));
+    await tester.tap(find.byKey(const ValueKey('create-link-qr')));
     await _pumpOpenDialog(tester);
     await tester.tap(find.byKey(const ValueKey('restaurant-qr-preview-close')));
     await tester.pumpAndSettle();
@@ -815,7 +881,7 @@ void main() {
   });
 
   testWidgets(
-    'per-record QR busy state prevents duplicates without blocking peers',
+    'dialog QR busy state prevents duplicates without blocking peers or copy',
     (tester) async {
       final completer = Completer<RestaurantQrImageResult>();
       var firstCalls = 0;
@@ -845,19 +911,31 @@ void main() {
       await _submitSearch(tester);
 
       final first = find.byKey(
-        const ValueKey('biteScore:qr-busy-one:customer-qr'),
+        const ValueKey('biteScore:qr-busy-one:customer-link'),
       );
       final second = find.byKey(
-        const ValueKey('biteScore:qr-busy-two:customer-qr'),
+        const ValueKey('biteScore:qr-busy-two:customer-link'),
       );
       await tester.ensureVisible(first);
       await tester.tap(first);
-      await tester.pump();
+      await _pumpOpenDialog(tester);
 
       expect(tester.widget<OutlinedButton>(first).onPressed, isNull);
       expect(tester.widget<OutlinedButton>(second).onPressed, isNotNull);
+      final createQr = find.byKey(const ValueKey('create-link-qr'));
+      await tester.tap(createQr);
+      await tester.pump();
       expect(firstCalls, 1);
-      await tester.tap(first, warnIfMissed: false);
+      expect(tester.widget<OutlinedButton>(createQr).onPressed, isNull);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const ValueKey('copy-link-action')),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      await tester.tap(createQr, warnIfMissed: false);
       await tester.pump();
       expect(firstCalls, 1);
 
@@ -870,8 +948,54 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(firstCalls, 1);
+      expect(tester.widget<OutlinedButton>(first).onPressed, isNotNull);
     },
   );
+
+  testWidgets('customer dialog restores QR action after controlled failure', (
+    tester,
+  ) async {
+    var renderCalls = 0;
+    await _pumpScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+          }) async =>
+              _result(records: [_biteScoreRecord(documentId: 'qr-failure')]),
+      renderQrImage:
+          ({required restaurantName, required url, required linkType}) async {
+            renderCalls += 1;
+            throw const RestaurantQrImageException(
+              'Could not render this QR image.',
+            );
+          },
+    );
+    await _submitSearch(tester);
+
+    final customerLink = find.byKey(
+      const ValueKey('biteScore:qr-failure:customer-link'),
+    );
+    await tester.ensureVisible(customerLink);
+    await tester.tap(customerLink);
+    await _pumpOpenDialog(tester);
+    final createQr = find.byKey(const ValueKey('create-link-qr'));
+    await tester.tap(createQr);
+    await tester.pump();
+
+    expect(renderCalls, 1);
+    expect(find.text('Could not render this QR image.'), findsOneWidget);
+    expect(tester.widget<OutlinedButton>(createQr).onPressed, isNotNull);
+    expect(
+      find.byKey(const ValueKey('admin-link-action-dialog')),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('close-link-action-dialog')));
+    await tester.pumpAndSettle();
+  });
 
   testWidgets(
     'per-record busy state prevents duplicates without blocking peers',

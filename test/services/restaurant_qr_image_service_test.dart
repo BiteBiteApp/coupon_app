@@ -1,7 +1,7 @@
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:coupon_app/services/restaurant_qr_image_service.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:qr/qr.dart';
 
@@ -64,6 +64,65 @@ void main() {
     expect(longFilename, isNot(contains('https')));
   });
 
+  test(
+    'renders I C SA and SC markers without changing the QR region',
+    () async {
+      final expectedMarkers = <RestaurantQrLinkType, String>{
+        RestaurantQrLinkType.couponInvite: 'I',
+        RestaurantQrLinkType.biteScoreClaimInvite: 'C',
+        RestaurantQrLinkType.customerBiteSaver: 'SA',
+        RestaurantQrLinkType.customerBiteScore: 'SC',
+      };
+      Uint8List? referenceQrRegion;
+      RestaurantQrImageResult? referenceResult;
+
+      for (final entry in expectedMarkers.entries) {
+        final result = await service.render(
+          restaurantName: 'River Grill',
+          url: customerUrl,
+          linkType: entry.key,
+        );
+        final decoded = await _decodePng(result.pngBytes);
+
+        expect(entry.key.typeMarker, entry.value);
+        expect(result.typeMarker, entry.value);
+        expect(result.markerBounds.left, greaterThanOrEqualTo(0));
+        expect(result.markerBounds.top, greaterThanOrEqualTo(0));
+        expect(result.markerBounds.right, lessThan(result.titleBounds.left));
+        expect(
+          result.markerBounds.bottom,
+          lessThanOrEqualTo(result.headerHeight),
+        );
+        expect(result.markerBounds.center.dx, lessThan(result.width / 4));
+        expect(
+          result.markerBounds.center.dy,
+          greaterThan(result.headerHeight / 2),
+        );
+        expect(result.titleBounds.center.dx, closeTo(result.width / 2, 0.01));
+        expect(
+          result.titleBounds.bottom,
+          lessThanOrEqualTo(result.headerHeight),
+        );
+        expect(_containsDarkPixel(decoded, result.markerBounds), isTrue);
+
+        final qrRegion = Uint8List.sublistView(
+          decoded.rgba,
+          result.headerHeight * result.width * 4,
+        );
+        if (referenceQrRegion == null) {
+          referenceQrRegion = Uint8List.fromList(qrRegion);
+          referenceResult = result;
+        } else {
+          expect(listEquals(qrRegion, referenceQrRegion), isTrue);
+          expect(result.qrWidth, referenceResult!.qrWidth);
+          expect(result.moduleCount, referenceResult.moduleCount);
+          expect(result.modulePixels, referenceResult.modulePixels);
+          expect(result.headerHeight, referenceResult.headerHeight);
+        }
+      }
+    },
+  );
+
   test('uses deterministic integer high-resolution layout metadata', () async {
     final first = await service.render(
       restaurantName: 'River Grill',
@@ -96,6 +155,9 @@ void main() {
         first.headerHeight,
         first.titleLineCount,
         first.safeFilename,
+        first.typeMarker,
+        first.markerBounds,
+        first.titleBounds,
       ),
       (
         second.width,
@@ -106,6 +168,9 @@ void main() {
         second.headerHeight,
         second.titleLineCount,
         second.safeFilename,
+        second.typeMarker,
+        second.markerBounds,
+        second.titleBounds,
       ),
     );
   });
@@ -133,6 +198,21 @@ void main() {
     expect(wrapped.headerHeight, greaterThan(ordinary.headerHeight));
     expect(unbroken.titleLineCount, inInclusiveRange(1, 2));
     expect(unbroken.headerHeight, lessThanOrEqualTo(wrapped.headerHeight));
+    for (final result in <RestaurantQrImageResult>[
+      ordinary,
+      wrapped,
+      unbroken,
+    ]) {
+      expect(result.markerBounds.right, lessThan(result.titleBounds.left));
+      expect(result.titleBounds.center.dx, closeTo(result.width / 2, 0.01));
+      expect(
+        result.markerBounds.bottom,
+        lessThanOrEqualTo(result.headerHeight),
+      );
+      expect(result.titleLineCount, lessThanOrEqualTo(2));
+    }
+    expect(ordinary.headerHeight, lessThan(160));
+    expect(wrapped.headerHeight, lessThan(260));
   });
 
   test('PNG has exact quiet zone and matrix-aligned black modules', () async {
@@ -245,6 +325,23 @@ _Rgba _pixel(_DecodedPng image, int x, int y) {
     image.rgba[offset + 2],
     image.rgba[offset + 3],
   );
+}
+
+bool _containsDarkPixel(_DecodedPng image, ui.Rect bounds) {
+  final left = bounds.left.floor().clamp(0, image.width - 1);
+  final top = bounds.top.floor().clamp(0, image.height - 1);
+  final right = bounds.right.ceil().clamp(left + 1, image.width);
+  final bottom = bounds.bottom.ceil().clamp(top + 1, image.height);
+  for (var y = top; y < bottom; y += 1) {
+    for (var x = left; x < right; x += 1) {
+      final pixel = _pixel(image, x, y);
+      if (pixel.alpha == 255 &&
+          (pixel.red < 240 || pixel.green < 240 || pixel.blue < 240)) {
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 class _DecodedPng {

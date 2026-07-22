@@ -6,14 +6,15 @@ import 'package:flutter/material.dart';
 import 'package:qr/qr.dart';
 
 enum RestaurantQrLinkType {
-  customerBiteScore('customer-bitescore'),
-  customerBiteSaver('customer-bitesaver'),
-  couponInvite('coupon-invite'),
-  biteScoreClaimInvite('bitescore-claim-invite');
+  customerBiteScore('customer-bitescore', 'SC'),
+  customerBiteSaver('customer-bitesaver', 'SA'),
+  couponInvite('coupon-invite', 'I'),
+  biteScoreClaimInvite('bitescore-claim-invite', 'C');
 
   final String filenameSlug;
+  final String typeMarker;
 
-  const RestaurantQrLinkType(this.filenameSlug);
+  const RestaurantQrLinkType(this.filenameSlug, this.typeMarker);
 }
 
 class RestaurantQrImageException implements Exception {
@@ -35,6 +36,9 @@ class RestaurantQrImageResult {
   final int headerHeight;
   final int titleLineCount;
   final String safeFilename;
+  final String typeMarker;
+  final Rect markerBounds;
+  final Rect titleBounds;
 
   const RestaurantQrImageResult({
     required this.pngBytes,
@@ -46,6 +50,9 @@ class RestaurantQrImageResult {
     required this.headerHeight,
     required this.titleLineCount,
     required this.safeFilename,
+    this.typeMarker = '',
+    this.markerBounds = Rect.zero,
+    this.titleBounds = Rect.zero,
   });
 }
 
@@ -57,6 +64,10 @@ class RestaurantQrImageService {
   static const double minimumTitleFontSize = 48;
   static const double titleFontStep = 2;
   static const double titleVerticalPadding = 18;
+  static const double typeMarkerFontSize = 34;
+  static const double typeMarkerHorizontalPadding = 18;
+  static const double typeMarkerBottomPadding = 12;
+  static const double typeMarkerTitleSafeInset = 104;
   static const QrErrorCorrectLevel errorCorrectLevel =
       QrErrorCorrectLevel.quartile;
 
@@ -96,10 +107,26 @@ class RestaurantQrImageService {
       normalizedName,
       qrWidth: qrWidth,
       modulePixels: modulePixels,
+      minimumHorizontalInset: typeMarkerTitleSafeInset,
     );
-    final headerHeight =
-        (titleLayout.painter.height + (titleVerticalPadding * 2)).ceil();
+    final markerPainter = _typeMarkerPainter(linkType.typeMarker);
+    final headerHeight = math
+        .max(
+          titleLayout.painter.height + (titleVerticalPadding * 2),
+          markerPainter.height + (typeMarkerBottomPadding * 2),
+        )
+        .ceil();
     final imageHeight = headerHeight + qrWidth;
+    final titleOffset = Offset(
+      titleLayout.horizontalInset,
+      titleVerticalPadding,
+    );
+    final markerOffset = Offset(
+      typeMarkerHorizontalPadding,
+      headerHeight - typeMarkerBottomPadding - markerPainter.height,
+    );
+    final titleBounds = titleOffset & titleLayout.painter.size;
+    final markerBounds = markerOffset & markerPainter.size;
 
     final recorder = ui.PictureRecorder();
     final canvas = Canvas(recorder);
@@ -114,10 +141,8 @@ class RestaurantQrImageService {
       Rect.fromLTWH(0, 0, qrWidth.toDouble(), imageHeight.toDouble()),
       whitePaint,
     );
-    titleLayout.painter.paint(
-      canvas,
-      Offset(titleLayout.horizontalInset, titleVerticalPadding),
-    );
+    titleLayout.painter.paint(canvas, titleOffset);
+    markerPainter.paint(canvas, markerOffset);
 
     for (var row = 0; row < qrImage.moduleCount; row += 1) {
       for (var column = 0; column < qrImage.moduleCount; column += 1) {
@@ -169,6 +194,9 @@ class RestaurantQrImageService {
           restaurantName: normalizedName,
           linkType: linkType,
         ),
+        typeMarker: linkType.typeMarker,
+        markerBounds: markerBounds,
+        titleBounds: titleBounds,
       );
     } on RestaurantQrImageException {
       rethrow;
@@ -177,6 +205,8 @@ class RestaurantQrImageService {
     } finally {
       renderedImage?.dispose();
       picture.dispose();
+      titleLayout.painter.dispose();
+      markerPainter.dispose();
     }
   }
 
@@ -227,8 +257,12 @@ class RestaurantQrImageService {
     String title, {
     required int qrWidth,
     required int modulePixels,
+    required double minimumHorizontalInset,
   }) {
-    final horizontalInset = math.max(24.0, modulePixels * 2.0);
+    final horizontalInset = math.max(
+      minimumHorizontalInset,
+      math.max(24.0, modulePixels * 2.0),
+    );
     final availableWidth = qrWidth - (horizontalInset * 2);
 
     final oneLine = _titlePainter(
@@ -290,7 +324,24 @@ class RestaurantQrImageService {
       maxLines: maxLines,
       ellipsis: '…',
       textWidthBasis: TextWidthBasis.parent,
-    )..layout(maxWidth: availableWidth);
+    )..layout(minWidth: availableWidth, maxWidth: availableWidth);
+  }
+
+  static TextPainter _typeMarkerPainter(String marker) {
+    return TextPainter(
+      text: TextSpan(
+        text: marker,
+        style: const TextStyle(
+          color: Colors.black87,
+          fontSize: typeMarkerFontSize,
+          fontWeight: FontWeight.w600,
+          height: 1,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      textScaler: TextScaler.noScaling,
+      maxLines: 1,
+    )..layout();
   }
 }
 
