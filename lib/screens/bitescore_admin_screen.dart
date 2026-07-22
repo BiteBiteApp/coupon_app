@@ -2,12 +2,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../models/admin_restaurant_link_record.dart';
 import '../models/bitescore_dish.dart';
 import '../models/bitescore_restaurant.dart';
 import '../models/contribution_point_ledger_entry.dart';
 import '../models/dish_review.dart';
 import '../models/restaurant_claim_request.dart';
 import '../services/app_error_text.dart';
+import '../services/admin_link_generation_service.dart';
 import '../services/bitescore_service.dart';
 import '../services/contribution_points_service.dart';
 import '../services/restaurant_invite_service.dart';
@@ -19,8 +21,40 @@ import '../widgets/restaurant_invite_admin_panel.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
 import 'expert_badge_gallery_screen.dart';
 
+typedef AdminBiteScoreRestaurantSearchCallback =
+    Future<AdminRestaurantLinkSearchResult> Function({
+      required String locationQuery,
+      required int radiusMiles,
+      required String? restaurantName,
+      required Set<AdminRestaurantLinkSource> sources,
+      required AdminBiteScoreStatus biteScoreStatus,
+    });
+typedef AdminBiteScoreRestaurantLoader =
+    Future<BitescoreRestaurant?> Function(String documentId);
+typedef AdminBiteScoreRestaurantDeleteAction =
+    Future<void> Function(String documentId);
+typedef AdminBiteScoreInviteAction =
+    Future<RestaurantInviteCreationResult> Function({
+      required String restaurantId,
+    });
+typedef AdminBiteScoreDishLoader =
+    Future<List<BitescoreDish>> Function(String restaurantId);
+
 class BiteScoreAdminScreen extends StatefulWidget {
-  const BiteScoreAdminScreen({super.key});
+  final AdminBiteScoreRestaurantSearchCallback? searchRestaurants;
+  final AdminBiteScoreRestaurantLoader? loadRestaurant;
+  final AdminBiteScoreRestaurantDeleteAction? deleteRestaurant;
+  final AdminBiteScoreInviteAction? createClaimInvite;
+  final AdminBiteScoreDishLoader? loadRestaurantDishes;
+
+  const BiteScoreAdminScreen({
+    super.key,
+    @visibleForTesting this.searchRestaurants,
+    @visibleForTesting this.loadRestaurant,
+    @visibleForTesting this.deleteRestaurant,
+    @visibleForTesting this.createClaimInvite,
+    @visibleForTesting this.loadRestaurantDishes,
+  });
 
   @override
   State<BiteScoreAdminScreen> createState() => _BiteScoreAdminScreenState();
@@ -29,7 +63,7 @@ class BiteScoreAdminScreen extends StatefulWidget {
 class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
-  BitescoreRestaurant? _selectedDishRestaurant;
+  AdminRestaurantLinkRecord? _selectedDishRestaurant;
 
   @override
   void initState() {
@@ -43,7 +77,7 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
     super.dispose();
   }
 
-  void _openRestaurantDishes(BitescoreRestaurant restaurant) {
+  void _openRestaurantDishes(AdminRestaurantLinkRecord restaurant) {
     setState(() {
       _selectedDishRestaurant = restaurant;
     });
@@ -101,9 +135,14 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
               children: [
                 _BiteScoreRestaurantAdminList(
                   onManageDishes: _openRestaurantDishes,
+                  searchRestaurants: widget.searchRestaurants,
+                  loadRestaurant: widget.loadRestaurant,
+                  deleteRestaurant: widget.deleteRestaurant,
+                  createClaimInvite: widget.createClaimInvite,
                 ),
                 _BiteScoreDishAdminList(
                   selectedRestaurant: _selectedDishRestaurant,
+                  loadDishes: widget.loadRestaurantDishes,
                 ),
                 const _BiteScoreReviewAdminList(),
                 const _BiteScoreReportedReviewAdminList(),
@@ -269,9 +308,19 @@ class _AdminEmptyStateCard extends StatelessWidget {
 }
 
 class _BiteScoreRestaurantAdminList extends StatefulWidget {
-  final ValueChanged<BitescoreRestaurant> onManageDishes;
+  final ValueChanged<AdminRestaurantLinkRecord> onManageDishes;
+  final AdminBiteScoreRestaurantSearchCallback? searchRestaurants;
+  final AdminBiteScoreRestaurantLoader? loadRestaurant;
+  final AdminBiteScoreRestaurantDeleteAction? deleteRestaurant;
+  final AdminBiteScoreInviteAction? createClaimInvite;
 
-  const _BiteScoreRestaurantAdminList({required this.onManageDishes});
+  const _BiteScoreRestaurantAdminList({
+    required this.onManageDishes,
+    this.searchRestaurants,
+    this.loadRestaurant,
+    this.deleteRestaurant,
+    this.createClaimInvite,
+  });
 
   @override
   State<_BiteScoreRestaurantAdminList> createState() =>
@@ -280,13 +329,39 @@ class _BiteScoreRestaurantAdminList extends StatefulWidget {
 
 class _BiteScoreRestaurantAdminListState
     extends State<_BiteScoreRestaurantAdminList> {
-  final TextEditingController _searchController = TextEditingController();
-  bool _showAllBiteScoreRestaurants = false;
+  static const int _resultPageSize = 25;
+  static const String _truncatedResultsMessage =
+      'Results were limited. Narrow the radius or add a restaurant name to '
+      'refine the search.';
+
+  final GlobalKey<FormState> _searchFormKey = GlobalKey<FormState>();
+  final TextEditingController _locationController = TextEditingController();
+  final TextEditingController _restaurantNameController =
+      TextEditingController();
+  final AdminLinkGenerationService _searchService =
+      AdminLinkGenerationService();
+  final Set<String> _busyActions = <String>{};
+
+  int _radiusMiles = AdminLinkGenerationService.defaultRadiusMiles;
+  AdminBiteScoreStatus _status = AdminBiteScoreStatus.all;
+  int _visibleResultCount = _resultPageSize;
+  bool _isSearching = false;
+  bool _hasSubmittedSearch = false;
+  AdminRestaurantLinkSearchResult? _searchResult;
+  String? _searchError;
+  String? _selectedRestaurantLoadingId;
+  String? _selectedRestaurantLoadError;
 
   @override
   void dispose() {
-    _searchController.dispose();
+    _locationController.dispose();
+    _restaurantNameController.dispose();
     super.dispose();
+  }
+
+  String? get _normalizedOptionalRestaurantName {
+    final value = _restaurantNameController.text.trim();
+    return value.isEmpty ? null : value;
   }
 
   void _showSnackBar(BuildContext context, String message) {
@@ -325,23 +400,52 @@ class _BiteScoreRestaurantAdminListState
 
   Future<void> _deleteRestaurant(
     BuildContext context,
-    BitescoreRestaurant restaurant,
+    AdminRestaurantLinkRecord restaurant,
   ) async {
+    final actionKey = 'delete:${restaurant.documentId}';
+    if (_busyActions.contains(actionKey)) {
+      return;
+    }
     final confirmed = await _confirmDelete(
       context,
       title: 'Delete Restaurant',
-      message: 'Delete ${restaurant.name} and its related dishes and reviews?',
+      message:
+          'Delete ${restaurant.restaurantName} and its related dishes and reviews?',
     );
     if (!confirmed || !context.mounted) {
       return;
     }
 
+    setState(() {
+      _busyActions.add(actionKey);
+    });
     try {
-      await BiteScoreService.deleteRestaurantAsAdmin(restaurant.id);
+      final delete = widget.deleteRestaurant;
+      if (delete != null) {
+        await delete(restaurant.documentId);
+      } else {
+        await BiteScoreService.deleteRestaurantAsAdmin(restaurant.documentId);
+      }
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, '${restaurant.name} deleted.');
+      final result = _searchResult;
+      if (result != null) {
+        final remaining = result.results
+            .where((record) => record.documentId != restaurant.documentId)
+            .toList(growable: false);
+        setState(() {
+          _searchResult = AdminRestaurantLinkSearchResult(
+            searchCenter: result.searchCenter,
+            radiusMiles: result.radiusMiles,
+            results: remaining,
+            resultsMayBeTruncated: result.resultsMayBeTruncated,
+            returnedCount: remaining.length,
+            queriedSources: result.queriedSources,
+          );
+        });
+      }
+      _showSnackBar(context, '${restaurant.restaurantName} deleted.');
     } catch (error) {
       if (!context.mounted) {
         return;
@@ -353,22 +457,66 @@ class _BiteScoreRestaurantAdminListState
           fallback: 'Could not delete the restaurant right now.',
         ),
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busyActions.remove(actionKey);
+        });
+      }
     }
   }
 
-  Future<void> _editRestaurant(
-    BuildContext context,
-    BitescoreRestaurant restaurant,
-  ) async {
-    final saved = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return _BiteScoreRestaurantEditDialog(restaurant: restaurant);
-      },
-    );
+  Future<void> _editRestaurant(AdminRestaurantLinkRecord record) async {
+    if (_selectedRestaurantLoadingId != null) {
+      return;
+    }
+    setState(() {
+      _selectedRestaurantLoadingId = record.documentId;
+      _selectedRestaurantLoadError = null;
+    });
 
-    if (saved == true && context.mounted) {
-      _showSnackBar(context, '${restaurant.name} updated.');
+    try {
+      final load = widget.loadRestaurant;
+      final restaurant = load != null
+          ? await load(record.documentId)
+          : await BiteScoreService.loadRestaurantById(record.documentId);
+      if (!mounted) {
+        return;
+      }
+      if (restaurant == null || restaurant.id != record.documentId) {
+        setState(() {
+          _selectedRestaurantLoadError =
+              'This restaurant could not be loaded. It may no longer exist.';
+        });
+        return;
+      }
+      setState(() {
+        _selectedRestaurantLoadingId = null;
+      });
+
+      final saved = await showDialog<bool>(
+        context: context,
+        builder: (context) {
+          return _BiteScoreRestaurantEditDialog(restaurant: restaurant);
+        },
+      );
+
+      if (saved == true && mounted) {
+        _showSnackBar(context, '${restaurant.name} updated.');
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _selectedRestaurantLoadError =
+              'Could not load this restaurant right now. Please try again.';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _selectedRestaurantLoadingId = null;
+        });
+      }
     }
   }
 
@@ -411,12 +559,26 @@ class _BiteScoreRestaurantAdminListState
 
   Future<void> _createClaimInvite(
     BuildContext context,
-    BitescoreRestaurant restaurant,
+    AdminRestaurantLinkRecord restaurant,
   ) async {
+    if (restaurant.isClaimed == true) {
+      _showSnackBar(context, 'This restaurant is already claimed.');
+      return;
+    }
+    final actionKey = 'invite:${restaurant.documentId}';
+    if (_busyActions.contains(actionKey)) {
+      return;
+    }
+    setState(() {
+      _busyActions.add(actionKey);
+    });
     try {
-      final result = await RestaurantInviteService.createBiteScoreClaimInvite(
-        restaurantId: restaurant.id,
-      );
+      final createInvite = widget.createClaimInvite;
+      final result = createInvite != null
+          ? await createInvite(restaurantId: restaurant.documentId)
+          : await RestaurantInviteService.createBiteScoreClaimInvite(
+              restaurantId: restaurant.documentId,
+            );
       if (!context.mounted) {
         return;
       }
@@ -432,6 +594,12 @@ class _BiteScoreRestaurantAdminListState
           fallback: 'Could not create the BiteScore claim invite right now.',
         ),
       );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _busyActions.remove(actionKey);
+        });
+      }
     }
   }
 
@@ -457,207 +625,530 @@ class _BiteScoreRestaurantAdminListState
     );
   }
 
+  Future<void> _submitSearch() async {
+    if (_isSearching) {
+      return;
+    }
+    final valid = _searchFormKey.currentState?.validate() ?? false;
+    if (!valid) {
+      setState(() {
+        _hasSubmittedSearch = true;
+      });
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _hasSubmittedSearch = true;
+      _isSearching = true;
+      _searchResult = null;
+      _searchError = null;
+      _selectedRestaurantLoadError = null;
+      _visibleResultCount = _resultPageSize;
+    });
+
+    try {
+      final search = widget.searchRestaurants;
+      final result = search != null
+          ? await search(
+              locationQuery: _locationController.text,
+              radiusMiles: _radiusMiles,
+              restaurantName: _normalizedOptionalRestaurantName,
+              sources: const <AdminRestaurantLinkSource>{
+                AdminRestaurantLinkSource.biteScore,
+              },
+              biteScoreStatus: _status,
+            )
+          : await _searchService.search(
+              locationQuery: _locationController.text,
+              radiusMiles: _radiusMiles,
+              restaurantName: _normalizedOptionalRestaurantName,
+              sources: const <AdminRestaurantLinkSource>{
+                AdminRestaurantLinkSource.biteScore,
+              },
+              biteScoreStatus: _status,
+            );
+      if (!mounted) {
+        return;
+      }
+
+      final biteScoreResults = result.results
+          .where((record) => record.isBiteScore)
+          .toList(growable: false);
+      setState(() {
+        _searchResult = AdminRestaurantLinkSearchResult(
+          searchCenter: result.searchCenter,
+          radiusMiles: result.radiusMiles,
+          results: biteScoreResults,
+          resultsMayBeTruncated: result.resultsMayBeTruncated,
+          returnedCount: biteScoreResults.length,
+          queriedSources: const <AdminRestaurantLinkSource>[
+            AdminRestaurantLinkSource.biteScore,
+          ],
+        );
+      });
+    } on AdminLinkGenerationException catch (error) {
+      if (mounted) {
+        setState(() {
+          _searchError = error.message;
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _searchError =
+              'Could not search BiteScore restaurants right now. Please try again.';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSearching = false;
+        });
+      }
+    }
+  }
+
   Widget _buildRestaurantSearchControls() {
-    return Column(
-      children: [
-        _AdminSearchField(
-          controller: _searchController,
-          label: 'Search restaurants',
-          onChanged: (_) => setState(() {}),
-        ),
-        const SizedBox(height: 12),
-        Align(
-          alignment: Alignment.centerRight,
-          child: Wrap(
-            alignment: WrapAlignment.end,
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              OutlinedButton.icon(
-                onPressed: () => _showClaimInviteManager(context),
-                icon: const Icon(Icons.manage_search),
-                label: const Text('Manage Claim Invites'),
-              ),
-              OutlinedButton(
-                onPressed: () {
-                  setState(() {
-                    _showAllBiteScoreRestaurants =
-                        !_showAllBiteScoreRestaurants;
-                  });
-                },
-                child: Text(
-                  _showAllBiteScoreRestaurants
-                      ? 'Hide All Restaurants'
-                      : 'View All Restaurants',
-                ),
-              ),
-            ],
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _searchFormKey,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 680;
+              final fieldWidth = isNarrow
+                  ? constraints.maxWidth
+                  : (constraints.maxWidth - 12) / 2;
+              final selectorWidth = isNarrow
+                  ? constraints.maxWidth
+                  : (constraints.maxWidth - 12) / 2;
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Wrap(
+                    spacing: 12,
+                    runSpacing: 12,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: fieldWidth,
+                        child: TextFormField(
+                          key: const ValueKey('rating-admin-location-field'),
+                          controller: _locationController,
+                          enabled: !_isSearching,
+                          textInputAction: TextInputAction.search,
+                          onFieldSubmitted: (_) => _submitSearch(),
+                          validator: (value) =>
+                              AdminLinkGenerationService.locationValidationError(
+                                value ?? '',
+                              ),
+                          decoration: const InputDecoration(
+                            labelText: 'Location',
+                            hintText: 'ZIP code or City, ST',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: fieldWidth,
+                        child: TextFormField(
+                          key: const ValueKey(
+                            'rating-admin-restaurant-name-field',
+                          ),
+                          controller: _restaurantNameController,
+                          enabled: !_isSearching,
+                          textInputAction: TextInputAction.search,
+                          onFieldSubmitted: (_) => _submitSearch(),
+                          validator: (value) {
+                            if ((value ?? '').trim().length > 100) {
+                              return 'Restaurant name must be no more than 100 characters.';
+                            }
+                            return null;
+                          },
+                          decoration: const InputDecoration(
+                            labelText: 'Restaurant name',
+                            hintText: 'Optional',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                        width: selectorWidth,
+                        child: DropdownButtonFormField<int>(
+                          key: const ValueKey('rating-admin-radius-field'),
+                          initialValue: _radiusMiles,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Radius',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: AdminLinkGenerationService.radiusOptionsMiles
+                              .map(
+                                (radius) => DropdownMenuItem<int>(
+                                  value: radius,
+                                  child: Text(
+                                    '$radius ${radius == 1 ? 'mile' : 'miles'}',
+                                  ),
+                                ),
+                              )
+                              .toList(growable: false),
+                          onChanged: _isSearching
+                              ? null
+                              : (value) {
+                                  if (value != null) {
+                                    setState(() {
+                                      _radiusMiles = value;
+                                    });
+                                  }
+                                },
+                        ),
+                      ),
+                      SizedBox(
+                        width: selectorWidth,
+                        child: DropdownButtonFormField<AdminBiteScoreStatus>(
+                          key: const ValueKey('rating-admin-status-field'),
+                          initialValue: _status,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Status',
+                            border: OutlineInputBorder(),
+                          ),
+                          items:
+                              const <AdminBiteScoreStatus>[
+                                    AdminBiteScoreStatus.all,
+                                    AdminBiteScoreStatus.active,
+                                    AdminBiteScoreStatus.inactive,
+                                  ]
+                                  .map(
+                                    (status) => DropdownMenuItem(
+                                      value: status,
+                                      child: Text(status.label),
+                                    ),
+                                  )
+                                  .toList(growable: false),
+                          onChanged: _isSearching
+                              ? null
+                              : (value) {
+                                  if (value != null) {
+                                    setState(() {
+                                      _status = value;
+                                    });
+                                  }
+                                },
+                        ),
+                      ),
+                      FilledButton.icon(
+                        key: const ValueKey('rating-admin-search-button'),
+                        onPressed: _isSearching ? null : _submitSearch,
+                        icon: _isSearching
+                            ? const SizedBox.square(
+                                dimension: 18,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.search),
+                        label: Text(_isSearching ? 'Searching...' : 'Search'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 12),
+                  const Text(
+                    'Only BiteScore restaurants with valid location data appear in geographic search.',
+                    style: TextStyle(color: BiteRaterTheme.mutedInk),
+                  ),
+                ],
+              );
+            },
           ),
         ),
-      ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final isSearching = _searchController.text.trim().isNotEmpty;
-    final shouldLoadRestaurants = _showAllBiteScoreRestaurants || isSearching;
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        LayoutBuilder(
+          builder: (context, constraints) {
+            return Wrap(
+              alignment: WrapAlignment.spaceBetween,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              spacing: 12,
+              runSpacing: 8,
+              children: [
+                ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxWidth: constraints.maxWidth < 640
+                        ? constraints.maxWidth
+                        : 420,
+                  ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Find Restaurants',
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      SizedBox(height: 4),
+                      Text(
+                        'Enter a ZIP code or City, ST to find Rating-side BiteScore restaurants.',
+                      ),
+                    ],
+                  ),
+                ),
+                OutlinedButton.icon(
+                  onPressed: () => _showClaimInviteManager(context),
+                  icon: const Icon(Icons.manage_search),
+                  label: const Text('Manage Claim Invites'),
+                ),
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        _buildRestaurantSearchControls(),
+        const SizedBox(height: 12),
+        _buildSearchState(),
+      ],
+    );
+  }
 
-    if (!shouldLoadRestaurants) {
-      return ListView(
-        padding: const EdgeInsets.all(16),
+  Widget _buildSearchState() {
+    if (!_hasSubmittedSearch) {
+      return const _AdminEmptyStateCard(
+        icon: Icons.storefront_outlined,
+        title: 'Find Restaurants',
+        message:
+            'Enter a ZIP code or City, ST to search. Valid location data is required.',
+      );
+    }
+    if (_isSearching) {
+      return const Card(
+        child: Padding(
+          padding: EdgeInsets.all(20),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    }
+    if (_searchError != null) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Text(_searchError!, style: const TextStyle(color: Colors.red)),
+        ),
+      );
+    }
+
+    final result = _searchResult;
+    if (result == null) {
+      return const SizedBox.shrink();
+    }
+    if (result.results.isEmpty) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildRestaurantSearchControls(),
-          const SizedBox(height: 12),
-          const _AdminEmptyStateCard(
-            icon: Icons.storefront_outlined,
-            title: 'Find Restaurants',
-            message: 'Search for a restaurant or tap View All Restaurants.',
+          if (result.resultsMayBeTruncated) _buildTruncationNotice(),
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'No matching BiteScore restaurants were found within this search area.',
+              ),
+            ),
           ),
         ],
       );
     }
 
-    return StreamBuilder<List<BitescoreRestaurant>>(
-      stream: BiteScoreService.restaurantsAdminStream(),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (snapshot.hasError) {
-          return Center(
+    final visibleResults = result.results
+        .take(_visibleResultCount)
+        .toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (result.resultsMayBeTruncated) _buildTruncationNotice(),
+        if (_selectedRestaurantLoadingId != null)
+          const Card(
+            child: Padding(
+              padding: EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  SizedBox(width: 12),
+                  Expanded(child: Text('Loading selected restaurant...')),
+                ],
+              ),
+            ),
+          ),
+        if (_selectedRestaurantLoadError != null)
+          Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Text(
-                AppErrorText.load('BiteScore restaurants'),
-                textAlign: TextAlign.center,
+                _selectedRestaurantLoadError!,
+                style: const TextStyle(color: Colors.red),
               ),
             ),
-          );
-        }
+          ),
+        Text(
+          'Showing ${visibleResults.length} of ${result.results.length} returned restaurants.',
+          style: const TextStyle(color: BiteRaterTheme.mutedInk),
+        ),
+        const SizedBox(height: 10),
+        ...visibleResults.map(_buildSearchResultCard),
+        if (visibleResults.length < result.results.length)
+          Align(
+            alignment: Alignment.center,
+            child: OutlinedButton.icon(
+              key: const ValueKey('rating-admin-show-more-button'),
+              onPressed: () {
+                setState(() {
+                  _visibleResultCount += _resultPageSize;
+                });
+              },
+              icon: const Icon(Icons.expand_more),
+              label: const Text('Show 25 More'),
+            ),
+          ),
+      ],
+    );
+  }
 
-        final restaurants = snapshot.data ?? const <BitescoreRestaurant>[];
-        final filteredRestaurants = restaurants
-            .where(
-              (restaurant) => _matchesAdminQuery(_searchController.text, [
-                restaurant.name,
-                restaurant.address,
-                restaurant.city,
-                restaurant.state,
-                restaurant.zipCode,
-                restaurant.phone,
-                restaurant.website,
-                restaurant.ownerUserId,
-                restaurant.isActive ? 'active' : 'hidden',
-                [
-                  restaurant.address,
-                  restaurant.city,
-                  restaurant.state,
-                  restaurant.zipCode,
-                ].where((part) => part.trim().isNotEmpty).join(' '),
-              ]),
-            )
-            .toList(growable: false);
+  Widget _buildTruncationNotice() {
+    return Card(
+      color: Colors.amber.shade50,
+      child: const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text(_truncatedResultsMessage),
+      ),
+    );
+  }
 
-        return ListView(
+  Widget _buildSearchResultCard(AdminRestaurantLinkRecord restaurant) {
+    final cityLine = [
+      restaurant.city,
+      restaurant.state,
+      restaurant.zipCode,
+    ].where((part) => part.trim().isNotEmpty).join(', ');
+    final inviteBusy = _busyActions.contains('invite:${restaurant.documentId}');
+    final deleteBusy = _busyActions.contains('delete:${restaurant.documentId}');
+    final editBusy = _selectedRestaurantLoadingId == restaurant.documentId;
+
+    return KeyedSubtree(
+      key: ValueKey('rating-admin-result-${restaurant.documentId}'),
+      child: BiteRaterTheme.liftedCard(
+        margin: const EdgeInsets.only(bottom: 12),
+        child: Padding(
           padding: const EdgeInsets.all(16),
-          children: [
-            _buildRestaurantSearchControls(),
-            const SizedBox(height: 12),
-            if (restaurants.isEmpty)
-              const _AdminEmptyStateCard(
-                icon: Icons.storefront_outlined,
-                title: 'No Restaurants Yet',
-                message:
-                    'Newly added BiteScore restaurants will appear here for admin review and maintenance.',
-              )
-            else if (filteredRestaurants.isEmpty)
-              const _AdminEmptyStateCard(
-                icon: Icons.search_off,
-                title: 'No Matching Restaurants',
-                message:
-                    'Try a different restaurant name, city, or ZIP search.',
-              )
-            else
-              ...filteredRestaurants.map((restaurant) {
-                final subtitleLines = <String>[
-                  if (restaurant.address.trim().isNotEmpty)
-                    restaurant.address.trim(),
-                  [
-                    restaurant.city.trim(),
-                    restaurant.state.trim(),
-                    restaurant.zipCode.trim(),
-                  ].where((part) => part.isNotEmpty).join(', '),
-                  'Status: ${restaurant.isActive ? 'Active' : 'Hidden'}',
-                ].where((line) => line.trim().isNotEmpty).toList();
-                final hasPhone = (restaurant.phone ?? '').trim().isNotEmpty;
-
-                return BiteRaterTheme.liftedCard(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: ListTile(
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
-                    ),
-                    title: Text(
-                      restaurant.name,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        for (final line in subtitleLines) Text(line),
-                        if (hasPhone)
-                          ClickablePhoneText(
-                            phone: restaurant.phone,
-                            prefix: 'Phone: ',
-                          ),
-                      ],
-                    ),
-                    isThreeLine: subtitleLines.length > 1 || hasPhone,
-                    trailing: Wrap(
-                      spacing: 4,
-                      children: [
-                        IconButton(
-                          tooltip: 'Create claim invite',
-                          icon: const Icon(Icons.add_link),
-                          onPressed: () =>
-                              _createClaimInvite(context, restaurant),
-                        ),
-                        IconButton(
-                          tooltip: 'Manage this restaurant\'s dishes',
-                          icon: const Icon(Icons.restaurant_menu_outlined),
-                          onPressed: () => widget.onManageDishes(restaurant),
-                        ),
-                        IconButton(
-                          tooltip: 'Edit restaurant',
-                          icon: const Icon(Icons.edit_outlined),
-                          onPressed: () => _editRestaurant(context, restaurant),
-                        ),
-                        IconButton(
-                          tooltip: 'Delete restaurant',
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: () =>
-                              _deleteRestaurant(context, restaurant),
-                        ),
-                      ],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                restaurant.restaurantName,
+                style: const TextStyle(
+                  fontSize: 17,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                runSpacing: 6,
+                children: [
+                  const Chip(label: Text('BiteScore')),
+                  Chip(
+                    label: Text(
+                      restaurant.isActive == true ? 'Active' : 'Hidden',
                     ),
                   ),
-                );
-              }),
-          ],
-        );
-      },
+                  Chip(
+                    label: Text(
+                      restaurant.isClaimed == true ? 'Claimed' : 'Unclaimed',
+                    ),
+                  ),
+                  Chip(
+                    label: Text(
+                      '${restaurant.distanceMiles.toStringAsFixed(1)} miles',
+                    ),
+                  ),
+                ],
+              ),
+              if (restaurant.streetAddress.isNotEmpty) ...[
+                const SizedBox(height: 8),
+                Text(restaurant.streetAddress),
+              ],
+              if (cityLine.isNotEmpty) Text(cityLine),
+              if (restaurant.phone.isNotEmpty) ...[
+                const SizedBox(height: 4),
+                ClickablePhoneText(phone: restaurant.phone, prefix: 'Phone: '),
+              ],
+              if (restaurant.website.isNotEmpty)
+                Text('Website: ${restaurant.website}'),
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: restaurant.isClaimed == true || inviteBusy
+                        ? null
+                        : () => _createClaimInvite(context, restaurant),
+                    icon: const Icon(Icons.add_link),
+                    label: Text(
+                      restaurant.isClaimed == true
+                          ? 'Already Claimed'
+                          : 'Create Claim Invite',
+                    ),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: () => widget.onManageDishes(restaurant),
+                    icon: const Icon(Icons.restaurant_menu_outlined),
+                    label: const Text('Manage Dishes'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: editBusy
+                        ? null
+                        : () => _editRestaurant(restaurant),
+                    icon: const Icon(Icons.edit_outlined),
+                    label: const Text('Edit'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: deleteBusy
+                        ? null
+                        : () => _deleteRestaurant(context, restaurant),
+                    icon: const Icon(Icons.delete_outline),
+                    label: const Text('Delete'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
 
 class _BiteScoreDishAdminList extends StatefulWidget {
-  final BitescoreRestaurant? selectedRestaurant;
+  final AdminRestaurantLinkRecord? selectedRestaurant;
+  final AdminBiteScoreDishLoader? loadDishes;
 
-  const _BiteScoreDishAdminList({required this.selectedRestaurant});
+  const _BiteScoreDishAdminList({
+    required this.selectedRestaurant,
+    this.loadDishes,
+  });
 
   @override
   State<_BiteScoreDishAdminList> createState() =>
@@ -666,6 +1157,42 @@ class _BiteScoreDishAdminList extends StatefulWidget {
 
 class _BiteScoreDishAdminListState extends State<_BiteScoreDishAdminList> {
   final TextEditingController _searchController = TextEditingController();
+  Future<List<BitescoreDish>>? _dishesFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshDishes();
+  }
+
+  @override
+  void didUpdateWidget(covariant _BiteScoreDishAdminList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedRestaurant?.documentId !=
+        widget.selectedRestaurant?.documentId) {
+      _searchController.clear();
+      _refreshDishes();
+    }
+  }
+
+  void _refreshDishes() {
+    final restaurant = widget.selectedRestaurant;
+    if (restaurant == null) {
+      _dishesFuture = null;
+      return;
+    }
+    final load = widget.loadDishes;
+    _dishesFuture = load != null
+        ? load(restaurant.documentId)
+        : BiteScoreService.loadDishesForRestaurant(
+            restaurant.documentId,
+            includeInactive: true,
+          );
+  }
+
+  void _reloadDishes() {
+    setState(_refreshDishes);
+  }
 
   @override
   void dispose() {
@@ -710,6 +1237,7 @@ class _BiteScoreDishAdminListState extends State<_BiteScoreDishAdminList> {
         return;
       }
       _showSnackBar(context, '${dish.name} deleted.');
+      _reloadDishes();
     } catch (error) {
       if (!context.mounted) {
         return;
@@ -734,6 +1262,7 @@ class _BiteScoreDishAdminListState extends State<_BiteScoreDishAdminList> {
 
     if (saved == true && context.mounted) {
       _showSnackBar(context, '${dish.name} updated.');
+      _reloadDishes();
     }
   }
 
@@ -755,6 +1284,7 @@ class _BiteScoreDishAdminListState extends State<_BiteScoreDishAdminList> {
             ? '${dish.name} marked unavailable.'
             : '${dish.name} marked available.',
       );
+      _reloadDishes();
     } catch (error) {
       if (!context.mounted) {
         return;
@@ -781,8 +1311,8 @@ class _BiteScoreDishAdminListState extends State<_BiteScoreDishAdminList> {
       );
     }
 
-    return StreamBuilder<List<BitescoreDish>>(
-      stream: BiteScoreService.dishesAdminStream(),
+    return FutureBuilder<List<BitescoreDish>>(
+      future: _dishesFuture,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator());
@@ -801,7 +1331,11 @@ class _BiteScoreDishAdminListState extends State<_BiteScoreDishAdminList> {
         }
 
         final dishes = (snapshot.data ?? const <BitescoreDish>[])
-            .where((dish) => dish.restaurantId == selectedRestaurant.id)
+            .where(
+              (dish) =>
+                  dish.restaurantId == selectedRestaurant.documentId &&
+                  !dish.isMerged,
+            )
             .toList(growable: false);
         final filteredDishes = dishes
             .where(
@@ -818,7 +1352,7 @@ class _BiteScoreDishAdminListState extends State<_BiteScoreDishAdminList> {
           padding: const EdgeInsets.all(16),
           children: [
             Text(
-              'Managing dishes for ${selectedRestaurant.name}',
+              'Managing dishes for ${selectedRestaurant.restaurantName}',
               style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
@@ -831,7 +1365,7 @@ class _BiteScoreDishAdminListState extends State<_BiteScoreDishAdminList> {
             if (dishes.isEmpty)
               _AdminEmptyStateCard(
                 icon: Icons.restaurant_menu_outlined,
-                title: 'No Dishes for ${selectedRestaurant.name}',
+                title: 'No Dishes for ${selectedRestaurant.restaurantName}',
                 message: 'This restaurant does not have BiteScore dishes yet.',
               )
             else if (filteredDishes.isEmpty)

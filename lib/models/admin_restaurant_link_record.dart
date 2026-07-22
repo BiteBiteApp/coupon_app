@@ -17,6 +17,17 @@ enum AdminRestaurantLinkSource {
   }
 }
 
+enum AdminBiteScoreStatus {
+  active('active', 'Active'),
+  inactive('inactive', 'Hidden'),
+  all('all', 'All');
+
+  final String callableValue;
+  final String label;
+
+  const AdminBiteScoreStatus(this.callableValue, this.label);
+}
+
 class AdminRestaurantSearchCenter {
   final double latitude;
   final double longitude;

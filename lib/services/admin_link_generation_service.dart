@@ -121,6 +121,7 @@ class AdminLinkGenerationService {
     required int radiusMiles,
     String? restaurantName,
     required Set<AdminRestaurantLinkSource> sources,
+    AdminBiteScoreStatus? biteScoreStatus,
   }) async {
     final normalizedLocation = normalizeLocation(locationQuery);
     if (!radiusOptionsMiles.contains(radiusMiles)) {
@@ -131,6 +132,12 @@ class AdminLinkGenerationService {
     if (sources.isEmpty) {
       throw const AdminLinkGenerationException(
         'Select at least one restaurant source.',
+      );
+    }
+    if (biteScoreStatus != null &&
+        !sources.contains(AdminRestaurantLinkSource.biteScore)) {
+      throw const AdminLinkGenerationException(
+        'BiteScore status requires the BiteScore restaurant source.',
       );
     }
     final normalizedName = _normalizeWhitespace(restaurantName ?? '');
@@ -148,6 +155,8 @@ class AdminLinkGenerationService {
           .where(sources.contains)
           .map((source) => source.callableValue)
           .toList(growable: false),
+      if (biteScoreStatus != null)
+        'biteScoreStatus': biteScoreStatus.callableValue,
     };
 
     Object? rawResponse;

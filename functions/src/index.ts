@@ -890,8 +890,8 @@ async function executeAdminRestaurantQueryPlan(
   plan: AdminRestaurantQueryPlan,
 ) {
   const collection = db.collection(plan.collectionName);
-  const geographicallyBoundedQuery = plan.requiresActiveRestaurant
-    ? collection.where("isActive", "==", true)
+  const geographicallyBoundedQuery = plan.biteScoreIsActive !== null
+    ? collection.where("isActive", "==", plan.biteScoreIsActive)
     : collection;
   const snapshot = await geographicallyBoundedQuery
     .orderBy("geohash")

@@ -56,6 +56,56 @@ void main() {
       expect(capturedPayload, isNot(contains('resultLimit')));
     });
 
+    test('sends BiteScore status only when explicitly requested', () async {
+      for (final status in AdminBiteScoreStatus.values) {
+        Map<String, dynamic>? capturedPayload;
+        final service = AdminLinkGenerationService(
+          callable: (payload) async {
+            capturedPayload = payload;
+            return _response(results: const []);
+          },
+        );
+
+        await service.search(
+          locationQuery: '34428',
+          radiusMiles: 10,
+          sources: {AdminRestaurantLinkSource.biteScore},
+          biteScoreStatus: status,
+        );
+
+        expect(capturedPayload, {
+          'locationQuery': '34428',
+          'radiusMiles': 10,
+          'sources': ['biteScore'],
+          'biteScoreStatus': status.callableValue,
+        });
+        expect(capturedPayload, isNot(contains('resultLimit')));
+        expect(capturedPayload, isNot(contains('candidateLimit')));
+        expect(capturedPayload, isNot(contains('perBoundLimit')));
+      }
+    });
+
+    test('rejects BiteScore status without the BiteScore source', () async {
+      var calls = 0;
+      final service = AdminLinkGenerationService(
+        callable: (_) async {
+          calls += 1;
+          return _response(results: const []);
+        },
+      );
+
+      await expectLater(
+        service.search(
+          locationQuery: '34428',
+          radiusMiles: 10,
+          sources: {AdminRestaurantLinkSource.biteSaver},
+          biteScoreStatus: AdminBiteScoreStatus.all,
+        ),
+        throwsA(isA<AdminLinkGenerationException>()),
+      );
+      expect(calls, 0);
+    });
+
     test('rejects invalid input before invoking the callable', () async {
       var calls = 0;
       final service = AdminLinkGenerationService(
@@ -224,6 +274,33 @@ void main() {
       expect(record.uid, isNull);
       expect(record.linkedBiteScoreRestaurantId, isNull);
     });
+
+    test(
+      'parses inactive BiteScore status without changing document ID',
+      () async {
+        final service = AdminLinkGenerationService(
+          callable: (_) async => _response(
+            results: [
+              _biteScoreData(
+                documentId: 'actual-hidden-document',
+                extra: {'isActive': false},
+              ),
+            ],
+          ),
+        );
+
+        final result = await service.search(
+          locationQuery: '34428',
+          radiusMiles: 10,
+          sources: {AdminRestaurantLinkSource.biteScore},
+          biteScoreStatus: AdminBiteScoreStatus.inactive,
+        );
+
+        expect(result.results.single.documentId, 'actual-hidden-document');
+        expect(result.results.single.actionId, 'actual-hidden-document');
+        expect(result.results.single.isActive, isFalse);
+      },
+    );
 
     test('BiteSaver records ignore injected BiteScore-only fields', () async {
       final service = AdminLinkGenerationService(

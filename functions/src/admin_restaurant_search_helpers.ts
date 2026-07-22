@@ -12,6 +12,7 @@ import {
 } from "./restaurant_geo_helpers.js";
 
 export type AdminRestaurantSource = "biteScore" | "biteSaver";
+export type AdminBiteScoreStatus = "active" | "inactive" | "all";
 
 export const adminRestaurantSources: readonly AdminRestaurantSource[] = [
   "biteScore",
@@ -102,6 +103,7 @@ export type ValidatedAdminRestaurantSearchRequest = {
   restaurantName: string | null;
   normalizedRestaurantName: string | null;
   sources: AdminRestaurantSource[];
+  biteScoreStatus: AdminBiteScoreStatus;
   resultLimit: number;
 };
 
@@ -114,7 +116,7 @@ export type AdminRestaurantQueryPlan = {
   collectionName: "bitescore_restaurants" | "restaurant_accounts";
   geohashStart: string;
   geohashEnd: string;
-  requiresActiveRestaurant: boolean;
+  biteScoreIsActive: boolean | null;
   candidateLimit: number;
 };
 
@@ -268,6 +270,28 @@ function validateSources(value: unknown): AdminRestaurantSource[] {
   return adminRestaurantSources.filter((source) => selected.has(source));
 }
 
+function validateBiteScoreStatus(
+  value: unknown,
+  sources: readonly AdminRestaurantSource[],
+): AdminBiteScoreStatus {
+  if (value === undefined) {
+    return "active";
+  }
+  if (value !== "active" && value !== "inactive" && value !== "all") {
+    throw new HttpsError(
+      "invalid-argument",
+      "BiteScore status must be active, inactive, or all.",
+    );
+  }
+  if (!sources.includes("biteScore")) {
+    throw new HttpsError(
+      "invalid-argument",
+      "BiteScore status may be supplied only when BiteScore is requested.",
+    );
+  }
+  return value;
+}
+
 function validateRestaurantName(value: unknown): {
   restaurantName: string | null;
   normalizedRestaurantName: string | null;
@@ -362,12 +386,14 @@ export function validateAdminRestaurantSearchRequest(
   }
 
   const name = validateRestaurantName(data.restaurantName);
+  const sources = validateSources(data.sources);
   return {
     center,
     radiusMiles,
     restaurantName: name.restaurantName,
     normalizedRestaurantName: name.normalizedRestaurantName,
-    sources: validateSources(data.sources),
+    sources,
+    biteScoreStatus: validateBiteScoreStatus(data.biteScoreStatus, sources),
     resultLimit,
   };
 }
@@ -636,6 +662,7 @@ export function buildAdminRestaurantQueryPlans(
   center: RestaurantCoordinates,
   radiusMiles: number,
   sources: readonly AdminRestaurantSource[],
+  biteScoreStatus: AdminBiteScoreStatus = "active",
 ): AdminRestaurantQueryPlan[] {
   const bounds = restaurantGeographicQueryBounds(
     center,
@@ -652,7 +679,10 @@ export function buildAdminRestaurantQueryPlans(
             : "restaurant_accounts",
         geohashStart,
         geohashEnd,
-        requiresActiveRestaurant: source === "biteScore",
+        biteScoreIsActive:
+          source !== "biteScore" || biteScoreStatus === "all"
+            ? null
+            : biteScoreStatus === "active",
         // Every individual range is capped so the maximum read fan-out is
         // predictable even when GeoFire returns overlapping query bounds.
         candidateLimit: adminRestaurantPerBoundCandidateLimit,
@@ -694,14 +724,24 @@ function compareText(first: string, second: string): number {
 function mapCandidate(
   candidate: AdminRestaurantSearchCandidate,
   center: RestaurantCoordinates,
+  biteScoreStatus: AdminBiteScoreStatus,
 ): AdminRestaurantSearchResult | null {
   const documentId = candidate.documentId.trim();
   if (!documentId) {
     return null;
   }
   const data = candidate.data;
-  if (candidate.source === "biteScore" && data.isActive !== true) {
-    return null;
+  const storedIsActive = data.isActive;
+  if (candidate.source === "biteScore") {
+    if (typeof storedIsActive !== "boolean") {
+      return null;
+    }
+    if (biteScoreStatus === "active" && storedIsActive !== true) {
+      return null;
+    }
+    if (biteScoreStatus === "inactive" && storedIsActive !== false) {
+      return null;
+    }
   }
   const coordinates =
     candidate.source === "biteScore"
@@ -775,7 +815,7 @@ function mapCandidate(
       // The stored compatibility `id` is deliberately ignored. Admin actions
       // must route to the actual Firestore document that produced this row.
       actionId: documentId,
-      isActive: true,
+      isActive: storedIsActive as boolean,
       isClaimed: data.isClaimed === true,
       ownerUserId: readString(data.ownerUserId),
       linkedBiteSaverUid: readString(data.linkedBiteSaverUid),
@@ -816,7 +856,11 @@ export function processAdminRestaurantSearchCandidates(params: {
 
   const exactMatches: AdminRestaurantSearchResult[] = [];
   for (const candidate of deduplicated.values()) {
-    const mapped = mapCandidate(candidate, params.searchCenter);
+    const mapped = mapCandidate(
+      candidate,
+      params.searchCenter,
+      params.request.biteScoreStatus,
+    );
     if (!mapped || mapped.distanceMiles > params.request.radiusMiles) {
       continue;
     }
@@ -875,6 +919,7 @@ export async function executeAdminRestaurantSearch(
     searchCenter,
     request.radiusMiles,
     request.sources,
+    request.biteScoreStatus,
   );
 
   let queryDocuments: AdminRestaurantQueryDocument[][];

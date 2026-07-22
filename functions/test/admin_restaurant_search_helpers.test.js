@@ -138,6 +138,7 @@ test("request validation accepts and normalizes a five-digit ZIP", () => {
     locationQuery: "34461",
   });
   assert.deepEqual(request.sources, adminRestaurantSources);
+  assert.equal(request.biteScoreStatus, "active");
   assert.equal(request.resultLimit, defaultAdminRestaurantResultLimit);
 });
 
@@ -278,6 +279,34 @@ test("request validation normalizes source duplicates and rejects bad lists", ()
       expectHttpsError("invalid-argument", /Sources/),
     );
   }
+});
+
+test("BiteScore status validation is backward compatible and source scoped", () => {
+  assert.equal(processingRequest().biteScoreStatus, "active");
+  for (const biteScoreStatus of ["active", "inactive", "all"]) {
+    assert.equal(
+      processingRequest({
+        sources: ["biteScore"],
+        biteScoreStatus,
+      }).biteScoreStatus,
+      biteScoreStatus,
+    );
+  }
+
+  for (const biteScoreStatus of ["hidden", "enabled", "", null, 1]) {
+    assert.throws(
+      () => processingRequest({ biteScoreStatus }),
+      expectHttpsError("invalid-argument", /BiteScore status/),
+    );
+  }
+  assert.throws(
+    () =>
+      processingRequest({
+        sources: ["biteSaver"],
+        biteScoreStatus: "all",
+      }),
+    expectHttpsError("invalid-argument", /only when BiteScore/),
+  );
 });
 
 test("request validation enforces result-limit defaults and bounds", () => {
@@ -555,9 +584,37 @@ test("BiteScore plans require active records and the composite range query", () 
   assert.ok(plans.length > 0);
   for (const plan of plans) {
     assert.equal(plan.collectionName, "bitescore_restaurants");
-    assert.equal(plan.requiresActiveRestaurant, true);
+    assert.equal(plan.biteScoreIsActive, true);
     assert.equal(plan.source, "biteScore");
   }
+});
+
+test("BiteScore inactive and all plans retain bounded geohash queries", () => {
+  const inactivePlans = buildAdminRestaurantQueryPlans(
+    center,
+    10,
+    ["biteScore"],
+    "inactive",
+  );
+  const allPlans = buildAdminRestaurantQueryPlans(
+    center,
+    10,
+    ["biteScore"],
+    "all",
+  );
+  assert.ok(inactivePlans.length > 0);
+  assert.equal(inactivePlans.length, allPlans.length);
+  assert.ok(inactivePlans.every((plan) => plan.biteScoreIsActive === false));
+  assert.ok(allPlans.every((plan) => plan.biteScoreIsActive === null));
+  assert.ok(
+    [...inactivePlans, ...allPlans].every(
+      (plan) =>
+        plan.collectionName === "bitescore_restaurants" &&
+        plan.candidateLimit === 15 &&
+        plan.geohashStart &&
+        plan.geohashEnd,
+    ),
+  );
 });
 
 test("BiteSaver plans are bounded without an account-status filter", () => {
@@ -565,7 +622,7 @@ test("BiteSaver plans are bounded without an account-status filter", () => {
   assert.ok(plans.length > 0);
   for (const plan of plans) {
     assert.equal(plan.collectionName, "restaurant_accounts");
-    assert.equal(plan.requiresActiveRestaurant, false);
+    assert.equal(plan.biteScoreIsActive, null);
     assert.ok(plan.geohashStart);
     assert.ok(plan.geohashEnd);
     assert.equal(plan.candidateLimit, 15);
@@ -708,6 +765,45 @@ test("result mapping exposes only controlled compatibility and status fields", (
   assert.equal(saver.couponApplicationSubmitted, false);
   assert.equal(Object.hasOwn(saver, "email"), false);
   assert.equal(Object.hasOwn(saver, "stripeCustomerId"), false);
+});
+
+test("inactive and all modes retain actual stored BiteScore status", () => {
+  const active = biteScoreDocument("active", { isActive: true });
+  const inactive = biteScoreDocument("inactive", { isActive: false });
+
+  const inactiveResponse = processAdminRestaurantSearchCandidates({
+    request: processingRequest({
+      sources: ["biteScore"],
+      biteScoreStatus: "inactive",
+    }),
+    searchCenter: center,
+    candidates: [active, inactive],
+    anyQueryReachedCandidateLimit: false,
+  });
+  assert.deepEqual(
+    inactiveResponse.results.map((result) => [
+      result.documentId,
+      result.isActive,
+    ]),
+    [["inactive", false]],
+  );
+
+  const allResponse = processAdminRestaurantSearchCandidates({
+    request: processingRequest({
+      sources: ["biteScore"],
+      biteScoreStatus: "all",
+    }),
+    searchCenter: center,
+    candidates: [active, inactive],
+    anyQueryReachedCandidateLimit: false,
+  });
+  assert.deepEqual(
+    allResponse.results.map((result) => [result.documentId, result.isActive]),
+    [
+      ["active", true],
+      ["inactive", false],
+    ],
+  );
 });
 
 test("invalid, missing, zero, inactive, and outside-radius records are excluded", () => {
@@ -1054,4 +1150,19 @@ test("search execution exposes only a query seam and performs no writes", async 
   assert.ok(operations.every((operation) => operation.operation === "query"));
   assert.ok(operations.every((operation) => operation.limit === 15));
   assert.equal(JSON.stringify(response).includes("secret"), false);
+});
+
+test("Functions query executor applies only the requested status filter", () => {
+  const indexSource = readFileSync(
+    path.resolve(__dirname, "../src/index.ts"),
+    "utf8",
+  );
+  assert.match(
+    indexSource,
+    /plan\.biteScoreIsActive !== null[\s\S]*collection\.where\("isActive", "==", plan\.biteScoreIsActive\)[\s\S]*\.orderBy\("geohash"\)[\s\S]*\.limit\(plan\.candidateLimit\)/,
+  );
+  assert.doesNotMatch(
+    indexSource,
+    /executeAdminRestaurantQueryPlan[\s\S]{0,1200}\.get\(\)[\s\S]{0,1200}\.set\(/,
+  );
 });

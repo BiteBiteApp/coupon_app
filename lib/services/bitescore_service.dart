@@ -2508,7 +2508,11 @@ class BiteScoreService {
     String restaurantId,
   ) async {
     final snapshot = await restaurantsCollection().doc(restaurantId).get();
-    return _parseRestaurantCompat(snapshot.data(), fallbackId: snapshot.id);
+    final restaurant = _parseRestaurantCompat(
+      snapshot.data(),
+      fallbackId: snapshot.id,
+    );
+    return restaurant?.copyWith(id: snapshot.id);
   }
 
   static Future<DishRatingAggregate?> loadDishRatingAggregate(
