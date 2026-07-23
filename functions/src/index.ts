@@ -52,6 +52,17 @@ import {
   extractBiteSaverRestaurantCoordinates,
   extractBiteScoreRestaurantCoordinates,
 } from "./restaurant_geo_helpers.js";
+import {
+  geocodeStructuredUsRestaurantAddress,
+  type StructuredUsRestaurantAddress,
+} from "./restaurant_geocoding.js";
+import {
+  reviewBiteSaverApplicationHandler,
+  saveBiteSaverRestaurantProfileHandler,
+  type BiteSaverAccountSnapshot,
+  type BiteSaverTransactionDecision,
+} from "./bitesaver_restaurant_profile.js";
+import { updateExistingRestaurantSubscription } from "./restaurant_subscription_helpers.js";
 
 initializeApp();
 
@@ -82,6 +93,56 @@ const subscriptionReturnSuccessUri = "bitesaver://subscription-success";
 const subscriptionReturnCancelUri = "bitesaver://subscription-cancel";
 const restaurantInviteCollection = "restaurant_invites";
 const restaurantInviteExpirationDays = 90;
+
+function biteSaverAccountSnapshot(
+  exists: boolean,
+  data: DocumentData | undefined,
+): BiteSaverAccountSnapshot {
+  return {
+    exists,
+    data: data ?? {},
+  };
+}
+
+async function getBiteSaverAccount(
+  documentId: string,
+): Promise<BiteSaverAccountSnapshot> {
+  const snapshot = await db
+    .collection("restaurant_accounts")
+    .doc(documentId)
+    .get();
+  return biteSaverAccountSnapshot(snapshot.exists, snapshot.data());
+}
+
+async function runBiteSaverAccountTransaction<T>(
+  documentId: string,
+  evaluate: (
+    latest: BiteSaverAccountSnapshot,
+  ) => BiteSaverTransactionDecision<T>,
+): Promise<T> {
+  const accountRef = db.collection("restaurant_accounts").doc(documentId);
+  return db.runTransaction(async (transaction) => {
+    const latestSnapshot = await transaction.get(accountRef);
+    const decision = evaluate(
+      biteSaverAccountSnapshot(latestSnapshot.exists, latestSnapshot.data()),
+    );
+    if (decision.operation === "create") {
+      transaction.create(accountRef, decision.data);
+    } else if (decision.operation === "update") {
+      transaction.update(accountRef, decision.data);
+    }
+    return decision.response;
+  });
+}
+
+async function geocodeBiteSaverRestaurantAddress(
+  address: StructuredUsRestaurantAddress,
+) {
+  return geocodeStructuredUsRestaurantAddress(address, {
+    getGeocodingApiKey: () => googleMapsApiKey.value(),
+    fetchGeocoding: (url, init) => fetch(url, init),
+  });
+}
 
 type PushRequestData = {
   requestId?: string;
@@ -1146,6 +1207,27 @@ export const searchAdminRestaurants = onCall(
     });
   },
 );
+
+export const saveBiteSaverRestaurantProfile = onCall(
+  {
+    secrets: [googleMapsApiKey],
+  },
+  async (request) => {
+    return saveBiteSaverRestaurantProfileHandler(request, {
+      getAccount: getBiteSaverAccount,
+      runAccountTransaction: runBiteSaverAccountTransaction,
+      geocodeAddress: geocodeBiteSaverRestaurantAddress,
+      serverTimestamp: () => FieldValue.serverTimestamp(),
+    });
+  },
+);
+
+export const reviewBiteSaverApplication = onCall(async (request) => {
+  return reviewBiteSaverApplicationHandler(request, {
+    runAccountTransaction: runBiteSaverAccountTransaction,
+    serverTimestamp: () => FieldValue.serverTimestamp(),
+  });
+});
 
 export const previewRestaurantInvite = onCall(async (request) => {
   const data = readRecord(request.data);
@@ -2214,7 +2296,6 @@ async function syncRestaurantSubscriptionFromStripe(
       {
         subscriptionId: subscription.id,
         stripeCustomerId,
-        metadata,
       },
     );
     return;
@@ -2245,10 +2326,17 @@ async function syncRestaurantSubscriptionFromStripe(
     updateData.hasUsedTrial = true;
   }
 
-  await db
-    .collection("restaurant_accounts")
-    .doc(restaurantUid)
-    .set(updateData, { merge: true });
+  const updateResult = await updateExistingRestaurantSubscription(
+    db,
+    restaurantUid,
+    updateData,
+  );
+  if (updateResult === "missing-account") {
+    logger.warn("Skipped Stripe sync for a missing restaurant account", {
+      subscriptionId: subscription.id,
+      restaurantUid,
+    });
+  }
 }
 
 export const createSubscriptionCheckoutSession = onCall(
