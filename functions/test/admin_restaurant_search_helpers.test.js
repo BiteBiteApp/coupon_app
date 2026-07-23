@@ -384,6 +384,81 @@ test("mocked City, ST geocoding accepts the first valid US result", async () => 
   assert.equal(result.displayName, "Crystal River, FL, USA");
 });
 
+test("admin search-center display names retain legacy Unicode compatibility characters", async () => {
+  const result = await geocodeAdminLocationQuery(
+    "Crystal River, FL",
+    "test-key",
+    async () =>
+      geocodingResponse({
+        status: "OK",
+        results: [
+          geocodingResult({ formattedAddress: "  １２３   Main Plaza  " }),
+        ],
+      }),
+  );
+
+  assert.equal(result.displayName, "１２３ Main Plaza");
+});
+
+test("admin search-center geocoding remains permissive for broad partial approximate results", async () => {
+  const broadSearchCenter = geocodingResult({
+    formattedAddress: "34428, USA",
+  });
+  broadSearchCenter.partial_match = true;
+  broadSearchCenter.types = ["postal_code"];
+  broadSearchCenter.geometry.location_type = "APPROXIMATE";
+
+  const result = await geocodeAdminLocationQuery(
+    "34428",
+    "test-key",
+    async () =>
+      geocodingResponse({ status: "OK", results: [broadSearchCenter] }),
+  );
+
+  assert.equal(result.displayName, "34428, USA");
+  assert.equal(result.latitude, center.latitude);
+  assert.equal(result.longitude, center.longitude);
+});
+
+test("admin search-center geocoding still selects the first valid US result", async () => {
+  const result = await geocodeAdminLocationQuery(
+    "Crystal River, FL",
+    "test-key",
+    async () =>
+      geocodingResponse({
+        status: "OK",
+        results: [
+          geocodingResult({ formattedAddress: "First valid center" }),
+          geocodingResult({
+            formattedAddress: "Second valid center",
+            latitude: center.latitude + 0.1,
+          }),
+        ],
+      }),
+  );
+
+  assert.equal(result.displayName, "First valid center");
+  assert.equal(result.latitude, center.latitude);
+});
+
+test("admin search-center geocoding skips malformed and invalid candidates before a valid one", async () => {
+  const result = await geocodeAdminLocationQuery(
+    "Crystal River, FL",
+    "test-key",
+    async () =>
+      geocodingResponse({
+        status: "OK",
+        results: [
+          null,
+          geocodingResult({ latitude: 0, longitude: 0 }),
+          geocodingResult({ formattedAddress: "Later valid center" }),
+        ],
+      }),
+  );
+
+  assert.equal(result.displayName, "Later valid center");
+});
+
 test("explicit coordinates bypass API-key access and geocoding", async () => {
   let keyCalls = 0;
   let fetchCalls = 0;

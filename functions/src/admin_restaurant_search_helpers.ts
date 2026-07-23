@@ -10,6 +10,13 @@ import {
   restaurantGeographicQueryBounds,
   restaurantSourceDocumentKey,
 } from "./restaurant_geo_helpers.js";
+import {
+  defaultRestaurantGeocodingTimeoutMilliseconds,
+  geocodeGoogleUsSearchCenter,
+  RestaurantGeocodingError,
+  type RestaurantGeocodingFetch,
+  type RestaurantGeocodingResponse,
+} from "./restaurant_geocoding.js";
 
 export type AdminRestaurantSource = "biteScore" | "biteSaver";
 export type AdminBiteScoreStatus = "active" | "inactive" | "all";
@@ -23,12 +30,11 @@ export const defaultAdminRestaurantResultLimit = 50;
 export const maximumAdminRestaurantResultLimit = 100;
 export const maximumAdminRestaurantRadiusMiles =
   MAX_RESTAURANT_SEARCH_RADIUS_KM / KILOMETERS_PER_MILE;
-export const adminGeocodingTimeoutMilliseconds = 5_000;
+export const adminGeocodingTimeoutMilliseconds =
+  defaultRestaurantGeocodingTimeoutMilliseconds;
 
 const maximumLocationQueryLength = 100;
 const maximumRestaurantNameLength = 100;
-const googleGeocodingEndpoint =
-  "https://maps.googleapis.com/maps/api/geocode/json";
 const usStateCodes = new Set([
   "AL",
   "AK",
@@ -162,15 +168,8 @@ export type AdminRestaurantSearchResponse = {
   queriedSources: AdminRestaurantSource[];
 };
 
-export type AdminGeocodingResponse = {
-  ok: boolean;
-  json: () => Promise<unknown>;
-};
-
-export type AdminGeocodingFetch = (
-  url: string,
-  init: { method: "GET"; signal: AbortSignal },
-) => Promise<AdminGeocodingResponse>;
+export type AdminGeocodingResponse = RestaurantGeocodingResponse;
+export type AdminGeocodingFetch = RestaurantGeocodingFetch;
 
 export type AdminRestaurantSearchDependencies = {
   getGeocodingApiKey: () => string;
@@ -426,119 +425,45 @@ function safeGeocodingError(
   return new HttpsError(code, message);
 }
 
-function countryCodeFromGeocodingResult(
-  result: Record<string, unknown>,
-): string | null {
-  if (!Array.isArray(result.address_components)) {
-    return null;
-  }
-  for (const rawComponent of result.address_components) {
-    const component = readRecord(rawComponent);
-    if (!component || !Array.isArray(component.types)) {
-      continue;
-    }
-    if (!component.types.includes("country")) {
-      continue;
-    }
-    return typeof component.short_name === "string"
-      ? component.short_name.trim().toUpperCase()
-      : null;
-  }
-  return null;
-}
-
-function parseGeocodingPayload(
-  payload: unknown,
-  fallbackDisplayName: string,
-): ResolvedAdminRestaurantSearchCenter {
-  const record = readRecord(payload);
-  const status = record?.status;
-  if (!record || typeof status !== "string") {
-    throw safeGeocodingError(
-      "internal",
-      "Location lookup returned an invalid response.",
-    );
-  }
-  if (status === "ZERO_RESULTS") {
-    throw safeGeocodingError(
-      "not-found",
-      "No matching United States location was found.",
-    );
-  }
-  if (status !== "OK") {
-    throw safeGeocodingError(
+function adminSearchGeocodingError(error: unknown): HttpsError {
+  if (!(error instanceof RestaurantGeocodingError)) {
+    return safeGeocodingError(
       "unavailable",
       "Location lookup is temporarily unavailable.",
     );
   }
-  if (!Array.isArray(record.results)) {
-    throw safeGeocodingError(
-      "internal",
-      "Location lookup returned an invalid response.",
-    );
+  switch (error.kind) {
+    case "missing-configuration":
+      return safeGeocodingError(
+        "failed-precondition",
+        "Typed location search is not configured.",
+      );
+    case "timeout":
+      return safeGeocodingError(
+        "deadline-exceeded",
+        "Location lookup timed out. Please try again.",
+      );
+    case "provider-unavailable":
+      return safeGeocodingError(
+        "unavailable",
+        "Location lookup is temporarily unavailable.",
+      );
+    case "no-result":
+      return safeGeocodingError(
+        "not-found",
+        "No matching United States location was found.",
+      );
+    case "malformed-response":
+      return safeGeocodingError(
+        "internal",
+        "Location lookup returned an invalid response.",
+      );
+    default:
+      return safeGeocodingError(
+        "unavailable",
+        "Location lookup is temporarily unavailable.",
+      );
   }
-  if (record.results.length === 0) {
-    throw safeGeocodingError(
-      "not-found",
-      "No matching United States location was found.",
-    );
-  }
-
-  let sawNonUsResult = false;
-  let sawMalformedResult = false;
-  let sawInvalidUsCoordinates = false;
-  for (const rawResult of record.results) {
-    const result = readRecord(rawResult);
-    if (!result) {
-      sawMalformedResult = true;
-      continue;
-    }
-    const countryCode = countryCodeFromGeocodingResult(result);
-    if (!countryCode) {
-      sawMalformedResult = true;
-      continue;
-    }
-    if (countryCode !== "US") {
-      sawNonUsResult = true;
-      continue;
-    }
-
-    const geometry = readRecord(result.geometry);
-    const location = readRecord(geometry?.location);
-    const coordinates = extractValidatedCoordinates(
-      location?.lat,
-      location?.lng,
-    );
-    if (!coordinates) {
-      sawInvalidUsCoordinates = true;
-      continue;
-    }
-    const formattedAddress =
-      typeof result.formatted_address === "string"
-        ? normalizedDisplayText(result.formatted_address)
-        : "";
-    return {
-      ...coordinates,
-      displayName: formattedAddress || fallbackDisplayName,
-    };
-  }
-
-  if (sawInvalidUsCoordinates || sawMalformedResult) {
-    throw safeGeocodingError(
-      "internal",
-      "Location lookup returned an invalid response.",
-    );
-  }
-  if (sawNonUsResult) {
-    throw safeGeocodingError(
-      "not-found",
-      "No matching United States location was found.",
-    );
-  }
-  throw safeGeocodingError(
-    "internal",
-    "Location lookup returned an invalid response.",
-  );
 }
 
 export async function geocodeAdminLocationQuery(
@@ -547,80 +472,22 @@ export async function geocodeAdminLocationQuery(
   fetchGeocoding: AdminGeocodingFetch,
   timeoutMilliseconds = adminGeocodingTimeoutMilliseconds,
 ): Promise<ResolvedAdminRestaurantSearchCenter> {
-  if (typeof apiKey !== "string" || !apiKey.trim()) {
-    throw safeGeocodingError(
-      "failed-precondition",
-      "Typed location search is not configured.",
-    );
-  }
-
-  const url = new URL(googleGeocodingEndpoint);
-  url.searchParams.set("address", locationQuery);
-  url.searchParams.set("components", "country:US");
-  url.searchParams.set("region", "us");
-  url.searchParams.set("key", apiKey);
-
-  const controller = new AbortController();
-  let didTimeout = false;
-  let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
-  const timeoutPromise = new Promise<never>((_resolve, reject) => {
-    timeoutHandle = setTimeout(() => {
-      didTimeout = true;
-      controller.abort();
-      reject(new Error("geocoding-timeout"));
-    }, Math.max(1, timeoutMilliseconds));
-  });
-  const clearRequestTimeout = () => {
-    if (timeoutHandle !== undefined) {
-      clearTimeout(timeoutHandle);
-      timeoutHandle = undefined;
-    }
-  };
-
-  let response: AdminGeocodingResponse;
   try {
-    response = await Promise.race([
-      fetchGeocoding(url.toString(), {
-        method: "GET",
-        signal: controller.signal,
-      }),
-      timeoutPromise,
-    ]);
-  } catch (_error) {
-    clearRequestTimeout();
-    throw safeGeocodingError(
-      didTimeout ? "deadline-exceeded" : "unavailable",
-      didTimeout
-        ? "Location lookup timed out. Please try again."
-        : "Location lookup is temporarily unavailable.",
+    const resolved = await geocodeGoogleUsSearchCenter(
+      locationQuery,
+      apiKey,
+      fetchGeocoding,
+      timeoutMilliseconds,
     );
+    const displayName = resolved.formattedAddress ?? locationQuery;
+    return {
+      latitude: resolved.latitude,
+      longitude: resolved.longitude,
+      displayName: displayName.includes(apiKey) ? locationQuery : displayName,
+    };
+  } catch (error) {
+    throw adminSearchGeocodingError(error);
   }
-
-  if (!response.ok) {
-    clearRequestTimeout();
-    throw safeGeocodingError(
-      "unavailable",
-      "Location lookup is temporarily unavailable.",
-    );
-  }
-
-  let payload: unknown;
-  try {
-    payload = await Promise.race([response.json(), timeoutPromise]);
-  } catch (_error) {
-    throw safeGeocodingError(
-      didTimeout ? "deadline-exceeded" : "internal",
-      didTimeout
-        ? "Location lookup timed out. Please try again."
-        : "Location lookup returned an invalid response.",
-    );
-  } finally {
-    clearRequestTimeout();
-  }
-  const resolved = parseGeocodingPayload(payload, locationQuery);
-  return resolved.displayName.includes(apiKey)
-    ? { ...resolved, displayName: locationQuery }
-    : resolved;
 }
 
 export async function resolveAdminRestaurantSearchCenter(
