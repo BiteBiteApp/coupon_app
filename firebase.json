@@ -99,6 +99,10 @@
         "destination": "/qr-fallback.html"
       },
       {
+        "source": "/subscription/portal-return",
+        "destination": "/subscription-portal-return.html"
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

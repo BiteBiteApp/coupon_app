@@ -123,7 +123,6 @@ class _RestaurantCreateCouponScreenState
   bool _couponManagementSectionExpanded = false;
   bool _customerPreviewSectionExpanded = false;
   bool _couponSubmitAttempted = false;
-  int? _lastHandledSubscriptionReturnId;
   bool _businessHoursDirty = false;
   bool _subscriptionCheckoutLoading = false;
   bool _customerPortalLoading = false;
@@ -167,6 +166,11 @@ class _RestaurantCreateCouponScreenState
   late final BiteSaverRestaurantLifecycleService _lifecycleService;
   late final BiteSaverProfileOperationState _applicationOperation;
   late final BiteSaverProfileOperationState _ownerProfileOperation;
+  StreamSubscription<SubscriptionReturnEvent>? _subscriptionReturnSubscription;
+  Future<void> _accountOperationTail = Future<void>.value();
+  bool _subscriptionReturnDrainQueued = false;
+  final Object _lifecycleRefreshOwner = Object();
+  Completer<bool>? _lifecycleRefreshAttempt;
   int _profileVersion = 0;
   int _ownerSaveGeneration = 0;
   bool _hasTrustedSearchableLocation = false;
@@ -495,23 +499,30 @@ class _RestaurantCreateCouponScreenState
     _ownerProfileOperation = _lifecycleService.createOperationState();
     WidgetsBinding.instance.addObserver(this);
     SubscriptionReturnService.registerRestaurantHub();
-    SubscriptionReturnService.latestReturn.addListener(
-      _handleSubscriptionReturnNotification,
+    SubscriptionReturnService.noteRestaurantHubMounted(
+      isResumed:
+          WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed,
+    );
+    _subscriptionReturnSubscription = SubscriptionReturnService.events.listen(
+      (_) => _schedulePendingSubscriptionReturnRefresh(),
+      onError: (_) {},
     );
     _resetCouponSchedule();
-    _loadSavedProfileAndCoupons();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _handleSubscriptionReturnEvent(
-        SubscriptionReturnService.latestReturn.value,
-      );
-    });
+    unawaited(_enqueueAccountOperation(_loadSavedProfileAndCoupons));
+    _schedulePendingSubscriptionReturnRefresh();
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    SubscriptionReturnService.latestReturn.removeListener(
-      _handleSubscriptionReturnNotification,
+    _subscriptionReturnSubscription?.cancel();
+    final lifecycleRefreshAttempt = _lifecycleRefreshAttempt;
+    if (lifecycleRefreshAttempt != null &&
+        !lifecycleRefreshAttempt.isCompleted) {
+      lifecycleRefreshAttempt.complete(false);
+    }
+    SubscriptionReturnService.finishRestaurantHubLifecycleRefresh(
+      _lifecycleRefreshOwner,
     );
     SubscriptionReturnService.unregisterRestaurantHub();
     _hubScrollController.dispose();
@@ -536,36 +547,125 @@ class _RestaurantCreateCouponScreenState
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (state == AppLifecycleState.resumed) {
-      _refreshSubscriptionStateOnly();
+    if (state != AppLifecycleState.resumed) {
+      SubscriptionReturnService.noteRestaurantHubLifecycleNotResumed();
+      return;
     }
-  }
+    if (!SubscriptionReturnService.claimRestaurantHubLifecycleRefresh(
+      _lifecycleRefreshOwner,
+    )) {
+      return;
+    }
 
-  void _handleSubscriptionReturnNotification() {
-    _handleSubscriptionReturnEvent(
-      SubscriptionReturnService.latestReturn.value,
+    final refreshAttempt = Completer<bool>();
+    _lifecycleRefreshAttempt = refreshAttempt;
+    SubscriptionReturnService.registerRestaurantHubLifecycleRefresh(
+      _lifecycleRefreshOwner,
+      refreshAttempt.future,
+    );
+    unawaited(
+      _enqueueAccountOperation(() async {
+        if (refreshAttempt.isCompleted) {
+          return;
+        }
+        try {
+          await _refreshSubscriptionStateOnlyNow();
+        } finally {
+          if (!refreshAttempt.isCompleted) {
+            refreshAttempt.complete(true);
+          }
+        }
+      }).whenComplete(() {
+        if (!refreshAttempt.isCompleted) {
+          refreshAttempt.complete(false);
+        }
+        if (identical(_lifecycleRefreshAttempt, refreshAttempt)) {
+          _lifecycleRefreshAttempt = null;
+        }
+        SubscriptionReturnService.finishRestaurantHubLifecycleRefresh(
+          _lifecycleRefreshOwner,
+        );
+      }),
     );
   }
 
-  void _handleSubscriptionReturnEvent(SubscriptionCheckoutReturnEvent? event) {
-    if (event == null || event.id == _lastHandledSubscriptionReturnId) {
+  Future<void> _enqueueAccountOperation(Future<void> Function() operation) {
+    final next = _accountOperationTail.then((_) async {
+      if (!mounted) {
+        return;
+      }
+      await operation();
+    });
+    _accountOperationTail = next.then<void>((_) {}, onError: (_, _) {});
+    return _accountOperationTail;
+  }
+
+  void _schedulePendingSubscriptionReturnRefresh() {
+    if (!mounted ||
+        currentUser == null ||
+        _subscriptionReturnDrainQueued ||
+        SubscriptionReturnService.peekPendingRefresh() == null) {
       return;
     }
-    _lastHandledSubscriptionReturnId = event.id;
-    unawaited(_refreshAfterSubscriptionReturn(event.status));
+
+    _subscriptionReturnDrainQueued = true;
+    unawaited(
+      _enqueueAccountOperation(() async {
+        while (mounted) {
+          if (currentUser == null) {
+            return;
+          }
+          final refreshCandidate =
+              SubscriptionReturnService.peekPendingRefreshCandidate();
+          if (refreshCandidate == null) {
+            return;
+          }
+          final lifecycleRefresh = refreshCandidate.coalescedLifecycleRefresh;
+          final immediateRefreshAlreadyAttempted =
+              lifecycleRefresh != null && await lifecycleRefresh;
+          if (!mounted || currentUser == null) {
+            return;
+          }
+          if (!SubscriptionReturnService.claimRefresh(
+            refreshCandidate.event.id,
+          )) {
+            continue;
+          }
+          try {
+            await _refreshAfterSubscriptionReturn(
+              refreshCandidate.event.kind,
+              immediateRefreshAlreadyAttempted:
+                  immediateRefreshAlreadyAttempted,
+            );
+          } finally {
+            SubscriptionReturnService.finishRefresh(refreshCandidate.event.id);
+          }
+        }
+      }).whenComplete(() {
+        _subscriptionReturnDrainQueued = false;
+        if (mounted &&
+            currentUser != null &&
+            SubscriptionReturnService.peekPendingRefresh() != null) {
+          _schedulePendingSubscriptionReturnRefresh();
+        }
+      }),
+    );
   }
 
   Future<void> _refreshAfterSubscriptionReturn(
-    SubscriptionCheckoutReturnStatus status,
-  ) async {
-    await _refreshSubscriptionStateOnly();
-    if (status != SubscriptionCheckoutReturnStatus.success) {
+    SubscriptionReturnKind kind, {
+    bool immediateRefreshAlreadyAttempted = false,
+  }) async {
+    if (!immediateRefreshAlreadyAttempted) {
+      await _refreshSubscriptionStateOnlyNow();
+    }
+    if (kind != SubscriptionReturnKind.checkoutSuccess) {
       return;
     }
 
     await Future<void>.delayed(const Duration(seconds: 3));
     if (mounted) {
-      await _refreshSubscriptionStateOnly();
+      await _refreshSubscriptionStateOnlyNow();
     }
   }
 
@@ -1066,9 +1166,9 @@ class _RestaurantCreateCouponScreenState
     }
   }
 
-  Future<void> _refreshSubscriptionStateOnly() async {
+  Future<void> _refreshSubscriptionStateOnlyNow() async {
     final user = await _reloadCurrentRestaurantUser() ?? currentUser;
-    if (!mounted || user == null || _subscriptionStateRefreshing) {
+    if (!mounted || user == null) {
       return;
     }
 
@@ -1199,12 +1299,17 @@ class _RestaurantCreateCouponScreenState
   }
 
   Future<void> _refreshCouponAccessState() async {
-    setState(() {
-      profileLoading = true;
-      couponsLoading = true;
-      _couponAccessState = _CouponAccountAccessState.loading;
+    await _enqueueAccountOperation(() async {
+      if (!mounted) {
+        return;
+      }
+      setState(() {
+        profileLoading = true;
+        couponsLoading = true;
+        _couponAccessState = _CouponAccountAccessState.loading;
+      });
+      await _loadSavedProfileAndCoupons();
     });
-    await _loadSavedProfileAndCoupons();
   }
 
   Future<void> _applyForCouponSideAccount() async {

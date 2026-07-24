@@ -5,15 +5,25 @@ import 'package:coupon_app/models/coupon.dart';
 import 'package:coupon_app/models/daily_special.dart';
 import 'package:coupon_app/models/local_restaurant_profile_store.dart';
 import 'package:coupon_app/models/restaurant.dart';
+import 'package:coupon_app/screens/restaurant_auth_screen.dart';
 import 'package:coupon_app/screens/restaurant_create_coupon_screen.dart';
 import 'package:coupon_app/services/bitesaver_restaurant_lifecycle_service.dart';
+import 'package:coupon_app/services/subscription_return_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
-  setUp(LocalRestaurantProfileStore.resetProfile);
-  tearDown(LocalRestaurantProfileStore.resetProfile);
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    LocalRestaurantProfileStore.resetProfile();
+    await SubscriptionReturnService.resetForTesting();
+  });
+  tearDown(() async {
+    LocalRestaurantProfileStore.resetProfile();
+    await SubscriptionReturnService.resetForTesting();
+  });
 
   testWidgets('missing account is a valid coupon application state', (
     tester,
@@ -1088,6 +1098,817 @@ void main() {
     },
   );
 
+  testWidgets('customer portal return refreshes subscription state once', (
+    tester,
+  ) async {
+    final refreshTransitions = <bool>[];
+    var accountLoads = 0;
+    await _pumpApplicationScreen(
+      tester,
+      loadAccount: (uid) async {
+        accountLoads += 1;
+        return _approvedAccount();
+      },
+      onSubscriptionRefreshStateChanged: refreshTransitions.add,
+    );
+    expect(accountLoads, 1);
+
+    await _dispatchAndClaimNavigation(SubscriptionReturnKind.customerPortal);
+    await tester.pump();
+    await tester.pump();
+
+    expect(accountLoads, 2);
+    expect(refreshTransitions, <bool>[true, false]);
+    expect(SubscriptionReturnService.pendingEventCount, 0);
+
+    await tester.pump(const Duration(seconds: 4));
+    expect(accountLoads, 2);
+    expect(refreshTransitions, <bool>[true, false]);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'checkout success refreshes immediately and again after three seconds',
+    (tester) async {
+      final refreshTransitions = <bool>[];
+      var accountLoads = 0;
+      await _pumpApplicationScreen(
+        tester,
+        loadAccount: (uid) async {
+          accountLoads += 1;
+          return _approvedAccount();
+        },
+        onSubscriptionRefreshStateChanged: refreshTransitions.add,
+      );
+      expect(accountLoads, 1);
+
+      await _dispatchAndClaimNavigation(SubscriptionReturnKind.checkoutSuccess);
+      await tester.pump();
+      await tester.pump();
+
+      expect(accountLoads, 2);
+      expect(refreshTransitions, <bool>[true, false]);
+      expect(SubscriptionReturnService.pendingEventCount, 0);
+
+      await tester.pump(const Duration(milliseconds: 2999));
+      expect(accountLoads, 2);
+      expect(refreshTransitions, <bool>[true, false]);
+
+      await tester.pump(const Duration(milliseconds: 1));
+      await tester.pump();
+      expect(accountLoads, 3);
+      expect(refreshTransitions, <bool>[true, false, true, false]);
+
+      await tester.pump(const Duration(seconds: 4));
+      expect(accountLoads, 3);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('checkout cancel preserves its single-refresh behavior', (
+    tester,
+  ) async {
+    final refreshTransitions = <bool>[];
+    var accountLoads = 0;
+    await _pumpApplicationScreen(
+      tester,
+      loadAccount: (uid) async {
+        accountLoads += 1;
+        return _approvedAccount();
+      },
+      onSubscriptionRefreshStateChanged: refreshTransitions.add,
+    );
+    expect(accountLoads, 1);
+
+    await _dispatchAndClaimNavigation(SubscriptionReturnKind.checkoutCancel);
+    await tester.pump();
+    await tester.pump();
+
+    expect(accountLoads, 2);
+    expect(refreshTransitions, <bool>[true, false]);
+    expect(SubscriptionReturnService.pendingEventCount, 0);
+
+    await tester.pump(const Duration(seconds: 4));
+    expect(accountLoads, 2);
+    expect(refreshTransitions, <bool>[true, false]);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final checkoutCase
+      in <({SubscriptionReturnKind kind, int expectedReturnLoads})>[
+        (kind: SubscriptionReturnKind.checkoutSuccess, expectedReturnLoads: 2),
+        (kind: SubscriptionReturnKind.checkoutCancel, expectedReturnLoads: 1),
+      ]) {
+    testWidgets(
+      'signed-out pending ${checkoutCase.kind.name} refreshes after an eligible Hub mounts and does not replay',
+      (tester) async {
+        final refreshTransitions = <bool>[];
+        var accountLoads = 0;
+        final event = await _dispatchAndClaimNavigation(checkoutCase.kind);
+
+        expect(SubscriptionReturnService.peekPendingRefresh()?.id, event.id);
+        await tester.pumpWidget(
+          MaterialApp(
+            home: RestaurantAuthScreen(authStateStream: Stream.value(null)),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Restaurant Sign In'), findsOneWidget);
+        expect(find.byType(RestaurantCreateCouponScreen), findsNothing);
+        expect(SubscriptionReturnService.peekPendingRefresh()?.id, event.id);
+        expect(SubscriptionReturnService.claimNavigation(event.id), isFalse);
+
+        await _pumpApplicationScreen(
+          tester,
+          loadAccount: (uid) async {
+            accountLoads += 1;
+            return _approvedAccount();
+          },
+          onSubscriptionRefreshStateChanged: refreshTransitions.add,
+          settle: false,
+        );
+
+        await _pumpUntil(tester, () => accountLoads == 2);
+        expect(refreshTransitions, <bool>[true, false]);
+        if (checkoutCase.kind == SubscriptionReturnKind.checkoutSuccess) {
+          await tester.pump(const Duration(milliseconds: 2999));
+          expect(accountLoads, 2);
+          expect(refreshTransitions, <bool>[true, false]);
+          await tester.pump(const Duration(milliseconds: 1));
+          await tester.pump();
+        } else {
+          await tester.pump(const Duration(seconds: 4));
+        }
+
+        expect(accountLoads, 1 + checkoutCase.expectedReturnLoads);
+        expect(
+          refreshTransitions,
+          checkoutCase.kind == SubscriptionReturnKind.checkoutSuccess
+              ? <bool>[true, false, true, false]
+              : <bool>[true, false],
+        );
+        expect(SubscriptionReturnService.pendingEventCount, 0);
+
+        await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+        await tester.pump();
+
+        var remountLoads = 0;
+        await _pumpApplicationScreen(
+          tester,
+          loadAccount: (uid) async {
+            remountLoads += 1;
+            return _approvedAccount();
+          },
+        );
+
+        expect(remountLoads, 1);
+        expect(SubscriptionReturnService.pendingEventCount, 0);
+        expect(SubscriptionReturnService.claimNavigation(event.id), isFalse);
+        expect(SubscriptionReturnService.claimRefresh(event.id), isFalse);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final checkoutCase
+      in <({SubscriptionReturnKind kind, int loadsAfterFailure})>[
+        (kind: SubscriptionReturnKind.checkoutSuccess, loadsAfterFailure: 3),
+        (kind: SubscriptionReturnKind.checkoutCancel, loadsAfterFailure: 2),
+      ]) {
+    testWidgets(
+      '${checkoutCase.kind.name} refresh failure is nonfatal and does not poison later returns',
+      (tester) async {
+        final refreshTransitions = <bool>[];
+        var accountLoads = 0;
+        await _pumpApplicationScreen(
+          tester,
+          loadAccount: (uid) async {
+            accountLoads += 1;
+            if (accountLoads == 2) {
+              throw StateError(
+                'raw Firebase and Stripe details must remain hidden',
+              );
+            }
+            return _approvedAccount();
+          },
+          onSubscriptionRefreshStateChanged: refreshTransitions.add,
+        );
+
+        await _dispatchAndClaimNavigation(checkoutCase.kind);
+        await tester.pump();
+        await tester.pump();
+        if (checkoutCase.kind == SubscriptionReturnKind.checkoutSuccess) {
+          await tester.pump(const Duration(seconds: 3));
+          await tester.pump();
+        } else {
+          await tester.pump(const Duration(seconds: 4));
+        }
+
+        expect(accountLoads, checkoutCase.loadsAfterFailure);
+        expect(SubscriptionReturnService.pendingEventCount, 0);
+
+        await _dispatchAndClaimNavigation(checkoutCase.kind);
+        await tester.pump();
+        await tester.pump();
+        if (checkoutCase.kind == SubscriptionReturnKind.checkoutSuccess) {
+          await tester.pump(const Duration(milliseconds: 2999));
+          expect(accountLoads, checkoutCase.loadsAfterFailure + 1);
+          await tester.pump(const Duration(milliseconds: 1));
+          await tester.pump();
+        } else {
+          await tester.pump(const Duration(seconds: 4));
+        }
+
+        final laterReturnLoads =
+            checkoutCase.kind == SubscriptionReturnKind.checkoutSuccess ? 2 : 1;
+        expect(accountLoads, checkoutCase.loadsAfterFailure + laterReturnLoads);
+        expect(
+          refreshTransitions,
+          checkoutCase.kind == SubscriptionReturnKind.checkoutSuccess
+              ? <bool>[true, false, true, false, true, false, true, false]
+              : <bool>[true, false, true, false],
+        );
+        expect(SubscriptionReturnService.pendingEventCount, 0);
+        expect(
+          find.textContaining('raw Firebase and Stripe details'),
+          findsNothing,
+        );
+
+        await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+        await tester.pump();
+        var remountLoads = 0;
+        await _pumpApplicationScreen(
+          tester,
+          loadAccount: (uid) async {
+            remountLoads += 1;
+            return _approvedAccount();
+          },
+        );
+        expect(remountLoads, 1);
+        expect(SubscriptionReturnService.pendingEventCount, 0);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'pre-mount portal return waits for initial load and does not replay on remount',
+    (tester) async {
+      final initialLoad = Completer<Map<String, dynamic>?>();
+      final portalRefresh = Completer<Map<String, dynamic>?>();
+      final refreshTransitions = <bool>[];
+      var accountLoads = 0;
+      final event = await _dispatchAndClaimNavigation(
+        SubscriptionReturnKind.customerPortal,
+      );
+
+      await _pumpApplicationScreen(
+        tester,
+        loadAccount: (uid) {
+          accountLoads += 1;
+          return switch (accountLoads) {
+            1 => initialLoad.future,
+            2 => portalRefresh.future,
+            _ => Future<Map<String, dynamic>?>.value(_approvedAccount()),
+          };
+        },
+        onSubscriptionRefreshStateChanged: refreshTransitions.add,
+        settle: false,
+      );
+      await _pumpUntil(tester, () => accountLoads == 1);
+
+      expect(SubscriptionReturnService.peekPendingRefresh()?.id, event.id);
+      await tester.pump();
+      expect(accountLoads, 1);
+      expect(refreshTransitions, isEmpty);
+
+      initialLoad.complete(_approvedAccount(subscriptionStatus: 'inactive'));
+      await _pumpUntil(tester, () => accountLoads == 2);
+
+      expect(SubscriptionReturnService.peekPendingRefresh(), isNull);
+      expect(SubscriptionReturnService.pendingEventCount, 0);
+      expect(refreshTransitions, <bool>[true]);
+
+      portalRefresh.complete(_approvedAccount());
+      await tester.pumpAndSettle();
+      expect(refreshTransitions, <bool>[true, false]);
+      await _expandSection(tester, 'Subscription / Billing');
+      expect(find.text('Subscription active'), findsOneWidget);
+      expect(find.text('Not subscribed'), findsNothing);
+
+      await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+      await tester.pump();
+
+      var remountLoads = 0;
+      await _pumpApplicationScreen(
+        tester,
+        loadAccount: (uid) async {
+          remountLoads += 1;
+          return _approvedAccount();
+        },
+      );
+
+      expect(remountLoads, 1);
+      expect(SubscriptionReturnService.peekPendingRefresh(), isNull);
+      expect(SubscriptionReturnService.pendingEventCount, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('portal return arriving during initial load is serialized', (
+    tester,
+  ) async {
+    final initialLoad = Completer<Map<String, dynamic>?>();
+    final portalRefresh = Completer<Map<String, dynamic>?>();
+    final refreshTransitions = <bool>[];
+    var accountLoads = 0;
+
+    await _pumpApplicationScreen(
+      tester,
+      loadAccount: (uid) {
+        accountLoads += 1;
+        return accountLoads == 1 ? initialLoad.future : portalRefresh.future;
+      },
+      onSubscriptionRefreshStateChanged: refreshTransitions.add,
+      settle: false,
+    );
+    await _pumpUntil(tester, () => accountLoads == 1);
+
+    final event = await _dispatchAndClaimNavigation(
+      SubscriptionReturnKind.customerPortal,
+    );
+    await tester.pump();
+
+    expect(accountLoads, 1);
+    expect(refreshTransitions, isEmpty);
+    expect(SubscriptionReturnService.peekPendingRefresh()?.id, event.id);
+
+    initialLoad.complete(_approvedAccount(subscriptionStatus: 'inactive'));
+    await _pumpUntil(tester, () => accountLoads == 2);
+
+    expect(refreshTransitions, <bool>[true]);
+    expect(SubscriptionReturnService.peekPendingRefresh(), isNull);
+    portalRefresh.complete(_approvedAccount());
+    await tester.pumpAndSettle();
+
+    expect(refreshTransitions, <bool>[true, false]);
+    await _expandSection(tester, 'Subscription / Billing');
+    expect(find.text('Subscription active'), findsOneWidget);
+    expect(find.text('Not subscribed'), findsNothing);
+    expect(SubscriptionReturnService.pendingEventCount, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'disposing before the queued refresh claim leaves it for one remount',
+    (tester) async {
+      final initialLoad = Completer<Map<String, dynamic>?>();
+      var disposedScreenLoads = 0;
+      final event = await _dispatchAndClaimNavigation(
+        SubscriptionReturnKind.customerPortal,
+      );
+
+      await _pumpApplicationScreen(
+        tester,
+        loadAccount: (uid) {
+          disposedScreenLoads += 1;
+          return initialLoad.future;
+        },
+        settle: false,
+      );
+      await _pumpUntil(tester, () => disposedScreenLoads == 1);
+      expect(SubscriptionReturnService.peekPendingRefresh()?.id, event.id);
+
+      await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+      await tester.pump();
+      initialLoad.complete(_approvedAccount(subscriptionStatus: 'inactive'));
+      await tester.pump();
+      await tester.pump();
+
+      expect(disposedScreenLoads, 1);
+      expect(SubscriptionReturnService.peekPendingRefresh()?.id, event.id);
+      expect(SubscriptionReturnService.pendingEventCount, 1);
+
+      var remountLoads = 0;
+      await _pumpApplicationScreen(
+        tester,
+        loadAccount: (uid) async {
+          remountLoads += 1;
+          return _approvedAccount();
+        },
+      );
+
+      expect(remountLoads, 2);
+      expect(SubscriptionReturnService.peekPendingRefresh(), isNull);
+      expect(SubscriptionReturnService.pendingEventCount, 0);
+      expect(tester.takeException(), isNull);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.byType(AlertDialog), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'genuine repeated portal events queue, survive failure, and remain processable',
+    (tester) async {
+      final firstRefresh = Completer<Map<String, dynamic>?>();
+      final secondRefresh = Completer<Map<String, dynamic>?>();
+      final refreshTransitions = <bool>[];
+      var accountLoads = 0;
+      await _pumpApplicationScreen(
+        tester,
+        loadAccount: (uid) {
+          accountLoads += 1;
+          return switch (accountLoads) {
+            1 => Future<Map<String, dynamic>?>.value(_approvedAccount()),
+            2 => firstRefresh.future,
+            3 => secondRefresh.future,
+            _ => Future<Map<String, dynamic>?>.value(_approvedAccount()),
+          };
+        },
+        onSubscriptionRefreshStateChanged: refreshTransitions.add,
+      );
+
+      final firstEvent = await _dispatchAndClaimNavigation(
+        SubscriptionReturnKind.customerPortal,
+      );
+      await _pumpUntil(tester, () => accountLoads == 2);
+      expect(refreshTransitions, <bool>[true]);
+
+      final secondEvent = await _dispatchAndClaimNavigation(
+        SubscriptionReturnKind.customerPortal,
+      );
+      await tester.pump();
+      expect(secondEvent.id, isNot(firstEvent.id));
+      expect(accountLoads, 2);
+
+      firstRefresh.completeError(StateError('test refresh failure'));
+      await _pumpUntil(tester, () => accountLoads == 3);
+      expect(refreshTransitions, <bool>[true, false, true]);
+
+      secondRefresh.complete(_approvedAccount());
+      await tester.pumpAndSettle();
+      expect(refreshTransitions, <bool>[true, false, true, false]);
+      expect(SubscriptionReturnService.pendingEventCount, 0);
+
+      final laterEvent = await _dispatchAndClaimNavigation(
+        SubscriptionReturnKind.customerPortal,
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(laterEvent.id, isNot(firstEvent.id));
+      expect(laterEvent.id, isNot(secondEvent.id));
+      expect(accountLoads, 4);
+      expect(refreshTransitions, <bool>[true, false, true, false, true, false]);
+      expect(SubscriptionReturnService.pendingEventCount, 0);
+      expect(tester.takeException(), isNull);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(find.byType(AlertDialog), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'resume during portal refresh does not queue a duplicate account read',
+    (tester) async {
+      final portalRefresh = Completer<Map<String, dynamic>?>();
+      final refreshTransitions = <bool>[];
+      var accountLoads = 0;
+      await _pumpApplicationScreen(
+        tester,
+        loadAccount: (uid) {
+          accountLoads += 1;
+          return switch (accountLoads) {
+            1 => Future<Map<String, dynamic>?>.value(_approvedAccount()),
+            2 => portalRefresh.future,
+            _ => Future<Map<String, dynamic>?>.value(_approvedAccount()),
+          };
+        },
+        onSubscriptionRefreshStateChanged: refreshTransitions.add,
+      );
+
+      await _dispatchAndClaimNavigation(SubscriptionReturnKind.customerPortal);
+      await _pumpUntil(tester, () => accountLoads == 2);
+      expect(refreshTransitions, <bool>[true]);
+
+      await _triggerAppResume(tester);
+      await _triggerAppResume(tester);
+      expect(accountLoads, 2);
+
+      portalRefresh.complete(_approvedAccount());
+      await tester.pumpAndSettle();
+
+      expect(accountLoads, 2);
+      expect(refreshTransitions, <bool>[true, false]);
+      await _expandSection(tester, 'Subscription / Billing');
+      expect(find.text('Subscription active'), findsOneWidget);
+      expect(find.text('Not subscribed'), findsNothing);
+      expect(SubscriptionReturnService.pendingEventCount, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'portal return coalesces with an in-flight lifecycle resume refresh',
+    (tester) async {
+      final lifecycleRefresh = Completer<Map<String, dynamic>?>();
+      final refreshTransitions = <bool>[];
+      var accountLoads = 0;
+      await _pumpApplicationScreen(
+        tester,
+        loadAccount: (uid) {
+          accountLoads += 1;
+          return accountLoads == 1
+              ? Future<Map<String, dynamic>?>.value(_approvedAccount())
+              : lifecycleRefresh.future;
+        },
+        onSubscriptionRefreshStateChanged: refreshTransitions.add,
+      );
+
+      await _triggerAppResume(tester);
+      expect(accountLoads, 2);
+      expect(refreshTransitions, <bool>[true]);
+
+      await _dispatchAndClaimNavigation(SubscriptionReturnKind.customerPortal);
+      await tester.pump();
+      expect(accountLoads, 2);
+
+      lifecycleRefresh.complete(_approvedAccount());
+      await tester.pumpAndSettle();
+
+      expect(accountLoads, 2);
+      expect(refreshTransitions, <bool>[true, false]);
+      expect(SubscriptionReturnService.pendingEventCount, 0);
+      await tester.pump(const Duration(seconds: 4));
+      expect(accountLoads, 2);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'portal return consumes a completed refresh from the same resume episode',
+    (tester) async {
+      final refreshTransitions = <bool>[];
+      var accountLoads = 0;
+      await _pumpApplicationScreen(
+        tester,
+        loadAccount: (uid) async {
+          accountLoads += 1;
+          return _approvedAccount();
+        },
+        onSubscriptionRefreshStateChanged: refreshTransitions.add,
+      );
+
+      await _triggerAppResume(tester);
+      await _pumpUntil(tester, () => refreshTransitions.length == 2);
+      expect(accountLoads, 2);
+      expect(refreshTransitions, <bool>[true, false]);
+
+      await _dispatchAndClaimNavigation(SubscriptionReturnKind.customerPortal);
+      await tester.pump();
+      await tester.pump();
+
+      expect(accountLoads, 2);
+      expect(refreshTransitions, <bool>[true, false]);
+      expect(SubscriptionReturnService.pendingEventCount, 0);
+      await tester.pump(const Duration(seconds: 4));
+      expect(accountLoads, 2);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'completed portal refresh suppresses the following resume fallback',
+    (tester) async {
+      final refreshTransitions = <bool>[];
+      var accountLoads = 0;
+      await _pumpApplicationScreen(
+        tester,
+        loadAccount: (uid) async {
+          accountLoads += 1;
+          return _approvedAccount();
+        },
+        onSubscriptionRefreshStateChanged: refreshTransitions.add,
+      );
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      await _dispatchAndClaimNavigation(SubscriptionReturnKind.customerPortal);
+      await tester.pump();
+      await tester.pump();
+
+      expect(accountLoads, 2);
+      expect(refreshTransitions, <bool>[true, false]);
+      expect(SubscriptionReturnService.pendingEventCount, 0);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      await tester.pump();
+
+      expect(accountLoads, 2);
+      expect(refreshTransitions, <bool>[true, false]);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('two mounted Hubs globally claim one portal refresh', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1400);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final refreshTransitions = <bool>[];
+    var firstHubLoads = 0;
+    var secondHubLoads = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: IndexedStack(
+          index: 0,
+          children: [
+            _applicationScreen(
+              loadAccount: (uid) async {
+                firstHubLoads += 1;
+                return _approvedAccount();
+              },
+              onSubscriptionRefreshStateChanged: refreshTransitions.add,
+            ),
+            _applicationScreen(
+              loadAccount: (uid) async {
+                secondHubLoads += 1;
+                return _approvedAccount();
+              },
+              onSubscriptionRefreshStateChanged: refreshTransitions.add,
+            ),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(firstHubLoads, 1);
+    expect(secondHubLoads, 1);
+
+    await _dispatchAndClaimNavigation(SubscriptionReturnKind.customerPortal);
+    await tester.pump();
+    await tester.pump();
+
+    expect(firstHubLoads + secondHubLoads, 3);
+    expect(<int>{firstHubLoads, secondHubLoads}, <int>{1, 2});
+    expect(refreshTransitions, <bool>[true, false]);
+    expect(SubscriptionReturnService.pendingEventCount, 0);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final checkoutCase
+      in <({SubscriptionReturnKind kind, int expectedExtraLoads})>[
+        (kind: SubscriptionReturnKind.checkoutSuccess, expectedExtraLoads: 2),
+        (kind: SubscriptionReturnKind.checkoutCancel, expectedExtraLoads: 1),
+      ]) {
+    testWidgets(
+      'two mounted Hubs globally claim one ${checkoutCase.kind.name} refresh sequence',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(900, 1400);
+        addTearDown(tester.view.resetDevicePixelRatio);
+        addTearDown(tester.view.resetPhysicalSize);
+
+        final refreshTransitions = <bool>[];
+        var firstHubLoads = 0;
+        var secondHubLoads = 0;
+        await tester.pumpWidget(
+          MaterialApp(
+            home: IndexedStack(
+              index: 0,
+              children: [
+                _applicationScreen(
+                  loadAccount: (uid) async {
+                    firstHubLoads += 1;
+                    return _approvedAccount();
+                  },
+                  onSubscriptionRefreshStateChanged: refreshTransitions.add,
+                ),
+                _applicationScreen(
+                  loadAccount: (uid) async {
+                    secondHubLoads += 1;
+                    return _approvedAccount();
+                  },
+                  onSubscriptionRefreshStateChanged: refreshTransitions.add,
+                ),
+              ],
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(firstHubLoads + secondHubLoads, 2);
+
+        await _dispatchAndClaimNavigation(checkoutCase.kind);
+        await tester.pump();
+        await tester.pump();
+
+        expect(firstHubLoads + secondHubLoads, 3);
+        expect(<int>{firstHubLoads, secondHubLoads}, <int>{1, 2});
+
+        if (checkoutCase.kind == SubscriptionReturnKind.checkoutSuccess) {
+          await tester.pump(const Duration(milliseconds: 2999));
+          expect(firstHubLoads + secondHubLoads, 3);
+          await tester.pump(const Duration(milliseconds: 1));
+          await tester.pump();
+        } else {
+          await tester.pump(const Duration(seconds: 4));
+        }
+
+        expect(
+          firstHubLoads + secondHubLoads,
+          2 + checkoutCase.expectedExtraLoads,
+        );
+        expect(
+          <int>{firstHubLoads, secondHubLoads},
+          checkoutCase.kind == SubscriptionReturnKind.checkoutSuccess
+              ? <int>{1, 3}
+              : <int>{1, 2},
+        );
+        expect(
+          refreshTransitions,
+          checkoutCase.kind == SubscriptionReturnKind.checkoutSuccess
+              ? <bool>[true, false, true, false]
+              : <bool>[true, false],
+        );
+        expect(SubscriptionReturnService.pendingEventCount, 0);
+        await tester.pump(const Duration(seconds: 4));
+        expect(
+          firstHubLoads + secondHubLoads,
+          2 + checkoutCase.expectedExtraLoads,
+        );
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'two mounted Hubs coalesce one lifecycle resume with a portal return',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1400);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      addTearDown(tester.view.resetPhysicalSize);
+
+      final lifecycleRefresh = Completer<Map<String, dynamic>?>();
+      final refreshTransitions = <bool>[];
+      var firstHubLoads = 0;
+      var secondHubLoads = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: IndexedStack(
+            index: 0,
+            children: [
+              _applicationScreen(
+                loadAccount: (uid) {
+                  firstHubLoads += 1;
+                  return firstHubLoads == 1
+                      ? Future<Map<String, dynamic>?>.value(_approvedAccount())
+                      : lifecycleRefresh.future;
+                },
+                onSubscriptionRefreshStateChanged: refreshTransitions.add,
+              ),
+              _applicationScreen(
+                loadAccount: (uid) {
+                  secondHubLoads += 1;
+                  return secondHubLoads == 1
+                      ? Future<Map<String, dynamic>?>.value(_approvedAccount())
+                      : lifecycleRefresh.future;
+                },
+                onSubscriptionRefreshStateChanged: refreshTransitions.add,
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(firstHubLoads + secondHubLoads, 2);
+
+      await _triggerAppResume(tester);
+      expect(firstHubLoads + secondHubLoads, 3);
+      expect(<int>{firstHubLoads, secondHubLoads}, <int>{1, 2});
+      expect(refreshTransitions, <bool>[true]);
+
+      await _dispatchAndClaimNavigation(SubscriptionReturnKind.customerPortal);
+      await tester.pump();
+      expect(firstHubLoads + secondHubLoads, 3);
+
+      lifecycleRefresh.complete(_approvedAccount());
+      await tester.pumpAndSettle();
+
+      expect(firstHubLoads + secondHubLoads, 3);
+      expect(refreshTransitions, <bool>[true, false]);
+      expect(SubscriptionReturnService.pendingEventCount, 0);
+      await tester.pump(const Duration(seconds: 4));
+      expect(firstHubLoads + secondHubLoads, 3);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   for (final failure in <bool>[false, true]) {
     testWidgets(
       'mounted subscription refresh ${failure ? 'failure' : 'success'} clears duplicate suppression',
@@ -1310,6 +2131,27 @@ Future<void> _triggerAppResume(WidgetTester tester) async {
   await tester.pump();
 }
 
+Future<SubscriptionReturnEvent> _dispatchAndClaimNavigation(
+  SubscriptionReturnKind kind,
+) async {
+  final event = await SubscriptionReturnService.dispatchReturn(kind);
+  expect(event, isNotNull);
+  final acceptedEvent = event!;
+  expect(SubscriptionReturnService.claimNavigation(acceptedEvent.id), isTrue);
+  return acceptedEvent;
+}
+
+Future<void> _pumpUntil(
+  WidgetTester tester,
+  bool Function() condition, {
+  int maxPumps = 20,
+}) async {
+  for (var pump = 0; pump < maxPumps && !condition(); pump += 1) {
+    await tester.pump();
+  }
+  expect(condition(), isTrue);
+}
+
 Future<void> _startDailySpecialSave(
   WidgetTester tester, {
   required String title,
@@ -1349,28 +2191,15 @@ Future<void> _pumpApplicationScreen(
 
   await tester.pumpWidget(
     MaterialApp(
-      home: RestaurantCreateCouponScreen(
-        lifecycleService:
-            lifecycleService ??
-            BiteSaverRestaurantLifecycleService(
-              invokeCallable: (name, payload) async {
-                throw StateError('No callable was expected.');
-              },
-            ),
+      home: _applicationScreen(
+        lifecycleService: lifecycleService,
         loadAccount: loadAccount,
-        loadCoupons: loadCoupons ?? (uid) async => const <Coupon>[],
-        loadDailySpecials:
-            loadDailySpecials ?? (uid) async => const <DailySpecial>[],
+        loadCoupons: loadCoupons,
+        loadDailySpecials: loadDailySpecials,
         createDailySpecial: createDailySpecial,
         updateDailySpecial: updateDailySpecial,
-        loadMenuRoutingState: () async => const BiteSaverMenuRoutingState(
-          usesBiteRater: false,
-          matchedBiteScoreRestaurant: null,
-          isAlreadyUsedByOtherSide: false,
-        ),
         submitNameChangeRequest: submitNameChangeRequest,
         onSubscriptionRefreshStateChanged: onSubscriptionRefreshStateChanged,
-        testCurrentUser: _TestUser(),
       ),
     ),
   );
@@ -1379,6 +2208,41 @@ Future<void> _pumpApplicationScreen(
   } else {
     await tester.pump();
   }
+}
+
+RestaurantCreateCouponScreen _applicationScreen({
+  BiteSaverRestaurantLifecycleService? lifecycleService,
+  required Future<Map<String, dynamic>?> Function(String uid) loadAccount,
+  Future<List<Coupon>> Function(String uid)? loadCoupons,
+  Future<List<DailySpecial>> Function(String uid)? loadDailySpecials,
+  DailySpecialSaver? createDailySpecial,
+  DailySpecialSaver? updateDailySpecial,
+  RestaurantNameChangeSubmitter? submitNameChangeRequest,
+  ValueChanged<bool>? onSubscriptionRefreshStateChanged,
+}) {
+  return RestaurantCreateCouponScreen(
+    lifecycleService:
+        lifecycleService ??
+        BiteSaverRestaurantLifecycleService(
+          invokeCallable: (name, payload) async {
+            throw StateError('No callable was expected.');
+          },
+        ),
+    loadAccount: loadAccount,
+    loadCoupons: loadCoupons ?? (uid) async => const <Coupon>[],
+    loadDailySpecials:
+        loadDailySpecials ?? (uid) async => const <DailySpecial>[],
+    createDailySpecial: createDailySpecial,
+    updateDailySpecial: updateDailySpecial,
+    loadMenuRoutingState: () async => const BiteSaverMenuRoutingState(
+      usesBiteRater: false,
+      matchedBiteScoreRestaurant: null,
+      isAlreadyUsedByOtherSide: false,
+    ),
+    submitNameChangeRequest: submitNameChangeRequest,
+    onSubscriptionRefreshStateChanged: onSubscriptionRefreshStateChanged,
+    testCurrentUser: _TestUser(),
+  );
 }
 
 Future<void> _expandSection(WidgetTester tester, String title) async {
@@ -1429,6 +2293,7 @@ Map<String, dynamic> _approvedAccount({
   String phone = '(352) 555-0100',
   String website = 'https://approved.example',
   String bio = 'Approved profile',
+  String subscriptionStatus = 'active',
 }) {
   return <String, dynamic>{
     Restaurant.fieldUid: 'owner-1',
@@ -1444,7 +2309,7 @@ Map<String, dynamic> _approvedAccount({
     Restaurant.fieldProfileVersion: profileVersion,
     Restaurant.fieldApprovalStatus: 'approved',
     'couponApplicationSubmitted': true,
-    'subscriptionStatus': 'active',
+    'subscriptionStatus': subscriptionStatus,
     Restaurant.fieldLatitude: latitude,
     Restaurant.fieldLongitude: longitude,
     Restaurant.fieldAddressFingerprint:

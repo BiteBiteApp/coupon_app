@@ -204,11 +204,15 @@ void main() {
     });
 
     test('ignores existing subscription deep links', () {
-      final link = RestaurantInviteService.parseInviteDeepLink(
+      final success = RestaurantInviteService.parseInviteDeepLink(
         Uri.parse('bitesaver://subscription-success'),
       );
+      final portal = RestaurantInviteService.parseInviteDeepLink(
+        Uri.parse('bitesaver://subscription-portal-return'),
+      );
 
-      expect(link, isNull);
+      expect(success, isNull);
+      expect(portal, isNull);
     });
 
     test('ignores existing subscription route names', () {
@@ -218,9 +222,13 @@ void main() {
       final cancel = RestaurantInviteService.parseInviteRouteName(
         '/subscription-cancel',
       );
+      final portal = RestaurantInviteService.parseInviteRouteName(
+        '/subscription-portal-return',
+      );
 
       expect(success, isNull);
       expect(cancel, isNull);
+      expect(portal, isNull);
     });
 
     test('ignores unsupported invite routes', () {

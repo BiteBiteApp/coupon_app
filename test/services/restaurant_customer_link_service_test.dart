@@ -245,6 +245,12 @@ void main() {
         ),
         isNull,
       );
+      expect(
+        RestaurantCustomerLinkService.parseRestaurantDeepLink(
+          Uri.parse('bitesaver://subscription-portal-return'),
+        ),
+        isNull,
+      );
     });
 
     test('ignores unsupported restaurant link sides', () {

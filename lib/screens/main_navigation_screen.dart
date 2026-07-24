@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:app_links/app_links.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -50,6 +50,13 @@ class MainNavigationScreen extends StatefulWidget {
   final RestaurantInviteDeepLink? initialInviteDeepLink;
   final List<Widget> Function(AppMode mode)? testPagesBuilder;
   final bool initializePlatformServices;
+  final Stream<Uri>? testIncomingDeepLinks;
+  final Stream<String>? testIncomingRawDeepLinks;
+  final ValueChanged<SubscriptionReturnEvent>?
+  testOnSubscriptionReturnNavigationClaimed;
+  final ValueChanged<String>? testOnSubscriptionReturnMessageEmitted;
+  final bool? testRestaurantUserSignedIn;
+  final WidgetBuilder? testAuthenticatedRestaurantHubBuilder;
 
   const MainNavigationScreen({
     super.key,
@@ -59,6 +66,12 @@ class MainNavigationScreen extends StatefulWidget {
     this.initialInviteDeepLink,
     @visibleForTesting this.testPagesBuilder,
     @visibleForTesting this.initializePlatformServices = true,
+    @visibleForTesting this.testIncomingDeepLinks,
+    @visibleForTesting this.testIncomingRawDeepLinks,
+    @visibleForTesting this.testOnSubscriptionReturnNavigationClaimed,
+    @visibleForTesting this.testOnSubscriptionReturnMessageEmitted,
+    @visibleForTesting this.testRestaurantUserSignedIn,
+    @visibleForTesting this.testAuthenticatedRestaurantHubBuilder,
   });
 
   @override
@@ -67,12 +80,11 @@ class MainNavigationScreen extends StatefulWidget {
 
 class _MainNavigationScreenState extends State<MainNavigationScreen> {
   static const String _onboardingSeenKey = 'first_time_onboarding_seen';
-  static final Set<String> _handledInitialDeepLinkKeys = <String>{};
 
   late int selectedIndex;
   late AppMode selectedMode;
-  final AppLinks _appLinks = AppLinks();
-  StreamSubscription<Uri>? _subscriptionReturnSubscription;
+  StreamSubscription<Uri>? _appLinkSubscription;
+  StreamSubscription<SubscriptionReturnEvent>? _subscriptionReturnSubscription;
   bool _showOnboarding = false;
   int _deepLinkGeneration = 0;
   String? _lastHandledDeepLinkKey;
@@ -94,8 +106,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
         : widget.initialMode;
     AppModeStateService.setMode(selectedMode);
     AppModeStateService.selectedMode.addListener(_syncSelectedMode);
-    if (widget.initializePlatformServices) {
-      _listenForSubscriptionReturnLinks();
+    if (widget.initializePlatformServices ||
+        widget.testIncomingDeepLinks != null ||
+        widget.testIncomingRawDeepLinks != null) {
+      _listenForAppLinks();
     }
     if (initialCustomerDeepLink != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -116,30 +130,25 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   void dispose() {
     AppModeStateService.selectedMode.removeListener(_syncSelectedMode);
+    _appLinkSubscription?.cancel();
     _subscriptionReturnSubscription?.cancel();
     super.dispose();
   }
 
-  Future<void> _listenForSubscriptionReturnLinks() async {
-    try {
-      final initialUri = await _appLinks.getInitialLink();
-      if (_shouldHandleInitialDeepLink(initialUri)) {
-        _handleIncomingDeepLink(initialUri);
-      }
-    } catch (_) {}
-
-    _subscriptionReturnSubscription = _appLinks.uriLinkStream.listen(
+  void _listenForAppLinks() {
+    _appLinkSubscription = SubscriptionReturnService.appLinks.listen(
       _handleIncomingDeepLink,
       onError: (_) {},
     );
-  }
-
-  bool _shouldHandleInitialDeepLink(Uri? uri) {
-    if (uri == null) {
-      return false;
-    }
-
-    return _handledInitialDeepLinkKeys.add(uri.toString());
+    _subscriptionReturnSubscription = SubscriptionReturnService.events.listen(
+      _scheduleSubscriptionReturnNavigation,
+      onError: (_) {},
+    );
+    SubscriptionReturnService.startAppLinkIngestion(
+      links: widget.testIncomingDeepLinks,
+      rawLinks: widget.testIncomingRawDeepLinks,
+    );
+    _schedulePendingSubscriptionReturnNavigation();
   }
 
   Future<void> _loadOnboardingState() async {
@@ -174,6 +183,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       return;
     }
 
+    // Subscription returns are normalized once by the app-wide coordinator.
+    // Individual navigation shells must never create their own logical event.
+    if (parseSubscriptionReturnUri(uri) != null) {
+      return;
+    }
+
     if (_isDuplicateDeepLink(uri)) {
       return;
     }
@@ -192,29 +207,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       return;
     }
 
-    if (uri.scheme == 'bitesaver' && uri.host == 'subscription-success') {
-      _handleSubscriptionReturn(SubscriptionCheckoutReturnStatus.success);
-      return;
-    }
-
-    if (uri.scheme == 'bitesaver' && uri.host == 'subscription-cancel') {
-      _handleSubscriptionReturn(SubscriptionCheckoutReturnStatus.cancel);
-      return;
-    }
-
     if (uri.scheme == 'couponapp' && uri.host == 'open') {
       return;
-    }
-
-    if (uri.scheme != 'couponapp' || uri.host != 'subscription-return') {
-      return;
-    }
-
-    final status = uri.queryParameters['status']?.trim().toLowerCase();
-    if (status == 'success') {
-      _handleSubscriptionReturn(SubscriptionCheckoutReturnStatus.success);
-    } else if (status == 'cancel') {
-      _handleSubscriptionReturn(SubscriptionCheckoutReturnStatus.cancel);
     }
   }
 
@@ -322,12 +316,37 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     });
   }
 
-  void _handleSubscriptionReturn(SubscriptionCheckoutReturnStatus status) {
-    final message = switch (status) {
-      SubscriptionCheckoutReturnStatus.success =>
+  void _schedulePendingSubscriptionReturnNavigation() {
+    final event = SubscriptionReturnService.peekPendingNavigation();
+    if (event != null) {
+      _scheduleSubscriptionReturnNavigation(event);
+    }
+  }
+
+  void _scheduleSubscriptionReturnNavigation(SubscriptionReturnEvent event) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      if (!SubscriptionReturnService.claimNavigation(event.id)) {
+        _schedulePendingSubscriptionReturnNavigation();
+        return;
+      }
+
+      widget.testOnSubscriptionReturnNavigationClaimed?.call(event);
+      _handleSubscriptionReturn(event.kind);
+      _schedulePendingSubscriptionReturnNavigation();
+    });
+  }
+
+  void _handleSubscriptionReturn(SubscriptionReturnKind kind) {
+    final message = switch (kind) {
+      SubscriptionReturnKind.checkoutSuccess =>
         'Subscription started successfully. Refreshing restaurant tools...',
-      SubscriptionCheckoutReturnStatus.cancel =>
+      SubscriptionReturnKind.checkoutCancel =>
         'Subscription checkout canceled.',
+      SubscriptionReturnKind.customerPortal =>
+        'Returned from subscription management. Refreshing your subscription status.',
     };
 
     if (mounted) {
@@ -337,35 +356,56 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       });
     }
     AppModeStateService.setMode(AppMode.biteSaver);
-    unawaited(SubscriptionReturnService.dispatchReturn(status));
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) {
         return;
       }
 
-      if (SubscriptionReturnService.hasActiveRestaurantHub) {
-        rootNavigatorKey.currentState?.popUntil(
+      final navigator = rootNavigatorKey.currentState;
+      if (!_hasSignedInRestaurantUser) {
+        navigator?.popUntil((route) => route.isFirst);
+      } else if (SubscriptionReturnService.hasActiveRestaurantHub) {
+        navigator?.popUntil(
           (route) =>
               route.isFirst ||
               route.settings.name == RestaurantCreateCouponScreen.routeName,
         );
+      } else if (kind == SubscriptionReturnKind.customerPortal) {
+        navigator?.popUntil((route) => route.isFirst);
       } else {
-        rootNavigatorKey.currentState?.pushAndRemoveUntil(
+        navigator?.pushAndRemoveUntil(
           MaterialPageRoute(
             settings: const RouteSettings(
               name: RestaurantCreateCouponScreen.routeName,
             ),
-            builder: (_) => const RestaurantCreateCouponScreen(),
+            builder:
+                widget.testAuthenticatedRestaurantHubBuilder ??
+                (_) => const RestaurantCreateCouponScreen(),
           ),
           (route) => route.isFirst,
         );
       }
     });
 
+    widget.testOnSubscriptionReturnMessageEmitted?.call(message);
     rootScaffoldMessengerKey.currentState
       ?..hideCurrentSnackBar()
       ..showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  bool get _hasSignedInRestaurantUser {
+    final testValue = widget.testRestaurantUserSignedIn;
+    if (testValue != null) {
+      return testValue;
+    }
+
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      return user != null && !user.isAnonymous;
+    } catch (_) {
+      return false;
+    }
   }
 
   void _syncSelectedMode() {
