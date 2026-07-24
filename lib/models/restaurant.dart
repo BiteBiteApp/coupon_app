@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+
 import 'coupon.dart';
 import 'daily_special.dart';
 
@@ -31,6 +33,12 @@ class Restaurant {
   static const String fieldBusinessHours = 'businessHours';
   static const String fieldLatitude = 'latitude';
   static const String fieldLongitude = 'longitude';
+  static const String fieldProfileVersion = 'profileVersion';
+  static const String fieldLocationVersion = 'locationVersion';
+  static const String fieldFormattedAddress = 'formattedAddress';
+  static const String fieldAddressFingerprint = 'addressFingerprint';
+  static const String fieldLocationValidatedAt = 'locationValidatedAt';
+  static const String fieldLocationSource = 'locationSource';
   static const String fieldApprovalStatus = 'approvalStatus';
   static const String fieldCreatedAt = 'createdAt';
   static const String fieldUpdatedAt = 'updatedAt';
@@ -44,6 +52,7 @@ class Restaurant {
   final String zipCode;
   final List<Coupon> coupons;
   final List<DailySpecial> dailySpecials;
+  final String? documentId;
   final String? uid;
   final String? phone;
   final String? streetAddress;
@@ -53,6 +62,12 @@ class Restaurant {
   final List<RestaurantBusinessHours> businessHours;
   final double? latitude;
   final double? longitude;
+  final int profileVersion;
+  final int locationVersion;
+  final String? formattedAddress;
+  final String? addressFingerprint;
+  final DateTime? locationValidatedAt;
+  final String? locationSource;
 
   const Restaurant({
     required this.name,
@@ -62,6 +77,7 @@ class Restaurant {
     required this.zipCode,
     required this.coupons,
     this.dailySpecials = const [],
+    this.documentId,
     this.uid,
     this.phone,
     this.streetAddress,
@@ -71,7 +87,59 @@ class Restaurant {
     this.businessHours = const [],
     this.latitude,
     this.longitude,
+    this.profileVersion = 0,
+    this.locationVersion = 0,
+    this.formattedAddress,
+    this.addressFingerprint,
+    this.locationValidatedAt,
+    this.locationSource,
   });
+
+  String? get accountDocumentId {
+    final firestoreDocumentId = documentId?.trim();
+    if (firestoreDocumentId != null && firestoreDocumentId.isNotEmpty) {
+      return firestoreDocumentId;
+    }
+
+    final storedUid = uid?.trim();
+    return storedUid == null || storedUid.isEmpty ? null : storedUid;
+  }
+
+  bool get hasTrustedSearchableLocation {
+    final lat = latitude;
+    final lng = longitude;
+    if (lat == null ||
+        lng == null ||
+        !lat.isFinite ||
+        !lng.isFinite ||
+        lat < -90 ||
+        lat > 90 ||
+        lng < -180 ||
+        lng > 180 ||
+        (lat == 0 && lng == 0)) {
+      return false;
+    }
+
+    final fingerprint = addressFingerprint?.trim() ?? '';
+    return RegExp(r'^[0-9a-f]{64}$').hasMatch(fingerprint) &&
+        locationSource == 'google_geocoding' &&
+        locationVersion > 0 &&
+        locationValidatedAt != null;
+  }
+
+  bool matchesStructuredAddress({
+    required String streetAddress,
+    required String city,
+    required String state,
+    required String zipCode,
+  }) {
+    return _normalizeAddressText(this.streetAddress ?? '') ==
+            _normalizeAddressText(streetAddress) &&
+        _normalizeAddressText(this.city) == _normalizeAddressText(city) &&
+        _normalizeAddressText(this.state, uppercase: true) ==
+            _normalizeAddressText(state, uppercase: true) &&
+        _normalizeAddressText(this.zipCode) == _normalizeAddressText(zipCode);
+  }
 
   String? validateRequiredFields() {
     if (name.trim().isEmpty) {
@@ -142,10 +210,12 @@ class Restaurant {
 
   factory Restaurant.fromFirestore(
     Map<String, dynamic> data, {
+    String? documentId,
     required List<Coupon> coupons,
     List<DailySpecial> dailySpecials = const [],
   }) {
     return Restaurant(
+      documentId: _readDocumentId(documentId),
       uid: _readString(data[fieldUid]),
       name:
           _readString(data[fieldName]) ??
@@ -174,6 +244,12 @@ class Restaurant {
       dailySpecials: dailySpecials,
       latitude: _readDouble(data[fieldLatitude]),
       longitude: _readDouble(data[fieldLongitude]),
+      profileVersion: _readVersion(data[fieldProfileVersion]),
+      locationVersion: _readVersion(data[fieldLocationVersion]),
+      formattedAddress: _readString(data[fieldFormattedAddress]),
+      addressFingerprint: _readString(data[fieldAddressFingerprint]),
+      locationValidatedAt: _readDateTime(data[fieldLocationValidatedAt]),
+      locationSource: _readString(data[fieldLocationSource]),
     );
   }
 
@@ -186,6 +262,10 @@ class Restaurant {
     return null;
   }
 
+  static String? _readDocumentId(String? value) {
+    return value == null || value.isEmpty ? null : value;
+  }
+
   static double? _readDouble(dynamic value) {
     if (value is num) {
       return value.toDouble();
@@ -196,6 +276,25 @@ class Restaurant {
     }
 
     return null;
+  }
+
+  static int _readVersion(dynamic value) {
+    return value is int && value >= 0 ? value : 0;
+  }
+
+  static DateTime? _readDateTime(dynamic value) {
+    if (value is Timestamp) {
+      return value.toDate();
+    }
+    if (value is DateTime) {
+      return value;
+    }
+    return null;
+  }
+
+  static String _normalizeAddressText(String value, {bool uppercase = false}) {
+    final normalized = value.trim().replaceAll(RegExp(r'\s+'), ' ');
+    return uppercase ? normalized.toUpperCase() : normalized;
   }
 }
 

@@ -69,21 +69,22 @@ class _RestaurantCustomerDeepLinkScreenState
       return const _RestaurantDeepLinkResolution.notFound();
     }
 
-    final accountUid = resolvedAccount.accountUid;
+    final accountDocumentId = resolvedAccount.documentId;
     final accountData = resolvedAccount.accountData;
     final coupons =
         RestaurantAccountService.customerVisibleCouponsForAccountData(
           accountData,
-          await RestaurantAccountService.loadCoupons(accountUid),
+          await RestaurantAccountService.loadCoupons(accountDocumentId),
         );
     final dailySpecials =
         RestaurantAccountService.hasCouponPostingAccess(accountData)
         ? await RestaurantAccountService.loadDailySpecialsForRestaurant(
-            accountUid,
+            accountDocumentId,
           )
         : const <DailySpecial>[];
     final restaurant = Restaurant.fromFirestore(
       accountData,
+      documentId: resolvedAccount.documentId,
       coupons: coupons,
       dailySpecials: dailySpecials,
     );

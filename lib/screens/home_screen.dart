@@ -1171,6 +1171,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return results.map((result) {
       return Restaurant(
+        documentId: result.restaurant.documentId,
         uid: result.restaurant.uid,
         name: result.restaurant.name,
         distance: result.exactMatch

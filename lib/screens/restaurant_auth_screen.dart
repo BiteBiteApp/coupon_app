@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:coupon_app/services/app_mode_state_service.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:coupon_app/services/customer_session_service.dart';
@@ -7,25 +9,59 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/bitescore_restaurant.dart';
+import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/bitescore_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_auth_service.dart';
-import '../services/user_profile_service.dart';
 import '../widgets/phone_auth_sheet.dart';
 import 'bitescore_owner_screen.dart';
 import 'main_navigation_screen.dart';
 import 'restaurant_create_coupon_screen.dart';
 import 'restaurant_owner_hub_screen.dart';
 
+enum RestaurantAuthCouponGateState { application, pending, rejected, approved }
+
+typedef RestaurantEmailAuthenticationHandler =
+    Future<User?> Function({
+      required bool isLoginMode,
+      required String email,
+      required String password,
+    });
+
+@visibleForTesting
+RestaurantAuthCouponGateState resolveRestaurantAuthCouponGateState(
+  Map<String, dynamic>? accountData,
+) {
+  if (!RestaurantAccountService.hasSubmittedCouponApplication(accountData)) {
+    return RestaurantAuthCouponGateState.application;
+  }
+  final approvalStatus =
+      (accountData?[Restaurant.fieldApprovalStatus] as String?)
+          ?.trim()
+          .toLowerCase() ??
+      'pending';
+  if (approvalStatus == 'approved') {
+    return RestaurantAuthCouponGateState.approved;
+  }
+  if (approvalStatus == 'rejected') {
+    return RestaurantAuthCouponGateState.rejected;
+  }
+  return RestaurantAuthCouponGateState.pending;
+}
+
 class RestaurantAuthScreen extends StatefulWidget {
   final String? emailVerificationMessage;
   final String? postVerificationBiteScoreRestaurantId;
+  final Stream<User?>? authStateStream;
+  final RestaurantEmailAuthenticationHandler? authenticateWithEmail;
 
   const RestaurantAuthScreen({
     super.key,
     this.emailVerificationMessage,
     this.postVerificationBiteScoreRestaurantId,
+    @visibleForTesting this.authStateStream,
+    @visibleForTesting this.authenticateWithEmail,
   });
 
   @override
@@ -70,7 +106,13 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) {
-      _refreshLiveVerificationState();
+      unawaited(
+        _refreshLiveVerificationState().onError((_, _) {
+          // A background refresh failure does not invalidate the current
+          // session. Interactive authentication paths retain their own errors.
+          return null;
+        }),
+      );
     }
   }
 
@@ -80,20 +122,21 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
       return null;
     }
 
-    try {
-      await user.reload();
-      final refreshedUser = FirebaseAuth.instance.currentUser;
-      await refreshedUser?.getIdToken(true);
-      if (refreshedUser != null) {
+    await user.reload();
+    final refreshedUser = FirebaseAuth.instance.currentUser;
+    await refreshedUser?.getIdToken(true);
+    if (refreshedUser != null) {
+      try {
         await RestaurantAccountService.syncEmailVerified(refreshedUser);
+      } catch (_) {
+        // The authenticated session is already valid. Synchronizing an
+        // existing restaurant account remains a best-effort follow-up.
       }
-      if (mounted) {
-        setState(() {});
-      }
-      return refreshedUser;
-    } catch (_) {
-      return FirebaseAuth.instance.currentUser;
     }
+    if (mounted) {
+      setState(() {});
+    }
+    return refreshedUser;
   }
 
   Future<void> _loadLastUsedMethod() async {
@@ -149,35 +192,33 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
     });
 
     try {
-      UserCredential credential;
-
-      if (isLoginMode) {
-        credential = await FirebaseAuth.instance.signInWithEmailAndPassword(
-          email: email,
-          password: password,
-        );
-      } else {
-        credential = await FirebaseAuth.instance.createUserWithEmailAndPassword(
-          email: email,
-          password: password,
-        );
-
-        final user = credential.user;
-        if (user != null && !user.emailVerified) {
-          await user.sendEmailVerification();
-        }
-      }
-
-      final user = credential.user;
+      final injectedAuthenticator = widget.authenticateWithEmail;
+      final user = injectedAuthenticator != null
+          ? await injectedAuthenticator(
+              isLoginMode: isLoginMode,
+              email: email,
+              password: password,
+            )
+          : await RestaurantAuthService.authenticateWithEmail(
+              isLoginMode: isLoginMode,
+              signIn: () async {
+                final credential = await FirebaseAuth.instance
+                    .signInWithEmailAndPassword(
+                      email: email,
+                      password: password,
+                    );
+                return credential.user;
+              },
+              register: () async {
+                final credential = await FirebaseAuth.instance
+                    .createUserWithEmailAndPassword(
+                      email: email,
+                      password: password,
+                    );
+                return credential.user;
+              },
+            );
       if (user != null) {
-        await user.reload();
-        await FirebaseAuth.instance.currentUser?.getIdToken(true);
-        final refreshedUser = FirebaseAuth.instance.currentUser ?? user;
-        await RestaurantAccountService.createOrUpdateAccountRecord(
-          refreshedUser,
-        );
-        await RestaurantAccountService.syncEmailVerified(refreshedUser);
-        await UserProfileService.upsertSignedInUserProfile(refreshedUser);
         await _rememberLastUsedMethod('email');
       }
 
@@ -235,7 +276,6 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
     try {
       await RestaurantAuthService.signInWithGoogle();
       await _rememberLastUsedMethod('google');
-      await _refreshLiveVerificationState();
 
       if (!mounted) return;
 
@@ -309,7 +349,6 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
 
     if (signedIn == true) {
       await _rememberLastUsedMethod('phone');
-      await _refreshLiveVerificationState();
       if (!mounted) {
         return;
       }
@@ -362,50 +401,6 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
 
   Future<void> signOut() async {
     await CustomerSessionService.signOutToSignedOut();
-  }
-
-  Future<void> _applyForRestaurantAccount(User user) async {
-    setState(() {
-      isLoading = true;
-    });
-
-    try {
-      await RestaurantAccountService.createOrUpdateAccountRecord(user);
-      await RestaurantAccountService.syncEmailVerified(user);
-
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Restaurant account application submitted.'),
-        ),
-      );
-      setState(() {});
-    } catch (error) {
-      if (!mounted) {
-        return;
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            AppErrorText.friendly(
-              error,
-              fallback:
-                  'Could not submit your restaurant account application right now.',
-            ),
-          ),
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          isLoading = false;
-        });
-      }
-    }
   }
 
   Widget _buildOrSeparator() {
@@ -1098,18 +1093,17 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
             !accountSnapshot.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
+        if (accountSnapshot.hasError && !accountSnapshot.hasData) {
+          return buildOwnerAccessLoadErrorScreen();
+        }
 
         final data = accountSnapshot.data?.data();
-        final hasCouponApplication =
-            RestaurantAccountService.hasSubmittedCouponApplication(data);
+        final couponGateState = resolveRestaurantAuthCouponGateState(data);
         final requiresEmailVerification =
             RestaurantAuthService.requiresEmailVerification(user);
-        final approvalStatus =
-            (data?['approvalStatus'] as String?) ?? 'pending';
         final hasCouponAccess =
-            hasCouponApplication &&
             !requiresEmailVerification &&
-            approvalStatus == 'approved';
+            couponGateState == RestaurantAuthCouponGateState.approved;
 
         return FutureBuilder<List<BitescoreRestaurant>>(
           future: BiteScoreService.loadOwnedRestaurantsForUser(user.uid),
@@ -1140,15 +1134,15 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
               return buildEmailVerificationScreen(user);
             }
 
-            if (!hasCouponApplication) {
+            if (couponGateState == RestaurantAuthCouponGateState.application) {
               return buildNoApprovedAccountsScreen(user);
             }
 
-            if (approvalStatus == 'pending') {
+            if (couponGateState == RestaurantAuthCouponGateState.pending) {
               return buildPendingApprovalScreen(user);
             }
 
-            if (approvalStatus == 'rejected') {
+            if (couponGateState == RestaurantAuthCouponGateState.rejected) {
               return buildRejectedScreen(user);
             }
 
@@ -1179,7 +1173,7 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: FirebaseAuth.instance.userChanges(),
+      stream: widget.authStateStream ?? FirebaseAuth.instance.userChanges(),
       builder: (context, snapshot) {
         final user = snapshot.data;
 

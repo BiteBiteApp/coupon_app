@@ -5,6 +5,10 @@ import 'package:google_sign_in/google_sign_in.dart';
 import 'restaurant_account_service.dart';
 import 'user_profile_service.dart';
 
+typedef RestaurantAuthenticatedUserAction = Future<void> Function(User user);
+typedef RestaurantUserAuthenticator = Future<User?> Function();
+typedef RestaurantAuthenticatedUserRefresher = Future<User> Function(User user);
+
 class RestaurantAuthService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
 
@@ -19,29 +23,21 @@ class RestaurantAuthService {
   }
 
   static Future<User?> signInWithGoogle() async {
-    if (kIsWeb) {
-      return _signInWithGoogleWeb();
-    } else {
-      return _signInWithGoogleNative();
-    }
+    return signInWithGoogleUsing(
+      authenticate: kIsWeb
+          ? _authenticateWithGoogleWeb
+          : _authenticateWithGoogleNative,
+    );
   }
 
-  static Future<User?> _signInWithGoogleWeb() async {
+  static Future<User?> _authenticateWithGoogleWeb() async {
     final provider = GoogleAuthProvider();
 
     final credential = await _auth.signInWithPopup(provider);
-    final user = credential.user;
-
-    if (user != null) {
-      await RestaurantAccountService.createOrUpdateAccountRecord(user);
-      await RestaurantAccountService.syncEmailVerified(user);
-      await UserProfileService.upsertSignedInUserProfile(user);
-    }
-
-    return user;
+    return credential.user;
   }
 
-  static Future<User?> _signInWithGoogleNative() async {
+  static Future<User?> _authenticateWithGoogleNative() async {
     final GoogleSignIn googleSignIn = GoogleSignIn.instance;
 
     await googleSignIn.initialize(serverClientId: webServerClientId);
@@ -58,29 +54,105 @@ class RestaurantAuthService {
     );
 
     final signedInCredential = await _auth.signInWithCredential(credential);
-    final user = signedInCredential.user;
-
-    if (user != null) {
-      await RestaurantAccountService.createOrUpdateAccountRecord(user);
-      await RestaurantAccountService.syncEmailVerified(user);
-      await UserProfileService.upsertSignedInUserProfile(user);
-    }
-
-    return user;
+    return signedInCredential.user;
   }
 
   static Future<User?> signInWithPhoneCredential(
     PhoneAuthCredential credential,
-  ) async {
-    final signedInCredential = await _auth.signInWithCredential(credential);
-    final user = signedInCredential.user;
+  ) {
+    return signInWithPhoneUsing(
+      authenticate: () async {
+        final signedInCredential = await _auth.signInWithCredential(credential);
+        return signedInCredential.user;
+      },
+    );
+  }
 
+  @visibleForTesting
+  static Future<User?> signInWithGoogleUsing({
+    required RestaurantUserAuthenticator authenticate,
+    RestaurantAuthenticatedUserAction? syncExistingRestaurantAccount,
+    RestaurantAuthenticatedUserAction? upsertUserProfile,
+  }) async {
+    final user = await authenticate();
     if (user != null) {
-      await RestaurantAccountService.createOrUpdateAccountRecord(user);
-      await RestaurantAccountService.syncEmailVerified(user);
-      await UserProfileService.upsertSignedInUserProfile(user);
+      await completeAuthenticatedUser(
+        user,
+        syncExistingRestaurantAccount: syncExistingRestaurantAccount,
+        upsertUserProfile: upsertUserProfile,
+      );
+    }
+    return user;
+  }
+
+  @visibleForTesting
+  static Future<User?> signInWithPhoneUsing({
+    required RestaurantUserAuthenticator authenticate,
+    RestaurantAuthenticatedUserAction? syncExistingRestaurantAccount,
+    RestaurantAuthenticatedUserAction? upsertUserProfile,
+  }) async {
+    final user = await authenticate();
+    if (user != null) {
+      await completeAuthenticatedUser(
+        user,
+        syncExistingRestaurantAccount: syncExistingRestaurantAccount,
+        upsertUserProfile: upsertUserProfile,
+      );
+    }
+    return user;
+  }
+
+  static Future<User?> authenticateWithEmail({
+    required bool isLoginMode,
+    required RestaurantUserAuthenticator signIn,
+    required RestaurantUserAuthenticator register,
+    RestaurantAuthenticatedUserAction? sendVerificationEmail,
+    RestaurantAuthenticatedUserRefresher? refreshUser,
+    RestaurantAuthenticatedUserAction? syncExistingRestaurantAccount,
+    RestaurantAuthenticatedUserAction? upsertUserProfile,
+  }) async {
+    final user = await (isLoginMode ? signIn() : register());
+    if (user == null) {
+      return null;
     }
 
-    return user;
+    if (!isLoginMode && !user.emailVerified) {
+      await (sendVerificationEmail ?? (user) => user.sendEmailVerification())(
+        user,
+      );
+    }
+
+    final refreshedUser = await (refreshUser ?? _refreshAuthenticatedUser)(
+      user,
+    );
+    await completeAuthenticatedUser(
+      refreshedUser,
+      syncExistingRestaurantAccount: syncExistingRestaurantAccount,
+      upsertUserProfile: upsertUserProfile,
+    );
+    return refreshedUser;
+  }
+
+  static Future<User> _refreshAuthenticatedUser(User user) async {
+    await user.reload();
+    await _auth.currentUser?.getIdToken(true);
+    return _auth.currentUser ?? user;
+  }
+
+  static Future<void> completeAuthenticatedUser(
+    User user, {
+    RestaurantAuthenticatedUserAction? syncExistingRestaurantAccount,
+    RestaurantAuthenticatedUserAction? upsertUserProfile,
+  }) async {
+    try {
+      await (syncExistingRestaurantAccount ??
+          RestaurantAccountService.syncEmailVerified)(user);
+    } catch (_) {
+      // Authentication has already succeeded. Account metadata synchronization
+      // is best-effort and must not block the authenticated user flow.
+    }
+    await (upsertUserProfile ?? UserProfileService.upsertSignedInUserProfile)(
+      user,
+    );
   }
 }

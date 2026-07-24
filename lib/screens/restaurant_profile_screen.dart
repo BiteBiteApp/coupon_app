@@ -21,10 +21,40 @@ import 'coupon_detail_screen.dart';
 import 'restaurant_menu_screen.dart';
 import 'restaurant_specials_screen.dart';
 
+typedef PublicRestaurantFavoriteLoader =
+    Future<bool> Function(Restaurant restaurant);
+typedef PublicRestaurantDetailsRefresher =
+    Future<Restaurant?> Function(Restaurant restaurant);
+typedef PublicRestaurantMenuResolver =
+    Future<RestaurantMenuSource?> Function(String accountDocumentId);
+typedef PublicRestaurantReportPrompt =
+    Future<BiteSaverReportResult?> Function(BuildContext context);
+typedef PublicRestaurantReportSubmitter =
+    Future<void> Function({
+      required String reportType,
+      String? restaurantId,
+      String? couponId,
+      required String reason,
+      String? note,
+    });
+
 class RestaurantProfileScreen extends StatefulWidget {
   final Restaurant restaurant;
+  final PublicRestaurantFavoriteLoader? loadFavorite;
+  final PublicRestaurantDetailsRefresher? refreshRestaurant;
+  final PublicRestaurantMenuResolver? resolvePublicMenu;
+  final PublicRestaurantReportPrompt? promptForReport;
+  final PublicRestaurantReportSubmitter? submitReport;
 
-  const RestaurantProfileScreen({super.key, required this.restaurant});
+  const RestaurantProfileScreen({
+    super.key,
+    required this.restaurant,
+    @visibleForTesting this.loadFavorite,
+    @visibleForTesting this.refreshRestaurant,
+    @visibleForTesting this.resolvePublicMenu,
+    @visibleForTesting this.promptForReport,
+    @visibleForTesting this.submitReport,
+  });
 
   @override
   State<RestaurantProfileScreen> createState() =>
@@ -56,10 +86,12 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   }
 
   Future<void> _loadFavoriteState() async {
-    final isFavorite =
-        await BiteScoreService.isSaverRestaurantFavoritedByCurrentUser(
-          restaurant,
-        );
+    final loader = widget.loadFavorite;
+    final isFavorite = loader == null
+        ? await BiteScoreService.isSaverRestaurantFavoritedByCurrentUser(
+            restaurant,
+          )
+        : await loader(restaurant);
     if (!mounted) {
       return;
     }
@@ -158,6 +190,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     }
 
     return Restaurant(
+      documentId: freshRestaurant.documentId,
       uid: freshRestaurant.uid,
       name: freshRestaurant.name,
       distance: restaurant.distance,
@@ -174,6 +207,12 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
       businessHours: freshRestaurant.businessHours,
       latitude: freshRestaurant.latitude,
       longitude: freshRestaurant.longitude,
+      profileVersion: freshRestaurant.profileVersion,
+      locationVersion: freshRestaurant.locationVersion,
+      formattedAddress: freshRestaurant.formattedAddress,
+      addressFingerprint: freshRestaurant.addressFingerprint,
+      locationValidatedAt: freshRestaurant.locationValidatedAt,
+      locationSource: freshRestaurant.locationSource,
     );
   }
 
@@ -181,25 +220,34 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     try {
       Restaurant? freshRestaurant;
 
-      final uid = restaurant.uid?.trim();
-      if (uid != null && uid.isNotEmpty) {
-        final accountData = await RestaurantAccountService.getAccountData(uid);
-        if (accountData != null) {
-          final dailySpecials =
-              RestaurantAccountService.hasCouponPostingAccess(accountData)
-              ? await RestaurantAccountService.loadDailySpecialsForRestaurant(
-                  uid,
-                )
-              : const <DailySpecial>[];
-          freshRestaurant = Restaurant.fromFirestore(
-            accountData,
-            coupons: restaurant.coupons,
-            dailySpecials: dailySpecials,
-          );
+      final refresher = widget.refreshRestaurant;
+      if (refresher != null) {
+        freshRestaurant = await refresher(restaurant);
+      } else {
+        final accountDocumentId = restaurant.accountDocumentId;
+        if (accountDocumentId != null) {
+          final accountData =
+              await RestaurantAccountService.loadAccountByDocumentId(
+                accountDocumentId,
+              );
+          if (accountData != null) {
+            final dailySpecials =
+                RestaurantAccountService.hasCouponPostingAccess(accountData)
+                ? await RestaurantAccountService.loadDailySpecialsForRestaurant(
+                    accountDocumentId,
+                  )
+                : const <DailySpecial>[];
+            freshRestaurant = Restaurant.fromFirestore(
+              accountData,
+              documentId: accountDocumentId,
+              coupons: restaurant.coupons,
+              dailySpecials: dailySpecials,
+            );
+          }
         }
-      }
 
-      freshRestaurant ??= await _findMatchingApprovedRestaurant();
+        freshRestaurant ??= await _findMatchingApprovedRestaurant();
+      }
 
       if (!mounted || freshRestaurant == null) {
         return;
@@ -302,12 +350,15 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   }
 
   Future<void> _openMenu(BuildContext context) async {
-    final uid = restaurant.uid?.trim();
-    final source = uid == null || uid.isEmpty
+    final accountDocumentId = restaurant.accountDocumentId;
+    final resolver = widget.resolvePublicMenu;
+    final source = accountDocumentId == null
         ? null
-        : await RestaurantMenuService.resolveBiteSaverPublicMenuSource(
-            uid: uid,
-          );
+        : resolver == null
+        ? await RestaurantMenuService.resolveBiteSaverPublicMenuSource(
+            uid: accountDocumentId,
+          )
+        : await resolver(accountDocumentId);
 
     if (!context.mounted) {
       return;
@@ -316,7 +367,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => RestaurantMenuScreen(
-          restaurantUid: uid,
+          restaurantUid: accountDocumentId,
           restaurantName: _displayText(restaurant.name, 'Restaurant'),
           source: source,
         ),
@@ -406,10 +457,13 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
       return;
     }
 
-    final report = await showDialog<BiteSaverReportResult>(
-      context: context,
-      builder: (context) => const BiteSaverReportDialog(),
-    );
+    final promptForReport = widget.promptForReport;
+    final report = promptForReport == null
+        ? await showDialog<BiteSaverReportResult>(
+            context: context,
+            builder: (context) => const BiteSaverReportDialog(),
+          )
+        : await promptForReport(context);
 
     if (report == null || !mounted) {
       return;
@@ -420,9 +474,11 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     });
 
     try {
-      await BiteSaverReportService.submitReport(
+      final submitReport =
+          widget.submitReport ?? BiteSaverReportService.submitReport;
+      await submitReport(
         reportType: 'restaurant',
-        restaurantId: restaurant.uid,
+        restaurantId: restaurant.accountDocumentId,
         reason: report.reason,
         note: report.note,
       );

@@ -7,10 +7,18 @@ import '../services/restaurant_account_service.dart';
 import '../widgets/bitesaver_colors.dart';
 import '../widgets/persistent_bottom_navigation.dart';
 
+typedef PublicRestaurantSpecialsLoader =
+    Future<List<DailySpecial>> Function(String accountDocumentId);
+
 class RestaurantSpecialsScreen extends StatefulWidget {
   final Restaurant restaurant;
+  final PublicRestaurantSpecialsLoader? loadSpecials;
 
-  const RestaurantSpecialsScreen({super.key, required this.restaurant});
+  const RestaurantSpecialsScreen({
+    super.key,
+    required this.restaurant,
+    @visibleForTesting this.loadSpecials,
+  });
 
   @override
   State<RestaurantSpecialsScreen> createState() =>
@@ -26,17 +34,25 @@ class _RestaurantSpecialsScreenState extends State<RestaurantSpecialsScreen> {
   }
 
   Future<List<DailySpecial>> _loadSpecials() async {
-    final uid = widget.restaurant.uid?.trim();
+    final accountDocumentId = widget.restaurant.accountDocumentId;
     final List<DailySpecial> specials;
-    if (uid != null && uid.isNotEmpty) {
-      final accountData = await RestaurantAccountService.getAccountData(uid);
-      specials =
-          accountData != null &&
-              RestaurantAccountService.hasCouponPostingAccess(accountData)
-          ? await RestaurantAccountService.loadActiveDailySpecialsForRestaurant(
-              uid,
-            )
-          : const <DailySpecial>[];
+    if (accountDocumentId != null) {
+      final loader = widget.loadSpecials;
+      if (loader != null) {
+        specials = await loader(accountDocumentId);
+      } else {
+        final accountData =
+            await RestaurantAccountService.loadAccountByDocumentId(
+              accountDocumentId,
+            );
+        specials =
+            accountData != null &&
+                RestaurantAccountService.hasCouponPostingAccess(accountData)
+            ? await RestaurantAccountService.loadActiveDailySpecialsForRestaurant(
+                accountDocumentId,
+              )
+            : const <DailySpecial>[];
+      }
     } else {
       specials = widget.restaurant.dailySpecials;
     }

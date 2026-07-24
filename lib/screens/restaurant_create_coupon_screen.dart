@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:geocoding/geocoding.dart';
 
 import '../models/bitescore_restaurant.dart';
 import '../models/coupon.dart';
@@ -13,6 +12,7 @@ import '../models/local_restaurant_profile_store.dart';
 import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/bitesaver_image_upload_service.dart';
+import '../services/bitesaver_restaurant_lifecycle_service.dart';
 import '../services/customer_session_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_auth_service.dart';
@@ -24,10 +24,46 @@ import '../widgets/clickable_phone_text.dart';
 import 'restaurant_menu_management_screen.dart';
 import 'paywall_screen.dart';
 
+typedef RestaurantNameChangeSubmitter =
+    Future<void> Function({
+      required String userId,
+      required String currentRestaurantName,
+      required String requestedRestaurantName,
+    });
+
+typedef DailySpecialSaver =
+    Future<void> Function({
+      required String uid,
+      required DailySpecial dailySpecial,
+    });
+
 class RestaurantCreateCouponScreen extends StatefulWidget {
   static const String routeName = '/restaurant-hub/coupon-side';
 
-  const RestaurantCreateCouponScreen({super.key});
+  final BiteSaverRestaurantLifecycleService? lifecycleService;
+  final Future<Map<String, dynamic>?> Function(String uid)? loadAccount;
+  final Future<List<Coupon>> Function(String uid)? loadCoupons;
+  final Future<List<DailySpecial>> Function(String uid)? loadDailySpecials;
+  final DailySpecialSaver? createDailySpecial;
+  final DailySpecialSaver? updateDailySpecial;
+  final Future<BiteSaverMenuRoutingState> Function()? loadMenuRoutingState;
+  final RestaurantNameChangeSubmitter? submitNameChangeRequest;
+  final ValueChanged<bool>? onSubscriptionRefreshStateChanged;
+  final User? testCurrentUser;
+
+  const RestaurantCreateCouponScreen({
+    super.key,
+    @visibleForTesting this.lifecycleService,
+    @visibleForTesting this.loadAccount,
+    @visibleForTesting this.loadCoupons,
+    @visibleForTesting this.loadDailySpecials,
+    @visibleForTesting this.createDailySpecial,
+    @visibleForTesting this.updateDailySpecial,
+    @visibleForTesting this.loadMenuRoutingState,
+    @visibleForTesting this.submitNameChangeRequest,
+    @visibleForTesting this.onSubscriptionRefreshStateChanged,
+    @visibleForTesting this.testCurrentUser,
+  });
 
   @override
   State<RestaurantCreateCouponScreen> createState() =>
@@ -94,6 +130,7 @@ class _RestaurantCreateCouponScreenState
   bool _subscriptionStateRefreshing = false;
   bool _dailySpecialsLoading = true;
   bool _dailySpecialSaving = false;
+  bool _dailySpecialSaveInFlight = false;
   bool _hasCouponPostingAccess = false;
   bool _hasUsedTrial = false;
   bool _showNameChangeRequest = false;
@@ -118,6 +155,7 @@ class _RestaurantCreateCouponScreenState
   List<RestaurantBusinessHours> _initialProfileBusinessHours =
       RestaurantBusinessHours.defaultWeek();
   Map<TextEditingController, String> _initialProfileTextValues = {};
+  String? _initialRestaurantImageUrl;
   Set<_CouponValidationField> _couponValidationHighlights =
       <_CouponValidationField>{};
   final Map<String, bool> copyPreviousDay = {
@@ -126,16 +164,26 @@ class _RestaurantCreateCouponScreenState
   _CouponAccountAccessState _couponAccessState =
       _CouponAccountAccessState.loading;
   String _couponAccessMessage = '';
+  late final BiteSaverRestaurantLifecycleService _lifecycleService;
+  late final BiteSaverProfileOperationState _applicationOperation;
+  late final BiteSaverProfileOperationState _ownerProfileOperation;
+  int _profileVersion = 0;
+  int _ownerSaveGeneration = 0;
+  bool _hasTrustedSearchableLocation = false;
+  String _storedRestaurantName = '';
 
   bool get isProximityCoupon => selectedCouponType == 'Proximity-only coupon';
   bool get isEditingCoupon => editingCouponId != null;
-  User? get currentUser => FirebaseAuth.instance.currentUser;
+  User? get currentUser =>
+      widget.testCurrentUser ?? FirebaseAuth.instance.currentUser;
 
   bool get _hasUnsavedRestaurantProfileChanges {
     final textChanged = _initialProfileTextValues.entries.any(
       (entry) => entry.key.text != entry.value,
     );
-    return textChanged || !_businessHoursMatch(_initialProfileBusinessHours);
+    return textChanged ||
+        restaurantImageUrl != _initialRestaurantImageUrl ||
+        !_businessHoursMatch(_initialProfileBusinessHours);
   }
 
   void _captureRestaurantProfileSnapshot() {
@@ -153,6 +201,7 @@ class _RestaurantCreateCouponScreenState
     _initialProfileBusinessHours = [
       for (final entry in businessHours) entry.copyWith(),
     ];
+    _initialRestaurantImageUrl = restaurantImageUrl;
   }
 
   bool _businessHoursMatch(List<RestaurantBusinessHours> original) {
@@ -301,10 +350,14 @@ class _RestaurantCreateCouponScreenState
     }
   }
 
-  Future<_BiteSaverMenuRoutingState> _loadBiteSaverMenuRoutingState() async {
+  Future<BiteSaverMenuRoutingState> _loadBiteSaverMenuRoutingState() async {
+    final injectedLoader = widget.loadMenuRoutingState;
+    if (injectedLoader != null) {
+      return injectedLoader();
+    }
     final user = FirebaseAuth.instance.currentUser;
     if (user == null || user.isAnonymous) {
-      return const _BiteSaverMenuRoutingState(
+      return const BiteSaverMenuRoutingState(
         usesBiteRater: false,
         matchedBiteScoreRestaurant: null,
         isAlreadyUsedByOtherSide: false,
@@ -321,7 +374,7 @@ class _RestaurantCreateCouponScreenState
         : await RestaurantMenuService.biteScoreUsesBiteSaverMenu(
             matchedRestaurant.id,
           );
-    return _BiteSaverMenuRoutingState(
+    return BiteSaverMenuRoutingState(
       usesBiteRater: usesBiteRater,
       matchedBiteScoreRestaurant: matchedRestaurant,
       isAlreadyUsedByOtherSide: isAlreadyUsedByOtherSide,
@@ -436,6 +489,10 @@ class _RestaurantCreateCouponScreenState
   @override
   void initState() {
     super.initState();
+    _lifecycleService =
+        widget.lifecycleService ?? BiteSaverRestaurantLifecycleService();
+    _applicationOperation = _lifecycleService.createOperationState();
+    _ownerProfileOperation = _lifecycleService.createOperationState();
     WidgetsBinding.instance.addObserver(this);
     SubscriptionReturnService.registerRestaurantHub();
     SubscriptionReturnService.latestReturn.addListener(
@@ -458,6 +515,18 @@ class _RestaurantCreateCouponScreenState
     );
     SubscriptionReturnService.unregisterRestaurantHub();
     _hubScrollController.dispose();
+    restaurantNameController.dispose();
+    cityController.dispose();
+    zipCodeController.dispose();
+    distanceController.dispose();
+    emailController.dispose();
+    phoneController.dispose();
+    streetAddressController.dispose();
+    websiteController.dispose();
+    bioController.dispose();
+    titleController.dispose();
+    couponCodeController.dispose();
+    couponDetailsController.dispose();
     dailySpecialTitleController.dispose();
     dailySpecialDetailsController.dispose();
     stateController.dispose();
@@ -524,6 +593,88 @@ class _RestaurantCreateCouponScreenState
     return normalized;
   }
 
+  Future<Map<String, dynamic>?> _loadRestaurantAccount(String uid) {
+    final loadAccount = widget.loadAccount;
+    if (loadAccount != null) {
+      return loadAccount(uid);
+    }
+    return RestaurantAccountService.getAccountData(uid);
+  }
+
+  Future<List<Coupon>> _loadRestaurantCoupons(String uid) {
+    final loadCoupons = widget.loadCoupons;
+    if (loadCoupons != null) {
+      return loadCoupons(uid);
+    }
+    return RestaurantAccountService.loadCoupons(uid);
+  }
+
+  Future<List<DailySpecial>> _loadRestaurantDailySpecials(String uid) {
+    final loadDailySpecials = widget.loadDailySpecials;
+    if (loadDailySpecials != null) {
+      return loadDailySpecials(uid);
+    }
+    return RestaurantAccountService.loadDailySpecialsForRestaurant(uid);
+  }
+
+  Restaurant? _restaurantFromAccountData(
+    String documentId,
+    Map<String, dynamic>? data,
+  ) {
+    if (data == null) {
+      return null;
+    }
+    return Restaurant.fromFirestore(
+      data,
+      documentId: documentId,
+      coupons: const <Coupon>[],
+    );
+  }
+
+  void _recordTrustedProfileState(Restaurant? restaurant) {
+    _profileVersion = restaurant?.profileVersion ?? 0;
+    _hasTrustedSearchableLocation =
+        restaurant?.hasTrustedSearchableLocation ?? false;
+    _storedRestaurantName = restaurant?.name.trim() ?? '';
+  }
+
+  String _normalizedRestaurantNameForComparison(String value) {
+    return value.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
+  }
+
+  BiteSaverRestaurantProfileInput _profileInput({
+    required String restaurantName,
+  }) {
+    return BiteSaverRestaurantProfileInput(
+      restaurantName: restaurantName,
+      streetAddress: streetAddressController.text,
+      city: cityController.text,
+      state: stateController.text,
+      zipCode: zipCodeController.text,
+      phone: phoneController.text,
+      website: BiteSaverOptionalField<String>.included(websiteController.text),
+      bio: BiteSaverOptionalField<String>.included(bioController.text),
+      mainImageUrl: BiteSaverOptionalField<String>.included(restaurantImageUrl),
+      businessHours:
+          BiteSaverOptionalField<List<RestaurantBusinessHours>>.included(
+            _hoursForPersistence(),
+          ),
+    );
+  }
+
+  BiteSaverRestaurantProfileInput _applicationProfileInput({
+    required String restaurantName,
+  }) {
+    return BiteSaverRestaurantProfileInput(
+      restaurantName: restaurantName,
+      streetAddress: streetAddressController.text,
+      city: cityController.text,
+      state: stateController.text,
+      zipCode: zipCodeController.text,
+      phone: phoneController.text,
+    );
+  }
+
   String _stringFromCoordinateValue(dynamic value) {
     if (value is num) {
       return value.toString();
@@ -537,6 +688,9 @@ class _RestaurantCreateCouponScreenState
   }
 
   Future<User?> _reloadCurrentRestaurantUser() async {
+    if (widget.testCurrentUser != null) {
+      return widget.testCurrentUser;
+    }
     final user = currentUser;
     if (user == null) {
       return null;
@@ -731,7 +885,11 @@ class _RestaurantCreateCouponScreenState
     LocalCouponStore.clearCoupons();
 
     final user = await _reloadCurrentRestaurantUser() ?? currentUser;
+    if (!mounted) {
+      return;
+    }
     if (user == null) {
+      _recordTrustedProfileState(null);
       _couponAccessState = _CouponAccountAccessState.noAccount;
       _couponAccessMessage = _couponAccessMessageFor(
         state: _couponAccessState,
@@ -752,7 +910,12 @@ class _RestaurantCreateCouponScreenState
     }
 
     try {
-      final data = await RestaurantAccountService.getAccountData(user.uid);
+      final data = await _loadRestaurantAccount(user.uid);
+      if (!mounted) {
+        return;
+      }
+      final loadedRestaurant = _restaurantFromAccountData(user.uid, data);
+      _recordTrustedProfileState(loadedRestaurant);
       final hasSubmittedApplication =
           RestaurantAccountService.hasSubmittedCouponApplication(data);
       final approvalStatus =
@@ -781,17 +944,6 @@ class _RestaurantCreateCouponScreenState
       _trialEndsAt = rawTrialEndsAt is Timestamp
           ? rawTrialEndsAt.toDate()
           : rawTrialEndsAt as DateTime?;
-
-      if (_couponAccessState != _CouponAccountAccessState.approved) {
-        if (mounted) {
-          setState(() {
-            profileLoading = false;
-            couponsLoading = false;
-            _dailySpecialsLoading = false;
-          });
-        }
-        return;
-      }
 
       if (data != null) {
         restaurantNameController.text =
@@ -823,19 +975,12 @@ class _RestaurantCreateCouponScreenState
             ? data['streetAddress'] as String
             : streetAddressController.text;
         websiteController.text =
-            (data['website'] as String?)?.trim().isNotEmpty == true
-            ? data['website'] as String
-            : websiteController.text;
-        bioController.text = (data['bio'] as String?)?.trim().isNotEmpty == true
-            ? data['bio'] as String
-            : bioController.text;
-        restaurantImageUrl =
-            (data[Restaurant.fieldMainImageUrl] as String?)
-                    ?.trim()
-                    .isNotEmpty ==
-                true
-            ? data[Restaurant.fieldMainImageUrl] as String
-            : restaurantImageUrl;
+            (data[Restaurant.fieldWebsite] as String?)?.trim() ?? '';
+        bioController.text =
+            (data[Restaurant.fieldBio] as String?)?.trim() ?? '';
+        final storedImageUrl =
+            (data[Restaurant.fieldMainImageUrl] as String?)?.trim() ?? '';
+        restaurantImageUrl = storedImageUrl.isEmpty ? null : storedImageUrl;
         final loadedBusinessHours = RestaurantBusinessHours.listFromFirestore(
           data[Restaurant.fieldBusinessHours],
         );
@@ -843,16 +988,30 @@ class _RestaurantCreateCouponScreenState
         _businessHoursDirty = loadedBusinessHours.isNotEmpty;
       }
 
-      final loadedCoupons = await RestaurantAccountService.loadCoupons(
-        user.uid,
-      );
+      if (_couponAccessState != _CouponAccountAccessState.approved) {
+        _captureRestaurantProfileSnapshot();
+        if (mounted) {
+          setState(() {
+            profileLoading = false;
+            couponsLoading = false;
+            _dailySpecialsLoading = false;
+          });
+        }
+        return;
+      }
+
+      final loadedCoupons = await _loadRestaurantCoupons(user.uid);
+      if (!mounted) {
+        return;
+      }
       for (final coupon in loadedCoupons.reversed) {
         LocalCouponStore.addCoupon(coupon);
       }
-      _dailySpecials =
-          await RestaurantAccountService.loadDailySpecialsForRestaurant(
-            user.uid,
-          );
+      final loadedDailySpecials = await _loadRestaurantDailySpecials(user.uid);
+      if (!mounted) {
+        return;
+      }
+      _dailySpecials = loadedDailySpecials;
 
       final persistedBusinessHours = _hoursForPersistence();
       LocalRestaurantProfileStore.updateProfile(
@@ -884,6 +1043,10 @@ class _RestaurantCreateCouponScreenState
         ),
       );
     } catch (_) {
+      if (!mounted) {
+        return;
+      }
+      _recordTrustedProfileState(null);
       _couponAccessState = _CouponAccountAccessState.loadFailed;
       _couponAccessMessage =
           'Could not load your BiteSaver owner tools right now. Please try again.';
@@ -905,13 +1068,13 @@ class _RestaurantCreateCouponScreenState
 
   Future<void> _refreshSubscriptionStateOnly() async {
     final user = await _reloadCurrentRestaurantUser() ?? currentUser;
-    if (user == null || _subscriptionStateRefreshing) {
+    if (!mounted || user == null || _subscriptionStateRefreshing) {
       return;
     }
 
-    _subscriptionStateRefreshing = true;
+    _setSubscriptionStateRefreshing(true);
     try {
-      final data = await RestaurantAccountService.getAccountData(user.uid);
+      final data = await _loadRestaurantAccount(user.uid);
       if (!mounted || data == null) {
         return;
       }
@@ -937,8 +1100,18 @@ class _RestaurantCreateCouponScreenState
     } catch (_) {
       // Keep the current screen state if the refresh fails.
     } finally {
-      _subscriptionStateRefreshing = false;
+      if (mounted) {
+        _setSubscriptionStateRefreshing(false);
+      }
     }
+  }
+
+  void _setSubscriptionStateRefreshing(bool isRefreshing) {
+    if (_subscriptionStateRefreshing == isRefreshing) {
+      return;
+    }
+    _subscriptionStateRefreshing = isRefreshing;
+    widget.onSubscriptionRefreshStateChanged?.call(isRefreshing);
   }
 
   _CouponAccountAccessState _resolveCouponAccessState({
@@ -1035,6 +1208,10 @@ class _RestaurantCreateCouponScreenState
   }
 
   Future<void> _applyForCouponSideAccount() async {
+    if (profileSaving || _applicationOperation.isInFlight) {
+      return;
+    }
+
     final user = currentUser;
     if (user == null) {
       _showSnackBar('Please sign in to continue.');
@@ -1078,22 +1255,26 @@ class _RestaurantCreateCouponScreenState
     });
 
     try {
-      await RestaurantAccountService.createOrUpdateAccountRecord(
-        user,
-        restaurantName: restaurantName,
-        streetAddress: streetAddress,
-        city: city,
-        state: state,
-        zipCode: zipCode,
-        phone: phone,
-        markApplicationSubmitted: true,
+      final request = BiteSaverProfileSaveRequest.submitApplication(
+        profile: _applicationProfileInput(restaurantName: restaurantName),
       );
-      await RestaurantAccountService.syncEmailVerified(user);
+      final result = await _applicationOperation.execute(
+        request: request,
+        logicalTarget: user.uid,
+        invoke: (requestId) =>
+            _lifecycleService.save(request, requestId: requestId),
+      );
       if (!mounted) {
         return;
       }
+      _profileVersion = result.profileVersion;
       _showSnackBar('Coupon-side application submitted for admin review.');
       await _refreshCouponAccessState();
+    } on BiteSaverLifecycleException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      _showSnackBar(error.message);
     } catch (error) {
       if (!mounted) {
         return;
@@ -1120,7 +1301,9 @@ class _RestaurantCreateCouponScreenState
       return;
     }
 
-    final currentRestaurantName = restaurantNameController.text.trim();
+    final currentRestaurantName = _storedRestaurantName.isNotEmpty
+        ? _storedRestaurantName
+        : restaurantNameController.text.trim();
     final requestedRestaurantName = requestedRestaurantNameController.text
         .trim();
 
@@ -1129,8 +1312,8 @@ class _RestaurantCreateCouponScreenState
       return;
     }
 
-    if (requestedRestaurantName.toLowerCase() ==
-        currentRestaurantName.toLowerCase()) {
+    if (_normalizedRestaurantNameForComparison(requestedRestaurantName) ==
+        _normalizedRestaurantNameForComparison(currentRestaurantName)) {
       _showSnackBar('Please enter a different restaurant name.');
       return;
     }
@@ -1140,15 +1323,24 @@ class _RestaurantCreateCouponScreenState
     });
 
     try {
-      await FirebaseFirestore.instance
-          .collection('restaurant_name_change_requests')
-          .add({
-            'userId': user.uid,
-            'currentRestaurantName': currentRestaurantName,
-            'requestedRestaurantName': requestedRestaurantName,
-            'createdAt': FieldValue.serverTimestamp(),
-            'status': 'pending',
-          });
+      final submitNameChangeRequest = widget.submitNameChangeRequest;
+      if (submitNameChangeRequest != null) {
+        await submitNameChangeRequest(
+          userId: user.uid,
+          currentRestaurantName: currentRestaurantName,
+          requestedRestaurantName: requestedRestaurantName,
+        );
+      } else {
+        await FirebaseFirestore.instance
+            .collection('restaurant_name_change_requests')
+            .add({
+              'userId': user.uid,
+              'currentRestaurantName': currentRestaurantName,
+              'requestedRestaurantName': requestedRestaurantName,
+              'createdAt': FieldValue.serverTimestamp(),
+              'status': 'pending',
+            });
+      }
 
       if (!mounted) {
         return;
@@ -1306,15 +1498,15 @@ class _RestaurantCreateCouponScreenState
     final city = cityController.text.trim();
     final state = stateController.text.trim();
     final zipCode = zipCodeController.text.trim();
-    final email = emailController.text.trim();
+    final phone = phoneController.text.trim();
 
     if (name.isEmpty ||
         streetAddress.isEmpty ||
         city.isEmpty ||
         state.isEmpty ||
         zipCode.isEmpty ||
-        email.isEmpty) {
-      return 'Please complete the required profile fields: name, street, city, state, ZIP, and email.';
+        phone.isEmpty) {
+      return 'Please complete the required profile fields: name, street, city, state, ZIP, and phone.';
     }
 
     return null;
@@ -1490,11 +1682,7 @@ class _RestaurantCreateCouponScreenState
       setState(() {
         restaurantImageUrl = uploadedUrl;
       });
-      await RestaurantAccountService.docForUser(user.uid).set({
-        Restaurant.fieldMainImageUrl: uploadedUrl,
-        Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-      _showSnackBar('Restaurant image saved.');
+      _showSnackBar('Restaurant image uploaded. Save the profile to apply it.');
     } catch (error) {
       if (!mounted) return;
       _showSnackBar(
@@ -1569,6 +1757,10 @@ class _RestaurantCreateCouponScreenState
   }
 
   Future<void> saveRestaurantProfile() async {
+    if (profileSaving || _ownerProfileOperation.isInFlight) {
+      return;
+    }
+
     final user = currentUser;
     if (user == null) {
       _showSnackBar('Please sign in to continue.');
@@ -1593,22 +1785,22 @@ class _RestaurantCreateCouponScreenState
     final website = websiteController.text.trim();
     final bio = bioController.text.trim();
     final imageUrl = restaurantImageUrl?.trim() ?? '';
-    final fullAddress = '$streetAddress, $city, $state $zipCode';
-
-    double? latitude;
-    double? longitude;
-
-    try {
-      final locations = await locationFromAddress(fullAddress);
-      if (locations.isNotEmpty) {
-        latitude = locations.first.latitude;
-        longitude = locations.first.longitude;
-      }
-    } catch (_) {
-      if (!mounted) return;
-      _showSnackBar('Could not find location for that address.');
-      return;
-    }
+    final submittedTextValues = <TextEditingController, String>{
+      restaurantNameController: restaurantNameController.text,
+      cityController: cityController.text,
+      stateController: stateController.text,
+      zipCodeController: zipCodeController.text,
+      emailController: emailController.text,
+      phoneController: phoneController.text,
+      streetAddressController: streetAddressController.text,
+      websiteController: websiteController.text,
+      bioController: bioController.text,
+    };
+    final submittedImageUrl = restaurantImageUrl;
+    final submittedBusinessHours = [
+      for (final entry in businessHours) entry.copyWith(),
+    ];
+    final operationGeneration = ++_ownerSaveGeneration;
 
     setState(() {
       profileSaving = true;
@@ -1616,50 +1808,155 @@ class _RestaurantCreateCouponScreenState
 
     try {
       final persistedBusinessHours = _hoursForPersistence();
-
-      await RestaurantAccountService.saveRestaurantProfile(
-        uid: user.uid,
-        name: name,
-        city: city,
-        state: state,
-        zipCode: zipCode,
-        email: email,
-        phone: phone,
-        streetAddress: streetAddress,
-        website: website,
-        bio: bio,
-        mainImageUrl: imageUrl,
-        businessHours: persistedBusinessHours,
-        latitude: latitude,
-        longitude: longitude,
+      final approvedName = _storedRestaurantName.isEmpty
+          ? name
+          : _storedRestaurantName;
+      final expectedProfileVersion = _profileVersion;
+      final request = BiteSaverProfileSaveRequest.ownerUpdate(
+        profile: _profileInput(restaurantName: approvedName),
+        expectedProfileVersion: expectedProfileVersion,
       );
+      final result = await _ownerProfileOperation.execute(
+        request: request,
+        logicalTarget: user.uid,
+        invoke: (requestId) =>
+            _lifecycleService.save(request, requestId: requestId),
+      );
+      if (!mounted || operationGeneration != _ownerSaveGeneration) {
+        return;
+      }
+      _profileVersion = result.profileVersion;
 
-      _businessHoursDirty = persistedBusinessHours.isNotEmpty;
+      Map<String, dynamic>? refreshedData;
+      try {
+        refreshedData = await _loadRestaurantAccount(user.uid);
+      } catch (_) {
+        // The callable save is already confirmed. A later stream refresh can
+        // repopulate the trusted metadata if this read is temporarily blocked.
+      }
+      if (!mounted || operationGeneration != _ownerSaveGeneration) {
+        return;
+      }
+      final refreshedRestaurant = _restaurantFromAccountData(
+        user.uid,
+        refreshedData,
+      );
+      final authoritativeRestaurant =
+          refreshedRestaurant != null &&
+              refreshedRestaurant.profileVersion >= result.profileVersion
+          ? refreshedRestaurant
+          : null;
+      if (authoritativeRestaurant != null) {
+        _recordTrustedProfileState(authoritativeRestaurant);
+      } else {
+        _hasTrustedSearchableLocation = false;
+      }
+
+      final refreshedEmail = refreshedData?[Restaurant.fieldEmail];
+      final authoritativeEmail =
+          authoritativeRestaurant != null &&
+              refreshedEmail is String &&
+              refreshedEmail.trim().isNotEmpty
+          ? refreshedEmail.trim()
+          : email;
+      final authoritativeTextValues = <TextEditingController, String>{
+        restaurantNameController:
+            authoritativeRestaurant?.name ??
+            submittedTextValues[restaurantNameController]!,
+        cityController:
+            authoritativeRestaurant?.city ??
+            submittedTextValues[cityController]!,
+        stateController:
+            authoritativeRestaurant?.state ??
+            submittedTextValues[stateController]!,
+        zipCodeController:
+            authoritativeRestaurant?.zipCode ??
+            submittedTextValues[zipCodeController]!,
+        emailController: authoritativeEmail,
+        phoneController: authoritativeRestaurant == null
+            ? submittedTextValues[phoneController]!
+            : formatPhoneNumberForDisplay(authoritativeRestaurant.phone ?? ''),
+        streetAddressController:
+            authoritativeRestaurant?.streetAddress ??
+            submittedTextValues[streetAddressController]!,
+        websiteController: authoritativeRestaurant == null
+            ? submittedTextValues[websiteController]!
+            : authoritativeRestaurant.website ?? '',
+        bioController: authoritativeRestaurant == null
+            ? submittedTextValues[bioController]!
+            : authoritativeRestaurant.bio ?? '',
+      };
+      for (final entry in authoritativeTextValues.entries) {
+        if (entry.key.text == submittedTextValues[entry.key]) {
+          entry.key.text = entry.value;
+        }
+        _initialProfileTextValues[entry.key] = entry.value;
+      }
+
+      final authoritativeImageUrl = authoritativeRestaurant == null
+          ? submittedImageUrl
+          : authoritativeRestaurant.mainImageUrl;
+      if (restaurantImageUrl == submittedImageUrl) {
+        restaurantImageUrl = authoritativeImageUrl;
+      }
+      _initialRestaurantImageUrl = authoritativeImageUrl;
+
+      final authoritativeBusinessHours = authoritativeRestaurant == null
+          ? submittedBusinessHours
+          : _hoursForEditing(authoritativeRestaurant.businessHours);
+      if (_businessHoursMatch(submittedBusinessHours)) {
+        businessHours = [
+          for (final entry in authoritativeBusinessHours) entry.copyWith(),
+        ];
+        _businessHoursDirty =
+            authoritativeRestaurant?.businessHours.isNotEmpty ??
+            submittedBusinessHours.isNotEmpty;
+      }
+      _initialProfileBusinessHours = [
+        for (final entry in authoritativeBusinessHours) entry.copyWith(),
+      ];
+
       LocalRestaurantProfileStore.updateProfile(
         RestaurantProfileData(
-          name: name,
-          city: city,
-          state: state,
-          zipCode: zipCode,
+          name: authoritativeRestaurant?.name ?? approvedName,
+          city: authoritativeRestaurant?.city ?? city,
+          state: authoritativeRestaurant?.state ?? state,
+          zipCode: authoritativeRestaurant?.zipCode ?? zipCode,
           distance: '',
-          email: email,
-          phone: phone,
-          streetAddress: streetAddress,
-          website: website,
-          bio: bio,
-          mainImageUrl: imageUrl,
-          latitude: latitude?.toString() ?? '',
-          longitude: longitude?.toString() ?? '',
-          businessHours: persistedBusinessHours,
+          email: authoritativeEmail,
+          phone: authoritativeRestaurant?.phone ?? phone,
+          streetAddress:
+              authoritativeRestaurant?.streetAddress ?? streetAddress,
+          website: authoritativeRestaurant == null
+              ? website
+              : authoritativeRestaurant.website ?? '',
+          bio: authoritativeRestaurant == null
+              ? bio
+              : authoritativeRestaurant.bio ?? '',
+          mainImageUrl: authoritativeRestaurant == null
+              ? imageUrl
+              : authoritativeRestaurant.mainImageUrl ?? '',
+          latitude: authoritativeRestaurant?.latitude?.toString() ?? '',
+          longitude: authoritativeRestaurant?.longitude?.toString() ?? '',
+          businessHours:
+              authoritativeRestaurant?.businessHours ?? persistedBusinessHours,
         ),
       );
 
-      if (!mounted) return;
-      _captureRestaurantProfileSnapshot();
+      if (!mounted || operationGeneration != _ownerSaveGeneration) {
+        return;
+      }
       _showSnackBar('Restaurant profile saved.');
       setState(() {});
+    } on BiteSaverLifecycleException catch (error) {
+      if (!mounted || operationGeneration != _ownerSaveGeneration) {
+        return;
+      }
+      _showSnackBar(error.message);
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || operationGeneration != _ownerSaveGeneration) {
+        return;
+      }
       _showSnackBar(
         AppErrorText.friendly(
           error,
@@ -1667,7 +1964,7 @@ class _RestaurantCreateCouponScreenState
         ),
       );
     } finally {
-      if (mounted) {
+      if (mounted && operationGeneration == _ownerSaveGeneration) {
         setState(() {
           profileSaving = false;
         });
@@ -1691,45 +1988,46 @@ class _RestaurantCreateCouponScreenState
       return false;
     }
 
-    final savedProfile = LocalRestaurantProfileStore.profile.value;
-    final savedLatitude = double.tryParse(savedProfile.latitude.trim());
-    final savedLongitude = double.tryParse(savedProfile.longitude.trim());
-    if (savedLatitude != null && savedLongitude != null) {
-      return true;
-    }
-
-    final fullAddress = '$streetAddress, $city, $state $zipCode';
-
     try {
-      final locations = await locationFromAddress(fullAddress);
-      if (locations.isEmpty) {
-        _showSnackBar('Could not find location for that address.');
+      final data = await _loadRestaurantAccount(user.uid);
+      if (!mounted) {
         return false;
       }
+      final restaurant = _restaurantFromAccountData(user.uid, data);
+      _recordTrustedProfileState(restaurant);
+      final addressMatchesSavedProfile =
+          restaurant != null &&
+          restaurant.matchesStructuredAddress(
+            streetAddress: streetAddress,
+            city: city,
+            state: state,
+            zipCode: zipCode,
+          );
 
-      final latitude = locations.first.latitude;
-      final longitude = locations.first.longitude;
+      if (addressMatchesSavedProfile &&
+          _hasTrustedSearchableLocation &&
+          !_hasUnsavedRestaurantProfileChanges) {
+        return true;
+      }
 
-      await RestaurantAccountService.saveRestaurantCoordinates(
-        uid: user.uid,
-        latitude: latitude,
-        longitude: longitude,
+      if (mounted) {
+        setState(() {
+          _basicInfoSectionExpanded = true;
+        });
+      }
+      _showSnackBar(
+        addressMatchesSavedProfile && !_hasUnsavedRestaurantProfileChanges
+            ? 'Save the restaurant profile to validate its address before posting.'
+            : 'Your restaurant profile has unsaved changes. Save and validate it before posting.',
       );
-
-      LocalRestaurantProfileStore.updateProfile(
-        savedProfile.copyWith(
-          streetAddress: streetAddress,
-          city: city,
-          state: state,
-          zipCode: zipCode,
-          latitude: latitude.toString(),
-          longitude: longitude.toString(),
-        ),
-      );
-
-      return true;
+      return false;
     } catch (_) {
-      _showSnackBar('Could not find location for that address.');
+      if (!mounted) {
+        return false;
+      }
+      _showSnackBar(
+        'Could not verify the saved restaurant location. Refresh and try again.',
+      );
       return false;
     }
   }
@@ -1741,7 +2039,10 @@ class _RestaurantCreateCouponScreenState
       return;
     }
 
-    final accountData = await RestaurantAccountService.getAccountData(user.uid);
+    final accountData = await _loadRestaurantAccount(user.uid);
+    if (!mounted) {
+      return;
+    }
     final canPostCoupons = RestaurantAccountService.hasCouponPostingAccess(
       accountData,
     );
@@ -1751,6 +2052,9 @@ class _RestaurantCreateCouponScreenState
     }
 
     final addressReady = await _ensureRestaurantAddressReadyForPosting(user);
+    if (!mounted) {
+      return;
+    }
     if (!addressReady) {
       return;
     }
@@ -1856,13 +2160,15 @@ class _RestaurantCreateCouponScreenState
   }
 
   Future<void> _refreshDailySpecials() async {
+    if (!mounted) {
+      return;
+    }
     final user = currentUser;
     if (user == null) {
       return;
     }
 
-    final specials =
-        await RestaurantAccountService.loadDailySpecialsForRestaurant(user.uid);
+    final specials = await _loadRestaurantDailySpecials(user.uid);
     if (!mounted) {
       return;
     }
@@ -1899,6 +2205,9 @@ class _RestaurantCreateCouponScreenState
   }
 
   Future<void> createOrUpdateDailySpecial() async {
+    if (!mounted || _dailySpecialSaveInFlight) {
+      return;
+    }
     final user = currentUser;
     if (user == null) {
       _showSnackBar('Please sign in to continue.');
@@ -1910,41 +2219,53 @@ class _RestaurantCreateCouponScreenState
       return;
     }
 
-    final addressReady = await _ensureRestaurantAddressReadyForPosting(user);
-    if (!addressReady) {
-      return;
-    }
-    if (!mounted) {
-      return;
-    }
-
-    FocusScope.of(context).unfocus();
-
-    final wasEditing = editingDailySpecialId != null;
-    final draftSpecial = _buildDraftDailySpecial();
-    final validationError = draftSpecial.validateForSave();
-    if (validationError != null) {
-      _showSnackBar(validationError);
-      return;
-    }
-
-    setState(() {
-      _dailySpecialSaving = true;
-    });
+    _dailySpecialSaveInFlight = true;
 
     try {
-      if (wasEditing) {
-        await RestaurantAccountService.updateDailySpecial(
-          uid: user.uid,
-          dailySpecial: draftSpecial,
-        );
-      } else {
-        await RestaurantAccountService.createDailySpecial(
-          uid: user.uid,
-          dailySpecial: draftSpecial,
-        );
+      final addressReady = await _ensureRestaurantAddressReadyForPosting(user);
+      if (!mounted || !addressReady) {
+        return;
       }
 
+      FocusScope.of(context).unfocus();
+
+      final wasEditing = editingDailySpecialId != null;
+      final draftSpecial = _buildDraftDailySpecial();
+      final validationError = draftSpecial.validateForSave();
+      if (validationError != null) {
+        _showSnackBar(validationError);
+        return;
+      }
+
+      setState(() {
+        _dailySpecialSaving = true;
+      });
+
+      if (wasEditing) {
+        final updateDailySpecial = widget.updateDailySpecial;
+        if (updateDailySpecial != null) {
+          await updateDailySpecial(uid: user.uid, dailySpecial: draftSpecial);
+        } else {
+          await RestaurantAccountService.updateDailySpecial(
+            uid: user.uid,
+            dailySpecial: draftSpecial,
+          );
+        }
+      } else {
+        final createDailySpecial = widget.createDailySpecial;
+        if (createDailySpecial != null) {
+          await createDailySpecial(uid: user.uid, dailySpecial: draftSpecial);
+        } else {
+          await RestaurantAccountService.createDailySpecial(
+            uid: user.uid,
+            dailySpecial: draftSpecial,
+          );
+        }
+      }
+
+      if (!mounted) {
+        return;
+      }
       await _refreshDailySpecials();
       if (!mounted) {
         return;
@@ -1966,6 +2287,7 @@ class _RestaurantCreateCouponScreenState
     } finally {
       if (mounted) {
         setState(() {
+          _dailySpecialSaveInFlight = false;
           _dailySpecialSaving = false;
         });
       }
@@ -2038,6 +2360,9 @@ class _RestaurantCreateCouponScreenState
         uid: user.uid,
         dailySpecialId: special.id,
       );
+      if (!mounted) {
+        return;
+      }
       if (editingDailySpecialId == special.id) {
         clearDailySpecialForm();
       }
@@ -2125,11 +2450,11 @@ class _RestaurantCreateCouponScreenState
         uid: user.uid,
         couponId: coupon.id,
       );
+      if (!mounted) return;
       LocalCouponStore.removeCoupon(coupon.id);
       if (editingCouponId == coupon.id) {
         clearCouponForm();
       }
-      if (!mounted) return;
       _showSnackBar('Coupon removed.');
     } catch (error) {
       if (!mounted) return;
@@ -2995,7 +3320,7 @@ class _RestaurantCreateCouponScreenState
                             : _applyForCouponSideAccount,
                         child: Text(
                           profileSaving
-                              ? 'Submitting...'
+                              ? 'Validating location...'
                               : 'Apply for a restaurant account',
                         ),
                       ),
@@ -3151,6 +3476,7 @@ class _RestaurantCreateCouponScreenState
         const SizedBox(height: 16),
         TextField(
           controller: emailController,
+          readOnly: true,
           keyboardType: TextInputType.emailAddress,
           decoration: buildInputDecoration(
             'Email Address',
@@ -3269,13 +3595,13 @@ class _RestaurantCreateCouponScreenState
             borderRadius: BorderRadius.circular(14),
           ),
         ),
-        child: Text(profileSaving ? 'Saving...' : label),
+        child: Text(profileSaving ? 'Validating location...' : label),
       ),
     );
   }
 
   Widget _buildManageMenuButton() {
-    return FutureBuilder<_BiteSaverMenuRoutingState>(
+    return FutureBuilder<BiteSaverMenuRoutingState>(
       future: _loadBiteSaverMenuRoutingState(),
       builder: (context, snapshot) {
         final state = snapshot.data;
@@ -4139,12 +4465,13 @@ enum _CouponAccountAccessState {
 
 enum _CouponValidationField { title, startTime, endTime }
 
-class _BiteSaverMenuRoutingState {
+@visibleForTesting
+class BiteSaverMenuRoutingState {
   final bool usesBiteRater;
   final BitescoreRestaurant? matchedBiteScoreRestaurant;
   final bool isAlreadyUsedByOtherSide;
 
-  const _BiteSaverMenuRoutingState({
+  const BiteSaverMenuRoutingState({
     required this.usesBiteRater,
     required this.matchedBiteScoreRestaurant,
     required this.isAlreadyUsedByOtherSide,

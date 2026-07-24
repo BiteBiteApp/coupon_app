@@ -9,10 +9,12 @@ import '../models/daily_special.dart';
 import '../models/restaurant.dart';
 
 class ResolvedRestaurantAccount {
+  final String documentId;
   final String accountUid;
   final Map<String, dynamic> accountData;
 
   const ResolvedRestaurantAccount({
+    required this.documentId,
     required this.accountUid,
     required this.accountData,
   });
@@ -84,6 +86,11 @@ class RestaurantAccountService {
     return _firestore.collection('restaurant_name_change_requests');
   }
 
+  @Deprecated(
+    'Authentication must not create restaurant accounts. '
+    'This helper updates identity metadata on existing accounts only. '
+    'Use saveBiteSaverRestaurantProfile for application and profile writes.',
+  )
   static Future<void> createOrUpdateAccountRecord(
     User user, {
     String? restaurantName,
@@ -95,19 +102,28 @@ class RestaurantAccountService {
     bool markApplicationSubmitted = false,
   }) async {
     final doc = docForUser(user.uid);
-    final snapshot = await doc.get();
-    final trimmedRestaurantName = restaurantName?.trim();
-    final trimmedStreetAddress = streetAddress?.trim();
-    final trimmedCity = city?.trim();
-    final trimmedState = state?.trim();
-    final trimmedZipCode = zipCode?.trim();
-    final trimmedPhone = phone?.trim();
+    await updateLegacyAccountIdentityIfPresent(
+      user: user,
+      accountExists: () async => (await doc.get()).exists,
+      updateAccount: doc.update,
+      updatedAt: FieldValue.serverTimestamp(),
+    );
+  }
+
+  @visibleForTesting
+  static Future<bool> updateLegacyAccountIdentityIfPresent({
+    required User user,
+    required Future<bool> Function() accountExists,
+    required Future<void> Function(Map<String, dynamic> fields) updateAccount,
+    required Object updatedAt,
+  }) async {
     final trimmedEmail = user.email?.trim();
     final trimmedPhoneNumber = user.phoneNumber?.trim();
     final trimmedDisplayName = user.displayName?.trim();
 
-    if (!snapshot.exists) {
-      await doc.set({
+    return updateExistingAccountOnly(
+      accountExists: accountExists,
+      updateAccount: () => updateAccount({
         Restaurant.fieldUid: user.uid,
         if (trimmedEmail != null && trimmedEmail.isNotEmpty)
           Restaurant.fieldEmail: trimmedEmail,
@@ -115,70 +131,60 @@ class RestaurantAccountService {
           'phoneNumber': trimmedPhoneNumber,
         if (trimmedDisplayName != null && trimmedDisplayName.isNotEmpty)
           'displayName': trimmedDisplayName,
-        if (trimmedRestaurantName != null && trimmedRestaurantName.isNotEmpty)
-          Restaurant.fieldName: trimmedRestaurantName,
-        if (trimmedStreetAddress != null && trimmedStreetAddress.isNotEmpty)
-          Restaurant.fieldStreetAddress: trimmedStreetAddress,
-        if (trimmedCity != null && trimmedCity.isNotEmpty)
-          Restaurant.fieldCity: trimmedCity,
-        if (trimmedState != null && trimmedState.isNotEmpty)
-          Restaurant.fieldState: trimmedState,
-        if (trimmedZipCode != null && trimmedZipCode.isNotEmpty)
-          Restaurant.fieldZipCode: trimmedZipCode,
-        if (trimmedPhone != null && trimmedPhone.isNotEmpty)
-          Restaurant.fieldPhone: trimmedPhone,
         'emailVerified': user.emailVerified,
-        if (markApplicationSubmitted) 'couponApplicationSubmitted': true,
-        if (markApplicationSubmitted) Restaurant.fieldApprovalStatus: 'pending',
-        Restaurant.fieldCreatedAt: FieldValue.serverTimestamp(),
-        Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-      });
-      return;
-    }
-
-    await doc.set({
-      Restaurant.fieldUid: user.uid,
-      if (trimmedEmail != null && trimmedEmail.isNotEmpty)
-        Restaurant.fieldEmail: trimmedEmail,
-      if (trimmedPhoneNumber != null && trimmedPhoneNumber.isNotEmpty)
-        'phoneNumber': trimmedPhoneNumber,
-      if (trimmedDisplayName != null && trimmedDisplayName.isNotEmpty)
-        'displayName': trimmedDisplayName,
-      if (trimmedRestaurantName != null && trimmedRestaurantName.isNotEmpty)
-        Restaurant.fieldName: trimmedRestaurantName,
-      if (trimmedStreetAddress != null && trimmedStreetAddress.isNotEmpty)
-        Restaurant.fieldStreetAddress: trimmedStreetAddress,
-      if (trimmedCity != null && trimmedCity.isNotEmpty)
-        Restaurant.fieldCity: trimmedCity,
-      if (trimmedState != null && trimmedState.isNotEmpty)
-        Restaurant.fieldState: trimmedState,
-      if (trimmedZipCode != null && trimmedZipCode.isNotEmpty)
-        Restaurant.fieldZipCode: trimmedZipCode,
-      if (trimmedPhone != null && trimmedPhone.isNotEmpty)
-        Restaurant.fieldPhone: trimmedPhone,
-      'emailVerified': user.emailVerified,
-      if (markApplicationSubmitted) 'couponApplicationSubmitted': true,
-      if (markApplicationSubmitted) Restaurant.fieldApprovalStatus: 'pending',
-      if (snapshot.data()?[Restaurant.fieldCreatedAt] == null)
-        Restaurant.fieldCreatedAt: FieldValue.serverTimestamp(),
-      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+        Restaurant.fieldUpdatedAt: updatedAt,
+      }),
+    );
   }
 
   static Future<void> syncEmailVerified(User user) async {
     final trimmedEmail = user.email?.trim();
     final trimmedPhoneNumber = user.phoneNumber?.trim();
     final trimmedDisplayName = user.displayName?.trim();
-    await docForUser(user.uid).set({
-      'emailVerified': user.emailVerified,
-      if (trimmedEmail != null && trimmedEmail.isNotEmpty)
-        Restaurant.fieldEmail: trimmedEmail,
-      if (trimmedPhoneNumber != null && trimmedPhoneNumber.isNotEmpty)
-        'phoneNumber': trimmedPhoneNumber,
-      if (trimmedDisplayName != null && trimmedDisplayName.isNotEmpty)
-        'displayName': trimmedDisplayName,
-      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    final doc = docForUser(user.uid);
+    try {
+      await updateExistingAccountOnly(
+        accountExists: () async => (await doc.get()).exists,
+        updateAccount: () => doc.update({
+          'emailVerified': user.emailVerified,
+          if (trimmedEmail != null && trimmedEmail.isNotEmpty)
+            Restaurant.fieldEmail: trimmedEmail,
+          if (trimmedPhoneNumber != null && trimmedPhoneNumber.isNotEmpty)
+            'phoneNumber': trimmedPhoneNumber,
+          if (trimmedDisplayName != null && trimmedDisplayName.isNotEmpty)
+            'displayName': trimmedDisplayName,
+          Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
+        }),
+      );
+    } on FirebaseException catch (error) {
+      // The document may be deleted between the existence check and update.
+      // Authentication metadata synchronization must never recreate it.
+      if (error.code != 'not-found') {
+        rethrow;
+      }
+    }
+  }
+
+  @visibleForTesting
+  static Future<bool> updateExistingAccountOnly({
+    required Future<bool> Function() accountExists,
+    required Future<void> Function() updateAccount,
+  }) async {
+    if (!await accountExists()) {
+      return false;
+    }
+
+    try {
+      await updateAccount();
+      return true;
+    } on FirebaseException catch (error) {
+      // An existing document can be deleted between the read and update.
+      // Treat only that race as a safe no-create result.
+      if (error.code == 'not-found') {
+        return false;
+      }
+      rethrow;
+    }
   }
 
   static Stream<DocumentSnapshot<Map<String, dynamic>>> accountStream(
@@ -220,18 +226,20 @@ class RestaurantAccountService {
         .snapshots();
   }
 
+  @Deprecated('Use reviewBiteSaverApplication instead.')
   static Future<void> approveAccount(String uid) async {
-    await docForUser(uid).set({
+    await docForUser(uid).update({
       Restaurant.fieldApprovalStatus: 'approved',
       Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    });
   }
 
+  @Deprecated('Use reviewBiteSaverApplication instead.')
   static Future<void> rejectAccount(String uid) async {
-    await docForUser(uid).set({
+    await docForUser(uid).update({
       Restaurant.fieldApprovalStatus: 'rejected',
       Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    });
   }
 
   static Future<void> approveRestaurantNameChangeRequest({
@@ -240,10 +248,10 @@ class RestaurantAccountService {
     required String requestedRestaurantName,
   }) async {
     final batch = _firestore.batch();
-    batch.set(docForUser(uid), {
+    batch.update(docForUser(uid), {
       Restaurant.fieldName: requestedRestaurantName.trim(),
       Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    });
     batch.set(
       restaurantNameChangeRequestsCollection().doc(requestId),
       {'status': 'approved', 'updatedAt': FieldValue.serverTimestamp()},
@@ -341,14 +349,19 @@ class RestaurantAccountService {
   static Future<bool> isCouponCustomerVisible(
     Coupon coupon, {
     Restaurant? restaurant,
+    @visibleForTesting
+    Future<Map<String, dynamic>?> Function(String accountDocumentId)?
+    accountDataLoader,
   }) async {
     if (!coupon.isActiveAt(DateTime.now())) {
       return false;
     }
 
-    final restaurantUid = restaurant?.uid?.trim();
-    if (restaurantUid != null && restaurantUid.isNotEmpty) {
-      final data = await getAccountData(restaurantUid);
+    final accountDocumentId = restaurant?.accountDocumentId;
+    if (accountDocumentId != null) {
+      final data = await (accountDataLoader ?? loadAccountByDocumentId)(
+        accountDocumentId,
+      );
       return hasCouponPostingAccess(data);
     }
 
@@ -394,6 +407,9 @@ class RestaurantAccountService {
         (_readString(data[Restaurant.fieldPhone]) ?? '').isNotEmpty;
   }
 
+  @Deprecated(
+    'Use saveBiteSaverRestaurantProfile ownerUpdate or adminUpdate instead.',
+  )
   static Future<void> saveRestaurantProfile({
     required String uid,
     required String name,
@@ -440,7 +456,7 @@ class RestaurantAccountService {
       throw ArgumentError(validationError ?? 'Restaurant email is required.');
     }
 
-    await docForUser(trimmedUid).set({
+    await docForUser(trimmedUid).update({
       Restaurant.fieldUid: trimmedUid,
       ...restaurant.toProfileFirestoreMap(
         email: trimmedEmail,
@@ -454,19 +470,22 @@ class RestaurantAccountService {
         longitude: longitude,
       ),
       Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    });
   }
 
+  @Deprecated(
+    'Trusted BiteSaver coordinates must be written only by the backend.',
+  )
   static Future<void> saveRestaurantCoordinates({
     required String uid,
     required double latitude,
     required double longitude,
   }) async {
-    await docForUser(uid).set({
+    await docForUser(uid).update({
       Restaurant.fieldLatitude: latitude,
       Restaurant.fieldLongitude: longitude,
       Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    });
   }
 
   static Future<Coupon> saveCoupon({
@@ -563,9 +582,9 @@ class RestaurantAccountService {
       DailySpecial.fieldUpdatedAt: FieldValue.serverTimestamp(),
     });
 
-    await docForUser(trimmedUid).set({
-      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await docForUser(
+      trimmedUid,
+    ).update({Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp()});
 
     return sanitizedSpecial;
   }
@@ -600,9 +619,9 @@ class RestaurantAccountService {
       DailySpecial.fieldUpdatedAt: FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
-    await docForUser(trimmedUid).set({
-      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await docForUser(
+      trimmedUid,
+    ).update({Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp()});
 
     return sanitizedSpecial;
   }
@@ -717,9 +736,9 @@ class RestaurantAccountService {
           ...numberedCoupon.toFirestoreMap(id: couponId),
           Coupon.fieldUpdatedAt: FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
-        transaction.set(docForUser(uid), {
+        transaction.update(docForUser(uid), {
           Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+        });
         return numberedCoupon;
       }
 
@@ -759,9 +778,9 @@ class RestaurantAccountService {
         ...coupon.toFirestoreMap(id: couponId),
         Coupon.fieldUpdatedAt: FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
-      transaction.set(docForUser(uid), {
+      transaction.update(docForUser(uid), {
         Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      });
       return coupon;
     });
   }
@@ -815,9 +834,9 @@ class RestaurantAccountService {
         if (isCreate) Coupon.fieldCreatedAt: FieldValue.serverTimestamp(),
         Coupon.fieldUpdatedAt: FieldValue.serverTimestamp(),
       }, SetOptions(merge: !isCreate));
-      transaction.set(docForUser(uid), {
+      transaction.update(docForUser(uid), {
         Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      });
       return numberedCoupon;
     }
 
@@ -1081,9 +1100,9 @@ class RestaurantAccountService {
 
     await dailySpecialsCollection(trimmedUid).doc(trimmedSpecialId).delete();
 
-    await docForUser(trimmedUid).set({
-      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await docForUser(
+      trimmedUid,
+    ).update({Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp()});
   }
 
   static Future<void> deleteCoupon({
@@ -1092,9 +1111,9 @@ class RestaurantAccountService {
   }) async {
     await couponsCollection(uid).doc(couponId).delete();
 
-    await docForUser(uid).set({
-      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await docForUser(
+      uid,
+    ).update({Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp()});
   }
 
   static Future<List<RestaurantMenuImage>> loadMenuImages(String uid) async {
@@ -1196,9 +1215,9 @@ class RestaurantAccountService {
       RestaurantMenuImage.fieldUpdatedAt: FieldValue.serverTimestamp(),
     });
 
-    await docForUser(uid).set({
-      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await docForUser(
+      uid,
+    ).update({Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp()});
 
     return RestaurantMenuImage(
       id: doc.id,
@@ -1238,9 +1257,9 @@ class RestaurantAccountService {
       RestaurantMenuItem.fieldUpdatedAt: FieldValue.serverTimestamp(),
     });
 
-    await docForUser(uid).set({
-      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await docForUser(
+      uid,
+    ).update({Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp()});
 
     return RestaurantMenuItem(
       id: doc.id,
@@ -1296,9 +1315,9 @@ class RestaurantAccountService {
       RestaurantMenuSection.fieldUpdatedAt: FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
 
-    await docForUser(uid).set({
-      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await docForUser(
+      uid,
+    ).update({Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp()});
 
     return RestaurantMenuSection(
       id: doc.id,
@@ -1316,9 +1335,9 @@ class RestaurantAccountService {
   }) async {
     await _ensureCanPostCoupons(uid);
     await menuImagesCollection(uid).doc(imageId.trim()).delete();
-    await docForUser(uid).set({
-      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await docForUser(
+      uid,
+    ).update({Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp()});
   }
 
   static Future<void> deleteMenuItem({
@@ -1327,9 +1346,9 @@ class RestaurantAccountService {
   }) async {
     await _ensureCanPostCoupons(uid);
     await menuItemsCollection(uid).doc(itemId.trim()).delete();
-    await docForUser(uid).set({
-      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await docForUser(
+      uid,
+    ).update({Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp()});
   }
 
   static Future<void> deleteMenuSection({
@@ -1338,9 +1357,9 @@ class RestaurantAccountService {
   }) async {
     await _ensureCanPostCoupons(uid);
     await menuSectionsCollection(uid).doc(sectionId.trim()).delete();
-    await docForUser(uid).set({
-      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    await docForUser(
+      uid,
+    ).update({Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp()});
   }
 
   static Future<void> deleteRestaurantAccount(String uid) async {
@@ -1426,22 +1445,19 @@ class RestaurantAccountService {
           doc.data(),
           fallbackUid: doc.id,
         );
-        final uid = _canonicalAccountUidFromNormalizedData(
-          normalizedData,
-          fallbackUid: doc.id,
-        );
         final canShowCustomerOffers = hasCouponPostingAccess(normalizedData);
 
-        final allCoupons = await loadCoupons(uid);
+        final allCoupons = await loadCoupons(doc.id);
         final coupons = customerVisibleCouponsForAccountData(
           normalizedData,
           allCoupons,
         );
         final dailySpecials = canShowCustomerOffers
-            ? await loadDailySpecialsForRestaurant(uid)
+            ? await loadDailySpecialsForRestaurant(doc.id)
             : const <DailySpecial>[];
         final restaurant = Restaurant.fromFirestore(
           normalizedData,
+          documentId: doc.id,
           coupons: coupons,
           dailySpecials: dailySpecials,
         );
@@ -1476,6 +1492,7 @@ class RestaurantAccountService {
       fallbackUid: snapshot.id,
     );
     return ResolvedRestaurantAccount(
+      documentId: snapshot.id,
       accountUid: accountUid,
       accountData: normalizedData,
     );
@@ -1494,6 +1511,14 @@ class RestaurantAccountService {
       normalizedData,
       fallbackUid: fallbackUid,
     );
+  }
+
+  @visibleForTesting
+  static Map<String, dynamic> normalizedAccountDataForTesting(
+    Map<String, dynamic> data, {
+    required String fallbackUid,
+  }) {
+    return _normalizedRestaurantAccountData(data, fallbackUid: fallbackUid);
   }
 
   static String _canonicalAccountUidFromNormalizedData(
@@ -1534,6 +1559,19 @@ class RestaurantAccountService {
       Restaurant.fieldBusinessHours: data[Restaurant.fieldBusinessHours],
       Restaurant.fieldLatitude: _readDouble(data[Restaurant.fieldLatitude]),
       Restaurant.fieldLongitude: _readDouble(data[Restaurant.fieldLongitude]),
+      Restaurant.fieldProfileVersion: data[Restaurant.fieldProfileVersion],
+      Restaurant.fieldLocationVersion: data[Restaurant.fieldLocationVersion],
+      Restaurant.fieldFormattedAddress: _readString(
+        data[Restaurant.fieldFormattedAddress],
+      ),
+      Restaurant.fieldAddressFingerprint: _readString(
+        data[Restaurant.fieldAddressFingerprint],
+      ),
+      Restaurant.fieldLocationValidatedAt:
+          data[Restaurant.fieldLocationValidatedAt],
+      Restaurant.fieldLocationSource: _readString(
+        data[Restaurant.fieldLocationSource],
+      ),
       Restaurant.fieldApprovalStatus:
           _readString(data[Restaurant.fieldApprovalStatus]) ?? 'pending',
       'couponApplicationSubmitted': _readBool(

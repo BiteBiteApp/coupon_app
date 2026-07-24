@@ -7,6 +7,7 @@ import '../models/coupon.dart';
 import '../models/restaurant.dart';
 import '../services/admin_link_generation_service.dart';
 import '../services/app_error_text.dart';
+import '../services/bitesaver_restaurant_lifecycle_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_invite_service.dart';
 import '../utils/phone_number_formatter.dart';
@@ -24,6 +25,12 @@ typedef AdminCouponRestaurantSearchCallback =
 typedef AdminCouponAccountLoader =
     Future<Map<String, dynamic>?> Function(String documentId);
 typedef AdminCouponAccountAction = Future<void> Function(String documentId);
+typedef AdminCouponApplicationReviewAction =
+    Future<BiteSaverApplicationReviewResult> Function({
+      required String documentId,
+      required BiteSaverApplicationDecision decision,
+      required int expectedProfileVersion,
+    });
 typedef AdminCouponLoader = Future<List<Coupon>> Function(String documentId);
 typedef AdminCouponDeleteAction =
     Future<void> Function({
@@ -67,13 +74,13 @@ class AdminReviewScreen extends StatefulWidget {
   final Stream<QuerySnapshot<Map<String, dynamic>>>? reportsStream;
   final AdminCouponRestaurantSearchCallback? searchRestaurants;
   final AdminCouponAccountLoader? loadAccount;
-  final AdminCouponAccountAction? approveAccount;
-  final AdminCouponAccountAction? rejectAccount;
+  final AdminCouponApplicationReviewAction? reviewApplication;
   final AdminCouponAccountAction? deleteAccount;
   final AdminCouponLoader? loadCoupons;
   final AdminCouponDeleteAction? deleteCoupon;
   final AdminCouponEditAction? editAccount;
   final AdminCouponInviteAction? createCouponInvite;
+  final BiteSaverRestaurantLifecycleService? lifecycleService;
 
   const AdminReviewScreen({
     super.key,
@@ -82,13 +89,13 @@ class AdminReviewScreen extends StatefulWidget {
     @visibleForTesting this.reportsStream,
     @visibleForTesting this.searchRestaurants,
     @visibleForTesting this.loadAccount,
-    @visibleForTesting this.approveAccount,
-    @visibleForTesting this.rejectAccount,
+    @visibleForTesting this.reviewApplication,
     @visibleForTesting this.deleteAccount,
     @visibleForTesting this.loadCoupons,
     @visibleForTesting this.deleteCoupon,
     @visibleForTesting this.editAccount,
     @visibleForTesting this.createCouponInvite,
+    @visibleForTesting this.lifecycleService,
   });
 
   @override
@@ -111,6 +118,7 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
       <String, Future<List<Coupon>>>{};
   final Set<String> _expandedCouponAccounts = <String>{};
   final Set<String> _busyActions = <String>{};
+  late final BiteSaverRestaurantLifecycleService _lifecycleService;
 
   late final Stream<List<AdminCouponAccountRecord>> _pendingAccountsStream;
   late final Stream<QuerySnapshot<Map<String, dynamic>>>
@@ -126,6 +134,8 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
   @override
   void initState() {
     super.initState();
+    _lifecycleService =
+        widget.lifecycleService ?? BiteSaverRestaurantLifecycleService();
     _pendingAccountsStream =
         widget.pendingAccountsStream ??
         RestaurantAccountService.pendingAccountsStream().map(
@@ -537,7 +547,11 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
         : await showDialog<bool>(
             context: context,
             builder: (context) {
-              return _CouponRestaurantEditDialog(uid: documentId, data: data);
+              return _CouponRestaurantEditDialog(
+                documentId: documentId,
+                data: data,
+                lifecycleService: _lifecycleService,
+              );
             },
           );
 
@@ -561,33 +575,36 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
     AdminRestaurantLinkRecord record,
   ) async {
     await _runBusyAction(record.recordKey, 'edit', () async {
-      try {
-        final data = await _loadAccount(record.documentId);
-        if (!context.mounted) {
-          return;
-        }
-        if (data == null) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Restaurant account was not found.')),
-          );
-          return;
-        }
-        await _editRestaurant(
-          context,
-          documentId: record.documentId,
-          data: data,
-        );
-      } catch (_) {
-        if (!context.mounted) {
-          return;
-        }
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Could not load the restaurant account right now.'),
-          ),
-        );
-      }
+      await _editLoadedRestaurant(context, documentId: record.documentId);
     });
+  }
+
+  Future<void> _editLoadedRestaurant(
+    BuildContext context, {
+    required String documentId,
+  }) async {
+    try {
+      final data = await _loadAccount(documentId);
+      if (!context.mounted) {
+        return;
+      }
+      if (data == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Restaurant account was not found.')),
+        );
+        return;
+      }
+      await _editRestaurant(context, documentId: documentId, data: data);
+    } catch (_) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Could not load the restaurant account right now.'),
+        ),
+      );
+    }
   }
 
   Future<void> _updateApprovalStatus(
@@ -596,40 +613,70 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
     required bool approved,
     bool updateSearchResult = false,
   }) async {
-    final scaffoldMessenger = ScaffoldMessenger.of(context);
-
     try {
-      if (approved) {
-        final approve = widget.approveAccount;
-        if (approve != null) {
-          await approve(documentId);
-        } else {
-          await RestaurantAccountService.approveAccount(documentId);
-        }
-      } else {
-        final reject = widget.rejectAccount;
-        if (reject != null) {
-          await reject(documentId);
-        } else {
-          await RestaurantAccountService.rejectAccount(documentId);
-        }
+      final data = await _loadAccount(documentId);
+      if (!context.mounted) {
+        return;
       }
-      if (updateSearchResult && mounted) {
+      if (data == null) {
+        throw const BiteSaverLifecycleException(
+          kind: BiteSaverLifecycleFailureKind.missingAccount,
+          code: 'not-found',
+          message:
+              'This restaurant account no longer exists. Refresh and retry.',
+        );
+      }
+      final restaurant = Restaurant.fromFirestore(
+        data,
+        documentId: documentId,
+        coupons: const <Coupon>[],
+      );
+      final decision = approved
+          ? BiteSaverApplicationDecision.approve
+          : BiteSaverApplicationDecision.reject;
+      final review = widget.reviewApplication;
+      if (review != null) {
+        await review(
+          documentId: documentId,
+          decision: decision,
+          expectedProfileVersion: restaurant.profileVersion,
+        );
+      } else {
+        await _lifecycleService.reviewApplication(
+          documentId: documentId,
+          decision: decision,
+          expectedProfileVersion: restaurant.profileVersion,
+        );
+      }
+      if (!context.mounted) {
+        return;
+      }
+      if (updateSearchResult) {
         _updateSearchApprovalStatus(
           documentId,
           approved ? 'approved' : 'rejected',
         );
       }
 
-      scaffoldMessenger.showSnackBar(
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             approved ? 'Restaurant approved.' : 'Restaurant rejected.',
           ),
         ),
       );
+    } on BiteSaverLifecycleException catch (error) {
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
     } catch (error) {
-      scaffoldMessenger.showSnackBar(
+      if (!context.mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
             AppErrorText.friendly(
@@ -1779,10 +1826,9 @@ class _AdminReviewScreenState extends State<AdminReviewScreen> {
                     return;
                   }
                   _runBusyAction(recordKey, 'edit', () async {
-                    await _editRestaurant(
+                    await _editLoadedRestaurant(
                       context,
                       documentId: documentId,
-                      data: data,
                     );
                   });
                 },
@@ -2215,10 +2261,15 @@ class _CouponInvitePrefillDialogState
 }
 
 class _CouponRestaurantEditDialog extends StatefulWidget {
-  final String uid;
+  final String documentId;
   final Map<String, dynamic> data;
+  final BiteSaverRestaurantLifecycleService lifecycleService;
 
-  const _CouponRestaurantEditDialog({required this.uid, required this.data});
+  const _CouponRestaurantEditDialog({
+    required this.documentId,
+    required this.data,
+    required this.lifecycleService,
+  });
 
   @override
   State<_CouponRestaurantEditDialog> createState() =>
@@ -2231,13 +2282,12 @@ class _CouponRestaurantEditDialogState
   late final TextEditingController _cityController;
   late final TextEditingController _stateController;
   late final TextEditingController _zipController;
-  late final TextEditingController _emailController;
   late final TextEditingController _phoneController;
   late final TextEditingController _addressController;
   late final TextEditingController _websiteController;
   late final TextEditingController _bioController;
-  late final TextEditingController _latitudeController;
-  late final TextEditingController _longitudeController;
+  late final BiteSaverProfileOperationState _operationState;
+  late final int _expectedProfileVersion;
   bool _isSaving = false;
 
   @override
@@ -2255,9 +2305,6 @@ class _CouponRestaurantEditDialogState
     _zipController = TextEditingController(
       text: _readString(widget.data, Restaurant.fieldZipCode),
     );
-    _emailController = TextEditingController(
-      text: _readString(widget.data, Restaurant.fieldEmail),
-    );
     _phoneController = TextEditingController(
       text: formatPhoneNumberForDisplay(
         _readString(widget.data, Restaurant.fieldPhone),
@@ -2272,14 +2319,12 @@ class _CouponRestaurantEditDialogState
     _bioController = TextEditingController(
       text: _readString(widget.data, Restaurant.fieldBio),
     );
-    _latitudeController = TextEditingController(
-      text:
-          _readDouble(widget.data, Restaurant.fieldLatitude)?.toString() ?? '',
-    );
-    _longitudeController = TextEditingController(
-      text:
-          _readDouble(widget.data, Restaurant.fieldLongitude)?.toString() ?? '',
-    );
+    _operationState = widget.lifecycleService.createOperationState();
+    _expectedProfileVersion = Restaurant.fromFirestore(
+      widget.data,
+      documentId: widget.documentId,
+      coupons: const <Coupon>[],
+    ).profileVersion;
   }
 
   @override
@@ -2288,13 +2333,10 @@ class _CouponRestaurantEditDialogState
     _cityController.dispose();
     _stateController.dispose();
     _zipController.dispose();
-    _emailController.dispose();
     _phoneController.dispose();
     _addressController.dispose();
     _websiteController.dispose();
     _bioController.dispose();
-    _latitudeController.dispose();
-    _longitudeController.dispose();
     super.dispose();
   }
 
@@ -2306,44 +2348,64 @@ class _CouponRestaurantEditDialogState
     return '';
   }
 
-  double? _readDouble(Map<String, dynamic> data, String key) {
-    final value = data[key];
-    if (value is num) {
-      return value.toDouble();
-    }
-    if (value is String) {
-      return double.tryParse(value.trim());
-    }
-    return null;
-  }
-
   Future<void> _save() async {
+    if (_nameController.text.trim().isEmpty ||
+        _addressController.text.trim().isEmpty ||
+        _cityController.text.trim().isEmpty ||
+        _stateController.text.trim().isEmpty ||
+        _zipController.text.trim().isEmpty ||
+        _phoneController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Complete the restaurant name, address, and phone before saving.',
+          ),
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isSaving = true;
     });
 
     try {
-      await RestaurantAccountService.saveRestaurantProfile(
-        uid: widget.uid,
-        name: _nameController.text,
-        city: _cityController.text,
-        state: _stateController.text,
-        zipCode: _zipController.text,
-        email: _emailController.text,
-        phone: _phoneController.text,
-        streetAddress: _addressController.text,
-        website: _websiteController.text,
-        bio: _bioController.text,
-        businessHours: RestaurantBusinessHours.listFromFirestore(
-          widget.data[Restaurant.fieldBusinessHours],
+      final request = BiteSaverProfileSaveRequest.adminUpdate(
+        documentId: widget.documentId,
+        expectedProfileVersion: _expectedProfileVersion,
+        profile: BiteSaverRestaurantProfileInput(
+          restaurantName: _nameController.text,
+          streetAddress: _addressController.text,
+          city: _cityController.text,
+          state: _stateController.text,
+          zipCode: _zipController.text,
+          phone: _phoneController.text,
+          website: BiteSaverOptionalField<String>.included(
+            _websiteController.text,
+          ),
+          bio: BiteSaverOptionalField<String>.included(_bioController.text),
         ),
-        latitude: double.tryParse(_latitudeController.text.trim()),
-        longitude: double.tryParse(_longitudeController.text.trim()),
+      );
+      await _operationState.execute(
+        request: request,
+        logicalTarget: widget.documentId,
+        invoke: (requestId) =>
+            widget.lifecycleService.save(request, requestId: requestId),
       );
       if (!mounted) {
         return;
       }
       Navigator.of(context).pop(true);
+    } on BiteSaverLifecycleException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(error.message)));
+      setState(() {
+        _isSaving = false;
+      });
     } catch (error) {
       if (!mounted) {
         return;
@@ -2404,7 +2466,15 @@ class _CouponRestaurantEditDialogState
                 ],
               ),
               const SizedBox(height: 12),
-              _AdminTextField(controller: _emailController, label: 'Email'),
+              if (_readString(widget.data, Restaurant.fieldEmail).isNotEmpty)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    'Account email: '
+                    '${_readString(widget.data, Restaurant.fieldEmail)}',
+                    style: const TextStyle(color: Colors.black54),
+                  ),
+                ),
               const SizedBox(height: 12),
               _AdminTextField(
                 controller: _phoneController,
@@ -2424,24 +2494,6 @@ class _CouponRestaurantEditDialogState
                 controller: _bioController,
                 label: 'Bio',
                 maxLines: 3,
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: _AdminTextField(
-                      controller: _latitudeController,
-                      label: 'Latitude',
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: _AdminTextField(
-                      controller: _longitudeController,
-                      label: 'Longitude',
-                    ),
-                  ),
-                ],
               ),
             ],
           ),

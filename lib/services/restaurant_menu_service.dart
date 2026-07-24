@@ -8,6 +8,53 @@ enum RestaurantMenuSourceType { legacyBiteSaver, sharedMenu }
 
 enum RestaurantMenuAppSide { biteSaver, biteScore }
 
+class RestaurantMenuQueryDocument {
+  final String id;
+  final Map<String, dynamic> data;
+
+  const RestaurantMenuQueryDocument({required this.id, required this.data});
+}
+
+abstract interface class RestaurantMenuQueryBoundary {
+  Future<RestaurantMenuQueryDocument?> getDocument(String documentPath);
+
+  Future<List<RestaurantMenuQueryDocument>> getCollection(
+    String collectionPath,
+  );
+}
+
+class _FirestoreRestaurantMenuQueryBoundary
+    implements RestaurantMenuQueryBoundary {
+  final FirebaseFirestore firestore;
+
+  const _FirestoreRestaurantMenuQueryBoundary(this.firestore);
+
+  @override
+  Future<RestaurantMenuQueryDocument?> getDocument(String documentPath) async {
+    final snapshot = await firestore.doc(documentPath).get();
+    final data = snapshot.data();
+    if (data == null) {
+      return null;
+    }
+    return RestaurantMenuQueryDocument(id: snapshot.id, data: data);
+  }
+
+  @override
+  Future<List<RestaurantMenuQueryDocument>> getCollection(
+    String collectionPath,
+  ) async {
+    final snapshot = await firestore.collection(collectionPath).get();
+    return snapshot.docs
+        .map(
+          (document) => RestaurantMenuQueryDocument(
+            id: document.id,
+            data: document.data(),
+          ),
+        )
+        .toList(growable: false);
+  }
+}
+
 class RestaurantMenuSource {
   final RestaurantMenuSourceType type;
   final String id;
@@ -65,6 +112,8 @@ class RestaurantMenuManageAccess {
 
 class RestaurantMenuService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static final RestaurantMenuQueryBoundary _defaultQueryBoundary =
+      _FirestoreRestaurantMenuQueryBoundary(_firestore);
   static const String menuSourceSideField = 'menuSourceSide';
   static const String linkedBiteScoreRestaurantIdField =
       'linkedBiteScoreRestaurantId';
@@ -107,13 +156,17 @@ class RestaurantMenuService {
 
   static Future<RestaurantMenuSource?> resolveBiteSaverPublicMenuSource({
     required String uid,
+    RestaurantMenuQueryBoundary? queryBoundary,
   }) async {
     final trimmedUid = uid.trim();
     if (trimmedUid.isEmpty) {
       return null;
     }
 
-    final accountData = await _loadBiteSaverAccountData(trimmedUid);
+    final accountData = await _loadBiteSaverAccountData(
+      trimmedUid,
+      queryBoundary: queryBoundary,
+    );
     final sourceSide = _readString(accountData?[menuSourceSideField]);
     if (sourceSide == menuSourceBiteScore) {
       final biteScoreRestaurantId = _readString(
@@ -311,12 +364,12 @@ class RestaurantMenuService {
       restaurant: biteScoreRestaurant,
       ownerUserId: trimmedUid,
     );
-    await RestaurantAccountService.docForUser(trimmedUid).set({
+    await RestaurantAccountService.docForUser(trimmedUid).update({
       menuSourceSideField: menuSourceBiteScore,
       linkedBiteScoreRestaurantIdField: trimmedRestaurantId,
       menuSourceUpdatedAtField: FieldValue.serverTimestamp(),
       menuSourceUpdatedByField: updatedBy.trim(),
-    }, SetOptions(merge: true));
+    });
   }
 
   static Future<void> clearBiteSaverMenuSourceRouting({
@@ -327,12 +380,12 @@ class RestaurantMenuService {
     if (trimmedUid.isEmpty) {
       return;
     }
-    await RestaurantAccountService.docForUser(trimmedUid).set({
+    await RestaurantAccountService.docForUser(trimmedUid).update({
       menuSourceSideField: menuSourceBiteSaver,
       linkedBiteScoreRestaurantIdField: FieldValue.delete(),
       menuSourceUpdatedAtField: FieldValue.serverTimestamp(),
       menuSourceUpdatedByField: updatedBy.trim(),
-    }, SetOptions(merge: true));
+    });
   }
 
   static Future<void> setBiteScoreMenuSourceToBiteSaver({
@@ -392,21 +445,23 @@ class RestaurantMenuService {
   }
 
   static Future<List<RestaurantMenuImage>> loadMenuImages(
-    RestaurantMenuSource source,
-  ) async {
+    RestaurantMenuSource source, {
+    RestaurantMenuQueryBoundary? queryBoundary,
+  }) async {
     if (source.id.isEmpty) {
       return const <RestaurantMenuImage>[];
     }
-    if (source.isLegacyBiteSaver) {
-      return RestaurantAccountService.loadMenuImages(source.id);
-    }
 
-    final snapshot = await _menuImagesCollection(source).get();
+    final documents = await _loadMenuCollection(
+      source,
+      'menu_images',
+      queryBoundary: queryBoundary,
+    );
     final images = <RestaurantMenuImage>[];
-    for (final doc in snapshot.docs) {
+    for (final document in documents) {
       final image = RestaurantMenuImage.tryFromFirestore(
-        doc.data(),
-        fallbackId: doc.id,
+        document.data,
+        fallbackId: document.id,
       );
       if (image != null) {
         images.add(image);
@@ -423,21 +478,23 @@ class RestaurantMenuService {
   }
 
   static Future<List<RestaurantMenuItem>> loadMenuItems(
-    RestaurantMenuSource source,
-  ) async {
+    RestaurantMenuSource source, {
+    RestaurantMenuQueryBoundary? queryBoundary,
+  }) async {
     if (source.id.isEmpty) {
       return const <RestaurantMenuItem>[];
     }
-    if (source.isLegacyBiteSaver) {
-      return RestaurantAccountService.loadMenuItems(source.id);
-    }
 
-    final snapshot = await _menuItemsCollection(source).get();
+    final documents = await _loadMenuCollection(
+      source,
+      'menu_items',
+      queryBoundary: queryBoundary,
+    );
     final items = <RestaurantMenuItem>[];
-    for (final doc in snapshot.docs) {
+    for (final document in documents) {
       final item = RestaurantMenuItem.tryFromFirestore(
-        doc.data(),
-        fallbackId: doc.id,
+        document.data,
+        fallbackId: document.id,
       );
       if (item != null) {
         items.add(item);
@@ -458,21 +515,23 @@ class RestaurantMenuService {
   }
 
   static Future<List<RestaurantMenuSection>> loadMenuSections(
-    RestaurantMenuSource source,
-  ) async {
+    RestaurantMenuSource source, {
+    RestaurantMenuQueryBoundary? queryBoundary,
+  }) async {
     if (source.id.isEmpty) {
       return const <RestaurantMenuSection>[];
     }
-    if (source.isLegacyBiteSaver) {
-      return RestaurantAccountService.loadMenuSections(source.id);
-    }
 
-    final snapshot = await _menuSectionsCollection(source).get();
+    final documents = await _loadMenuCollection(
+      source,
+      'menu_sections',
+      queryBoundary: queryBoundary,
+    );
     final sections = <RestaurantMenuSection>[];
-    for (final doc in snapshot.docs) {
+    for (final document in documents) {
       final section = RestaurantMenuSection.tryFromFirestore(
-        doc.data(),
-        fallbackId: doc.id,
+        document.data,
+        fallbackId: document.id,
       );
       if (section != null) {
         sections.add(section);
@@ -774,20 +833,33 @@ class RestaurantMenuService {
   }
 
   static Future<Map<String, dynamic>?> _loadBiteSaverAccountData(
-    String uid,
-  ) async {
+    String uid, {
+    RestaurantMenuQueryBoundary? queryBoundary,
+  }) async {
     final trimmedUid = uid.trim();
     if (trimmedUid.isEmpty) {
       return null;
     }
-    final snapshot = await RestaurantAccountService.docForUser(
-      trimmedUid,
-    ).get();
-    final data = snapshot.data();
-    if (data == null) {
+    final document = await (queryBoundary ?? _defaultQueryBoundary).getDocument(
+      'restaurant_accounts/$trimmedUid',
+    );
+    if (document == null) {
       return null;
     }
-    return {...data, Restaurant.fieldUid: trimmedUid};
+    return {...document.data, Restaurant.fieldUid: trimmedUid};
+  }
+
+  static Future<List<RestaurantMenuQueryDocument>> _loadMenuCollection(
+    RestaurantMenuSource source,
+    String collectionName, {
+    RestaurantMenuQueryBoundary? queryBoundary,
+  }) {
+    final rootCollection = source.isLegacyBiteSaver
+        ? 'restaurant_accounts'
+        : 'restaurant_menus';
+    return (queryBoundary ?? _defaultQueryBoundary).getCollection(
+      '$rootCollection/${source.id}/$collectionName',
+    );
   }
 
   static BitescoreRestaurant? _parseBiteScoreRestaurant(
