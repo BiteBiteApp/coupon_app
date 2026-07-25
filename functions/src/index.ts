@@ -63,6 +63,11 @@ import {
   type BiteSaverTransactionDecision,
 } from "./bitesaver_restaurant_profile.js";
 import { updateExistingRestaurantSubscription } from "./restaurant_subscription_helpers.js";
+import {
+  SubscriptionPortalConfigurationError,
+  requireCanonicalSubscriptionPortalReturnUrl,
+} from "./subscription_portal_config.js";
+import { stripeLogMetadata } from "./stripe_log_safety.js";
 
 initializeApp();
 
@@ -2291,13 +2296,9 @@ async function syncRestaurantSubscriptionFromStripe(
   });
 
   if (!restaurantUid) {
-    logger.warn(
-      "Could not resolve restaurant account for Stripe subscription",
-      {
-        subscriptionId: subscription.id,
-        stripeCustomerId,
-      },
-    );
+    logger.warn("Stripe subscription synchronization skipped", {
+      reason: "account_not_resolved",
+    });
     return;
   }
 
@@ -2332,9 +2333,8 @@ async function syncRestaurantSubscriptionFromStripe(
     updateData,
   );
   if (updateResult === "missing-account") {
-    logger.warn("Skipped Stripe sync for a missing restaurant account", {
-      subscriptionId: subscription.id,
-      restaurantUid,
+    logger.warn("Stripe subscription synchronization skipped", {
+      reason: "missing_account",
     });
   }
 }
@@ -2504,8 +2504,21 @@ export const createCustomerPortalSession = onCall(
       throw new HttpsError("unauthenticated", "Authentication is required.");
     }
 
-    const returnUrl = stripeCustomerPortalReturnUrl.value();
-    if (!returnUrl) {
+    let returnUrl: string;
+    try {
+      returnUrl = requireCanonicalSubscriptionPortalReturnUrl(
+        stripeCustomerPortalReturnUrl.value(),
+      );
+    } catch {
+      const configurationError =
+        new SubscriptionPortalConfigurationError();
+      logger.error(
+        "Stripe Customer Portal configuration is invalid",
+        stripeLogMetadata(
+          "customer_portal_session_creation",
+          configurationError,
+        ),
+      );
       throw new HttpsError(
         "failed-precondition",
         "Stripe Customer Portal is not configured.",
@@ -2513,15 +2526,27 @@ export const createCustomerPortalSession = onCall(
     }
 
     const ownerUid = request.auth.uid;
-    const accountSnapshot = await db
-      .collection("restaurant_accounts")
-      .doc(ownerUid)
-      .get();
-    const accountData = accountSnapshot.data();
-    const stripeCustomerId =
-      typeof accountData?.stripeCustomerId === "string"
-        ? accountData.stripeCustomerId.trim()
-        : "";
+    let stripeCustomerId: string;
+    try {
+      const accountSnapshot = await db
+        .collection("restaurant_accounts")
+        .doc(ownerUid)
+        .get();
+      const accountData = accountSnapshot.data();
+      stripeCustomerId =
+        typeof accountData?.stripeCustomerId === "string"
+          ? accountData.stripeCustomerId.trim()
+          : "";
+    } catch (error) {
+      logger.error(
+        "Stripe Customer Portal account lookup failed",
+        stripeLogMetadata("customer_portal_session_creation", error),
+      );
+      throw new HttpsError(
+        "internal",
+        "Unable to open subscription management right now.",
+      );
+    }
 
     if (!stripeCustomerId) {
       throw new HttpsError(
@@ -2550,15 +2575,13 @@ export const createCustomerPortalSession = onCall(
         url: session.url,
       };
     } catch (error) {
-      logger.error("Failed to create Stripe Customer Portal session", {
-        ownerUid,
-        error,
-      });
+      logger.error(
+        "Stripe Customer Portal session creation failed",
+        stripeLogMetadata("customer_portal_session_creation", error),
+      );
       throw new HttpsError(
         "internal",
-        error instanceof Error
-          ? error.message
-          : "Failed to create customer portal session.",
+        "Unable to open subscription management right now.",
       );
     }
   },
@@ -2688,9 +2711,19 @@ export const stripeWebhook = onRequest(
       return;
     }
 
-    const stripe = new Stripe(stripeSecret.value(), {
-      apiVersion: "2025-08-27.basil",
-    });
+    let stripe: Stripe;
+    try {
+      stripe = new Stripe(stripeSecret.value(), {
+        apiVersion: "2025-08-27.basil",
+      });
+    } catch (error) {
+      logger.error(
+        "Stripe webhook initialization failed",
+        stripeLogMetadata("webhook_event_processing", error),
+      );
+      response.status(500).send("Webhook processing failed.");
+      return;
+    }
 
     let event: Stripe.Event;
     try {
@@ -2700,7 +2733,10 @@ export const stripeWebhook = onRequest(
         stripeWebhookSecret.value(),
       );
     } catch (error) {
-      logger.error("Invalid Stripe webhook signature", { error });
+      logger.error(
+        "Stripe webhook signature verification failed",
+        stripeLogMetadata("webhook_signature_verification", error),
+      );
       response.status(400).send("Invalid Stripe signature.");
       return;
     }
@@ -2731,17 +2767,17 @@ export const stripeWebhook = onRequest(
           break;
         }
         default:
-          logger.info("Ignoring Stripe webhook event", {
-            type: event.type,
+          logger.info("Stripe webhook event ignored", {
+            reason: "unsupported_event_type",
           });
       }
 
       response.status(200).json({ received: true });
     } catch (error) {
-      logger.error("Failed to process Stripe webhook", {
-        type: event.type,
-        error,
-      });
+      logger.error(
+        "Stripe webhook event processing failed",
+        stripeLogMetadata("webhook_event_processing", error),
+      );
       response.status(500).send("Webhook processing failed.");
     }
   },
