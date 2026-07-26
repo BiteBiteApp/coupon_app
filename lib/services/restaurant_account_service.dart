@@ -138,31 +138,69 @@ class RestaurantAccountService {
   }
 
   static Future<void> syncEmailVerified(User user) async {
-    final trimmedEmail = user.email?.trim();
-    final trimmedPhoneNumber = user.phoneNumber?.trim();
-    final trimmedDisplayName = user.displayName?.trim();
     final doc = docForUser(user.uid);
+    await syncExistingAccountIdentityIfChanged(
+      user: user,
+      loadAccount: () async => (await doc.get()).data(),
+      updateAccount: doc.update,
+    );
+  }
+
+  @visibleForTesting
+  static Future<bool> syncExistingAccountIdentityIfChanged({
+    required User user,
+    required Future<Map<String, dynamic>?> Function() loadAccount,
+    required Future<void> Function(Map<String, dynamic> fields) updateAccount,
+  }) async {
+    final existing = await loadAccount();
+    if (existing == null) {
+      return false;
+    }
+
+    final changedFields = _changedAuthIdentityFields(user, existing);
+    if (changedFields.isEmpty) {
+      return false;
+    }
+
     try {
-      await updateExistingAccountOnly(
-        accountExists: () async => (await doc.get()).exists,
-        updateAccount: () => doc.update({
-          'emailVerified': user.emailVerified,
-          if (trimmedEmail != null && trimmedEmail.isNotEmpty)
-            Restaurant.fieldEmail: trimmedEmail,
-          if (trimmedPhoneNumber != null && trimmedPhoneNumber.isNotEmpty)
-            'phoneNumber': trimmedPhoneNumber,
-          if (trimmedDisplayName != null && trimmedDisplayName.isNotEmpty)
-            'displayName': trimmedDisplayName,
-          Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
-        }),
-      );
+      await updateAccount(changedFields);
+      return true;
     } on FirebaseException catch (error) {
-      // The document may be deleted between the existence check and update.
-      // Authentication metadata synchronization must never recreate it.
-      if (error.code != 'not-found') {
-        rethrow;
+      // The existing document may be deleted between the read and update.
+      // Identity synchronization must never recreate a restaurant account.
+      if (error.code == 'not-found') {
+        return false;
+      }
+      rethrow;
+    }
+  }
+
+  static Map<String, dynamic> _changedAuthIdentityFields(
+    User user,
+    Map<String, dynamic> existing,
+  ) {
+    final changed = <String, dynamic>{};
+
+    void includeChanged(String field, Object value) {
+      if (existing[field] != value) {
+        changed[field] = value;
       }
     }
+
+    final email = user.email?.trim();
+    if (email != null && email.isNotEmpty) {
+      includeChanged(Restaurant.fieldEmail, email);
+    }
+    final phoneNumber = user.phoneNumber?.trim();
+    if (phoneNumber != null && phoneNumber.isNotEmpty) {
+      includeChanged('phoneNumber', phoneNumber);
+    }
+    final displayName = user.displayName?.trim();
+    if (displayName != null && displayName.isNotEmpty) {
+      includeChanged('displayName', displayName);
+    }
+    includeChanged('emailVerified', user.emailVerified);
+    return changed;
   }
 
   @visibleForTesting

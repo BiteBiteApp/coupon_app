@@ -172,6 +172,192 @@ void main() {
     });
 
     test(
+      'section-owned owner inputs serialize exact narrow payloads',
+      () async {
+        final payloads = <Map<String, dynamic>>[];
+        final service = BiteSaverRestaurantLifecycleService(
+          invokeCallable: (name, payload) async {
+            expect(name, BiteSaverRestaurantLifecycleService.saveCallableName);
+            payloads.add(Map<String, dynamic>.from(payload));
+            return <String, dynamic>{
+              'documentId': 'signed-in-owner',
+              'approvalStatus': 'approved',
+              'profileVersion': (payload['expectedProfileVersion'] as int) + 1,
+              'locationVersion': payload['expectedLocationVersion'],
+            };
+          },
+        );
+
+        final basicResult = await service.save(
+          BiteSaverProfileSaveRequest.ownerBasicInformationUpdate(
+            profile: const BiteSaverBasicInformationProfileInput(
+              streetAddress: ' 1   Main Street ',
+              city: ' Crystal   River ',
+              state: ' fl ',
+              zipCode: ' 34428 ',
+              phone: ' (352)   555-0100 ',
+              website: ' https://example.test ',
+              bio: ' Local   food \r\n Family\towned ',
+            ),
+            expectedProfileVersion: 7,
+            expectedLocationVersion: 3,
+          ),
+          requestId: 'basic-update',
+        );
+        final hoursResult = await service.save(
+          BiteSaverProfileSaveRequest.ownerBusinessHoursUpdate(
+            profile: BiteSaverBusinessHoursProfileInput(
+              businessHours: RestaurantBusinessHours.defaultWeek()
+                  .map(
+                    (entry) => entry.day == 'Monday'
+                        ? entry.copyWith(
+                            opensAt: ' 8:00   AM ',
+                            closesAt: ' 4:00   PM ',
+                            closed: false,
+                          )
+                        : entry,
+                  )
+                  .toList(),
+            ),
+            expectedProfileVersion: 8,
+            expectedLocationVersion: 4,
+          ),
+          requestId: 'hours-update',
+        );
+        final imageResult = await service.save(
+          BiteSaverProfileSaveRequest.ownerMainImageUpdate(
+            profile: const BiteSaverMainImageProfileInput(mainImageUrl: null),
+            expectedProfileVersion: 9,
+            expectedLocationVersion: 4,
+          ),
+          requestId: 'image-update',
+        );
+
+        expect(payloads[0], <String, dynamic>{
+          'intent': 'ownerUpdate',
+          'expectedProfileVersion': 7,
+          'expectedLocationVersion': 3,
+          'updateSection': 'basicInformation',
+          'profile': <String, dynamic>{
+            'streetAddress': '1 Main Street',
+            'city': 'Crystal River',
+            'state': 'FL',
+            'zipCode': '34428',
+            'phone': '(352) 555-0100',
+            'website': 'https://example.test',
+            'bio': 'Local food\nFamily owned',
+          },
+          'requestId': 'basic-update',
+        });
+        final hoursPayload = payloads[1];
+        expect(hoursPayload.keys.toSet(), <String>{
+          'intent',
+          'expectedProfileVersion',
+          'expectedLocationVersion',
+          'updateSection',
+          'profile',
+          'requestId',
+        });
+        expect(hoursPayload['updateSection'], 'businessHours');
+        final hoursProfile = hoursPayload['profile'] as Map<String, dynamic>;
+        expect(hoursProfile.keys, <String>['businessHours']);
+        final monday = (hoursProfile['businessHours'] as List<dynamic>)
+            .cast<Map<String, dynamic>>()
+            .singleWhere((entry) => entry['day'] == 'Monday');
+        expect(monday, <String, dynamic>{
+          'day': 'Monday',
+          'opensAt': '8:00 AM',
+          'closesAt': '4:00 PM',
+          'closed': false,
+        });
+        expect(payloads[2], <String, dynamic>{
+          'intent': 'ownerUpdate',
+          'expectedProfileVersion': 9,
+          'expectedLocationVersion': 4,
+          'updateSection': 'mainImage',
+          'profile': <String, dynamic>{'mainImageUrl': ''},
+          'requestId': 'image-update',
+        });
+        expect(basicResult.locationVersion, 3);
+        expect(hoursResult.locationVersion, 4);
+        expect(imageResult.locationVersion, 4);
+        for (final payload in payloads) {
+          _expectNoNullValues(payload);
+          _expectNoTrustedOrIdentityFields(payload);
+        }
+      },
+    );
+
+    test(
+      'section-owned updates require both valid expected versions',
+      () async {
+        var calls = 0;
+        final service = BiteSaverRestaurantLifecycleService(
+          invokeCallable: (name, payload) async {
+            calls += 1;
+            return <String, dynamic>{};
+          },
+        );
+
+        final invalidRequests = <BiteSaverProfileSaveRequest>[
+          BiteSaverProfileSaveRequest.ownerBasicInformationUpdate(
+            profile: const BiteSaverBasicInformationProfileInput(
+              streetAddress: '1 Main Street',
+              city: 'Crystal River',
+              state: 'FL',
+              zipCode: '34428',
+              phone: '(352) 555-0100',
+              website: '',
+              bio: '',
+            ),
+            expectedProfileVersion: -1,
+            expectedLocationVersion: 2,
+          ),
+          BiteSaverProfileSaveRequest.ownerBusinessHoursUpdate(
+            profile: const BiteSaverBusinessHoursProfileInput(
+              businessHours: <RestaurantBusinessHours>[],
+            ),
+            expectedProfileVersion: 3,
+            expectedLocationVersion: -1,
+          ),
+          BiteSaverProfileSaveRequest(
+            intent: BiteSaverProfileIntent.ownerUpdate,
+            profile: const BiteSaverMainImageProfileInput(
+              mainImageUrl: 'https://example.test/image.jpg',
+            ),
+            expectedProfileVersion: 3,
+            updateSection: BiteSaverProfileUpdateSection.mainImage,
+          ),
+          BiteSaverProfileSaveRequest(
+            intent: BiteSaverProfileIntent.ownerUpdate,
+            profile: const BiteSaverMainImageProfileInput(
+              mainImageUrl: 'https://example.test/image.jpg',
+            ),
+            expectedProfileVersion: 3,
+            expectedLocationVersion: 2,
+            updateSection: BiteSaverProfileUpdateSection.businessHours,
+          ),
+        ];
+
+        for (final request in invalidRequests) {
+          await expectLater(
+            service.save(request, requestId: 'invalid-section-update'),
+            throwsA(
+              isA<BiteSaverLifecycleException>()
+                  .having(
+                    (error) => error.kind,
+                    'kind',
+                    BiteSaverLifecycleFailureKind.invalidProfile,
+                  )
+                  .having((error) => error.code, 'code', 'invalid-argument'),
+            ),
+          );
+        }
+        expect(calls, 0);
+      },
+    );
+
+    test(
       'business hours preserve B1 ordering and reject invalid weeks',
       () async {
         var calls = 0;
@@ -406,6 +592,62 @@ void main() {
         );
       },
     );
+
+    test('save responses accept absent or valid location versions', () async {
+      var locationVersionIncluded = false;
+      final service = BiteSaverRestaurantLifecycleService(
+        invokeCallable: (name, payload) async => <String, dynamic>{
+          'documentId': 'owner-1',
+          'approvalStatus': 'pending',
+          'profileVersion': 1,
+          if (locationVersionIncluded) 'locationVersion': 0,
+        },
+      );
+
+      final legacyResult = await service.saveProfile(
+        intent: BiteSaverProfileIntent.submitApplication,
+        requestId: 'legacy-response',
+        profile: _profile(),
+      );
+      expect(legacyResult.locationVersion, isNull);
+
+      locationVersionIncluded = true;
+      final versionedResult = await service.saveProfile(
+        intent: BiteSaverProfileIntent.submitApplication,
+        requestId: 'versioned-response',
+        profile: _profile(),
+      );
+      expect(versionedResult.locationVersion, 0);
+    });
+
+    test('save responses reject malformed location versions', () async {
+      for (final malformed in <Object?>[-1, 1.5, '1', null]) {
+        final service = BiteSaverRestaurantLifecycleService(
+          invokeCallable: (name, payload) async => <String, dynamic>{
+            'documentId': 'owner-1',
+            'approvalStatus': 'pending',
+            'profileVersion': 1,
+            'locationVersion': malformed,
+          },
+        );
+
+        await expectLater(
+          service.saveProfile(
+            intent: BiteSaverProfileIntent.submitApplication,
+            requestId: 'malformed-location-version',
+            profile: _profile(),
+          ),
+          throwsA(
+            isA<BiteSaverLifecycleException>().having(
+              (error) => error.kind,
+              'kind',
+              BiteSaverLifecycleFailureKind.invalidResponse,
+            ),
+          ),
+          reason: '$malformed',
+        );
+      }
+    });
 
     test('responses fail closed on impossible version or identity', () async {
       final zeroVersionService = BiteSaverRestaurantLifecycleService(
@@ -708,6 +950,71 @@ void main() {
         'id-8',
       ]);
     });
+
+    test(
+      'section and expected location version participate in ID binding',
+      () async {
+        var sequence = 0;
+        final state = BiteSaverProfileOperationState(
+          requestIdGenerator: () => 'section-${++sequence}',
+        );
+        final observed = <String>[];
+        const basicProfile = BiteSaverBasicInformationProfileInput(
+          streetAddress: '1 Main Street',
+          city: 'Crystal River',
+          state: 'FL',
+          zipCode: '34428',
+          phone: '(352) 555-0100',
+          website: '',
+          bio: '',
+        );
+
+        Future<void> fail(BiteSaverProfileSaveRequest request) async {
+          await expectLater(
+            state.execute<void>(
+              request: request,
+              logicalTarget: 'owner-1',
+              invoke: (requestId) async {
+                observed.add(requestId);
+                throw const BiteSaverCallableFailure('unavailable');
+              },
+            ),
+            throwsA(isA<BiteSaverCallableFailure>()),
+          );
+        }
+
+        final first = BiteSaverProfileSaveRequest.ownerBasicInformationUpdate(
+          profile: basicProfile,
+          expectedProfileVersion: 4,
+          expectedLocationVersion: 2,
+        );
+        await fail(first);
+        await fail(first);
+        await fail(
+          BiteSaverProfileSaveRequest.ownerBasicInformationUpdate(
+            profile: basicProfile,
+            expectedProfileVersion: 4,
+            expectedLocationVersion: 3,
+          ),
+        );
+        await fail(
+          BiteSaverProfileSaveRequest.ownerBusinessHoursUpdate(
+            profile: const BiteSaverBusinessHoursProfileInput(
+              businessHours: <RestaurantBusinessHours>[],
+            ),
+            expectedProfileVersion: 4,
+            expectedLocationVersion: 3,
+          ),
+        );
+
+        expect(observed, <String>[
+          'section-1',
+          'section-1',
+          'section-2',
+          'section-3',
+        ]);
+      },
+    );
 
     test('implicit target changes receive a new ID', () async {
       var sequence = 0;

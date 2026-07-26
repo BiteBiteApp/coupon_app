@@ -20,6 +20,16 @@ enum BiteSaverProfileIntent {
   const BiteSaverProfileIntent(this.wireName);
 }
 
+enum BiteSaverProfileUpdateSection {
+  basicInformation('basicInformation'),
+  businessHours('businessHours'),
+  mainImage('mainImage');
+
+  final String wireName;
+
+  const BiteSaverProfileUpdateSection(this.wireName);
+}
+
 enum BiteSaverApplicationDecision {
   approve('approve'),
   reject('reject');
@@ -55,8 +65,78 @@ class BiteSaverOptionalField<T> {
   const BiteSaverOptionalField.included(this.value) : isIncluded = true;
 }
 
+abstract interface class BiteSaverCallableProfileInput {
+  Map<String, dynamic> toCallableProfile();
+}
+
 @immutable
-class BiteSaverRestaurantProfileInput {
+class BiteSaverBasicInformationProfileInput
+    implements BiteSaverCallableProfileInput {
+  final String streetAddress;
+  final String city;
+  final String state;
+  final String zipCode;
+  final String phone;
+  final String website;
+  final String bio;
+
+  const BiteSaverBasicInformationProfileInput({
+    required this.streetAddress,
+    required this.city,
+    required this.state,
+    required this.zipCode,
+    required this.phone,
+    required this.website,
+    required this.bio,
+  });
+
+  @override
+  Map<String, dynamic> toCallableProfile() {
+    return <String, dynamic>{
+      'streetAddress': _normalizeSingleLine(streetAddress),
+      'city': _normalizeSingleLine(city),
+      'state': _normalizeSingleLine(state).toUpperCase(),
+      'zipCode': _normalizeSingleLine(zipCode),
+      'phone': _normalizeSingleLine(phone),
+      'website': _normalizeOptionalSingleLine(website),
+      'bio': _normalizeOptionalMultiline(bio),
+    };
+  }
+}
+
+@immutable
+class BiteSaverBusinessHoursProfileInput
+    implements BiteSaverCallableProfileInput {
+  final List<RestaurantBusinessHours> businessHours;
+
+  const BiteSaverBusinessHoursProfileInput({required this.businessHours});
+
+  @override
+  Map<String, dynamic> toCallableProfile() {
+    return <String, dynamic>{
+      'businessHours': BiteSaverRestaurantProfileInput._normalizedBusinessHours(
+        businessHours,
+      ),
+    };
+  }
+}
+
+@immutable
+class BiteSaverMainImageProfileInput implements BiteSaverCallableProfileInput {
+  final String? mainImageUrl;
+
+  const BiteSaverMainImageProfileInput({required this.mainImageUrl});
+
+  @override
+  Map<String, dynamic> toCallableProfile() {
+    return <String, dynamic>{
+      'mainImageUrl': _normalizeOptionalSingleLine(mainImageUrl),
+    };
+  }
+}
+
+@immutable
+class BiteSaverRestaurantProfileInput implements BiteSaverCallableProfileInput {
   static final RegExp _unsupportedSingleLineCharacterPattern = RegExp(
     r'[\p{Cc}\p{Cf}]',
     unicode: true,
@@ -87,6 +167,7 @@ class BiteSaverRestaurantProfileInput {
         const BiteSaverOptionalField<List<RestaurantBusinessHours>>.omitted(),
   });
 
+  @override
   Map<String, dynamic> toCallableProfile() {
     final profile = <String, dynamic>{
       'restaurantName': _normalizeSingleLine(restaurantName),
@@ -175,15 +256,19 @@ class BiteSaverRestaurantProfileInput {
 @immutable
 class BiteSaverProfileSaveRequest {
   final BiteSaverProfileIntent intent;
-  final BiteSaverRestaurantProfileInput profile;
+  final BiteSaverCallableProfileInput profile;
   final String? documentId;
   final int? expectedProfileVersion;
+  final int? expectedLocationVersion;
+  final BiteSaverProfileUpdateSection? updateSection;
 
   const BiteSaverProfileSaveRequest({
     required this.intent,
     required this.profile,
     this.documentId,
     this.expectedProfileVersion,
+    this.expectedLocationVersion,
+    this.updateSection,
   });
 
   factory BiteSaverProfileSaveRequest.submitApplication({
@@ -203,6 +288,48 @@ class BiteSaverProfileSaveRequest {
       intent: BiteSaverProfileIntent.ownerUpdate,
       profile: profile,
       expectedProfileVersion: expectedProfileVersion,
+    );
+  }
+
+  factory BiteSaverProfileSaveRequest.ownerBasicInformationUpdate({
+    required BiteSaverBasicInformationProfileInput profile,
+    required int expectedProfileVersion,
+    required int expectedLocationVersion,
+  }) {
+    return BiteSaverProfileSaveRequest(
+      intent: BiteSaverProfileIntent.ownerUpdate,
+      profile: profile,
+      expectedProfileVersion: expectedProfileVersion,
+      expectedLocationVersion: expectedLocationVersion,
+      updateSection: BiteSaverProfileUpdateSection.basicInformation,
+    );
+  }
+
+  factory BiteSaverProfileSaveRequest.ownerBusinessHoursUpdate({
+    required BiteSaverBusinessHoursProfileInput profile,
+    required int expectedProfileVersion,
+    required int expectedLocationVersion,
+  }) {
+    return BiteSaverProfileSaveRequest(
+      intent: BiteSaverProfileIntent.ownerUpdate,
+      profile: profile,
+      expectedProfileVersion: expectedProfileVersion,
+      expectedLocationVersion: expectedLocationVersion,
+      updateSection: BiteSaverProfileUpdateSection.businessHours,
+    );
+  }
+
+  factory BiteSaverProfileSaveRequest.ownerMainImageUpdate({
+    required BiteSaverMainImageProfileInput profile,
+    required int expectedProfileVersion,
+    required int expectedLocationVersion,
+  }) {
+    return BiteSaverProfileSaveRequest(
+      intent: BiteSaverProfileIntent.ownerUpdate,
+      profile: profile,
+      expectedProfileVersion: expectedProfileVersion,
+      expectedLocationVersion: expectedLocationVersion,
+      updateSection: BiteSaverProfileUpdateSection.mainImage,
     );
   }
 
@@ -226,6 +353,9 @@ class BiteSaverProfileSaveRequest {
         'documentId': _normalizeSingleLine(documentId ?? ''),
       if (intent != BiteSaverProfileIntent.submitApplication)
         'expectedProfileVersion': expectedProfileVersion,
+      if (expectedLocationVersion != null)
+        'expectedLocationVersion': expectedLocationVersion,
+      if (updateSection != null) 'updateSection': updateSection!.wireName,
       'profile': profile.toCallableProfile(),
     };
     return payload;
@@ -246,11 +376,13 @@ class BiteSaverProfileSaveResult {
   final String documentId;
   final String? approvalStatus;
   final int profileVersion;
+  final int? locationVersion;
 
   const BiteSaverProfileSaveResult({
     required this.documentId,
     required this.approvalStatus,
     required this.profileVersion,
+    this.locationVersion,
   });
 }
 
@@ -464,7 +596,10 @@ class BiteSaverRestaurantLifecycleService {
     switch (request.intent) {
       case BiteSaverProfileIntent.submitApplication:
         if (request.documentId != null ||
-            request.expectedProfileVersion != null) {
+            request.expectedProfileVersion != null ||
+            request.expectedLocationVersion != null ||
+            request.updateSection != null ||
+            request.profile is! BiteSaverRestaurantProfileInput) {
           throw const BiteSaverLifecycleException(
             kind: BiteSaverLifecycleFailureKind.invalidProfile,
             code: 'invalid-argument',
@@ -482,11 +617,35 @@ class BiteSaverRestaurantLifecycleService {
             message: 'The restaurant profile update is incomplete.',
           );
         }
+        final updateSection = request.updateSection;
+        if (updateSection == null) {
+          if (request.expectedLocationVersion != null ||
+              request.profile is! BiteSaverRestaurantProfileInput) {
+            throw const BiteSaverLifecycleException(
+              kind: BiteSaverLifecycleFailureKind.invalidProfile,
+              code: 'invalid-argument',
+              message: 'The restaurant profile update is incomplete.',
+            );
+          }
+          return;
+        }
+        if (request.expectedLocationVersion == null ||
+            request.expectedLocationVersion! < 0 ||
+            !_profileMatchesUpdateSection(request.profile, updateSection)) {
+          throw const BiteSaverLifecycleException(
+            kind: BiteSaverLifecycleFailureKind.invalidProfile,
+            code: 'invalid-argument',
+            message: 'The restaurant profile update is incomplete.',
+          );
+        }
         return;
       case BiteSaverProfileIntent.adminUpdate:
         if ((request.documentId ?? '').trim().isEmpty ||
             request.expectedProfileVersion == null ||
-            request.expectedProfileVersion! < 0) {
+            request.expectedProfileVersion! < 0 ||
+            request.expectedLocationVersion != null ||
+            request.updateSection != null ||
+            request.profile is! BiteSaverRestaurantProfileInput) {
           throw const BiteSaverLifecycleException(
             kind: BiteSaverLifecycleFailureKind.invalidProfile,
             code: 'invalid-argument',
@@ -495,6 +654,20 @@ class BiteSaverRestaurantLifecycleService {
         }
         return;
     }
+  }
+
+  static bool _profileMatchesUpdateSection(
+    BiteSaverCallableProfileInput profile,
+    BiteSaverProfileUpdateSection updateSection,
+  ) {
+    return switch (updateSection) {
+      BiteSaverProfileUpdateSection.basicInformation =>
+        profile is BiteSaverBasicInformationProfileInput,
+      BiteSaverProfileUpdateSection.businessHours =>
+        profile is BiteSaverBusinessHoursProfileInput,
+      BiteSaverProfileUpdateSection.mainImage =>
+        profile is BiteSaverMainImageProfileInput,
+    };
   }
 
   static BiteSaverProfileSaveResult _parseSaveResult(
@@ -510,6 +683,7 @@ class BiteSaverRestaurantLifecycleService {
       documentId: documentId,
       approvalStatus: _optionalApprovalStatus(data['approvalStatus']),
       profileVersion: _requiredVersion(data, 'profileVersion', minimumValue: 1),
+      locationVersion: _optionalVersion(data, 'locationVersion'),
     );
   }
 
@@ -715,6 +889,17 @@ int _requiredVersion(
 }) {
   final value = data[key];
   if (value is int && value >= minimumValue) {
+    return value;
+  }
+  throw _invalidResponse();
+}
+
+int? _optionalVersion(Map<String, dynamic> data, String key) {
+  if (!data.containsKey(key)) {
+    return null;
+  }
+  final value = data[key];
+  if (value is int && value >= 0) {
     return value;
   }
   throw _invalidResponse();

@@ -172,6 +172,7 @@ class _RestaurantCreateCouponScreenState
   final Object _lifecycleRefreshOwner = Object();
   Completer<bool>? _lifecycleRefreshAttempt;
   int _profileVersion = 0;
+  int _locationVersion = 0;
   int _ownerSaveGeneration = 0;
   bool _hasTrustedSearchableLocation = false;
   String _storedRestaurantName = '';
@@ -733,6 +734,7 @@ class _RestaurantCreateCouponScreenState
 
   void _recordTrustedProfileState(Restaurant? restaurant) {
     _profileVersion = restaurant?.profileVersion ?? 0;
+    _locationVersion = restaurant?.locationVersion ?? 0;
     _hasTrustedSearchableLocation =
         restaurant?.hasTrustedSearchableLocation ?? false;
     _storedRestaurantName = restaurant?.name.trim() ?? '';
@@ -742,23 +744,15 @@ class _RestaurantCreateCouponScreenState
     return value.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase();
   }
 
-  BiteSaverRestaurantProfileInput _profileInput({
-    required String restaurantName,
-  }) {
-    return BiteSaverRestaurantProfileInput(
-      restaurantName: restaurantName,
+  BiteSaverBasicInformationProfileInput _basicInformationProfileInput() {
+    return BiteSaverBasicInformationProfileInput(
       streetAddress: streetAddressController.text,
       city: cityController.text,
       state: stateController.text,
       zipCode: zipCodeController.text,
       phone: phoneController.text,
-      website: BiteSaverOptionalField<String>.included(websiteController.text),
-      bio: BiteSaverOptionalField<String>.included(bioController.text),
-      mainImageUrl: BiteSaverOptionalField<String>.included(restaurantImageUrl),
-      businessHours:
-          BiteSaverOptionalField<List<RestaurantBusinessHours>>.included(
-            _hoursForPersistence(),
-          ),
+      website: websiteController.text,
+      bio: bioController.text,
     );
   }
 
@@ -1373,6 +1367,9 @@ class _RestaurantCreateCouponScreenState
         return;
       }
       _profileVersion = result.profileVersion;
+      if (result.locationVersion != null) {
+        _locationVersion = result.locationVersion!;
+      }
       _showSnackBar('Coupon-side application submitted for admin review.');
       await _refreshCouponAccessState();
     } on BiteSaverLifecycleException catch (error) {
@@ -1597,21 +1594,19 @@ class _RestaurantCreateCouponScreenState
     return double.tryParse(radiusText.split(' ').first) ?? 1.0;
   }
 
-  String? _validateProfileInput() {
-    final name = restaurantNameController.text.trim();
+  String? _validateBasicInformationInput() {
     final streetAddress = streetAddressController.text.trim();
     final city = cityController.text.trim();
     final state = stateController.text.trim();
     final zipCode = zipCodeController.text.trim();
     final phone = phoneController.text.trim();
 
-    if (name.isEmpty ||
-        streetAddress.isEmpty ||
+    if (streetAddress.isEmpty ||
         city.isEmpty ||
         state.isEmpty ||
         zipCode.isEmpty ||
         phone.isEmpty) {
-      return 'Please complete the required profile fields: name, street, city, state, ZIP, and phone.';
+      return 'Please complete the required profile fields: street, city, state, ZIP, and phone.';
     }
 
     return null;
@@ -1787,7 +1782,9 @@ class _RestaurantCreateCouponScreenState
       setState(() {
         restaurantImageUrl = uploadedUrl;
       });
-      _showSnackBar('Restaurant image uploaded. Save the profile to apply it.');
+      _showSnackBar(
+        'Restaurant image uploaded. Save Restaurant Image to apply it.',
+      );
     } catch (error) {
       if (!mounted) return;
       _showSnackBar(
@@ -1861,11 +1858,10 @@ class _RestaurantCreateCouponScreenState
     }
   }
 
-  Future<void> saveRestaurantProfile() async {
+  Future<void> _saveBasicRestaurantInformation() async {
     if (profileSaving || _ownerProfileOperation.isInFlight) {
       return;
     }
-
     final user = currentUser;
     if (user == null) {
       _showSnackBar('Please sign in to continue.');
@@ -1873,54 +1869,199 @@ class _RestaurantCreateCouponScreenState
     }
 
     FocusScope.of(context).unfocus();
-
-    final profileError = _validateProfileInput();
+    final profileError = _validateBasicInformationInput();
     if (profileError != null) {
       _showSnackBar(profileError);
       return;
     }
 
-    final name = restaurantNameController.text.trim();
     final city = cityController.text.trim();
     final state = stateController.text.trim();
     final zipCode = zipCodeController.text.trim();
-    final email = emailController.text.trim();
     final phone = phoneController.text.trim();
     final streetAddress = streetAddressController.text.trim();
     final website = websiteController.text.trim();
     final bio = bioController.text.trim();
-    final imageUrl = restaurantImageUrl?.trim() ?? '';
     final submittedTextValues = <TextEditingController, String>{
-      restaurantNameController: restaurantNameController.text,
       cityController: cityController.text,
       stateController: stateController.text,
       zipCodeController: zipCodeController.text,
-      emailController: emailController.text,
       phoneController: phoneController.text,
       streetAddressController: streetAddressController.text,
       websiteController: websiteController.text,
       bioController: bioController.text,
     };
-    final submittedImageUrl = restaurantImageUrl;
+    final request = BiteSaverProfileSaveRequest.ownerBasicInformationUpdate(
+      profile: _basicInformationProfileInput(),
+      expectedProfileVersion: _profileVersion,
+      expectedLocationVersion: _locationVersion,
+    );
+
+    await _executeOwnerSectionSave(
+      user: user,
+      request: request,
+      successMessage: 'Restaurant profile saved.',
+      reconcile: (authoritativeRestaurant) {
+        final authoritativeTextValues = <TextEditingController, String>{
+          cityController:
+              authoritativeRestaurant?.city ??
+              submittedTextValues[cityController]!,
+          stateController:
+              authoritativeRestaurant?.state ??
+              submittedTextValues[stateController]!,
+          zipCodeController:
+              authoritativeRestaurant?.zipCode ??
+              submittedTextValues[zipCodeController]!,
+          phoneController: authoritativeRestaurant == null
+              ? submittedTextValues[phoneController]!
+              : formatPhoneNumberForDisplay(
+                  authoritativeRestaurant.phone ?? '',
+                ),
+          streetAddressController:
+              authoritativeRestaurant?.streetAddress ??
+              submittedTextValues[streetAddressController]!,
+          websiteController: authoritativeRestaurant == null
+              ? submittedTextValues[websiteController]!
+              : authoritativeRestaurant.website ?? '',
+          bioController: authoritativeRestaurant == null
+              ? submittedTextValues[bioController]!
+              : authoritativeRestaurant.bio ?? '',
+        };
+        for (final entry in authoritativeTextValues.entries) {
+          if (entry.key.text == submittedTextValues[entry.key]) {
+            entry.key.text = entry.value;
+          }
+          _initialProfileTextValues[entry.key] = entry.value;
+        }
+
+        final localProfile = LocalRestaurantProfileStore.profile.value;
+        LocalRestaurantProfileStore.updateProfile(
+          localProfile.copyWith(
+            city: authoritativeRestaurant?.city ?? city,
+            state: authoritativeRestaurant?.state ?? state,
+            zipCode: authoritativeRestaurant?.zipCode ?? zipCode,
+            phone: authoritativeRestaurant?.phone ?? phone,
+            streetAddress:
+                authoritativeRestaurant?.streetAddress ?? streetAddress,
+            website: authoritativeRestaurant == null
+                ? website
+                : authoritativeRestaurant.website ?? '',
+            bio: authoritativeRestaurant == null
+                ? bio
+                : authoritativeRestaurant.bio ?? '',
+            latitude:
+                authoritativeRestaurant?.latitude?.toString() ??
+                localProfile.latitude,
+            longitude:
+                authoritativeRestaurant?.longitude?.toString() ??
+                localProfile.longitude,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _saveBusinessHours() async {
+    if (profileSaving || _ownerProfileOperation.isInFlight) {
+      return;
+    }
+    final user = currentUser;
+    if (user == null) {
+      _showSnackBar('Please sign in to continue.');
+      return;
+    }
+
+    FocusScope.of(context).unfocus();
     final submittedBusinessHours = [
       for (final entry in businessHours) entry.copyWith(),
     ];
-    final operationGeneration = ++_ownerSaveGeneration;
+    final persistedBusinessHours = _hoursForPersistence();
+    final request = BiteSaverProfileSaveRequest.ownerBusinessHoursUpdate(
+      profile: BiteSaverBusinessHoursProfileInput(
+        businessHours: persistedBusinessHours,
+      ),
+      expectedProfileVersion: _profileVersion,
+      expectedLocationVersion: _locationVersion,
+    );
 
+    await _executeOwnerSectionSave(
+      user: user,
+      request: request,
+      successMessage: 'Restaurant hours saved.',
+      reconcile: (authoritativeRestaurant) {
+        final authoritativePersistedHours =
+            authoritativeRestaurant?.businessHours ?? persistedBusinessHours;
+        final authoritativeEditingHours = _hoursForEditing(
+          authoritativePersistedHours,
+        );
+        if (_businessHoursMatch(submittedBusinessHours)) {
+          businessHours = [
+            for (final entry in authoritativeEditingHours) entry.copyWith(),
+          ];
+          _businessHoursDirty = authoritativePersistedHours.isNotEmpty;
+        }
+        _initialProfileBusinessHours = [
+          for (final entry in authoritativeEditingHours) entry.copyWith(),
+        ];
+        LocalRestaurantProfileStore.updateProfile(
+          LocalRestaurantProfileStore.profile.value.copyWith(
+            businessHours: authoritativePersistedHours,
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _saveRestaurantImage() async {
+    if (profileSaving || _ownerProfileOperation.isInFlight) {
+      return;
+    }
+    final user = currentUser;
+    if (user == null) {
+      _showSnackBar('Please sign in to continue.');
+      return;
+    }
+
+    final submittedImageUrl = restaurantImageUrl;
+    final request = BiteSaverProfileSaveRequest.ownerMainImageUpdate(
+      profile: BiteSaverMainImageProfileInput(mainImageUrl: submittedImageUrl),
+      expectedProfileVersion: _profileVersion,
+      expectedLocationVersion: _locationVersion,
+    );
+
+    await _executeOwnerSectionSave(
+      user: user,
+      request: request,
+      successMessage: 'Restaurant image saved.',
+      reconcile: (authoritativeRestaurant) {
+        final authoritativeImageUrl =
+            authoritativeRestaurant?.mainImageUrl ?? submittedImageUrl;
+        if (restaurantImageUrl == submittedImageUrl) {
+          restaurantImageUrl = authoritativeImageUrl;
+        }
+        _initialRestaurantImageUrl = authoritativeImageUrl;
+        LocalRestaurantProfileStore.updateProfile(
+          LocalRestaurantProfileStore.profile.value.copyWith(
+            mainImageUrl: authoritativeImageUrl ?? '',
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _executeOwnerSectionSave({
+    required User user,
+    required BiteSaverProfileSaveRequest request,
+    required String successMessage,
+    required void Function(Restaurant? authoritativeRestaurant) reconcile,
+  }) async {
+    final operationGeneration = ++_ownerSaveGeneration;
+    final previousLocationVersion = _locationVersion;
     setState(() {
       profileSaving = true;
     });
 
     try {
-      final persistedBusinessHours = _hoursForPersistence();
-      final approvedName = _storedRestaurantName.isEmpty
-          ? name
-          : _storedRestaurantName;
-      final expectedProfileVersion = _profileVersion;
-      final request = BiteSaverProfileSaveRequest.ownerUpdate(
-        profile: _profileInput(restaurantName: approvedName),
-        expectedProfileVersion: expectedProfileVersion,
-      );
       final result = await _ownerProfileOperation.execute(
         request: request,
         logicalTarget: user.uid,
@@ -1930,14 +2071,13 @@ class _RestaurantCreateCouponScreenState
       if (!mounted || operationGeneration != _ownerSaveGeneration) {
         return;
       }
-      _profileVersion = result.profileVersion;
 
       Map<String, dynamic>? refreshedData;
       try {
         refreshedData = await _loadRestaurantAccount(user.uid);
       } catch (_) {
-        // The callable save is already confirmed. A later stream refresh can
-        // repopulate the trusted metadata if this read is temporarily blocked.
+        // The callable write is already confirmed. A later refresh can
+        // repopulate authoritative section data if this read is unavailable.
       }
       if (!mounted || operationGeneration != _ownerSaveGeneration) {
         return;
@@ -1953,105 +2093,26 @@ class _RestaurantCreateCouponScreenState
           : null;
       if (authoritativeRestaurant != null) {
         _recordTrustedProfileState(authoritativeRestaurant);
-      } else {
+      }
+      if (result.profileVersion > _profileVersion) {
+        _profileVersion = result.profileVersion;
+      }
+      final resultLocationVersion = result.locationVersion;
+      if (resultLocationVersion != null &&
+          resultLocationVersion > _locationVersion) {
+        _locationVersion = resultLocationVersion;
+      }
+      if (authoritativeRestaurant == null &&
+          resultLocationVersion != null &&
+          resultLocationVersion != previousLocationVersion) {
         _hasTrustedSearchableLocation = false;
       }
 
-      final refreshedEmail = refreshedData?[Restaurant.fieldEmail];
-      final authoritativeEmail =
-          authoritativeRestaurant != null &&
-              refreshedEmail is String &&
-              refreshedEmail.trim().isNotEmpty
-          ? refreshedEmail.trim()
-          : email;
-      final authoritativeTextValues = <TextEditingController, String>{
-        restaurantNameController:
-            authoritativeRestaurant?.name ??
-            submittedTextValues[restaurantNameController]!,
-        cityController:
-            authoritativeRestaurant?.city ??
-            submittedTextValues[cityController]!,
-        stateController:
-            authoritativeRestaurant?.state ??
-            submittedTextValues[stateController]!,
-        zipCodeController:
-            authoritativeRestaurant?.zipCode ??
-            submittedTextValues[zipCodeController]!,
-        emailController: authoritativeEmail,
-        phoneController: authoritativeRestaurant == null
-            ? submittedTextValues[phoneController]!
-            : formatPhoneNumberForDisplay(authoritativeRestaurant.phone ?? ''),
-        streetAddressController:
-            authoritativeRestaurant?.streetAddress ??
-            submittedTextValues[streetAddressController]!,
-        websiteController: authoritativeRestaurant == null
-            ? submittedTextValues[websiteController]!
-            : authoritativeRestaurant.website ?? '',
-        bioController: authoritativeRestaurant == null
-            ? submittedTextValues[bioController]!
-            : authoritativeRestaurant.bio ?? '',
-      };
-      for (final entry in authoritativeTextValues.entries) {
-        if (entry.key.text == submittedTextValues[entry.key]) {
-          entry.key.text = entry.value;
-        }
-        _initialProfileTextValues[entry.key] = entry.value;
-      }
-
-      final authoritativeImageUrl = authoritativeRestaurant == null
-          ? submittedImageUrl
-          : authoritativeRestaurant.mainImageUrl;
-      if (restaurantImageUrl == submittedImageUrl) {
-        restaurantImageUrl = authoritativeImageUrl;
-      }
-      _initialRestaurantImageUrl = authoritativeImageUrl;
-
-      final authoritativeBusinessHours = authoritativeRestaurant == null
-          ? submittedBusinessHours
-          : _hoursForEditing(authoritativeRestaurant.businessHours);
-      if (_businessHoursMatch(submittedBusinessHours)) {
-        businessHours = [
-          for (final entry in authoritativeBusinessHours) entry.copyWith(),
-        ];
-        _businessHoursDirty =
-            authoritativeRestaurant?.businessHours.isNotEmpty ??
-            submittedBusinessHours.isNotEmpty;
-      }
-      _initialProfileBusinessHours = [
-        for (final entry in authoritativeBusinessHours) entry.copyWith(),
-      ];
-
-      LocalRestaurantProfileStore.updateProfile(
-        RestaurantProfileData(
-          name: authoritativeRestaurant?.name ?? approvedName,
-          city: authoritativeRestaurant?.city ?? city,
-          state: authoritativeRestaurant?.state ?? state,
-          zipCode: authoritativeRestaurant?.zipCode ?? zipCode,
-          distance: '',
-          email: authoritativeEmail,
-          phone: authoritativeRestaurant?.phone ?? phone,
-          streetAddress:
-              authoritativeRestaurant?.streetAddress ?? streetAddress,
-          website: authoritativeRestaurant == null
-              ? website
-              : authoritativeRestaurant.website ?? '',
-          bio: authoritativeRestaurant == null
-              ? bio
-              : authoritativeRestaurant.bio ?? '',
-          mainImageUrl: authoritativeRestaurant == null
-              ? imageUrl
-              : authoritativeRestaurant.mainImageUrl ?? '',
-          latitude: authoritativeRestaurant?.latitude?.toString() ?? '',
-          longitude: authoritativeRestaurant?.longitude?.toString() ?? '',
-          businessHours:
-              authoritativeRestaurant?.businessHours ?? persistedBusinessHours,
-        ),
-      );
-
+      reconcile(authoritativeRestaurant);
       if (!mounted || operationGeneration != _ownerSaveGeneration) {
         return;
       }
-      _showSnackBar('Restaurant profile saved.');
+      _showSnackBar(successMessage);
       setState(() {});
     } on BiteSaverLifecycleException catch (error) {
       if (!mounted || operationGeneration != _ownerSaveGeneration) {
@@ -3641,7 +3702,11 @@ class _RestaurantCreateCouponScreenState
           ),
         ),
         const SizedBox(height: 18),
-        _buildSaveProfileButton(label: 'Save Basic Information'),
+        _buildSaveProfileButton(
+          label: 'Save Basic Information',
+          busyLabel: 'Validating location...',
+          onPressed: _saveBasicRestaurantInformation,
+        ),
       ],
     );
   }
@@ -3665,6 +3730,12 @@ class _RestaurantCreateCouponScreenState
           uploading: restaurantImageUploading,
           onPressed: _pickRestaurantImage,
         ),
+        const SizedBox(height: 16),
+        _buildSaveProfileButton(
+          label: 'Save Restaurant Image',
+          busyLabel: 'Saving image...',
+          onPressed: _saveRestaurantImage,
+        ),
       ],
     );
   }
@@ -3681,16 +3752,24 @@ class _RestaurantCreateCouponScreenState
       children: [
         _buildBusinessHoursEditor(),
         const SizedBox(height: 16),
-        _buildSaveProfileButton(label: 'Save Hours'),
+        _buildSaveProfileButton(
+          label: 'Save Hours',
+          busyLabel: 'Saving hours...',
+          onPressed: _saveBusinessHours,
+        ),
       ],
     );
   }
 
-  Widget _buildSaveProfileButton({required String label}) {
+  Widget _buildSaveProfileButton({
+    required String label,
+    required String busyLabel,
+    required VoidCallback onPressed,
+  }) {
     return SizedBox(
       width: double.infinity,
       child: ElevatedButton(
-        onPressed: profileSaving ? null : saveRestaurantProfile,
+        onPressed: profileSaving ? null : onPressed,
         style: ElevatedButton.styleFrom(
           backgroundColor: const Color(0xFF2563EB),
           foregroundColor: Colors.white,
@@ -3700,7 +3779,7 @@ class _RestaurantCreateCouponScreenState
             borderRadius: BorderRadius.circular(14),
           ),
         ),
-        child: Text(profileSaving ? 'Validating location...' : label),
+        child: Text(profileSaving ? busyLabel : label),
       ),
     );
   }

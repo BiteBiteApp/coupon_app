@@ -112,6 +112,40 @@ function saveRequestData(intent, overrides = {}) {
   return { ...data, ...overrides };
 }
 
+function basicInformationProfile(overrides = {}) {
+  const value = profile({
+    bio: "Neighborhood restaurant",
+    ...overrides,
+  });
+  return {
+    streetAddress: value.streetAddress,
+    city: value.city,
+    state: value.state,
+    zipCode: value.zipCode,
+    phone: value.phone,
+    website: value.website,
+    bio: value.bio,
+  };
+}
+
+function sectionRequestData(updateSection, overrides = {}) {
+  const sectionProfile =
+    updateSection === "basicInformation"
+      ? basicInformationProfile()
+      : updateSection === "businessHours"
+        ? { businessHours: fullBusinessHours() }
+        : { mainImageUrl: "https://example.com/main.jpg" };
+  return {
+    intent: "ownerUpdate",
+    requestId: `request-${updateSection}`,
+    expectedProfileVersion: 1,
+    expectedLocationVersion: 1,
+    updateSection,
+    profile: sectionProfile,
+    ...overrides,
+  };
+}
+
 function requestFingerprint(auth, data, targetDocumentId = null) {
   const parsed = validateBiteSaverProfileRequest(data);
   const actorUid = auth.uid.trim();
@@ -548,6 +582,119 @@ test("intent-specific request keys and versions are strict", () => {
   );
   assert.equal(admin.documentId, "restaurant-2");
   assert.equal(admin.expectedProfileVersion, 3);
+  assert.equal(Object.hasOwn(owner, "updateSection"), false);
+  assert.equal(Object.hasOwn(owner, "expectedLocationVersion"), false);
+});
+
+test("owner section requests normalize exact owned fields and both versions", () => {
+  const basic = validateBiteSaverProfileRequest(
+    sectionRequestData("basicInformation", {
+      requestId: " section-basic ",
+      expectedProfileVersion: 4,
+      expectedLocationVersion: 3,
+      profile: basicInformationProfile({
+        streetAddress: "  456   Oak Ave ",
+        city: " Crystal   River ",
+        state: " fl ",
+        zipCode: " 34428 ",
+        phone: " (352)   555-0199 ",
+        website: " https://basic.example ",
+        bio: "  Updated   bio \r\n Second\tline ",
+      }),
+    }),
+  );
+  assert.deepEqual(basic, {
+    intent: "ownerUpdate",
+    documentId: null,
+    requestId: "section-basic",
+    expectedProfileVersion: 4,
+    expectedLocationVersion: 3,
+    updateSection: "basicInformation",
+    profile: {
+      streetAddress: "456 Oak Ave",
+      city: "Crystal River",
+      state: "FL",
+      zipCode: "34428",
+      phone: "(352) 555-0199",
+      website: "https://basic.example",
+      bio: "Updated bio\nSecond line",
+    },
+  });
+
+  const hours = validateBiteSaverProfileRequest(
+    sectionRequestData("businessHours", {
+      profile: {
+        businessHours: fullBusinessHours({
+          Monday: { opensAt: " 8:00   AM " },
+        }),
+      },
+    }),
+  );
+  assert.deepEqual(Object.keys(hours.profile), ["businessHours"]);
+  assert.equal(hours.profile.businessHours[1].opensAt, "8:00 AM");
+
+  const image = validateBiteSaverProfileRequest(
+    sectionRequestData("mainImage", {
+      profile: { mainImageUrl: "  https://example.com/new.jpg  " },
+    }),
+  );
+  assert.deepEqual(image.profile, {
+    mainImageUrl: "https://example.com/new.jpg",
+  });
+});
+
+test("section request ownership and concurrency metadata are strict", () => {
+  const missingLocationVersion = sectionRequestData("basicInformation");
+  delete missingLocationVersion.expectedLocationVersion;
+  const missingProfileVersion = sectionRequestData("basicInformation");
+  delete missingProfileVersion.expectedProfileVersion;
+  const basicWithHours = sectionRequestData("basicInformation", {
+    profile: {
+      ...basicInformationProfile(),
+      businessHours: fullBusinessHours(),
+    },
+  });
+  const hoursWithBasic = sectionRequestData("businessHours", {
+    profile: {
+      businessHours: fullBusinessHours(),
+      phone: "(352) 555-0999",
+    },
+  });
+  const imageMissingField = sectionRequestData("mainImage", { profile: {} });
+
+  for (const invalid of [
+    missingLocationVersion,
+    missingProfileVersion,
+    sectionRequestData("basicInformation", { expectedLocationVersion: -1 }),
+    sectionRequestData("basicInformation", { expectedLocationVersion: 1.5 }),
+    sectionRequestData("basicInformation", { expectedLocationVersion: "1" }),
+    sectionRequestData("unknownSection"),
+    {
+      ...saveRequestData("ownerUpdate"),
+      expectedLocationVersion: 1,
+    },
+    {
+      ...sectionRequestData("basicInformation"),
+      intent: "adminUpdate",
+      documentId: accountId,
+    },
+    {
+      ...sectionRequestData("basicInformation"),
+      intent: "submitApplication",
+    },
+    {
+      ...sectionRequestData("basicInformation"),
+      documentId: ownerId,
+    },
+    basicWithHours,
+    hoursWithBasic,
+    imageMissingField,
+  ]) {
+    assert.throws(
+      () => validateBiteSaverProfileRequest(invalid),
+      expectHttpsError("invalid-argument"),
+    );
+  }
 });
 
 test("business-hours validation accepts empty or a complete exact week", () => {
@@ -624,6 +771,57 @@ test("profile request fingerprint has a fixed versioned SHA-256 fixture", () => 
   );
   assert.match(fingerprint, /^[0-9a-f]{64}$/);
   assert.equal(requestFingerprint(auth, structuredClone(data)), fingerprint);
+});
+
+test("section request fingerprint uses v2 and binds section versions and exact owned data", () => {
+  const auth = ownerAuth();
+  const data = sectionRequestData("basicInformation", {
+    requestId: "section-fingerprint",
+    expectedProfileVersion: 7,
+    expectedLocationVersion: 5,
+    profile: basicInformationProfile({
+      phone: "(352) 555-0199",
+      bio: "Local food\nFamily owned",
+    }),
+  });
+  const fingerprint = requestFingerprint(auth, data);
+  assert.equal(
+    fingerprint,
+    "0703df75c6d215ba99455f34dde64fa7d3ce8bb9a4e347a687e87cfed56f216e",
+  );
+  assert.match(fingerprint, /^[0-9a-f]{64}$/);
+  assert.equal(requestFingerprint(auth, structuredClone(data)), fingerprint);
+
+  for (const changed of [
+    { ...data, expectedProfileVersion: 8 },
+    { ...data, expectedLocationVersion: 6 },
+    {
+      ...data,
+      profile: { ...data.profile, phone: "(352) 555-0101" },
+    },
+    sectionRequestData("businessHours", {
+      requestId: data.requestId,
+      expectedProfileVersion: data.expectedProfileVersion,
+      expectedLocationVersion: data.expectedLocationVersion,
+    }),
+    sectionRequestData("mainImage", {
+      requestId: data.requestId,
+      expectedProfileVersion: data.expectedProfileVersion,
+      expectedLocationVersion: data.expectedLocationVersion,
+    }),
+  ]) {
+    assert.notEqual(requestFingerprint(auth, changed), fingerprint);
+  }
+
+  const legacy = saveRequestData("ownerUpdate", {
+    requestId: data.requestId,
+    expectedProfileVersion: data.expectedProfileVersion,
+    profile: profile({
+      phone: data.profile.phone,
+      bio: data.profile.bio,
+    }),
+  });
+  assert.notEqual(requestFingerprint(auth, legacy), fingerprint);
 });
 
 test("profile request fingerprint follows normalization and fixed key order", () => {
@@ -926,6 +1124,7 @@ test("missing-account submission creates one complete pending trusted account", 
     documentId: ownerId,
     approvalStatus: "pending",
     profileVersion: 1,
+    locationVersion: 1,
   });
   assert.equal(store.getCount, 1);
   assert.equal(store.transactionCount, 1);
@@ -1001,7 +1200,7 @@ test("a retried successful submission is idempotent", async () => {
   assert.equal(store.writeDecisions.length, 1);
 });
 
-test("owner and admin exact retries preserve the first successful write", async () => {
+test("section owner and legacy admin exact retries preserve the first successful write", async () => {
   for (const intent of ["ownerUpdate", "adminUpdate"]) {
     const auth = intent === "ownerUpdate" ? ownerAuth() : claimAdminAuth();
     const documentId = intent === "ownerUpdate" ? ownerId : accountId;
@@ -1012,11 +1211,18 @@ test("owner and admin exact retries preserve the first successful write", async 
       profileVersion: 1,
     }));
     const harness = profileHarness(store);
-    const data = saveRequestData(intent, {
-      requestId: `exact-retry-${intent}`,
-      expectedProfileVersion: 1,
-      profile: profile({ phone: "(352) 555-0111" }),
-    });
+    const data = intent === "ownerUpdate"
+      ? sectionRequestData("basicInformation", {
+          requestId: `exact-retry-${intent}`,
+          expectedProfileVersion: 1,
+          expectedLocationVersion: 1,
+          profile: basicInformationProfile({ phone: "(352) 555-0111" }),
+        })
+      : saveRequestData(intent, {
+          requestId: `exact-retry-${intent}`,
+          expectedProfileVersion: 1,
+          profile: profile({ phone: "(352) 555-0111" }),
+        });
     const request = callableRequest(auth, data);
 
     const firstResponse = await saveBiteSaverRestaurantProfileHandler(
@@ -1181,17 +1387,28 @@ test("different requests cannot resubmit legacy-complete, pending, approved, or 
   }
 });
 
-test("same request ID is rechecked transactionally and performs no write", async () => {
+test("an exact prior-success legacy owner retry returns transactionally without a write", async () => {
   const data = saveRequestData("ownerUpdate", {
-    requestId: "successful-request",
-    expectedProfileVersion: 4,
+    requestId: "fixture-request-id",
+    expectedProfileVersion: 7,
+    profile: profile({
+      bio: "Local food\nFamily owned",
+      mainImageUrl: "https://example.com/main.jpg",
+      businessHours: fullBusinessHours({
+        Monday: { opensAt: "8:00 AM" },
+      }),
+    }),
   });
   const store = new AtomicAccountStore();
   store.seed(ownerId, trustedAccount({
     approvalStatus: "approved",
-    profileVersion: 4,
-    lastProfileRequestId: "successful-request",
-    lastProfileRequestFingerprint: requestFingerprint(ownerAuth(), data),
+    profileVersion: 8,
+    bio: "Local food\nFamily owned",
+    mainImageUrl: "https://example.com/main.jpg",
+    businessHours: data.profile.businessHours,
+    lastProfileRequestId: "fixture-request-id",
+    lastProfileRequestFingerprint:
+      "c4c88e8a99608e8d67f81d6f17a26e29e83a3e4656acc9eaddd58e448af89ff3",
   }));
   const harness = profileHarness(store);
   const before = store.get(ownerId);
@@ -1207,7 +1424,8 @@ test("same request ID is rechecked transactionally and performs no write", async
   assert.deepEqual(response, {
     documentId: ownerId,
     approvalStatus: "approved",
-    profileVersion: 4,
+    profileVersion: 8,
+    locationVersion: 1,
   });
   assert.equal(store.transactionCount, 1);
   assert.equal(harness.geocodeCalls.length, 0);
@@ -1261,17 +1479,15 @@ test("same-ID profile collisions fail before geocoding across every field", asyn
       businessHours: fullBusinessHours(),
     }),
   });
-  const winnerStore = new AtomicAccountStore();
-  winnerStore.seed(ownerId, trustedAccount({
+  const winner = trustedAccount({
     approvalStatus: "approved",
-    profileVersion: 1,
-  }));
-  const winnerHarness = profileHarness(winnerStore);
-  await saveBiteSaverRestaurantProfileHandler(
-    callableRequest(ownerAuth(), successfulData),
-    winnerHarness.dependencies,
-  );
-  const winner = winnerStore.get(ownerId);
+    profileVersion: 2,
+    lastProfileRequestId: successfulData.requestId,
+    lastProfileRequestFingerprint: requestFingerprint(
+      ownerAuth(),
+      successfulData,
+    ),
+  });
 
   const websiteOmitted = { ...successfulData.profile };
   delete websiteOmitted.website;
@@ -1517,13 +1733,11 @@ test("website clear equivalence is idempotent while preserve-versus-clear collid
   const store = new AtomicAccountStore();
   store.seed(ownerId, trustedAccount({
     approvalStatus: "approved",
-    profileVersion: 1,
+    profileVersion: 2,
+    lastProfileRequestId: data.requestId,
+    lastProfileRequestFingerprint: requestFingerprint(ownerAuth(), data),
   }));
   const harness = profileHarness(store);
-  await saveBiteSaverRestaurantProfileHandler(
-    callableRequest(ownerAuth(), data),
-    harness.dependencies,
-  );
   const afterFirst = store.get(ownerId);
 
   const blankWebsiteData = {
@@ -1536,7 +1750,11 @@ test("website clear equivalence is idempotent while preserve-versus-clear collid
   );
   assert.equal(exactResponse.profileVersion, 2);
   assert.deepEqual(store.get(ownerId), afterFirst);
-  assert.equal(store.decisions.at(-1).operation, "none");
+  assert.equal(store.transactionCount, 1);
+  assert.deepEqual(
+    store.decisions.map((decision) => decision.operation),
+    ["none"],
+  );
 
   for (const profilePatch of [
     { bio: "" },
@@ -1555,7 +1773,7 @@ test("website clear equivalence is idempotent while preserve-versus-clear collid
     );
   }
   assert.equal(harness.geocodeCalls.length, 0);
-  assert.equal(store.writeDecisions.length, 1);
+  assert.equal(store.writeDecisions.length, 0);
   assert.deepEqual(store.get(ownerId), afterFirst);
 });
 
@@ -1603,7 +1821,7 @@ test("matching IDs with missing or malformed stored fingerprints fail closed", a
   }
 });
 
-test("different IDs and legacy records are not falsely deduplicated", async () => {
+test("new legacy owner request IDs fail closed instead of being deduplicated", async () => {
   for (const metadata of [
     { lastProfileRequestId: "legacy-other-id" },
     {},
@@ -1621,18 +1839,21 @@ test("different IDs and legacy records are not falsely deduplicated", async () =
       profile: profile({ phone: "(352) 555-0166" }),
     });
 
-    const response = await saveBiteSaverRestaurantProfileHandler(
-      callableRequest(ownerAuth(), data),
-      harness.dependencies,
+    const before = store.get(ownerId);
+    await assert.rejects(
+      saveBiteSaverRestaurantProfileHandler(
+        callableRequest(ownerAuth(), data),
+        harness.dependencies,
+      ),
+      expectHttpsError(
+        "failed-precondition",
+        /must be updated before editing restaurant information/,
+      ),
     );
-    const saved = store.get(ownerId);
-    assert.equal(response.profileVersion, 2);
-    assert.equal(saved.lastProfileRequestId, data.requestId);
-    assert.equal(
-      saved.lastProfileRequestFingerprint,
-      requestFingerprint(ownerAuth(), data),
-    );
-    assert.equal(store.writeDecisions.length, 1);
+    assert.equal(harness.geocodeCalls.length, 0);
+    assert.equal(store.transactionCount, 0);
+    assert.equal(store.writeDecisions.length, 0);
+    assert.deepEqual(store.get(ownerId), before);
   }
 });
 
@@ -1645,10 +1866,11 @@ test("racing same-ID same-request calls produce one write and one logical result
   const harness = profileHarness(store, {
     onGeocode: arrivalBarrier(2),
   });
-  const data = saveRequestData("ownerUpdate", {
+  const data = sectionRequestData("basicInformation", {
     requestId: "same-request-race",
     expectedProfileVersion: 1,
-    profile: profile({ streetAddress: "456 Oak Ave" }),
+    expectedLocationVersion: 1,
+    profile: basicInformationProfile({ streetAddress: "456 Oak Ave" }),
   });
   const request = callableRequest(ownerAuth(), data);
 
@@ -1685,15 +1907,17 @@ test("racing same-ID different requests reject the collision loser", async () =>
   const harness = profileHarness(store, {
     onGeocode: arrivalBarrier(2),
   });
-  const dataA = saveRequestData("ownerUpdate", {
+  const dataA = sectionRequestData("basicInformation", {
     requestId: "different-request-race",
     expectedProfileVersion: 1,
-    profile: profile({ streetAddress: "456 Oak Ave" }),
+    expectedLocationVersion: 1,
+    profile: basicInformationProfile({ streetAddress: "456 Oak Ave" }),
   });
-  const dataB = saveRequestData("ownerUpdate", {
+  const dataB = sectionRequestData("basicInformation", {
     requestId: "different-request-race",
     expectedProfileVersion: 1,
-    profile: profile({ streetAddress: "789 Pine Rd" }),
+    expectedLocationVersion: 1,
+    profile: basicInformationProfile({ streetAddress: "789 Pine Rd" }),
   });
 
   const results = await Promise.allSettled([
@@ -1742,13 +1966,14 @@ test("racing identical payloads with different IDs do not deduplicate by fingerp
   });
   const common = {
     expectedProfileVersion: 1,
-    profile: profile({ streetAddress: "456 Oak Ave" }),
+    expectedLocationVersion: 1,
+    profile: basicInformationProfile({ streetAddress: "456 Oak Ave" }),
   };
-  const dataA = saveRequestData("ownerUpdate", {
+  const dataA = sectionRequestData("basicInformation", {
     ...common,
     requestId: "distinct-id-a",
   });
-  const dataB = saveRequestData("ownerUpdate", {
+  const dataB = sectionRequestData("basicInformation", {
     ...common,
     requestId: "distinct-id-b",
   });
@@ -1779,7 +2004,7 @@ test("racing identical payloads with different IDs do not deduplicate by fingerp
   );
 });
 
-test("owner update requires an existing account owned by the caller and an unchanged name", async () => {
+test("legacy owner policy rejects missing and mismatched accounts before format policy", async () => {
   {
     const store = new AtomicAccountStore();
     const harness = profileHarness(store);
@@ -1792,6 +2017,8 @@ test("owner update requires an existing account owned by the caller and an uncha
     );
     assert.equal(harness.geocodeCalls.length, 0);
     assert.equal(store.transactionCount, 0);
+    assert.equal(store.documents.size, 0);
+    assert.equal(store.writeDecisions.length, 0);
   }
 
   for (const account of [
@@ -1804,6 +2031,7 @@ test("owner update requires an existing account owned by the caller and an uncha
   ]) {
     const store = new AtomicAccountStore();
     store.seed(ownerId, account);
+    const before = store.get(ownerId);
     const harness = profileHarness(store);
     await assert.rejects(
       saveBiteSaverRestaurantProfileHandler(
@@ -1814,11 +2042,14 @@ test("owner update requires an existing account owned by the caller and an uncha
     );
     assert.equal(harness.geocodeCalls.length, 0);
     assert.equal(store.transactionCount, 0);
+    assert.equal(store.writeDecisions.length, 0);
+    assert.deepEqual(store.get(ownerId), before);
   }
 
   {
     const store = new AtomicAccountStore();
     store.seed(ownerId, trustedAccount());
+    const before = store.get(ownerId);
     const harness = profileHarness(store);
     await assert.rejects(
       saveBiteSaverRestaurantProfileHandler(
@@ -1830,10 +2061,15 @@ test("owner update requires an existing account owned by the caller and an uncha
         ),
         harness.dependencies,
       ),
-      expectHttpsError("failed-precondition", /name-change/),
+      expectHttpsError(
+        "failed-precondition",
+        /must be updated before editing restaurant information/,
+      ),
     );
     assert.equal(harness.geocodeCalls.length, 0);
     assert.equal(store.transactionCount, 0);
+    assert.equal(store.writeDecisions.length, 0);
+    assert.deepEqual(store.get(ownerId), before);
   }
 });
 
@@ -1973,6 +2209,7 @@ test("admin changed-address update geocodes and preserves nonprofile fields", as
     documentId: accountId,
     approvalStatus: "approved",
     profileVersion: 4,
+    locationVersion: 5,
   });
   assert.equal(store.writeDecisions[0].operation, "update");
   assert.deepEqual(harness.geocodeCalls, [addressFromProfile(updatedProfile)]);
@@ -2011,10 +2248,11 @@ test("unchanged trusted address avoids geocoding and preserves location metadata
   const response = await saveBiteSaverRestaurantProfileHandler(
     callableRequest(
       ownerAuth(),
-      saveRequestData("ownerUpdate", {
+      sectionRequestData("basicInformation", {
         expectedProfileVersion: 7,
+        expectedLocationVersion: 3,
         requestId: "phone-only-update",
-        profile: profile({
+        profile: basicInformationProfile({
           phone: "(352) 555-0199",
           website: "https://example.com/new",
         }),
@@ -2057,8 +2295,9 @@ test("coordinate-binding tamper forces fresh geocoding and location-version incr
   await saveBiteSaverRestaurantProfileHandler(
     callableRequest(
       ownerAuth(),
-      saveRequestData("ownerUpdate", {
+      sectionRequestData("basicInformation", {
         expectedProfileVersion: 2,
+        expectedLocationVersion: 4,
         requestId: "repair-coordinate-tamper",
       }),
     ),
@@ -2088,13 +2327,16 @@ test("changed address geocodes outside the transaction and atomically replaces t
       formattedAddress: "456 Oak Ave, Crystal River, FL 34428, USA",
     },
   });
-  const updatedProfile = profile({ streetAddress: "456 Oak Ave" });
+  const updatedProfile = basicInformationProfile({
+    streetAddress: "456 Oak Ave",
+  });
 
   const response = await saveBiteSaverRestaurantProfileHandler(
     callableRequest(
       ownerAuth(),
-      saveRequestData("ownerUpdate", {
+      sectionRequestData("basicInformation", {
         expectedProfileVersion: 3,
+        expectedLocationVersion: 2,
         requestId: "changed-address",
         profile: updatedProfile,
       }),
@@ -2114,6 +2356,708 @@ test("changed address geocodes outside the transaction and atomically replaces t
     addressFromProfile(updatedProfile),
   ));
   assert.equal(hasCompleteTrustedBiteSaverLocation(saved), true);
+});
+
+test("basic-information section preserves absent or custom hours and all unrelated state", async () => {
+  for (const hoursState of ["absent", "custom"]) {
+    const store = new AtomicAccountStore();
+    const initial = trustedAccount({
+      email: "identity-must-not-change@example.com",
+      emailVerified: false,
+      approvalStatus: "approved",
+      profileVersion: 3,
+      locationVersion: 2,
+      updatedAt: { seconds: 1_760_000_000, nanoseconds: 123 },
+      lastProfileRequestId: "previous-request",
+      lastProfileRequestFingerprint: "a".repeat(64),
+      businessHours: fullBusinessHours({
+        Monday: { opensAt: "7:00 AM", closesAt: "3:00 PM" },
+      }),
+      billingPlanName: "coupon_monthly",
+      couponPostingEnabled: true,
+      nestedUnknown: { preserve: ["exactly", 42] },
+    });
+    if (hoursState === "absent") {
+      delete initial.businessHours;
+    }
+    store.seed(ownerId, initial);
+    const harness = profileHarness(store);
+    const data = sectionRequestData("basicInformation", {
+      requestId: `basic-${hoursState}`,
+      expectedProfileVersion: 3,
+      expectedLocationVersion: 2,
+      profile: basicInformationProfile({
+        phone: "(352) 555-0199",
+        website: "https://updated.example",
+        bio: "Updated basic information",
+      }),
+    });
+
+    const response = await saveBiteSaverRestaurantProfileHandler(
+      callableRequest(ownerAuth(), data),
+      harness.dependencies,
+    );
+    const saved = store.get(ownerId);
+    const write = store.writeDecisions[0].data;
+
+    assert.deepEqual(response, {
+      documentId: ownerId,
+      approvalStatus: "approved",
+      profileVersion: 4,
+      locationVersion: 2,
+    });
+    assert.equal(harness.geocodeCalls.length, 0);
+    assert.equal(store.writeDecisions.length, 1);
+    assert.deepEqual(
+      Object.keys(write).sort(),
+      [
+        "bio",
+        "city",
+        "lastProfileRequestFingerprint",
+        "lastProfileRequestId",
+        "phone",
+        "profileVersion",
+        "state",
+        "streetAddress",
+        "updatedAt",
+        "website",
+        "zipCode",
+      ],
+    );
+    assert.equal(saved.profileVersion, 4);
+    assert.equal(saved.locationVersion, 2);
+    assert.equal(saved.phone, "(352) 555-0199");
+    assert.equal(saved.website, "https://updated.example");
+    assert.equal(saved.bio, "Updated basic information");
+    assert.equal(saved.email, initial.email);
+    assert.equal(saved.emailVerified, initial.emailVerified);
+    assert.deepEqual(saved.nestedUnknown, initial.nestedUnknown);
+    assert.equal(
+      Object.hasOwn(saved, "businessHours"),
+      Object.hasOwn(initial, "businessHours"),
+    );
+    if (hoursState === "custom") {
+      assert.deepEqual(saved.businessHours, initial.businessHours);
+    }
+    for (const field of [
+      "restaurantName",
+      "formattedAddress",
+      "latitude",
+      "longitude",
+      "addressFingerprint",
+      "locationValidatedAt",
+      "locationSource",
+      "locationVersion",
+      "locationValidationFingerprint",
+      "mainImageUrl",
+      "approvalStatus",
+      "subscriptionStatus",
+      "stripeCustomerId",
+      "inviteId",
+      "geohash",
+      "billingPlanName",
+      "couponPostingEnabled",
+    ]) {
+      assert.deepEqual(saved[field], initial[field], `${hoursState}: ${field}`);
+    }
+  }
+});
+
+test("basic-information address change atomically updates trusted location and both versions", async () => {
+  const store = new AtomicAccountStore();
+  const initial = trustedAccount({
+    email: "identity-must-not-change@example.com",
+    approvalStatus: "approved",
+    profileVersion: 6,
+    locationVersion: 4,
+    updatedAt: { seconds: 1_760_000_100, nanoseconds: 0 },
+    billingPlanName: "coupon_monthly",
+    customFlag: "preserve-me",
+  });
+  store.seed(ownerId, initial);
+  const harness = profileHarness(store, {
+    geocodeOverrides: {
+      latitude: 29.3,
+      longitude: -82.3,
+      formattedAddress: "456 Oak Ave, Crystal River, FL 34428, USA",
+    },
+  });
+  const updatedBasic = basicInformationProfile({
+    streetAddress: "456 Oak Ave",
+    phone: "(352) 555-0188",
+  });
+  const data = sectionRequestData("basicInformation", {
+    requestId: "section-address-change",
+    expectedProfileVersion: 6,
+    expectedLocationVersion: 4,
+    profile: updatedBasic,
+  });
+
+  const response = await saveBiteSaverRestaurantProfileHandler(
+    callableRequest(ownerAuth(), data),
+    harness.dependencies,
+  );
+  const saved = store.get(ownerId);
+
+  assert.deepEqual(response, {
+    documentId: ownerId,
+    approvalStatus: "approved",
+    profileVersion: 7,
+    locationVersion: 5,
+  });
+  assert.deepEqual(harness.geocodeCalls, [addressFromProfile(updatedBasic)]);
+  assert.equal(store.writeDecisions.length, 1);
+  assert.equal(saved.profileVersion, 7);
+  assert.equal(saved.locationVersion, 5);
+  assert.equal(saved.streetAddress, "456 Oak Ave");
+  assert.equal(saved.latitude, 29.3);
+  assert.equal(saved.longitude, -82.3);
+  assert.equal(
+    saved.addressFingerprint,
+    createRestaurantAddressFingerprint(addressFromProfile(updatedBasic)),
+  );
+  assert.equal(hasCompleteTrustedBiteSaverLocation(saved), true);
+  for (const field of [
+    "restaurantName",
+    "businessHours",
+    "mainImageUrl",
+    "approvalStatus",
+    "subscriptionStatus",
+    "stripeCustomerId",
+    "inviteId",
+    "geohash",
+    "billingPlanName",
+    "customFlag",
+    "email",
+    "emailVerified",
+  ]) {
+    assert.deepEqual(saved[field], initial[field], field);
+  }
+});
+
+test("hours and image sections never geocode and write only their owned field", async () => {
+  for (const section of ["businessHours", "mainImage"]) {
+    const store = new AtomicAccountStore();
+    const initial = trustedAccount({
+      email: "identity-must-not-change@example.com",
+      approvalStatus: "approved",
+      profileVersion: 2,
+      locationVersion: 3,
+      updatedAt: { seconds: 1_760_000_200, nanoseconds: 0 },
+      billingPlanName: "coupon_monthly",
+      customFlag: "preserve-me",
+    });
+    store.seed(ownerId, initial);
+    const harness = profileHarness(store, {
+      geocodeError: new Error("section saves must not geocode"),
+    });
+    const ownedProfile =
+      section === "businessHours"
+        ? {
+            businessHours: fullBusinessHours({
+              Tuesday: { opensAt: "6:00 AM", closesAt: "2:00 PM" },
+            }),
+          }
+        : { mainImageUrl: "https://example.com/replacement.jpg" };
+    const data = sectionRequestData(section, {
+      requestId: `section-${section}`,
+      expectedProfileVersion: 2,
+      expectedLocationVersion: 3,
+      profile: ownedProfile,
+    });
+
+    const response = await saveBiteSaverRestaurantProfileHandler(
+      callableRequest(ownerAuth(), data),
+      harness.dependencies,
+    );
+    const saved = store.get(ownerId);
+    const write = store.writeDecisions[0].data;
+    const ownedField =
+      section === "businessHours" ? "businessHours" : "mainImageUrl";
+
+    assert.deepEqual(response, {
+      documentId: ownerId,
+      approvalStatus: "approved",
+      profileVersion: 3,
+      locationVersion: 3,
+    });
+    assert.equal(harness.geocodeCalls.length, 0);
+    assert.deepEqual(
+      Object.keys(write).sort(),
+      [
+        ownedField,
+        "lastProfileRequestFingerprint",
+        "lastProfileRequestId",
+        "profileVersion",
+        "updatedAt",
+      ].sort(),
+    );
+    assert.deepEqual(saved[ownedField], ownedProfile[ownedField]);
+    for (const field of [
+      "restaurantName",
+      "streetAddress",
+      "city",
+      "state",
+      "zipCode",
+      "phone",
+      "website",
+      "bio",
+      "formattedAddress",
+      "latitude",
+      "longitude",
+      "addressFingerprint",
+      "locationValidatedAt",
+      "locationSource",
+      "locationVersion",
+      "locationValidationFingerprint",
+      "approvalStatus",
+      "subscriptionStatus",
+      "stripeCustomerId",
+      "inviteId",
+      "geohash",
+      "billingPlanName",
+      "customFlag",
+      "email",
+      "emailVerified",
+    ]) {
+      if (field !== ownedField) {
+        assert.deepEqual(saved[field], initial[field], `${section}: ${field}`);
+      }
+    }
+  }
+});
+
+test("business-hours section clear is narrow and exactly retryable", async () => {
+  const store = new AtomicAccountStore();
+  const initial = trustedAccount({
+    approvalStatus: "approved",
+    profileVersion: 4,
+    locationVersion: 2,
+    updatedAt: { seconds: 1_760_000_250, nanoseconds: 0 },
+    customFlag: "preserve-me",
+  });
+  store.seed(ownerId, initial);
+  const harness = profileHarness(store, {
+    geocodeError: new Error("Hours clear must not geocode"),
+  });
+  const data = sectionRequestData("businessHours", {
+    requestId: "clear-business-hours",
+    expectedProfileVersion: 4,
+    expectedLocationVersion: 2,
+    profile: { businessHours: [] },
+  });
+  const request = callableRequest(ownerAuth(), data);
+
+  const firstResponse = await saveBiteSaverRestaurantProfileHandler(
+    request,
+    harness.dependencies,
+  );
+  const afterFirst = store.get(ownerId);
+  const secondResponse = await saveBiteSaverRestaurantProfileHandler(
+    request,
+    harness.dependencies,
+  );
+
+  assert.deepEqual(firstResponse, {
+    documentId: ownerId,
+    approvalStatus: "approved",
+    profileVersion: 5,
+    locationVersion: 2,
+  });
+  assert.deepEqual(secondResponse, firstResponse);
+  assert.deepEqual(store.get(ownerId), afterFirst);
+  assert.deepEqual(afterFirst.businessHours, []);
+  assert.equal(afterFirst.mainImageUrl, initial.mainImageUrl);
+  assert.equal(afterFirst.locationVersion, 2);
+  assert.equal(afterFirst.customFlag, "preserve-me");
+  assert.equal(harness.geocodeCalls.length, 0);
+  assert.equal(store.writeDecisions.length, 1);
+  assert.deepEqual(
+    store.decisions.map((decision) => decision.operation),
+    ["update", "none"],
+  );
+});
+
+test("main-image section clear is narrow and exactly retryable", async () => {
+  const store = new AtomicAccountStore();
+  const initial = trustedAccount({
+    approvalStatus: "approved",
+    profileVersion: 4,
+    locationVersion: 2,
+    updatedAt: { seconds: 1_760_000_260, nanoseconds: 0 },
+    customFlag: "preserve-me",
+  });
+  store.seed(ownerId, initial);
+  const harness = profileHarness(store, {
+    geocodeError: new Error("Image clear must not geocode"),
+  });
+  const data = sectionRequestData("mainImage", {
+    requestId: "clear-main-image",
+    expectedProfileVersion: 4,
+    expectedLocationVersion: 2,
+    profile: { mainImageUrl: "" },
+  });
+  const request = callableRequest(ownerAuth(), data);
+
+  const firstResponse = await saveBiteSaverRestaurantProfileHandler(
+    request,
+    harness.dependencies,
+  );
+  const afterFirst = store.get(ownerId);
+  const secondResponse = await saveBiteSaverRestaurantProfileHandler(
+    request,
+    harness.dependencies,
+  );
+
+  assert.deepEqual(firstResponse, {
+    documentId: ownerId,
+    approvalStatus: "approved",
+    profileVersion: 5,
+    locationVersion: 2,
+  });
+  assert.deepEqual(secondResponse, firstResponse);
+  assert.deepEqual(store.get(ownerId), afterFirst);
+  assert.equal(afterFirst.mainImageUrl, null);
+  assert.deepEqual(afterFirst.businessHours, initial.businessHours);
+  assert.equal(afterFirst.locationVersion, 2);
+  assert.equal(afterFirst.customFlag, "preserve-me");
+  assert.equal(harness.geocodeCalls.length, 0);
+  assert.equal(store.writeDecisions.length, 1);
+  assert.deepEqual(
+    store.decisions.map((decision) => decision.operation),
+    ["update", "none"],
+  );
+});
+
+test("hours and image stale versions preserve complete documents", async () => {
+  for (const section of ["businessHours", "mainImage"]) {
+    for (const staleVersion of ["profile", "location"]) {
+      const initial = trustedAccount({
+        approvalStatus: "approved",
+        profileVersion: 5,
+        locationVersion: 2,
+        updatedAt: { seconds: 1_760_000_270, nanoseconds: 123 },
+        lastProfileRequestId: "previous-request",
+        lastProfileRequestFingerprint: "e".repeat(64),
+        customFlag: "preserve-me",
+      });
+      const store = new AtomicAccountStore();
+      store.seed(ownerId, initial);
+      const before = store.get(ownerId);
+      const harness = profileHarness(store, {
+        geocodeError: new Error("stale section requests must not geocode"),
+      });
+      const data = sectionRequestData(section, {
+        requestId: `stale-${section}-${staleVersion}`,
+        expectedProfileVersion: staleVersion === "profile" ? 4 : 5,
+        expectedLocationVersion: staleVersion === "location" ? 1 : 2,
+        profile: section === "businessHours"
+          ? { businessHours: [] }
+          : { mainImageUrl: "" },
+      });
+
+      await assert.rejects(
+        saveBiteSaverRestaurantProfileHandler(
+          callableRequest(ownerAuth(), data),
+          harness.dependencies,
+        ),
+        expectHttpsError(
+          "aborted",
+          staleVersion === "profile" ? /profile changed/ : /location changed/,
+        ),
+        `${section}: ${staleVersion}`,
+      );
+
+      assert.equal(harness.geocodeCalls.length, 0);
+      assert.equal(store.transactionCount, 0);
+      assert.equal(store.writeDecisions.length, 0);
+      assert.deepEqual(store.get(ownerId), before);
+    }
+  }
+});
+
+test("one request ID cannot cross owner-update sections", async () => {
+  const pairs = [
+    ["basicInformation", "businessHours"],
+    ["businessHours", "mainImage"],
+    ["mainImage", "basicInformation"],
+  ];
+
+  for (const [winnerSection, loserSection] of pairs) {
+    const store = new AtomicAccountStore();
+    store.seed(ownerId, trustedAccount({
+      approvalStatus: "approved",
+      profileVersion: 1,
+      locationVersion: 1,
+    }));
+    const harness = profileHarness(store);
+    const requestId = `cross-section-${winnerSection}-${loserSection}`;
+    const profileFor = (section) =>
+      section === "basicInformation"
+        ? basicInformationProfile({ phone: "(352) 555-0177" })
+        : section === "businessHours"
+          ? { businessHours: [] }
+          : { mainImageUrl: "" };
+    const winnerData = sectionRequestData(winnerSection, {
+      requestId,
+      expectedProfileVersion: 1,
+      expectedLocationVersion: 1,
+      profile: profileFor(winnerSection),
+    });
+    await saveBiteSaverRestaurantProfileHandler(
+      callableRequest(ownerAuth(), winnerData),
+      harness.dependencies,
+    );
+    const afterWinner = store.get(ownerId);
+    const transactionsAfterWinner = store.transactionCount;
+    const loserData = sectionRequestData(loserSection, {
+      requestId,
+      expectedProfileVersion: 1,
+      expectedLocationVersion: 1,
+      profile: profileFor(loserSection),
+    });
+
+    await assert.rejects(
+      saveBiteSaverRestaurantProfileHandler(
+        callableRequest(ownerAuth(), loserData),
+        harness.dependencies,
+      ),
+      expectHttpsError("failed-precondition", /different profile request/),
+      `${winnerSection} -> ${loserSection}`,
+    );
+
+    assert.notEqual(
+      requestFingerprint(ownerAuth(), winnerData),
+      requestFingerprint(ownerAuth(), loserData),
+    );
+    assert.equal(store.transactionCount, transactionsAfterWinner);
+    assert.equal(store.writeDecisions.length, 1);
+    assert.deepEqual(store.get(ownerId), afterWinner);
+  }
+});
+
+test("section rejections preserve the complete document including timestamp and request metadata", async () => {
+  const successfulData = sectionRequestData("basicInformation", {
+    requestId: "already-used-section-id",
+    expectedProfileVersion: 5,
+    expectedLocationVersion: 2,
+    profile: basicInformationProfile({ phone: "(352) 555-0111" }),
+  });
+  const cases = [
+    {
+      label: "stale profile",
+      expectedCode: "aborted",
+      data: sectionRequestData("basicInformation", {
+        requestId: "stale-profile-section",
+        expectedProfileVersion: 4,
+        expectedLocationVersion: 2,
+      }),
+      options: {},
+    },
+    {
+      label: "stale location",
+      expectedCode: "aborted",
+      data: sectionRequestData("basicInformation", {
+        requestId: "stale-location-section",
+        expectedProfileVersion: 5,
+        expectedLocationVersion: 1,
+      }),
+      options: {},
+    },
+    {
+      label: "invalid geocoding",
+      expectedCode: "not-found",
+      data: sectionRequestData("basicInformation", {
+        requestId: "invalid-geocoding-section",
+        expectedProfileVersion: 5,
+        expectedLocationVersion: 2,
+        profile: basicInformationProfile({ streetAddress: "98765 Impossible Rd" }),
+      }),
+      options: { geocodeError: new RestaurantGeocodingError("no-result") },
+    },
+    {
+      label: "request ID collision",
+      expectedCode: "failed-precondition",
+      data: {
+        ...successfulData,
+        profile: {
+          ...successfulData.profile,
+          phone: "(352) 555-0222",
+        },
+      },
+      options: {},
+      successfulData,
+    },
+  ];
+
+  for (const entry of cases) {
+    const initial = trustedAccount({
+      approvalStatus: "approved",
+      profileVersion: 5,
+      locationVersion: 2,
+      updatedAt: { seconds: 1_760_000_300, nanoseconds: 987 },
+      lastProfileRequestId: entry.successfulData
+        ? successfulData.requestId
+        : "previous-request",
+      lastProfileRequestFingerprint: entry.successfulData
+        ? requestFingerprint(ownerAuth(), successfulData)
+        : "b".repeat(64),
+      billingPlanName: "coupon_monthly",
+      customFlag: "preserve-me",
+      nestedUnknown: { exact: ["before", 7] },
+    });
+    const store = new AtomicAccountStore();
+    store.seed(ownerId, initial);
+    const before = store.get(ownerId);
+    const harness = profileHarness(store, entry.options);
+
+    await assert.rejects(
+      saveBiteSaverRestaurantProfileHandler(
+        callableRequest(ownerAuth(), entry.data),
+        harness.dependencies,
+      ),
+      expectHttpsError(entry.expectedCode),
+      entry.label,
+    );
+
+    assert.equal(store.writeDecisions.length, 0, entry.label);
+    assert.deepEqual(store.get(ownerId), before, entry.label);
+    assert.deepEqual(store.get(ownerId).updatedAt, before.updatedAt, entry.label);
+    assert.equal(
+      store.get(ownerId).lastProfileRequestId,
+      before.lastProfileRequestId,
+      entry.label,
+    );
+    assert.equal(
+      store.get(ownerId).lastProfileRequestFingerprint,
+      before.lastProfileRequestFingerprint,
+      entry.label,
+    );
+  }
+});
+
+test("section retries are idempotent and same-version concurrent requests commit once", async () => {
+  const retryStore = new AtomicAccountStore();
+  retryStore.seed(ownerId, trustedAccount({
+    approvalStatus: "approved",
+    profileVersion: 1,
+    locationVersion: 1,
+    updatedAt: { seconds: 1_760_000_400, nanoseconds: 0 },
+  }));
+  const retryHarness = profileHarness(retryStore);
+  const retryData = sectionRequestData("basicInformation", {
+    requestId: "section-exact-retry",
+    profile: basicInformationProfile({ phone: "(352) 555-0133" }),
+  });
+  const retryRequest = callableRequest(ownerAuth(), retryData);
+
+  const firstResponse = await saveBiteSaverRestaurantProfileHandler(
+    retryRequest,
+    retryHarness.dependencies,
+  );
+  const afterFirst = retryStore.get(ownerId);
+  const secondResponse = await saveBiteSaverRestaurantProfileHandler(
+    retryRequest,
+    retryHarness.dependencies,
+  );
+  assert.deepEqual(secondResponse, firstResponse);
+  assert.deepEqual(retryStore.get(ownerId), afterFirst);
+  assert.equal(retryStore.writeDecisions.length, 1);
+  assert.deepEqual(
+    retryStore.decisions.map((decision) => decision.operation),
+    ["update", "none"],
+  );
+
+  const raceStore = new AtomicAccountStore();
+  raceStore.seed(ownerId, trustedAccount({
+    approvalStatus: "approved",
+    profileVersion: 1,
+    locationVersion: 1,
+  }));
+  const raceHarness = profileHarness(raceStore);
+  const raceA = sectionRequestData("basicInformation", {
+    requestId: "section-race-a",
+    profile: basicInformationProfile({ phone: "(352) 555-0144" }),
+  });
+  const raceB = sectionRequestData("basicInformation", {
+    requestId: "section-race-b",
+    profile: basicInformationProfile({ phone: "(352) 555-0155" }),
+  });
+
+  const results = await Promise.allSettled([
+    saveBiteSaverRestaurantProfileHandler(
+      callableRequest(ownerAuth(), raceA),
+      raceHarness.dependencies,
+    ),
+    saveBiteSaverRestaurantProfileHandler(
+      callableRequest(ownerAuth(), raceB),
+      raceHarness.dependencies,
+    ),
+  ]);
+  assert.equal(
+    results.filter((result) => result.status === "fulfilled").length,
+    1,
+  );
+  const rejected = results.find((result) => result.status === "rejected");
+  assert.equal(rejected.reason.code, "aborted");
+  assert.equal(raceStore.writeDecisions.length, 1);
+  assert.equal(raceStore.get(ownerId).profileVersion, 2);
+  assert.equal(raceStore.get(ownerId).locationVersion, 1);
+  assert.ok(
+    ["(352) 555-0144", "(352) 555-0155"].includes(
+      raceStore.get(ownerId).phone,
+    ),
+  );
+});
+
+test("section location version is rechecked transactionally without mutating a raced document", async () => {
+  const store = new AtomicAccountStore();
+  store.seed(ownerId, trustedAccount({
+    approvalStatus: "approved",
+    profileVersion: 5,
+    locationVersion: 2,
+    updatedAt: { seconds: 1_760_000_500, nanoseconds: 0 },
+    lastProfileRequestId: "previous-request",
+    lastProfileRequestFingerprint: "c".repeat(64),
+    customFlag: "preserve-me",
+  }));
+  let stateAfterExternalWrite;
+  store.beforeTransaction = async (database) => {
+    database.directPatch(ownerId, {
+      locationVersion: 3,
+      externalLocationWriter: "won-race",
+    });
+    stateAfterExternalWrite = database.get(ownerId);
+  };
+  const harness = profileHarness(store);
+  const data = sectionRequestData("basicInformation", {
+    requestId: "section-location-race",
+    expectedProfileVersion: 5,
+    expectedLocationVersion: 2,
+    profile: basicInformationProfile({ phone: "(352) 555-0166" }),
+  });
+
+  await assert.rejects(
+    saveBiteSaverRestaurantProfileHandler(
+      callableRequest(ownerAuth(), data),
+      harness.dependencies,
+    ),
+    expectHttpsError("aborted", /location changed/),
+  );
+
+  assert.equal(harness.geocodeCalls.length, 0);
+  assert.equal(store.writeDecisions.length, 0);
+  assert.deepEqual(store.get(ownerId), stateAfterExternalWrite);
+  assert.equal(store.get(ownerId).phone, "(352) 555-0100");
+  assert.deepEqual(store.get(ownerId).updatedAt, {
+    seconds: 1_760_000_500,
+    nanoseconds: 0,
+  });
+  assert.equal(store.get(ownerId).lastProfileRequestId, "previous-request");
+  assert.equal(
+    store.get(ownerId).lastProfileRequestFingerprint,
+    "c".repeat(64),
+  );
 });
 
 test("geocoding failures and invalid geocoder results perform no transaction or write", async () => {
@@ -2138,10 +3082,11 @@ test("geocoding failures and invalid geocoder results perform no transaction or 
       await saveBiteSaverRestaurantProfileHandler(
         callableRequest(
           ownerAuth(),
-          saveRequestData("ownerUpdate", {
+          sectionRequestData("basicInformation", {
             expectedProfileVersion: 1,
+            expectedLocationVersion: 1,
             requestId: "failed-geocode",
-            profile: profile({ streetAddress: "456 Oak Ave" }),
+            profile: basicInformationProfile({ streetAddress: "456 Oak Ave" }),
           }),
         ),
         harness.dependencies,
@@ -2172,8 +3117,9 @@ test("stale and duplicate-version updates abort without last-write-wins overwrit
     saveBiteSaverRestaurantProfileHandler(
       callableRequest(
         ownerAuth(),
-        saveRequestData("ownerUpdate", {
+        sectionRequestData("basicInformation", {
           expectedProfileVersion: 4,
+          expectedLocationVersion: 1,
           requestId: "stale-before-geocode",
         }),
       ),
@@ -2187,10 +3133,11 @@ test("stale and duplicate-version updates abort without last-write-wins overwrit
   await saveBiteSaverRestaurantProfileHandler(
     callableRequest(
       ownerAuth(),
-      saveRequestData("ownerUpdate", {
+      sectionRequestData("basicInformation", {
         expectedProfileVersion: 5,
+        expectedLocationVersion: 1,
         requestId: "first-update",
-        profile: profile({ phone: "(352) 555-0111" }),
+        profile: basicInformationProfile({ phone: "(352) 555-0111" }),
       }),
     ),
     harness.dependencies,
@@ -2199,10 +3146,11 @@ test("stale and duplicate-version updates abort without last-write-wins overwrit
     saveBiteSaverRestaurantProfileHandler(
       callableRequest(
         ownerAuth(),
-        saveRequestData("ownerUpdate", {
+        sectionRequestData("basicInformation", {
           expectedProfileVersion: 5,
+          expectedLocationVersion: 1,
           requestId: "second-update",
-          profile: profile({ phone: "(352) 555-0222" }),
+          profile: basicInformationProfile({ phone: "(352) 555-0222" }),
         }),
       ),
       harness.dependencies,
@@ -2218,12 +3166,19 @@ test("transaction reread aborts a concurrent address change during geocoding", a
   store.seed(ownerId, trustedAccount({
     approvalStatus: "approved",
     profileVersion: 2,
+    updatedAt: { seconds: 1_760_000_550, nanoseconds: 321 },
+    lastProfileRequestId: "previous-request",
+    lastProfileRequestFingerprint: "f".repeat(64),
+    billingPlanName: "coupon_monthly",
+    customFlag: "preserve-me",
+    nestedUnknown: { exact: ["address-race", 9] },
   }));
   const concurrentAddress = addressFromProfile(
     profile({ streetAddress: "789 Pine Rd" }),
   );
   const concurrentAddressFingerprint =
     createRestaurantAddressFingerprint(concurrentAddress);
+  let stateAfterExternalWrite;
   const harness = profileHarness(store, {
     onGeocode: async () => {
       store.directPatch(ownerId, {
@@ -2238,6 +3193,7 @@ test("transaction reread aborts a concurrent address change during geocoding", a
             locationSource: biteSaverLocationSource,
           }),
       });
+      stateAfterExternalWrite = store.get(ownerId);
     },
   });
 
@@ -2245,18 +3201,21 @@ test("transaction reread aborts a concurrent address change during geocoding", a
     saveBiteSaverRestaurantProfileHandler(
       callableRequest(
         ownerAuth(),
-        saveRequestData("ownerUpdate", {
+        sectionRequestData("basicInformation", {
           expectedProfileVersion: 2,
+          expectedLocationVersion: 1,
           requestId: "raced-address",
-          profile: profile({ streetAddress: "456 Oak Ave" }),
+          profile: basicInformationProfile({ streetAddress: "456 Oak Ave" }),
         }),
       ),
       harness.dependencies,
     ),
     expectHttpsError("aborted", /while.*validated|changed/),
   );
+  assert.equal(harness.geocodeCalls.length, 1);
   assert.equal(store.transactionCount, 1);
   assert.equal(store.writeDecisions.length, 0);
+  assert.deepEqual(store.get(ownerId), stateAfterExternalWrite);
   assert.equal(store.get(ownerId).streetAddress, "789 Pine Rd");
   assert.equal(
     store.get(ownerId).addressFingerprint,
@@ -2277,8 +3236,9 @@ test("malformed stored profile versions fail closed", async () => {
       saveBiteSaverRestaurantProfileHandler(
         callableRequest(
           ownerAuth(),
-          saveRequestData("ownerUpdate", {
+          sectionRequestData("basicInformation", {
             expectedProfileVersion: 0,
+            expectedLocationVersion: 1,
           }),
         ),
         harness.dependencies,
@@ -2306,10 +3266,11 @@ test("profile updates preserve lifecycle, subscription, invite, geohash, and unr
   await saveBiteSaverRestaurantProfileHandler(
     callableRequest(
       ownerAuth(),
-      saveRequestData("ownerUpdate", {
+      sectionRequestData("basicInformation", {
         expectedProfileVersion: 9,
+        expectedLocationVersion: 1,
         requestId: "preserve-fields",
-        profile: profile({
+        profile: basicInformationProfile({
           phone: "(352) 555-0888",
         }),
       }),
@@ -2341,34 +3302,111 @@ test("profile updates preserve lifecycle, subscription, invite, geohash, and unr
   }
 });
 
-test("optional bio, main image, and business hours update only when provided", async () => {
-  const store = new AtomicAccountStore();
-  store.seed(ownerId, trustedAccount({
+test("new broad legacy owner requests fail closed without any partial write", async () => {
+  const initial = trustedAccount({
     approvalStatus: "approved",
-    profileVersion: 1,
-  }));
-  const harness = profileHarness(store);
-
-  await saveBiteSaverRestaurantProfileHandler(
-    callableRequest(
-      ownerAuth(),
-      saveRequestData("ownerUpdate", {
-        expectedProfileVersion: 1,
-        requestId: "clear-optional-fields",
-        profile: profile({
-          bio: "",
-          mainImageUrl: "",
-          businessHours: [],
+    profileVersion: 7,
+    locationVersion: 3,
+    updatedAt: { seconds: 1_760_000_600, nanoseconds: 456 },
+    lastProfileRequestId: "previous-request",
+    lastProfileRequestFingerprint: "d".repeat(64),
+    billingPlanName: "coupon_monthly",
+    customFlag: "preserve-me",
+    nestedUnknown: { exact: ["legacy", 8] },
+  });
+  const currentProfile = profile({
+    bio: initial.bio,
+    mainImageUrl: initial.mainImageUrl,
+    businessHours: initial.businessHours,
+  });
+  const cases = [
+    {
+      label: "broad default-looking state",
+      profile: profile({
+        phone: "(352) 555-0199",
+        bio: initial.bio,
+        mainImageUrl: "https://example.com/uploaded-but-unsaved.jpg",
+        businessHours: fullBusinessHours({
+          Sunday: {
+            opensAt: "9:00 AM",
+            closesAt: "5:00 PM",
+            closed: true,
+          },
         }),
       }),
-    ),
-    harness.dependencies,
-  );
-  const saved = store.get(ownerId);
-  assert.equal(saved.bio, null);
-  assert.equal(saved.mainImageUrl, null);
-  assert.deepEqual(saved.businessHours, []);
-  assert.equal(harness.geocodeCalls.length, 0);
+    },
+    {
+      label: "basic-like broad request",
+      profile: {
+        ...currentProfile,
+        phone: "(352) 555-0188",
+      },
+    },
+    {
+      label: "hours-like broad request",
+      profile: {
+        ...currentProfile,
+        businessHours: fullBusinessHours({
+          Monday: { opensAt: "7:00 AM", closesAt: "3:00 PM" },
+        }),
+      },
+    },
+    {
+      label: "image-like broad request",
+      profile: {
+        ...currentProfile,
+        mainImageUrl: "https://example.com/replacement.jpg",
+      },
+    },
+    {
+      label: "no-op broad request",
+      profile: currentProfile,
+    },
+  ];
+
+  for (const entry of cases) {
+    const store = new AtomicAccountStore();
+    store.seed(ownerId, initial);
+    const before = store.get(ownerId);
+    const harness = profileHarness(store, {
+      geocodeError: new Error("legacy policy must run before geocoding"),
+    });
+    const data = saveRequestData("ownerUpdate", {
+      expectedProfileVersion: 7,
+      requestId: `unsupported-legacy-${entry.label.replaceAll(" ", "-")}`,
+      profile: entry.profile,
+    });
+
+    let rejected;
+    try {
+      await saveBiteSaverRestaurantProfileHandler(
+        callableRequest(ownerAuth(), data),
+        harness.dependencies,
+      );
+    } catch (error) {
+      rejected = error;
+    }
+
+    assert.equal(rejected?.code, "failed-precondition", entry.label);
+    assert.equal(
+      rejected?.message,
+      "This version of BiteStar must be updated before editing restaurant information.",
+      entry.label,
+    );
+    for (const sensitive of [
+      data.requestId,
+      data.profile.streetAddress,
+      data.profile.phone,
+      initial.lastProfileRequestFingerprint,
+    ]) {
+      assert.equal(rejected.message.includes(sensitive), false, entry.label);
+    }
+    assert.equal(store.getCount, 1, entry.label);
+    assert.equal(harness.geocodeCalls.length, 0, entry.label);
+    assert.equal(store.transactionCount, 0, entry.label);
+    assert.equal(store.writeDecisions.length, 0, entry.label);
+    assert.deepEqual(store.get(ownerId), before, entry.label);
+  }
 });
 
 test("review requires admin before request validation or transactions", async () => {

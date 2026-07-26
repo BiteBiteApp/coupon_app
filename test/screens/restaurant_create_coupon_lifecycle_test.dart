@@ -210,17 +210,27 @@ void main() {
       );
       final payload = invocations.single;
       expect(payload['intent'], 'ownerUpdate');
+      expect(payload['updateSection'], 'basicInformation');
       expect(payload['expectedProfileVersion'], 4);
+      expect(payload['expectedLocationVersion'], 2);
       expect(payload['requestId'], 'owner-1');
       expect(payload, isNot(contains('documentId')));
       final profile = payload['profile'] as Map<String, dynamic>;
-      expect(profile['restaurantName'], 'Approved Cafe');
+      expect(profile.keys.toSet(), <String>{
+        'streetAddress',
+        'city',
+        'state',
+        'zipCode',
+        'phone',
+        'website',
+        'bio',
+      });
       expect(profile['phone'], '(352) 555-0199');
       expect(profile['website'], '');
       expect(profile['bio'], '');
-      expect(profile['mainImageUrl'], '');
-      expect(profile['businessHours'], isA<List<dynamic>>());
-      expect(profile['businessHours'], isEmpty);
+      expect(profile, isNot(contains('restaurantName')));
+      expect(profile, isNot(contains('mainImageUrl')));
+      expect(profile, isNot(contains('businessHours')));
       _expectNoNullWireValues(payload);
       _expectNoTrustedLocationFields(payload);
 
@@ -234,6 +244,7 @@ void main() {
         'documentId': 'owner-1',
         'approvalStatus': 'approved',
         'profileVersion': 5,
+        'locationVersion': 2,
       });
       await tester.pumpAndSettle();
 
@@ -243,6 +254,207 @@ void main() {
       expect(_fieldText(tester, 'Phone Number'), '(352) 555-0199');
     },
   );
+
+  testWidgets('Basic save preserves custom Hours without sending them', (
+    tester,
+  ) async {
+    final customHours = _customBusinessHours();
+    Map<String, dynamic>? payload;
+    var account = _approvedAccount(businessHours: customHours);
+    final service = BiteSaverRestaurantLifecycleService(
+      invokeCallable: (name, value) async {
+        payload = Map<String, dynamic>.from(value);
+        account = _approvedAccount(
+          profileVersion: 5,
+          phone: '(352) 555-0199',
+          businessHours: customHours,
+        );
+        return <String, dynamic>{
+          'documentId': 'owner-1',
+          'approvalStatus': 'approved',
+          'profileVersion': 5,
+          'locationVersion': 2,
+        };
+      },
+    );
+
+    await _pumpApplicationScreen(
+      tester,
+      lifecycleService: service,
+      loadAccount: (uid) async => account,
+    );
+    await _expandSection(tester, 'Hours');
+    expect(find.textContaining('Sun: 10:00 AM - 4:00 PM'), findsOneWidget);
+
+    await _expandSection(tester, 'Basic Restaurant Information');
+    await tester.enterText(_fieldWithLabel('Phone Number'), '3525550199');
+    final saveButton = find.widgetWithText(
+      ElevatedButton,
+      'Save Basic Information',
+    );
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(payload?['updateSection'], 'basicInformation');
+    final profile = payload?['profile'] as Map<String, dynamic>;
+    expect(profile, isNot(contains('businessHours')));
+    expect(profile, isNot(contains('mainImageUrl')));
+    expect(find.textContaining('Sun: 10:00 AM - 4:00 PM'), findsOneWidget);
+    expect(
+      account[Restaurant.fieldBusinessHours],
+      RestaurantBusinessHours.toFirestoreList(customHours),
+    );
+  });
+
+  testWidgets(
+    'opening default Hours is local-only and Basic never sends the defaults',
+    (tester) async {
+      final invocations = <Map<String, dynamic>>[];
+      var account = _approvedAccount();
+      final service = BiteSaverRestaurantLifecycleService(
+        invokeCallable: (name, payload) async {
+          invocations.add(Map<String, dynamic>.from(payload));
+          account = _approvedAccount(profileVersion: 5);
+          return <String, dynamic>{
+            'documentId': 'owner-1',
+            'approvalStatus': 'approved',
+            'profileVersion': 5,
+            'locationVersion': 2,
+          };
+        },
+      );
+
+      await _pumpApplicationScreen(
+        tester,
+        lifecycleService: service,
+        loadAccount: (uid) async => account,
+      );
+      await _expandSection(tester, 'Hours');
+      expect(invocations, isEmpty);
+      expect(find.text('Hours not set'), findsOneWidget);
+      expect(invocations, isEmpty);
+
+      await _expandSection(tester, 'Basic Restaurant Information');
+      final saveButton = find.widgetWithText(
+        ElevatedButton,
+        'Save Basic Information',
+      );
+      await tester.ensureVisible(saveButton);
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+
+      expect(invocations, hasLength(1));
+      expect(invocations.single['updateSection'], 'basicInformation');
+      expect(
+        invocations.single['profile'] as Map<String, dynamic>,
+        isNot(contains('businessHours')),
+      );
+      expect(account, isNot(contains(Restaurant.fieldBusinessHours)));
+    },
+  );
+
+  testWidgets(
+    'explicit Save Hours sends only exact Hours and concurrency metadata',
+    (tester) async {
+      final customHours = _customBusinessHours();
+      Map<String, dynamic>? payload;
+      var account = _approvedAccount(businessHours: customHours);
+      final service = BiteSaverRestaurantLifecycleService(
+        invokeCallable: (name, value) async {
+          payload = Map<String, dynamic>.from(value);
+          account = _approvedAccount(
+            profileVersion: 5,
+            businessHours: customHours,
+          );
+          return <String, dynamic>{
+            'documentId': 'owner-1',
+            'approvalStatus': 'approved',
+            'profileVersion': 5,
+            'locationVersion': 2,
+          };
+        },
+      );
+
+      await _pumpApplicationScreen(
+        tester,
+        lifecycleService: service,
+        loadAccount: (uid) async => account,
+      );
+      await _expandSection(tester, 'Basic Restaurant Information');
+      await tester.enterText(_fieldWithLabel('Phone Number'), '');
+      await _expandSection(tester, 'Hours');
+
+      final saveButton = find.widgetWithText(ElevatedButton, 'Save Hours');
+      await tester.ensureVisible(saveButton);
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+
+      expect(payload?['intent'], 'ownerUpdate');
+      expect(payload?['updateSection'], 'businessHours');
+      expect(payload?['expectedProfileVersion'], 4);
+      expect(payload?['expectedLocationVersion'], 2);
+      expect(payload?['requestId'], isA<String>());
+      final profile = payload?['profile'] as Map<String, dynamic>;
+      expect(profile.keys, <String>['businessHours']);
+      final hours = profile['businessHours'] as List<dynamic>;
+      expect(hours, hasLength(7));
+      expect(hours.first, <String, dynamic>{
+        'day': 'Sunday',
+        'opensAt': '10:00 AM',
+        'closesAt': '4:00 PM',
+        'closed': false,
+      });
+      expect(_fieldText(tester, 'Phone Number'), isEmpty);
+      _expectNoTrustedLocationFields(payload!);
+    },
+  );
+
+  testWidgets('explicit Restaurant Image save has an image-only payload', (
+    tester,
+  ) async {
+    Map<String, dynamic>? payload;
+    var account = _approvedAccount(
+      mainImageUrl: 'https://images.example/restaurant.jpg',
+    );
+    final service = BiteSaverRestaurantLifecycleService(
+      invokeCallable: (name, value) async {
+        payload = Map<String, dynamic>.from(value);
+        account = _approvedAccount(
+          profileVersion: 5,
+          mainImageUrl: 'https://images.example/restaurant.jpg',
+        );
+        return <String, dynamic>{
+          'documentId': 'owner-1',
+          'approvalStatus': 'approved',
+          'profileVersion': 5,
+          'locationVersion': 2,
+        };
+      },
+    );
+
+    await _pumpApplicationScreen(
+      tester,
+      lifecycleService: service,
+      loadAccount: (uid) async => account,
+    );
+    await _expandSection(tester, 'Restaurant Image');
+    final saveButton = find.widgetWithText(
+      ElevatedButton,
+      'Save Restaurant Image',
+    );
+    await tester.ensureVisible(saveButton);
+    await tester.tap(saveButton);
+    await tester.pumpAndSettle();
+
+    expect(payload?['updateSection'], 'mainImage');
+    expect(payload?['expectedProfileVersion'], 4);
+    expect(payload?['expectedLocationVersion'], 2);
+    expect(payload?['profile'], <String, dynamic>{
+      'mainImageUrl': 'https://images.example/restaurant.jpg',
+    });
+    expect(find.text('Restaurant image saved.'), findsOneWidget);
+  });
 
   testWidgets(
     'approved name stays separate from a proposed name during owner update',
@@ -303,8 +515,8 @@ void main() {
       await tester.pumpAndSettle();
 
       final profile = lifecyclePayload!['profile'] as Map<String, dynamic>;
-      expect(profile['restaurantName'], 'Approved Cafe');
-      expect(profile['restaurantName'], isNot('APPROVED CAFE TWO'));
+      expect(lifecyclePayload!['updateSection'], 'basicInformation');
+      expect(profile, isNot(contains('restaurantName')));
       expect(nameRequests, isEmpty);
       expect(
         _fieldText(tester, 'Requested Restaurant Name'),
@@ -459,6 +671,7 @@ void main() {
         ),
         findsOneWidget,
       );
+      expect(find.text('Restaurant profile saved.'), findsNothing);
       expect(_fieldText(tester, 'Street Address'), '22 Retry Road');
       expect(_fieldText(tester, 'City'), 'Retry City');
       expect(_fieldText(tester, 'State'), 'GA');
@@ -475,6 +688,7 @@ void main() {
         ),
         findsOneWidget,
       );
+      expect(find.text('Restaurant profile saved.'), findsNothing);
       expect(_fieldText(tester, 'Street Address'), '22 Retry Road');
       expect(_fieldText(tester, 'City'), 'Retry City');
       expect(_fieldText(tester, 'State'), 'GA');
@@ -495,6 +709,7 @@ void main() {
         ),
         findsOneWidget,
       );
+      expect(find.text('Restaurant profile saved.'), findsNothing);
       expect(_fieldText(tester, 'Phone Number'), '(352) 555-0144');
       expect(_fieldText(tester, 'Website'), 'https://changed.example');
       expect(_fieldText(tester, 'Street Address'), '22 Retry Road');
@@ -503,6 +718,87 @@ void main() {
       expect(_fieldText(tester, 'ZIP Code'), '30303');
       expect(_fieldText(tester, 'Short Bio'), 'Retry biography');
       expect(requestSequence, 2);
+    },
+  );
+
+  testWidgets(
+    'stale conflict recovers after authoritative reload and uses new versions',
+    (tester) async {
+      final invocations = <Map<String, dynamic>>[];
+      var account = _approvedAccount(
+        profileVersion: 4,
+        bio: 'Version four bio',
+      );
+      final service = BiteSaverRestaurantLifecycleService(
+        invokeCallable: (name, payload) async {
+          invocations.add(Map<String, dynamic>.from(payload));
+          if (invocations.length == 1) {
+            throw const BiteSaverCallableFailure(
+              'aborted',
+              'raw newer profile',
+            );
+          }
+          account = _approvedAccount(profileVersion: 6, bio: 'Recovered save');
+          return <String, dynamic>{
+            'documentId': 'owner-1',
+            'approvalStatus': 'approved',
+            'profileVersion': 6,
+            'locationVersion': 2,
+          };
+        },
+      );
+
+      await _pumpApplicationScreen(
+        tester,
+        lifecycleService: service,
+        loadAccount: (uid) async => account,
+      );
+      await _expandSection(tester, 'Basic Restaurant Information');
+      await tester.enterText(_fieldWithLabel('Short Bio'), 'Stale draft');
+      var saveButton = find.widgetWithText(
+        ElevatedButton,
+        'Save Basic Information',
+      );
+      await tester.ensureVisible(saveButton);
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'The restaurant profile changed. Reload the latest version and try again.',
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Restaurant profile saved.'), findsNothing);
+      expect(_fieldText(tester, 'Short Bio'), 'Stale draft');
+
+      account = _approvedAccount(
+        profileVersion: 5,
+        bio: 'Authoritative version five',
+      );
+      await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+      await tester.pumpAndSettle();
+      await _pumpApplicationScreen(
+        tester,
+        lifecycleService: service,
+        loadAccount: (uid) async => account,
+      );
+      await _expandSection(tester, 'Basic Restaurant Information');
+      expect(_fieldText(tester, 'Short Bio'), 'Authoritative version five');
+      await tester.enterText(_fieldWithLabel('Short Bio'), 'Recovered save');
+      saveButton = find.widgetWithText(
+        ElevatedButton,
+        'Save Basic Information',
+      );
+      await tester.ensureVisible(saveButton);
+      await tester.tap(saveButton);
+      await tester.pumpAndSettle();
+
+      expect(invocations, hasLength(2));
+      expect(invocations[1]['expectedProfileVersion'], 5);
+      expect(invocations[1]['expectedLocationVersion'], 2);
+      expect(find.text('Restaurant profile saved.'), findsOneWidget);
+      expect(_fieldText(tester, 'Short Bio'), 'Recovered save');
     },
   );
 
@@ -575,7 +871,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(invocations, hasLength(2));
+      expect(invocations[1]['updateSection'], 'basicInformation');
       expect(invocations[1]['expectedProfileVersion'], 5);
+      expect(invocations[1]['expectedLocationVersion'], 2);
       final secondProfile = invocations[1]['profile'] as Map<String, dynamic>;
       expect(secondProfile['phone'], '(352) 555-0166');
       expect(secondProfile['website'], 'https://authoritative.example');
@@ -2293,6 +2591,8 @@ Map<String, dynamic> _approvedAccount({
   String phone = '(352) 555-0100',
   String website = 'https://approved.example',
   String bio = 'Approved profile',
+  String? mainImageUrl,
+  List<RestaurantBusinessHours>? businessHours,
   String subscriptionStatus = 'active',
 }) {
   return <String, dynamic>{
@@ -2306,6 +2606,11 @@ Map<String, dynamic> _approvedAccount({
     Restaurant.fieldPhone: phone,
     Restaurant.fieldWebsite: website,
     Restaurant.fieldBio: bio,
+    Restaurant.fieldMainImageUrl: ?mainImageUrl,
+    if (businessHours != null)
+      Restaurant.fieldBusinessHours: RestaurantBusinessHours.toFirestoreList(
+        businessHours,
+      ),
     Restaurant.fieldProfileVersion: profileVersion,
     Restaurant.fieldApprovalStatus: 'approved',
     'couponApplicationSubmitted': true,
@@ -2319,6 +2624,19 @@ Map<String, dynamic> _approvedAccount({
         locationValidatedAt ?? Timestamp.fromDate(DateTime.utc(2026, 7, 23)),
     Restaurant.fieldLocationSource: locationSource,
   };
+}
+
+List<RestaurantBusinessHours> _customBusinessHours() {
+  return [
+    for (final entry in RestaurantBusinessHours.defaultWeek())
+      entry.day == 'Sunday'
+          ? entry.copyWith(
+              opensAt: '10:00 AM',
+              closesAt: '4:00 PM',
+              closed: false,
+            )
+          : entry,
+  ];
 }
 
 void _expectNoTrustedLocationFields(Map<String, dynamic> payload) {

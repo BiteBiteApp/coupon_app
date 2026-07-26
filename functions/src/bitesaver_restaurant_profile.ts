@@ -16,12 +16,17 @@ import { validRestaurantCoordinates } from "./restaurant_geo_helpers.js";
 
 export const biteSaverLocationSource = "google_geocoding";
 
-const allowedRequestKeys = new Set([
+const allowedLegacyRequestKeys = new Set([
   "intent",
   "documentId",
   "requestId",
   "expectedProfileVersion",
   "profile",
+]);
+const allowedRequestKeys = new Set([
+  ...allowedLegacyRequestKeys,
+  "updateSection",
+  "expectedLocationVersion",
 ]);
 const allowedProfileKeys = new Set([
   "restaurantName",
@@ -35,6 +40,17 @@ const allowedProfileKeys = new Set([
   "mainImageUrl",
   "businessHours",
 ]);
+const allowedBasicInformationProfileKeys = new Set([
+  "streetAddress",
+  "city",
+  "state",
+  "zipCode",
+  "phone",
+  "website",
+  "bio",
+]);
+const allowedBusinessHoursProfileKeys = new Set(["businessHours"]);
+const allowedMainImageProfileKeys = new Set(["mainImageUrl"]);
 const allowedReviewRequestKeys = new Set([
   "documentId",
   "decision",
@@ -44,6 +60,11 @@ const profileIntents = new Set([
   "submitApplication",
   "ownerUpdate",
   "adminUpdate",
+]);
+const profileUpdateSections = new Set([
+  "basicInformation",
+  "businessHours",
+  "mainImage",
 ]);
 const reviewDecisions = new Set(["approve", "reject"]);
 const controlledApprovalStatuses = new Set([
@@ -59,6 +80,9 @@ const lowercaseSha256FingerprintPattern = /^[0-9a-f]{64}$/;
 const profileRequestFingerprintDomain =
   "bitesaver-restaurant-profile-request";
 const profileRequestFingerprintVersion = "v1";
+const sectionProfileRequestFingerprintVersion = "v2";
+const legacyOwnerUpdateRequiredMessage =
+  "This version of BiteStar must be updated before editing restaurant information.";
 
 const maximumRestaurantNameLength = 120;
 const maximumPhoneLength = 50;
@@ -90,6 +114,11 @@ export type BiteSaverProfileIntent =
   | "ownerUpdate"
   | "adminUpdate";
 
+export type BiteSaverProfileUpdateSection =
+  | "basicInformation"
+  | "businessHours"
+  | "mainImage";
+
 export type BiteSaverApplicationDecision = "approve" | "reject";
 
 export type BiteSaverRestaurantProfile = StructuredUsRestaurantAddress & {
@@ -108,13 +137,54 @@ export type BiteSaverBusinessHoursEntry = {
   closed: boolean;
 };
 
-export type ValidatedBiteSaverProfileRequest = {
+export type BiteSaverBasicInformationProfile =
+  StructuredUsRestaurantAddress & {
+    phone: string;
+    website: string | null;
+    bio: string | null;
+  };
+
+export type BiteSaverSectionProfile =
+  | BiteSaverBasicInformationProfile
+  | { businessHours: BiteSaverBusinessHoursEntry[] }
+  | { mainImageUrl: string | null };
+
+export type ValidatedLegacyBiteSaverProfileRequest = {
   intent: BiteSaverProfileIntent;
   documentId: string | null;
   requestId: string;
   expectedProfileVersion: number | null;
   profile: BiteSaverRestaurantProfile;
 };
+
+type ValidatedSectionBiteSaverProfileRequestBase = {
+  intent: "ownerUpdate";
+  documentId: null;
+  requestId: string;
+  expectedProfileVersion: number;
+  expectedLocationVersion: number;
+};
+
+export type ValidatedSectionBiteSaverProfileRequest =
+  ValidatedSectionBiteSaverProfileRequestBase &
+    (
+      | {
+          updateSection: "basicInformation";
+          profile: BiteSaverBasicInformationProfile;
+        }
+      | {
+          updateSection: "businessHours";
+          profile: { businessHours: BiteSaverBusinessHoursEntry[] };
+        }
+      | {
+          updateSection: "mainImage";
+          profile: { mainImageUrl: string | null };
+        }
+    );
+
+export type ValidatedBiteSaverProfileRequest =
+  | ValidatedLegacyBiteSaverProfileRequest
+  | ValidatedSectionBiteSaverProfileRequest;
 
 export type BiteSaverProfileRequestFingerprintInput = {
   actorUid: string;
@@ -137,6 +207,7 @@ export type BiteSaverProfileResponse = {
   documentId: string;
   approvalStatus: string | null;
   profileVersion: number;
+  locationVersion: number;
 };
 
 export type BiteSaverReviewResponse = {
@@ -471,6 +542,86 @@ function normalizedBusinessHours(value: unknown): BiteSaverBusinessHoursEntry[] 
   return entries;
 }
 
+function requireAllKeys(
+  value: Record<string, unknown>,
+  required: ReadonlySet<string>,
+  label: string,
+): void {
+  if ([...required].some((key) => !hasOwn(value, key))) {
+    invalidArgument(`${label} is missing required fields.`);
+  }
+}
+
+function normalizedBasicInformationProfile(
+  value: unknown,
+): BiteSaverBasicInformationProfile {
+  if (!isRecord(value)) {
+    invalidArgument("Profile must be an object.");
+  }
+  requireExactKeys(value, allowedBasicInformationProfileKeys, "Profile");
+  requireAllKeys(value, allowedBasicInformationProfileKeys, "Profile");
+
+  const phone = requiredText(value.phone, {
+    label: "Phone",
+    maximumLength: maximumPhoneLength,
+  });
+  const website = optionalText(value.website, {
+    label: "Website",
+    maximumLength: maximumWebsiteLength,
+  });
+  const bio = optionalMultilineText(value.bio, {
+    label: "Bio",
+    maximumLength: maximumBioLength,
+  });
+
+  let address: StructuredUsRestaurantAddress;
+  try {
+    address = normalizeStructuredUsRestaurantAddress({
+      streetAddress: value.streetAddress,
+      city: value.city,
+      state: value.state,
+      zipCode: value.zipCode,
+    });
+  } catch (error) {
+    if (error instanceof RestaurantGeocodingError) {
+      throw new HttpsError("invalid-argument", error.message);
+    }
+    throw error;
+  }
+
+  return {
+    ...address,
+    phone,
+    website,
+    bio,
+  };
+}
+
+function normalizedSectionProfile(
+  section: BiteSaverProfileUpdateSection,
+  value: unknown,
+): BiteSaverSectionProfile {
+  if (section === "basicInformation") {
+    return normalizedBasicInformationProfile(value);
+  }
+  if (!isRecord(value)) {
+    invalidArgument("Profile must be an object.");
+  }
+  if (section === "businessHours") {
+    requireExactKeys(value, allowedBusinessHoursProfileKeys, "Profile");
+    requireAllKeys(value, allowedBusinessHoursProfileKeys, "Profile");
+    return { businessHours: normalizedBusinessHours(value.businessHours) };
+  }
+  requireExactKeys(value, allowedMainImageProfileKeys, "Profile");
+  requireAllKeys(value, allowedMainImageProfileKeys, "Profile");
+  return {
+    mainImageUrl: optionalText(value.mainImageUrl, {
+      label: "Main image URL",
+      maximumLength: maximumMainImageUrlLength,
+    }),
+  };
+}
+
 export function validateBiteSaverProfileRequest(
   value: unknown,
 ): ValidatedBiteSaverProfileRequest {
@@ -484,6 +635,74 @@ export function validateBiteSaverProfileRequest(
   }
   const intent = value.intent as BiteSaverProfileIntent;
   const requestId = normalizedRequestId(value.requestId);
+  const hasUpdateSection = hasOwn(value, "updateSection");
+  const hasExpectedLocationVersion = hasOwn(
+    value,
+    "expectedLocationVersion",
+  );
+
+  if (hasUpdateSection || hasExpectedLocationVersion) {
+    if (
+      intent !== "ownerUpdate" ||
+      !hasUpdateSection ||
+      !hasExpectedLocationVersion
+    ) {
+      invalidArgument(
+        "Section updates require an owner update section and expected location version.",
+      );
+    }
+    if (hasOwn(value, "documentId")) {
+      invalidArgument("Owner updates cannot include a document ID.");
+    }
+    if (!hasOwn(value, "expectedProfileVersion")) {
+      invalidArgument("Expected profile version is required for updates.");
+    }
+    if (
+      typeof value.updateSection !== "string" ||
+      !profileUpdateSections.has(value.updateSection)
+    ) {
+      invalidArgument("Update section is invalid.");
+    }
+    const updateSection =
+      value.updateSection as BiteSaverProfileUpdateSection;
+    const sectionRequest = {
+      intent: "ownerUpdate" as const,
+      documentId: null as null,
+      requestId,
+      expectedProfileVersion: expectedVersion(
+        value.expectedProfileVersion,
+        "Expected profile version",
+      ),
+      expectedLocationVersion: expectedVersion(
+        value.expectedLocationVersion,
+        "Expected location version",
+      ),
+    };
+    if (updateSection === "basicInformation") {
+      return {
+        ...sectionRequest,
+        updateSection,
+        profile: normalizedBasicInformationProfile(value.profile),
+      };
+    }
+    if (updateSection === "businessHours") {
+      return {
+        ...sectionRequest,
+        updateSection,
+        profile: normalizedSectionProfile(updateSection, value.profile) as {
+          businessHours: BiteSaverBusinessHoursEntry[];
+        },
+      };
+    }
+    return {
+      ...sectionRequest,
+      updateSection,
+      profile: normalizedSectionProfile(updateSection, value.profile) as {
+        mainImageUrl: string | null;
+      },
+    };
+  }
+
   const profile = normalizedProfile(value.profile);
 
   if (intent === "submitApplication") {
@@ -637,6 +856,174 @@ function normalizedFingerprintBusinessHours(
   return entries;
 }
 
+function createSectionProfileRequestFingerprint(
+  input: BiteSaverProfileRequestFingerprintInput,
+  request: Record<string, unknown>,
+): string {
+  const requestKeys = Object.keys(request);
+  if (
+    typeof input.actorUid !== "string" ||
+    !input.actorUid ||
+    input.actorUid.trim() !== input.actorUid ||
+    typeof input.documentId !== "string" ||
+    !input.documentId ||
+    input.documentId.trim() !== input.documentId ||
+    requestKeys.length !== allowedRequestKeys.size ||
+    requestKeys.some((key) => !allowedRequestKeys.has(key)) ||
+    request.intent !== "ownerUpdate" ||
+    request.documentId !== null ||
+    input.documentId !== input.actorUid ||
+    typeof request.requestId !== "string" ||
+    normalizedRequestId(request.requestId) !== request.requestId ||
+    !Number.isSafeInteger(request.expectedProfileVersion) ||
+    (request.expectedProfileVersion as number) < 0 ||
+    !Number.isSafeInteger(request.expectedLocationVersion) ||
+    (request.expectedLocationVersion as number) < 0 ||
+    typeof request.updateSection !== "string" ||
+    !profileUpdateSections.has(request.updateSection) ||
+    !isRecord(request.profile)
+  ) {
+    throw new TypeError("A normalized BiteSaver profile request is required.");
+  }
+
+  const updateSection =
+    request.updateSection as BiteSaverProfileUpdateSection;
+  const profile = request.profile;
+  const expectedProfileKeys =
+    updateSection === "basicInformation"
+      ? allowedBasicInformationProfileKeys
+      : updateSection === "businessHours"
+        ? allowedBusinessHoursProfileKeys
+        : allowedMainImageProfileKeys;
+  const profileKeys = Object.keys(profile);
+  if (
+    profileKeys.length !== expectedProfileKeys.size ||
+    profileKeys.some((key) => !expectedProfileKeys.has(key)) ||
+    [...expectedProfileKeys].some((key) => !hasOwn(profile, key))
+  ) {
+    throw new TypeError("A normalized BiteSaver profile request is required.");
+  }
+
+  const components = [
+    "domain",
+    profileRequestFingerprintDomain,
+    "formatVersion",
+    sectionProfileRequestFingerprintVersion,
+    "actorUid",
+    input.actorUid,
+    "intent",
+    "ownerUpdate",
+    "targetDocumentId",
+    input.documentId,
+    "expectedProfileVersion.kind",
+    "integer",
+    "expectedProfileVersion.value",
+    String(request.expectedProfileVersion),
+    "updateSection",
+    updateSection,
+    "expectedLocationVersion.presence",
+    "present",
+    "expectedLocationVersion.kind",
+    "integer",
+    "expectedLocationVersion.value",
+    String(request.expectedLocationVersion),
+  ];
+
+  if (updateSection === "basicInformation") {
+    let address: StructuredUsRestaurantAddress;
+    try {
+      address = normalizeStructuredUsRestaurantAddress({
+        streetAddress: profile.streetAddress,
+        city: profile.city,
+        state: profile.state,
+        zipCode: profile.zipCode,
+      });
+    } catch (_) {
+      throw new TypeError("A normalized BiteSaver profile request is required.");
+    }
+    if (
+      address.streetAddress !== profile.streetAddress ||
+      address.city !== profile.city ||
+      address.state !== profile.state ||
+      address.zipCode !== profile.zipCode
+    ) {
+      throw new TypeError("A normalized BiteSaver profile request is required.");
+    }
+    const phone = normalizedFingerprintText(profile.phone, {
+      maximumLength: maximumPhoneLength,
+    });
+    const website = normalizedFingerprintText(profile.website, {
+      maximumLength: maximumWebsiteLength,
+      nullable: true,
+    });
+    const bio = normalizedFingerprintText(profile.bio, {
+      maximumLength: maximumBioLength,
+      multiline: true,
+      nullable: true,
+    });
+    if (phone === null) {
+      throw new TypeError("A normalized BiteSaver profile request is required.");
+    }
+    components.push(
+      "profile.streetAddress",
+      address.streetAddress,
+      "profile.city",
+      address.city,
+      "profile.state",
+      address.state,
+      "profile.zipCode",
+      address.zipCode,
+      "profile.phone",
+      phone,
+      "profile.website.kind",
+      website === null ? "null" : "string",
+      "profile.website.value",
+      website ?? "",
+      "profile.bio.kind",
+      bio === null ? "null" : "string",
+      "profile.bio.value",
+      bio ?? "",
+    );
+  } else if (updateSection === "businessHours") {
+    const businessHours = normalizedFingerprintBusinessHours(
+      profile.businessHours,
+    );
+    components.push("profile.businessHours.length", String(businessHours.length));
+    for (const [index, entry] of businessHours.entries()) {
+      components.push(
+        `profile.businessHours.${index}.day`,
+        entry.day,
+        `profile.businessHours.${index}.opensAt`,
+        entry.opensAt,
+        `profile.businessHours.${index}.closesAt`,
+        entry.closesAt,
+        `profile.businessHours.${index}.closed`,
+        entry.closed ? "true" : "false",
+      );
+    }
+  } else {
+    const mainImageUrl = normalizedFingerprintText(profile.mainImageUrl, {
+      maximumLength: maximumMainImageUrlLength,
+      nullable: true,
+    });
+    components.push(
+      "profile.mainImageUrl.kind",
+      mainImageUrl === null ? "null" : "string",
+      "profile.mainImageUrl.value",
+      mainImageUrl ?? "",
+    );
+  }
+
+  const hash = createHash("sha256");
+  for (const component of components) {
+    hash.update(String(Buffer.byteLength(component, "utf8")));
+    hash.update(":");
+    hash.update(component);
+    hash.update("|");
+  }
+  return hash.digest("hex");
+}
+
 /**
  * Creates the versioned idempotency binding for an already-normalized logical
  * save request. Request IDs and server/provider results are intentionally not
@@ -661,6 +1048,12 @@ export function createBiteSaverProfileRequestFingerprint(
   const actorUid = input.actorUid;
   const documentId = input.documentId;
   const request = input.request;
+  if ("updateSection" in request) {
+    return createSectionProfileRequestFingerprint(
+      input,
+      request as unknown as Record<string, unknown>,
+    );
+  }
   const requestKeys = Object.keys(request);
   if (
     typeof actorUid !== "string" ||
@@ -669,8 +1062,8 @@ export function createBiteSaverProfileRequestFingerprint(
     typeof documentId !== "string" ||
     !documentId ||
     documentId.trim() !== documentId ||
-    requestKeys.length !== allowedRequestKeys.size ||
-    requestKeys.some((key) => !allowedRequestKeys.has(key)) ||
+    requestKeys.length !== allowedLegacyRequestKeys.size ||
+    requestKeys.some((key) => !allowedLegacyRequestKeys.has(key)) ||
     !profileIntents.has(request.intent) ||
     typeof request.requestId !== "string" ||
     normalizedRequestId(request.requestId) !== request.requestId ||
@@ -927,6 +1320,7 @@ function profileResponse(
     documentId,
     approvalStatus: controlledApprovalStatus(data),
     profileVersion: readProfileVersion(data),
+    locationVersion: readVersion(data.locationVersion),
   };
 }
 
@@ -958,7 +1352,7 @@ function storedAddress(
 }
 
 function profileAddress(
-  profile: BiteSaverRestaurantProfile,
+  profile: StructuredUsRestaurantAddress,
 ): StructuredUsRestaurantAddress {
   return {
     streetAddress: profile.streetAddress,
@@ -966,6 +1360,12 @@ function profileAddress(
     state: profile.state,
     zipCode: profile.zipCode,
   };
+}
+
+function isSectionProfileRequest(
+  request: ValidatedBiteSaverProfileRequest,
+): request is ValidatedSectionBiteSaverProfileRequest {
+  return "updateSection" in request;
 }
 
 function timestampStateKey(value: unknown): unknown {
@@ -1292,7 +1692,7 @@ async function geocodeSafely(
 }
 
 function profileWriteData(
-  request: ValidatedBiteSaverProfileRequest,
+  request: ValidatedLegacyBiteSaverProfileRequest,
   requestFingerprint: string,
   latest: BiteSaverAccountSnapshot,
   actor: RestaurantAccountActorContext,
@@ -1339,6 +1739,63 @@ function profileWriteData(
     write.email = actor.email;
     write.emailVerified = actor.emailVerified;
   }
+
+  if (geocoded !== null) {
+    write.formattedAddress = geocoded.formattedAddress;
+    write.latitude = geocoded.latitude;
+    write.longitude = geocoded.longitude;
+    write.addressFingerprint = geocoded.addressFingerprint;
+    write.locationValidatedAt = serverTimestamp();
+    write.locationSource = biteSaverLocationSource;
+    write.locationVersion = readVersion(latest.data.locationVersion) + 1;
+    write.locationValidationFingerprint =
+      createBiteSaverLocationValidationFingerprint({
+        addressFingerprint: geocoded.addressFingerprint,
+        latitude: geocoded.latitude,
+        longitude: geocoded.longitude,
+        locationSource: biteSaverLocationSource,
+      });
+  } else if (reusedLocation === null) {
+    throw new HttpsError(
+      "internal",
+      "A trusted restaurant location is required.",
+    );
+  }
+
+  return write;
+}
+
+function sectionProfileWriteData(
+  request: ValidatedSectionBiteSaverProfileRequest,
+  requestFingerprint: string,
+  latest: BiteSaverAccountSnapshot,
+  geocoded: StrictRestaurantGeocodingResult | null,
+  reusedLocation: TrustedLocation | null,
+  serverTimestamp: () => unknown,
+): Record<string, unknown> {
+  const write: Record<string, unknown> = {
+    profileVersion: readProfileVersion(latest.data) + 1,
+    lastProfileRequestId: request.requestId,
+    lastProfileRequestFingerprint: requestFingerprint,
+    updatedAt: serverTimestamp(),
+  };
+
+  if (request.updateSection === "businessHours") {
+    write.businessHours = request.profile.businessHours;
+    return write;
+  }
+  if (request.updateSection === "mainImage") {
+    write.mainImageUrl = request.profile.mainImageUrl;
+    return write;
+  }
+
+  write.streetAddress = request.profile.streetAddress;
+  write.city = request.profile.city;
+  write.state = request.profile.state;
+  write.zipCode = request.profile.zipCode;
+  write.phone = request.profile.phone;
+  write.website = request.profile.website;
+  write.bio = request.profile.bio;
 
   if (geocoded !== null) {
     write.formattedAddress = geocoded.formattedAddress;
@@ -1416,12 +1873,23 @@ export async function saveBiteSaverRestaurantProfileHandler(
     : "new-request";
   const isInitialIdempotentRetry =
     initialIdempotencyState === "exact-retry";
+
   if (!isInitialIdempotentRetry) {
+    // Sectionless v1 owner updates are ambiguous because released clients sent
+    // Basic, Hours, and image state together. Preserve only an exact retry of a
+    // previously successful v1 request; all new sectionless owner writes fail
+    // closed. v1 submission and admin updates remain supported.
+    if (parsed.intent === "ownerUpdate" && !isSectionProfileRequest(parsed)) {
+      failedPrecondition(legacyOwnerUpdateRequiredMessage);
+    }
     if (parsed.intent === "submitApplication") {
       ensureSubmittable(initial);
     } else {
       ensureExistingBiteSaverProfile(initial.data);
-      if (parsed.intent === "ownerUpdate") {
+      if (
+        parsed.intent === "ownerUpdate" &&
+        !isSectionProfileRequest(parsed)
+      ) {
         ensureOwnerNameUnchanged(initial.data, parsed.profile.restaurantName);
       }
     }
@@ -1434,13 +1902,27 @@ export async function saveBiteSaverRestaurantProfileHandler(
   ) {
     aborted("The restaurant profile changed. Reload it and try again.");
   }
+  if (
+    !isInitialIdempotentRetry &&
+    isSectionProfileRequest(parsed) &&
+    readVersion(initial.data.locationVersion) !==
+      parsed.expectedLocationVersion
+  ) {
+    aborted("The restaurant location changed. Reload it and try again.");
+  }
 
-  const requestedAddress = profileAddress(parsed.profile);
-  const initialTrustedLocation = initial.exists
+  const requestedAddress = isSectionProfileRequest(parsed)
+    ? parsed.updateSection === "basicInformation"
+      ? profileAddress(parsed.profile)
+      : null
+    : profileAddress(parsed.profile);
+  const initialTrustedLocation = initial.exists && requestedAddress !== null
     ? trustedLocationForAddress(initial.data, requestedAddress)
     : null;
   const geocoded =
-    !isInitialIdempotentRetry && initialTrustedLocation === null
+    !isInitialIdempotentRetry &&
+    requestedAddress !== null &&
+    initialTrustedLocation === null
       ? await geocodeSafely(requestedAddress, dependencies.geocodeAddress)
       : null;
   const initialStateKey = concurrentStateKey(initial);
@@ -1484,7 +1966,9 @@ export async function saveBiteSaverRestaurantProfileHandler(
       throw new HttpsError("not-found", "Restaurant account was not found.");
     } else if (parsed.intent === "ownerUpdate") {
       ensureExistingBiteSaverProfile(latest.data);
-      ensureOwnerNameUnchanged(latest.data, parsed.profile.restaurantName);
+      if (!isSectionProfileRequest(parsed)) {
+        ensureOwnerNameUnchanged(latest.data, parsed.profile.restaurantName);
+      }
     } else {
       ensureExistingBiteSaverProfile(latest.data);
     }
@@ -1495,6 +1979,13 @@ export async function saveBiteSaverRestaurantProfileHandler(
     ) {
       aborted("The restaurant profile changed. Reload it and try again.");
     }
+    if (
+      isSectionProfileRequest(parsed) &&
+      readVersion(latest.data.locationVersion) !==
+        parsed.expectedLocationVersion
+    ) {
+      aborted("The restaurant location changed. Reload it and try again.");
+    }
     if (concurrentStateKey(latest) !== initialStateKey) {
       aborted(
         "The restaurant profile changed while its address was being validated.",
@@ -1502,24 +1993,37 @@ export async function saveBiteSaverRestaurantProfileHandler(
     }
 
     const latestTrustedLocation =
-      geocoded === null
+      requestedAddress !== null && geocoded === null
         ? trustedLocationForAddress(latest.data, requestedAddress)
         : null;
-    if (geocoded === null && latestTrustedLocation === null) {
+    if (
+      requestedAddress !== null &&
+      geocoded === null &&
+      latestTrustedLocation === null
+    ) {
       aborted(
         "The restaurant location changed. Reload the profile and try again.",
       );
     }
 
-    const write = profileWriteData(
-      parsed,
-      requestFingerprint,
-      latest,
-      latestActor,
-      geocoded,
-      latestTrustedLocation,
-      dependencies.serverTimestamp,
-    );
+    const write = isSectionProfileRequest(parsed)
+      ? sectionProfileWriteData(
+          parsed,
+          requestFingerprint,
+          latest,
+          geocoded,
+          latestTrustedLocation,
+          dependencies.serverTimestamp,
+        )
+      : profileWriteData(
+          parsed,
+          requestFingerprint,
+          latest,
+          latestActor,
+          geocoded,
+          latestTrustedLocation,
+          dependencies.serverTimestamp,
+        );
     const resultingData = resultDataAfterWrite(latest.data, write);
     return {
       operation: latest.exists ? "update" : "create",

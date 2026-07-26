@@ -166,6 +166,142 @@ void main() {
     });
   });
 
+  group('existing-account identity synchronization', () {
+    test('unchanged identity leaves the complete account untouched', () async {
+      final account = <String, dynamic>{
+        Restaurant.fieldUid: 'canonical-owner',
+        Restaurant.fieldEmail: 'owner@example.com',
+        'phoneNumber': '+13525550100',
+        'displayName': 'Account Owner',
+        'emailVerified': true,
+        Restaurant.fieldUpdatedAt: 'profile-updated-at',
+        Restaurant.fieldProfileVersion: 9,
+        Restaurant.fieldLocationVersion: 4,
+        Restaurant.fieldBusinessHours: <Map<String, dynamic>>[
+          <String, dynamic>{
+            'day': 'Monday',
+            'opensAt': '8:00 AM',
+            'closesAt': '4:00 PM',
+            'closed': false,
+          },
+        ],
+        'subscriptionStatus': 'active',
+        'futureField': <String, dynamic>{'preserve': true},
+      };
+      final before = Map<String, dynamic>.from(account);
+      var updates = 0;
+
+      final updated =
+          await RestaurantAccountService.syncExistingAccountIdentityIfChanged(
+            user: _TestUser(
+              email: 'owner@example.com',
+              phoneNumber: '+13525550100',
+              displayName: 'Account Owner',
+              emailVerified: true,
+            ),
+            loadAccount: () async => Map<String, dynamic>.from(account),
+            updateAccount: (fields) async {
+              updates += 1;
+              account.addAll(fields);
+            },
+          );
+
+      expect(updated, isFalse);
+      expect(updates, 0);
+      expect(account, before);
+      expect(account[Restaurant.fieldUpdatedAt], 'profile-updated-at');
+    });
+
+    test(
+      'changed identity updates only changed nonempty auth fields',
+      () async {
+        final account = <String, dynamic>{
+          Restaurant.fieldUid: 'canonical-owner',
+          Restaurant.fieldEmail: 'old@example.com',
+          'phoneNumber': '+13525550000',
+          'displayName': 'Old Owner',
+          'emailVerified': false,
+          Restaurant.fieldUpdatedAt: 'profile-updated-at',
+          Restaurant.fieldProfileVersion: 9,
+          Restaurant.fieldLocationVersion: 4,
+          'subscriptionStatus': 'active',
+        };
+        Map<String, dynamic>? appliedFields;
+
+        final updated =
+            await RestaurantAccountService.syncExistingAccountIdentityIfChanged(
+              user: _TestUser(
+                uid: 'different-auth-uid-is-not-owned-by-this-sync',
+                email: '  owner@example.com  ',
+                phoneNumber: '  +13525550100  ',
+                displayName: '  Account Owner  ',
+                emailVerified: true,
+              ),
+              loadAccount: () async => Map<String, dynamic>.from(account),
+              updateAccount: (fields) async {
+                appliedFields = Map<String, dynamic>.from(fields);
+                account.addAll(fields);
+              },
+            );
+
+        expect(updated, isTrue);
+        expect(appliedFields, <String, dynamic>{
+          Restaurant.fieldEmail: 'owner@example.com',
+          'phoneNumber': '+13525550100',
+          'displayName': 'Account Owner',
+          'emailVerified': true,
+        });
+        expect(appliedFields, isNot(contains(Restaurant.fieldUid)));
+        expect(appliedFields, isNot(contains(Restaurant.fieldUpdatedAt)));
+        expect(account[Restaurant.fieldUid], 'canonical-owner');
+        expect(account[Restaurant.fieldUpdatedAt], 'profile-updated-at');
+        expect(account[Restaurant.fieldProfileVersion], 9);
+        expect(account[Restaurant.fieldLocationVersion], 4);
+        expect(account['subscriptionStatus'], 'active');
+      },
+    );
+
+    test('missing account remains absent without an identity update', () async {
+      var updates = 0;
+
+      final updated =
+          await RestaurantAccountService.syncExistingAccountIdentityIfChanged(
+            user: _TestUser(email: 'owner@example.com'),
+            loadAccount: () async => null,
+            updateAccount: (fields) async {
+              updates += 1;
+            },
+          );
+
+      expect(updated, isFalse);
+      expect(updates, 0);
+    });
+
+    test('deletion race remains a safe no-create result', () async {
+      var updateAttempts = 0;
+
+      final updated =
+          await RestaurantAccountService.syncExistingAccountIdentityIfChanged(
+            user: _TestUser(email: 'new@example.com'),
+            loadAccount: () async => <String, dynamic>{
+              Restaurant.fieldEmail: 'old@example.com',
+              'emailVerified': true,
+            },
+            updateAccount: (fields) async {
+              updateAttempts += 1;
+              throw FirebaseException(
+                plugin: 'cloud_firestore',
+                code: 'not-found',
+                message: 'The document disappeared before update.',
+              );
+            },
+          );
+
+      expect(updated, isFalse);
+      expect(updateAttempts, 1);
+    });
+  });
+
   for (final isLoginMode in <bool>[false, true]) {
     test(
       '${isLoginMode ? 'email sign-in' : 'email registration'} uses its auth path and existing-only completion',
@@ -728,7 +864,18 @@ void main() {
       ownerScreen,
       contains('BiteSaverProfileSaveRequest.submitApplication'),
     );
-    expect(ownerScreen, contains('BiteSaverProfileSaveRequest.ownerUpdate'));
+    expect(
+      ownerScreen,
+      contains('BiteSaverProfileSaveRequest.ownerBasicInformationUpdate'),
+    );
+    expect(
+      ownerScreen,
+      contains('BiteSaverProfileSaveRequest.ownerBusinessHoursUpdate'),
+    );
+    expect(
+      ownerScreen,
+      contains('BiteSaverProfileSaveRequest.ownerMainImageUpdate'),
+    );
     expect(adminScreen, contains('BiteSaverApplicationDecision.approve'));
     expect(adminScreen, contains('BiteSaverApplicationDecision.reject'));
     expect(adminScreen, contains('BiteSaverProfileSaveRequest.adminUpdate'));
@@ -740,6 +887,14 @@ void main() {
       final ownerScreen = File(
         'lib/screens/restaurant_create_coupon_screen.dart',
       ).readAsStringSync();
+      final basicStart = ownerScreen.indexOf(
+        'BiteSaverBasicInformationProfileInput _basicInformationProfileInput',
+      );
+      final basicEnd = ownerScreen.indexOf(
+        'BiteSaverRestaurantProfileInput _applicationProfileInput',
+        basicStart,
+      );
+      final basicHelper = ownerScreen.substring(basicStart, basicEnd);
       final applicationStart = ownerScreen.indexOf(
         'BiteSaverRestaurantProfileInput _applicationProfileInput',
       );
@@ -753,10 +908,11 @@ void main() {
       );
 
       expect(ownerScreen, contains('restaurant_name_change_requests'));
-      expect(
-        ownerScreen,
-        contains('final approvedName = _storedRestaurantName'),
-      );
+      expect(ownerScreen, contains('_storedRestaurantName'));
+      expect(basicHelper, isNot(contains('restaurantNameController')));
+      expect(basicHelper, isNot(contains('_storedRestaurantName')));
+      expect(basicHelper, isNot(contains('restaurantImageUrl')));
+      expect(basicHelper, isNot(contains('_hoursForPersistence')));
       expect(applicationHelper, isNot(contains('websiteController')));
       expect(applicationHelper, isNot(contains('bioController')));
       expect(applicationHelper, isNot(contains('restaurantImageUrl')));
