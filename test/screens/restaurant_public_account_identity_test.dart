@@ -7,6 +7,7 @@ import 'package:coupon_app/screens/restaurant_specials_screen.dart';
 import 'package:coupon_app/services/restaurant_account_service.dart';
 import 'package:coupon_app/services/restaurant_menu_service.dart';
 import 'package:coupon_app/widgets/bitesaver_report_dialog.dart';
+import 'package:coupon_app/widgets/bitesaver_restaurant_images.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -164,6 +165,39 @@ void main() {
         'matching-account',
         'legacy-owner',
       ]);
+    },
+  );
+
+  testWidgets(
+    'public restaurant detail delegates its complete image URL to shared rendering',
+    (tester) async {
+      const imageUrl =
+          'https://firebasestorage.googleapis.com/v0/b/example.appspot.com/o/'
+          'restaurants%2Fidentity-cafe.jpg?alt=media&token=synthetic-token';
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RestaurantProfileScreen(
+            restaurant: _restaurant(
+              documentId: 'account-document',
+              uid: 'stored-owner',
+              mainImageUrl: imageUrl,
+            ),
+            loadFavorite: (restaurant) async => false,
+            refreshRestaurant: (restaurant) async => null,
+          ),
+        ),
+      );
+
+      final image = tester.widget<BiteSaverRestaurantImage>(
+        find.byType(BiteSaverRestaurantImage),
+      );
+      expect(image.imageUrl, imageUrl);
+      expect(image.semanticLabel, 'Identity Cafe restaurant image');
+      expect(
+        BiteSaverRestaurantImage.networkWebHtmlElementStrategy,
+        WebHtmlElementStrategy.prefer,
+      );
     },
   );
 
@@ -457,7 +491,11 @@ class _RecordingRestaurantMenuQueryBoundary
   }
 }
 
-Restaurant _restaurant({required String? documentId, required String? uid}) {
+Restaurant _restaurant({
+  required String? documentId,
+  required String? uid,
+  String? mainImageUrl,
+}) {
   return Restaurant(
     documentId: documentId,
     uid: uid,
@@ -467,6 +505,7 @@ Restaurant _restaurant({required String? documentId, required String? uid}) {
     state: 'FL',
     zipCode: '34428',
     streetAddress: '1 Main Street',
+    mainImageUrl: mainImageUrl,
     coupons: const [],
   );
 }

@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:typed_data';
+
 import 'package:coupon_app/widgets/bitesaver_colors.dart';
 import 'package:coupon_app/widgets/bitesaver_restaurant_images.dart';
 import 'package:flutter/material.dart';
@@ -211,13 +214,157 @@ void main() {
     });
   });
 
+  group('BiteSaverRestaurantImage', () {
+    const storageUrl =
+        'https://firebasestorage.googleapis.com/v0/b/example.appspot.com/o/'
+        'bitesaver_restaurants%2Fowner-1%2Frestaurant_images%2F'
+        'main_image.jpg?alt=media&token=synthetic-token';
+
+    testWidgets('passes the complete network URL to the web-safe renderer', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: BiteSaverRestaurantImage(
+              imageUrl: storageUrl,
+              width: 240,
+              height: 120,
+              semanticLabel: 'Cafe restaurant image',
+            ),
+          ),
+        ),
+      );
+
+      final image = tester.widget<Image>(find.byType(Image));
+      final provider = image.image as NetworkImage;
+
+      expect(provider.url, storageUrl);
+      expect(provider.headers, isNull);
+      expect(provider.webHtmlElementStrategy, WebHtmlElementStrategy.prefer);
+      expect(
+        BiteSaverRestaurantImage.networkWebHtmlElementStrategy,
+        WebHtmlElementStrategy.prefer,
+      );
+      expect(image.semanticLabel, 'Cafe restaurant image');
+      expect(image.fit, BoxFit.cover);
+      expect(image.width, 240);
+      expect(image.height, 120);
+    });
+
+    testWidgets('selected bytes take priority without a filesystem path', (
+      tester,
+    ) async {
+      final bytes = _onePixelPng();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: BiteSaverRestaurantImage(
+              imageBytes: bytes,
+              imageUrl: storageUrl,
+              semanticLabel: 'Selected restaurant image preview',
+            ),
+          ),
+        ),
+      );
+
+      final image = tester.widget<Image>(find.byType(Image));
+      final provider = image.image as MemoryImage;
+
+      expect(identical(provider.bytes, bytes), isTrue);
+      expect(image.image, isNot(isA<NetworkImage>()));
+      expect(image.semanticLabel, 'Selected restaurant image preview');
+    });
+
+    testWidgets('empty URLs retain the caller-controlled empty state', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: BiteSaverRestaurantImage(
+              imageUrl: '   ',
+              emptyBuilder: (context) => const Text('No restaurant image'),
+            ),
+          ),
+        ),
+      );
+
+      expect(find.text('No restaurant image'), findsOneWidget);
+      expect(find.byType(Image), findsNothing);
+    });
+
+    testWidgets('invalid bytes retain the controlled error state', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: BiteSaverRestaurantImage(
+              imageBytes: Uint8List.fromList(const [0, 1, 2, 3]),
+              errorBuilder: (context) =>
+                  const Text('Image preview unavailable'),
+            ),
+          ),
+        ),
+      );
+
+      final image = tester.widget<Image>(find.byType(Image));
+      final fallback = image.errorBuilder!(
+        tester.element(find.byType(Image)),
+        Exception('invalid image'),
+        StackTrace.current,
+      );
+
+      expect(fallback, isA<Text>());
+      expect((fallback as Text).data, 'Image preview unavailable');
+    });
+
+    testWidgets('loading remains neutral until the first image frame', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: BiteSaverRestaurantImage(
+              imageUrl: storageUrl,
+              loadingBuilder: (context) =>
+                  const Text('Restaurant image loading'),
+            ),
+          ),
+        ),
+      );
+
+      final imageFinder = find.byType(Image);
+      final image = tester.widget<Image>(imageFinder);
+      const loadedChild = SizedBox(key: ValueKey('loaded-image'));
+      final loading = image.frameBuilder!(
+        tester.element(imageFinder),
+        loadedChild,
+        null,
+        false,
+      );
+      final loaded = image.frameBuilder!(
+        tester.element(imageFinder),
+        loadedChild,
+        0,
+        false,
+      );
+
+      expect(loading, isA<Text>());
+      expect((loading as Text).data, 'Restaurant image loading');
+      expect(identical(loaded, loadedChild), isTrue);
+    });
+  });
+
   group('BiteSaverRestaurantCardImage', () {
     testWidgets('valid real image remains displayed', (tester) async {
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
             body: BiteSaverRestaurantCardImage(
-              imageUrl: ' https://example.com/real.jpg ',
+              imageUrl: 'https://example.com/real.jpg?token=complete',
               fallbackImagePath: BiteSaverImageAssets.firstPlaceholder,
             ),
           ),
@@ -227,7 +374,9 @@ void main() {
       final image = tester.widget<Image>(find.byType(Image));
       final provider = image.image as NetworkImage;
 
-      expect(provider.url, 'https://example.com/real.jpg');
+      expect(provider.url, 'https://example.com/real.jpg?token=complete');
+      expect(provider.webHtmlElementStrategy, WebHtmlElementStrategy.prefer);
+      expect(find.byType(BiteSaverRestaurantImage), findsOneWidget);
       expect(image.fit, BoxFit.cover);
     });
 
@@ -353,6 +502,13 @@ void main() {
       );
     });
   });
+}
+
+Uint8List _onePixelPng() {
+  return base64Decode(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8'
+    '/x8AAusB9Y9Zl1EAAAAASUVORK5CYII=',
+  );
 }
 
 class _HeroImageTestHost extends StatelessWidget {

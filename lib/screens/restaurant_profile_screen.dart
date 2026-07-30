@@ -620,8 +620,10 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   }
 
   Widget _buildRestaurantProfileImage() {
-    final imageUrl = restaurant.mainImageUrl?.trim();
+    final imageUrl = restaurant.mainImageUrl;
     final fallbackAsset = _placeholderImageForRestaurant(restaurant);
+    Widget buildFallback(BuildContext context) =>
+        Image.asset(fallbackAsset, fit: BoxFit.cover);
 
     return _biteSaverRaisedSurface(
       borderRadius: BorderRadius.circular(18),
@@ -631,14 +633,15 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
         borderRadius: BorderRadius.circular(18),
         child: AspectRatio(
           aspectRatio: 1.08,
-          child: imageUrl != null && imageUrl.isNotEmpty
-              ? Image.network(
-                  imageUrl,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) =>
-                      Image.asset(fallbackAsset, fit: BoxFit.cover),
-                )
-              : Image.asset(fallbackAsset, fit: BoxFit.cover),
+          child: BiteSaverRestaurantImage(
+            imageUrl: imageUrl,
+            fit: BoxFit.cover,
+            semanticLabel: '${restaurant.name} restaurant image',
+            loadingBuilder: (context) =>
+                const ColoredBox(color: BiteSaverColors.imageFallback),
+            emptyBuilder: buildFallback,
+            errorBuilder: buildFallback,
+          ),
         ),
       ),
     );

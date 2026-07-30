@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -21,6 +23,7 @@ import '../services/subscription_checkout_service.dart';
 import '../services/subscription_return_service.dart';
 import '../utils/phone_number_formatter.dart';
 import '../widgets/clickable_phone_text.dart';
+import '../widgets/bitesaver_restaurant_images.dart';
 import 'restaurant_menu_management_screen.dart';
 import 'paywall_screen.dart';
 
@@ -37,6 +40,163 @@ typedef DailySpecialSaver =
       required DailySpecial dailySpecial,
     });
 
+typedef CouponSaver =
+    Future<Coupon> Function({required String uid, required Coupon coupon});
+
+typedef CouponDeleter =
+    Future<void> Function({required String uid, required String couponId});
+
+typedef DailySpecialDeleter =
+    Future<void> Function({
+      required String uid,
+      required String dailySpecialId,
+    });
+
+typedef CouponDatePicker =
+    Future<DateTime?> Function({
+      required DateTime initialDate,
+      required DateTime firstDate,
+      required DateTime lastDate,
+    });
+
+typedef OwnerTimePicker =
+    Future<TimeOfDay?> Function({required TimeOfDay initialTime});
+
+typedef CouponImagePickerUploader =
+    Future<BiteSaverCouponImageUploadResult> Function({
+      required String uid,
+      required String couponKey,
+      required bool Function() isCurrent,
+    });
+
+typedef CouponImagePersister =
+    Future<void> Function({
+      required String uid,
+      required String couponId,
+      required String imageUrl,
+    });
+
+typedef RestaurantOwnerAction = Future<void> Function();
+
+typedef RestaurantImagePicker = Future<BiteSaverPickedImage?> Function();
+
+typedef RestaurantImageValidator =
+    Future<BiteSaverValidatedRestaurantImage?> Function(
+      BiteSaverPickedImage pickedImage,
+    );
+
+typedef RestaurantImageUploader =
+    Future<BiteSaverImageUploadResult> Function({
+      required String uid,
+      required BiteSaverValidatedRestaurantImage validatedImage,
+    });
+
+typedef RestaurantCurrentUserProvider = User? Function();
+
+typedef RestaurantAccountDocumentIdResolver = String Function(String uid);
+
+@immutable
+class _RestaurantOwnerIdentity {
+  final String uid;
+  final String accountDocumentId;
+
+  const _RestaurantOwnerIdentity({
+    required this.uid,
+    required this.accountDocumentId,
+  });
+
+  @override
+  bool operator ==(Object other) =>
+      other is _RestaurantOwnerIdentity &&
+      other.uid == uid &&
+      other.accountDocumentId == accountDocumentId;
+
+  @override
+  int get hashCode => Object.hash(uid, accountDocumentId);
+}
+
+@immutable
+class _RestaurantOwnerScope {
+  final _RestaurantOwnerIdentity identity;
+  final int ownerGeneration;
+
+  const _RestaurantOwnerScope({
+    required this.identity,
+    required this.ownerGeneration,
+  });
+
+  String logicalTarget({required String operation}) {
+    return jsonEncode(<Object>[
+      identity.uid,
+      identity.accountDocumentId,
+      ownerGeneration,
+      operation,
+    ]);
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is _RestaurantOwnerScope &&
+      other.identity == identity &&
+      other.ownerGeneration == ownerGeneration;
+
+  @override
+  int get hashCode => Object.hash(identity, ownerGeneration);
+}
+
+@immutable
+class _OwnerActionScope {
+  final _RestaurantOwnerScope ownerScope;
+  final _OwnerActionKind kind;
+  final int operationGeneration;
+
+  const _OwnerActionScope({
+    required this.ownerScope,
+    required this.kind,
+    required this.operationGeneration,
+  });
+}
+
+@immutable
+class _CouponImageOperationScope {
+  final _OwnerActionScope action;
+  final int draftGeneration;
+  final String? editingCouponId;
+
+  const _CouponImageOperationScope({
+    required this.action,
+    required this.draftGeneration,
+    required this.editingCouponId,
+  });
+}
+
+@immutable
+class _OwnerBoundRestaurantImageSelection {
+  final _RestaurantOwnerIdentity ownerIdentity;
+  final int ownerIdentityGeneration;
+  final int selectionGeneration;
+  final BiteSaverValidatedRestaurantImage validatedImage;
+  final String? uploadedUrl;
+
+  const _OwnerBoundRestaurantImageSelection({
+    required this.ownerIdentity,
+    required this.ownerIdentityGeneration,
+    required this.selectionGeneration,
+    required this.validatedImage,
+    this.uploadedUrl,
+  });
+
+  _OwnerBoundRestaurantImageSelection withUploadedUrl(String uploadedUrl) {
+    return _OwnerBoundRestaurantImageSelection(
+      ownerIdentity: ownerIdentity,
+      ownerIdentityGeneration: ownerIdentityGeneration,
+      selectionGeneration: selectionGeneration,
+      validatedImage: validatedImage,
+      uploadedUrl: uploadedUrl,
+    );
+  }
+}
+
 class RestaurantCreateCouponScreen extends StatefulWidget {
   static const String routeName = '/restaurant-hub/coupon-side';
 
@@ -46,10 +206,30 @@ class RestaurantCreateCouponScreen extends StatefulWidget {
   final Future<List<DailySpecial>> Function(String uid)? loadDailySpecials;
   final DailySpecialSaver? createDailySpecial;
   final DailySpecialSaver? updateDailySpecial;
+  final CouponSaver? createCoupon;
+  final CouponSaver? updateCoupon;
+  final CouponDeleter? deleteCoupon;
+  final DailySpecialDeleter? deleteDailySpecial;
+  final CouponDatePicker? pickCouponDate;
+  final OwnerTimePicker? pickCouponTime;
+  final OwnerTimePicker? pickDailySpecialTime;
+  final CouponImagePickerUploader? pickAndUploadCouponImage;
+  final CouponImagePersister? persistCouponImage;
+  final RestaurantOwnerAction? markSubscriptionCheckoutStarted;
+  final RestaurantOwnerAction? clearPendingSubscriptionReturnContext;
+  final RestaurantOwnerAction? startSubscriptionCheckout;
+  final RestaurantOwnerAction? openCustomerPortal;
+  final RestaurantOwnerAction? signOutRestaurantSession;
   final Future<BiteSaverMenuRoutingState> Function()? loadMenuRoutingState;
   final RestaurantNameChangeSubmitter? submitNameChangeRequest;
   final ValueChanged<bool>? onSubscriptionRefreshStateChanged;
   final User? testCurrentUser;
+  final RestaurantCurrentUserProvider? currentUserProvider;
+  final Stream<User?>? ownerUserChanges;
+  final RestaurantAccountDocumentIdResolver? accountDocumentIdForUid;
+  final RestaurantImagePicker? pickRestaurantImage;
+  final RestaurantImageValidator? validateRestaurantImage;
+  final RestaurantImageUploader? uploadRestaurantImage;
 
   const RestaurantCreateCouponScreen({
     super.key,
@@ -59,10 +239,30 @@ class RestaurantCreateCouponScreen extends StatefulWidget {
     @visibleForTesting this.loadDailySpecials,
     @visibleForTesting this.createDailySpecial,
     @visibleForTesting this.updateDailySpecial,
+    @visibleForTesting this.createCoupon,
+    @visibleForTesting this.updateCoupon,
+    @visibleForTesting this.deleteCoupon,
+    @visibleForTesting this.deleteDailySpecial,
+    @visibleForTesting this.pickCouponDate,
+    @visibleForTesting this.pickCouponTime,
+    @visibleForTesting this.pickDailySpecialTime,
+    @visibleForTesting this.pickAndUploadCouponImage,
+    @visibleForTesting this.persistCouponImage,
+    @visibleForTesting this.markSubscriptionCheckoutStarted,
+    @visibleForTesting this.clearPendingSubscriptionReturnContext,
+    @visibleForTesting this.startSubscriptionCheckout,
+    @visibleForTesting this.openCustomerPortal,
+    @visibleForTesting this.signOutRestaurantSession,
     @visibleForTesting this.loadMenuRoutingState,
     @visibleForTesting this.submitNameChangeRequest,
     @visibleForTesting this.onSubscriptionRefreshStateChanged,
     @visibleForTesting this.testCurrentUser,
+    @visibleForTesting this.currentUserProvider,
+    @visibleForTesting this.ownerUserChanges,
+    @visibleForTesting this.accountDocumentIdForUid,
+    @visibleForTesting this.pickRestaurantImage,
+    @visibleForTesting this.validateRestaurantImage,
+    @visibleForTesting this.uploadRestaurantImage,
   });
 
   @override
@@ -106,6 +306,7 @@ class _RestaurantCreateCouponScreenState
   String? editingCouponId;
   String? restaurantImageUrl;
   String? couponImageUrl;
+  _OwnerBoundRestaurantImageSelection? _selectedRestaurantImage;
 
   bool profileLoading = true;
   bool profileSaving = false;
@@ -113,6 +314,7 @@ class _RestaurantCreateCouponScreenState
   bool couponsLoading = true;
   bool couponSaving = false;
   bool couponImageUploading = false;
+  bool _couponDeleteInFlight = false;
   bool _hoursExpanded = false;
   bool _basicInfoSectionExpanded = false;
   bool _restaurantImageSectionExpanded = false;
@@ -130,6 +332,8 @@ class _RestaurantCreateCouponScreenState
   bool _dailySpecialsLoading = true;
   bool _dailySpecialSaving = false;
   bool _dailySpecialSaveInFlight = false;
+  bool _dailySpecialDeleteInFlight = false;
+  bool _signOutInFlight = false;
   bool _hasCouponPostingAccess = false;
   bool _hasUsedTrial = false;
   bool _showNameChangeRequest = false;
@@ -164,29 +368,449 @@ class _RestaurantCreateCouponScreenState
       _CouponAccountAccessState.loading;
   String _couponAccessMessage = '';
   late final BiteSaverRestaurantLifecycleService _lifecycleService;
-  late final BiteSaverProfileOperationState _applicationOperation;
-  late final BiteSaverProfileOperationState _ownerProfileOperation;
+  late BiteSaverProfileOperationState _applicationOperation;
+  late BiteSaverProfileOperationState _ownerProfileOperation;
   StreamSubscription<SubscriptionReturnEvent>? _subscriptionReturnSubscription;
+  StreamSubscription<User?>? _ownerUserSubscription;
   Future<void> _accountOperationTail = Future<void>.value();
   bool _subscriptionReturnDrainQueued = false;
-  final Object _lifecycleRefreshOwner = Object();
+  Object _lifecycleRefreshOwner = Object();
   Completer<bool>? _lifecycleRefreshAttempt;
+  final Map<Route<dynamic>, NavigatorState> _ownerModalRoutes =
+      <Route<dynamic>, NavigatorState>{};
+  final Map<Route<dynamic>, NavigatorState> _ownerPageRoutes =
+      <Route<dynamic>, NavigatorState>{};
+  final Map<_OwnerActionKind, int> _ownerActionGenerations =
+      <_OwnerActionKind, int>{};
   int _profileVersion = 0;
   int _locationVersion = 0;
+  int _applicationOperationGeneration = 0;
   int _ownerSaveGeneration = 0;
+  int _ownerIdentityGeneration = 0;
+  int _couponDraftGeneration = 0;
+  int _dailySpecialDraftGeneration = 0;
+  int _signOutOperationGeneration = 0;
+  int _restaurantImageOperationGeneration = 0;
+  int _restaurantImageSelectionGeneration = 0;
+  int _restaurantImageSaveGeneration = 0;
+  _RestaurantOwnerIdentity? _activeOwnerIdentity;
+  _RestaurantOwnerIdentity? _trustedProfileOwnerIdentity;
+  int? _trustedProfileOwnerGeneration;
+  User? _observedOwnerUser;
+  bool _hasObservedOwnerUser = false;
   bool _hasTrustedSearchableLocation = false;
   String _storedRestaurantName = '';
 
   bool get isProximityCoupon => selectedCouponType == 'Proximity-only coupon';
   bool get isEditingCoupon => editingCouponId != null;
-  User? get currentUser =>
-      widget.testCurrentUser ?? FirebaseAuth.instance.currentUser;
+  User? get currentUser {
+    if (widget.ownerUserChanges != null && _hasObservedOwnerUser) {
+      return _observedOwnerUser;
+    }
+    final currentUserProvider = widget.currentUserProvider;
+    if (currentUserProvider != null) {
+      return currentUserProvider();
+    }
+    return widget.testCurrentUser ?? FirebaseAuth.instance.currentUser;
+  }
+
+  _RestaurantOwnerIdentity? _ownerIdentityFor(User? user) {
+    if (user == null || user.isAnonymous) {
+      return null;
+    }
+    final uid = user.uid.trim();
+    if (uid.isEmpty) {
+      return null;
+    }
+    final accountDocumentId = (widget.accountDocumentIdForUid?.call(uid) ?? uid)
+        .trim();
+    if (accountDocumentId.isEmpty) {
+      return null;
+    }
+    return _RestaurantOwnerIdentity(
+      uid: uid,
+      accountDocumentId: accountDocumentId,
+    );
+  }
+
+  _RestaurantOwnerIdentity? get _currentOwnerIdentity =>
+      _ownerIdentityFor(currentUser);
+
+  _RestaurantOwnerScope? get _activeOwnerScope {
+    final identity = _activeOwnerIdentity;
+    if (identity == null) {
+      return null;
+    }
+    return _RestaurantOwnerScope(
+      identity: identity,
+      ownerGeneration: _ownerIdentityGeneration,
+    );
+  }
+
+  bool _isCurrentExactOwnerScope(_RestaurantOwnerScope scope) {
+    return _isCurrentOwnerScope(scope.identity, scope.ownerGeneration);
+  }
+
+  _OwnerActionScope? _beginOwnerAction(
+    _OwnerActionKind kind, {
+    _RestaurantOwnerScope? expectedOwnerScope,
+  }) {
+    if (!_synchronizeCurrentOwnerIdentity()) {
+      return null;
+    }
+    final ownerScope = _activeOwnerScope;
+    if (ownerScope == null ||
+        (expectedOwnerScope != null && ownerScope != expectedOwnerScope)) {
+      return null;
+    }
+    final operationGeneration = (_ownerActionGenerations[kind] ?? 0) + 1;
+    _ownerActionGenerations[kind] = operationGeneration;
+    return _OwnerActionScope(
+      ownerScope: ownerScope,
+      kind: kind,
+      operationGeneration: operationGeneration,
+    );
+  }
+
+  bool _isCurrentOwnerAction(_OwnerActionScope action) {
+    return mounted &&
+        _isCurrentExactOwnerScope(action.ownerScope) &&
+        _ownerActionGenerations[action.kind] == action.operationGeneration;
+  }
+
+  bool _isCurrentCouponImageOperation(_CouponImageOperationScope operation) {
+    return _isCurrentOwnerAction(operation.action) &&
+        operation.draftGeneration == _couponDraftGeneration &&
+        operation.editingCouponId == editingCouponId?.trim();
+  }
+
+  bool _isCurrentOwnerScope(
+    _RestaurantOwnerIdentity identity,
+    int identityGeneration,
+  ) {
+    return _activeOwnerIdentity == identity &&
+        _ownerIdentityGeneration == identityGeneration &&
+        _currentOwnerIdentity == identity;
+  }
+
+  bool _isTrustedProfileScope(
+    _RestaurantOwnerIdentity identity,
+    int identityGeneration,
+  ) {
+    return _trustedProfileOwnerIdentity == identity &&
+        _trustedProfileOwnerGeneration == identityGeneration;
+  }
+
+  _OwnerBoundRestaurantImageSelection? get _currentRestaurantImageSelection {
+    final selectedImage = _selectedRestaurantImage;
+    if (selectedImage == null ||
+        !_isCurrentOwnerScope(
+          selectedImage.ownerIdentity,
+          selectedImage.ownerIdentityGeneration,
+        )) {
+      return null;
+    }
+    return selectedImage;
+  }
+
+  void _listenForOwnerChanges() {
+    final injectedChanges = widget.ownerUserChanges;
+    final Stream<User?>? ownerChanges =
+        injectedChanges ??
+        (widget.currentUserProvider == null && widget.testCurrentUser == null
+            ? FirebaseAuth.instance.userChanges()
+            : null);
+    if (ownerChanges == null) {
+      return;
+    }
+    _ownerUserSubscription = ownerChanges.listen(
+      _handleOwnerUserChange,
+      onError: (_) {},
+    );
+  }
+
+  void _handleOwnerUserChange(User? user) {
+    if (!mounted) {
+      return;
+    }
+    _observedOwnerUser = user;
+    _hasObservedOwnerUser = true;
+    _transitionOwnerIdentityIfNeeded(_ownerIdentityFor(user));
+  }
+
+  bool _synchronizeCurrentOwnerIdentity() {
+    final currentIdentity = _currentOwnerIdentity;
+    if (currentIdentity != _activeOwnerIdentity) {
+      _transitionOwnerIdentityIfNeeded(currentIdentity);
+      return false;
+    }
+    return currentIdentity != null;
+  }
+
+  void _transitionOwnerIdentityIfNeeded(
+    _RestaurantOwnerIdentity? nextIdentity, {
+    bool reload = true,
+    bool preserveSignOutOperation = false,
+  }) {
+    if (!mounted || nextIdentity == _activeOwnerIdentity) {
+      return;
+    }
+
+    _dismissTrackedOwnerRoutes(_ownerModalRoutes);
+    _dismissTrackedOwnerPageRoutes();
+    final previousLifecycleRefreshOwner = _lifecycleRefreshOwner;
+    final previousLifecycleRefreshAttempt = _lifecycleRefreshAttempt;
+    _activeOwnerIdentity = nextIdentity;
+    _ownerIdentityGeneration += 1;
+    _applicationOperationGeneration += 1;
+    _ownerSaveGeneration += 1;
+    _couponDraftGeneration += 1;
+    _dailySpecialDraftGeneration += 1;
+    if (!preserveSignOutOperation) {
+      _signOutOperationGeneration += 1;
+    }
+    _restaurantImageOperationGeneration += 1;
+    _restaurantImageSelectionGeneration += 1;
+    _restaurantImageSaveGeneration += 1;
+    _ownerActionGenerations.clear();
+    _applicationOperation = _lifecycleService.createOperationState();
+    _ownerProfileOperation = _lifecycleService.createOperationState();
+    _accountOperationTail = Future<void>.value();
+    _subscriptionReturnDrainQueued = false;
+    _lifecycleRefreshAttempt = null;
+    _lifecycleRefreshOwner = Object();
+    if (previousLifecycleRefreshAttempt != null &&
+        !previousLifecycleRefreshAttempt.isCompleted) {
+      previousLifecycleRefreshAttempt.complete(false);
+    }
+    SubscriptionReturnService.finishRestaurantHubLifecycleRefresh(
+      previousLifecycleRefreshOwner,
+    );
+    _clearOwnerScopedProfilePresentation(
+      email: nextIdentity != null && _currentOwnerIdentity == nextIdentity
+          ? currentUser?.email
+          : null,
+      resetLocalProfile: true,
+    );
+    _resetCouponDraftState();
+    _resetDailySpecialDraftState();
+
+    ScaffoldMessenger.maybeOf(context)?.clearSnackBars();
+    setState(() {
+      restaurantImageUploading = false;
+      profileSaving = false;
+      couponSaving = false;
+      couponImageUploading = false;
+      _couponDeleteInFlight = false;
+      _dailySpecialSaving = false;
+      _dailySpecialSaveInFlight = false;
+      _dailySpecialDeleteInFlight = false;
+      _subscriptionCheckoutLoading = false;
+      _customerPortalLoading = false;
+      _signOutInFlight = false;
+      _allowProfileClose = false;
+      profileLoading = true;
+      couponsLoading = true;
+      _dailySpecialsLoading = true;
+    });
+    if (reload) {
+      // A new owner must not wait behind a prior owner's pending account
+      // read. The identity generation guards inside the loader keep both
+      // completions scoped to the owner that started them.
+      unawaited(_loadSavedProfileAndCoupons());
+    }
+  }
+
+  void _clearOwnerScopedProfilePresentation({
+    required String? email,
+    required bool resetLocalProfile,
+  }) {
+    if (resetLocalProfile) {
+      // This legacy cache has no owner key. Never carry its contents across a
+      // State initialization or an exact UID/account-document transition.
+      LocalRestaurantProfileStore.resetProfile();
+    }
+    LocalCouponStore.clearCoupons();
+
+    restaurantNameController.clear();
+    streetAddressController.clear();
+    cityController.clear();
+    stateController.clear();
+    zipCodeController.clear();
+    distanceController.clear();
+    emailController.text = email?.trim() ?? '';
+    phoneController.clear();
+    websiteController.clear();
+    bioController.clear();
+    requestedRestaurantNameController.clear();
+
+    businessHours = RestaurantBusinessHours.defaultWeek();
+    _businessHoursDirty = false;
+    for (final day in copyPreviousDay.keys) {
+      copyPreviousDay[day] = false;
+    }
+    _hoursExpanded = false;
+
+    _selectedRestaurantImage = null;
+    restaurantImageUrl = null;
+    _initialRestaurantImageUrl = null;
+    _clearTrustedProfileState();
+
+    _showNameChangeRequest = false;
+    _submittingNameChangeRequest = false;
+    _couponAccessState = _CouponAccountAccessState.loading;
+    _couponAccessMessage = '';
+    _hasCouponPostingAccess = false;
+    _hasUsedTrial = false;
+    _subscriptionStatus = 'inactive';
+    _trialEndsAt = null;
+    _dailySpecials = const [];
+    if (_subscriptionStateRefreshing) {
+      _subscriptionStateRefreshing = false;
+      widget.onSubscriptionRefreshStateChanged?.call(false);
+    }
+
+    _captureRestaurantProfileSnapshot();
+  }
+
+  void _resetCouponDraftState() {
+    editingCouponId = null;
+    titleController.clear();
+    couponCodeController.clear();
+    couponDetailsController.clear();
+    couponImageUrl = null;
+    selectedUsageRule = 'Unlimited';
+    selectedCouponType = 'Normal coupon';
+    selectedProximityRadius = '1 mile';
+    couponStartTime = DateTime.now();
+    couponEndTime = null;
+    _couponSubmitAttempted = false;
+    _couponValidationHighlights = <_CouponValidationField>{};
+  }
+
+  void _resetDailySpecialDraftState() {
+    editingDailySpecialId = null;
+    dailySpecialTitleController.clear();
+    dailySpecialDetailsController.clear();
+    _dailySpecialIsActive = true;
+    _dailySpecialAvailabilityMode = DailySpecialAvailabilityMode.todayOnly;
+    _dailySpecialDaysOfWeek.clear();
+    _dailySpecialAllDay = true;
+    _dailySpecialStartTime = null;
+    _dailySpecialEndTime = null;
+    _dailySpecialHideWhenUnavailable = true;
+  }
+
+  void _dismissTrackedOwnerRoutes(
+    Map<Route<dynamic>, NavigatorState> trackedRoutes,
+  ) {
+    for (final entry in trackedRoutes.entries.toList().reversed) {
+      if (entry.key.isActive) {
+        entry.value.removeRoute(entry.key);
+      }
+    }
+    trackedRoutes.clear();
+  }
+
+  void _dismissTrackedOwnerPageRoutes() {
+    for (final entry in _ownerPageRoutes.entries.toList().reversed) {
+      final ownerPageRoute = entry.key;
+      if (!ownerPageRoute.isActive) {
+        continue;
+      }
+      for (
+        var routesRemoved = 0;
+        routesRemoved < 100 && ownerPageRoute.isActive;
+        routesRemoved += 1
+      ) {
+        Route<dynamic>? currentTopRoute;
+        entry.value.popUntil((route) {
+          currentTopRoute = route;
+          return true;
+        });
+        final routeToRemove = currentTopRoute;
+        if (routeToRemove == null || identical(routeToRemove, ownerPageRoute)) {
+          break;
+        }
+        entry.value.removeRoute(routeToRemove);
+      }
+      if (ownerPageRoute.isActive) {
+        entry.value.removeRoute(ownerPageRoute);
+      }
+    }
+    _ownerPageRoutes.clear();
+  }
+
+  Future<T?> _showOwnerScopedDialog<T>({
+    required _RestaurantOwnerScope expectedOwnerScope,
+    required WidgetBuilder builder,
+  }) async {
+    if (!mounted || !_isCurrentExactOwnerScope(expectedOwnerScope)) {
+      return null;
+    }
+    final navigator = Navigator.of(context, rootNavigator: true);
+    final route = DialogRoute<T>(
+      context: context,
+      builder: builder,
+      themes: InheritedTheme.capture(from: context, to: navigator.context),
+    );
+    _ownerModalRoutes[route] = navigator;
+    try {
+      return await navigator.push<T>(route);
+    } finally {
+      _ownerModalRoutes.remove(route);
+    }
+  }
+
+  Future<DateTime?> _showOwnerScopedDatePicker({
+    required _RestaurantOwnerScope expectedOwnerScope,
+    required DateTime initialDate,
+    required DateTime firstDate,
+    required DateTime lastDate,
+  }) {
+    return _showOwnerScopedDialog<DateTime>(
+      expectedOwnerScope: expectedOwnerScope,
+      builder: (_) => DatePickerDialog(
+        initialDate: initialDate,
+        firstDate: firstDate,
+        lastDate: lastDate,
+      ),
+    );
+  }
+
+  Future<TimeOfDay?> _showOwnerScopedTimePicker({
+    required _RestaurantOwnerScope expectedOwnerScope,
+    required TimeOfDay initialTime,
+  }) {
+    return _showOwnerScopedDialog<TimeOfDay>(
+      expectedOwnerScope: expectedOwnerScope,
+      builder: (_) => TimePickerDialog(initialTime: initialTime),
+    );
+  }
+
+  Future<T?> _pushOwnerScopedPage<T>({
+    required _RestaurantOwnerScope expectedOwnerScope,
+    required WidgetBuilder builder,
+  }) async {
+    if (!mounted || !_isCurrentExactOwnerScope(expectedOwnerScope)) {
+      return null;
+    }
+    final navigator = Navigator.of(context);
+    final route = MaterialPageRoute<T>(builder: builder);
+    _ownerPageRoutes[route] = navigator;
+    try {
+      return await navigator.push<T>(route);
+    } finally {
+      _ownerPageRoutes.remove(route);
+    }
+  }
 
   bool get _hasUnsavedRestaurantProfileChanges {
     final textChanged = _initialProfileTextValues.entries.any(
       (entry) => entry.key.text != entry.value,
     );
     return textChanged ||
+        _currentRestaurantImageSelection != null ||
         restaurantImageUrl != _initialRestaurantImageUrl ||
         !_businessHoursMatch(_initialProfileBusinessHours);
   }
@@ -227,13 +851,18 @@ class _RestaurantCreateCouponScreenState
     return true;
   }
 
-  Future<bool> _confirmLeaveRestaurantProfileChanges() async {
+  Future<bool> _confirmLeaveRestaurantProfileChanges(
+    _RestaurantOwnerScope expectedOwnerScope,
+  ) async {
+    if (!_isCurrentExactOwnerScope(expectedOwnerScope)) {
+      return false;
+    }
     if (!_hasUnsavedRestaurantProfileChanges) {
       return true;
     }
 
-    final shouldLeave = await showDialog<bool>(
-      context: context,
+    final shouldLeave = await _showOwnerScopedDialog<bool>(
+      expectedOwnerScope: expectedOwnerScope,
       builder: (context) => AlertDialog(
         title: const Text('Unsaved changes'),
         content: const Text(
@@ -252,17 +881,29 @@ class _RestaurantCreateCouponScreenState
       ),
     );
 
-    return shouldLeave == true;
+    return shouldLeave == true && _isCurrentExactOwnerScope(expectedOwnerScope);
   }
 
-  Future<void> _openPaywallScreen() async {
-    await Navigator.of(
-      context,
-    ).push(MaterialPageRoute(builder: (_) => const PaywallScreen()));
+  Future<void> _openPaywallScreen(
+    _RestaurantOwnerScope expectedOwnerScope,
+  ) async {
+    await _pushOwnerScopedPage<void>(
+      expectedOwnerScope: expectedOwnerScope,
+      builder: (_) => const PaywallScreen(),
+    );
   }
 
-  Future<void> _openSubscriptionSignupScreen() async {
+  Future<void> _openSubscriptionSignupScreen(
+    _RestaurantOwnerScope expectedOwnerScope,
+  ) async {
     if (_subscriptionCheckoutLoading) {
+      return;
+    }
+    final action = _beginOwnerAction(
+      _OwnerActionKind.checkout,
+      expectedOwnerScope: expectedOwnerScope,
+    );
+    if (action == null) {
       return;
     }
 
@@ -271,16 +912,34 @@ class _RestaurantCreateCouponScreenState
     });
 
     try {
-      await SubscriptionReturnService.markRestaurantHubCheckoutStarted();
-      await SubscriptionCheckoutService.startCheckout();
-    } catch (_) {
-      await SubscriptionReturnService.clearPendingReturnContext();
-      if (!mounted) {
+      final markCheckoutStarted =
+          widget.markSubscriptionCheckoutStarted ??
+          SubscriptionReturnService.markRestaurantHubCheckoutStarted;
+      await markCheckoutStarted();
+      if (!_isCurrentOwnerAction(action)) {
+        return;
+      }
+      final startCheckout =
+          widget.startSubscriptionCheckout ??
+          SubscriptionCheckoutService.startCheckout;
+      await startCheckout();
+      if (!_isCurrentOwnerAction(action)) {
+        return;
+      }
+    } catch (error) {
+      if (!_isCurrentOwnerAction(action)) {
+        return;
+      }
+      final clearPendingContext =
+          widget.clearPendingSubscriptionReturnContext ??
+          SubscriptionReturnService.clearPendingReturnContext;
+      await clearPendingContext();
+      if (!_isCurrentOwnerAction(action)) {
         return;
       }
       _showSnackBar('Something went wrong');
     } finally {
-      if (mounted) {
+      if (_isCurrentOwnerAction(action)) {
         setState(() {
           _subscriptionCheckoutLoading = false;
         });
@@ -288,8 +947,17 @@ class _RestaurantCreateCouponScreenState
     }
   }
 
-  Future<void> _openManageSubscription() async {
+  Future<void> _openManageSubscription(
+    _RestaurantOwnerScope expectedOwnerScope,
+  ) async {
     if (_customerPortalLoading) {
+      return;
+    }
+    final action = _beginOwnerAction(
+      _OwnerActionKind.portal,
+      expectedOwnerScope: expectedOwnerScope,
+    );
+    if (action == null) {
       return;
     }
 
@@ -298,14 +966,20 @@ class _RestaurantCreateCouponScreenState
     });
 
     try {
-      await SubscriptionCheckoutService.openCustomerPortal();
+      final openPortal =
+          widget.openCustomerPortal ??
+          SubscriptionCheckoutService.openCustomerPortal;
+      await openPortal();
+      if (!_isCurrentOwnerAction(action)) {
+        return;
+      }
     } catch (_) {
-      if (!mounted) {
+      if (!_isCurrentOwnerAction(action)) {
         return;
       }
       _showSnackBar('Something went wrong');
     } finally {
-      if (mounted) {
+      if (_isCurrentOwnerAction(action)) {
         setState(() {
           _customerPortalLoading = false;
         });
@@ -313,9 +987,14 @@ class _RestaurantCreateCouponScreenState
     }
   }
 
-  Future<void> _openMenuManagement() async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null || user.isAnonymous) {
+  Future<void> _openMenuManagement(
+    _RestaurantOwnerScope expectedOwnerScope,
+  ) async {
+    final action = _beginOwnerAction(
+      _OwnerActionKind.menuOpen,
+      expectedOwnerScope: expectedOwnerScope,
+    );
+    if (action == null) {
       _showSnackBar('Please sign in to manage your menu.');
       return;
     }
@@ -323,8 +1002,11 @@ class _RestaurantCreateCouponScreenState
     try {
       final access =
           await RestaurantMenuService.resolveBiteSaverManageMenuAccess(
-            uid: user.uid,
+            uid: action.ownerScope.identity.uid,
           );
+      if (!_isCurrentOwnerAction(action)) {
+        return;
+      }
       if (access.isBlocked) {
         _showSnackBar(access.message ?? 'Menu is managed elsewhere.');
         return;
@@ -334,16 +1016,15 @@ class _RestaurantCreateCouponScreenState
         _showSnackBar('Could not open menu tools right now.');
         return;
       }
-      if (!mounted) {
+      await _pushOwnerScopedPage<void>(
+        expectedOwnerScope: action.ownerScope,
+        builder: (_) => RestaurantMenuManagementScreen(source: source),
+      );
+      if (!_isCurrentOwnerAction(action)) {
         return;
       }
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => RestaurantMenuManagementScreen(source: source),
-        ),
-      );
     } catch (error) {
-      if (!mounted) {
+      if (!_isCurrentOwnerAction(action)) {
         return;
       }
       _showSnackBar(
@@ -355,30 +1036,64 @@ class _RestaurantCreateCouponScreenState
     }
   }
 
-  Future<BiteSaverMenuRoutingState> _loadBiteSaverMenuRoutingState() async {
-    final injectedLoader = widget.loadMenuRoutingState;
-    if (injectedLoader != null) {
-      return injectedLoader();
-    }
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null || user.isAnonymous) {
+  Future<BiteSaverMenuRoutingState> _loadBiteSaverMenuRoutingState(
+    _RestaurantOwnerScope expectedOwnerScope,
+  ) async {
+    final action = _beginOwnerAction(
+      _OwnerActionKind.menuRead,
+      expectedOwnerScope: expectedOwnerScope,
+    );
+    if (action == null) {
       return const BiteSaverMenuRoutingState(
         usesBiteRater: false,
         matchedBiteScoreRestaurant: null,
         isAlreadyUsedByOtherSide: false,
       );
     }
+    final injectedLoader = widget.loadMenuRoutingState;
+    if (injectedLoader != null) {
+      final state = await injectedLoader();
+      return _isCurrentOwnerAction(action)
+          ? state
+          : const BiteSaverMenuRoutingState(
+              usesBiteRater: false,
+              matchedBiteScoreRestaurant: null,
+              isAlreadyUsedByOtherSide: false,
+            );
+    }
+    final uid = action.ownerScope.identity.uid;
     final usesBiteRater =
-        await RestaurantMenuService.biteSaverUsesBiteScoreMenu(user.uid);
+        await RestaurantMenuService.biteSaverUsesBiteScoreMenu(uid);
+    if (!_isCurrentOwnerAction(action)) {
+      return const BiteSaverMenuRoutingState(
+        usesBiteRater: false,
+        matchedBiteScoreRestaurant: null,
+        isAlreadyUsedByOtherSide: false,
+      );
+    }
     final matchedRestaurant =
         await RestaurantMenuService.findLikelyBiteScoreMatchForBiteSaver(
-          uid: user.uid,
+          uid: uid,
         );
+    if (!_isCurrentOwnerAction(action)) {
+      return const BiteSaverMenuRoutingState(
+        usesBiteRater: false,
+        matchedBiteScoreRestaurant: null,
+        isAlreadyUsedByOtherSide: false,
+      );
+    }
     final isAlreadyUsedByOtherSide = matchedRestaurant == null
         ? false
         : await RestaurantMenuService.biteScoreUsesBiteSaverMenu(
             matchedRestaurant.id,
           );
+    if (!_isCurrentOwnerAction(action)) {
+      return const BiteSaverMenuRoutingState(
+        usesBiteRater: false,
+        matchedBiteScoreRestaurant: null,
+        isAlreadyUsedByOtherSide: false,
+      );
+    }
     return BiteSaverMenuRoutingState(
       usesBiteRater: usesBiteRater,
       matchedBiteScoreRestaurant: matchedRestaurant,
@@ -389,12 +1104,17 @@ class _RestaurantCreateCouponScreenState
   Future<void> _toggleBiteSaverUsesBiteRaterMenu({
     required bool enabled,
     required String? matchedBiteScoreRestaurantId,
+    required _RestaurantOwnerScope expectedOwnerScope,
   }) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null || user.isAnonymous) {
+    final action = _beginOwnerAction(
+      _OwnerActionKind.menuWrite,
+      expectedOwnerScope: expectedOwnerScope,
+    );
+    if (action == null) {
       _showSnackBar('Please sign in to update menu settings.');
       return;
     }
+    final uid = action.ownerScope.identity.uid;
 
     try {
       if (enabled) {
@@ -406,27 +1126,37 @@ class _RestaurantCreateCouponScreenState
         if (await RestaurantMenuService.biteScoreUsesBiteSaverMenu(
           restaurantId,
         )) {
+          if (!_isCurrentOwnerAction(action)) {
+            return;
+          }
           _showSnackBar('This menu is already being used by the other side.');
           return;
         }
+        if (!_isCurrentOwnerAction(action)) {
+          return;
+        }
         await RestaurantMenuService.setBiteSaverMenuSourceToBiteScore(
-          uid: user.uid,
+          uid: uid,
           biteScoreRestaurantId: restaurantId,
-          updatedBy: user.uid,
+          updatedBy: uid,
         );
+        if (!_isCurrentOwnerAction(action)) {
+          return;
+        }
         _showSnackBar('Menu is managed on BiteScore.');
       } else {
         await RestaurantMenuService.clearBiteSaverMenuSourceRouting(
-          uid: user.uid,
-          updatedBy: user.uid,
+          uid: uid,
+          updatedBy: uid,
         );
+        if (!_isCurrentOwnerAction(action)) {
+          return;
+        }
         _showSnackBar('BiteSaver menu management restored.');
       }
-      if (mounted) {
-        setState(() {});
-      }
+      setState(() {});
     } catch (error) {
-      if (!mounted) {
+      if (!_isCurrentOwnerAction(action)) {
         return;
       }
       _showSnackBar(
@@ -494,10 +1224,21 @@ class _RestaurantCreateCouponScreenState
   @override
   void initState() {
     super.initState();
+    if (widget.ownerUserChanges != null) {
+      _observedOwnerUser =
+          widget.currentUserProvider?.call() ?? widget.testCurrentUser;
+      _hasObservedOwnerUser = true;
+    }
+    _ownerIdentityGeneration = 1;
+    _activeOwnerIdentity = _currentOwnerIdentity;
     _lifecycleService =
         widget.lifecycleService ?? BiteSaverRestaurantLifecycleService();
     _applicationOperation = _lifecycleService.createOperationState();
     _ownerProfileOperation = _lifecycleService.createOperationState();
+    _clearOwnerScopedProfilePresentation(
+      email: currentUser?.email,
+      resetLocalProfile: true,
+    );
     WidgetsBinding.instance.addObserver(this);
     SubscriptionReturnService.registerRestaurantHub();
     SubscriptionReturnService.noteRestaurantHubMounted(
@@ -508,15 +1249,57 @@ class _RestaurantCreateCouponScreenState
       (_) => _schedulePendingSubscriptionReturnRefresh(),
       onError: (_) {},
     );
+    _listenForOwnerChanges();
     _resetCouponSchedule();
     unawaited(_enqueueAccountOperation(_loadSavedProfileAndCoupons));
     _schedulePendingSubscriptionReturnRefresh();
   }
 
   @override
+  void didUpdateWidget(covariant RestaurantCreateCouponScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.ownerUserChanges != widget.ownerUserChanges ||
+        oldWidget.currentUserProvider != widget.currentUserProvider ||
+        oldWidget.testCurrentUser != widget.testCurrentUser) {
+      final previousSubscription = _ownerUserSubscription;
+      _ownerUserSubscription = null;
+      if (previousSubscription != null) {
+        unawaited(previousSubscription.cancel());
+      }
+      if (widget.ownerUserChanges != null) {
+        _observedOwnerUser =
+            widget.currentUserProvider?.call() ?? widget.testCurrentUser;
+        _hasObservedOwnerUser = true;
+      } else {
+        _observedOwnerUser = null;
+        _hasObservedOwnerUser = false;
+      }
+      _listenForOwnerChanges();
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _synchronizeCurrentOwnerIdentity();
+      }
+    });
+  }
+
+  @override
   void dispose() {
+    _applicationOperationGeneration += 1;
+    _ownerSaveGeneration += 1;
+    _couponDraftGeneration += 1;
+    _dailySpecialDraftGeneration += 1;
+    _signOutOperationGeneration += 1;
+    _ownerModalRoutes.clear();
+    _ownerPageRoutes.clear();
+    _ownerActionGenerations.clear();
+    _restaurantImageOperationGeneration += 1;
+    _restaurantImageSelectionGeneration += 1;
+    _restaurantImageSaveGeneration += 1;
+    _selectedRestaurantImage = null;
     WidgetsBinding.instance.removeObserver(this);
     _subscriptionReturnSubscription?.cancel();
+    _ownerUserSubscription?.cancel();
     final lifecycleRefreshAttempt = _lifecycleRefreshAttempt;
     if (lifecycleRefreshAttempt != null &&
         !lifecycleRefreshAttempt.isCompleted) {
@@ -557,34 +1340,51 @@ class _RestaurantCreateCouponScreenState
     )) {
       return;
     }
+    final ownerScope = _activeOwnerScope;
+    final action = ownerScope == null
+        ? null
+        : _beginOwnerAction(
+            _OwnerActionKind.subscriptionLifecycle,
+            expectedOwnerScope: ownerScope,
+          );
+    if (action == null) {
+      SubscriptionReturnService.finishRestaurantHubLifecycleRefresh(
+        _lifecycleRefreshOwner,
+      );
+      return;
+    }
 
     final refreshAttempt = Completer<bool>();
+    final lifecycleRefreshOwner = _lifecycleRefreshOwner;
     _lifecycleRefreshAttempt = refreshAttempt;
     SubscriptionReturnService.registerRestaurantHubLifecycleRefresh(
-      _lifecycleRefreshOwner,
+      lifecycleRefreshOwner,
       refreshAttempt.future,
     );
     unawaited(
       _enqueueAccountOperation(() async {
-        if (refreshAttempt.isCompleted) {
+        if (refreshAttempt.isCompleted || !_isCurrentOwnerAction(action)) {
           return;
         }
         try {
-          await _refreshSubscriptionStateOnlyNow();
+          await _refreshSubscriptionStateOnlyNow(
+            expectedOwnerScope: action.ownerScope,
+          );
         } finally {
           if (!refreshAttempt.isCompleted) {
-            refreshAttempt.complete(true);
+            refreshAttempt.complete(_isCurrentOwnerAction(action));
           }
         }
       }).whenComplete(() {
         if (!refreshAttempt.isCompleted) {
           refreshAttempt.complete(false);
         }
-        if (identical(_lifecycleRefreshAttempt, refreshAttempt)) {
+        if (_isCurrentOwnerAction(action) &&
+            identical(_lifecycleRefreshAttempt, refreshAttempt)) {
           _lifecycleRefreshAttempt = null;
         }
         SubscriptionReturnService.finishRestaurantHubLifecycleRefresh(
-          _lifecycleRefreshOwner,
+          lifecycleRefreshOwner,
         );
       }),
     );
@@ -602,20 +1402,26 @@ class _RestaurantCreateCouponScreenState
   }
 
   void _schedulePendingSubscriptionReturnRefresh() {
+    final ownerScope = _activeOwnerScope;
     if (!mounted ||
-        currentUser == null ||
+        ownerScope == null ||
+        !_isCurrentExactOwnerScope(ownerScope) ||
         _subscriptionReturnDrainQueued ||
         SubscriptionReturnService.peekPendingRefresh() == null) {
       return;
     }
 
+    final action = _beginOwnerAction(
+      _OwnerActionKind.subscriptionReturn,
+      expectedOwnerScope: ownerScope,
+    );
+    if (action == null) {
+      return;
+    }
     _subscriptionReturnDrainQueued = true;
     unawaited(
       _enqueueAccountOperation(() async {
-        while (mounted) {
-          if (currentUser == null) {
-            return;
-          }
+        while (_isCurrentOwnerAction(action)) {
           final refreshCandidate =
               SubscriptionReturnService.peekPendingRefreshCandidate();
           if (refreshCandidate == null) {
@@ -624,7 +1430,7 @@ class _RestaurantCreateCouponScreenState
           final lifecycleRefresh = refreshCandidate.coalescedLifecycleRefresh;
           final immediateRefreshAlreadyAttempted =
               lifecycleRefresh != null && await lifecycleRefresh;
-          if (!mounted || currentUser == null) {
+          if (!_isCurrentOwnerAction(action)) {
             return;
           }
           if (!SubscriptionReturnService.claimRefresh(
@@ -635,6 +1441,7 @@ class _RestaurantCreateCouponScreenState
           try {
             await _refreshAfterSubscriptionReturn(
               refreshCandidate.event.kind,
+              expectedAction: action,
               immediateRefreshAlreadyAttempted:
                   immediateRefreshAlreadyAttempted,
             );
@@ -643,9 +1450,11 @@ class _RestaurantCreateCouponScreenState
           }
         }
       }).whenComplete(() {
+        if (!_isCurrentOwnerAction(action)) {
+          return;
+        }
         _subscriptionReturnDrainQueued = false;
-        if (mounted &&
-            currentUser != null &&
+        if (_isCurrentOwnerAction(action) &&
             SubscriptionReturnService.peekPendingRefresh() != null) {
           _schedulePendingSubscriptionReturnRefresh();
         }
@@ -655,18 +1464,29 @@ class _RestaurantCreateCouponScreenState
 
   Future<void> _refreshAfterSubscriptionReturn(
     SubscriptionReturnKind kind, {
+    required _OwnerActionScope expectedAction,
     bool immediateRefreshAlreadyAttempted = false,
   }) async {
+    if (!_isCurrentOwnerAction(expectedAction)) {
+      return;
+    }
     if (!immediateRefreshAlreadyAttempted) {
-      await _refreshSubscriptionStateOnlyNow();
+      await _refreshSubscriptionStateOnlyNow(
+        expectedOwnerScope: expectedAction.ownerScope,
+      );
+      if (!_isCurrentOwnerAction(expectedAction)) {
+        return;
+      }
     }
     if (kind != SubscriptionReturnKind.checkoutSuccess) {
       return;
     }
 
     await Future<void>.delayed(const Duration(seconds: 3));
-    if (mounted) {
-      await _refreshSubscriptionStateOnlyNow();
+    if (_isCurrentOwnerAction(expectedAction)) {
+      await _refreshSubscriptionStateOnlyNow(
+        expectedOwnerScope: expectedAction.ownerScope,
+      );
     }
   }
 
@@ -732,12 +1552,26 @@ class _RestaurantCreateCouponScreenState
     );
   }
 
-  void _recordTrustedProfileState(Restaurant? restaurant) {
-    _profileVersion = restaurant?.profileVersion ?? 0;
-    _locationVersion = restaurant?.locationVersion ?? 0;
-    _hasTrustedSearchableLocation =
-        restaurant?.hasTrustedSearchableLocation ?? false;
-    _storedRestaurantName = restaurant?.name.trim() ?? '';
+  void _clearTrustedProfileState() {
+    _profileVersion = 0;
+    _locationVersion = 0;
+    _hasTrustedSearchableLocation = false;
+    _storedRestaurantName = '';
+    _trustedProfileOwnerIdentity = null;
+    _trustedProfileOwnerGeneration = null;
+  }
+
+  void _recordTrustedProfileState(
+    Restaurant restaurant, {
+    required _RestaurantOwnerIdentity ownerIdentity,
+    required int ownerIdentityGeneration,
+  }) {
+    _profileVersion = restaurant.profileVersion;
+    _locationVersion = restaurant.locationVersion;
+    _hasTrustedSearchableLocation = restaurant.hasTrustedSearchableLocation;
+    _storedRestaurantName = restaurant.name.trim();
+    _trustedProfileOwnerIdentity = ownerIdentity;
+    _trustedProfileOwnerGeneration = ownerIdentityGeneration;
   }
 
   String _normalizedRestaurantNameForComparison(String value) {
@@ -782,6 +1616,12 @@ class _RestaurantCreateCouponScreenState
   }
 
   Future<User?> _reloadCurrentRestaurantUser() async {
+    if (widget.ownerUserChanges != null && _hasObservedOwnerUser) {
+      return currentUser;
+    }
+    if (widget.currentUserProvider != null) {
+      return currentUser;
+    }
     if (widget.testCurrentUser != null) {
       return widget.testCurrentUser;
     }
@@ -804,24 +1644,54 @@ class _RestaurantCreateCouponScreenState
   }
 
   Future<void> _pickCouponDateTime({required bool isStart}) async {
+    final action = _beginOwnerAction(_OwnerActionKind.couponDateTime);
+    if (action == null) {
+      return;
+    }
+    final draftGeneration = _couponDraftGeneration;
     final existingValue = isStart ? couponStartTime : couponEndTime;
     final initialValue = existingValue ?? DateTime.now();
 
-    final pickedDate = await showDatePicker(
-      context: context,
-      initialDate: initialValue,
-      firstDate: DateTime.now().subtract(const Duration(days: 365)),
-      lastDate: DateTime.now().add(const Duration(days: 3650)),
-    );
-    if (pickedDate == null || !mounted) return;
+    final now = DateTime.now();
+    final firstDate = now.subtract(const Duration(days: 365));
+    final lastDate = now.add(const Duration(days: 3650));
+    final pickDate = widget.pickCouponDate;
+    final pickedDate = pickDate != null
+        ? await pickDate(
+            initialDate: initialValue,
+            firstDate: firstDate,
+            lastDate: lastDate,
+          )
+        : await _showOwnerScopedDatePicker(
+            expectedOwnerScope: action.ownerScope,
+            initialDate: initialValue,
+            firstDate: firstDate,
+            lastDate: lastDate,
+          );
+    if (pickedDate == null ||
+        !_isCurrentOwnerAction(action) ||
+        draftGeneration != _couponDraftGeneration) {
+      return;
+    }
+    if (!mounted) {
+      return;
+    }
 
-    final pickedTime = await showTimePicker(
-      context: context,
-      initialTime: isStart
-          ? TimeOfDay.fromDateTime(initialValue)
-          : const TimeOfDay(hour: 23, minute: 59),
-    );
-    if (pickedTime == null || !mounted) return;
+    final initialTime = isStart
+        ? TimeOfDay.fromDateTime(initialValue)
+        : const TimeOfDay(hour: 23, minute: 59);
+    final pickTime = widget.pickCouponTime;
+    final pickedTime = pickTime != null
+        ? await pickTime(initialTime: initialTime)
+        : await _showOwnerScopedTimePicker(
+            expectedOwnerScope: action.ownerScope,
+            initialTime: initialTime,
+          );
+    if (pickedTime == null ||
+        !_isCurrentOwnerAction(action) ||
+        draftGeneration != _couponDraftGeneration) {
+      return;
+    }
 
     final selectedDateTime = DateTime(
       pickedDate.year,
@@ -832,6 +1702,7 @@ class _RestaurantCreateCouponScreenState
     );
 
     setState(() {
+      _advanceCouponDraftGeneration();
       if (isStart) {
         couponStartTime = selectedDateTime;
       } else {
@@ -873,18 +1744,29 @@ class _RestaurantCreateCouponScreenState
   }
 
   Future<void> _pickDailySpecialTime({required bool isStart}) async {
+    final action = _beginOwnerAction(_OwnerActionKind.dailySpecialTime);
+    if (action == null) {
+      return;
+    }
+    final draftGeneration = _dailySpecialDraftGeneration;
     final initialTime = isStart
         ? _dailySpecialStartTime ?? const TimeOfDay(hour: 9, minute: 0)
         : _dailySpecialEndTime ?? const TimeOfDay(hour: 17, minute: 0);
-    final pickedTime = await showTimePicker(
-      context: context,
-      initialTime: initialTime,
-    );
-    if (pickedTime == null || !mounted) {
+    final pickTime = widget.pickDailySpecialTime;
+    final pickedTime = pickTime != null
+        ? await pickTime(initialTime: initialTime)
+        : await _showOwnerScopedTimePicker(
+            expectedOwnerScope: action.ownerScope,
+            initialTime: initialTime,
+          );
+    if (pickedTime == null ||
+        !_isCurrentOwnerAction(action) ||
+        draftGeneration != _dailySpecialDraftGeneration) {
       return;
     }
 
     setState(() {
+      _dailySpecialDraftGeneration += 1;
       if (isStart) {
         _dailySpecialStartTime = pickedTime;
       } else {
@@ -959,22 +1841,12 @@ class _RestaurantCreateCouponScreenState
   }
 
   Future<void> _loadSavedProfileAndCoupons() async {
-    final localProfile = LocalRestaurantProfileStore.profile.value;
-    restaurantNameController.text = localProfile.name;
-    cityController.text = localProfile.city;
-    stateController.text = localProfile.state;
-    zipCodeController.text = localProfile.zipCode;
-    distanceController.text = '';
-    emailController.text = currentUser?.email ?? localProfile.email;
-    phoneController.text = formatPhoneNumberForDisplay(localProfile.phone);
-    streetAddressController.text = localProfile.streetAddress;
-    websiteController.text = localProfile.website;
-    bioController.text = localProfile.bio;
-    restaurantImageUrl = localProfile.mainImageUrl.trim().isEmpty
-        ? null
-        : localProfile.mainImageUrl.trim();
-    businessHours = _hoursForEditing(localProfile.businessHours);
-    _businessHoursDirty = localProfile.businessHours.isNotEmpty;
+    final loadOwnerIdentity = _activeOwnerIdentity;
+    final loadOwnerIdentityGeneration = _ownerIdentityGeneration;
+    if (_currentOwnerIdentity != loadOwnerIdentity) {
+      _transitionOwnerIdentityIfNeeded(_currentOwnerIdentity);
+      return;
+    }
 
     LocalCouponStore.clearCoupons();
 
@@ -982,8 +1854,21 @@ class _RestaurantCreateCouponScreenState
     if (!mounted) {
       return;
     }
+    final reloadedOwnerIdentity = _ownerIdentityFor(user);
+    if (reloadedOwnerIdentity != loadOwnerIdentity ||
+        (loadOwnerIdentity != null &&
+            !_isCurrentOwnerScope(
+              loadOwnerIdentity,
+              loadOwnerIdentityGeneration,
+            ))) {
+      _transitionOwnerIdentityIfNeeded(reloadedOwnerIdentity);
+      return;
+    }
     if (user == null) {
-      _recordTrustedProfileState(null);
+      _clearOwnerScopedProfilePresentation(
+        email: null,
+        resetLocalProfile: true,
+      );
       _couponAccessState = _CouponAccountAccessState.noAccount;
       _couponAccessMessage = _couponAccessMessageFor(
         state: _couponAccessState,
@@ -1005,11 +1890,33 @@ class _RestaurantCreateCouponScreenState
 
     try {
       final data = await _loadRestaurantAccount(user.uid);
-      if (!mounted) {
+      if (!mounted ||
+          loadOwnerIdentity == null ||
+          !_isCurrentOwnerScope(
+            loadOwnerIdentity,
+            loadOwnerIdentityGeneration,
+          )) {
         return;
       }
-      final loadedRestaurant = _restaurantFromAccountData(user.uid, data);
-      _recordTrustedProfileState(loadedRestaurant);
+      if (data == null) {
+        _clearOwnerScopedProfilePresentation(
+          email: user.email,
+          resetLocalProfile: true,
+        );
+      }
+      final loadedRestaurant = _restaurantFromAccountData(
+        loadOwnerIdentity.accountDocumentId,
+        data,
+      );
+      if (loadedRestaurant == null) {
+        _clearTrustedProfileState();
+      } else {
+        _recordTrustedProfileState(
+          loadedRestaurant,
+          ownerIdentity: loadOwnerIdentity,
+          ownerIdentityGeneration: loadOwnerIdentityGeneration,
+        );
+      }
       final hasSubmittedApplication =
           RestaurantAccountService.hasSubmittedCouponApplication(data);
       final approvalStatus =
@@ -1095,14 +2002,22 @@ class _RestaurantCreateCouponScreenState
       }
 
       final loadedCoupons = await _loadRestaurantCoupons(user.uid);
-      if (!mounted) {
+      if (!mounted ||
+          !_isCurrentOwnerScope(
+            loadOwnerIdentity,
+            loadOwnerIdentityGeneration,
+          )) {
         return;
       }
       for (final coupon in loadedCoupons.reversed) {
         LocalCouponStore.addCoupon(coupon);
       }
       final loadedDailySpecials = await _loadRestaurantDailySpecials(user.uid);
-      if (!mounted) {
+      if (!mounted ||
+          !_isCurrentOwnerScope(
+            loadOwnerIdentity,
+            loadOwnerIdentityGeneration,
+          )) {
         return;
       }
       _dailySpecials = loadedDailySpecials;
@@ -1137,10 +2052,15 @@ class _RestaurantCreateCouponScreenState
         ),
       );
     } catch (_) {
-      if (!mounted) {
+      if (!mounted ||
+          loadOwnerIdentity == null ||
+          !_isCurrentOwnerScope(
+            loadOwnerIdentity,
+            loadOwnerIdentityGeneration,
+          )) {
         return;
       }
-      _recordTrustedProfileState(null);
+      _clearTrustedProfileState();
       _couponAccessState = _CouponAccountAccessState.loadFailed;
       _couponAccessMessage =
           'Could not load your BiteSaver owner tools right now. Please try again.';
@@ -1150,7 +2070,8 @@ class _RestaurantCreateCouponScreenState
       _trialEndsAt = null;
     }
 
-    if (mounted) {
+    if (mounted &&
+        _isCurrentOwnerScope(loadOwnerIdentity, loadOwnerIdentityGeneration)) {
       _captureRestaurantProfileSnapshot();
       setState(() {
         profileLoading = false;
@@ -1160,17 +2081,28 @@ class _RestaurantCreateCouponScreenState
     }
   }
 
-  Future<void> _refreshSubscriptionStateOnlyNow() async {
+  Future<bool> _refreshSubscriptionStateOnlyNow({
+    _RestaurantOwnerScope? expectedOwnerScope,
+  }) async {
+    final action = _beginOwnerAction(
+      _OwnerActionKind.subscriptionRefresh,
+      expectedOwnerScope: expectedOwnerScope,
+    );
+    if (action == null) {
+      return false;
+    }
     final user = await _reloadCurrentRestaurantUser() ?? currentUser;
-    if (!mounted || user == null) {
-      return;
+    if (!_isCurrentOwnerAction(action) ||
+        user == null ||
+        user.uid.trim() != action.ownerScope.identity.uid) {
+      return false;
     }
 
     _setSubscriptionStateRefreshing(true);
     try {
-      final data = await _loadRestaurantAccount(user.uid);
-      if (!mounted || data == null) {
-        return;
+      final data = await _loadRestaurantAccount(action.ownerScope.identity.uid);
+      if (!_isCurrentOwnerAction(action) || data == null) {
+        return false;
       }
 
       final subscriptionStatus =
@@ -1185,19 +2117,23 @@ class _RestaurantCreateCouponScreenState
           RestaurantAccountService.hasCouponPostingAccess(data);
       final hasUsedTrial = data['hasUsedTrial'] == true;
 
-      setState(() {
-        _hasUsedTrial = hasUsedTrial;
-        _subscriptionStatus = subscriptionStatus;
-        _trialEndsAt = trialEndsAt;
-        _hasCouponPostingAccess = hasCouponPostingAccess;
-      });
+      if (_isCurrentOwnerAction(action)) {
+        setState(() {
+          _hasUsedTrial = hasUsedTrial;
+          _subscriptionStatus = subscriptionStatus;
+          _trialEndsAt = trialEndsAt;
+          _hasCouponPostingAccess = hasCouponPostingAccess;
+        });
+        return true;
+      }
     } catch (_) {
       // Keep the current screen state if the refresh fails.
     } finally {
-      if (mounted) {
+      if (_isCurrentOwnerAction(action)) {
         _setSubscriptionStateRefreshing(false);
       }
     }
+    return false;
   }
 
   void _setSubscriptionStateRefreshing(bool isRefreshing) {
@@ -1292,9 +2228,14 @@ class _RestaurantCreateCouponScreenState
     }
   }
 
-  Future<void> _refreshCouponAccessState() async {
+  Future<void> _refreshCouponAccessState({
+    required _RestaurantOwnerScope expectedOwnerScope,
+    required int applicationOperationGeneration,
+  }) async {
     await _enqueueAccountOperation(() async {
-      if (!mounted) {
+      if (!mounted ||
+          !_isCurrentExactOwnerScope(expectedOwnerScope) ||
+          applicationOperationGeneration != _applicationOperationGeneration) {
         return;
       }
       setState(() {
@@ -1304,6 +2245,17 @@ class _RestaurantCreateCouponScreenState
       });
       await _loadSavedProfileAndCoupons();
     });
+  }
+
+  Future<void> _refreshCurrentCouponAccessState() async {
+    final ownerScope = _activeOwnerScope;
+    if (ownerScope == null || !_isCurrentExactOwnerScope(ownerScope)) {
+      return;
+    }
+    await _refreshCouponAccessState(
+      expectedOwnerScope: ownerScope,
+      applicationOperationGeneration: _applicationOperationGeneration,
+    );
   }
 
   Future<void> _applyForCouponSideAccount() async {
@@ -1316,6 +2268,19 @@ class _RestaurantCreateCouponScreenState
       _showSnackBar('Please sign in to continue.');
       return;
     }
+    final ownerScope = _activeOwnerScope;
+    if (ownerScope == null ||
+        ownerScope.identity.uid != user.uid ||
+        !_isCurrentExactOwnerScope(ownerScope)) {
+      _showSnackBar('Your restaurant account changed. Reload and try again.');
+      return;
+    }
+    final operationGeneration = _applicationOperationGeneration;
+    final applicationOperation = _applicationOperation;
+    bool ownerOperationIsCurrent() =>
+        mounted &&
+        operationGeneration == _applicationOperationGeneration &&
+        _isCurrentExactOwnerScope(ownerScope);
 
     final restaurantName = restaurantNameController.text.trim();
     final streetAddress = streetAddressController.text.trim();
@@ -1357,13 +2322,30 @@ class _RestaurantCreateCouponScreenState
       final request = BiteSaverProfileSaveRequest.submitApplication(
         profile: _applicationProfileInput(restaurantName: restaurantName),
       );
-      final result = await _applicationOperation.execute(
+      final result = await applicationOperation.execute(
         request: request,
-        logicalTarget: user.uid,
-        invoke: (requestId) =>
-            _lifecycleService.save(request, requestId: requestId),
+        logicalTarget: ownerScope.logicalTarget(operation: 'application'),
+        invoke: (requestId) async {
+          final result = await _lifecycleService.save(
+            request,
+            requestId: requestId,
+          );
+          if (result.documentId.trim() !=
+              ownerScope.identity.accountDocumentId) {
+            throw const BiteSaverLifecycleException(
+              kind: BiteSaverLifecycleFailureKind.staleProfile,
+              code: 'failed-precondition',
+              message: 'Your restaurant account changed. Reload and try again.',
+            );
+          }
+          return result;
+        },
       );
-      if (!mounted) {
+      if (!ownerOperationIsCurrent()) {
+        return;
+      }
+      if (result.documentId.trim() != ownerScope.identity.accountDocumentId) {
+        _showSnackBar('Your restaurant account changed. Reload and try again.');
         return;
       }
       _profileVersion = result.profileVersion;
@@ -1371,14 +2353,17 @@ class _RestaurantCreateCouponScreenState
         _locationVersion = result.locationVersion!;
       }
       _showSnackBar('Coupon-side application submitted for admin review.');
-      await _refreshCouponAccessState();
+      await _refreshCouponAccessState(
+        expectedOwnerScope: ownerScope,
+        applicationOperationGeneration: operationGeneration,
+      );
     } on BiteSaverLifecycleException catch (error) {
-      if (!mounted) {
+      if (!ownerOperationIsCurrent()) {
         return;
       }
       _showSnackBar(error.message);
     } catch (error) {
-      if (!mounted) {
+      if (!ownerOperationIsCurrent()) {
         return;
       }
       _showSnackBar(
@@ -1388,7 +2373,7 @@ class _RestaurantCreateCouponScreenState
         ),
       );
     } finally {
-      if (mounted) {
+      if (ownerOperationIsCurrent()) {
         setState(() {
           profileSaving = false;
         });
@@ -1402,6 +2387,16 @@ class _RestaurantCreateCouponScreenState
       _showSnackBar('Please sign in to continue.');
       return;
     }
+    final ownerIdentity = _activeOwnerIdentity;
+    final ownerIdentityGeneration = _ownerIdentityGeneration;
+    if (ownerIdentity == null ||
+        user.uid.trim() != ownerIdentity.uid ||
+        !_isCurrentOwnerScope(ownerIdentity, ownerIdentityGeneration)) {
+      _showSnackBar('Your restaurant account changed. Reload and try again.');
+      return;
+    }
+    bool ownerOperationIsCurrent() =>
+        mounted && _isCurrentOwnerScope(ownerIdentity, ownerIdentityGeneration);
 
     final currentRestaurantName = _storedRestaurantName.isNotEmpty
         ? _storedRestaurantName
@@ -1444,7 +2439,7 @@ class _RestaurantCreateCouponScreenState
             });
       }
 
-      if (!mounted) {
+      if (!ownerOperationIsCurrent()) {
         return;
       }
 
@@ -1454,7 +2449,7 @@ class _RestaurantCreateCouponScreenState
       });
       _showSnackBar('Name change request submitted.');
     } catch (error) {
-      if (!mounted) {
+      if (!ownerOperationIsCurrent()) {
         return;
       }
       _showSnackBar(
@@ -1464,7 +2459,7 @@ class _RestaurantCreateCouponScreenState
         ),
       );
     } finally {
-      if (mounted) {
+      if (ownerOperationIsCurrent()) {
         setState(() {
           _submittingNameChangeRequest = false;
         });
@@ -1488,6 +2483,7 @@ class _RestaurantCreateCouponScreenState
   }
 
   Widget _buildSubscriptionStatusSection() {
+    final renderedOwnerScope = _activeOwnerScope;
     final now = DateTime.now();
     final hasValidTrial =
         _subscriptionStatus == 'trialing' &&
@@ -1576,9 +2572,9 @@ class _RestaurantCreateCouponScreenState
             Align(
               alignment: Alignment.centerLeft,
               child: OutlinedButton(
-                onPressed: _customerPortalLoading
+                onPressed: _customerPortalLoading || renderedOwnerScope == null
                     ? null
-                    : _openManageSubscription,
+                    : () => _openManageSubscription(renderedOwnerScope),
                 child: Text(
                   _customerPortalLoading ? 'Opening...' : 'Manage Subscription',
                 ),
@@ -1612,9 +2608,7 @@ class _RestaurantCreateCouponScreenState
     return null;
   }
 
-  String? _validateCouponInput() {
-    final draftCoupon = _buildDraftCoupon();
-
+  String? _validateCouponInput(Coupon draftCoupon) {
     return draftCoupon.validateForSave();
   }
 
@@ -1670,6 +2664,7 @@ class _RestaurantCreateCouponScreenState
   }
 
   void _refreshCouponValidationHighlights() {
+    _markCouponDraftChanged();
     if (!_couponSubmitAttempted) {
       return;
     }
@@ -1679,10 +2674,37 @@ class _RestaurantCreateCouponScreenState
     });
   }
 
+  void _advanceCouponDraftGeneration({
+    bool preserveCouponImageOperation = false,
+  }) {
+    _couponDraftGeneration += 1;
+    if (preserveCouponImageOperation || !couponImageUploading) {
+      return;
+    }
+    _ownerActionGenerations[_OwnerActionKind.couponImage] =
+        (_ownerActionGenerations[_OwnerActionKind.couponImage] ?? 0) + 1;
+    couponImageUploading = false;
+  }
+
+  void _markCouponDraftChanged({bool notify = true}) {
+    final wasUploading = couponImageUploading;
+    _advanceCouponDraftGeneration();
+    if (notify && wasUploading && mounted) {
+      setState(() {});
+    }
+  }
+
+  void _markDailySpecialDraftChanged() {
+    _dailySpecialDraftGeneration += 1;
+  }
+
   void _scrollToKey(GlobalKey key, {double alignment = 0.12}) {
+    final ownerScope = _activeOwnerScope;
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       await Future<void>.delayed(const Duration(milliseconds: 320));
-      if (!mounted) {
+      if (!mounted ||
+          ownerScope == null ||
+          !_isCurrentExactOwnerScope(ownerScope)) {
         return;
       }
 
@@ -1734,14 +2756,15 @@ class _RestaurantCreateCouponScreenState
         : 'End time must be after start time.';
   }
 
-  Coupon _buildDraftCoupon() {
-    final profile = LocalRestaurantProfileStore.profile.value;
-
+  Coupon _buildDraftCoupon({
+    required String restaurantName,
+    required String distance,
+  }) {
     return Coupon(
       id: editingCouponId ?? '',
-      restaurant: profile.name,
+      restaurant: restaurantName,
       title: titleController.text.trim(),
-      distance: profile.distance,
+      distance: distance,
       startTime: couponStartTime,
       endTime: couponEndTime,
       usageRule: selectedUsageRule,
@@ -1760,33 +2783,111 @@ class _RestaurantCreateCouponScreenState
   }
 
   Future<void> _pickRestaurantImage() async {
+    if (profileSaving || _ownerProfileOperation.isInFlight) {
+      return;
+    }
+    if (!_synchronizeCurrentOwnerIdentity()) {
+      if (_currentOwnerIdentity == null) {
+        _showSnackBar('Please sign in to add a restaurant image.');
+      }
+      return;
+    }
+    final ownerIdentity = _activeOwnerIdentity;
     final user = currentUser;
-    if (user == null) {
+    if (ownerIdentity == null ||
+        user == null ||
+        user.uid.trim() != ownerIdentity.uid) {
       _showSnackBar('Please sign in to add a restaurant image.');
       return;
     }
+    final ownerIdentityGeneration = _ownerIdentityGeneration;
+    final operationGeneration = ++_restaurantImageOperationGeneration;
 
     setState(() {
       restaurantImageUploading = true;
     });
 
     try {
-      final uploadedUrl =
-          await BiteSaverImageUploadService.pickAndUploadRestaurantImage(
-            uid: user.uid,
-          );
-      if (uploadedUrl == null) {
+      final injectedPicker = widget.pickRestaurantImage;
+      final pickedImage = injectedPicker != null
+          ? await injectedPicker()
+          : await BiteSaverImageUploadService.pickRestaurantImage(
+              isCurrent: () =>
+                  mounted &&
+                  _isCurrentOwnerScope(
+                    ownerIdentity,
+                    ownerIdentityGeneration,
+                  ) &&
+                  operationGeneration == _restaurantImageOperationGeneration,
+            );
+      if (!mounted ||
+          !_isCurrentOwnerScope(ownerIdentity, ownerIdentityGeneration) ||
+          operationGeneration != _restaurantImageOperationGeneration) {
         return;
       }
-      if (!mounted) return;
+      if (pickedImage == null) {
+        return;
+      }
+
+      BiteSaverValidatedRestaurantImage? validatedImage;
+      try {
+        final validateImage =
+            widget.validateRestaurantImage ??
+            BiteSaverImageUploadService.validateRestaurantImage;
+        validatedImage = await validateImage(pickedImage);
+      } catch (_) {
+        validatedImage = null;
+      }
+      if (!mounted ||
+          !_isCurrentOwnerScope(ownerIdentity, ownerIdentityGeneration) ||
+          operationGeneration != _restaurantImageOperationGeneration) {
+        return;
+      }
+      if (validatedImage == null ||
+          !validatedImage.wasValidatedFrom(pickedImage)) {
+        _showSnackBar('Please choose a valid PNG or JPEG image.');
+        return;
+      }
+
+      final selectedImage = _OwnerBoundRestaurantImageSelection(
+        ownerIdentity: ownerIdentity,
+        ownerIdentityGeneration: ownerIdentityGeneration,
+        selectionGeneration: ++_restaurantImageSelectionGeneration,
+        validatedImage: validatedImage,
+      );
       setState(() {
-        restaurantImageUrl = uploadedUrl;
+        _selectedRestaurantImage = selectedImage;
+      });
+
+      final uploadImage =
+          widget.uploadRestaurantImage ??
+          BiteSaverImageUploadService.uploadRestaurantImage;
+      final uploadResult = await uploadImage(
+        uid: ownerIdentity.uid,
+        validatedImage: validatedImage,
+      );
+      final uploadedUrl = uploadResult.imageUrl;
+      if (uploadedUrl.trim().isEmpty) {
+        throw StateError('Restaurant image upload returned no URL.');
+      }
+      if (!mounted ||
+          !_isCurrentOwnerScope(ownerIdentity, ownerIdentityGeneration) ||
+          operationGeneration != _restaurantImageOperationGeneration ||
+          !identical(_selectedRestaurantImage, selectedImage)) {
+        return;
+      }
+      setState(() {
+        _selectedRestaurantImage = selectedImage.withUploadedUrl(uploadedUrl);
       });
       _showSnackBar(
         'Restaurant image uploaded. Save Restaurant Image to apply it.',
       );
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted ||
+          !_isCurrentOwnerScope(ownerIdentity, ownerIdentityGeneration) ||
+          operationGeneration != _restaurantImageOperationGeneration) {
+        return;
+      }
       _showSnackBar(
         AppErrorText.friendly(
           error,
@@ -1794,7 +2895,9 @@ class _RestaurantCreateCouponScreenState
         ),
       );
     } finally {
-      if (mounted) {
+      if (mounted &&
+          _isCurrentOwnerScope(ownerIdentity, ownerIdentityGeneration) &&
+          operationGeneration == _restaurantImageOperationGeneration) {
         setState(() {
           restaurantImageUploading = false;
         });
@@ -1803,46 +2906,96 @@ class _RestaurantCreateCouponScreenState
   }
 
   Future<void> _pickCouponImage() async {
+    if (couponImageUploading) {
+      return;
+    }
     final user = currentUser;
     if (user == null) {
       _showSnackBar('Please sign in to add a coupon image.');
       return;
     }
+    final action = _beginOwnerAction(_OwnerActionKind.couponImage);
+    if (action == null || action.ownerScope.identity.uid != user.uid.trim()) {
+      return;
+    }
+    final draftGeneration = _couponDraftGeneration;
+    final submittedEditingCouponId = editingCouponId?.trim();
+    final operation = _CouponImageOperationScope(
+      action: action,
+      draftGeneration: draftGeneration,
+      editingCouponId: submittedEditingCouponId,
+    );
+    final couponKey = submittedEditingCouponId?.isNotEmpty == true
+        ? submittedEditingCouponId!
+        : DateTime.now().microsecondsSinceEpoch.toString();
+    bool operationIsCurrent() => _isCurrentCouponImageOperation(operation);
+    int? installedDraftGeneration;
+    String? installedImageUrl;
+    bool installedResultIsCurrent() =>
+        installedDraftGeneration != null &&
+        _isCurrentOwnerAction(action) &&
+        installedDraftGeneration == _couponDraftGeneration &&
+        editingCouponId?.trim() == submittedEditingCouponId &&
+        couponImageUrl == installedImageUrl;
 
     setState(() {
       couponImageUploading = true;
     });
 
     try {
-      final couponKey =
-          editingCouponId ?? DateTime.now().microsecondsSinceEpoch.toString();
-      final uploadedUrl =
-          await BiteSaverImageUploadService.pickAndUploadCouponImage(
-            uid: user.uid,
-            couponKey: couponKey,
-          );
-      if (uploadedUrl == null) {
+      final pickAndUpload =
+          widget.pickAndUploadCouponImage ??
+          BiteSaverImageUploadService.pickAndUploadCouponImage;
+      final result = await pickAndUpload(
+        uid: action.ownerScope.identity.uid,
+        couponKey: couponKey,
+        isCurrent: operationIsCurrent,
+      );
+      if (result is! BiteSaverCouponImageUploadCompleted) {
         return;
       }
-      if (!mounted) return;
+      if (!operationIsCurrent()) {
+        return;
+      }
+      final uploadedUrl = result.imageUrl;
       setState(() {
+        _advanceCouponDraftGeneration(preserveCouponImageOperation: true);
+        installedDraftGeneration = _couponDraftGeneration;
+        installedImageUrl = uploadedUrl;
         couponImageUrl = uploadedUrl;
       });
-      if (editingCouponId != null && editingCouponId!.trim().isNotEmpty) {
-        await RestaurantAccountService.couponsCollection(
-          user.uid,
-        ).doc(editingCouponId!.trim()).set({
-          Coupon.fieldImageUrl: uploadedUrl,
-          Coupon.fieldUpdatedAt: FieldValue.serverTimestamp(),
-        }, SetOptions(merge: true));
+      if (submittedEditingCouponId?.isNotEmpty == true) {
+        final persistImage = widget.persistCouponImage;
+        if (persistImage != null) {
+          await persistImage(
+            uid: action.ownerScope.identity.uid,
+            couponId: submittedEditingCouponId!,
+            imageUrl: uploadedUrl,
+          );
+        } else {
+          await RestaurantAccountService.couponsCollection(
+            action.ownerScope.identity.uid,
+          ).doc(submittedEditingCouponId!).set({
+            Coupon.fieldImageUrl: uploadedUrl,
+            Coupon.fieldUpdatedAt: FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        }
+        if (!_isCurrentOwnerAction(action) ||
+            installedDraftGeneration != _couponDraftGeneration ||
+            editingCouponId?.trim() != submittedEditingCouponId ||
+            couponImageUrl != uploadedUrl) {
+          return;
+        }
       }
       _showSnackBar(
-        editingCouponId == null
+        submittedEditingCouponId?.isNotEmpty != true
             ? 'Coupon image added. Save the coupon to keep it.'
             : 'Coupon image saved.',
       );
     } catch (error) {
-      if (!mounted) return;
+      if (!operationIsCurrent() && !installedResultIsCurrent()) {
+        return;
+      }
       _showSnackBar(
         AppErrorText.friendly(
           error,
@@ -1850,7 +3003,8 @@ class _RestaurantCreateCouponScreenState
         ),
       );
     } finally {
-      if (mounted) {
+      if ((operationIsCurrent() || installedResultIsCurrent()) &&
+          couponImageUploading) {
         setState(() {
           couponImageUploading = false;
         });
@@ -2016,13 +3170,51 @@ class _RestaurantCreateCouponScreenState
     if (profileSaving || _ownerProfileOperation.isInFlight) {
       return;
     }
+    if (restaurantImageUploading) {
+      _showSnackBar('Wait for the restaurant image upload to finish.');
+      return;
+    }
+    if (!_synchronizeCurrentOwnerIdentity()) {
+      if (_currentOwnerIdentity == null) {
+        _showSnackBar('Please sign in to continue.');
+      }
+      return;
+    }
+    final ownerIdentity = _activeOwnerIdentity;
     final user = currentUser;
-    if (user == null) {
+    if (ownerIdentity == null ||
+        user == null ||
+        user.uid.trim() != ownerIdentity.uid) {
       _showSnackBar('Please sign in to continue.');
       return;
     }
+    final ownerIdentityGeneration = _ownerIdentityGeneration;
 
-    final submittedImageUrl = restaurantImageUrl;
+    final submittedSelectedImage = _selectedRestaurantImage;
+    if (submittedSelectedImage == null) {
+      _showSnackBar('Choose and upload a restaurant image before saving.');
+      return;
+    }
+    final submittedSelectionUploadUrl = submittedSelectedImage.uploadedUrl;
+    if (submittedSelectedImage.ownerIdentity != ownerIdentity ||
+        submittedSelectedImage.ownerIdentityGeneration !=
+            ownerIdentityGeneration ||
+        submittedSelectedImage.selectionGeneration !=
+            _restaurantImageSelectionGeneration ||
+        submittedSelectionUploadUrl == null ||
+        submittedSelectionUploadUrl.trim().isEmpty) {
+      _showSnackBar(
+        'The selected restaurant image was not uploaded. Choose it again before saving.',
+      );
+      return;
+    }
+    if (!_isTrustedProfileScope(ownerIdentity, ownerIdentityGeneration)) {
+      _showSnackBar('Your restaurant account changed. Reload and try again.');
+      return;
+    }
+
+    final submittedImageUrl = submittedSelectionUploadUrl;
+    final imageSaveGeneration = ++_restaurantImageSaveGeneration;
     final request = BiteSaverProfileSaveRequest.ownerMainImageUpdate(
       profile: BiteSaverMainImageProfileInput(mainImageUrl: submittedImageUrl),
       expectedProfileVersion: _profileVersion,
@@ -2033,16 +3225,23 @@ class _RestaurantCreateCouponScreenState
       user: user,
       request: request,
       successMessage: 'Restaurant image saved.',
+      continuationGuard: () =>
+          imageSaveGeneration == _restaurantImageSaveGeneration &&
+          identical(_selectedRestaurantImage, submittedSelectedImage) &&
+          submittedSelectedImage.selectionGeneration ==
+              _restaurantImageSelectionGeneration &&
+          submittedSelectedImage.uploadedUrl == submittedImageUrl,
       reconcile: (authoritativeRestaurant) {
         final authoritativeImageUrl =
             authoritativeRestaurant?.mainImageUrl ?? submittedImageUrl;
-        if (restaurantImageUrl == submittedImageUrl) {
-          restaurantImageUrl = authoritativeImageUrl;
+        restaurantImageUrl = authoritativeImageUrl;
+        if (identical(_selectedRestaurantImage, submittedSelectedImage)) {
+          _selectedRestaurantImage = null;
         }
         _initialRestaurantImageUrl = authoritativeImageUrl;
         LocalRestaurantProfileStore.updateProfile(
           LocalRestaurantProfileStore.profile.value.copyWith(
-            mainImageUrl: authoritativeImageUrl ?? '',
+            mainImageUrl: authoritativeImageUrl,
           ),
         );
       },
@@ -2054,36 +3253,83 @@ class _RestaurantCreateCouponScreenState
     required BiteSaverProfileSaveRequest request,
     required String successMessage,
     required void Function(Restaurant? authoritativeRestaurant) reconcile,
+    bool Function()? continuationGuard,
   }) async {
+    if (!_synchronizeCurrentOwnerIdentity()) {
+      return;
+    }
+    final ownerIdentity = _activeOwnerIdentity;
+    final ownerIdentityGeneration = _ownerIdentityGeneration;
+    if (ownerIdentity == null ||
+        user.uid.trim() != ownerIdentity.uid ||
+        !_isCurrentOwnerScope(ownerIdentity, ownerIdentityGeneration) ||
+        !_isTrustedProfileScope(ownerIdentity, ownerIdentityGeneration) ||
+        !(continuationGuard?.call() ?? true)) {
+      _showSnackBar('Your restaurant account changed. Reload and try again.');
+      return;
+    }
+
     final operationGeneration = ++_ownerSaveGeneration;
+    final ownerScope = _RestaurantOwnerScope(
+      identity: ownerIdentity,
+      ownerGeneration: ownerIdentityGeneration,
+    );
+    final ownerProfileOperation = _ownerProfileOperation;
     final previousLocationVersion = _locationVersion;
+    bool ownerOperationIsCurrent() =>
+        mounted &&
+        operationGeneration == _ownerSaveGeneration &&
+        _isCurrentOwnerScope(ownerIdentity, ownerIdentityGeneration);
+    bool canContinue() =>
+        ownerOperationIsCurrent() &&
+        _isTrustedProfileScope(ownerIdentity, ownerIdentityGeneration) &&
+        (continuationGuard?.call() ?? true);
     setState(() {
       profileSaving = true;
     });
 
     try {
-      final result = await _ownerProfileOperation.execute(
+      if (!canContinue()) {
+        return;
+      }
+      final result = await ownerProfileOperation.execute(
         request: request,
-        logicalTarget: user.uid,
-        invoke: (requestId) =>
-            _lifecycleService.save(request, requestId: requestId),
+        logicalTarget: ownerScope.logicalTarget(operation: 'ownerProfile'),
+        invoke: (requestId) async {
+          final result = await _lifecycleService.save(
+            request,
+            requestId: requestId,
+          );
+          if (result.documentId.trim() != ownerIdentity.accountDocumentId) {
+            throw const BiteSaverLifecycleException(
+              kind: BiteSaverLifecycleFailureKind.staleProfile,
+              code: 'failed-precondition',
+              message: 'Your restaurant account changed. Reload and try again.',
+            );
+          }
+          return result;
+        },
       );
-      if (!mounted || operationGeneration != _ownerSaveGeneration) {
+      if (!canContinue()) {
+        return;
+      }
+      if (result.documentId.trim() != ownerIdentity.accountDocumentId) {
+        _showSnackBar('Your restaurant account changed. Reload and try again.');
         return;
       }
 
       Map<String, dynamic>? refreshedData;
       try {
-        refreshedData = await _loadRestaurantAccount(user.uid);
+        refreshedData = await _loadRestaurantAccount(ownerIdentity.uid);
       } catch (_) {
         // The callable write is already confirmed. A later refresh can
         // repopulate authoritative section data if this read is unavailable.
       }
-      if (!mounted || operationGeneration != _ownerSaveGeneration) {
+      if (!canContinue()) {
         return;
       }
       final refreshedRestaurant = _restaurantFromAccountData(
-        user.uid,
+        ownerIdentity.accountDocumentId,
         refreshedData,
       );
       final authoritativeRestaurant =
@@ -2091,8 +3337,15 @@ class _RestaurantCreateCouponScreenState
               refreshedRestaurant.profileVersion >= result.profileVersion
           ? refreshedRestaurant
           : null;
+      if (!canContinue()) {
+        return;
+      }
       if (authoritativeRestaurant != null) {
-        _recordTrustedProfileState(authoritativeRestaurant);
+        _recordTrustedProfileState(
+          authoritativeRestaurant,
+          ownerIdentity: ownerIdentity,
+          ownerIdentityGeneration: ownerIdentityGeneration,
+        );
       }
       if (result.profileVersion > _profileVersion) {
         _profileVersion = result.profileVersion;
@@ -2109,18 +3362,18 @@ class _RestaurantCreateCouponScreenState
       }
 
       reconcile(authoritativeRestaurant);
-      if (!mounted || operationGeneration != _ownerSaveGeneration) {
+      if (!ownerOperationIsCurrent()) {
         return;
       }
       _showSnackBar(successMessage);
       setState(() {});
     } on BiteSaverLifecycleException catch (error) {
-      if (!mounted || operationGeneration != _ownerSaveGeneration) {
+      if (!canContinue()) {
         return;
       }
       _showSnackBar(error.message);
     } catch (error) {
-      if (!mounted || operationGeneration != _ownerSaveGeneration) {
+      if (!canContinue()) {
         return;
       }
       _showSnackBar(
@@ -2130,7 +3383,9 @@ class _RestaurantCreateCouponScreenState
         ),
       );
     } finally {
-      if (mounted && operationGeneration == _ownerSaveGeneration) {
+      if (mounted &&
+          operationGeneration == _ownerSaveGeneration &&
+          _isCurrentOwnerScope(ownerIdentity, ownerIdentityGeneration)) {
         setState(() {
           profileSaving = false;
         });
@@ -2138,7 +3393,19 @@ class _RestaurantCreateCouponScreenState
     }
   }
 
-  Future<bool> _ensureRestaurantAddressReadyForPosting(User user) async {
+  Future<bool> _ensureRestaurantAddressReadyForPosting(
+    User user, {
+    _RestaurantOwnerScope? expectedOwnerScope,
+  }) async {
+    final ownerScope = _activeOwnerScope;
+    if (ownerScope == null ||
+        (expectedOwnerScope != null && ownerScope != expectedOwnerScope) ||
+        ownerScope.identity.uid != user.uid ||
+        !_isCurrentExactOwnerScope(ownerScope)) {
+      return false;
+    }
+    final ownerIdentity = ownerScope.identity;
+    final ownerIdentityGeneration = ownerScope.ownerGeneration;
     final streetAddress = streetAddressController.text.trim();
     final city = cityController.text.trim();
     final state = stateController.text.trim();
@@ -2155,12 +3422,24 @@ class _RestaurantCreateCouponScreenState
     }
 
     try {
-      final data = await _loadRestaurantAccount(user.uid);
-      if (!mounted) {
+      final data = await _loadRestaurantAccount(ownerIdentity.uid);
+      if (!mounted ||
+          !_isCurrentOwnerScope(ownerIdentity, ownerIdentityGeneration)) {
         return false;
       }
-      final restaurant = _restaurantFromAccountData(user.uid, data);
-      _recordTrustedProfileState(restaurant);
+      final restaurant = _restaurantFromAccountData(
+        ownerIdentity.accountDocumentId,
+        data,
+      );
+      if (restaurant == null) {
+        _clearTrustedProfileState();
+      } else {
+        _recordTrustedProfileState(
+          restaurant,
+          ownerIdentity: ownerIdentity,
+          ownerIdentityGeneration: ownerIdentityGeneration,
+        );
+      }
       final addressMatchesSavedProfile =
           restaurant != null &&
           restaurant.matchesStructuredAddress(
@@ -2188,7 +3467,8 @@ class _RestaurantCreateCouponScreenState
       );
       return false;
     } catch (_) {
-      if (!mounted) {
+      if (!mounted ||
+          !_isCurrentOwnerScope(ownerIdentity, ownerIdentityGeneration)) {
         return false;
       }
       _showSnackBar(
@@ -2199,117 +3479,183 @@ class _RestaurantCreateCouponScreenState
   }
 
   Future<void> createOrUpdateCoupon() async {
+    if (couponSaving) {
+      return;
+    }
     final user = currentUser;
     if (user == null) {
       _showSnackBar('Please sign in to continue.');
       return;
     }
-
-    final accountData = await _loadRestaurantAccount(user.uid);
-    if (!mounted) {
+    final action = _beginOwnerAction(_OwnerActionKind.couponSave);
+    if (action == null || action.ownerScope.identity.uid != user.uid.trim()) {
       return;
     }
-    final canPostCoupons = RestaurantAccountService.hasCouponPostingAccess(
-      accountData,
-    );
-    if (!canPostCoupons) {
-      await _openPaywallScreen();
-      return;
-    }
-
-    final addressReady = await _ensureRestaurantAddressReadyForPosting(user);
-    if (!mounted) {
-      return;
-    }
-    if (!addressReady) {
-      return;
-    }
-
-    final invalidCouponFields = _invalidCouponFields();
-    if (invalidCouponFields.isNotEmpty) {
-      setState(() {
-        _couponSubmitAttempted = true;
-        _couponValidationHighlights = invalidCouponFields;
-        _couponManagementSectionExpanded = true;
-      });
-      _scrollToFirstInvalidCouponField(invalidCouponFields);
-      _showSnackBar(_couponValidationMessage(invalidCouponFields));
-      return;
-    }
-
-    final couponError = _validateCouponInput();
-    if (couponError != null) {
-      setState(() {
-        _couponSubmitAttempted = true;
-      });
-      _showSnackBar(couponError);
-      return;
-    }
-
-    final title = titleController.text.trim();
-    final couponCode = couponCodeController.text.trim();
-    final couponDetails = couponDetailsController.text.trim();
-    final profile = LocalRestaurantProfileStore.profile.value;
-    final wasEditingCoupon = isEditingCoupon;
+    final draftGeneration = _couponDraftGeneration;
+    final submittedEditingCouponId = editingCouponId?.trim();
+    final capturedAuthEmail = user.email?.trim() ?? '';
 
     setState(() {
       couponSaving = true;
     });
 
     try {
-      final draftCoupon = _buildDraftCoupon();
+      final accountData = await _loadRestaurantAccount(
+        action.ownerScope.identity.uid,
+      );
+      if (!_isCurrentOwnerAction(action) ||
+          draftGeneration != _couponDraftGeneration ||
+          editingCouponId?.trim() != submittedEditingCouponId) {
+        return;
+      }
+      final canPostCoupons = RestaurantAccountService.hasCouponPostingAccess(
+        accountData,
+      );
+      if (!canPostCoupons) {
+        await _openPaywallScreen(action.ownerScope);
+        if (!_isCurrentOwnerAction(action)) {
+          return;
+        }
+        return;
+      }
 
-      final savedCoupon = wasEditingCoupon
+      final addressReady = await _ensureRestaurantAddressReadyForPosting(
+        user,
+        expectedOwnerScope: action.ownerScope,
+      );
+      if (!_isCurrentOwnerAction(action) ||
+          draftGeneration != _couponDraftGeneration ||
+          editingCouponId?.trim() != submittedEditingCouponId ||
+          !addressReady) {
+        return;
+      }
+
+      final invalidCouponFields = _invalidCouponFields();
+      if (invalidCouponFields.isNotEmpty) {
+        setState(() {
+          _couponSubmitAttempted = true;
+          _couponValidationHighlights = invalidCouponFields;
+          _couponManagementSectionExpanded = true;
+        });
+        _scrollToFirstInvalidCouponField(invalidCouponFields);
+        _showSnackBar(_couponValidationMessage(invalidCouponFields));
+        return;
+      }
+
+      final authoritativeRestaurant = _restaurantFromAccountData(
+        action.ownerScope.identity.accountDocumentId,
+        accountData,
+      );
+      final restaurantName = authoritativeRestaurant?.name.trim() ?? '';
+      final authoritativeDistance =
+          authoritativeRestaurant?.distance.trim() ?? '';
+      final restaurantDistance = authoritativeDistance.isEmpty
+          ? '0.8 miles away'
+          : authoritativeDistance;
+      final accountEmail =
+          (accountData?[Restaurant.fieldEmail] as String?)?.trim() ?? '';
+      final restaurantEmail = accountEmail.isEmpty
+          ? capturedAuthEmail
+          : accountEmail;
+      final draftCoupon = _buildDraftCoupon(
+        restaurantName: restaurantName,
+        distance: restaurantDistance,
+      );
+      final couponError = _validateCouponInput(draftCoupon);
+      if (couponError != null) {
+        setState(() {
+          _couponSubmitAttempted = true;
+        });
+        _showSnackBar(couponError);
+        return;
+      }
+
+      final wasEditingCoupon = submittedEditingCouponId?.isNotEmpty == true;
+      final saveCoupon = wasEditingCoupon
+          ? widget.updateCoupon
+          : widget.createCoupon;
+      final savedCoupon = saveCoupon != null
+          ? await saveCoupon(
+              uid: action.ownerScope.identity.uid,
+              coupon: draftCoupon,
+            )
+          : wasEditingCoupon
           ? await RestaurantAccountService.updateCoupon(
-              uid: user.uid,
+              uid: action.ownerScope.identity.uid,
               coupon: draftCoupon,
             )
           : await RestaurantAccountService.saveCoupon(
-              uid: user.uid,
+              uid: action.ownerScope.identity.uid,
               coupon: draftCoupon,
             );
 
+      if (!_isCurrentOwnerAction(action) ||
+          draftGeneration != _couponDraftGeneration ||
+          editingCouponId?.trim() != submittedEditingCouponId) {
+        return;
+      }
       LocalCouponStore.upsertCoupon(savedCoupon);
 
-      if (!mounted) return;
-      showDialog(
-        context: context,
-        builder: (context) {
-          final summary = StringBuffer()
-            ..writeln('Restaurant: ${profile.name}')
-            ..writeln('Email: ${profile.email}')
-            ..writeln('Title: $title')
-            ..writeln(savedCoupon.shortExpiresLabel)
-            ..writeln('Usage: $selectedUsageRule')
-            ..writeln('Type: $selectedCouponType');
+      final title = draftCoupon.title;
+      final couponCode = draftCoupon.couponCode ?? '';
+      final couponDetails = draftCoupon.details ?? '';
+      final usageRule = draftCoupon.usageRule;
+      final isProximityOnly = draftCoupon.isProximityOnly;
+      final proximityRadius = selectedProximityRadius;
+      if (!mounted) {
+        return;
+      }
+      unawaited(
+        _showOwnerScopedDialog<void>(
+          expectedOwnerScope: action.ownerScope,
+          builder: (context) {
+            final summary = StringBuffer()
+              ..writeln('Restaurant: $restaurantName')
+              ..writeln('Email: $restaurantEmail')
+              ..writeln('Title: $title')
+              ..writeln(savedCoupon.shortExpiresLabel)
+              ..writeln('Usage: $usageRule')
+              ..writeln(
+                'Type: ${isProximityOnly ? 'Proximity-only coupon' : 'Normal coupon'}',
+              );
 
-          if (isProximityCoupon) {
-            summary.writeln('Visible within: $selectedProximityRadius');
-          }
-          if (couponCode.isNotEmpty) {
-            summary.writeln('Code: $couponCode');
-          }
-          if (couponDetails.isNotEmpty) {
-            summary.writeln('Details: $couponDetails');
-          }
+            if (isProximityOnly) {
+              summary.writeln('Visible within: $proximityRadius');
+            }
+            if (couponCode.isNotEmpty) {
+              summary.writeln('Code: $couponCode');
+            }
+            if (couponDetails.isNotEmpty) {
+              summary.writeln('Details: $couponDetails');
+            }
 
-          return AlertDialog(
-            title: Text(wasEditingCoupon ? 'Coupon Updated' : 'Coupon Created'),
-            content: Text(summary.toString().trim()),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.pop(context);
-                  clearCouponForm();
-                },
-                child: const Text('OK'),
+            return AlertDialog(
+              title: Text(
+                wasEditingCoupon ? 'Coupon Updated' : 'Coupon Created',
               ),
-            ],
-          );
-        },
+              content: Text(summary.toString().trim()),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.pop(context);
+                    if (_isCurrentOwnerAction(action) &&
+                        draftGeneration == _couponDraftGeneration &&
+                        editingCouponId?.trim() == submittedEditingCouponId) {
+                      clearCouponForm();
+                    }
+                  },
+                  child: const Text('OK'),
+                ),
+              ],
+            );
+          },
+        ),
       );
     } catch (error) {
-      if (!mounted) return;
+      if (!_isCurrentOwnerAction(action) ||
+          draftGeneration != _couponDraftGeneration) {
+        return;
+      }
       _showSnackBar(
         AppErrorText.friendly(
           error,
@@ -2317,7 +3663,7 @@ class _RestaurantCreateCouponScreenState
         ),
       );
     } finally {
-      if (mounted) {
+      if (_isCurrentOwnerAction(action)) {
         setState(() {
           couponSaving = false;
         });
@@ -2325,29 +3671,32 @@ class _RestaurantCreateCouponScreenState
     }
   }
 
-  Future<void> _refreshDailySpecials() async {
-    if (!mounted) {
-      return;
-    }
-    final user = currentUser;
-    if (user == null) {
-      return;
+  Future<bool> _refreshDailySpecials({
+    required _RestaurantOwnerScope expectedOwnerScope,
+    _OwnerActionScope? expectedAction,
+  }) async {
+    if (!mounted ||
+        !_isCurrentExactOwnerScope(expectedOwnerScope) ||
+        (expectedAction != null && !_isCurrentOwnerAction(expectedAction))) {
+      return false;
     }
 
-    final specials = await _loadRestaurantDailySpecials(user.uid);
-    if (!mounted) {
-      return;
+    final specials = await _loadRestaurantDailySpecials(
+      expectedOwnerScope.identity.uid,
+    );
+    if (!mounted ||
+        !_isCurrentExactOwnerScope(expectedOwnerScope) ||
+        (expectedAction != null && !_isCurrentOwnerAction(expectedAction))) {
+      return false;
     }
 
     setState(() {
       _dailySpecials = specials;
     });
+    return true;
   }
 
-  DailySpecial _buildDraftDailySpecial() {
-    final user = currentUser;
-    final uid = user?.uid ?? '';
-
+  DailySpecial _buildDraftDailySpecial({required String uid}) {
     return DailySpecial(
       id: editingDailySpecialId ?? '',
       restaurantId: uid,
@@ -2379,24 +3728,44 @@ class _RestaurantCreateCouponScreenState
       _showSnackBar('Please sign in to continue.');
       return;
     }
+    final action = _beginOwnerAction(_OwnerActionKind.dailySpecialSave);
+    if (action == null || action.ownerScope.identity.uid != user.uid.trim()) {
+      return;
+    }
+    final draftGeneration = _dailySpecialDraftGeneration;
+    final submittedEditingId = editingDailySpecialId?.trim();
 
     if (!_hasCouponPostingAccess) {
-      await _openPaywallScreen();
+      await _openPaywallScreen(action.ownerScope);
+      if (!_isCurrentOwnerAction(action)) {
+        return;
+      }
       return;
     }
 
     _dailySpecialSaveInFlight = true;
 
     try {
-      final addressReady = await _ensureRestaurantAddressReadyForPosting(user);
-      if (!mounted || !addressReady) {
+      final addressReady = await _ensureRestaurantAddressReadyForPosting(
+        user,
+        expectedOwnerScope: action.ownerScope,
+      );
+      if (!_isCurrentOwnerAction(action) ||
+          draftGeneration != _dailySpecialDraftGeneration ||
+          editingDailySpecialId?.trim() != submittedEditingId ||
+          !addressReady) {
+        return;
+      }
+      if (!mounted) {
         return;
       }
 
       FocusScope.of(context).unfocus();
 
-      final wasEditing = editingDailySpecialId != null;
-      final draftSpecial = _buildDraftDailySpecial();
+      final wasEditing = submittedEditingId?.isNotEmpty == true;
+      final draftSpecial = _buildDraftDailySpecial(
+        uid: action.ownerScope.identity.uid,
+      );
       final validationError = draftSpecial.validateForSave();
       if (validationError != null) {
         _showSnackBar(validationError);
@@ -2410,30 +3779,44 @@ class _RestaurantCreateCouponScreenState
       if (wasEditing) {
         final updateDailySpecial = widget.updateDailySpecial;
         if (updateDailySpecial != null) {
-          await updateDailySpecial(uid: user.uid, dailySpecial: draftSpecial);
+          await updateDailySpecial(
+            uid: action.ownerScope.identity.uid,
+            dailySpecial: draftSpecial,
+          );
         } else {
           await RestaurantAccountService.updateDailySpecial(
-            uid: user.uid,
+            uid: action.ownerScope.identity.uid,
             dailySpecial: draftSpecial,
           );
         }
       } else {
         final createDailySpecial = widget.createDailySpecial;
         if (createDailySpecial != null) {
-          await createDailySpecial(uid: user.uid, dailySpecial: draftSpecial);
+          await createDailySpecial(
+            uid: action.ownerScope.identity.uid,
+            dailySpecial: draftSpecial,
+          );
         } else {
           await RestaurantAccountService.createDailySpecial(
-            uid: user.uid,
+            uid: action.ownerScope.identity.uid,
             dailySpecial: draftSpecial,
           );
         }
       }
 
-      if (!mounted) {
+      if (!_isCurrentOwnerAction(action) ||
+          draftGeneration != _dailySpecialDraftGeneration ||
+          editingDailySpecialId?.trim() != submittedEditingId) {
         return;
       }
-      await _refreshDailySpecials();
-      if (!mounted) {
+      final refreshed = await _refreshDailySpecials(
+        expectedOwnerScope: action.ownerScope,
+        expectedAction: action,
+      );
+      if (!refreshed ||
+          !_isCurrentOwnerAction(action) ||
+          draftGeneration != _dailySpecialDraftGeneration ||
+          editingDailySpecialId?.trim() != submittedEditingId) {
         return;
       }
       clearDailySpecialForm();
@@ -2441,7 +3824,8 @@ class _RestaurantCreateCouponScreenState
         wasEditing ? 'Daily special updated.' : 'Daily special created.',
       );
     } catch (error) {
-      if (!mounted) {
+      if (!_isCurrentOwnerAction(action) ||
+          draftGeneration != _dailySpecialDraftGeneration) {
         return;
       }
       _showSnackBar(
@@ -2451,7 +3835,7 @@ class _RestaurantCreateCouponScreenState
         ),
       );
     } finally {
-      if (mounted) {
+      if (_isCurrentOwnerAction(action)) {
         setState(() {
           _dailySpecialSaveInFlight = false;
           _dailySpecialSaving = false;
@@ -2460,8 +3844,15 @@ class _RestaurantCreateCouponScreenState
     }
   }
 
-  void editDailySpecial(DailySpecial special) {
+  void editDailySpecial(
+    DailySpecial special, {
+    required _RestaurantOwnerScope expectedOwnerScope,
+  }) {
+    if (!mounted || !_isCurrentExactOwnerScope(expectedOwnerScope)) {
+      return;
+    }
     setState(() {
+      _dailySpecialDraftGeneration += 1;
       editingDailySpecialId = special.id;
       dailySpecialTitleController.text = special.title;
       dailySpecialDetailsController.text = special.details ?? '';
@@ -2481,27 +3872,34 @@ class _RestaurantCreateCouponScreenState
 
   void clearDailySpecialForm() {
     setState(() {
-      editingDailySpecialId = null;
-      dailySpecialTitleController.clear();
-      dailySpecialDetailsController.clear();
-      _dailySpecialIsActive = true;
-      _dailySpecialAvailabilityMode = DailySpecialAvailabilityMode.todayOnly;
-      _dailySpecialDaysOfWeek.clear();
-      _dailySpecialAllDay = true;
-      _dailySpecialStartTime = null;
-      _dailySpecialEndTime = null;
-      _dailySpecialHideWhenUnavailable = true;
+      _dailySpecialDraftGeneration += 1;
+      _resetDailySpecialDraftState();
     });
   }
 
-  Future<void> removeDailySpecial(DailySpecial special) async {
+  Future<void> removeDailySpecial(
+    DailySpecial special, {
+    _RestaurantOwnerScope? renderedOwnerScope,
+  }) async {
+    if (_dailySpecialDeleteInFlight) {
+      return;
+    }
     final user = currentUser;
     if (user == null) {
       return;
     }
+    final action = _beginOwnerAction(
+      _OwnerActionKind.dailySpecialDelete,
+      expectedOwnerScope: renderedOwnerScope,
+    );
+    if (action == null || action.ownerScope.identity.uid != user.uid.trim()) {
+      return;
+    }
+    final submittedSpecialId = special.id.trim();
+    final draftGeneration = _dailySpecialDraftGeneration;
 
-    final shouldDelete = await showDialog<bool>(
-      context: context,
+    final shouldDelete = await _showOwnerScopedDialog<bool>(
+      expectedOwnerScope: action.ownerScope,
       builder: (context) => AlertDialog(
         title: const Text('Delete Daily Special?'),
         content: Text('Remove "${special.title}" from your daily specials?'),
@@ -2517,28 +3915,45 @@ class _RestaurantCreateCouponScreenState
         ],
       ),
     );
-    if (shouldDelete != true || !mounted) {
+    if (shouldDelete != true ||
+        !_isCurrentOwnerAction(action) ||
+        draftGeneration != _dailySpecialDraftGeneration) {
       return;
     }
 
+    setState(() {
+      _dailySpecialDeleteInFlight = true;
+    });
     try {
-      await RestaurantAccountService.deleteDailySpecial(
-        uid: user.uid,
-        dailySpecialId: special.id,
-      );
-      if (!mounted) {
+      final deleteDailySpecial = widget.deleteDailySpecial;
+      if (deleteDailySpecial != null) {
+        await deleteDailySpecial(
+          uid: action.ownerScope.identity.uid,
+          dailySpecialId: submittedSpecialId,
+        );
+      } else {
+        await RestaurantAccountService.deleteDailySpecial(
+          uid: action.ownerScope.identity.uid,
+          dailySpecialId: submittedSpecialId,
+        );
+      }
+      if (!_isCurrentOwnerAction(action) ||
+          draftGeneration != _dailySpecialDraftGeneration) {
         return;
       }
-      if (editingDailySpecialId == special.id) {
+      if (editingDailySpecialId?.trim() == submittedSpecialId) {
         clearDailySpecialForm();
       }
-      await _refreshDailySpecials();
-      if (!mounted) {
+      final refreshed = await _refreshDailySpecials(
+        expectedOwnerScope: action.ownerScope,
+        expectedAction: action,
+      );
+      if (!refreshed || !_isCurrentOwnerAction(action)) {
         return;
       }
       _showSnackBar('Daily special removed.');
     } catch (error) {
-      if (!mounted) {
+      if (!_isCurrentOwnerAction(action)) {
         return;
       }
       _showSnackBar(
@@ -2547,28 +3962,93 @@ class _RestaurantCreateCouponScreenState
           fallback: 'Could not remove the daily special right now.',
         ),
       );
+    } finally {
+      if (_isCurrentOwnerAction(action)) {
+        setState(() {
+          _dailySpecialDeleteInFlight = false;
+        });
+      }
     }
   }
 
-  Future<void> _signOutAndExitRestaurantHub() async {
-    final shouldLeave = await _confirmLeaveRestaurantProfileChanges();
-    if (!mounted || !shouldLeave) {
+  Future<void> _signOutAndExitRestaurantHub(
+    _RestaurantOwnerScope expectedOwnerScope,
+  ) async {
+    if (_signOutInFlight) {
       return;
     }
-    _allowProfileClose = true;
-    await CustomerSessionService.signOutToSignedOut();
-    if (!mounted) {
+    if (!_isCurrentExactOwnerScope(expectedOwnerScope)) {
+      return;
+    }
+    final ownerScope = expectedOwnerScope;
+    final signOutOperationGeneration = ++_signOutOperationGeneration;
+    final shouldLeave = await _confirmLeaveRestaurantProfileChanges(ownerScope);
+    if (!mounted ||
+        !shouldLeave ||
+        signOutOperationGeneration != _signOutOperationGeneration ||
+        !_isCurrentExactOwnerScope(ownerScope)) {
       return;
     }
 
-    final navigator = Navigator.of(context);
-    if (navigator.canPop()) {
-      navigator.pop();
-    }
-  }
-
-  void editCoupon(Coupon coupon) {
     setState(() {
+      _signOutInFlight = true;
+    });
+    _transitionOwnerIdentityIfNeeded(
+      null,
+      reload: false,
+      preserveSignOutOperation: true,
+    );
+    try {
+      final signOut =
+          widget.signOutRestaurantSession ??
+          CustomerSessionService.signOutToSignedOut;
+      await signOut();
+      if (!mounted ||
+          signOutOperationGeneration != _signOutOperationGeneration ||
+          _currentOwnerIdentity != null) {
+        return;
+      }
+
+      _allowProfileClose = true;
+      final navigator = Navigator.of(context);
+      if (navigator.canPop()) {
+        navigator.pop();
+      }
+    } catch (error) {
+      if (!mounted ||
+          signOutOperationGeneration != _signOutOperationGeneration) {
+        return;
+      }
+      final currentIdentity = _currentOwnerIdentity;
+      if (currentIdentity == ownerScope.identity) {
+        _transitionOwnerIdentityIfNeeded(currentIdentity);
+        _showSnackBar(
+          AppErrorText.friendly(
+            error,
+            fallback: 'Could not sign out right now.',
+          ),
+        );
+      }
+    } finally {
+      if (mounted &&
+          signOutOperationGeneration == _signOutOperationGeneration &&
+          _activeOwnerIdentity == ownerScope.identity) {
+        setState(() {
+          _signOutInFlight = false;
+        });
+      }
+    }
+  }
+
+  void editCoupon(
+    Coupon coupon, {
+    required _RestaurantOwnerScope expectedOwnerScope,
+  }) {
+    if (!mounted || !_isCurrentExactOwnerScope(expectedOwnerScope)) {
+      return;
+    }
+    setState(() {
+      _advanceCouponDraftGeneration();
       editingCouponId = coupon.id;
       titleController.text = coupon.title;
       couponCodeController.text = coupon.couponCode ?? '';
@@ -2593,50 +4073,84 @@ class _RestaurantCreateCouponScreenState
 
   void clearCouponForm() {
     setState(() {
-      editingCouponId = null;
-      titleController.clear();
-      couponCodeController.clear();
-      couponDetailsController.clear();
-      couponImageUrl = null;
-      selectedUsageRule = 'Unlimited';
-      selectedCouponType = 'Normal coupon';
-      selectedProximityRadius = '1 mile';
-      _couponSubmitAttempted = false;
-      _couponValidationHighlights = <_CouponValidationField>{};
-      _resetCouponSchedule();
+      _advanceCouponDraftGeneration();
+      _resetCouponDraftState();
     });
   }
 
-  Future<void> removeCoupon(Coupon coupon) async {
+  Future<void> removeCoupon(
+    Coupon coupon, {
+    _RestaurantOwnerScope? renderedOwnerScope,
+  }) async {
+    if (_couponDeleteInFlight) {
+      return;
+    }
     final user = currentUser;
-    if (user == null) return;
+    if (user == null) {
+      return;
+    }
+    final action = _beginOwnerAction(
+      _OwnerActionKind.couponDelete,
+      expectedOwnerScope: renderedOwnerScope,
+    );
+    if (action == null || action.ownerScope.identity.uid != user.uid.trim()) {
+      return;
+    }
+    final submittedCouponId = coupon.id.trim();
+    final draftGeneration = _couponDraftGeneration;
 
+    setState(() {
+      _couponDeleteInFlight = true;
+    });
     try {
-      await RestaurantAccountService.deleteCoupon(
-        uid: user.uid,
-        couponId: coupon.id,
-      );
-      if (!mounted) return;
-      LocalCouponStore.removeCoupon(coupon.id);
-      if (editingCouponId == coupon.id) {
+      final deleteCoupon = widget.deleteCoupon;
+      if (deleteCoupon != null) {
+        await deleteCoupon(
+          uid: action.ownerScope.identity.uid,
+          couponId: submittedCouponId,
+        );
+      } else {
+        await RestaurantAccountService.deleteCoupon(
+          uid: action.ownerScope.identity.uid,
+          couponId: submittedCouponId,
+        );
+      }
+      if (!_isCurrentOwnerAction(action) ||
+          draftGeneration != _couponDraftGeneration) {
+        return;
+      }
+      LocalCouponStore.removeCoupon(submittedCouponId);
+      if (editingCouponId?.trim() == submittedCouponId) {
         clearCouponForm();
       }
       _showSnackBar('Coupon removed.');
     } catch (error) {
-      if (!mounted) return;
+      if (!_isCurrentOwnerAction(action)) {
+        return;
+      }
       _showSnackBar(
         AppErrorText.friendly(
           error,
           fallback: 'Could not remove the coupon right now.',
         ),
       );
+    } finally {
+      if (_isCurrentOwnerAction(action)) {
+        setState(() {
+          _couponDeleteInFlight = false;
+        });
+      }
     }
   }
 
   void _updateBusinessHoursEntry(
     int dayIndex,
     RestaurantBusinessHours updatedEntry,
+    _RestaurantOwnerScope expectedOwnerScope,
   ) {
+    if (!mounted || !_isCurrentExactOwnerScope(expectedOwnerScope)) {
+      return;
+    }
     setState(() {
       _businessHoursDirty = true;
       businessHours = [
@@ -2646,14 +4160,29 @@ class _RestaurantCreateCouponScreenState
     });
   }
 
-  void _setBusinessDayClosed(int dayIndex, bool closed) {
+  void _setBusinessDayClosed(
+    int dayIndex,
+    bool closed,
+    _RestaurantOwnerScope expectedOwnerScope,
+  ) {
+    if (!_isCurrentExactOwnerScope(expectedOwnerScope)) {
+      return;
+    }
     _updateBusinessHoursEntry(
       dayIndex,
       businessHours[dayIndex].copyWith(closed: closed),
+      expectedOwnerScope,
     );
   }
 
-  void _copyPreviousBusinessDayHours(int dayIndex, bool shouldCopy) {
+  void _copyPreviousBusinessDayHours(
+    int dayIndex,
+    bool shouldCopy,
+    _RestaurantOwnerScope expectedOwnerScope,
+  ) {
+    if (!mounted || !_isCurrentExactOwnerScope(expectedOwnerScope)) {
+      return;
+    }
     final day = Restaurant.businessDayNames[dayIndex];
     final previousDayIndex =
         (dayIndex - 1 + businessHours.length) % businessHours.length;
@@ -2676,7 +4205,7 @@ class _RestaurantCreateCouponScreenState
     });
   }
 
-  Widget _buildBusinessHoursEditor() {
+  Widget _buildBusinessHoursEditor(_RestaurantOwnerScope expectedOwnerScope) {
     return Card(
       margin: const EdgeInsets.only(top: 8),
       child: Padding(
@@ -2694,6 +4223,9 @@ class _RestaurantCreateCouponScreenState
                 ),
                 TextButton(
                   onPressed: () {
+                    if (!_isCurrentExactOwnerScope(expectedOwnerScope)) {
+                      return;
+                    }
                     setState(() {
                       _hoursExpanded = !_hoursExpanded;
                     });
@@ -2711,7 +4243,7 @@ class _RestaurantCreateCouponScreenState
               const SizedBox(height: 12),
               ...List.generate(
                 businessHours.length,
-                (index) => _buildBusinessDayRow(index),
+                (index) => _buildBusinessDayRow(index, expectedOwnerScope),
               ),
             ] else
               Text(
@@ -2773,7 +4305,10 @@ class _RestaurantCreateCouponScreenState
     }
   }
 
-  Widget _buildBusinessDayRow(int dayIndex) {
+  Widget _buildBusinessDayRow(
+    int dayIndex,
+    _RestaurantOwnerScope expectedOwnerScope,
+  ) {
     final entry = businessHours[dayIndex];
     final previousDayIndex =
         (dayIndex - 1 + businessHours.length) % businessHours.length;
@@ -2810,7 +4345,7 @@ class _RestaurantCreateCouponScreenState
               Switch(
                 value: entry.closed,
                 onChanged: (value) {
-                  _setBusinessDayClosed(dayIndex, value);
+                  _setBusinessDayClosed(dayIndex, value, expectedOwnerScope);
                 },
               ),
             ],
@@ -2818,7 +4353,11 @@ class _RestaurantCreateCouponScreenState
           CheckboxListTile(
             value: copiedFromPrevious,
             onChanged: (value) {
-              _copyPreviousBusinessDayHours(dayIndex, value ?? false);
+              _copyPreviousBusinessDayHours(
+                dayIndex,
+                value ?? false,
+                expectedOwnerScope,
+              );
             },
             dense: true,
             contentPadding: EdgeInsets.zero,
@@ -2855,6 +4394,7 @@ class _RestaurantCreateCouponScreenState
                     _updateBusinessHoursEntry(
                       dayIndex,
                       entry.copyWith(opensAt: value),
+                      expectedOwnerScope,
                     );
                   },
                 );
@@ -2881,6 +4421,7 @@ class _RestaurantCreateCouponScreenState
                     _updateBusinessHoursEntry(
                       dayIndex,
                       entry.copyWith(closesAt: value),
+                      expectedOwnerScope,
                     );
                   },
                 );
@@ -2911,6 +4452,7 @@ class _RestaurantCreateCouponScreenState
   }
 
   Widget buildPreviewCard(Coupon coupon) {
+    final renderedOwnerScope = _activeOwnerScope;
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -2961,16 +4503,23 @@ class _RestaurantCreateCouponScreenState
                 spacing: 8,
                 children: [
                   TextButton.icon(
-                    onPressed: () {
-                      editCoupon(coupon);
-                    },
+                    onPressed: renderedOwnerScope == null
+                        ? null
+                        : () => editCoupon(
+                            coupon,
+                            expectedOwnerScope: renderedOwnerScope,
+                          ),
                     icon: const Icon(Icons.edit_outlined),
                     label: const Text('Edit'),
                   ),
                   TextButton.icon(
-                    onPressed: () {
-                      removeCoupon(coupon);
-                    },
+                    onPressed:
+                        _couponDeleteInFlight || renderedOwnerScope == null
+                        ? null
+                        : () => removeCoupon(
+                            coupon,
+                            renderedOwnerScope: renderedOwnerScope,
+                          ),
                     icon: const Icon(Icons.delete_outline),
                     label: const Text('Remove'),
                   ),
@@ -2989,7 +4538,12 @@ class _RestaurantCreateCouponScreenState
     required String? imageUrl,
     required bool uploading,
     required VoidCallback onPressed,
+    Uint8List? imageBytes,
+    bool useRestaurantImageRenderer = false,
+    bool enabled = true,
   }) {
+    final hasImage =
+        imageBytes != null || (imageUrl != null && imageUrl.trim().isNotEmpty);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -3002,13 +4556,22 @@ class _RestaurantCreateCouponScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-          if (imageUrl != null && imageUrl.trim().isNotEmpty) ...[
+          if (hasImage) ...[
             const SizedBox(height: 10),
-            _buildNetworkImagePreview(imageUrl, height: 132),
+            if (useRestaurantImageRenderer)
+              _buildRestaurantImagePreview(
+                key: const ValueKey('restaurant-image-owner-preview'),
+                imageBytes: imageBytes,
+                imageUrl: imageUrl,
+                height: 132,
+                semanticLabel: 'Selected restaurant image preview',
+              )
+            else
+              _buildNetworkImagePreview(imageUrl!, height: 132),
           ],
           const SizedBox(height: 10),
           OutlinedButton.icon(
-            onPressed: uploading ? null : onPressed,
+            onPressed: uploading || !enabled ? null : onPressed,
             icon: uploading
                 ? const SizedBox(
                     width: 16,
@@ -3044,6 +4607,51 @@ class _RestaurantCreateCouponScreenState
     );
   }
 
+  Widget _buildRestaurantImagePreview({
+    required Key key,
+    required Uint8List? imageBytes,
+    required String? imageUrl,
+    required double height,
+    required String semanticLabel,
+  }) {
+    Widget buildNeutralState(BuildContext context) {
+      return Container(
+        width: double.infinity,
+        height: height,
+        color: const Color(0xFFF3E8DD),
+      );
+    }
+
+    Widget buildErrorState(BuildContext context) {
+      return Container(
+        width: double.infinity,
+        height: height,
+        alignment: Alignment.center,
+        color: const Color(0xFFF3E8DD),
+        child: const Text(
+          'Image preview unavailable',
+          style: TextStyle(color: Colors.black54),
+        ),
+      );
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(12),
+      child: BiteSaverRestaurantImage(
+        key: key,
+        imageBytes: imageBytes,
+        imageUrl: imageUrl,
+        width: double.infinity,
+        height: height,
+        fit: BoxFit.cover,
+        semanticLabel: semanticLabel,
+        loadingBuilder: buildNeutralState,
+        errorBuilder: buildErrorState,
+        emptyBuilder: buildErrorState,
+      ),
+    );
+  }
+
   Widget buildCustomerProfilePreview(RestaurantProfileData profile) {
     final hasPhone = profile.phone.trim().isNotEmpty;
     final hasWebsite = profile.website.trim().isNotEmpty;
@@ -3063,7 +4671,13 @@ class _RestaurantCreateCouponScreenState
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (profile.mainImageUrl.trim().isNotEmpty) ...[
-              _buildNetworkImagePreview(profile.mainImageUrl, height: 150),
+              _buildRestaurantImagePreview(
+                key: const ValueKey('restaurant-image-customer-preview'),
+                imageBytes: null,
+                imageUrl: profile.mainImageUrl,
+                height: 150,
+                semanticLabel: '${profile.name} restaurant image',
+              ),
               const SizedBox(height: 12),
             ],
             Text(
@@ -3118,9 +4732,11 @@ class _RestaurantCreateCouponScreenState
   }
 
   Widget _buildSubscriptionPromoSection() {
-    final VoidCallback? startSubscription = _subscriptionCheckoutLoading
+    final renderedOwnerScope = _activeOwnerScope;
+    final VoidCallback? startSubscription =
+        _subscriptionCheckoutLoading || renderedOwnerScope == null
         ? null
-        : _openSubscriptionSignupScreen;
+        : () => _openSubscriptionSignupScreen(renderedOwnerScope);
 
     return Container(
       width: double.infinity,
@@ -3501,7 +5117,7 @@ class _RestaurantCreateCouponScreenState
                     SizedBox(
                       width: double.infinity,
                       child: OutlinedButton(
-                        onPressed: _refreshCouponAccessState,
+                        onPressed: _refreshCurrentCouponAccessState,
                         child: const Text('Refresh Status'),
                       ),
                     ),
@@ -3566,10 +5182,17 @@ class _RestaurantCreateCouponScreenState
   }
 
   Widget _buildBasicRestaurantInformationSection() {
+    final renderedOwnerScope = _activeOwnerScope;
+    if (renderedOwnerScope == null) {
+      return const SizedBox.shrink();
+    }
     return _buildOwnerExpandableSection(
       title: 'Basic Restaurant Information',
       initiallyExpanded: _basicInfoSectionExpanded,
       onExpansionChanged: (expanded) {
+        if (!_isCurrentExactOwnerScope(renderedOwnerScope)) {
+          return;
+        }
         setState(() {
           _basicInfoSectionExpanded = expanded;
         });
@@ -3604,6 +5227,9 @@ class _RestaurantCreateCouponScreenState
           alignment: Alignment.centerLeft,
           child: TextButton(
             onPressed: () {
+              if (!_isCurrentExactOwnerScope(renderedOwnerScope)) {
+                return;
+              }
               setState(() {
                 _showNameChangeRequest = !_showNameChangeRequest;
                 if (!_showNameChangeRequest) {
@@ -3630,7 +5256,11 @@ class _RestaurantCreateCouponScreenState
             child: FilledButton(
               onPressed: _submittingNameChangeRequest
                   ? null
-                  : _submitRestaurantNameChangeRequest,
+                  : () {
+                      if (_isCurrentExactOwnerScope(renderedOwnerScope)) {
+                        _submitRestaurantNameChangeRequest();
+                      }
+                    },
               child: Text(
                 _submittingNameChangeRequest
                     ? 'Submitting...'
@@ -3705,17 +5335,41 @@ class _RestaurantCreateCouponScreenState
         _buildSaveProfileButton(
           label: 'Save Basic Information',
           busyLabel: 'Validating location...',
-          onPressed: _saveBasicRestaurantInformation,
+          onPressed: () {
+            if (_isCurrentExactOwnerScope(renderedOwnerScope)) {
+              _saveBasicRestaurantInformation();
+            }
+          },
         ),
       ],
     );
   }
 
   Widget _buildRestaurantImageSection() {
+    final renderedOwnerScope = _activeOwnerScope;
+    if (renderedOwnerScope == null) {
+      return const SizedBox.shrink();
+    }
+    Future<void> pickImageForRenderedOwner() async {
+      if (_isCurrentExactOwnerScope(renderedOwnerScope)) {
+        await _pickRestaurantImage();
+      }
+    }
+
+    Future<void> saveImageForRenderedOwner() async {
+      if (_isCurrentExactOwnerScope(renderedOwnerScope)) {
+        await _saveRestaurantImage();
+      }
+    }
+
+    final selectedImage = _currentRestaurantImageSelection;
     return _buildOwnerExpandableSection(
       title: 'Restaurant Image',
       initiallyExpanded: _restaurantImageSectionExpanded,
       onExpansionChanged: (expanded) {
+        if (!_isCurrentExactOwnerScope(renderedOwnerScope)) {
+          return;
+        }
         setState(() {
           _restaurantImageSectionExpanded = expanded;
         });
@@ -3723,39 +5377,53 @@ class _RestaurantCreateCouponScreenState
       children: [
         _buildImageUploadField(
           title: 'Restaurant image',
-          buttonLabel: restaurantImageUrl == null
+          buttonLabel: selectedImage == null && restaurantImageUrl == null
               ? 'Add restaurant image'
               : 'Change restaurant image',
-          imageUrl: restaurantImageUrl,
+          imageUrl: selectedImage?.uploadedUrl ?? restaurantImageUrl,
           uploading: restaurantImageUploading,
-          onPressed: _pickRestaurantImage,
+          onPressed: pickImageForRenderedOwner,
+          imageBytes: selectedImage?.validatedImage.pickedImage.bytes,
+          useRestaurantImageRenderer: true,
+          enabled: !profileSaving,
         ),
         const SizedBox(height: 16),
         _buildSaveProfileButton(
           label: 'Save Restaurant Image',
           busyLabel: 'Saving image...',
-          onPressed: _saveRestaurantImage,
+          onPressed: saveImageForRenderedOwner,
         ),
       ],
     );
   }
 
   Widget _buildHoursSection() {
+    final renderedOwnerScope = _activeOwnerScope;
+    if (renderedOwnerScope == null) {
+      return const SizedBox.shrink();
+    }
     return _buildOwnerExpandableSection(
       title: 'Hours',
       initiallyExpanded: _hoursSectionExpanded,
       onExpansionChanged: (expanded) {
+        if (!_isCurrentExactOwnerScope(renderedOwnerScope)) {
+          return;
+        }
         setState(() {
           _hoursSectionExpanded = expanded;
         });
       },
       children: [
-        _buildBusinessHoursEditor(),
+        _buildBusinessHoursEditor(renderedOwnerScope),
         const SizedBox(height: 16),
         _buildSaveProfileButton(
           label: 'Save Hours',
           busyLabel: 'Saving hours...',
-          onPressed: _saveBusinessHours,
+          onPressed: () {
+            if (_isCurrentExactOwnerScope(renderedOwnerScope)) {
+              _saveBusinessHours();
+            }
+          },
         ),
       ],
     );
@@ -3785,8 +5453,17 @@ class _RestaurantCreateCouponScreenState
   }
 
   Widget _buildManageMenuButton() {
+    final ownerScope = _activeOwnerScope;
+    if (ownerScope == null || !_isCurrentExactOwnerScope(ownerScope)) {
+      return const SizedBox.shrink();
+    }
     return FutureBuilder<BiteSaverMenuRoutingState>(
-      future: _loadBiteSaverMenuRoutingState(),
+      key: ValueKey<String>(
+        'bitesaver-menu-${ownerScope.identity.uid}-'
+        '${ownerScope.identity.accountDocumentId}-'
+        '${ownerScope.ownerGeneration}',
+      ),
+      future: _loadBiteSaverMenuRoutingState(ownerScope),
       builder: (context, snapshot) {
         final state = snapshot.data;
         final usesBiteRater = state?.usesBiteRater == true;
@@ -3826,6 +5503,7 @@ class _RestaurantCreateCouponScreenState
                             enabled: enabled,
                             matchedBiteScoreRestaurantId:
                                 state?.matchedBiteScoreRestaurant?.id,
+                            expectedOwnerScope: ownerScope,
                           ),
                     title: const Text(
                       'Use BiteScore menu',
@@ -3856,7 +5534,9 @@ class _RestaurantCreateCouponScreenState
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
-                onPressed: usesBiteRater ? null : _openMenuManagement,
+                onPressed: usesBiteRater
+                    ? null
+                    : () => _openMenuManagement(ownerScope),
                 icon: const Icon(Icons.menu_book_outlined),
                 label: const Text('Manage Menu'),
               ),
@@ -3868,10 +5548,17 @@ class _RestaurantCreateCouponScreenState
   }
 
   Widget _buildMenuManagementSection() {
+    final renderedOwnerScope = _activeOwnerScope;
+    if (renderedOwnerScope == null) {
+      return const SizedBox.shrink();
+    }
     return _buildOwnerExpandableSection(
       title: 'Menu Management',
       initiallyExpanded: _menuManagementSectionExpanded,
       onExpansionChanged: (expanded) {
+        if (!_isCurrentExactOwnerScope(renderedOwnerScope)) {
+          return;
+        }
         setState(() {
           _menuManagementSectionExpanded = expanded;
         });
@@ -3881,10 +5568,17 @@ class _RestaurantCreateCouponScreenState
   }
 
   Widget _buildDailySpecialsSection() {
+    final renderedOwnerScope = _activeOwnerScope;
+    if (renderedOwnerScope == null) {
+      return const SizedBox.shrink();
+    }
     return _buildOwnerExpandableSection(
       title: 'Daily Specials',
       initiallyExpanded: _dailySpecialsSectionExpanded,
       onExpansionChanged: (expanded) {
+        if (!_isCurrentExactOwnerScope(renderedOwnerScope)) {
+          return;
+        }
         setState(() {
           _dailySpecialsSectionExpanded = expanded;
         });
@@ -3906,13 +5600,14 @@ class _RestaurantCreateCouponScreenState
             const Divider(),
             const SizedBox(height: 12),
           ],
-          _buildDailySpecialForm(),
+          _buildDailySpecialForm(renderedOwnerScope),
         ],
       ],
     );
   }
 
   Widget _buildDailySpecialCard(DailySpecial special) {
+    final renderedOwnerScope = _activeOwnerScope;
     return Card(
       margin: const EdgeInsets.only(bottom: 10),
       child: Padding(
@@ -3960,12 +5655,24 @@ class _RestaurantCreateCouponScreenState
                 spacing: 8,
                 children: [
                   TextButton.icon(
-                    onPressed: () => editDailySpecial(special),
+                    onPressed: renderedOwnerScope == null
+                        ? null
+                        : () => editDailySpecial(
+                            special,
+                            expectedOwnerScope: renderedOwnerScope,
+                          ),
                     icon: const Icon(Icons.edit_outlined),
                     label: const Text('Edit'),
                   ),
                   TextButton.icon(
-                    onPressed: () => removeDailySpecial(special),
+                    onPressed:
+                        _dailySpecialDeleteInFlight ||
+                            renderedOwnerScope == null
+                        ? null
+                        : () => removeDailySpecial(
+                            special,
+                            renderedOwnerScope: renderedOwnerScope,
+                          ),
                     icon: const Icon(Icons.delete_outline),
                     label: const Text('Delete'),
                   ),
@@ -3978,7 +5685,7 @@ class _RestaurantCreateCouponScreenState
     );
   }
 
-  Widget _buildDailySpecialForm() {
+  Widget _buildDailySpecialForm(_RestaurantOwnerScope renderedOwnerScope) {
     final isEditing = editingDailySpecialId != null;
     return Column(
       key: _dailySpecialEditorKey,
@@ -3986,6 +5693,11 @@ class _RestaurantCreateCouponScreenState
       children: [
         TextField(
           controller: dailySpecialTitleController,
+          onChanged: (_) {
+            if (_isCurrentExactOwnerScope(renderedOwnerScope)) {
+              _markDailySpecialDraftChanged();
+            }
+          },
           textInputAction: TextInputAction.next,
           decoration: buildInputDecoration(
             'Title',
@@ -3995,6 +5707,11 @@ class _RestaurantCreateCouponScreenState
         const SizedBox(height: 12),
         TextField(
           controller: dailySpecialDetailsController,
+          onChanged: (_) {
+            if (_isCurrentExactOwnerScope(renderedOwnerScope)) {
+              _markDailySpecialDraftChanged();
+            }
+          },
           minLines: 2,
           maxLines: 4,
           decoration: buildInputDecoration(
@@ -4007,7 +5724,11 @@ class _RestaurantCreateCouponScreenState
           contentPadding: EdgeInsets.zero,
           value: _dailySpecialIsActive,
           onChanged: (value) {
+            if (!_isCurrentExactOwnerScope(renderedOwnerScope)) {
+              return;
+            }
             setState(() {
+              _markDailySpecialDraftChanged();
               _dailySpecialIsActive = value;
             });
           },
@@ -4037,7 +5758,11 @@ class _RestaurantCreateCouponScreenState
             ],
             selected: {_dailySpecialAvailabilityMode},
             onSelectionChanged: (selection) {
+              if (!_isCurrentExactOwnerScope(renderedOwnerScope)) {
+                return;
+              }
               setState(() {
+                _markDailySpecialDraftChanged();
                 _dailySpecialAvailabilityMode = selection.first;
               });
             },
@@ -4046,7 +5771,7 @@ class _RestaurantCreateCouponScreenState
         if (_dailySpecialAvailabilityMode ==
             DailySpecialAvailabilityMode.specificDays) ...[
           const SizedBox(height: 4),
-          _buildDailySpecialDayChips(),
+          _buildDailySpecialDayChips(renderedOwnerScope),
         ],
         const SizedBox(height: 16),
         const Text('Time', style: TextStyle(fontWeight: FontWeight.w800)),
@@ -4060,7 +5785,11 @@ class _RestaurantCreateCouponScreenState
             ],
             selected: {_dailySpecialAllDay},
             onSelectionChanged: (selection) {
+              if (!_isCurrentExactOwnerScope(renderedOwnerScope)) {
+                return;
+              }
               setState(() {
+                _markDailySpecialDraftChanged();
                 _dailySpecialAllDay = selection.first;
               });
             },
@@ -4074,13 +5803,21 @@ class _RestaurantCreateCouponScreenState
                 label: 'Start time',
                 hint: 'Select start',
                 value: _dailySpecialStartTime,
-                onTap: () => _pickDailySpecialTime(isStart: true),
+                onTap: () {
+                  if (_isCurrentExactOwnerScope(renderedOwnerScope)) {
+                    _pickDailySpecialTime(isStart: true);
+                  }
+                },
               );
               final endField = _buildTimeOfDayField(
                 label: 'End time',
                 hint: 'Select end',
                 value: _dailySpecialEndTime,
-                onTap: () => _pickDailySpecialTime(isStart: false),
+                onTap: () {
+                  if (_isCurrentExactOwnerScope(renderedOwnerScope)) {
+                    _pickDailySpecialTime(isStart: false);
+                  }
+                },
               );
               if (constraints.maxWidth < 420) {
                 return Column(
@@ -4115,7 +5852,11 @@ class _RestaurantCreateCouponScreenState
             ],
             selected: {_dailySpecialHideWhenUnavailable},
             onSelectionChanged: (selection) {
+              if (!_isCurrentExactOwnerScope(renderedOwnerScope)) {
+                return;
+              }
               setState(() {
+                _markDailySpecialDraftChanged();
                 _dailySpecialHideWhenUnavailable = selection.first;
               });
             },
@@ -4125,7 +5866,13 @@ class _RestaurantCreateCouponScreenState
         SizedBox(
           width: double.infinity,
           child: ElevatedButton.icon(
-            onPressed: _dailySpecialSaving ? null : createOrUpdateDailySpecial,
+            onPressed: _dailySpecialSaving
+                ? null
+                : () {
+                    if (_isCurrentExactOwnerScope(renderedOwnerScope)) {
+                      createOrUpdateDailySpecial();
+                    }
+                  },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF2563EB),
               foregroundColor: Colors.white,
@@ -4157,7 +5904,11 @@ class _RestaurantCreateCouponScreenState
         SizedBox(
           width: double.infinity,
           child: OutlinedButton(
-            onPressed: clearDailySpecialForm,
+            onPressed: () {
+              if (_isCurrentExactOwnerScope(renderedOwnerScope)) {
+                clearDailySpecialForm();
+              }
+            },
             child: Text(isEditing ? 'Cancel Editing' : 'Clear Form'),
           ),
         ),
@@ -4165,7 +5916,7 @@ class _RestaurantCreateCouponScreenState
     );
   }
 
-  Widget _buildDailySpecialDayChips() {
+  Widget _buildDailySpecialDayChips(_RestaurantOwnerScope renderedOwnerScope) {
     const days = <(int, String)>[
       (DateTime.monday, 'Mon'),
       (DateTime.tuesday, 'Tue'),
@@ -4185,7 +5936,11 @@ class _RestaurantCreateCouponScreenState
           label: Text(day.$2),
           selected: selected,
           onSelected: (isSelected) {
+            if (!_isCurrentExactOwnerScope(renderedOwnerScope)) {
+              return;
+            }
             setState(() {
+              _markDailySpecialDraftChanged();
               if (isSelected) {
                 _dailySpecialDaysOfWeek.add(day.$1);
               } else {
@@ -4199,10 +5954,17 @@ class _RestaurantCreateCouponScreenState
   }
 
   Widget _buildCustomerPreviewSection(RestaurantProfileData profile) {
+    final renderedOwnerScope = _activeOwnerScope;
+    if (renderedOwnerScope == null) {
+      return const SizedBox.shrink();
+    }
     return _buildOwnerExpandableSection(
       title: 'Customer Preview',
       initiallyExpanded: _customerPreviewSectionExpanded,
       onExpansionChanged: (expanded) {
+        if (!_isCurrentExactOwnerScope(renderedOwnerScope)) {
+          return;
+        }
         setState(() {
           _customerPreviewSectionExpanded = expanded;
         });
@@ -4212,10 +5974,17 @@ class _RestaurantCreateCouponScreenState
   }
 
   Widget _buildSubscriptionBillingSection() {
+    final renderedOwnerScope = _activeOwnerScope;
+    if (renderedOwnerScope == null) {
+      return const SizedBox.shrink();
+    }
     return _buildOwnerExpandableSection(
       title: 'Subscription / Billing',
       initiallyExpanded: _subscriptionBillingSectionExpanded,
       onExpansionChanged: (expanded) {
+        if (!_isCurrentExactOwnerScope(renderedOwnerScope)) {
+          return;
+        }
         setState(() {
           _subscriptionBillingSectionExpanded = expanded;
         });
@@ -4240,6 +6009,7 @@ class _RestaurantCreateCouponScreenState
   }
 
   Widget _buildPostingToolLockedMessage({required String message}) {
+    final renderedOwnerScope = _activeOwnerScope;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -4267,9 +6037,10 @@ class _RestaurantCreateCouponScreenState
                 ),
                 const SizedBox(height: 8),
                 TextButton(
-                  onPressed: _subscriptionCheckoutLoading
+                  onPressed:
+                      _subscriptionCheckoutLoading || renderedOwnerScope == null
                       ? null
-                      : _openSubscriptionSignupScreen,
+                      : () => _openSubscriptionSignupScreen(renderedOwnerScope),
                   style: TextButton.styleFrom(
                     padding: EdgeInsets.zero,
                     minimumSize: const Size(0, 32),
@@ -4290,11 +6061,18 @@ class _RestaurantCreateCouponScreenState
   }
 
   Widget _buildCouponManagementSection() {
+    final renderedOwnerScope = _activeOwnerScope;
+    if (renderedOwnerScope == null) {
+      return const SizedBox.shrink();
+    }
     if (!_hasCouponPostingAccess) {
       return _buildOwnerExpandableSection(
         title: 'Coupon Management',
         initiallyExpanded: _couponManagementSectionExpanded,
         onExpansionChanged: (expanded) {
+          if (!_isCurrentExactOwnerScope(renderedOwnerScope)) {
+            return;
+          }
           setState(() {
             _couponManagementSectionExpanded = expanded;
           });
@@ -4311,6 +6089,9 @@ class _RestaurantCreateCouponScreenState
       title: 'Coupon Management',
       initiallyExpanded: _couponManagementSectionExpanded,
       onExpansionChanged: (expanded) {
+        if (!_isCurrentExactOwnerScope(renderedOwnerScope)) {
+          return;
+        }
         setState(() {
           _couponManagementSectionExpanded = expanded;
         });
@@ -4333,7 +6114,11 @@ class _RestaurantCreateCouponScreenState
           key: _couponTitleFieldKey,
           child: TextField(
             controller: titleController,
-            onChanged: (_) => _refreshCouponValidationHighlights(),
+            onChanged: (_) {
+              if (_isCurrentExactOwnerScope(renderedOwnerScope)) {
+                _refreshCouponValidationHighlights();
+              }
+            },
             decoration: buildInputDecoration(
               'Coupon Title',
               'Example: 50% Off Any Large Pizza',
@@ -4344,6 +6129,11 @@ class _RestaurantCreateCouponScreenState
         const SizedBox(height: 16),
         TextField(
           controller: couponDetailsController,
+          onChanged: (_) {
+            if (_isCurrentExactOwnerScope(renderedOwnerScope)) {
+              _markCouponDraftChanged();
+            }
+          },
           minLines: 3,
           maxLines: 5,
           decoration: buildInputDecoration(
@@ -4359,7 +6149,11 @@ class _RestaurantCreateCouponScreenState
               : 'Change coupon image',
           imageUrl: couponImageUrl,
           uploading: couponImageUploading,
-          onPressed: _pickCouponImage,
+          onPressed: () {
+            if (_isCurrentExactOwnerScope(renderedOwnerScope)) {
+              _pickCouponImage();
+            }
+          },
         ),
         const SizedBox(height: 8),
         const Text(
@@ -4375,7 +6169,9 @@ class _RestaurantCreateCouponScreenState
             value: couponStartTime,
             errorText: _couponStartTimeErrorText(),
             onTap: () {
-              _pickCouponDateTime(isStart: true);
+              if (_isCurrentExactOwnerScope(renderedOwnerScope)) {
+                _pickCouponDateTime(isStart: true);
+              }
             },
           ),
         ),
@@ -4388,7 +6184,9 @@ class _RestaurantCreateCouponScreenState
             value: couponEndTime,
             errorText: _couponEndTimeErrorText(),
             onTap: () {
-              _pickCouponDateTime(isStart: false);
+              if (_isCurrentExactOwnerScope(renderedOwnerScope)) {
+                _pickCouponDateTime(isStart: false);
+              }
             },
           ),
         ),
@@ -4413,8 +6211,10 @@ class _RestaurantCreateCouponScreenState
             DropdownMenuItem(value: 'Unlimited', child: Text('Unlimited')),
           ],
           onChanged: (value) {
-            if (value != null) {
+            if (value != null &&
+                _isCurrentExactOwnerScope(renderedOwnerScope)) {
               setState(() {
+                _markCouponDraftChanged(notify: false);
                 selectedUsageRule = value;
               });
             }
@@ -4435,8 +6235,10 @@ class _RestaurantCreateCouponScreenState
             ),
           ],
           onChanged: (value) {
-            if (value != null) {
+            if (value != null &&
+                _isCurrentExactOwnerScope(renderedOwnerScope)) {
               setState(() {
+                _markCouponDraftChanged(notify: false);
                 selectedCouponType = value;
               });
             }
@@ -4460,8 +6262,10 @@ class _RestaurantCreateCouponScreenState
               DropdownMenuItem(value: '10 miles', child: Text('10 miles')),
             ],
             onChanged: (value) {
-              if (value != null) {
+              if (value != null &&
+                  _isCurrentExactOwnerScope(renderedOwnerScope)) {
                 setState(() {
+                  _markCouponDraftChanged(notify: false);
                   selectedProximityRadius = value;
                 });
               }
@@ -4476,6 +6280,11 @@ class _RestaurantCreateCouponScreenState
         const SizedBox(height: 16),
         TextField(
           controller: couponCodeController,
+          onChanged: (_) {
+            if (_isCurrentExactOwnerScope(renderedOwnerScope)) {
+              _markCouponDraftChanged();
+            }
+          },
           decoration: buildInputDecoration(
             'Optional Coupon Code',
             'Example: JOE50',
@@ -4490,7 +6299,13 @@ class _RestaurantCreateCouponScreenState
         SizedBox(
           width: double.infinity,
           child: ElevatedButton(
-            onPressed: couponSaving ? null : createOrUpdateCoupon,
+            onPressed: couponSaving || couponImageUploading
+                ? null
+                : () {
+                    if (_isCurrentExactOwnerScope(renderedOwnerScope)) {
+                      createOrUpdateCoupon();
+                    }
+                  },
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF2563EB),
               foregroundColor: Colors.white,
@@ -4517,7 +6332,11 @@ class _RestaurantCreateCouponScreenState
         SizedBox(
           width: double.infinity,
           child: OutlinedButton(
-            onPressed: clearCouponForm,
+            onPressed: () {
+              if (_isCurrentExactOwnerScope(renderedOwnerScope)) {
+                clearCouponForm();
+              }
+            },
             child: Text(
               isEditingCoupon ? 'Cancel Editing' : 'Clear Coupon Form',
             ),
@@ -4558,7 +6377,16 @@ class _RestaurantCreateCouponScreenState
 
   @override
   Widget build(BuildContext context) {
+    if (_currentOwnerIdentity != _activeOwnerIdentity) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _synchronizeCurrentOwnerIdentity();
+        }
+      });
+      return const Center(child: CircularProgressIndicator());
+    }
     final savedProfile = LocalRestaurantProfileStore.profile.value;
+    final renderedOwnerScope = _activeOwnerScope;
 
     if (profileLoading || couponsLoading || _dailySpecialsLoading) {
       return const Center(child: CircularProgressIndicator());
@@ -4573,6 +6401,9 @@ class _RestaurantCreateCouponScreenState
         body: _buildCouponAccessStateBody(),
       );
     }
+    if (renderedOwnerScope == null) {
+      return const Center(child: CircularProgressIndicator());
+    }
 
     return PopScope(
       canPop: _allowProfileClose || !_hasUnsavedRestaurantProfileChanges,
@@ -4580,8 +6411,23 @@ class _RestaurantCreateCouponScreenState
         if (didPop || _allowProfileClose || profileSaving) {
           return;
         }
-        final shouldLeave = await _confirmLeaveRestaurantProfileChanges();
-        if (!context.mounted || !shouldLeave) {
+        final ownerScope = renderedOwnerScope;
+        if (!_isCurrentExactOwnerScope(ownerScope)) {
+          return;
+        }
+        final action = _beginOwnerAction(
+          _OwnerActionKind.leaveConfirmation,
+          expectedOwnerScope: ownerScope,
+        );
+        if (action == null) {
+          return;
+        }
+        final shouldLeave = await _confirmLeaveRestaurantProfileChanges(
+          ownerScope,
+        );
+        if (!context.mounted ||
+            !shouldLeave ||
+            !_isCurrentOwnerAction(action)) {
           return;
         }
         _allowProfileClose = true;
@@ -4593,9 +6439,7 @@ class _RestaurantCreateCouponScreenState
           centerTitle: true,
           actions: [
             TextButton.icon(
-              onPressed: () async {
-                await _signOutAndExitRestaurantHub();
-              },
+              onPressed: () => _signOutAndExitRestaurantHub(renderedOwnerScope),
               icon: const Icon(Icons.logout),
               label: const Text('Sign Out'),
               style: TextButton.styleFrom(foregroundColor: Colors.black87),
@@ -4648,6 +6492,25 @@ enum _CouponAccountAccessState {
 }
 
 enum _CouponValidationField { title, startTime, endTime }
+
+enum _OwnerActionKind {
+  checkout,
+  portal,
+  subscriptionLifecycle,
+  subscriptionReturn,
+  subscriptionRefresh,
+  menuOpen,
+  menuRead,
+  menuWrite,
+  couponDateTime,
+  couponImage,
+  couponSave,
+  couponDelete,
+  dailySpecialTime,
+  dailySpecialSave,
+  dailySpecialDelete,
+  leaveConfirmation,
+}
 
 @visibleForTesting
 class BiteSaverMenuRoutingState {
