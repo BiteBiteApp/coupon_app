@@ -78,6 +78,7 @@ test("the helper exposes only the strict supported-stage allowlist", () => {
     "webhook_signature_verification",
     "webhook_event_processing",
     "webhook_subscription_sync",
+    "checkout_session_creation",
     "customer_portal_session_creation",
   ];
 
@@ -120,6 +121,7 @@ test("consumers cannot mutate or replace the supported-stage boundary", () => {
     "webhook_signature_verification",
     "webhook_event_processing",
     "webhook_subscription_sync",
+    "checkout_session_creation",
     "customer_portal_session_creation",
   ]);
   assert.throws(
@@ -178,6 +180,11 @@ test("Stripe, Firestore, configuration, and unknown failures classify coarsely",
         code: "firestore/unavailable",
       }),
       expected: "firestore_error",
+    },
+    {
+      stage: "checkout_session_creation",
+      error: maliciousError({type: "StripeAPIError"}),
+      expected: "stripe_api_error",
     },
     {
       stage: "customer_portal_session_creation",

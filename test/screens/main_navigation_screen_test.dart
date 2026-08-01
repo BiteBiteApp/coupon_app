@@ -2,52 +2,62 @@ import 'dart:async';
 
 import 'package:coupon_app/screens/main_navigation_screen.dart';
 import 'package:coupon_app/screens/restaurant_auth_screen.dart';
-import 'package:coupon_app/screens/restaurant_create_coupon_screen.dart';
 import 'package:coupon_app/services/app_mode_state_service.dart';
 import 'package:coupon_app/services/subscription_return_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import '../services/subscription_return_service_test.dart'
-    as subscription_return_fixtures;
+import '../support/subscription_return_test_backend.dart';
 
-typedef _SubscriptionReturnCase = ({
-  String uri,
-  SubscriptionReturnKind kind,
-  String message,
-});
+const SubscriptionReturnOwnerScope _ownerA = SubscriptionReturnOwnerScope(
+  uid: 'owner-a',
+  accountDocumentId: 'owner-a',
+);
+const SubscriptionReturnOwnerScope _ownerB = SubscriptionReturnOwnerScope(
+  uid: 'owner-b',
+  accountDocumentId: 'owner-b',
+);
+const SubscriptionReturnOwnerScope _ownerASibling =
+    SubscriptionReturnOwnerScope(
+      uid: 'owner-a',
+      accountDocumentId: 'owner-a-sibling',
+    );
+final DateTime _now = DateTime.utc(2026, 7, 31, 12);
 
-const List<_SubscriptionReturnCase>
-_subscriptionReturnCases = <_SubscriptionReturnCase>[
+String _token(int seed) =>
+    '${seed.toRadixString(36).padLeft(3, '0')}${'A' * 40}';
+
+typedef _ReturnCase = ({SubscriptionReturnKind kind, String message});
+
+const List<_ReturnCase> _returnCases = <_ReturnCase>[
   (
-    uri: subscriptionPortalReturnUri,
-    kind: SubscriptionReturnKind.customerPortal,
-    message:
-        'Returned from subscription management. Refreshing your subscription status.',
-  ),
-  (
-    uri: subscriptionCheckoutSuccessReturnUri,
     kind: SubscriptionReturnKind.checkoutSuccess,
     message:
         'Subscription started successfully. Refreshing restaurant tools...',
   ),
   (
-    uri: subscriptionCheckoutCancelReturnUri,
     kind: SubscriptionReturnKind.checkoutCancel,
     message: 'Subscription checkout canceled.',
+  ),
+  (
+    kind: SubscriptionReturnKind.customerPortal,
+    message:
+        'Returned from subscription management. Refreshing your subscription status.',
   ),
 ];
 
 void main() {
+  late FakeSubscriptionReturnBackend backend;
+
   setUp(() async {
-    SharedPreferences.setMockInitialValues({});
-    await SubscriptionReturnService.resetForTesting();
+    SharedPreferences.setMockInitialValues(<String, Object>{});
+    backend = FakeSubscriptionReturnBackend(clock: () => _now);
+    await installFakeSubscriptionReturnService(backend, clock: () => _now);
     AppModeStateService.setMode(AppMode.biteSaver);
   });
 
-  tearDown(() async {
-    await SubscriptionReturnService.resetForTesting();
+  tearDown(() {
     AppModeStateService.setMode(AppMode.biteSaver);
   });
 
@@ -72,15 +82,12 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(_testApp());
-
     expect(find.text('Home'), findsOneWidget);
     expect(find.text('Restaurant\nHub'), findsOneWidget);
     expect(find.text('Account'), findsOneWidget);
     expect(find.text('Admin'), findsNothing);
-
     await tester.tap(find.text('Account'));
     await tester.pump();
-
     expect(find.text('Account Page'), findsOneWidget);
     expect(find.text('Restaurant Hub Page'), findsNothing);
   });
@@ -89,22 +96,17 @@ void main() {
     tester,
   ) async {
     await tester.pumpWidget(_testApp());
-
     await tester.tap(find.byTooltip('Menu'));
     await tester.pumpAndSettle();
-
     expect(find.text('Admin'), findsNothing);
     expect(find.text('Restaurant Hub'), findsOneWidget);
-
     await tester.tap(find.text('Account').last);
     await tester.pumpAndSettle();
-
     expect(find.text('Account Page'), findsOneWidget);
   });
 
   testWidgets('obsolete initial index displays Home', (tester) async {
     await tester.pumpWidget(_testApp(initialIndex: 3));
-
     expect(find.text('biteSaver Home Page'), findsOneWidget);
     expect(find.text('Account Page'), findsNothing);
   });
@@ -114,612 +116,416 @@ void main() {
   ) async {
     await tester.pumpWidget(_testApp(initialIndex: 2));
     expect(find.text('Account Page'), findsOneWidget);
-
     AppModeStateService.setMode(AppMode.biteScore);
     await tester.pump();
-
     expect(find.text('biteScore Home Page'), findsOneWidget);
     expect(find.text('Account Page'), findsNothing);
   });
 
-  testWidgets(
-    'portal return selects BiteSaver Restaurant Hub and dispatches neutrally',
-    (tester) async {
-      final incomingLinks = StreamController<String>.broadcast();
-      final navigationClaims = <SubscriptionReturnEvent>[];
-      addTearDown(incomingLinks.close);
-
-      await tester.pumpWidget(
-        _testApp(
-          initialMode: AppMode.biteScore,
-          initialIndex: 2,
-          incomingRawDeepLinks: incomingLinks.stream,
-          onSubscriptionReturnNavigationClaimed: navigationClaims.add,
-        ),
-      );
-      expect(find.text('Account Page'), findsOneWidget);
-
-      incomingLinks.add(subscriptionPortalReturnUri);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-
-      expect(AppModeStateService.selectedMode.value, AppMode.biteSaver);
-      expect(find.text('Restaurant Hub Page'), findsOneWidget);
-      expect(navigationClaims, hasLength(1));
-      expect(
-        navigationClaims.single.kind,
-        SubscriptionReturnKind.customerPortal,
-      );
-      expect(
-        SubscriptionReturnService.peekPendingRefresh()?.id,
-        navigationClaims.single.id,
-      );
-      expect(SubscriptionReturnService.peekPendingNavigation(), isNull);
-      expect(
-        find.text(
-          'Returned from subscription management. Refreshing your subscription status.',
-        ),
-        findsOneWidget,
-      );
-      expect(find.textContaining('started successfully'), findsNothing);
-      expect(find.textContaining('checkout canceled'), findsNothing);
-      expect(find.byType(RestaurantCreateCouponScreen), findsNothing);
-      expect(tester.takeException(), isNull);
-
-      expect(
-        SubscriptionReturnService.claimRefresh(navigationClaims.single.id),
-        isTrue,
-      );
-      await tester.pumpWidget(const MaterialApp(home: SizedBox()));
-      await tester.pump();
-      await tester.pumpWidget(
-        _testApp(
-          initialMode: AppMode.biteScore,
-          initialIndex: 2,
-          incomingRawDeepLinks: incomingLinks.stream,
-          onSubscriptionReturnNavigationClaimed: navigationClaims.add,
-        ),
-      );
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-
-      expect(navigationClaims, hasLength(1));
-      expect(find.text('Account Page'), findsOneWidget);
-      expect(
-        find.textContaining('Returned from subscription management'),
-        findsNothing,
-      );
-    },
-  );
-
-  for (final returnCase in _subscriptionReturnCases) {
+  for (final returnCase in _returnCases) {
     testWidgets(
-      'signed-out ${returnCase.kind.name} return remains on the Restaurant Hub auth gate',
+      '${returnCase.kind.name} is redeemed and navigated only after server claim',
       (tester) async {
-        final incomingLinks = StreamController<Uri>.broadcast();
-        final navigationClaims = <SubscriptionReturnEvent>[];
-        final emittedMessages = <String>[];
-        addTearDown(incomingLinks.close);
-        // A stale mounted-Hub count must never override current signed-out
-        // authentication state.
-        SubscriptionReturnService.registerRestaurantHub();
+        final incoming = StreamController<String>.broadcast(sync: true);
+        final claims = <SubscriptionReturnEvent>[];
+        final messages = <String>[];
+        addTearDown(incoming.close);
+        final token = _token(returnCase.kind.index);
+        backend.reserve(
+          returnToken: token,
+          ownerScope: _ownerA,
+          family: returnCase.kind.family,
+        );
 
         await tester.pumpWidget(
           _testApp(
             initialMode: AppMode.biteScore,
             initialIndex: 2,
-            incomingDeepLinks: incomingLinks.stream,
-            onSubscriptionReturnNavigationClaimed: navigationClaims.add,
-            onSubscriptionReturnMessageEmitted: emittedMessages.add,
-            restaurantUserSignedIn: false,
-            restaurantHubPage: RestaurantAuthScreen(
-              authStateStream: Stream.value(null),
-            ),
+            incomingRawDeepLinks: incoming.stream,
+            ownerScopeProvider: () => _ownerA,
+            onNavigationClaimed: claims.add,
+            onMessageEmitted: messages.add,
           ),
         );
-
-        incomingLinks.add(Uri.parse(returnCase.uri));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-
-        expect(AppModeStateService.selectedMode.value, AppMode.biteSaver);
-        expect(find.text('Restaurant Sign In'), findsOneWidget);
-        expect(find.byType(RestaurantCreateCouponScreen), findsNothing);
-        expect(find.byType(MainNavigationScreen), findsOneWidget);
-        expect(find.text('Admin'), findsNothing);
-        expect(navigationClaims, hasLength(1));
-        expect(navigationClaims.single.kind, returnCase.kind);
-        expect(emittedMessages, <String>[returnCase.message]);
-        expect(find.text(returnCase.message), findsOneWidget);
-        for (final otherCase in _subscriptionReturnCases.where(
-          (candidate) => candidate.kind != returnCase.kind,
-        )) {
-          expect(find.text(otherCase.message), findsNothing);
-        }
-        expect(
-          SubscriptionReturnService.peekPendingRefresh()?.id,
-          navigationClaims.single.id,
+        incoming.add(
+          subscriptionReturnUri(kind: returnCase.kind, returnToken: token),
         );
-        expect(SubscriptionReturnService.peekPendingNavigation(), isNull);
+        await _pumpUntil(tester, () => claims.isNotEmpty);
 
-        await tester.pump(const Duration(seconds: 1));
-        expect(navigationClaims, hasLength(1));
-        expect(emittedMessages, hasLength(1));
-        expect(find.byType(RestaurantCreateCouponScreen), findsNothing);
-        expect(find.text('Admin'), findsNothing);
-        expect(tester.takeException(), isNull);
-      },
-    );
-  }
-
-  for (final fixture
-      in subscription_return_fixtures.malformedCheckoutReturnFixtures) {
-    testWidgets(
-      'rejects ${fixture.kind.name} ${fixture.category} before valid follow-up',
-      (tester) async {
-        final validCase = _subscriptionReturnCases.singleWhere(
-          (candidate) => candidate.kind == fixture.kind,
-        );
-        final incomingLinks = StreamController<String>.broadcast();
-        final logicalEvents = <SubscriptionReturnEvent>[];
-        final navigationClaims = <SubscriptionReturnEvent>[];
-        final emittedMessages = <String>[];
-        final eventSubscription = SubscriptionReturnService.events.listen(
-          logicalEvents.add,
-        );
-        addTearDown(eventSubscription.cancel);
-        addTearDown(incomingLinks.close);
-
-        await tester.pumpWidget(
-          _testApp(
-            initialMode: AppMode.biteScore,
-            initialIndex: 2,
-            incomingRawDeepLinks: incomingLinks.stream,
-            onSubscriptionReturnNavigationClaimed: navigationClaims.add,
-            onSubscriptionReturnMessageEmitted: emittedMessages.add,
-            restaurantUserSignedIn: false,
-            restaurantHubPage: RestaurantAuthScreen(
-              authStateStream: Stream.value(null),
-            ),
-          ),
-        );
-
-        final pendingCountBefore = SubscriptionReturnService.pendingEventCount;
-        incomingLinks.add(fixture.rawUri);
-        await tester.pump();
-
-        expect(logicalEvents, isEmpty, reason: fixture.rawUri);
-        expect(navigationClaims, isEmpty, reason: fixture.rawUri);
-        expect(emittedMessages, isEmpty, reason: fixture.rawUri);
-        expect(
-          SubscriptionReturnService.pendingEventCount,
-          pendingCountBefore,
-          reason: fixture.rawUri,
-        );
-        expect(
-          SubscriptionReturnService.peekPendingNavigation(),
-          isNull,
-          reason: fixture.rawUri,
-        );
-        expect(
-          SubscriptionReturnService.peekPendingRefresh(),
-          isNull,
-          reason: fixture.rawUri,
-        );
-        expect(AppModeStateService.selectedMode.value, AppMode.biteScore);
-        expect(
-          find.text('Account Page'),
-          findsOneWidget,
-          reason: fixture.rawUri,
-        );
-        expect(
-          find.text('Restaurant Sign In'),
-          findsNothing,
-          reason: fixture.rawUri,
-        );
-        expect(
-          find.byType(RestaurantCreateCouponScreen),
-          findsNothing,
-          reason: fixture.rawUri,
-        );
-        for (final returnCase in _subscriptionReturnCases) {
-          expect(
-            find.text(returnCase.message),
-            findsNothing,
-            reason: fixture.rawUri,
-          );
-        }
-        expect(find.text('Admin'), findsNothing, reason: fixture.rawUri);
-
-        incomingLinks.add(
-          subscription_return_fixtures.canonicalUriForMalformedCheckoutFixture(
-            fixture,
-          ),
-        );
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-
-        expect(logicalEvents, hasLength(1), reason: fixture.rawUri);
-        expect(
-          logicalEvents.single.id,
-          subscription_return_fixtures.freshCoordinatorFirstEventId,
-          reason: fixture.rawUri,
-        );
-        expect(logicalEvents.single.kind, fixture.kind, reason: fixture.rawUri);
-        expect(navigationClaims, hasLength(1), reason: fixture.rawUri);
-        expect(
-          navigationClaims.single.id,
-          logicalEvents.single.id,
-          reason: fixture.rawUri,
-        );
-        expect(emittedMessages, <String>[validCase.message]);
-        expect(AppModeStateService.selectedMode.value, AppMode.biteSaver);
-        expect(find.text('Restaurant Sign In'), findsOneWidget);
-        expect(find.text('Account Page'), findsNothing);
-        expect(find.byType(RestaurantCreateCouponScreen), findsNothing);
-        expect(find.text(validCase.message), findsOneWidget);
-        for (final otherCase in _subscriptionReturnCases.where(
-          (candidate) => candidate.kind != fixture.kind,
-        )) {
-          expect(find.text(otherCase.message), findsNothing);
-        }
-        expect(SubscriptionReturnService.pendingEventCount, 1);
-        expect(SubscriptionReturnService.peekPendingNavigation(), isNull);
-        expect(
-          SubscriptionReturnService.peekPendingRefresh()?.id,
-          logicalEvents.single.id,
-        );
-
-        expect(
-          SubscriptionReturnService.claimRefresh(logicalEvents.single.id),
-          isTrue,
-        );
-        SubscriptionReturnService.finishRefresh(logicalEvents.single.id);
-        await tester.pump(const Duration(seconds: 1));
-
-        expect(SubscriptionReturnService.pendingEventCount, 0);
-        expect(navigationClaims, hasLength(1));
-        expect(emittedMessages, hasLength(1));
-        expect(find.byType(RestaurantCreateCouponScreen), findsNothing);
-        expect(find.text('Admin'), findsNothing);
-        expect(tester.takeException(), isNull);
-      },
-    );
-  }
-
-  for (final checkoutCase in _subscriptionReturnCases.where(
-    (returnCase) => returnCase.kind != SubscriptionReturnKind.customerPortal,
-  )) {
-    testWidgets(
-      'signed-out ${checkoutCase.kind.name} is globally claimed once across two auth-gated shells',
-      (tester) async {
-        final incomingLinks = StreamController<Uri>();
-        final logicalEvents = <SubscriptionReturnEvent>[];
-        final navigationClaims =
-            <({String shell, SubscriptionReturnEvent event})>[];
-        final emittedMessages = <String>[];
-        final eventSubscription = SubscriptionReturnService.events.listen(
-          logicalEvents.add,
-        );
-        addTearDown(eventSubscription.cancel);
-        addTearDown(incomingLinks.close);
-
-        await tester.pumpWidget(
-          _twoShellTestApp(
-            incomingDeepLinks: incomingLinks.stream,
-            onNavigationClaimed: (shell, event) {
-              navigationClaims.add((shell: shell, event: event));
-            },
-            onMessageEmitted: emittedMessages.add,
-            restaurantUserSignedIn: false,
-            useRestaurantAuthGate: true,
-          ),
-        );
-
-        incomingLinks.add(Uri.parse(checkoutCase.uri));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-
-        expect(logicalEvents, hasLength(1));
-        expect(logicalEvents.single.kind, checkoutCase.kind);
-        expect(navigationClaims, hasLength(1));
-        expect(navigationClaims.single.event.id, logicalEvents.single.id);
-        expect(emittedMessages, <String>[checkoutCase.message]);
-        expect(AppModeStateService.selectedMode.value, AppMode.biteSaver);
-        expect(find.text('Restaurant Sign In'), findsOneWidget);
-        expect(find.byType(RestaurantCreateCouponScreen), findsNothing);
-        expect(find.text('Admin'), findsNothing);
-        expect(
-          SubscriptionReturnService.peekPendingRefresh()?.id,
-          logicalEvents.single.id,
-        );
-        expect(SubscriptionReturnService.peekPendingNavigation(), isNull);
-
-        await tester.pump(const Duration(seconds: 1));
-        expect(logicalEvents, hasLength(1));
-        expect(navigationClaims, hasLength(1));
-        expect(emittedMessages, hasLength(1));
-        expect(find.byType(RestaurantCreateCouponScreen), findsNothing);
-        expect(tester.takeException(), isNull);
-      },
-    );
-  }
-
-  testWidgets(
-    'one source delivery is globally claimed once across two navigation shells',
-    (tester) async {
-      final incomingLinks = StreamController<Uri>();
-      final logicalEvents = <SubscriptionReturnEvent>[];
-      final navigationClaims =
-          <({String shell, SubscriptionReturnEvent event})>[];
-      final emittedMessages = <String>[];
-      final eventSubscription = SubscriptionReturnService.events.listen(
-        logicalEvents.add,
-      );
-      addTearDown(eventSubscription.cancel);
-      addTearDown(incomingLinks.close);
-
-      await tester.pumpWidget(
-        _twoShellTestApp(
-          incomingDeepLinks: incomingLinks.stream,
-          onNavigationClaimed: (shell, event) {
-            navigationClaims.add((shell: shell, event: event));
-          },
-          onMessageEmitted: emittedMessages.add,
-        ),
-      );
-
-      final portalUri = Uri.parse(subscriptionPortalReturnUri);
-      incomingLinks.add(portalUri);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-
-      expect(logicalEvents, hasLength(1));
-      expect(logicalEvents.single.kind, SubscriptionReturnKind.customerPortal);
-      expect(navigationClaims, hasLength(1));
-      expect(navigationClaims.single.event.id, logicalEvents.single.id);
-      expect(emittedMessages, <String>[
-        'Returned from subscription management. Refreshing your subscription status.',
-      ]);
-      expect(find.textContaining('Restaurant Hub Page'), findsOneWidget);
-      expect(find.byType(MainNavigationScreen), findsNWidgets(2));
-      expect(find.byType(RestaurantCreateCouponScreen), findsNothing);
-      expect(
-        find.text(
-          'Returned from subscription management. Refreshing your subscription status.',
-        ),
-        findsWidgets,
-      );
-
-      expect(
-        SubscriptionReturnService.claimRefresh(logicalEvents.single.id),
-        isTrue,
-      );
-      SubscriptionReturnService.finishRefresh(logicalEvents.single.id);
-      expect(SubscriptionReturnService.pendingEventCount, 0);
-
-      // A later physical delivery of the same static URI remains a new event.
-      incomingLinks.add(portalUri);
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-
-      expect(logicalEvents, hasLength(2));
-      expect(logicalEvents.last.id, isNot(logicalEvents.first.id));
-      expect(navigationClaims, hasLength(2));
-      expect(navigationClaims.last.event.id, logicalEvents.last.id);
-      expect(emittedMessages, hasLength(2));
-      expect(find.textContaining('Restaurant Hub Page'), findsOneWidget);
-      expect(find.byType(MainNavigationScreen), findsNWidgets(2));
-      expect(find.byType(RestaurantCreateCouponScreen), findsNothing);
-      expect(
-        SubscriptionReturnService.claimRefresh(logicalEvents.last.id),
-        isTrue,
-      );
-      SubscriptionReturnService.finishRefresh(logicalEvents.last.id);
-      expect(SubscriptionReturnService.pendingEventCount, 0);
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  for (final checkoutCase in _subscriptionReturnCases.where(
-    (returnCase) => returnCase.kind != SubscriptionReturnKind.customerPortal,
-  )) {
-    testWidgets(
-      'checkout ${checkoutCase.kind.name} is globally claimed once across two active-Hub shells',
-      (tester) async {
-        final incomingLinks = StreamController<Uri>();
-        final logicalEvents = <SubscriptionReturnEvent>[];
-        final navigationClaims =
-            <({String shell, SubscriptionReturnEvent event})>[];
-        final emittedMessages = <String>[];
-        final eventSubscription = SubscriptionReturnService.events.listen(
-          logicalEvents.add,
-        );
-        addTearDown(eventSubscription.cancel);
-        addTearDown(incomingLinks.close);
-        SubscriptionReturnService.registerRestaurantHub();
-
-        await tester.pumpWidget(
-          _twoShellTestApp(
-            incomingDeepLinks: incomingLinks.stream,
-            onNavigationClaimed: (shell, event) {
-              navigationClaims.add((shell: shell, event: event));
-            },
-            onMessageEmitted: emittedMessages.add,
-            restaurantUserSignedIn: true,
-          ),
-        );
-
-        incomingLinks.add(Uri.parse(checkoutCase.uri));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-
-        expect(logicalEvents, hasLength(1));
-        expect(logicalEvents.single.kind, checkoutCase.kind);
-        expect(navigationClaims, hasLength(1));
-        expect(navigationClaims.single.event.id, logicalEvents.single.id);
-        expect(emittedMessages, <String>[checkoutCase.message]);
-        // One global ScaffoldMessenger emission is rendered by each mounted
-        // test Scaffold; the callback above is the once-only assertion.
-        expect(find.text(checkoutCase.message), findsWidgets);
-        expect(find.textContaining('Restaurant Hub Page'), findsOneWidget);
-        expect(find.byType(MainNavigationScreen), findsNWidgets(2));
-        expect(find.byType(RestaurantCreateCouponScreen), findsNothing);
-        expect(find.text('Admin'), findsNothing);
-        expect(
-          SubscriptionReturnService.peekPendingRefresh()?.id,
-          logicalEvents.single.id,
-        );
-
-        expect(
-          SubscriptionReturnService.claimRefresh(logicalEvents.single.id),
-          isTrue,
-        );
-        SubscriptionReturnService.finishRefresh(logicalEvents.single.id);
-        await tester.pump(const Duration(seconds: 1));
-
-        expect(navigationClaims, hasLength(1));
-        expect(emittedMessages, hasLength(1));
-        expect(SubscriptionReturnService.pendingEventCount, 0);
-        expect(find.byType(MainNavigationScreen), findsNWidgets(2));
-        expect(find.byType(RestaurantCreateCouponScreen), findsNothing);
-        expect(find.text('Admin'), findsNothing);
-        expect(tester.takeException(), isNull);
-      },
-    );
-  }
-
-  for (final checkoutCase in _subscriptionReturnCases.where(
-    (returnCase) => returnCase.kind != SubscriptionReturnKind.customerPortal,
-  )) {
-    testWidgets(
-      'authenticated no-active-Hub ${checkoutCase.kind.name} keeps the direct Hub route',
-      (tester) async {
-        final incomingLinks = StreamController<Uri>.broadcast();
-        final navigationClaims = <SubscriptionReturnEvent>[];
-        final emittedMessages = <String>[];
-        final navigatorObserver = _RecordingNavigatorObserver();
-        addTearDown(incomingLinks.close);
-
-        await tester.pumpWidget(
-          _testApp(
-            initialMode: AppMode.biteScore,
-            initialIndex: 2,
-            incomingDeepLinks: incomingLinks.stream,
-            onSubscriptionReturnNavigationClaimed: navigationClaims.add,
-            onSubscriptionReturnMessageEmitted: emittedMessages.add,
-            restaurantUserSignedIn: true,
-            authenticatedRestaurantHubBuilder: (_) => const Scaffold(
-              body: Center(child: Text('Authenticated Restaurant Hub Route')),
-            ),
-            navigatorObservers: <NavigatorObserver>[navigatorObserver],
-          ),
-        );
-
-        incomingLinks.add(Uri.parse(checkoutCase.uri));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        await tester.pumpAndSettle();
-
-        expect(AppModeStateService.selectedMode.value, AppMode.biteSaver);
-        expect(find.text('Authenticated Restaurant Hub Route'), findsOneWidget);
-        expect(
-          find.byType(MainNavigationScreen, skipOffstage: false),
-          findsOneWidget,
-        );
-        expect(find.byType(RestaurantCreateCouponScreen), findsNothing);
-        expect(find.text('Admin'), findsNothing);
-        expect(navigationClaims, hasLength(1));
-        expect(navigationClaims.single.kind, checkoutCase.kind);
-        expect(emittedMessages, <String>[checkoutCase.message]);
-        expect(
-          navigatorObserver.pushedRoutes.where(
-            (route) =>
-                route.settings.name == RestaurantCreateCouponScreen.routeName,
-          ),
-          hasLength(1),
-        );
-        expect(
-          SubscriptionReturnService.peekPendingRefresh()?.id,
-          navigationClaims.single.id,
-        );
-        expect(SubscriptionReturnService.peekPendingNavigation(), isNull);
-
-        await tester.pump(const Duration(seconds: 1));
-        expect(navigationClaims, hasLength(1));
-        expect(emittedMessages, hasLength(1));
-        expect(
-          navigatorObserver.pushedRoutes.where(
-            (route) =>
-                route.settings.name == RestaurantCreateCouponScreen.routeName,
-          ),
-          hasLength(1),
-        );
-        expect(
-          find.byType(MainNavigationScreen, skipOffstage: false),
-          findsOneWidget,
-        );
-        expect(find.text('Admin'), findsNothing);
-        expect(tester.takeException(), isNull);
-      },
-    );
-  }
-
-  for (final checkoutCase in _subscriptionReturnCases.where(
-    (returnCase) => returnCase.kind != SubscriptionReturnKind.customerPortal,
-  )) {
-    testWidgets(
-      'authenticated active-Hub ${checkoutCase.kind.name} routing remains unchanged',
-      (tester) async {
-        final incomingLinks = StreamController<Uri>.broadcast();
-        final navigationClaims = <SubscriptionReturnEvent>[];
-        final emittedMessages = <String>[];
-        addTearDown(incomingLinks.close);
-        SubscriptionReturnService.registerRestaurantHub();
-
-        await tester.pumpWidget(
-          _testApp(
-            initialMode: AppMode.biteScore,
-            incomingDeepLinks: incomingLinks.stream,
-            onSubscriptionReturnNavigationClaimed: navigationClaims.add,
-            onSubscriptionReturnMessageEmitted: emittedMessages.add,
-            restaurantUserSignedIn: true,
-          ),
-        );
-
-        incomingLinks.add(Uri.parse(checkoutCase.uri));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-
+        expect(claims, hasLength(1));
+        expect(claims.single.kind, returnCase.kind);
+        expect(messages, <String>[returnCase.message]);
         expect(AppModeStateService.selectedMode.value, AppMode.biteSaver);
         expect(find.text('Restaurant Hub Page'), findsOneWidget);
-        expect(navigationClaims, hasLength(1));
-        expect(navigationClaims.single.kind, checkoutCase.kind);
+        expect(find.text(returnCase.message), findsOneWidget);
+        expect(backend.claimCalls, 1);
         expect(
-          SubscriptionReturnService.peekPendingRefresh()?.id,
-          navigationClaims.single.id,
+          await _awaitServiceOperation(
+            tester,
+            SubscriptionReturnService.pendingLocalDeliveryCount,
+          ),
+          0,
         );
-        expect(emittedMessages, <String>[checkoutCase.message]);
-        expect(find.text(checkoutCase.message), findsOneWidget);
-        for (final otherCase in _subscriptionReturnCases.where(
-          (candidate) => candidate.kind != checkoutCase.kind,
-        )) {
-          expect(find.text(otherCase.message), findsNothing);
-        }
-        expect(find.byType(MainNavigationScreen), findsOneWidget);
-        expect(find.byType(RestaurantCreateCouponScreen), findsNothing);
-        expect(find.text('Admin'), findsNothing);
-
-        await tester.pump(const Duration(seconds: 1));
-        expect(navigationClaims, hasLength(1));
-        expect(emittedMessages, hasLength(1));
-        expect(find.byType(MainNavigationScreen), findsOneWidget);
-        expect(find.byType(RestaurantCreateCouponScreen), findsNothing);
-        expect(find.text('Admin'), findsNothing);
-        expect(tester.takeException(), isNull);
       },
     );
   }
+
+  testWidgets(
+    'signed-out return shows neutral auth gate then matching owner redeems',
+    (tester) async {
+      final incoming = StreamController<String>.broadcast(sync: true);
+      final ownerChanges =
+          StreamController<SubscriptionReturnOwnerScope?>.broadcast(sync: true);
+      final claims = <SubscriptionReturnEvent>[];
+      SubscriptionReturnOwnerScope? currentOwner;
+      addTearDown(incoming.close);
+      addTearDown(ownerChanges.close);
+      backend.reserve(
+        returnToken: _token(10),
+        ownerScope: _ownerA,
+        family: SubscriptionReturnFamily.checkout,
+      );
+
+      await tester.pumpWidget(
+        _testApp(
+          initialMode: AppMode.biteScore,
+          initialIndex: 2,
+          incomingRawDeepLinks: incoming.stream,
+          ownerScopeProvider: () => currentOwner,
+          ownerScopeChanges: ownerChanges.stream,
+          onNavigationClaimed: claims.add,
+          restaurantHubPage: RestaurantAuthScreen(
+            authStateStream: Stream.value(null),
+          ),
+        ),
+      );
+      incoming.add(
+        subscriptionReturnUri(
+          kind: SubscriptionReturnKind.checkoutSuccess,
+          returnToken: _token(10),
+        ),
+      );
+      await _pumpUntil(
+        tester,
+        () => find.text('Restaurant Sign In').evaluate().isNotEmpty,
+      );
+      expect(claims, isEmpty);
+      expect(backend.redeemCalls, 0);
+      expect(
+        await _awaitServiceOperation(
+          tester,
+          SubscriptionReturnService.pendingLocalDeliveryCount,
+        ),
+        1,
+      );
+
+      currentOwner = _ownerA;
+      backend.authenticatedUid = _ownerA.uid;
+      ownerChanges.add(_ownerA);
+      await _pumpUntil(tester, () => claims.isNotEmpty);
+      expect(claims, hasLength(1));
+      expect(
+        await _awaitServiceOperation(
+          tester,
+          SubscriptionReturnService.pendingLocalDeliveryCount,
+        ),
+        0,
+      );
+    },
+  );
+
+  testWidgets('wrong owner stays silent and matching owner can redeem later', (
+    tester,
+  ) async {
+    final incoming = StreamController<String>.broadcast(sync: true);
+    final ownerChanges =
+        StreamController<SubscriptionReturnOwnerScope?>.broadcast(sync: true);
+    final claims = <SubscriptionReturnEvent>[];
+    final messages = <String>[];
+    var currentOwner = _ownerB;
+    addTearDown(incoming.close);
+    addTearDown(ownerChanges.close);
+    backend.reserve(
+      returnToken: _token(11),
+      ownerScope: _ownerA,
+      family: SubscriptionReturnFamily.customerPortal,
+    );
+    backend.authenticatedUid = _ownerB.uid;
+
+    await tester.pumpWidget(
+      _testApp(
+        initialMode: AppMode.biteScore,
+        initialIndex: 2,
+        incomingRawDeepLinks: incoming.stream,
+        ownerScopeProvider: () => currentOwner,
+        ownerScopeChanges: ownerChanges.stream,
+        onNavigationClaimed: claims.add,
+        onMessageEmitted: messages.add,
+      ),
+    );
+    incoming.add(
+      subscriptionReturnUri(
+        kind: SubscriptionReturnKind.customerPortal,
+        returnToken: _token(11),
+      ),
+    );
+    await _settleAsync(tester);
+    expect(claims, isEmpty);
+    expect(messages, isEmpty);
+    expect(find.text('Account Page'), findsOneWidget);
+    expect(
+      await _awaitServiceOperation(
+        tester,
+        SubscriptionReturnService.pendingLocalDeliveryCount,
+      ),
+      1,
+    );
+
+    currentOwner = _ownerA;
+    backend.authenticatedUid = _ownerA.uid;
+    ownerChanges.add(_ownerA);
+    await _pumpUntil(tester, () => claims.isNotEmpty);
+    expect(claims, hasLength(1));
+    expect(messages, hasLength(1));
+  });
+
+  testWidgets('same UID different document cannot consume or claim', (
+    tester,
+  ) async {
+    final incoming = StreamController<String>.broadcast(sync: true);
+    final ownerChanges =
+        StreamController<SubscriptionReturnOwnerScope?>.broadcast(sync: true);
+    final claims = <SubscriptionReturnEvent>[];
+    var currentOwner = _ownerASibling;
+    addTearDown(incoming.close);
+    addTearDown(ownerChanges.close);
+    backend.reserve(
+      returnToken: _token(12),
+      ownerScope: _ownerA,
+      family: SubscriptionReturnFamily.checkout,
+    );
+    backend.authenticatedUid = _ownerA.uid;
+    await tester.pumpWidget(
+      _testApp(
+        incomingRawDeepLinks: incoming.stream,
+        ownerScopeProvider: () => currentOwner,
+        ownerScopeChanges: ownerChanges.stream,
+        onNavigationClaimed: claims.add,
+      ),
+    );
+    incoming.add(
+      subscriptionReturnUri(
+        kind: SubscriptionReturnKind.checkoutCancel,
+        returnToken: _token(12),
+      ),
+    );
+    await _settleAsync(tester);
+    expect(claims, isEmpty);
+    expect(
+      await _awaitServiceOperation(
+        tester,
+        SubscriptionReturnService.pendingLocalDeliveryCount,
+      ),
+      1,
+    );
+
+    currentOwner = _ownerA;
+    ownerChanges.add(_ownerA);
+    await _pumpUntil(tester, () => claims.isNotEmpty);
+    expect(claims, hasLength(1));
+  });
+
+  testWidgets('two shells produce one server-authoritative navigation action', (
+    tester,
+  ) async {
+    final incoming = StreamController<String>.broadcast(sync: true);
+    final claims = <String>[];
+    addTearDown(incoming.close);
+    backend.reserve(
+      returnToken: _token(13),
+      ownerScope: _ownerA,
+      family: SubscriptionReturnFamily.checkout,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: rootNavigatorKey,
+        scaffoldMessengerKey: rootScaffoldMessengerKey,
+        home: Stack(
+          children: <Widget>[
+            for (final shell in <String>['first', 'second'])
+              MainNavigationScreen(
+                key: ValueKey<String>(shell),
+                initializePlatformServices: false,
+                testIncomingRawDeepLinks: incoming.stream,
+                testSubscriptionReturnOwnerScopeProvider: () => _ownerA,
+                testOnSubscriptionReturnNavigationClaimed: (_) =>
+                    claims.add(shell),
+                testSuppressSubscriptionReturnSnackBar: true,
+                testAuthenticatedRestaurantHubBuilder: (_) =>
+                    Text('$shell authenticated hub'),
+                testPagesBuilder: (mode) => <Widget>[
+                  Text('$shell ${mode.name} home'),
+                  Text('$shell hub'),
+                  Text('$shell account'),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+    incoming.add(
+      subscriptionReturnUri(
+        kind: SubscriptionReturnKind.checkoutSuccess,
+        returnToken: _token(13),
+      ),
+    );
+    await _pumpUntil(tester, () => claims.isNotEmpty);
+    await _settleAsync(tester);
+    expect(claims, hasLength(1));
+  });
+
+  testWidgets(
+    'permanent navigation claim failure does not retry its own announcement',
+    (tester) async {
+      final claims = <SubscriptionReturnEvent>[];
+      backend
+        ..addPendingEvent(
+          ownerScope: _ownerA,
+          eventId: '1',
+          kind: SubscriptionReturnKind.customerPortal,
+        )
+        ..failClaim = true;
+
+      await tester.pumpWidget(
+        _testApp(
+          incomingRawDeepLinks: const Stream<String>.empty(),
+          ownerScopeProvider: () => _ownerA,
+          onNavigationClaimed: claims.add,
+        ),
+      );
+      await _pumpUntil(tester, () => backend.claimCalls == 1);
+      await _settleAsync(tester);
+
+      expect(backend.claimCalls, 1);
+      expect(claims, isEmpty);
+      expect(find.text('biteSaver Home Page'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'genuine delivery during a blocked failed claim schedules one later drain',
+    (tester) async {
+      final incoming = StreamController<String>.broadcast(sync: true);
+      final claims = <SubscriptionReturnEvent>[];
+      final secondToken = _token(31);
+      addTearDown(incoming.close);
+      backend
+        ..addPendingEvent(
+          ownerScope: _ownerA,
+          eventId: '1',
+          kind: SubscriptionReturnKind.customerPortal,
+        )
+        ..reserve(
+          returnToken: secondToken,
+          ownerScope: _ownerA,
+          family: SubscriptionReturnFamily.checkout,
+        )
+        ..failClaim = true
+        ..claimStarted = Completer<void>()
+        ..releaseClaim = Completer<void>();
+
+      await tester.pumpWidget(
+        _testApp(
+          incomingRawDeepLinks: incoming.stream,
+          ownerScopeProvider: () => _ownerA,
+          onNavigationClaimed: claims.add,
+        ),
+      );
+      await _pumpUntil(tester, () => backend.claimStarted!.isCompleted);
+
+      incoming.add(
+        subscriptionReturnUri(
+          kind: SubscriptionReturnKind.checkoutSuccess,
+          returnToken: secondToken,
+        ),
+      );
+      expect(
+        await _awaitServiceOperation(
+          tester,
+          SubscriptionReturnService.pendingLocalDeliveryCount,
+        ),
+        1,
+      );
+
+      backend.releaseClaim!.complete();
+      await _pumpUntil(
+        tester,
+        () => backend.claimCalls == 2 && backend.redeemCalls == 1,
+      );
+      await _settleAsync(tester);
+
+      expect(backend.claimCalls, 2);
+      expect(backend.redeemCalls, 1);
+      expect(claims, isEmpty);
+      expect(
+        await _awaitServiceOperation(
+          tester,
+          SubscriptionReturnService.pendingLocalDeliveryCount,
+        ),
+        0,
+      );
+    },
+  );
+
+  testWidgets(
+    'owner transition waits for the active claim drain before later retry',
+    (tester) async {
+      final ownerChanges =
+          StreamController<SubscriptionReturnOwnerScope?>.broadcast(sync: true);
+      final claims = <SubscriptionReturnEvent>[];
+      var currentOwner = _ownerA;
+      addTearDown(ownerChanges.close);
+      backend
+        ..addPendingEvent(
+          ownerScope: _ownerA,
+          eventId: '1',
+          kind: SubscriptionReturnKind.checkoutCancel,
+        )
+        ..claimStarted = Completer<void>()
+        ..releaseClaim = Completer<void>();
+
+      await tester.pumpWidget(
+        _testApp(
+          incomingRawDeepLinks: const Stream<String>.empty(),
+          ownerScopeProvider: () => currentOwner,
+          ownerScopeChanges: ownerChanges.stream,
+          onNavigationClaimed: claims.add,
+        ),
+      );
+      await _pumpUntil(tester, () => backend.claimStarted!.isCompleted);
+      expect(backend.claimCalls, 1);
+
+      currentOwner = _ownerB;
+      backend.authenticatedUid = _ownerB.uid;
+      ownerChanges.add(_ownerB);
+      await _settleAsync(tester);
+      expect(backend.claimCalls, 1);
+
+      backend.releaseClaim!.complete();
+      await _settleAsync(tester);
+      expect(backend.claimCalls, 1);
+      expect(claims, isEmpty);
+
+      currentOwner = _ownerA;
+      backend.authenticatedUid = _ownerA.uid;
+      ownerChanges.add(_ownerA);
+      await _pumpUntil(tester, () => claims.isNotEmpty);
+
+      expect(backend.claimCalls, 2);
+      expect(claims, hasLength(1));
+      expect(claims.single.ownerScope, _ownerA);
+    },
+  );
 
   testWidgets('three destinations do not overflow narrow scaled layouts', (
     tester,
@@ -728,34 +534,9 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
-
-    await tester.pumpWidget(_testApp(textScaler: const TextScaler.linear(2.5)));
-
-    expect(tester.takeException(), isNull);
-    expect(find.text('Restaurant\nHub'), findsOneWidget);
-  });
-
-  testWidgets('portal return remains safe in a narrow scaled layout', (
-    tester,
-  ) async {
-    tester.view.physicalSize = const Size(320, 640);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-    final incomingLinks = StreamController<Uri>.broadcast();
-    addTearDown(incomingLinks.close);
-
-    await tester.pumpWidget(
-      _testApp(
-        textScaler: const TextScaler.linear(2.5),
-        incomingDeepLinks: incomingLinks.stream,
-      ),
-    );
-    incomingLinks.add(Uri.parse(subscriptionPortalReturnUri));
+    await tester.pumpWidget(_testApp(textScaler: const TextScaler.linear(1.5)));
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-
-    expect(find.text('Restaurant Hub Page'), findsOneWidget);
+    expect(find.text('Restaurant\nHub'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 }
@@ -764,34 +545,29 @@ Widget _testApp({
   int initialIndex = 0,
   AppMode initialMode = AppMode.biteSaver,
   TextScaler textScaler = TextScaler.noScaling,
-  Stream<Uri>? incomingDeepLinks,
   Stream<String>? incomingRawDeepLinks,
   Widget? restaurantHubPage,
-  ValueChanged<SubscriptionReturnEvent>? onSubscriptionReturnNavigationClaimed,
-  ValueChanged<String>? onSubscriptionReturnMessageEmitted,
-  bool? restaurantUserSignedIn,
-  WidgetBuilder? authenticatedRestaurantHubBuilder,
-  List<NavigatorObserver> navigatorObservers = const <NavigatorObserver>[],
+  ValueChanged<SubscriptionReturnEvent>? onNavigationClaimed,
+  ValueChanged<String>? onMessageEmitted,
+  SubscriptionReturnOwnerScope? Function()? ownerScopeProvider,
+  Stream<SubscriptionReturnOwnerScope?>? ownerScopeChanges,
 }) {
   return MaterialApp(
     navigatorKey: rootNavigatorKey,
     scaffoldMessengerKey: rootScaffoldMessengerKey,
-    navigatorObservers: navigatorObservers,
     home: MediaQuery(
       data: MediaQueryData(textScaler: textScaler),
       child: MainNavigationScreen(
         initialMode: initialMode,
         initialIndex: initialIndex,
         initializePlatformServices: false,
-        testIncomingDeepLinks: incomingDeepLinks,
         testIncomingRawDeepLinks: incomingRawDeepLinks,
-        testOnSubscriptionReturnNavigationClaimed:
-            onSubscriptionReturnNavigationClaimed,
-        testOnSubscriptionReturnMessageEmitted:
-            onSubscriptionReturnMessageEmitted,
-        testRestaurantUserSignedIn: restaurantUserSignedIn,
-        testAuthenticatedRestaurantHubBuilder:
-            authenticatedRestaurantHubBuilder,
+        testOnSubscriptionReturnNavigationClaimed: onNavigationClaimed,
+        testOnSubscriptionReturnMessageEmitted: onMessageEmitted,
+        testSubscriptionReturnOwnerScopeProvider: ownerScopeProvider,
+        testSubscriptionReturnOwnerScopeChanges: ownerScopeChanges,
+        testAuthenticatedRestaurantHubBuilder: (_) =>
+            const Center(child: Text('Restaurant Hub Page')),
         testPagesBuilder: (mode) => <Widget>[
           Center(child: Text('${mode.name} Home Page')),
           restaurantHubPage ?? const Center(child: Text('Restaurant Hub Page')),
@@ -802,53 +578,51 @@ Widget _testApp({
   );
 }
 
-class _RecordingNavigatorObserver extends NavigatorObserver {
-  final List<Route<dynamic>> pushedRoutes = <Route<dynamic>>[];
+Future<void> _pumpUntil(WidgetTester tester, bool Function() condition) async {
+  for (var attempt = 0; attempt < 60; attempt += 1) {
+    if (condition()) {
+      await tester.pump();
+      return;
+    }
+    await tester.runAsync<void>(
+      () => Future<void>.delayed(const Duration(milliseconds: 1)),
+    );
+    await tester.pump(const Duration(milliseconds: 25));
+  }
+  expect(condition(), isTrue);
+}
 
-  @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    pushedRoutes.add(route);
-    super.didPush(route, previousRoute);
+Future<void> _settleAsync(WidgetTester tester) async {
+  for (var attempt = 0; attempt < 12; attempt += 1) {
+    await tester.runAsync<void>(
+      () => Future<void>.delayed(const Duration(milliseconds: 1)),
+    );
+    await tester.pump(const Duration(milliseconds: 25));
   }
 }
 
-Widget _twoShellTestApp({
-  required Stream<Uri> incomingDeepLinks,
-  required void Function(String shell, SubscriptionReturnEvent event)
-  onNavigationClaimed,
-  required ValueChanged<String> onMessageEmitted,
-  bool? restaurantUserSignedIn,
-  bool useRestaurantAuthGate = false,
-}) {
-  MainNavigationScreen shell(String label) {
-    final restaurantHubPage = useRestaurantAuthGate
-        ? RestaurantAuthScreen(
-            key: ValueKey<String>('$label-auth-gate'),
-            authStateStream: Stream.value(null),
-          )
-        : Center(child: Text('$label Restaurant Hub Page'));
-    return MainNavigationScreen(
-      key: ValueKey<String>(label),
-      initialMode: AppMode.biteScore,
-      initialIndex: 2,
-      initializePlatformServices: false,
-      testIncomingDeepLinks: incomingDeepLinks,
-      testOnSubscriptionReturnNavigationClaimed: (event) {
-        onNavigationClaimed(label, event);
-      },
-      testOnSubscriptionReturnMessageEmitted: onMessageEmitted,
-      testRestaurantUserSignedIn: restaurantUserSignedIn,
-      testPagesBuilder: (mode) => <Widget>[
-        Center(child: Text('$label ${mode.name} Home Page')),
-        restaurantHubPage,
-        Center(child: Text('$label Account Page')),
-      ],
-    );
-  }
-
-  return MaterialApp(
-    navigatorKey: rootNavigatorKey,
-    scaffoldMessengerKey: rootScaffoldMessengerKey,
-    home: Stack(children: <Widget>[shell('First'), shell('Second')]),
+Future<T> _awaitServiceOperation<T>(
+  WidgetTester tester,
+  Future<T> operation,
+) async {
+  T? result;
+  Object? error;
+  StackTrace? stackTrace;
+  var completed = false;
+  operation.then<void>(
+    (value) {
+      result = value;
+      completed = true;
+    },
+    onError: (Object caught, StackTrace caughtStackTrace) {
+      error = caught;
+      stackTrace = caughtStackTrace;
+      completed = true;
+    },
   );
+  await _pumpUntil(tester, () => completed);
+  if (error != null) {
+    Error.throwWithStackTrace(error!, stackTrace!);
+  }
+  return result as T;
 }

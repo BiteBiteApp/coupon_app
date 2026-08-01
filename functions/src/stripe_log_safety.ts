@@ -2,6 +2,7 @@ const STRIPE_LOG_STAGES = Object.freeze([
   "webhook_signature_verification",
   "webhook_event_processing",
   "webhook_subscription_sync",
+  "checkout_session_creation",
   "customer_portal_session_creation",
 ] as const);
 

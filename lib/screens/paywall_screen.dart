@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 
-import '../services/subscription_checkout_service.dart';
-import '../services/subscription_return_service.dart';
+typedef PaywallSubscriptionStarter = Future<void> Function();
 
 class PaywallScreen extends StatefulWidget {
-  const PaywallScreen({super.key});
+  final PaywallSubscriptionStarter startSubscription;
+
+  const PaywallScreen({super.key, required this.startSubscription});
 
   @override
   State<PaywallScreen> createState() => _PaywallScreenState();
@@ -23,10 +24,8 @@ class _PaywallScreenState extends State<PaywallScreen> {
     });
 
     try {
-      await SubscriptionReturnService.markRestaurantHubCheckoutStarted();
-      await SubscriptionCheckoutService.startCheckout();
+      await widget.startSubscription();
     } catch (_) {
-      await SubscriptionReturnService.clearPendingReturnContext();
       if (!mounted) {
         return;
       }

@@ -67,6 +67,31 @@ import {
   SubscriptionPortalConfigurationError,
   requireCanonicalSubscriptionPortalReturnUrl,
 } from "./subscription_portal_config.js";
+import {
+  buildSubscriptionCheckoutReturnUrls,
+  buildSubscriptionReturnUrl,
+  generateSubscriptionReturnToken,
+  subscriptionReturnProtocolVersion,
+  subscriptionReturnUpdateRequiredMessage,
+} from "./subscription_return_token.js";
+import {
+  SubscriptionReturnLedgerError,
+  claimSubscriptionReturnEvent,
+  hashSubscriptionReturnToken,
+  listSubscriptionReturnEvents,
+  markSubscriptionReturnContextReady,
+  parseSubscriptionReturnClaimRequest,
+  parseSubscriptionReturnListRequest,
+  parseSubscriptionReturnRedeemRequest,
+  parseSubscriptionReturnSessionRequest,
+  redeemSubscriptionReturnContext,
+  removeUnreadySubscriptionReturnContext,
+  requireRestaurantAccountOwnership,
+  reserveSubscriptionReturnContext,
+  subscriptionReturnLedgerCollection,
+  type SubscriptionReturnFamily,
+  type SubscriptionReturnSessionRequest,
+} from "./subscription_return_ledger.js";
 import { stripeLogMetadata } from "./stripe_log_safety.js";
 
 initializeApp();
@@ -98,6 +123,215 @@ const subscriptionReturnSuccessUri = "bitesaver://subscription-success";
 const subscriptionReturnCancelUri = "bitesaver://subscription-cancel";
 const restaurantInviteCollection = "restaurant_invites";
 const restaurantInviteExpirationDays = 90;
+
+function requireTokenizedSubscriptionReturnProtocol(
+  data: unknown,
+): SubscriptionReturnSessionRequest {
+  try {
+    return parseSubscriptionReturnSessionRequest(data);
+  } catch {
+    throw new HttpsError(
+      "failed-precondition",
+      subscriptionReturnUpdateRequiredMessage,
+    );
+  }
+}
+
+function requireSubscriptionReturnRequest<T>(
+  data: unknown,
+  parse: (value: unknown) => T,
+): T {
+  try {
+    return parse(data);
+  } catch {
+    throw new HttpsError(
+      "failed-precondition",
+      subscriptionReturnUpdateRequiredMessage,
+    );
+  }
+}
+
+function requireMatchingSubscriptionReturnOwnerDocument(
+  ownerUid: string,
+  restaurantAccountDocumentId: string,
+): void {
+  if (ownerUid !== restaurantAccountDocumentId) {
+    throw new HttpsError(
+      "permission-denied",
+      "Subscription return is unavailable.",
+    );
+  }
+}
+
+const subscriptionReturnTokenCollisionAttempts = 8;
+
+type ReservedSubscriptionReturnContext = Readonly<{
+  returnToken: string;
+  tokenHash: string;
+  accountData: DocumentData;
+}>;
+
+function subscriptionReturnStateRef(restaurantAccountDocumentId: string) {
+  return db
+    .collection(subscriptionReturnLedgerCollection)
+    .doc(restaurantAccountDocumentId);
+}
+
+function throwSubscriptionReturnLedgerHttpsError(error: unknown): never {
+  if (error instanceof HttpsError) {
+    throw error;
+  }
+  if (error instanceof SubscriptionReturnLedgerError) {
+    if (error.code === "invalid_owner") {
+      throw new HttpsError(
+        "permission-denied",
+        "Subscription return is unavailable.",
+      );
+    }
+    if (error.code === "capacity_exhausted") {
+      throw new HttpsError(
+        "resource-exhausted",
+        "Subscription return state is temporarily unavailable.",
+      );
+    }
+    if (
+      error.code === "context_unavailable" ||
+      error.code === "event_unavailable"
+    ) {
+      throw new HttpsError(
+        "failed-precondition",
+        "Subscription return is unavailable.",
+      );
+    }
+  }
+  throw new HttpsError(
+    "internal",
+    "Subscription return state is unavailable.",
+  );
+}
+
+async function reserveServerSubscriptionReturnContext(params: {
+  ownerUid: string;
+  restaurantAccountDocumentId: string;
+  family: SubscriptionReturnFamily;
+  validateAccount?: (accountData: DocumentData) => void;
+}): Promise<ReservedSubscriptionReturnContext> {
+  const accountRef = db
+    .collection("restaurant_accounts")
+    .doc(params.restaurantAccountDocumentId);
+  const stateRef = subscriptionReturnStateRef(
+    params.restaurantAccountDocumentId,
+  );
+
+  for (
+    let attempt = 0;
+    attempt < subscriptionReturnTokenCollisionAttempts;
+    attempt += 1
+  ) {
+    try {
+      return await db.runTransaction(async (transaction) => {
+        const accountSnapshot = await transaction.get(accountRef);
+        const rawAccountData = accountSnapshot.data();
+        requireRestaurantAccountOwnership({
+          ownerUid: params.ownerUid,
+          restaurantAccountDocumentId:
+            params.restaurantAccountDocumentId,
+          accountExists: accountSnapshot.exists,
+          accountData: rawAccountData,
+        });
+        const safeAccountData = rawAccountData ?? {};
+        params.validateAccount?.(safeAccountData);
+        const stateSnapshot = await transaction.get(stateRef);
+        const returnToken = generateSubscriptionReturnToken();
+        const tokenHash = hashSubscriptionReturnToken(returnToken);
+        const nextState = reserveSubscriptionReturnContext({
+          rawState: stateSnapshot.exists
+            ? stateSnapshot.data()
+            : undefined,
+          ownerUid: params.ownerUid,
+          restaurantAccountDocumentId:
+            params.restaurantAccountDocumentId,
+          tokenHash,
+          family: params.family,
+          nowEpochMs: Date.now(),
+        });
+        transaction.set(stateRef, nextState);
+        return Object.freeze({returnToken, tokenHash, accountData: safeAccountData});
+      });
+    } catch (error) {
+      if (
+        error instanceof SubscriptionReturnLedgerError &&
+        error.code === "token_hash_collision"
+      ) {
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new SubscriptionReturnLedgerError("token_hash_collision");
+}
+
+async function markServerSubscriptionReturnContextReady(params: {
+  ownerUid: string;
+  restaurantAccountDocumentId: string;
+  tokenHash: string;
+}): Promise<void> {
+  const stateRef = subscriptionReturnStateRef(
+    params.restaurantAccountDocumentId,
+  );
+  await db.runTransaction(async (transaction) => {
+    const stateSnapshot = await transaction.get(stateRef);
+    if (!stateSnapshot.exists) {
+      throw new SubscriptionReturnLedgerError("context_unavailable");
+    }
+    const nextState = markSubscriptionReturnContextReady({
+      rawState: stateSnapshot.data(),
+      ownerUid: params.ownerUid,
+      restaurantAccountDocumentId: params.restaurantAccountDocumentId,
+      tokenHash: params.tokenHash,
+      nowEpochMs: Date.now(),
+    });
+    transaction.set(stateRef, nextState);
+  });
+}
+
+async function removeUnreadyServerSubscriptionReturnContext(params: {
+  ownerUid: string;
+  restaurantAccountDocumentId: string;
+  tokenHash: string;
+}): Promise<void> {
+  const stateRef = subscriptionReturnStateRef(
+    params.restaurantAccountDocumentId,
+  );
+  await db.runTransaction(async (transaction) => {
+    const stateSnapshot = await transaction.get(stateRef);
+    if (!stateSnapshot.exists) {
+      return;
+    }
+    const nextState = removeUnreadySubscriptionReturnContext({
+      rawState: stateSnapshot.data(),
+      ownerUid: params.ownerUid,
+      restaurantAccountDocumentId: params.restaurantAccountDocumentId,
+      tokenHash: params.tokenHash,
+      nowEpochMs: Date.now(),
+    });
+    transaction.set(stateRef, nextState);
+  });
+}
+
+async function bestEffortRemoveUnreadySubscriptionReturnContext(params: {
+  ownerUid: string;
+  restaurantAccountDocumentId: string;
+  tokenHash: string;
+}): Promise<void> {
+  try {
+    await removeUnreadyServerSubscriptionReturnContext(params);
+  } catch {
+    logger.warn("Subscription return context cleanup incomplete", {
+      reason: "context_cleanup_failed",
+    });
+  }
+}
 
 function biteSaverAccountSnapshot(
   exists: boolean,
@@ -2347,24 +2581,61 @@ export const createSubscriptionCheckoutSession = onCall(
     if (!request.auth?.uid) {
       throw new HttpsError("unauthenticated", "Authentication is required.");
     }
+    const protocolRequest =
+      requireTokenizedSubscriptionReturnProtocol(request.data);
 
-    const successUrl =
+    const successBaseUrl =
       stripeCheckoutSuccessUrl || hostedStripeCheckoutSuccessUrl;
-    const cancelUrl = stripeCheckoutCancelUrl || hostedStripeCheckoutCancelUrl;
-    if (!successUrl || !cancelUrl) {
+    const cancelBaseUrl =
+      stripeCheckoutCancelUrl || hostedStripeCheckoutCancelUrl;
+    if (!successBaseUrl || !cancelBaseUrl) {
       throw new HttpsError(
         "failed-precondition",
         "Stripe Checkout is not configured.",
       );
     }
 
-    const stripe = new Stripe(stripeSecretKey.value(), {
-      apiVersion: "2025-08-27.basil",
-    });
-
     const ownerUid = request.auth.uid;
-
+    requireMatchingSubscriptionReturnOwnerDocument(
+      ownerUid,
+      protocolRequest.restaurantAccountDocumentId,
+    );
+    let reserved: ReservedSubscriptionReturnContext;
     try {
+      reserved = await reserveServerSubscriptionReturnContext({
+        ownerUid,
+        restaurantAccountDocumentId:
+          protocolRequest.restaurantAccountDocumentId,
+        family: "checkout",
+      });
+    } catch (error) {
+      if (
+        error instanceof HttpsError ||
+        error instanceof SubscriptionReturnLedgerError
+      ) {
+        throwSubscriptionReturnLedgerHttpsError(error);
+      }
+      logger.error(
+        "Stripe subscription Checkout session creation failed",
+        stripeLogMetadata("checkout_session_creation", error),
+      );
+      throw new HttpsError(
+        "internal",
+        "Could not start Stripe Checkout.",
+      );
+    }
+
+    let checkoutUrl: string;
+    try {
+      const {successUrl, cancelUrl} =
+        buildSubscriptionCheckoutReturnUrls({
+          successBaseUrl,
+          cancelBaseUrl,
+          returnToken: reserved.returnToken,
+        });
+      const stripe = new Stripe(stripeSecretKey.value(), {
+        apiVersion: "2025-08-27.basil",
+      });
       const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData =
         {
           metadata: {
@@ -2400,21 +2671,45 @@ export const createSubscriptionCheckoutSession = onCall(
         );
       }
 
-      return {
-        checkoutUrl: session.url,
-      };
+      checkoutUrl = session.url;
     } catch (error) {
-      logger.error("Failed to create Stripe Checkout session", {
+      await bestEffortRemoveUnreadySubscriptionReturnContext({
         ownerUid,
-        error,
+        restaurantAccountDocumentId:
+          protocolRequest.restaurantAccountDocumentId,
+        tokenHash: reserved.tokenHash,
       });
+      logger.error(
+        "Stripe subscription Checkout session creation failed",
+        stripeLogMetadata("checkout_session_creation", error),
+      );
       throw new HttpsError(
         "internal",
-        error instanceof Error
-          ? error.message
-          : "Could not start Stripe Checkout.",
+        "Could not start Stripe Checkout.",
       );
     }
+    try {
+      await markServerSubscriptionReturnContextReady({
+        ownerUid,
+        restaurantAccountDocumentId:
+          protocolRequest.restaurantAccountDocumentId,
+        tokenHash: reserved.tokenHash,
+      });
+    } catch (error) {
+      logger.error(
+        "Stripe subscription Checkout return context activation failed",
+        stripeLogMetadata("checkout_session_creation", error),
+      );
+      throw new HttpsError(
+        "internal",
+        "Could not start Stripe Checkout.",
+      );
+    }
+    return {
+      checkoutUrl,
+      returnToken: reserved.returnToken,
+      returnProtocolVersion: subscriptionReturnProtocolVersion,
+    };
   },
 );
 
@@ -2426,27 +2721,62 @@ export const createCheckoutSession = onCall(
     if (!request.auth?.uid) {
       throw new HttpsError("unauthenticated", "Authentication is required.");
     }
+    const protocolRequest =
+      requireTokenizedSubscriptionReturnProtocol(request.data);
 
-    const successUrl =
+    const successBaseUrl =
       stripeCheckoutSuccessUrl || hostedStripeCheckoutSuccessUrl;
-    const cancelUrl = stripeCheckoutCancelUrl || hostedStripeCheckoutCancelUrl;
-    if (!successUrl || !cancelUrl) {
+    const cancelBaseUrl =
+      stripeCheckoutCancelUrl || hostedStripeCheckoutCancelUrl;
+    if (!successBaseUrl || !cancelBaseUrl) {
       throw new HttpsError(
         "failed-precondition",
         "Stripe Checkout is not configured.",
       );
     }
 
+    const ownerUid = request.auth.uid;
+    requireMatchingSubscriptionReturnOwnerDocument(
+      ownerUid,
+      protocolRequest.restaurantAccountDocumentId,
+    );
+    let reserved: ReservedSubscriptionReturnContext;
     try {
+      reserved = await reserveServerSubscriptionReturnContext({
+        ownerUid,
+        restaurantAccountDocumentId:
+          protocolRequest.restaurantAccountDocumentId,
+        family: "checkout",
+      });
+    } catch (error) {
+      if (
+        error instanceof HttpsError ||
+        error instanceof SubscriptionReturnLedgerError
+      ) {
+        throwSubscriptionReturnLedgerHttpsError(error);
+      }
+      logger.error(
+        "Stripe Checkout session creation failed",
+        stripeLogMetadata("checkout_session_creation", error),
+      );
+      throw new HttpsError(
+        "internal",
+        "Failed to create checkout session",
+      );
+    }
+    const hasUsedTrial = reserved.accountData.hasUsedTrial === true;
+
+    let checkoutUrl: string;
+    try {
+      const {successUrl, cancelUrl} =
+        buildSubscriptionCheckoutReturnUrls({
+          successBaseUrl,
+          cancelBaseUrl,
+          returnToken: reserved.returnToken,
+        });
       const stripe = new Stripe(stripeSecret.value(), {
         apiVersion: "2025-08-27.basil",
       });
-
-      const ownerUid = request.auth.uid;
-      const accountRef = db.collection("restaurant_accounts").doc(ownerUid);
-      const accountSnap = await accountRef.get();
-      const hasUsedTrial = accountSnap.data()?.hasUsedTrial === true;
-
       const includeTrial = !hasUsedTrial;
       const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData =
         {
@@ -2480,18 +2810,52 @@ export const createCheckoutSession = onCall(
         cancel_url: cancelUrl,
       });
 
-      return {
-        url: session.url,
-      };
+      if (!session.url) {
+        throw new HttpsError(
+          "internal",
+          "Stripe Checkout did not return a URL.",
+        );
+      }
+
+      checkoutUrl = session.url;
     } catch (error) {
-      logger.error("Failed to create checkout session", { error });
+      await bestEffortRemoveUnreadySubscriptionReturnContext({
+        ownerUid,
+        restaurantAccountDocumentId:
+          protocolRequest.restaurantAccountDocumentId,
+        tokenHash: reserved.tokenHash,
+      });
+      logger.error(
+        "Stripe Checkout session creation failed",
+        stripeLogMetadata("checkout_session_creation", error),
+      );
       throw new HttpsError(
         "internal",
-        error instanceof Error
-          ? error.message
-          : "Failed to create checkout session",
+        "Failed to create checkout session",
       );
     }
+    try {
+      await markServerSubscriptionReturnContextReady({
+        ownerUid,
+        restaurantAccountDocumentId:
+          protocolRequest.restaurantAccountDocumentId,
+        tokenHash: reserved.tokenHash,
+      });
+    } catch (error) {
+      logger.error(
+        "Stripe Checkout return context activation failed",
+        stripeLogMetadata("checkout_session_creation", error),
+      );
+      throw new HttpsError(
+        "internal",
+        "Failed to create checkout session",
+      );
+    }
+    return {
+      url: checkoutUrl,
+      returnToken: reserved.returnToken,
+      returnProtocolVersion: subscriptionReturnProtocolVersion,
+    };
   },
 );
 
@@ -2503,10 +2867,12 @@ export const createCustomerPortalSession = onCall(
     if (!request.auth?.uid) {
       throw new HttpsError("unauthenticated", "Authentication is required.");
     }
+    const protocolRequest =
+      requireTokenizedSubscriptionReturnProtocol(request.data);
 
-    let returnUrl: string;
+    let returnBaseUrl: string;
     try {
-      returnUrl = requireCanonicalSubscriptionPortalReturnUrl(
+      returnBaseUrl = requireCanonicalSubscriptionPortalReturnUrl(
         stripeCustomerPortalReturnUrl.value(),
       );
     } catch {
@@ -2526,18 +2892,37 @@ export const createCustomerPortalSession = onCall(
     }
 
     const ownerUid = request.auth.uid;
-    let stripeCustomerId: string;
+    requireMatchingSubscriptionReturnOwnerDocument(
+      ownerUid,
+      protocolRequest.restaurantAccountDocumentId,
+    );
+    let reserved: ReservedSubscriptionReturnContext;
     try {
-      const accountSnapshot = await db
-        .collection("restaurant_accounts")
-        .doc(ownerUid)
-        .get();
-      const accountData = accountSnapshot.data();
-      stripeCustomerId =
-        typeof accountData?.stripeCustomerId === "string"
-          ? accountData.stripeCustomerId.trim()
-          : "";
+      reserved = await reserveServerSubscriptionReturnContext({
+        ownerUid,
+        restaurantAccountDocumentId:
+          protocolRequest.restaurantAccountDocumentId,
+        family: "customerPortal",
+        validateAccount: (accountData) => {
+          const stripeCustomerId =
+            typeof accountData.stripeCustomerId === "string"
+              ? accountData.stripeCustomerId.trim()
+              : "";
+          if (!stripeCustomerId) {
+            throw new HttpsError(
+              "failed-precondition",
+              "No Stripe customer is linked to this restaurant account.",
+            );
+          }
+        },
+      });
     } catch (error) {
+      if (
+        error instanceof HttpsError ||
+        error instanceof SubscriptionReturnLedgerError
+      ) {
+        throwSubscriptionReturnLedgerHttpsError(error);
+      }
       logger.error(
         "Stripe Customer Portal account lookup failed",
         stripeLogMetadata("customer_portal_session_creation", error),
@@ -2547,15 +2932,15 @@ export const createCustomerPortalSession = onCall(
         "Unable to open subscription management right now.",
       );
     }
+    const stripeCustomerId =
+      (reserved.accountData.stripeCustomerId as string).trim();
 
-    if (!stripeCustomerId) {
-      throw new HttpsError(
-        "failed-precondition",
-        "No Stripe customer is linked to this restaurant account.",
-      );
-    }
-
+    let portalUrl: string;
     try {
+      const returnUrl = buildSubscriptionReturnUrl(
+        returnBaseUrl,
+        reserved.returnToken,
+      );
       const stripe = new Stripe(stripeSecret.value(), {
         apiVersion: "2025-08-27.basil",
       });
@@ -2571,10 +2956,14 @@ export const createCustomerPortalSession = onCall(
         );
       }
 
-      return {
-        url: session.url,
-      };
+      portalUrl = session.url;
     } catch (error) {
+      await bestEffortRemoveUnreadySubscriptionReturnContext({
+        ownerUid,
+        restaurantAccountDocumentId:
+          protocolRequest.restaurantAccountDocumentId,
+        tokenHash: reserved.tokenHash,
+      });
       logger.error(
         "Stripe Customer Portal session creation failed",
         stripeLogMetadata("customer_portal_session_creation", error),
@@ -2583,6 +2972,208 @@ export const createCustomerPortalSession = onCall(
         "internal",
         "Unable to open subscription management right now.",
       );
+    }
+    try {
+      await markServerSubscriptionReturnContextReady({
+        ownerUid,
+        restaurantAccountDocumentId:
+          protocolRequest.restaurantAccountDocumentId,
+        tokenHash: reserved.tokenHash,
+      });
+    } catch (error) {
+      logger.error(
+        "Stripe Customer Portal return context activation failed",
+        stripeLogMetadata("customer_portal_session_creation", error),
+      );
+      throw new HttpsError(
+        "internal",
+        "Unable to open subscription management right now.",
+      );
+    }
+    return {
+      url: portalUrl,
+      returnToken: reserved.returnToken,
+      returnProtocolVersion: subscriptionReturnProtocolVersion,
+    };
+  },
+);
+
+export const redeemBiteSaverSubscriptionReturn = onCall(async (request) => {
+  const ownerUid = request.auth?.uid;
+  if (!ownerUid) {
+    throw new HttpsError("unauthenticated", "Authentication is required.");
+  }
+  const parsed = requireSubscriptionReturnRequest(
+    request.data,
+    parseSubscriptionReturnRedeemRequest,
+  );
+  requireMatchingSubscriptionReturnOwnerDocument(
+    ownerUid,
+    parsed.restaurantAccountDocumentId,
+  );
+  const accountRef = db
+    .collection("restaurant_accounts")
+    .doc(parsed.restaurantAccountDocumentId);
+  const stateRef = subscriptionReturnStateRef(
+    parsed.restaurantAccountDocumentId,
+  );
+
+  try {
+    return await db.runTransaction(async (transaction) => {
+      const accountSnapshot = await transaction.get(accountRef);
+      requireRestaurantAccountOwnership({
+        ownerUid,
+        restaurantAccountDocumentId:
+          parsed.restaurantAccountDocumentId,
+        accountExists: accountSnapshot.exists,
+        accountData: accountSnapshot.data(),
+      });
+      const stateSnapshot = await transaction.get(stateRef);
+      if (!stateSnapshot.exists) {
+        throw new SubscriptionReturnLedgerError("context_unavailable");
+      }
+      const tokenHash = hashSubscriptionReturnToken(parsed.returnToken);
+      const outcome = redeemSubscriptionReturnContext({
+        rawState: stateSnapshot.data(),
+        ownerUid,
+        restaurantAccountDocumentId:
+          parsed.restaurantAccountDocumentId,
+        tokenHash,
+        returnKind: parsed.returnKind,
+        nowEpochMs: Date.now(),
+      });
+      if (outcome.created) {
+        transaction.set(stateRef, outcome.state);
+      }
+      return {
+        returnProtocolVersion: subscriptionReturnProtocolVersion,
+        created: outcome.created,
+        eventId: outcome.eventId,
+        returnKind: outcome.returnKind,
+      };
+    });
+  } catch (error) {
+    throwSubscriptionReturnLedgerHttpsError(error);
+  }
+});
+
+export const claimBiteSaverSubscriptionReturnEvent = onCall(
+  async (request) => {
+    const ownerUid = request.auth?.uid;
+    if (!ownerUid) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Authentication is required.",
+      );
+    }
+    const parsed = requireSubscriptionReturnRequest(
+      request.data,
+      parseSubscriptionReturnClaimRequest,
+    );
+    requireMatchingSubscriptionReturnOwnerDocument(
+      ownerUid,
+      parsed.restaurantAccountDocumentId,
+    );
+    const accountRef = db
+      .collection("restaurant_accounts")
+      .doc(parsed.restaurantAccountDocumentId);
+    const stateRef = subscriptionReturnStateRef(
+      parsed.restaurantAccountDocumentId,
+    );
+
+    try {
+      return await db.runTransaction(async (transaction) => {
+        const accountSnapshot = await transaction.get(accountRef);
+        requireRestaurantAccountOwnership({
+          ownerUid,
+          restaurantAccountDocumentId:
+            parsed.restaurantAccountDocumentId,
+          accountExists: accountSnapshot.exists,
+          accountData: accountSnapshot.data(),
+        });
+        const stateSnapshot = await transaction.get(stateRef);
+        if (!stateSnapshot.exists) {
+          throw new SubscriptionReturnLedgerError("event_unavailable");
+        }
+        const outcome = claimSubscriptionReturnEvent({
+          rawState: stateSnapshot.data(),
+          ownerUid,
+          restaurantAccountDocumentId:
+            parsed.restaurantAccountDocumentId,
+          eventId: parsed.eventId,
+          claimType: parsed.claimType,
+          nowEpochMs: Date.now(),
+        });
+        if (outcome.claimed) {
+          transaction.set(stateRef, outcome.state);
+        }
+        return {
+          returnProtocolVersion: subscriptionReturnProtocolVersion,
+          claimed: outcome.claimed,
+          eventId: outcome.eventId,
+          returnKind: outcome.returnKind,
+        };
+      });
+    } catch (error) {
+      throwSubscriptionReturnLedgerHttpsError(error);
+    }
+  },
+);
+
+export const listBiteSaverSubscriptionReturnEvents = onCall(
+  async (request) => {
+    const ownerUid = request.auth?.uid;
+    if (!ownerUid) {
+      throw new HttpsError(
+        "unauthenticated",
+        "Authentication is required.",
+      );
+    }
+    const parsed = requireSubscriptionReturnRequest(
+      request.data,
+      parseSubscriptionReturnListRequest,
+    );
+    requireMatchingSubscriptionReturnOwnerDocument(
+      ownerUid,
+      parsed.restaurantAccountDocumentId,
+    );
+    const accountRef = db
+      .collection("restaurant_accounts")
+      .doc(parsed.restaurantAccountDocumentId);
+    const stateRef = subscriptionReturnStateRef(
+      parsed.restaurantAccountDocumentId,
+    );
+
+    try {
+      return await db.runTransaction(async (transaction) => {
+        const accountSnapshot = await transaction.get(accountRef);
+        requireRestaurantAccountOwnership({
+          ownerUid,
+          restaurantAccountDocumentId:
+            parsed.restaurantAccountDocumentId,
+          accountExists: accountSnapshot.exists,
+          accountData: accountSnapshot.data(),
+        });
+        const stateSnapshot = await transaction.get(stateRef);
+        const outcome = listSubscriptionReturnEvents({
+          rawState: stateSnapshot.exists
+            ? stateSnapshot.data()
+            : undefined,
+          ownerUid,
+          restaurantAccountDocumentId:
+            parsed.restaurantAccountDocumentId,
+          nowEpochMs: Date.now(),
+        });
+        if (outcome.changed && outcome.state !== null) {
+          transaction.set(stateRef, outcome.state);
+        }
+        return {
+          returnProtocolVersion: subscriptionReturnProtocolVersion,
+          events: outcome.events,
+        };
+      });
+    } catch (error) {
+      throwSubscriptionReturnLedgerHttpsError(error);
     }
   },
 );

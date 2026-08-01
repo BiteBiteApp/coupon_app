@@ -1,958 +1,753 @@
 import 'dart:async';
 
+import 'package:coupon_app/services/subscription_checkout_service.dart';
 import 'package:coupon_app/services/subscription_return_service.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
-typedef MalformedCheckoutReturnFixture = ({
-  String category,
-  String rawUri,
-  SubscriptionReturnKind kind,
-  bool verifyParsedSeam,
-});
+import '../support/subscription_return_test_backend.dart';
 
-typedef _MalformedCheckoutReturnFixturePair = ({
-  String category,
-  String successUri,
-  String cancelUri,
-  bool verifyParsedSeam,
-});
-
-const List<_MalformedCheckoutReturnFixturePair>
-_malformedCheckoutReturnFixturePairs = <_MalformedCheckoutReturnFixturePair>[
-  (
-    category: 'leading whitespace',
-    successUri: ' bitesaver://subscription-success',
-    cancelUri: ' bitesaver://subscription-cancel',
-    verifyParsedSeam: false,
-  ),
-  (
-    category: 'trailing whitespace',
-    successUri: 'bitesaver://subscription-success ',
-    cancelUri: 'bitesaver://subscription-cancel ',
-    verifyParsedSeam: false,
-  ),
-  (
-    category: 'trailing slash',
-    successUri: 'bitesaver://subscription-success/',
-    cancelUri: 'bitesaver://subscription-cancel/',
-    verifyParsedSeam: true,
-  ),
-  (
-    category: 'extra path segment',
-    successUri: 'bitesaver://subscription-success/extra',
-    cancelUri: 'bitesaver://subscription-cancel/extra',
-    verifyParsedSeam: true,
-  ),
-  (
-    category: 'populated query',
-    successUri: 'bitesaver://subscription-success?source=caller',
-    cancelUri: 'bitesaver://subscription-cancel?source=caller',
-    verifyParsedSeam: true,
-  ),
-  (
-    category: 'empty query marker',
-    successUri: 'bitesaver://subscription-success?',
-    cancelUri: 'bitesaver://subscription-cancel?',
-    verifyParsedSeam: true,
-  ),
-  (
-    category: 'populated fragment',
-    successUri: 'bitesaver://subscription-success#caller',
-    cancelUri: 'bitesaver://subscription-cancel#caller',
-    verifyParsedSeam: true,
-  ),
-  (
-    category: 'empty fragment marker',
-    successUri: 'bitesaver://subscription-success#',
-    cancelUri: 'bitesaver://subscription-cancel#',
-    verifyParsedSeam: true,
-  ),
-  (
-    category: 'userinfo',
-    successUri: 'bitesaver://user@subscription-success',
-    cancelUri: 'bitesaver://user@subscription-cancel',
-    verifyParsedSeam: true,
-  ),
-  (
-    category: 'explicit port',
-    successUri: 'bitesaver://subscription-success:444',
-    cancelUri: 'bitesaver://subscription-cancel:444',
-    verifyParsedSeam: true,
-  ),
-  (
-    category: 'wrong custom scheme',
-    successUri: 'bitestar://subscription-success',
-    cancelUri: 'bitestar://subscription-cancel',
-    verifyParsedSeam: true,
-  ),
-  (
-    category: 'HTTPS host substitution',
-    successUri: 'https://subscription-success',
-    cancelUri: 'https://subscription-cancel',
-    verifyParsedSeam: true,
-  ),
-  (
-    category: 'HTTPS checkout helper substitution',
-    successUri: 'https://app.bitestar.app/stripe-success.html',
-    cancelUri: 'https://app.bitestar.app/stripe-cancel.html',
-    verifyParsedSeam: true,
-  ),
-  (
-    category: 'extra hostname suffix',
-    successUri: 'bitesaver://subscription-success-extra',
-    cancelUri: 'bitesaver://subscription-cancel-extra',
-    verifyParsedSeam: true,
-  ),
-  (
-    category: 'similar hostname',
-    successUri: 'bitesaver://subscription-successful',
-    cancelUri: 'bitesaver://subscription-cancellation',
-    verifyParsedSeam: true,
-  ),
-  (
-    category: 'percent-encoded path',
-    successUri: 'bitesaver://subscription-success/%65xtra',
-    cancelUri: 'bitesaver://subscription-cancel/%65xtra',
-    verifyParsedSeam: true,
-  ),
-  (
-    category: 'percent-encoded dot path',
-    successUri: 'bitesaver://subscription-success/%2E',
-    cancelUri: 'bitesaver://subscription-cancel/%2E',
-    verifyParsedSeam: true,
-  ),
-  (
-    category: 'additional empty path component',
-    successUri: 'bitesaver://subscription-success//extra',
-    cancelUri: 'bitesaver://subscription-cancel//extra',
-    verifyParsedSeam: true,
-  ),
-  (
-    category: 'additional authority and path components',
-    successUri: 'bitesaver://subscription-success.example/extra',
-    cancelUri: 'bitesaver://subscription-cancel.example/extra',
-    verifyParsedSeam: true,
-  ),
-  (
-    category: 'uppercase scheme',
-    successUri: 'BITESAVER://subscription-success',
-    cancelUri: 'BITESAVER://subscription-cancel',
-    verifyParsedSeam: false,
-  ),
-  (
-    category: 'mixed-case scheme',
-    successUri: 'BiteSaver://subscription-success',
-    cancelUri: 'BiteSaver://subscription-cancel',
-    verifyParsedSeam: false,
-  ),
-  (
-    category: 'uppercase event hostname',
-    successUri: 'bitesaver://SUBSCRIPTION-SUCCESS',
-    cancelUri: 'bitesaver://SUBSCRIPTION-CANCEL',
-    verifyParsedSeam: false,
-  ),
-  (
-    category: 'mixed-case event hostname',
-    successUri: 'bitesaver://Subscription-Success',
-    cancelUri: 'bitesaver://Subscription-Cancel',
-    verifyParsedSeam: false,
-  ),
-  (
-    category: 'uppercase scheme and event hostname',
-    successUri: 'BITESAVER://SUBSCRIPTION-SUCCESS',
-    cancelUri: 'BITESAVER://SUBSCRIPTION-CANCEL',
-    verifyParsedSeam: false,
-  ),
-  (
-    category: 'empty userinfo',
-    successUri: 'bitesaver://@subscription-success',
-    cancelUri: 'bitesaver://@subscription-cancel',
-    verifyParsedSeam: false,
-  ),
-  (
-    category: 'empty explicit port',
-    successUri: 'bitesaver://subscription-success:',
-    cancelUri: 'bitesaver://subscription-cancel:',
-    verifyParsedSeam: false,
-  ),
-  (
-    category: 'explicit zero port',
-    successUri: 'bitesaver://subscription-success:0',
-    cancelUri: 'bitesaver://subscription-cancel:0',
-    verifyParsedSeam: false,
-  ),
-  (
-    category: 'percent-encoded hostname',
-    successUri: 'bitesaver://%73ubscription-success',
-    cancelUri: 'bitesaver://%73ubscription-cancel',
-    verifyParsedSeam: false,
-  ),
-];
-
-final List<MalformedCheckoutReturnFixture> malformedCheckoutReturnFixtures =
-    List<MalformedCheckoutReturnFixture>.unmodifiable(
-      <MalformedCheckoutReturnFixture>[
-        for (final pair in _malformedCheckoutReturnFixturePairs) ...[
-          (
-            category: pair.category,
-            rawUri: pair.successUri,
-            kind: SubscriptionReturnKind.checkoutSuccess,
-            verifyParsedSeam: pair.verifyParsedSeam,
-          ),
-          (
-            category: pair.category,
-            rawUri: pair.cancelUri,
-            kind: SubscriptionReturnKind.checkoutCancel,
-            verifyParsedSeam: pair.verifyParsedSeam,
-          ),
-        ],
-      ],
+final DateTime _now = DateTime.utc(2026, 7, 31, 12);
+const SubscriptionReturnOwnerScope _ownerA = SubscriptionReturnOwnerScope(
+  uid: 'owner-a',
+  accountDocumentId: 'owner-a',
+);
+const SubscriptionReturnOwnerScope _ownerB = SubscriptionReturnOwnerScope(
+  uid: 'owner-b',
+  accountDocumentId: 'owner-b',
+);
+const SubscriptionReturnOwnerScope _ownerASiblingDocument =
+    SubscriptionReturnOwnerScope(
+      uid: 'owner-a',
+      accountDocumentId: 'owner-a-sibling',
     );
 
-const int freshCoordinatorFirstEventId = 0;
+String _token(int seed) =>
+    '${seed.toRadixString(36).padLeft(3, '0')}${'A' * 40}';
 
-String canonicalUriForMalformedCheckoutFixture(
-  MalformedCheckoutReturnFixture fixture,
-) {
-  return switch (fixture.kind) {
-    SubscriptionReturnKind.checkoutSuccess =>
-      subscriptionCheckoutSuccessReturnUri,
-    SubscriptionReturnKind.checkoutCancel =>
-      subscriptionCheckoutCancelReturnUri,
-    SubscriptionReturnKind.customerPortal => throw ArgumentError.value(
-      fixture.kind,
-      'fixture.kind',
-      'Malformed checkout fixtures cannot use the portal event kind.',
+SubscriptionReturnCoordinator _coordinator(
+  FakeSubscriptionReturnBackend backend, {
+  MemorySubscriptionReturnInboxPersistence? persistence,
+}) {
+  final coordinator = SubscriptionReturnCoordinator(
+    inboxStore: SubscriptionReturnInboxStore(
+      persistence: persistence ?? MemorySubscriptionReturnInboxPersistence(),
+      clock: () => _now,
     ),
-  };
-}
-
-const List<String> _lexicallyNonCanonicalPortalReturnUris = <String>[
-  'BITESAVER://SUBSCRIPTION-PORTAL-RETURN',
-  'bitesaver://@subscription-portal-return',
-  'bitesaver://subscription-portal-return:0',
-  'bitesaver://%73ubscription-portal-return',
-];
-
-int get _pendingEventCapacity => SubscriptionReturnService.maxPendingEvents;
-
-Future<SubscriptionReturnEvent> _dispatchAcceptedReturn(
-  SubscriptionReturnKind kind,
-) async {
-  final SubscriptionReturnEvent? event =
-      await SubscriptionReturnService.dispatchReturn(kind);
-  if (event == null) {
-    fail('Expected $kind to be accepted');
-  }
-  return event;
-}
-
-Future<List<SubscriptionReturnEvent>> _fillPendingReturns({
-  SubscriptionReturnKind Function(int index)? kindForIndex,
-}) async {
-  final events = <SubscriptionReturnEvent>[];
-  for (var index = 0; index < _pendingEventCapacity; index += 1) {
-    events.add(
-      await _dispatchAcceptedReturn(
-        kindForIndex?.call(index) ?? SubscriptionReturnKind.customerPortal,
-      ),
-    );
-  }
-  return events;
+    serverClient: SubscriptionReturnServerClient(
+      invokeCallable: backend.invoke,
+      clock: () => _now,
+    ),
+  );
+  addTearDown(coordinator.dispose);
+  return coordinator;
 }
 
 void main() {
-  setUp(() async {
-    SharedPreferences.setMockInitialValues({});
-    await SubscriptionReturnService.resetForTesting();
-  });
-  tearDown(SubscriptionReturnService.resetForTesting);
-
-  test(
-    'stores Restaurant Hub as the intended subscription return context',
-    () async {
-      await SubscriptionReturnService.markRestaurantHubCheckoutStarted();
-
-      expect(
-        await SubscriptionReturnService.pendingReturnContext(),
-        SubscriptionReturnService.restaurantHubContext,
-      );
-    },
-  );
-
-  test(
-    'dispatching a successful return emits an event and clears context',
-    () async {
-      await SubscriptionReturnService.markRestaurantHubCheckoutStarted();
-
-      final event = await _dispatchAcceptedReturn(
-        SubscriptionReturnKind.checkoutSuccess,
-      );
-
-      expect(event.kind, SubscriptionReturnKind.checkoutSuccess);
-      expect(SubscriptionReturnService.peekPendingNavigation(), same(event));
-      expect(SubscriptionReturnService.peekPendingRefresh(), same(event));
-      expect(await SubscriptionReturnService.pendingReturnContext(), isNull);
-    },
-  );
-
-  test('dispatching a canceled return emits a cancel event', () async {
-    final event = await _dispatchAcceptedReturn(
-      SubscriptionReturnKind.checkoutCancel,
-    );
-
-    expect(event.kind, SubscriptionReturnKind.checkoutCancel);
-  });
-
-  test(
-    'navigation and refresh claims are global and complete the event',
-    () async {
-      final event = await _dispatchAcceptedReturn(
-        SubscriptionReturnKind.customerPortal,
-      );
-
-      expect(SubscriptionReturnService.pendingEventCount, 1);
-      expect(SubscriptionReturnService.claimNavigation(event.id), isTrue);
-      expect(SubscriptionReturnService.claimNavigation(event.id), isFalse);
-      expect(SubscriptionReturnService.pendingEventCount, 1);
-      expect(SubscriptionReturnService.claimRefresh(event.id), isTrue);
-      expect(SubscriptionReturnService.claimRefresh(event.id), isFalse);
-      expect(SubscriptionReturnService.pendingEventCount, 0);
-      expect(SubscriptionReturnService.peekPendingNavigation(), isNull);
-      expect(SubscriptionReturnService.peekPendingRefresh(), isNull);
-    },
-  );
-
-  test(
-    'one source delivery creates one event and coordinator starts only once',
-    () async {
-      final source = StreamController<Uri>();
-      final events = <SubscriptionReturnEvent>[];
-      final eventSubscription = SubscriptionReturnService.events.listen(
-        events.add,
-      );
-
-      SubscriptionReturnService.startAppLinkIngestion(links: source.stream);
-      SubscriptionReturnService.startAppLinkIngestion(links: source.stream);
-      expect(SubscriptionReturnService.appLinkIngestionStarted, isTrue);
-
-      source.add(Uri.parse(subscriptionPortalReturnUri));
-      await Future<void>.delayed(Duration.zero);
-
-      expect(events, hasLength(1));
-      expect(events.single.kind, SubscriptionReturnKind.customerPortal);
-      expect(SubscriptionReturnService.pendingEventCount, 1);
-
-      await eventSubscription.cancel();
-      await source.close();
-    },
-  );
-
-  test('one exact raw source delivery creates one event', () async {
-    final source = StreamController<String>();
-    final events = <SubscriptionReturnEvent>[];
-    final eventSubscription = SubscriptionReturnService.events.listen(
-      events.add,
-    );
-    addTearDown(eventSubscription.cancel);
-    addTearDown(source.close);
-    SubscriptionReturnService.startAppLinkIngestion(rawLinks: source.stream);
-
-    source.add(subscriptionCheckoutSuccessReturnUri);
-    await Future<void>.delayed(Duration.zero);
-
-    expect(events, hasLength(1));
-    expect(events.single.kind, SubscriptionReturnKind.checkoutSuccess);
-    expect(
-      SubscriptionReturnService.peekPendingNavigation(),
-      same(events.single),
-    );
-    expect(SubscriptionReturnService.peekPendingRefresh(), same(events.single));
-  });
-
-  test(
-    'a genuine later source delivery with the same URI gets a new ID',
-    () async {
-      final source = StreamController<Uri>();
-      final events = <SubscriptionReturnEvent>[];
-      final eventSubscription = SubscriptionReturnService.events.listen(
-        events.add,
-      );
-      SubscriptionReturnService.startAppLinkIngestion(links: source.stream);
-
-      final portalUri = Uri.parse(subscriptionPortalReturnUri);
-      source.add(portalUri);
-      await Future<void>.delayed(Duration.zero);
-      final firstEvent = events.single;
-      expect(SubscriptionReturnService.claimNavigation(firstEvent.id), isTrue);
-      expect(SubscriptionReturnService.claimRefresh(firstEvent.id), isTrue);
-      SubscriptionReturnService.finishRefresh(firstEvent.id);
-
-      source.add(portalUri);
-      await Future<void>.delayed(Duration.zero);
-
-      expect(events, hasLength(2));
-      expect(events.last.id, greaterThan(firstEvent.id));
-      expect(events.last.kind, SubscriptionReturnKind.customerPortal);
-      expect(SubscriptionReturnService.pendingEventCount, 1);
-
-      await eventSubscription.cancel();
-      await source.close();
-    },
-  );
-
-  test('capacity overflow preserves every fully unclaimed event', () async {
-    final events = await _fillPendingReturns();
-
-    final overflow = await SubscriptionReturnService.dispatchReturn(
-      SubscriptionReturnKind.customerPortal,
-    );
-
-    expect(overflow, isNull);
-    expect(SubscriptionReturnService.pendingEventCount, _pendingEventCapacity);
-    expect(
-      SubscriptionReturnService.peekPendingNavigation()?.id,
-      events.first.id,
-    );
-    expect(SubscriptionReturnService.peekPendingRefresh()?.id, events.first.id);
-    for (final event in events) {
-      expect(SubscriptionReturnService.claimNavigation(event.id), isTrue);
-      expect(SubscriptionReturnService.claimRefresh(event.id), isTrue);
-      SubscriptionReturnService.finishRefresh(event.id);
+  group('exact native return parser', () {
+    for (final kind in SubscriptionReturnKind.values) {
+      test('parses and rebuilds exact ${kind.name}', () {
+        final raw = subscriptionReturnUri(
+          kind: kind,
+          returnToken: _token(kind.index),
+        );
+        final parsed = parseSubscriptionReturnLink(raw);
+        expect(parsed?.kind, kind);
+        expect(parsed?.returnToken, _token(kind.index));
+        expect(parseSubscriptionReturnUri(Uri.parse(raw))?.kind, kind);
+      });
     }
-    expect(SubscriptionReturnService.pendingEventCount, 0);
-  });
 
-  test('capacity overflow preserves a navigation-only event', () async {
-    final events = await _fillPendingReturns();
-    final firstEvent = events.first;
-    expect(SubscriptionReturnService.claimNavigation(firstEvent.id), isTrue);
-
-    final overflow = await SubscriptionReturnService.dispatchReturn(
-      SubscriptionReturnKind.checkoutSuccess,
-    );
-
-    expect(overflow, isNull);
-    expect(SubscriptionReturnService.pendingEventCount, _pendingEventCapacity);
-    expect(SubscriptionReturnService.claimRefresh(firstEvent.id), isTrue);
-    expect(SubscriptionReturnService.claimNavigation(firstEvent.id), isFalse);
-    SubscriptionReturnService.finishRefresh(firstEvent.id);
-  });
-
-  test('capacity overflow preserves a refresh-only event', () async {
-    final events = await _fillPendingReturns();
-    final firstEvent = events.first;
-    expect(SubscriptionReturnService.claimRefresh(firstEvent.id), isTrue);
-    SubscriptionReturnService.finishRefresh(firstEvent.id);
-
-    final overflow = await SubscriptionReturnService.dispatchReturn(
-      SubscriptionReturnKind.checkoutCancel,
-    );
-
-    expect(overflow, isNull);
-    expect(SubscriptionReturnService.pendingEventCount, _pendingEventCapacity);
-    expect(SubscriptionReturnService.claimNavigation(firstEvent.id), isTrue);
-    expect(SubscriptionReturnService.claimRefresh(firstEvent.id), isFalse);
-  });
-
-  test(
-    'capacity overflow preserves mixed kinds and partial claim states',
-    () async {
-      const kinds = SubscriptionReturnKind.values;
-      final events = await _fillPendingReturns(
-        kindForIndex: (index) => kinds[index % kinds.length],
-      );
-
-      for (var index = 0; index < events.length; index += 1) {
-        final event = events[index];
-        switch (index % 3) {
-          case 0:
-            expect(SubscriptionReturnService.claimNavigation(event.id), isTrue);
-            break;
-          case 1:
-            expect(SubscriptionReturnService.claimRefresh(event.id), isTrue);
-            SubscriptionReturnService.finishRefresh(event.id);
-            break;
-          case 2:
-            break;
-        }
+    test('rejects tokenless, duplicate, noncanonical, and malformed links', () {
+      final token = _token(1);
+      for (final raw in <String>[
+        subscriptionCheckoutSuccessReturnUri,
+        '$subscriptionCheckoutSuccessReturnUri?return_token=short',
+        '$subscriptionCheckoutSuccessReturnUri?return_token=$token&return_token=$token',
+        '$subscriptionCheckoutSuccessReturnUri?return_token=$token&extra=1',
+        'BITESAVER://subscription-success?return_token=$token',
+        'bitesaver://subscription-success/?return_token=$token',
+        'bitesaver://subscription-success?return_token=$token#fragment',
+        'bitesaver://user@subscription-success?return_token=$token',
+        'bitesaver://subscription-success:443?return_token=$token',
+        'bitesaver://subscription-success?return_token=${token.substring(1)}=',
+      ]) {
+        expect(parseSubscriptionReturnLink(raw), isNull, reason: raw);
       }
-
-      final overflow = await SubscriptionReturnService.dispatchReturn(
-        SubscriptionReturnKind.checkoutSuccess,
-      );
-
-      expect(overflow, isNull);
-      expect(
-        SubscriptionReturnService.pendingEventCount,
-        _pendingEventCapacity,
-      );
-      for (var index = 0; index < events.length; index += 1) {
-        final event = events[index];
-        expect(event.kind, kinds[index % kinds.length]);
-        switch (index % 3) {
-          case 0:
-            expect(
-              SubscriptionReturnService.claimNavigation(event.id),
-              isFalse,
-            );
-            expect(SubscriptionReturnService.claimRefresh(event.id), isTrue);
-            SubscriptionReturnService.finishRefresh(event.id);
-            break;
-          case 1:
-            expect(SubscriptionReturnService.claimNavigation(event.id), isTrue);
-            expect(SubscriptionReturnService.claimRefresh(event.id), isFalse);
-            break;
-          case 2:
-            expect(SubscriptionReturnService.claimNavigation(event.id), isTrue);
-            expect(SubscriptionReturnService.claimRefresh(event.id), isTrue);
-            SubscriptionReturnService.finishRefresh(event.id);
-            break;
-        }
-      }
-      expect(SubscriptionReturnService.pendingEventCount, 0);
-    },
-  );
-
-  test('completed events free capacity and cannot be claimed again', () async {
-    final event = await _dispatchAcceptedReturn(
-      SubscriptionReturnKind.customerPortal,
-    );
-
-    expect(SubscriptionReturnService.claimNavigation(event.id), isTrue);
-    expect(SubscriptionReturnService.claimRefresh(event.id), isTrue);
-    SubscriptionReturnService.finishRefresh(event.id);
-
-    expect(SubscriptionReturnService.pendingEventCount, 0);
-    expect(SubscriptionReturnService.claimNavigation(event.id), isFalse);
-    expect(SubscriptionReturnService.claimRefresh(event.id), isFalse);
-    final nextEvent = await _dispatchAcceptedReturn(
-      SubscriptionReturnKind.checkoutSuccess,
-    );
-    expect(nextEvent.id, greaterThan(event.id));
-    expect(SubscriptionReturnService.pendingEventCount, 1);
+    });
   });
 
-  test('overflow rejection recovers with monotonic accepted IDs', () async {
-    final emittedEvents = <SubscriptionReturnEvent>[];
-    final subscription = SubscriptionReturnService.events.listen(
-      emittedEvents.add,
+  group('fixed Flutter-web fragment parser', () {
+    for (final kind in SubscriptionReturnKind.values) {
+      test('parses exact ${kind.name} fragment and no HTTPS query', () {
+        final raw = subscriptionReturnWebLocation(
+          kind: kind,
+          returnToken: _token(kind.index),
+        );
+        final uri = Uri.parse(raw);
+        expect(uri.query, isEmpty);
+        expect(uri.fragment, contains('return_token='));
+        final parsed = parseSubscriptionReturnWebLocation(raw);
+        expect(parsed?.kind, kind);
+        expect(parsed?.returnToken, _token(kind.index));
+      });
+    }
+
+    test('rejects query tokens, wrong origins, and malformed fragments', () {
+      final token = _token(2);
+      for (final raw in <String>[
+        'https://app.bitestar.app/?return_token=$token',
+        'http://app.bitestar.app/#/subscription-return/checkoutSuccess?return_token=$token',
+        'https://evil.example/#/subscription-return/checkoutSuccess?return_token=$token',
+        'https://app.bitestar.app/path#/subscription-return/checkoutSuccess?return_token=$token',
+        'https://app.bitestar.app/#/subscription-return/checkoutSuccess?return_token=short',
+        'https://app.bitestar.app/#/subscription-return/checkoutSuccess?return_token=$token&extra=1',
+        'https://app.bitestar.app/#/subscription-return/checkoutSuccess?return_token=$token&return_token=$token',
+        'https://app.bitestar.app/#/subscription-return/unknown?return_token=$token',
+      ]) {
+        expect(parseSubscriptionReturnWebLocation(raw), isNull, reason: raw);
+      }
+    });
+  });
+
+  test('ingestion only retains a non-authoritative local delivery', () async {
+    final backend = FakeSubscriptionReturnBackend(clock: () => _now);
+    final persistence = MemorySubscriptionReturnInboxPersistence();
+    final coordinator = _coordinator(backend, persistence: persistence);
+    backend.reserve(
+      returnToken: _token(3),
+      ownerScope: _ownerA,
+      family: SubscriptionReturnFamily.checkout,
     );
-    addTearDown(subscription.cancel);
-    final events = await _fillPendingReturns();
-    expect(emittedEvents, events);
 
-    final rejected = await SubscriptionReturnService.dispatchReturn(
-      SubscriptionReturnKind.checkoutCancel,
-    );
-
-    expect(rejected, isNull);
-    expect(emittedEvents, hasLength(_pendingEventCapacity));
-    expect(SubscriptionReturnService.pendingEventCount, _pendingEventCapacity);
-    expect(SubscriptionReturnService.claimNavigation(events.first.id), isTrue);
-    expect(SubscriptionReturnService.claimRefresh(events.first.id), isTrue);
-    SubscriptionReturnService.finishRefresh(events.first.id);
-
-    final recovered = await _dispatchAcceptedReturn(
-      SubscriptionReturnKind.checkoutCancel,
-    );
-
-    expect(recovered.id, events.last.id + 1);
     expect(
-      emittedEvents.map((event) => event.id),
-      orderedEquals(<int>[...events.map((event) => event.id), recovered.id]),
+      await coordinator.ingestReturnLink(
+        subscriptionReturnUri(
+          kind: SubscriptionReturnKind.checkoutSuccess,
+          returnToken: _token(3),
+        ),
+      ),
+      isTrue,
     );
-    expect(SubscriptionReturnService.pendingEventCount, _pendingEventCapacity);
-    expect(SubscriptionReturnService.peekPendingNavigation()?.id, events[1].id);
-    expect(SubscriptionReturnService.peekPendingRefresh()?.id, events[1].id);
+    expect(backend.redeemCalls, 0);
+    expect(backend.eventCountFor(_ownerA), 0);
+    expect(await coordinator.pendingLocalDeliveryCount(), 1);
   });
 
   test(
-    'source overflow preserves pending work and later accepts the same URI',
+    'matching owner redeems once, removes raw token, and claims both obligations',
     () async {
-      final source = StreamController<Uri>();
-      final emittedEvents = <SubscriptionReturnEvent>[];
-      final eventSubscription = SubscriptionReturnService.events.listen(
-        emittedEvents.add,
+      final backend = FakeSubscriptionReturnBackend(clock: () => _now);
+      final coordinator = _coordinator(backend);
+      backend.reserve(
+        returnToken: _token(4),
+        ownerScope: _ownerA,
+        family: SubscriptionReturnFamily.checkout,
       );
-      addTearDown(eventSubscription.cancel);
-      addTearDown(source.close);
-      SubscriptionReturnService.startAppLinkIngestion(links: source.stream);
-      final retainedEvents = await _fillPendingReturns();
-      final portalUri = Uri.parse(subscriptionPortalReturnUri);
-
-      source.add(portalUri);
-      await Future<void>.delayed(Duration.zero);
-
-      expect(emittedEvents, retainedEvents);
-      expect(
-        SubscriptionReturnService.pendingEventCount,
-        _pendingEventCapacity,
-      );
-      expect(
-        SubscriptionReturnService.peekPendingNavigation()?.id,
-        retainedEvents.first.id,
-      );
-      expect(
-        SubscriptionReturnService.peekPendingRefresh()?.id,
-        retainedEvents.first.id,
+      await coordinator.ingestReturnLink(
+        subscriptionReturnUri(
+          kind: SubscriptionReturnKind.checkoutSuccess,
+          returnToken: _token(4),
+        ),
       );
 
-      expect(
-        SubscriptionReturnService.claimNavigation(retainedEvents.first.id),
-        isTrue,
+      final navigation = await coordinator.claimNextPendingNavigationFor(
+        _ownerA,
       );
+      expect(navigation?.kind, SubscriptionReturnKind.checkoutSuccess);
+      expect(await coordinator.pendingLocalDeliveryCount(), 0);
+      expect(backend.eventCountFor(_ownerA), 1);
       expect(
-        SubscriptionReturnService.claimRefresh(retainedEvents.first.id),
-        isTrue,
-      );
-      SubscriptionReturnService.finishRefresh(retainedEvents.first.id);
-      source.add(portalUri);
-      await Future<void>.delayed(Duration.zero);
-
-      expect(emittedEvents, hasLength(_pendingEventCapacity + 1));
-      final recoveredEvent = emittedEvents.last;
-      expect(recoveredEvent.id, retainedEvents.last.id + 1);
-      expect(recoveredEvent.kind, SubscriptionReturnKind.customerPortal);
-      expect(
-        SubscriptionReturnService.pendingEventCount,
-        _pendingEventCapacity,
-      );
-
-      source.add(portalUri);
-      await Future<void>.delayed(Duration.zero);
-      expect(emittedEvents, hasLength(_pendingEventCapacity + 1));
-
-      expect(
-        SubscriptionReturnService.claimNavigation(retainedEvents[1].id),
-        isTrue,
-      );
-      expect(
-        SubscriptionReturnService.claimRefresh(retainedEvents[1].id),
-        isTrue,
-      );
-      SubscriptionReturnService.finishRefresh(retainedEvents[1].id);
-      source.add(portalUri);
-      await Future<void>.delayed(Duration.zero);
-
-      expect(emittedEvents, hasLength(_pendingEventCapacity + 2));
-      expect(emittedEvents.last.id, greaterThan(recoveredEvent.id));
-      expect(emittedEvents.last.kind, SubscriptionReturnKind.customerPortal);
-      expect(
-        SubscriptionReturnService.pendingEventCount,
-        _pendingEventCapacity,
-      );
-    },
-  );
-
-  test(
-    'one lifecycle refresh is app-wide and coalesces with only one return',
-    () async {
-      final firstHub = Object();
-      final secondHub = Object();
-      final lifecycleRefresh = Completer<bool>();
-
-      expect(
-        SubscriptionReturnService.claimRestaurantHubLifecycleRefresh(firstHub),
-        isTrue,
-      );
-      expect(
-        SubscriptionReturnService.claimRestaurantHubLifecycleRefresh(secondHub),
+        await coordinator.claimNavigationFor(navigation!.id, _ownerA),
         isFalse,
       );
-      SubscriptionReturnService.registerRestaurantHubLifecycleRefresh(
-        firstHub,
-        lifecycleRefresh.future,
+
+      final refresh = await coordinator.claimNextPendingRefreshFor(_ownerA);
+      expect(refresh?.event.id, navigation.id);
+      coordinator.finishRefresh(refresh!.event, refreshSucceeded: true);
+      expect(await coordinator.peekPendingNavigationFor(_ownerA), isNull);
+      expect(await coordinator.peekPendingRefreshFor(_ownerA), isNull);
+    },
+  );
+
+  test('wrong owner is neutral and matching owner can redeem later', () async {
+    final backend = FakeSubscriptionReturnBackend(clock: () => _now);
+    final coordinator = _coordinator(backend);
+    backend.reserve(
+      returnToken: _token(5),
+      ownerScope: _ownerA,
+      family: SubscriptionReturnFamily.customerPortal,
+    );
+    await coordinator.ingestReturnLink(
+      subscriptionReturnUri(
+        kind: SubscriptionReturnKind.customerPortal,
+        returnToken: _token(5),
+      ),
+    );
+
+    backend.authenticatedUid = _ownerB.uid;
+    expect(await coordinator.peekPendingNavigationFor(_ownerB), isNull);
+    expect(await coordinator.pendingLocalDeliveryCount(), 1);
+    expect(backend.eventCountFor(_ownerA), 0);
+
+    backend.authenticatedUid = _ownerA.uid;
+    expect(
+      (await coordinator.peekPendingNavigationFor(_ownerA))?.kind,
+      SubscriptionReturnKind.customerPortal,
+    );
+    expect(await coordinator.pendingLocalDeliveryCount(), 0);
+  });
+
+  test('same UID with a different canonical document cannot redeem', () async {
+    final backend = FakeSubscriptionReturnBackend(clock: () => _now);
+    final coordinator = _coordinator(backend);
+    backend.reserve(
+      returnToken: _token(6),
+      ownerScope: _ownerA,
+      family: SubscriptionReturnFamily.checkout,
+    );
+    await coordinator.ingestReturnLink(
+      subscriptionReturnUri(
+        kind: SubscriptionReturnKind.checkoutCancel,
+        returnToken: _token(6),
+      ),
+    );
+    expect(
+      await coordinator.peekPendingNavigationFor(_ownerASiblingDocument),
+      isNull,
+    );
+    expect(await coordinator.pendingLocalDeliveryCount(), 1);
+    expect(backend.eventCountFor(_ownerA), 0);
+    expect(await coordinator.peekPendingNavigationFor(_ownerA), isNotNull);
+  });
+
+  test(
+    'duplicate local delivery and server replay cannot create a second event',
+    () async {
+      final backend = FakeSubscriptionReturnBackend(clock: () => _now);
+      final coordinator = _coordinator(backend);
+      backend.reserve(
+        returnToken: _token(7),
+        ownerScope: _ownerA,
+        family: SubscriptionReturnFamily.checkout,
       );
-      lifecycleRefresh.complete(true);
-      SubscriptionReturnService.finishRestaurantHubLifecycleRefresh(firstHub);
-
-      final firstEvent = await _dispatchAcceptedReturn(
-        SubscriptionReturnKind.customerPortal,
+      final raw = subscriptionReturnUri(
+        kind: SubscriptionReturnKind.checkoutSuccess,
+        returnToken: _token(7),
       );
-      final secondEvent = await _dispatchAcceptedReturn(
-        SubscriptionReturnKind.customerPortal,
+      await Future.wait(<Future<bool>>[
+        coordinator.ingestReturnLink(raw),
+        coordinator.ingestReturnLink(raw),
+      ]);
+      await coordinator.peekPendingNavigationFor(_ownerA);
+      expect(backend.eventCountFor(_ownerA), 1);
+      expect(await coordinator.pendingLocalDeliveryCount(), 0);
+
+      await coordinator.ingestReturnLink(raw);
+      await coordinator.peekPendingNavigationFor(_ownerA);
+      expect(backend.eventCountFor(_ownerA), 1);
+      expect(await coordinator.pendingLocalDeliveryCount(), 0);
+    },
+  );
+
+  test(
+    'network failure retains raw delivery and later recovery redeems',
+    () async {
+      final backend = FakeSubscriptionReturnBackend(clock: () => _now)
+        ..failRedeem = true;
+      final coordinator = _coordinator(backend);
+      backend.reserve(
+        returnToken: _token(8),
+        ownerScope: _ownerA,
+        family: SubscriptionReturnFamily.checkout,
       );
-      expect(SubscriptionReturnService.claimNavigation(firstEvent.id), isTrue);
-      expect(SubscriptionReturnService.claimNavigation(secondEvent.id), isTrue);
+      await coordinator.ingestReturnLink(
+        subscriptionReturnUri(
+          kind: SubscriptionReturnKind.checkoutCancel,
+          returnToken: _token(8),
+        ),
+      );
+      expect(await coordinator.peekPendingNavigationFor(_ownerA), isNull);
+      expect(await coordinator.pendingLocalDeliveryCount(), 1);
 
-      final firstCandidate =
-          SubscriptionReturnService.peekPendingRefreshCandidate();
-      expect(firstCandidate?.event.id, firstEvent.id);
-      expect(firstCandidate?.coalescedLifecycleRefresh, isNotNull);
-      expect(SubscriptionReturnService.claimRefresh(firstEvent.id), isTrue);
+      backend.failRedeem = false;
+      expect(await coordinator.peekPendingNavigationFor(_ownerA), isNotNull);
+      expect(await coordinator.pendingLocalDeliveryCount(), 0);
+    },
+  );
 
-      final secondCandidate =
-          SubscriptionReturnService.peekPendingRefreshCandidate();
-      expect(secondCandidate?.event.id, secondEvent.id);
-      expect(secondCandidate?.coalescedLifecycleRefresh, isNull);
-      expect(SubscriptionReturnService.claimRefresh(secondEvent.id), isTrue);
+  test(
+    'created false after completed cleanup clears inbox without recreating UI',
+    () async {
+      final backend = FakeSubscriptionReturnBackend(clock: () => _now);
+      final coordinator = _coordinator(backend);
+      final announced = <SubscriptionReturnEvent>[];
+      final subscription = coordinator.events.listen(announced.add);
+      addTearDown(subscription.cancel);
+      backend.reserve(
+        returnToken: _token(70),
+        ownerScope: _ownerA,
+        family: SubscriptionReturnFamily.checkout,
+      );
+      final raw = subscriptionReturnUri(
+        kind: SubscriptionReturnKind.checkoutSuccess,
+        returnToken: _token(70),
+      );
+      await coordinator.ingestReturnLink(raw);
+      final navigation = await coordinator.claimNextPendingNavigationFor(
+        _ownerA,
+      );
+      expect(navigation, isNotNull);
+      final refresh = await coordinator.claimNextPendingRefreshFor(_ownerA);
+      expect(refresh, isNotNull);
+      coordinator.finishRefresh(refresh!.event, refreshSucceeded: true);
+      expect(await coordinator.peekPendingNavigationFor(_ownerA), isNull);
+      expect(announced, hasLength(1));
 
-      expect(await firstCandidate!.coalescedLifecycleRefresh, isTrue);
-      SubscriptionReturnService.finishRefresh(firstEvent.id);
-      SubscriptionReturnService.finishRefresh(secondEvent.id);
+      await coordinator.ingestReturnLink(raw);
+      expect(await coordinator.pendingLocalDeliveryCount(), 1);
+      expect(await coordinator.peekPendingNavigationFor(_ownerA), isNull);
+      expect(await coordinator.peekPendingRefreshFor(_ownerA), isNull);
+      expect(await coordinator.pendingLocalDeliveryCount(), 0);
+      expect(announced, hasLength(1));
+    },
+  );
 
-      SubscriptionReturnService.noteRestaurantHubLifecycleNotResumed();
+  test(
+    'permanent claim failure performs one attempt and does not loop',
+    () async {
+      final backend = FakeSubscriptionReturnBackend(clock: () => _now);
+      final coordinator = _coordinator(backend);
+      backend.addPendingEvent(
+        ownerScope: _ownerA,
+        eventId: '1',
+        kind: SubscriptionReturnKind.customerPortal,
+      );
+      expect(await coordinator.peekPendingRefreshFor(_ownerA), isNotNull);
+      backend
+        ..failClaim = true
+        ..claimCalls = 0;
+
+      expect(await coordinator.claimNextPendingRefreshFor(_ownerA), isNull);
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      expect(backend.claimCalls, 1);
+    },
+  );
+
+  test(
+    'owner change after server claim suppresses UI without rollback',
+    () async {
+      final backend = FakeSubscriptionReturnBackend(clock: () => _now);
+      final coordinator = _coordinator(backend);
+      backend.addPendingEvent(
+        ownerScope: _ownerA,
+        eventId: '1',
+        kind: SubscriptionReturnKind.checkoutSuccess,
+      );
+      final event = await coordinator.peekPendingNavigationFor(_ownerA);
+      expect(event, isNotNull);
+
+      var current = true;
+      backend
+        ..claimStarted = Completer<void>()
+        ..releaseClaim = Completer<void>();
+      final claim = coordinator.claimNavigationFor(
+        event!.id,
+        _ownerA,
+        isCurrent: () => current,
+      );
+      await backend.claimStarted!.future;
+      current = false;
+      backend.releaseClaim!.complete();
+      expect(await claim, isFalse);
+
+      backend
+        ..claimStarted = null
+        ..releaseClaim = null;
+      expect(await coordinator.claimNavigationFor(event.id, _ownerA), isFalse);
+      expect(backend.claimCalls, 2);
+    },
+  );
+
+  test('two shells cannot duplicate an atomic server claim', () async {
+    final backend = FakeSubscriptionReturnBackend(clock: () => _now);
+    backend.addPendingEvent(
+      ownerScope: _ownerA,
+      eventId: '1',
+      kind: SubscriptionReturnKind.customerPortal,
+    );
+    final first = _coordinator(backend);
+    final second = _coordinator(backend);
+    await Future.wait(<Future<SubscriptionReturnEvent?>>[
+      first.peekPendingNavigationFor(_ownerA),
+      second.peekPendingNavigationFor(_ownerA),
+    ]);
+    final claims = await Future.wait(<Future<SubscriptionReturnEvent?>>[
+      first.claimNextPendingNavigationFor(_ownerA),
+      second.claimNextPendingNavigationFor(_ownerA),
+    ]);
+    expect(claims.whereType<SubscriptionReturnEvent>(), hasLength(1));
+  });
+
+  test(
+    'process restart recovers pending server events without local state',
+    () async {
+      final backend = FakeSubscriptionReturnBackend(clock: () => _now);
+      backend.addPendingEvent(
+        ownerScope: _ownerA,
+        eventId: '9',
+        kind: SubscriptionReturnKind.checkoutCancel,
+      );
+      final restarted = _coordinator(backend);
+      final event = await restarted.peekPendingRefreshFor(_ownerA);
+      expect(event?.id, '9');
+      expect(await restarted.pendingLocalDeliveryCount(), 0);
+    },
+  );
+
+  test(
+    'prepare and launch survive process recreation before the later return',
+    () async {
+      final backend = FakeSubscriptionReturnBackend(clock: () => _now);
+      final persistence = MemorySubscriptionReturnInboxPersistence();
+      final liveProcesses = <SubscriptionReturnCoordinator>{};
+      addTearDown(() async {
+        for (final process in liveProcesses.toList().reversed) {
+          await process.dispose();
+        }
+      });
+
+      SubscriptionReturnCoordinator createProcess() {
+        final process = SubscriptionReturnCoordinator(
+          inboxStore: SubscriptionReturnInboxStore(
+            persistence: persistence,
+            clock: () => _now,
+          ),
+          serverClient: SubscriptionReturnServerClient(
+            invokeCallable: backend.invoke,
+            clock: () => _now,
+          ),
+        );
+        liveProcesses.add(process);
+        return process;
+      }
+
+      Future<void> disposeProcess(SubscriptionReturnCoordinator process) async {
+        liveProcesses.remove(process);
+        await process.dispose();
+      }
+
+      final token = _token(71);
+      const checkoutUrl =
+          'https://checkout.stripe.com/c/pay/process-recreation';
+      var preparationCalls = 0;
+      var registrationCalls = 0;
+      var launchCalls = 0;
+
+      final processA = createProcess();
+      final processAEvents = <SubscriptionReturnEvent>[];
+      final processASubscription = processA.events.listen(processAEvents.add);
+
+      Future<void> prepareAndLaunchInProcessA() async {
+        final checkoutService = SubscriptionCheckoutService(
+          invokeCallable: (name, payload) async {
+            expect(name, 'createCheckoutSession');
+            expect(payload, <String, Object?>{
+              'returnProtocolVersion': subscriptionReturnProtocolVersion,
+              'restaurantAccountDocumentId': _ownerA.accountDocumentId,
+            });
+            preparationCalls += 1;
+            registrationCalls += 1;
+            backend.reserve(
+              returnToken: token,
+              ownerScope: _ownerA,
+              family: SubscriptionReturnFamily.checkout,
+            );
+            return <String, Object?>{
+              'url': checkoutUrl,
+              'returnToken': token,
+              'returnProtocolVersion': subscriptionReturnProtocolVersion,
+            };
+          },
+          launchExternalUrl: (url) async {
+            expect(url, Uri.parse(checkoutUrl));
+            launchCalls += 1;
+            return true;
+          },
+        );
+        final prepared = await checkoutService.prepareSubscriptionCheckout(
+          restaurantAccountDocumentId: _ownerA.accountDocumentId,
+        );
+        expect(
+          await checkoutService.launchPreparedSubscriptionUrl(
+            prepared,
+            isCurrent: () => true,
+          ),
+          SubscriptionExternalLaunchResult.launched,
+        );
+      }
+
+      await prepareAndLaunchInProcessA();
+      expect(preparationCalls, 1);
+      expect(registrationCalls, 1);
+      expect(launchCalls, 1);
+      expect(backend.redeemCalls, 0);
+      expect(backend.eventCountFor(_ownerA), 0);
+      expect(processAEvents, isEmpty);
+      expect(await processA.pendingLocalDeliveryCount(), 0);
+
+      await processASubscription.cancel();
+      await disposeProcess(processA);
+
+      final processB = createProcess();
+      final processBEvents = <SubscriptionReturnEvent>[];
+      final processBSubscription = processB.events.listen(processBEvents.add);
+      expect(await processB.pendingServerEventCount(), 0);
+      expect(await processB.pendingLocalDeliveryCount(), 0);
+      expect(processBEvents, isEmpty);
+      expect(backend.eventCountFor(_ownerA), 0);
+
+      final rawReturn = subscriptionReturnUri(
+        kind: SubscriptionReturnKind.checkoutSuccess,
+        returnToken: token,
+      );
+      expect(await processB.ingestReturnLink(rawReturn), isTrue);
+      expect(await processB.pendingLocalDeliveryCount(), 1);
+      expect(backend.eventCountFor(_ownerA), 0);
+
       expect(
-        SubscriptionReturnService.claimRestaurantHubLifecycleRefresh(secondHub),
+        await processB.peekPendingNavigationFor(_ownerASiblingDocument),
+        isNull,
+      );
+      expect(await processB.pendingLocalDeliveryCount(), 1);
+      backend.authenticatedUid = _ownerB.uid;
+      expect(await processB.peekPendingNavigationFor(_ownerB), isNull);
+      expect(backend.eventCountFor(_ownerB), 0);
+      expect(await processB.pendingLocalDeliveryCount(), 1);
+      backend.authenticatedUid = _ownerA.uid;
+
+      final event = await processB.peekPendingNavigationFor(_ownerA);
+      expect(event, isNotNull);
+      expect(event!.id, '1');
+      expect(event.kind, SubscriptionReturnKind.checkoutSuccess);
+      expect(event.ownerScope, _ownerA);
+      expect(backend.eventCountFor(_ownerA), 1);
+      expect(backend.redeemCalls, 3);
+      expect(await processB.pendingLocalDeliveryCount(), 0);
+      expect(processBEvents, <SubscriptionReturnEvent>[event]);
+      expect(
+        <String>[
+          event.id,
+          event.kind.name,
+          event.ownerScope.uid,
+          event.ownerScope.accountDocumentId,
+        ].join('|'),
+        isNot(contains(token)),
+      );
+
+      final navigation = await processB.claimNextPendingNavigationFor(_ownerA);
+      expect(navigation?.id, event.id);
+      expect(await processB.claimNextPendingNavigationFor(_ownerA), isNull);
+      final refresh = await processB.claimNextPendingRefreshFor(_ownerA);
+      expect(refresh?.event.id, event.id);
+      processB.finishRefresh(refresh!.event, refreshSucceeded: true);
+      expect(await processB.claimNextPendingRefreshFor(_ownerA), isNull);
+      expect(backend.claimCalls, 2);
+
+      expect(await processB.ingestReturnLink(rawReturn), isTrue);
+      expect(await processB.pendingLocalDeliveryCount(), 1);
+      expect(await processB.peekPendingNavigationFor(_ownerA), isNull);
+      expect(await processB.peekPendingRefreshFor(_ownerA), isNull);
+      expect(await processB.pendingLocalDeliveryCount(), 0);
+      expect(processBEvents, <SubscriptionReturnEvent>[event]);
+      expect(backend.eventCountFor(_ownerA), 0);
+      expect(backend.claimCalls, 2);
+      expect(preparationCalls, 1);
+      expect(registrationCalls, 1);
+      expect(launchCalls, 1);
+
+      await processBSubscription.cancel();
+      await disposeProcess(processB);
+
+      final processC = createProcess();
+      final processCEvents = <SubscriptionReturnEvent>[];
+      final processCSubscription = processC.events.listen(processCEvents.add);
+      expect(await processC.peekPendingNavigationFor(_ownerA), isNull);
+      expect(await processC.peekPendingRefreshFor(_ownerA), isNull);
+      expect(await processC.pendingLocalDeliveryCount(), 0);
+      expect(processCEvents, isEmpty);
+      expect(backend.claimCalls, 2);
+      await processCSubscription.cancel();
+      await disposeProcess(processC);
+    },
+  );
+
+  test(
+    'navigation-only server event does not suppress a normal lifecycle refresh',
+    () async {
+      final backend = FakeSubscriptionReturnBackend(clock: () => _now);
+      final coordinator = _coordinator(backend);
+      final lifecycleOwner = Object();
+      backend.addPendingEvent(
+        ownerScope: _ownerA,
+        eventId: '10',
+        kind: SubscriptionReturnKind.customerPortal,
+        refreshClaimed: true,
+      );
+
+      final navigation = await coordinator.peekPendingNavigationFor(_ownerA);
+      expect(navigation?.id, '10');
+      expect(navigation?.refreshClaimed, isTrue);
+      expect(
+        await coordinator.claimRestaurantHubLifecycleRefreshFor(
+          lifecycleOwner,
+          _ownerA,
+        ),
         isTrue,
       );
-      SubscriptionReturnService.finishRestaurantHubLifecycleRefresh(secondHub);
+      expect(
+        (await coordinator.peekPendingNavigationFor(_ownerA))?.id,
+        navigation?.id,
+      );
+      coordinator.finishRestaurantHubLifecycleRefresh(lifecycleOwner);
     },
   );
 
-  test('canonical customer portal return URL is exact and credential-free', () {
-    final uri = Uri.parse(stripeCustomerPortalReturnUrl);
-
-    expect(uri.scheme, 'https');
-    expect(uri.host, 'app.bitestar.app');
-    expect(uri.hasPort, isFalse);
-    expect(uri.path, '/subscription/portal-return');
-    expect(uri.hasQuery, isFalse);
-    expect(uri.hasFragment, isFalse);
-    expect(uri.userInfo, isEmpty);
-    expect(uri.toString(), stripeCustomerPortalReturnUrl);
-  });
-
-  test('parses the exact neutral customer portal return event', () {
-    expect(
-      parseSubscriptionReturnUri(Uri.parse(subscriptionPortalReturnUri)),
-      SubscriptionReturnKind.customerPortal,
-    );
-    expect(
-      parseSubscriptionReturnLink(subscriptionPortalReturnUri),
-      SubscriptionReturnKind.customerPortal,
-    );
-  });
-
-  test('rejects non-exact customer portal return variants', () {
-    const rejected = <String>[
-      'bitesaver://subscription-portal-return/',
-      'bitesaver://subscription-portal-return/extra',
-      'bitesaver://subscription-portal-return?source=caller',
-      'bitesaver://subscription-portal-return?',
-      'bitesaver://subscription-portal-return#caller',
-      'bitesaver://subscription-portal-return#',
-      'bitesaver://user@subscription-portal-return',
-      'bitesaver://subscription-portal-return:444',
-      'https://app.bitestar.app/subscription/portal-return',
-      'bitestar://subscription-portal-return',
-      'bitesaver://subscription-portal',
-      'bitesaver://subscription-portal-return-extra',
-      'bitesaver://subscription-portal-return/%65xtra',
-      'bitesaver://subscription-portal-return//extra',
-    ];
-
-    for (final rawUri in rejected) {
-      expect(
-        parseSubscriptionReturnUri(Uri.parse(rawUri)),
-        isNull,
-        reason: rawUri,
-      );
-      expect(parseSubscriptionReturnLink(rawUri), isNull, reason: rawUri);
-    }
-  });
-
-  test('rejects non-exact checkout success and cancel variants', () {
-    for (final fixture in malformedCheckoutReturnFixtures) {
-      expect(
-        parseSubscriptionReturnLink(fixture.rawUri),
-        isNull,
-        reason: '${fixture.kind.name}: ${fixture.category}',
-      );
-      if (fixture.verifyParsedSeam) {
-        expect(
-          parseSubscriptionReturnUri(Uri.parse(fixture.rawUri)),
-          isNull,
-          reason: '${fixture.kind.name}: ${fixture.category}',
-        );
-      }
-    }
-  });
-
-  test('raw matcher still rejects noncanonical portal URI spellings', () {
-    for (final rawUri in _lexicallyNonCanonicalPortalReturnUris) {
-      expect(parseSubscriptionReturnLink(rawUri), isNull, reason: rawUri);
-    }
-  });
-
   test(
-    'every malformed checkout delivery preserves the next logical event ID',
+    'remote refresh claim retires a previously tentative suppression',
     () async {
-      for (final fixture in malformedCheckoutReturnFixtures) {
-        await SubscriptionReturnService.resetForTesting();
-        final source = StreamController<String>();
-        final events = <SubscriptionReturnEvent>[];
-        final eventSubscription = SubscriptionReturnService.events.listen(
-          events.add,
+      final backend = FakeSubscriptionReturnBackend(clock: () => _now);
+      final coordinator = _coordinator(backend);
+      final lifecycleOwner = Object();
+      backend.addPendingEvent(
+        ownerScope: _ownerA,
+        eventId: '11',
+        kind: SubscriptionReturnKind.customerPortal,
+      );
+
+      expect((await coordinator.peekPendingRefreshFor(_ownerA))?.id, '11');
+      backend.markRefreshClaimed(ownerScope: _ownerA, eventId: '11');
+      expect((await coordinator.peekPendingNavigationFor(_ownerA))?.id, '11');
+      expect(
+        await coordinator.claimRestaurantHubLifecycleRefreshFor(
+          lifecycleOwner,
+          _ownerA,
+        ),
+        isTrue,
+      );
+      coordinator.finishRestaurantHubLifecycleRefresh(lifecycleOwner);
+    },
+  );
+
+  test('claimed false retires the local tentative suppression', () async {
+    final backend = FakeSubscriptionReturnBackend(clock: () => _now);
+    final coordinator = _coordinator(backend);
+    final lifecycleOwner = Object();
+    backend.addPendingEvent(
+      ownerScope: _ownerA,
+      eventId: '12',
+      kind: SubscriptionReturnKind.customerPortal,
+    );
+
+    final event = await coordinator.peekPendingRefreshFor(_ownerA);
+    expect(event?.id, '12');
+    backend.markRefreshClaimed(ownerScope: _ownerA, eventId: '12');
+    expect(await coordinator.claimRefreshFor('12', _ownerA), isFalse);
+    expect(
+      await coordinator.claimRestaurantHubLifecycleRefreshFor(
+        lifecycleOwner,
+        _ownerA,
+      ),
+      isTrue,
+    );
+    coordinator.finishRestaurantHubLifecycleRefresh(lifecycleOwner);
+  });
+
+  for (final refreshSucceeded in <bool>[true, false]) {
+    test(
+      'local refresh ${refreshSucceeded ? 'success retains' : 'failure retires'} its tentative suppression',
+      () async {
+        final backend = FakeSubscriptionReturnBackend(clock: () => _now);
+        final coordinator = _coordinator(backend);
+        final lifecycleOwner = Object();
+        backend.addPendingEvent(
+          ownerScope: _ownerA,
+          eventId: '13',
+          kind: SubscriptionReturnKind.customerPortal,
+          navigationClaimed: true,
         );
-        try {
-          SubscriptionReturnService.startAppLinkIngestion(
-            rawLinks: source.stream,
-          );
 
-          source.add(fixture.rawUri);
-          await Future<void>.delayed(Duration.zero);
-
-          expect(
-            events,
-            isEmpty,
-            reason: '${fixture.kind.name}: ${fixture.category}',
-          );
-          expect(
-            SubscriptionReturnService.pendingEventCount,
-            0,
-            reason: '${fixture.kind.name}: ${fixture.category}',
-          );
-          expect(
-            SubscriptionReturnService.peekPendingNavigation(),
-            isNull,
-            reason: '${fixture.kind.name}: ${fixture.category}',
-          );
-          expect(
-            SubscriptionReturnService.peekPendingRefresh(),
-            isNull,
-            reason: '${fixture.kind.name}: ${fixture.category}',
-          );
-
-          source.add(canonicalUriForMalformedCheckoutFixture(fixture));
-          await Future<void>.delayed(Duration.zero);
-
-          expect(
-            events,
-            hasLength(1),
-            reason: '${fixture.kind.name}: ${fixture.category}',
-          );
-          expect(
-            events.single.id,
-            freshCoordinatorFirstEventId,
-            reason: '${fixture.kind.name}: ${fixture.category}',
-          );
-          expect(
-            events.single.kind,
-            fixture.kind,
-            reason: '${fixture.kind.name}: ${fixture.category}',
-          );
-          expect(
-            SubscriptionReturnService.peekPendingNavigation()?.id,
-            freshCoordinatorFirstEventId,
-            reason: '${fixture.kind.name}: ${fixture.category}',
-          );
-          expect(
-            SubscriptionReturnService.peekPendingRefresh()?.id,
-            freshCoordinatorFirstEventId,
-            reason: '${fixture.kind.name}: ${fixture.category}',
-          );
-        } finally {
-          await eventSubscription.cancel();
-          await source.close();
+        final candidate = await coordinator.claimNextPendingRefreshFor(_ownerA);
+        expect(candidate?.event.id, '13');
+        coordinator.finishRefresh(
+          candidate!.event,
+          refreshSucceeded: refreshSucceeded,
+        );
+        // The completed event is now absent from the next server list. A
+        // locally earned success credit must survive that reconciliation;
+        // a failed local refresh must not.
+        expect(await coordinator.peekPendingNavigationFor(_ownerA), isNull);
+        if (refreshSucceeded) {
+          coordinator.noteRestaurantHubMounted(isResumed: true);
+          coordinator.noteRestaurantHubLifecycleNotResumed();
         }
-      }
-    },
-  );
+        expect(
+          await coordinator.claimRestaurantHubLifecycleRefreshFor(
+            lifecycleOwner,
+            _ownerA,
+          ),
+          refreshSucceeded ? isFalse : isTrue,
+        );
+        coordinator.finishRestaurantHubLifecycleRefresh(lifecycleOwner);
+      },
+    );
+  }
 
   test(
-    'lexically noncanonical portal deliveries create no pending event',
+    'initial and changed web fragments enter the same bounded inbox once',
     () async {
-      final source = StreamController<String>();
-      final events = <SubscriptionReturnEvent>[];
-      final eventSubscription = SubscriptionReturnService.events.listen(
-        events.add,
+      final backend = FakeSubscriptionReturnBackend(clock: () => _now);
+      final coordinator = _coordinator(backend);
+      final changes = StreamController<String>.broadcast(sync: true);
+      addTearDown(changes.close);
+      final initial = subscriptionReturnWebLocation(
+        kind: SubscriptionReturnKind.checkoutSuccess,
+        returnToken: _token(9),
       );
-      addTearDown(eventSubscription.cancel);
-      addTearDown(source.close);
-      SubscriptionReturnService.startAppLinkIngestion(rawLinks: source.stream);
-
-      for (final rawUri in _lexicallyNonCanonicalPortalReturnUris) {
-        source.add(rawUri);
-        await Future<void>.delayed(Duration.zero);
-
-        expect(events, isEmpty, reason: rawUri);
-        expect(SubscriptionReturnService.pendingEventCount, 0, reason: rawUri);
-      }
+      final later = subscriptionReturnWebLocation(
+        kind: SubscriptionReturnKind.customerPortal,
+        returnToken: _token(10),
+      );
+      coordinator.startAppLinkIngestion(
+        rawLinks: const Stream<String>.empty(),
+        initialWebLocation: initial,
+        webLocations: changes.stream,
+      );
+      changes
+        ..add(initial)
+        ..add(later);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(await coordinator.pendingLocalDeliveryCount(), 2);
     },
   );
 
-  test('preserves checkout success, cancel, and legacy parsing', () {
-    expect(
-      parseSubscriptionReturnUri(Uri.parse('bitesaver://subscription-success')),
-      SubscriptionReturnKind.checkoutSuccess,
+  test('parsed app-link stream never consumes tokenized URI', () async {
+    final backend = FakeSubscriptionReturnBackend(clock: () => _now);
+    final coordinator = _coordinator(backend);
+    final parsedLinks = StreamController<Uri>.broadcast(sync: true);
+    addTearDown(parsedLinks.close);
+    coordinator.startAppLinkIngestion(
+      links: parsedLinks.stream,
+      webLocations: const Stream<String>.empty(),
     );
-    expect(
-      parseSubscriptionReturnUri(Uri.parse('bitesaver://subscription-cancel')),
-      SubscriptionReturnKind.checkoutCancel,
-    );
-    expect(
-      parseSubscriptionReturnLink(subscriptionCheckoutSuccessReturnUri),
-      SubscriptionReturnKind.checkoutSuccess,
-    );
-    expect(
-      parseSubscriptionReturnLink(subscriptionCheckoutCancelReturnUri),
-      SubscriptionReturnKind.checkoutCancel,
-    );
-    expect(
-      parseSubscriptionReturnUri(
-        Uri.parse('couponapp://subscription-return?status=success'),
+    parsedLinks.add(
+      Uri.parse(
+        subscriptionReturnUri(
+          kind: SubscriptionReturnKind.checkoutSuccess,
+          returnToken: _token(11),
+        ),
       ),
-      SubscriptionReturnKind.checkoutSuccess,
     );
-    expect(
-      parseSubscriptionReturnUri(
-        Uri.parse('couponapp://subscription-return?status=cancel'),
-      ),
-      SubscriptionReturnKind.checkoutCancel,
-    );
-    expect(
-      parseSubscriptionReturnLink(
-        'couponapp://subscription-return?status=success',
-      ),
-      SubscriptionReturnKind.checkoutSuccess,
-    );
-    expect(
-      parseSubscriptionReturnLink(
-        'couponapp://subscription-return?status=cancel',
-      ),
-      SubscriptionReturnKind.checkoutCancel,
-    );
+    await Future<void>.delayed(Duration.zero);
+    expect(await coordinator.pendingLocalDeliveryCount(), 0);
   });
-
-  test('does not collide with customer, BiteScore, invite, or admin links', () {
-    const unrelatedLinks = <String>[
-      'bitesaver://r/coupons/restaurant-1',
-      'bitesaver://r/bitescore/restaurant-1',
-      'bitesaver://invite/coupon/invite-token',
-      'bitesaver://invite/bitescore/invite-token',
-      'https://go.bitestar.app/r/coupons/restaurant-1',
-      'couponapp://open',
-      'bitesaver://admin',
-    ];
-
-    for (final rawUri in unrelatedLinks) {
-      expect(
-        parseSubscriptionReturnUri(Uri.parse(rawUri)),
-        isNull,
-        reason: rawUri,
-      );
-    }
-  });
-
-  test('tracks whether a Restaurant Hub is already active', () {
-    expect(SubscriptionReturnService.hasActiveRestaurantHub, isFalse);
-
-    SubscriptionReturnService.registerRestaurantHub();
-    expect(SubscriptionReturnService.hasActiveRestaurantHub, isTrue);
-
-    SubscriptionReturnService.unregisterRestaurantHub();
-    expect(SubscriptionReturnService.hasActiveRestaurantHub, isFalse);
-  });
-
-  test(
-    'active Restaurant Hub tracking is safe if unregister is called extra',
-    () {
-      SubscriptionReturnService.unregisterRestaurantHub();
-
-      expect(SubscriptionReturnService.hasActiveRestaurantHub, isFalse);
-    },
-  );
 }

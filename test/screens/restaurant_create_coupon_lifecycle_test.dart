@@ -9,10 +9,12 @@ import 'package:coupon_app/models/daily_special.dart';
 import 'package:coupon_app/models/local_coupon_store.dart';
 import 'package:coupon_app/models/local_restaurant_profile_store.dart';
 import 'package:coupon_app/models/restaurant.dart';
+import 'package:coupon_app/screens/main_navigation_screen.dart';
 import 'package:coupon_app/screens/restaurant_auth_screen.dart';
 import 'package:coupon_app/screens/restaurant_create_coupon_screen.dart';
 import 'package:coupon_app/services/bitesaver_image_upload_service.dart';
 import 'package:coupon_app/services/bitesaver_restaurant_lifecycle_service.dart';
+import 'package:coupon_app/services/subscription_checkout_service.dart';
 import 'package:coupon_app/services/subscription_return_service.dart';
 import 'package:coupon_app/widgets/bitesaver_restaurant_images.dart';
 import 'package:firebase_auth/firebase_auth.dart';
@@ -20,15 +22,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../support/subscription_return_test_backend.dart';
+
+const SubscriptionReturnOwnerScope _defaultSubscriptionReturnOwnerScope =
+    SubscriptionReturnOwnerScope(uid: 'owner-1', accountDocumentId: 'owner-1');
+var _subscriptionReturnDeliverySequence = 0;
+late FakeSubscriptionReturnBackend _subscriptionReturnBackend;
+
 void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
+    _subscriptionReturnDeliverySequence = 0;
+    _subscriptionReturnBackend = FakeSubscriptionReturnBackend();
+    await installFakeSubscriptionReturnService(_subscriptionReturnBackend);
     LocalRestaurantProfileStore.resetProfile();
-    await SubscriptionReturnService.resetForTesting();
   });
-  tearDown(() async {
+  tearDown(() {
     LocalRestaurantProfileStore.resetProfile();
-    await SubscriptionReturnService.resetForTesting();
   });
 
   testWidgets('missing account is a valid coupon application state', (
@@ -4525,13 +4535,16 @@ void main() {
     );
     expect(accountLoads, 1);
 
-    await _dispatchAndClaimNavigation(SubscriptionReturnKind.customerPortal);
+    await _dispatchAndClaimNavigation(
+      tester,
+      SubscriptionReturnKind.customerPortal,
+    );
     await tester.pump();
     await tester.pump();
 
     expect(accountLoads, 2);
     expect(refreshTransitions, <bool>[true, false]);
-    expect(SubscriptionReturnService.pendingEventCount, 0);
+    expect(await SubscriptionReturnService.pendingEventCount, 0);
 
     await tester.pump(const Duration(seconds: 4));
     expect(accountLoads, 2);
@@ -4554,13 +4567,16 @@ void main() {
       );
       expect(accountLoads, 1);
 
-      await _dispatchAndClaimNavigation(SubscriptionReturnKind.checkoutSuccess);
+      await _dispatchAndClaimNavigation(
+        tester,
+        SubscriptionReturnKind.checkoutSuccess,
+      );
       await tester.pump();
       await tester.pump();
 
       expect(accountLoads, 2);
       expect(refreshTransitions, <bool>[true, false]);
-      expect(SubscriptionReturnService.pendingEventCount, 0);
+      expect(await SubscriptionReturnService.pendingEventCount, 0);
 
       await tester.pump(const Duration(milliseconds: 2999));
       expect(accountLoads, 2);
@@ -4592,13 +4608,16 @@ void main() {
     );
     expect(accountLoads, 1);
 
-    await _dispatchAndClaimNavigation(SubscriptionReturnKind.checkoutCancel);
+    await _dispatchAndClaimNavigation(
+      tester,
+      SubscriptionReturnKind.checkoutCancel,
+    );
     await tester.pump();
     await tester.pump();
 
     expect(accountLoads, 2);
     expect(refreshTransitions, <bool>[true, false]);
-    expect(SubscriptionReturnService.pendingEventCount, 0);
+    expect(await SubscriptionReturnService.pendingEventCount, 0);
 
     await tester.pump(const Duration(seconds: 4));
     expect(accountLoads, 2);
@@ -4616,9 +4635,17 @@ void main() {
       (tester) async {
         final refreshTransitions = <bool>[];
         var accountLoads = 0;
-        final event = await _dispatchAndClaimNavigation(checkoutCase.kind);
+        final event = await _dispatchAndClaimNavigation(
+          tester,
+          checkoutCase.kind,
+        );
 
-        expect(SubscriptionReturnService.peekPendingRefresh()?.id, event.id);
+        expect(
+          (await SubscriptionReturnService.peekPendingRefreshFor(
+            _defaultSubscriptionReturnOwnerScope,
+          ))?.id,
+          event.id,
+        );
         await tester.pumpWidget(
           MaterialApp(
             home: RestaurantAuthScreen(authStateStream: Stream.value(null)),
@@ -4628,8 +4655,19 @@ void main() {
 
         expect(find.text('Restaurant Sign In'), findsOneWidget);
         expect(find.byType(RestaurantCreateCouponScreen), findsNothing);
-        expect(SubscriptionReturnService.peekPendingRefresh()?.id, event.id);
-        expect(SubscriptionReturnService.claimNavigation(event.id), isFalse);
+        expect(
+          (await SubscriptionReturnService.peekPendingRefreshFor(
+            _defaultSubscriptionReturnOwnerScope,
+          ))?.id,
+          event.id,
+        );
+        expect(
+          await SubscriptionReturnService.claimNavigationFor(
+            event.id,
+            _defaultSubscriptionReturnOwnerScope,
+          ),
+          isFalse,
+        );
 
         await _pumpApplicationScreen(
           tester,
@@ -4660,7 +4698,7 @@ void main() {
               ? <bool>[true, false, true, false]
               : <bool>[true, false],
         );
-        expect(SubscriptionReturnService.pendingEventCount, 0);
+        expect(await SubscriptionReturnService.pendingEventCount, 0);
 
         await tester.pumpWidget(const MaterialApp(home: SizedBox()));
         await tester.pump();
@@ -4675,9 +4713,21 @@ void main() {
         );
 
         expect(remountLoads, 1);
-        expect(SubscriptionReturnService.pendingEventCount, 0);
-        expect(SubscriptionReturnService.claimNavigation(event.id), isFalse);
-        expect(SubscriptionReturnService.claimRefresh(event.id), isFalse);
+        expect(await SubscriptionReturnService.pendingEventCount, 0);
+        expect(
+          await SubscriptionReturnService.claimNavigationFor(
+            event.id,
+            _defaultSubscriptionReturnOwnerScope,
+          ),
+          isFalse,
+        );
+        expect(
+          await SubscriptionReturnService.claimRefreshFor(
+            event.id,
+            _defaultSubscriptionReturnOwnerScope,
+          ),
+          isFalse,
+        );
         expect(tester.takeException(), isNull);
       },
     );
@@ -4707,7 +4757,7 @@ void main() {
           onSubscriptionRefreshStateChanged: refreshTransitions.add,
         );
 
-        await _dispatchAndClaimNavigation(checkoutCase.kind);
+        await _dispatchAndClaimNavigation(tester, checkoutCase.kind);
         await tester.pump();
         await tester.pump();
         if (checkoutCase.kind == SubscriptionReturnKind.checkoutSuccess) {
@@ -4718,9 +4768,9 @@ void main() {
         }
 
         expect(accountLoads, checkoutCase.loadsAfterFailure);
-        expect(SubscriptionReturnService.pendingEventCount, 0);
+        expect(await SubscriptionReturnService.pendingEventCount, 0);
 
-        await _dispatchAndClaimNavigation(checkoutCase.kind);
+        await _dispatchAndClaimNavigation(tester, checkoutCase.kind);
         await tester.pump();
         await tester.pump();
         if (checkoutCase.kind == SubscriptionReturnKind.checkoutSuccess) {
@@ -4741,7 +4791,7 @@ void main() {
               ? <bool>[true, false, true, false, true, false, true, false]
               : <bool>[true, false, true, false],
         );
-        expect(SubscriptionReturnService.pendingEventCount, 0);
+        expect(await SubscriptionReturnService.pendingEventCount, 0);
         expect(
           find.textContaining('raw Firebase and Stripe details'),
           findsNothing,
@@ -4758,7 +4808,7 @@ void main() {
           },
         );
         expect(remountLoads, 1);
-        expect(SubscriptionReturnService.pendingEventCount, 0);
+        expect(await SubscriptionReturnService.pendingEventCount, 0);
         expect(tester.takeException(), isNull);
       },
     );
@@ -4772,6 +4822,7 @@ void main() {
       final refreshTransitions = <bool>[];
       var accountLoads = 0;
       final event = await _dispatchAndClaimNavigation(
+        tester,
         SubscriptionReturnKind.customerPortal,
       );
 
@@ -4790,7 +4841,12 @@ void main() {
       );
       await _pumpUntil(tester, () => accountLoads == 1);
 
-      expect(SubscriptionReturnService.peekPendingRefresh()?.id, event.id);
+      expect(
+        (await SubscriptionReturnService.peekPendingRefreshFor(
+          _defaultSubscriptionReturnOwnerScope,
+        ))?.id,
+        event.id,
+      );
       await tester.pump();
       expect(accountLoads, 1);
       expect(refreshTransitions, isEmpty);
@@ -4798,8 +4854,13 @@ void main() {
       initialLoad.complete(_approvedAccount(subscriptionStatus: 'inactive'));
       await _pumpUntil(tester, () => accountLoads == 2);
 
-      expect(SubscriptionReturnService.peekPendingRefresh(), isNull);
-      expect(SubscriptionReturnService.pendingEventCount, 0);
+      expect(
+        await SubscriptionReturnService.peekPendingRefreshFor(
+          _defaultSubscriptionReturnOwnerScope,
+        ),
+        isNull,
+      );
+      expect(await SubscriptionReturnService.pendingEventCount, 0);
       expect(refreshTransitions, <bool>[true]);
 
       portalRefresh.complete(_approvedAccount());
@@ -4822,8 +4883,13 @@ void main() {
       );
 
       expect(remountLoads, 1);
-      expect(SubscriptionReturnService.peekPendingRefresh(), isNull);
-      expect(SubscriptionReturnService.pendingEventCount, 0);
+      expect(
+        await SubscriptionReturnService.peekPendingRefreshFor(
+          _defaultSubscriptionReturnOwnerScope,
+        ),
+        isNull,
+      );
+      expect(await SubscriptionReturnService.pendingEventCount, 0);
       expect(tester.takeException(), isNull);
     },
   );
@@ -4848,19 +4914,30 @@ void main() {
     await _pumpUntil(tester, () => accountLoads == 1);
 
     final event = await _dispatchAndClaimNavigation(
+      tester,
       SubscriptionReturnKind.customerPortal,
     );
     await tester.pump();
 
     expect(accountLoads, 1);
     expect(refreshTransitions, isEmpty);
-    expect(SubscriptionReturnService.peekPendingRefresh()?.id, event.id);
+    expect(
+      (await SubscriptionReturnService.peekPendingRefreshFor(
+        _defaultSubscriptionReturnOwnerScope,
+      ))?.id,
+      event.id,
+    );
 
     initialLoad.complete(_approvedAccount(subscriptionStatus: 'inactive'));
     await _pumpUntil(tester, () => accountLoads == 2);
 
     expect(refreshTransitions, <bool>[true]);
-    expect(SubscriptionReturnService.peekPendingRefresh(), isNull);
+    expect(
+      await SubscriptionReturnService.peekPendingRefreshFor(
+        _defaultSubscriptionReturnOwnerScope,
+      ),
+      isNull,
+    );
     portalRefresh.complete(_approvedAccount());
     await tester.pumpAndSettle();
 
@@ -4868,7 +4945,7 @@ void main() {
     await _expandSection(tester, 'Subscription / Billing');
     expect(find.text('Subscription active'), findsOneWidget);
     expect(find.text('Not subscribed'), findsNothing);
-    expect(SubscriptionReturnService.pendingEventCount, 0);
+    expect(await SubscriptionReturnService.pendingEventCount, 0);
     expect(tester.takeException(), isNull);
   });
 
@@ -4878,6 +4955,7 @@ void main() {
       final initialLoad = Completer<Map<String, dynamic>?>();
       var disposedScreenLoads = 0;
       final event = await _dispatchAndClaimNavigation(
+        tester,
         SubscriptionReturnKind.customerPortal,
       );
 
@@ -4890,7 +4968,12 @@ void main() {
         settle: false,
       );
       await _pumpUntil(tester, () => disposedScreenLoads == 1);
-      expect(SubscriptionReturnService.peekPendingRefresh()?.id, event.id);
+      expect(
+        (await SubscriptionReturnService.peekPendingRefreshFor(
+          _defaultSubscriptionReturnOwnerScope,
+        ))?.id,
+        event.id,
+      );
 
       await tester.pumpWidget(const MaterialApp(home: SizedBox()));
       await tester.pump();
@@ -4899,8 +4982,13 @@ void main() {
       await tester.pump();
 
       expect(disposedScreenLoads, 1);
-      expect(SubscriptionReturnService.peekPendingRefresh()?.id, event.id);
-      expect(SubscriptionReturnService.pendingEventCount, 1);
+      expect(
+        (await SubscriptionReturnService.peekPendingRefreshFor(
+          _defaultSubscriptionReturnOwnerScope,
+        ))?.id,
+        event.id,
+      );
+      expect(await SubscriptionReturnService.pendingEventCount, 1);
 
       var remountLoads = 0;
       await _pumpApplicationScreen(
@@ -4912,8 +5000,13 @@ void main() {
       );
 
       expect(remountLoads, 2);
-      expect(SubscriptionReturnService.peekPendingRefresh(), isNull);
-      expect(SubscriptionReturnService.pendingEventCount, 0);
+      expect(
+        await SubscriptionReturnService.peekPendingRefreshFor(
+          _defaultSubscriptionReturnOwnerScope,
+        ),
+        isNull,
+      );
+      expect(await SubscriptionReturnService.pendingEventCount, 0);
       expect(tester.takeException(), isNull);
       expect(find.byType(SnackBar), findsNothing);
       expect(find.byType(AlertDialog), findsNothing);
@@ -4942,12 +5035,14 @@ void main() {
       );
 
       final firstEvent = await _dispatchAndClaimNavigation(
+        tester,
         SubscriptionReturnKind.customerPortal,
       );
       await _pumpUntil(tester, () => accountLoads == 2);
       expect(refreshTransitions, <bool>[true]);
 
       final secondEvent = await _dispatchAndClaimNavigation(
+        tester,
         SubscriptionReturnKind.customerPortal,
       );
       await tester.pump();
@@ -4961,9 +5056,10 @@ void main() {
       secondRefresh.complete(_approvedAccount());
       await tester.pumpAndSettle();
       expect(refreshTransitions, <bool>[true, false, true, false]);
-      expect(SubscriptionReturnService.pendingEventCount, 0);
+      expect(await SubscriptionReturnService.pendingEventCount, 0);
 
       final laterEvent = await _dispatchAndClaimNavigation(
+        tester,
         SubscriptionReturnKind.customerPortal,
       );
       await tester.pump();
@@ -4973,10 +5069,230 @@ void main() {
       expect(laterEvent.id, isNot(secondEvent.id));
       expect(accountLoads, 4);
       expect(refreshTransitions, <bool>[true, false, true, false, true, false]);
-      expect(SubscriptionReturnService.pendingEventCount, 0);
+      expect(await SubscriptionReturnService.pendingEventCount, 0);
       expect(tester.takeException(), isNull);
       expect(find.byType(SnackBar), findsNothing);
       expect(find.byType(AlertDialog), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'failed return claim retries exactly once on the next lifecycle resume',
+    (tester) async {
+      var accountLoads = 0;
+      _subscriptionReturnBackend
+        ..addPendingEvent(
+          ownerScope: _defaultSubscriptionReturnOwnerScope,
+          eventId: '1',
+          kind: SubscriptionReturnKind.customerPortal,
+          navigationClaimed: true,
+        )
+        ..remainingClaimFailures = 1;
+      expect(
+        await _awaitSubscriptionReturnOperation(
+          tester,
+          SubscriptionReturnService.peekPendingRefreshFor(
+            _defaultSubscriptionReturnOwnerScope,
+          ),
+        ),
+        isNotNull,
+      );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      await _pumpApplicationScreen(
+        tester,
+        loadAccount: (uid) async {
+          accountLoads += 1;
+          return _approvedAccount();
+        },
+      );
+      await _pumpUntil(
+        tester,
+        () => _subscriptionReturnBackend.claimCalls == 1,
+      );
+      expect(accountLoads, 1);
+      expect(_subscriptionReturnBackend.claimCalls, 1);
+      expect(await SubscriptionReturnService.pendingEventCount, 1);
+
+      await _triggerAppResume(tester);
+      await _pumpUntil(
+        tester,
+        () => _subscriptionReturnBackend.claimCalls == 2 && accountLoads == 2,
+      );
+
+      expect(_subscriptionReturnBackend.claimCalls, 2);
+      expect(accountLoads, 2);
+      expect(await SubscriptionReturnService.pendingEventCount, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'permanent return claim failure attempts once per lifecycle episode',
+    (tester) async {
+      var accountLoads = 0;
+      _subscriptionReturnBackend
+        ..addPendingEvent(
+          ownerScope: _defaultSubscriptionReturnOwnerScope,
+          eventId: '1',
+          kind: SubscriptionReturnKind.customerPortal,
+          navigationClaimed: true,
+        )
+        ..failClaim = true;
+      expect(
+        await _awaitSubscriptionReturnOperation(
+          tester,
+          SubscriptionReturnService.peekPendingRefreshFor(
+            _defaultSubscriptionReturnOwnerScope,
+          ),
+        ),
+        isNotNull,
+      );
+
+      await _pumpApplicationScreen(
+        tester,
+        loadAccount: (uid) async {
+          accountLoads += 1;
+          return _approvedAccount();
+        },
+      );
+      await _pumpUntil(
+        tester,
+        () => _subscriptionReturnBackend.claimCalls == 1,
+      );
+      expect(_subscriptionReturnBackend.claimCalls, 1);
+
+      await _triggerAppResume(tester);
+      await _pumpUntil(
+        tester,
+        () => _subscriptionReturnBackend.claimCalls == 2,
+      );
+      for (var attempt = 0; attempt < 8; attempt += 1) {
+        await tester.pump();
+      }
+
+      expect(_subscriptionReturnBackend.claimCalls, 2);
+      expect(accountLoads, 1);
+      expect(await SubscriptionReturnService.pendingEventCount, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'return appearing between resume peeks consumes that resume episode',
+    (tester) async {
+      var accountLoads = 0;
+      await _pumpApplicationScreen(
+        tester,
+        loadAccount: (uid) async {
+          accountLoads += 1;
+          return _approvedAccount();
+        },
+      );
+      _subscriptionReturnBackend.afterNextListResponse = () {
+        _subscriptionReturnBackend.addPendingEvent(
+          ownerScope: _defaultSubscriptionReturnOwnerScope,
+          eventId: '1',
+          kind: SubscriptionReturnKind.customerPortal,
+          navigationClaimed: true,
+        );
+      };
+
+      await _triggerAppResume(tester);
+      await _pumpUntil(
+        tester,
+        () => _subscriptionReturnBackend.claimCalls == 1 && accountLoads == 2,
+      );
+      expect(await SubscriptionReturnService.pendingEventCount, 0);
+
+      await _triggerAppResume(tester);
+      await _pumpUntil(tester, () => accountLoads == 3);
+
+      expect(_subscriptionReturnBackend.claimCalls, 1);
+      expect(accountLoads, 3);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'pre-mount return success does not suppress a later resume episode',
+    (tester) async {
+      var accountLoads = 0;
+      _subscriptionReturnBackend.addPendingEvent(
+        ownerScope: _defaultSubscriptionReturnOwnerScope,
+        eventId: '1',
+        kind: SubscriptionReturnKind.customerPortal,
+        navigationClaimed: true,
+      );
+      expect(
+        await _awaitSubscriptionReturnOperation(
+          tester,
+          SubscriptionReturnService.peekPendingRefreshFor(
+            _defaultSubscriptionReturnOwnerScope,
+          ),
+        ),
+        isNotNull,
+      );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+
+      await _pumpApplicationScreen(
+        tester,
+        loadAccount: (uid) async {
+          accountLoads += 1;
+          return _approvedAccount();
+        },
+      );
+      await _pumpUntil(
+        tester,
+        () => _subscriptionReturnBackend.claimCalls == 1 && accountLoads == 2,
+      );
+      expect(await SubscriptionReturnService.pendingEventCount, 0);
+
+      await _triggerAppResume(tester);
+      await _pumpUntil(tester, () => accountLoads == 3);
+
+      expect(_subscriptionReturnBackend.claimCalls, 1);
+      expect(accountLoads, 3);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'failed local return refresh does not suppress the next normal resume',
+    (tester) async {
+      var accountLoads = 0;
+      await _pumpApplicationScreen(
+        tester,
+        loadAccount: (uid) async {
+          accountLoads += 1;
+          if (accountLoads == 2) {
+            throw StateError('synthetic return refresh failure');
+          }
+          return _approvedAccount();
+        },
+      );
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+
+      await _dispatchAndClaimNavigation(
+        tester,
+        SubscriptionReturnKind.customerPortal,
+      );
+      await _pumpUntil(tester, () => accountLoads == 2);
+      expect(await SubscriptionReturnService.pendingEventCount, 0);
+
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await _pumpUntil(tester, () => accountLoads == 3);
+
+      expect(accountLoads, 3);
+      expect(tester.takeException(), isNull);
+      expect(
+        find.textContaining('synthetic return refresh failure'),
+        findsNothing,
+      );
     },
   );
 
@@ -4999,7 +5315,10 @@ void main() {
         onSubscriptionRefreshStateChanged: refreshTransitions.add,
       );
 
-      await _dispatchAndClaimNavigation(SubscriptionReturnKind.customerPortal);
+      await _dispatchAndClaimNavigation(
+        tester,
+        SubscriptionReturnKind.customerPortal,
+      );
       await _pumpUntil(tester, () => accountLoads == 2);
       expect(refreshTransitions, <bool>[true]);
 
@@ -5015,7 +5334,7 @@ void main() {
       await _expandSection(tester, 'Subscription / Billing');
       expect(find.text('Subscription active'), findsOneWidget);
       expect(find.text('Not subscribed'), findsNothing);
-      expect(SubscriptionReturnService.pendingEventCount, 0);
+      expect(await SubscriptionReturnService.pendingEventCount, 0);
       expect(tester.takeException(), isNull);
     },
   );
@@ -5041,7 +5360,10 @@ void main() {
       expect(accountLoads, 2);
       expect(refreshTransitions, <bool>[true]);
 
-      await _dispatchAndClaimNavigation(SubscriptionReturnKind.customerPortal);
+      await _dispatchAndClaimNavigation(
+        tester,
+        SubscriptionReturnKind.customerPortal,
+      );
       await tester.pump();
       expect(accountLoads, 2);
 
@@ -5050,7 +5372,7 @@ void main() {
 
       expect(accountLoads, 2);
       expect(refreshTransitions, <bool>[true, false]);
-      expect(SubscriptionReturnService.pendingEventCount, 0);
+      expect(await SubscriptionReturnService.pendingEventCount, 0);
       await tester.pump(const Duration(seconds: 4));
       expect(accountLoads, 2);
       expect(tester.takeException(), isNull);
@@ -5076,13 +5398,16 @@ void main() {
       expect(accountLoads, 2);
       expect(refreshTransitions, <bool>[true, false]);
 
-      await _dispatchAndClaimNavigation(SubscriptionReturnKind.customerPortal);
+      await _dispatchAndClaimNavigation(
+        tester,
+        SubscriptionReturnKind.customerPortal,
+      );
       await tester.pump();
       await tester.pump();
 
       expect(accountLoads, 2);
       expect(refreshTransitions, <bool>[true, false]);
-      expect(SubscriptionReturnService.pendingEventCount, 0);
+      expect(await SubscriptionReturnService.pendingEventCount, 0);
       await tester.pump(const Duration(seconds: 4));
       expect(accountLoads, 2);
       expect(tester.takeException(), isNull);
@@ -5105,13 +5430,16 @@ void main() {
 
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
       await tester.pump();
-      await _dispatchAndClaimNavigation(SubscriptionReturnKind.customerPortal);
+      await _dispatchAndClaimNavigation(
+        tester,
+        SubscriptionReturnKind.customerPortal,
+      );
       await tester.pump();
       await tester.pump();
 
       expect(accountLoads, 2);
       expect(refreshTransitions, <bool>[true, false]);
-      expect(SubscriptionReturnService.pendingEventCount, 0);
+      expect(await SubscriptionReturnService.pendingEventCount, 0);
 
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
       tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
@@ -5162,14 +5490,17 @@ void main() {
     expect(firstHubLoads, 1);
     expect(secondHubLoads, 1);
 
-    await _dispatchAndClaimNavigation(SubscriptionReturnKind.customerPortal);
+    await _dispatchAndClaimNavigation(
+      tester,
+      SubscriptionReturnKind.customerPortal,
+    );
     await tester.pump();
     await tester.pump();
 
     expect(firstHubLoads + secondHubLoads, 3);
     expect(<int>{firstHubLoads, secondHubLoads}, <int>{1, 2});
     expect(refreshTransitions, <bool>[true, false]);
-    expect(SubscriptionReturnService.pendingEventCount, 0);
+    expect(await SubscriptionReturnService.pendingEventCount, 0);
     expect(tester.takeException(), isNull);
   });
 
@@ -5215,7 +5546,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(firstHubLoads + secondHubLoads, 2);
 
-        await _dispatchAndClaimNavigation(checkoutCase.kind);
+        await _dispatchAndClaimNavigation(tester, checkoutCase.kind);
         await tester.pump();
         await tester.pump();
 
@@ -5247,7 +5578,7 @@ void main() {
               ? <bool>[true, false, true, false]
               : <bool>[true, false],
         );
-        expect(SubscriptionReturnService.pendingEventCount, 0);
+        expect(await SubscriptionReturnService.pendingEventCount, 0);
         await tester.pump(const Duration(seconds: 4));
         expect(
           firstHubLoads + secondHubLoads,
@@ -5305,7 +5636,10 @@ void main() {
       expect(<int>{firstHubLoads, secondHubLoads}, <int>{1, 2});
       expect(refreshTransitions, <bool>[true]);
 
-      await _dispatchAndClaimNavigation(SubscriptionReturnKind.customerPortal);
+      await _dispatchAndClaimNavigation(
+        tester,
+        SubscriptionReturnKind.customerPortal,
+      );
       await tester.pump();
       expect(firstHubLoads + secondHubLoads, 3);
 
@@ -5314,7 +5648,7 @@ void main() {
 
       expect(firstHubLoads + secondHubLoads, 3);
       expect(refreshTransitions, <bool>[true, false]);
-      expect(SubscriptionReturnService.pendingEventCount, 0);
+      expect(await SubscriptionReturnService.pendingEventCount, 0);
       await tester.pump(const Duration(seconds: 4));
       expect(firstHubLoads + secondHubLoads, 3);
       expect(tester.takeException(), isNull);
@@ -5745,6 +6079,63 @@ void main() {
   );
 
   testWidgets(
+    'owner B can checkout while owner A preparation remains pending',
+    _verifyPendingCheckoutPreparationIsOwnerScoped,
+  );
+
+  testWidgets(
+    'owner B can open Portal while owner A preparation remains pending',
+    (tester) => _verifyPendingCheckoutPreparationIsOwnerScoped(
+      tester,
+      useCustomerPortal: true,
+    ),
+  );
+
+  testWidgets(
+    'same-UID document change after preparation blocks A launch and preserves B',
+    _verifyCheckoutScopeChangeBeforeLaunch,
+  );
+
+  testWidgets(
+    'same-UID document change after Portal preparation blocks A launch',
+    (tester) =>
+        _verifyCheckoutScopeChangeBeforeLaunch(tester, useCustomerPortal: true),
+  );
+
+  testWidgets(
+    'failed Checkout launch preserves the server return context for redemption',
+    _verifyFailedLaunchPreservesServerReturnContext,
+  );
+
+  testWidgets(
+    'failed Portal launch preserves the server return context for redemption',
+    (tester) => _verifyFailedLaunchPreservesServerReturnContext(
+      tester,
+      useCustomerPortal: true,
+    ),
+  );
+
+  testWidgets(
+    'successful Portal launch uses its validated server-prepared session',
+    _verifySuccessfulPortalLaunchUsesPreparedSession,
+  );
+
+  testWidgets(
+    'return during pending Checkout launch redeems once and replay stays inert',
+    _verifyReturnDuringPendingCheckoutLaunchIsSingleUse,
+  );
+
+  testWidgets(
+    'return consumed during pending Checkout survives the same launcher failing',
+    _verifyReturnDuringPendingCheckoutLaunchThenFalseIsAuthoritative,
+  );
+
+  testWidgets(
+    'Paywall pending preparation is invalidated by same-UID document change',
+    _verifyPaywallPendingPreparationIsOwnerScoped,
+  );
+
+  testWidgets(
     'same-UID document B checkout remains busy after A checkout completes',
     _verifyPendingCheckoutIsOwnerScoped,
   );
@@ -5768,17 +6159,86 @@ void main() {
 Future<void> _triggerAppResume(WidgetTester tester) async {
   tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
   tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-  await tester.pump();
+  for (var attempt = 0; attempt < 3; attempt += 1) {
+    await tester.pump();
+    await tester.runAsync<void>(
+      () => Future<void>.delayed(const Duration(milliseconds: 1)),
+    );
+  }
 }
 
 Future<SubscriptionReturnEvent> _dispatchAndClaimNavigation(
+  WidgetTester tester,
   SubscriptionReturnKind kind,
 ) async {
-  final event = await SubscriptionReturnService.dispatchReturn(kind);
+  final returnToken = _testReturnToken(++_subscriptionReturnDeliverySequence);
+  _subscriptionReturnBackend.reserve(
+    returnToken: returnToken,
+    ownerScope: _defaultSubscriptionReturnOwnerScope,
+    family: kind.family,
+  );
+  expect(
+    await _awaitSubscriptionReturnOperation(
+      tester,
+      SubscriptionReturnService.ingestReturnLink(
+        subscriptionReturnUri(kind: kind, returnToken: returnToken),
+      ),
+    ),
+    isTrue,
+  );
+  final event = await _awaitSubscriptionReturnOperation(
+    tester,
+    SubscriptionReturnService.peekPendingNavigationFor(
+      _defaultSubscriptionReturnOwnerScope,
+    ),
+  );
   expect(event, isNotNull);
   final acceptedEvent = event!;
-  expect(SubscriptionReturnService.claimNavigation(acceptedEvent.id), isTrue);
+  expect(
+    await _awaitSubscriptionReturnOperation(
+      tester,
+      SubscriptionReturnService.claimNavigationFor(
+        acceptedEvent.id,
+        _defaultSubscriptionReturnOwnerScope,
+      ),
+    ),
+    isTrue,
+  );
   return acceptedEvent;
+}
+
+Future<T> _awaitSubscriptionReturnOperation<T>(
+  WidgetTester tester,
+  Future<T> operation,
+) async {
+  Object? value;
+  Object? error;
+  StackTrace? errorStack;
+  var completed = false;
+  operation.then<void>(
+    (result) {
+      value = result;
+      completed = true;
+    },
+    onError: (Object caughtError, StackTrace caughtStack) {
+      error = caughtError;
+      errorStack = caughtStack;
+      completed = true;
+    },
+  );
+  for (var attempt = 0; attempt < 100 && !completed; attempt += 1) {
+    await tester.runAsync<void>(
+      () => Future<void>.delayed(const Duration(milliseconds: 1)),
+    );
+    await tester.pump();
+  }
+  if (!completed) {
+    throw TestFailure('subscription-return operation timed out');
+  }
+  if (error != null) {
+    Error.throwWithStackTrace(error!, errorStack!);
+  }
+  return value as T;
 }
 
 Future<void> _pumpUntil(
@@ -5787,6 +6247,20 @@ Future<void> _pumpUntil(
   int maxPumps = 20,
 }) async {
   for (var pump = 0; pump < maxPumps && !condition(); pump += 1) {
+    await tester.pump();
+  }
+  expect(condition(), isTrue);
+}
+
+Future<void> _pumpUntilWithRealAsync(
+  WidgetTester tester,
+  bool Function() condition, {
+  int maxPumps = 100,
+}) async {
+  for (var pump = 0; pump < maxPumps && !condition(); pump += 1) {
+    await tester.runAsync<void>(
+      () => Future<void>.delayed(const Duration(milliseconds: 1)),
+    );
     await tester.pump();
   }
   expect(condition(), isTrue);
@@ -6341,6 +6815,40 @@ Future<void> _ensureSectionExpanded(
     return;
   }
   await _expandSection(tester, title);
+}
+
+Future<void> _ensureSubscriptionActionVisible(
+  WidgetTester tester, {
+  required bool useCustomerPortal,
+}) {
+  if (useCustomerPortal) {
+    return _ensureSectionExpanded(
+      tester,
+      'Subscription / Billing',
+      visibleWhenExpanded: find.widgetWithText(
+        OutlinedButton,
+        'Manage Subscription',
+      ),
+    );
+  }
+  return _ensureSectionExpanded(
+    tester,
+    'Coupon Management / Daily Specials',
+    visibleWhenExpanded: find.widgetWithText(
+      FilledButton,
+      'Start Subscription',
+    ),
+  );
+}
+
+Future<void> _invokeSubscriptionAction(
+  WidgetTester tester, {
+  required bool useCustomerPortal,
+}) {
+  if (useCustomerPortal) {
+    return _invokeOutlinedButton(tester, 'Manage Subscription');
+  }
+  return _invokeFilledButton(tester, 'Start Subscription');
 }
 
 Future<void> _invokeElevatedButton(WidgetTester tester, String label) async {
@@ -8777,6 +9285,925 @@ Future<void> _verifyPendingDailySpecialDeleteIsOwnerScoped(
   expect(find.text('Daily special removed.'), findsOneWidget);
 }
 
+Future<void> _verifyPendingCheckoutPreparationIsOwnerScoped(
+  WidgetTester tester, {
+  bool useCustomerPortal = false,
+}) async {
+  final callableName = useCustomerPortal
+      ? 'createCustomerPortalSession'
+      : 'createCheckoutSession';
+  final ownerAUrl = useCustomerPortal
+      ? 'https://billing.stripe.com/p/session/owner-a-stale-preparation'
+      : 'https://checkout.stripe.com/c/pay/owner-a-stale-preparation';
+  final ownerBUrl = useCustomerPortal
+      ? 'https://billing.stripe.com/p/session/owner-b-preparation'
+      : 'https://checkout.stripe.com/c/pay/owner-b-preparation';
+  final owner = _TestUser(
+    uid: 'pending-checkout-preparation-owner',
+    email: 'pending-checkout-preparation@example.test',
+  );
+  const documentA = 'pending-checkout-preparation-a';
+  const documentB = 'pending-checkout-preparation-b';
+  final tokenA = _testReturnToken(21);
+  final tokenB = _testReturnToken(22);
+  var currentDocumentId = documentA;
+  var preparationCalls = 0;
+  final ownerAPreparation = Completer<Map<String, Object?>>();
+  final launchedUrls = <Uri>[];
+  final userChanges = StreamController<User?>.broadcast(sync: true);
+  addTearDown(userChanges.close);
+  final checkoutService = SubscriptionCheckoutService(
+    invokeCallable: (name, payload) {
+      expect(name, callableName);
+      expect(payload, <String, Object?>{
+        'returnProtocolVersion': 2,
+        'restaurantAccountDocumentId': currentDocumentId,
+      });
+      preparationCalls += 1;
+      if (preparationCalls == 1) {
+        return ownerAPreparation.future;
+      }
+      return Future<Map<String, Object?>>.value(<String, Object?>{
+        'url': ownerBUrl,
+        'returnToken': tokenB,
+        'returnProtocolVersion': 2,
+      });
+    },
+    launchExternalUrl: (url) async {
+      launchedUrls.add(url);
+      return true;
+    },
+  );
+
+  await _pumpApplicationScreen(
+    tester,
+    loadAccount: (uid) async => _approvedAccount(
+      uid: uid,
+      restaurantName: currentDocumentId == documentA
+          ? 'A Pending Preparation Restaurant'
+          : 'B Current Preparation Restaurant',
+      subscriptionStatus: useCustomerPortal ? 'active' : 'inactive',
+    ),
+    subscriptionCheckoutService: checkoutService,
+    testCurrentUser: owner,
+    currentUserProvider: () => owner,
+    ownerUserChanges: userChanges.stream,
+    accountDocumentIdForUid: (uid) => currentDocumentId,
+  );
+  await _ensureSubscriptionActionVisible(
+    tester,
+    useCustomerPortal: useCustomerPortal,
+  );
+  await _invokeSubscriptionAction(tester, useCustomerPortal: useCustomerPortal);
+  expect(preparationCalls, 1);
+  expect(launchedUrls, isEmpty);
+
+  currentDocumentId = documentB;
+  userChanges.add(owner);
+  await tester.pumpAndSettle();
+  await _ensureSubscriptionActionVisible(
+    tester,
+    useCustomerPortal: useCustomerPortal,
+  );
+  await _invokeSubscriptionAction(tester, useCustomerPortal: useCustomerPortal);
+  await _pumpUntilWithRealAsync(tester, () => launchedUrls.length == 1);
+
+  expect(launchedUrls.single, Uri.parse(ownerBUrl));
+
+  ownerAPreparation.complete(<String, Object?>{
+    'url': ownerAUrl,
+    'returnToken': tokenA,
+    'returnProtocolVersion': 2,
+  });
+  await tester.pumpAndSettle();
+
+  expect(launchedUrls, hasLength(1));
+  expect(
+    await _awaitSubscriptionReturnOperation(
+      tester,
+      SubscriptionReturnService.pendingLocalDeliveryCount,
+    ),
+    0,
+  );
+  expect(find.text('Something went wrong'), findsNothing);
+  if (useCustomerPortal) {
+    expect(
+      find.widgetWithText(OutlinedButton, 'Manage Subscription'),
+      findsOneWidget,
+    );
+  } else {
+    expect(
+      find.widgetWithText(FilledButton, 'Start Subscription'),
+      findsOneWidget,
+    );
+  }
+}
+
+Future<void> _verifyCheckoutScopeChangeBeforeLaunch(
+  WidgetTester tester, {
+  bool useCustomerPortal = false,
+}) async {
+  final callableName = useCustomerPortal
+      ? 'createCustomerPortalSession'
+      : 'createCheckoutSession';
+  final ownerAUrl = useCustomerPortal
+      ? 'https://billing.stripe.com/p/session/owner-a-before-launch'
+      : 'https://checkout.stripe.com/c/pay/owner-a-before-launch';
+  final ownerBUrl = useCustomerPortal
+      ? 'https://billing.stripe.com/p/session/owner-b-before-launch'
+      : 'https://checkout.stripe.com/c/pay/owner-b-before-launch';
+  final owner = _TestUser(
+    uid: 'before-launch-owner',
+    email: 'before-launch-owner@example.test',
+  );
+  const documentA = 'before-launch-document-a';
+  const documentB = 'before-launch-document-b';
+  final tokenA = _testReturnToken(23);
+  final tokenB = _testReturnToken(24);
+  var currentDocumentId = documentA;
+  var preparationCalls = 0;
+  var beforeLaunchCalls = 0;
+  final launchedUrls = <Uri>[];
+  final userChanges = StreamController<User?>.broadcast(sync: true);
+  addTearDown(userChanges.close);
+  final checkoutService = _BeforeLaunchHookSubscriptionCheckoutService(
+    invokeCallable: (name, payload) async {
+      expect(name, callableName);
+      expect(payload, <String, Object?>{
+        'returnProtocolVersion': 2,
+        'restaurantAccountDocumentId': currentDocumentId,
+      });
+      preparationCalls += 1;
+      final isOwnerA = preparationCalls == 1;
+      return <String, Object?>{
+        'url': isOwnerA ? ownerAUrl : ownerBUrl,
+        'returnToken': isOwnerA ? tokenA : tokenB,
+        'returnProtocolVersion': 2,
+      };
+    },
+    launchExternalUrl: (url) async {
+      launchedUrls.add(url);
+      return true;
+    },
+    beforeLaunch: (prepared) {
+      beforeLaunchCalls += 1;
+      if (prepared.returnToken == tokenA) {
+        currentDocumentId = documentB;
+        userChanges.add(owner);
+      }
+    },
+  );
+
+  await _pumpApplicationScreen(
+    tester,
+    loadAccount: (uid) async => _approvedAccount(
+      uid: uid,
+      restaurantName: currentDocumentId == documentA
+          ? 'A Post Registration Restaurant'
+          : 'B Post Registration Restaurant',
+      subscriptionStatus: useCustomerPortal ? 'active' : 'inactive',
+    ),
+    subscriptionCheckoutService: checkoutService,
+    testCurrentUser: owner,
+    currentUserProvider: () => owner,
+    ownerUserChanges: userChanges.stream,
+    accountDocumentIdForUid: (uid) => currentDocumentId,
+  );
+  await _ensureSubscriptionActionVisible(
+    tester,
+    useCustomerPortal: useCustomerPortal,
+  );
+  await _invokeSubscriptionAction(tester, useCustomerPortal: useCustomerPortal);
+  await _pumpUntilWithRealAsync(tester, () => beforeLaunchCalls == 1);
+
+  expect(launchedUrls, isEmpty);
+  await tester.pumpAndSettle();
+  expect(find.text('Something went wrong'), findsNothing);
+
+  await _ensureSubscriptionActionVisible(
+    tester,
+    useCustomerPortal: useCustomerPortal,
+  );
+  await _invokeSubscriptionAction(tester, useCustomerPortal: useCustomerPortal);
+  await _pumpUntilWithRealAsync(tester, () => launchedUrls.length == 1);
+  expect(beforeLaunchCalls, 2);
+  expect(launchedUrls.single, Uri.parse(ownerBUrl));
+  expect(
+    await _awaitSubscriptionReturnOperation(
+      tester,
+      SubscriptionReturnService.pendingLocalDeliveryCount,
+    ),
+    0,
+  );
+}
+
+Future<void> _verifyFailedLaunchPreservesServerReturnContext(
+  WidgetTester tester, {
+  bool useCustomerPortal = false,
+}) async {
+  final callableName = useCustomerPortal
+      ? 'createCustomerPortalSession'
+      : 'createCheckoutSession';
+  final failingUrl = useCustomerPortal
+      ? 'https://billing.stripe.com/p/session/failing-launch'
+      : 'https://checkout.stripe.com/c/pay/failing-launch';
+  final family = useCustomerPortal
+      ? SubscriptionReturnFamily.customerPortal
+      : SubscriptionReturnFamily.checkout;
+  final owner = _TestUser(
+    uid: 'checkout-launch-failure-owner',
+    email: 'checkout-launch-failure@example.test',
+  );
+  final token = _testReturnToken(25);
+  const accountDocumentId = 'checkout-launch-failure-document';
+  final ownerScope = SubscriptionReturnOwnerScope(
+    uid: owner.uid,
+    accountDocumentId: accountDocumentId,
+  );
+  Uri? launchedUrl;
+  final checkoutService = SubscriptionCheckoutService(
+    invokeCallable: (name, payload) async {
+      expect(name, callableName);
+      expect(payload, <String, Object?>{
+        'returnProtocolVersion': 2,
+        'restaurantAccountDocumentId': accountDocumentId,
+      });
+      _subscriptionReturnBackend.reserve(
+        returnToken: token,
+        ownerScope: ownerScope,
+        family: family,
+      );
+      return <String, Object?>{
+        'url': failingUrl,
+        'returnToken': token,
+        'returnProtocolVersion': 2,
+      };
+    },
+    launchExternalUrl: (url) async {
+      launchedUrl = url;
+      return false;
+    },
+  );
+
+  await _pumpApplicationScreen(
+    tester,
+    loadAccount: (uid) async => _approvedAccount(
+      uid: uid,
+      subscriptionStatus: useCustomerPortal ? 'active' : 'inactive',
+    ),
+    subscriptionCheckoutService: checkoutService,
+    testCurrentUser: owner,
+    currentUserProvider: () => owner,
+    accountDocumentIdForUid: (uid) => accountDocumentId,
+  );
+  await _ensureSubscriptionActionVisible(
+    tester,
+    useCustomerPortal: useCustomerPortal,
+  );
+  await _invokeSubscriptionAction(tester, useCustomerPortal: useCustomerPortal);
+  await _pumpUntilWithRealAsync(
+    tester,
+    () => find.text('Something went wrong').evaluate().isNotEmpty,
+  );
+
+  expect(launchedUrl, Uri.parse(failingUrl));
+  expect(
+    await _awaitSubscriptionReturnOperation(
+      tester,
+      SubscriptionReturnService.pendingLocalDeliveryCount,
+    ),
+    0,
+  );
+  expect(
+    await _awaitSubscriptionReturnOperation(
+      tester,
+      SubscriptionReturnService.ingestReturnLink(
+        subscriptionReturnUri(
+          kind: useCustomerPortal
+              ? SubscriptionReturnKind.customerPortal
+              : SubscriptionReturnKind.checkoutCancel,
+          returnToken: token,
+        ),
+      ),
+    ),
+    isTrue,
+  );
+  final navigation = await _awaitSubscriptionReturnOperation(
+    tester,
+    SubscriptionReturnService.peekPendingNavigationFor(ownerScope),
+  );
+  expect(navigation, isNotNull);
+  if (useCustomerPortal) {
+    expect(
+      find.widgetWithText(OutlinedButton, 'Manage Subscription'),
+      findsOneWidget,
+    );
+  } else {
+    expect(
+      find.widgetWithText(FilledButton, 'Start Subscription'),
+      findsOneWidget,
+    );
+  }
+}
+
+Future<void> _verifySuccessfulPortalLaunchUsesPreparedSession(
+  WidgetTester tester,
+) async {
+  final owner = _TestUser(
+    uid: 'successful-portal-owner',
+    email: 'successful-portal@example.test',
+  );
+  final token = _testReturnToken(26);
+  const accountDocumentId = 'successful-portal-document';
+  Uri? launchedUrl;
+  final portalService = SubscriptionCheckoutService(
+    invokeCallable: (name, payload) async {
+      expect(name, 'createCustomerPortalSession');
+      expect(payload, <String, Object?>{
+        'returnProtocolVersion': 2,
+        'restaurantAccountDocumentId': accountDocumentId,
+      });
+      return <String, Object?>{
+        'url': 'https://billing.stripe.com/p/session/successful-launch',
+        'returnToken': token,
+        'returnProtocolVersion': 2,
+      };
+    },
+    launchExternalUrl: (url) async {
+      launchedUrl = url;
+      return true;
+    },
+  );
+
+  await _pumpApplicationScreen(
+    tester,
+    loadAccount: (uid) async => _approvedAccount(uid: uid),
+    subscriptionCheckoutService: portalService,
+    testCurrentUser: owner,
+    currentUserProvider: () => owner,
+    accountDocumentIdForUid: (uid) => accountDocumentId,
+  );
+  await _ensureSectionExpanded(
+    tester,
+    'Subscription / Billing',
+    visibleWhenExpanded: find.widgetWithText(
+      OutlinedButton,
+      'Manage Subscription',
+    ),
+  );
+  await _invokeOutlinedButton(tester, 'Manage Subscription');
+  await _pumpUntilWithRealAsync(tester, () => launchedUrl != null);
+  expect(
+    launchedUrl,
+    Uri.parse('https://billing.stripe.com/p/session/successful-launch'),
+  );
+  expect(
+    await _awaitSubscriptionReturnOperation(
+      tester,
+      SubscriptionReturnService.pendingLocalDeliveryCount,
+    ),
+    0,
+  );
+  expect(find.text('Something went wrong'), findsNothing);
+}
+
+Future<void> _verifyReturnDuringPendingCheckoutLaunchIsSingleUse(
+  WidgetTester tester,
+) async {
+  final owner = _TestUser(
+    uid: 'duplicate-checkout-owner',
+    email: 'duplicate-checkout@example.test',
+  );
+  const ownerScope = SubscriptionReturnOwnerScope(
+    uid: 'duplicate-checkout-owner',
+    accountDocumentId: 'duplicate-checkout-document',
+  );
+  final token = _testReturnToken(27);
+  _subscriptionReturnBackend.reserve(
+    returnToken: token,
+    ownerScope: ownerScope,
+    family: SubscriptionReturnFamily.checkout,
+  );
+  final launcher = Completer<bool>();
+  var launchCalls = 0;
+  final checkoutService = SubscriptionCheckoutService(
+    invokeCallable: (name, payload) async {
+      expect(name, 'createCheckoutSession');
+      expect(payload, <String, Object?>{
+        'returnProtocolVersion': 2,
+        'restaurantAccountDocumentId': ownerScope.accountDocumentId,
+      });
+      return <String, Object?>{
+        'url': 'https://checkout.stripe.com/c/pay/pending-return',
+        'returnToken': token,
+        'returnProtocolVersion': 2,
+      };
+    },
+    launchExternalUrl: (_) {
+      launchCalls += 1;
+      return launcher.future;
+    },
+  );
+
+  await _pumpApplicationScreen(
+    tester,
+    loadAccount: (uid) async =>
+        _approvedAccount(uid: uid, subscriptionStatus: 'inactive'),
+    subscriptionCheckoutService: checkoutService,
+    testCurrentUser: owner,
+    currentUserProvider: () => owner,
+    accountDocumentIdForUid: (uid) => ownerScope.accountDocumentId,
+  );
+  await _ensureSectionExpanded(
+    tester,
+    'Coupon Management / Daily Specials',
+    visibleWhenExpanded: find.widgetWithText(
+      FilledButton,
+      'Start Subscription',
+    ),
+  );
+  await _invokeFilledButton(tester, 'Start Subscription');
+  await _pumpUntilWithRealAsync(tester, () => launchCalls == 1);
+
+  expect(
+    await _awaitSubscriptionReturnOperation(
+      tester,
+      SubscriptionReturnService.ingestReturnLink(
+        subscriptionReturnUri(
+          kind: SubscriptionReturnKind.checkoutSuccess,
+          returnToken: token,
+        ),
+      ),
+    ),
+    isTrue,
+  );
+  final event = await _awaitSubscriptionReturnOperation(
+    tester,
+    SubscriptionReturnService.peekPendingNavigationFor(ownerScope),
+  );
+  expect(event, isNotNull);
+  expect(_subscriptionReturnBackend.eventCountFor(ownerScope), 1);
+
+  launcher.complete(true);
+  await tester.pumpAndSettle();
+  expect(find.text('Something went wrong'), findsNothing);
+
+  await _awaitSubscriptionReturnOperation(
+    tester,
+    SubscriptionReturnService.ingestReturnLink(
+      subscriptionReturnUri(
+        kind: SubscriptionReturnKind.checkoutSuccess,
+        returnToken: token,
+      ),
+    ),
+  );
+  await _awaitSubscriptionReturnOperation(
+    tester,
+    SubscriptionReturnService.peekPendingNavigationFor(ownerScope),
+  );
+  expect(_subscriptionReturnBackend.eventCountFor(ownerScope), 1);
+  await tester.pump(const Duration(seconds: 3));
+  await tester.pump();
+}
+
+Future<void> _verifyReturnDuringPendingCheckoutLaunchThenFalseIsAuthoritative(
+  WidgetTester tester,
+) async {
+  final owner = _TestUser(
+    uid: 'pending-false-owner',
+    email: 'pending-false-owner@example.test',
+  );
+  const ownerScope = SubscriptionReturnOwnerScope(
+    uid: 'pending-false-owner',
+    accountDocumentId: 'pending-false-owner',
+  );
+  const wrongOwnerScope = SubscriptionReturnOwnerScope(
+    uid: 'pending-false-other-owner',
+    accountDocumentId: 'pending-false-other-owner',
+  );
+  final token = _testReturnToken(30);
+  const checkoutUrl =
+      'https://checkout.stripe.com/c/pay/pending-return-late-false';
+  final launcher = Completer<bool>();
+  final incoming = StreamController<String>.broadcast(sync: true);
+  final navigationClaims = <SubscriptionReturnEvent>[];
+  final eventAnnouncements = <SubscriptionReturnEvent>[];
+  final messages = <String>[];
+  final refreshTransitions = <bool>[];
+  var accountLoads = 0;
+  var accountIsActive = false;
+  var preparationCalls = 0;
+  var registrationCalls = 0;
+  var launchCalls = 0;
+  Uri? launchedUrl;
+  addTearDown(incoming.close);
+  final eventSubscription = SubscriptionReturnService.events.listen(
+    eventAnnouncements.add,
+  );
+  addTearDown(eventSubscription.cancel);
+
+  final checkoutService = SubscriptionCheckoutService(
+    invokeCallable: (name, payload) async {
+      expect(name, 'createCheckoutSession');
+      expect(payload, <String, Object?>{
+        'returnProtocolVersion': subscriptionReturnProtocolVersion,
+        'restaurantAccountDocumentId': ownerScope.accountDocumentId,
+      });
+      preparationCalls += 1;
+      registrationCalls += 1;
+      _subscriptionReturnBackend.reserve(
+        returnToken: token,
+        ownerScope: ownerScope,
+        family: SubscriptionReturnFamily.checkout,
+      );
+      return <String, Object?>{
+        'url': checkoutUrl,
+        'returnToken': token,
+        'returnProtocolVersion': subscriptionReturnProtocolVersion,
+      };
+    },
+    launchExternalUrl: (url) {
+      launchedUrl = url;
+      launchCalls += 1;
+      return launcher.future;
+    },
+  );
+
+  await _pumpApplicationScreen(
+    tester,
+    loadAccount: (uid) async {
+      accountLoads += 1;
+      return _approvedAccount(
+        uid: uid,
+        subscriptionStatus: accountIsActive ? 'active' : 'inactive',
+      );
+    },
+    subscriptionCheckoutService: checkoutService,
+    onSubscriptionRefreshStateChanged: refreshTransitions.add,
+    testCurrentUser: owner,
+    currentUserProvider: () => owner,
+    accountDocumentIdForUid: (_) => ownerScope.accountDocumentId,
+  );
+  await _ensureSectionExpanded(
+    tester,
+    'Coupon Management / Daily Specials',
+    visibleWhenExpanded: find.widgetWithText(
+      FilledButton,
+      'Start Subscription',
+    ),
+  );
+  await _invokeFilledButton(tester, 'Start Subscription');
+  await _pumpUntilWithRealAsync(tester, () => preparationCalls == 1);
+  expect(registrationCalls, 1);
+  await _pumpUntilWithRealAsync(
+    tester,
+    () =>
+        launchCalls == 1 ||
+        find.text('Something went wrong').evaluate().isNotEmpty,
+  );
+  expect(find.text('Something went wrong'), findsNothing);
+  expect(launchCalls, 1);
+  expect(launchedUrl, Uri.parse(checkoutUrl));
+
+  expect(preparationCalls, 1);
+  expect(registrationCalls, 1);
+  expect(launcher.isCompleted, isFalse);
+  expect(
+    find.widgetWithText(FilledButton, 'Opening Checkout...'),
+    findsOneWidget,
+  );
+  expect(_subscriptionReturnBackend.redeemCalls, 0);
+  expect(_subscriptionReturnBackend.eventCountFor(ownerScope), 0);
+  expect(navigationClaims, isEmpty);
+  expect(messages, isEmpty);
+
+  _subscriptionReturnBackend.releaseClaim = Completer<void>();
+  final rawReturn = subscriptionReturnUri(
+    kind: SubscriptionReturnKind.checkoutSuccess,
+    returnToken: token,
+  );
+  expect(
+    await _awaitSubscriptionReturnOperation(
+      tester,
+      SubscriptionReturnService.ingestReturnLink(rawReturn),
+    ),
+    isTrue,
+  );
+  await _pumpUntilWithRealAsync(
+    tester,
+    () =>
+        _subscriptionReturnBackend.redeemCalls == 1 &&
+        _subscriptionReturnBackend.claimCalls == 1,
+  );
+
+  final eventBeforeFalse = await _awaitSubscriptionReturnOperation(
+    tester,
+    SubscriptionReturnService.peekPendingNavigationFor(ownerScope),
+  );
+  expect(eventBeforeFalse, isNotNull);
+  expect(eventBeforeFalse!.id, '1');
+  expect(eventBeforeFalse.kind, SubscriptionReturnKind.checkoutSuccess);
+  expect(eventBeforeFalse.ownerScope, ownerScope);
+  expect(eventBeforeFalse.navigationClaimed, isFalse);
+  expect(eventBeforeFalse.refreshClaimed, isFalse);
+  expect(_subscriptionReturnBackend.eventCountFor(ownerScope), 1);
+  expect(await SubscriptionReturnService.pendingEventCount, 1);
+  expect(await SubscriptionReturnService.pendingLocalDeliveryCount, 0);
+  expect(eventAnnouncements, <SubscriptionReturnEvent>[eventBeforeFalse]);
+  expect(
+    <String>[
+      eventBeforeFalse.id,
+      eventBeforeFalse.kind.name,
+      eventBeforeFalse.ownerScope.uid,
+      eventBeforeFalse.ownerScope.accountDocumentId,
+    ].join('|'),
+    isNot(contains(token)),
+  );
+
+  expect(
+    await _awaitSubscriptionReturnOperation(
+      tester,
+      SubscriptionReturnService.ingestReturnLink(rawReturn),
+    ),
+    isTrue,
+  );
+  expect(await SubscriptionReturnService.pendingLocalDeliveryCount, 1);
+  final replayBeforeFalse = await _awaitSubscriptionReturnOperation(
+    tester,
+    SubscriptionReturnService.peekPendingNavigationFor(ownerScope),
+  );
+  expect(replayBeforeFalse?.id, eventBeforeFalse.id);
+  expect(_subscriptionReturnBackend.redeemCalls, 2);
+  expect(_subscriptionReturnBackend.eventCountFor(ownerScope), 1);
+  expect(await SubscriptionReturnService.pendingLocalDeliveryCount, 0);
+  expect(eventAnnouncements, <SubscriptionReturnEvent>[eventBeforeFalse]);
+  expect(launcher.isCompleted, isFalse);
+  expect(navigationClaims, isEmpty);
+  expect(messages, isEmpty);
+
+  launcher.complete(false);
+  await _pumpUntilWithRealAsync(
+    tester,
+    () => find.text('Something went wrong').evaluate().isNotEmpty,
+  );
+
+  expect(launcher.isCompleted, isTrue);
+  expect(find.text('Something went wrong'), findsOneWidget);
+  expect(
+    find.widgetWithText(FilledButton, 'Start Subscription'),
+    findsOneWidget,
+  );
+  expect(preparationCalls, 1);
+  expect(registrationCalls, 1);
+  expect(launchCalls, 1);
+  expect(_subscriptionReturnBackend.redeemCalls, 2);
+  expect(_subscriptionReturnBackend.claimCalls, 1);
+  expect(_subscriptionReturnBackend.eventCountFor(ownerScope), 1);
+  expect(_subscriptionReturnBackend.eventCountFor(wrongOwnerScope), 0);
+  expect(await SubscriptionReturnService.pendingEventCount, 1);
+  expect(eventAnnouncements, <SubscriptionReturnEvent>[eventBeforeFalse]);
+  expect(navigationClaims, isEmpty);
+  expect(messages, isEmpty);
+  expect(find.textContaining(token), findsNothing);
+
+  final eventAfterFalse = await _awaitSubscriptionReturnOperation(
+    tester,
+    SubscriptionReturnService.peekPendingNavigationFor(ownerScope),
+  );
+  expect(eventAfterFalse?.id, eventBeforeFalse.id);
+  expect(eventAfterFalse?.kind, SubscriptionReturnKind.checkoutSuccess);
+  expect(_subscriptionReturnBackend.eventCountFor(ownerScope), 1);
+
+  accountIsActive = true;
+  _subscriptionReturnBackend.releaseClaim!.complete();
+  await _pumpUntilWithRealAsync(
+    tester,
+    () => accountLoads >= 2 && refreshTransitions.length == 2,
+  );
+  expect(navigationClaims, isEmpty);
+  expect(messages, isEmpty);
+  expect(_subscriptionReturnBackend.claimCalls, 1);
+
+  await tester.pump(const Duration(seconds: 3));
+  await tester.pumpAndSettle();
+  await _ensureSectionExpanded(
+    tester,
+    'Subscription / Billing',
+    visibleWhenExpanded: find.text('Subscription active'),
+  );
+  expect(find.text('Subscription active'), findsOneWidget);
+  expect(refreshTransitions, <bool>[true, false, true, false]);
+
+  await tester.pumpWidget(
+    MaterialApp(
+      navigatorKey: rootNavigatorKey,
+      scaffoldMessengerKey: rootScaffoldMessengerKey,
+      home: MainNavigationScreen(
+        initializePlatformServices: false,
+        testIncomingRawDeepLinks: incoming.stream,
+        testSubscriptionReturnOwnerScopeProvider: () => ownerScope,
+        testOnSubscriptionReturnNavigationClaimed: navigationClaims.add,
+        testOnSubscriptionReturnMessageEmitted: messages.add,
+        testSuppressSubscriptionReturnSnackBar: true,
+        testAuthenticatedRestaurantHubBuilder: (_) =>
+            const Text('Recreated authenticated restaurant hub'),
+        testPagesBuilder: (_) => const <Widget>[
+          SizedBox(),
+          SizedBox(),
+          SizedBox(),
+        ],
+      ),
+    ),
+  );
+  await _pumpUntilWithRealAsync(
+    tester,
+    () => navigationClaims.length == 1 && messages.length == 1,
+  );
+  expect(navigationClaims.single.id, eventBeforeFalse.id);
+  expect(navigationClaims.single.ownerScope, ownerScope);
+  expect(messages, <String>[
+    'Subscription started successfully. Refreshing restaurant tools...',
+  ]);
+  expect(_subscriptionReturnBackend.claimCalls, 2);
+  expect(
+    await _awaitSubscriptionReturnOperation(
+      tester,
+      SubscriptionReturnService.claimNavigationFor(
+        eventBeforeFalse.id,
+        ownerScope,
+      ),
+    ),
+    isFalse,
+  );
+  expect(
+    await _awaitSubscriptionReturnOperation(
+      tester,
+      SubscriptionReturnService.claimRefreshFor(
+        eventBeforeFalse.id,
+        ownerScope,
+      ),
+    ),
+    isFalse,
+  );
+  expect(_subscriptionReturnBackend.claimCalls, 2);
+
+  expect(
+    await _awaitSubscriptionReturnOperation(
+      tester,
+      SubscriptionReturnService.ingestReturnLink(rawReturn),
+    ),
+    isTrue,
+  );
+  expect(
+    await _awaitSubscriptionReturnOperation(
+      tester,
+      SubscriptionReturnService.peekPendingNavigationFor(ownerScope),
+    ),
+    isNull,
+  );
+  expect(_subscriptionReturnBackend.redeemCalls, 3);
+  expect(await SubscriptionReturnService.pendingLocalDeliveryCount, 0);
+  expect(
+    await _awaitSubscriptionReturnOperation(
+      tester,
+      SubscriptionReturnService.peekPendingRefreshFor(ownerScope),
+    ),
+    isNull,
+  );
+  expect(_subscriptionReturnBackend.eventCountFor(ownerScope), 0);
+  expect(_subscriptionReturnBackend.eventCountFor(wrongOwnerScope), 0);
+  expect(_subscriptionReturnBackend.claimCalls, 2);
+  expect(navigationClaims, hasLength(1));
+  expect(messages, hasLength(1));
+  expect(eventAnnouncements, hasLength(1));
+  expect(find.textContaining(token), findsNothing);
+
+  final redeemCallsAfterReplay = _subscriptionReturnBackend.redeemCalls;
+  final claimCallsAfterReplay = _subscriptionReturnBackend.claimCalls;
+  final accountLoadsAfterRefresh = accountLoads;
+  await tester.pump(const Duration(seconds: 4));
+  await tester.pump();
+  expect(_subscriptionReturnBackend.redeemCalls, redeemCallsAfterReplay);
+  expect(_subscriptionReturnBackend.claimCalls, claimCallsAfterReplay);
+  expect(accountLoads, accountLoadsAfterRefresh);
+  expect(navigationClaims, hasLength(1));
+  expect(messages, hasLength(1));
+  expect(eventAnnouncements, hasLength(1));
+  expect(tester.takeException(), isNull);
+}
+
+Future<void> _verifyPaywallPendingPreparationIsOwnerScoped(
+  WidgetTester tester,
+) async {
+  final owner = _TestUser(
+    uid: 'paywall-pending-preparation-owner',
+    email: 'paywall-pending-preparation@example.test',
+  );
+  const documentA = 'paywall-pending-preparation-document-a';
+  const documentB = 'paywall-pending-preparation-document-b';
+  final tokenA = _testReturnToken(28);
+  final tokenB = _testReturnToken(29);
+  var currentDocumentId = documentA;
+  var ownerAHasAccess = true;
+  var preparationCalls = 0;
+  final ownerAPreparation = Completer<Map<String, Object?>>();
+  final launchedUrls = <Uri>[];
+  final userChanges = StreamController<User?>.broadcast(sync: true);
+  addTearDown(userChanges.close);
+  final checkoutService = SubscriptionCheckoutService(
+    invokeCallable: (name, payload) {
+      expect(name, 'createCheckoutSession');
+      expect(payload, <String, Object?>{
+        'returnProtocolVersion': 2,
+        'restaurantAccountDocumentId': currentDocumentId,
+      });
+      preparationCalls += 1;
+      if (preparationCalls == 1) {
+        return ownerAPreparation.future;
+      }
+      return Future<Map<String, Object?>>.value(<String, Object?>{
+        'url': 'https://checkout.stripe.com/c/pay/paywall-owner-b',
+        'returnToken': tokenB,
+        'returnProtocolVersion': 2,
+      });
+    },
+    launchExternalUrl: (url) async {
+      launchedUrls.add(url);
+      return true;
+    },
+  );
+
+  await _pumpApplicationScreen(
+    tester,
+    loadAccount: (uid) async => _approvedAccount(
+      uid: uid,
+      restaurantName: currentDocumentId == documentA
+          ? 'A Paywall Pending Restaurant'
+          : 'B Paywall Current Restaurant',
+      subscriptionStatus: currentDocumentId == documentA && ownerAHasAccess
+          ? 'active'
+          : 'inactive',
+    ),
+    subscriptionCheckoutService: checkoutService,
+    testCurrentUser: owner,
+    currentUserProvider: () => owner,
+    ownerUserChanges: userChanges.stream,
+    accountDocumentIdForUid: (uid) => currentDocumentId,
+  );
+  await _ensureSectionExpanded(
+    tester,
+    'Coupon Management',
+    visibleWhenExpanded: _fieldWithLabel('Coupon Title'),
+  );
+  final createCoupon = tester
+      .widget<ElevatedButton>(
+        find.widgetWithText(ElevatedButton, 'Create Coupon'),
+      )
+      .onPressed!;
+  ownerAHasAccess = false;
+  createCoupon();
+  await tester.pumpAndSettle();
+  expect(
+    find.text('Upgrade to Post Coupons and Daily Specials'),
+    findsOneWidget,
+  );
+
+  await _invokeFilledButton(tester, 'Start Subscription');
+  expect(preparationCalls, 1);
+  expect(launchedUrls, isEmpty);
+
+  currentDocumentId = documentB;
+  userChanges.add(owner);
+  await tester.pumpAndSettle();
+  expect(find.text('Upgrade to Post Coupons and Daily Specials'), findsNothing);
+  expect(find.text('Something went wrong'), findsNothing);
+
+  await _ensureSubscriptionActionVisible(tester, useCustomerPortal: false);
+  await _invokeSubscriptionAction(tester, useCustomerPortal: false);
+  await _pumpUntilWithRealAsync(tester, () => launchedUrls.length == 1);
+  expect(
+    launchedUrls.single,
+    Uri.parse('https://checkout.stripe.com/c/pay/paywall-owner-b'),
+  );
+
+  ownerAPreparation.complete(<String, Object?>{
+    'url': 'https://checkout.stripe.com/c/pay/paywall-owner-a-stale',
+    'returnToken': tokenA,
+    'returnProtocolVersion': 2,
+  });
+  await tester.pumpAndSettle();
+
+  expect(launchedUrls, hasLength(1));
+  expect(
+    await _awaitSubscriptionReturnOperation(
+      tester,
+      SubscriptionReturnService.pendingLocalDeliveryCount,
+    ),
+    0,
+  );
+  expect(find.text('Something went wrong'), findsNothing);
+}
+
 Future<void> _verifyPendingCheckoutIsOwnerScoped(WidgetTester tester) async {
   final owner = _TestUser(
     uid: 'shared-checkout-owner',
@@ -8790,7 +10217,31 @@ Future<void> _verifyPendingCheckoutIsOwnerScoped(WidgetTester tester) async {
   final ownerACheckout = Completer<void>();
   final ownerBCheckout = Completer<void>();
   var checkoutCalls = 0;
-  var markerCalls = 0;
+  var preparationCalls = 0;
+  final checkoutService = SubscriptionCheckoutService(
+    invokeCallable: (name, payload) async {
+      expect(name, 'createCheckoutSession');
+      expect(payload, <String, Object?>{
+        'returnProtocolVersion': 2,
+        'restaurantAccountDocumentId': currentDocumentId,
+      });
+      preparationCalls += 1;
+      return <String, Object?>{
+        'url': 'https://checkout.stripe.com/c/pay/synthetic-$preparationCalls',
+        'returnToken': _testReturnToken(preparationCalls),
+        'returnProtocolVersion': 2,
+      };
+    },
+    launchExternalUrl: (_) async {
+      checkoutCalls += 1;
+      if (checkoutCalls == 1) {
+        await ownerACheckout.future;
+      } else {
+        await ownerBCheckout.future;
+      }
+      return true;
+    },
+  );
 
   await _pumpApplicationScreen(
     tester,
@@ -8801,14 +10252,7 @@ Future<void> _verifyPendingCheckoutIsOwnerScoped(WidgetTester tester) async {
           : 'B Checkout Restaurant',
       subscriptionStatus: 'inactive',
     ),
-    markSubscriptionCheckoutStarted: () async {
-      markerCalls += 1;
-    },
-    clearPendingSubscriptionReturnContext: () async {},
-    startSubscriptionCheckout: () {
-      checkoutCalls += 1;
-      return checkoutCalls == 1 ? ownerACheckout.future : ownerBCheckout.future;
-    },
+    subscriptionCheckoutService: checkoutService,
     testCurrentUser: owner,
     currentUserProvider: () => owner,
     ownerUserChanges: userChanges.stream,
@@ -8823,7 +10267,7 @@ Future<void> _verifyPendingCheckoutIsOwnerScoped(WidgetTester tester) async {
     ),
   );
   await _invokeFilledButton(tester, 'Start Subscription');
-  await _pumpUntil(tester, () => checkoutCalls == 1);
+  await _pumpUntilWithRealAsync(tester, () => checkoutCalls == 1);
 
   currentDocumentId = documentB;
   userChanges.add(owner);
@@ -8837,7 +10281,7 @@ Future<void> _verifyPendingCheckoutIsOwnerScoped(WidgetTester tester) async {
     ),
   );
   await _invokeFilledButton(tester, 'Start Subscription');
-  await _pumpUntil(tester, () => checkoutCalls == 2);
+  await _pumpUntilWithRealAsync(tester, () => checkoutCalls == 2);
 
   ownerACheckout.complete();
   await tester.pump();
@@ -8863,7 +10307,7 @@ Future<void> _verifyPendingCheckoutIsOwnerScoped(WidgetTester tester) async {
     findsOneWidget,
   );
   expect(checkoutCalls, 2);
-  expect(markerCalls, 2);
+  expect(preparationCalls, 2);
 }
 
 Future<void> _verifyPendingPortalIsOwnerScoped(WidgetTester tester) async {
@@ -8879,6 +10323,32 @@ Future<void> _verifyPendingPortalIsOwnerScoped(WidgetTester tester) async {
   final ownerAPortal = Completer<void>();
   final ownerBPortal = Completer<void>();
   var portalCalls = 0;
+  var preparationCalls = 0;
+  final portalService = SubscriptionCheckoutService(
+    invokeCallable: (name, payload) async {
+      expect(name, 'createCustomerPortalSession');
+      expect(payload, <String, Object?>{
+        'returnProtocolVersion': 2,
+        'restaurantAccountDocumentId': currentDocumentId,
+      });
+      preparationCalls += 1;
+      return <String, Object?>{
+        'url':
+            'https://billing.stripe.com/p/session/synthetic-$preparationCalls',
+        'returnToken': _testReturnToken(preparationCalls + 4),
+        'returnProtocolVersion': 2,
+      };
+    },
+    launchExternalUrl: (_) async {
+      portalCalls += 1;
+      if (portalCalls == 1) {
+        await ownerAPortal.future;
+      } else {
+        await ownerBPortal.future;
+      }
+      return true;
+    },
+  );
 
   await _pumpApplicationScreen(
     tester,
@@ -8888,10 +10358,7 @@ Future<void> _verifyPendingPortalIsOwnerScoped(WidgetTester tester) async {
           ? 'A Portal Restaurant'
           : 'B Portal Restaurant',
     ),
-    openCustomerPortal: () {
-      portalCalls += 1;
-      return portalCalls == 1 ? ownerAPortal.future : ownerBPortal.future;
-    },
+    subscriptionCheckoutService: portalService,
     testCurrentUser: owner,
     currentUserProvider: () => owner,
     ownerUserChanges: userChanges.stream,
@@ -8906,7 +10373,7 @@ Future<void> _verifyPendingPortalIsOwnerScoped(WidgetTester tester) async {
     ),
   );
   await _invokeOutlinedButton(tester, 'Manage Subscription');
-  await _pumpUntil(tester, () => portalCalls == 1);
+  await _pumpUntilWithRealAsync(tester, () => portalCalls == 1);
 
   currentDocumentId = documentB;
   userChanges.add(owner);
@@ -8920,7 +10387,7 @@ Future<void> _verifyPendingPortalIsOwnerScoped(WidgetTester tester) async {
     ),
   );
   await _invokeOutlinedButton(tester, 'Manage Subscription');
-  await _pumpUntil(tester, () => portalCalls == 2);
+  await _pumpUntilWithRealAsync(tester, () => portalCalls == 2);
 
   ownerAPortal.completeError(StateError('A-PORTAL-ERROR-CANARY'));
   await tester.pump();
@@ -8944,6 +10411,7 @@ Future<void> _verifyPendingPortalIsOwnerScoped(WidgetTester tester) async {
     findsOneWidget,
   );
   expect(portalCalls, 2);
+  expect(preparationCalls, 2);
 }
 
 Future<void> _verifyPendingSubscriptionRefreshIsOwnerScoped(
@@ -9080,6 +10548,13 @@ Future<void> _enterRequiredApplicationFields(
   await tester.enterText(_fieldWithLabel('Phone Number'), '3525550100');
 }
 
+String _testReturnToken(int index) {
+  final alphabet =
+      'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_-';
+  final character = alphabet[index % alphabet.length];
+  return List<String>.filled(43, character).join();
+}
+
 Future<void> _startDailySpecialSave(
   WidgetTester tester, {
   required String title,
@@ -9121,10 +10596,7 @@ Future<void> _pumpApplicationScreen(
   OwnerTimePicker? pickDailySpecialTime,
   CouponImagePickerUploader? pickAndUploadCouponImage,
   CouponImagePersister? persistCouponImage,
-  RestaurantOwnerAction? markSubscriptionCheckoutStarted,
-  RestaurantOwnerAction? clearPendingSubscriptionReturnContext,
-  RestaurantOwnerAction? startSubscriptionCheckout,
-  RestaurantOwnerAction? openCustomerPortal,
+  SubscriptionCheckoutService? subscriptionCheckoutService,
   RestaurantOwnerAction? signOutRestaurantSession,
   RestaurantNameChangeSubmitter? submitNameChangeRequest,
   ValueChanged<bool>? onSubscriptionRefreshStateChanged,
@@ -9161,11 +10633,7 @@ Future<void> _pumpApplicationScreen(
         pickDailySpecialTime: pickDailySpecialTime,
         pickAndUploadCouponImage: pickAndUploadCouponImage,
         persistCouponImage: persistCouponImage,
-        markSubscriptionCheckoutStarted: markSubscriptionCheckoutStarted,
-        clearPendingSubscriptionReturnContext:
-            clearPendingSubscriptionReturnContext,
-        startSubscriptionCheckout: startSubscriptionCheckout,
-        openCustomerPortal: openCustomerPortal,
+        subscriptionCheckoutService: subscriptionCheckoutService,
         signOutRestaurantSession: signOutRestaurantSession,
         submitNameChangeRequest: submitNameChangeRequest,
         onSubscriptionRefreshStateChanged: onSubscriptionRefreshStateChanged,
@@ -9186,6 +10654,26 @@ Future<void> _pumpApplicationScreen(
   }
 }
 
+class _BeforeLaunchHookSubscriptionCheckoutService
+    extends SubscriptionCheckoutService {
+  final void Function(PreparedSubscriptionSession prepared) beforeLaunch;
+
+  _BeforeLaunchHookSubscriptionCheckoutService({
+    required super.invokeCallable,
+    required super.launchExternalUrl,
+    required this.beforeLaunch,
+  });
+
+  @override
+  Future<SubscriptionExternalLaunchResult> launchPreparedSubscriptionUrl(
+    PreparedSubscriptionSession prepared, {
+    required bool Function() isCurrent,
+  }) {
+    beforeLaunch(prepared);
+    return super.launchPreparedSubscriptionUrl(prepared, isCurrent: isCurrent);
+  }
+}
+
 RestaurantCreateCouponScreen _applicationScreen({
   BiteSaverRestaurantLifecycleService? lifecycleService,
   required Future<Map<String, dynamic>?> Function(String uid) loadAccount,
@@ -9202,10 +10690,7 @@ RestaurantCreateCouponScreen _applicationScreen({
   OwnerTimePicker? pickDailySpecialTime,
   CouponImagePickerUploader? pickAndUploadCouponImage,
   CouponImagePersister? persistCouponImage,
-  RestaurantOwnerAction? markSubscriptionCheckoutStarted,
-  RestaurantOwnerAction? clearPendingSubscriptionReturnContext,
-  RestaurantOwnerAction? startSubscriptionCheckout,
-  RestaurantOwnerAction? openCustomerPortal,
+  SubscriptionCheckoutService? subscriptionCheckoutService,
   RestaurantOwnerAction? signOutRestaurantSession,
   RestaurantNameChangeSubmitter? submitNameChangeRequest,
   ValueChanged<bool>? onSubscriptionRefreshStateChanged,
@@ -9240,11 +10725,7 @@ RestaurantCreateCouponScreen _applicationScreen({
     pickDailySpecialTime: pickDailySpecialTime,
     pickAndUploadCouponImage: pickAndUploadCouponImage,
     persistCouponImage: persistCouponImage,
-    markSubscriptionCheckoutStarted: markSubscriptionCheckoutStarted,
-    clearPendingSubscriptionReturnContext:
-        clearPendingSubscriptionReturnContext,
-    startSubscriptionCheckout: startSubscriptionCheckout,
-    openCustomerPortal: openCustomerPortal,
+    subscriptionCheckoutService: subscriptionCheckoutService,
     signOutRestaurantSession: signOutRestaurantSession,
     loadMenuRoutingState: () async => const BiteSaverMenuRoutingState(
       usesBiteRater: false,

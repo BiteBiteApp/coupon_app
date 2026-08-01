@@ -215,10 +215,7 @@ class RestaurantCreateCouponScreen extends StatefulWidget {
   final OwnerTimePicker? pickDailySpecialTime;
   final CouponImagePickerUploader? pickAndUploadCouponImage;
   final CouponImagePersister? persistCouponImage;
-  final RestaurantOwnerAction? markSubscriptionCheckoutStarted;
-  final RestaurantOwnerAction? clearPendingSubscriptionReturnContext;
-  final RestaurantOwnerAction? startSubscriptionCheckout;
-  final RestaurantOwnerAction? openCustomerPortal;
+  final SubscriptionCheckoutService? subscriptionCheckoutService;
   final RestaurantOwnerAction? signOutRestaurantSession;
   final Future<BiteSaverMenuRoutingState> Function()? loadMenuRoutingState;
   final RestaurantNameChangeSubmitter? submitNameChangeRequest;
@@ -248,10 +245,7 @@ class RestaurantCreateCouponScreen extends StatefulWidget {
     @visibleForTesting this.pickDailySpecialTime,
     @visibleForTesting this.pickAndUploadCouponImage,
     @visibleForTesting this.persistCouponImage,
-    @visibleForTesting this.markSubscriptionCheckoutStarted,
-    @visibleForTesting this.clearPendingSubscriptionReturnContext,
-    @visibleForTesting this.startSubscriptionCheckout,
-    @visibleForTesting this.openCustomerPortal,
+    @visibleForTesting this.subscriptionCheckoutService,
     @visibleForTesting this.signOutRestaurantSession,
     @visibleForTesting this.loadMenuRoutingState,
     @visibleForTesting this.submitNameChangeRequest,
@@ -368,12 +362,14 @@ class _RestaurantCreateCouponScreenState
       _CouponAccountAccessState.loading;
   String _couponAccessMessage = '';
   late final BiteSaverRestaurantLifecycleService _lifecycleService;
+  late final SubscriptionCheckoutService _subscriptionCheckoutService;
   late BiteSaverProfileOperationState _applicationOperation;
   late BiteSaverProfileOperationState _ownerProfileOperation;
-  StreamSubscription<SubscriptionReturnEvent>? _subscriptionReturnSubscription;
+  StreamSubscription<void>? _subscriptionReturnSubscription;
   StreamSubscription<User?>? _ownerUserSubscription;
   Future<void> _accountOperationTail = Future<void>.value();
   bool _subscriptionReturnDrainQueued = false;
+  int _subscriptionReturnDrainRequestGeneration = 0;
   Object _lifecycleRefreshOwner = Object();
   Completer<bool>? _lifecycleRefreshAttempt;
   final Map<Route<dynamic>, NavigatorState> _ownerModalRoutes =
@@ -449,6 +445,15 @@ class _RestaurantCreateCouponScreenState
 
   bool _isCurrentExactOwnerScope(_RestaurantOwnerScope scope) {
     return _isCurrentOwnerScope(scope.identity, scope.ownerGeneration);
+  }
+
+  SubscriptionReturnOwnerScope _subscriptionReturnOwnerScope(
+    _RestaurantOwnerScope scope,
+  ) {
+    return SubscriptionReturnOwnerScope(
+      uid: scope.identity.uid,
+      accountDocumentId: scope.identity.accountDocumentId,
+    );
   }
 
   _OwnerActionScope? _beginOwnerAction(
@@ -576,7 +581,6 @@ class _RestaurantCreateCouponScreenState
     _applicationOperation = _lifecycleService.createOperationState();
     _ownerProfileOperation = _lifecycleService.createOperationState();
     _accountOperationTail = Future<void>.value();
-    _subscriptionReturnDrainQueued = false;
     _lifecycleRefreshAttempt = null;
     _lifecycleRefreshOwner = Object();
     if (previousLifecycleRefreshAttempt != null &&
@@ -617,7 +621,13 @@ class _RestaurantCreateCouponScreenState
       // A new owner must not wait behind a prior owner's pending account
       // read. The identity generation guards inside the loader keep both
       // completions scoped to the owner that started them.
-      unawaited(_loadSavedProfileAndCoupons());
+      unawaited(
+        _loadSavedProfileAndCoupons().whenComplete(() {
+          if (mounted) {
+            _schedulePendingSubscriptionReturnRefresh();
+          }
+        }),
+      );
     }
   }
 
@@ -889,7 +899,10 @@ class _RestaurantCreateCouponScreenState
   ) async {
     await _pushOwnerScopedPage<void>(
       expectedOwnerScope: expectedOwnerScope,
-      builder: (_) => const PaywallScreen(),
+      builder: (_) => PaywallScreen(
+        startSubscription: () =>
+            _openSubscriptionSignupScreen(expectedOwnerScope),
+      ),
     );
   }
 
@@ -912,28 +925,30 @@ class _RestaurantCreateCouponScreenState
     });
 
     try {
-      final markCheckoutStarted =
-          widget.markSubscriptionCheckoutStarted ??
-          SubscriptionReturnService.markRestaurantHubCheckoutStarted;
-      await markCheckoutStarted();
+      final prepared = await _subscriptionCheckoutService
+          .prepareSubscriptionCheckout(
+            restaurantAccountDocumentId:
+                action.ownerScope.identity.accountDocumentId,
+          );
       if (!_isCurrentOwnerAction(action)) {
         return;
       }
-      final startCheckout =
-          widget.startSubscriptionCheckout ??
-          SubscriptionCheckoutService.startCheckout;
-      await startCheckout();
+      final launchResult = await _subscriptionCheckoutService
+          .launchPreparedSubscriptionUrl(
+            prepared,
+            isCurrent: () => _isCurrentOwnerAction(action),
+          );
+      if (launchResult == SubscriptionExternalLaunchResult.launched ||
+          launchResult == SubscriptionExternalLaunchResult.launchedStale) {
+        return;
+      }
       if (!_isCurrentOwnerAction(action)) {
         return;
       }
-    } catch (error) {
-      if (!_isCurrentOwnerAction(action)) {
-        return;
+      if (launchResult == SubscriptionExternalLaunchResult.failed) {
+        _showSnackBar('Something went wrong');
       }
-      final clearPendingContext =
-          widget.clearPendingSubscriptionReturnContext ??
-          SubscriptionReturnService.clearPendingReturnContext;
-      await clearPendingContext();
+    } catch (_) {
       if (!_isCurrentOwnerAction(action)) {
         return;
       }
@@ -966,12 +981,27 @@ class _RestaurantCreateCouponScreenState
     });
 
     try {
-      final openPortal =
-          widget.openCustomerPortal ??
-          SubscriptionCheckoutService.openCustomerPortal;
-      await openPortal();
+      final prepared = await _subscriptionCheckoutService.prepareCustomerPortal(
+        restaurantAccountDocumentId:
+            action.ownerScope.identity.accountDocumentId,
+      );
       if (!_isCurrentOwnerAction(action)) {
         return;
+      }
+      final launchResult = await _subscriptionCheckoutService
+          .launchPreparedSubscriptionUrl(
+            prepared,
+            isCurrent: () => _isCurrentOwnerAction(action),
+          );
+      if (launchResult == SubscriptionExternalLaunchResult.launched ||
+          launchResult == SubscriptionExternalLaunchResult.launchedStale) {
+        return;
+      }
+      if (!_isCurrentOwnerAction(action)) {
+        return;
+      }
+      if (launchResult == SubscriptionExternalLaunchResult.failed) {
+        _showSnackBar('Something went wrong');
       }
     } catch (_) {
       if (!_isCurrentOwnerAction(action)) {
@@ -1233,6 +1263,9 @@ class _RestaurantCreateCouponScreenState
     _activeOwnerIdentity = _currentOwnerIdentity;
     _lifecycleService =
         widget.lifecycleService ?? BiteSaverRestaurantLifecycleService();
+    _subscriptionCheckoutService =
+        widget.subscriptionCheckoutService ??
+        SubscriptionCheckoutService.production();
     _applicationOperation = _lifecycleService.createOperationState();
     _ownerProfileOperation = _lifecycleService.createOperationState();
     _clearOwnerScopedProfilePresentation(
@@ -1245,14 +1278,19 @@ class _RestaurantCreateCouponScreenState
       isResumed:
           WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed,
     );
-    _subscriptionReturnSubscription = SubscriptionReturnService.events.listen(
+    _subscriptionReturnSubscription = SubscriptionReturnService.changes.listen(
       (_) => _schedulePendingSubscriptionReturnRefresh(),
       onError: (_) {},
     );
     _listenForOwnerChanges();
     _resetCouponSchedule();
-    unawaited(_enqueueAccountOperation(_loadSavedProfileAndCoupons));
-    _schedulePendingSubscriptionReturnRefresh();
+    unawaited(
+      _enqueueAccountOperation(_loadSavedProfileAndCoupons).whenComplete(() {
+        if (mounted) {
+          _schedulePendingSubscriptionReturnRefresh();
+        }
+      }),
+    );
   }
 
   @override
@@ -1335,18 +1373,49 @@ class _RestaurantCreateCouponScreenState
       SubscriptionReturnService.noteRestaurantHubLifecycleNotResumed();
       return;
     }
-    if (!SubscriptionReturnService.claimRestaurantHubLifecycleRefresh(
-      _lifecycleRefreshOwner,
-    )) {
+    unawaited(_handleRestaurantHubResumed());
+  }
+
+  Future<void> _handleRestaurantHubResumed() async {
+    final ownerScope = _activeOwnerScope;
+    if (ownerScope == null) {
       return;
     }
-    final ownerScope = _activeOwnerScope;
-    final action = ownerScope == null
-        ? null
-        : _beginOwnerAction(
-            _OwnerActionKind.subscriptionLifecycle,
-            expectedOwnerScope: ownerScope,
-          );
+    final subscriptionOwnerScope = _subscriptionReturnOwnerScope(ownerScope);
+    final pendingReturn = await SubscriptionReturnService.peekPendingRefreshFor(
+      subscriptionOwnerScope,
+      isCurrent: () => mounted && _isCurrentExactOwnerScope(ownerScope),
+    );
+    if (!mounted || !_isCurrentExactOwnerScope(ownerScope)) {
+      return;
+    }
+    if (pendingReturn != null) {
+      if (SubscriptionReturnService.claimRestaurantHubReturnRetryForResume(
+        subscriptionOwnerScope,
+      )) {
+        _schedulePendingSubscriptionReturnRefresh();
+      }
+      return;
+    }
+    if (!await SubscriptionReturnService.claimRestaurantHubLifecycleRefreshFor(
+      _lifecycleRefreshOwner,
+      subscriptionOwnerScope,
+    )) {
+      // A pending return may have appeared between the first list and the
+      // lifecycle reservation. Give that return one normal resume-triggered
+      // drain without recursively retrying a failed claim.
+      if (_isCurrentExactOwnerScope(ownerScope) &&
+          SubscriptionReturnService.claimRestaurantHubReturnRetryForResume(
+            subscriptionOwnerScope,
+          )) {
+        _schedulePendingSubscriptionReturnRefresh();
+      }
+      return;
+    }
+    final action = _beginOwnerAction(
+      _OwnerActionKind.subscriptionLifecycle,
+      expectedOwnerScope: ownerScope,
+    );
     if (action == null) {
       SubscriptionReturnService.finishRestaurantHubLifecycleRefresh(
         _lifecycleRefreshOwner,
@@ -1405,9 +1474,12 @@ class _RestaurantCreateCouponScreenState
     final ownerScope = _activeOwnerScope;
     if (!mounted ||
         ownerScope == null ||
-        !_isCurrentExactOwnerScope(ownerScope) ||
-        _subscriptionReturnDrainQueued ||
-        SubscriptionReturnService.peekPendingRefresh() == null) {
+        !_isCurrentExactOwnerScope(ownerScope)) {
+      return;
+    }
+
+    _subscriptionReturnDrainRequestGeneration += 1;
+    if (_subscriptionReturnDrainQueued) {
       return;
     }
 
@@ -1419,75 +1491,107 @@ class _RestaurantCreateCouponScreenState
       return;
     }
     _subscriptionReturnDrainQueued = true;
-    unawaited(
-      _enqueueAccountOperation(() async {
+    unawaited(_startPendingSubscriptionReturnRefreshDrain(action));
+  }
+
+  Future<void> _startPendingSubscriptionReturnRefreshDrain(
+    _OwnerActionScope action,
+  ) async {
+    var handledRequestGeneration = _subscriptionReturnDrainRequestGeneration;
+    try {
+      final initialPending =
+          await SubscriptionReturnService.peekPendingRefreshFor(
+            _subscriptionReturnOwnerScope(action.ownerScope),
+            isCurrent: () => _isCurrentOwnerAction(action),
+          );
+      if (!_isCurrentOwnerAction(action) || initialPending == null) {
+        return;
+      }
+      handledRequestGeneration = _subscriptionReturnDrainRequestGeneration;
+
+      await _enqueueAccountOperation(() async {
         while (_isCurrentOwnerAction(action)) {
           final refreshCandidate =
-              SubscriptionReturnService.peekPendingRefreshCandidate();
-          if (refreshCandidate == null) {
+              await SubscriptionReturnService.peekPendingRefreshCandidateFor(
+                _subscriptionReturnOwnerScope(action.ownerScope),
+                isCurrent: () => _isCurrentOwnerAction(action),
+              );
+          if (!_isCurrentOwnerAction(action) || refreshCandidate == null) {
             return;
           }
+          handledRequestGeneration = _subscriptionReturnDrainRequestGeneration;
           final lifecycleRefresh = refreshCandidate.coalescedLifecycleRefresh;
           final immediateRefreshAlreadyAttempted =
               lifecycleRefresh != null && await lifecycleRefresh;
           if (!_isCurrentOwnerAction(action)) {
             return;
           }
-          if (!SubscriptionReturnService.claimRefresh(
+          if (!await SubscriptionReturnService.claimRefreshFor(
             refreshCandidate.event.id,
+            _subscriptionReturnOwnerScope(action.ownerScope),
+            isCurrent: () => _isCurrentOwnerAction(action),
           )) {
-            continue;
+            // Leave the server event unclaimed. A later lifecycle, mount, or
+            // delivery notification may retry; this drain never recurses.
+            return;
           }
+          var refreshSucceeded = false;
           try {
-            await _refreshAfterSubscriptionReturn(
+            refreshSucceeded = await _refreshAfterSubscriptionReturn(
               refreshCandidate.event.kind,
               expectedAction: action,
               immediateRefreshAlreadyAttempted:
                   immediateRefreshAlreadyAttempted,
             );
           } finally {
-            SubscriptionReturnService.finishRefresh(refreshCandidate.event.id);
+            SubscriptionReturnService.finishRefresh(
+              refreshCandidate.event,
+              refreshSucceeded: refreshSucceeded,
+            );
           }
         }
-      }).whenComplete(() {
-        if (!_isCurrentOwnerAction(action)) {
-          return;
-        }
-        _subscriptionReturnDrainQueued = false;
-        if (_isCurrentOwnerAction(action) &&
-            SubscriptionReturnService.peekPendingRefresh() != null) {
-          _schedulePendingSubscriptionReturnRefresh();
-        }
-      }),
-    );
+      });
+    } finally {
+      _subscriptionReturnDrainQueued = false;
+      if (mounted &&
+          _subscriptionReturnDrainRequestGeneration >
+              handledRequestGeneration) {
+        _schedulePendingSubscriptionReturnRefresh();
+      }
+    }
   }
 
-  Future<void> _refreshAfterSubscriptionReturn(
+  Future<bool> _refreshAfterSubscriptionReturn(
     SubscriptionReturnKind kind, {
     required _OwnerActionScope expectedAction,
     bool immediateRefreshAlreadyAttempted = false,
   }) async {
     if (!_isCurrentOwnerAction(expectedAction)) {
-      return;
+      return false;
     }
+    var anyRefreshSucceeded = immediateRefreshAlreadyAttempted;
     if (!immediateRefreshAlreadyAttempted) {
-      await _refreshSubscriptionStateOnlyNow(
+      anyRefreshSucceeded = await _refreshSubscriptionStateOnlyNow(
         expectedOwnerScope: expectedAction.ownerScope,
       );
       if (!_isCurrentOwnerAction(expectedAction)) {
-        return;
+        return false;
       }
     }
     if (kind != SubscriptionReturnKind.checkoutSuccess) {
-      return;
+      return anyRefreshSucceeded;
     }
 
     await Future<void>.delayed(const Duration(seconds: 3));
-    if (_isCurrentOwnerAction(expectedAction)) {
-      await _refreshSubscriptionStateOnlyNow(
-        expectedOwnerScope: expectedAction.ownerScope,
-      );
+    if (!_isCurrentOwnerAction(expectedAction)) {
+      return false;
     }
+    anyRefreshSucceeded =
+        await _refreshSubscriptionStateOnlyNow(
+          expectedOwnerScope: expectedAction.ownerScope,
+        ) ||
+        anyRefreshSucceeded;
+    return anyRefreshSucceeded;
   }
 
   void _resetCouponSchedule() {

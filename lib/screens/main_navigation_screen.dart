@@ -55,7 +55,12 @@ class MainNavigationScreen extends StatefulWidget {
   final ValueChanged<SubscriptionReturnEvent>?
   testOnSubscriptionReturnNavigationClaimed;
   final ValueChanged<String>? testOnSubscriptionReturnMessageEmitted;
+  final bool testSuppressSubscriptionReturnSnackBar;
   final bool? testRestaurantUserSignedIn;
+  final SubscriptionReturnOwnerScope? Function()?
+  testSubscriptionReturnOwnerScopeProvider;
+  final Stream<SubscriptionReturnOwnerScope?>?
+  testSubscriptionReturnOwnerScopeChanges;
   final WidgetBuilder? testAuthenticatedRestaurantHubBuilder;
 
   const MainNavigationScreen({
@@ -70,7 +75,10 @@ class MainNavigationScreen extends StatefulWidget {
     @visibleForTesting this.testIncomingRawDeepLinks,
     @visibleForTesting this.testOnSubscriptionReturnNavigationClaimed,
     @visibleForTesting this.testOnSubscriptionReturnMessageEmitted,
+    @visibleForTesting this.testSuppressSubscriptionReturnSnackBar = false,
     @visibleForTesting this.testRestaurantUserSignedIn,
+    @visibleForTesting this.testSubscriptionReturnOwnerScopeProvider,
+    @visibleForTesting this.testSubscriptionReturnOwnerScopeChanges,
     @visibleForTesting this.testAuthenticatedRestaurantHubBuilder,
   });
 
@@ -84,7 +92,12 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   late int selectedIndex;
   late AppMode selectedMode;
   StreamSubscription<Uri>? _appLinkSubscription;
-  StreamSubscription<SubscriptionReturnEvent>? _subscriptionReturnSubscription;
+  StreamSubscription<void>? _subscriptionReturnSubscription;
+  StreamSubscription<Object?>? _subscriptionReturnOwnerSubscription;
+  bool _subscriptionReturnNavigationDrainQueued = false;
+  int _subscriptionReturnNavigationRequestGeneration = 0;
+  SubscriptionReturnOwnerScope? _subscriptionReturnMessageOwnerScope;
+  int _subscriptionReturnMessageGeneration = 0;
   bool _showOnboarding = false;
   int _deepLinkGeneration = 0;
   String? _lastHandledDeepLinkKey;
@@ -132,6 +145,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     AppModeStateService.selectedMode.removeListener(_syncSelectedMode);
     _appLinkSubscription?.cancel();
     _subscriptionReturnSubscription?.cancel();
+    _subscriptionReturnOwnerSubscription?.cancel();
     super.dispose();
   }
 
@@ -140,10 +154,24 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       _handleIncomingDeepLink,
       onError: (_) {},
     );
-    _subscriptionReturnSubscription = SubscriptionReturnService.events.listen(
-      _scheduleSubscriptionReturnNavigation,
+    _subscriptionReturnSubscription = SubscriptionReturnService.changes.listen(
+      (_) => _schedulePendingSubscriptionReturnNavigation(),
       onError: (_) {},
     );
+    final ownerScopeChanges = widget.testSubscriptionReturnOwnerScopeChanges;
+    if (ownerScopeChanges != null) {
+      _subscriptionReturnOwnerSubscription = ownerScopeChanges.listen(
+        (_) => _handleSubscriptionReturnOwnerChanged(),
+        onError: (_) {},
+      );
+    } else if (widget.initializePlatformServices) {
+      _subscriptionReturnOwnerSubscription = FirebaseAuth.instance
+          .userChanges()
+          .listen(
+            (_) => _handleSubscriptionReturnOwnerChanged(),
+            onError: (_) {},
+          );
+    }
     SubscriptionReturnService.startAppLinkIngestion(
       links: widget.testIncomingDeepLinks,
       rawLinks: widget.testIncomingRawDeepLinks,
@@ -317,30 +345,108 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   void _schedulePendingSubscriptionReturnNavigation() {
-    final event = SubscriptionReturnService.peekPendingNavigation();
-    if (event != null) {
-      _scheduleSubscriptionReturnNavigation(event);
+    _subscriptionReturnNavigationRequestGeneration += 1;
+    _startPendingSubscriptionReturnNavigationDrainIfNeeded();
+  }
+
+  void _startPendingSubscriptionReturnNavigationDrainIfNeeded() {
+    if (_subscriptionReturnNavigationDrainQueued) {
+      return;
+    }
+    _subscriptionReturnNavigationDrainQueued = true;
+    unawaited(_drainPendingSubscriptionReturnNavigation());
+  }
+
+  Future<void> _drainPendingSubscriptionReturnNavigation() async {
+    var handledRequestGeneration =
+        _subscriptionReturnNavigationRequestGeneration;
+    try {
+      final ownerScope = _currentSubscriptionReturnOwnerScope;
+      if (ownerScope == null) {
+        if (await SubscriptionReturnService.hasPendingLocalDelivery() &&
+            mounted &&
+            _currentSubscriptionReturnOwnerScope == null) {
+          _handleSignedOutSubscriptionReturn();
+        }
+        return;
+      }
+
+      while (mounted && ownerScope == _currentSubscriptionReturnOwnerScope) {
+        final event = await SubscriptionReturnService.peekPendingNavigationFor(
+          ownerScope,
+          isCurrent: () =>
+              mounted && ownerScope == _currentSubscriptionReturnOwnerScope,
+        );
+        if (!mounted || ownerScope != _currentSubscriptionReturnOwnerScope) {
+          return;
+        }
+        // Listing a previously unseen server event emits a synchronous change
+        // notification. Absorb that notification before the claim so a
+        // permanent claim failure cannot cause this drain to retry itself.
+        // A genuinely new notification arriving while the claim is blocked
+        // advances the generation again and is handled by one later drain.
+        handledRequestGeneration =
+            _subscriptionReturnNavigationRequestGeneration;
+        if (event == null ||
+            !await SubscriptionReturnService.claimNavigationFor(
+              event.id,
+              ownerScope,
+              isCurrent: () =>
+                  mounted && ownerScope == _currentSubscriptionReturnOwnerScope,
+            )) {
+          return;
+        }
+        if (!mounted || ownerScope != _currentSubscriptionReturnOwnerScope) {
+          return;
+        }
+        widget.testOnSubscriptionReturnNavigationClaimed?.call(event);
+        if (!mounted || ownerScope != _currentSubscriptionReturnOwnerScope) {
+          return;
+        }
+        _handleSubscriptionReturn(event);
+      }
+    } finally {
+      _subscriptionReturnNavigationDrainQueued = false;
+      if (mounted &&
+          _subscriptionReturnNavigationRequestGeneration >
+              handledRequestGeneration) {
+        _startPendingSubscriptionReturnNavigationDrainIfNeeded();
+      }
     }
   }
 
-  void _scheduleSubscriptionReturnNavigation(SubscriptionReturnEvent event) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
-        return;
-      }
-      if (!SubscriptionReturnService.claimNavigation(event.id)) {
-        _schedulePendingSubscriptionReturnNavigation();
-        return;
-      }
+  void _handleSubscriptionReturnOwnerChanged() {
+    final messageOwnerScope = _subscriptionReturnMessageOwnerScope;
+    if (messageOwnerScope != null &&
+        messageOwnerScope != _currentSubscriptionReturnOwnerScope) {
+      _subscriptionReturnMessageOwnerScope = null;
+      _subscriptionReturnMessageGeneration += 1;
+      rootScaffoldMessengerKey.currentState?.hideCurrentSnackBar();
+    }
+    _schedulePendingSubscriptionReturnNavigation();
+  }
 
-      widget.testOnSubscriptionReturnNavigationClaimed?.call(event);
-      _handleSubscriptionReturn(event.kind);
-      _schedulePendingSubscriptionReturnNavigation();
+  void _handleSignedOutSubscriptionReturn() {
+    if (!mounted || _currentSubscriptionReturnOwnerScope != null) {
+      return;
+    }
+    setState(() {
+      selectedIndex = 1;
+      selectedMode = AppMode.biteSaver;
+    });
+    AppModeStateService.setMode(AppMode.biteSaver);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        rootNavigatorKey.currentState?.popUntil((route) => route.isFirst);
+      }
     });
   }
 
-  void _handleSubscriptionReturn(SubscriptionReturnKind kind) {
-    final message = switch (kind) {
+  void _handleSubscriptionReturn(SubscriptionReturnEvent event) {
+    if (!mounted || event.ownerScope != _currentSubscriptionReturnOwnerScope) {
+      return;
+    }
+    final message = switch (event.kind) {
       SubscriptionReturnKind.checkoutSuccess =>
         'Subscription started successfully. Refreshing restaurant tools...',
       SubscriptionReturnKind.checkoutCancel =>
@@ -358,7 +464,8 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     AppModeStateService.setMode(AppMode.biteSaver);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) {
+      if (!mounted ||
+          event.ownerScope != _currentSubscriptionReturnOwnerScope) {
         return;
       }
 
@@ -371,7 +478,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
               route.isFirst ||
               route.settings.name == RestaurantCreateCouponScreen.routeName,
         );
-      } else if (kind == SubscriptionReturnKind.customerPortal) {
+      } else if (event.kind == SubscriptionReturnKind.customerPortal) {
         navigator?.popUntil((route) => route.isFirst);
       } else {
         navigator?.pushAndRemoveUntil(
@@ -389,22 +496,57 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     });
 
     widget.testOnSubscriptionReturnMessageEmitted?.call(message);
-    rootScaffoldMessengerKey.currentState
-      ?..hideCurrentSnackBar()
-      ..showSnackBar(SnackBar(content: Text(message)));
+    if (widget.testSuppressSubscriptionReturnSnackBar) {
+      return;
+    }
+    final messenger = rootScaffoldMessengerKey.currentState;
+    if (messenger == null) {
+      return;
+    }
+    messenger.hideCurrentSnackBar();
+    _subscriptionReturnMessageOwnerScope = event.ownerScope;
+    final messageGeneration = ++_subscriptionReturnMessageGeneration;
+    final controller = messenger.showSnackBar(SnackBar(content: Text(message)));
+    unawaited(
+      controller.closed.then((_) {
+        if (messageGeneration == _subscriptionReturnMessageGeneration) {
+          _subscriptionReturnMessageOwnerScope = null;
+        }
+      }),
+    );
   }
 
   bool get _hasSignedInRestaurantUser {
-    final testValue = widget.testRestaurantUserSignedIn;
-    if (testValue != null) {
-      return testValue;
+    return _currentSubscriptionReturnOwnerScope != null;
+  }
+
+  SubscriptionReturnOwnerScope? get _currentSubscriptionReturnOwnerScope {
+    final testProvider = widget.testSubscriptionReturnOwnerScopeProvider;
+    if (testProvider != null) {
+      return testProvider();
+    }
+    final testSignedIn = widget.testRestaurantUserSignedIn;
+    if (testSignedIn != null) {
+      return testSignedIn
+          ? const SubscriptionReturnOwnerScope(
+              uid: 'test-restaurant-owner',
+              accountDocumentId: 'test-restaurant-owner',
+            )
+          : null;
     }
 
     try {
       final user = FirebaseAuth.instance.currentUser;
-      return user != null && !user.isAnonymous;
+      if (user == null || user.isAnonymous) {
+        return null;
+      }
+      final uid = user.uid.trim();
+      if (uid.isEmpty) {
+        return null;
+      }
+      return SubscriptionReturnOwnerScope(uid: uid, accountDocumentId: uid);
     } catch (_) {
-      return false;
+      return null;
     }
   }
 

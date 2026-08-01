@@ -52,6 +52,8 @@ function createHarness() {
     constructEventCalls: 0,
     constructedEvent: null,
     dbCalls: [],
+    ledgerDocument: undefined,
+    ledgerWrites: [],
     logs: [],
     parameterValue: canonicalReturnUrl,
     stripeConstructorCalls: 0,
@@ -79,6 +81,8 @@ function createHarness() {
     state.constructEventCalls = 0;
     state.constructedEvent = null;
     state.dbCalls = [];
+    state.ledgerDocument = undefined;
+    state.ledgerWrites = [];
     state.logs = [];
     state.parameterValue = canonicalReturnUrl;
     state.stripeConstructorCalls = 0;
@@ -153,7 +157,27 @@ function createHarness() {
             operation: "transaction_get",
             path: reference.path,
           });
-          return {exists: state.accountExists};
+          if (
+            reference.path.startsWith(
+              "private_subscription_return_state/",
+            )
+          ) {
+            return {
+              exists: state.ledgerDocument !== undefined,
+              data: () => state.ledgerDocument === undefined
+                ? undefined
+                : structuredClone(state.ledgerDocument),
+            };
+          }
+          if (state.accountLookupFailure !== null) {
+            throw state.accountLookupFailure;
+          }
+          return {
+            exists: state.accountExists,
+            data: () => state.accountExists
+              ? structuredClone(state.accountDocument)
+              : undefined,
+          };
         },
         update(reference, data) {
           state.updates.push({
@@ -170,6 +194,21 @@ function createHarness() {
             path: reference.path,
             data: {...data},
           });
+        },
+        set(reference, data) {
+          if (
+            reference.path.startsWith(
+              "private_subscription_return_state/",
+            )
+          ) {
+            state.ledgerDocument = structuredClone(data);
+            state.ledgerWrites.push({
+              path: reference.path,
+              data: structuredClone(data),
+            });
+            return;
+          }
+          throw new Error("Unexpected non-ledger transaction set");
         },
       });
     },
@@ -765,7 +804,10 @@ test("portal configuration rejects every missing or noncanonical value before ac
       () =>
         harness.createCustomerPortalSession({
           auth: {uid: sensitiveCanaries.uid},
-          data: {},
+          data: {
+            returnProtocolVersion: 2,
+            restaurantAccountDocumentId: sensitiveCanaries.uid,
+          },
         }),
       (error) => {
         assert.ok(error instanceof MockHttpsError);
@@ -804,7 +846,13 @@ test("portal configuration rejects every missing or noncanonical value before ac
 
 test("portal authentication and linked-customer requirements remain unchanged", async () => {
   await assert.rejects(
-    () => harness.createCustomerPortalSession({auth: null, data: {}}),
+    () => harness.createCustomerPortalSession({
+      auth: null,
+      data: {
+        returnProtocolVersion: 2,
+        restaurantAccountDocumentId: sensitiveCanaries.uid,
+      },
+    }),
     (error) => {
       assert.ok(error instanceof MockHttpsError);
       assert.equal(error.code, "unauthenticated");
@@ -821,7 +869,10 @@ test("portal authentication and linked-customer requirements remain unchanged", 
     () =>
       harness.createCustomerPortalSession({
         auth: {uid: sensitiveCanaries.uid},
-        data: {},
+        data: {
+          returnProtocolVersion: 2,
+          restaurantAccountDocumentId: sensitiveCanaries.uid,
+        },
       }),
     (error) => {
       assert.ok(error instanceof MockHttpsError);
@@ -833,7 +884,13 @@ test("portal authentication and linked-customer requirements remain unchanged", 
       return true;
     },
   );
-  assert.equal(harness.state.dbCalls.length, 1);
+  assert.deepEqual(harness.state.dbCalls, [
+    {operation: "transaction"},
+    {
+      operation: "transaction_get",
+      path: `restaurant_accounts/${sensitiveCanaries.uid}`,
+    },
+  ]);
   assert.deepEqual(harness.state.billingPortalCalls, []);
   assert.deepEqual(harness.state.logs, []);
 });
@@ -852,7 +909,10 @@ test("portal account lookup failure is sanitized before the framework wrapper ca
     () =>
       harness.createCustomerPortalSession({
         auth: {uid: sensitiveCanaries.uid},
-        data: {},
+        data: {
+          returnProtocolVersion: 2,
+          restaurantAccountDocumentId: sensitiveCanaries.uid,
+        },
       }),
     (error) => {
       assert.ok(error instanceof MockHttpsError);
@@ -883,16 +943,26 @@ test("portal account lookup failure is sanitized before the framework wrapper ca
 test("successful portal creation passes the exact return URL and preserves response shape without logging", async () => {
   const result = await harness.createCustomerPortalSession({
     auth: {uid: sensitiveCanaries.uid},
-    data: {},
+    data: {
+      returnProtocolVersion: 2,
+      restaurantAccountDocumentId: sensitiveCanaries.uid,
+    },
   });
 
+  assert.equal(result.returnProtocolVersion, 2);
+  assert.match(result.returnToken, /^[A-Za-z0-9_-]{43}$/);
   assert.deepEqual(harness.state.billingPortalCalls, [
     {
       customer: sensitiveCanaries.customer,
-      return_url: canonicalReturnUrl,
+      return_url:
+        `${canonicalReturnUrl}?return_token=${result.returnToken}`,
     },
   ]);
-  assert.deepEqual(result, {url: sensitiveCanaries.portalUrl});
+  assert.deepEqual(result, {
+    url: sensitiveCanaries.portalUrl,
+    returnToken: result.returnToken,
+    returnProtocolVersion: 2,
+  });
   assert.deepEqual(harness.state.logs, []);
 });
 
@@ -912,7 +982,10 @@ test("portal Stripe failure becomes a stable callable error with safe metadata o
     () =>
       harness.createCustomerPortalSession({
         auth: {uid: sensitiveCanaries.uid},
-        data: {},
+        data: {
+          returnProtocolVersion: 2,
+          restaurantAccountDocumentId: sensitiveCanaries.uid,
+        },
       }),
     (error) => {
       assert.ok(error instanceof MockHttpsError);
@@ -970,7 +1043,7 @@ test("reviewed source regions retain verification and response behavior while ba
   );
   assert.match(
     portalSource,
-    /return_url: returnUrl[\s\S]*?return \{\s*url: session\.url,\s*\}/,
+    /return_url: returnUrl[\s\S]*?await markServerSubscriptionReturnContextReady\([\s\S]*?return \{\s*url: portalUrl,\s*returnToken: reserved\.returnToken,\s*returnProtocolVersion: subscriptionReturnProtocolVersion,\s*\}/,
   );
   assert.match(
     portalSource,

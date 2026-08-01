@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="referrer" content="no-referrer">
   <meta name="robots" content="noindex">
+  <link rel="icon" href="data:,">
   <title>Return to BiteStar</title>
   <link
     rel="canonical"
     href="https://app.bitestar.app/subscription/portal-return"
   >
-  <link rel="icon" type="image/png" href="/favicon.png">
   <style>
     :root {
       color-scheme: light;
@@ -23,6 +23,10 @@
 
     * {
       box-sizing: border-box;
+    }
+
+    [hidden] {
+      display: none !important;
     }
 
     html,
@@ -94,10 +98,12 @@
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-height: 3rem;
+      min-height: 48px;
       padding: 0.8rem 1rem;
       border: 1px solid transparent;
       border-radius: 0.9rem;
+      cursor: pointer;
+      font: inherit;
       font-weight: 750;
       line-height: 1.3;
       text-align: center;
@@ -144,32 +150,122 @@
       <span>BiteStar</span>
     </div>
 
-    <h1>Back from subscription management</h1>
-    <p>
-      You have returned from managing your subscription. Open BiteStar to
-      continue and refresh your current subscription status.
-    </p>
+    <h1 id="return-heading">Return to BiteStar</h1>
+    <p id="return-message">This return link is unavailable.</p>
 
     <div class="actions">
-      <a
+      <button
         id="open-bitestar"
         class="button button-primary"
-        href="bitesaver://subscription-portal-return"
+        type="button"
+        hidden
+        disabled
       >
         Open BiteStar
-      </a>
-      <a
+      </button>
+      <button
         id="continue-on-web"
         class="button button-secondary"
-        href="https://app.bitestar.app/"
+        type="button"
+        hidden
+        disabled
       >
         Continue on the web
-      </a>
+      </button>
     </div>
 
-    <p class="note">
-      If the app does not open, use the web option or switch back to BiteStar.
+    <p class="note" id="return-instruction">
+      Use the web option or switch back to BiteStar to continue.
     </p>
   </main>
+  <script>
+    (() => {
+      'use strict';
+
+      const originalHref = window.location.href;
+      window.history.replaceState(
+        null,
+        'Return to BiteStar',
+        '/subscription/portal-return'
+      );
+
+      const parameterName = 'return_token';
+      const maximumUrlLength = 2048;
+      const tokenPattern = /^[A-Za-z0-9_-]{43}$/;
+      const heading = document.getElementById('return-heading');
+      const message = document.getElementById('return-message');
+      const instruction = document.getElementById('return-instruction');
+      const openButton = document.getElementById('open-bitestar');
+      const webButton = document.getElementById('continue-on-web');
+
+      function parseReturnToken(rawHref) {
+        if (
+          typeof rawHref !== 'string' ||
+          rawHref.length > maximumUrlLength ||
+          rawHref.includes('#')
+        ) {
+          return null;
+        }
+
+        let url;
+        try {
+          url = new URL(rawHref);
+        } catch (_) {
+          return null;
+        }
+
+        const parameters = Array.from(url.searchParams.entries());
+        if (
+          parameters.length !== 1 ||
+          parameters[0][0] !== parameterName
+        ) {
+          return null;
+        }
+
+        const token = parameters[0][1];
+        if (!tokenPattern.test(token)) {
+          return null;
+        }
+
+        if (url.search !== `?${parameterName}=${token}`) {
+          return null;
+        }
+
+        return token;
+      }
+
+      function enableAction(button, destination) {
+        button.hidden = false;
+        button.disabled = false;
+        button.addEventListener('click', () => {
+          window.location.assign(destination);
+        });
+      }
+
+      const token = parseReturnToken(originalHref);
+      if (token === null) {
+        return;
+      }
+
+      const returnUri =
+        `bitesaver://subscription-portal-return?${parameterName}=` +
+        encodeURIComponent(token);
+      const webReturnUri =
+        'https://app.bitestar.app/#/subscription-return/' +
+        `customerPortal?${parameterName}=` +
+        encodeURIComponent(token);
+
+      document.title = 'Back from subscription management';
+      heading.textContent = 'Back from subscription management';
+      message.textContent =
+        'You have returned from managing your subscription. Open BiteStar ' +
+        'to continue and refresh your current subscription status.';
+      instruction.textContent =
+        'If the app does not open, use the web option or switch back to ' +
+        'BiteStar.';
+      enableAction(openButton, returnUri);
+      enableAction(webButton, webReturnUri);
+    })();
+  </script>
 </body>
 </html>
