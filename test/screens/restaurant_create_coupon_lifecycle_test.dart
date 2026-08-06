@@ -6121,6 +6121,11 @@ void main() {
   );
 
   testWidgets(
+    'Start Subscription launches an exact fragment-bearing Checkout URL',
+    _verifyFragmentBearingCheckoutLaunchUsesExactUrl,
+  );
+
+  testWidgets(
     'return during pending Checkout launch redeems once and replay stays inert',
     _verifyReturnDuringPendingCheckoutLaunchIsSingleUse,
   );
@@ -9665,6 +9670,74 @@ Future<void> _verifySuccessfulPortalLaunchUsesPreparedSession(
     0,
   );
   expect(find.text('Something went wrong'), findsNothing);
+}
+
+Future<void> _verifyFragmentBearingCheckoutLaunchUsesExactUrl(
+  WidgetTester tester,
+) async {
+  final owner = _TestUser(
+    uid: 'fragment-checkout-owner',
+    email: 'fragment-checkout@example.test',
+  );
+  const accountDocumentId = 'fragment-checkout-document';
+  const checkoutUrl =
+      'https://checkout.stripe.com/c/pay/cs_test_screen'
+      '#fidkdWxSyntheticOpaque_letters_123-%2F-%2B';
+  final token = _testReturnToken(40);
+  final ownerScope = SubscriptionReturnOwnerScope(
+    uid: owner.uid,
+    accountDocumentId: accountDocumentId,
+  );
+  var preparationCalls = 0;
+  var launchCalls = 0;
+  Uri? launchedUrl;
+  final checkoutService = SubscriptionCheckoutService(
+    invokeCallable: (name, payload) async {
+      preparationCalls += 1;
+      expect(name, 'createCheckoutSession');
+      expect(payload, <String, Object?>{
+        'returnProtocolVersion': 2,
+        'restaurantAccountDocumentId': accountDocumentId,
+      });
+      _subscriptionReturnBackend.reserve(
+        returnToken: token,
+        ownerScope: ownerScope,
+        family: SubscriptionReturnFamily.checkout,
+      );
+      return <String, Object?>{
+        'url': checkoutUrl,
+        'returnToken': token,
+        'returnProtocolVersion': 2,
+      };
+    },
+    launchExternalUrl: (url) async {
+      launchCalls += 1;
+      launchedUrl = url;
+      return true;
+    },
+  );
+
+  await _pumpApplicationScreen(
+    tester,
+    loadAccount: (uid) async =>
+        _approvedAccount(uid: uid, subscriptionStatus: 'inactive'),
+    subscriptionCheckoutService: checkoutService,
+    testCurrentUser: owner,
+    currentUserProvider: () => owner,
+    accountDocumentIdForUid: (uid) => accountDocumentId,
+  );
+  await _ensureSubscriptionActionVisible(tester, useCustomerPortal: false);
+  await _invokeSubscriptionAction(tester, useCustomerPortal: false);
+  await _pumpUntilWithRealAsync(tester, () => launchCalls == 1);
+
+  expect(preparationCalls, 1);
+  expect(launchCalls, 1);
+  expect(launchedUrl?.toString(), checkoutUrl);
+  expect(find.text('Something went wrong'), findsNothing);
+  expect(
+    find.widgetWithText(FilledButton, 'Start Subscription'),
+    findsOneWidget,
+  );
 }
 
 Future<void> _verifyReturnDuringPendingCheckoutLaunchIsSingleUse(

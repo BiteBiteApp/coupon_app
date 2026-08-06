@@ -211,7 +211,8 @@ Uri _requireExternalStripeUrl(
       uri.path == '/' ||
       uri.userInfo.isNotEmpty ||
       uri.hasPort ||
-      uri.hasFragment ||
+      (family == PreparedSubscriptionFamily.customerPortal &&
+          uri.hasFragment) ||
       uri.toString() != rawUrl) {
     throw StateError('Invalid external URL.');
   }

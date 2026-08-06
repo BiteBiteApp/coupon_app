@@ -45,6 +45,55 @@ void main() {
     },
   );
 
+  test(
+    'fragment-bearing Checkout URL is prepared and launched exactly',
+    () async {
+      const checkoutUrl =
+          'https://checkout.stripe.com/c/pay/cs_test_synthetic'
+          '#fidkdWxSyntheticOpaque_letters_123-%2F-%2B';
+      var launches = 0;
+      Uri? launchedUrl;
+      final service = SubscriptionCheckoutService(
+        invokeCallable: (name, request) async {
+          expect(name, 'createCheckoutSession');
+          expect(request, <String, Object?>{
+            'returnProtocolVersion': 2,
+            'restaurantAccountDocumentId': 'account-a',
+          });
+          return <String, Object?>{
+            'url': checkoutUrl,
+            'returnToken': _token,
+            'returnProtocolVersion': 2,
+          };
+        },
+        launchExternalUrl: (url) async {
+          launches += 1;
+          launchedUrl = url;
+          return true;
+        },
+      );
+
+      final prepared = await service.prepareSubscriptionCheckout(
+        restaurantAccountDocumentId: 'account-a',
+      );
+
+      expect(launches, 0);
+      expect(prepared.externalUrl.toString(), checkoutUrl);
+      expect(prepared.returnToken, _token);
+      expect(prepared.family, PreparedSubscriptionFamily.checkout);
+      expect(prepared.returnProtocolVersion, 2);
+      expect(
+        await service.launchPreparedSubscriptionUrl(
+          prepared,
+          isCurrent: () => true,
+        ),
+        SubscriptionExternalLaunchResult.launched,
+      );
+      expect(launches, 1);
+      expect(launchedUrl?.toString(), checkoutUrl);
+    },
+  );
+
   test('portal preparation is separate from launch', () async {
     var launches = 0;
     final service = SubscriptionCheckoutService(
@@ -129,27 +178,50 @@ void main() {
     },
   );
 
-  test('family-specific Stripe URL validation rejects cross-family URLs', () {
-    Future<Map<String, Object?>> invoke(
-      String _,
-      Map<String, Object?> _,
-    ) async => <String, Object?>{
-      'url': 'https://billing.stripe.com/p/session/synthetic',
-      'returnToken': _token,
-      'returnProtocolVersion': 2,
-    };
-    final service = SubscriptionCheckoutService(
-      invokeCallable: invoke,
-      launchExternalUrl: (_) async => true,
-    );
+  test(
+    'family-specific validation rejects cross-family and Portal fragments',
+    () async {
+      Future<Map<String, Object?>> invoke(
+        String _,
+        Map<String, Object?> _,
+      ) async => <String, Object?>{
+        'url': 'https://billing.stripe.com/p/session/synthetic',
+        'returnToken': _token,
+        'returnProtocolVersion': 2,
+      };
+      final service = SubscriptionCheckoutService(
+        invokeCallable: invoke,
+        launchExternalUrl: (_) async => true,
+      );
 
-    expectLater(
-      service.prepareSubscriptionCheckout(
-        restaurantAccountDocumentId: 'account-a',
-      ),
-      throwsStateError,
-    );
-  });
+      await expectLater(
+        service.prepareSubscriptionCheckout(
+          restaurantAccountDocumentId: 'account-a',
+        ),
+        throwsStateError,
+      );
+
+      var portalLaunches = 0;
+      final portalService = SubscriptionCheckoutService(
+        invokeCallable: (_, _) async => <String, Object?>{
+          'url': 'https://billing.stripe.com/p/session/synthetic#fragment',
+          'returnToken': _token,
+          'returnProtocolVersion': 2,
+        },
+        launchExternalUrl: (_) async {
+          portalLaunches += 1;
+          return true;
+        },
+      );
+      await expectLater(
+        portalService.prepareCustomerPortal(
+          restaurantAccountDocumentId: 'account-a',
+        ),
+        throwsStateError,
+      );
+      expect(portalLaunches, 0);
+    },
+  );
 
   test(
     'invalid canonical document ID fails before callable invocation',
@@ -173,7 +245,7 @@ void main() {
   );
 
   test('Stripe URL accepts exactly 4096 and rejects 4097 characters', () async {
-    const prefix = 'https://checkout.stripe.com/c/pay/synthetic?data=';
+    const prefix = 'https://checkout.stripe.com/c/pay/synthetic#';
     Future<void> expectLength(int length, Matcher matcher) async {
       final url = '$prefix${'a' * (length - prefix.length)}';
       expect(url.length, length);
@@ -201,38 +273,52 @@ void main() {
     final urls = <String>[
       'https://checkout.stripe.com',
       'https://checkout.stripe.com/',
-      'https://checkout.stripe.com.evil.test/c/pay/x',
-      'https://user@checkout.stripe.com/c/pay/x',
-      'https://checkout.stripe.com:443/c/pay/x',
-      'https://checkout.stripe.com/c/pay/x#fragment',
+      'https://checkout.stripe.com#fragment',
+      'https://checkout.stripe.com/#fragment',
+      'https://checkout.stripe.com.evil.example/c/pay/x#fragment',
+      'https://evil.example/c/pay/x#checkout.stripe.com',
+      'https://user@checkout.stripe.com/c/pay/x#fragment',
+      'https://checkout.stripe.com:444/c/pay/x#fragment',
       'https://checkout.stripe.com/c/pay/%ZZ',
-      ' https://checkout.stripe.com/c/pay/x',
-      'https://checkout.stripe.com/c/pay/x ',
-      'https://checkout.stripe.com/c/pay/x\n',
-      'http://checkout.stripe.com/c/pay/x',
+      'https://checkout.stripe.com/c/pay/x#bad%ZZ',
+      ' https://checkout.stripe.com/c/pay/x#fragment',
+      'https://checkout.stripe.com/c/pay/x#fragment ',
+      'https://checkout.stripe.com/c/pay/x#frag\nment',
+      'http://checkout.stripe.com/c/pay/x#fragment',
       'javascript:alert(1)',
       'data:text/plain,hello',
       'file:///tmp/x',
       'bitesaver://subscription-success',
-      'https://checkоut.stripe.com/c/pay/x',
-      'https://xn--checkut-9qf.stripe.com/c/pay/x',
+      'https://checkоut.stripe.com/c/pay/x#fragment',
+      'https://xn--checkut-9qf.stripe.com/c/pay/x#fragment',
     ];
     for (final url in urls) {
+      var launches = 0;
       final service = SubscriptionCheckoutService(
         invokeCallable: (_, _) async => <String, Object?>{
           'url': url,
           'returnToken': _token,
           'returnProtocolVersion': 2,
         },
-        launchExternalUrl: (_) async => true,
+        launchExternalUrl: (_) async {
+          launches += 1;
+          return true;
+        },
       );
       await expectLater(
         service.prepareSubscriptionCheckout(
           restaurantAccountDocumentId: 'account-a',
         ),
-        throwsStateError,
+        throwsA(
+          isA<StateError>().having(
+            (error) => error.message,
+            'message',
+            'Invalid external URL.',
+          ),
+        ),
         reason: url,
       );
+      expect(launches, 0, reason: url);
     }
   });
 
