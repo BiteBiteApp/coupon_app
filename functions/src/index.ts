@@ -37,6 +37,7 @@ import { requireAdminInviteAccess } from "./admin_authorization.js";
 import {
   AdminRestaurantQueryPlan,
   executeAdminRestaurantSearch,
+  geocodeAdminLocationQuery,
 } from "./admin_restaurant_search_helpers.js";
 import {
   couponInviteRestaurantIdentity,
@@ -102,6 +103,15 @@ import {
   reconcileBiteSaverDailySpecialOfferIndex,
   reconcileBiteScoreDishIndex,
 } from "./search_index_maintenance.js";
+import {
+  couponAdminCursorSecretName,
+  createFirestoreCouponAdminPagingDatabase,
+  listCouponAdminCouponsPageHandler,
+  listCouponAdminInviteHistoryPageHandler,
+  listCouponAdminQueuePageHandler,
+} from "./coupon_admin_paging.js";
+import { searchCouponAdminRestaurantsPageHandler } from "./coupon_admin_restaurant_search.js";
+import { createFirestoreCouponAdminRadiusStore } from "./coupon_admin_radius_sessions.js";
 
 initializeApp();
 
@@ -116,6 +126,9 @@ const stripeSecret = defineSecret("STRIPE_SECRET_KEY");
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 const googleMapsApiKey = defineSecret("GOOGLE_MAPS_API_KEY");
+const searchPaginationCursorKey = defineSecret(couponAdminCursorSecretName);
+const couponAdminPagingDatabase = createFirestoreCouponAdminPagingDatabase(db);
+const couponAdminRadiusStore = createFirestoreCouponAdminRadiusStore(db);
 const stripeCheckoutSuccessUrl =
   "https://coupon-app-29446.web.app/stripe-success.html";
 const stripeCheckoutCancelUrl =
@@ -1453,6 +1466,63 @@ export const searchAdminRestaurants = onCall(
       getGeocodingApiKey: () => googleMapsApiKey.value(),
       fetchGeocoding: (url, init) => fetch(url, init),
       executeQueryPlan: executeAdminRestaurantQueryPlan,
+    });
+  },
+);
+
+export const searchCouponAdminRestaurantsPage = onCall(
+  {
+    secrets: [searchPaginationCursorKey, googleMapsApiKey],
+  },
+  async (request) => {
+    const admin = requireAdminInviteAccess(request);
+    return searchCouponAdminRestaurantsPageHandler(request.data, {
+      adminUid: admin.uid,
+      cursorSecret: searchPaginationCursorKey.value(),
+      database: couponAdminPagingDatabase,
+      radiusStore: couponAdminRadiusStore,
+      geocodeLocation: (locationQuery) =>
+        geocodeAdminLocationQuery(
+          locationQuery,
+          googleMapsApiKey.value(),
+          (url, init) => fetch(url, init),
+        ),
+    });
+  },
+);
+
+export const listCouponAdminQueuePage = onCall(
+  { secrets: [searchPaginationCursorKey] },
+  async (request) => {
+    const admin = requireAdminInviteAccess(request);
+    return listCouponAdminQueuePageHandler(request.data, {
+      adminUid: admin.uid,
+      cursorSecret: searchPaginationCursorKey.value(),
+      database: couponAdminPagingDatabase,
+    });
+  },
+);
+
+export const listCouponAdminCouponsPage = onCall(
+  { secrets: [searchPaginationCursorKey] },
+  async (request) => {
+    const admin = requireAdminInviteAccess(request);
+    return listCouponAdminCouponsPageHandler(request.data, {
+      adminUid: admin.uid,
+      cursorSecret: searchPaginationCursorKey.value(),
+      database: couponAdminPagingDatabase,
+    });
+  },
+);
+
+export const listCouponAdminInviteHistoryPage = onCall(
+  { secrets: [searchPaginationCursorKey] },
+  async (request) => {
+    const admin = requireAdminInviteAccess(request);
+    return listCouponAdminInviteHistoryPageHandler(request.data, {
+      adminUid: admin.uid,
+      cursorSecret: searchPaginationCursorKey.value(),
+      database: couponAdminPagingDatabase,
     });
   },
 );

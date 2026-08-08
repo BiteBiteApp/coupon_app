@@ -1,1635 +1,806 @@
 import 'dart:async';
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:coupon_app/models/admin_restaurant_link_record.dart';
-import 'package:coupon_app/models/coupon.dart';
-import 'package:coupon_app/models/restaurant.dart';
-import 'package:coupon_app/screens/admin_review_screen.dart';
-import 'package:coupon_app/services/admin_link_generation_service.dart';
-import 'package:coupon_app/services/bitesaver_restaurant_lifecycle_service.dart';
-import 'package:coupon_app/services/restaurant_invite_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-void main() {
-  testWidgets(
-    'four tabs separate pending queue from the initial Restaurants view',
-    (tester) async {
-      var searchCalls = 0;
-      var pendingListened = false;
-      final pendingController =
-          StreamController<List<AdminCouponAccountRecord>>(
-            onListen: () => pendingListened = true,
-          );
-      addTearDown(pendingController.close);
+import 'package:coupon_app/models/pagination/paged_models.dart';
+import 'package:coupon_app/models/coupon_admin_paging_models.dart';
+import 'package:coupon_app/screens/admin_review_screen.dart';
+import 'package:coupon_app/services/coupon_admin_paging_service.dart';
 
-      await _pumpScreen(
-        tester,
-        pendingAccounts: pendingController.stream,
-        search:
-            ({
-              required locationQuery,
-              required radiusMiles,
-              required restaurantName,
-              required sources,
-            }) async {
-              searchCalls += 1;
-              return _result();
-            },
-      );
+Map<String, Object?> _page(
+  List<Map<String, Object?>> items, {
+  int pageSize = 50,
+  int currentPage = 1,
+  int? exactTotal,
+  bool hasNext = false,
+  bool hasPrevious = false,
+  String? nextCursor,
+  String? previousCursor,
+  Map<String, Object?>? preparation,
+}) => <String, Object?>{
+  'protocolVersion': pageProtocolVersion,
+  'items': items,
+  'pageSize': pageSize,
+  'hasNext': hasNext,
+  'hasPrevious': hasPrevious,
+  'nextCursor': ?nextCursor,
+  'previousCursor': ?previousCursor,
+  'currentPageNumber': currentPage,
+  'total': exactTotal == null
+      ? const <String, Object?>{'state': 'unknown'}
+      : <String, Object?>{'state': 'exact', 'value': exactTotal},
+  'queryFingerprint': 'b' * 64,
+  'snapshotTimestampMs': 1786200000000,
+  'capabilities': <String, Object?>{
+    'first': currentPage > 1,
+    'previous': hasPrevious,
+    'numberedVisitedPages': true,
+    'next': hasNext,
+    'last': false,
+  },
+  'preparation': ?preparation,
+};
 
-      expect(
-        tester.widgetList<Tab>(find.byType(Tab)).map((tab) => tab.text),
-        <String>[
-          'Restaurants',
-          'Pending Applications',
-          'Name Changes',
-          'Reports',
-        ],
-      );
-      expect(searchCalls, 0);
-      expect(find.text('Find Restaurants'), findsOneWidget);
-      expect(find.text('Pending Applications'), findsOneWidget);
-      expect(find.text('No pending restaurant approvals found.'), findsNothing);
-      expect(find.text('Pending Without Geohash'), findsNothing);
-      expect(find.text('View All Restaurants'), findsNothing);
+Map<String, Object?> _restaurant(String id, {String? name}) =>
+    <String, Object?>{
+      'source': 'biteSaver',
+      'documentId': id,
+      'actionId': 'uid-$id',
+      'restaurantName': name ?? 'Restaurant $id',
+      'streetAddress': '1 Main Street',
+      'city': 'Inverness',
+      'state': 'FL',
+      'zipCode': '34450',
+      'phone': '5550100',
+      'website': 'https://example.test',
+      'latitude': 28.85,
+      'longitude': -82.49,
+      'distanceMiles': null,
+      'approvalStatus': 'approved',
+      'couponApplicationSubmitted': true,
+      'uid': 'uid-$id',
+      'linkedBiteScoreRestaurantId': null,
+    };
 
-      await _openTab(tester, 'Pending Applications');
-      pendingController.add([
-        _pendingAccount(
-          documentId: 'pending-without-location',
-          actionId: 'pending-owner-uid',
-          name: 'Pending Without Geohash',
+Map<String, Object?> _pending(String id) => <String, Object?>{
+  'id': id,
+  'kind': 'pendingApplications',
+  'restaurantName': 'Pending $id',
+  'uid': 'uid-$id',
+  'email': 'admin@example.test',
+  'phone': '5550100',
+  'applicantPhone': '5550101',
+  'streetAddress': '2 Queue Way',
+  'city': 'Inverness',
+  'state': 'FL',
+  'zipCode': '34450',
+  'website': 'https://example.test',
+  'latitude': 28.85,
+  'longitude': -82.49,
+  'approvalStatus': 'pending',
+  'couponApplicationSubmitted': true,
+  'profileVersion': 2,
+  'createdAtMillis': 1,
+  'updatedAtMillis': 2,
+};
+
+Map<String, Object?> _nameChange(String id) => <String, Object?>{
+  'id': id,
+  'kind': 'nameChanges',
+  'userId': 'uid-$id',
+  'currentRestaurantName': 'Old Name',
+  'requestedRestaurantName': 'New Name',
+  'status': 'pending',
+  'createdAtMillis': 1,
+};
+
+Map<String, Object?> _report(String id) => <String, Object?>{
+  'id': id,
+  'kind': 'openReports',
+  'reportType': 'Coupon report',
+  'restaurantName': 'Restaurant',
+  'couponTitle': 'Coupon',
+  'restaurantId': 'restaurant-one',
+  'couponId': 'coupon-one',
+  'reason': 'Incorrect details',
+  'note': 'Please review',
+  'reporterUid': 'reporter',
+  'status': 'open',
+  'createdAtMillis': 1,
+};
+
+Map<String, Object?> _coupon(String id, String title) => <String, Object?>{
+  'id': id,
+  'title': title,
+  'restaurant': 'Restaurant',
+  'expires': 'Soon',
+  'startTimeMillis': null,
+  'endTimeMillis': null,
+  'usageRule': 'Once per customer',
+  'couponNumber': '001',
+  'isProximityOnly': false,
+  'proximityRadiusMiles': null,
+  'details': null,
+  'imageUrl': null,
+  'createdAtMillis': 1,
+  'updatedAtMillis': 2,
+};
+
+Map<String, Object?> _invite(String id) => <String, Object?>{
+  'id': id,
+  'type': 'coupon_invite',
+  'side': 'coupon',
+  'status': 'revoked',
+  'restaurantId': 'restaurant-one',
+  'pendingRestaurantKey': '',
+  'restaurantName': 'Invite Restaurant',
+  'createdByEmail': 'admin@example.test',
+  'createdAtMillis': 1,
+  'expiresAtMillis': 2,
+  'usedAtMillis': null,
+  'revokedAtMillis': 2,
+  'maxUses': 1,
+  'useCount': 0,
+};
+
+class _Backend {
+  final List<(String, Map<String, Object?>)> calls =
+      <(String, Map<String, Object?>)>[];
+  Future<Object?> Function(String, Map<String, Object?>)? custom;
+
+  Future<Object?> call(String name, Map<String, Object?> request) async {
+    calls.add((name, Map<String, Object?>.from(request)));
+    if (custom != null) return custom!(name, request);
+    if (name == 'listCouponAdminQueuePage') {
+      final criteria = request['criteria']! as Map;
+      return switch (criteria['queueKind']) {
+        'pendingApplications' => _page(
+          <Map<String, Object?>>[_pending('one')],
+          pageSize: 25,
+          exactTotal: 1,
         ),
-      ]);
-      await tester.pump();
-
-      expect(pendingListened, isTrue);
-      expect(searchCalls, 0);
-      expect(find.text('Pending Applications'), findsNWidgets(2));
-      expect(find.text('Pending Without Geohash'), findsOneWidget);
-      expect(find.text('Find Restaurants'), findsNothing);
-      expect(find.text('View All Restaurants'), findsNothing);
-    },
-  );
-
-  testWidgets('Pending Applications preserves its empty state', (tester) async {
-    await _pumpScreen(tester);
-    await _openTab(tester, 'Pending Applications');
-
-    expect(find.text('No pending restaurant approvals found.'), findsOneWidget);
-  });
-
-  testWidgets('Pending Applications preserves existing actions', (
-    tester,
-  ) async {
-    await _pumpScreen(
-      tester,
-      pendingAccounts: Stream.value([
-        _pendingAccount(
-          documentId: 'pending-actions',
-          actionId: 'pending-owner',
-          name: 'Pending Actions Cafe',
+        'nameChanges' => _page(
+          <Map<String, Object?>>[_nameChange('one')],
+          pageSize: 25,
+          exactTotal: 1,
         ),
-      ]),
-    );
-    await _openTab(tester, 'Pending Applications');
-
-    final pendingCard = find.byKey(const ValueKey('pending:pending-actions'));
-    expect(pendingCard, findsOneWidget);
-    expect(
-      find.descendant(of: pendingCard, matching: find.text('Approve')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: pendingCard, matching: find.text('Reject')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: pendingCard, matching: find.text('Edit Restaurant')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: pendingCard, matching: find.text('Create Invite')),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(
-        of: pendingCard,
-        matching: find.text('Delete Restaurant'),
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.descendant(of: pendingCard, matching: find.text('Coupons')),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('pending edit reloads the selected full document', (
-    tester,
-  ) async {
-    var loads = 0;
-    String? editedName;
-    await _pumpScreen(
-      tester,
-      pendingAccounts: Stream.value([
-        _pendingAccount(
-          documentId: 'pending-edit-document',
-          actionId: 'pending-owner',
-          name: 'Stale Stream Name',
+        _ => _page(
+          <Map<String, Object?>>[_report('one')],
+          pageSize: 25,
+          exactTotal: 1,
         ),
-      ]),
-      loadAccount: (documentId) async {
-        loads += 1;
-        expect(documentId, 'pending-edit-document');
-        return _accountData(
-          actionId: 'pending-owner',
-          name: 'Fresh Full Document Name',
-        );
-      },
-      editAccount:
-          ({required context, required documentId, required data}) async {
-            expect(documentId, 'pending-edit-document');
-            editedName = data[Restaurant.fieldName] as String?;
-            return false;
-          },
-    );
-    await _openTab(tester, 'Pending Applications');
-    await _tapAction(tester, 'pending:pending-edit-document:edit');
-
-    expect(loads, 1);
-    expect(editedName, 'Fresh Full Document Name');
-  });
-
-  testWidgets('pending review uses actual document ID and current version', (
-    tester,
-  ) async {
-    String? reviewed;
-    await _pumpScreen(
-      tester,
-      pendingAccounts: Stream.value([
-        _pendingAccount(
-          documentId: 'pending-firestore-document',
-          actionId: 'stored-owner-uid',
-          name: 'Pending Version Cafe',
-        ),
-      ]),
-      loadAccount: (documentId) async => _accountData(
-        actionId: 'stored-owner-uid',
-        name: 'Pending Version Cafe',
-      ),
-      reviewApplication:
-          ({
-            required documentId,
-            required decision,
-            required expectedProfileVersion,
-          }) async {
-            reviewed =
-                '$documentId:${decision.wireName}:$expectedProfileVersion';
-            return BiteSaverApplicationReviewResult(
-              documentId: documentId,
-              approvalStatus: 'approved',
-              profileVersion: expectedProfileVersion,
-            );
-          },
-    );
-    await _openTab(tester, 'Pending Applications');
-    await _tapAction(tester, 'pending:pending-firestore-document:approve');
-
-    expect(reviewed, 'pending-firestore-document:approve:3');
-    expect(find.text('Restaurant approved.'), findsOneWidget);
-  });
-
-  testWidgets('delayed review success is ignored after screen disposal', (
-    tester,
-  ) async {
-    final reviewCompleter = Completer<BiteSaverApplicationReviewResult>();
-    var reviewCalls = 0;
-    await _pumpScreen(
-      tester,
-      pendingAccounts: Stream.value([
-        _pendingAccount(
-          documentId: 'delayed-success-document',
-          actionId: 'delayed-success-owner',
-          name: 'Delayed Success Cafe',
-        ),
-      ]),
-      reviewApplication:
-          ({
-            required documentId,
-            required decision,
-            required expectedProfileVersion,
-          }) {
-            reviewCalls += 1;
-            return reviewCompleter.future;
-          },
-    );
-    await _openTab(tester, 'Pending Applications');
-
-    final approve = find.byKey(
-      const ValueKey('pending:delayed-success-document:approve'),
-    );
-    await tester.ensureVisible(approve);
-    await tester.tap(approve);
-    await tester.pump();
-    await tester.pump();
-    expect(reviewCalls, 1);
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    reviewCompleter.complete(
-      const BiteSaverApplicationReviewResult(
-        documentId: 'delayed-success-document',
-        approvalStatus: 'approved',
-        profileVersion: 3,
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('delayed rejection is ignored after screen disposal', (
-    tester,
-  ) async {
-    final reviewCompleter = Completer<BiteSaverApplicationReviewResult>();
-    BiteSaverApplicationDecision? reviewedDecision;
-    await _pumpScreen(
-      tester,
-      pendingAccounts: Stream.value([
-        _pendingAccount(
-          documentId: 'delayed-reject-document',
-          actionId: 'delayed-reject-owner',
-          name: 'Delayed Reject Cafe',
-        ),
-      ]),
-      reviewApplication:
-          ({
-            required documentId,
-            required decision,
-            required expectedProfileVersion,
-          }) {
-            reviewedDecision = decision;
-            return reviewCompleter.future;
-          },
-    );
-    await _openTab(tester, 'Pending Applications');
-
-    final reject = find.byKey(
-      const ValueKey('pending:delayed-reject-document:reject'),
-    );
-    await tester.ensureVisible(reject);
-    await tester.tap(reject);
-    await tester.pump();
-    await tester.pump();
-    expect(reviewedDecision, BiteSaverApplicationDecision.reject);
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    reviewCompleter.complete(
-      const BiteSaverApplicationReviewResult(
-        documentId: 'delayed-reject-document',
-        approvalStatus: 'rejected',
-        profileVersion: 3,
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-
-    expect(tester.takeException(), isNull);
-    expect(find.byType(SnackBar), findsNothing);
-  });
-
-  testWidgets('full-document load may complete after screen disposal', (
-    tester,
-  ) async {
-    final loadCompleter = Completer<Map<String, dynamic>?>();
-    var reviewCalls = 0;
-    await _pumpScreen(
-      tester,
-      pendingAccounts: Stream.value([
-        _pendingAccount(
-          documentId: 'delayed-load-document',
-          actionId: 'delayed-load-owner',
-          name: 'Delayed Load Cafe',
-        ),
-      ]),
-      loadAccount: (documentId) {
-        expect(documentId, 'delayed-load-document');
-        return loadCompleter.future;
-      },
-      reviewApplication:
-          ({
-            required documentId,
-            required decision,
-            required expectedProfileVersion,
-          }) async {
-            reviewCalls += 1;
-            return BiteSaverApplicationReviewResult(
-              documentId: documentId,
-              approvalStatus: 'approved',
-              profileVersion: expectedProfileVersion,
-            );
-          },
-    );
-    await _openTab(tester, 'Pending Applications');
-
-    final approve = find.byKey(
-      const ValueKey('pending:delayed-load-document:approve'),
-    );
-    await tester.ensureVisible(approve);
-    await tester.tap(approve);
-    await tester.pump();
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    loadCompleter.complete(
-      _accountData(actionId: 'delayed-load-owner', name: 'Delayed Load Cafe'),
-    );
-    await tester.pump();
-    await tester.pump();
-
-    expect(reviewCalls, 0);
-    expect(tester.takeException(), isNull);
-    expect(find.byType(SnackBar), findsNothing);
-  });
-
-  testWidgets('delayed review error is ignored after screen disposal', (
-    tester,
-  ) async {
-    final reviewCompleter = Completer<BiteSaverApplicationReviewResult>();
-    var reviewCalls = 0;
-    await _pumpScreen(
-      tester,
-      pendingAccounts: Stream.value([
-        _pendingAccount(
-          documentId: 'delayed-error-document',
-          actionId: 'delayed-error-owner',
-          name: 'Delayed Error Cafe',
-        ),
-      ]),
-      reviewApplication:
-          ({
-            required documentId,
-            required decision,
-            required expectedProfileVersion,
-          }) {
-            reviewCalls += 1;
-            return reviewCompleter.future;
-          },
-    );
-    await _openTab(tester, 'Pending Applications');
-
-    final approve = find.byKey(
-      const ValueKey('pending:delayed-error-document:approve'),
-    );
-    await tester.ensureVisible(approve);
-    await tester.tap(approve);
-    await tester.pump();
-    await tester.pump();
-    expect(reviewCalls, 1);
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    reviewCompleter.completeError(
-      const BiteSaverLifecycleException(
-        kind: BiteSaverLifecycleFailureKind.staleProfile,
-        code: 'aborted',
-        message:
-            'The restaurant profile changed. Reload the latest version and try again.',
-      ),
-    );
-    await tester.pump();
-    await tester.pump();
-
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('duplicate delayed approval is suppressed while in flight', (
-    tester,
-  ) async {
-    final reviewCompleter = Completer<BiteSaverApplicationReviewResult>();
-    var reviewCalls = 0;
-    await _pumpScreen(
-      tester,
-      pendingAccounts: Stream.value([
-        _pendingAccount(
-          documentId: 'duplicate-review-document',
-          actionId: 'duplicate-review-owner',
-          name: 'Duplicate Review Cafe',
-        ),
-      ]),
-      reviewApplication:
-          ({
-            required documentId,
-            required decision,
-            required expectedProfileVersion,
-          }) {
-            reviewCalls += 1;
-            return reviewCompleter.future;
-          },
-    );
-    await _openTab(tester, 'Pending Applications');
-
-    final approve = find.byKey(
-      const ValueKey('pending:duplicate-review-document:approve'),
-    );
-    await tester.ensureVisible(approve);
-    final onPressed = tester.widget<ElevatedButton>(approve).onPressed!;
-    onPressed();
-    onPressed();
-    await tester.pump();
-    await tester.pump();
-
-    expect(reviewCalls, 1);
-    expect(find.text('Approving...'), findsOneWidget);
-    expect(tester.widget<ElevatedButton>(approve).onPressed, isNull);
-
-    reviewCompleter.complete(
-      const BiteSaverApplicationReviewResult(
-        documentId: 'duplicate-review-document',
-        approvalStatus: 'approved',
-        profileVersion: 3,
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(reviewCalls, 1);
-    expect(find.text('Restaurant approved.'), findsOneWidget);
-  });
-
-  testWidgets('invalid location is rejected and typing does not search', (
-    tester,
-  ) async {
-    var calls = 0;
-    await _pumpScreen(
-      tester,
-      search:
-          ({
-            required locationQuery,
-            required radiusMiles,
-            required restaurantName,
-            required sources,
-          }) async {
-            calls += 1;
-            return _result();
-          },
-    );
-
-    await tester.enterText(_locationField, 'Crystal River');
-    await tester.enterText(_restaurantNameField, 'River Grill');
-    await tester.pump();
-    expect(calls, 0);
-
-    await _tapSearch(tester);
-    expect(
-      find.text('Enter a five-digit ZIP code or City, ST.'),
-      findsOneWidget,
-    );
-    expect(calls, 0);
-  });
-
-  testWidgets('submits ZIP with only BiteSaver and default radius', (
-    tester,
-  ) async {
-    String? location;
-    String? name;
-    int? radius;
-    Set<AdminRestaurantLinkSource>? capturedSources;
-    await _pumpScreen(
-      tester,
-      search:
-          ({
-            required locationQuery,
-            required radiusMiles,
-            required restaurantName,
-            required sources,
-          }) async {
-            location = locationQuery;
-            name = restaurantName;
-            radius = radiusMiles;
-            capturedSources = sources;
-            return _result();
-          },
-    );
-
-    await tester.enterText(_locationField, '34428');
-    await tester.enterText(_restaurantNameField, ' River Grill ');
-    await _tapSearch(tester);
-    await tester.pumpAndSettle();
-
-    expect(location, '34428');
-    expect(name, 'River Grill');
-    expect(radius, 10);
-    expect(capturedSources, {AdminRestaurantLinkSource.biteSaver});
-    expect(
-      tester.widget<TextFormField>(_locationField).controller?.text,
-      '34428',
-    );
-    expect(
-      tester.widget<TextFormField>(_restaurantNameField).controller?.text,
-      ' River Grill ',
-    );
-  });
-
-  testWidgets('submits City, ST and exposes every permitted radius', (
-    tester,
-  ) async {
-    String? location;
-    int? radius;
-    await _pumpScreen(
-      tester,
-      search:
-          ({
-            required locationQuery,
-            required radiusMiles,
-            required restaurantName,
-            required sources,
-          }) async {
-            location = locationQuery;
-            radius = radiusMiles;
-            return _result();
-          },
-    );
-
-    final radiusField = tester.widget<DropdownButton<int>>(
-      find.descendant(
-        of: find.byKey(const ValueKey('coupon-admin-radius-field')),
-        matching: find.byType(DropdownButton<int>),
-      ),
-    );
-    expect(
-      radiusField.items?.map((item) => item.value),
-      AdminLinkGenerationService.radiusOptionsMiles,
-    );
-
-    await tester.enterText(_locationField, 'Crystal River, FL');
-    await tester.tap(find.byKey(const ValueKey('coupon-admin-radius-field')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('50 miles').last);
-    await tester.pumpAndSettle();
-    await _tapSearch(tester);
-    await tester.pumpAndSettle();
-
-    expect(location, 'Crystal River, FL');
-    expect(radius, 50);
-  });
-
-  testWidgets('Enter submits once and loading prevents duplicate submissions', (
-    tester,
-  ) async {
-    final completer = Completer<AdminRestaurantLinkSearchResult>();
-    var calls = 0;
-    await _pumpScreen(
-      tester,
-      search:
-          ({
-            required locationQuery,
-            required radiusMiles,
-            required restaurantName,
-            required sources,
-          }) {
-            calls += 1;
-            return completer.future;
-          },
-    );
-
-    await tester.enterText(_locationField, '34428');
-    await tester.testTextInput.receiveAction(TextInputAction.search);
-    await tester.pump();
-    expect(calls, 1);
-    final searchButton = find.byKey(
-      const ValueKey('coupon-admin-search-button'),
-    );
-    expect(tester.widget<FilledButton>(searchButton).onPressed, isNull);
-    await tester.tap(searchButton, warnIfMissed: false);
-    await tester.pump();
-    expect(calls, 1);
-
-    completer.complete(_result());
-    await tester.pumpAndSettle();
-    expect(calls, 1);
-  });
-
-  testWidgets(
-    'shows 25, reveals returned remainder, and resets on new search',
-    (tester) async {
-      var calls = 0;
-      final records = List.generate(
-        50,
-        (index) => _biteSaverRecord(
-          documentId: 'document-$index',
-          actionId: 'owner-$index',
-          name: 'Restaurant $index',
-        ),
-      );
-      await _pumpScreen(
-        tester,
-        search:
-            ({
-              required locationQuery,
-              required radiusMiles,
-              required restaurantName,
-              required sources,
-            }) async {
-              calls += 1;
-              return _result(records: records);
-            },
-      );
-
-      await _submitSearch(tester);
-      expect(_resultCards(), findsNWidgets(25));
-      expect(
-        find.text('Showing 25 of 50 returned restaurants.'),
-        findsOneWidget,
-      );
-      expect(find.text('Show 25 More'), findsOneWidget);
-
-      final showMore = find.byKey(
-        const ValueKey('coupon-admin-show-more-button'),
-      );
-      await _scrollToWidget(tester, showMore);
-      await tester.tap(showMore);
-      await tester.pump();
-      expect(_resultCards(), findsNWidgets(50));
-      expect(find.text('Show 25 More'), findsNothing);
-
-      await _tapSearch(tester);
-      await tester.pumpAndSettle();
-      expect(calls, 2);
-      expect(_resultCards(), findsNWidgets(25));
-      expect(find.text('Show 25 More'), findsOneWidget);
-    },
-  );
-
-  testWidgets('shows exact truncation, no-results, and controlled errors', (
-    tester,
-  ) async {
-    var mode = 0;
-    await _pumpScreen(
-      tester,
-      search:
-          ({
-            required locationQuery,
-            required radiusMiles,
-            required restaurantName,
-            required sources,
-          }) async {
-            mode += 1;
-            if (mode == 1) {
-              return _result(truncated: true);
-            }
-            throw StateError('private provider payload');
-          },
-    );
-
-    await _submitSearch(tester);
-    expect(
-      find.text(
-        'Results were limited. Narrow the radius or add a restaurant name to '
-        'refine the search.',
-      ),
-      findsOneWidget,
-    );
-    expect(
-      find.text(
-        'No matching coupon-side restaurants were found within this search '
-        'area.',
-      ),
-      findsOneWidget,
-    );
-
-    await _tapSearch(tester);
-    await tester.pumpAndSettle();
-    expect(
-      find.text('Could not search restaurants right now. Please try again.'),
-      findsOneWidget,
-    );
-    expect(find.textContaining('private provider payload'), findsNothing);
-  });
-
-  testWidgets('Restaurants filters BiteScore without rendering pending queue', (
-    tester,
-  ) async {
-    await _pumpScreen(
-      tester,
-      pendingAccounts: Stream.value([
-        _pendingAccount(
-          documentId: 'pending-document',
-          actionId: 'pending-owner',
-          name: 'Pending Duplicate',
-        ),
-      ]),
-      search:
-          ({
-            required locationQuery,
-            required radiusMiles,
-            required restaurantName,
-            required sources,
-          }) async => _result(
-            records: [
-              _biteSaverRecord(
-                documentId: 'pending-document',
-                actionId: 'pending-owner',
-                name: 'Pending Duplicate',
-              ),
-              _biteSaverRecord(
-                documentId: 'coupon-document',
-                actionId: 'coupon-owner',
-                name: 'Coupon Result',
-              ),
-              _biteScoreRecord(),
-            ],
-          ),
-    );
-
-    await _submitSearch(tester);
-    expect(find.text('Pending Duplicate'), findsNothing);
-    expect(find.text('Coupon Result'), findsOneWidget);
-    expect(find.text('Rating Result'), findsNothing);
-    expect(find.text('BiteScore'), findsNothing);
-    expect(_resultCards(), findsOneWidget);
-  });
-
-  testWidgets('actions preserve document and canonical action identities', (
-    tester,
-  ) async {
-    final reviewed = <String>[];
-    final loaded = <String>[];
-    final edited = <String>[];
-    final invited = <String>[];
-    final deleted = <String>[];
-    final record = _biteSaverRecord(
-      documentId: 'firestore-document',
-      actionId: 'canonical-owner-uid',
-      name: 'Identity Cafe',
-    );
-    await _pumpScreen(
-      tester,
-      search:
-          ({
-            required locationQuery,
-            required radiusMiles,
-            required restaurantName,
-            required sources,
-          }) async => _result(records: [record]),
-      reviewApplication:
-          ({
-            required documentId,
-            required decision,
-            required expectedProfileVersion,
-          }) async {
-            reviewed.add(
-              '$documentId:${decision.wireName}:$expectedProfileVersion',
-            );
-            return BiteSaverApplicationReviewResult(
-              documentId: documentId,
-              approvalStatus: decision == BiteSaverApplicationDecision.approve
-                  ? 'approved'
-                  : 'rejected',
-              profileVersion: expectedProfileVersion,
-            );
-          },
-      loadAccount: (documentId) async {
-        loaded.add(documentId);
-        return _accountData(
-          actionId: 'canonical-owner-uid',
-          name: 'Identity Cafe',
-        );
-      },
-      editAccount:
-          ({required context, required documentId, required data}) async {
-            edited.add(documentId);
-            return true;
-          },
-      createCouponInvite:
-          ({
-            required restaurantId,
-            required restaurantName,
-            required streetAddress,
-            required city,
-            required state,
-            required zipCode,
-            required phone,
-            required website,
-            required latitude,
-            required longitude,
-          }) async {
-            invited.add(restaurantId);
-            return _invite();
-          },
-      deleteAccount: (documentId) async => deleted.add(documentId),
-    );
-    await _submitSearch(tester);
-
-    await _tapAction(tester, 'biteSaver:firestore-document:approve');
-    expect(find.text('Approved'), findsOneWidget);
-    await _tapAction(tester, 'biteSaver:firestore-document:reject');
-    expect(find.text('Rejected'), findsOneWidget);
-    await _tapAction(tester, 'biteSaver:firestore-document:edit');
-    expect(loaded, [
-      'firestore-document',
-      'firestore-document',
-      'firestore-document',
-    ]);
-    expect(edited, ['firestore-document']);
-    expect(find.text('Identity Cafe'), findsOneWidget);
-
-    await _tapAction(tester, 'biteSaver:firestore-document:invite');
-    expect(invited, ['canonical-owner-uid']);
-    await tester.tap(find.text('Close'));
-    await tester.pumpAndSettle();
-
-    await _tapAction(tester, 'biteSaver:firestore-document:delete');
-    expect(find.text('Delete Restaurant'), findsOneWidget);
-    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
-    await tester.pumpAndSettle();
-
-    expect(reviewed, [
-      'firestore-document:approve:3',
-      'firestore-document:reject:3',
-    ]);
-    expect(deleted, ['firestore-document']);
-    expect(find.text('Identity Cafe'), findsNothing);
-  });
-
-  testWidgets(
-    'admin edit sends blank optional fields without null or trusted data',
-    (tester) async {
-      final invocations = <Map<String, dynamic>>[];
-      final service = BiteSaverRestaurantLifecycleService(
-        invokeCallable: (name, payload) async {
-          invocations.add(payload);
-          return <String, dynamic>{
-            'documentId': 'firestore-document',
-            'approvalStatus': 'pending',
-            'profileVersion': 4,
-          };
-        },
-      );
-      final record = _biteSaverRecord(
-        documentId: 'firestore-document',
-        actionId: 'canonical-owner-uid',
-        name: 'Editable Cafe',
-      );
-      await _pumpScreen(
-        tester,
-        search:
-            ({
-              required locationQuery,
-              required radiusMiles,
-              required restaurantName,
-              required sources,
-            }) async => _result(records: [record]),
-        loadAccount: (documentId) async => _accountData(
-          actionId: 'canonical-owner-uid',
-          name: 'Editable Cafe',
-        ),
-        lifecycleService: service,
-        useProductionEditDialog: true,
-      );
-      await _submitSearch(tester);
-
-      await _tapActionWithoutSettling(
-        tester,
-        'biteSaver:firestore-document:edit',
-      );
-      expect(find.text('Edit Restaurant'), findsOneWidget);
-      expect(_textFieldWithLabel('Latitude'), findsNothing);
-      expect(_textFieldWithLabel('Longitude'), findsNothing);
-      expect(_textFieldWithLabel('Email'), findsNothing);
-
-      await tester.enterText(_textFieldWithLabel('Website'), '');
-      await tester.enterText(_textFieldWithLabel('Bio'), '');
-      await tester.tap(find.widgetWithText(FilledButton, 'Save'));
-      await tester.pumpAndSettle();
-
-      expect(invocations, hasLength(1));
-      final payload = invocations.single;
-      expect(payload['intent'], 'adminUpdate');
-      expect(payload['documentId'], 'firestore-document');
-      expect(payload['expectedProfileVersion'], 3);
-      expect(payload['requestId'], isNotEmpty);
-      final profile = payload['profile'] as Map<String, dynamic>;
-      expect(profile['restaurantName'], 'Editable Cafe');
-      expect(profile['website'], '');
-      expect(profile['bio'], '');
-      _expectNoNullWireValues(payload);
-      for (final forbidden in <String>[
-        'email',
-        'uid',
-        'latitude',
-        'longitude',
-        'geohash',
-        'addressFingerprint',
-        'locationValidatedAt',
-        'locationSource',
-      ]) {
-        expect(profile, isNot(contains(forbidden)));
-        expect(payload, isNot(contains(forbidden)));
-      }
-      expect(find.text('Restaurant updated.'), findsOneWidget);
-    },
-  );
-
-  testWidgets('failed admin edit retains fields and request ID for retry', (
-    tester,
-  ) async {
-    final requestIds = <String>[];
-    var calls = 0;
-    final service = BiteSaverRestaurantLifecycleService(
-      invokeCallable: (name, payload) async {
-        calls += 1;
-        requestIds.add(payload['requestId'] as String);
-        if (calls == 1) {
-          throw const BiteSaverCallableFailure(
-            'unavailable',
-            'raw provider details',
-          );
-        }
-        return <String, dynamic>{
-          'documentId': 'retry-document',
-          'approvalStatus': 'pending',
-          'profileVersion': 4,
-        };
-      },
-    );
-    await _pumpScreen(
-      tester,
-      search:
-          ({
-            required locationQuery,
-            required radiusMiles,
-            required restaurantName,
-            required sources,
-          }) async => _result(
-            records: [
-              _biteSaverRecord(
-                documentId: 'retry-document',
-                actionId: 'retry-owner',
-                name: 'Retry Cafe',
-              ),
-            ],
-          ),
-      loadAccount: (documentId) async =>
-          _accountData(actionId: 'retry-owner', name: 'Retry Cafe'),
-      lifecycleService: service,
-      useProductionEditDialog: true,
-    );
-    await _submitSearch(tester);
-    await _tapActionWithoutSettling(tester, 'biteSaver:retry-document:edit');
-
-    await tester.enterText(_textFieldWithLabel('Bio'), 'Keep this edit');
-    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 300));
-    expect(
-      find.text(
-        'Restaurant address validation is temporarily unavailable. Try again.',
-      ),
-      findsOneWidget,
-    );
-    expect(
-      tester.widget<TextField>(_textFieldWithLabel('Bio')).controller!.text,
-      'Keep this edit',
-    );
-
-    await tester.tap(find.widgetWithText(FilledButton, 'Save'));
-    await tester.pumpAndSettle();
-
-    expect(requestIds, hasLength(2));
-    expect(requestIds[1], requestIds[0]);
-    expect(find.byType(AlertDialog), findsNothing);
-  });
-
-  testWidgets('review failure is controlled and preserves search state', (
-    tester,
-  ) async {
-    await _pumpScreen(
-      tester,
-      search:
-          ({
-            required locationQuery,
-            required radiusMiles,
-            required restaurantName,
-            required sources,
-          }) async => _result(
-            records: [
-              _biteSaverRecord(
-                documentId: 'untrusted-document',
-                actionId: 'owner',
-                name: 'Needs Address Cafe',
-              ),
-            ],
-          ),
-      reviewApplication:
-          ({
-            required documentId,
-            required decision,
-            required expectedProfileVersion,
-          }) async {
-            throw const BiteSaverLifecycleException(
-              kind: BiteSaverLifecycleFailureKind.invalidLifecycleState,
-              code: 'failed-precondition',
-              message:
-                  'This application needs a validated address. Edit and save the restaurant profile first.',
-            );
-          },
-    );
-    await tester.enterText(_locationField, '34428');
-    await _tapSearch(tester);
-    await _tapAction(tester, 'biteSaver:untrusted-document:approve');
-
-    expect(
-      find.text(
-        'This application needs a validated address. Edit and save the restaurant profile first.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('Needs Address Cafe'), findsOneWidget);
-    expect(
-      tester.widget<TextFormField>(_locationField).controller!.text,
-      '34428',
-    );
-  });
-
-  testWidgets('stale review keeps the search and pending result unchanged', (
-    tester,
-  ) async {
-    await _pumpScreen(
-      tester,
-      search:
-          ({
-            required locationQuery,
-            required radiusMiles,
-            required restaurantName,
-            required sources,
-          }) async => _result(
-            records: [
-              _biteSaverRecord(
-                documentId: 'stale-document',
-                actionId: 'owner',
-                name: 'Changed Application Cafe',
-              ),
-            ],
-          ),
-      reviewApplication:
-          ({
-            required documentId,
-            required decision,
-            required expectedProfileVersion,
-          }) async {
-            throw const BiteSaverLifecycleException(
-              kind: BiteSaverLifecycleFailureKind.staleProfile,
-              code: 'aborted',
-              message:
-                  'The restaurant profile changed. Reload the latest version and try again.',
-            );
-          },
-    );
-    await tester.enterText(_locationField, '34428');
-    await _tapSearch(tester);
-    await _tapAction(tester, 'biteSaver:stale-document:approve');
-
-    expect(
-      find.text(
-        'The restaurant profile changed. Reload the latest version and try again.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.text('Changed Application Cafe'), findsOneWidget);
-    expect(find.text('Pending'), findsOneWidget);
-    expect(
-      tester.widget<TextFormField>(_locationField).controller!.text,
-      '34428',
-    );
-  });
-
-  testWidgets('selected full-document load failure is controlled', (
-    tester,
-  ) async {
-    var loads = 0;
-    await _pumpScreen(
-      tester,
-      search:
-          ({
-            required locationQuery,
-            required radiusMiles,
-            required restaurantName,
-            required sources,
-          }) async => _result(
-            records: [
-              _biteSaverRecord(
-                documentId: 'missing-document',
-                actionId: 'owner',
-              ),
-            ],
-          ),
-      loadAccount: (documentId) async {
-        loads += 1;
-        throw StateError('private Firestore details');
-      },
-    );
-    await _submitSearch(tester);
-    await _tapAction(tester, 'biteSaver:missing-document:edit');
-
-    expect(loads, 1);
-    expect(
-      find.text('Could not load the restaurant account right now.'),
-      findsOneWidget,
-    );
-    expect(find.textContaining('private Firestore details'), findsNothing);
-  });
-
-  testWidgets('coupon loading is expansion-only, per-account, and cached', (
-    tester,
-  ) async {
-    final couponLoads = <String>[];
-    await _pumpScreen(
-      tester,
-      pendingAccounts: Stream.value([
-        _pendingAccount(
-          documentId: 'pending-document',
-          actionId: 'pending-owner',
-          name: 'Pending Cafe',
-        ),
-      ]),
-      search:
-          ({
-            required locationQuery,
-            required radiusMiles,
-            required restaurantName,
-            required sources,
-          }) async => _result(
-            records: [
-              _biteSaverRecord(
-                documentId: 'search-one',
-                actionId: 'owner-one',
-                name: 'Search One',
-              ),
-              _biteSaverRecord(
-                documentId: 'search-two',
-                actionId: 'owner-two',
-                name: 'Search Two',
-              ),
-            ],
-          ),
-      loadCoupons: (documentId) async {
-        couponLoads.add(documentId);
-        return [_coupon(documentId)];
-      },
-    );
-
-    expect(couponLoads, isEmpty);
-    await _submitSearch(tester);
-    expect(couponLoads, isEmpty);
-
-    final firstCard = find.byKey(const ValueKey('biteSaver:search-one'));
-    final firstCoupons = find.descendant(
-      of: firstCard,
-      matching: find.text('Coupons'),
-    );
-    await _scrollToWidget(tester, firstCoupons);
-    await tester.tap(firstCoupons);
-    await tester.pumpAndSettle();
-    expect(couponLoads, ['search-one']);
-    expect(find.text('Coupon for search-one'), findsOneWidget);
-
-    await tester.tap(firstCoupons);
-    await tester.pumpAndSettle();
-    await tester.tap(firstCoupons);
-    await tester.pumpAndSettle();
-    expect(couponLoads, ['search-one']);
-    expect(couponLoads, isNot(contains('pending-document')));
-    expect(couponLoads, isNot(contains('search-two')));
-  });
-
-  testWidgets('pending coupon expansion is lazy and errors are controlled', (
-    tester,
-  ) async {
-    var calls = 0;
-    await _pumpScreen(
-      tester,
-      pendingAccounts: Stream.value([
-        _pendingAccount(
-          documentId: 'pending-error',
-          actionId: 'owner',
-          name: 'Pending Error Cafe',
-        ),
-      ]),
-      loadCoupons: (documentId) async {
-        calls += 1;
-        throw StateError('private coupon payload');
-      },
-    );
-
-    await _openTab(tester, 'Pending Applications');
-    expect(calls, 0);
-    final pendingCard = find.byKey(const ValueKey('pending:pending-error'));
-    final coupons = find.descendant(
-      of: pendingCard,
-      matching: find.text('Coupons'),
-    );
-    await tester.ensureVisible(coupons);
-    await tester.tap(coupons);
-    await tester.pumpAndSettle();
-    expect(calls, 1);
-    expect(find.text('Could not load coupons right now.'), findsOneWidget);
-    expect(find.textContaining('private coupon payload'), findsNothing);
-  });
-
-  testWidgets('responsive layouts remain overflow-free', (tester) async {
-    final scenarios = <({Size size, double scale})>[
-      (size: const Size(320, 900), scale: 2),
-      (size: const Size(900, 420), scale: 1.2),
-      (size: const Size(1440, 1000), scale: 1),
-    ];
-
-    for (final scenario in scenarios) {
-      await tester.pumpWidget(const SizedBox.shrink());
-      await tester.pump();
-      tester.view.devicePixelRatio = 1;
-      tester.view.physicalSize = scenario.size;
-      await _pumpScreen(
-        tester,
-        textScale: scenario.scale,
-        configureView: false,
-        search:
-            ({
-              required locationQuery,
-              required radiusMiles,
-              required restaurantName,
-              required sources,
-            }) async => _result(
-              records: [
-                _biteSaverRecord(
-                  documentId: 'responsive-document',
-                  actionId: 'responsive-owner',
-                  name: 'Responsive Restaurant With A Long Name',
-                ),
-              ],
-            ),
-      );
-      expect(
-        tester.takeException(),
-        isNull,
-        reason: '${scenario.size} initial layout',
-      );
-      expect(
-        tester.widgetList<Tab>(find.byType(Tab)).map((tab) => tab.text),
-        <String>[
-          'Restaurants',
-          'Pending Applications',
-          'Name Changes',
-          'Reports',
-        ],
-      );
-      await _openTab(tester, 'Pending Applications');
-      expect(
-        tester.takeException(),
-        isNull,
-        reason: '${scenario.size} pending tab layout',
-      );
-      await _openTab(tester, 'Restaurants');
-      await _scrollToLocationField(tester);
-      final searchControlsException = tester.takeException();
-      if (searchControlsException != null) {
-        fail(
-          '${scenario.size} search controls\n'
-          '$searchControlsException',
-        );
-      }
-      await _submitSearch(tester);
-      expect(
-        tester.takeException(),
-        isNull,
-        reason: '${scenario.size} result actions',
+      };
+    }
+    if (name == 'listCouponAdminCouponsPage') {
+      return _page(
+        <Map<String, Object?>>[_coupon('one', 'Coupon One')],
+        pageSize: 25,
+        exactTotal: 1,
       );
     }
-    tester.view.resetPhysicalSize();
-    tester.view.resetDevicePixelRatio();
-  });
-}
-
-final Finder _locationField = find.byKey(
-  const ValueKey('coupon-admin-location-field'),
-);
-final Finder _restaurantNameField = find.byKey(
-  const ValueKey('coupon-admin-restaurant-name-field'),
-);
-
-Finder _textFieldWithLabel(String label) {
-  return find.byWidgetPredicate(
-    (widget) => widget is TextField && widget.decoration?.labelText == label,
-  );
-}
-
-void _expectNoNullWireValues(Object? value) {
-  if (value is Map) {
-    for (final entry in value.entries) {
-      expect(entry.value, isNotNull, reason: '${entry.key} must not be null');
-      _expectNoNullWireValues(entry.value);
+    if (name == 'listCouponAdminInviteHistoryPage') {
+      return _page(<Map<String, Object?>>[_invite('one')], exactTotal: 1);
     }
-  } else if (value is Iterable) {
-    for (final item in value) {
-      expect(item, isNotNull);
-      _expectNoNullWireValues(item);
-    }
+    return _page(<Map<String, Object?>>[_restaurant('one')], exactTotal: 1);
   }
 }
 
 Future<void> _pumpScreen(
-  WidgetTester tester, {
-  AdminCouponRestaurantSearchCallback? search,
-  Stream<List<AdminCouponAccountRecord>>? pendingAccounts,
-  AdminCouponAccountLoader? loadAccount,
-  AdminCouponApplicationReviewAction? reviewApplication,
-  AdminCouponAccountAction? deleteAccount,
-  AdminCouponLoader? loadCoupons,
-  AdminCouponDeleteAction? deleteCoupon,
-  AdminCouponEditAction? editAccount,
-  AdminCouponInviteAction? createCouponInvite,
-  BiteSaverRestaurantLifecycleService? lifecycleService,
-  bool useProductionEditDialog = false,
+  WidgetTester tester,
+  _Backend backend, {
+  Size size = const Size(1000, 900),
   double textScale = 1,
-  bool configureView = true,
 }) async {
-  if (configureView) {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(1000, 1000);
-    addTearDown(tester.view.resetPhysicalSize);
-    addTearDown(tester.view.resetDevicePixelRatio);
-  }
+  tester.view.physicalSize = size;
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
   await tester.pumpWidget(
     MaterialApp(
-      builder: (context, child) => MediaQuery(
-        data: MediaQuery.of(
-          context,
-        ).copyWith(textScaler: TextScaler.linear(textScale)),
-        child: child!,
-      ),
-      home: Scaffold(
-        body: AdminReviewScreen(
-          pendingAccountsStream:
-              pendingAccounts ??
-              Stream<List<AdminCouponAccountRecord>>.value(const []),
-          nameChangeRequestsStream:
-              const Stream<QuerySnapshot<Map<String, dynamic>>>.empty(),
-          reportsStream:
-              const Stream<QuerySnapshot<Map<String, dynamic>>>.empty(),
-          searchRestaurants: search ?? _emptySearch,
-          loadAccount:
-              loadAccount ??
-              (documentId) async =>
-                  _accountData(actionId: documentId, name: 'Loaded Restaurant'),
-          reviewApplication:
-              reviewApplication ??
-              ({
-                required documentId,
-                required decision,
-                required expectedProfileVersion,
-              }) async => BiteSaverApplicationReviewResult(
-                documentId: documentId,
-                approvalStatus: decision == BiteSaverApplicationDecision.approve
-                    ? 'approved'
-                    : 'rejected',
-                profileVersion: expectedProfileVersion,
-              ),
-          deleteAccount: deleteAccount ?? (documentId) async {},
-          loadCoupons: loadCoupons ?? (documentId) async => const [],
-          deleteCoupon:
-              deleteCoupon ??
-              ({required documentId, required couponId}) async {},
-          editAccount: useProductionEditDialog
-              ? null
-              : editAccount ??
-                    ({
-                      required context,
-                      required documentId,
-                      required data,
-                    }) async => false,
-          createCouponInvite:
-              createCouponInvite ??
-              ({
-                required restaurantId,
-                required restaurantName,
-                required streetAddress,
-                required city,
-                required state,
-                required zipCode,
-                required phone,
-                required website,
-                required latitude,
-                required longitude,
-              }) async => _invite(),
-          lifecycleService: lifecycleService,
+      home: MediaQuery(
+        data: MediaQueryData(
+          size: size,
+          textScaler: TextScaler.linear(textScale),
+        ),
+        child: Scaffold(
+          body: AdminReviewScreen(
+            pagingService: CouponAdminPagingService(
+              functionsBoundary: backend.call,
+            ),
+          ),
         ),
       ),
     ),
   );
-  await tester.pump();
-  await tester.pump();
+  await tester.pumpAndSettle();
 }
 
-Future<AdminRestaurantLinkSearchResult> _emptySearch({
-  required String locationQuery,
-  required int radiusMiles,
-  required String? restaurantName,
-  required Set<AdminRestaurantLinkSource> sources,
-}) async => _result();
-
-Future<void> _openTab(WidgetTester tester, String label) async {
-  final tab = find.widgetWithText(Tab, label);
-  await tester.ensureVisible(tab);
-  await tester.tap(tab);
-  await tester.pump();
-  await tester.pump(const Duration(milliseconds: 400));
-}
-
-Future<void> _tapSearch(WidgetTester tester) async {
-  final searchButton = find.byKey(const ValueKey('coupon-admin-search-button'));
-  tester.state<ScrollableState>(_verticalScrollable()).position.jumpTo(0);
-  await tester.pump();
-  await _scrollToWidget(tester, searchButton);
-  await tester.tap(searchButton);
-  await tester.pump();
-}
-
-Future<void> _submitSearch(
+Future<void> _selectExactZipAndSearch(
   WidgetTester tester, {
-  String location = '34428',
+  String zip = '34450',
 }) async {
-  await tester.enterText(_locationField, location);
-  await _tapSearch(tester);
-  await tester.pumpAndSettle();
-}
-
-Future<void> _scrollToLocationField(WidgetTester tester) async {
-  await _scrollToWidget(tester, _locationField);
-}
-
-Future<void> _scrollToWidget(WidgetTester tester, Finder target) async {
-  final scrollable = _verticalScrollable();
-  final viewHeight =
-      tester.view.physicalSize.height / tester.view.devicePixelRatio;
-
-  for (var attempt = 0; attempt < 40; attempt += 1) {
-    if (target.evaluate().isNotEmpty) {
-      final rect = tester.getRect(target.first);
-      if (rect.top >= 0 && rect.bottom <= viewHeight) {
-        return;
-      }
-      await tester.drag(scrollable, Offset(0, rect.top < 0 ? 500 : -500));
-    } else {
-      await tester.drag(scrollable, const Offset(0, -500));
-    }
-    await tester.pump();
-  }
-  expect(target, findsWidgets);
-}
-
-Finder _verticalScrollable() {
-  return find
-      .byWidgetPredicate(
-        (widget) =>
-            widget is Scrollable && widget.axisDirection == AxisDirection.down,
-      )
-      .first;
-}
-
-Future<void> _tapAction(WidgetTester tester, String key) async {
-  final action = find.byKey(ValueKey(key));
-  await tester.ensureVisible(action);
-  await tester.tap(action);
-  await tester.pumpAndSettle();
-}
-
-Future<void> _tapActionWithoutSettling(WidgetTester tester, String key) async {
-  final action = find.byKey(ValueKey(key));
-  await tester.ensureVisible(action);
-  await tester.tap(action);
-  await tester.pump();
-  await tester.pump(const Duration(milliseconds: 400));
-}
-
-Finder _resultCards() {
-  return find.byWidgetPredicate((widget) {
-    final key = widget.key;
-    return widget is Card &&
-        key is ValueKey<String> &&
-        key.value.startsWith('biteSaver:');
+  final selector = tester
+      .widget<SegmentedButton<CouponAdminRestaurantSearchMode>>(
+        find.byKey(const ValueKey('coupon-admin-search-mode')),
+      );
+  selector.onSelectionChanged!(<CouponAdminRestaurantSearchMode>{
+    CouponAdminRestaurantSearchMode.exactZip,
   });
-}
-
-AdminCouponAccountRecord _pendingAccount({
-  required String documentId,
-  required String actionId,
-  required String name,
-}) {
-  return AdminCouponAccountRecord(
-    documentId: documentId,
-    data: _accountData(actionId: actionId, name: name),
+  await tester.pump();
+  await tester.enterText(
+    find.byKey(const ValueKey('coupon-admin-location-field')),
+    zip,
   );
+  tester
+      .widget<FilledButton>(
+        find.byKey(const ValueKey('coupon-admin-search-button')),
+      )
+      .onPressed!();
+  await tester.pumpAndSettle();
 }
 
-Map<String, dynamic> _accountData({
-  required String actionId,
-  required String name,
-}) {
-  return <String, dynamic>{
-    Restaurant.fieldUid: actionId,
-    Restaurant.fieldName: name,
-    Restaurant.fieldEmail: 'owner@example.com',
-    Restaurant.fieldPhone: '(352) 555-0100',
-    Restaurant.fieldStreetAddress: '1 Main Street',
-    Restaurant.fieldCity: 'Crystal River',
-    Restaurant.fieldState: 'FL',
-    Restaurant.fieldZipCode: '34428',
-    Restaurant.fieldWebsite: 'https://example.com',
-    Restaurant.fieldBio: 'A local restaurant.',
-    Restaurant.fieldProfileVersion: 3,
-    Restaurant.fieldApprovalStatus: 'pending',
-    'couponApplicationSubmitted': true,
-  };
-}
+void main() {
+  testWidgets('four Coupon Admin tabs render without any eager queue read', (
+    tester,
+  ) async {
+    final backend = _Backend();
+    await _pumpScreen(tester, backend);
+    expect(find.text('Restaurants'), findsOneWidget);
+    expect(find.text('Pending Applications'), findsOneWidget);
+    expect(find.text('Name Changes'), findsOneWidget);
+    expect(find.text('Reports'), findsOneWidget);
+    expect(backend.calls, isEmpty);
+  });
 
-AdminRestaurantLinkSearchResult _result({
-  List<AdminRestaurantLinkRecord> records = const [],
-  bool truncated = false,
-}) {
-  return AdminRestaurantLinkSearchResult(
-    searchCenter: const AdminRestaurantSearchCenter(
-      latitude: 28.8517,
-      longitude: -82.487,
-      displayName: 'Crystal River, FL',
-    ),
-    radiusMiles: 10,
-    results: records,
-    resultsMayBeTruncated: truncated,
-    returnedCount: records.length,
-    queriedSources: const [AdminRestaurantLinkSource.biteSaver],
+  testWidgets(
+    'restaurant and coupon reads use only the paged callable boundary',
+    (tester) async {
+      final backend = _Backend();
+      await _pumpScreen(tester, backend);
+      await _selectExactZipAndSearch(tester);
+      await tester.tap(find.text('Coupons'));
+      await tester.pumpAndSettle();
+      expect(
+        backend.calls.map((call) => call.$1),
+        containsAll(<String>[
+          'searchCouponAdminRestaurantsPage',
+          'listCouponAdminCouponsPage',
+        ]),
+      );
+    },
   );
-}
 
-AdminRestaurantLinkRecord _biteSaverRecord({
-  required String documentId,
-  required String actionId,
-  String name = 'Coupon Result',
-}) {
-  return AdminRestaurantLinkRecord(
-    source: AdminRestaurantLinkSource.biteSaver,
-    documentId: documentId,
-    actionId: actionId,
-    restaurantName: name,
-    streetAddress: '1 Main Street',
-    city: 'Crystal River',
-    state: 'FL',
-    zipCode: '34428',
-    phone: '555-0100',
-    website: 'https://example.com',
-    latitude: 28.8517,
-    longitude: -82.487,
-    distanceMiles: 1.5,
-    approvalStatus: 'pending',
-    couponApplicationSubmitted: true,
-    uid: actionId,
-  );
-}
+  testWidgets('Pending Applications lazily requests page one and exact count', (
+    tester,
+  ) async {
+    final backend = _Backend();
+    await _pumpScreen(tester, backend);
+    await tester.tap(find.text('Pending Applications'));
+    await tester.pumpAndSettle();
+    expect(find.text('Pending one'), findsOneWidget);
+    final call = backend.calls.single;
+    expect(call.$1, 'listCouponAdminQueuePage');
+    expect((call.$2['criteria']! as Map)['queueKind'], 'pendingApplications');
+    expect(call.$2['pageSize'], 25);
+    expect(find.textContaining('1 result • Page 1 of 1'), findsOneWidget);
+  });
 
-AdminRestaurantLinkRecord _biteScoreRecord() {
-  return const AdminRestaurantLinkRecord(
-    source: AdminRestaurantLinkSource.biteScore,
-    documentId: 'rating-document',
-    actionId: 'rating-document',
-    restaurantName: 'Rating Result',
-    streetAddress: '2 Main Street',
-    city: 'Crystal River',
-    state: 'FL',
-    zipCode: '34428',
-    phone: '555-0200',
-    website: 'https://rating.example.com',
-    latitude: 28.8517,
-    longitude: -82.487,
-    distanceMiles: 2,
-    isActive: true,
-    isClaimed: false,
-  );
-}
+  testWidgets('Name Changes lazily uses its exact queue kind', (tester) async {
+    final backend = _Backend();
+    await _pumpScreen(tester, backend);
+    await tester.tap(find.text('Name Changes'));
+    await tester.pumpAndSettle();
+    expect(find.text('Requested: New Name'), findsOneWidget);
+    expect(
+      (backend.calls.single.$2['criteria']! as Map)['queueKind'],
+      'nameChanges',
+    );
+  });
 
-Coupon _coupon(String documentId) {
-  return Coupon(
-    id: 'coupon-$documentId',
-    restaurant: documentId,
-    title: 'Coupon for $documentId',
-    distance: '',
-    expires: 'Limited time',
-    usageRule: Coupon.defaultUsageRule,
-  );
-}
+  testWidgets('Reports lazily uses openReports and preserves details', (
+    tester,
+  ) async {
+    final backend = _Backend();
+    await _pumpScreen(tester, backend);
+    await tester.tap(find.text('Reports'));
+    await tester.pumpAndSettle();
+    expect(find.text('Reason: Incorrect details'), findsOneWidget);
+    expect(
+      (backend.calls.single.$2['criteria']! as Map)['queueKind'],
+      'openReports',
+    );
+  });
 
-RestaurantInviteCreationResult _invite() {
-  return const RestaurantInviteCreationResult(
-    inviteId: 'invite-id',
-    token: 'test-token',
-    inviteUrl: 'https://example.test/invite/test-token',
-    expiresAt: null,
+  testWidgets('search mode selector shows radius only for Nearby Radius', (
+    tester,
+  ) async {
+    await _pumpScreen(tester, _Backend());
+    expect(
+      find.byKey(const ValueKey('coupon-admin-radius-field')),
+      findsOneWidget,
+    );
+    await tester.tap(find.text('Exact ZIP'));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('coupon-admin-radius-field')),
+      findsNothing,
+    );
+    await tester.tap(find.text('Exact City'));
+    await tester.pump();
+    expect(find.text('City, ST'), findsOneWidget);
+  });
+
+  testWidgets('exact ZIP submits normalized server-page criteria', (
+    tester,
+  ) async {
+    final backend = _Backend();
+    await _pumpScreen(tester, backend);
+    await _selectExactZipAndSearch(tester, zip: '01234-9999');
+    final criteria = backend.calls.single.$2['criteria']! as Map;
+    expect(criteria, <String, Object?>{'mode': 'exactZip', 'zipCode': '01234'});
+    expect(find.text('Restaurant one'), findsOneWidget);
+    expect(
+      find.textContaining('Current search: Exact ZIP: 01234'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('exact City rejects bare city without a call', (tester) async {
+    final backend = _Backend();
+    await _pumpScreen(tester, backend);
+    await tester.tap(find.text('Exact City'));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('coupon-admin-location-field')),
+      'Inverness',
+    );
+    await tester.tap(find.byKey(const ValueKey('coupon-admin-search-button')));
+    await tester.pump();
+    expect(find.text('Enter City, ST.'), findsOneWidget);
+    expect(backend.calls, isEmpty);
+  });
+
+  testWidgets('nearby request includes location, radius, and optional name', (
+    tester,
+  ) async {
+    final backend = _Backend();
+    await _pumpScreen(tester, backend);
+    await tester.enterText(
+      find.byKey(const ValueKey('coupon-admin-location-field')),
+      'Crystal River, FL',
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('coupon-admin-restaurant-name-field')),
+      'sub',
+    );
+    await tester.tap(find.byKey(const ValueKey('coupon-admin-search-button')));
+    await tester.pumpAndSettle();
+    expect(backend.calls.single.$2['criteria'], <String, Object?>{
+      'mode': 'nearbyRadius',
+      'locationQuery': 'Crystal River, FL',
+      'radiusMiles': 10,
+      'restaurantName': 'sub',
+      'searchInstanceId': 1,
+    });
+  });
+
+  testWidgets('refreshing nearby results creates a fresh bounded session', (
+    tester,
+  ) async {
+    final backend = _Backend();
+    await _pumpScreen(tester, backend);
+    await tester.enterText(
+      find.byKey(const ValueKey('coupon-admin-location-field')),
+      'Crystal River, FL',
+    );
+    await tester.tap(find.byKey(const ValueKey('coupon-admin-search-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('paged-directory-refresh')));
+    await tester.pumpAndSettle();
+    expect(backend.calls, hasLength(2));
+    final first = backend.calls.first.$2['criteria']! as Map;
+    final refreshed = backend.calls.last.$2['criteria']! as Map;
+    expect(first['locationQuery'], 'Crystal River, FL');
+    expect(refreshed['locationQuery'], 'Crystal River, FL');
+    expect(first['searchInstanceId'], 1);
+    expect(refreshed['searchInstanceId'], 2);
+  });
+
+  testWidgets(
+    'refresh labels active criteria instead of an unsubmitted draft',
+    (tester) async {
+      final backend = _Backend();
+      await _pumpScreen(tester, backend);
+      await tester.enterText(
+        find.byKey(const ValueKey('coupon-admin-location-field')),
+        'Crystal River, FL',
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('coupon-admin-search-button')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.textContaining('Current search: Nearby Radius: Crystal River, FL'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Exact ZIP'));
+      await tester.pump();
+      await tester.tap(find.byKey(const ValueKey('paged-directory-refresh')));
+      await tester.pumpAndSettle();
+
+      expect(backend.calls, hasLength(2));
+      expect(backend.calls.last.$2['criteria'], <String, Object?>{
+        'mode': 'nearbyRadius',
+        'locationQuery': 'Crystal River, FL',
+        'radiusMiles': 10,
+        'searchInstanceId': 2,
+      });
+      expect(
+        find.textContaining('Current search: Nearby Radius: Crystal River, FL'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('Current search: Exact ZIP'), findsNothing);
+
+      await tester.enterText(
+        find.byKey(const ValueKey('coupon-admin-location-field')),
+        '01234',
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('coupon-admin-search-button')),
+      );
+      await tester.pumpAndSettle();
+      expect(backend.calls, hasLength(3));
+      expect(backend.calls.last.$2['criteria'], <String, Object?>{
+        'mode': 'exactZip',
+        'zipCode': '01234',
+      });
+      expect(
+        find.textContaining('Current search: Exact ZIP: 01234'),
+        findsOneWidget,
+      );
+    },
   );
+
+  testWidgets('Next replaces the restaurant page instead of appending', (
+    tester,
+  ) async {
+    final backend = _Backend();
+    backend.custom = (name, request) async {
+      if (request['direction'] == 'first') {
+        return _page(
+          <Map<String, Object?>>[_restaurant('first', name: 'First Page')],
+          exactTotal: 51,
+          hasNext: true,
+          nextCursor: 'next-one',
+        );
+      }
+      return _page(
+        <Map<String, Object?>>[_restaurant('second', name: 'Second Page')],
+        currentPage: 2,
+        exactTotal: 51,
+        hasPrevious: true,
+        previousCursor: 'previous-two',
+      );
+    };
+    await _pumpScreen(tester, backend);
+    await _selectExactZipAndSearch(tester);
+    expect(find.text('First Page'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('pagination-next')));
+    await tester.pumpAndSettle();
+    expect(find.text('First Page'), findsNothing);
+    expect(find.text('Second Page'), findsOneWidget);
+  });
+
+  testWidgets('Previous uses the opaque cursor and restores page one', (
+    tester,
+  ) async {
+    final backend = _Backend();
+    backend.custom = (name, request) async {
+      final direction = request['direction'];
+      if (direction == 'forward') {
+        return _page(
+          <Map<String, Object?>>[_restaurant('second', name: 'Second Page')],
+          currentPage: 2,
+          exactTotal: 51,
+          hasPrevious: true,
+          previousCursor: 'previous-two',
+        );
+      }
+      return _page(
+        <Map<String, Object?>>[_restaurant('first', name: 'First Page')],
+        exactTotal: 51,
+        hasNext: true,
+        nextCursor: 'next-one',
+      );
+    };
+    await _pumpScreen(tester, backend);
+    await _selectExactZipAndSearch(tester);
+    await tester.tap(find.byKey(const ValueKey('pagination-next')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('pagination-previous')));
+    await tester.pumpAndSettle();
+    expect(find.text('First Page'), findsOneWidget);
+  });
+
+  testWidgets('unknown total never fakes Page X of Y', (tester) async {
+    final backend = _Backend();
+    backend.custom = (name, request) async => _page(
+      <Map<String, Object?>>[_restaurant('one')],
+      hasNext: true,
+      nextCursor: 'opaque',
+    );
+    await _pumpScreen(tester, backend);
+    await _selectExactZipAndSearch(tester);
+    expect(
+      find.textContaining('Total unknown • Page 1 • 50 per page'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('Page 1 of'), findsNothing);
+  });
+
+  testWidgets(
+    'radius preparation continues with a delay and shows only ready results',
+    (tester) async {
+      final backend = _Backend();
+      var calls = 0;
+      backend.custom = (name, request) async {
+        calls += 1;
+        if (calls == 1) {
+          return _page(
+            const <Map<String, Object?>>[],
+            hasNext: true,
+            nextCursor: 'preparation-cursor',
+            preparation: const <String, Object?>{
+              'state': 'preparing',
+              'completedUnits': 4,
+              'totalUnits': 9,
+              'message': 'Preparing complete nearby results…',
+            },
+          );
+        }
+        return _page(
+          <Map<String, Object?>>[
+            _restaurant('ready', name: 'Ready Restaurant'),
+          ],
+          exactTotal: 1,
+          preparation: const <String, Object?>{
+            'state': 'ready',
+            'completedUnits': 9,
+            'totalUnits': 9,
+          },
+        );
+      };
+      await _pumpScreen(tester, backend);
+      await tester.enterText(
+        find.byKey(const ValueKey('coupon-admin-location-field')),
+        'Center',
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('coupon-admin-search-button')),
+      );
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('coupon-admin-radius-preparing')),
+        findsOneWidget,
+      );
+      expect(find.text('Ready Restaurant'), findsNothing);
+      await tester.pump(const Duration(milliseconds: 360));
+      await tester.pumpAndSettle();
+      expect(calls, 2);
+      expect(find.text('Ready Restaurant'), findsOneWidget);
+    },
+  );
+
+  testWidgets('a stale response cannot replace newer search criteria', (
+    tester,
+  ) async {
+    final backend = _Backend();
+    final first = Completer<Object?>();
+    backend.custom = (name, request) {
+      final zip = (request['criteria']! as Map)['zipCode'];
+      if (zip == '11111') return first.future;
+      return Future<Object?>.value(
+        _page(<Map<String, Object?>>[
+          _restaurant('new', name: 'New Search'),
+        ], exactTotal: 1),
+      );
+    };
+    await _pumpScreen(tester, backend);
+    await tester.tap(find.text('Exact ZIP'));
+    await tester.pump();
+    final field = find.byKey(const ValueKey('coupon-admin-location-field'));
+    await tester.enterText(field, '11111');
+    await tester.tap(find.byKey(const ValueKey('coupon-admin-search-button')));
+    await tester.pump();
+    await tester.enterText(field, '22222');
+    await tester.tap(find.byKey(const ValueKey('coupon-admin-search-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('New Search'), findsOneWidget);
+    first.complete(
+      _page(<Map<String, Object?>>[
+        _restaurant('old', name: 'Old Search'),
+      ], exactTotal: 1),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('New Search'), findsOneWidget);
+    expect(find.text('Old Search'), findsNothing);
+  });
+
+  testWidgets('duplicate Search taps for identical criteria are suppressed', (
+    tester,
+  ) async {
+    final backend = _Backend();
+    final completion = Completer<Object?>();
+    backend.custom = (name, request) => completion.future;
+    await _pumpScreen(tester, backend);
+    await tester.tap(find.text('Exact ZIP'));
+    await tester.pump();
+    await tester.enterText(
+      find.byKey(const ValueKey('coupon-admin-location-field')),
+      '34450',
+    );
+    final button = find.byKey(const ValueKey('coupon-admin-search-button'));
+    await tester.tap(button);
+    await tester.tap(button);
+    await tester.pump();
+    expect(backend.calls.length, 1);
+    completion.complete(
+      _page(<Map<String, Object?>>[_restaurant('one')], exactTotal: 1),
+    );
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('restaurant error offers Retry without changing criteria', (
+    tester,
+  ) async {
+    final backend = _Backend();
+    var calls = 0;
+    backend.custom = (name, request) async {
+      calls += 1;
+      if (calls == 1) throw StateError('offline');
+      return _page(<Map<String, Object?>>[
+        _restaurant('retry', name: 'Retry Result'),
+      ], exactTotal: 1);
+    };
+    await _pumpScreen(tester, backend);
+    await _selectExactZipAndSearch(tester);
+    expect(find.text('Retry'), findsOneWidget);
+    await tester.tap(find.text('Retry'));
+    await tester.pumpAndSettle();
+    expect(find.text('Retry Result'), findsOneWidget);
+  });
+
+  testWidgets('coupon expansion is lazy and scoped to its restaurant', (
+    tester,
+  ) async {
+    final backend = _Backend();
+    await _pumpScreen(tester, backend);
+    await _selectExactZipAndSearch(tester);
+    expect(
+      backend.calls.where((call) => call.$1 == 'listCouponAdminCouponsPage'),
+      isEmpty,
+    );
+    await tester.tap(find.text('Coupons'));
+    await tester.pumpAndSettle();
+    final couponCall = backend.calls.singleWhere(
+      (call) => call.$1 == 'listCouponAdminCouponsPage',
+    );
+    expect((couponCall.$2['criteria']! as Map)['restaurantAccountId'], 'one');
+    expect(find.text('Coupon One'), findsOneWidget);
+  });
+
+  testWidgets('coupon Next replaces the current 25-item page', (tester) async {
+    final backend = _Backend();
+    backend.custom = (name, request) async {
+      if (name == 'searchCouponAdminRestaurantsPage') {
+        return _page(<Map<String, Object?>>[_restaurant('one')], exactTotal: 1);
+      }
+      if (name == 'listCouponAdminCouponsPage' &&
+          request['direction'] == 'first') {
+        return _page(
+          <Map<String, Object?>>[_coupon('first', 'First Coupon')],
+          pageSize: 25,
+          exactTotal: 26,
+          hasNext: true,
+          nextCursor: 'coupon-next',
+        );
+      }
+      return _page(
+        <Map<String, Object?>>[_coupon('second', 'Second Coupon')],
+        pageSize: 25,
+        currentPage: 2,
+        exactTotal: 26,
+        hasPrevious: true,
+        previousCursor: 'coupon-previous',
+      );
+    };
+    await _pumpScreen(tester, backend);
+    await _selectExactZipAndSearch(tester);
+    await tester.tap(find.text('Coupons'));
+    await tester.pumpAndSettle();
+    final next = find.byKey(const ValueKey('pagination-next'));
+    await tester.ensureVisible(next);
+    await tester.pumpAndSettle();
+    await tester.tap(next);
+    await tester.pumpAndSettle();
+    expect(find.text('First Coupon'), findsNothing);
+    expect(find.text('Second Coupon'), findsOneWidget);
+  });
+
+  testWidgets(
+    'collapsing disposes coupon page state and expanding reloads page one',
+    (tester) async {
+      final backend = _Backend();
+      await _pumpScreen(tester, backend);
+      await _selectExactZipAndSearch(tester);
+      await tester.tap(find.text('Coupons'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Coupons'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Coupons'));
+      await tester.pumpAndSettle();
+      expect(
+        backend.calls
+            .where((call) => call.$1 == 'listCouponAdminCouponsPage')
+            .length,
+        2,
+      );
+    },
+  );
+
+  testWidgets('Coupon invite manager uses paged Coupon-side history', (
+    tester,
+  ) async {
+    final backend = _Backend();
+    await _pumpScreen(tester, backend);
+    await tester.tap(find.text('Pending Applications'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('coupon-admin-manage-invites')));
+    await tester.pumpAndSettle();
+    expect(find.text('Invite Restaurant'), findsOneWidget);
+    final call = backend.calls.singleWhere(
+      (call) => call.$1 == 'listCouponAdminInviteHistoryPage',
+    );
+    expect(call.$2['pageSize'], 50);
+    expect(call.$2['criteria'], <String, Object?>{'side': 'coupon'});
+  });
+
+  testWidgets('local Show 25 More is absent from Coupon Admin', (tester) async {
+    await _pumpScreen(tester, _Backend());
+    expect(find.text('Show 25 More'), findsNothing);
+    expect(
+      find.byKey(const ValueKey('coupon-admin-show-more-button')),
+      findsNothing,
+    );
+  });
+
+  for (final configuration in <(Size, double)>[
+    (const Size(320, 900), 1),
+    (const Size(390, 900), 1.5),
+    (const Size(1280, 900), 2),
+    (const Size(320, 1000), 2),
+    (const Size(390, 900), 1),
+    (const Size(1280, 900), 1.5),
+  ]) {
+    testWidgets(
+      'paged surface has no overflow at ${configuration.$1.width}px and ${configuration.$2}x text',
+      (tester) async {
+        final backend = _Backend();
+        await _pumpScreen(
+          tester,
+          backend,
+          size: configuration.$1,
+          textScale: configuration.$2,
+        );
+        expect(tester.takeException(), isNull);
+        expect(find.byType(TabBar), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('coupon-admin-search-mode')),
+          findsOneWidget,
+        );
+      },
+    );
+  }
 }

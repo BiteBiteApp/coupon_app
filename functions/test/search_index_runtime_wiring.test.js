@@ -63,6 +63,16 @@ const expectedTriggers = Object.freeze({
     "private_search_index_jobs/{jobId}",
 });
 
+const couponAdminPagedCallables = Object.freeze({
+  searchCouponAdminRestaurantsPage: [
+    "SEARCH_PAGINATION_CURSOR_KEY",
+    "GOOGLE_MAPS_API_KEY",
+  ],
+  listCouponAdminQueuePage: ["SEARCH_PAGINATION_CURSOR_KEY"],
+  listCouponAdminCouponsPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
+  listCouponAdminInviteHistoryPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
+});
+
 function loadCompiledIndexWithRuntimeHarness() {
   const state = {globalOptions: null};
   const fakeDatabase = {};
@@ -90,11 +100,15 @@ function loadCompiledIndexWithRuntimeHarness() {
   }
   function httpsTrigger(kind) {
     return (...arguments_) => {
+      const options = arguments_.length > 1 ? arguments_[0] : {};
       const handler = arguments_[arguments_.length - 1];
       handler.__endpoint = {
         platform: "gcfv2",
         region: [state.globalOptions?.region],
         [kind]: {},
+        ...(Array.isArray(options.secrets)
+          ? {secretEnvironmentVariables: options.secrets.map((secret) => secret.name)}
+          : {}),
       };
       return handler;
     };
@@ -187,6 +201,52 @@ test("global runtime remains us-central1 Node 24 with no new parameter binding",
   assert.equal(packageJson.engines.node, "24");
 });
 
+test("exactly four Coupon Admin paged v2 callables use least-privilege secrets", () => {
+  const runtime = loadCompiledIndexWithRuntimeHarness();
+  for (const [name, expectedSecrets] of Object.entries(couponAdminPagedCallables)) {
+    const exported = runtime.exports[name];
+    assert.equal(typeof exported, "function", name);
+    assert.equal(exported.__endpoint.platform, "gcfv2", name);
+    assert.deepEqual(exported.__endpoint.region, ["us-central1"], name);
+    assert.deepEqual(
+      [...exported.__endpoint.secretEnvironmentVariables].sort(),
+      [...expectedSecrets].sort(),
+      name,
+    );
+    assert.equal(Object.hasOwn(exported.__endpoint, "httpsTrigger"), false, name);
+  }
+  assert.equal(
+    Object.keys(runtime.exports).filter((name) => name.startsWith("searchCouponAdmin") || name.startsWith("listCouponAdmin")).length,
+    4,
+  );
+  assert.deepEqual(
+    runtime.exports.searchAdminRestaurants.__endpoint.secretEnvironmentVariables,
+    ["GOOGLE_MAPS_API_KEY"],
+  );
+});
+
+test("all Coupon Admin paged callables reject unauthenticated and non-Admin callers before data access", async () => {
+  const runtime = loadCompiledIndexWithRuntimeHarness();
+  for (const name of Object.keys(couponAdminPagedCallables)) {
+    await assert.rejects(
+      runtime.exports[name]({data: {}, auth: null}),
+      (error) => error.code === "permission-denied",
+      `${name} unauthenticated`,
+    );
+    await assert.rejects(
+      runtime.exports[name]({
+        data: {},
+        auth: {
+          uid: "not-admin",
+          token: {email: "not-admin@example.test"},
+        },
+      }),
+      (error) => error.code === "permission-denied",
+      `${name} non-Admin`,
+    );
+  }
+});
+
 test("existing geohash triggers retain their original exact paths", () => {
   const runtime = loadCompiledIndexWithRuntimeHarness();
   assert.equal(
@@ -208,6 +268,8 @@ test("current Firestore rules leave all new private collections unmatched and de
     "dish_search_index",
     "bitesaver_offer_index",
     "private_search_index_jobs",
+    "private_admin_restaurant_search_sessions",
+    "private_admin_restaurant_search_active_sessions",
   ]) {
     assert.equal(rules.includes(collection), false, collection);
   }

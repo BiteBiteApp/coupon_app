@@ -843,6 +843,10 @@ void main() {
     final adminScreen = File(
       'lib/screens/admin_review_screen.dart',
     ).readAsStringSync();
+    final adminDashboard = File(
+      'lib/widgets/coupon_admin_paged_dashboard.dart',
+    ).readAsStringSync();
+    final adminImplementation = '$adminScreen\n$adminDashboard';
 
     for (final forbidden in <String>[
       'RestaurantAccountService.createOrUpdateAccountRecord',
@@ -858,7 +862,7 @@ void main() {
       'RestaurantAccountService.approveAccount',
       'RestaurantAccountService.rejectAccount',
     ]) {
-      expect(adminScreen, isNot(contains(forbidden)));
+      expect(adminImplementation, isNot(contains(forbidden)));
     }
     expect(
       ownerScreen,
@@ -876,9 +880,18 @@ void main() {
       ownerScreen,
       contains('BiteSaverProfileSaveRequest.ownerMainImageUpdate'),
     );
-    expect(adminScreen, contains('BiteSaverApplicationDecision.approve'));
-    expect(adminScreen, contains('BiteSaverApplicationDecision.reject'));
-    expect(adminScreen, contains('BiteSaverProfileSaveRequest.adminUpdate'));
+    expect(
+      adminImplementation,
+      contains('BiteSaverApplicationDecision.approve'),
+    );
+    expect(
+      adminImplementation,
+      contains('BiteSaverApplicationDecision.reject'),
+    );
+    expect(
+      adminImplementation,
+      contains('BiteSaverProfileSaveRequest.adminUpdate'),
+    );
   });
 
   test(

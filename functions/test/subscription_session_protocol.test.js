@@ -679,6 +679,9 @@ test("runtime, region, secret bindings, exports, production caller, and webhook 
     [
       ...exportedConstants(baseSource),
       "claimBiteSaverSubscriptionReturnEvent",
+      "listCouponAdminCouponsPage",
+      "listCouponAdminInviteHistoryPage",
+      "listCouponAdminQueuePage",
       "listBiteSaverSubscriptionReturnEvents",
       "maintainBiteSaverCouponOfferSearchIndex",
       "maintainBiteSaverDailySpecialSearchIndex",
@@ -688,6 +691,7 @@ test("runtime, region, secret bindings, exports, production caller, and webhook 
       "maintainBiteScoreRestaurantSearchIndex",
       "processPrivateSearchIndexJob",
       "redeemBiteSaverSubscriptionReturn",
+      "searchCouponAdminRestaurantsPage",
     ].sort(),
   );
   for (const exportName of [
