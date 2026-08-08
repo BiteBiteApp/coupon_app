@@ -680,6 +680,13 @@ test("runtime, region, secret bindings, exports, production caller, and webhook 
       ...exportedConstants(baseSource),
       "claimBiteSaverSubscriptionReturnEvent",
       "listBiteSaverSubscriptionReturnEvents",
+      "maintainBiteSaverCouponOfferSearchIndex",
+      "maintainBiteSaverDailySpecialSearchIndex",
+      "maintainBiteSaverRestaurantSearchIndex",
+      "maintainBiteScoreDishSearchIndex",
+      "maintainBiteScoreDishSearchIndexFromAggregate",
+      "maintainBiteScoreRestaurantSearchIndex",
+      "processPrivateSearchIndexJob",
       "redeemBiteSaverSubscriptionReturn",
     ].sort(),
   );

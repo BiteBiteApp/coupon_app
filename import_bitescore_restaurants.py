@@ -18,6 +18,18 @@ from typing import Any, Callable, Mapping, Sequence
 TARGET_COLLECTION = "bitescore_restaurants"
 GOOGLE_MAPS_API_KEY_ENV = "GOOGLE_MAPS_API_KEY"
 DEFAULT_FIREBASE_KEY_PATH = Path("secrets/firebase-key.json")
+SOURCE_SCHEMA_VERSION = "bitestar.bitescore-restaurant-source.v1"
+MAXIMUM_RESTAURANT_NAME_LENGTH = 100
+SUPPORTED_US_STATE_CODES = frozenset(
+    {
+        "AL", "AK", "AZ", "AR", "CA", "CO", "CT", "DE", "FL", "GA",
+        "HI", "ID", "IL", "IN", "IA", "KS", "KY", "LA", "ME", "MD",
+        "MA", "MI", "MN", "MS", "MO", "MT", "NE", "NV", "NH", "NJ",
+        "NM", "NY", "NC", "ND", "OH", "OK", "OR", "PA", "RI", "SC",
+        "SD", "TN", "TX", "UT", "VT", "VA", "WA", "WV", "WI", "WY",
+        "DC",
+    }
+)
 
 # Must match functions/src/restaurant_geo_helpers.ts and GeoFire's explicit
 # 10-character Base32 contract.
@@ -102,19 +114,60 @@ def require_google_maps_api_key(
     return api_key
 
 
+def normalize_restaurant_name(value: object) -> str:
+    name = " ".join(str(value or "").strip().split())
+    if not name:
+        raise ValueError("Restaurant name is required.")
+    if len(name) > MAXIMUM_RESTAURANT_NAME_LENGTH:
+        raise ValueError(
+            f"Restaurant name must be at most {MAXIMUM_RESTAURANT_NAME_LENGTH} characters."
+        )
+    return name
+
+
+def normalize_city(value: object) -> str:
+    city = " ".join(str(value or "").strip().split())
+    if not city:
+        raise ValueError("Restaurant city is required.")
+    return city
+
+
+def normalize_state_code(value: object) -> str:
+    state = str(value or "").strip().upper()
+    if state not in SUPPORTED_US_STATE_CODES:
+        raise ValueError("Restaurant state must be a supported two-letter US or DC code.")
+    return state
+
+
+def normalize_zip5(value: object) -> str:
+    zip_code = str(value or "").strip()
+    if not zip_code:
+        return ""
+    match = re.fullmatch(r"(\d{5})(?:-\d{4})?", zip_code)
+    if match is None:
+        raise ValueError("Restaurant ZIP must be five digits or a valid ZIP+4.")
+    return match.group(1)
+
+
 def parse_city_state_zip(address: str) -> tuple[str, str, str]:
     city = ""
     state = ""
     zip_code = ""
 
     parts = [part.strip() for part in address.split(",") if part.strip()]
-    if len(parts) >= 3:
+    if parts and parts[-1].upper() in {"US", "USA", "UNITED STATES"}:
+        parts = parts[:-1]
+    if len(parts) >= 2:
         city = parts[-2]
 
     last_part = parts[-1] if parts else ""
-    match = re.search(r"\b([A-Z]{2})\s+(\d{5})(?:-\d{4})?\b", last_part)
+    match = re.search(
+        r"\b([A-Z]{2})\s+(\d{5})(?:-\d{4})?\b",
+        last_part,
+        flags=re.IGNORECASE,
+    )
     if match:
-        state = match.group(1)
+        state = match.group(1).upper()
         zip_code = match.group(2)
 
     return city, state, zip_code
@@ -177,7 +230,11 @@ def build_restaurant_document(
     details: Mapping[str, object],
     geo_point_factory: Callable[[float, float], object],
     server_timestamp: object,
+    created_at: object | None = None,
 ) -> dict[str, object]:
+    stable_place_id = place_id.strip()
+    if not stable_place_id or "/" in stable_place_id:
+        raise ValueError("A stable Google Place ID document key is required.")
     coordinates = valid_restaurant_coordinates(
         details.get("latitude"),
         details.get("longitude"),
@@ -185,28 +242,43 @@ def build_restaurant_document(
     if coordinates is None:
         raise ValueError("Valid Google-provided restaurant coordinates are required.")
 
-    name = str(details.get("name") or "")
-    address = str(details.get("address") or "")
+    name = normalize_restaurant_name(details.get("name"))
+    address = " ".join(str(details.get("address") or "").strip().split())
+    if not address:
+        raise ValueError("Restaurant address is required.")
+    city = normalize_city(details.get("city"))
+    state = normalize_state_code(details.get("state"))
+    zip_code = normalize_zip5(details.get("zipCode"))
     latitude, longitude = coordinates
+    formatted_address = address
     return {
-        "id": place_id,
-        "placeId": place_id,
+        "id": stable_place_id,
+        "placeId": stable_place_id,
+        "sourceSchemaVersion": SOURCE_SCHEMA_VERSION,
         "name": name,
-        "normalizedName": name.strip().lower(),
+        "restaurantName": name,
+        "normalizedName": name.lower(),
         "address": address,
         "streetAddress": address,
-        "city": str(details.get("city") or ""),
-        "state": str(details.get("state") or ""),
-        "zip": str(details.get("zipCode") or ""),
-        "zipCode": str(details.get("zipCode") or ""),
+        "formattedAddress": formatted_address,
+        "fullAddress": formatted_address,
+        "city": city,
+        "state": state,
+        "stateCode": state,
+        "zip": zip_code,
+        "zipCode": zip_code,
+        "postalCode": zip_code,
         "website": str(details.get("website") or ""),
         "phone": str(details.get("phone") or ""),
         "location": geo_point_factory(latitude, longitude),
+        "geoPoint": geo_point_factory(latitude, longitude),
         "latitude": latitude,
         "longitude": longitude,
         "active": True,
         "isActive": True,
+        "isClaimed": False,
         "geohash": canonical_restaurant_geohash(latitude, longitude),
+        "createdAt": server_timestamp if created_at is None else created_at,
         "updatedAt": server_timestamp,
     }
 
@@ -218,31 +290,61 @@ def upload_restaurants(
     geo_point_factory: Callable[[float, float], object],
     server_timestamp: object,
     http_get: Callable[..., Any] | None = None,
-) -> None:
+    dry_run: bool = False,
+) -> dict[str, int]:
+    summary = {"validated": 0, "written": 0, "skipped": 0}
     with csv_file.open(newline="", encoding="utf-8-sig") as csvfile:
         reader = csv.DictReader(csvfile)
         for row in reader:
             place_id = (row.get("Place ID") or row.get("place_id") or "").strip()
             if not place_id:
+                summary["skipped"] += 1
                 continue
 
             details = get_place_details(place_id, api_key, http_get=http_get)
             if details is None:
+                summary["skipped"] += 1
                 continue
 
-            document = build_restaurant_document(
-                place_id,
-                details,
-                geo_point_factory,
-                server_timestamp,
-            )
-            database.collection(TARGET_COLLECTION).document(place_id).set(
-                document,
-                merge=True,
-            )
-            print(f"Uploaded: {details['name']}")
+            try:
+                document_reference = None
+                created_at = None
+                if not dry_run:
+                    document_reference = database.collection(
+                        TARGET_COLLECTION
+                    ).document(place_id)
+                    existing_snapshot = document_reference.get()
+                    if getattr(existing_snapshot, "exists", False):
+                        existing_data = existing_snapshot.to_dict() or {}
+                        created_at = existing_data.get("createdAt")
+                document = build_restaurant_document(
+                    place_id,
+                    details,
+                    geo_point_factory,
+                    server_timestamp,
+                    created_at=created_at,
+                )
+            except ValueError as error:
+                summary["skipped"] += 1
+                print(f"Skipped {place_id}: {error}")
+                continue
 
-    print("DONE")
+            summary["validated"] += 1
+            if dry_run:
+                print(f"Validated: {document['name']}")
+                continue
+
+            document_reference.set(document, merge=True)
+            summary["written"] += 1
+            print(f"Uploaded: {document['name']}")
+
+    print(
+        "DONE "
+        f"validated={summary['validated']} "
+        f"written={summary['written']} "
+        f"skipped={summary['skipped']}"
+    )
+    return summary
 
 
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
@@ -256,6 +358,11 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
         default=DEFAULT_FIREBASE_KEY_PATH,
         help="Firebase Admin service-account JSON path",
     )
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Validate future source documents without reading or writing Firestore.",
+    )
     return parser.parse_args(argv)
 
 
@@ -266,6 +373,19 @@ def main(argv: Sequence[str] | None = None) -> None:
     firebase_key = args.firebase_key.expanduser().resolve()
     if not csv_file.is_file():
         raise FileNotFoundError(f"CSV file not found: {csv_file}")
+    if args.dry_run:
+        upload_restaurants(
+            csv_file,
+            api_key,
+            None,
+            lambda latitude, longitude: {
+                "latitude": latitude,
+                "longitude": longitude,
+            },
+            "SERVER_TIMESTAMP",
+            dry_run=True,
+        )
+        return
     if not firebase_key.is_file():
         raise FileNotFoundError(f"Firebase key file not found: {firebase_key}")
 

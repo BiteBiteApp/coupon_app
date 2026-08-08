@@ -93,6 +93,15 @@ import {
   type SubscriptionReturnSessionRequest,
 } from "./subscription_return_ledger.js";
 import { stripeLogMetadata } from "./stripe_log_safety.js";
+import {
+  createFirestoreSearchIndexDatabase,
+  handleBiteSaverRestaurantWrite,
+  handleBiteScoreRestaurantWrite,
+  processSearchIndexJob,
+  reconcileBiteSaverCouponOfferIndex,
+  reconcileBiteSaverDailySpecialOfferIndex,
+  reconcileBiteScoreDishIndex,
+} from "./search_index_maintenance.js";
 
 initializeApp();
 
@@ -102,6 +111,7 @@ setGlobalOptions({
 });
 
 const db: Firestore = getFirestore();
+const searchIndexDatabase = createFirestoreSearchIndexDatabase(db);
 const stripeSecret = defineSecret("STRIPE_SECRET_KEY");
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
@@ -3638,6 +3648,95 @@ export const maintainBiteSaverRestaurantGeohash = onDocumentWritten(
         transaction.update(current.ref, { geohash: FieldValue.delete() });
       }
     });
+  },
+);
+
+export const maintainBiteSaverRestaurantSearchIndex = onDocumentWritten(
+  "restaurant_accounts/{restaurantAccountId}",
+  async (event) => {
+    await handleBiteSaverRestaurantWrite(searchIndexDatabase, {
+      restaurantAccountId: event.params.restaurantAccountId as string,
+      before: event.data?.before.exists
+        ? event.data.before.data() as Record<string, unknown>
+        : null,
+      after: event.data?.after.exists
+        ? event.data.after.data() as Record<string, unknown>
+        : null,
+      now: new Date(),
+    });
+  },
+);
+
+export const maintainBiteScoreRestaurantSearchIndex = onDocumentWritten(
+  "bitescore_restaurants/{restaurantId}",
+  async (event) => {
+    await handleBiteScoreRestaurantWrite(searchIndexDatabase, {
+      restaurantId: event.params.restaurantId as string,
+      before: event.data?.before.exists
+        ? event.data.before.data() as Record<string, unknown>
+        : null,
+      after: event.data?.after.exists
+        ? event.data.after.data() as Record<string, unknown>
+        : null,
+      now: new Date(),
+    });
+  },
+);
+
+export const maintainBiteScoreDishSearchIndex = onDocumentWritten(
+  "bitescore_dishes/{dishId}",
+  async (event) => {
+    await reconcileBiteScoreDishIndex(
+      searchIndexDatabase,
+      event.params.dishId as string,
+      new Date(),
+    );
+  },
+);
+
+export const maintainBiteScoreDishSearchIndexFromAggregate = onDocumentWritten(
+  "dish_rating_aggregates/{dishId}",
+  async (event) => {
+    await reconcileBiteScoreDishIndex(
+      searchIndexDatabase,
+      event.params.dishId as string,
+      new Date(),
+    );
+  },
+);
+
+export const maintainBiteSaverCouponOfferSearchIndex = onDocumentWritten(
+  "restaurant_accounts/{restaurantAccountId}/coupons/{couponId}",
+  async (event) => {
+    await reconcileBiteSaverCouponOfferIndex(
+      searchIndexDatabase,
+      event.params.restaurantAccountId as string,
+      event.params.couponId as string,
+      new Date(),
+    );
+  },
+);
+
+export const maintainBiteSaverDailySpecialSearchIndex = onDocumentWritten(
+  "restaurant_accounts/{restaurantAccountId}/daily_specials/{dailySpecialId}",
+  async (event) => {
+    await reconcileBiteSaverDailySpecialOfferIndex(
+      searchIndexDatabase,
+      event.params.restaurantAccountId as string,
+      event.params.dailySpecialId as string,
+      new Date(),
+    );
+  },
+);
+
+export const processPrivateSearchIndexJob = onDocumentCreated(
+  "private_search_index_jobs/{jobId}",
+  async (event) => {
+    await processSearchIndexJob(
+      searchIndexDatabase,
+      event.params.jobId as string,
+      new Date(),
+    );
   },
 );
 
