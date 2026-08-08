@@ -36,6 +36,7 @@ export type RestaurantSubscriptionUpdateResult =
 
 const restaurantSubscriptionUpdateFields = new Set([
   "subscriptionStatus",
+  "cancelAtPeriodEnd",
   "trialEndsAt",
   "subscriptionEndsAt",
   "stripeCustomerId",

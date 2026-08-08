@@ -4520,6 +4520,31 @@ void main() {
     },
   );
 
+  testWidgets(
+    'renewing trial retains its ordinary active presentation',
+    _verifyRenewingTrialPresentation,
+  );
+
+  testWidgets(
+    'scheduled trial cancellation survives fresh load and preserves access',
+    _verifyScheduledTrialCancellationPresentation,
+  );
+
+  testWidgets(
+    'scheduled paid cancellation preserves access through period end',
+    _verifyScheduledPaidCancellationPresentation,
+  );
+
+  testWidgets(
+    'undoing scheduled cancellation clears its trial presentation',
+    _verifyScheduledCancellationUndoPresentation,
+  );
+
+  testWidgets(
+    'actually ended subscription retains inactive presentation',
+    _verifyActuallyEndedSubscriptionPresentation,
+  );
+
   testWidgets('customer portal return refreshes subscription state once', (
     tester,
   ) async {
@@ -9290,6 +9315,194 @@ Future<void> _verifyPendingDailySpecialDeleteIsOwnerScoped(
   expect(find.text('Daily special removed.'), findsOneWidget);
 }
 
+Future<void> _verifyRenewingTrialPresentation(WidgetTester tester) async {
+  final trialEnd = DateTime.now().add(const Duration(days: 60));
+  await _pumpApplicationScreen(
+    tester,
+    loadAccount: (uid) async => _approvedAccount(
+      uid: uid,
+      subscriptionStatus: 'trialing',
+      cancelAtPeriodEnd: false,
+      trialEndsAt: Timestamp.fromDate(trialEnd),
+      subscriptionEndsAt: Timestamp.fromDate(trialEnd),
+    ),
+  );
+
+  await _ensureSectionExpanded(
+    tester,
+    'Subscription / Billing',
+    visibleWhenExpanded: find.text('Trial active'),
+  );
+  final localDate = MaterialLocalizations.of(
+    tester.element(find.text('Trial active')),
+  ).formatMediumDate(trialEnd.toLocal());
+  expect(find.text('Trial active'), findsOneWidget);
+  expect(find.textContaining('Ends $localDate'), findsOneWidget);
+  expect(find.textContaining('days remaining'), findsOneWidget);
+  expect(find.textContaining('Cancels at end'), findsNothing);
+  expect(
+    find.widgetWithText(OutlinedButton, 'Manage Subscription'),
+    findsOneWidget,
+  );
+}
+
+Future<void> _verifyScheduledTrialCancellationPresentation(
+  WidgetTester tester,
+) async {
+  final trialEnd = DateTime.now().add(const Duration(days: 60));
+  await _pumpApplicationScreen(
+    tester,
+    loadAccount: (uid) async => _approvedAccount(
+      uid: uid,
+      subscriptionStatus: 'trialing',
+      cancelAtPeriodEnd: true,
+      trialEndsAt: Timestamp.fromDate(trialEnd),
+      subscriptionEndsAt: Timestamp.fromDate(trialEnd),
+    ),
+  );
+
+  await _ensureSectionExpanded(
+    tester,
+    'Subscription / Billing',
+    visibleWhenExpanded: find.text('Trial active'),
+  );
+  final localDate = MaterialLocalizations.of(
+    tester.element(find.text('Trial active')),
+  ).formatMediumDate(trialEnd.toLocal());
+  expect(find.text('Trial active'), findsOneWidget);
+  expect(find.textContaining('Cancels at end of trial'), findsOneWidget);
+  expect(find.textContaining(localDate), findsOneWidget);
+  expect(find.textContaining('days remaining'), findsOneWidget);
+  expect(
+    find.widgetWithText(OutlinedButton, 'Manage Subscription'),
+    findsOneWidget,
+  );
+  await _ensureSectionExpanded(
+    tester,
+    'Coupon Management',
+    visibleWhenExpanded: find.text('Create a New Coupon'),
+  );
+  expect(find.text('Create a New Coupon'), findsOneWidget);
+  expect(find.text('Subscription required to post coupons.'), findsNothing);
+}
+
+Future<void> _verifyScheduledPaidCancellationPresentation(
+  WidgetTester tester,
+) async {
+  final subscriptionEnd = DateTime.now().add(const Duration(days: 30));
+  await _pumpApplicationScreen(
+    tester,
+    loadAccount: (uid) async => _approvedAccount(
+      uid: uid,
+      subscriptionStatus: 'active',
+      cancelAtPeriodEnd: true,
+      subscriptionEndsAt: Timestamp.fromDate(subscriptionEnd),
+    ),
+  );
+
+  await _ensureSectionExpanded(
+    tester,
+    'Subscription / Billing',
+    visibleWhenExpanded: find.text('Subscription active'),
+  );
+  final localDate = MaterialLocalizations.of(
+    tester.element(find.text('Subscription active')),
+  ).formatMediumDate(subscriptionEnd.toLocal());
+  expect(find.text('Subscription active'), findsOneWidget);
+  expect(
+    find.textContaining('Cancels at end of billing period'),
+    findsOneWidget,
+  );
+  expect(find.textContaining(localDate), findsOneWidget);
+  expect(
+    find.widgetWithText(OutlinedButton, 'Manage Subscription'),
+    findsOneWidget,
+  );
+  await _ensureSectionExpanded(
+    tester,
+    'Coupon Management',
+    visibleWhenExpanded: find.text('Create a New Coupon'),
+  );
+  expect(find.text('Create a New Coupon'), findsOneWidget);
+  expect(find.text('Subscription required to post coupons.'), findsNothing);
+}
+
+Future<void> _verifyScheduledCancellationUndoPresentation(
+  WidgetTester tester,
+) async {
+  final trialEnd = DateTime.now().add(const Duration(days: 60));
+  var accountLoads = 0;
+  await _pumpApplicationScreen(
+    tester,
+    loadAccount: (uid) async {
+      accountLoads += 1;
+      return _approvedAccount(
+        uid: uid,
+        subscriptionStatus: 'trialing',
+        cancelAtPeriodEnd: accountLoads == 1,
+        trialEndsAt: Timestamp.fromDate(trialEnd),
+        subscriptionEndsAt: Timestamp.fromDate(trialEnd),
+      );
+    },
+  );
+  await _ensureSectionExpanded(
+    tester,
+    'Subscription / Billing',
+    visibleWhenExpanded: find.text('Trial active'),
+  );
+  expect(find.textContaining('Cancels at end of trial'), findsOneWidget);
+
+  await _dispatchAndClaimNavigation(
+    tester,
+    SubscriptionReturnKind.customerPortal,
+  );
+  await tester.pump();
+  await tester.pump();
+
+  expect(accountLoads, 2);
+  expect(find.text('Trial active'), findsOneWidget);
+  expect(find.textContaining('Cancels at end'), findsNothing);
+  expect(find.textContaining('days remaining'), findsOneWidget);
+  expect(
+    find.widgetWithText(OutlinedButton, 'Manage Subscription'),
+    findsOneWidget,
+  );
+}
+
+Future<void> _verifyActuallyEndedSubscriptionPresentation(
+  WidgetTester tester,
+) async {
+  final subscriptionEnd = DateTime.now().subtract(const Duration(days: 1));
+  await _pumpApplicationScreen(
+    tester,
+    loadAccount: (uid) async => _approvedAccount(
+      uid: uid,
+      subscriptionStatus: 'inactive',
+      cancelAtPeriodEnd: true,
+      subscriptionEndsAt: Timestamp.fromDate(subscriptionEnd),
+    ),
+  );
+
+  await _ensureSectionExpanded(
+    tester,
+    'Coupon Management / Daily Specials',
+    visibleWhenExpanded: find.widgetWithText(
+      FilledButton,
+      'Start Subscription',
+    ),
+  );
+  expect(find.text('Subscription / Billing'), findsNothing);
+  expect(find.textContaining('Cancels at end'), findsNothing);
+  expect(
+    find.widgetWithText(OutlinedButton, 'Manage Subscription'),
+    findsNothing,
+  );
+  expect(
+    find.widgetWithText(FilledButton, 'Start Subscription'),
+    findsOneWidget,
+  );
+}
+
 Future<void> _verifyPendingCheckoutPreparationIsOwnerScoped(
   WidgetTester tester, {
   bool useCustomerPortal = false,
@@ -10524,6 +10737,7 @@ Future<void> _verifyPendingSubscriptionRefreshIsOwnerScoped(
         _approvedAccount(
           uid: uid,
           subscriptionStatus: 'active',
+          cancelAtPeriodEnd: false,
           restaurantName: 'B Refresh Restaurant',
         ),
       );
@@ -10548,7 +10762,14 @@ Future<void> _verifyPendingSubscriptionRefreshIsOwnerScoped(
   pendingOwnerARefresh.complete(
     _approvedAccount(
       uid: ownerA.uid,
-      subscriptionStatus: 'inactive',
+      subscriptionStatus: 'trialing',
+      cancelAtPeriodEnd: true,
+      trialEndsAt: Timestamp.fromDate(
+        DateTime.now().add(const Duration(days: 60)),
+      ),
+      subscriptionEndsAt: Timestamp.fromDate(
+        DateTime.now().add(const Duration(days: 60)),
+      ),
       restaurantName: 'A-LATE-REFRESH-CANARY',
     ),
   );
@@ -10556,6 +10777,7 @@ Future<void> _verifyPendingSubscriptionRefreshIsOwnerScoped(
   await tester.pump();
   expect(find.text('Subscription active'), findsOneWidget);
   expect(find.textContaining('A-LATE-REFRESH-CANARY'), findsNothing);
+  expect(find.textContaining('Cancels at end'), findsNothing);
   expect(find.text('Not subscribed'), findsNothing);
 }
 
@@ -10902,6 +11124,9 @@ Map<String, dynamic> _approvedAccount({
   String? mainImageUrl,
   List<RestaurantBusinessHours>? businessHours,
   String subscriptionStatus = 'active',
+  bool? cancelAtPeriodEnd,
+  Object? trialEndsAt,
+  Object? subscriptionEndsAt,
 }) {
   return <String, dynamic>{
     Restaurant.fieldUid: uid,
@@ -10923,6 +11148,9 @@ Map<String, dynamic> _approvedAccount({
     Restaurant.fieldApprovalStatus: 'approved',
     'couponApplicationSubmitted': true,
     'subscriptionStatus': subscriptionStatus,
+    'cancelAtPeriodEnd': ?cancelAtPeriodEnd,
+    'trialEndsAt': ?trialEndsAt,
+    'subscriptionEndsAt': ?subscriptionEndsAt,
     Restaurant.fieldLatitude: latitude,
     Restaurant.fieldLongitude: longitude,
     Restaurant.fieldAddressFingerprint:

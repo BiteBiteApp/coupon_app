@@ -2545,6 +2545,7 @@ async function syncRestaurantSubscriptionFromStripe(
       : null;
   const updateData: Record<string, unknown> = {
     subscriptionStatus,
+    cancelAtPeriodEnd: subscription.cancel_at_period_end,
     trialEndsAt,
     subscriptionEndsAt:
       unixSecondsToTimestamp((subscription as any).current_period_end) ??

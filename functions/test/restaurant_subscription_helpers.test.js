@@ -325,6 +325,7 @@ function completeRestaurantAccount() {
 function activeSubscriptionPatch(overrides = {}) {
   return {
     subscriptionStatus: "active",
+    cancelAtPeriodEnd: false,
     trialEndsAt: null,
     subscriptionEndsAt: { seconds: 1_800_000_000 },
     stripeCustomerId: "cus_123",

@@ -992,6 +992,48 @@ void main() {
     expect(restaurant.locationVersion, 2);
     expect(restaurant.hasTrustedSearchableLocation, isTrue);
   });
+
+  test(
+    'account normalization preserves scheduled cancellation without removing access',
+    () {
+      final trialEnd = Timestamp.fromDate(
+        DateTime.now().add(const Duration(days: 60)),
+      );
+      final normalized =
+          RestaurantAccountService.normalizedAccountDataForTesting(
+            <String, dynamic>{
+              Restaurant.fieldApprovalStatus: 'approved',
+              'subscriptionStatus': 'trialing',
+              'cancelAtPeriodEnd': true,
+              'trialEndsAt': trialEnd,
+              'subscriptionEndsAt': trialEnd,
+            },
+            fallbackUid: 'scheduled-cancellation-owner',
+          );
+
+      expect(normalized['cancelAtPeriodEnd'], isTrue);
+      expect(normalized['trialEndsAt'], same(trialEnd));
+      expect(normalized['subscriptionEndsAt'], same(trialEnd));
+      expect(
+        RestaurantAccountService.hasCouponPostingAccess(normalized),
+        isTrue,
+      );
+      expect(
+        RestaurantAccountService.hasCouponPostingAccess(<String, dynamic>{
+          ...normalized,
+          'subscriptionStatus': 'active',
+        }),
+        isTrue,
+      );
+      expect(
+        RestaurantAccountService.hasCouponPostingAccess(<String, dynamic>{
+          ...normalized,
+          'subscriptionStatus': 'inactive',
+        }),
+        isFalse,
+      );
+    },
+  );
 }
 
 class _TestUser extends Fake implements User {

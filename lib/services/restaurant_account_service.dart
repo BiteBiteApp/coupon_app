@@ -1617,6 +1617,7 @@ class RestaurantAccountService {
       ),
       'subscriptionStatus':
           _readString(data['subscriptionStatus']) ?? 'inactive',
+      'cancelAtPeriodEnd': _readBool(data['cancelAtPeriodEnd']),
       'trialEndsAt': data['trialEndsAt'],
       'subscriptionEndsAt': data['subscriptionEndsAt'],
       'billingPlanName': _readString(data['billingPlanName']),

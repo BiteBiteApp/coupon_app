@@ -359,6 +359,7 @@ function makeSubscription(overrides = {}) {
     id: sensitiveCanaries.subscription,
     customer: sensitiveCanaries.customer,
     status: "active",
+    cancel_at_period_end: false,
     metadata: {
       ownerUid: sensitiveCanaries.uid,
       restaurantAccountId: sensitiveCanaries.uid,
@@ -708,6 +709,7 @@ test("existing-account webhook synchronization preserves its exact narrow update
     Object.keys(harness.state.updates[0].data).sort(),
     [
       "billingPlanName",
+      "cancelAtPeriodEnd",
       "couponPostingEnabled",
       "hasUsedTrial",
       "stripeCustomerId",
@@ -720,6 +722,55 @@ test("existing-account webhook synchronization preserves its exact narrow update
   );
   assert.equal(harness.state.accountDocument.profileField, originalProfile);
   assert.equal(harness.state.accountDocument.email, originalEmail);
+  assert.deepEqual(harness.state.logs, []);
+});
+
+test("subscription update persists and clears scheduled cancellation without ending trial access", async () => {
+  const endSeconds = 1_900_000_000;
+  harness.state.constructedEvent = makeWebhookEvent(
+    makeSubscription({
+      status: "trialing",
+      cancel_at_period_end: true,
+      trial_end: endSeconds,
+      current_period_end: endSeconds,
+    }),
+  );
+  const scheduledResponse = makeResponse();
+
+  await harness.stripeWebhook(makeWebhookRequest(), scheduledResponse);
+
+  assert.equal(scheduledResponse.statusCode, 200);
+  assert.deepEqual(scheduledResponse.jsonBody, {received: true});
+  assert.equal(harness.state.updates.length, 1);
+  assert.equal(harness.state.updates[0].data.subscriptionStatus, "trialing");
+  assert.equal(harness.state.updates[0].data.cancelAtPeriodEnd, true);
+  assert.equal(harness.state.updates[0].data.couponPostingEnabled, true);
+  assert.deepEqual(harness.state.updates[0].data.trialEndsAt, {
+    milliseconds: endSeconds * 1000,
+  });
+  assert.deepEqual(harness.state.updates[0].data.subscriptionEndsAt, {
+    milliseconds: endSeconds * 1000,
+  });
+
+  harness.state.constructedEvent = makeWebhookEvent(
+    makeSubscription({
+      status: "trialing",
+      cancel_at_period_end: false,
+      trial_end: endSeconds,
+      current_period_end: endSeconds,
+    }),
+  );
+  const resumedResponse = makeResponse();
+
+  await harness.stripeWebhook(makeWebhookRequest(), resumedResponse);
+
+  assert.equal(resumedResponse.statusCode, 200);
+  assert.deepEqual(resumedResponse.jsonBody, {received: true});
+  assert.equal(harness.state.updates.length, 2);
+  assert.equal(harness.state.updates[1].data.subscriptionStatus, "trialing");
+  assert.equal(harness.state.updates[1].data.cancelAtPeriodEnd, false);
+  assert.equal(harness.state.updates[1].data.couponPostingEnabled, true);
+  assert.deepEqual(harness.state.creates, []);
   assert.deepEqual(harness.state.logs, []);
 });
 
@@ -764,6 +815,7 @@ test("repeated supported webhook execution reapplies only the established subscr
     Object.keys(harness.state.updates[0].data).sort(),
     [
       "billingPlanName",
+      "cancelAtPeriodEnd",
       "couponPostingEnabled",
       "hasUsedTrial",
       "stripeCustomerId",

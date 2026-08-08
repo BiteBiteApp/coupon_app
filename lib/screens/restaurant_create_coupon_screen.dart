@@ -330,11 +330,13 @@ class _RestaurantCreateCouponScreenState
   bool _signOutInFlight = false;
   bool _hasCouponPostingAccess = false;
   bool _hasUsedTrial = false;
+  bool _cancelAtPeriodEnd = false;
   bool _showNameChangeRequest = false;
   bool _submittingNameChangeRequest = false;
   bool _allowProfileClose = false;
   String _subscriptionStatus = 'inactive';
   DateTime? _trialEndsAt;
+  DateTime? _subscriptionEndsAt;
   DateTime? couponStartTime;
   DateTime? couponEndTime;
   String? editingDailySpecialId;
@@ -672,8 +674,10 @@ class _RestaurantCreateCouponScreenState
     _couponAccessMessage = '';
     _hasCouponPostingAccess = false;
     _hasUsedTrial = false;
+    _cancelAtPeriodEnd = false;
     _subscriptionStatus = 'inactive';
     _trialEndsAt = null;
+    _subscriptionEndsAt = null;
     _dailySpecials = const [];
     if (_subscriptionStateRefreshing) {
       _subscriptionStateRefreshing = false;
@@ -1980,8 +1984,10 @@ class _RestaurantCreateCouponScreenState
       );
       _hasCouponPostingAccess = false;
       _hasUsedTrial = false;
+      _cancelAtPeriodEnd = false;
       _subscriptionStatus = 'inactive';
       _trialEndsAt = null;
+      _subscriptionEndsAt = null;
       if (mounted) {
         setState(() {
           profileLoading = false;
@@ -2041,6 +2047,7 @@ class _RestaurantCreateCouponScreenState
         data,
       );
       _hasUsedTrial = data?['hasUsedTrial'] == true;
+      _cancelAtPeriodEnd = data?['cancelAtPeriodEnd'] == true;
       _subscriptionStatus =
           ((data?['subscriptionStatus'] as String?) ?? 'inactive')
               .trim()
@@ -2049,6 +2056,10 @@ class _RestaurantCreateCouponScreenState
       _trialEndsAt = rawTrialEndsAt is Timestamp
           ? rawTrialEndsAt.toDate()
           : rawTrialEndsAt as DateTime?;
+      final rawSubscriptionEndsAt = data?['subscriptionEndsAt'];
+      _subscriptionEndsAt = rawSubscriptionEndsAt is Timestamp
+          ? rawSubscriptionEndsAt.toDate()
+          : rawSubscriptionEndsAt as DateTime?;
 
       if (data != null) {
         restaurantNameController.text =
@@ -2170,8 +2181,10 @@ class _RestaurantCreateCouponScreenState
           'Could not load your BiteSaver owner tools right now. Please try again.';
       _hasCouponPostingAccess = false;
       _hasUsedTrial = false;
+      _cancelAtPeriodEnd = false;
       _subscriptionStatus = 'inactive';
       _trialEndsAt = null;
+      _subscriptionEndsAt = null;
     }
 
     if (mounted &&
@@ -2217,15 +2230,22 @@ class _RestaurantCreateCouponScreenState
       final trialEndsAt = rawTrialEndsAt is Timestamp
           ? rawTrialEndsAt.toDate()
           : rawTrialEndsAt as DateTime?;
+      final rawSubscriptionEndsAt = data['subscriptionEndsAt'];
+      final subscriptionEndsAt = rawSubscriptionEndsAt is Timestamp
+          ? rawSubscriptionEndsAt.toDate()
+          : rawSubscriptionEndsAt as DateTime?;
       final hasCouponPostingAccess =
           RestaurantAccountService.hasCouponPostingAccess(data);
       final hasUsedTrial = data['hasUsedTrial'] == true;
+      final cancelAtPeriodEnd = data['cancelAtPeriodEnd'] == true;
 
       if (_isCurrentOwnerAction(action)) {
         setState(() {
           _hasUsedTrial = hasUsedTrial;
+          _cancelAtPeriodEnd = cancelAtPeriodEnd;
           _subscriptionStatus = subscriptionStatus;
           _trialEndsAt = trialEndsAt;
+          _subscriptionEndsAt = subscriptionEndsAt;
           _hasCouponPostingAccess = hasCouponPostingAccess;
         });
         return true;
@@ -2604,15 +2624,24 @@ class _RestaurantCreateCouponScreenState
     if (hasValidTrial) {
       final remainingDays = _trialEndsAt!.difference(now).inDays.clamp(0, 9999);
       title = 'Trial active';
-      message = remainingDays <= 0
-          ? 'Trial ends ${_formatShortDate(_trialEndsAt!)}'
-          : 'Ends ${_formatShortDate(_trialEndsAt!)} • $remainingDays day${remainingDays == 1 ? '' : 's'} remaining';
+      if (_cancelAtPeriodEnd) {
+        message =
+            'Cancels at end of trial • ${_formatShortDate(_trialEndsAt!)} • '
+            '$remainingDays day${remainingDays == 1 ? '' : 's'} remaining';
+      } else {
+        message = remainingDays <= 0
+            ? 'Trial ends ${_formatShortDate(_trialEndsAt!)}'
+            : 'Ends ${_formatShortDate(_trialEndsAt!)} • $remainingDays day${remainingDays == 1 ? '' : 's'} remaining';
+      }
       accentColor = const Color(0xFF2563EB);
       icon = Icons.schedule_outlined;
     } else if (_subscriptionStatus == 'active' || _hasCouponPostingAccess) {
       title = 'Subscription active';
-      message =
-          'Your restaurant can post coupons and daily specials right now.';
+      message = _subscriptionStatus == 'active' && _cancelAtPeriodEnd
+          ? _subscriptionEndsAt == null
+                ? 'Cancels at end of billing period.'
+                : 'Cancels at end of billing period • ${_formatShortDate(_subscriptionEndsAt!)}'
+          : 'Your restaurant can post coupons and daily specials right now.';
       accentColor = const Color(0xFF15803D);
       icon = Icons.verified_outlined;
     } else {
