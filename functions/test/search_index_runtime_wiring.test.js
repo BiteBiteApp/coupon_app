@@ -73,6 +73,16 @@ const couponAdminPagedCallables = Object.freeze({
   listCouponAdminInviteHistoryPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
 });
 
+const ratingAdminPagedCallables = Object.freeze({
+  searchRatingAdminRestaurantsPage: [
+    "SEARCH_PAGINATION_CURSOR_KEY",
+    "GOOGLE_MAPS_API_KEY",
+  ],
+  listRatingAdminDirectoryPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
+  listRatingAdminQueuePage: ["SEARCH_PAGINATION_CURSOR_KEY"],
+  listRatingAdminInviteHistoryPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
+});
+
 function loadCompiledIndexWithRuntimeHarness() {
   const state = {globalOptions: null};
   const fakeDatabase = {};
@@ -247,6 +257,52 @@ test("all Coupon Admin paged callables reject unauthenticated and non-Admin call
   }
 });
 
+test("exactly four Rating Admin paged v2 callables use least-privilege secrets", () => {
+  const runtime = loadCompiledIndexWithRuntimeHarness();
+  for (const [name, expectedSecrets] of Object.entries(
+    ratingAdminPagedCallables,
+  )) {
+    const exported = runtime.exports[name];
+    assert.equal(typeof exported, "function", name);
+    assert.equal(exported.__endpoint.platform, "gcfv2", name);
+    assert.deepEqual(exported.__endpoint.region, ["us-central1"], name);
+    assert.deepEqual(
+      [...exported.__endpoint.secretEnvironmentVariables].sort(),
+      [...expectedSecrets].sort(),
+      name,
+    );
+    assert.equal(Object.hasOwn(exported.__endpoint, "httpsTrigger"), false, name);
+  }
+  assert.equal(
+    Object.keys(runtime.exports).filter((name) =>
+      name.startsWith("searchRatingAdmin") ||
+      name.startsWith("listRatingAdmin")).length,
+    4,
+  );
+});
+
+test("all Rating Admin paged callables authorize before request or data access", async () => {
+  const runtime = loadCompiledIndexWithRuntimeHarness();
+  for (const name of Object.keys(ratingAdminPagedCallables)) {
+    await assert.rejects(
+      runtime.exports[name]({data: {}, auth: null}),
+      (error) => error.code === "permission-denied",
+      name + " unauthenticated",
+    );
+    await assert.rejects(
+      runtime.exports[name]({
+        data: {},
+        auth: {
+          uid: "not-admin",
+          token: {email: "not-admin@example.test"},
+        },
+      }),
+      (error) => error.code === "permission-denied",
+      name + " non-Admin",
+    );
+  }
+});
+
 test("existing geohash triggers retain their original exact paths", () => {
   const runtime = loadCompiledIndexWithRuntimeHarness();
   assert.equal(
@@ -270,6 +326,8 @@ test("current Firestore rules leave all new private collections unmatched and de
     "private_search_index_jobs",
     "private_admin_restaurant_search_sessions",
     "private_admin_restaurant_search_active_sessions",
+    "private_rating_admin_restaurant_search_sessions",
+    "private_rating_admin_restaurant_search_active_sessions",
   ]) {
     assert.equal(rules.includes(collection), false, collection);
   }

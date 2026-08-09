@@ -187,7 +187,7 @@ void main() {
     expect(calls, 1);
   });
 
-  testWidgets('shows 25, reveals returned results locally, and resets', (
+  testWidgets('shows the bounded returned result without local reveal', (
     tester,
   ) async {
     var calls = 0;
@@ -212,8 +212,8 @@ void main() {
     );
 
     await _submitSearch(tester);
-    expect(_resultCards(), findsNWidgets(25));
-    expect(find.text('Showing 25 of 50 returned restaurants.'), findsOneWidget);
+    expect(_resultCards(), findsNWidgets(50));
+    expect(find.text('Showing 50 of 50 returned restaurants.'), findsOneWidget);
     expect(
       find.text(
         'Results were limited. Narrow the radius or add a restaurant name to refine the search.',
@@ -221,17 +221,10 @@ void main() {
       findsOneWidget,
     );
 
-    await _scrollToWidget(tester, _showMoreButton);
-    await tester.tap(_showMoreButton);
-    await tester.pump();
-    expect(_resultCards(), findsNWidgets(50));
-    expect(calls, 1);
-    expect(_showMoreButton, findsNothing);
-
     await _tapSearch(tester);
     await tester.pumpAndSettle();
     expect(calls, 2);
-    expect(_resultCards(), findsNWidgets(25));
+    expect(_resultCards(), findsNWidgets(50));
   });
 
   testWidgets('cards show controlled fields and preserve actual action IDs', (
@@ -569,10 +562,6 @@ final Finder _nameField = find.byKey(
 final Finder _searchButton = find.byKey(
   const ValueKey('rating-admin-search-button'),
 );
-final Finder _showMoreButton = find.byKey(
-  const ValueKey('rating-admin-show-more-button'),
-);
-
 Finder _resultCards() => find.byWidgetPredicate(
   (widget) =>
       widget.key is ValueKey<String> &&

@@ -8,16 +8,19 @@ import '../models/bitescore_restaurant.dart';
 import '../models/contribution_point_ledger_entry.dart';
 import '../models/dish_review.dart';
 import '../models/restaurant_claim_request.dart';
+import '../models/rating_admin_paging_models.dart';
 import '../services/app_error_text.dart';
 import '../services/admin_link_generation_service.dart';
 import '../services/bitescore_service.dart';
 import '../services/contribution_points_service.dart';
 import '../services/restaurant_invite_service.dart';
+import '../services/rating_admin_paging_service.dart';
 import '../utils/phone_number_formatter.dart';
 import '../widgets/bitescore_category_picker.dart';
 import '../widgets/biterater_theme.dart';
 import '../widgets/clickable_phone_text.dart';
 import '../widgets/restaurant_invite_admin_panel.dart';
+import '../widgets/rating_admin_paged_dashboard.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
 import 'expert_badge_gallery_screen.dart';
 
@@ -46,6 +49,7 @@ class BiteScoreAdminScreen extends StatefulWidget {
   final AdminBiteScoreRestaurantDeleteAction? deleteRestaurant;
   final AdminBiteScoreInviteAction? createClaimInvite;
   final AdminBiteScoreDishLoader? loadRestaurantDishes;
+  final RatingAdminPagingService? pagingService;
 
   const BiteScoreAdminScreen({
     super.key,
@@ -54,6 +58,7 @@ class BiteScoreAdminScreen extends StatefulWidget {
     @visibleForTesting this.deleteRestaurant,
     @visibleForTesting this.createClaimInvite,
     @visibleForTesting this.loadRestaurantDishes,
+    @visibleForTesting this.pagingService,
   });
 
   @override
@@ -82,6 +87,32 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
       _selectedDishRestaurant = restaurant;
     });
     _tabController.animateTo(1);
+  }
+
+  Future<bool?> _editPagedRestaurant(BitescoreRestaurant restaurant) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) =>
+          _BiteScoreRestaurantEditDialog(restaurant: restaurant),
+    );
+  }
+
+  Future<bool?> _editPagedDish(BitescoreDish dish) {
+    return showDialog<bool>(
+      context: context,
+      builder: (context) => _BiteScoreDishEditDialog(dish: dish),
+    );
+  }
+
+  Future<void> _viewPagedRestaurant(BitescoreRestaurant restaurant) {
+    return Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => BiteScoreRestaurantDishesScreen(
+          restaurant: restaurant,
+          entries: const <BiteScoreHomeEntry>[],
+        ),
+      ),
+    );
   }
 
   @override
@@ -133,23 +164,57 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
             child: TabBarView(
               controller: _tabController,
               children: [
-                _BiteScoreRestaurantAdminList(
-                  onManageDishes: _openRestaurantDishes,
-                  searchRestaurants: widget.searchRestaurants,
-                  loadRestaurant: widget.loadRestaurant,
-                  deleteRestaurant: widget.deleteRestaurant,
-                  createClaimInvite: widget.createClaimInvite,
+                if (widget.searchRestaurants != null)
+                  _BiteScoreRestaurantAdminList(
+                    onManageDishes: _openRestaurantDishes,
+                    searchRestaurants: widget.searchRestaurants,
+                    loadRestaurant: widget.loadRestaurant,
+                    deleteRestaurant: widget.deleteRestaurant,
+                    createClaimInvite: widget.createClaimInvite,
+                  )
+                else
+                  RatingAdminRestaurantPagedView(
+                    service: widget.pagingService,
+                    onManageDishes: _openRestaurantDishes,
+                    onEditRestaurant: _editPagedRestaurant,
+                    loadRestaurant: widget.loadRestaurant,
+                    deleteRestaurant: widget.deleteRestaurant,
+                    createClaimInvite: widget.createClaimInvite,
+                  ),
+                if (widget.loadRestaurantDishes != null)
+                  _BiteScoreDishAdminList(
+                    selectedRestaurant: _selectedDishRestaurant,
+                    loadDishes: widget.loadRestaurantDishes,
+                  )
+                else
+                  RatingAdminDishPagedView(
+                    selectedRestaurant: _selectedDishRestaurant,
+                    service: widget.pagingService,
+                    onEditDish: _editPagedDish,
+                  ),
+                RatingAdminReviewPagedView(service: widget.pagingService),
+                RatingAdminQueuePagedView(
+                  kind: RatingAdminQueueKind.reportedReviews,
+                  service: widget.pagingService,
+                  onEditRestaurant: _editPagedRestaurant,
+                  onEditDish: _editPagedDish,
                 ),
-                _BiteScoreDishAdminList(
-                  selectedRestaurant: _selectedDishRestaurant,
-                  loadDishes: widget.loadRestaurantDishes,
+                RatingAdminDataReportsPagedView(
+                  service: widget.pagingService,
+                  onEditRestaurant: _editPagedRestaurant,
+                  onEditDish: _editPagedDish,
                 ),
-                const _BiteScoreReviewAdminList(),
-                const _BiteScoreReportedReviewAdminList(),
-                const _BiteScoreDataReportsAdminList(),
-                const _BiteScoreClaimAdminList(),
+                RatingAdminQueuePagedView(
+                  kind: RatingAdminQueueKind.claims,
+                  service: widget.pagingService,
+                  onEditRestaurant: _editPagedRestaurant,
+                  onEditDish: _editPagedDish,
+                ),
                 const _BiteScoreDishSuggestionAdminList(),
-                const _BiteScoreApprovedOwnershipAdminList(),
+                RatingAdminClaimedRestaurantsPagedView(
+                  service: widget.pagingService,
+                  onViewRestaurant: _viewPagedRestaurant,
+                ),
                 const _BiteScoreUsersAdminList(),
                 const _BiteScoreUserPointsAdminList(),
                 if (kDebugMode)
@@ -329,7 +394,6 @@ class _BiteScoreRestaurantAdminList extends StatefulWidget {
 
 class _BiteScoreRestaurantAdminListState
     extends State<_BiteScoreRestaurantAdminList> {
-  static const int _resultPageSize = 25;
   static const String _truncatedResultsMessage =
       'Results were limited. Narrow the radius or add a restaurant name to '
       'refine the search.';
@@ -344,7 +408,6 @@ class _BiteScoreRestaurantAdminListState
 
   int _radiusMiles = AdminLinkGenerationService.defaultRadiusMiles;
   AdminBiteScoreStatus _status = AdminBiteScoreStatus.all;
-  int _visibleResultCount = _resultPageSize;
   bool _isSearching = false;
   bool _hasSubmittedSearch = false;
   AdminRestaurantLinkSearchResult? _searchResult;
@@ -644,7 +707,6 @@ class _BiteScoreRestaurantAdminListState
       _searchResult = null;
       _searchError = null;
       _selectedRestaurantLoadError = null;
-      _visibleResultCount = _resultPageSize;
     });
 
     try {
@@ -969,9 +1031,7 @@ class _BiteScoreRestaurantAdminListState
       );
     }
 
-    final visibleResults = result.results
-        .take(_visibleResultCount)
-        .toList(growable: false);
+    final visibleResults = result.results;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -1008,20 +1068,6 @@ class _BiteScoreRestaurantAdminListState
         ),
         const SizedBox(height: 10),
         ...visibleResults.map(_buildSearchResultCard),
-        if (visibleResults.length < result.results.length)
-          Align(
-            alignment: Alignment.center,
-            child: OutlinedButton.icon(
-              key: const ValueKey('rating-admin-show-more-button'),
-              onPressed: () {
-                setState(() {
-                  _visibleResultCount += _resultPageSize;
-                });
-              },
-              icon: const Icon(Icons.expand_more),
-              label: const Text('Show 25 More'),
-            ),
-          ),
       ],
     );
   }

@@ -112,6 +112,14 @@ import {
 } from "./coupon_admin_paging.js";
 import { searchCouponAdminRestaurantsPageHandler } from "./coupon_admin_restaurant_search.js";
 import { createFirestoreCouponAdminRadiusStore } from "./coupon_admin_radius_sessions.js";
+import {
+  createFirestoreRatingAdminPagingDatabase,
+  listRatingAdminDirectoryPageHandler,
+  listRatingAdminInviteHistoryPageHandler,
+  listRatingAdminQueuePageHandler,
+} from "./rating_admin_paging.js";
+import { searchRatingAdminRestaurantsPageHandler } from "./rating_admin_restaurant_search.js";
+import { createFirestoreRatingAdminRadiusStore } from "./rating_admin_radius_sessions.js";
 
 initializeApp();
 
@@ -129,6 +137,8 @@ const googleMapsApiKey = defineSecret("GOOGLE_MAPS_API_KEY");
 const searchPaginationCursorKey = defineSecret(couponAdminCursorSecretName);
 const couponAdminPagingDatabase = createFirestoreCouponAdminPagingDatabase(db);
 const couponAdminRadiusStore = createFirestoreCouponAdminRadiusStore(db);
+const ratingAdminPagingDatabase = createFirestoreRatingAdminPagingDatabase(db);
+const ratingAdminRadiusStore = createFirestoreRatingAdminRadiusStore(db);
 const stripeCheckoutSuccessUrl =
   "https://coupon-app-29446.web.app/stripe-success.html";
 const stripeCheckoutCancelUrl =
@@ -1523,6 +1533,63 @@ export const listCouponAdminInviteHistoryPage = onCall(
       adminUid: admin.uid,
       cursorSecret: searchPaginationCursorKey.value(),
       database: couponAdminPagingDatabase,
+    });
+  },
+);
+
+export const searchRatingAdminRestaurantsPage = onCall(
+  {
+    secrets: [searchPaginationCursorKey, googleMapsApiKey],
+  },
+  async (request) => {
+    const admin = requireAdminInviteAccess(request);
+    return searchRatingAdminRestaurantsPageHandler(request.data, {
+      adminUid: admin.uid,
+      cursorSecret: searchPaginationCursorKey.value(),
+      database: ratingAdminPagingDatabase,
+      radiusStore: ratingAdminRadiusStore,
+      geocodeLocation: (locationQuery) =>
+        geocodeAdminLocationQuery(
+          locationQuery,
+          googleMapsApiKey.value(),
+          (url, init) => fetch(url, init),
+        ),
+    });
+  },
+);
+
+export const listRatingAdminDirectoryPage = onCall(
+  { secrets: [searchPaginationCursorKey] },
+  async (request) => {
+    const admin = requireAdminInviteAccess(request);
+    return listRatingAdminDirectoryPageHandler(request.data, {
+      adminUid: admin.uid,
+      cursorSecret: searchPaginationCursorKey.value(),
+      database: ratingAdminPagingDatabase,
+    });
+  },
+);
+
+export const listRatingAdminQueuePage = onCall(
+  { secrets: [searchPaginationCursorKey] },
+  async (request) => {
+    const admin = requireAdminInviteAccess(request);
+    return listRatingAdminQueuePageHandler(request.data, {
+      adminUid: admin.uid,
+      cursorSecret: searchPaginationCursorKey.value(),
+      database: ratingAdminPagingDatabase,
+    });
+  },
+);
+
+export const listRatingAdminInviteHistoryPage = onCall(
+  { secrets: [searchPaginationCursorKey] },
+  async (request) => {
+    const admin = requireAdminInviteAccess(request);
+    return listRatingAdminInviteHistoryPageHandler(request.data, {
+      adminUid: admin.uid,
+      cursorSecret: searchPaginationCursorKey.value(),
+      database: ratingAdminPagingDatabase,
     });
   },
 );
