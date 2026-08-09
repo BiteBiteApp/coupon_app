@@ -193,25 +193,33 @@ class _RatingAdminRestaurantPagedViewState
     if (identical(_preparingController, controller)) return;
     _preparingController = controller;
     try {
-      while (mounted &&
-          generation == _generation &&
-          identical(controller, _controller) &&
-          controller.page?.preparation?.state ==
-              PagePreparationState.preparing &&
-          controller.page?.hasNext == true) {
+      while (_shouldContinuePreparation(controller, generation)) {
         await Future<void>.delayed(const Duration(milliseconds: 750));
-        if (!mounted ||
-            generation != _generation ||
-            !identical(controller, _controller)) {
+        if (!_shouldContinuePreparation(controller, generation)) {
           return;
         }
         await controller.nextPage();
+        if (!_shouldContinuePreparation(controller, generation)) {
+          return;
+        }
       }
     } finally {
       if (identical(_preparingController, controller)) {
         _preparingController = null;
       }
     }
+  }
+
+  bool _shouldContinuePreparation(
+    PagedQueryController<RatingAdminRestaurantRecord> controller,
+    int generation,
+  ) {
+    return mounted &&
+        generation == _generation &&
+        identical(controller, _controller) &&
+        controller.error == null &&
+        controller.page?.preparation?.state == PagePreparationState.preparing &&
+        controller.page?.hasNext == true;
   }
 
   Future<void> _refreshResults(
