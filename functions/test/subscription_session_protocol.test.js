@@ -683,8 +683,10 @@ test("runtime, region, secret bindings, exports, production caller, and webhook 
       "listCouponAdminInviteHistoryPage",
       "listCouponAdminQueuePage",
       "listRatingAdminDirectoryPage",
+      "listRatingAdminContributionLedgerPage",
       "listRatingAdminInviteHistoryPage",
       "listRatingAdminQueuePage",
+      "listRatingAdminUserPointsPage",
       "listBiteSaverSubscriptionReturnEvents",
       "maintainBiteSaverCouponOfferSearchIndex",
       "maintainBiteSaverDailySpecialSearchIndex",
@@ -708,6 +710,7 @@ test("runtime, region, secret bindings, exports, production caller, and webhook 
       "redeemBiteSaverSubscriptionReturn",
       "searchCouponAdminRestaurantsPage",
       "searchRatingAdminRestaurantsPage",
+      "searchRatingAdminUsersPage",
     ].sort(),
   );
   for (const exportName of [

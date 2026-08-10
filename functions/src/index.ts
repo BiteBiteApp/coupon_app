@@ -121,6 +121,12 @@ import {
 import { searchRatingAdminRestaurantsPageHandler } from "./rating_admin_restaurant_search.js";
 import { createFirestoreRatingAdminRadiusStore } from "./rating_admin_radius_sessions.js";
 import {
+  createFirestoreRatingAdminPeoplePagingDatabase,
+  listRatingAdminContributionLedgerPageHandler,
+  listRatingAdminUserPointsPageHandler,
+  searchRatingAdminUsersPageHandler,
+} from "./rating_admin_people_paging.js";
+import {
   createFirestoreAdminUserDirectoryDatabase,
   handleAdminUserSourceWrite,
 } from "./admin_user_directory_maintenance.js";
@@ -144,6 +150,8 @@ const couponAdminPagingDatabase = createFirestoreCouponAdminPagingDatabase(db);
 const couponAdminRadiusStore = createFirestoreCouponAdminRadiusStore(db);
 const ratingAdminPagingDatabase = createFirestoreRatingAdminPagingDatabase(db);
 const ratingAdminRadiusStore = createFirestoreRatingAdminRadiusStore(db);
+const ratingAdminPeoplePagingDatabase =
+  createFirestoreRatingAdminPeoplePagingDatabase(db);
 const stripeCheckoutSuccessUrl =
   "https://coupon-app-29446.web.app/stripe-success.html";
 const stripeCheckoutCancelUrl =
@@ -1595,6 +1603,42 @@ export const listRatingAdminInviteHistoryPage = onCall(
       adminUid: admin.uid,
       cursorSecret: searchPaginationCursorKey.value(),
       database: ratingAdminPagingDatabase,
+    });
+  },
+);
+
+export const searchRatingAdminUsersPage = onCall(
+  { secrets: [searchPaginationCursorKey] },
+  async (request) => {
+    const admin = requireAdminInviteAccess(request);
+    return searchRatingAdminUsersPageHandler(request.data, {
+      adminUid: admin.uid,
+      cursorSecret: searchPaginationCursorKey.value(),
+      database: ratingAdminPeoplePagingDatabase,
+    });
+  },
+);
+
+export const listRatingAdminUserPointsPage = onCall(
+  { secrets: [searchPaginationCursorKey] },
+  async (request) => {
+    const admin = requireAdminInviteAccess(request);
+    return listRatingAdminUserPointsPageHandler(request.data, {
+      adminUid: admin.uid,
+      cursorSecret: searchPaginationCursorKey.value(),
+      database: ratingAdminPeoplePagingDatabase,
+    });
+  },
+);
+
+export const listRatingAdminContributionLedgerPage = onCall(
+  { secrets: [searchPaginationCursorKey] },
+  async (request) => {
+    const admin = requireAdminInviteAccess(request);
+    return listRatingAdminContributionLedgerPageHandler(request.data, {
+      adminUid: admin.uid,
+      cursorSecret: searchPaginationCursorKey.value(),
+      database: ratingAdminPeoplePagingDatabase,
     });
   },
 );

@@ -108,6 +108,9 @@ const ratingAdminPagedCallables = Object.freeze({
   listRatingAdminDirectoryPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
   listRatingAdminQueuePage: ["SEARCH_PAGINATION_CURSOR_KEY"],
   listRatingAdminInviteHistoryPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
+  searchRatingAdminUsersPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
+  listRatingAdminUserPointsPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
+  listRatingAdminContributionLedgerPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
 });
 
 function loadCompiledIndexWithRuntimeHarness() {
@@ -306,7 +309,7 @@ test("all Coupon Admin paged callables reject unauthenticated and non-Admin call
   }
 });
 
-test("exactly four Rating Admin paged v2 callables use least-privilege secrets", () => {
+test("exactly seven Rating Admin paged v2 callables use least-privilege secrets", () => {
   const runtime = loadCompiledIndexWithRuntimeHarness();
   for (const [name, expectedSecrets] of Object.entries(
     ratingAdminPagedCallables,
@@ -326,7 +329,7 @@ test("exactly four Rating Admin paged v2 callables use least-privilege secrets",
     Object.keys(runtime.exports).filter((name) =>
       name.startsWith("searchRatingAdmin") ||
       name.startsWith("listRatingAdmin")).length,
-    4,
+    7,
   );
 });
 
