@@ -120,6 +120,10 @@ import {
 } from "./rating_admin_paging.js";
 import { searchRatingAdminRestaurantsPageHandler } from "./rating_admin_restaurant_search.js";
 import { createFirestoreRatingAdminRadiusStore } from "./rating_admin_radius_sessions.js";
+import {
+  createFirestoreAdminUserDirectoryDatabase,
+  handleAdminUserSourceWrite,
+} from "./admin_user_directory_maintenance.js";
 
 initializeApp();
 
@@ -130,6 +134,7 @@ setGlobalOptions({
 
 const db: Firestore = getFirestore();
 const searchIndexDatabase = createFirestoreSearchIndexDatabase(db);
+const adminUserDirectoryDatabase = createFirestoreAdminUserDirectoryDatabase(db);
 const stripeSecret = defineSecret("STRIPE_SECRET_KEY");
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
@@ -3865,6 +3870,215 @@ export const maintainBiteSaverDailySpecialSearchIndex = onDocumentWritten(
     );
   },
 );
+
+export const maintainAdminUserDirectoryFromRestaurantAccount = onDocumentWritten(
+  "restaurant_accounts/{restaurantAccountId}",
+  async (event) => {
+    await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+      sourceKind: "restaurantAccount",
+      sourceDocumentId: event.params.restaurantAccountId as string,
+      before: event.data?.before.exists
+        ? event.data.before.data() as Record<string, unknown>
+        : null,
+      after: event.data?.after.exists
+        ? event.data.after.data() as Record<string, unknown>
+        : null,
+      now: new Date(),
+    });
+  },
+);
+
+export const maintainAdminUserDirectoryFromUserProfile = onDocumentWritten(
+  "user_profiles/{userId}",
+  async (event) => {
+    await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+      sourceKind: "userProfile",
+      sourceDocumentId: event.params.userId as string,
+      before: event.data?.before.exists
+        ? event.data.before.data() as Record<string, unknown>
+        : null,
+      after: event.data?.after.exists
+        ? event.data.after.data() as Record<string, unknown>
+        : null,
+      now: new Date(),
+    });
+  },
+);
+
+export const maintainAdminUserDirectoryFromPublicReviewerProfile =
+  onDocumentWritten(
+    "public_reviewer_profiles/{userId}",
+    async (event) => {
+      await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+        sourceKind: "publicReviewerProfile",
+        sourceDocumentId: event.params.userId as string,
+        before: event.data?.before.exists
+          ? event.data.before.data() as Record<string, unknown>
+          : null,
+        after: event.data?.after.exists
+          ? event.data.after.data() as Record<string, unknown>
+          : null,
+        now: new Date(),
+      });
+    },
+  );
+
+export const maintainAdminUserDirectoryFromBiteScoreRestaurant =
+  onDocumentWritten(
+    "bitescore_restaurants/{restaurantId}",
+    async (event) => {
+      await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+        sourceKind: "biteScoreRestaurant",
+        sourceDocumentId: event.params.restaurantId as string,
+        before: event.data?.before.exists
+          ? event.data.before.data() as Record<string, unknown>
+          : null,
+        after: event.data?.after.exists
+          ? event.data.after.data() as Record<string, unknown>
+          : null,
+        now: new Date(),
+      });
+    },
+  );
+
+export const maintainAdminUserDirectoryFromRestaurantClaimRequest =
+  onDocumentWritten(
+    "restaurant_claim_requests/{claimRequestId}",
+    async (event) => {
+      await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+        sourceKind: "restaurantClaimRequest",
+        sourceDocumentId: event.params.claimRequestId as string,
+        before: event.data?.before.exists
+          ? event.data.before.data() as Record<string, unknown>
+          : null,
+        after: event.data?.after.exists
+          ? event.data.after.data() as Record<string, unknown>
+          : null,
+        now: new Date(),
+      });
+    },
+  );
+
+export const maintainAdminUserDirectoryFromDishReview = onDocumentWritten(
+  "dish_reviews/{reviewId}",
+  async (event) => {
+    await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+      sourceKind: "dishReview",
+      sourceDocumentId: event.params.reviewId as string,
+      before: event.data?.before.exists
+        ? event.data.before.data() as Record<string, unknown>
+        : null,
+      after: event.data?.after.exists
+        ? event.data.after.data() as Record<string, unknown>
+        : null,
+      now: new Date(),
+    });
+  },
+);
+
+export const maintainAdminUserDirectoryFromReviewReport = onDocumentWritten(
+  "review_reports/{reportId}",
+  async (event) => {
+    await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+      sourceKind: "reviewReport",
+      sourceDocumentId: event.params.reportId as string,
+      before: event.data?.before.exists
+        ? event.data.before.data() as Record<string, unknown>
+        : null,
+      after: event.data?.after.exists
+        ? event.data.after.data() as Record<string, unknown>
+        : null,
+      now: new Date(),
+    });
+  },
+);
+
+export const maintainAdminUserDirectoryFromRestaurantReport = onDocumentWritten(
+  "restaurant_reports/{reportId}",
+  async (event) => {
+    await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+      sourceKind: "restaurantReport",
+      sourceDocumentId: event.params.reportId as string,
+      before: event.data?.before.exists
+        ? event.data.before.data() as Record<string, unknown>
+        : null,
+      after: event.data?.after.exists
+        ? event.data.after.data() as Record<string, unknown>
+        : null,
+      now: new Date(),
+    });
+  },
+);
+
+export const maintainAdminUserDirectoryFromDishReport = onDocumentWritten(
+  "dish_reports/{reportId}",
+  async (event) => {
+    await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+      sourceKind: "dishReport",
+      sourceDocumentId: event.params.reportId as string,
+      before: event.data?.before.exists
+        ? event.data.before.data() as Record<string, unknown>
+        : null,
+      after: event.data?.after.exists
+        ? event.data.after.data() as Record<string, unknown>
+        : null,
+      now: new Date(),
+    });
+  },
+);
+
+export const maintainAdminUserDirectoryFromDuplicateRestaurantReport =
+  onDocumentWritten(
+    "duplicate_restaurant_reports/{reportId}",
+    async (event) => {
+      await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+        sourceKind: "duplicateRestaurantReport",
+        sourceDocumentId: event.params.reportId as string,
+        before: event.data?.before.exists
+          ? event.data.before.data() as Record<string, unknown>
+          : null,
+        after: event.data?.after.exists
+          ? event.data.after.data() as Record<string, unknown>
+          : null,
+        now: new Date(),
+      });
+    },
+  );
+
+export const maintainAdminUserDirectoryFromDishEditProposal = onDocumentWritten(
+  "dish_edit_proposals/{proposalId}",
+  async (event) => {
+    await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+      sourceKind: "dishEditProposal",
+      sourceDocumentId: event.params.proposalId as string,
+      before: event.data?.before.exists
+        ? event.data.before.data() as Record<string, unknown>
+        : null,
+      after: event.data?.after.exists
+        ? event.data.after.data() as Record<string, unknown>
+        : null,
+      now: new Date(),
+    });
+  },
+);
+
+export const maintainAdminUserDirectoryFromReviewFeedbackVote =
+  onDocumentWritten(
+    "review_feedback_votes/{voteId}",
+    async (event) => {
+      await handleAdminUserSourceWrite(adminUserDirectoryDatabase, {
+        sourceKind: "reviewFeedbackVote",
+        sourceDocumentId: event.params.voteId as string,
+        before: event.data?.before.exists
+          ? event.data.before.data() as Record<string, unknown>
+          : null,
+        after: event.data?.after.exists
+          ? event.data.after.data() as Record<string, unknown>
+          : null,
+        now: new Date(),
+      });
+    },
+  );
 
 export const processPrivateSearchIndexJob = onDocumentCreated(
   "private_search_index_jobs/{jobId}",

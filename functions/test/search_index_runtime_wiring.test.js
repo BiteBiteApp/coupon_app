@@ -63,6 +63,33 @@ const expectedTriggers = Object.freeze({
     "private_search_index_jobs/{jobId}",
 });
 
+const expectedAdminUserDirectoryTriggers = Object.freeze({
+  maintainAdminUserDirectoryFromRestaurantAccount:
+    "restaurant_accounts/{restaurantAccountId}",
+  maintainAdminUserDirectoryFromUserProfile:
+    "user_profiles/{userId}",
+  maintainAdminUserDirectoryFromPublicReviewerProfile:
+    "public_reviewer_profiles/{userId}",
+  maintainAdminUserDirectoryFromBiteScoreRestaurant:
+    "bitescore_restaurants/{restaurantId}",
+  maintainAdminUserDirectoryFromRestaurantClaimRequest:
+    "restaurant_claim_requests/{claimRequestId}",
+  maintainAdminUserDirectoryFromDishReview:
+    "dish_reviews/{reviewId}",
+  maintainAdminUserDirectoryFromReviewReport:
+    "review_reports/{reportId}",
+  maintainAdminUserDirectoryFromRestaurantReport:
+    "restaurant_reports/{reportId}",
+  maintainAdminUserDirectoryFromDishReport:
+    "dish_reports/{reportId}",
+  maintainAdminUserDirectoryFromDuplicateRestaurantReport:
+    "duplicate_restaurant_reports/{reportId}",
+  maintainAdminUserDirectoryFromDishEditProposal:
+    "dish_edit_proposals/{proposalId}",
+  maintainAdminUserDirectoryFromReviewFeedbackVote:
+    "review_feedback_votes/{voteId}",
+});
+
 const couponAdminPagedCallables = Object.freeze({
   searchCouponAdminRestaurantsPage: [
     "SEARCH_PAGINATION_CURSOR_KEY",
@@ -178,9 +205,31 @@ test("all prior exports remain and each search-index trigger is exported once", 
   for (const name of Object.keys(expectedTriggers)) {
     assert.equal(typeof runtime.exports[name], "function", name);
   }
+  for (const name of Object.keys(expectedAdminUserDirectoryTriggers)) {
+    assert.equal(typeof runtime.exports[name], "function", name);
+  }
   assert.equal(
     Object.keys(runtime.exports).filter((name) => Object.hasOwn(expectedTriggers, name)).length,
     Object.keys(expectedTriggers).length,
+  );
+});
+
+test("Admin user directory triggers use exact private paths and background-only metadata", () => {
+  const runtime = loadCompiledIndexWithRuntimeHarness();
+  for (const [name, documentPath] of Object.entries(expectedAdminUserDirectoryTriggers)) {
+    const endpoint = runtime.exports[name].__endpoint;
+    assert.equal(endpoint.platform, "gcfv2", name);
+    assert.deepEqual(endpoint.region, ["us-central1"], name);
+    assert.equal(endpoint.eventTrigger.eventType, "document.written", name);
+    assert.equal(endpoint.eventTrigger.eventFilterPathPatterns.document, documentPath, name);
+    assert.equal(Object.hasOwn(endpoint, "callableTrigger"), false, name);
+    assert.equal(Object.hasOwn(endpoint, "httpsTrigger"), false, name);
+    assert.equal(Object.hasOwn(endpoint, "secretEnvironmentVariables"), false, name);
+  }
+  assert.equal(
+    Object.keys(runtime.exports).filter((name) =>
+      Object.hasOwn(expectedAdminUserDirectoryTriggers, name)).length,
+    12,
   );
 });
 
