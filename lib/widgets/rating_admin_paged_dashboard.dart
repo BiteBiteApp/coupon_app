@@ -357,6 +357,34 @@ class _RatingAdminRestaurantPagedViewState
     }
   }
 
+  Widget _identifierRow({
+    required String label,
+    required String value,
+    required String copyKey,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: <Widget>[
+        Expanded(
+          child: SelectableText(
+            label + ': ' + value,
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        IconButton(
+          key: ValueKey(copyKey),
+          tooltip: 'Copy ' + label,
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          onPressed: () async {
+            await Clipboard.setData(ClipboardData(text: value));
+            if (mounted) _snack(context, label + ' copied.');
+          },
+          icon: const Icon(Icons.copy_outlined, size: 20),
+        ),
+      ],
+    );
+  }
+
   void _showInvites() {
     showDialog<void>(
       context: context,
@@ -586,6 +614,24 @@ class _RatingAdminRestaurantPagedViewState
                                   ClickablePhoneText(
                                     phone: record.phone,
                                     prefix: 'Phone: ',
+                                  ),
+                                const SizedBox(height: 6),
+                                _identifierRow(
+                                  label: 'Restaurant ID',
+                                  value: record.documentId,
+                                  copyKey:
+                                      'rating-admin-copy-restaurant-id-' +
+                                      record.documentId,
+                                ),
+                                if (record.isClaimed &&
+                                    record.ownerUserId?.trim().isNotEmpty ==
+                                        true)
+                                  _identifierRow(
+                                    label: 'Owner UID',
+                                    value: record.ownerUserId!,
+                                    copyKey:
+                                        'rating-admin-copy-owner-uid-' +
+                                        record.documentId,
                                   ),
                                 Wrap(
                                   spacing: 8,

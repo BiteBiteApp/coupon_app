@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:coupon_app/models/pagination/paged_models.dart';
 import 'package:coupon_app/models/coupon_admin_paging_models.dart';
 import 'package:coupon_app/screens/admin_review_screen.dart';
 import 'package:coupon_app/services/coupon_admin_paging_service.dart';
+import 'package:coupon_app/services/restaurant_invite_service.dart';
 
 Map<String, Object?> _page(
   List<Map<String, Object?>> items, {
@@ -42,26 +44,30 @@ Map<String, Object?> _page(
   'preparation': ?preparation,
 };
 
-Map<String, Object?> _restaurant(String id, {String? name}) =>
-    <String, Object?>{
-      'source': 'biteSaver',
-      'documentId': id,
-      'actionId': 'uid-$id',
-      'restaurantName': name ?? 'Restaurant $id',
-      'streetAddress': '1 Main Street',
-      'city': 'Inverness',
-      'state': 'FL',
-      'zipCode': '34450',
-      'phone': '5550100',
-      'website': 'https://example.test',
-      'latitude': 28.85,
-      'longitude': -82.49,
-      'distanceMiles': null,
-      'approvalStatus': 'approved',
-      'couponApplicationSubmitted': true,
-      'uid': 'uid-$id',
-      'linkedBiteScoreRestaurantId': null,
-    };
+Map<String, Object?> _restaurant(
+  String id, {
+  String? name,
+  String? actionId,
+  String? uid,
+}) => <String, Object?>{
+  'source': 'biteSaver',
+  'documentId': id,
+  'actionId': actionId ?? uid ?? 'uid-$id',
+  'restaurantName': name ?? 'Restaurant $id',
+  'streetAddress': '1 Main Street',
+  'city': 'Inverness',
+  'state': 'FL',
+  'zipCode': '34450',
+  'phone': '5550100',
+  'website': 'https://example.test',
+  'latitude': 28.85,
+  'longitude': -82.49,
+  'distanceMiles': null,
+  'approvalStatus': 'approved',
+  'couponApplicationSubmitted': true,
+  'uid': uid ?? 'uid-$id',
+  'linkedBiteScoreRestaurantId': null,
+};
 
 Map<String, Object?> _pending(String id) => <String, Object?>{
   'id': id,
@@ -240,6 +246,14 @@ Future<void> _selectExactZipAndSearch(
   await tester.pumpAndSettle();
 }
 
+Future<void> _tapCoupons(WidgetTester tester) async {
+  final finder = find.text('Coupons');
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
+  await tester.pumpAndSettle();
+}
+
 void main() {
   testWidgets('four Coupon Admin tabs render without any eager queue read', (
     tester,
@@ -259,8 +273,7 @@ void main() {
       final backend = _Backend();
       await _pumpScreen(tester, backend);
       await _selectExactZipAndSearch(tester);
-      await tester.tap(find.text('Coupons'));
-      await tester.pumpAndSettle();
+      await _tapCoupons(tester);
       expect(
         backend.calls.map((call) => call.$1),
         containsAll(<String>[
@@ -682,8 +695,7 @@ void main() {
       backend.calls.where((call) => call.$1 == 'listCouponAdminCouponsPage'),
       isEmpty,
     );
-    await tester.tap(find.text('Coupons'));
-    await tester.pumpAndSettle();
+    await _tapCoupons(tester);
     final couponCall = backend.calls.singleWhere(
       (call) => call.$1 == 'listCouponAdminCouponsPage',
     );
@@ -718,8 +730,7 @@ void main() {
     };
     await _pumpScreen(tester, backend);
     await _selectExactZipAndSearch(tester);
-    await tester.tap(find.text('Coupons'));
-    await tester.pumpAndSettle();
+    await _tapCoupons(tester);
     final next = find.byKey(const ValueKey('pagination-next'));
     await tester.ensureVisible(next);
     await tester.pumpAndSettle();
@@ -735,12 +746,9 @@ void main() {
       final backend = _Backend();
       await _pumpScreen(tester, backend);
       await _selectExactZipAndSearch(tester);
-      await tester.tap(find.text('Coupons'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Coupons'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('Coupons'));
-      await tester.pumpAndSettle();
+      await _tapCoupons(tester);
+      await _tapCoupons(tester);
+      await _tapCoupons(tester);
       expect(
         backend.calls
             .where((call) => call.$1 == 'listCouponAdminCouponsPage')
@@ -776,6 +784,186 @@ void main() {
     );
   });
 
+  testWidgets(
+    'Coupon results keep account and owner identity distinct and copy raw IDs',
+    (tester) async {
+      final copied = <String>[];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, (call) async {
+            if (call.method == 'Clipboard.setData') {
+              copied.add(
+                (call.arguments as Map<Object?, Object?>)['text']! as String,
+              );
+            }
+            return null;
+          });
+      addTearDown(
+        () => TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(SystemChannels.platform, null),
+      );
+
+      final backend = _Backend()
+        ..custom = (name, request) async => _page(<Map<String, Object?>>[
+          _restaurant(
+            'ACCOUNT_DOC_123',
+            name: 'Duplicate Name',
+            actionId: 'OWNER_UID_456',
+            uid: 'OWNER_UID_456',
+          ),
+          _restaurant(
+            'EQUAL_ID_001',
+            name: 'Duplicate Name',
+            actionId: 'EQUAL_ID_001',
+            uid: 'EQUAL_ID_001',
+          ),
+          <String, Object?>{
+            ..._restaurant('ACCOUNT_WITHOUT_OWNER', name: 'Unowned Account'),
+            'actionId': 'ACCOUNT_WITHOUT_OWNER',
+            'uid': null,
+          },
+        ], exactTotal: 3);
+
+      await _pumpScreen(tester, backend);
+      await _selectExactZipAndSearch(tester);
+
+      expect(find.text('Duplicate Name'), findsOneWidget);
+      expect(find.text('Account ID: ACCOUNT_DOC_123'), findsOneWidget);
+      expect(find.text('Owner UID: OWNER_UID_456'), findsOneWidget);
+      expect(find.byTooltip('Copy Account ID'), findsOneWidget);
+      expect(find.byTooltip('Copy Owner UID'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(
+          const ValueKey('coupon-admin-copy-account-id-ACCOUNT_DOC_123'),
+        ),
+      );
+      await tester.pump();
+      expect(copied.last, 'ACCOUNT_DOC_123');
+      expect(find.text('Account ID copied.'), findsOneWidget);
+      tester
+          .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger))
+          .clearSnackBars();
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(
+          const ValueKey('coupon-admin-copy-owner-uid-ACCOUNT_DOC_123'),
+        ),
+      );
+      await tester.pump();
+      expect(copied.last, 'OWNER_UID_456');
+      expect(find.text('Owner UID copied.'), findsOneWidget);
+
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('biteSaver:EQUAL_ID_001')),
+        400,
+        scrollable: find.byType(Scrollable).last,
+      );
+      expect(find.text('Duplicate Name'), findsNWidgets(2));
+      expect(find.text('Account ID: EQUAL_ID_001'), findsOneWidget);
+      expect(find.text('Owner UID: EQUAL_ID_001'), findsOneWidget);
+
+      await tester.scrollUntilVisible(
+        find.byKey(const ValueKey('biteSaver:ACCOUNT_WITHOUT_OWNER')),
+        400,
+        scrollable: find.byType(Scrollable).last,
+      );
+      expect(find.text('Owner UID: Not available'), findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey('coupon-admin-copy-owner-uid-ACCOUNT_WITHOUT_OWNER'),
+        ),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets('Coupon result actions retain their existing identity sources', (
+    tester,
+  ) async {
+    final backend = _Backend()
+      ..custom = (name, request) async => _page(<Map<String, Object?>>[
+        _restaurant(
+          'ACCOUNT_DOC_ACTION',
+          actionId: 'OWNER_UID_ACTION',
+          uid: 'OWNER_UID_ACTION',
+        ),
+      ], exactTotal: 1);
+    String? loadedId;
+    String? editedId;
+    String? invitedId;
+    String? deletedId;
+
+    tester.view.physicalSize = const Size(1000, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: AdminReviewScreen(
+            pagingService: CouponAdminPagingService(
+              functionsBoundary: backend.call,
+            ),
+            loadAccount: (documentId) async {
+              loadedId = documentId;
+              return <String, dynamic>{'restaurantName': 'Action Restaurant'};
+            },
+            editAccount:
+                ({required context, required documentId, required data}) async {
+                  editedId = documentId;
+                  return false;
+                },
+            createCouponInvite:
+                ({
+                  required restaurantId,
+                  required restaurantName,
+                  required streetAddress,
+                  required city,
+                  required state,
+                  required zipCode,
+                  required phone,
+                  required website,
+                  required latitude,
+                  required longitude,
+                }) async {
+                  invitedId = restaurantId;
+                  return const RestaurantInviteCreationResult(
+                    inviteId: 'invite',
+                    token: 'token',
+                    inviteUrl: 'https://example.test/invite',
+                    expiresAt: null,
+                  );
+                },
+            deleteAccount: (documentId) async => deletedId = documentId,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _selectExactZipAndSearch(tester);
+
+    await tester.ensureVisible(find.text('Edit Restaurant'));
+    await tester.tap(find.text('Edit Restaurant'));
+    await tester.pumpAndSettle();
+    expect(loadedId, 'ACCOUNT_DOC_ACTION');
+    expect(editedId, 'ACCOUNT_DOC_ACTION');
+
+    await tester.ensureVisible(find.text('Create Invite'));
+    await tester.tap(find.text('Create Invite'));
+    await tester.pumpAndSettle();
+    expect(invitedId, 'OWNER_UID_ACTION');
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+
+    await tester.ensureVisible(find.text('Delete Restaurant'));
+    await tester.tap(find.text('Delete Restaurant'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await tester.pumpAndSettle();
+    expect(deletedId, 'ACCOUNT_DOC_ACTION');
+  });
+
   for (final configuration in <(Size, double)>[
     (const Size(320, 900), 1),
     (const Size(390, 900), 1.5),
@@ -787,19 +975,33 @@ void main() {
     testWidgets(
       'paged surface has no overflow at ${configuration.$1.width}px and ${configuration.$2}x text',
       (tester) async {
-        final backend = _Backend();
+        final longId = 'ACCOUNT_${'A' * 80}';
+        final backend = _Backend()
+          ..custom = (name, request) async => _page(<Map<String, Object?>>[
+            _restaurant(
+              longId,
+              name: 'Responsive Restaurant',
+              actionId: 'OWNER_${'B' * 80}',
+              uid: 'OWNER_${'B' * 80}',
+            ),
+          ], exactTotal: 1);
         await _pumpScreen(
           tester,
           backend,
           size: configuration.$1,
           textScale: configuration.$2,
         );
+        await _selectExactZipAndSearch(tester);
         expect(tester.takeException(), isNull);
-        expect(find.byType(TabBar), findsOneWidget);
         expect(
-          find.byKey(const ValueKey('coupon-admin-search-mode')),
+          find.byKey(ValueKey('coupon-admin-copy-account-id-$longId')),
           findsOneWidget,
         );
+        await tester.ensureVisible(
+          find.byKey(ValueKey('coupon-admin-copy-account-id-$longId')),
+        );
+        expect(tester.takeException(), isNull);
+        expect(find.text('Edit Restaurant'), findsOneWidget);
       },
     );
   }

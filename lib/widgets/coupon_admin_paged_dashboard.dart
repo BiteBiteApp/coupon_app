@@ -796,6 +796,34 @@ class _CouponAdminPagedDashboardState extends State<CouponAdminPagedDashboard>
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(value)));
   }
 
+  Widget _identifierRow({
+    required String label,
+    required String value,
+    required String copyKey,
+  }) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: <Widget>[
+        Expanded(
+          child: SelectableText(
+            '$label: $value',
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ),
+        IconButton(
+          key: ValueKey(copyKey),
+          tooltip: 'Copy $label',
+          constraints: const BoxConstraints(minWidth: 48, minHeight: 48),
+          onPressed: () async {
+            await Clipboard.setData(ClipboardData(text: value));
+            if (mounted) _message('$label copied.');
+          },
+          icon: const Icon(Icons.copy_outlined, size: 20),
+        ),
+      ],
+    );
+  }
+
   String _dateLabel(DateTime? value) {
     if (value == null) return 'Recent';
     final local = value.toLocal();
@@ -1189,6 +1217,23 @@ class _CouponAdminPagedDashboardState extends State<CouponAdminPagedDashboard>
             if (record.phone.isNotEmpty)
               ClickablePhoneText(phone: record.phone, prefix: 'Phone: '),
             if (record.website.isNotEmpty) Text('Website: ${record.website}'),
+            const SizedBox(height: 6),
+            _identifierRow(
+              label: 'Account ID',
+              value: record.documentId,
+              copyKey: 'coupon-admin-copy-account-id-${record.documentId}',
+            ),
+            if (record.uid?.trim().isNotEmpty == true)
+              _identifierRow(
+                label: 'Owner UID',
+                value: record.uid!,
+                copyKey: 'coupon-admin-copy-owner-uid-${record.documentId}',
+              )
+            else
+              SelectableText(
+                'Owner UID: Not available',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
             const SizedBox(height: 10),
             Text(
               'Status: ${record.approvalStatus.isEmpty ? 'Unknown' : record.approvalStatus}',
