@@ -731,6 +731,7 @@ BitescoreRestaurant _restaurant({
     state: 'FL',
     zipCode: '34428',
     location: const GeoPoint(28.8517, -82.487),
+    restaurantWriteRevision: 0,
     isActive: isActive,
   );
 }

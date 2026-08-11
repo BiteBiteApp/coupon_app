@@ -346,5 +346,6 @@ BitescoreRestaurant _restaurant({
     state: state,
     zipCode: '34470',
     location: location,
+    restaurantWriteRevision: 0,
   );
 }

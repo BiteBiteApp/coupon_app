@@ -38,6 +38,7 @@ void main() {
         state: 'FL',
         zipCode: '34461',
         location: const GeoPoint(28.8, -82.5),
+        restaurantWriteRevision: 0,
         createdByUserId: ' user-1 ',
         createdFromDishId: ' dish-1 ',
         createdFromReviewId: ' review-1 ',
@@ -81,6 +82,7 @@ void main() {
         'state': 'FL',
         'zipCode': '34461',
         'location': const GeoPoint(28.8, -82.5),
+        'restaurantWriteRevision': 0,
       }, fallbackId: 'restaurant-1');
 
       expect(restaurant, isNotNull);

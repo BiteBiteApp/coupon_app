@@ -22,6 +22,7 @@ import {
   normalizeStateCode,
   normalizeZip5,
 } from "./search_normalization.js";
+import { readRestaurantWriteRevision } from "./restaurant_write_revision.js";
 
 export const ratingAdminRestaurantPageSize = adminDirectoryDefaultPageSize;
 export const ratingAdminDirectoryPageSize = adminDirectoryDefaultPageSize;
@@ -157,7 +158,7 @@ async function documentsByPath(
   );
 }
 
-function restaurantSourceProjection(
+export function restaurantSourceProjection(
   document: RatingAdminDocument,
 ): Readonly<Record<string, unknown>> | null {
   const data = document.data;
@@ -165,7 +166,11 @@ function restaurantSourceProjection(
     readString(data.restaurantName, 100);
   const latitude = readNumber(data.latitude);
   const longitude = readNumber(data.longitude);
-  if (name === null || latitude === null || longitude === null) {
+  const restaurantWriteRevision = readRestaurantWriteRevision(data);
+  if (name === null ||
+      latitude === null ||
+      longitude === null ||
+      restaurantWriteRevision === null) {
     return null;
   }
   return Object.freeze({
@@ -185,6 +190,7 @@ function restaurantSourceProjection(
     ownerUserId: readString(data.ownerUserId, 1_500),
     isClaimed: data.isClaimed === true,
     isActive: data.isActive !== false && data.active !== false,
+    restaurantWriteRevision,
     createdAtMillis: timestampMillis(data.createdAt),
     updatedAtMillis: timestampMillis(data.updatedAt),
   });
@@ -199,7 +205,10 @@ export function ratingAdminRestaurantProjection(
   const name = readString(data.name, 100) ??
     readString(data.restaurantName, 100);
   const isActive = data.isActive !== false && data.active !== false;
-  if (name === null || !statusMatches(isActive, expectedStatus)) {
+  const restaurantWriteRevision = readRestaurantWriteRevision(data);
+  if (name === null ||
+      restaurantWriteRevision === null ||
+      !statusMatches(isActive, expectedStatus)) {
     return null;
   }
   return Object.freeze({
@@ -222,6 +231,7 @@ export function ratingAdminRestaurantProjection(
     isClaimed: data.isClaimed === true,
     ownerUserId: readString(data.ownerUserId, 1_500),
     linkedBiteSaverUid: readString(data.linkedBiteSaverUid, 1_500),
+    restaurantWriteRevision,
   });
 }
 

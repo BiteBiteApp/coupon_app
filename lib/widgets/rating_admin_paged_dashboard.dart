@@ -1271,12 +1271,14 @@ class RatingAdminQueuePagedView extends StatefulWidget {
     required this.onEditRestaurant,
     required this.onEditDish,
     this.service,
+    this.loadRestaurant,
   });
 
   final RatingAdminQueueKind kind;
   final RatingAdminEditRestaurant onEditRestaurant;
   final RatingAdminEditDish onEditDish;
   final RatingAdminPagingService? service;
+  final Future<BitescoreRestaurant?> Function(String id)? loadRestaurant;
 
   @override
   State<RatingAdminQueuePagedView> createState() =>
@@ -1386,6 +1388,45 @@ class _RatingAdminQueuePagedViewState extends State<RatingAdminQueuePagedView> {
     );
   }
 
+  Future<void> _editRestaurant(
+    RatingAdminQueueRecord record,
+    String restaurantDocumentId,
+  ) async {
+    if (restaurantDocumentId.isEmpty) {
+      _snack(context, 'This restaurant is no longer available.');
+      return;
+    }
+    final key = record.kind.wireName + ':' + record.id;
+    if (!_busy.add(key)) return;
+    setState(() {});
+    try {
+      final restaurant =
+          await (widget.loadRestaurant?.call(restaurantDocumentId) ??
+              BiteScoreService.loadRestaurantById(restaurantDocumentId));
+      if (!mounted) return;
+      if (restaurant == null || restaurant.id != restaurantDocumentId) {
+        _snack(context, 'This restaurant is no longer available.');
+        return;
+      }
+      if (await widget.onEditRestaurant(restaurant) == true && mounted) {
+        _snack(context, restaurant.name + ' updated.');
+        await _controller.refreshCurrentPage();
+      }
+    } catch (error) {
+      if (mounted) {
+        _snack(
+          context,
+          AppErrorText.friendly(
+            error,
+            fallback: 'Could not edit the restaurant right now.',
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy.remove(key));
+    }
+  }
+
   Future<void> _merge(RatingAdminQueueRecord record) async {
     final duplicate = record.restaurant;
     if (duplicate == null) return;
@@ -1487,13 +1528,8 @@ class _RatingAdminQueuePagedViewState extends State<RatingAdminQueuePagedView> {
           child: const Text('Dismiss'),
         ),
         OutlinedButton(
-          onPressed: () async {
-            if (await widget.onEditRestaurant(entry.restaurant) == true &&
-                mounted) {
-              _snack(context, entry.restaurant.name + ' updated.');
-              await _controller.refreshCurrentPage();
-            }
-          },
+          onPressed: () =>
+              _editRestaurant(record, record.restaurantReport.restaurantId),
           child: const Text('Edit Restaurant'),
         ),
         FilledButton.tonal(
@@ -1577,13 +1613,10 @@ class _RatingAdminQueuePagedViewState extends State<RatingAdminQueuePagedView> {
       ],
       <Widget>[
         OutlinedButton(
-          onPressed: () async {
-            if (await widget.onEditRestaurant(entry.restaurant) == true &&
-                mounted) {
-              _snack(context, entry.restaurant.name + ' updated.');
-              await _controller.refreshCurrentPage();
-            }
-          },
+          onPressed: () => _editRestaurant(
+            record,
+            record.duplicateRestaurantReport.restaurantId,
+          ),
           child: const Text('Edit Restaurant'),
         ),
         OutlinedButton(

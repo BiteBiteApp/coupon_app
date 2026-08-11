@@ -149,6 +149,13 @@ import {
 import {
   listRatingAdminDishSuggestionsPageHandler,
 } from "./rating_admin_dish_suggestions_paging.js";
+import {
+  decideRestaurantInviteRevisionWrite,
+  decideRevisionGuardedRestaurantGeohashWrite,
+} from "./restaurant_write_revision.js";
+import {
+  createReviewMilestoneLockEnforcedDishProposalPrivateDatabase,
+} from "./review_milestone_reconciliation_lock.js";
 
 initializeApp();
 
@@ -162,8 +169,14 @@ const searchIndexDatabase = createFirestoreSearchIndexDatabase(db);
 const adminUserDirectoryDatabase = createFirestoreAdminUserDirectoryDatabase(db);
 const dishProposalPrivateDatabase =
   createFirestoreDishProposalPrivateDatabase(db);
-const dishProposalResolutionDependencies =
+const baseDishProposalResolutionDependencies =
   createFirestoreDishProposalResolutionDependencies(db);
+const dishProposalResolutionDependencies = {
+  ...baseDishProposalResolutionDependencies,
+  database: createReviewMilestoneLockEnforcedDishProposalPrivateDatabase(
+    baseDishProposalResolutionDependencies.database,
+  ),
+};
 const dishProposalRuntimeDiscoveryDatabase =
   createFirestoreDishProposalRuntimeDiscoveryDatabase(db);
 const stripeSecret = defineSecret("STRIPE_SECRET_KEY");
@@ -1978,13 +1991,16 @@ export const redeemBiteScoreRestaurantClaimInvite = onCall(async (request) => {
       invite,
       "bitescore",
     );
-    if (unavailableReason !== null) {
+    const inviteRevisionGate = decideRestaurantInviteRevisionWrite(
+      unavailableReason,
+    );
+    if (inviteRevisionGate.type === "terminal") {
       throw new HttpsError(
         "failed-precondition",
-        unavailableReason === "used"
+        inviteRevisionGate.reason === "used"
           ? "This invite has already been used."
           : "This invite link is no longer valid.",
-        { reason: unavailableReason },
+        { reason: inviteRevisionGate.reason },
       );
     }
 
@@ -2020,6 +2036,16 @@ export const redeemBiteScoreRestaurantClaimInvite = onCall(async (request) => {
     }
 
     const restaurantData = restaurantSnapshot.data() ?? {};
+    const restaurantRevisionDecision = decideRestaurantInviteRevisionWrite(
+      null,
+      restaurantData,
+    );
+    if (restaurantRevisionDecision.type !== "write") {
+      throw new HttpsError(
+        "failed-precondition",
+        "This BiteScore restaurant is unavailable. Refresh and try again.",
+      );
+    }
     const restaurantName =
       readString(restaurantData.name) ??
       readString(restaurantData.restaurantName) ??
@@ -2064,6 +2090,7 @@ export const redeemBiteScoreRestaurantClaimInvite = onCall(async (request) => {
       {
         ownerUserId: uid,
         isClaimed: true,
+        ...restaurantRevisionDecision.patch,
         updatedAt: FieldValue.serverTimestamp(),
       },
       { merge: true },
@@ -3863,14 +3890,22 @@ export const maintainBiteScoreRestaurantGeohash = onDocumentWritten(
         return;
       }
 
-      const decision = decideRestaurantGeohashWrite(
-        current.data(),
-        extractBiteScoreRestaurantCoordinates,
-      );
-      if (decision.type === "set") {
-        transaction.update(current.ref, { geohash: decision.geohash });
-      } else if (decision.type === "delete") {
-        transaction.update(current.ref, { geohash: FieldValue.delete() });
+      const revisionGuardedDecision =
+        decideRevisionGuardedRestaurantGeohashWrite(current.data(), () => {
+          const decision = decideRestaurantGeohashWrite(
+            current.data(),
+            extractBiteScoreRestaurantCoordinates,
+          );
+          if (decision.type === "set") {
+            return { geohash: decision.geohash };
+          }
+          if (decision.type === "delete") {
+            return { geohash: FieldValue.delete() };
+          }
+          return null;
+        });
+      if (revisionGuardedDecision.type === "write") {
+        transaction.update(current.ref, revisionGuardedDecision.patch);
       }
     });
   },

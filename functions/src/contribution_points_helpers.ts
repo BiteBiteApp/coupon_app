@@ -1,4 +1,5 @@
-import { FieldValue } from "firebase-admin/firestore";
+import { createHash } from "node:crypto";
+import { FieldPath, FieldValue } from "firebase-admin/firestore";
 import type { WhereFilterOp } from "firebase-admin/firestore";
 import { CallableRequest, HttpsError } from "firebase-functions/v2/https";
 import {
@@ -19,6 +20,13 @@ import {
   readDishProposalDate,
   type DishProposalMembership,
 } from "./dish_proposal_private_contract.js";
+import {
+  assertActiveReviewMilestoneReconciliationLockInTransaction,
+  recordReviewMilestoneReconciliationTerminalState,
+  type ReviewMilestoneReconciliationLockDatabase,
+  type ReviewMilestoneReconciliationLockIdentity,
+  type ReviewMilestoneReconciliationLockTransaction,
+} from "./review_milestone_reconciliation_lock.js";
 
 export const contributionPointLedgerCollection =
   "bitescore_contribution_point_ledger";
@@ -147,6 +155,164 @@ export type ContributionPointMilestoneReconcileResult = {
   errors: ContributionPointModerationReverseError[];
 };
 
+export const maximumContributionPointStepLimit = 50;
+export const maximumReviewMilestoneScanStepLimit = 100;
+export const privateReviewMilestoneCountAccumulatorCollection =
+  "private_review_milestone_count_accumulators";
+export const reviewMilestoneAccumulatorVersion =
+  "bitestar.review-milestone-accumulator.v2" as const;
+export const reviewMilestoneWinnerVersion =
+  "bitestar.review-milestone-seen-valid.v1" as const;
+
+export type ContributionPointDishReverseCursor = Readonly<{
+  version: "bitestar.contribution-dish-reverse-cursor.v2";
+  phase: "dish-ledger";
+  operationFingerprint: string;
+  dishFingerprint: string;
+  afterLedgerDocumentId: string;
+  fingerprint: string;
+}>;
+
+export type ContributionPointDishReverseStepResult = Readonly<{
+  processedCount: number;
+  nextCursor: ContributionPointDishReverseCursor | null;
+  complete: boolean;
+}>;
+
+export type ReviewMilestoneSeenValidIdentity = Readonly<{
+  version: typeof reviewMilestoneWinnerVersion;
+  scanFingerprint: string;
+  identityFingerprint: string;
+  validPublicReview: true;
+  fingerprint: string;
+}>;
+
+export interface ReviewMilestoneWinnerAccumulator {
+  readonly userFingerprint: string;
+  readonly operationFingerprint: string;
+  readonly lockFingerprint: string;
+  readonly scanFingerprint: string;
+  initializeFreshScanStep(params: Readonly<{
+    cursor?: ReviewMilestoneAccumulatorResetCursor | null;
+    limit: number;
+  }>): Promise<ReviewMilestoneAccumulatorResetStepResult>;
+  prepareReviewPage(
+    cursor: ReviewMilestoneReviewCursor | null,
+  ): Promise<ReviewMilestonePreparedReviewPage>;
+  commitReviewPage(params: Readonly<{
+    cursor: ReviewMilestoneReviewCursor | null;
+    processedCount: number;
+    lastReviewDocumentId: string | null;
+    complete: boolean;
+    identityFingerprints: readonly string[];
+  }>): Promise<ReviewMilestoneCommittedReviewPage>;
+  readCompletedReviewCount(): Promise<ReviewMilestoneCompletedReviewCount>;
+  prepareReconciliationPage(params: Readonly<{
+    cursor: ReviewMilestoneReconcileCursor | null;
+    currentReviewCount: number;
+  }>): Promise<ReviewMilestonePreparedReconciliationPage>;
+  commitReconciliationPage(params: Readonly<{
+    cursor: ReviewMilestoneReconcileCursor | null;
+    currentReviewCount: number;
+    processedCount: number;
+    nextPhase: "awards" | "ledger" | "complete";
+    afterMilestone: number;
+    afterLedgerDocumentId: string | null;
+  }>): Promise<ReviewMilestoneCommittedReconciliationPage>;
+  ensureTerminalState(): Promise<void>;
+}
+
+export type ReviewMilestoneAccumulatorResetCursor = Readonly<{
+  version: "bitestar.review-milestone-accumulator-reset-cursor.v2";
+  phase: "accumulator-reset";
+  userFingerprint: string;
+  operationFingerprint: string;
+  lockFingerprint: string;
+  scanFingerprint: string;
+  afterWinnerDocumentId: string;
+  fingerprint: string;
+}>;
+
+export type ReviewMilestoneReviewCursor = Readonly<{
+  version: "bitestar.review-milestone-review-cursor.v3";
+  phase: "review-scan";
+  userFingerprint: string;
+  operationFingerprint: string;
+  lockFingerprint: string;
+  scanFingerprint: string;
+  sequence: number;
+  afterReviewDocumentId: string;
+  fingerprint: string;
+}>;
+
+export type ReviewMilestonePreparedReviewPage = Readonly<{
+  status: "advance" | "already-committed";
+  result: ReviewMilestoneIdentityScanStepResult | null;
+}>;
+
+export type ReviewMilestoneCommittedReviewPage = Readonly<{
+  result: ReviewMilestoneIdentityScanStepResult;
+  countStateFingerprint: string | null;
+}>;
+
+export type ReviewMilestoneCompletedReviewCount = Readonly<{
+  validReviewCount: number;
+  countStateFingerprint: string;
+}>;
+
+export type ReviewMilestonePreparedReconciliationPage = Readonly<{
+  status: "advance" | "already-committed";
+  result: ReviewMilestoneReconcileStepResult | null;
+  countStateFingerprint: string;
+}>;
+
+export type ReviewMilestoneCommittedReconciliationPage = Readonly<{
+  result: ReviewMilestoneReconcileStepResult;
+  countStateFingerprint: string;
+  reconciliationStateFingerprint: string | null;
+}>;
+
+export type ReviewMilestoneAccumulatorResetStepResult = Readonly<{
+  processedCount: number;
+  nextCursor: ReviewMilestoneAccumulatorResetCursor | null;
+  complete: boolean;
+}>;
+
+export type ReviewMilestoneIdentityScanStepResult = Readonly<{
+  processedCount: number;
+  nextCursor: ReviewMilestoneReviewCursor | null;
+  complete: boolean;
+  validReviewCount: number | null;
+}>;
+
+export type ReviewMilestoneReconcileCursor =
+  | Readonly<{
+    version: "bitestar.review-milestone-reconcile-cursor.v2";
+    phase: "awards";
+    userFingerprint: string;
+    operationFingerprint: string;
+    lockFingerprint: string;
+    countStateFingerprint: string;
+    afterMilestone: number;
+    fingerprint: string;
+  }>
+  | Readonly<{
+    version: "bitestar.review-milestone-reconcile-cursor.v2";
+    phase: "ledger";
+    userFingerprint: string;
+    operationFingerprint: string;
+    lockFingerprint: string;
+    countStateFingerprint: string;
+    afterLedgerDocumentId: string | null;
+    fingerprint: string;
+  }>;
+
+export type ReviewMilestoneReconcileStepResult = Readonly<{
+  processedCount: number;
+  nextCursor: ReviewMilestoneReconcileCursor | null;
+  complete: boolean;
+}>;
+
 type DocumentReferenceLike = {
   id: string;
   get(): Promise<DocumentSnapshotLike>;
@@ -162,10 +328,20 @@ type DocumentSnapshotLike = {
 type CollectionReferenceLike = {
   doc(id: string): DocumentReferenceLike;
   where(fieldPath: string, opStr: WhereFilterOp, value: unknown): QueryLike;
+  orderBy(
+    fieldPath: string | FieldPath,
+    directionStr?: "asc" | "desc",
+  ): QueryLike;
 };
 
 type QueryLike = {
   where(fieldPath: string, opStr: WhereFilterOp, value: unknown): QueryLike;
+  orderBy(
+    fieldPath: string | FieldPath,
+    directionStr?: "asc" | "desc",
+  ): QueryLike;
+  startAfter(...fieldValues: unknown[]): QueryLike;
+  limit(limit: number): QueryLike;
   get(): Promise<QuerySnapshotLike>;
 };
 
@@ -180,6 +356,7 @@ type TransactionLike = {
     data: Record<string, unknown>,
     options?: { merge: boolean },
   ): unknown;
+  delete(ref: DocumentReferenceLike): unknown;
 };
 
 type FirestoreLike = {
@@ -196,6 +373,7 @@ type ServerFieldValues = {
 
 type HelperOptions = {
   fieldValues?: ServerFieldValues;
+  transactionGuard?: (transaction: TransactionLike) => Promise<void>;
 };
 
 type CallableAuthLike = {
@@ -257,6 +435,66 @@ const adminServerFieldValues: ServerFieldValues = {
   serverTimestamp: () => FieldValue.serverTimestamp(),
   increment: (delta: number) => FieldValue.increment(delta),
 };
+const reviewMilestoneSourceCursorVersion =
+  "bitestar.review-milestone-review-cursor.v3" as const;
+const contributionPointDishReverseCursorVersion =
+  "bitestar.contribution-dish-reverse-cursor.v2" as const;
+const reviewMilestoneReconcileCursorVersion =
+  "bitestar.review-milestone-reconcile-cursor.v2" as const;
+const reviewMilestoneAccumulatorResetCursorVersion =
+  "bitestar.review-milestone-accumulator-reset-cursor.v2" as const;
+const reviewMilestoneAccumulatorManifestKeys = Object.freeze([
+  "version",
+  "userFingerprint",
+  "operationFingerprint",
+  "lockFingerprint",
+  "scanFingerprint",
+  "state",
+  "resetAfterDocumentId",
+  "reviewPageSequence",
+  "reviewAfterDocumentId",
+  "previousReviewAfterDocumentId",
+  "lastReviewProcessedCount",
+  "validReviewCount",
+  "countStateFingerprint",
+  "reconciliationPhase",
+  "reconciliationCount",
+  "reconciliationAfterMilestone",
+  "reconciliationAfterLedgerDocumentId",
+  "previousReconciliationCursorFingerprint",
+  "lastReconciliationProcessedCount",
+  "fingerprint",
+] as const);
+const reviewMilestoneWinnerKeys = Object.freeze([
+  "version",
+  "scanFingerprint",
+  "identityFingerprint",
+  "validPublicReview",
+  "fingerprint",
+] as const);
+
+type ReviewMilestoneAccumulatorManifest = Readonly<{
+  version: typeof reviewMilestoneAccumulatorVersion;
+  userFingerprint: string;
+  operationFingerprint: string;
+  lockFingerprint: string;
+  scanFingerprint: string;
+  state: "resetting" | "ready" | "counting" | "count-complete";
+  resetAfterDocumentId: string | null;
+  reviewPageSequence: number;
+  reviewAfterDocumentId: string | null;
+  previousReviewAfterDocumentId: string | null;
+  lastReviewProcessedCount: number;
+  validReviewCount: number;
+  countStateFingerprint: string | null;
+  reconciliationPhase: "not-started" | "awards" | "ledger" | "complete";
+  reconciliationCount: number | null;
+  reconciliationAfterMilestone: number;
+  reconciliationAfterLedgerDocumentId: string | null;
+  previousReconciliationCursorFingerprint: string | null;
+  lastReconciliationProcessedCount: number;
+  fingerprint: string;
+}>;
 
 export function buildContributionLedgerDocumentIdFromSourceKey(
   sourceKey: string,
@@ -274,6 +512,21 @@ export function buildContributionReversalDocumentId(
   ledgerEntryId: string,
 ): string {
   return `reversal:${encodeURIComponent(ledgerEntryId.trim())}`;
+}
+
+export function buildReviewMilestoneReviewIdentityKey(
+  userId: string,
+  dishId: string,
+): string {
+  const normalizedUserId = readRequiredString(userId, "userId");
+  const normalizedDishId = readRequiredString(dishId, "dishId");
+  return createHash("sha256")
+    .update(JSON.stringify([
+      reviewMilestoneWinnerVersion,
+      ["userId", normalizedUserId],
+      ["dishId", normalizedDishId],
+    ]), "utf8")
+    .digest("hex");
 }
 
 export async function awardContributionPointsTransaction(
@@ -323,6 +576,7 @@ export async function reverseContributionPointLedgerEntryTransaction(
 
   return db.runTransaction<ContributionPointReverseResult>(
     async (transaction) => {
+      await options.transactionGuard?.(transaction);
       const freshEntrySnapshot = await transaction.get(entryRef);
       if (!freshEntrySnapshot.exists) {
         return {
@@ -434,6 +688,719 @@ export async function reverseContributionPointSourceKeyTransaction(
     },
     options,
   );
+}
+
+export async function reverseContributionPointsForDishStep(
+  db: FirestoreLike,
+  params: Readonly<{
+    operationId: string;
+    dishId: string;
+    cursor?: ContributionPointDishReverseCursor | null;
+    limit: number;
+    now?: unknown;
+    reason?: string;
+  }>,
+  options: HelperOptions = {},
+): Promise<ContributionPointDishReverseStepResult> {
+  const dishId = readRequiredDocumentId(params.dishId, "dishId");
+  const operationId = readPrivateOperationId(params.operationId);
+  const operationFingerprint = reviewMilestoneOperationFingerprint(operationId);
+  const dishFingerprint = contributionPointDishReverseContextFingerprint(dishId);
+  const cursor = readContributionPointDishReverseCursor(
+    params.cursor,
+    {operationFingerprint, dishFingerprint},
+  );
+  const limit = readContributionPointStepLimit(params.limit);
+  const reason = readOptionalString(params.reason) ??
+    "Dish was deleted by moderation";
+  const stepOptions = contributionPointStepOptions(params.now, options);
+  let query = db
+    .collection(contributionPointLedgerCollection)
+    .where("dishId", "==", dishId)
+    .orderBy(FieldPath.documentId(), "asc");
+  if (cursor !== null) {
+    query = query.startAfter(cursor.afterLedgerDocumentId);
+  }
+  const snapshot = await query.limit(limit).get();
+  let processedCount = 0;
+  let lastProcessedDocumentId = cursor?.afterLedgerDocumentId ?? null;
+
+  for (const doc of snapshot.docs) {
+    const entryData = doc.data() ?? {};
+    const pointsDelta = readNumber(entryData.pointsDelta);
+    if (pointsDelta === null || pointsDelta <= 0) {
+      processedCount += 1;
+      lastProcessedDocumentId = doc.id;
+      continue;
+    }
+
+    try {
+      await reverseContributionPointLedgerEntryTransaction(
+        db,
+        { ledgerEntryId: doc.id, reason },
+        stepOptions,
+      );
+    } catch {
+      throw new Error("Contribution point reversal step failed.");
+    }
+    processedCount += 1;
+    lastProcessedDocumentId = doc.id;
+  }
+
+  const complete = snapshot.docs.length < limit;
+  return {
+    processedCount,
+    nextCursor: complete || lastProcessedDocumentId === null
+      ? null
+      : buildContributionPointDishReverseCursor({
+        operationFingerprint,
+        dishFingerprint,
+        afterLedgerDocumentId: lastProcessedDocumentId,
+      }),
+    complete,
+  };
+}
+
+export async function scanValidReviewMilestoneIdentitiesForUserStep(
+  db: FirestoreLike,
+  params: Readonly<{
+    userId: string;
+    operationId: string;
+    lockToken: string;
+    cursor?: ReviewMilestoneReviewCursor | null;
+    limit: number;
+  }>,
+  winnerAccumulator: ReviewMilestoneWinnerAccumulator,
+): Promise<ReviewMilestoneIdentityScanStepResult> {
+  const lockIdentity = readReviewMilestoneLockIdentity(params);
+  const userId = lockIdentity.userId;
+  const limit = readReviewMilestoneScanStepLimit(params.limit);
+  requireReviewMilestoneAccumulatorIdentity(
+    winnerAccumulator,
+    lockIdentity,
+  );
+  const cursor = readReviewMilestoneReviewCursor(
+    params.cursor,
+    winnerAccumulator,
+  );
+  const prepared = await winnerAccumulator.prepareReviewPage(cursor);
+  if (prepared.status === "already-committed") {
+    if (prepared.result === null) {
+      throw new Error("Private review milestone scan state is invalid.");
+    }
+    return prepared.result;
+  }
+  let query = db
+    .collection("dish_reviews")
+    .where("userId", "==", userId)
+    .orderBy(FieldPath.documentId(), "asc");
+  if (cursor !== null) {
+    query = query.startAfter(cursor.afterReviewDocumentId);
+  }
+  const snapshot = await query.limit(limit).get();
+  const identityFingerprints = new Set<string>();
+  for (const doc of snapshot.docs) {
+    const data = doc.data() ?? {};
+    if (!isPublicReviewData(data)) {
+      continue;
+    }
+    const dishId = readOptionalString(data.dishId);
+    const reviewUserId = readOptionalString(data.userId);
+    if (dishId !== null && reviewUserId === userId) {
+      identityFingerprints.add(
+        buildReviewMilestoneReviewIdentityKey(reviewUserId, dishId),
+      );
+    }
+  }
+  const complete = snapshot.docs.length < limit;
+  const lastDocument = snapshot.docs[snapshot.docs.length - 1];
+  return (await winnerAccumulator.commitReviewPage({
+    cursor,
+    processedCount: snapshot.docs.length,
+    lastReviewDocumentId: lastDocument?.id ?? null,
+    complete,
+    identityFingerprints: [...identityFingerprints],
+  })).result;
+}
+
+export function createFirestoreReviewMilestoneWinnerAccumulator(
+  db: FirestoreLike,
+  params: Readonly<{
+    namespaceId: string;
+    userId: string;
+    operationId: string;
+    lockToken: string;
+    scanId: string;
+  }>,
+): ReviewMilestoneWinnerAccumulator {
+  const lockIdentity = readReviewMilestoneLockIdentity(params);
+  const exactNamespaceId = readRequiredDocumentId(
+    params.namespaceId,
+    "namespaceId",
+  );
+  const exactUserId = lockIdentity.userId;
+  const exactScanId = readRequiredDocumentId(params.scanId, "scanId");
+  const userFingerprint = reviewMilestoneAccumulatorUserFingerprint(
+    exactUserId,
+  );
+  const operationFingerprint = reviewMilestoneOperationFingerprint(
+    lockIdentity.operationId,
+  );
+  const lockFingerprint = reviewMilestoneLockIdentityFingerprint(lockIdentity);
+  const scanFingerprint = reviewMilestoneAccumulatorScanFingerprint(
+    exactNamespaceId,
+    userFingerprint,
+    operationFingerprint,
+    lockFingerprint,
+    exactScanId,
+  );
+  const manifestRef = db
+    .collection(privateReviewMilestoneCountAccumulatorCollection)
+    .doc(exactNamespaceId);
+  const winnerCollection = db.collection(
+    `${privateReviewMilestoneCountAccumulatorCollection}/${
+      exactNamespaceId
+    }/seen_valid_identities`,
+  );
+  const requireExpectedManifest = (
+    snapshot: DocumentSnapshotLike,
+    requiredStates?: readonly ReviewMilestoneAccumulatorManifest["state"][],
+  ): ReviewMilestoneAccumulatorManifest => {
+    const manifest = parseReviewMilestoneAccumulatorManifest(snapshot);
+    if (
+      manifest.userFingerprint !== userFingerprint ||
+      manifest.operationFingerprint !== operationFingerprint ||
+      manifest.lockFingerprint !== lockFingerprint ||
+      manifest.scanFingerprint !== scanFingerprint ||
+      (requiredStates !== undefined && !requiredStates.includes(manifest.state))
+    ) {
+      throw new Error("Private review milestone accumulator binding is invalid.");
+    }
+    return manifest;
+  };
+  const assertLock = (transaction: TransactionLike) =>
+    assertActiveReviewMilestoneReconciliationLockInTransaction(
+      reviewMilestoneLockDatabase(db),
+      reviewMilestoneLockTransaction(transaction),
+      lockIdentity,
+    );
+  const initialManifest = (): ReviewMilestoneAccumulatorManifest =>
+    buildReviewMilestoneAccumulatorManifest({
+      userFingerprint,
+      operationFingerprint,
+      lockFingerprint,
+      scanFingerprint,
+      state: "resetting",
+      resetAfterDocumentId: null,
+      reviewPageSequence: 0,
+      reviewAfterDocumentId: null,
+      previousReviewAfterDocumentId: null,
+      lastReviewProcessedCount: 0,
+      validReviewCount: 0,
+      countStateFingerprint: null,
+      reconciliationPhase: "not-started",
+      reconciliationCount: null,
+      reconciliationAfterMilestone: 0,
+      reconciliationAfterLedgerDocumentId: null,
+      previousReconciliationCursorFingerprint: null,
+      lastReconciliationProcessedCount: 0,
+    });
+
+  return {
+    userFingerprint,
+    operationFingerprint,
+    lockFingerprint,
+    scanFingerprint,
+    async initializeFreshScanStep(resetParams) {
+      const limit = readContributionPointStepLimit(resetParams.limit);
+      const cursor = readReviewMilestoneAccumulatorResetCursor(
+        resetParams.cursor,
+        {userFingerprint, operationFingerprint, lockFingerprint, scanFingerprint},
+      );
+      const resetState = await db.runTransaction(async (transaction) => {
+        await assertLock(transaction);
+        const snapshot = await transaction.get(manifestRef);
+        if (!snapshot.exists) {
+          if (cursor !== null) {
+            throw new Error("Private review milestone reset state is invalid.");
+          }
+          transaction.set(manifestRef, initialManifest());
+          return initialManifest();
+        }
+        const manifest = requireExpectedManifest(snapshot);
+        if (manifest.state !== "resetting") {
+          return manifest;
+        }
+        if (cursorDocumentId(cursor) !== manifest.resetAfterDocumentId) {
+          throw new Error("Private review milestone reset cursor is invalid.");
+        }
+        return manifest;
+      });
+      if (resetState.state !== "resetting") {
+        return { processedCount: 0, nextCursor: null, complete: true };
+      }
+
+      let query = winnerCollection.orderBy(FieldPath.documentId(), "asc");
+      if (cursor !== null) {
+        query = query.startAfter(cursor.afterWinnerDocumentId);
+      }
+      const snapshot = await query.limit(limit).get();
+      const complete = snapshot.docs.length < limit;
+      const lastDocument = snapshot.docs[snapshot.docs.length - 1];
+      await db.runTransaction(async (transaction) => {
+        await assertLock(transaction);
+        const manifestSnapshot = await transaction.get(manifestRef);
+        const manifest = requireExpectedManifest(
+          manifestSnapshot,
+          ["resetting"],
+        );
+        if (cursorDocumentId(cursor) !== manifest.resetAfterDocumentId) {
+          throw new Error("Private review milestone reset cursor is invalid.");
+        }
+        for (const doc of snapshot.docs) {
+          transaction.delete(winnerCollection.doc(doc.id));
+        }
+        transaction.set(
+          manifestRef,
+          buildReviewMilestoneAccumulatorManifest({
+            ...manifest,
+            state: complete ? "ready" : "resetting",
+            resetAfterDocumentId: complete ? null : lastDocument?.id ?? null,
+          }),
+        );
+      });
+      return {
+        processedCount: snapshot.docs.length,
+        nextCursor: complete || lastDocument === undefined
+          ? null
+          : buildReviewMilestoneAccumulatorResetCursor({
+            userFingerprint,
+            operationFingerprint,
+            lockFingerprint,
+            scanFingerprint,
+            afterWinnerDocumentId: lastDocument.id,
+          }),
+        complete,
+      };
+    },
+    async prepareReviewPage(cursor) {
+      return db.runTransaction(async (transaction) => {
+        await assertLock(transaction);
+        const manifest = requireExpectedManifest(
+          await transaction.get(manifestRef),
+          ["ready", "counting", "count-complete"],
+        );
+        return prepareReviewPageFromManifest(manifest, cursor, {
+          userFingerprint,
+          operationFingerprint,
+          lockFingerprint,
+          scanFingerprint,
+        });
+      });
+    },
+    async commitReviewPage(page) {
+      const processedCount = requireBoundedProcessedCount(
+        page.processedCount,
+        maximumReviewMilestoneScanStepLimit,
+      );
+      const lastReviewDocumentId = page.lastReviewDocumentId === null
+        ? null
+        : readRequiredDocumentId(
+          page.lastReviewDocumentId,
+          "lastReviewDocumentId",
+        );
+      if (
+        page.complete !== true && page.complete !== false ||
+        (processedCount === 0) !== (lastReviewDocumentId === null) ||
+        (!page.complete && lastReviewDocumentId === null)
+      ) {
+        throw new Error("Private review milestone page state is invalid.");
+      }
+      const identities = [...new Set(page.identityFingerprints.map((value) =>
+        requireSha256Fingerprint(value, "identityFingerprint")))];
+      if (identities.length > processedCount) {
+        throw new Error("Private review milestone page state is invalid.");
+      }
+      return db.runTransaction(async (transaction) => {
+        await assertLock(transaction);
+        const manifest = requireExpectedManifest(
+          await transaction.get(manifestRef),
+          ["ready", "counting", "count-complete"],
+        );
+        const prepared = prepareReviewPageFromManifest(manifest, page.cursor, {
+          userFingerprint,
+          operationFingerprint,
+          lockFingerprint,
+          scanFingerprint,
+        });
+        if (prepared.status === "already-committed") {
+          if (prepared.result === null) {
+            throw new Error("Private review milestone page state is invalid.");
+          }
+          return {
+            result: prepared.result,
+            countStateFingerprint: manifest.countStateFingerprint,
+          };
+        }
+        const identitySnapshots = await Promise.all(identities.map(async (
+          identityFingerprint,
+        ) => ({
+          identityFingerprint,
+          snapshot: await transaction.get(
+            winnerCollection.doc(identityFingerprint),
+          ),
+        })));
+        let validReviewCount = manifest.validReviewCount;
+        for (const {identityFingerprint, snapshot} of identitySnapshots) {
+          if (snapshot.exists) {
+            const existing = parseStoredReviewMilestoneSeenValidIdentity(snapshot);
+            if (existing.scanFingerprint !== scanFingerprint) {
+              throw new Error("Private review milestone identity is invalid.");
+            }
+            continue;
+          }
+          validReviewCount += 1;
+          if (!Number.isSafeInteger(validReviewCount)) {
+            throw new Error("Private review milestone count is invalid.");
+          }
+          transaction.set(
+            winnerCollection.doc(identityFingerprint),
+            buildReviewMilestoneSeenValidIdentity(
+              scanFingerprint,
+              identityFingerprint,
+            ),
+          );
+        }
+        const countStateFingerprint = page.complete
+          ? reviewMilestoneCountStateFingerprint({
+            userFingerprint,
+            operationFingerprint,
+            lockFingerprint,
+            scanFingerprint,
+            validReviewCount,
+          })
+          : null;
+        const nextManifest = buildReviewMilestoneAccumulatorManifest({
+          ...manifest,
+          state: page.complete ? "count-complete" : "counting",
+          resetAfterDocumentId: null,
+          reviewPageSequence: manifest.reviewPageSequence + 1,
+          reviewAfterDocumentId: page.complete ? null : lastReviewDocumentId,
+          previousReviewAfterDocumentId: manifest.reviewAfterDocumentId,
+          lastReviewProcessedCount: processedCount,
+          validReviewCount,
+          countStateFingerprint,
+        });
+        transaction.set(manifestRef, nextManifest);
+        return {
+          result: reviewScanResultFromManifest(nextManifest),
+          countStateFingerprint,
+        };
+      });
+    },
+    async readCompletedReviewCount() {
+      return db.runTransaction(async (transaction) => {
+        await assertLock(transaction);
+        const manifest = requireExpectedManifest(
+          await transaction.get(manifestRef),
+          ["count-complete"],
+        );
+        if (manifest.countStateFingerprint === null) {
+          throw new Error("Private review milestone count state is invalid.");
+        }
+        return {
+          validReviewCount: manifest.validReviewCount,
+          countStateFingerprint: manifest.countStateFingerprint,
+        };
+      });
+    },
+    async prepareReconciliationPage(reconcileParams) {
+      const currentReviewCount = requireNonnegativeSafeInteger(
+        reconcileParams.currentReviewCount,
+        "currentReviewCount",
+      );
+      return db.runTransaction(async (transaction) => {
+        await assertLock(transaction);
+        const manifest = requireExpectedManifest(
+          await transaction.get(manifestRef),
+          ["count-complete"],
+        );
+        return prepareReconciliationPageFromManifest(
+          manifest,
+          reconcileParams.cursor,
+          currentReviewCount,
+          {userFingerprint, operationFingerprint, lockFingerprint},
+        );
+      });
+    },
+    async commitReconciliationPage(reconcileParams) {
+      const currentReviewCount = requireNonnegativeSafeInteger(
+        reconcileParams.currentReviewCount,
+        "currentReviewCount",
+      );
+      const processedCount = requireBoundedProcessedCount(
+        reconcileParams.processedCount,
+        maximumContributionPointStepLimit,
+      );
+      const afterMilestone = requireReviewMilestoneAfterMilestone(
+        reconcileParams.afterMilestone,
+      );
+      const afterLedgerDocumentId = reconcileParams.afterLedgerDocumentId === null
+        ? null
+        : readRequiredDocumentId(
+          reconcileParams.afterLedgerDocumentId,
+          "afterLedgerDocumentId",
+        );
+      if (
+        !["awards", "ledger", "complete"].includes(reconcileParams.nextPhase) ||
+        (reconcileParams.nextPhase === "awards" &&
+          afterLedgerDocumentId !== null) ||
+        (reconcileParams.nextPhase === "complete" &&
+          afterLedgerDocumentId !== null)
+      ) {
+        throw new Error("Private milestone reconciliation state is invalid.");
+      }
+      return db.runTransaction(async (transaction) => {
+        await assertLock(transaction);
+        const manifest = requireExpectedManifest(
+          await transaction.get(manifestRef),
+          ["count-complete"],
+        );
+        const prepared = prepareReconciliationPageFromManifest(
+          manifest,
+          reconcileParams.cursor,
+          currentReviewCount,
+          {userFingerprint, operationFingerprint, lockFingerprint},
+        );
+        if (prepared.status === "already-committed") {
+          if (prepared.result === null) {
+            throw new Error("Private milestone reconciliation state is invalid.");
+          }
+          return {
+            result: prepared.result,
+            countStateFingerprint: prepared.countStateFingerprint,
+            reconciliationStateFingerprint:
+              manifest.reconciliationPhase === "complete"
+                ? reviewMilestoneReconciliationStateFingerprint(manifest)
+                : null,
+          };
+        }
+        const nextManifest = buildReviewMilestoneAccumulatorManifest({
+          ...manifest,
+          reconciliationPhase: reconcileParams.nextPhase,
+          reconciliationCount: currentReviewCount,
+          reconciliationAfterMilestone: afterMilestone,
+          reconciliationAfterLedgerDocumentId:
+            reconcileParams.nextPhase === "ledger"
+              ? afterLedgerDocumentId
+              : null,
+          previousReconciliationCursorFingerprint:
+            reconcileParams.cursor?.fingerprint ?? null,
+          lastReconciliationProcessedCount: processedCount,
+        });
+        transaction.set(manifestRef, nextManifest);
+        return {
+          result: reconciliationResultFromManifest(nextManifest),
+          countStateFingerprint: nextManifest.countStateFingerprint as string,
+          reconciliationStateFingerprint:
+            reconcileParams.nextPhase === "complete"
+              ? reviewMilestoneReconciliationStateFingerprint(nextManifest)
+              : null,
+        };
+      });
+    },
+    async ensureTerminalState() {
+      const terminal = await db.runTransaction(async (transaction) => {
+        await assertLock(transaction);
+        const manifest = requireExpectedManifest(
+          await transaction.get(manifestRef),
+          ["count-complete"],
+        );
+        if (
+          manifest.reconciliationPhase !== "complete" ||
+          manifest.countStateFingerprint === null
+        ) {
+          throw new Error("Private milestone reconciliation is incomplete.");
+        }
+        return {
+          countStateFingerprint: manifest.countStateFingerprint,
+          reconciliationStateFingerprint:
+            reviewMilestoneReconciliationStateFingerprint(manifest),
+        };
+      });
+      await recordReviewMilestoneReconciliationTerminalState(
+        reviewMilestoneLockDatabase(db),
+        lockIdentity,
+        terminal,
+      );
+    },
+  };
+}
+
+export async function reconcileReviewMilestonesForUserStep(
+  db: FirestoreLike,
+  params: Readonly<{
+    userId: string;
+    operationId: string;
+    lockToken: string;
+    currentReviewCount: number;
+    cursor?: ReviewMilestoneReconcileCursor | null;
+    limit: number;
+    now?: unknown;
+  }>,
+  winnerAccumulator: ReviewMilestoneWinnerAccumulator,
+  options: HelperOptions = {},
+): Promise<ReviewMilestoneReconcileStepResult> {
+  const lockIdentity = readReviewMilestoneLockIdentity(params);
+  const userId = lockIdentity.userId;
+  requireReviewMilestoneAccumulatorIdentity(
+    winnerAccumulator,
+    lockIdentity,
+  );
+  const currentReviewCount = requireNonnegativeSafeInteger(
+    params.currentReviewCount,
+    "currentReviewCount",
+  );
+  const limit = readContributionPointStepLimit(params.limit);
+  const completedCount = await winnerAccumulator.readCompletedReviewCount();
+  if (completedCount.validReviewCount !== currentReviewCount) {
+    throw new Error("Private review milestone count binding is invalid.");
+  }
+  const cursor = readReviewMilestoneReconcileCursor(
+    params.cursor,
+    {
+      userFingerprint: winnerAccumulator.userFingerprint,
+      operationFingerprint: winnerAccumulator.operationFingerprint,
+      lockFingerprint: winnerAccumulator.lockFingerprint,
+      countStateFingerprint: completedCount.countStateFingerprint,
+    },
+  );
+  const prepared = await winnerAccumulator.prepareReconciliationPage({
+    cursor,
+    currentReviewCount,
+  });
+  if (prepared.status === "already-committed") {
+    if (prepared.result === null) {
+      throw new Error("Private milestone reconciliation state is invalid.");
+    }
+    if (prepared.result.complete) {
+      await winnerAccumulator.ensureTerminalState();
+    }
+    return prepared.result;
+  }
+  const stepOptions = withReviewMilestoneLockTransactionGuard(
+    contributionPointStepOptions(params.now, options),
+    db,
+    lockIdentity,
+  );
+  const maximumEarnedMilestone = Math.floor(currentReviewCount / 5) * 5;
+  let processedCount = 0;
+  let phase: "awards" | "ledger" = cursor?.phase ?? "awards";
+  let afterMilestone = cursor?.phase === "awards" ? cursor.afterMilestone : 0;
+  let afterLedgerDocumentId = cursor?.phase === "ledger"
+    ? cursor.afterLedgerDocumentId
+    : null;
+
+  if (phase === "awards") {
+    let nextMilestone = afterMilestone + 5;
+    while (
+      nextMilestone <= maximumEarnedMilestone &&
+      processedCount < limit
+    ) {
+      try {
+        await awardContributionPointsTransaction(
+          db,
+          {
+            userId,
+            points: 1,
+            actionType: contributionPointAction.reviewMilestone,
+            sourceKey: reviewMilestoneSourceKey(userId, nextMilestone),
+            description: `Reached ${nextMilestone} valid public reviews`,
+          },
+          stepOptions,
+        );
+      } catch {
+        throw new Error("Review milestone reconciliation step failed.");
+      }
+      processedCount += 1;
+      afterMilestone = nextMilestone;
+      nextMilestone += 5;
+    }
+
+    if (nextMilestone <= maximumEarnedMilestone) {
+      return (await winnerAccumulator.commitReconciliationPage({
+        cursor,
+        currentReviewCount,
+        processedCount,
+        nextPhase: "awards",
+        afterMilestone,
+        afterLedgerDocumentId: null,
+      })).result;
+    }
+    phase = "ledger";
+    afterLedgerDocumentId = null;
+    if (processedCount === limit) {
+      return (await winnerAccumulator.commitReconciliationPage({
+        cursor,
+        currentReviewCount,
+        processedCount,
+        nextPhase: "ledger",
+        afterMilestone,
+        afterLedgerDocumentId,
+      })).result;
+    }
+  }
+
+  const remainingLimit = limit - processedCount;
+  let query = db
+    .collection(contributionPointLedgerCollection)
+    .where("userId", "==", userId)
+    .where("actionType", "==", contributionPointAction.reviewMilestone)
+    .orderBy(FieldPath.documentId(), "asc");
+  if (afterLedgerDocumentId !== null) {
+    query = query.startAfter(afterLedgerDocumentId);
+  }
+  const snapshot = await query.limit(remainingLimit).get();
+
+  for (const doc of snapshot.docs) {
+    const entry = parseLedgerEntry(doc);
+    if (entry && entry.pointsDelta > 0) {
+      const milestone = reviewMilestoneFromSourceKey(entry.sourceKey);
+      if (
+        milestone !== null &&
+        !isEarnedReviewMilestone(milestone, currentReviewCount)
+      ) {
+        try {
+          await reverseContributionPointLedgerEntryTransaction(
+            db,
+            {
+              ledgerEntryId: doc.id,
+              reason: `Valid public review count dropped below ${milestone}`,
+            },
+            stepOptions,
+          );
+        } catch {
+          throw new Error("Review milestone reconciliation step failed.");
+        }
+      }
+    }
+    processedCount += 1;
+    afterLedgerDocumentId = doc.id;
+  }
+
+  const complete = snapshot.docs.length < remainingLimit;
+  const committed = await winnerAccumulator.commitReconciliationPage({
+    cursor,
+    currentReviewCount,
+    processedCount,
+    nextPhase: complete ? "complete" : "ledger",
+    afterMilestone,
+    afterLedgerDocumentId: complete ? null : afterLedgerDocumentId,
+  });
+  if (committed.result.complete) {
+    await winnerAccumulator.ensureTerminalState();
+  }
+  return committed.result;
 }
 
 export async function awardReviewMilestoneContributionPointsCallableHandler(
@@ -1206,7 +2173,7 @@ function newRestaurantFirstDishSourceKey(
   return `new_restaurant_first_dish:${restaurantId.trim()}:${dishId.trim()}`;
 }
 
-async function loadValidPublicReviewCountForUser(
+export async function loadValidPublicReviewCountForUser(
   db: FirestoreLike,
   userId: string,
 ): Promise<number> {
@@ -1271,6 +2238,1400 @@ function emptyDishReverseResult(
   };
 }
 
+function reviewMilestoneAccumulatorUserFingerprint(userId: string): string {
+  return contractSha256([
+    reviewMilestoneAccumulatorVersion,
+    ["userId", readRequiredDocumentId(userId, "userId")],
+  ]);
+}
+
+function reviewMilestoneAccumulatorScanFingerprint(
+  namespaceId: string,
+  userFingerprint: string,
+  operationFingerprint: string,
+  lockFingerprint: string,
+  scanId: string,
+): string {
+  return contractSha256([
+    reviewMilestoneAccumulatorVersion,
+    ["namespaceId", readRequiredDocumentId(namespaceId, "namespaceId")],
+    ["userFingerprint", requireSha256Fingerprint(
+      userFingerprint,
+      "userFingerprint",
+    )],
+    ["operationFingerprint", requireSha256Fingerprint(
+      operationFingerprint,
+      "operationFingerprint",
+    )],
+    ["lockFingerprint", requireSha256Fingerprint(
+      lockFingerprint,
+      "lockFingerprint",
+    )],
+    ["scanId", readRequiredDocumentId(scanId, "scanId")],
+  ]);
+}
+
+function buildReviewMilestoneAccumulatorManifest(
+  value: Omit<ReviewMilestoneAccumulatorManifest, "version" | "fingerprint">,
+): ReviewMilestoneAccumulatorManifest {
+  const core = {
+    version: reviewMilestoneAccumulatorVersion,
+    userFingerprint: requireSha256Fingerprint(
+      value.userFingerprint,
+      "userFingerprint",
+    ),
+    operationFingerprint: requireSha256Fingerprint(
+      value.operationFingerprint,
+      "operationFingerprint",
+    ),
+    lockFingerprint: requireSha256Fingerprint(
+      value.lockFingerprint,
+      "lockFingerprint",
+    ),
+    scanFingerprint: requireSha256Fingerprint(
+      value.scanFingerprint,
+      "scanFingerprint",
+    ),
+    state: value.state,
+    resetAfterDocumentId: readNullableExactDocumentId(
+      value.resetAfterDocumentId,
+      "resetAfterDocumentId",
+    ),
+    reviewPageSequence: requireNonnegativeSafeInteger(
+      value.reviewPageSequence,
+      "reviewPageSequence",
+    ),
+    reviewAfterDocumentId: readNullableExactDocumentId(
+      value.reviewAfterDocumentId,
+      "reviewAfterDocumentId",
+    ),
+    previousReviewAfterDocumentId: readNullableExactDocumentId(
+      value.previousReviewAfterDocumentId,
+      "previousReviewAfterDocumentId",
+    ),
+    lastReviewProcessedCount: requireBoundedProcessedCount(
+      value.lastReviewProcessedCount,
+      maximumReviewMilestoneScanStepLimit,
+    ),
+    validReviewCount: requireNonnegativeSafeInteger(
+      value.validReviewCount,
+      "validReviewCount",
+    ),
+    countStateFingerprint: readNullableSha256Fingerprint(
+      value.countStateFingerprint,
+      "countStateFingerprint",
+    ),
+    reconciliationPhase: value.reconciliationPhase,
+    reconciliationCount: value.reconciliationCount === null
+      ? null
+      : requireNonnegativeSafeInteger(
+        value.reconciliationCount,
+        "reconciliationCount",
+      ),
+    reconciliationAfterMilestone: requireReviewMilestoneAfterMilestone(
+      value.reconciliationAfterMilestone,
+    ),
+    reconciliationAfterLedgerDocumentId: readNullableExactDocumentId(
+      value.reconciliationAfterLedgerDocumentId,
+      "reconciliationAfterLedgerDocumentId",
+    ),
+    previousReconciliationCursorFingerprint: readNullableSha256Fingerprint(
+      value.previousReconciliationCursorFingerprint,
+      "previousReconciliationCursorFingerprint",
+    ),
+    lastReconciliationProcessedCount: requireBoundedProcessedCount(
+      value.lastReconciliationProcessedCount,
+      maximumContributionPointStepLimit,
+    ),
+  } as const;
+  if (
+    !["resetting", "ready", "counting", "count-complete"].includes(
+      core.state,
+    ) ||
+    !["not-started", "awards", "ledger", "complete"].includes(
+      core.reconciliationPhase,
+    ) ||
+    !reviewMilestoneManifestStateIsConsistent(core)
+  ) {
+    throw new Error("Private review milestone accumulator state is invalid.");
+  }
+  return Object.freeze({
+    ...core,
+    fingerprint: reviewMilestoneAccumulatorManifestFingerprint(core),
+  });
+}
+
+function reviewMilestoneAccumulatorManifestFingerprint(
+  value: Omit<ReviewMilestoneAccumulatorManifest, "fingerprint">,
+): string {
+  return contractSha256([
+    reviewMilestoneAccumulatorVersion,
+    ["userFingerprint", value.userFingerprint],
+    ["operationFingerprint", value.operationFingerprint],
+    ["lockFingerprint", value.lockFingerprint],
+    ["scanFingerprint", value.scanFingerprint],
+    ["state", value.state],
+    ["resetAfterDocumentId", value.resetAfterDocumentId],
+    ["reviewPageSequence", value.reviewPageSequence],
+    ["reviewAfterDocumentId", value.reviewAfterDocumentId],
+    ["previousReviewAfterDocumentId", value.previousReviewAfterDocumentId],
+    ["lastReviewProcessedCount", value.lastReviewProcessedCount],
+    ["validReviewCount", value.validReviewCount],
+    ["countStateFingerprint", value.countStateFingerprint],
+    ["reconciliationPhase", value.reconciliationPhase],
+    ["reconciliationCount", value.reconciliationCount],
+    ["reconciliationAfterMilestone", value.reconciliationAfterMilestone],
+    [
+      "reconciliationAfterLedgerDocumentId",
+      value.reconciliationAfterLedgerDocumentId,
+    ],
+    [
+      "previousReconciliationCursorFingerprint",
+      value.previousReconciliationCursorFingerprint,
+    ],
+    [
+      "lastReconciliationProcessedCount",
+      value.lastReconciliationProcessedCount,
+    ],
+  ]);
+}
+
+function reviewMilestoneManifestStateIsConsistent(
+  value: Omit<ReviewMilestoneAccumulatorManifest, "fingerprint">,
+): boolean {
+  const reconciliationNotStarted =
+    value.reconciliationPhase === "not-started" &&
+    value.reconciliationCount === null &&
+    value.reconciliationAfterMilestone === 0 &&
+    value.reconciliationAfterLedgerDocumentId === null &&
+    value.previousReconciliationCursorFingerprint === null &&
+    value.lastReconciliationProcessedCount === 0;
+  if (value.state === "resetting") {
+    return value.reviewPageSequence === 0 &&
+      value.reviewAfterDocumentId === null &&
+      value.previousReviewAfterDocumentId === null &&
+      value.lastReviewProcessedCount === 0 &&
+      value.validReviewCount === 0 &&
+      value.countStateFingerprint === null &&
+      reconciliationNotStarted;
+  }
+  if (value.state === "ready") {
+    return value.resetAfterDocumentId === null &&
+      value.reviewPageSequence === 0 &&
+      value.reviewAfterDocumentId === null &&
+      value.previousReviewAfterDocumentId === null &&
+      value.lastReviewProcessedCount === 0 &&
+      value.validReviewCount === 0 &&
+      value.countStateFingerprint === null &&
+      reconciliationNotStarted;
+  }
+  if (value.state === "counting") {
+    return value.resetAfterDocumentId === null &&
+      value.reviewPageSequence >= 1 &&
+      value.reviewAfterDocumentId !== null &&
+      value.lastReviewProcessedCount >= 1 &&
+      value.countStateFingerprint === null &&
+      reconciliationNotStarted;
+  }
+  if (
+    value.state !== "count-complete" ||
+    value.resetAfterDocumentId !== null ||
+    value.reviewPageSequence < 1 ||
+    value.reviewAfterDocumentId !== null ||
+    value.countStateFingerprint !== reviewMilestoneCountStateFingerprint({
+      userFingerprint: value.userFingerprint,
+      operationFingerprint: value.operationFingerprint,
+      lockFingerprint: value.lockFingerprint,
+      scanFingerprint: value.scanFingerprint,
+      validReviewCount: value.validReviewCount,
+    })
+  ) {
+    return false;
+  }
+  if (value.reconciliationPhase === "not-started") {
+    return reconciliationNotStarted;
+  }
+  if (value.reconciliationCount !== value.validReviewCount) {
+    return false;
+  }
+  if (value.reconciliationPhase === "awards") {
+    return value.reconciliationAfterLedgerDocumentId === null;
+  }
+  if (value.reconciliationPhase === "ledger") {
+    return true;
+  }
+  return value.reconciliationPhase === "complete" &&
+    value.reconciliationAfterLedgerDocumentId === null;
+}
+
+function parseReviewMilestoneAccumulatorManifest(
+  snapshot: DocumentSnapshotLike,
+): ReviewMilestoneAccumulatorManifest {
+  const data = snapshot.data();
+  if (
+    !snapshot.exists ||
+    data === undefined ||
+    !hasExactKeys(data, reviewMilestoneAccumulatorManifestKeys) ||
+    data.version !== reviewMilestoneAccumulatorVersion ||
+    !["resetting", "ready", "counting", "count-complete"].includes(
+      String(data.state),
+    ) ||
+    !["not-started", "awards", "ledger", "complete"].includes(
+      String(data.reconciliationPhase),
+    )
+  ) {
+    throw new Error("Review milestone accumulator manifest is invalid.");
+  }
+  const manifest = buildReviewMilestoneAccumulatorManifest({
+    userFingerprint: requireSha256Fingerprint(
+      data.userFingerprint,
+      "userFingerprint",
+    ),
+    operationFingerprint: requireSha256Fingerprint(
+      data.operationFingerprint,
+      "operationFingerprint",
+    ),
+    lockFingerprint: requireSha256Fingerprint(
+      data.lockFingerprint,
+      "lockFingerprint",
+    ),
+    scanFingerprint: requireSha256Fingerprint(
+      data.scanFingerprint,
+      "scanFingerprint",
+    ),
+    state: data.state as ReviewMilestoneAccumulatorManifest["state"],
+    resetAfterDocumentId: readNullableExactDocumentId(
+      data.resetAfterDocumentId,
+      "resetAfterDocumentId",
+    ),
+    reviewPageSequence: requireNonnegativeSafeInteger(
+      data.reviewPageSequence,
+      "reviewPageSequence",
+    ),
+    reviewAfterDocumentId: readNullableExactDocumentId(
+      data.reviewAfterDocumentId,
+      "reviewAfterDocumentId",
+    ),
+    previousReviewAfterDocumentId: readNullableExactDocumentId(
+      data.previousReviewAfterDocumentId,
+      "previousReviewAfterDocumentId",
+    ),
+    lastReviewProcessedCount: requireBoundedProcessedCount(
+      data.lastReviewProcessedCount,
+      maximumReviewMilestoneScanStepLimit,
+    ),
+    validReviewCount: requireNonnegativeSafeInteger(
+      data.validReviewCount,
+      "validReviewCount",
+    ),
+    countStateFingerprint: readNullableSha256Fingerprint(
+      data.countStateFingerprint,
+      "countStateFingerprint",
+    ),
+    reconciliationPhase:
+      data.reconciliationPhase as ReviewMilestoneAccumulatorManifest[
+        "reconciliationPhase"
+      ],
+    reconciliationCount: data.reconciliationCount === null
+      ? null
+      : requireNonnegativeSafeInteger(
+        data.reconciliationCount,
+        "reconciliationCount",
+      ),
+    reconciliationAfterMilestone: requireReviewMilestoneAfterMilestone(
+      data.reconciliationAfterMilestone,
+    ),
+    reconciliationAfterLedgerDocumentId: readNullableExactDocumentId(
+      data.reconciliationAfterLedgerDocumentId,
+      "reconciliationAfterLedgerDocumentId",
+    ),
+    previousReconciliationCursorFingerprint: readNullableSha256Fingerprint(
+      data.previousReconciliationCursorFingerprint,
+      "previousReconciliationCursorFingerprint",
+    ),
+    lastReconciliationProcessedCount: requireBoundedProcessedCount(
+      data.lastReconciliationProcessedCount,
+      maximumContributionPointStepLimit,
+    ),
+  });
+  if (manifest.fingerprint !== data.fingerprint) {
+    throw new Error("Review milestone accumulator fingerprint is invalid.");
+  }
+  return manifest;
+}
+
+function buildReviewMilestoneSeenValidIdentity(
+  scanFingerprint: string,
+  identityFingerprint: string,
+): ReviewMilestoneSeenValidIdentity {
+  const core = {
+    version: reviewMilestoneWinnerVersion,
+    scanFingerprint: requireSha256Fingerprint(
+      scanFingerprint,
+      "scanFingerprint",
+    ),
+    identityFingerprint: requireSha256Fingerprint(
+      identityFingerprint,
+      "identityFingerprint",
+    ),
+    validPublicReview: true,
+  } as const;
+  return Object.freeze({
+    ...core,
+    fingerprint: reviewMilestoneSeenValidIdentityFingerprint(core),
+  });
+}
+
+function reviewMilestoneSeenValidIdentityFingerprint(
+  value: Omit<ReviewMilestoneSeenValidIdentity, "fingerprint">,
+): string {
+  return contractSha256([
+    reviewMilestoneWinnerVersion,
+    ["scanFingerprint", value.scanFingerprint],
+    ["identityFingerprint", value.identityFingerprint],
+    ["validPublicReview", value.validPublicReview],
+  ]);
+}
+
+function parseStoredReviewMilestoneSeenValidIdentity(
+  snapshot: DocumentSnapshotLike,
+): ReviewMilestoneSeenValidIdentity {
+  const data = snapshot.data();
+  if (
+    !snapshot.exists ||
+    data === undefined ||
+    !hasExactKeys(data, reviewMilestoneWinnerKeys) ||
+    data.version !== reviewMilestoneWinnerVersion ||
+    data.validPublicReview !== true
+  ) {
+    throw new Error("Stored review milestone identity is invalid.");
+  }
+  const identity = buildReviewMilestoneSeenValidIdentity(
+    requireSha256Fingerprint(data.scanFingerprint, "scanFingerprint"),
+    requireSha256Fingerprint(data.identityFingerprint, "identityFingerprint"),
+  );
+  if (
+    snapshot.id !== identity.identityFingerprint ||
+    data.fingerprint !== identity.fingerprint
+  ) {
+    throw new Error("Stored review milestone identity fingerprint is invalid.");
+  }
+  return identity;
+}
+
+function contractSha256(value: unknown): string {
+  return createHash("sha256")
+    .update(JSON.stringify(value), "utf8")
+    .digest("hex");
+}
+
+function requireSha256Fingerprint(value: unknown, fieldName: string): string {
+  if (typeof value !== "string" || !/^[a-f0-9]{64}$/u.test(value)) {
+    throw new Error(`${fieldName} fingerprint is invalid.`);
+  }
+  return value;
+}
+
+function readNullableSha256Fingerprint(
+  value: unknown,
+  fieldName: string,
+): string | null {
+  return value === null ? null : requireSha256Fingerprint(value, fieldName);
+}
+
+function readNullableExactDocumentId(
+  value: unknown,
+  fieldName: string,
+): string | null {
+  return value === null ? null : readRequiredDocumentId(value, fieldName);
+}
+
+function requireBoundedProcessedCount(value: unknown, maximum: number): number {
+  const count = requireNonnegativeSafeInteger(value, "processedCount");
+  if (count > maximum) {
+    throw new Error("Private bounded step count is invalid.");
+  }
+  return count;
+}
+
+function readPrivateOperationId(value: unknown): string {
+  const operationId = readRequiredDocumentId(value, "operationId");
+  if (
+    operationId !== operationId.trim() ||
+    /^__.*__$/u.test(operationId) ||
+    /\p{Cc}/u.test(operationId)
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Private reconciliation identity is invalid.",
+    );
+  }
+  return operationId;
+}
+
+function readPrivateUserId(value: unknown): string {
+  const userId = readRequiredDocumentId(value, "userId");
+  if (
+    userId !== userId.trim() ||
+    /^__.*__$/u.test(userId) ||
+    /\p{Cc}/u.test(userId)
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Private reconciliation identity is invalid.",
+    );
+  }
+  return userId;
+}
+
+function readReviewMilestoneLockIdentity(
+  value: Readonly<{
+    userId: string;
+    operationId: string;
+    lockToken: string;
+  }>,
+): ReviewMilestoneReconciliationLockIdentity {
+  if (typeof value.lockToken !== "string" ||
+      !/^[a-f0-9]{64}$/u.test(value.lockToken)) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Private reconciliation identity is invalid.",
+    );
+  }
+  return Object.freeze({
+    userId: readPrivateUserId(value.userId),
+    operationId: readPrivateOperationId(value.operationId),
+    lockToken: value.lockToken,
+  });
+}
+
+function reviewMilestoneOperationFingerprint(operationId: string): string {
+  return contractSha256([
+    "bitestar.review-milestone-operation.v1",
+    ["operationId", readPrivateOperationId(operationId)],
+  ]);
+}
+
+function reviewMilestoneLockIdentityFingerprint(
+  identity: ReviewMilestoneReconciliationLockIdentity,
+): string {
+  return contractSha256([
+    "bitestar.review-milestone-lock-binding.v1",
+    ["userId", identity.userId],
+    ["operationId", identity.operationId],
+    ["lockToken", identity.lockToken],
+  ]);
+}
+
+function reviewMilestoneLockDatabase(
+  db: FirestoreLike,
+): ReviewMilestoneReconciliationLockDatabase {
+  return db as unknown as ReviewMilestoneReconciliationLockDatabase;
+}
+
+function reviewMilestoneLockTransaction(
+  transaction: TransactionLike,
+): ReviewMilestoneReconciliationLockTransaction {
+  return transaction as unknown as ReviewMilestoneReconciliationLockTransaction;
+}
+
+function requireReviewMilestoneAccumulatorIdentity(
+  accumulator: ReviewMilestoneWinnerAccumulator,
+  identity: ReviewMilestoneReconciliationLockIdentity,
+): void {
+  if (
+    accumulator.userFingerprint !==
+      reviewMilestoneAccumulatorUserFingerprint(identity.userId) ||
+    accumulator.operationFingerprint !==
+      reviewMilestoneOperationFingerprint(identity.operationId) ||
+    accumulator.lockFingerprint !==
+      reviewMilestoneLockIdentityFingerprint(identity)
+  ) {
+    throw new Error("Private review milestone workflow binding is invalid.");
+  }
+}
+
+function withReviewMilestoneLockTransactionGuard(
+  options: HelperOptions,
+  db: FirestoreLike,
+  identity: ReviewMilestoneReconciliationLockIdentity,
+): HelperOptions {
+  return {
+    ...options,
+    transactionGuard: async (transaction) => {
+      await assertActiveReviewMilestoneReconciliationLockInTransaction(
+        reviewMilestoneLockDatabase(db),
+        reviewMilestoneLockTransaction(transaction),
+        identity,
+      );
+      await options.transactionGuard?.(transaction);
+    },
+  };
+}
+
+function requireCursorRecord(value: unknown): Record<string, unknown> {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return failCursor();
+  }
+  return value as Record<string, unknown>;
+}
+
+function requireCursorKeys(
+  value: Record<string, unknown>,
+  keys: readonly string[],
+): void {
+  if (!hasExactKeys(value, keys)) {
+    failCursor();
+  }
+}
+
+function failCursor(): never {
+  throw new Error("Private cursor is invalid.");
+}
+
+function cursorFingerprint(value: {fingerprint: string} | null): string | null {
+  return value?.fingerprint ?? null;
+}
+
+function cursorDocumentId(
+  value: ReviewMilestoneAccumulatorResetCursor | null,
+): string | null {
+  return value?.afterWinnerDocumentId ?? null;
+}
+
+function reviewMilestoneCursorBindingFingerprintFields(
+  value: ReviewMilestoneCursorBindings,
+): readonly (readonly [string, string])[] {
+  return [
+    ["userFingerprint", value.userFingerprint],
+    ["operationFingerprint", value.operationFingerprint],
+    ["lockFingerprint", value.lockFingerprint],
+    ["countStateFingerprint", value.countStateFingerprint],
+  ];
+}
+
+function reviewMilestoneCursorBindingsMatch(
+  value: ReviewMilestoneCursorBindings,
+  expected: ReviewMilestoneCursorBindings,
+): boolean {
+  return value.userFingerprint === expected.userFingerprint &&
+    value.operationFingerprint === expected.operationFingerprint &&
+    value.lockFingerprint === expected.lockFingerprint &&
+    value.countStateFingerprint === expected.countStateFingerprint;
+}
+
+function contributionPointDishReverseContextFingerprint(dishId: string): string {
+  return contractSha256([
+    contributionPointDishReverseCursorVersion,
+    ["dishId", readRequiredDocumentId(dishId, "dishId")],
+  ]);
+}
+
+function buildContributionPointDishReverseCursor(value: Readonly<{
+  operationFingerprint: string;
+  dishFingerprint: string;
+  afterLedgerDocumentId: string;
+}>): ContributionPointDishReverseCursor {
+  const core = {
+    version: contributionPointDishReverseCursorVersion,
+    phase: "dish-ledger" as const,
+    operationFingerprint: requireSha256Fingerprint(
+      value.operationFingerprint,
+      "operationFingerprint",
+    ),
+    dishFingerprint: requireSha256Fingerprint(
+      value.dishFingerprint,
+      "dishFingerprint",
+    ),
+    afterLedgerDocumentId: readRequiredDocumentId(
+      value.afterLedgerDocumentId,
+      "afterLedgerDocumentId",
+    ),
+  };
+  return Object.freeze({
+    ...core,
+    fingerprint: contractSha256([
+      contributionPointDishReverseCursorVersion,
+      ["phase", core.phase],
+      ["operationFingerprint", core.operationFingerprint],
+      ["dishFingerprint", core.dishFingerprint],
+      ["afterLedgerDocumentId", core.afterLedgerDocumentId],
+    ]),
+  });
+}
+
+function buildReviewMilestoneAccumulatorResetCursor(value: Readonly<{
+  userFingerprint: string;
+  operationFingerprint: string;
+  lockFingerprint: string;
+  scanFingerprint: string;
+  afterWinnerDocumentId: string;
+}>): ReviewMilestoneAccumulatorResetCursor {
+  const core = {
+    version: reviewMilestoneAccumulatorResetCursorVersion,
+    phase: "accumulator-reset" as const,
+    userFingerprint: requireSha256Fingerprint(
+      value.userFingerprint,
+      "userFingerprint",
+    ),
+    operationFingerprint: requireSha256Fingerprint(
+      value.operationFingerprint,
+      "operationFingerprint",
+    ),
+    lockFingerprint: requireSha256Fingerprint(
+      value.lockFingerprint,
+      "lockFingerprint",
+    ),
+    scanFingerprint: requireSha256Fingerprint(
+      value.scanFingerprint,
+      "scanFingerprint",
+    ),
+    afterWinnerDocumentId: readRequiredDocumentId(
+      value.afterWinnerDocumentId,
+      "afterWinnerDocumentId",
+    ),
+  };
+  return Object.freeze({
+    ...core,
+    fingerprint: contractSha256([
+      reviewMilestoneAccumulatorResetCursorVersion,
+      ["phase", core.phase],
+      ["userFingerprint", core.userFingerprint],
+      ["operationFingerprint", core.operationFingerprint],
+      ["lockFingerprint", core.lockFingerprint],
+      ["scanFingerprint", core.scanFingerprint],
+      ["afterWinnerDocumentId", core.afterWinnerDocumentId],
+    ]),
+  });
+}
+
+function buildReviewMilestoneReviewCursor(value: Readonly<{
+  userFingerprint: string;
+  operationFingerprint: string;
+  lockFingerprint: string;
+  scanFingerprint: string;
+  sequence: number;
+  afterReviewDocumentId: string;
+}>): ReviewMilestoneReviewCursor {
+  const sequence = requireNonnegativeSafeInteger(value.sequence, "sequence");
+  if (sequence < 1) {
+    throw new Error("Private review milestone cursor is invalid.");
+  }
+  const core = {
+    version: reviewMilestoneSourceCursorVersion,
+    phase: "review-scan" as const,
+    userFingerprint: requireSha256Fingerprint(
+      value.userFingerprint,
+      "userFingerprint",
+    ),
+    operationFingerprint: requireSha256Fingerprint(
+      value.operationFingerprint,
+      "operationFingerprint",
+    ),
+    lockFingerprint: requireSha256Fingerprint(
+      value.lockFingerprint,
+      "lockFingerprint",
+    ),
+    scanFingerprint: requireSha256Fingerprint(
+      value.scanFingerprint,
+      "scanFingerprint",
+    ),
+    sequence,
+    afterReviewDocumentId: readRequiredDocumentId(
+      value.afterReviewDocumentId,
+      "afterReviewDocumentId",
+    ),
+  };
+  return Object.freeze({
+    ...core,
+    fingerprint: contractSha256([
+      reviewMilestoneSourceCursorVersion,
+      ["phase", core.phase],
+      ["userFingerprint", core.userFingerprint],
+      ["operationFingerprint", core.operationFingerprint],
+      ["lockFingerprint", core.lockFingerprint],
+      ["scanFingerprint", core.scanFingerprint],
+      ["sequence", core.sequence],
+      ["afterReviewDocumentId", core.afterReviewDocumentId],
+    ]),
+  });
+}
+
+type ReviewMilestoneCursorBindings = Readonly<{
+  userFingerprint: string;
+  operationFingerprint: string;
+  lockFingerprint: string;
+  countStateFingerprint: string;
+}>;
+
+function buildReviewMilestoneReconcileCursor(
+  value:
+    | Readonly<ReviewMilestoneCursorBindings & {
+      phase: "awards";
+      afterMilestone: number;
+    }>
+    | Readonly<ReviewMilestoneCursorBindings & {
+      phase: "ledger";
+      afterLedgerDocumentId: string | null;
+    }>,
+): ReviewMilestoneReconcileCursor {
+  const bindings = {
+    userFingerprint: requireSha256Fingerprint(
+      value.userFingerprint,
+      "userFingerprint",
+    ),
+    operationFingerprint: requireSha256Fingerprint(
+      value.operationFingerprint,
+      "operationFingerprint",
+    ),
+    lockFingerprint: requireSha256Fingerprint(
+      value.lockFingerprint,
+      "lockFingerprint",
+    ),
+    countStateFingerprint: requireSha256Fingerprint(
+      value.countStateFingerprint,
+      "countStateFingerprint",
+    ),
+  };
+  if (value.phase === "awards") {
+    const core = {
+      version: reviewMilestoneReconcileCursorVersion,
+      phase: "awards" as const,
+      ...bindings,
+      afterMilestone: requireReviewMilestoneAfterMilestone(
+        value.afterMilestone,
+      ),
+    };
+    return Object.freeze({
+      ...core,
+      fingerprint: contractSha256([
+        reviewMilestoneReconcileCursorVersion,
+        ["phase", core.phase],
+        ...reviewMilestoneCursorBindingFingerprintFields(core),
+        ["afterMilestone", core.afterMilestone],
+      ]),
+    });
+  }
+  const core = {
+    version: reviewMilestoneReconcileCursorVersion,
+    phase: "ledger" as const,
+    ...bindings,
+    afterLedgerDocumentId: readNullableExactDocumentId(
+      value.afterLedgerDocumentId,
+      "afterLedgerDocumentId",
+    ),
+  };
+  return Object.freeze({
+    ...core,
+    fingerprint: contractSha256([
+      reviewMilestoneReconcileCursorVersion,
+      ["phase", core.phase],
+      ...reviewMilestoneCursorBindingFingerprintFields(core),
+      ["afterLedgerDocumentId", core.afterLedgerDocumentId],
+    ]),
+  });
+}
+
+function readReviewMilestoneAccumulatorResetCursor(
+  value: unknown,
+  expected: Readonly<{
+    userFingerprint: string;
+    operationFingerprint: string;
+    lockFingerprint: string;
+    scanFingerprint: string;
+  }>,
+): ReviewMilestoneAccumulatorResetCursor | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  try {
+    const data = requireCursorRecord(value);
+    requireCursorKeys(data, [
+      "version", "phase", "userFingerprint", "operationFingerprint",
+      "lockFingerprint", "scanFingerprint", "afterWinnerDocumentId",
+      "fingerprint",
+    ]);
+    if (
+      data.version !== reviewMilestoneAccumulatorResetCursorVersion ||
+      data.phase !== "accumulator-reset"
+    ) {
+      return failCursor();
+    }
+    const cursor = buildReviewMilestoneAccumulatorResetCursor({
+      userFingerprint: requireSha256Fingerprint(
+        data.userFingerprint,
+        "userFingerprint",
+      ),
+      operationFingerprint: requireSha256Fingerprint(
+        data.operationFingerprint,
+        "operationFingerprint",
+      ),
+      lockFingerprint: requireSha256Fingerprint(
+        data.lockFingerprint,
+        "lockFingerprint",
+      ),
+      scanFingerprint: requireSha256Fingerprint(
+        data.scanFingerprint,
+        "scanFingerprint",
+      ),
+      afterWinnerDocumentId: readRequiredDocumentId(
+        data.afterWinnerDocumentId,
+        "afterWinnerDocumentId",
+      ),
+    });
+    if (
+      data.fingerprint !== cursor.fingerprint ||
+      cursor.userFingerprint !== expected.userFingerprint ||
+      cursor.operationFingerprint !== expected.operationFingerprint ||
+      cursor.lockFingerprint !== expected.lockFingerprint ||
+      cursor.scanFingerprint !== expected.scanFingerprint
+    ) {
+      return failCursor();
+    }
+    return cursor;
+  } catch {
+    throw new HttpsError(
+      "invalid-argument",
+      "Private review milestone reset cursor is invalid.",
+    );
+  }
+}
+
+function readReviewMilestoneReviewCursor(
+  value: unknown,
+  expected: Pick<
+    ReviewMilestoneWinnerAccumulator,
+    "userFingerprint" | "operationFingerprint" | "lockFingerprint" |
+      "scanFingerprint"
+  >,
+): ReviewMilestoneReviewCursor | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  try {
+    const data = requireCursorRecord(value);
+    requireCursorKeys(data, [
+      "version", "phase", "userFingerprint", "operationFingerprint",
+      "lockFingerprint", "scanFingerprint", "sequence",
+      "afterReviewDocumentId", "fingerprint",
+    ]);
+    if (
+      data.version !== reviewMilestoneSourceCursorVersion ||
+      data.phase !== "review-scan"
+    ) {
+      return failCursor();
+    }
+    const cursor = buildReviewMilestoneReviewCursor({
+      userFingerprint: requireSha256Fingerprint(
+        data.userFingerprint,
+        "userFingerprint",
+      ),
+      operationFingerprint: requireSha256Fingerprint(
+        data.operationFingerprint,
+        "operationFingerprint",
+      ),
+      lockFingerprint: requireSha256Fingerprint(
+        data.lockFingerprint,
+        "lockFingerprint",
+      ),
+      scanFingerprint: requireSha256Fingerprint(
+        data.scanFingerprint,
+        "scanFingerprint",
+      ),
+      sequence: requireNonnegativeSafeInteger(data.sequence, "sequence"),
+      afterReviewDocumentId: readRequiredDocumentId(
+        data.afterReviewDocumentId,
+        "afterReviewDocumentId",
+      ),
+    });
+    if (
+      data.fingerprint !== cursor.fingerprint ||
+      cursor.userFingerprint !== expected.userFingerprint ||
+      cursor.operationFingerprint !== expected.operationFingerprint ||
+      cursor.lockFingerprint !== expected.lockFingerprint ||
+      cursor.scanFingerprint !== expected.scanFingerprint
+    ) {
+      return failCursor();
+    }
+    return cursor;
+  } catch {
+    throw new HttpsError(
+      "invalid-argument",
+      "Private review milestone scan cursor is invalid.",
+    );
+  }
+}
+
+function prepareReviewPageFromManifest(
+  manifest: ReviewMilestoneAccumulatorManifest,
+  cursor: ReviewMilestoneReviewCursor | null,
+  bindings: Readonly<{
+    userFingerprint: string;
+    operationFingerprint: string;
+    lockFingerprint: string;
+    scanFingerprint: string;
+  }>,
+): ReviewMilestonePreparedReviewPage {
+  if (manifest.state === "ready") {
+    if (cursor !== null) {
+      throw new Error("Private review milestone scan cursor is invalid.");
+    }
+    return {status: "advance", result: null};
+  }
+  if (manifest.state === "count-complete") {
+    if (cursor === null || cursorFingerprint(cursor) ===
+        previousReviewCursorFingerprint(manifest, bindings)) {
+      return {
+        status: "already-committed",
+        result: reviewScanResultFromManifest(manifest),
+      };
+    }
+    throw new Error("Private review milestone scan cursor is invalid.");
+  }
+  if (manifest.state !== "counting" ||
+      manifest.reviewAfterDocumentId === null) {
+    throw new Error("Private review milestone scan state is invalid.");
+  }
+  const current = buildReviewMilestoneReviewCursor({
+    ...bindings,
+    sequence: manifest.reviewPageSequence,
+    afterReviewDocumentId: manifest.reviewAfterDocumentId,
+  });
+  if (cursorFingerprint(cursor) === current.fingerprint) {
+    return {status: "advance", result: null};
+  }
+  if (cursorFingerprint(cursor) ===
+      previousReviewCursorFingerprint(manifest, bindings)) {
+    return {
+      status: "already-committed",
+      result: reviewScanResultFromManifest(manifest),
+    };
+  }
+  throw new Error("Private review milestone scan cursor is invalid.");
+}
+
+function previousReviewCursorFingerprint(
+  manifest: ReviewMilestoneAccumulatorManifest,
+  bindings: Readonly<{
+    userFingerprint: string;
+    operationFingerprint: string;
+    lockFingerprint: string;
+    scanFingerprint: string;
+  }>,
+): string | null {
+  if (manifest.previousReviewAfterDocumentId === null) {
+    return null;
+  }
+  return buildReviewMilestoneReviewCursor({
+    ...bindings,
+    sequence: manifest.reviewPageSequence - 1,
+    afterReviewDocumentId: manifest.previousReviewAfterDocumentId,
+  }).fingerprint;
+}
+
+function reviewScanResultFromManifest(
+  manifest: ReviewMilestoneAccumulatorManifest,
+): ReviewMilestoneIdentityScanStepResult {
+  const complete = manifest.state === "count-complete";
+  const nextCursor = manifest.state === "counting" &&
+      manifest.reviewAfterDocumentId !== null
+    ? buildReviewMilestoneReviewCursor({
+      userFingerprint: manifest.userFingerprint,
+      operationFingerprint: manifest.operationFingerprint,
+      lockFingerprint: manifest.lockFingerprint,
+      scanFingerprint: manifest.scanFingerprint,
+      sequence: manifest.reviewPageSequence,
+      afterReviewDocumentId: manifest.reviewAfterDocumentId,
+    })
+    : null;
+  return Object.freeze({
+    processedCount: manifest.lastReviewProcessedCount,
+    nextCursor,
+    complete,
+    validReviewCount: complete ? manifest.validReviewCount : null,
+  });
+}
+
+function reviewMilestoneCountStateFingerprint(value: Readonly<{
+  userFingerprint: string;
+  operationFingerprint: string;
+  lockFingerprint: string;
+  scanFingerprint: string;
+  validReviewCount: number;
+}>): string {
+  return contractSha256([
+    "bitestar.review-milestone-count-complete.v1",
+    ["userFingerprint", value.userFingerprint],
+    ["operationFingerprint", value.operationFingerprint],
+    ["lockFingerprint", value.lockFingerprint],
+    ["scanFingerprint", value.scanFingerprint],
+    ["validReviewCount", value.validReviewCount],
+  ]);
+}
+
+function prepareReconciliationPageFromManifest(
+  manifest: ReviewMilestoneAccumulatorManifest,
+  cursor: ReviewMilestoneReconcileCursor | null,
+  currentReviewCount: number,
+  bindings: Omit<ReviewMilestoneCursorBindings, "countStateFingerprint">,
+): ReviewMilestonePreparedReconciliationPage {
+  if (
+    manifest.state !== "count-complete" ||
+    manifest.countStateFingerprint === null ||
+    manifest.validReviewCount !== currentReviewCount ||
+    (manifest.reconciliationCount !== null &&
+      manifest.reconciliationCount !== currentReviewCount)
+  ) {
+    throw new Error("Private milestone reconciliation binding is invalid.");
+  }
+  const countStateFingerprint = manifest.countStateFingerprint;
+  if (manifest.reconciliationPhase === "not-started") {
+    if (cursor !== null) {
+      throw new Error("Private milestone reconciliation cursor is invalid.");
+    }
+    return {status: "advance", result: null, countStateFingerprint};
+  }
+  if (manifest.reconciliationPhase === "complete") {
+    if (
+      cursor === null ||
+      cursor.fingerprint === manifest.previousReconciliationCursorFingerprint
+    ) {
+      return {
+        status: "already-committed",
+        result: reconciliationResultFromManifest(manifest),
+        countStateFingerprint,
+      };
+    }
+    throw new Error("Private milestone reconciliation cursor is invalid.");
+  }
+  const current = reconciliationCursorFromManifest(manifest, {
+    ...bindings,
+    countStateFingerprint,
+  });
+  if (cursor?.fingerprint === current.fingerprint) {
+    return {status: "advance", result: null, countStateFingerprint};
+  }
+  if (cursorFingerprint(cursor) ===
+      manifest.previousReconciliationCursorFingerprint) {
+    return {
+      status: "already-committed",
+      result: reconciliationResultFromManifest(manifest),
+      countStateFingerprint,
+    };
+  }
+  throw new Error("Private milestone reconciliation cursor is invalid.");
+}
+
+function reconciliationCursorFromManifest(
+  manifest: ReviewMilestoneAccumulatorManifest,
+  bindings: ReviewMilestoneCursorBindings,
+): ReviewMilestoneReconcileCursor {
+  if (manifest.reconciliationPhase === "awards") {
+    return buildReviewMilestoneReconcileCursor({
+      ...bindings,
+      phase: "awards",
+      afterMilestone: manifest.reconciliationAfterMilestone,
+    });
+  }
+  if (manifest.reconciliationPhase === "ledger") {
+    return buildReviewMilestoneReconcileCursor({
+      ...bindings,
+      phase: "ledger",
+      afterLedgerDocumentId: manifest.reconciliationAfterLedgerDocumentId,
+    });
+  }
+  return failCursor();
+}
+
+function reconciliationResultFromManifest(
+  manifest: ReviewMilestoneAccumulatorManifest,
+): ReviewMilestoneReconcileStepResult {
+  if (manifest.countStateFingerprint === null ||
+      manifest.reconciliationPhase === "not-started") {
+    throw new Error("Private milestone reconciliation state is invalid.");
+  }
+  const complete = manifest.reconciliationPhase === "complete";
+  return Object.freeze({
+    processedCount: manifest.lastReconciliationProcessedCount,
+    nextCursor: complete
+      ? null
+      : reconciliationCursorFromManifest(manifest, {
+        userFingerprint: manifest.userFingerprint,
+        operationFingerprint: manifest.operationFingerprint,
+        lockFingerprint: manifest.lockFingerprint,
+        countStateFingerprint: manifest.countStateFingerprint,
+      }),
+    complete,
+  });
+}
+
+function reviewMilestoneReconciliationStateFingerprint(
+  manifest: ReviewMilestoneAccumulatorManifest,
+): string {
+  if (
+    manifest.state !== "count-complete" ||
+    manifest.reconciliationPhase !== "complete" ||
+    manifest.countStateFingerprint === null ||
+    manifest.reconciliationCount !== manifest.validReviewCount ||
+    manifest.reconciliationAfterLedgerDocumentId !== null
+  ) {
+    throw new Error("Private milestone reconciliation state is invalid.");
+  }
+  return contractSha256([
+    "bitestar.review-milestone-reconciliation-complete.v1",
+    ["userFingerprint", manifest.userFingerprint],
+    ["operationFingerprint", manifest.operationFingerprint],
+    ["lockFingerprint", manifest.lockFingerprint],
+    ["countStateFingerprint", manifest.countStateFingerprint],
+    ["validReviewCount", manifest.validReviewCount],
+    ["afterMilestone", manifest.reconciliationAfterMilestone],
+  ]);
+}
+
+function readContributionPointStepLimit(value: unknown): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isSafeInteger(value) ||
+    value < 1 ||
+    value > maximumContributionPointStepLimit
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      `limit must be an integer from 1 to ${maximumContributionPointStepLimit}.`,
+    );
+  }
+  return value;
+}
+
+function readReviewMilestoneScanStepLimit(value: unknown): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isSafeInteger(value) ||
+    value < 1 ||
+    value > maximumReviewMilestoneScanStepLimit
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      `limit must be an integer from 1 to ${maximumReviewMilestoneScanStepLimit}.`,
+    );
+  }
+  return value;
+}
+
+function requireNonnegativeSafeInteger(value: unknown, fieldName: string): number {
+  if (
+    typeof value !== "number" ||
+    !Number.isSafeInteger(value) ||
+    value < 0
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      `${fieldName} must be a nonnegative safe integer.`,
+    );
+  }
+  return value;
+}
+
+function readReviewMilestoneReconcileCursor(
+  value: unknown,
+  expected: ReviewMilestoneCursorBindings,
+): ReviewMilestoneReconcileCursor | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  try {
+    const data = requireCursorRecord(value);
+    const cursor = data.phase === "awards"
+      ? (() => {
+        requireCursorKeys(data, [
+          "version", "phase", "userFingerprint", "operationFingerprint",
+          "lockFingerprint", "countStateFingerprint", "afterMilestone",
+          "fingerprint",
+        ]);
+        return buildReviewMilestoneReconcileCursor({
+          userFingerprint: requireSha256Fingerprint(
+            data.userFingerprint,
+            "userFingerprint",
+          ),
+          operationFingerprint: requireSha256Fingerprint(
+            data.operationFingerprint,
+            "operationFingerprint",
+          ),
+          lockFingerprint: requireSha256Fingerprint(
+            data.lockFingerprint,
+            "lockFingerprint",
+          ),
+          countStateFingerprint: requireSha256Fingerprint(
+            data.countStateFingerprint,
+            "countStateFingerprint",
+          ),
+          phase: "awards",
+          afterMilestone: requireReviewMilestoneAfterMilestone(
+            data.afterMilestone,
+          ),
+        });
+      })()
+      : data.phase === "ledger"
+        ? (() => {
+          requireCursorKeys(data, [
+            "version", "phase", "userFingerprint", "operationFingerprint",
+            "lockFingerprint", "countStateFingerprint",
+            "afterLedgerDocumentId", "fingerprint",
+          ]);
+          return buildReviewMilestoneReconcileCursor({
+            userFingerprint: requireSha256Fingerprint(
+              data.userFingerprint,
+              "userFingerprint",
+            ),
+            operationFingerprint: requireSha256Fingerprint(
+              data.operationFingerprint,
+              "operationFingerprint",
+            ),
+            lockFingerprint: requireSha256Fingerprint(
+              data.lockFingerprint,
+              "lockFingerprint",
+            ),
+            countStateFingerprint: requireSha256Fingerprint(
+              data.countStateFingerprint,
+              "countStateFingerprint",
+            ),
+            phase: "ledger",
+            afterLedgerDocumentId: readNullableExactDocumentId(
+              data.afterLedgerDocumentId,
+              "afterLedgerDocumentId",
+            ),
+          });
+        })()
+        : failCursor();
+    if (
+      data.version !== reviewMilestoneReconcileCursorVersion ||
+      data.fingerprint !== cursor.fingerprint ||
+      !reviewMilestoneCursorBindingsMatch(cursor, expected)
+    ) {
+      return failCursor();
+    }
+    return cursor;
+  } catch {
+    throw new HttpsError(
+      "invalid-argument",
+      "Review milestone reconciliation cursor is invalid.",
+    );
+  }
+}
+
+function requireReviewMilestoneAfterMilestone(value: unknown): number {
+  const afterMilestone = requireNonnegativeSafeInteger(
+    value,
+    "cursor afterMilestone",
+  );
+  if (afterMilestone % 5 !== 0) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Review milestone reconciliation cursor is invalid.",
+    );
+  }
+  return afterMilestone;
+}
+
+function readContributionPointDishReverseCursor(
+  value: unknown,
+  expected: Readonly<{
+    operationFingerprint: string;
+    dishFingerprint: string;
+  }>,
+): ContributionPointDishReverseCursor | null {
+  if (value === undefined || value === null) {
+    return null;
+  }
+  try {
+    const data = requireCursorRecord(value);
+    requireCursorKeys(data, [
+      "version", "phase", "operationFingerprint", "dishFingerprint",
+      "afterLedgerDocumentId", "fingerprint",
+    ]);
+    if (
+      data.version !== contributionPointDishReverseCursorVersion ||
+      data.phase !== "dish-ledger"
+    ) {
+      return failCursor();
+    }
+    const cursor = buildContributionPointDishReverseCursor({
+      operationFingerprint: requireSha256Fingerprint(
+        data.operationFingerprint,
+        "operationFingerprint",
+      ),
+      dishFingerprint: requireSha256Fingerprint(
+        data.dishFingerprint,
+        "dishFingerprint",
+      ),
+      afterLedgerDocumentId: readRequiredDocumentId(
+        data.afterLedgerDocumentId,
+        "afterLedgerDocumentId",
+      ),
+    });
+    if (
+      data.fingerprint !== cursor.fingerprint ||
+      cursor.operationFingerprint !== expected.operationFingerprint ||
+      cursor.dishFingerprint !== expected.dishFingerprint
+    ) {
+      return failCursor();
+    }
+    return cursor;
+  } catch {
+    throw new HttpsError(
+      "invalid-argument",
+      "Contribution point reversal cursor is invalid.",
+    );
+  }
+}
+
+function contributionPointStepOptions(
+  now: unknown,
+  options: HelperOptions,
+): HelperOptions {
+  if (now === undefined) {
+    return options;
+  }
+  const fieldValues = options.fieldValues ?? adminServerFieldValues;
+  return {
+    fieldValues: {
+      serverTimestamp: () => now,
+      increment: (delta: number) => fieldValues.increment(delta),
+    },
+    transactionGuard: options.transactionGuard,
+  };
+}
+
+function isEarnedReviewMilestone(
+  milestone: number,
+  validReviewCount: number,
+): boolean {
+  return milestone >= 5 && milestone % 5 === 0 && milestone <= validReviewCount;
+}
+
+function appendModerationReverseResult(
+  result:
+    | ContributionPointDishReverseResult
+    | ContributionPointMilestoneReconcileResult,
+  reverseResult: ContributionPointReverseResult,
+): void {
+  switch (reverseResult.status) {
+    case "reversed":
+      result.reversedEntryIds.push(reverseResult.ledgerEntryId);
+      break;
+    case "already-reversed":
+      result.alreadyReversedEntryIds.push(reverseResult.ledgerEntryId);
+      break;
+    case "missing":
+      result.missingEntryIds.push(reverseResult.ledgerEntryId);
+      break;
+    case "invalid":
+    case "not-active":
+      result.ignoredEntryIds.push(reverseResult.ledgerEntryId);
+      break;
+  }
+}
+
 async function reverseEntryForModerationResult(
   db: FirestoreLike,
   params: {
@@ -1291,21 +3652,7 @@ async function reverseEntryForModerationResult(
       },
       params.options,
     );
-    switch (reverseResult.status) {
-      case "reversed":
-        params.result.reversedEntryIds.push(reverseResult.ledgerEntryId);
-        break;
-      case "already-reversed":
-        params.result.alreadyReversedEntryIds.push(reverseResult.ledgerEntryId);
-        break;
-      case "missing":
-        params.result.missingEntryIds.push(reverseResult.ledgerEntryId);
-        break;
-      case "invalid":
-      case "not-active":
-        params.result.ignoredEntryIds.push(reverseResult.ledgerEntryId);
-        break;
-    }
+    appendModerationReverseResult(params.result, reverseResult);
     return reverseResult;
   } catch (error) {
     params.result.errors.push({
@@ -2248,14 +4595,16 @@ async function runContributionPointAwardTransaction(
   options: HelperOptions,
 ): Promise<ContributionPointAwardResult> {
   const fieldValues = options.fieldValues ?? adminServerFieldValues;
-  const award = await db.runTransaction((transaction) =>
-    awardContributionPointsWithinTransaction(
+  const award = await db.runTransaction(async (transaction) => {
+    await options.transactionGuard?.(transaction);
+    return awardContributionPointsWithinTransaction(
       transaction,
       db,
       draft,
       exactSourceKey,
       fieldValues,
-    ));
+    );
+  });
   return award.result;
 }
 

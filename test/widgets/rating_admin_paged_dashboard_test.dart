@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -8,6 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:coupon_app/models/bitescore_restaurant.dart';
 import 'package:coupon_app/models/pagination/paged_models.dart';
 import 'package:coupon_app/models/rating_admin_paging_models.dart';
+import 'package:coupon_app/models/restaurant.dart';
 import 'package:coupon_app/services/rating_admin_paging_service.dart';
 import 'package:coupon_app/services/restaurant_invite_service.dart';
 import 'package:coupon_app/widgets/rating_admin_paged_dashboard.dart';
@@ -36,7 +38,98 @@ Map<String, Object?> restaurant(
     'isClaimed': isClaimed,
     'ownerUserId': ownerUserId,
     'linkedBiteSaverUid': null,
+    'restaurantWriteRevision': 4,
   };
+}
+
+Map<String, Object?> nestedBiteScoreRestaurant(
+  String id,
+  String name, {
+  bool isClaimed = false,
+  String? ownerUserId,
+}) {
+  return <String, Object?>{
+    'id': id,
+    'name': name,
+    'normalizedName': name.toLowerCase(),
+    'address': '1 Main St',
+    'city': 'Orlando',
+    'state': 'FL',
+    'zipCode': '32801',
+    'latitude': 28.5,
+    'longitude': -81.3,
+    'phone': null,
+    'website': null,
+    'ownerUserId': ownerUserId,
+    'isClaimed': isClaimed,
+    'isActive': true,
+    'createdAtMillis': null,
+    'updatedAtMillis': null,
+    'restaurantWriteRevision': 4,
+  };
+}
+
+Map<String, Object?> restaurantQueueItem(
+  RatingAdminQueueKind kind,
+  String restaurantId,
+) {
+  return <String, Object?>{
+    'kind': kind.wireName,
+    'id': 'report-${kind.wireName}',
+    'reportId': 'report-${kind.wireName}',
+    'restaurantId': restaurantId,
+    'restaurantName': 'Handoff Restaurant',
+    'reportingUserId': 'reporter-1',
+    'reason': 'duplicate',
+    'status': 'pending',
+    'createdAtMillis': null,
+    'updatedAtMillis': null,
+    'restaurant': nestedBiteScoreRestaurant(restaurantId, 'Handoff Restaurant'),
+  };
+}
+
+Map<String, Object?> claimedRestaurantItem(String restaurantId) {
+  return <String, Object?>{
+    'kind': RatingAdminDirectoryKind.claimedRestaurants.wireName,
+    'id': restaurantId,
+    'restaurant': nestedBiteScoreRestaurant(
+      restaurantId,
+      'Claimed Handoff Restaurant',
+      isClaimed: true,
+      ownerUserId: 'owner-1',
+    ),
+    'approvedClaim': null,
+  };
+}
+
+BitescoreRestaurant completeRestaurant(
+  String id, {
+  int revision = 4,
+  String profileMarker = 'current',
+}) {
+  return BitescoreRestaurant(
+    id: id,
+    name: 'Complete $profileMarker Restaurant',
+    normalizedName: 'complete $profileMarker restaurant',
+    address: '1 Main St',
+    city: 'Orlando',
+    state: 'FL',
+    zipCode: '32801',
+    location: const GeoPoint(28.5, -81.3),
+    phone: '407-555-0100',
+    website: 'https://example.test',
+    bio: 'Distinctive $profileMarker biography',
+    businessHours: const <RestaurantBusinessHours>[
+      RestaurantBusinessHours(
+        day: 'Monday',
+        opensAt: '9:00 AM',
+        closesAt: '5:00 PM',
+        closed: false,
+      ),
+    ],
+    cuisineTags: <String>['Distinctive $profileMarker cuisine'],
+    restaurantWriteRevision: revision,
+  );
 }
 
 Map<String, Object?> page({
@@ -572,6 +665,7 @@ void main() {
       expect(find.text('Duplicate Name'), findsOneWidget);
       expect(find.text('Restaurant ID: RESTAURANT_DOC_123'), findsOneWidget);
       expect(find.text('Owner UID: OWNER_UID_789'), findsOneWidget);
+      expect(find.textContaining('Revision'), findsNothing);
       expect(find.byTooltip('Copy Restaurant ID'), findsOneWidget);
       expect(find.byTooltip('Copy Owner UID'), findsOneWidget);
 
@@ -653,6 +747,7 @@ void main() {
               state: 'FL',
               zipCode: '32801',
               location: GeoPoint(28.5, -81.3),
+              restaurantWriteRevision: 0,
             );
           },
           onEditRestaurant: (restaurant) async {
@@ -773,6 +868,383 @@ void main() {
       expect(find.text('Manage Dishes'), findsOneWidget);
     }
   });
+
+  testWidgets(
+    'reported and duplicate edits rehydrate complete restaurant profiles',
+    (tester) async {
+      for (final kind in <RatingAdminQueueKind>[
+        RatingAdminQueueKind.restaurantReports,
+        RatingAdminQueueKind.duplicateRestaurantReports,
+      ]) {
+        final restaurantId = 'restaurant-${kind.wireName}';
+        final fullRestaurant = completeRestaurant(restaurantId);
+        final loadedIds = <String>[];
+        var pageCalls = 0;
+        BitescoreRestaurant? editedRestaurant;
+        final service = RatingAdminPagingService(
+          functionsBoundary: (name, body) async {
+            pageCalls++;
+            expect(name, 'listRatingAdminQueuePage');
+            expect((body['criteria'] as Map)['queueKind'], kind.wireName);
+            return page(
+              items: <Object?>[restaurantQueueItem(kind, restaurantId)],
+              pageSize: 25,
+              pageNumber: 1,
+            );
+          },
+        );
+
+        await tester.pumpWidget(
+          host(
+            RatingAdminQueuePagedView(
+              key: ValueKey('revision-handoff-${kind.wireName}'),
+              kind: kind,
+              service: service,
+              loadRestaurant: (id) async {
+                loadedIds.add(id);
+                return fullRestaurant;
+              },
+              onEditRestaurant: (restaurant) async {
+                editedRestaurant = restaurant;
+                return false;
+              },
+              onEditDish: (_) async => false,
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('Revision'), findsNothing);
+        await tester.tap(
+          find.widgetWithText(OutlinedButton, 'Edit Restaurant'),
+        );
+        await tester.pumpAndSettle();
+
+        expect(loadedIds, <String>[restaurantId]);
+        expect(pageCalls, 1);
+        expect(editedRestaurant, same(fullRestaurant));
+        expect(editedRestaurant?.id, restaurantId);
+        expect(editedRestaurant?.restaurantWriteRevision, 4);
+        expect(editedRestaurant?.bio, 'Distinctive current biography');
+        expect(editedRestaurant?.businessHours, hasLength(1));
+        expect(editedRestaurant?.businessHours.single.day, 'Monday');
+        expect(editedRestaurant?.cuisineTags, <String>[
+          'Distinctive current cuisine',
+        ]);
+
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pumpAndSettle();
+      }
+    },
+  );
+
+  testWidgets('queue edit accepts a fresher complete restaurant revision', (
+    tester,
+  ) async {
+    const restaurantId = 'fresher-revision-restaurant';
+    final fullRestaurant = completeRestaurant(
+      restaurantId,
+      revision: 5,
+      profileMarker: 'revision-five',
+    );
+    BitescoreRestaurant? editedRestaurant;
+    final service = RatingAdminPagingService(
+      functionsBoundary: (_, _) async => page(
+        items: <Object?>[
+          restaurantQueueItem(
+            RatingAdminQueueKind.restaurantReports,
+            restaurantId,
+          ),
+        ],
+        pageSize: 25,
+        pageNumber: 1,
+      ),
+    );
+
+    await tester.pumpWidget(
+      host(
+        RatingAdminQueuePagedView(
+          kind: RatingAdminQueueKind.restaurantReports,
+          service: service,
+          loadRestaurant: (_) async => fullRestaurant,
+          onEditRestaurant: (restaurant) async {
+            editedRestaurant = restaurant;
+            return false;
+          },
+          onEditDish: (_) async => false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Edit Restaurant'));
+    await tester.pumpAndSettle();
+
+    expect(editedRestaurant, same(fullRestaurant));
+    expect(editedRestaurant?.restaurantWriteRevision, 5);
+    expect(editedRestaurant?.bio, 'Distinctive revision-five biography');
+    expect(editedRestaurant?.cuisineTags, <String>[
+      'Distinctive revision-five cuisine',
+    ]);
+  });
+
+  testWidgets('queue edit fails closed when the restaurant is missing', (
+    tester,
+  ) async {
+    const restaurantId = 'missing-restaurant';
+    var loadCalls = 0;
+    var editorCalls = 0;
+    final service = RatingAdminPagingService(
+      functionsBoundary: (_, _) async => page(
+        items: <Object?>[
+          restaurantQueueItem(
+            RatingAdminQueueKind.restaurantReports,
+            restaurantId,
+          ),
+        ],
+        pageSize: 25,
+        pageNumber: 1,
+      ),
+    );
+
+    await tester.pumpWidget(
+      host(
+        RatingAdminQueuePagedView(
+          kind: RatingAdminQueueKind.restaurantReports,
+          service: service,
+          loadRestaurant: (id) async {
+            expect(id, restaurantId);
+            loadCalls++;
+            return null;
+          },
+          onEditRestaurant: (_) async {
+            editorCalls++;
+            return false;
+          },
+          onEditDish: (_) async => false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Edit Restaurant'));
+    await tester.pumpAndSettle();
+
+    expect(loadCalls, 1);
+    expect(editorCalls, 0);
+    expect(
+      find.text('This restaurant is no longer available.'),
+      findsOneWidget,
+    );
+    expect(
+      find.widgetWithText(OutlinedButton, 'Edit Restaurant'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('queue edit fails closed on restaurant identity mismatch', (
+    tester,
+  ) async {
+    const requestedId = 'requested-restaurant';
+    final loadedIds = <String>[];
+    var editorCalls = 0;
+    final service = RatingAdminPagingService(
+      functionsBoundary: (_, _) async => page(
+        items: <Object?>[
+          restaurantQueueItem(
+            RatingAdminQueueKind.duplicateRestaurantReports,
+            requestedId,
+          ),
+        ],
+        pageSize: 25,
+        pageNumber: 1,
+      ),
+    );
+
+    await tester.pumpWidget(
+      host(
+        RatingAdminQueuePagedView(
+          kind: RatingAdminQueueKind.duplicateRestaurantReports,
+          service: service,
+          loadRestaurant: (id) async {
+            loadedIds.add(id);
+            return completeRestaurant('different-restaurant');
+          },
+          onEditRestaurant: (_) async {
+            editorCalls++;
+            return false;
+          },
+          onEditDish: (_) async => false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Edit Restaurant'));
+    await tester.pumpAndSettle();
+
+    expect(loadedIds, <String>[requestedId]);
+    expect(editorCalls, 0);
+    expect(
+      find.text('This restaurant is no longer available.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('queue edit does nothing when disposed during the exact load', (
+    tester,
+  ) async {
+    const restaurantId = 'disposed-restaurant';
+    final loadCompleter = Completer<BitescoreRestaurant?>();
+    var loadCalls = 0;
+    var editorCalls = 0;
+    final service = RatingAdminPagingService(
+      functionsBoundary: (_, _) async => page(
+        items: <Object?>[
+          restaurantQueueItem(
+            RatingAdminQueueKind.restaurantReports,
+            restaurantId,
+          ),
+        ],
+        pageSize: 25,
+        pageNumber: 1,
+      ),
+    );
+
+    await tester.pumpWidget(
+      host(
+        RatingAdminQueuePagedView(
+          kind: RatingAdminQueueKind.restaurantReports,
+          service: service,
+          loadRestaurant: (_) {
+            loadCalls++;
+            return loadCompleter.future;
+          },
+          onEditRestaurant: (_) async {
+            editorCalls++;
+            return false;
+          },
+          onEditDish: (_) async => false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(OutlinedButton, 'Edit Restaurant'));
+    await tester.pump();
+    expect(loadCalls, 1);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    loadCompleter.complete(completeRestaurant(restaurantId));
+    await tester.pumpAndSettle();
+
+    expect(editorCalls, 0);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('queue edit suppresses duplicate taps during the exact load', (
+    tester,
+  ) async {
+    const restaurantId = 'duplicate-tap-restaurant';
+    final loadCompleter = Completer<BitescoreRestaurant?>();
+    var loadCalls = 0;
+    var editorCalls = 0;
+    final service = RatingAdminPagingService(
+      functionsBoundary: (_, _) async => page(
+        items: <Object?>[
+          restaurantQueueItem(
+            RatingAdminQueueKind.restaurantReports,
+            restaurantId,
+          ),
+        ],
+        pageSize: 25,
+        pageNumber: 1,
+      ),
+    );
+
+    await tester.pumpWidget(
+      host(
+        RatingAdminQueuePagedView(
+          kind: RatingAdminQueueKind.restaurantReports,
+          service: service,
+          loadRestaurant: (_) {
+            loadCalls++;
+            return loadCompleter.future;
+          },
+          onEditRestaurant: (_) async {
+            editorCalls++;
+            return false;
+          },
+          onEditDish: (_) async => false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final editButton = find.widgetWithText(OutlinedButton, 'Edit Restaurant');
+    await tester.tap(editButton);
+    await tester.tap(editButton);
+    await tester.pump();
+    expect(loadCalls, 1);
+
+    loadCompleter.complete(completeRestaurant(restaurantId));
+    await tester.pumpAndSettle();
+
+    expect(loadCalls, 1);
+    expect(editorCalls, 1);
+  });
+
+  testWidgets(
+    'claimed page preserves revision on the restaurant used by unclaim',
+    (tester) async {
+      const restaurantId = 'claimed-revision-restaurant';
+      BitescoreRestaurant? viewedRestaurant;
+      final service = RatingAdminPagingService(
+        functionsBoundary: (name, body) async {
+          expect(name, 'listRatingAdminDirectoryPage');
+          expect(
+            (body['criteria'] as Map)['directoryKind'],
+            RatingAdminDirectoryKind.claimedRestaurants.wireName,
+          );
+          return page(
+            items: <Object?>[claimedRestaurantItem(restaurantId)],
+            pageSize: 50,
+            pageNumber: 1,
+          );
+        },
+      );
+
+      await tester.pumpWidget(
+        host(
+          RatingAdminClaimedRestaurantsPagedView(
+            service: service,
+            onViewRestaurant: (restaurant) async {
+              viewedRestaurant = restaurant;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Revision'), findsNothing);
+      expect(find.byTooltip('Remove owner'), findsOneWidget);
+      await tester.tap(find.byTooltip('View restaurant'));
+      await tester.pump();
+      expect(viewedRestaurant?.id, restaurantId);
+      expect(viewedRestaurant?.restaurantWriteRevision, 4);
+
+      final source = File(
+        'lib/widgets/rating_admin_paged_dashboard.dart',
+      ).readAsStringSync();
+      expect(
+        source,
+        contains(
+          'BiteScoreService.unclaimRestaurantAsAdmin(record.restaurant)',
+        ),
+      );
+    },
+  );
 
   testWidgets('pending claims use a 25-record server page', (tester) async {
     final requests = <Map<String, Object?>>[];

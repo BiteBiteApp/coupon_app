@@ -1,0 +1,324 @@
+import 'dart:io';
+
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:coupon_app/models/bitescore_restaurant.dart';
+import 'package:coupon_app/services/bitescore_service.dart';
+import 'package:coupon_app/services/restaurant_menu_service.dart';
+
+String sourceSection(String source, String start, String end) {
+  final startIndex = source.indexOf(start);
+  final endIndex = source.indexOf(end, startIndex + start.length);
+  expect(startIndex, greaterThanOrEqualTo(0), reason: start);
+  expect(endIndex, greaterThan(startIndex), reason: end);
+  return source.substring(startIndex, endIndex);
+}
+
+BitescoreRestaurant restaurant({
+  String name = 'Root Kitchen',
+  String phone = '555-0100',
+  int revision = 4,
+  DateTime? updatedAt,
+}) => BitescoreRestaurant(
+  id: 'restaurant-1',
+  name: name,
+  normalizedName: name.toLowerCase(),
+  address: '1 Main St',
+  city: 'Orlando',
+  state: 'FL',
+  zipCode: '32801',
+  location: const GeoPoint(28.5, -81.3),
+  phone: phone,
+  cuisineTags: const <String>['American'],
+  restaurantWriteRevision: revision,
+  updatedAt: updatedAt,
+);
+
+void main() {
+  group('restaurant revision transaction guards', () {
+    test('fresh expected revision advances exactly once', () {
+      expect(
+        BiteScoreService.nextExpectedRestaurantWriteRevisionForTesting(
+          currentData: <String, dynamic>{'restaurantWriteRevision': 4},
+          expectedRevision: 4,
+        ),
+        5,
+      );
+      expect(
+        RestaurantMenuService.nextRestaurantWriteRevisionForTesting(
+          currentData: <String, dynamic>{'restaurantWriteRevision': 4},
+          expectedRevision: 4,
+        ),
+        5,
+      );
+    });
+
+    test('stale full and partial action state fails refresh-required', () {
+      for (final action in <int Function()>[
+        () => BiteScoreService.nextExpectedRestaurantWriteRevisionForTesting(
+          currentData: <String, dynamic>{'restaurantWriteRevision': 5},
+          expectedRevision: 4,
+        ),
+        () => RestaurantMenuService.nextRestaurantWriteRevisionForTesting(
+          currentData: <String, dynamic>{'restaurantWriteRevision': 5},
+          expectedRevision: 4,
+        ),
+      ]) {
+        expect(action, throwsA(isA<BiteScoreRestaurantChangedException>()));
+      }
+    });
+
+    test('missing and malformed current state fails closed', () {
+      for (final currentData in <Map<String, dynamic>>[
+        <String, dynamic>{},
+        <String, dynamic>{'restaurantWriteRevision': '4'},
+        <String, dynamic>{'restaurantWriteRevision': -1},
+        <String, dynamic>{'restaurantWriteRevision': 1.5},
+      ]) {
+        expect(
+          () => BiteScoreService.nextExpectedRestaurantWriteRevisionForTesting(
+            currentData: currentData,
+            expectedRevision: 4,
+          ),
+          throwsA(isA<BiteScoreRestaurantWriteStateException>()),
+        );
+        expect(
+          () => RestaurantMenuService.nextRestaurantWriteRevisionForTesting(
+            currentData: currentData,
+            expectedRevision: 4,
+          ),
+          throwsA(isA<BiteScoreRestaurantWriteStateException>()),
+        );
+      }
+    });
+  });
+
+  group('restaurant rename retry repair', () {
+    test('a refreshed source no-op skips another profile revision write', () {
+      final current = restaurant(
+        revision: 5,
+        updatedAt: DateTime.utc(2026, 8, 11, 12),
+      );
+      final submitted = current.copyWith(
+        restaurantWriteRevision: 6,
+        updatedAt: DateTime.utc(2026, 8, 11, 13),
+      );
+
+      expect(
+        BiteScoreService.restaurantProfileWriteRequiredForTesting(
+          current: current,
+          updated: submitted,
+        ),
+        isFalse,
+      );
+      expect(
+        BiteScoreService.shouldSynchronizeRestaurantDishNamesForTesting(
+          profileWriteRequired: false,
+          restaurantNameChanged: false,
+        ),
+        isTrue,
+      );
+    });
+
+    test('real profile changes still require the guarded source write', () {
+      final current = restaurant();
+      expect(
+        BiteScoreService.restaurantProfileWriteRequiredForTesting(
+          current: current,
+          updated: current.copyWith(phone: '555-0101'),
+        ),
+        isTrue,
+      );
+      expect(
+        BiteScoreService.shouldSynchronizeRestaurantDishNamesForTesting(
+          profileWriteRequired: true,
+          restaurantNameChanged: false,
+        ),
+        isFalse,
+      );
+    });
+
+    test('a real rename writes the source and synchronizes dish names', () {
+      final current = restaurant();
+      final renamed = current.copyWith(
+        name: 'Renamed Kitchen',
+        normalizedName: 'renamed kitchen',
+      );
+      expect(
+        BiteScoreService.restaurantProfileWriteRequiredForTesting(
+          current: current,
+          updated: renamed,
+        ),
+        isTrue,
+      );
+      expect(
+        BiteScoreService.shouldSynchronizeRestaurantDishNamesForTesting(
+          profileWriteRequired: true,
+          restaurantNameChanged: true,
+        ),
+        isTrue,
+      );
+    });
+  });
+
+  test('shared menu reuse requires the current claimed owner', () {
+    final current = restaurant().copyWith(
+      isClaimed: true,
+      ownerUserId: 'owner-1',
+    );
+    expect(
+      RestaurantMenuService.isCurrentSharedMenuOwnerForTesting(
+        current,
+        'owner-1',
+      ),
+      isTrue,
+    );
+    expect(
+      RestaurantMenuService.isCurrentSharedMenuOwnerForTesting(
+        current,
+        'former-owner',
+      ),
+      isFalse,
+    );
+    expect(
+      RestaurantMenuService.isCurrentSharedMenuOwnerForTesting(
+        current.copyWith(isClaimed: false),
+        'owner-1',
+      ),
+      isFalse,
+    );
+  });
+
+  test('all traced client writers use the production revision transaction', () {
+    final biteScoreSource = File(
+      'lib/services/bitescore_service.dart',
+    ).readAsStringSync();
+    final accountDeletion = sourceSection(
+      biteScoreSource,
+      'static Future<void> deleteUserAccountRecordsAsAdmin',
+      'static Future<List<BitescoreRestaurant>> loadRestaurantsForFinder',
+    );
+    expect(accountDeletion, contains('_firestore.runTransaction'));
+    expect(accountDeletion, contains('_requiredRestaurantWriteRevision'));
+    expect(accountDeletion, contains('_nextExpectedRestaurantWriteRevision'));
+    expect(accountDeletion, contains('restaurantWriteRevisionField'));
+    expect(
+      accountDeletion.lastIndexOf('transaction.get('),
+      lessThan(accountDeletion.indexOf('transaction.set(')),
+    );
+    expect(accountDeletion, contains("currentData?['ownerUserId']) != uid"));
+
+    final dishNameRepair = sourceSection(
+      biteScoreSource,
+      'static Future<void> _synchronizeRestaurantDishNames',
+      'static CollectionReference<Map<String, dynamic>> restaurantsCollection',
+    );
+    expect(dishNameRepair, contains('_firestore.runTransaction'));
+    expect(dishNameRepair, contains('_requireExpectedRestaurantWriteRevision'));
+    expect(dishNameRepair, contains("currentData?['name']"));
+    expect(
+      dishNameRepair.indexOf('transaction.get(restaurantRef)') <
+          dishNameRepair.indexOf('transaction.set(dishDoc.reference'),
+      isTrue,
+    );
+
+    final create = sourceSection(
+      biteScoreSource,
+      'static Future<_BiteScoreRestaurantResolution> _findOrCreateRestaurant',
+      'static Future<BitescoreRestaurant> _completeNewRestaurantCreationProvenance',
+    );
+    expect(create, contains('restaurantWriteRevision: 0'));
+
+    final provenance = sourceSection(
+      biteScoreSource,
+      'static Future<BitescoreRestaurant> _completeNewRestaurantCreationProvenance',
+      'static Future<_BiteScoreDishResolution> _findOrCreateDish',
+    );
+    expect(provenance, contains('_runExpectedRestaurantRevisionTransaction'));
+    expect(provenance, contains('restaurantWriteRevisionField'));
+
+    final adminEdit = sourceSection(
+      biteScoreSource,
+      'static Future<void> updateRestaurantAsAdmin',
+      'static Future<void> updateRestaurantAsOwner',
+    );
+    expect(
+      adminEdit.indexOf('final expectedRevision') <
+          adminEdit.indexOf('_verifyRestaurantAddress'),
+      isTrue,
+    );
+    expect(adminEdit, contains('_runExpectedRestaurantRevisionTransaction'));
+    expect(adminEdit, contains('if (profileWriteRequired)'));
+    expect(adminEdit, contains('_synchronizeRestaurantDishNames'));
+    expect(adminEdit, contains('dishNameSynchronizationRevision'));
+
+    final ownerEdit = sourceSection(
+      biteScoreSource,
+      'static Future<void> updateRestaurantAsOwner',
+      'static Future<void> updateDishAsAdmin',
+    );
+    expect(ownerEdit, contains('updateRestaurantAsAdmin'));
+
+    final claim = sourceSection(
+      biteScoreSource,
+      'static Future<void> approveClaimAsAdmin',
+      'static Future<void> rejectClaimAsAdmin',
+    );
+    expect(claim, contains('initialRestaurant'));
+    expect(claim, contains('_runExpectedRestaurantRevisionTransaction'));
+    expect(claim, contains('restaurantWriteRevisionField'));
+
+    final unclaim = sourceSection(
+      biteScoreSource,
+      'static Future<void> unclaimRestaurantAsAdmin',
+      'static Future<BiteScoreReviewSaveResult> createAndRate',
+    );
+    expect(unclaim, contains('restaurant.restaurantWriteRevision'));
+    expect(unclaim, contains('_runExpectedRestaurantRevisionTransaction'));
+
+    final merge = sourceSection(
+      biteScoreSource,
+      'static Future<void> mergeRestaurantsAsAdmin',
+      'static Future<void> deleteReviewAsAdmin',
+    );
+    expect(
+      RegExp(
+        '_runExpectedRestaurantRevisionTransaction',
+      ).allMatches(merge).length,
+      2,
+    );
+  });
+
+  test('all traced menu writers use exact revision-aware transactions', () {
+    final source = File(
+      'lib/services/restaurant_menu_service.dart',
+    ).readAsStringSync();
+    final route = sourceSection(
+      source,
+      'static Future<void> setBiteScoreMenuSourceToBiteSaver',
+      'static Future<void> clearBiteScoreMenuSourceRouting',
+    );
+    expect(route, contains('expectedRevision'));
+    expect(route, contains('_runRestaurantRevisionTransaction'));
+    expect(route, contains('restaurantWriteRevisionField'));
+
+    final clear = sourceSection(
+      source,
+      'static Future<void> clearBiteScoreMenuSourceRouting',
+      'static Future<List<RestaurantMenuImage>> loadMenuImages',
+    );
+    expect(clear, contains('_runRestaurantRevisionTransaction'));
+    expect(clear, contains('restaurantWriteRevisionField'));
+
+    final sharedMenu = sourceSection(
+      source,
+      'static Future<RestaurantMenuSource> ensureSharedMenuForBiteScoreRestaurant',
+      'static Future<void> _touchSharedMenu',
+    );
+    expect(sharedMenu, contains('_runRestaurantRevisionTransaction'));
+    expect(sharedMenu, contains('_isCurrentSharedMenuOwner'));
+    expect(sharedMenu, contains('transaction.set(menuDoc'));
+    expect(sharedMenu, contains('restaurantWriteRevisionField'));
+  });
+}

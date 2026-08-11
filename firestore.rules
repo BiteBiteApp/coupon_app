@@ -264,6 +264,7 @@ service cloud.firestore {
         'linkedBiteSaverUid',
         'menuSourceUpdatedAt',
         'menuSourceUpdatedBy',
+        'restaurantWriteRevision',
         'updatedAt'
       ];
     }
@@ -334,6 +335,33 @@ service cloud.firestore {
       ];
     }
 
+    function biteScoreRestaurantCompletionWriteFields() {
+      return [
+        'createdFromDishId',
+        'createdFromReviewId',
+        'restaurantWriteRevision'
+      ];
+    }
+
+    function validBiteScoreRestaurantWriteRevision(data) {
+      return data.keys().hasAny(['restaurantWriteRevision']) &&
+        data.restaurantWriteRevision is int &&
+        data.restaurantWriteRevision >= 0 &&
+        data.restaurantWriteRevision <= 9007199254740991;
+    }
+
+    function validBiteScoreRestaurantCreateRevision() {
+      return validBiteScoreRestaurantWriteRevision(request.resource.data) &&
+        request.resource.data.restaurantWriteRevision == 0;
+    }
+
+    function validBiteScoreRestaurantUpdateRevision() {
+      return validBiteScoreRestaurantWriteRevision(resource.data) &&
+        validBiteScoreRestaurantWriteRevision(request.resource.data) &&
+        request.resource.data.restaurantWriteRevision ==
+          resource.data.restaurantWriteRevision + 1;
+    }
+
     function validBiteScoreDishCreateProvenance() {
       return request.resource.data.createdByUserId == request.auth.uid &&
         request.resource.data.createdFromCreateFlow == true &&
@@ -381,7 +409,7 @@ service cloud.firestore {
       return emailVerified() &&
         resource.data.createdByUserId == request.auth.uid &&
         resource.data.createdFromCreateFlow == true &&
-        changedKeys().hasOnly(biteScoreRestaurantCompletionFields()) &&
+        changedKeys().hasOnly(biteScoreRestaurantCompletionWriteFields()) &&
         changedKeys().hasAny(biteScoreRestaurantCompletionFields()) &&
         completesMissingRestaurantDishProvenance() &&
         completesMissingRestaurantReviewProvenance();
@@ -577,6 +605,65 @@ service cloud.firestore {
     function reviewDataHasBlockingMergeLock(reviewData) {
       return reviewData.keys().hasAny(['dishId']) &&
         mergeLockBlocksClientReviews(reviewData.dishId);
+    }
+
+    function canonicalPrivateReviewMilestoneIdentity(value) {
+      return value is string &&
+        value.size() > 0 &&
+        value.matches('^[^/\\s\\p{Cc}](?:[^/\\p{Cc}]*[^/\\s\\p{Cc}])?$') &&
+        value != '.' &&
+        value != '..' &&
+        !value.matches('^__.*__$') &&
+        value.toUtf8().size() <= 1500;
+    }
+
+    function strictReleasedReviewMilestoneLock(userId, lockData) {
+      return lockData.keys().hasAll([
+          'version',
+          'userId',
+          'operationId',
+          'lockToken',
+          'state',
+          'createdAt',
+          'updatedAt',
+          'fingerprint'
+        ]) &&
+        lockData.keys().hasOnly([
+          'version',
+          'userId',
+          'operationId',
+          'lockToken',
+          'state',
+          'createdAt',
+          'updatedAt',
+          'fingerprint'
+        ]) &&
+        lockData.version == 'bitestar.review-milestone-lock.v1' &&
+        lockData.userId == userId &&
+        canonicalPrivateReviewMilestoneIdentity(lockData.userId) &&
+        canonicalPrivateReviewMilestoneIdentity(lockData.operationId) &&
+        lockData.lockToken is string &&
+        lockData.lockToken.matches('^[0-9a-f]{64}$') &&
+        lockData.state == 'released' &&
+        lockData.createdAt is timestamp &&
+        lockData.updatedAt is timestamp &&
+        lockData.updatedAt >= lockData.createdAt &&
+        lockData.fingerprint is string &&
+        lockData.fingerprint.matches('^[0-9a-f]{64}$');
+    }
+
+    function reviewMilestoneLockAllowsClientMutation(userId) {
+      let lockPath = /databases/$(database)/documents/private_review_milestone_reconciliation_locks/$(userId);
+      return canonicalPrivateReviewMilestoneIdentity(userId) &&
+        (
+          !exists(lockPath) ||
+          strictReleasedReviewMilestoneLock(userId, get(lockPath).data)
+        );
+    }
+
+    function reviewDataUserAllowsMilestoneMutation(reviewData) {
+      return reviewData.keys().hasAny(['userId']) &&
+        reviewMilestoneLockAllowsClientMutation(reviewData.userId);
     }
 
     function mergeLockBlocksClientAggregates(dishId) {
@@ -832,9 +919,13 @@ service cloud.firestore {
 
     match /bitescore_restaurants/{restaurantId} {
       allow read: if true;
-      allow create: if isAdmin() ||
-        canCreatePublicBiteScoreRestaurant(restaurantId);
-      allow update: if (
+      allow create: if validBiteScoreRestaurantCreateRevision() &&
+        (
+          isAdmin() ||
+          canCreatePublicBiteScoreRestaurant(restaurantId)
+        );
+      allow update: if validBiteScoreRestaurantUpdateRevision() &&
+        (
           isAdmin() ||
           canOwnerUpdateBiteScoreRestaurant(restaurantId) ||
           canCompleteBiteScoreRestaurantProvenance()
@@ -909,15 +1000,19 @@ service cloud.firestore {
       allow read: if true;
       allow create: if createsOwnReview() &&
         reviewDataHasCanonicalDishId(request.resource.data) &&
-        !reviewDataHasBlockingMergeLock(request.resource.data);
+        !reviewDataHasBlockingMergeLock(request.resource.data) &&
+        reviewDataUserAllowsMilestoneMutation(request.resource.data);
       allow update: if (isAdmin() || updatesOwnReview()) &&
         reviewDataHasCanonicalDishId(resource.data) &&
         reviewDataHasCanonicalDishId(request.resource.data) &&
         !reviewDataHasBlockingMergeLock(resource.data) &&
-        !reviewDataHasBlockingMergeLock(request.resource.data);
+        !reviewDataHasBlockingMergeLock(request.resource.data) &&
+        reviewDataUserAllowsMilestoneMutation(resource.data) &&
+        reviewDataUserAllowsMilestoneMutation(request.resource.data);
       allow delete: if (isAdmin() || (signedIn() && resource.data.userId == request.auth.uid)) &&
         reviewDataHasCanonicalDishId(resource.data) &&
-        !reviewDataHasBlockingMergeLock(resource.data);
+        !reviewDataHasBlockingMergeLock(resource.data) &&
+        reviewDataUserAllowsMilestoneMutation(resource.data);
     }
 
     match /bitescore_dish_images/{imageId} {
@@ -1049,6 +1144,14 @@ service cloud.firestore {
     }
 
     match /private_dish_merge_review_locks/{dishId} {
+      allow read, write: if false;
+    }
+
+    match /private_review_milestone_reconciliation_locks/{userId} {
+      allow read, write: if false;
+    }
+
+    match /private_review_milestone_reconciliation_terminal_states/{userId} {
       allow read, write: if false;
     }
 

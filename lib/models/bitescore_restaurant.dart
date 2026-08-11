@@ -2,8 +2,31 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import 'restaurant.dart';
 
+class BiteScoreRestaurantChangedException implements Exception {
+  static const String code = 'restaurant-changed-refresh-required';
+  static const String message =
+      'This restaurant changed. Refresh and try again.';
+
+  const BiteScoreRestaurantChangedException();
+
+  @override
+  String toString() => message;
+}
+
+class BiteScoreRestaurantWriteStateException implements Exception {
+  static const String message =
+      'This restaurant is unavailable. Refresh and try again.';
+
+  const BiteScoreRestaurantWriteStateException();
+
+  @override
+  String toString() => message;
+}
+
 class BitescoreRestaurant {
   static const String collectionName = 'bitescore_restaurants';
+  static const String restaurantWriteRevisionField = 'restaurantWriteRevision';
+  static const int maxRestaurantWriteRevision = 9007199254740991;
 
   final String id;
   final String name;
@@ -27,6 +50,7 @@ class BitescoreRestaurant {
   final String? createdFromDishId;
   final String? createdFromReviewId;
   final bool createdFromCreateFlow;
+  final int restaurantWriteRevision;
   final DateTime? createdAt;
   final DateTime? updatedAt;
 
@@ -53,6 +77,7 @@ class BitescoreRestaurant {
     this.createdFromDishId,
     this.createdFromReviewId,
     this.createdFromCreateFlow = false,
+    required this.restaurantWriteRevision,
     this.createdAt,
     this.updatedAt,
   });
@@ -62,6 +87,9 @@ class BitescoreRestaurant {
   double? get longitude => location.longitude;
 
   Map<String, dynamic> toFirestoreMap() {
+    if (!isValidRestaurantWriteRevision(restaurantWriteRevision)) {
+      throw StateError('Invalid BiteScore restaurant write state.');
+    }
     final normalizedState = _normalizeState(state) ?? state.trim();
     final normalizedZip = _normalizeZipCode(zipCode) ?? zipCode.trim();
     final normalizedCity = city.trim();
@@ -113,6 +141,7 @@ class BitescoreRestaurant {
       if (createdFromReviewId?.trim().isNotEmpty == true)
         'createdFromReviewId': createdFromReviewId!.trim(),
       if (createdFromCreateFlow) 'createdFromCreateFlow': true,
+      restaurantWriteRevisionField: restaurantWriteRevision,
       'createdAt': createdAt == null ? null : Timestamp.fromDate(createdAt!),
       'updatedAt': updatedAt == null ? null : Timestamp.fromDate(updatedAt!),
     };
@@ -141,6 +170,7 @@ class BitescoreRestaurant {
     String? createdFromDishId,
     String? createdFromReviewId,
     bool? createdFromCreateFlow,
+    int? restaurantWriteRevision,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -168,6 +198,8 @@ class BitescoreRestaurant {
       createdFromReviewId: createdFromReviewId ?? this.createdFromReviewId,
       createdFromCreateFlow:
           createdFromCreateFlow ?? this.createdFromCreateFlow,
+      restaurantWriteRevision:
+          restaurantWriteRevision ?? this.restaurantWriteRevision,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
@@ -195,13 +227,15 @@ class BitescoreRestaurant {
           latitude: data['latitude'],
           longitude: data['longitude'],
         );
+    final restaurantWriteRevision = readRestaurantWriteRevision(data);
 
     if (name == null ||
         normalizedName == null ||
         address == null ||
         city == null ||
         zipCode == null ||
-        location == null) {
+        location == null ||
+        restaurantWriteRevision == null) {
       return null;
     }
 
@@ -233,6 +267,7 @@ class BitescoreRestaurant {
       createdFromDishId: _readString(data['createdFromDishId']),
       createdFromReviewId: _readString(data['createdFromReviewId']),
       createdFromCreateFlow: _readBool(data['createdFromCreateFlow']) ?? false,
+      restaurantWriteRevision: restaurantWriteRevision,
       createdAt: _readDateTime(data['createdAt']),
       updatedAt: _readDateTime(data['updatedAt']),
     );
@@ -293,8 +328,12 @@ class BitescoreRestaurant {
           longitude: data['longitude'] ?? data['lng'],
         ) ??
         const GeoPoint(0, 0);
+    final restaurantWriteRevision = readRestaurantWriteRevision(data);
 
-    if (name == null || normalizedName == null || city == null) {
+    if (name == null ||
+        normalizedName == null ||
+        city == null ||
+        restaurantWriteRevision == null) {
       return null;
     }
 
@@ -330,6 +369,7 @@ class BitescoreRestaurant {
       createdFromDishId: _readString(data['createdFromDishId']),
       createdFromReviewId: _readString(data['createdFromReviewId']),
       createdFromCreateFlow: _readBool(data['createdFromCreateFlow']) ?? false,
+      restaurantWriteRevision: restaurantWriteRevision,
       createdAt: _readDateTime(data['createdAt']),
       updatedAt: _readDateTime(data['updatedAt']),
     );
@@ -350,6 +390,26 @@ class BitescoreRestaurant {
     }
 
     return null;
+  }
+
+  static bool isValidRestaurantWriteRevision(Object? value) {
+    return value is int && value >= 0 && value <= maxRestaurantWriteRevision;
+  }
+
+  static int? readRestaurantWriteRevision(Map<String, dynamic>? data) {
+    if (data == null || !data.containsKey(restaurantWriteRevisionField)) {
+      return null;
+    }
+    final value = data[restaurantWriteRevisionField];
+    return isValidRestaurantWriteRevision(value) ? value as int : null;
+  }
+
+  static int nextRestaurantWriteRevision(int currentRevision) {
+    if (!isValidRestaurantWriteRevision(currentRevision) ||
+        currentRevision >= maxRestaurantWriteRevision) {
+      throw StateError('Invalid BiteScore restaurant write state.');
+    }
+    return currentRevision + 1;
   }
 
   static GeoPoint? _readGeoPoint(dynamic value) {

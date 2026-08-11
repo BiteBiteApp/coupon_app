@@ -123,6 +123,80 @@ class RestaurantMenuService {
   static const String menuSourceBiteSaver = 'biteSaver';
   static const String menuSourceBiteScore = 'biteScore';
 
+  static int _nextRestaurantWriteRevision({
+    required Map<String, dynamic>? currentData,
+    int? expectedRevision,
+  }) {
+    if (expectedRevision != null &&
+        !BitescoreRestaurant.isValidRestaurantWriteRevision(expectedRevision)) {
+      throw const BiteScoreRestaurantWriteStateException();
+    }
+    final currentRevision = BitescoreRestaurant.readRestaurantWriteRevision(
+      currentData,
+    );
+    if (currentRevision == null) {
+      throw const BiteScoreRestaurantWriteStateException();
+    }
+    if (expectedRevision != null && currentRevision != expectedRevision) {
+      throw const BiteScoreRestaurantChangedException();
+    }
+    return BitescoreRestaurant.nextRestaurantWriteRevision(currentRevision);
+  }
+
+  static Future<T> _runRestaurantRevisionTransaction<T>({
+    required DocumentReference<Map<String, dynamic>> restaurantRef,
+    int? expectedRevision,
+    required Future<T> Function(
+      Transaction transaction,
+      DocumentSnapshot<Map<String, dynamic>> currentSnapshot,
+      int currentRevision,
+    )
+    apply,
+  }) {
+    if (expectedRevision != null &&
+        !BitescoreRestaurant.isValidRestaurantWriteRevision(expectedRevision)) {
+      throw const BiteScoreRestaurantWriteStateException();
+    }
+    return _firestore.runTransaction<T>((transaction) async {
+      final currentSnapshot = await transaction.get(restaurantRef);
+      if (!currentSnapshot.exists) {
+        throw const BiteScoreRestaurantWriteStateException();
+      }
+      final currentRevision = BitescoreRestaurant.readRestaurantWriteRevision(
+        currentSnapshot.data(),
+      );
+      if (currentRevision == null) {
+        throw const BiteScoreRestaurantWriteStateException();
+      }
+      if (expectedRevision != null && currentRevision != expectedRevision) {
+        throw const BiteScoreRestaurantChangedException();
+      }
+      return apply(transaction, currentSnapshot, currentRevision);
+    });
+  }
+
+  static int nextRestaurantWriteRevisionForTesting({
+    required Map<String, dynamic>? currentData,
+    int? expectedRevision,
+  }) => _nextRestaurantWriteRevision(
+    currentData: currentData,
+    expectedRevision: expectedRevision,
+  );
+
+  static bool _isCurrentSharedMenuOwner(
+    BitescoreRestaurant restaurant,
+    String ownerUserId,
+  ) {
+    return restaurant.isClaimed &&
+        restaurant.ownerUserId?.trim() == ownerUserId.trim() &&
+        ownerUserId.trim().isNotEmpty;
+  }
+
+  static bool isCurrentSharedMenuOwnerForTesting(
+    BitescoreRestaurant restaurant,
+    String ownerUserId,
+  ) => _isCurrentSharedMenuOwner(restaurant, ownerUserId);
+
   static CollectionReference<Map<String, dynamic>> sharedMenusCollection() {
     return _firestore.collection('restaurant_menus');
   }
@@ -404,6 +478,7 @@ class RestaurantMenuService {
         !restaurant.isClaimed) {
       throw StateError('Matching BiteSaver restaurant is required.');
     }
+    final expectedRevision = restaurant.restaurantWriteRevision;
     final matchedUid = await findLikelyBiteSaverMatchForBiteScore(
       ownerUserId: trimmedUid,
       restaurant: restaurant,
@@ -414,15 +489,30 @@ class RestaurantMenuService {
     if (await biteSaverUsesBiteScoreMenu(matchedUid)) {
       throw StateError('This menu is already being used by the other side.');
     }
-    await _firestore
+    final restaurantRef = _firestore
         .collection(BitescoreRestaurant.collectionName)
-        .doc(trimmedRestaurantId)
-        .set({
+        .doc(trimmedRestaurantId);
+    await _runRestaurantRevisionTransaction<void>(
+      restaurantRef: restaurantRef,
+      expectedRevision: expectedRevision,
+      apply: (transaction, currentSnapshot, currentRevision) async {
+        final currentData = currentSnapshot.data();
+        if (_readString(currentData?['ownerUserId']) != trimmedUid ||
+            currentData?['isClaimed'] != true) {
+          throw const BiteScoreRestaurantChangedException();
+        }
+        final nextRevision = BitescoreRestaurant.nextRestaurantWriteRevision(
+          currentRevision,
+        );
+        transaction.set(restaurantRef, {
           menuSourceSideField: menuSourceBiteSaver,
           linkedBiteSaverUidField: matchedUid,
           menuSourceUpdatedAtField: FieldValue.serverTimestamp(),
           menuSourceUpdatedByField: updatedBy.trim(),
+          BitescoreRestaurant.restaurantWriteRevisionField: nextRevision,
         }, SetOptions(merge: true));
+      },
+    );
   }
 
   static Future<void> clearBiteScoreMenuSourceRouting({
@@ -433,15 +523,35 @@ class RestaurantMenuService {
     if (trimmedRestaurantId.isEmpty) {
       return;
     }
-    await _firestore
+    final restaurantRef = _firestore
         .collection(BitescoreRestaurant.collectionName)
-        .doc(trimmedRestaurantId)
-        .set({
+        .doc(trimmedRestaurantId);
+    await _runRestaurantRevisionTransaction<void>(
+      restaurantRef: restaurantRef,
+      apply: (transaction, currentSnapshot, currentRevision) async {
+        final currentData = currentSnapshot.data();
+        final currentSourceSide = _readString(
+          currentData?[menuSourceSideField],
+        );
+        final currentLinkedUid = _readString(
+          currentData?[linkedBiteSaverUidField],
+        );
+        if (currentSourceSide == menuSourceBiteScore &&
+            currentLinkedUid == null) {
+          return;
+        }
+        final nextRevision = BitescoreRestaurant.nextRestaurantWriteRevision(
+          currentRevision,
+        );
+        transaction.set(restaurantRef, {
           menuSourceSideField: menuSourceBiteScore,
           linkedBiteSaverUidField: FieldValue.delete(),
           menuSourceUpdatedAtField: FieldValue.serverTimestamp(),
           menuSourceUpdatedByField: updatedBy.trim(),
+          BitescoreRestaurant.restaurantWriteRevisionField: nextRevision,
         }, SetOptions(merge: true));
+      },
+    );
   }
 
   static Future<List<RestaurantMenuImage>> loadMenuImages(
@@ -751,48 +861,57 @@ class RestaurantMenuService {
     final restaurantRef = _firestore
         .collection(BitescoreRestaurant.collectionName)
         .doc(restaurant.id);
-    final latestSnapshot = await restaurantRef.get();
-    final latestRestaurant =
-        BitescoreRestaurant.tryFromFirestore(
-          latestSnapshot.data(),
-          fallbackId: latestSnapshot.id,
-        ) ??
-        BitescoreRestaurant.tryFromFinderFirestore(
-          latestSnapshot.data(),
-          fallbackId: latestSnapshot.id,
-        );
-
-    final restaurantForMenu = latestRestaurant ?? restaurant;
-    final existingMenuId = restaurantForMenu.sharedMenuId?.trim();
-    if (existingMenuId != null && existingMenuId.isNotEmpty) {
-      return RestaurantMenuSource.sharedMenu(existingMenuId);
-    }
-
     final ownerId = ownerUserId.trim();
     if (ownerId.isEmpty) {
       throw ArgumentError('Owner user ID is required.');
     }
 
     final menuDoc = sharedMenusCollection().doc();
-    final menuId = menuDoc.id;
-    final batch = _firestore.batch();
-    batch.set(menuDoc, {
-      'restaurantName': restaurantForMenu.name.trim(),
-      'normalizedName': _normalizeKeyPart(restaurantForMenu.name),
-      'normalizedAddressKey': _normalizedAddressKey(restaurantForMenu),
-      'bitescoreRestaurantId': restaurantForMenu.id.trim(),
-      'createdByUserId': ownerId,
-      'linkStatus': 'bitescore_only',
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
-    batch.set(restaurantRef, {
-      'sharedMenuId': menuId,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-    await batch.commit();
+    return _runRestaurantRevisionTransaction<RestaurantMenuSource>(
+      restaurantRef: restaurantRef,
+      apply: (transaction, currentSnapshot, currentRevision) async {
+        final restaurantForMenu =
+            BitescoreRestaurant.tryFromFirestore(
+              currentSnapshot.data(),
+              fallbackId: currentSnapshot.id,
+            ) ??
+            BitescoreRestaurant.tryFromFinderFirestore(
+              currentSnapshot.data(),
+              fallbackId: currentSnapshot.id,
+            );
+        if (restaurantForMenu == null) {
+          throw const BiteScoreRestaurantWriteStateException();
+        }
+        if (!_isCurrentSharedMenuOwner(restaurantForMenu, ownerId)) {
+          throw const BiteScoreRestaurantChangedException();
+        }
+        final existingMenuId = restaurantForMenu.sharedMenuId?.trim();
+        if (existingMenuId != null && existingMenuId.isNotEmpty) {
+          return RestaurantMenuSource.sharedMenu(existingMenuId);
+        }
 
-    return RestaurantMenuSource.sharedMenu(menuId);
+        final menuId = menuDoc.id;
+        final nextRevision = BitescoreRestaurant.nextRestaurantWriteRevision(
+          currentRevision,
+        );
+        transaction.set(menuDoc, {
+          'restaurantName': restaurantForMenu.name.trim(),
+          'normalizedName': _normalizeKeyPart(restaurantForMenu.name),
+          'normalizedAddressKey': _normalizedAddressKey(restaurantForMenu),
+          'bitescoreRestaurantId': restaurantForMenu.id.trim(),
+          'createdByUserId': ownerId,
+          'linkStatus': 'bitescore_only',
+          'createdAt': FieldValue.serverTimestamp(),
+          'updatedAt': FieldValue.serverTimestamp(),
+        });
+        transaction.set(restaurantRef, {
+          'sharedMenuId': menuId,
+          BitescoreRestaurant.restaurantWriteRevisionField: nextRevision,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+        return RestaurantMenuSource.sharedMenu(menuId);
+      },
+    );
   }
 
   static Future<void> _touchSharedMenu(String menuId) async {

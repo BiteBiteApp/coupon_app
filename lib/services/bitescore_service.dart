@@ -680,6 +680,184 @@ class BiteScoreService {
   static const String emailVerificationRequiredMessage =
       'Please verify your email first';
 
+  static int _requiredRestaurantWriteRevision(Map<String, dynamic>? data) {
+    final revision = BitescoreRestaurant.readRestaurantWriteRevision(data);
+    if (revision == null) {
+      throw const BiteScoreRestaurantWriteStateException();
+    }
+    return revision;
+  }
+
+  static int _nextExpectedRestaurantWriteRevision({
+    required Map<String, dynamic>? currentData,
+    required int expectedRevision,
+  }) {
+    _requireExpectedRestaurantWriteRevision(
+      currentData: currentData,
+      expectedRevision: expectedRevision,
+    );
+    return BitescoreRestaurant.nextRestaurantWriteRevision(expectedRevision);
+  }
+
+  static void _requireExpectedRestaurantWriteRevision({
+    required Map<String, dynamic>? currentData,
+    required int expectedRevision,
+  }) {
+    if (!BitescoreRestaurant.isValidRestaurantWriteRevision(expectedRevision)) {
+      throw const BiteScoreRestaurantWriteStateException();
+    }
+    final currentRevision = _requiredRestaurantWriteRevision(currentData);
+    if (currentRevision != expectedRevision) {
+      throw const BiteScoreRestaurantChangedException();
+    }
+  }
+
+  static Future<T> _runExpectedRestaurantRevisionTransaction<T>({
+    required DocumentReference<Map<String, dynamic>> restaurantRef,
+    required int expectedRevision,
+    required Future<T> Function(
+      Transaction transaction,
+      DocumentSnapshot<Map<String, dynamic>> currentSnapshot,
+      int nextRevision,
+    )
+    apply,
+  }) {
+    if (!BitescoreRestaurant.isValidRestaurantWriteRevision(expectedRevision)) {
+      throw const BiteScoreRestaurantWriteStateException();
+    }
+    return _firestore.runTransaction<T>((transaction) async {
+      final currentSnapshot = await transaction.get(restaurantRef);
+      if (!currentSnapshot.exists) {
+        throw const BiteScoreRestaurantWriteStateException();
+      }
+      final nextRevision = _nextExpectedRestaurantWriteRevision(
+        currentData: currentSnapshot.data(),
+        expectedRevision: expectedRevision,
+      );
+      return apply(transaction, currentSnapshot, nextRevision);
+    });
+  }
+
+  static int restaurantWriteRevisionFromDataForTesting(
+    Map<String, dynamic>? data,
+  ) => _requiredRestaurantWriteRevision(data);
+
+  static int nextRestaurantWriteRevisionForTesting(int currentRevision) =>
+      BitescoreRestaurant.nextRestaurantWriteRevision(currentRevision);
+
+  static int nextExpectedRestaurantWriteRevisionForTesting({
+    required Map<String, dynamic>? currentData,
+    required int expectedRevision,
+  }) => _nextExpectedRestaurantWriteRevision(
+    currentData: currentData,
+    expectedRevision: expectedRevision,
+  );
+
+  static bool _restaurantProfileFieldsEqual(
+    BitescoreRestaurant current,
+    BitescoreRestaurant updated,
+  ) {
+    return current.name == updated.name &&
+        current.normalizedName == updated.normalizedName &&
+        current.address == updated.address &&
+        current.city == updated.city &&
+        current.state == updated.state &&
+        current.zipCode == updated.zipCode &&
+        current.location.latitude == updated.location.latitude &&
+        current.location.longitude == updated.location.longitude &&
+        current.phone == updated.phone &&
+        current.website == updated.website &&
+        current.bio == updated.bio &&
+        _businessHoursListsEqual(
+          current.businessHours,
+          updated.businessHours,
+        ) &&
+        _stringListsEqual(current.cuisineTags, updated.cuisineTags) &&
+        current.isActive == updated.isActive;
+  }
+
+  static bool _businessHoursListsEqual(
+    List<RestaurantBusinessHours> left,
+    List<RestaurantBusinessHours> right,
+  ) {
+    final normalizedLeft = RestaurantBusinessHours.toFirestoreList(left);
+    final normalizedRight = RestaurantBusinessHours.toFirestoreList(right);
+    if (normalizedLeft.length != normalizedRight.length) {
+      return false;
+    }
+    for (var index = 0; index < normalizedLeft.length; index += 1) {
+      final leftEntry = normalizedLeft[index];
+      final rightEntry = normalizedRight[index];
+      for (final field in const <String>[
+        RestaurantBusinessHours.fieldDay,
+        RestaurantBusinessHours.fieldOpensAt,
+        RestaurantBusinessHours.fieldClosesAt,
+        RestaurantBusinessHours.fieldClosed,
+      ]) {
+        if (leftEntry[field] != rightEntry[field]) {
+          return false;
+        }
+      }
+    }
+    return true;
+  }
+
+  static bool _shouldSynchronizeRestaurantDishNames({
+    required bool profileWriteRequired,
+    required bool restaurantNameChanged,
+  }) => !profileWriteRequired || restaurantNameChanged;
+
+  static bool restaurantProfileWriteRequiredForTesting({
+    required BitescoreRestaurant current,
+    required BitescoreRestaurant updated,
+  }) => !_restaurantProfileFieldsEqual(current, updated);
+
+  static bool shouldSynchronizeRestaurantDishNamesForTesting({
+    required bool profileWriteRequired,
+    required bool restaurantNameChanged,
+  }) => _shouldSynchronizeRestaurantDishNames(
+    profileWriteRequired: profileWriteRequired,
+    restaurantNameChanged: restaurantNameChanged,
+  );
+
+  static Future<void> _synchronizeRestaurantDishNames({
+    required String restaurantId,
+    required String restaurantName,
+    required int expectedRestaurantWriteRevision,
+  }) async {
+    final dishesSnapshot = await dishesCollection()
+        .where('restaurantId', isEqualTo: restaurantId)
+        .get();
+    final mismatchedDishes = dishesSnapshot.docs
+        .where((doc) => doc.data()['restaurantName'] != restaurantName)
+        .toList(growable: false);
+    if (mismatchedDishes.isEmpty) {
+      return;
+    }
+
+    final restaurantRef = restaurantsCollection().doc(restaurantId);
+    await _firestore.runTransaction<void>((transaction) async {
+      final currentSnapshot = await transaction.get(restaurantRef);
+      if (!currentSnapshot.exists) {
+        throw const BiteScoreRestaurantWriteStateException();
+      }
+      final currentData = currentSnapshot.data();
+      _requireExpectedRestaurantWriteRevision(
+        currentData: currentData,
+        expectedRevision: expectedRestaurantWriteRevision,
+      );
+      if (_readString(currentData?['name']) != restaurantName) {
+        throw const BiteScoreRestaurantChangedException();
+      }
+      for (final dishDoc in mismatchedDishes) {
+        transaction.set(dishDoc.reference, {
+          'restaurantName': restaurantName,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      }
+    });
+  }
+
   static CollectionReference<Map<String, dynamic>> restaurantsCollection() {
     return _firestore.collection(BitescoreRestaurant.collectionName);
   }
@@ -2257,17 +2435,48 @@ class BiteScoreService {
     final restaurantsSnapshot = await restaurantsCollection()
         .where('ownerUserId', isEqualTo: uid)
         .get();
-    final batch = _firestore.batch();
+    final expectedRestaurantRevisions = <int>[];
     for (final doc in restaurantsSnapshot.docs) {
-      batch.set(doc.reference, {
-        'ownerUserId': null,
-        'isClaimed': false,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      expectedRestaurantRevisions.add(
+        _requiredRestaurantWriteRevision(doc.data()),
+      );
     }
 
     if (restaurantsSnapshot.docs.isNotEmpty) {
-      await batch.commit();
+      await _firestore.runTransaction<void>((transaction) async {
+        final currentSnapshots = <DocumentSnapshot<Map<String, dynamic>>>[];
+        for (final doc in restaurantsSnapshot.docs) {
+          currentSnapshots.add(await transaction.get(doc.reference));
+        }
+
+        final nextRevisions = <int>[];
+        for (var index = 0; index < currentSnapshots.length; index += 1) {
+          final currentSnapshot = currentSnapshots[index];
+          if (!currentSnapshot.exists) {
+            throw const BiteScoreRestaurantWriteStateException();
+          }
+          final currentData = currentSnapshot.data();
+          if (_readString(currentData?['ownerUserId']) != uid) {
+            throw const BiteScoreRestaurantChangedException();
+          }
+          nextRevisions.add(
+            _nextExpectedRestaurantWriteRevision(
+              currentData: currentData,
+              expectedRevision: expectedRestaurantRevisions[index],
+            ),
+          );
+        }
+
+        for (var index = 0; index < currentSnapshots.length; index += 1) {
+          transaction.set(restaurantsSnapshot.docs[index].reference, {
+            'ownerUserId': null,
+            'isClaimed': false,
+            BitescoreRestaurant.restaurantWriteRevisionField:
+                nextRevisions[index],
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        }
+      });
     }
 
     final accountSnapshot = await restaurantAccountsCollection().doc(uid).get();
@@ -3757,17 +3966,47 @@ class BiteScoreService {
       throw ArgumentError('This claim request is missing a requester user ID.');
     }
 
-    final batch = _firestore.batch();
-    batch.set(claimRequestsCollection().doc(request.id), {
-      'status': 'approved',
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-    batch.set(restaurantsCollection().doc(request.restaurantId), {
-      'ownerUserId': requesterUserId,
-      'isClaimed': true,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
-    await batch.commit();
+    final restaurantRef = restaurantsCollection().doc(request.restaurantId);
+    final initialRestaurant = await restaurantRef.get();
+    final initialRestaurantData = initialRestaurant.data();
+    final expectedRevision = _requiredRestaurantWriteRevision(
+      initialRestaurantData,
+    );
+    if (initialRestaurantData?['isClaimed'] == true ||
+        _readString(initialRestaurantData?['ownerUserId']) != null) {
+      throw const BiteScoreRestaurantChangedException();
+    }
+    final claimRef = claimRequestsCollection().doc(request.id);
+    await _runExpectedRestaurantRevisionTransaction<void>(
+      restaurantRef: restaurantRef,
+      expectedRevision: expectedRevision,
+      apply: (transaction, currentRestaurantSnapshot, nextRevision) async {
+        final currentClaimSnapshot = await transaction.get(claimRef);
+        final currentRestaurantData = currentRestaurantSnapshot.data();
+        final currentClaim = RestaurantClaimRequest.tryFromFirestore(
+          currentClaimSnapshot.data(),
+          fallbackId: currentClaimSnapshot.id,
+        );
+        if (currentRestaurantData?['isClaimed'] == true ||
+            _readString(currentRestaurantData?['ownerUserId']) != null ||
+            currentClaim == null ||
+            currentClaim.status != 'pending' ||
+            currentClaim.restaurantId != request.restaurantId ||
+            currentClaim.requesterUserId?.trim() != requesterUserId) {
+          throw const BiteScoreRestaurantChangedException();
+        }
+        transaction.set(claimRef, {
+          'status': 'approved',
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+        transaction.set(restaurantRef, {
+          'ownerUserId': requesterUserId,
+          'isClaimed': true,
+          BitescoreRestaurant.restaurantWriteRevisionField: nextRevision,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      },
+    );
   }
 
   static Future<void> rejectClaimAsAdmin(RestaurantClaimRequest request) async {
@@ -3780,11 +4019,30 @@ class BiteScoreService {
   static Future<void> unclaimRestaurantAsAdmin(
     BitescoreRestaurant restaurant,
   ) async {
-    await restaurantsCollection().doc(restaurant.id).set({
-      'ownerUserId': null,
-      'isClaimed': false,
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    final expectedOwnerUserId = restaurant.ownerUserId?.trim();
+    if (!restaurant.isClaimed ||
+        expectedOwnerUserId == null ||
+        expectedOwnerUserId.isEmpty) {
+      throw const BiteScoreRestaurantChangedException();
+    }
+    final restaurantRef = restaurantsCollection().doc(restaurant.id);
+    await _runExpectedRestaurantRevisionTransaction<void>(
+      restaurantRef: restaurantRef,
+      expectedRevision: restaurant.restaurantWriteRevision,
+      apply: (transaction, currentSnapshot, nextRevision) async {
+        final currentData = currentSnapshot.data();
+        if (currentData?['isClaimed'] != true ||
+            _readString(currentData?['ownerUserId']) != expectedOwnerUserId) {
+          throw const BiteScoreRestaurantChangedException();
+        }
+        transaction.set(restaurantRef, {
+          'ownerUserId': null,
+          'isClaimed': false,
+          BitescoreRestaurant.restaurantWriteRevisionField: nextRevision,
+          'updatedAt': FieldValue.serverTimestamp(),
+        }, SetOptions(merge: true));
+      },
+    );
   }
 
   static Future<BiteScoreReviewSaveResult> createAndRate(
@@ -4564,6 +4822,7 @@ class BiteScoreService {
     List<RestaurantBusinessHours>? businessHours,
     bool? isActive,
   }) async {
+    final expectedRevision = restaurant.restaurantWriteRevision;
     final normalizedName = _normalize(name);
     if (normalizedName.isEmpty) {
       throw ArgumentError('Restaurant name is required.');
@@ -4618,35 +4877,48 @@ class BiteScoreService {
       businessHours: businessHours ?? restaurant.businessHours,
       cuisineTags: tagList,
       isActive: isActive ?? restaurant.isActive,
+      restaurantWriteRevision: expectedRevision,
     );
 
-    await restaurantsCollection().doc(restaurant.id).set({
-      ...updatedRestaurant.toFirestoreMap(),
-      'createdAt': restaurant.createdAt == null
-          ? FieldValue.serverTimestamp()
-          : Timestamp.fromDate(restaurant.createdAt!),
-      'updatedAt': FieldValue.serverTimestamp(),
-    }, SetOptions(merge: true));
+    final profileWriteRequired = !_restaurantProfileFieldsEqual(
+      restaurant,
+      updatedRestaurant,
+    );
+    final restaurantNameChanged =
+        restaurant.name.trim() != updatedRestaurant.name.trim();
+    var dishNameSynchronizationRevision = expectedRevision;
+    if (profileWriteRequired) {
+      final restaurantRef = restaurantsCollection().doc(restaurant.id);
+      await _runExpectedRestaurantRevisionTransaction<void>(
+        restaurantRef: restaurantRef,
+        expectedRevision: expectedRevision,
+        apply: (transaction, _, nextRevision) async {
+          dishNameSynchronizationRevision = nextRevision;
+          transaction.set(restaurantRef, {
+            ...updatedRestaurant
+                .copyWith(restaurantWriteRevision: nextRevision)
+                .toFirestoreMap(),
+            'createdAt': restaurant.createdAt == null
+                ? FieldValue.serverTimestamp()
+                : Timestamp.fromDate(restaurant.createdAt!),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        },
+      );
+    }
 
-    if (restaurant.name.trim() == updatedRestaurant.name.trim()) {
+    if (!_shouldSynchronizeRestaurantDishNames(
+      profileWriteRequired: profileWriteRequired,
+      restaurantNameChanged: restaurantNameChanged,
+    )) {
       return;
     }
 
-    final dishesSnapshot = await dishesCollection()
-        .where('restaurantId', isEqualTo: restaurant.id)
-        .get();
-    if (dishesSnapshot.docs.isEmpty) {
-      return;
-    }
-
-    final batch = _firestore.batch();
-    for (final dishDoc in dishesSnapshot.docs) {
-      batch.set(dishDoc.reference, {
-        'restaurantName': updatedRestaurant.name,
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
-    }
-    await batch.commit();
+    await _synchronizeRestaurantDishNames(
+      restaurantId: restaurant.id,
+      restaurantName: updatedRestaurant.name,
+      expectedRestaurantWriteRevision: dishNameSynchronizationRevision,
+    );
   }
 
   static Future<void> updateRestaurantAsOwner({
@@ -5010,13 +5282,22 @@ class BiteScoreService {
     );
 
     await _runMergeStep('update_surviving_restaurant', () async {
-      await restaurantsCollection().doc(mergedSurviving.id).set({
-        ...mergedSurviving.toFirestoreMap(),
-        'createdAt': mergedSurviving.createdAt == null
-            ? FieldValue.serverTimestamp()
-            : Timestamp.fromDate(mergedSurviving.createdAt!),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      final survivingRef = restaurantsCollection().doc(mergedSurviving.id);
+      await _runExpectedRestaurantRevisionTransaction<void>(
+        restaurantRef: survivingRef,
+        expectedRevision: freshSurviving.restaurantWriteRevision,
+        apply: (transaction, _, nextRevision) async {
+          transaction.set(survivingRef, {
+            ...mergedSurviving
+                .copyWith(restaurantWriteRevision: nextRevision)
+                .toFirestoreMap(),
+            'createdAt': mergedSurviving.createdAt == null
+                ? FieldValue.serverTimestamp()
+                : Timestamp.fromDate(mergedSurviving.createdAt!),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        },
+      );
     });
 
     final dishesSnapshot = await _runMergeStep(
@@ -5203,13 +5484,23 @@ class BiteScoreService {
       isActive: false,
     );
     await _runMergeStep('retire_duplicate_restaurant', () async {
-      await restaurantsCollection().doc(retiredDuplicate.id).set({
-        ...retiredDuplicate.toFirestoreMap(),
-        'createdAt': retiredDuplicate.createdAt == null
-            ? FieldValue.serverTimestamp()
-            : Timestamp.fromDate(retiredDuplicate.createdAt!),
-        'updatedAt': FieldValue.serverTimestamp(),
-      }, SetOptions(merge: true));
+      final duplicateRef = restaurantsCollection().doc(retiredDuplicate.id);
+      await _runExpectedRestaurantRevisionTransaction<void>(
+        restaurantRef: duplicateRef,
+        expectedRevision: freshDuplicate.restaurantWriteRevision,
+        apply: (transaction, _, nextRevision) async {
+          transaction.set(duplicateRef, {
+            ...retiredDuplicate
+                .copyWith(restaurantWriteRevision: nextRevision)
+                .toFirestoreMap(),
+            'ownerUserId': null,
+            'createdAt': retiredDuplicate.createdAt == null
+                ? FieldValue.serverTimestamp()
+                : Timestamp.fromDate(retiredDuplicate.createdAt!),
+            'updatedAt': FieldValue.serverTimestamp(),
+          }, SetOptions(merge: true));
+        },
+      );
     });
   }
 
@@ -5296,6 +5587,7 @@ class BiteScoreService {
       state: request.state.trim(),
       zipCode: request.zipCode.trim(),
       location: GeoPoint(verifiedLocation.latitude, verifiedLocation.longitude),
+      restaurantWriteRevision: 0,
       createdByUserId: _readString(provenance['createdByUserId']),
       createdFromCreateFlow: provenance['createdFromCreateFlow'] == true,
     );
@@ -5326,9 +5618,24 @@ class BiteScoreService {
       return restaurant;
     }
 
-    await restaurantsCollection()
-        .doc(restaurant.id)
-        .set(provenance, SetOptions(merge: true));
+    final restaurantRef = restaurantsCollection().doc(restaurant.id);
+    late int nextRevision;
+    await _runExpectedRestaurantRevisionTransaction<void>(
+      restaurantRef: restaurantRef,
+      expectedRevision: restaurant.restaurantWriteRevision,
+      apply: (transaction, currentSnapshot, resolvedNextRevision) async {
+        final currentData = currentSnapshot.data();
+        if (_readString(currentData?['createdFromDishId']) != null ||
+            _readString(currentData?['createdFromReviewId']) != null) {
+          throw const BiteScoreRestaurantChangedException();
+        }
+        nextRevision = resolvedNextRevision;
+        transaction.set(restaurantRef, {
+          ...provenance,
+          BitescoreRestaurant.restaurantWriteRevisionField: nextRevision,
+        }, SetOptions(merge: true));
+      },
+    );
 
     return restaurant.copyWith(
       createdByUserId: _readString(provenance['createdByUserId']),
@@ -5337,6 +5644,7 @@ class BiteScoreService {
       createdFromCreateFlow:
           provenance['createdFromCreateFlow'] == true ||
           restaurant.createdFromCreateFlow,
+      restaurantWriteRevision: nextRevision,
     );
   }
 

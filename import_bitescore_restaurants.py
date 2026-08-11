@@ -19,6 +19,8 @@ TARGET_COLLECTION = "bitescore_restaurants"
 GOOGLE_MAPS_API_KEY_ENV = "GOOGLE_MAPS_API_KEY"
 DEFAULT_FIREBASE_KEY_PATH = Path("secrets/firebase-key.json")
 SOURCE_SCHEMA_VERSION = "bitestar.bitescore-restaurant-source.v1"
+RESTAURANT_WRITE_REVISION_FIELD = "restaurantWriteRevision"
+MAXIMUM_SAFE_RESTAURANT_WRITE_REVISION = 9_007_199_254_740_991
 MAXIMUM_RESTAURANT_NAME_LENGTH = 100
 SUPPORTED_US_STATE_CODES = frozenset(
     {
@@ -149,6 +151,102 @@ def normalize_zip5(value: object) -> str:
     return match.group(1)
 
 
+def _require_existing_restaurant_write_revision(
+    existing_data: Mapping[str, object],
+) -> int:
+    if RESTAURANT_WRITE_REVISION_FIELD not in existing_data:
+        raise ValueError("Existing restaurant is missing its write revision.")
+
+    revision = existing_data[RESTAURANT_WRITE_REVISION_FIELD]
+    if (
+        type(revision) is not int
+        or revision < 0
+        or revision > MAXIMUM_SAFE_RESTAURANT_WRITE_REVISION
+    ):
+        raise ValueError("Existing restaurant has an invalid write revision.")
+    return revision
+
+
+def _has_importer_owned_changes(
+    existing_data: Mapping[str, object],
+    candidate: Mapping[str, object],
+) -> bool:
+    ignored_fields = {
+        RESTAURANT_WRITE_REVISION_FIELD,
+        "updatedAt",
+    }
+    return any(
+        key not in existing_data or existing_data[key] != value
+        for key, value in candidate.items()
+        if key not in ignored_fields
+    )
+
+
+def _run_import_transaction(database: Any, operation: Callable[[Any], object]) -> object:
+    fake_runner = getattr(database, "run_transaction", None)
+    if callable(fake_runner):
+        return fake_runner(operation)
+
+    from firebase_admin import firestore
+
+    transaction = database.transaction()
+    return firestore.transactional(operation)(transaction)
+
+
+def _write_imported_restaurant_transactionally(
+    database: Any,
+    document_reference: Any,
+    place_id: str,
+    details: Mapping[str, object],
+    geo_point_factory: Callable[[float, float], object],
+    server_timestamp: object,
+) -> tuple[str, dict[str, object]]:
+    def operation(transaction: Any) -> tuple[str, dict[str, object]]:
+        existing_snapshot = document_reference.get(transaction=transaction)
+        existing_data = (
+            existing_snapshot.to_dict() or {}
+            if getattr(existing_snapshot, "exists", False)
+            else None
+        )
+        current_revision = 0
+        created_at = None
+        if existing_data is not None:
+            current_revision = _require_existing_restaurant_write_revision(
+                existing_data
+            )
+            created_at = existing_data.get("createdAt")
+
+        document = build_restaurant_document(
+            place_id,
+            details,
+            geo_point_factory,
+            server_timestamp,
+            created_at=created_at,
+            restaurant_write_revision=current_revision,
+        )
+        if existing_data is not None:
+            if not _has_importer_owned_changes(existing_data, document):
+                return "unchanged", document
+            if current_revision == MAXIMUM_SAFE_RESTAURANT_WRITE_REVISION:
+                raise ValueError(
+                    "Existing restaurant write revision cannot be incremented."
+                )
+            document[RESTAURANT_WRITE_REVISION_FIELD] = current_revision + 1
+
+        transaction.set(document_reference, document, merge=True)
+        return "written", document
+
+    result = _run_import_transaction(database, operation)
+    if (
+        not isinstance(result, tuple)
+        or len(result) != 2
+        or result[0] not in {"unchanged", "written"}
+        or not isinstance(result[1], dict)
+    ):
+        raise RuntimeError("Importer transaction returned an invalid result.")
+    return result
+
+
 def parse_city_state_zip(address: str) -> tuple[str, str, str]:
     city = ""
     state = ""
@@ -198,7 +296,7 @@ def get_place_details(
     data = response.json()
     result = data.get("result")
     if not isinstance(result, dict):
-        print(f"Skipped {place_id}: {data.get('status')}")
+        print(f"Skipped restaurant: {data.get('status')}")
         return None
 
     geometry = result.get("geometry")
@@ -207,7 +305,7 @@ def get_place_details(
     longitude = raw_location.get("lng") if isinstance(raw_location, dict) else None
     coordinates = valid_restaurant_coordinates(latitude, longitude)
     if coordinates is None:
-        print(f"Skipped {place_id}: invalid or missing Google coordinates")
+        print("Skipped restaurant: invalid or missing Google coordinates")
         return None
 
     address = str(result.get("formatted_address") or "")
@@ -231,6 +329,7 @@ def build_restaurant_document(
     geo_point_factory: Callable[[float, float], object],
     server_timestamp: object,
     created_at: object | None = None,
+    restaurant_write_revision: int = 0,
 ) -> dict[str, object]:
     stable_place_id = place_id.strip()
     if not stable_place_id or "/" in stable_place_id:
@@ -241,6 +340,12 @@ def build_restaurant_document(
     )
     if coordinates is None:
         raise ValueError("Valid Google-provided restaurant coordinates are required.")
+    if (
+        type(restaurant_write_revision) is not int
+        or restaurant_write_revision < 0
+        or restaurant_write_revision > MAXIMUM_SAFE_RESTAURANT_WRITE_REVISION
+    ):
+        raise ValueError("Restaurant write revision must be a nonnegative safe integer.")
 
     name = normalize_restaurant_name(details.get("name"))
     address = " ".join(str(details.get("address") or "").strip().split())
@@ -277,6 +382,7 @@ def build_restaurant_document(
         "active": True,
         "isActive": True,
         "isClaimed": False,
+        RESTAURANT_WRITE_REVISION_FIELD: restaurant_write_revision,
         "geohash": canonical_restaurant_geohash(latitude, longitude),
         "createdAt": server_timestamp if created_at is None else created_at,
         "updatedAt": server_timestamp,
@@ -307,34 +413,41 @@ def upload_restaurants(
                 continue
 
             try:
-                document_reference = None
-                created_at = None
-                if not dry_run:
+                if dry_run:
+                    document = build_restaurant_document(
+                        place_id,
+                        details,
+                        geo_point_factory,
+                        server_timestamp,
+                        restaurant_write_revision=0,
+                    )
+                    write_result = "dry-run"
+                else:
                     document_reference = database.collection(
                         TARGET_COLLECTION
                     ).document(place_id)
-                    existing_snapshot = document_reference.get()
-                    if getattr(existing_snapshot, "exists", False):
-                        existing_data = existing_snapshot.to_dict() or {}
-                        created_at = existing_data.get("createdAt")
-                document = build_restaurant_document(
-                    place_id,
-                    details,
-                    geo_point_factory,
-                    server_timestamp,
-                    created_at=created_at,
-                )
+                    write_result, document = (
+                        _write_imported_restaurant_transactionally(
+                            database,
+                            document_reference,
+                            place_id,
+                            details,
+                            geo_point_factory,
+                            server_timestamp,
+                        )
+                    )
             except ValueError as error:
                 summary["skipped"] += 1
-                print(f"Skipped {place_id}: {error}")
+                print(f"Skipped restaurant: {error}")
                 continue
 
             summary["validated"] += 1
             if dry_run:
                 print(f"Validated: {document['name']}")
                 continue
-
-            document_reference.set(document, merge=True)
+            if write_result == "unchanged":
+                print(f"Unchanged: {document['name']}")
+                continue
             summary["written"] += 1
             print(f"Uploaded: {document['name']}")
 

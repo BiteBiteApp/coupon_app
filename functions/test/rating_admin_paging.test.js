@@ -7,6 +7,8 @@ const {
   listRatingAdminDirectoryPageHandler,
   listRatingAdminInviteHistoryPageHandler,
   listRatingAdminQueuePageHandler,
+  ratingAdminRestaurantProjection,
+  restaurantSourceProjection,
   ratingAdminCursorSecretName,
   ratingAdminDirectoryPageSize,
   ratingAdminInvitePageSize,
@@ -154,10 +156,34 @@ function restaurantSource(id, overrides = {}) {
       longitude: -81.3,
       isActive: true,
       isClaimed: false,
+      restaurantWriteRevision: 4,
       ...overrides,
     },
   };
 }
+
+test("restaurant projections carry only a valid exact source revision", () => {
+  assert.equal(
+    restaurantSourceProjection(restaurantSource("restaurant-1"))
+      .restaurantWriteRevision,
+    4,
+  );
+  assert.equal(
+    ratingAdminRestaurantProjection(restaurantSource("restaurant-1"))
+      .restaurantWriteRevision,
+    4,
+  );
+  for (const value of [undefined, "4", -1, 1.5, 9_007_199_254_740_992]) {
+    const source = restaurantSource("restaurant-1");
+    if (value === undefined) {
+      delete source.data.restaurantWriteRevision;
+    } else {
+      source.data.restaurantWriteRevision = value;
+    }
+    assert.equal(ratingAdminRestaurantProjection(source), null);
+    assert.equal(restaurantSourceProjection(source), null);
+  }
+});
 
 test("Rating Admin constants preserve the shared protocol sizes and secret", () => {
   assert.equal(ratingAdminCursorSecretName, "SEARCH_PAGINATION_CURSOR_KEY");
@@ -584,6 +610,10 @@ test("all five queues enforce pending status, size 25, and page-only targets", a
       operation: "==",
       value: "pending",
     }], kind);
+    if (page.items[0].restaurant !== null &&
+        page.items[0].restaurant !== undefined) {
+      assert.equal(page.items[0].restaurant.restaurantWriteRevision, 4, kind);
+    }
   }
 });
 

@@ -90,6 +90,7 @@ function biteScoreRestaurantCreateData({
     isClaimed: false,
     isActive: true,
     active: true,
+    restaurantWriteRevision: 0,
     createdByUserId,
     createdFromCreateFlow: true,
     createdAt: serverTimestamp(),
@@ -146,13 +147,14 @@ function ruleTestDishData(
 function reviewWriteData({
   id,
   dishId,
+  userId = "customer-a",
   headline = "Merge lock rules fixture",
 } = {}) {
   return {
     id,
     dishId,
     restaurantId: "bs-1",
-    userId: "customer-a",
+    userId,
     overallImpression: 8,
     overallBiteScore: 80,
     headline,
@@ -223,6 +225,27 @@ function mergeReviewLockData(
     fingerprint: "rules-fixture-fingerprint",
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     indexedAt: new Date("2026-01-01T00:00:00.000Z"),
+  };
+}
+
+function reviewMilestoneLockData(
+  userId,
+  {
+    operationId = "rules-review-milestone-operation",
+    lockToken = "a".repeat(64),
+    state = "active",
+    fingerprint = "b".repeat(64),
+  } = {},
+) {
+  return {
+    version: "bitestar.review-milestone-lock.v1",
+    userId,
+    operationId,
+    lockToken,
+    state,
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-01-01T00:00:01.000Z"),
+    fingerprint,
   };
 }
 
@@ -468,6 +491,7 @@ async function seedFirestore() {
       isClaimed: true,
       isActive: true,
       active: true,
+      restaurantWriteRevision: 4,
       sharedMenuId: "menu-1",
       createdAt: seededAt,
       updatedAt: seededAt,
@@ -1191,6 +1215,7 @@ test("BiteScore claimed restaurant owners can manage linked public content", asy
     db.doc("bitescore_restaurants/bs-1").set(
       {
         bio: "Owner updated bio",
+        restaurantWriteRevision: 5,
         updatedAt: serverTimestamp(),
       },
       { merge: true },
@@ -1221,6 +1246,7 @@ test("BiteScore claimed restaurant owners can link and unlink BiteSaver routing"
         linkedBiteSaverUid: "owner-1",
         menuSourceUpdatedAt: serverTimestamp(),
         menuSourceUpdatedBy: "bitescore-owner",
+        restaurantWriteRevision: 5,
       },
       { merge: true },
     ),
@@ -1233,6 +1259,7 @@ test("BiteScore claimed restaurant owners can link and unlink BiteSaver routing"
         linkedBiteSaverUid: firebase.firestore.FieldValue.delete(),
         menuSourceUpdatedAt: serverTimestamp(),
         menuSourceUpdatedBy: "bitescore-owner",
+        restaurantWriteRevision: 6,
       },
       { merge: true },
     ),
@@ -1244,6 +1271,7 @@ test("wrong users cannot manage a claimed BiteScore owner's content", async () =
     dbFor("wrongRestaurantOwner").doc("bitescore_restaurants/bs-1").set(
       {
         bio: "Forged bio",
+        restaurantWriteRevision: 5,
         updatedAt: serverTimestamp(),
       },
       { merge: true },
@@ -1259,6 +1287,7 @@ test("wrong users cannot update BiteScore linked BiteSaver routing", async () =>
         linkedBiteSaverUid: "owner-1",
         menuSourceUpdatedAt: serverTimestamp(),
         menuSourceUpdatedBy: "owner-2",
+        restaurantWriteRevision: 5,
       },
       { merge: true },
     ),
@@ -1275,6 +1304,7 @@ test("BiteScore owners cannot combine routing updates with ownership changes", a
         menuSourceUpdatedBy: "bitescore-owner",
         ownerUserId: "owner-2",
         isClaimed: false,
+        restaurantWriteRevision: 5,
       },
       { merge: true },
     ),
@@ -1289,6 +1319,7 @@ test("BiteScore owners cannot forge routing updater identity", async () => {
         linkedBiteSaverUid: "owner-1",
         menuSourceUpdatedAt: serverTimestamp(),
         menuSourceUpdatedBy: "owner-2",
+        restaurantWriteRevision: 5,
       },
       { merge: true },
     ),
@@ -1460,6 +1491,335 @@ test("aggregate write generation is server-owned and client immutable", async ()
   );
 });
 
+test("BiteScore restaurant create requires an exact revision zero", async () => {
+  const adminDb = dbFor("admin");
+  await assertSucceeds(
+    adminDb.doc("bitescore_restaurants/revision-create-zero").set(
+      biteScoreRestaurantCreateData({ id: "revision-create-zero" }),
+    ),
+  );
+
+  const missingRevisionData = biteScoreRestaurantCreateData({
+    id: "revision-create-missing",
+  });
+  delete missingRevisionData.restaurantWriteRevision;
+  await assertFails(
+    adminDb
+      .doc("bitescore_restaurants/revision-create-missing")
+      .set(missingRevisionData),
+  );
+
+  const invalidRevisions = [
+    1,
+    -1,
+    1.5,
+    9007199254740992,
+    "0",
+    null,
+  ];
+  for (const [index, restaurantWriteRevision] of invalidRevisions.entries()) {
+    const id = `revision-create-invalid-${index}`;
+    await assertFails(
+      adminDb.doc(`bitescore_restaurants/${id}`).set({
+        ...biteScoreRestaurantCreateData({ id }),
+        restaurantWriteRevision,
+      }),
+    );
+  }
+});
+
+test("BiteScore restaurant update requires the current revision plus one", async () => {
+  const restaurantRef = dbFor("admin").doc("bitescore_restaurants/bs-1");
+
+  await assertSucceeds(
+    restaurantRef.set(
+      {
+        bio: "Fresh revision four edit",
+        restaurantWriteRevision: 5,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+
+  await assertFails(
+    restaurantRef.set(
+      { bio: "Omitted revision", updatedAt: serverTimestamp() },
+      { merge: true },
+    ),
+  );
+
+  for (const [index, restaurantWriteRevision] of [
+    5,
+    7,
+    0,
+    -1,
+    1.5,
+    9007199254740992,
+    "6",
+    null,
+  ].entries()) {
+    await assertFails(
+      restaurantRef.set(
+        {
+          bio: `Invalid revision update ${index}`,
+          restaurantWriteRevision,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      ),
+    );
+  }
+
+  await assertFails(
+    restaurantRef.update({
+      restaurantWriteRevision: firebase.firestore.FieldValue.delete(),
+      updatedAt: serverTimestamp(),
+    }),
+  );
+});
+
+test("BiteScore restaurant revision accepts the safe maximum and then exhausts", async () => {
+  const restaurantPath = "bitescore_restaurants/revision-maximum";
+  await seedRuleTestDocuments([
+    {
+      documentPath: restaurantPath,
+      data: {
+        id: "revision-maximum",
+        name: "Maximum Revision Restaurant",
+        restaurantWriteRevision: 9007199254740990,
+      },
+    },
+  ]);
+
+  const restaurantRef = dbFor("admin").doc(restaurantPath);
+  await assertSucceeds(
+    restaurantRef.set(
+      {
+        bio: "Maximum revision reached",
+        restaurantWriteRevision: 9007199254740991,
+      },
+      { merge: true },
+    ),
+  );
+  await assertFails(
+    restaurantRef.set(
+      {
+        bio: "Unsafe next revision",
+        restaurantWriteRevision: 9007199254740992,
+      },
+      { merge: true },
+    ),
+  );
+});
+
+test("BiteScore restaurant invalid current revisions fail closed", async () => {
+  const invalidCurrentRevisions = [
+    { suffix: "missing" },
+    { suffix: "negative", restaurantWriteRevision: -1 },
+    { suffix: "fractional", restaurantWriteRevision: 1.5 },
+    { suffix: "unsafe", restaurantWriteRevision: 9007199254740992 },
+    { suffix: "wrong-type", restaurantWriteRevision: "4" },
+  ];
+  await seedRuleTestDocuments(
+    invalidCurrentRevisions.map(({ suffix, restaurantWriteRevision }) => ({
+      documentPath: `bitescore_restaurants/current-revision-${suffix}`,
+      data: {
+        id: `current-revision-${suffix}`,
+        name: "Invalid Revision Restaurant",
+        ...(restaurantWriteRevision === undefined
+          ? {}
+          : { restaurantWriteRevision }),
+      },
+    })),
+  );
+
+  for (const { suffix } of invalidCurrentRevisions) {
+    await assertFails(
+      dbFor("admin")
+        .doc(`bitescore_restaurants/current-revision-${suffix}`)
+        .set(
+          {
+            bio: "Must not migrate or repair implicitly",
+            restaurantWriteRevision: 5,
+          },
+          { merge: true },
+        ),
+    );
+  }
+});
+
+test("stale full Admin restaurant edit preserves an intervening update", async () => {
+  const restaurantRef = dbFor("admin").doc("bitescore_restaurants/bs-1");
+  const staleSnapshot = await restaurantRef.get();
+
+  await assertSucceeds(
+    restaurantRef.set(
+      {
+        city: "Inverness",
+        restaurantWriteRevision: 5,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+
+  await assertFails(
+    restaurantRef.set({
+      ...staleSnapshot.data(),
+      bio: "Delayed stale full edit",
+      restaurantWriteRevision: 5,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+
+  const currentData = (await restaurantRef.get()).data();
+  assert.equal(currentData.city, "Inverness");
+  assert.equal(currentData.restaurantWriteRevision, 5);
+  assert.equal(currentData.bio, undefined);
+});
+
+test("stale partial restaurant claim update is rejected", async () => {
+  const restaurantPath = "bitescore_restaurants/stale-claim";
+  await seedRuleTestDocuments([
+    {
+      documentPath: restaurantPath,
+      data: {
+        id: "stale-claim",
+        name: "Stale Claim Restaurant",
+        isClaimed: false,
+        restaurantWriteRevision: 4,
+      },
+    },
+  ]);
+  const restaurantRef = dbFor("admin").doc(restaurantPath);
+
+  await assertSucceeds(
+    restaurantRef.set(
+      { phone: "555-0199", restaurantWriteRevision: 5 },
+      { merge: true },
+    ),
+  );
+  await assertFails(
+    restaurantRef.set(
+      {
+        ownerUserId: "customer-a",
+        isClaimed: true,
+        restaurantWriteRevision: 5,
+      },
+      { merge: true },
+    ),
+  );
+
+  const currentData = (await restaurantRef.get()).data();
+  assert.equal(currentData.phone, "555-0199");
+  assert.equal(currentData.isClaimed, false);
+  assert.equal(currentData.ownerUserId, undefined);
+  assert.equal(currentData.restaurantWriteRevision, 5);
+});
+
+test("stale restaurant unclaim update is rejected", async () => {
+  const restaurantRef = dbFor("admin").doc("bitescore_restaurants/bs-1");
+
+  await assertSucceeds(
+    restaurantRef.set(
+      { phone: "555-0188", restaurantWriteRevision: 5 },
+      { merge: true },
+    ),
+  );
+  await assertFails(
+    restaurantRef.set(
+      {
+        ownerUserId: firebase.firestore.FieldValue.delete(),
+        isClaimed: false,
+        restaurantWriteRevision: 5,
+      },
+      { merge: true },
+    ),
+  );
+
+  const currentData = (await restaurantRef.get()).data();
+  assert.equal(currentData.phone, "555-0188");
+  assert.equal(currentData.isClaimed, true);
+  assert.equal(currentData.ownerUserId, "bitescore-owner");
+  assert.equal(currentData.restaurantWriteRevision, 5);
+});
+
+test("restaurant revision preserves owner and Admin authorization and isolation", async () => {
+  await seedRuleTestDocuments([
+    {
+      documentPath: "bitescore_restaurants/unrelated-revision",
+      data: {
+        id: "unrelated-revision",
+        name: "Unrelated Restaurant",
+        marker: "unchanged",
+        restaurantWriteRevision: 9,
+      },
+    },
+  ]);
+  const restaurantRef = dbFor("biteScoreOwner").doc(
+    "bitescore_restaurants/bs-1",
+  );
+
+  await assertSucceeds(
+    restaurantRef.set(
+      {
+        bio: "Owner-authorized revision",
+        restaurantWriteRevision: 5,
+      },
+      { merge: true },
+    ),
+  );
+  await assertFails(
+    dbFor("wrongRestaurantOwner").doc("bitescore_restaurants/bs-1").set(
+      {
+        bio: "Wrong owner with a correct next revision",
+        restaurantWriteRevision: 6,
+      },
+      { merge: true },
+    ),
+  );
+  await assertSucceeds(
+    dbFor("admin").doc("bitescore_restaurants/bs-1").set(
+      {
+        bio: "Admin-authorized revision",
+        restaurantWriteRevision: 6,
+      },
+      { merge: true },
+    ),
+  );
+
+  const unrelatedData = (
+    await dbFor("admin").doc("bitescore_restaurants/unrelated-revision").get()
+  ).data();
+  assert.equal(unrelatedData.marker, "unchanged");
+  assert.equal(unrelatedData.restaurantWriteRevision, 9);
+});
+
+test("restaurant revision does not change delete authorization", async () => {
+  await seedRuleTestDocuments([
+    {
+      documentPath: "bitescore_restaurants/delete-missing-revision",
+      data: {
+        id: "delete-missing-revision",
+        name: "Disposable Invalid Restaurant",
+      },
+    },
+  ]);
+
+  await assertFails(
+    dbFor("biteScoreOwner").doc("bitescore_restaurants/bs-1").delete(),
+  );
+  await assertSucceeds(
+    dbFor("admin").doc("bitescore_restaurants/bs-1").delete(),
+  );
+  await assertSucceeds(
+    dbFor("admin")
+      .doc("bitescore_restaurants/delete-missing-revision")
+      .delete(),
+  );
+});
+
 test("BiteScore restaurant provenance owner can create initial provenance", async () => {
   await assertSucceeds(
     dbFor("customer")
@@ -1492,6 +1852,7 @@ test("BiteScore restaurant creator can complete provenance once", async () => {
       {
         createdFromDishId: "new-dish-2",
         createdFromReviewId: "new-dish-2_customer-a",
+        restaurantWriteRevision: 1,
       },
       { merge: true },
     ),
@@ -1510,6 +1871,7 @@ test("wrong user cannot complete BiteScore restaurant provenance", async () => {
       {
         createdFromDishId: "new-dish-3",
         createdFromReviewId: "new-dish-3_customer-a",
+        restaurantWriteRevision: 1,
       },
       { merge: true },
     ),
@@ -1528,6 +1890,7 @@ test("BiteScore restaurant completed provenance cannot change", async () => {
       {
         createdFromDishId: "new-dish-4",
         createdFromReviewId: "new-dish-4_customer-a",
+        restaurantWriteRevision: 1,
       },
       { merge: true },
     ),
@@ -1535,13 +1898,19 @@ test("BiteScore restaurant completed provenance cannot change", async () => {
 
   await assertFails(
     db.doc("bitescore_restaurants/new-restaurant-4").set(
-      { createdFromDishId: "forged-dish" },
+      {
+        createdFromDishId: "forged-dish",
+        restaurantWriteRevision: 2,
+      },
       { merge: true },
     ),
   );
   await assertFails(
     db.doc("bitescore_restaurants/new-restaurant-4").set(
-      { createdFromReviewId: "forged-review" },
+      {
+        createdFromReviewId: "forged-review",
+        restaurantWriteRevision: 2,
+      },
       { merge: true },
     ),
   );
@@ -1555,6 +1924,7 @@ test("BiteScore restaurant provenance cannot be added later to old restaurants",
         createdFromDishId: "dish-1",
         createdFromReviewId: "dish-1_bitescore-owner",
         createdFromCreateFlow: true,
+        restaurantWriteRevision: 5,
       },
       { merge: true },
     ),
@@ -1568,6 +1938,7 @@ test("old BiteScore restaurant docs without provenance remain readable and updat
     db.doc("bitescore_restaurants/bs-1").set(
       {
         bio: "Still owner editable",
+        restaurantWriteRevision: 5,
         updatedAt: serverTimestamp(),
       },
       { merge: true },
@@ -1962,6 +2333,251 @@ test("ordinary unlocked review create, update, and delete remain allowed", async
     }),
   );
   await assertSucceeds(reviewRef.delete());
+});
+
+test("an active review milestone lock blocks review create, update, and delete", async () => {
+  const dishId = "rules-milestone-locked-dish";
+  const reviewPath = "dish_reviews/rules-milestone-locked-existing";
+  await seedRuleTestDocuments([
+    {
+      documentPath: `bitescore_dishes/${dishId}`,
+      data: ruleTestDishData(dishId),
+    },
+    {
+      documentPath: reviewPath,
+      data: reviewWriteData({
+        id: "rules-milestone-locked-existing",
+        dishId,
+      }),
+    },
+    {
+      documentPath:
+        "private_review_milestone_reconciliation_locks/customer-a",
+      data: reviewMilestoneLockData("customer-a"),
+    },
+  ]);
+
+  const customerDb = dbFor("customer");
+  await assertFails(
+    customerDb.doc("dish_reviews/rules-milestone-locked-create").set(
+      reviewWriteData({
+        id: "rules-milestone-locked-create",
+        dishId,
+      }),
+    ),
+  );
+  await assertFails(
+    customerDb.doc(reviewPath).update({
+      headline: "Blocked while milestone locked",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(customerDb.doc(reviewPath).delete());
+  await assertFails(
+    dbFor("admin").doc(reviewPath).update({
+      headline: "Admin is also blocked by the private lock",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(dbFor("admin").doc(reviewPath).delete());
+});
+
+test("review updates check both current and requested milestone-lock users", async () => {
+  const dishId = "rules-milestone-identity-dish";
+  await seedRuleTestDocuments([
+    {
+      documentPath: `bitescore_dishes/${dishId}`,
+      data: ruleTestDishData(dishId),
+    },
+    {
+      documentPath: "dish_reviews/rules-unlocked-to-locked-user",
+      data: reviewWriteData({
+        id: "rules-unlocked-to-locked-user",
+        dishId,
+        userId: "customer-b",
+      }),
+    },
+    {
+      documentPath: "dish_reviews/rules-locked-to-unlocked-user",
+      data: reviewWriteData({
+        id: "rules-locked-to-unlocked-user",
+        dishId,
+      }),
+    },
+    {
+      documentPath: "dish_reviews/rules-unlocked-to-unlocked-user",
+      data: reviewWriteData({
+        id: "rules-unlocked-to-unlocked-user",
+        dishId,
+        userId: "customer-b",
+      }),
+    },
+    {
+      documentPath:
+        "private_review_milestone_reconciliation_locks/customer-a",
+      data: reviewMilestoneLockData("customer-a"),
+    },
+  ]);
+
+  const adminDb = dbFor("admin");
+  await assertFails(
+    adminDb.doc("dish_reviews/rules-unlocked-to-locked-user").update({
+      userId: "customer-a",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(
+    adminDb.doc("dish_reviews/rules-locked-to-unlocked-user").update({
+      userId: "customer-b",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertSucceeds(
+    adminDb.doc("dish_reviews/rules-unlocked-to-unlocked-user").update({
+      userId: "owner-2",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+});
+
+test("an unrelated unlocked review user remains unaffected", async () => {
+  const dishId = "rules-milestone-unrelated-dish";
+  const reviewRef = dbFor("wrongCustomer").doc(
+    "dish_reviews/rules-milestone-unrelated-review",
+  );
+  await seedRuleTestDocuments([
+    {
+      documentPath: `bitescore_dishes/${dishId}`,
+      data: ruleTestDishData(dishId),
+    },
+    {
+      documentPath:
+        "private_review_milestone_reconciliation_locks/customer-a",
+      data: reviewMilestoneLockData("customer-a"),
+    },
+  ]);
+
+  await assertSucceeds(
+    reviewRef.set(
+      reviewWriteData({
+        id: "rules-milestone-unrelated-review",
+        dishId,
+        userId: "customer-b",
+      }),
+    ),
+  );
+  await assertSucceeds(
+    reviewRef.update({
+      headline: "Unrelated user remains writable",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertSucceeds(reviewRef.delete());
+});
+
+test("a strict released milestone lock restores ordinary review writes", async () => {
+  const dishId = "rules-milestone-released-dish";
+  const reviewRef = dbFor("customer").doc(
+    "dish_reviews/rules-milestone-released-review",
+  );
+  await seedRuleTestDocuments([
+    {
+      documentPath: `bitescore_dishes/${dishId}`,
+      data: ruleTestDishData(dishId),
+    },
+    {
+      documentPath:
+        "private_review_milestone_reconciliation_locks/customer-a",
+      data: reviewMilestoneLockData("customer-a", { state: "released" }),
+    },
+  ]);
+
+  await assertSucceeds(
+    reviewRef.set(
+      reviewWriteData({
+        id: "rules-milestone-released-review",
+        dishId,
+      }),
+    ),
+  );
+  await assertSucceeds(
+    reviewRef.update({
+      headline: "Released lock is terminal",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertSucceeds(reviewRef.delete());
+});
+
+test("a malformed released milestone lock remains fail-closed", async () => {
+  const dishId = "rules-milestone-malformed-lock-dish";
+  await seedRuleTestDocuments([
+    {
+      documentPath: `bitescore_dishes/${dishId}`,
+      data: ruleTestDishData(dishId),
+    },
+    {
+      documentPath:
+        "private_review_milestone_reconciliation_locks/customer-a",
+      data: reviewMilestoneLockData("customer-a", {
+        state: "released",
+        fingerprint: "not-a-valid-fingerprint",
+      }),
+    },
+  ]);
+
+  await assertFails(
+    dbFor("customer").doc("dish_reviews/rules-malformed-lock-create").set(
+      reviewWriteData({
+        id: "rules-malformed-lock-create",
+        dishId,
+      }),
+    ),
+  );
+});
+
+test("private review milestone lock and terminal state cannot cross client boundary", async () => {
+  const activePath =
+    "private_review_milestone_reconciliation_locks/customer-a";
+  const newPath =
+    "private_review_milestone_reconciliation_locks/customer-b";
+  const terminalPath =
+    "private_review_milestone_reconciliation_terminal_states/customer-a";
+  const newTerminalPath =
+    "private_review_milestone_reconciliation_terminal_states/customer-b";
+  await seedRuleTestDocuments([
+    {
+      documentPath: activePath,
+      data: reviewMilestoneLockData("customer-a"),
+    },
+    {
+      documentPath: terminalPath,
+      data: {version: "private-terminal-canary"},
+    },
+  ]);
+
+  for (const actorName of ["customer", "admin"]) {
+    const db = dbFor(actorName);
+    await assertFails(db.doc(activePath).get());
+    await assertFails(
+      db.doc(newPath).set(reviewMilestoneLockData("customer-b")),
+    );
+    await assertFails(
+      db.doc(activePath).update({
+        state: "released",
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertFails(db.doc(activePath).delete());
+    await assertFails(db.doc(terminalPath).get());
+    await assertFails(
+      db.doc(newTerminalPath).set({version: "private-terminal-canary"}),
+    );
+    await assertFails(
+      db.doc(terminalPath).update({version: "private-terminal-updated"}),
+    );
+    await assertFails(db.doc(terminalPath).delete());
+  }
 });
 
 test("review writes reject lexical dish aliases even when alias dishes exist", async () => {

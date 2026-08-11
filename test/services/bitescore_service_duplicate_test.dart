@@ -291,6 +291,145 @@ void main() {
       );
     },
   );
+
+  test('claimed restaurant merge retirement clears owner in the existing '
+      'revision transaction', () {
+    final claimedSource = BitescoreRestaurant(
+      id: 'source-restaurant',
+      name: 'Claimed Source',
+      normalizedName: 'claimed source',
+      address: '1 Source St',
+      city: 'Orlando',
+      state: 'FL',
+      zipCode: '32801',
+      location: const GeoPoint(28.5, -81.3),
+      ownerUserId: 'owner-1',
+      isClaimed: true,
+      isActive: true,
+      restaurantWriteRevision: 4,
+    );
+    final retiredModel = claimedSource.copyWith(
+      ownerUserId: null,
+      isClaimed: false,
+      isActive: false,
+    );
+    final nextRevision = BiteScoreService.nextRestaurantWriteRevisionForTesting(
+      claimedSource.restaurantWriteRevision,
+    );
+    final serializedBeforeOverride = retiredModel
+        .copyWith(restaurantWriteRevision: nextRevision)
+        .toFirestoreMap();
+
+    expect(retiredModel.ownerUserId, 'owner-1');
+    expect(serializedBeforeOverride['ownerUserId'], 'owner-1');
+    expect(
+      BiteScoreService.nextExpectedRestaurantWriteRevisionForTesting(
+        currentData: const {'restaurantWriteRevision': 4},
+        expectedRevision: 4,
+      ),
+      5,
+    );
+    expect(
+      BiteScoreService.nextExpectedRestaurantWriteRevisionForTesting(
+        currentData: const {'restaurantWriteRevision': 8},
+        expectedRevision: 8,
+      ),
+      9,
+    );
+
+    final productionSource = File(
+      'lib/services/bitescore_service.dart',
+    ).readAsStringSync();
+    final mergeStart = productionSource.indexOf(
+      'static Future<void> mergeRestaurantsAsAdmin',
+    );
+    final mergeEnd = productionSource.indexOf(
+      'static Future<void> deleteReviewAsAdmin',
+      mergeStart,
+    );
+    expect(mergeStart, isNonNegative);
+    expect(mergeEnd, greaterThan(mergeStart));
+    final mergeMethod = productionSource.substring(mergeStart, mergeEnd);
+    final retirementStart = mergeMethod.indexOf(
+      "_runMergeStep('retire_duplicate_restaurant'",
+    );
+    expect(retirementStart, isNonNegative);
+    final retirementWrite = mergeMethod.substring(retirementStart);
+    final serializedSpread = retirementWrite.indexOf('.toFirestoreMap(),');
+    final ownerOverride = retirementWrite.indexOf("'ownerUserId': null,");
+    final updatedAtWrite = retirementWrite.indexOf(
+      "'updatedAt': FieldValue.serverTimestamp()",
+    );
+    final mergeWriteOptions = retirementWrite.indexOf(
+      'SetOptions(merge: true)',
+    );
+
+    expect(serializedSpread, isNonNegative);
+    expect(ownerOverride, greaterThan(serializedSpread));
+    expect(updatedAtWrite, greaterThan(ownerOverride));
+    expect(mergeWriteOptions, greaterThan(updatedAtWrite));
+    expect(
+      RegExp("'ownerUserId': null,").allMatches(retirementWrite),
+      hasLength(1),
+    );
+    expect(
+      mergeMethod,
+      contains(
+        'ownerUserId: null,\n      isClaimed: false,\n      isActive: false,',
+      ),
+    );
+    expect(
+      retirementWrite,
+      contains('restaurantsCollection().doc(retiredDuplicate.id)'),
+    );
+    expect(
+      retirementWrite,
+      contains('expectedRevision: freshDuplicate.restaurantWriteRevision'),
+    );
+    expect(
+      retirementWrite,
+      contains('copyWith(restaurantWriteRevision: nextRevision)'),
+    );
+    expect(
+      RegExp(r'transaction\.set\(duplicateRef').allMatches(retirementWrite),
+      hasLength(1),
+    );
+    expect(
+      retirementWrite,
+      contains("'updatedAt': FieldValue.serverTimestamp()"),
+    );
+
+    final committedSource = <String, dynamic>{
+      ...serializedBeforeOverride,
+      'ownerUserId': null,
+    };
+    expect(committedSource, containsPair('ownerUserId', null));
+    expect(committedSource['ownerUserId'], isNot('owner-1'));
+    expect(committedSource['ownerUserId'], isNot(''));
+    expect(committedSource['isClaimed'], isFalse);
+    expect(committedSource['isActive'], isFalse);
+    expect(committedSource['restaurantWriteRevision'], 5);
+
+    expect(
+      mergeMethod,
+      contains('final mergedOwnerUserId = survivingHasOwner'),
+    );
+    expect(
+      mergeMethod,
+      contains(': (duplicateHasOwner ? duplicateOwner : null);'),
+    );
+    expect(mergeMethod, contains('ownerUserId: mergedOwnerUserId,'));
+    expect(
+      mergeMethod,
+      contains('expectedRevision: freshSurviving.restaurantWriteRevision'),
+    );
+    expect(
+      RegExp(
+        r'copyWith\(restaurantWriteRevision: nextRevision\)',
+      ).allMatches(mergeMethod),
+      hasLength(2),
+    );
+  });
 }
 
 BiteScoreHomeEntry _entry({
@@ -314,6 +453,7 @@ BiteScoreHomeEntry _entry({
     state: 'FL',
     zipCode: '34461',
     location: const GeoPoint(0, 0),
+    restaurantWriteRevision: 0,
   );
   return BiteScoreHomeEntry(
     dish: BitescoreDish(

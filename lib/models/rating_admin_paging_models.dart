@@ -95,6 +95,15 @@ int? _nullableInt(Object? value) {
   return value;
 }
 
+int _safeNonnegativeInt(Object? value) {
+  if (value is! int ||
+      value < 0 ||
+      value > BitescoreRestaurant.maxRestaurantWriteRevision) {
+    throw const FormatException('Invalid Rating Admin page item.');
+  }
+  return value;
+}
+
 double? _nullableDouble(Object? value) {
   if (value == null) return null;
   if (value is! num || !value.isFinite) {
@@ -149,6 +158,7 @@ class RatingAdminRestaurantRecord {
     required this.isClaimed,
     required this.ownerUserId,
     required this.linkedBiteSaverUid,
+    required this.restaurantWriteRevision,
   });
 
   factory RatingAdminRestaurantRecord.fromJson(Object? value) {
@@ -171,6 +181,7 @@ class RatingAdminRestaurantRecord {
       'isClaimed',
       'ownerUserId',
       'linkedBiteSaverUid',
+      'restaurantWriteRevision',
     });
     if (data['source'] != 'biteScore' ||
         data['actionId'] != data['documentId']) {
@@ -192,6 +203,9 @@ class RatingAdminRestaurantRecord {
       isClaimed: _bool(data['isClaimed']),
       ownerUserId: _nullableString(data['ownerUserId']),
       linkedBiteSaverUid: _nullableString(data['linkedBiteSaverUid']),
+      restaurantWriteRevision: _safeNonnegativeInt(
+        data['restaurantWriteRevision'],
+      ),
     );
   }
 
@@ -210,6 +224,7 @@ class RatingAdminRestaurantRecord {
   final bool isClaimed;
   final String? ownerUserId;
   final String? linkedBiteSaverUid;
+  final int restaurantWriteRevision;
 
   String get recordKey => 'biteScore:$documentId';
 
@@ -359,10 +374,14 @@ BitescoreRestaurant? _restaurantFrom(Object? value) {
     'isActive',
     'createdAtMillis',
     'updatedAtMillis',
+    'restaurantWriteRevision',
   });
   final id = _string(data['id'], allowEmpty: false);
   final restaurant = BitescoreRestaurant.tryFromFirestore(<String, dynamic>{
     ...data,
+    BitescoreRestaurant.restaurantWriteRevisionField: _safeNonnegativeInt(
+      data['restaurantWriteRevision'],
+    ),
     'location': GeoPoint(_double(data['latitude']), _double(data['longitude'])),
     ..._timestampFields(data),
   }, fallbackId: id);
@@ -495,6 +514,14 @@ class RatingAdminQueueRecord {
       },
     };
     _keys(data, required);
+    if (kind == RatingAdminQueueKind.restaurantReports ||
+        kind == RatingAdminQueueKind.duplicateRestaurantReports) {
+      if (_restaurantFrom(data['restaurant']) == null) {
+        throw const FormatException('Invalid Rating Admin restaurant target.');
+      }
+    } else if (data['restaurant'] != null) {
+      _restaurantFrom(data['restaurant']);
+    }
     final id = _string(data['id'], allowEmpty: false);
     final identityField = kind == RatingAdminQueueKind.claims
         ? data['claimId']
