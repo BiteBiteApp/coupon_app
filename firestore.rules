@@ -412,6 +412,123 @@ service cloud.firestore {
         dishId.matches('^[^/\\s\\p{Cc}](?:[^/\\p{Cc}]*[^/\\s\\p{Cc}])?$');
     }
 
+    function canonicalDishProposalResolutionEntityId(entityId) {
+      return canonicalDishId(entityId) &&
+        entityId == entityId.trim() &&
+        entityId != '.' &&
+        entityId != '..' &&
+        !entityId.matches('^__.*__$') &&
+        entityId.toUtf8().size() <= 1500;
+    }
+
+    function dishProposalResolutionType(proposalData) {
+      return proposalData.keys().hasAny(['type']) && proposalData.type != null
+        ? proposalData.type
+        : (
+          proposalData.keys().hasAny(['targetType'])
+            ? proposalData.targetType
+            : null
+        );
+    }
+
+    function dishProposalStoredTargetDishId(proposalData) {
+      return proposalData.keys().hasAny(['targetDishId']) &&
+          proposalData.targetDishId != null
+        ? proposalData.targetDishId
+        : (
+          proposalData.keys().hasAny(['targetId'])
+            ? proposalData.targetId
+            : null
+        );
+    }
+
+    function dishProposalSourceDishId(proposalData) {
+      return proposalData.keys().hasAny(['sourceDishId']) &&
+          proposalData.sourceDishId != null
+        ? proposalData.sourceDishId
+        : dishProposalStoredTargetDishId(proposalData);
+    }
+
+    function dishProposalMergeTargetDishId(proposalData) {
+      return proposalData.keys().hasAny(['mergeTargetDishId']) &&
+          proposalData.mergeTargetDishId != null
+        ? proposalData.mergeTargetDishId
+        : (
+          dishProposalResolutionType(proposalData) == 'merge' &&
+              proposalData.keys().hasAny(['sourceDishId']) &&
+              proposalData.sourceDishId != null
+            ? dishProposalStoredTargetDishId(proposalData)
+            : null
+        );
+    }
+
+    function dishProposalResolutionIdentitiesValid(proposalData) {
+      let proposalType = dishProposalResolutionType(proposalData);
+      let sourceDishId = dishProposalSourceDishId(proposalData);
+      let storedTargetDishId = dishProposalStoredTargetDishId(proposalData);
+      let mergeTargetDishId = dishProposalMergeTargetDishId(proposalData);
+      return proposalData.keys().hasAny(['restaurantId']) &&
+        (!proposalData.keys().hasAny(['type']) ||
+          proposalData.type == null ||
+          proposalData.type in ['rename', 'merge']) &&
+        (!proposalData.keys().hasAny(['targetType']) ||
+          proposalData.targetType == null ||
+          proposalData.targetType in ['rename', 'merge']) &&
+        (!(
+          proposalData.keys().hasAny(['type']) &&
+          proposalData.type != null &&
+          proposalData.keys().hasAny(['targetType']) &&
+          proposalData.targetType != null
+        ) || proposalData.type == proposalData.targetType) &&
+        proposalType in ['rename', 'merge'] &&
+        canonicalDishProposalResolutionEntityId(proposalData.restaurantId) &&
+        (!proposalData.keys().hasAny(['sourceDishId']) ||
+          proposalData.sourceDishId == null ||
+          canonicalDishProposalResolutionEntityId(
+            proposalData.sourceDishId
+          )) &&
+        (!proposalData.keys().hasAny(['targetDishId']) ||
+          proposalData.targetDishId == null ||
+          canonicalDishProposalResolutionEntityId(
+            proposalData.targetDishId
+          )) &&
+        (!proposalData.keys().hasAny(['targetId']) ||
+          proposalData.targetId == null ||
+          canonicalDishProposalResolutionEntityId(proposalData.targetId)) &&
+        (!proposalData.keys().hasAny(['mergeTargetDishId']) ||
+          proposalData.mergeTargetDishId == null ||
+          canonicalDishProposalResolutionEntityId(
+            proposalData.mergeTargetDishId
+          )) &&
+        canonicalDishProposalResolutionEntityId(sourceDishId) &&
+        (!(
+          proposalData.keys().hasAny(['targetDishId']) &&
+          proposalData.targetDishId != null &&
+          proposalData.keys().hasAny(['targetId']) &&
+          proposalData.targetId != null
+        ) || proposalData.targetDishId == proposalData.targetId) &&
+        (proposalType != 'rename' ||
+          !(
+            proposalData.keys().hasAny(['sourceDishId']) &&
+            proposalData.sourceDishId != null &&
+            storedTargetDishId != null
+          ) || proposalData.sourceDishId == storedTargetDishId) &&
+        (proposalType != 'merge' ||
+          (
+            canonicalDishProposalResolutionEntityId(mergeTargetDishId) &&
+            mergeTargetDishId != sourceDishId &&
+            (
+              !(
+                proposalData.keys().hasAny(['sourceDishId']) &&
+                proposalData.sourceDishId != null &&
+                proposalData.keys().hasAny(['mergeTargetDishId']) &&
+                proposalData.mergeTargetDishId != null &&
+                storedTargetDishId != null
+              ) || proposalData.mergeTargetDishId == storedTargetDishId
+            )
+          ));
+    }
+
     function canonicalExistingDishId(dishId) {
       return canonicalDishId(dishId) &&
         exists(/databases/$(database)/documents/bitescore_dishes/$(dishId)) &&
@@ -871,8 +988,11 @@ service cloud.firestore {
 
     match /dish_edit_proposals/{proposalId} {
       allow read: if isAdmin() || readsOwnDishEditProposal();
-      allow create: if createsOwnDishEditProposal();
-      allow update, delete: if isAdmin();
+      allow create: if createsOwnDishEditProposal() &&
+        dishProposalResolutionIdentitiesValid(request.resource.data);
+      allow update: if isAdmin() &&
+        dishProposalResolutionIdentitiesValid(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     match /restaurant_claim_requests/{requestId} {

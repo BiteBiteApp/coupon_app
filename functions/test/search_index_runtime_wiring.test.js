@@ -116,11 +116,61 @@ const ratingAdminPagedCallables = Object.freeze({
   searchRatingAdminUsersPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
   listRatingAdminUserPointsPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
   listRatingAdminContributionLedgerPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
+  listRatingAdminDishSuggestionsPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
 });
 
+const dishSuggestionActionCallables = Object.freeze([
+  "applyRatingAdminDishSuggestionGroup",
+  "rejectRatingAdminDishSuggestionGroup",
+]);
+
+const dishSuggestionScheduler = "processDishProposalResolutionWork";
+
 function loadCompiledIndexWithRuntimeHarness() {
-  const state = {globalOptions: null};
-  const fakeDatabase = {};
+  const state = {
+    globalOptions: null,
+    firestoreDocuments: new Map(),
+    firestoreQueries: [],
+    logs: [],
+  };
+  const fakeDatabase = {
+    collection(collectionPath) {
+      const queryState = {
+        collectionPath,
+        where: [],
+        orderBy: [],
+        limit: null,
+      };
+      return {
+        where(field, operator, value) {
+          queryState.where.push({field, operator, value});
+          return this;
+        },
+        orderBy(field, direction) {
+          queryState.orderBy.push({field, direction});
+          return this;
+        },
+        limit(value) {
+          queryState.limit = value;
+          return this;
+        },
+        async get() {
+          state.firestoreQueries.push(queryState);
+          const documents = state.firestoreDocuments.get(collectionPath) ?? [];
+          return {
+            docs: documents.slice(0, queryState.limit ?? documents.length)
+              .map((document) => ({
+                id: document.id,
+                data: () => document.data,
+                createTime: {
+                  toDate: () => document.createTime ?? new Date(0),
+                },
+              })),
+          };
+        },
+      };
+    },
+  };
   class MockHttpsError extends Error {
     constructor(code, message, details) {
       super(message);
@@ -158,6 +208,21 @@ function loadCompiledIndexWithRuntimeHarness() {
       return handler;
     };
   }
+  function scheduledTrigger(...arguments_) {
+    const options = typeof arguments_[0] === "string" ?
+      {schedule: arguments_[0]} :
+      arguments_[0];
+    const handler = arguments_[arguments_.length - 1];
+    handler.__endpoint = {
+      platform: "gcfv2",
+      region: [state.globalOptions?.region],
+      scheduleTrigger: {schedule: options.schedule},
+      ...(Array.isArray(options.secrets)
+        ? {secretEnvironmentVariables: options.secrets.map((secret) => secret.name)}
+        : {}),
+    };
+    return handler;
+  }
   const originalLoad = Module._load;
   Module._load = function mockedLoad(request, parent, isMain) {
     switch (request) {
@@ -168,7 +233,14 @@ function loadCompiledIndexWithRuntimeHarness() {
       case "firebase-admin/messaging":
         return {getMessaging: () => ({send: async () => "unused"})};
       case "firebase-functions":
-        return {logger: {debug() {}, error() {}, info() {}, log() {}, warn() {}}};
+        return {
+          logger: Object.fromEntries(
+            ["debug", "error", "info", "log", "warn"].map((level) => [
+              level,
+              (...args) => state.logs.push({level, args}),
+            ]),
+          ),
+        };
       case "firebase-functions/params":
         return {
           defineSecret: (name) => ({name, value: () => "unused"}),
@@ -188,6 +260,8 @@ function loadCompiledIndexWithRuntimeHarness() {
         };
       case "firebase-functions/v2/options":
         return {setGlobalOptions: (options) => { state.globalOptions = options; }};
+      case "firebase-functions/v2/scheduler":
+        return {onSchedule: scheduledTrigger};
       case "stripe":
         return class FakeStripe {};
       default:
@@ -347,7 +421,7 @@ test("all Coupon Admin paged callables reject unauthenticated and non-Admin call
   }
 });
 
-test("exactly seven Rating Admin paged v2 callables use least-privilege secrets", () => {
+test("exactly eight Rating Admin paged v2 callables use least-privilege secrets", () => {
   const runtime = loadCompiledIndexWithRuntimeHarness();
   for (const [name, expectedSecrets] of Object.entries(
     ratingAdminPagedCallables,
@@ -367,7 +441,7 @@ test("exactly seven Rating Admin paged v2 callables use least-privilege secrets"
     Object.keys(runtime.exports).filter((name) =>
       name.startsWith("searchRatingAdmin") ||
       name.startsWith("listRatingAdmin")).length,
-    7,
+    8,
   );
 });
 
@@ -390,6 +464,170 @@ test("all Rating Admin paged callables authorize before request or data access",
       (error) => error.code === "permission-denied",
       name + " non-Admin",
     );
+  }
+});
+
+test("dish-suggestion actions and scheduler expose only the exact bounded endpoints", () => {
+  const runtime = loadCompiledIndexWithRuntimeHarness();
+  const queue = runtime.exports.listRatingAdminDishSuggestionsPage;
+  assert.equal(typeof queue, "function", "listRatingAdminDishSuggestionsPage");
+  assert.ok(queue.__endpoint.callableTrigger);
+  assert.equal(Object.hasOwn(queue.__endpoint, "httpsTrigger"), false);
+  assert.equal(Object.hasOwn(queue.__endpoint, "eventTrigger"), false);
+  assert.equal(Object.hasOwn(queue.__endpoint, "scheduleTrigger"), false);
+  for (const name of dishSuggestionActionCallables) {
+    const exported = runtime.exports[name];
+    assert.equal(typeof exported, "function", name);
+    assert.equal(exported.__endpoint.platform, "gcfv2", name);
+    assert.deepEqual(exported.__endpoint.region, ["us-central1"], name);
+    assert.ok(exported.__endpoint.callableTrigger, name);
+    assert.equal(Object.hasOwn(exported.__endpoint, "httpsTrigger"), false, name);
+    assert.equal(Object.hasOwn(exported.__endpoint, "eventTrigger"), false, name);
+    assert.equal(Object.hasOwn(exported.__endpoint, "scheduleTrigger"), false, name);
+    assert.equal(
+      Object.hasOwn(exported.__endpoint, "secretEnvironmentVariables"),
+      false,
+      name,
+    );
+  }
+
+  const scheduled = runtime.exports[dishSuggestionScheduler];
+  assert.equal(typeof scheduled, "function", dishSuggestionScheduler);
+  assert.equal(scheduled.__endpoint.platform, "gcfv2");
+  assert.deepEqual(scheduled.__endpoint.region, ["us-central1"]);
+  assert.deepEqual(scheduled.__endpoint.scheduleTrigger, {
+    schedule: "every 1 minute",
+  });
+  assert.equal(Object.hasOwn(scheduled.__endpoint, "callableTrigger"), false);
+  assert.equal(Object.hasOwn(scheduled.__endpoint, "httpsTrigger"), false);
+  assert.equal(Object.hasOwn(scheduled.__endpoint, "eventTrigger"), false);
+  assert.equal(
+    Object.hasOwn(scheduled.__endpoint, "secretEnvironmentVariables"),
+    false,
+  );
+
+  assert.deepEqual(
+    [
+      "listRatingAdminDishSuggestionsPage",
+      ...dishSuggestionActionCallables,
+      dishSuggestionScheduler,
+    ].filter((name) => typeof runtime.exports[name] === "function").sort(),
+    [
+      "listRatingAdminDishSuggestionsPage",
+      ...dishSuggestionActionCallables,
+      dishSuggestionScheduler,
+    ].sort(),
+  );
+  assert.deepEqual(
+    Object.keys(runtime.exports).filter((name) =>
+      /DishProposal(?:JobStep|JobStatus)/u.test(name)),
+    [],
+  );
+});
+
+test("dish-suggestion callables authorize before request or data access", async () => {
+  const runtime = loadCompiledIndexWithRuntimeHarness();
+  const invalidAuthStates = [
+    null,
+    undefined,
+    {},
+    {uid: "", token: {email: "schuyler.cole@gmail.com"}},
+    {uid: "admin-1", token: {}},
+    {uid: "admin-1", token: {email: 42}},
+    {
+      uid: "admin-1",
+      token: {
+        email: "schuyler.cole@gmail.com",
+        firebase: "malformed",
+      },
+    },
+    {
+      uid: "admin-1",
+      token: {
+        email: "schuyler.cole@gmail.com",
+        firebase: {sign_in_provider: ""},
+      },
+    },
+    {
+      uid: "admin-1",
+      token: {
+        email: "schuyler.cole@gmail.com",
+        firebase: {sign_in_provider: "anonymous"},
+      },
+    },
+    {uid: "not-admin", token: {email: "not-admin@example.test"}},
+  ];
+  for (const name of [
+    "listRatingAdminDishSuggestionsPage",
+    ...dishSuggestionActionCallables,
+  ]) {
+    for (const auth of invalidAuthStates) {
+      await assert.rejects(
+        runtime.exports[name]({data: {}, auth}),
+        (error) => error.code === "permission-denied",
+        `${name} invalid auth`,
+      );
+    }
+    await assert.rejects(
+      runtime.exports[name]({
+        data: undefined,
+        auth: {
+          uid: "admin-1",
+          token: {
+            email: "schuyler.cole@gmail.com",
+            firebase: {sign_in_provider: "password"},
+          },
+        },
+      }),
+      (error) => error.code === "invalid-argument",
+      `${name} valid Admin reaches strict request validation`,
+    );
+  }
+  assert.equal(runtime.state.firestoreQueries.length, 0);
+});
+
+test("dish-suggestion scheduler logs only its fixed bounded summary", async () => {
+  const runtime = loadCompiledIndexWithRuntimeHarness();
+  const privateCanaries = [
+    "private-group-id-canary",
+    "private-email-canary@example.test",
+    "proposal-reason-canary",
+    "auth-token-canary",
+  ];
+  runtime.state.firestoreDocuments.set(
+    "private_dish_edit_proposal_groups",
+    [{
+      id: privateCanaries[0],
+      data: {
+        resolutionIdentitiesValid: true,
+        autoEligible: true,
+        dueAt: new Date(0),
+        privateEmail: privateCanaries[1],
+        proposalReason: privateCanaries[2],
+        token: privateCanaries[3],
+      },
+    }],
+  );
+
+  await runtime.exports.processDishProposalResolutionWork();
+
+  assert.deepEqual(runtime.state.logs, [{
+    level: "info",
+    args: [
+      "Dish proposal resolution work completed.",
+      {
+        selectedExistingJobs: 0,
+        selectedDueGroups: 1,
+        processedExistingJobs: 0,
+        claimedDueGroups: 0,
+        processedDueGroups: 0,
+        failures: 1,
+      },
+    ],
+  }]);
+  const serializedLogs = JSON.stringify(runtime.state.logs);
+  for (const canary of privateCanaries) {
+    assert.equal(serializedLogs.includes(canary), false, canary);
   }
 });
 

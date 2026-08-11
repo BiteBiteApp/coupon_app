@@ -21,6 +21,7 @@ import {
   onRequest,
 } from "firebase-functions/v2/https";
 import { setGlobalOptions } from "firebase-functions/v2/options";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import Stripe from "stripe";
 import {
   awardApprovedDishProposalContributionPointsCallableHandler,
@@ -136,6 +137,18 @@ import {
 import {
   createFirestoreDishProposalPrivateDatabase,
 } from "./dish_proposal_private_store.js";
+import {
+  createFirestoreDishProposalResolutionDependencies,
+} from "./dish_proposal_resolution_jobs.js";
+import {
+  applyRatingAdminDishSuggestionGroupHandler,
+  createFirestoreDishProposalRuntimeDiscoveryDatabase,
+  processDishProposalResolutionWorkHandler,
+  rejectRatingAdminDishSuggestionGroupHandler,
+} from "./dish_proposal_runtime_integration.js";
+import {
+  listRatingAdminDishSuggestionsPageHandler,
+} from "./rating_admin_dish_suggestions_paging.js";
 
 initializeApp();
 
@@ -149,6 +162,10 @@ const searchIndexDatabase = createFirestoreSearchIndexDatabase(db);
 const adminUserDirectoryDatabase = createFirestoreAdminUserDirectoryDatabase(db);
 const dishProposalPrivateDatabase =
   createFirestoreDishProposalPrivateDatabase(db);
+const dishProposalResolutionDependencies =
+  createFirestoreDishProposalResolutionDependencies(db);
+const dishProposalRuntimeDiscoveryDatabase =
+  createFirestoreDishProposalRuntimeDiscoveryDatabase(db);
 const stripeSecret = defineSecret("STRIPE_SECRET_KEY");
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
@@ -160,6 +177,7 @@ const ratingAdminPagingDatabase = createFirestoreRatingAdminPagingDatabase(db);
 const ratingAdminRadiusStore = createFirestoreRatingAdminRadiusStore(db);
 const ratingAdminPeoplePagingDatabase =
   createFirestoreRatingAdminPeoplePagingDatabase(db);
+const requireRatingAdminDishSuggestionAccess = requireAdminInviteAccess;
 const stripeCheckoutSuccessUrl =
   "https://coupon-app-29446.web.app/stripe-success.html";
 const stripeCheckoutCancelUrl =
@@ -1648,6 +1666,46 @@ export const listRatingAdminContributionLedgerPage = onCall(
       cursorSecret: searchPaginationCursorKey.value(),
       database: ratingAdminPeoplePagingDatabase,
     });
+  },
+);
+
+export const listRatingAdminDishSuggestionsPage = onCall(
+  { secrets: [searchPaginationCursorKey] },
+  async (request) => {
+    const admin = requireRatingAdminDishSuggestionAccess(request);
+    return listRatingAdminDishSuggestionsPageHandler(request.data, {
+      adminUid: admin.uid,
+      cursorSecret: searchPaginationCursorKey.value(),
+      database: ratingAdminPagingDatabase,
+    });
+  },
+);
+
+export const applyRatingAdminDishSuggestionGroup = onCall(async (request) => {
+  requireRatingAdminDishSuggestionAccess(request);
+  return applyRatingAdminDishSuggestionGroupHandler(request.data, {
+    privateDatabase: dishProposalPrivateDatabase,
+    resolutionDependencies: dishProposalResolutionDependencies,
+  });
+});
+
+export const rejectRatingAdminDishSuggestionGroup = onCall(async (request) => {
+  requireRatingAdminDishSuggestionAccess(request);
+  return rejectRatingAdminDishSuggestionGroupHandler(request.data, {
+    privateDatabase: dishProposalPrivateDatabase,
+    resolutionDependencies: dishProposalResolutionDependencies,
+  });
+});
+
+export const processDishProposalResolutionWork = onSchedule(
+  "every 1 minute",
+  async () => {
+    const summary = await processDishProposalResolutionWorkHandler({
+      discoveryDatabase: dishProposalRuntimeDiscoveryDatabase,
+      privateDatabase: dishProposalPrivateDatabase,
+      resolutionDependencies: dishProposalResolutionDependencies,
+    });
+    logger.info("Dish proposal resolution work completed.", summary);
   },
 );
 

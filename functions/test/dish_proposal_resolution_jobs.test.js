@@ -972,7 +972,7 @@ test("merge locks are atomic, cannot be stolen, and release only for safe pre-mu
   );
 });
 
-test("invalid structural merge targets use no locks and a missing lock is retryable", async () => {
+test("invalid merge identities do not materialize and a missing lock is retryable", async () => {
   for (const variant of ["self", "missing"]) {
     const database = new InMemoryDishProposalDatabase();
     const sourceDishId = `${variant}-merge-source`;
@@ -983,20 +983,13 @@ test("invalid structural merge targets use no locks and a missing lock is retrya
       ...(variant === "self" ? {mergeTargetDishId: sourceDishId} : {}),
       supporterUid: `${variant}-supporter`,
     });
-    const claim = await claimDishProposalGroupForApply(
-      database,
-      result.currentGroupId,
-      new Date(baseTime.getTime() + 22_000),
+    assert.equal(result.currentGroupId, null);
+    assert.equal(result.memberWritten, false);
+    assert.equal(
+      database.documentsIn("private_dish_edit_application_jobs").length,
+      0,
     );
-    assert.equal(claim.claimed, true);
     assert.equal(database.documentsIn(dishMergeReviewLockCollection).length, 0);
-    const step = await processDishProposalJobStep(
-      dependencies(database),
-      claim.jobId,
-      new Date(baseTime.getTime() + 22_001),
-    );
-    assert.equal(step.status, "manual_review_required");
-    assert.equal(jobData(database, claim.jobId).failureCode, "merge_targets_invalid");
   }
 
   const retryableDatabase = new InMemoryDishProposalDatabase();
@@ -2523,6 +2516,30 @@ test("malformed active group and job operational fields fail closed", async () =
     sourceDishId: "malformed-active-group-dish",
     proposedName: "Malformed Group Name",
   });
+  for (const marker of [false, "missing"]) {
+    const markerDatabase = copyDatabase(malformedGroupDatabase);
+    const groupPath = dishProposalGroupPath(malformedGroup.groupId);
+    if (marker === false) {
+      markerDatabase.patch(groupPath, {resolutionIdentitiesValid: false});
+    } else {
+      const groupData = markerDatabase.data(groupPath);
+      delete groupData.resolutionIdentitiesValid;
+      markerDatabase.seed(groupPath, groupData);
+    }
+    await assert.rejects(
+      claimDishProposalGroupForApply(
+        markerDatabase,
+        malformedGroup.groupId,
+        new Date(baseTime.getTime() + 79_999),
+      ),
+      /invalid schema/,
+      `resolution identity marker ${marker}`,
+    );
+    assert.equal(
+      markerDatabase.documentsIn("private_dish_edit_application_jobs").length,
+      0,
+    );
+  }
   malformedGroupDatabase.patch(dishProposalGroupPath(malformedGroup.groupId), {
     activeJobId: {unexpected: "object"},
   });

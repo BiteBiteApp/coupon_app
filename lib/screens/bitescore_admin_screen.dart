@@ -12,6 +12,7 @@ import '../services/app_error_text.dart';
 import '../services/admin_link_generation_service.dart';
 import '../services/bitescore_service.dart';
 import '../services/restaurant_invite_service.dart';
+import '../services/rating_admin_dish_suggestions_service.dart';
 import '../services/rating_admin_paging_service.dart';
 import '../services/rating_admin_people_paging_service.dart';
 import '../utils/phone_number_formatter.dart';
@@ -19,6 +20,7 @@ import '../widgets/bitescore_category_picker.dart';
 import '../widgets/biterater_theme.dart';
 import '../widgets/clickable_phone_text.dart';
 import '../widgets/restaurant_invite_admin_panel.dart';
+import '../widgets/rating_admin_dish_suggestions_dashboard.dart';
 import '../widgets/rating_admin_paged_dashboard.dart';
 import '../widgets/rating_admin_people_paged_dashboard.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
@@ -51,6 +53,7 @@ class BiteScoreAdminScreen extends StatefulWidget {
   final AdminBiteScoreDishLoader? loadRestaurantDishes;
   final RatingAdminPagingService? pagingService;
   final RatingAdminPeoplePagingService? peoplePagingService;
+  final RatingAdminDishSuggestionsService? dishSuggestionsService;
 
   const BiteScoreAdminScreen({
     super.key,
@@ -61,6 +64,7 @@ class BiteScoreAdminScreen extends StatefulWidget {
     @visibleForTesting this.loadRestaurantDishes,
     @visibleForTesting this.pagingService,
     @visibleForTesting this.peoplePagingService,
+    @visibleForTesting this.dishSuggestionsService,
   });
 
   @override
@@ -71,15 +75,25 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
   AdminRestaurantLinkRecord? _selectedDishRestaurant;
+  int _activeTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: kDebugMode ? 11 : 10, vsync: this);
+    _tabController.addListener(_handleTabChanged);
+  }
+
+  void _handleTabChanged() {
+    if (_activeTabIndex == _tabController.index || !mounted) {
+      return;
+    }
+    setState(() => _activeTabIndex = _tabController.index);
   }
 
   @override
   void dispose() {
+    _tabController.removeListener(_handleTabChanged);
     _tabController.dispose();
     super.dispose();
   }
@@ -212,7 +226,10 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
                   onEditRestaurant: _editPagedRestaurant,
                   onEditDish: _editPagedDish,
                 ),
-                const _BiteScoreDishSuggestionAdminList(),
+                RatingAdminDishSuggestionsPagedView(
+                  service: widget.dishSuggestionsService,
+                  isActive: _activeTabIndex == 6,
+                ),
                 RatingAdminClaimedRestaurantsPagedView(
                   service: widget.pagingService,
                   onViewRestaurant: _viewPagedRestaurant,
@@ -3078,275 +3095,6 @@ class _BiteScoreClaimAdminListState extends State<_BiteScoreClaimAdminList> {
                             OutlinedButton(
                               onPressed: isPending
                                   ? () => _rejectClaim(context, request)
-                                  : null,
-                              child: const Text('Reject'),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _BiteScoreDishSuggestionAdminList extends StatefulWidget {
-  const _BiteScoreDishSuggestionAdminList();
-
-  @override
-  State<_BiteScoreDishSuggestionAdminList> createState() =>
-      _BiteScoreDishSuggestionAdminListState();
-}
-
-class _BiteScoreDishSuggestionAdminListState
-    extends State<_BiteScoreDishSuggestionAdminList> {
-  final TextEditingController _searchController = TextEditingController();
-  bool _showAllDishSuggestions = false;
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  void _showSnackBar(BuildContext context, String message) {
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(SnackBar(content: Text(message)));
-  }
-
-  String _dateLabel(DateTime? value) {
-    if (value == null) {
-      return 'Date unavailable';
-    }
-    final month = value.month.toString().padLeft(2, '0');
-    final day = value.day.toString().padLeft(2, '0');
-    return '$month/$day/${value.year}';
-  }
-
-  String _autoApplyLabel(DishEditSuggestionAdminEntry entry) {
-    final oldestCreatedAt = entry.oldestCreatedAt;
-    if (oldestCreatedAt == null) {
-      return 'Auto-approval date unavailable';
-    }
-
-    final dueAt = oldestCreatedAt.add(const Duration(days: 3));
-    final prefix = entry.isMerge && entry.supporterCount < 2
-        ? 'Needs 2 matching users before auto-approval'
-        : 'Auto-approves after';
-    return '$prefix ${_dateLabel(dueAt)}';
-  }
-
-  Future<void> _approveSuggestion(
-    BuildContext context,
-    DishEditSuggestionAdminEntry entry,
-  ) async {
-    try {
-      await BiteScoreService.approveDishEditSuggestionAsAdmin(entry);
-      if (!context.mounted) {
-        return;
-      }
-      _showSnackBar(context, 'Suggestion approved.');
-    } catch (error) {
-      if (!context.mounted) {
-        return;
-      }
-      _showSnackBar(
-        context,
-        AppErrorText.friendly(
-          error,
-          fallback: 'Could not approve the suggestion right now.',
-        ),
-      );
-    }
-  }
-
-  Future<void> _rejectSuggestion(
-    BuildContext context,
-    DishEditSuggestionAdminEntry entry,
-  ) async {
-    try {
-      await BiteScoreService.rejectDishEditSuggestionAsAdmin(entry);
-      if (!context.mounted) {
-        return;
-      }
-      _showSnackBar(context, 'Suggestion rejected.');
-    } catch (error) {
-      if (!context.mounted) {
-        return;
-      }
-      _showSnackBar(
-        context,
-        AppErrorText.friendly(
-          error,
-          fallback: 'Could not reject the suggestion right now.',
-        ),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final isSearching = _searchController.text.trim().isNotEmpty;
-    final showingAllSuggestions = _showAllDishSuggestions || isSearching;
-
-    return StreamBuilder<List<DishEditSuggestionAdminEntry>>(
-      stream: BiteScoreService.dishEditSuggestionsAdminStream(
-        pendingOnly: !showingAllSuggestions,
-      ),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator());
-        }
-
-        if (snapshot.hasError) {
-          return Center(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Text(
-                AppErrorText.load('dish edit suggestions'),
-                textAlign: TextAlign.center,
-              ),
-            ),
-          );
-        }
-
-        final entries = snapshot.data ?? const <DishEditSuggestionAdminEntry>[];
-        final filteredEntries = entries
-            .where(
-              (entry) => _matchesAdminQuery(_searchController.text, [
-                entry.restaurantId,
-                entry.targetDish?.name,
-                entry.targetDish?.restaurantName,
-                entry.mergeTargetDish?.name,
-                entry.mergeTargetDish?.restaurantName,
-                entry.proposedName,
-                entry.type,
-                entry.invalidReason,
-                ...entry.proposals.expand(
-                  (proposal) => [
-                    proposal.userId,
-                    proposal.status,
-                    proposal.reason,
-                    proposal.proposedName,
-                  ],
-                ),
-              ]),
-            )
-            .toList(growable: false);
-
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _AdminSearchField(
-              controller: _searchController,
-              label: 'Search dish suggestions',
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: OutlinedButton(
-                onPressed: () {
-                  setState(() {
-                    _showAllDishSuggestions = !_showAllDishSuggestions;
-                  });
-                },
-                child: Text(
-                  _showAllDishSuggestions
-                      ? 'Show Pending Only'
-                      : 'View All Suggestions',
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            if (entries.isEmpty)
-              _AdminEmptyStateCard(
-                icon: Icons.edit_note_outlined,
-                title: showingAllSuggestions
-                    ? 'No Dish Suggestions'
-                    : 'No Pending Dish Suggestions',
-                message: showingAllSuggestions
-                    ? 'Rename and merge suggestions from users will appear here once they are submitted.'
-                    : 'Rename and merge suggestions from users will appear here when there is something to review.',
-              )
-            else if (filteredEntries.isEmpty)
-              const _AdminEmptyStateCard(
-                icon: Icons.search_off,
-                title: 'No Matching Suggestions',
-                message:
-                    'Try a different dish name, restaurant ID, or proposed name search.',
-              )
-            else
-              ...filteredEntries.map((entry) {
-                final targetDishName = entry.targetDish?.name ?? 'Unknown dish';
-                final statuses =
-                    entry.proposals
-                        .map((proposal) => proposal.status.trim())
-                        .where((status) => status.isNotEmpty)
-                        .toSet()
-                        .toList()
-                      ..sort();
-                final isPending =
-                    statuses.length == 1 && statuses.contains('pending');
-                final subtitleLines = <String>[
-                  'Type: ${entry.isRename ? 'Rename' : 'Merge'}',
-                  'Restaurant ID: ${entry.restaurantId}',
-                  'Source dish: $targetDishName',
-                  if (entry.isRename &&
-                      (entry.proposedName ?? '').trim().isNotEmpty)
-                    'Proposed name: ${entry.proposedName!.trim()}',
-                  if (entry.isMerge)
-                    'Merge into: ${entry.mergeTargetDish?.name ?? 'Unknown dish'}',
-                  'Supporters: ${entry.supporterCount}',
-                  'Status: ${entry.isInvalid
-                      ? 'Invalid'
-                      : statuses.isEmpty
-                      ? 'Pending'
-                      : statuses.join(', ')}',
-                  'Created: ${_dateLabel(entry.oldestCreatedAt)}',
-                  _autoApplyLabel(entry),
-                  if (entry.isInvalid)
-                    'Invalid reason: ${entry.invalidReason!}',
-                ];
-
-                return BiteRaterTheme.liftedCard(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          entry.targetDish?.restaurantName ??
-                              entry.mergeTargetDish?.restaurantName ??
-                              'Dish Suggestion',
-                          style: const TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(subtitleLines.join('\n')),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 8,
-                          runSpacing: 8,
-                          children: [
-                            ElevatedButton(
-                              onPressed: entry.isInvalid || !isPending
-                                  ? null
-                                  : () => _approveSuggestion(context, entry),
-                              child: const Text('Approve'),
-                            ),
-                            OutlinedButton(
-                              onPressed: isPending
-                                  ? () => _rejectSuggestion(context, entry)
                                   : null,
                               child: const Text('Reject'),
                             ),

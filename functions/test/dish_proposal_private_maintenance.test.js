@@ -4,6 +4,7 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const {
+  buildDishProposalResolutionIdentity,
   dishProposalAutomaticDelayMilliseconds,
   createDishProposalMemberId,
   dishProposalGroupCollection,
@@ -304,6 +305,142 @@ function mergeProposal(overrides = {}) {
   };
 }
 
+test("resolution identity contract accepts production aliases and rejects ambiguity", () => {
+  const maxMultibyteEntityId = "é".repeat(750);
+  const accepted = [
+    {
+      source: {
+        type: "rename",
+        restaurantId: "restaurant-1",
+        targetDishId: "rename-source",
+        proposedName: "A".repeat(2_000),
+      },
+      expected: {
+        proposalType: "rename",
+        restaurantId: "restaurant-1",
+        sourceDishId: "rename-source",
+        mergeTargetDishId: null,
+        normalizedProposedName: "a".repeat(2_000),
+      },
+    },
+    {
+      source: {
+        type: "rename",
+        restaurantId: "餐厅 一",
+        targetDishId: "crème brûlée",
+        proposedName: "Crème Brûlée",
+      },
+      expected: {
+        proposalType: "rename",
+        restaurantId: "餐厅 一",
+        sourceDishId: "crème brûlée",
+        mergeTargetDishId: null,
+        normalizedProposedName: "crème brûlée",
+      },
+    },
+    {
+      source: {
+        type: "rename",
+        restaurantId: "restaurant-1",
+        targetDishId: maxMultibyteEntityId,
+        proposedName: "Byte Boundary",
+      },
+      expected: {
+        proposalType: "rename",
+        restaurantId: "restaurant-1",
+        sourceDishId: maxMultibyteEntityId,
+        mergeTargetDishId: null,
+        normalizedProposedName: "byte boundary",
+      },
+    },
+    {
+      source: {
+        type: "merge",
+        restaurantId: "restaurant-1",
+        targetDishId: "standard-source",
+        mergeTargetDishId: "standard-target",
+      },
+      expected: {
+        proposalType: "merge",
+        restaurantId: "restaurant-1",
+        sourceDishId: "standard-source",
+        mergeTargetDishId: "standard-target",
+        normalizedProposedName: null,
+      },
+    },
+    {
+      source: {
+        type: "merge",
+        restaurantId: "restaurant-1",
+        sourceDishId: "duplicate-source",
+        targetDishId: "duplicate-target",
+        mergeTargetDishId: "duplicate-target",
+      },
+      expected: {
+        proposalType: "merge",
+        restaurantId: "restaurant-1",
+        sourceDishId: "duplicate-source",
+        mergeTargetDishId: "duplicate-target",
+        normalizedProposedName: null,
+      },
+    },
+    {
+      source: {
+        targetType: "merge",
+        restaurantId: "restaurant-1",
+        sourceDishId: "legacy-source",
+        targetId: "legacy-target",
+      },
+      expected: {
+        proposalType: "merge",
+        restaurantId: "restaurant-1",
+        sourceDishId: "legacy-source",
+        mergeTargetDishId: "legacy-target",
+        normalizedProposedName: null,
+      },
+    },
+  ];
+  for (const {source, expected} of accepted) {
+    assert.deepEqual(buildDishProposalResolutionIdentity(source), expected);
+  }
+
+  const invalid = [
+    {type: "rename", targetType: "merge", restaurantId: "restaurant-1",
+      targetDishId: "dish-source"},
+    {type: "rename", restaurantId: " restaurant-1",
+      targetDishId: "dish-source"},
+    {type: "rename", restaurantId: "restaurant-1",
+      targetDishId: "dish/source"},
+    {type: "rename", restaurantId: "restaurant-1", targetDishId: ""},
+    {type: "rename", restaurantId: "restaurant-1", targetDishId: "."},
+    {type: "rename", restaurantId: "restaurant-1", targetDishId: ".."},
+    {type: "rename", restaurantId: "restaurant-1",
+      targetDishId: "__reserved__"},
+    {type: "rename", restaurantId: "restaurant-1",
+      targetDishId: "dish-source "},
+    {type: "rename", restaurantId: "restaurant-1",
+      targetDishId: "dish\u0000source"},
+    {type: "rename", restaurantId: "restaurant-1",
+      targetDishId: "x".repeat(1_501)},
+    {type: "rename", restaurantId: "restaurant-1",
+      targetDishId: "é".repeat(751)},
+    {type: "rename", restaurantId: "restaurant-1",
+      sourceDishId: "source-a", targetDishId: "source-b"},
+    {type: "rename", restaurantId: "restaurant-1",
+      targetDishId: "source-a", targetId: "source-b"},
+    {type: "merge", restaurantId: "restaurant-1",
+      targetDishId: "source-a"},
+    {type: "merge", restaurantId: "restaurant-1",
+      targetDishId: "same", mergeTargetDishId: "same"},
+    {type: "merge", restaurantId: "restaurant-1",
+      sourceDishId: "source-a", targetDishId: "target-a",
+      mergeTargetDishId: "target-b"},
+  ];
+  for (const source of invalid) {
+    assert.equal(buildDishProposalResolutionIdentity(source), null);
+  }
+});
+
 function expectDate(actual, expected, label) {
   assert.equal(actual instanceof Date, true, `${label} must be a Date`);
   assert.equal(actual.toISOString(), expected.toISOString(), label);
@@ -419,6 +556,7 @@ test("create, duplicate, and same-group update preserve trusted membership and p
   );
   assert.equal(firstGroup.enoughSupporters, true);
   assert.equal(firstGroup.autoEligible, true);
+  assert.equal(firstGroup.resolutionIdentitiesValid, true);
 
   await maintainDishEditProposalPrivateState(
     database,
@@ -476,6 +614,81 @@ test("create, duplicate, and same-group update preserve trusted membership and p
   ]) {
     assert.equal(serializedPrivateState.includes(canary), false, canary);
   }
+  assertBoundedPrivateQueries(database);
+});
+
+test("invalid resolution identities clean and later rematerialize safely", async () => {
+  const database = new InMemoryDishProposalDatabase();
+  const proposalDocumentId = "resolution-identity-cleanup";
+  database.createSource(
+    proposalDocumentId,
+    mergeProposal(),
+    new Date("2026-08-02T03:04:05.000Z"),
+  );
+  const initial = await maintainDishEditProposalPrivateState(
+    database,
+    proposalDocumentId,
+    new Date("2026-08-10T12:30:00.000Z"),
+  );
+  assert.notEqual(initial.currentGroupId, null);
+  assert.equal(database.privateDocuments().length, 3);
+
+  database.replaceSourceData(proposalDocumentId, mergeProposal({
+    sourceDishId: "unsafe/source",
+  }));
+  const cleaned = await maintainDishEditProposalPrivateState(
+    database,
+    proposalDocumentId,
+    new Date("2026-08-10T12:31:00.000Z"),
+  );
+  assert.deepEqual(cleaned, {
+    proposalDocumentId,
+    previousGroupId: initial.currentGroupId,
+    currentGroupId: null,
+    memberWritten: false,
+    memberDeleted: true,
+  });
+  assert.equal(database.privateDocuments().length, 0);
+
+  database.replaceSourceData(proposalDocumentId, mergeProposal());
+  const rematerialized = await maintainDishEditProposalPrivateState(
+    database,
+    proposalDocumentId,
+    new Date("2026-08-10T12:31:30.000Z"),
+  );
+  assert.equal(rematerialized.currentGroupId, initial.currentGroupId);
+  assert.equal(rematerialized.memberWritten, true);
+  assert.equal(rematerialized.memberDeleted, false);
+  assert.equal(database.privateDocuments().length, 3);
+  const restoredGroup = database.read(
+    dishProposalGroupPath(rematerialized.currentGroupId),
+  );
+  assert.notEqual(restoredGroup, null);
+  assert.equal(restoredGroup.resolutionIdentitiesValid, true);
+  expectDate(
+    restoredGroup.dueAt,
+    addMilliseconds(
+      new Date("2026-08-02T03:04:05.000Z"),
+      dishProposalAutomaticDelayMilliseconds,
+    ),
+    "rematerialized dueAt",
+  );
+
+  const invalidDatabase = new InMemoryDishProposalDatabase();
+  invalidDatabase.createSource(
+    "never-materialized",
+    mergeProposal({mergeTargetDishId: null}),
+    new Date("2026-08-02T03:04:06.000Z"),
+  );
+  const rejected = await maintainDishEditProposalPrivateState(
+    invalidDatabase,
+    "never-materialized",
+    new Date("2026-08-10T12:32:00.000Z"),
+  );
+  assert.equal(rejected.currentGroupId, null);
+  assert.equal(rejected.memberWritten, false);
+  assert.equal(rejected.memberDeleted, false);
+  assert.equal(invalidDatabase.privateDocuments().length, 0);
   assertBoundedPrivateQueries(database);
 });
 
@@ -907,6 +1120,9 @@ test("strict private parsers throw for every present malformed schema", async ()
     ["member padded canonical source", renameMember, {
       sourceDishId: " dish-source",
     }],
+    ["member slash resolution source", renameMember, {
+      sourceDishId: "dish/source",
+    }],
     ["member slash proposal identity", renameMember, {
       proposalDocumentId: "strict/rename",
     }],
@@ -958,6 +1174,12 @@ test("strict private parsers throw for every present malformed schema", async ()
       resolutionSequence: -1,
     }],
     ["group numeric due time", renameGroup, {dueAt: 1_000}],
+    ["group false resolution identity marker", renameGroup, {
+      resolutionIdentitiesValid: false,
+    }],
+    ["group slash resolution restaurant", renameGroup, {
+      restaurantId: "restaurant/unsafe",
+    }],
   ]) {
     assertInvalidPrivateDocument(
       parseDishProposalGroupDocument,
@@ -966,6 +1188,13 @@ test("strict private parsers throw for every present malformed schema", async ()
       label,
     );
   }
+
+  const missingMarker = cloneValue(renameGroup);
+  delete missingMarker.data.resolutionIdentitiesValid;
+  assert.throws(
+    () => parseDishProposalGroupDocument(missingMarker),
+    /Stored private dish-proposal group has an invalid schema\./,
+  );
 
   for (const [label, patch] of [
     ["supporter wrong version", {version: "supporter.v2"}],

@@ -179,6 +179,21 @@ function aggregateWriteData({
   };
 }
 
+function dishProposalWriteData(overrides = {}) {
+  return {
+    id: "rules-proposal",
+    type: "rename",
+    restaurantId: "bs-1",
+    targetDishId: "dish-1",
+    proposedName: "Cheese Slice",
+    userId: "customer-a",
+    status: "pending",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    ...overrides,
+  };
+}
+
 function mergeReviewLockData(
   dishId,
   {
@@ -1633,6 +1648,107 @@ test("users cannot forge another userId on reports or proposals", async () => {
       updatedAt: serverTimestamp(),
     }),
   );
+});
+
+test("proposal resolution identities accept only canonical consistent aliases", async () => {
+  const customerDb = dbFor("customer");
+  const valid = [
+    dishProposalWriteData(),
+    dishProposalWriteData({
+      type: "merge",
+      targetDishId: "standard-source",
+      mergeTargetDishId: "standard-target",
+      proposedName: null,
+    }),
+    dishProposalWriteData({
+      type: "merge",
+      sourceDishId: "duplicate-source",
+      targetDishId: "duplicate-target",
+      mergeTargetDishId: "duplicate-target",
+      proposedName: null,
+    }),
+    dishProposalWriteData({
+      type: null,
+      targetType: "merge",
+      sourceDishId: "legacy-source",
+      targetDishId: null,
+      targetId: "legacy-target",
+      mergeTargetDishId: null,
+      proposedName: null,
+    }),
+    dishProposalWriteData({
+      restaurantId: "restaurant with internal space",
+      targetDishId: "dish with internal space",
+    }),
+    dishProposalWriteData({
+      restaurantId: "餐厅-一",
+      targetDishId: "crème-brûlée",
+    }),
+    dishProposalWriteData({
+      targetDishId: "é".repeat(750),
+    }),
+  ];
+  for (const [index, data] of valid.entries()) {
+    await assertSucceeds(
+      customerDb.doc(`dish_edit_proposals/rules-valid-${index}`).set(data),
+    );
+  }
+
+  const invalid = [
+    {restaurantId: "unsafe/restaurant"},
+    {targetDishId: "unsafe/source"},
+    {targetDishId: null, targetId: "unsafe/legacy"},
+    {targetDishId: " padded-source"},
+    {targetDishId: "trailing-source "},
+    {targetDishId: ""},
+    {targetDishId: "."},
+    {targetDishId: ".."},
+    {targetDishId: "__reserved__"},
+    {targetDishId: "unsafe\u0000source"},
+    {targetDishId: "x".repeat(1_501)},
+    {targetDishId: "é".repeat(751)},
+    {type: "rename", targetType: "merge"},
+    {targetDishId: "source-a", targetId: "source-b"},
+    {sourceDishId: "source-a", targetDishId: "source-b"},
+    {type: "merge", targetDishId: "source", mergeTargetDishId: null},
+    {type: "merge", targetDishId: "same", mergeTargetDishId: "same"},
+    {
+      type: "merge",
+      sourceDishId: "source",
+      targetDishId: "target-a",
+      mergeTargetDishId: "target-b",
+    },
+    {
+      type: "merge",
+      targetDishId: "source",
+      mergeTargetDishId: "unsafe/target",
+    },
+  ];
+  for (const [index, patch] of invalid.entries()) {
+    await assertFails(
+      customerDb
+        .doc(`dish_edit_proposals/rules-invalid-${index}`)
+        .set(dishProposalWriteData(patch)),
+    );
+  }
+});
+
+test("Admin proposal updates cannot leave unsafe resolution identities", async () => {
+  const proposal = dbFor("admin").doc("dish_edit_proposals/proposal-1");
+  await assertSucceeds(proposal.update({status: "rejected"}));
+  await assertFails(proposal.update({targetDishId: "unsafe/source"}));
+  await assertFails(proposal.update({
+    targetDishId: null,
+    targetId: "unsafe/legacy",
+  }));
+  await assertFails(proposal.update({
+    type: "merge",
+    mergeTargetDishId: "dish-1",
+  }));
+  await assertSucceeds(proposal.update({
+    type: "merge",
+    mergeTargetDishId: "dish-2",
+  }));
 });
 
 test("users cannot write another user's review feedback vote", async () => {

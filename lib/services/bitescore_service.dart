@@ -906,9 +906,7 @@ class BiteScoreService {
 
   static Future<void> evaluatePendingDishEditSuggestionsForDish(
     String dishId,
-  ) async {
-    await maybeAutoApplyDueDishEditSuggestions(dishId: dishId);
-  }
+  ) => Future<void>.value();
 
   static Future<List<BitescoreDish>> loadDishesForRestaurant(
     String restaurantId, {
@@ -1492,8 +1490,6 @@ class BiteScoreService {
     }
 
     return query.snapshots().asyncMap((snapshot) async {
-      await maybeAutoApplyDueDishEditSuggestions();
-
       final refreshedSnapshot = await query.get();
       final dishesSnapshot = await dishesCollection().get();
 

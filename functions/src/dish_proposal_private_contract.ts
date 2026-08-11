@@ -51,6 +51,14 @@ export type DishProposalJobPhase =
 
 export type DishProposalSourceData = Readonly<Record<string, unknown>>;
 
+export type DishProposalResolutionIdentity = Readonly<{
+  proposalType: DishProposalType;
+  restaurantId: string;
+  sourceDishId: string;
+  mergeTargetDishId: string | null;
+  normalizedProposedName: string | null;
+}>;
+
 export type DishProposalMembership = Readonly<{
   proposalDocumentId: string;
   groupId: string;
@@ -89,6 +97,7 @@ export type DishProposalGroupDocument = Readonly<{
   sourceDishId: string;
   mergeTargetDishId: string | null;
   normalizedProposedName: string | null;
+  resolutionIdentitiesValid: true;
   hasPendingMembers: boolean;
   oldestTrustedServerCreateTime: Date | null;
   dueAt: Date | null;
@@ -164,6 +173,113 @@ function readString(value: unknown): string | null {
   }
   const trimmed = value.trim();
   return trimmed.length === 0 ? null : trimmed;
+}
+
+function isCanonicalResolutionEntityId(value: string): boolean {
+  return value.length > 0 &&
+    value !== "." &&
+    value !== ".." &&
+    !/^__.*__$/u.test(value) &&
+    !value.includes("/") &&
+    Buffer.byteLength(value, "utf8") <= 1_500 &&
+    !/\p{Cc}/u.test(value);
+}
+
+/**
+ * Resolves the production proposal aliases once and returns only identities
+ * that are safe to use as Firestore entity IDs during resolution.
+ */
+export function buildDishProposalResolutionIdentity(
+  source: DishProposalSourceData,
+): DishProposalResolutionIdentity | null {
+  const typeAlias = source.type === undefined || source.type === null
+    ? null
+    : source.type === "rename" || source.type === "merge"
+    ? source.type
+    : undefined;
+  const targetTypeAlias = source.targetType === undefined ||
+      source.targetType === null
+    ? null
+    : source.targetType === "rename" || source.targetType === "merge"
+    ? source.targetType
+    : undefined;
+  const rawEntityAliases = [
+    source.restaurantId,
+    source.sourceDishId,
+    source.targetDishId,
+    source.targetId,
+    source.mergeTargetDishId,
+  ].filter((value) => value !== undefined && value !== null);
+  if (
+    typeAlias === undefined ||
+    targetTypeAlias === undefined ||
+    (typeAlias !== null &&
+      targetTypeAlias !== null &&
+      typeAlias !== targetTypeAlias) ||
+    rawEntityAliases.some((value) =>
+      typeof value !== "string" ||
+      value !== value.trim() ||
+      !isCanonicalResolutionEntityId(value)
+    )
+  ) {
+    return null;
+  }
+  const proposalType = typeAlias ?? targetTypeAlias;
+  const restaurantId = typeof source.restaurantId === "string"
+    ? source.restaurantId
+    : null;
+  const sourceDishIdAlias = typeof source.sourceDishId === "string"
+    ? source.sourceDishId
+    : null;
+  const targetDishIdAlias = typeof source.targetDishId === "string"
+    ? source.targetDishId
+    : null;
+  const targetIdAlias = typeof source.targetId === "string"
+    ? source.targetId
+    : null;
+  const storedTargetDishId = targetDishIdAlias ?? targetIdAlias;
+  const sourceDishId = sourceDishIdAlias ?? storedTargetDishId;
+  const explicitMergeTargetDishId = typeof source.mergeTargetDishId === "string"
+    ? source.mergeTargetDishId
+    : null;
+  const mergeTargetDishId = explicitMergeTargetDishId ??
+    (proposalType === "merge" && sourceDishIdAlias !== null
+      ? storedTargetDishId
+      : null);
+  if (
+    proposalType === null ||
+    restaurantId === null ||
+    sourceDishId === null ||
+    (targetDishIdAlias !== null &&
+      targetIdAlias !== null &&
+      targetDishIdAlias !== targetIdAlias) ||
+    (proposalType === "rename" &&
+      sourceDishIdAlias !== null &&
+      storedTargetDishId !== null &&
+      sourceDishIdAlias !== storedTargetDishId) ||
+    (proposalType === "merge" &&
+      sourceDishIdAlias !== null &&
+      explicitMergeTargetDishId !== null &&
+      storedTargetDishId !== null &&
+      explicitMergeTargetDishId !== storedTargetDishId) ||
+    !isCanonicalResolutionEntityId(restaurantId) ||
+    !isCanonicalResolutionEntityId(sourceDishId) ||
+    (proposalType === "merge" &&
+      (mergeTargetDishId === null ||
+        !isCanonicalResolutionEntityId(mergeTargetDishId) ||
+        mergeTargetDishId === sourceDishId))
+  ) {
+    return null;
+  }
+  return Object.freeze({
+    proposalType,
+    restaurantId,
+    sourceDishId,
+    mergeTargetDishId: proposalType === "merge" ? mergeTargetDishId : null,
+    normalizedProposedName: proposalType === "rename"
+      ? (readString(source.proposedName) ?? "").toLowerCase()
+      : null,
+  });
 }
 
 export function readDishProposalDate(value: unknown): Date | null {
@@ -328,54 +444,20 @@ export function buildDishProposalMembership(value: {
     return null;
   }
 
-  const rawType = readString(source.type) ?? readString(source.targetType);
-  const proposalType: DishProposalType | null =
-    rawType === "rename" || rawType === "merge"
-    ? rawType
-    : null;
-  const restaurantId = readString(source.restaurantId);
-  const sourceDishIdAlias = readString(source.sourceDishId);
-  const storedTargetDishId = readString(source.targetDishId) ??
-    readString(source.targetId);
-  const sourceDishId = sourceDishIdAlias ?? storedTargetDishId;
-  const mergeTargetDishId = readString(source.mergeTargetDishId) ??
-    (proposalType === "merge" && sourceDishIdAlias !== null
-      ? storedTargetDishId
-      : null);
+  const resolutionIdentity = buildDishProposalResolutionIdentity(source);
   const supporterUid = readString(source.userId) ??
     readString(source.createdByUserId);
-  if (
-    proposalType === null ||
-    restaurantId === null ||
-    sourceDishId === null ||
-    supporterUid === null
-  ) {
+  if (resolutionIdentity === null || supporterUid === null) {
     return null;
   }
 
-  const normalizedProposedName = proposalType === "rename"
-    ? (readString(source.proposedName) ?? "").toLowerCase()
-    : null;
-  const membershipIdentity: Omit<
-    DishProposalMembership,
-    | "proposalDocumentId"
-    | "groupId"
-    | "supporterUid"
-    | "trustedServerCreateTime"
-  > = {
-    proposalType,
-    restaurantId,
-    sourceDishId,
-    mergeTargetDishId: proposalType === "merge" ? mergeTargetDishId : null,
-    normalizedProposedName,
-  };
   return {
     proposalDocumentId: requireDocumentSegment(
       value.proposalDocumentId,
       "Proposal document ID",
     ),
-    groupId: createDishProposalGroupId(membershipIdentity),
-    ...membershipIdentity,
+    groupId: createDishProposalGroupId(resolutionIdentity),
+    ...resolutionIdentity,
     supporterUid,
     trustedServerCreateTime,
   };

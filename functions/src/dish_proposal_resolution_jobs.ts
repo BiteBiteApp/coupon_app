@@ -308,7 +308,7 @@ function parseDish(document: DishProposalStoredDocument | null): ParsedDish | nu
   };
 }
 
-function parseJob(
+export function parseDishProposalJobDocument(
   document: DishProposalStoredDocument | null,
 ): DishProposalJobDocument | null {
   if (document === null) {
@@ -591,6 +591,7 @@ function groupFingerprint(
     group.sourceDishId,
     group.mergeTargetDishId,
     group.normalizedProposedName,
+    group.resolutionIdentitiesValid,
     group.hasPendingMembers,
     group.oldestTrustedServerCreateTime?.toISOString() ?? null,
     group.dueAt?.toISOString() ?? null,
@@ -976,7 +977,9 @@ async function loadJob(
   transaction: DishProposalPrivateTransaction,
   jobId: string,
 ): Promise<DishProposalJobDocument> {
-  const job = parseJob(await transaction.getDocument(dishProposalJobPath(jobId)));
+  const job = parseDishProposalJobDocument(
+    await transaction.getDocument(dishProposalJobPath(jobId)),
+  );
   if (job === null) {
     throw new Error("Dish-proposal application job is missing or invalid.");
   }

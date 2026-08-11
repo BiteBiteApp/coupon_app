@@ -1,6 +1,7 @@
 import {
   buildDishProposalMemberDocument,
   buildDishProposalMembership,
+  buildDishProposalResolutionIdentity,
   buildDishProposalSupporterDocument,
   createDishProposalGroupId,
   createDishProposalMemberId,
@@ -65,6 +66,7 @@ const groupDocumentKeys = Object.freeze([
   "sourceDishId",
   "mergeTargetDishId",
   "normalizedProposedName",
+  "resolutionIdentitiesValid",
   "hasPendingMembers",
   "oldestTrustedServerCreateTime",
   "dueAt",
@@ -175,6 +177,7 @@ function groupFingerprint(
       group.sourceDishId,
       group.mergeTargetDishId,
       group.normalizedProposedName,
+      group.resolutionIdentitiesValid,
       group.hasPendingMembers,
       group.oldestTrustedServerCreateTime?.toISOString() ?? null,
       group.dueAt?.toISOString() ?? null,
@@ -268,10 +271,24 @@ export function parseDishProposalMemberDocument(
     membershipGeneration: parsed.membershipGeneration,
     indexedAt: parsed.indexedAt,
   });
+  const resolutionIdentity = buildDishProposalResolutionIdentity({
+    type: parsed.proposalType,
+    restaurantId: parsed.restaurantId,
+    sourceDishId: parsed.sourceDishId,
+    mergeTargetDishId: parsed.mergeTargetDishId,
+    proposedName: parsed.normalizedProposedName,
+  });
   if (
     document.id !== createDishProposalMemberId(parsed.proposalDocumentId) ||
     parsed.groupId !== expectedGroupId ||
     rebuilt.fingerprint !== parsed.fingerprint ||
+    resolutionIdentity === null ||
+    resolutionIdentity.proposalType !== parsed.proposalType ||
+    resolutionIdentity.restaurantId !== parsed.restaurantId ||
+    resolutionIdentity.sourceDishId !== parsed.sourceDishId ||
+    resolutionIdentity.mergeTargetDishId !== parsed.mergeTargetDishId ||
+    resolutionIdentity.normalizedProposedName !==
+      parsed.normalizedProposedName ||
     (parsed.proposalType === "rename" &&
       (parsed.mergeTargetDishId !== null ||
         parsed.normalizedProposedName === null ||
@@ -340,6 +357,7 @@ export function parseDishProposalGroupDocument(
     fingerprint === null ||
     indexedAt === null ||
     typeof data.hasPendingMembers !== "boolean" ||
+    data.resolutionIdentitiesValid !== true ||
     typeof data.enoughSupporters !== "boolean" ||
     typeof data.autoEligible !== "boolean" ||
     (data.mergeTargetDishId !== null && mergeTargetDishId === null) ||
@@ -364,6 +382,7 @@ export function parseDishProposalGroupDocument(
     sourceDishId,
     mergeTargetDishId,
     normalizedProposedName,
+    resolutionIdentitiesValid: true,
     hasPendingMembers: data.hasPendingMembers,
     oldestTrustedServerCreateTime,
     dueAt,
@@ -381,6 +400,13 @@ export function parseDishProposalGroupDocument(
   const {version: _version, fingerprint: _fingerprint, indexedAt: _indexedAt,
     ...fingerprintFields} = parsed;
   const expectedGroupId = createDishProposalGroupId(parsed);
+  const resolutionIdentity = buildDishProposalResolutionIdentity({
+    type: parsed.proposalType,
+    restaurantId: parsed.restaurantId,
+    sourceDishId: parsed.sourceDishId,
+    mergeTargetDishId: parsed.mergeTargetDishId,
+    proposedName: parsed.normalizedProposedName,
+  });
   const activeFieldsAreComplete = parsed.activeJobId === null
     ? parsed.activeResolutionType === null &&
       parsed.cycleCutoffGeneration === null &&
@@ -392,6 +418,13 @@ export function parseDishProposalGroupDocument(
     document.id !== parsed.groupId ||
     parsed.groupId !== expectedGroupId ||
     groupFingerprint(fingerprintFields) !== parsed.fingerprint ||
+    resolutionIdentity === null ||
+    resolutionIdentity.proposalType !== parsed.proposalType ||
+    resolutionIdentity.restaurantId !== parsed.restaurantId ||
+    resolutionIdentity.sourceDishId !== parsed.sourceDishId ||
+    resolutionIdentity.mergeTargetDishId !== parsed.mergeTargetDishId ||
+    resolutionIdentity.normalizedProposedName !==
+      parsed.normalizedProposedName ||
     !activeFieldsAreComplete ||
     (parsed.enoughSupporters && !parsed.hasPendingMembers) ||
     parsed.autoEligible !==
@@ -690,6 +723,7 @@ function nextGroupDocument(value: {
     sourceDishId: identity.sourceDishId,
     mergeTargetDishId: identity.mergeTargetDishId,
     normalizedProposedName: identity.normalizedProposedName,
+    resolutionIdentitiesValid: true as const,
     hasPendingMembers: representative !== null,
     oldestTrustedServerCreateTime,
     dueAt,
