@@ -130,6 +130,12 @@ import {
   createFirestoreAdminUserDirectoryDatabase,
   handleAdminUserSourceWrite,
 } from "./admin_user_directory_maintenance.js";
+import {
+  maintainDishEditProposalPrivateState as maintainDishEditProposalPrivateStateHandler,
+} from "./dish_proposal_private_maintenance.js";
+import {
+  createFirestoreDishProposalPrivateDatabase,
+} from "./dish_proposal_private_store.js";
 
 initializeApp();
 
@@ -141,6 +147,8 @@ setGlobalOptions({
 const db: Firestore = getFirestore();
 const searchIndexDatabase = createFirestoreSearchIndexDatabase(db);
 const adminUserDirectoryDatabase = createFirestoreAdminUserDirectoryDatabase(db);
+const dishProposalPrivateDatabase =
+  createFirestoreDishProposalPrivateDatabase(db);
 const stripeSecret = defineSecret("STRIPE_SECRET_KEY");
 const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
@@ -4103,6 +4111,17 @@ export const maintainAdminUserDirectoryFromDishEditProposal = onDocumentWritten(
         : null,
       now: new Date(),
     });
+  },
+);
+
+export const maintainDishEditProposalPrivateState = onDocumentWritten(
+  "dish_edit_proposals/{proposalId}",
+  async (event) => {
+    await maintainDishEditProposalPrivateStateHandler(
+      dishProposalPrivateDatabase,
+      event.params.proposalId as string,
+      new Date(),
+    );
   },
 );
 

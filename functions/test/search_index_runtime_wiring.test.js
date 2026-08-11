@@ -90,6 +90,11 @@ const expectedAdminUserDirectoryTriggers = Object.freeze({
     "review_feedback_votes/{voteId}",
 });
 
+const expectedDishProposalPrivateTriggers = Object.freeze({
+  maintainDishEditProposalPrivateState:
+    "dish_edit_proposals/{proposalId}",
+});
+
 const couponAdminPagedCallables = Object.freeze({
   searchCouponAdminRestaurantsPage: [
     "SEARCH_PAGINATION_CURSOR_KEY",
@@ -211,9 +216,42 @@ test("all prior exports remain and each search-index trigger is exported once", 
   for (const name of Object.keys(expectedAdminUserDirectoryTriggers)) {
     assert.equal(typeof runtime.exports[name], "function", name);
   }
+  for (const name of Object.keys(expectedDishProposalPrivateTriggers)) {
+    assert.equal(typeof runtime.exports[name], "function", name);
+  }
   assert.equal(
     Object.keys(runtime.exports).filter((name) => Object.hasOwn(expectedTriggers, name)).length,
     Object.keys(expectedTriggers).length,
+  );
+});
+
+test("dish proposal private-state trigger uses exact background-only metadata", () => {
+  const runtime = loadCompiledIndexWithRuntimeHarness();
+  for (const [name, documentPath] of Object.entries(
+    expectedDishProposalPrivateTriggers,
+  )) {
+    const endpoint = runtime.exports[name].__endpoint;
+    assert.equal(endpoint.platform, "gcfv2", name);
+    assert.deepEqual(endpoint.region, ["us-central1"], name);
+    assert.equal(endpoint.eventTrigger.eventType, "document.written", name);
+    assert.equal(
+      endpoint.eventTrigger.eventFilterPathPatterns.document,
+      documentPath,
+      name,
+    );
+    assert.equal(Object.hasOwn(endpoint, "callableTrigger"), false, name);
+    assert.equal(Object.hasOwn(endpoint, "httpsTrigger"), false, name);
+    assert.equal(Object.hasOwn(endpoint, "scheduleTrigger"), false, name);
+    assert.equal(
+      Object.hasOwn(endpoint, "secretEnvironmentVariables"),
+      false,
+      name,
+    );
+  }
+  assert.equal(
+    Object.keys(runtime.exports).filter((name) =>
+      Object.hasOwn(expectedDishProposalPrivateTriggers, name)).length,
+    1,
   );
 });
 

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:coupon_app/models/bitescore_dish.dart';
 import 'package:coupon_app/models/bitescore_restaurant.dart';
@@ -201,6 +203,94 @@ void main() {
       expect(average, 80);
     });
   });
+
+  test('aggregate rebuild captures the dish generation before reading reviews '
+      'and persists it in every aggregate write', () {
+    final source = File(
+      'lib/services/bitescore_service.dart',
+    ).readAsStringSync();
+    final methodStart = source.indexOf(
+      'static Future<void> _rebuildDishAggregate',
+    );
+    final methodEnd = source.indexOf(
+      'static Future<Location> _verifyRestaurantAddress',
+      methodStart,
+    );
+
+    expect(methodStart, isNonNegative);
+    expect(methodEnd, greaterThan(methodStart));
+
+    final method = source.substring(methodStart, methodEnd);
+    final generationRead = method.indexOf(
+      'dishesCollection().doc(dishId).get()',
+    );
+    final reviewRead = method.indexOf('_loadAllDishReviewsForDish(dishId)');
+
+    expect(generationRead, isNonNegative);
+    expect(reviewRead, greaterThan(generationRead));
+    expect(
+      RegExp(
+        "'aggregateWriteGeneration': aggregateWriteGeneration",
+      ).allMatches(method),
+      hasLength(2),
+    );
+    expect(method, contains('_readAggregateWriteGeneration'));
+  });
+
+  test('aggregate generation defaults only when absent and rejects malformed '
+      'present values', () {
+    expect(
+      BiteScoreService.aggregateWriteGenerationFromDishDataForTesting(null),
+      0,
+    );
+    expect(
+      BiteScoreService.aggregateWriteGenerationFromDishDataForTesting(const {}),
+      0,
+    );
+    expect(
+      BiteScoreService.aggregateWriteGenerationFromDishDataForTesting(const {
+        'aggregateWriteGeneration': 0,
+      }),
+      0,
+    );
+    expect(
+      BiteScoreService.aggregateWriteGenerationFromDishDataForTesting(const {
+        'aggregateWriteGeneration': 9007199254740991,
+      }),
+      9007199254740991,
+    );
+
+    for (final malformed in <Object?>[-1, 1.5, 9007199254740992, '1', null]) {
+      expect(
+        () => BiteScoreService.aggregateWriteGenerationFromDishDataForTesting({
+          'aggregateWriteGeneration': malformed,
+        }),
+        throwsStateError,
+        reason: 'present value $malformed must fail closed',
+      );
+    }
+  });
+
+  test(
+    'client review and aggregate maps retain canonical dish identifiers',
+    () {
+      expect(
+        _review(
+          id: 'review-1',
+          dishId: '  dish-1  ',
+          userId: 'user-1',
+        ).toFirestoreMap()['dishId'],
+        'dish-1',
+      );
+      expect(
+        const DishRatingAggregate(
+          dishId: '  dish-1  ',
+          restaurantId: 'restaurant-1',
+        ).toFirestoreMap()['dishId'],
+        'dish-1',
+      );
+    },
+  );
 }
 
 BiteScoreHomeEntry _entry({

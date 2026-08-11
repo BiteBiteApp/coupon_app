@@ -1,6 +1,24 @@
 import { FieldValue } from "firebase-admin/firestore";
 import type { WhereFilterOp } from "firebase-admin/firestore";
 import { CallableRequest, HttpsError } from "firebase-functions/v2/https";
+import {
+  buildDishProposalMemberDocument,
+  buildDishProposalMembership,
+  buildDishProposalSupporterDocument,
+  createDishProposalGroupId,
+  createDishProposalMemberId,
+  createDishProposalSupporterId,
+  dishProposalDocumentFingerprint,
+  dishProposalGroupCollection,
+  dishProposalGroupVersion,
+  dishProposalMemberCollection,
+  dishProposalMemberVersion,
+  dishProposalSupporterCollection,
+  dishProposalSupporterVersion,
+  normalizeDishNameForSave,
+  readDishProposalDate,
+  type DishProposalMembership,
+} from "./dish_proposal_private_contract.js";
 
 export const contributionPointLedgerCollection =
   "bitescore_contribution_point_ledger";
@@ -64,6 +82,29 @@ export type ContributionPointAwardResult = {
   entries: ContributionPointAwardEntryResult[];
   actionGroupId?: string;
 };
+
+export type DishProposalResolutionPointAwardOutcome =
+  | "awarded"
+  | "alreadyAwarded"
+  | "notEligible"
+  | "noAwardForNoOp";
+
+export type DishProposalResolutionPointAwardResult = Readonly<{
+  outcome: DishProposalResolutionPointAwardOutcome;
+  result: ContributionPointAwardResult;
+}>;
+
+export type DishProposalResolutionPointAwardRequest = Readonly<{
+  proposalDocumentId: string;
+  activeJobId: string;
+  groupId: string;
+  supporterUid: string;
+  trustedServerCreateTimeMillis: number;
+  membershipGeneration: number;
+  cycleCutoffGeneration: number;
+  oldValue?: string | null;
+  newValue?: string | null;
+}>;
 
 export type ContributionPointReverseResult = {
   ledgerEntryId: string;
@@ -164,6 +205,53 @@ type CallableAuthLike = {
 
 const betaAdminEmails = new Set(["schuyler.cole@gmail.com"]);
 const maxCelebrationLedgerEntryIds = 30;
+const dishProposalMemberKeys = Object.freeze([
+  "version",
+  "proposalDocumentId",
+  "groupId",
+  "proposalType",
+  "restaurantId",
+  "sourceDishId",
+  "mergeTargetDishId",
+  "normalizedProposedName",
+  "supporterUid",
+  "trustedServerCreateTime",
+  "membershipEnteredAt",
+  "membershipGeneration",
+  "currentPending",
+  "fingerprint",
+  "indexedAt",
+] as const);
+const dishProposalGroupKeys = Object.freeze([
+  "version",
+  "groupId",
+  "proposalType",
+  "restaurantId",
+  "sourceDishId",
+  "mergeTargetDishId",
+  "normalizedProposedName",
+  "hasPendingMembers",
+  "oldestTrustedServerCreateTime",
+  "dueAt",
+  "enoughSupporters",
+  "autoEligible",
+  "lastMembershipGeneration",
+  "resolutionSequence",
+  "activeJobId",
+  "activeResolutionType",
+  "cycleCutoffGeneration",
+  "cycleCutoffAt",
+  "fingerprint",
+  "indexedAt",
+] as const);
+const dishProposalSupporterKeys = Object.freeze([
+  "version",
+  "groupId",
+  "supporterUid",
+  "present",
+  "fingerprint",
+  "indexedAt",
+] as const);
 
 const adminServerFieldValues: ServerFieldValues = {
   serverTimestamp: () => FieldValue.serverTimestamp(),
@@ -174,6 +262,12 @@ export function buildContributionLedgerDocumentIdFromSourceKey(
   sourceKey: string,
 ): string {
   return encodeURIComponent(sourceKey.trim());
+}
+
+export function buildContributionLedgerDocumentIdFromExactSourceKey(
+  sourceKey: string,
+): string {
+  return encodeURIComponent(sourceKey);
 }
 
 export function buildContributionReversalDocumentId(
@@ -197,90 +291,12 @@ export async function awardContributionPointsTransaction(
     return { entries: [] };
   }
 
-  const fieldValues = options.fieldValues ?? adminServerFieldValues;
-  const documentId = buildContributionLedgerDocumentIdFromSourceKey(
-    normalizedDraft.sourceKey,
+  return runContributionPointAwardTransaction(
+    db,
+    normalizedDraft,
+    false,
+    options,
   );
-  const entryRef = ledgerDocument(db, documentId);
-  const userRef = userProfileDocument(db, normalizedDraft.userId);
-
-  const createdEntryId = await db.runTransaction<string | null>(
-    async (transaction) => {
-      const existingSnapshot = await transaction.get(entryRef);
-      if (existingSnapshot.exists) {
-        const existing = parseLedgerEntry(existingSnapshot);
-        if (
-          !existing ||
-          existing.status === contributionPointStatus.active
-        ) {
-          return null;
-        }
-
-        const restoreRef = ledgerDocument(db, `restore:${documentId}`);
-        const restoreSnapshot = await transaction.get(restoreRef);
-        if (restoreSnapshot.exists) {
-          return null;
-        }
-
-        transaction.set(restoreRef, {
-          ...entryMap({
-            id: restoreRef.id,
-            draft: normalizedDraft,
-            description: `${normalizedDraft.description} restored`,
-            fieldValues,
-          }),
-          originalLedgerEntryId: existing.id,
-        });
-        incrementCachedTotal(
-          transaction,
-          userRef,
-          normalizedDraft.points,
-          fieldValues,
-        );
-        return restoreRef.id;
-      }
-
-      transaction.set(
-        entryRef,
-        entryMap({
-          id: entryRef.id,
-          draft: normalizedDraft,
-          fieldValues,
-        }),
-      );
-      incrementCachedTotal(
-        transaction,
-        userRef,
-        normalizedDraft.points,
-        fieldValues,
-      );
-      return entryRef.id;
-    },
-  );
-
-  if (!createdEntryId) {
-    return {
-      entries: [
-        {
-          ledgerEntryId: documentId,
-          points: normalizedDraft.points,
-          wasCreated: false,
-        },
-      ],
-      actionGroupId: normalizedDraft.sourceKey,
-    };
-  }
-
-  return {
-    entries: [
-      {
-        ledgerEntryId: createdEntryId,
-        points: normalizedDraft.points,
-        wasCreated: true,
-      },
-    ],
-    actionGroupId: normalizedDraft.sourceKey,
-  };
 }
 
 export async function reverseContributionPointLedgerEntryTransaction(
@@ -683,7 +699,37 @@ export async function awardApprovedDishProposalContributionPointsCallableHandler
 ): Promise<{ ok: true; result: ContributionPointAwardResult }> {
   requireContributionPointAdmin(request.auth);
   const data = readRecord(request.data);
-  const proposalId = readRequiredString(data.proposalId, "proposalId");
+  const proposalId = readRequiredDocumentId(data.proposalId, "proposalId");
+  const oldValue = readOptionalString(data.oldValue);
+  const newValue = readOptionalString(data.newValue);
+
+  return {
+    ok: true,
+    result: await awardApprovedDishProposalContributionPointsFromCallable(
+      db,
+      {
+        proposalDocumentId: proposalId,
+        oldValue,
+        newValue,
+      },
+      options,
+    ),
+  };
+}
+
+async function awardApprovedDishProposalContributionPointsFromCallable(
+  db: FirestoreLike,
+  params: Readonly<{
+    proposalDocumentId: string;
+    oldValue?: string | null;
+    newValue?: string | null;
+  }>,
+  options: HelperOptions = {},
+): Promise<ContributionPointAwardResult> {
+  const proposalId = readRequiredDocumentId(
+    params.proposalDocumentId,
+    "proposalId",
+  );
   const proposalSnapshot = await db
     .collection("dish_edit_proposals")
     .doc(proposalId)
@@ -700,7 +746,7 @@ export async function awardApprovedDishProposalContributionPointsCallableHandler
     );
   }
   if (!isAwardableDishEditProposalStatus(proposal.status)) {
-    return noAwardResponse();
+    return { entries: [] };
   }
 
   const targetDishSnapshot = await db
@@ -720,8 +766,8 @@ export async function awardApprovedDishProposalContributionPointsCallableHandler
       .get()
     : null;
   const mergeTargetDishData = mergeTargetDishSnapshot?.data() ?? {};
-  const oldValueFromClient = readOptionalString(data.oldValue);
-  const newValueFromClient = readOptionalString(data.newValue);
+  const oldValueFromClient = readOptionalString(params.oldValue);
+  const newValueFromClient = readOptionalString(params.newValue);
 
   const draft = approvedDishProposalAwardDraft({
     proposal,
@@ -732,13 +778,95 @@ export async function awardApprovedDishProposalContributionPointsCallableHandler
     newValueFromClient,
   });
   if (!draft) {
-    return noAwardResponse();
+    return { entries: [] };
   }
 
-  return {
-    ok: true,
-    result: await awardContributionPointsTransaction(db, draft, options),
-  };
+  return awardContributionPointsWithExactSourceKey(db, draft, options);
+}
+
+export async function
+awardApprovedDishProposalContributionPointsForResolutionCycle(
+  db: FirestoreLike,
+  params: DishProposalResolutionPointAwardRequest,
+  options: HelperOptions = {},
+): Promise<DishProposalResolutionPointAwardResult> {
+  const expected = parseDishProposalResolutionPointAwardRequest(params);
+  const fieldValues = options.fieldValues ?? adminServerFieldValues;
+  const proposalRef = db.collection("dish_edit_proposals")
+    .doc(expected.proposalDocumentId);
+  const memberRef = db.collection(dishProposalMemberCollection)
+    .doc(createDishProposalMemberId(expected.proposalDocumentId));
+  const groupRef = db.collection(dishProposalGroupCollection)
+    .doc(expected.groupId);
+  const supporterRef = db.collection(dishProposalSupporterCollection)
+    .doc(createDishProposalSupporterId(
+      expected.groupId,
+      expected.supporterUid,
+    ));
+
+  return db.runTransaction(async (transaction) => {
+    const [proposalSnapshot, memberSnapshot, groupSnapshot, supporterSnapshot] =
+      await Promise.all([
+        transaction.get(proposalRef),
+        transaction.get(memberRef),
+        transaction.get(groupRef),
+        transaction.get(supporterRef),
+      ]);
+    const eligibility = validateResolutionCyclePointEligibility({
+      proposalSnapshot,
+      memberSnapshot,
+      groupSnapshot,
+      supporterSnapshot,
+      expected,
+    });
+    if (eligibility === null) {
+      return noDishProposalResolutionPointAward("notEligible");
+    }
+
+    const { proposal, currentMembership } = eligibility;
+    const targetDishRef = db.collection("bitescore_dishes")
+      .doc(proposal.targetDishId);
+    const restaurantRef = db.collection("bitescore_restaurants")
+      .doc(proposal.restaurantId);
+    const mergeTargetDishRef = proposal.mergeTargetDishId === null
+      ? null
+      : db.collection("bitescore_dishes").doc(proposal.mergeTargetDishId);
+    const [targetDishSnapshot, restaurantSnapshot, mergeTargetDishSnapshot] =
+      await Promise.all([
+        transaction.get(targetDishRef),
+        transaction.get(restaurantRef),
+        mergeTargetDishRef === null
+          ? Promise.resolve(null)
+          : transaction.get(mergeTargetDishRef),
+      ]);
+    const trustedDraft = approvedDishProposalResolutionAwardDraft({
+      proposal,
+      currentMembership,
+      targetDishData: targetDishSnapshot.data() ?? {},
+      mergeTargetDishData: mergeTargetDishSnapshot?.data() ?? {},
+      restaurantData: restaurantSnapshot.data() ?? {},
+      oldValue: expected.oldValue,
+      newValue: expected.newValue,
+    });
+    if (trustedDraft === "noAwardForNoOp") {
+      return noDishProposalResolutionPointAward("noAwardForNoOp");
+    }
+    if (trustedDraft === null) {
+      return noDishProposalResolutionPointAward("notEligible");
+    }
+
+    const transactionAward = await awardContributionPointsWithinTransaction(
+      transaction,
+      db,
+      trustedDraft,
+      true,
+      fieldValues,
+    );
+    return {
+      outcome: transactionAward.wasCreated ? "awarded" : "alreadyAwarded",
+      result: transactionAward.result,
+    };
+  });
 }
 
 export async function reverseContributionPointsForDishCallableHandler(
@@ -1428,7 +1556,7 @@ function parseDishEditProposal(
   }
 
   return {
-    id: readOptionalString(data.id) ?? snapshot.id,
+    id: snapshot.id,
     type,
     restaurantId,
     targetDishId,
@@ -1442,6 +1570,368 @@ function parseDishEditProposal(
 function isAwardableDishEditProposalStatus(status: string): boolean {
   const normalizedStatus = status.trim().toLowerCase();
   return normalizedStatus === "pending" || normalizedStatus === "approved";
+}
+
+type ParsedDishProposalResolutionPointAwardRequest = Readonly<{
+  proposalDocumentId: string;
+  activeJobId: string;
+  groupId: string;
+  supporterUid: string;
+  trustedServerCreateTimeMillis: number;
+  membershipGeneration: number;
+  cycleCutoffGeneration: number;
+  oldValue: string | null;
+  newValue: string | null;
+}>;
+
+function parseDishProposalResolutionPointAwardRequest(
+  value: DishProposalResolutionPointAwardRequest,
+): ParsedDishProposalResolutionPointAwardRequest {
+  const membershipGeneration = readRequiredNonnegativeSafeInteger(
+    value.membershipGeneration,
+    "membershipGeneration",
+  );
+  const cycleCutoffGeneration = readRequiredNonnegativeSafeInteger(
+    value.cycleCutoffGeneration,
+    "cycleCutoffGeneration",
+  );
+  const trustedServerCreateTimeMillis = readRequiredSafeInteger(
+    value.trustedServerCreateTimeMillis,
+    "trustedServerCreateTimeMillis",
+  );
+  if (!Number.isFinite(new Date(trustedServerCreateTimeMillis).getTime())) {
+    throw new HttpsError(
+      "invalid-argument",
+      "trustedServerCreateTimeMillis must identify a valid date.",
+    );
+  }
+  if (membershipGeneration > cycleCutoffGeneration) {
+    throw new HttpsError(
+      "invalid-argument",
+      "membershipGeneration must belong to the requested cycle.",
+    );
+  }
+  return {
+    proposalDocumentId: readRequiredDocumentId(
+      value.proposalDocumentId,
+      "proposalDocumentId",
+    ),
+    activeJobId: readRequiredString(value.activeJobId, "activeJobId"),
+    groupId: readRequiredString(value.groupId, "groupId"),
+    supporterUid: readRequiredString(value.supporterUid, "supporterUid"),
+    trustedServerCreateTimeMillis,
+    membershipGeneration,
+    cycleCutoffGeneration,
+    oldValue: readOptionalString(value.oldValue),
+    newValue: readOptionalString(value.newValue),
+  };
+}
+
+type ResolutionCyclePointEligibility = Readonly<{
+  proposal: ParsedDishEditProposal;
+  currentMembership: DishProposalMembership;
+}>;
+
+function validateResolutionCyclePointEligibility(params: {
+  proposalSnapshot: DocumentSnapshotLike;
+  memberSnapshot: DocumentSnapshotLike;
+  groupSnapshot: DocumentSnapshotLike;
+  supporterSnapshot: DocumentSnapshotLike;
+  expected: ParsedDishProposalResolutionPointAwardRequest;
+}): ResolutionCyclePointEligibility | null {
+  const {expected, proposalSnapshot} = params;
+  if (
+    !proposalSnapshot.exists ||
+    proposalSnapshot.id !== expected.proposalDocumentId ||
+    proposalSnapshot.createTime?.toMillis() !==
+      expected.trustedServerCreateTimeMillis
+  ) {
+    return null;
+  }
+  const proposal = parseDishEditProposal(proposalSnapshot);
+  const currentMembership = buildDishProposalMembership({
+    proposalDocumentId: expected.proposalDocumentId,
+    source: proposalSnapshot.data() ?? null,
+    trustedServerCreateTime: new Date(
+      expected.trustedServerCreateTimeMillis,
+    ),
+  });
+  if (
+    proposal === null ||
+    currentMembership === null ||
+    currentMembership.proposalDocumentId !== expected.proposalDocumentId ||
+    currentMembership.groupId !== expected.groupId ||
+    currentMembership.supporterUid !== expected.supporterUid ||
+    currentMembership.trustedServerCreateTime.getTime() !==
+      expected.trustedServerCreateTimeMillis ||
+    !isAwardableDishEditProposalStatus(proposal.status)
+  ) {
+    return null;
+  }
+  const membershipEnteredAt = validateExpectedPrivateDishProposalMember(
+    params.memberSnapshot,
+    currentMembership,
+    expected,
+  );
+  if (
+    membershipEnteredAt === null ||
+    !validateExpectedPrivateDishProposalGroup(
+      params.groupSnapshot,
+      currentMembership,
+      expected,
+      membershipEnteredAt,
+    ) ||
+    !validateExpectedPrivateDishProposalSupporter(
+      params.supporterSnapshot,
+      expected,
+    )
+  ) {
+    return null;
+  }
+  return {proposal, currentMembership};
+}
+
+function validateExpectedPrivateDishProposalMember(
+  snapshot: DocumentSnapshotLike,
+  currentMembership: DishProposalMembership,
+  expected: ParsedDishProposalResolutionPointAwardRequest,
+): Date | null {
+  const data = snapshot.data();
+  if (
+    !snapshot.exists ||
+    data === undefined ||
+    !hasExactKeys(data, dishProposalMemberKeys) ||
+    snapshot.id !== createDishProposalMemberId(expected.proposalDocumentId)
+  ) {
+    return null;
+  }
+  const trustedServerCreateTime = readDishProposalDate(
+    data.trustedServerCreateTime,
+  );
+  const membershipEnteredAt = readDishProposalDate(data.membershipEnteredAt);
+  const indexedAt = readDishProposalDate(data.indexedAt);
+  if (
+    trustedServerCreateTime === null ||
+    membershipEnteredAt === null ||
+    indexedAt === null ||
+    data.version !== dishProposalMemberVersion ||
+    data.proposalDocumentId !== expected.proposalDocumentId ||
+    data.groupId !== expected.groupId ||
+    data.proposalType !== currentMembership.proposalType ||
+    data.restaurantId !== currentMembership.restaurantId ||
+    data.sourceDishId !== currentMembership.sourceDishId ||
+    data.mergeTargetDishId !== currentMembership.mergeTargetDishId ||
+    data.normalizedProposedName !== currentMembership.normalizedProposedName ||
+    data.supporterUid !== expected.supporterUid ||
+    trustedServerCreateTime.getTime() !==
+      expected.trustedServerCreateTimeMillis ||
+    data.membershipGeneration !== expected.membershipGeneration ||
+    data.currentPending !== true
+  ) {
+    return null;
+  }
+  const rebuilt = buildDishProposalMemberDocument({
+    membership: currentMembership,
+    membershipEnteredAt,
+    membershipGeneration: expected.membershipGeneration,
+    indexedAt,
+  });
+  return data.fingerprint === rebuilt.fingerprint ? membershipEnteredAt : null;
+}
+
+function validateExpectedPrivateDishProposalGroup(
+  snapshot: DocumentSnapshotLike,
+  currentMembership: DishProposalMembership,
+  expected: ParsedDishProposalResolutionPointAwardRequest,
+  membershipEnteredAt: Date,
+): boolean {
+  const data = snapshot.data();
+  if (
+    !snapshot.exists ||
+    data === undefined ||
+    !hasExactKeys(data, dishProposalGroupKeys) ||
+    snapshot.id !== expected.groupId
+  ) {
+    return false;
+  }
+  const oldestTrustedServerCreateTime = readNullableDishProposalDate(
+    data.oldestTrustedServerCreateTime,
+  );
+  const dueAt = readNullableDishProposalDate(data.dueAt);
+  const cycleCutoffAt = readDishProposalDate(data.cycleCutoffAt);
+  const indexedAt = readDishProposalDate(data.indexedAt);
+  const lastMembershipGeneration = readNonnegativeSafeInteger(
+    data.lastMembershipGeneration,
+  );
+  const resolutionSequence = readNonnegativeSafeInteger(data.resolutionSequence);
+  if (
+    oldestTrustedServerCreateTime === undefined ||
+    oldestTrustedServerCreateTime === null ||
+    dueAt === undefined ||
+    dueAt === null ||
+    cycleCutoffAt === null ||
+    indexedAt === null ||
+    lastMembershipGeneration === null ||
+    resolutionSequence === null ||
+    data.version !== dishProposalGroupVersion ||
+    data.groupId !== expected.groupId ||
+    data.proposalType !== currentMembership.proposalType ||
+    data.restaurantId !== currentMembership.restaurantId ||
+    data.sourceDishId !== currentMembership.sourceDishId ||
+    data.mergeTargetDishId !== currentMembership.mergeTargetDishId ||
+    data.normalizedProposedName !== currentMembership.normalizedProposedName ||
+    data.hasPendingMembers !== true ||
+    typeof data.enoughSupporters !== "boolean" ||
+    data.autoEligible !== false ||
+    lastMembershipGeneration < expected.membershipGeneration ||
+    data.activeJobId !== expected.activeJobId ||
+    data.activeResolutionType !== "apply" ||
+    data.cycleCutoffGeneration !== expected.cycleCutoffGeneration ||
+    membershipEnteredAt.getTime() > cycleCutoffAt.getTime() ||
+    createDishProposalGroupId(currentMembership) !== expected.groupId
+  ) {
+    return false;
+  }
+  const fingerprint = dishProposalDocumentFingerprint(
+    dishProposalGroupVersion,
+    [
+      expected.groupId,
+      currentMembership.proposalType,
+      currentMembership.restaurantId,
+      currentMembership.sourceDishId,
+      currentMembership.mergeTargetDishId,
+      currentMembership.normalizedProposedName,
+      true,
+      oldestTrustedServerCreateTime?.toISOString() ?? null,
+      dueAt?.toISOString() ?? null,
+      data.enoughSupporters,
+      false,
+      lastMembershipGeneration,
+      resolutionSequence,
+      expected.activeJobId,
+      "apply",
+      expected.cycleCutoffGeneration,
+      cycleCutoffAt.toISOString(),
+    ],
+  );
+  return data.fingerprint === fingerprint;
+}
+
+function validateExpectedPrivateDishProposalSupporter(
+  snapshot: DocumentSnapshotLike,
+  expected: ParsedDishProposalResolutionPointAwardRequest,
+): boolean {
+  const data = snapshot.data();
+  if (
+    !snapshot.exists ||
+    data === undefined ||
+    !hasExactKeys(data, dishProposalSupporterKeys) ||
+    snapshot.id !== createDishProposalSupporterId(
+      expected.groupId,
+      expected.supporterUid,
+    ) ||
+    data.version !== dishProposalSupporterVersion ||
+    data.groupId !== expected.groupId ||
+    data.supporterUid !== expected.supporterUid ||
+    data.present !== true
+  ) {
+    return false;
+  }
+  const indexedAt = readDishProposalDate(data.indexedAt);
+  if (indexedAt === null) {
+    return false;
+  }
+  return data.fingerprint === buildDishProposalSupporterDocument({
+    groupId: expected.groupId,
+    supporterUid: expected.supporterUid,
+    indexedAt,
+  }).fingerprint;
+}
+
+function approvedDishProposalResolutionAwardDraft(params: {
+  proposal: ParsedDishEditProposal;
+  currentMembership: DishProposalMembership;
+  targetDishData: Record<string, unknown>;
+  mergeTargetDishData: Record<string, unknown>;
+  restaurantData: Record<string, unknown>;
+  oldValue: string | null;
+  newValue: string | null;
+}): ContributionPointAwardDraft | "noAwardForNoOp" | null {
+  let trustedProposal = params.proposal;
+  if (params.currentMembership.proposalType === "rename") {
+    const normalizedProposedName =
+      params.currentMembership.normalizedProposedName;
+    if (normalizedProposedName === null || params.newValue === null) {
+      return null;
+    }
+    const appliedName = normalizeDishNameForSave(normalizedProposedName);
+    const currentDishName = readOptionalString(params.targetDishData.name);
+    const currentNormalizedName = readOptionalString(
+      params.targetDishData.normalizedName,
+    );
+    if (
+      appliedName.length === 0 ||
+      params.newValue !== appliedName ||
+      currentDishName !== appliedName ||
+      currentNormalizedName !== normalizedProposedName
+    ) {
+      return null;
+    }
+    if (params.oldValue === null) {
+      return null;
+    }
+    if (params.oldValue === params.newValue) {
+      return "noAwardForNoOp";
+    }
+    trustedProposal = {
+      ...params.proposal,
+      proposedName: appliedName,
+      userId: params.currentMembership.supporterUid,
+    };
+  } else if (
+    params.currentMembership.proposalType !== "merge" ||
+    params.proposal.mergeTargetDishId !==
+      params.currentMembership.mergeTargetDishId
+  ) {
+    return null;
+  }
+  const draft = approvedDishProposalAwardDraft({
+    proposal: trustedProposal,
+    targetDishData: params.targetDishData,
+    mergeTargetDishData: params.mergeTargetDishData,
+    restaurantData: params.restaurantData,
+    oldValueFromClient: params.oldValue,
+    newValueFromClient: null,
+  });
+  if (draft === null) {
+    return null;
+  }
+  const sourceKey = approvedProposalExactSourceKey({
+    actionType: draft.actionType,
+    proposalDocumentId: params.proposal.id,
+  });
+  return {
+    ...draft,
+    userId: params.currentMembership.supporterUid,
+    sourceKey,
+    requestId: params.proposal.id,
+  };
+}
+
+function noDishProposalResolutionPointAward(
+  outcome: Extract<
+    DishProposalResolutionPointAwardOutcome,
+    "notEligible" | "noAwardForNoOp"
+  >,
+): DishProposalResolutionPointAwardResult {
+  return {outcome, result: {entries: []}};
+}
+
+function approvedProposalExactSourceKey(params: {
+  actionType: string;
+  proposalDocumentId: string;
+}): string {
+  return `${params.actionType}:${params.proposalDocumentId}`;
 }
 
 function approvedDishProposalAwardDraft(params: {
@@ -1554,7 +2044,7 @@ function approvedProposalSourceKey(params: {
   actionType: string;
   requestId: string;
 }): string {
-  return `${params.actionType.trim()}:${params.requestId.trim()}`;
+  return `${params.actionType.trim()}:${params.requestId}`;
 }
 
 function approvedDishProposalDescription(params: {
@@ -1720,6 +2210,194 @@ function incrementCachedTotal(
   );
 }
 
+type ContributionPointTransactionAward = Readonly<{
+  result: ContributionPointAwardResult;
+  wasCreated: boolean;
+}>;
+
+async function awardContributionPointsWithExactSourceKey(
+  db: FirestoreLike,
+  draft: ContributionPointAwardDraft,
+  options: HelperOptions,
+): Promise<ContributionPointAwardResult> {
+  const normalizedDraft = normalizeAwardDraft(draft);
+  if (
+    normalizedDraft === null ||
+    normalizedDraft.userId.length === 0 ||
+    normalizedDraft.points <= 0 ||
+    draft.sourceKey.length === 0
+  ) {
+    return { entries: [] };
+  }
+  return runContributionPointAwardTransaction(
+    db,
+    {
+      ...normalizedDraft,
+      sourceKey: draft.sourceKey,
+      requestId: draft.requestId,
+    },
+    true,
+    options,
+  );
+}
+
+async function runContributionPointAwardTransaction(
+  db: FirestoreLike,
+  draft: ContributionPointAwardDraft,
+  exactSourceKey: boolean,
+  options: HelperOptions,
+): Promise<ContributionPointAwardResult> {
+  const fieldValues = options.fieldValues ?? adminServerFieldValues;
+  const award = await db.runTransaction((transaction) =>
+    awardContributionPointsWithinTransaction(
+      transaction,
+      db,
+      draft,
+      exactSourceKey,
+      fieldValues,
+    ));
+  return award.result;
+}
+
+async function awardContributionPointsWithinTransaction(
+  transaction: TransactionLike,
+  db: FirestoreLike,
+  draft: ContributionPointAwardDraft,
+  exactSourceKey: boolean,
+  fieldValues: ServerFieldValues,
+): Promise<ContributionPointTransactionAward> {
+  const documentId = exactSourceKey
+    ? buildContributionLedgerDocumentIdFromExactSourceKey(draft.sourceKey)
+    : buildContributionLedgerDocumentIdFromSourceKey(draft.sourceKey);
+  const entryRef = ledgerDocument(db, documentId);
+  const userRef = userProfileDocument(db, draft.userId);
+  const existingSnapshot = await transaction.get(entryRef);
+  if (existingSnapshot.exists) {
+    const existing = parseLedgerEntry(existingSnapshot);
+    if (existing === null) {
+      if (exactSourceKey) {
+        throw new Error("Existing proposal contribution ledger entry is invalid.");
+      }
+      return existingContributionPointAward(draft, documentId);
+    }
+    if (exactSourceKey && !ledgerEntryMatchesDraft(existing, draft)) {
+      throw new Error("Existing proposal contribution ledger identity is invalid.");
+    }
+    if (existing.status === contributionPointStatus.active) {
+      return existingContributionPointAward(draft, documentId);
+    }
+    if (
+      exactSourceKey &&
+      existing.status !== contributionPointStatus.reversed
+    ) {
+      throw new Error("Existing proposal contribution ledger status is invalid.");
+    }
+
+    const restoreRef = ledgerDocument(db, `restore:${documentId}`);
+    const restoreSnapshot = await transaction.get(restoreRef);
+    if (restoreSnapshot.exists) {
+      if (exactSourceKey) {
+        const restored = parseLedgerEntry(restoreSnapshot);
+        if (
+          restored === null ||
+          restored.status !== contributionPointStatus.active ||
+          !ledgerEntryMatchesDraft(restored, draft)
+        ) {
+          throw new Error("Existing proposal contribution restore entry is invalid.");
+        }
+      }
+      return existingContributionPointAward(draft, documentId);
+    }
+
+    transaction.set(restoreRef, {
+      ...awardEntryMap({
+        id: restoreRef.id,
+        draft,
+        description: `${draft.description} restored`,
+        fieldValues,
+        exactSourceKey,
+      }),
+      originalLedgerEntryId: existing.id,
+    });
+    incrementCachedTotal(
+      transaction,
+      userRef,
+      draft.points,
+      fieldValues,
+    );
+    return createdContributionPointAward(draft, restoreRef.id);
+  }
+
+  transaction.set(
+    entryRef,
+    awardEntryMap({
+      id: entryRef.id,
+      draft,
+      fieldValues,
+      exactSourceKey,
+    }),
+  );
+  incrementCachedTotal(
+    transaction,
+    userRef,
+    draft.points,
+    fieldValues,
+  );
+  return createdContributionPointAward(draft, entryRef.id);
+}
+
+function createdContributionPointAward(
+  draft: ContributionPointAwardDraft,
+  ledgerEntryId: string,
+): ContributionPointTransactionAward {
+  return {
+    wasCreated: true,
+    result: {
+      entries: [{ledgerEntryId, points: draft.points, wasCreated: true}],
+      actionGroupId: draft.sourceKey,
+    },
+  };
+}
+
+function existingContributionPointAward(
+  draft: ContributionPointAwardDraft,
+  ledgerEntryId: string,
+): ContributionPointTransactionAward {
+  return {
+    wasCreated: false,
+    result: {
+      entries: [{ledgerEntryId, points: draft.points, wasCreated: false}],
+      actionGroupId: draft.sourceKey,
+    },
+  };
+}
+
+function ledgerEntryMatchesDraft(
+  entry: ParsedLedgerEntry,
+  draft: ContributionPointAwardDraft,
+): boolean {
+  return entry.userId === draft.userId &&
+    entry.pointsDelta === draft.points &&
+    entry.actionType === draft.actionType &&
+    entry.sourceKey === draft.sourceKey &&
+    entry.requestId === draft.requestId;
+}
+
+function awardEntryMap(params: {
+  id: string;
+  draft: ContributionPointAwardDraft;
+  fieldValues: ServerFieldValues;
+  exactSourceKey: boolean;
+  description?: string;
+}): Record<string, unknown> {
+  const result = entryMap(params);
+  if (params.exactSourceKey) {
+    result.sourceKey = params.draft.sourceKey;
+    result.requestId = params.draft.requestId ?? null;
+  }
+  return result;
+}
+
 function entryMap(params: {
   id: string;
   draft: ContributionPointAwardDraft;
@@ -1819,7 +2497,7 @@ function parseLedgerEntry(
 
   const userId = readOptionalString(data.userId);
   const actionType = readOptionalString(data.actionType);
-  const sourceKey = readOptionalString(data.sourceKey);
+  const sourceKey = readExactNonEmptyString(data.sourceKey);
   const description = readOptionalString(data.description);
   const pointsDelta = readNumber(data.pointsDelta);
   if (
@@ -1850,7 +2528,7 @@ function parseLedgerEntry(
     restaurantAddress: readOptionalString(data.restaurantAddress),
     restaurantPhone: readOptionalString(data.restaurantPhone),
     reviewId: readOptionalString(data.reviewId),
-    requestId: readOptionalString(data.requestId),
+    requestId: readNullableExactString(data.requestId),
     imageId: readOptionalString(data.imageId),
     oldValue: readOptionalString(data.oldValue),
     newValue: readOptionalString(data.newValue),
@@ -1876,6 +2554,33 @@ function readRequiredString(value: unknown, fieldName: string): string {
   return stringValue;
 }
 
+function readRequiredDocumentId(value: unknown, fieldName: string): string {
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    value === "." ||
+    value === ".." ||
+    value.includes("/") ||
+    Buffer.byteLength(value, "utf8") > 1_500
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      `${fieldName} must be one exact Firestore document-ID segment.`,
+    );
+  }
+  return value;
+}
+
+function readExactNonEmptyString(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function readNullableExactString(value: unknown): string | null {
+  return value === null || value === undefined
+    ? null
+    : readExactNonEmptyString(value);
+}
+
 function readRequiredPositiveInteger(value: unknown, fieldName: string): number {
   if (typeof value !== "number" || !Number.isInteger(value) || value <= 0) {
     throw new HttpsError(
@@ -1884,6 +2589,55 @@ function readRequiredPositiveInteger(value: unknown, fieldName: string): number 
     );
   }
   return value;
+}
+
+function readRequiredSafeInteger(value: unknown, fieldName: string): number {
+  if (typeof value !== "number" || !Number.isSafeInteger(value)) {
+    throw new HttpsError(
+      "invalid-argument",
+      `${fieldName} must be a safe integer.`,
+    );
+  }
+  return value;
+}
+
+function readRequiredNonnegativeSafeInteger(
+  value: unknown,
+  fieldName: string,
+): number {
+  const parsed = readRequiredSafeInteger(value, fieldName);
+  if (parsed < 0) {
+    throw new HttpsError(
+      "invalid-argument",
+      `${fieldName} must be nonnegative.`,
+    );
+  }
+  return parsed;
+}
+
+function readNonnegativeSafeInteger(value: unknown): number | null {
+  return typeof value === "number" &&
+      Number.isSafeInteger(value) &&
+      value >= 0
+    ? value
+    : null;
+}
+
+function readNullableDishProposalDate(value: unknown): Date | null | undefined {
+  if (value === null) {
+    return null;
+  }
+  return readDishProposalDate(value) ?? undefined;
+}
+
+function hasExactKeys(
+  value: Record<string, unknown>,
+  expected: readonly string[],
+): boolean {
+  const actual = Object.keys(value).sort();
+  const sortedExpected = [...expected].sort();
+  return actual.length === sortedExpected.length &&
+    actual.every((key, index) => key === sortedExpected[index]);
 }
 
 function readOptionalString(value: unknown): string | null {

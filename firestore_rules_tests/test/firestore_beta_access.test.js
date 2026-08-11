@@ -122,6 +122,149 @@ function biteScoreDishCreateData({
   };
 }
 
+function ruleTestDishData(
+  dishId,
+  { aggregateWriteGeneration } = {},
+) {
+  return {
+    id: dishId,
+    restaurantId: "bs-1",
+    restaurantName: "BiteScore Pizza",
+    name: `Rules fixture ${dishId}`,
+    normalizedName: `rules fixture ${dishId}`,
+    category: "Pizza",
+    isActive: true,
+    imageCount: 0,
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+    ...(aggregateWriteGeneration === undefined
+      ? {}
+      : { aggregateWriteGeneration }),
+  };
+}
+
+function reviewWriteData({
+  id,
+  dishId,
+  headline = "Merge lock rules fixture",
+} = {}) {
+  return {
+    id,
+    dishId,
+    restaurantId: "bs-1",
+    userId: "customer-a",
+    overallImpression: 8,
+    overallBiteScore: 80,
+    headline,
+    notes: "Rules-only merge lock fixture.",
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+  };
+}
+
+function aggregateWriteData({
+  dishId,
+  ratingCount = 1,
+  aggregateWriteGeneration,
+} = {}) {
+  return {
+    dishId,
+    restaurantId: "bs-1",
+    overallBiteScore: 80,
+    ratingCount,
+    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+    ...(aggregateWriteGeneration === undefined
+      ? {}
+      : { aggregateWriteGeneration }),
+  };
+}
+
+function mergeReviewLockData(
+  dishId,
+  {
+    role = "source",
+    state = "active",
+    targetDishId = null,
+    blocksClientReviews = true,
+    blocksClientAggregates = true,
+    activeAggregateWriteGeneration = 1,
+    completionAggregateWriteGeneration = state === "active"
+      ? activeAggregateWriteGeneration + 1
+      : activeAggregateWriteGeneration,
+  } = {},
+) {
+  return {
+    version: "bitestar.dish-merge-review-lock.v1",
+    dishId,
+    jobId: "job-rules-fixture",
+    groupId: "group-rules-fixture",
+    role,
+    state,
+    blocksClientReviews,
+    blocksClientAggregates,
+    activeAggregateWriteGeneration,
+    completionAggregateWriteGeneration,
+    targetDishId,
+    fingerprint: "rules-fixture-fingerprint",
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    indexedAt: new Date("2026-01-01T00:00:00.000Z"),
+  };
+}
+
+async function seedRuleTestDocuments(documents) {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    const batch = db.batch();
+    for (const { documentPath, data } of documents) {
+      batch.set(db.doc(documentPath), data);
+    }
+    await batch.commit();
+  });
+}
+
+async function seedMergeReviewLocks(
+  dishIds,
+  { activeAggregateWriteGeneration = 1 } = {},
+) {
+  const documents = [];
+  for (const [index, dishId] of dishIds.entries()) {
+    documents.push(
+      {
+        documentPath: `bitescore_dishes/${dishId}`,
+        data: ruleTestDishData(dishId, {
+          aggregateWriteGeneration: activeAggregateWriteGeneration,
+        }),
+      },
+      {
+        documentPath: `private_dish_merge_review_locks/${dishId}`,
+        data: mergeReviewLockData(dishId, {
+          role: dishIds.length === 1 || index > 0 ? "target" : "source",
+          targetDishId: index === 0 ? (dishIds[1] ?? null) : null,
+          activeAggregateWriteGeneration,
+        }),
+      },
+    );
+  }
+  await seedRuleTestDocuments(documents);
+}
+
+async function removeMergeReviewLock(
+  dishId,
+  { completionAggregateWriteGeneration = 2 } = {},
+) {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    const batch = db.batch();
+    batch.set(
+      db.doc(`bitescore_dishes/${dishId}`),
+      { aggregateWriteGeneration: completionAggregateWriteGeneration },
+      { merge: true },
+    );
+    batch.delete(db.doc(`private_dish_merge_review_locks/${dishId}`));
+    await batch.commit();
+  });
+}
+
 async function seedFirestore() {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
@@ -1216,6 +1359,92 @@ test("old BiteScore dish docs without provenance remain readable and updatable",
   );
 });
 
+test("aggregate write generation is server-owned and client immutable", async () => {
+  const customerDb = dbFor("customer");
+  const generatedDishId = "new-generated-dish";
+
+  await assertSucceeds(
+    customerDb.doc(`bitescore_dishes/${generatedDishId}`).set({
+      ...biteScoreDishCreateData({
+        id: generatedDishId,
+        createdFromReviewId: `${generatedDishId}_customer-a`,
+      }),
+    }),
+  );
+
+  for (const [index, generation] of [
+    0,
+    1,
+    -1,
+    1.5,
+    9007199254740992,
+    null,
+  ].entries()) {
+    const dishId = `client-generated-dish-${index}`;
+    await assertFails(
+      customerDb.doc(`bitescore_dishes/${dishId}`).set({
+        ...biteScoreDishCreateData({
+          id: dishId,
+          createdFromReviewId: `${dishId}_customer-a`,
+        }),
+        aggregateWriteGeneration: generation,
+      }),
+    );
+  }
+
+  await assertFails(
+    customerDb.doc(`bitescore_dishes/${generatedDishId}`).set(
+      {
+        aggregateWriteGeneration: 0,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+
+  await seedRuleTestDocuments([
+    {
+      documentPath: `bitescore_dishes/${generatedDishId}`,
+      data: ruleTestDishData(generatedDishId, {
+        aggregateWriteGeneration: 2,
+      }),
+    },
+    {
+      documentPath: "bitescore_dishes/malformed-generation-dish",
+      data: ruleTestDishData("malformed-generation-dish", {
+        aggregateWriteGeneration: "2",
+      }),
+    },
+  ]);
+
+  for (const generation of [1, 3, null]) {
+    await assertFails(
+      dbFor("admin").doc(`bitescore_dishes/${generatedDishId}`).set(
+        {
+          aggregateWriteGeneration: generation,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      ),
+    );
+  }
+  await assertFails(
+    dbFor("admin").doc(`bitescore_dishes/${generatedDishId}`).update({
+      aggregateWriteGeneration: firebase.firestore.FieldValue.delete(),
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(
+    dbFor("admin").doc("bitescore_dishes/malformed-generation-dish").update({
+      category: "Malformed state must fail closed",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(
+    dbFor("admin").doc("bitescore_dishes/malformed-generation-dish").delete(),
+  );
+});
+
 test("BiteScore restaurant provenance owner can create initial provenance", async () => {
   await assertSucceeds(
     dbFor("customer")
@@ -1590,4 +1819,862 @@ test("admin custom claim can read/update moderation and admin workflows", async 
       { merge: true },
     ),
   );
+});
+
+test("ordinary unlocked review create, update, and delete remain allowed", async () => {
+  const db = dbFor("customer");
+  const reviewRef = db.doc("dish_reviews/rules-unlocked-review");
+  await seedRuleTestDocuments([
+    {
+      documentPath: "bitescore_dishes/rules-unlocked-dish",
+      data: ruleTestDishData("rules-unlocked-dish"),
+    },
+  ]);
+
+  await assertSucceeds(
+    reviewRef.set(
+      reviewWriteData({
+        id: "rules-unlocked-review",
+        dishId: "rules-unlocked-dish",
+      }),
+    ),
+  );
+  await assertSucceeds(
+    reviewRef.update({
+      headline: "Updated while unlocked",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertSucceeds(reviewRef.delete());
+});
+
+test("review writes reject lexical dish aliases even when alias dishes exist", async () => {
+  const sourceDishId = "rules-canonical-review-source";
+  const otherDishId = "rules-canonical-review-other";
+  const aliasDishIds = [
+    ` ${sourceDishId} `,
+    `${sourceDishId} `,
+    `\t${sourceDishId}`,
+  ];
+  await seedMergeReviewLocks([sourceDishId]);
+  await seedRuleTestDocuments([
+    {
+      documentPath: `bitescore_dishes/${otherDishId}`,
+      data: ruleTestDishData(otherDishId),
+    },
+    ...aliasDishIds.map((dishId) => ({
+      documentPath: `bitescore_dishes/${dishId}`,
+      data: ruleTestDishData(dishId),
+    })),
+    ...aliasDishIds.map((dishId, index) => ({
+      documentPath: `dish_reviews/rules-current-alias-review-${index}`,
+      data: reviewWriteData({
+        id: `rules-current-alias-review-${index}`,
+        dishId,
+      }),
+    })),
+    {
+      documentPath: "dish_reviews/rules-current-canonical-review",
+      data: reviewWriteData({
+        id: "rules-current-canonical-review",
+        dishId: otherDishId,
+      }),
+    },
+    {
+      documentPath: "dish_reviews/rules-current-locked-review",
+      data: reviewWriteData({
+        id: "rules-current-locked-review",
+        dishId: sourceDishId,
+      }),
+    },
+  ]);
+  const customerDb = dbFor("customer");
+
+  await assertFails(
+    customerDb.doc("dish_reviews/rules-exact-locked-create").set(
+      reviewWriteData({
+        id: "rules-exact-locked-create",
+        dishId: sourceDishId,
+      }),
+    ),
+  );
+
+  for (const [index, dishId] of aliasDishIds.entries()) {
+    await assertFails(
+      customerDb.doc(`dish_reviews/rules-alias-create-${index}`).set(
+        reviewWriteData({
+          id: `rules-alias-create-${index}`,
+          dishId,
+        }),
+      ),
+    );
+    await assertFails(
+      customerDb.doc(`dish_reviews/rules-current-alias-review-${index}`).update({
+        dishId: otherDishId,
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertFails(
+      customerDb.doc("dish_reviews/rules-current-canonical-review").update({
+        dishId,
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertFails(
+      customerDb.doc(`dish_reviews/rules-current-alias-review-${index}`).delete(),
+    );
+  }
+
+  await assertFails(
+    customerDb.doc("dish_reviews/rules-slash-alias-create").set(
+      reviewWriteData({
+        id: "rules-slash-alias-create",
+        dishId: `${sourceDishId}/alias`,
+      }),
+    ),
+  );
+  await assertFails(
+    customerDb.doc("dish_reviews/rules-current-locked-review").update({
+      dishId: `${sourceDishId} `,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+
+  const clientAliasDishId = ` ${sourceDishId}-client `;
+  await assertFails(
+    customerDb.doc(`bitescore_dishes/${clientAliasDishId}`).set(
+      biteScoreDishCreateData({
+        id: clientAliasDishId,
+        createdFromReviewId: "rules-alias-client-review",
+      }),
+    ),
+  );
+});
+
+test("source and target review creates are blocked by active merge locks", async () => {
+  const sourceDishId = "rules-review-create-source";
+  const targetDishId = "rules-review-create-target";
+  const db = dbFor("customer");
+  await seedMergeReviewLocks([sourceDishId, targetDishId]);
+
+  await assertFails(
+    db.doc("dish_reviews/rules-locked-source-create").set(
+      reviewWriteData({
+        id: "rules-locked-source-create",
+        dishId: sourceDishId,
+      }),
+    ),
+  );
+  await assertFails(
+    db.doc("dish_reviews/rules-locked-target-create").set(
+      reviewWriteData({
+        id: "rules-locked-target-create",
+        dishId: targetDishId,
+      }),
+    ),
+  );
+});
+
+test("review updates check both current and requested dish locks", async () => {
+  const sourceDishId = "rules-review-update-source";
+  const targetDishId = "rules-review-update-target";
+  const otherDishId = "rules-review-update-other";
+  await seedRuleTestDocuments([
+    {
+      documentPath: `bitescore_dishes/${otherDishId}`,
+      data: ruleTestDishData(otherDishId),
+    },
+    {
+      documentPath: "dish_reviews/rules-current-source-review",
+      data: reviewWriteData({
+        id: "rules-current-source-review",
+        dishId: sourceDishId,
+      }),
+    },
+    {
+      documentPath: "dish_reviews/rules-current-target-review",
+      data: reviewWriteData({
+        id: "rules-current-target-review",
+        dishId: targetDishId,
+      }),
+    },
+    {
+      documentPath: "dish_reviews/rules-moved-target-review",
+      data: reviewWriteData({
+        id: "rules-moved-target-review",
+        dishId: targetDishId,
+      }),
+    },
+    {
+      documentPath: "dish_reviews/rules-source-to-other-review",
+      data: reviewWriteData({
+        id: "rules-source-to-other-review",
+        dishId: sourceDishId,
+      }),
+    },
+    {
+      documentPath: "dish_reviews/rules-other-to-source-review",
+      data: reviewWriteData({
+        id: "rules-other-to-source-review",
+        dishId: otherDishId,
+      }),
+    },
+  ]);
+  await seedMergeReviewLocks([sourceDishId, targetDishId]);
+  const db = dbFor("customer");
+
+  await assertFails(
+    db.doc("dish_reviews/rules-current-source-review").update({
+      headline: "Blocked source update",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(
+    db.doc("dish_reviews/rules-current-target-review").update({
+      headline: "Blocked target update",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+
+  await removeMergeReviewLock(targetDishId);
+
+  await assertFails(
+    db.doc("dish_reviews/rules-moved-target-review").update({
+      dishId: sourceDishId,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(
+    db.doc("dish_reviews/rules-source-to-other-review").update({
+      dishId: otherDishId,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(
+    db.doc("dish_reviews/rules-other-to-source-review").update({
+      dishId: sourceDishId,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+});
+
+test("review delete is blocked while its dish is merge locked", async () => {
+  const sourceDishId = "rules-review-delete-source";
+  const reviewPath = "dish_reviews/rules-locked-delete-review";
+  await seedRuleTestDocuments([
+    {
+      documentPath: reviewPath,
+      data: reviewWriteData({
+        id: "rules-locked-delete-review",
+        dishId: sourceDishId,
+      }),
+    },
+  ]);
+  await seedMergeReviewLocks([sourceDishId]);
+
+  await assertFails(dbFor("customer").doc(reviewPath).delete());
+  await assertFails(dbFor("admin").doc(reviewPath).delete());
+});
+
+test("source and target aggregate writes are blocked by active merge locks", async () => {
+  const sourceDishId = "rules-aggregate-source";
+  const targetDishId = "rules-aggregate-target";
+  await seedMergeReviewLocks([sourceDishId, targetDishId]);
+  const customerDb = dbFor("customer");
+
+  await assertFails(
+    customerDb
+      .doc(`dish_rating_aggregates/${sourceDishId}`)
+      .set(aggregateWriteData({
+        dishId: sourceDishId,
+        aggregateWriteGeneration: 1,
+      })),
+  );
+  await assertFails(
+    customerDb
+      .doc(`dish_rating_aggregates/${targetDishId}`)
+      .set(aggregateWriteData({
+        dishId: targetDishId,
+        aggregateWriteGeneration: 1,
+      })),
+  );
+
+  await seedRuleTestDocuments([
+    {
+      documentPath: `dish_rating_aggregates/${sourceDishId}`,
+      data: aggregateWriteData({
+        dishId: sourceDishId,
+        aggregateWriteGeneration: 1,
+      }),
+    },
+    {
+      documentPath: `dish_rating_aggregates/${targetDishId}`,
+      data: aggregateWriteData({
+        dishId: targetDishId,
+        aggregateWriteGeneration: 1,
+      }),
+    },
+  ]);
+
+  await assertFails(
+    customerDb.doc(`dish_rating_aggregates/${sourceDishId}`).update({
+      ratingCount: 2,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(
+    customerDb.doc(`dish_rating_aggregates/${targetDishId}`).update({
+      ratingCount: 2,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(
+    dbFor("admin").doc(`dish_rating_aggregates/${sourceDishId}`).delete(),
+  );
+  await assertFails(
+    dbFor("admin").doc(`dish_rating_aggregates/${targetDishId}`).delete(),
+  );
+});
+
+test("any exact merge lock document blocks review and aggregate writes fail closed", async () => {
+  const createDishId = "rules-malformed-lock-create";
+  const existingDishId = "rules-malformed-lock-existing";
+  await seedRuleTestDocuments([
+    ...[createDishId, existingDishId].flatMap((dishId) => [
+      {
+        documentPath: `bitescore_dishes/${dishId}`,
+        data: ruleTestDishData(dishId, {
+          aggregateWriteGeneration: 1,
+        }),
+      },
+      {
+        documentPath: `private_dish_merge_review_locks/${dishId}`,
+        data: mergeReviewLockData(dishId, {
+          blocksClientReviews: false,
+          blocksClientAggregates: false,
+        }),
+      },
+    ]),
+    {
+      documentPath: "dish_reviews/rules-malformed-lock-existing-review",
+      data: reviewWriteData({
+        id: "rules-malformed-lock-existing-review",
+        dishId: existingDishId,
+      }),
+    },
+    {
+      documentPath: `dish_rating_aggregates/${existingDishId}`,
+      data: aggregateWriteData({
+        dishId: existingDishId,
+        aggregateWriteGeneration: 1,
+      }),
+    },
+  ]);
+  const customerDb = dbFor("customer");
+
+  await assertFails(
+    customerDb.doc("dish_reviews/rules-malformed-lock-create-review").set(
+      reviewWriteData({
+        id: "rules-malformed-lock-create-review",
+        dishId: createDishId,
+      }),
+    ),
+  );
+  await assertFails(
+    customerDb.doc("dish_reviews/rules-malformed-lock-existing-review").update({
+      headline: "Malformed lock must remain blocking",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(
+    customerDb.doc("dish_reviews/rules-malformed-lock-existing-review").delete(),
+  );
+  await assertFails(
+    customerDb.doc(`dish_rating_aggregates/${createDishId}`).set(
+      aggregateWriteData({
+        dishId: createDishId,
+        aggregateWriteGeneration: 1,
+      }),
+    ),
+  );
+  await assertFails(
+    customerDb.doc(`dish_rating_aggregates/${existingDishId}`).update({
+      ratingCount: 2,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(
+    dbFor("admin").doc(`dish_rating_aggregates/${existingDishId}`).delete(),
+  );
+});
+
+test("aggregate writes default missing generations to zero and require an exact match", async () => {
+  const customerDb = dbFor("customer");
+  const generatedDishId = "rules-generated-aggregate-dish";
+  const explicitZeroDishId = "rules-explicit-zero-aggregate-dish";
+  const maxSafeDishId = "rules-max-safe-aggregate-dish";
+
+  await assertSucceeds(
+    customerDb.doc("dish_rating_aggregates/dish-1").update({
+      ratingCount: 2,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertSucceeds(
+    customerDb.doc("dish_rating_aggregates/dish-1").set(
+      {
+        aggregateWriteGeneration: 0,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+
+  await seedRuleTestDocuments([
+    {
+      documentPath: `bitescore_dishes/${generatedDishId}`,
+      data: ruleTestDishData(generatedDishId, {
+        aggregateWriteGeneration: 1,
+      }),
+    },
+    {
+      documentPath: `bitescore_dishes/${explicitZeroDishId}`,
+      data: ruleTestDishData(explicitZeroDishId, {
+        aggregateWriteGeneration: 0,
+      }),
+    },
+    {
+      documentPath: `bitescore_dishes/${maxSafeDishId}`,
+      data: ruleTestDishData(maxSafeDishId, {
+        aggregateWriteGeneration: 9007199254740991,
+      }),
+    },
+  ]);
+  const generatedAggregateRef = customerDb.doc(
+    `dish_rating_aggregates/${generatedDishId}`,
+  );
+
+  await assertFails(
+    generatedAggregateRef.set(
+      aggregateWriteData({ dishId: generatedDishId }),
+    ),
+  );
+  await assertFails(
+    generatedAggregateRef.set(
+      aggregateWriteData({
+        dishId: generatedDishId,
+        aggregateWriteGeneration: 0,
+      }),
+    ),
+  );
+  await assertFails(
+    generatedAggregateRef.set(
+      aggregateWriteData({
+        dishId: generatedDishId,
+        aggregateWriteGeneration: 2,
+      }),
+    ),
+  );
+  await assertSucceeds(
+    generatedAggregateRef.set(
+      aggregateWriteData({
+        dishId: generatedDishId,
+        aggregateWriteGeneration: 1,
+      }),
+    ),
+  );
+  await assertFails(
+    generatedAggregateRef.update({
+      aggregateWriteGeneration: 0,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+
+  await assertSucceeds(
+    customerDb.doc(`dish_rating_aggregates/${explicitZeroDishId}`).set(
+      aggregateWriteData({ dishId: explicitZeroDishId }),
+    ),
+  );
+  await assertSucceeds(
+    customerDb.doc(`dish_rating_aggregates/${maxSafeDishId}`).set(
+      aggregateWriteData({
+        dishId: maxSafeDishId,
+        aggregateWriteGeneration: 9007199254740991,
+      }),
+    ),
+  );
+
+  for (const generation of [-1, 1.5, 9007199254740992, "0", null]) {
+    await assertFails(
+      customerDb.doc("dish_rating_aggregates/dish-1").set(
+        aggregateWriteData({
+          dishId: "dish-1",
+          aggregateWriteGeneration: generation,
+        }),
+      ),
+    );
+  }
+
+  for (const [index, generation] of [
+    -1,
+    1.5,
+    9007199254740992,
+    "1",
+    null,
+  ].entries()) {
+    const malformedDishId = `rules-malformed-generation-${index}`;
+    await seedRuleTestDocuments([
+      {
+        documentPath: `bitescore_dishes/${malformedDishId}`,
+        data: ruleTestDishData(malformedDishId, {
+          aggregateWriteGeneration: generation,
+        }),
+      },
+    ]);
+    await assertFails(
+      customerDb.doc(`dish_rating_aggregates/${malformedDishId}`).set(
+        aggregateWriteData({
+          dishId: malformedDishId,
+          aggregateWriteGeneration: generation,
+        }),
+      ),
+    );
+  }
+});
+
+test("pre-claim and active-lock aggregate payloads stay stale after completion", async () => {
+  const dishId = "rules-delayed-aggregate-dish";
+  const preClaimAggregate = aggregateWriteData({
+    dishId,
+    aggregateWriteGeneration: 0,
+  });
+  const activeLockAggregate = aggregateWriteData({
+    dishId,
+    aggregateWriteGeneration: 1,
+  });
+  await seedRuleTestDocuments([
+    {
+      documentPath: `bitescore_dishes/${dishId}`,
+      data: ruleTestDishData(dishId),
+    },
+  ]);
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    const batch = db.batch();
+    batch.set(
+      db.doc(`bitescore_dishes/${dishId}`),
+      { aggregateWriteGeneration: 1 },
+      { merge: true },
+    );
+    batch.set(
+      db.doc(`private_dish_merge_review_locks/${dishId}`),
+      mergeReviewLockData(dishId, {
+        role: "target",
+        activeAggregateWriteGeneration: 1,
+        completionAggregateWriteGeneration: 2,
+      }),
+    );
+    await batch.commit();
+  });
+
+  const aggregateRef = dbFor("customer").doc(
+    `dish_rating_aggregates/${dishId}`,
+  );
+  await assertFails(aggregateRef.set(preClaimAggregate));
+  await assertFails(aggregateRef.set(activeLockAggregate));
+
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    const batch = db.batch();
+    batch.set(
+      db.doc(`bitescore_dishes/${dishId}`),
+      { aggregateWriteGeneration: 2 },
+      { merge: true },
+    );
+    batch.set(
+      db.doc(`dish_rating_aggregates/${dishId}`),
+      aggregateWriteData({
+        dishId,
+        aggregateWriteGeneration: 2,
+      }),
+    );
+    batch.delete(db.doc(`private_dish_merge_review_locks/${dishId}`));
+    await batch.commit();
+  });
+
+  await assertFails(aggregateRef.set(preClaimAggregate));
+  await assertFails(aggregateRef.set(activeLockAggregate));
+  await assertSucceeds(
+    aggregateRef.set(
+      aggregateWriteData({
+        dishId,
+        aggregateWriteGeneration: 2,
+      }),
+    ),
+  );
+});
+
+test("aggregate writes reject lexical path and body aliases even when alias dishes exist", async () => {
+  const sourceDishId = "rules-canonical-aggregate-source";
+  const otherDishId = "rules-canonical-aggregate-other";
+  const aliasDishIds = [
+    ` ${sourceDishId} `,
+    `${sourceDishId} `,
+    `\t${sourceDishId}`,
+  ];
+  await seedMergeReviewLocks([sourceDishId]);
+  await seedRuleTestDocuments([
+    {
+      documentPath: `bitescore_dishes/${otherDishId}`,
+      data: ruleTestDishData(otherDishId),
+    },
+    ...aliasDishIds.map((dishId) => ({
+      documentPath: `bitescore_dishes/${dishId}`,
+      data: ruleTestDishData(dishId),
+    })),
+    ...aliasDishIds.map((dishId, index) => ({
+      documentPath: `dish_rating_aggregates/${dishId}`,
+      data: aggregateWriteData({
+        dishId,
+        aggregateWriteGeneration: 0,
+      }),
+    })),
+    {
+      documentPath: `dish_rating_aggregates/${otherDishId}`,
+      data: aggregateWriteData({ dishId: otherDishId }),
+    },
+  ]);
+  const customerDb = dbFor("customer");
+
+  await assertFails(
+    customerDb.doc(`dish_rating_aggregates/${sourceDishId}`).set(
+      aggregateWriteData({
+        dishId: sourceDishId,
+        aggregateWriteGeneration: 1,
+      }),
+    ),
+  );
+
+  for (const dishId of aliasDishIds) {
+    await assertFails(
+      customerDb.doc(`dish_rating_aggregates/${dishId}`).set(
+        aggregateWriteData({
+          dishId,
+          aggregateWriteGeneration: 0,
+        }),
+      ),
+    );
+    await assertFails(
+      customerDb.doc(`dish_rating_aggregates/${otherDishId}`).update({
+        dishId,
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertFails(
+      customerDb.doc(`dish_rating_aggregates/${dishId}`).update({
+        ratingCount: 2,
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertFails(
+      dbFor("admin").doc(`dish_rating_aggregates/${dishId}`).delete(),
+    );
+  }
+
+  await assertFails(
+    customerDb.doc(`dish_rating_aggregates/${otherDishId}`).update({
+      dishId: `${sourceDishId}/alias`,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+});
+
+test("aggregate create, update, and delete check path, current, and requested dish identities", async () => {
+  const sourceDishId = "rules-authoritative-source";
+  const otherDishId = "rules-authoritative-other";
+  await seedMergeReviewLocks([sourceDishId]);
+  await seedRuleTestDocuments([
+    {
+      documentPath: `bitescore_dishes/${otherDishId}`,
+      data: ruleTestDishData(otherDishId),
+    },
+  ]);
+  const customerDb = dbFor("customer");
+
+  await assertFails(
+    customerDb
+      .doc(`dish_rating_aggregates/${sourceDishId}`)
+      .set(aggregateWriteData({ dishId: otherDishId })),
+  );
+  await assertFails(
+    customerDb
+      .doc("dish_rating_aggregates/rules-create-body-locked")
+      .set(aggregateWriteData({ dishId: sourceDishId })),
+  );
+
+  await seedRuleTestDocuments([
+    {
+      documentPath: `dish_rating_aggregates/${sourceDishId}`,
+      data: aggregateWriteData({ dishId: otherDishId }),
+    },
+    {
+      documentPath: "dish_rating_aggregates/rules-current-body-locked",
+      data: aggregateWriteData({ dishId: sourceDishId }),
+    },
+    {
+      documentPath: "dish_rating_aggregates/rules-requested-body-locked",
+      data: aggregateWriteData({ dishId: otherDishId }),
+    },
+  ]);
+
+  await assertFails(
+    customerDb.doc(`dish_rating_aggregates/${sourceDishId}`).update({
+      ratingCount: 2,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(
+    customerDb.doc("dish_rating_aggregates/rules-current-body-locked").update({
+      dishId: otherDishId,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(
+    customerDb.doc("dish_rating_aggregates/rules-requested-body-locked").update({
+      dishId: sourceDishId,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+
+  await assertFails(
+    dbFor("admin").doc(`dish_rating_aggregates/${sourceDishId}`).delete(),
+  );
+  await assertFails(
+    dbFor("admin")
+      .doc("dish_rating_aggregates/rules-current-body-locked")
+      .delete(),
+  );
+});
+
+test("target writes resume after unlock while source stays protected and unrelated dishes remain unaffected", async () => {
+  const sourceDishId = "rules-permanent-source";
+  const targetDishId = "rules-unlocked-target";
+  const otherDishId = "rules-unrelated-dish";
+  await seedMergeReviewLocks([sourceDishId, targetDishId]);
+  await seedRuleTestDocuments([
+    {
+      documentPath: `bitescore_dishes/${sourceDishId}`,
+      data: ruleTestDishData(sourceDishId, {
+        aggregateWriteGeneration: 2,
+      }),
+    },
+    {
+      documentPath: `bitescore_dishes/${otherDishId}`,
+      data: ruleTestDishData(otherDishId),
+    },
+    {
+      documentPath: `private_dish_merge_review_locks/${sourceDishId}`,
+      data: mergeReviewLockData(sourceDishId, {
+        state: "merged_source",
+        targetDishId,
+        activeAggregateWriteGeneration: 2,
+        completionAggregateWriteGeneration: 2,
+      }),
+    },
+  ]);
+  await removeMergeReviewLock(targetDishId);
+  const customerDb = dbFor("customer");
+  const targetReviewRef = customerDb.doc(
+    "dish_reviews/rules-unlocked-target-review",
+  );
+  const targetAggregateRef = customerDb.doc(
+    `dish_rating_aggregates/${targetDishId}`,
+  );
+
+  await assertSucceeds(
+    targetReviewRef.set(
+      reviewWriteData({
+        id: "rules-unlocked-target-review",
+        dishId: targetDishId,
+      }),
+    ),
+  );
+  await assertSucceeds(
+    targetReviewRef.update({
+      headline: "Target unlocked",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertSucceeds(targetReviewRef.delete());
+
+  await assertSucceeds(
+    targetAggregateRef.set(aggregateWriteData({
+      dishId: targetDishId,
+      aggregateWriteGeneration: 2,
+    })),
+  );
+  await assertSucceeds(
+    targetAggregateRef.update({
+      ratingCount: 2,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertSucceeds(
+    dbFor("admin").doc(`dish_rating_aggregates/${targetDishId}`).delete(),
+  );
+
+  await assertFails(
+    customerDb.doc("dish_reviews/rules-permanent-source-review").set(
+      reviewWriteData({
+        id: "rules-permanent-source-review",
+        dishId: sourceDishId,
+      }),
+    ),
+  );
+  await assertFails(
+    customerDb
+      .doc(`dish_rating_aggregates/${sourceDishId}`)
+      .set(aggregateWriteData({
+        dishId: sourceDishId,
+        aggregateWriteGeneration: 2,
+      })),
+  );
+
+  await assertSucceeds(
+    customerDb.doc("dish_reviews/rules-unrelated-review").set(
+      reviewWriteData({
+        id: "rules-unrelated-review",
+        dishId: otherDishId,
+      }),
+    ),
+  );
+  await assertSucceeds(
+    customerDb
+      .doc(`dish_rating_aggregates/${otherDishId}`)
+      .set(aggregateWriteData({ dishId: otherDishId })),
+  );
+});
+
+test("private merge review locks cannot be read or written by clients", async () => {
+  const sourceDishId = "rules-private-lock-source";
+  const lockRefForCustomer = dbFor("customer").doc(
+    `private_dish_merge_review_locks/${sourceDishId}`,
+  );
+  const lockRefForAdmin = dbFor("admin").doc(
+    `private_dish_merge_review_locks/${sourceDishId}`,
+  );
+  await seedMergeReviewLocks([sourceDishId]);
+
+  await assertFails(lockRefForCustomer.get());
+  await assertFails(lockRefForAdmin.get());
+  await assertFails(
+    lockRefForCustomer.set(
+      {
+        blocksClientReviews: false,
+        blocksClientAggregates: false,
+      },
+      { merge: true },
+    ),
+  );
+  await assertFails(lockRefForAdmin.delete());
 });

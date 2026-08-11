@@ -706,6 +706,7 @@ test("runtime, region, secret bindings, exports, production caller, and webhook 
       "maintainBiteScoreDishSearchIndex",
       "maintainBiteScoreDishSearchIndexFromAggregate",
       "maintainBiteScoreRestaurantSearchIndex",
+      "maintainDishEditProposalPrivateState",
       "processPrivateSearchIndexJob",
       "redeemBiteSaverSubscriptionReturn",
       "searchCouponAdminRestaurantsPage",

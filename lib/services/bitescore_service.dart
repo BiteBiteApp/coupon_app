@@ -675,6 +675,7 @@ class BiteScoreService {
   static const double _tastinessWeight = 0.20;
   static const double _qualityWeight = 0.20;
   static const double _valueWeight = 0.10;
+  static const int _maxSafeAggregateWriteGeneration = 9007199254740991;
   static const String loginRequiredMessage = 'Please sign in to continue';
   static const String emailVerificationRequiredMessage =
       'Please verify your email first';
@@ -6304,10 +6305,31 @@ class BiteScoreService {
     await _markDishEditSuggestionEntryStatus(entry, approvedStatus);
   }
 
+  static int _readAggregateWriteGeneration(Map<String, dynamic>? dishData) {
+    if (dishData == null || !dishData.containsKey('aggregateWriteGeneration')) {
+      return 0;
+    }
+    final generation = dishData['aggregateWriteGeneration'];
+    if (generation is! int ||
+        generation < 0 ||
+        generation > _maxSafeAggregateWriteGeneration) {
+      throw StateError('Dish aggregate write generation is malformed.');
+    }
+    return generation;
+  }
+
+  static int aggregateWriteGenerationFromDishDataForTesting(
+    Map<String, dynamic>? dishData,
+  ) => _readAggregateWriteGeneration(dishData);
+
   static Future<void> _rebuildDishAggregate({
     required String dishId,
     required String restaurantId,
   }) async {
+    final dishSnapshot = await dishesCollection().doc(dishId).get();
+    final aggregateWriteGeneration = _readAggregateWriteGeneration(
+      dishSnapshot.data(),
+    );
     final reviews = deduplicateReviewsForAggregate(
       await _loadAllDishReviewsForDish(dishId),
     );
@@ -6322,6 +6344,7 @@ class BiteScoreService {
         'tastinessScoreAverage': null,
         'qualityScoreAverage': null,
         'valueScoreAverage': null,
+        'aggregateWriteGeneration': aggregateWriteGeneration,
         'updatedAt': FieldValue.serverTimestamp(),
       });
       return;
@@ -6372,6 +6395,7 @@ class BiteScoreService {
 
     await ratingAggregatesCollection().doc(dishId).set({
       ...aggregate.toFirestoreMap(),
+      'aggregateWriteGeneration': aggregateWriteGeneration,
       'updatedAt': FieldValue.serverTimestamp(),
     });
   }

@@ -3,11 +3,13 @@ const test = require("node:test");
 
 const {
   awardApprovedDishProposalContributionPointsCallableHandler,
+  awardApprovedDishProposalContributionPointsForResolutionCycle,
   awardCreatedDishContributionPointsCallableHandler,
   awardDishImageContributionPointsCallableHandler,
   awardContributionPointsCallableHandler,
   awardContributionPointsTransaction,
   awardReviewMilestoneContributionPointsCallableHandler,
+  buildContributionLedgerDocumentIdFromExactSourceKey,
   buildContributionLedgerDocumentIdFromSourceKey,
   buildContributionReversalDocumentId,
   contributionPointCelebrationStatus,
@@ -20,6 +22,19 @@ const {
   reverseContributionPointLedgerEntryCallableHandler,
   reverseContributionPointLedgerEntryTransaction,
 } = require("../lib/contribution_points_helpers.js");
+const {
+  buildDishProposalMemberDocument,
+  buildDishProposalMembership,
+  buildDishProposalSupporterDocument,
+  createDishProposalMemberId,
+  createDishProposalSupporterId,
+  dishProposalDocumentFingerprint,
+  dishProposalGroupCollection,
+  dishProposalGroupVersion,
+  dishProposalMemberCollection,
+  dishProposalSupporterCollection,
+  createDishProposalGroupId,
+} = require("../lib/dish_proposal_private_contract.js");
 
 const fakeFieldValues = {
   serverTimestamp: () => ({ __op: "serverTimestamp" }),
@@ -890,6 +905,322 @@ test("approved proposal callable lets admins award merge proposal points", async
   assert.equal(db.get(userProfilePath("submitter-1")).contributionPoints, 1);
 });
 
+test("approved proposal callable preserves exact whitespace document IDs", async () => {
+  const db = new FakeFirestore();
+  for (const proposalId of ["x", " x "]) {
+    seedApprovedProposalAwardData(db, {
+      proposalId,
+      userId: "submitter-1",
+      type: "rename",
+    });
+    await awardApprovedDishProposalContributionPointsCallableHandler(
+      db,
+      callableRequest({
+        auth: adminAuth(),
+        data: {
+          proposalId,
+          oldValue: "Pizza",
+          newValue: "House Pizza",
+        },
+      }),
+      {fieldValues: fakeFieldValues},
+    );
+  }
+
+  const plainLedgerId = buildContributionLedgerDocumentIdFromExactSourceKey(
+    "dish_rename_approved:x",
+  );
+  const spacedLedgerId = buildContributionLedgerDocumentIdFromExactSourceKey(
+    "dish_rename_approved: x ",
+  );
+  assert.notEqual(plainLedgerId, spacedLedgerId);
+  assert.equal(db.get(ledgerPath(plainLedgerId)).requestId, "x");
+  assert.equal(db.get(ledgerPath(spacedLedgerId)).requestId, " x ");
+  assert.equal(db.get(userProfilePath("submitter-1")).contributionPoints, 2);
+});
+
+test("resolution-cycle award accepts normalized group after title-case rename and is idempotent", async () => {
+  const db = new FakeFirestore();
+  const fixture = seedResolutionCyclePointAwardData(db, {
+    proposalId: "proposal-1",
+    embeddedProposalId: "embedded-alias",
+    supporterUid: "submitter-1",
+    proposedName: "crispy garlic knots",
+    appliedDishName: "Crispy Garlic Knots",
+    oldDishName: "Garlic Knots",
+  });
+
+  const first =
+    await awardApprovedDishProposalContributionPointsForResolutionCycle(
+      db,
+      fixture.request,
+      {fieldValues: fakeFieldValues},
+    );
+  const duplicate =
+    await awardApprovedDishProposalContributionPointsForResolutionCycle(
+      db,
+      fixture.request,
+      {fieldValues: fakeFieldValues},
+    );
+  const sourceKey = "dish_rename_approved:proposal-1";
+  const ledgerId = buildContributionLedgerDocumentIdFromExactSourceKey(sourceKey);
+  const entry = db.get(ledgerPath(ledgerId));
+
+  assert.equal(first.outcome, "awarded");
+  assert.equal(first.result.entries[0].wasCreated, true);
+  assert.equal(duplicate.outcome, "alreadyAwarded");
+  assert.equal(duplicate.result.entries[0].wasCreated, false);
+  assert.equal(entry.sourceKey, sourceKey);
+  assert.equal(entry.requestId, "proposal-1");
+  assert.equal(entry.userId, "submitter-1");
+  assert.equal(entry.oldValue, "Garlic Knots");
+  assert.equal(entry.newValue, "Crispy Garlic Knots");
+  assert.equal(
+    entry.description,
+    "Approved dish rename: Garlic Knots -> Crispy Garlic Knots",
+  );
+  assert.equal(db.get(userProfilePath("submitter-1")).contributionPoints, 1);
+});
+
+test("resolution-cycle award uses exact source document ID despite duplicate embedded IDs", async () => {
+  const db = new FakeFirestore();
+  const first = seedResolutionCyclePointAwardData(db, {
+    proposalId: "proposal-a",
+    embeddedProposalId: "same-embedded-id",
+    supporterUid: "submitter-1",
+    sourceDishId: "dish-a",
+    proposedName: "alpha dish",
+    appliedDishName: "Alpha Dish",
+    oldDishName: "Old Alpha",
+    activeJobId: "job-a",
+  });
+  const firstResult =
+    await awardApprovedDishProposalContributionPointsForResolutionCycle(
+      db,
+      first.request,
+      {fieldValues: fakeFieldValues},
+    );
+  const second = seedResolutionCyclePointAwardData(db, {
+    proposalId: "proposal-b",
+    embeddedProposalId: "same-embedded-id",
+    supporterUid: "submitter-1",
+    sourceDishId: "dish-b",
+    proposedName: "beta dish",
+    appliedDishName: "Beta Dish",
+    oldDishName: "Old Beta",
+    activeJobId: "job-b",
+    trustedServerCreateTimeMillis: 2_000,
+  });
+  const secondResult =
+    await awardApprovedDishProposalContributionPointsForResolutionCycle(
+      db,
+      second.request,
+      {fieldValues: fakeFieldValues},
+    );
+
+  assert.equal(firstResult.outcome, "awarded");
+  assert.equal(secondResult.outcome, "awarded");
+  assert.notEqual(
+    firstResult.result.entries[0].ledgerEntryId,
+    secondResult.result.entries[0].ledgerEntryId,
+  );
+  assert.equal(
+    db.get(ledgerPath(firstResult.result.entries[0].ledgerEntryId)).requestId,
+    "proposal-a",
+  );
+  assert.equal(
+    db.get(ledgerPath(secondResult.result.entries[0].ledgerEntryId)).requestId,
+    "proposal-b",
+  );
+  assert.equal(db.get(userProfilePath("submitter-1")).contributionPoints, 2);
+});
+
+test("resolution-cycle award keeps x and whitespace x proposal identities distinct", async () => {
+  const db = new FakeFirestore();
+  const plain = seedResolutionCyclePointAwardData(db, {
+    proposalId: "x",
+    embeddedProposalId: "shared",
+    supporterUid: "submitter-1",
+    sourceDishId: "dish-plain",
+    proposedName: "plain dish",
+    appliedDishName: "Plain Dish",
+    oldDishName: "Old Plain",
+    activeJobId: "job-plain",
+  });
+  const plainResult =
+    await awardApprovedDishProposalContributionPointsForResolutionCycle(
+      db,
+      plain.request,
+      {fieldValues: fakeFieldValues},
+    );
+  const spaced = seedResolutionCyclePointAwardData(db, {
+    proposalId: " x ",
+    embeddedProposalId: "shared",
+    supporterUid: "submitter-1",
+    sourceDishId: "dish-spaced",
+    proposedName: "spaced dish",
+    appliedDishName: "Spaced Dish",
+    oldDishName: "Old Spaced",
+    activeJobId: "job-spaced",
+    trustedServerCreateTimeMillis: 2_000,
+  });
+  const spacedResult =
+    await awardApprovedDishProposalContributionPointsForResolutionCycle(
+      db,
+      spaced.request,
+      {fieldValues: fakeFieldValues},
+    );
+
+  assert.equal(plainResult.outcome, "awarded");
+  assert.equal(spacedResult.outcome, "awarded");
+  assert.notEqual(
+    plainResult.result.entries[0].ledgerEntryId,
+    spacedResult.result.entries[0].ledgerEntryId,
+  );
+  assert.equal(
+    db.get(ledgerPath(spacedResult.result.entries[0].ledgerEntryId)).requestId,
+    " x ",
+  );
+  assert.equal(db.get(userProfilePath("submitter-1")).contributionPoints, 2);
+});
+
+test("resolution-cycle award rejects a changed supporter and preserves later membership", async () => {
+  const db = new FakeFirestore();
+  const oldCycle = seedResolutionCyclePointAwardData(db, {
+    proposalId: "proposal-1",
+    supporterUid: "u1",
+    proposedName: "house pizza",
+    appliedDishName: "House Pizza",
+    oldDishName: "Pizza",
+    membershipGeneration: 7,
+    cycleCutoffGeneration: 7,
+  });
+  const laterMembership = seedResolutionCyclePointAwardData(db, {
+    proposalId: "proposal-1",
+    supporterUid: "u2",
+    proposedName: "house pizza",
+    appliedDishName: "House Pizza",
+    oldDishName: "Pizza",
+    membershipGeneration: 8,
+    cycleCutoffGeneration: 8,
+    activeJobId: "later-job",
+  });
+
+  const stale =
+    await awardApprovedDishProposalContributionPointsForResolutionCycle(
+      db,
+      oldCycle.request,
+      {fieldValues: fakeFieldValues},
+    );
+
+  assert.deepEqual(stale, {outcome: "notEligible", result: {entries: []}});
+  assert.equal(db.get(userProfilePath("u1")), undefined);
+  assert.equal(db.get(userProfilePath("u2")), undefined);
+  assert.equal(
+    db.get(laterMembership.memberPath).supporterUid,
+    "u2",
+  );
+  assert.equal(db.get(laterMembership.memberPath).membershipGeneration, 8);
+});
+
+test("resolution-cycle award returns explicit no-op and stale outcomes", async () => {
+  const noOpDb = new FakeFirestore();
+  const noOp = seedResolutionCyclePointAwardData(noOpDb, {
+    proposalId: "noop-proposal",
+    supporterUid: "submitter-1",
+    proposedName: "house pizza",
+    appliedDishName: "House Pizza",
+    oldDishName: "House Pizza",
+  });
+  const noOpResult =
+    await awardApprovedDishProposalContributionPointsForResolutionCycle(
+      noOpDb,
+      noOp.request,
+      {fieldValues: fakeFieldValues},
+    );
+
+  const staleDb = new FakeFirestore();
+  const stale = seedResolutionCyclePointAwardData(staleDb, {
+    proposalId: "stale-proposal",
+    supporterUid: "submitter-1",
+    proposedName: "house pizza",
+    appliedDishName: "House Pizza",
+    oldDishName: "Pizza",
+  });
+  staleDb.seed(stale.memberPath, {
+    ...staleDb.get(stale.memberPath),
+    membershipGeneration: stale.request.membershipGeneration + 1,
+  });
+  const staleResult =
+    await awardApprovedDishProposalContributionPointsForResolutionCycle(
+      staleDb,
+      stale.request,
+      {fieldValues: fakeFieldValues},
+    );
+
+  assert.deepEqual(noOpResult, {
+    outcome: "noAwardForNoOp",
+    result: {entries: []},
+  });
+  assert.deepEqual(staleResult, {
+    outcome: "notEligible",
+    result: {entries: []},
+  });
+  assert.equal(noOpDb.get(userProfilePath("submitter-1")), undefined);
+  assert.equal(staleDb.get(userProfilePath("submitter-1")), undefined);
+});
+
+test("approved proposal callable authenticates and validates before database access", async () => {
+  let databaseAccessCount = 0;
+  let unauthorizedInputReadCount = 0;
+  const unreadableDb = {
+    collection() {
+      databaseAccessCount += 1;
+      throw new Error("database must not be accessed");
+    },
+  };
+  const unreadableData = new Proxy({}, {
+    get() {
+      unauthorizedInputReadCount += 1;
+      throw new Error("input must not be read");
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      awardApprovedDishProposalContributionPointsCallableHandler(
+        unreadableDb,
+        callableRequest({ auth: null, data: unreadableData }),
+      ),
+    (error) => error.code === "unauthenticated",
+  );
+  await assert.rejects(
+    () =>
+      awardApprovedDishProposalContributionPointsCallableHandler(
+        unreadableDb,
+        callableRequest({
+          auth: { uid: "user-1", token: { email: "user-1@example.com" } },
+          data: unreadableData,
+        }),
+      ),
+    (error) => error.code === "permission-denied",
+  );
+  await assert.rejects(
+    () =>
+      awardApprovedDishProposalContributionPointsCallableHandler(
+        unreadableDb,
+        callableRequest({
+          auth: adminAuth(),
+          data: { proposalId: "" },
+        }),
+      ),
+    (error) => error.code === "invalid-argument",
+  );
+
+  assert.equal(unauthorizedInputReadCount, 0);
+  assert.equal(databaseAccessCount, 0);
+});
+
 test("approved proposal callable rejects non-admins and missing proposals", async () => {
   const db = new FakeFirestore();
   seedApprovedProposalAwardData(db, {
@@ -1680,6 +2011,147 @@ function seedApprovedProposalAwardData(db, {
   });
 }
 
+function seedResolutionCyclePointAwardData(db, {
+  proposalId,
+  embeddedProposalId = proposalId,
+  supporterUid,
+  sourceDishId = "dish-1",
+  proposedName,
+  appliedDishName,
+  oldDishName,
+  activeJobId = "active-job-1",
+  trustedServerCreateTimeMillis = 1_000,
+  membershipGeneration = 1,
+  cycleCutoffGeneration = membershipGeneration,
+}) {
+  const proposalData = {
+    __createTimeMillis: trustedServerCreateTimeMillis,
+    id: embeddedProposalId,
+    type: "rename",
+    restaurantId: "restaurant-1",
+    targetDishId: sourceDishId,
+    proposedName,
+    userId: supporterUid,
+    status: "pending",
+  };
+  db.seed(`dish_edit_proposals/${proposalId}`, proposalData);
+  const trustedServerCreateTime = new Date(trustedServerCreateTimeMillis);
+  const membership = buildDishProposalMembership({
+    proposalDocumentId: proposalId,
+    source: proposalData,
+    trustedServerCreateTime,
+  });
+  assert.ok(membership);
+  const membershipEnteredAt = new Date(trustedServerCreateTimeMillis + 1);
+  const indexedAt = new Date(trustedServerCreateTimeMillis + 2);
+  const member = buildDishProposalMemberDocument({
+    membership,
+    membershipEnteredAt,
+    membershipGeneration,
+    indexedAt,
+  });
+  const memberPath = `${dishProposalMemberCollection}/${
+    createDishProposalMemberId(proposalId)}`;
+  db.seed(memberPath, {
+    ...member,
+    trustedServerCreateTime,
+    membershipEnteredAt,
+    indexedAt,
+  });
+  const oldestTrustedServerCreateTime = trustedServerCreateTime;
+  const dueAt = new Date(trustedServerCreateTimeMillis + 3 * 24 * 60 * 60 * 1000);
+  const cycleCutoffAt = new Date(trustedServerCreateTimeMillis + 10);
+  const group = {
+    version: dishProposalGroupVersion,
+    groupId: membership.groupId,
+    proposalType: membership.proposalType,
+    restaurantId: membership.restaurantId,
+    sourceDishId: membership.sourceDishId,
+    mergeTargetDishId: membership.mergeTargetDishId,
+    normalizedProposedName: membership.normalizedProposedName,
+    hasPendingMembers: true,
+    oldestTrustedServerCreateTime,
+    dueAt,
+    enoughSupporters: true,
+    autoEligible: false,
+    lastMembershipGeneration: membershipGeneration,
+    resolutionSequence: 1,
+    activeJobId,
+    activeResolutionType: "apply",
+    cycleCutoffGeneration,
+    cycleCutoffAt,
+    indexedAt,
+  };
+  const fingerprint = dishProposalDocumentFingerprint(
+    dishProposalGroupVersion,
+    [
+      group.groupId,
+      group.proposalType,
+      group.restaurantId,
+      group.sourceDishId,
+      group.mergeTargetDishId,
+      group.normalizedProposedName,
+      group.hasPendingMembers,
+      group.oldestTrustedServerCreateTime.toISOString(),
+      group.dueAt.toISOString(),
+      group.enoughSupporters,
+      group.autoEligible,
+      group.lastMembershipGeneration,
+      group.resolutionSequence,
+      group.activeJobId,
+      group.activeResolutionType,
+      group.cycleCutoffGeneration,
+      group.cycleCutoffAt.toISOString(),
+    ],
+  );
+  db.seed(`${dishProposalGroupCollection}/${membership.groupId}`, {
+    ...group,
+    oldestTrustedServerCreateTime,
+    dueAt,
+    cycleCutoffAt,
+    indexedAt,
+    fingerprint,
+  });
+  const supporter = buildDishProposalSupporterDocument({
+    groupId: membership.groupId,
+    supporterUid,
+    indexedAt,
+  });
+  const supporterPath = `${dishProposalSupporterCollection}/${
+    createDishProposalSupporterId(membership.groupId, supporterUid)}`;
+  db.seed(supporterPath, {...supporter, indexedAt});
+  db.seed(`bitescore_dishes/${sourceDishId}`, {
+    id: sourceDishId,
+    name: appliedDishName,
+    normalizedName: proposedName.trim().toLowerCase(),
+    restaurantId: "restaurant-1",
+    isActive: true,
+  });
+  db.seed("bitescore_restaurants/restaurant-1", {
+    id: "restaurant-1",
+    name: "Pizza Place",
+    city: "Lecanto",
+    state: "FL",
+    address: "1 Main St",
+    phone: "555-0100",
+  });
+  return {
+    memberPath,
+    supporterPath,
+    request: {
+      proposalDocumentId: proposalId,
+      activeJobId,
+      groupId: membership.groupId,
+      supporterUid,
+      trustedServerCreateTimeMillis,
+      membershipGeneration,
+      cycleCutoffGeneration,
+      oldValue: oldDishName,
+      newValue: appliedDishName,
+    },
+  };
+}
+
 class FakeFirestore {
   constructor() {
     this.store = new Map();
@@ -1854,5 +2326,16 @@ function cloneValue(value) {
   if (value === undefined) {
     return undefined;
   }
-  return JSON.parse(JSON.stringify(value));
+  if (value instanceof Date) {
+    return new Date(value.getTime());
+  }
+  if (Array.isArray(value)) {
+    return value.map(cloneValue);
+  }
+  if (value !== null && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, nested]) => [key, cloneValue(nested)]),
+    );
+  }
+  return value;
 }

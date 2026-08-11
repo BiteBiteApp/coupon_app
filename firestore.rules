@@ -346,6 +346,14 @@ service cloud.firestore {
       return !changedKeys().hasAny(biteScoreDishProvenanceFields());
     }
 
+    function aggregateWriteGenerationAbsentOnClientCreate() {
+      return !request.resource.data.keys().hasAny(['aggregateWriteGeneration']);
+    }
+
+    function aggregateWriteGenerationUnchanged() {
+      return !changedKeys().hasAny(['aggregateWriteGeneration']);
+    }
+
     function validBiteScoreRestaurantInitialProvenance() {
       return request.resource.data.createdByUserId == request.auth.uid &&
         request.resource.data.createdFromCreateFlow == true &&
@@ -396,6 +404,72 @@ service cloud.firestore {
           request.resource.data.isActive == true) &&
         (!('active' in request.resource.data) ||
           request.resource.data.active == true);
+    }
+
+    function canonicalDishId(dishId) {
+      return dishId is string &&
+        dishId.size() > 0 &&
+        dishId.matches('^[^/\\s\\p{Cc}](?:[^/\\p{Cc}]*[^/\\s\\p{Cc}])?$');
+    }
+
+    function canonicalExistingDishId(dishId) {
+      return canonicalDishId(dishId) &&
+        exists(/databases/$(database)/documents/bitescore_dishes/$(dishId)) &&
+        get(/databases/$(database)/documents/bitescore_dishes/$(dishId)).data.id == dishId;
+    }
+
+    function reviewDataHasCanonicalDishId(reviewData) {
+      return reviewData.keys().hasAny(['dishId']) &&
+        canonicalExistingDishId(reviewData.dishId);
+    }
+
+    function aggregateDataMatchesDishIdentity(dishId, aggregateData) {
+      return aggregateData.keys().hasAny(['dishId']) &&
+        aggregateData.dishId == dishId &&
+        canonicalExistingDishId(dishId);
+    }
+
+    function validAggregateWriteGeneration(data) {
+      return !data.keys().hasAny(['aggregateWriteGeneration']) ||
+        (
+          data.aggregateWriteGeneration is int &&
+          data.aggregateWriteGeneration >= 0 &&
+          data.aggregateWriteGeneration <= 9007199254740991
+        );
+    }
+
+    function aggregateWriteGenerationOrZero(data) {
+      return data.keys().hasAny(['aggregateWriteGeneration'])
+        ? data.aggregateWriteGeneration
+        : 0;
+    }
+
+    function aggregateWriteGenerationMatchesDish(dishId, aggregateData) {
+      let dishData = get(/databases/$(database)/documents/bitescore_dishes/$(dishId)).data;
+      return validAggregateWriteGeneration(dishData) &&
+        validAggregateWriteGeneration(aggregateData) &&
+        aggregateWriteGenerationOrZero(aggregateData) ==
+          aggregateWriteGenerationOrZero(dishData);
+    }
+
+    function mergeLockBlocksClientReviews(dishId) {
+      return canonicalDishId(dishId) &&
+        exists(/databases/$(database)/documents/private_dish_merge_review_locks/$(dishId));
+    }
+
+    function reviewDataHasBlockingMergeLock(reviewData) {
+      return reviewData.keys().hasAny(['dishId']) &&
+        mergeLockBlocksClientReviews(reviewData.dishId);
+    }
+
+    function mergeLockBlocksClientAggregates(dishId) {
+      return canonicalDishId(dishId) &&
+        exists(/databases/$(database)/documents/private_dish_merge_review_locks/$(dishId));
+    }
+
+    function aggregateDataHasBlockingMergeLock(aggregateData) {
+      return aggregateData.keys().hasAny(['dishId']) &&
+        mergeLockBlocksClientAggregates(aggregateData.dishId);
     }
 
     function createsOwnReview() {
@@ -657,11 +731,12 @@ service cloud.firestore {
 
     match /bitescore_dishes/{dishId} {
       allow read: if true;
-      allow create: if isAdmin() ||
+      allow create: if canonicalDishId(dishId) &&
+        request.resource.data.id == dishId &&
+        aggregateWriteGenerationAbsentOnClientCreate() &&
         (
-          emailVerified() &&
-          request.resource.data.id == dishId &&
-          validBiteScoreDishCreateProvenance()
+          isAdmin() ||
+          (emailVerified() && validBiteScoreDishCreateProvenance())
         );
       allow update: if (
           isAdmin() ||
@@ -680,8 +755,11 @@ service cloud.firestore {
             ])
           )
         ) &&
-        biteScoreDishProvenanceUnchanged();
-      allow delete: if isAdmin();
+        biteScoreDishProvenanceUnchanged() &&
+        aggregateWriteGenerationUnchanged() &&
+        validAggregateWriteGeneration(request.resource.data);
+      allow delete: if isAdmin() &&
+        validAggregateWriteGeneration(resource.data);
     }
 
     match /dish_catalog/{catalogId} {
@@ -691,15 +769,38 @@ service cloud.firestore {
 
     match /dish_rating_aggregates/{dishId} {
       allow read: if true;
-      allow create, update: if isAdmin() || emailVerified();
-      allow delete: if isAdmin();
+      allow create: if (isAdmin() || emailVerified()) &&
+        aggregateDataMatchesDishIdentity(dishId, request.resource.data) &&
+        aggregateWriteGenerationMatchesDish(dishId, request.resource.data) &&
+        !mergeLockBlocksClientAggregates(dishId) &&
+        !aggregateDataHasBlockingMergeLock(request.resource.data);
+      allow update: if (isAdmin() || emailVerified()) &&
+        aggregateDataMatchesDishIdentity(dishId, resource.data) &&
+        aggregateDataMatchesDishIdentity(dishId, request.resource.data) &&
+        aggregateWriteGenerationMatchesDish(dishId, request.resource.data) &&
+        !mergeLockBlocksClientAggregates(dishId) &&
+        !aggregateDataHasBlockingMergeLock(resource.data) &&
+        !aggregateDataHasBlockingMergeLock(request.resource.data);
+      allow delete: if isAdmin() &&
+        aggregateDataMatchesDishIdentity(dishId, resource.data) &&
+        aggregateWriteGenerationMatchesDish(dishId, resource.data) &&
+        !mergeLockBlocksClientAggregates(dishId) &&
+        !aggregateDataHasBlockingMergeLock(resource.data);
     }
 
     match /dish_reviews/{reviewId} {
       allow read: if true;
-      allow create: if createsOwnReview();
-      allow update: if isAdmin() || updatesOwnReview();
-      allow delete: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
+      allow create: if createsOwnReview() &&
+        reviewDataHasCanonicalDishId(request.resource.data) &&
+        !reviewDataHasBlockingMergeLock(request.resource.data);
+      allow update: if (isAdmin() || updatesOwnReview()) &&
+        reviewDataHasCanonicalDishId(resource.data) &&
+        reviewDataHasCanonicalDishId(request.resource.data) &&
+        !reviewDataHasBlockingMergeLock(resource.data) &&
+        !reviewDataHasBlockingMergeLock(request.resource.data);
+      allow delete: if (isAdmin() || (signedIn() && resource.data.userId == request.auth.uid)) &&
+        reviewDataHasCanonicalDishId(resource.data) &&
+        !reviewDataHasBlockingMergeLock(resource.data);
     }
 
     match /bitescore_dish_images/{imageId} {
@@ -824,6 +925,10 @@ service cloud.firestore {
     }
 
     match /restaurant_invites/{inviteId} {
+      allow read, write: if false;
+    }
+
+    match /private_dish_merge_review_locks/{dishId} {
       allow read, write: if false;
     }
 
