@@ -1,6 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const {createHash} = require("node:crypto");
 const test = require("node:test");
 
 const {
@@ -28,6 +29,7 @@ const {
 } = require("../lib/subscription_return_ledger.js");
 
 const ownerUid = "ledger-owner";
+const ownerRecordGeneration = 7;
 const nowEpochMs = 1_900_000_000_000;
 
 function tokenFor(seed) {
@@ -36,6 +38,54 @@ function tokenFor(seed) {
 
 function hashFor(seed) {
   return hashSubscriptionReturnToken(tokenFor(seed));
+}
+
+function fingerprint(value) {
+  return createHash("sha256")
+    .update(JSON.stringify(value), "utf8")
+    .digest("hex");
+}
+
+function refingerprintLedger(state) {
+  for (const context of Object.values(state.contexts)) {
+    context.fingerprint = fingerprint([
+      context.schemaVersion,
+      context.ownerRecordGeneration,
+      context.family,
+      context.createdAtEpochMs,
+      context.expiresAtEpochMs,
+      context.ready,
+      context.consumedEventId,
+    ]);
+  }
+  for (const event of Object.values(state.events)) {
+    event.fingerprint = fingerprint([
+      event.schemaVersion,
+      event.eventId,
+      event.returnKind,
+      event.ownerUid,
+      event.restaurantAccountDocumentId,
+      event.ownerRecordGeneration,
+      event.createdAtEpochMs,
+      event.expiresAtEpochMs,
+      event.navigationClaimed,
+      event.refreshClaimed,
+    ]);
+  }
+  state.fingerprint = fingerprint([
+    state.schemaVersion,
+    state.ownerUid,
+    state.restaurantAccountDocumentId,
+    state.ownerRecordGeneration,
+    state.nextEventId,
+    Object.entries(state.contexts)
+      .sort(([left], [right]) => left.localeCompare(right)),
+    Object.entries(state.events)
+      .sort(([left], [right]) => Number(left) - Number(right)),
+    state.createdAtEpochMs,
+    state.updatedAtEpochMs,
+  ]);
+  return state;
 }
 
 function expectLedgerError(operation, code) {
@@ -52,6 +102,7 @@ function reserve(rawState, seed, overrides = {}) {
     rawState,
     ownerUid,
     restaurantAccountDocumentId: ownerUid,
+    ownerRecordGeneration,
     tokenHash: hashFor(seed),
     family: "checkout",
     nowEpochMs,
@@ -64,6 +115,7 @@ function ready(rawState, seed, overrides = {}) {
     rawState,
     ownerUid,
     restaurantAccountDocumentId: ownerUid,
+    ownerRecordGeneration,
     tokenHash: hashFor(seed),
     nowEpochMs,
     ...overrides,
@@ -75,6 +127,7 @@ function redeem(rawState, seed, returnKind = "checkoutSuccess", overrides = {}) 
     rawState,
     ownerUid,
     restaurantAccountDocumentId: ownerUid,
+    ownerRecordGeneration,
     tokenHash: hashFor(seed),
     returnKind,
     nowEpochMs,
@@ -298,6 +351,7 @@ test("reservation creates one private unready context with exact 24-hour lifetim
     rawState: undefined,
     ownerUid,
     restaurantAccountDocumentId: ownerUid,
+    ownerRecordGeneration,
     tokenHash,
     family: "checkout",
     nowEpochMs,
@@ -306,17 +360,27 @@ test("reservation creates one private unready context with exact 24-hour lifetim
   assert.equal(state.schemaVersion, subscriptionReturnLedgerSchemaVersion);
   assert.equal(state.ownerUid, ownerUid);
   assert.equal(state.restaurantAccountDocumentId, ownerUid);
+  assert.equal(state.ownerRecordGeneration, ownerRecordGeneration);
   assert.equal(state.nextEventId, 1);
   assert.deepEqual(state.events, {});
-  assert.deepEqual(state.contexts[tokenHash], {
-    schemaVersion: 1,
-    family: "checkout",
-    createdAtEpochMs: nowEpochMs,
-    expiresAtEpochMs:
-      nowEpochMs + subscriptionReturnLedgerLifetimeMilliseconds,
-    ready: false,
-    consumedEventId: null,
-  });
+  assert.equal(
+    state.contexts[tokenHash].schemaVersion,
+    subscriptionReturnLedgerSchemaVersion,
+  );
+  assert.equal(
+    state.contexts[tokenHash].ownerRecordGeneration,
+    ownerRecordGeneration,
+  );
+  assert.equal(state.contexts[tokenHash].family, "checkout");
+  assert.equal(state.contexts[tokenHash].createdAtEpochMs, nowEpochMs);
+  assert.equal(
+    state.contexts[tokenHash].expiresAtEpochMs,
+    nowEpochMs + subscriptionReturnLedgerLifetimeMilliseconds,
+  );
+  assert.equal(state.contexts[tokenHash].ready, false);
+  assert.equal(state.contexts[tokenHash].consumedEventId, null);
+  assert.match(state.contexts[tokenHash].fingerprint, /^[a-f0-9]{64}$/);
+  assert.match(state.fingerprint, /^[a-f0-9]{64}$/);
   assert.equal(JSON.stringify(state).includes(token), false);
 });
 
@@ -333,18 +397,29 @@ test("unready contexts cannot redeem, ready contexts redeem once, and replay con
   assert.equal(first.eventId, "1");
   assert.equal(first.state.nextEventId, 2);
   assert.equal(first.state.contexts[hashFor(4)].consumedEventId, "1");
-  assert.deepEqual(first.state.events["1"], {
-    schemaVersion: 1,
-    eventId: "1",
-    returnKind: "checkoutSuccess",
+  assert.equal(
+    first.state.events["1"].schemaVersion,
+    subscriptionReturnLedgerSchemaVersion,
+  );
+  assert.equal(first.state.events["1"].eventId, "1");
+  assert.equal(first.state.events["1"].returnKind, "checkoutSuccess");
+  assert.equal(first.state.events["1"].ownerUid, ownerUid);
+  assert.equal(
+    first.state.events["1"].restaurantAccountDocumentId,
     ownerUid,
-    restaurantAccountDocumentId: ownerUid,
-    createdAtEpochMs: nowEpochMs,
-    expiresAtEpochMs:
-      nowEpochMs + subscriptionReturnLedgerLifetimeMilliseconds,
-    navigationClaimed: false,
-    refreshClaimed: false,
-  });
+  );
+  assert.equal(
+    first.state.events["1"].ownerRecordGeneration,
+    ownerRecordGeneration,
+  );
+  assert.equal(first.state.events["1"].createdAtEpochMs, nowEpochMs);
+  assert.equal(
+    first.state.events["1"].expiresAtEpochMs,
+    nowEpochMs + subscriptionReturnLedgerLifetimeMilliseconds,
+  );
+  assert.equal(first.state.events["1"].navigationClaimed, false);
+  assert.equal(first.state.events["1"].refreshClaimed, false);
+  assert.match(first.state.events["1"].fingerprint, /^[a-f0-9]{64}$/);
   const replay = redeem(first.state, 4);
   assert.equal(replay.created, false);
   assert.equal(replay.eventId, "1");
@@ -418,6 +493,7 @@ test("expired contexts clean before capacity while future or overlong timestamps
       rawState: future,
       ownerUid,
       restaurantAccountDocumentId: ownerUid,
+      ownerRecordGeneration,
       nowEpochMs,
     }),
     "invalid_state",
@@ -433,6 +509,7 @@ test("expired contexts clean before capacity while future or overlong timestamps
       rawState: overlong,
       ownerUid,
       restaurantAccountDocumentId: ownerUid,
+      ownerRecordGeneration,
       nowEpochMs,
     }),
     "invalid_state",
@@ -443,7 +520,7 @@ test("malformed state, unknown schema, and future consumed-event references fail
   const fixtures = [
     null,
     {},
-    {...oneReadyContext(9), schemaVersion: 2},
+    {...oneReadyContext(9), schemaVersion: 99},
     {...oneReadyContext(9), unknown: true},
     {...oneReadyContext(9), contexts: []},
   ];
@@ -453,6 +530,7 @@ test("malformed state, unknown schema, and future consumed-event references fail
         rawState,
         ownerUid,
         restaurantAccountDocumentId: ownerUid,
+        ownerRecordGeneration,
         nowEpochMs,
       }),
       "invalid_state",
@@ -465,6 +543,7 @@ test("malformed state, unknown schema, and future consumed-event references fail
       rawState: futureReference,
       ownerUid,
       restaurantAccountDocumentId: ownerUid,
+      ownerRecordGeneration,
       nowEpochMs,
     }),
     "invalid_state",
@@ -480,6 +559,7 @@ test("malformed state, unknown schema, and future consumed-event references fail
       rawState: duplicateReference,
       ownerUid,
       restaurantAccountDocumentId: ownerUid,
+      ownerRecordGeneration,
       nowEpochMs,
     }),
     "invalid_state",
@@ -494,6 +574,7 @@ test("reducer boundaries reject malformed token hashes and return kinds before m
       rawState: state,
       ownerUid,
       restaurantAccountDocumentId: ownerUid,
+      ownerRecordGeneration,
       tokenHash: "not-a-hash",
       nowEpochMs,
     }),
@@ -501,6 +582,7 @@ test("reducer boundaries reject malformed token hashes and return kinds before m
       rawState: state,
       ownerUid,
       restaurantAccountDocumentId: ownerUid,
+      ownerRecordGeneration,
       tokenHash: "not-a-hash",
       nowEpochMs,
     }),
@@ -508,6 +590,7 @@ test("reducer boundaries reject malformed token hashes and return kinds before m
       rawState: state,
       ownerUid,
       restaurantAccountDocumentId: ownerUid,
+      ownerRecordGeneration,
       tokenHash: "not-a-hash",
       returnKind: "checkoutSuccess",
       nowEpochMs,
@@ -516,6 +599,7 @@ test("reducer boundaries reject malformed token hashes and return kinds before m
       rawState: state,
       ownerUid,
       restaurantAccountDocumentId: ownerUid,
+      ownerRecordGeneration,
       tokenHash: hashFor(17),
       returnKind: "invalid",
       nowEpochMs,
@@ -547,6 +631,7 @@ test("unsafe near-maximum clocks and child timestamps after state updates fail c
       rawState: state,
       ownerUid,
       restaurantAccountDocumentId: ownerUid,
+      ownerRecordGeneration,
       nowEpochMs: unsafeNow,
     }),
     "invalid_state",
@@ -561,6 +646,7 @@ test("unsafe near-maximum clocks and child timestamps after state updates fail c
       rawState: staleUpdate,
       ownerUid,
       restaurantAccountDocumentId: ownerUid,
+      ownerRecordGeneration,
       nowEpochMs: nowEpochMs + 1,
     }),
     "invalid_state",
@@ -589,6 +675,7 @@ test("backward clock movement within skew keeps state and child timestamps monot
     rawState: redeemed.state,
     ownerUid,
     restaurantAccountDocumentId: ownerUid,
+    ownerRecordGeneration,
     eventId: "1",
     claimType: "navigation",
     nowEpochMs: backwardEpochMs,
@@ -598,6 +685,7 @@ test("backward clock movement within skew keeps state and child timestamps monot
     rawState: claimed.state,
     ownerUid,
     restaurantAccountDocumentId: ownerUid,
+    ownerRecordGeneration,
     nowEpochMs: backwardEpochMs,
   });
   assert.equal(listed.events.length, 1);
@@ -610,6 +698,7 @@ test("navigation and refresh claims are independent, atomic state transitions", 
     rawState: redeemed.state,
     ownerUid,
     restaurantAccountDocumentId: ownerUid,
+    ownerRecordGeneration,
     eventId: redeemed.eventId,
     claimType: "navigation",
     nowEpochMs,
@@ -622,6 +711,7 @@ test("navigation and refresh claims are independent, atomic state transitions", 
     rawState: navigation.state,
     ownerUid,
     restaurantAccountDocumentId: ownerUid,
+    ownerRecordGeneration,
     eventId: "1",
     claimType: "navigation",
     nowEpochMs,
@@ -633,6 +723,7 @@ test("navigation and refresh claims are independent, atomic state transitions", 
     rawState: duplicate.state,
     ownerUid,
     restaurantAccountDocumentId: ownerUid,
+    ownerRecordGeneration,
     eventId: "1",
     claimType: "refresh",
     nowEpochMs,
@@ -646,6 +737,7 @@ test("navigation and refresh claims are independent, atomic state transitions", 
       rawState: refresh.state,
       ownerUid,
       restaurantAccountDocumentId: ownerUid,
+      ownerRecordGeneration,
       eventId: "1",
       claimType: "unknown",
       nowEpochMs,
@@ -662,6 +754,7 @@ test("list returns only safe bounded events and later cleanup retains consumed t
     rawState: redeemed.state,
     ownerUid,
     restaurantAccountDocumentId: ownerUid,
+    ownerRecordGeneration,
     nowEpochMs,
   });
   assert.equal(listed.events.length, 1);
@@ -682,6 +775,7 @@ test("list returns only safe bounded events and later cleanup retains consumed t
     rawState: redeemed.state,
     ownerUid,
     restaurantAccountDocumentId: ownerUid,
+    ownerRecordGeneration,
     eventId: "1",
     claimType: "navigation",
     nowEpochMs,
@@ -690,6 +784,7 @@ test("list returns only safe bounded events and later cleanup retains consumed t
     rawState: navigation.state,
     ownerUid,
     restaurantAccountDocumentId: ownerUid,
+    ownerRecordGeneration,
     eventId: "1",
     claimType: "refresh",
     nowEpochMs,
@@ -698,6 +793,7 @@ test("list returns only safe bounded events and later cleanup retains consumed t
     rawState: completed.state,
     ownerUid,
     restaurantAccountDocumentId: ownerUid,
+    ownerRecordGeneration,
     nowEpochMs,
   });
   assert.deepEqual(cleaned.events, []);
@@ -708,6 +804,7 @@ test("list returns only safe bounded events and later cleanup retains consumed t
       rawState: cleaned.state,
       ownerUid,
       restaurantAccountDocumentId: ownerUid,
+      ownerRecordGeneration,
       tokenHash,
       family: "checkout",
       nowEpochMs,
@@ -738,19 +835,22 @@ test("event capacity is exactly 32 and full state does not consume a context or 
   for (let id = 1; id <= subscriptionReturnLedgerMaximumEvents; id += 1) {
     const eventId = String(id);
     state.events[eventId] = {
-      schemaVersion: 1,
+      schemaVersion: subscriptionReturnLedgerSchemaVersion,
       eventId,
       returnKind: "checkoutSuccess",
       ownerUid,
       restaurantAccountDocumentId: ownerUid,
+      ownerRecordGeneration,
       createdAtEpochMs: nowEpochMs,
       expiresAtEpochMs:
         nowEpochMs + subscriptionReturnLedgerLifetimeMilliseconds,
       navigationClaimed: false,
       refreshClaimed: false,
+      fingerprint: "",
     };
   }
   state.nextEventId = subscriptionReturnLedgerMaximumEvents + 1;
+  refingerprintLedger(state);
   expectLedgerError(
     () => redeem(state, 13),
     "capacity_exhausted",
@@ -765,6 +865,7 @@ test("unready cleanup removes only the exact unready context and never a ready c
     rawState: unready,
     ownerUid,
     restaurantAccountDocumentId: ownerUid,
+    ownerRecordGeneration,
     tokenHash: hashFor(14),
     nowEpochMs,
   });
@@ -775,6 +876,7 @@ test("unready cleanup removes only the exact unready context and never a ready c
     rawState: markedReady,
     ownerUid,
     restaurantAccountDocumentId: ownerUid,
+    ownerRecordGeneration,
     tokenHash: hashFor(15),
     nowEpochMs,
   });
@@ -787,6 +889,7 @@ test("missing ledger lists empty without creating server state", () => {
       rawState: undefined,
       ownerUid,
       restaurantAccountDocumentId: ownerUid,
+      ownerRecordGeneration,
       nowEpochMs,
     }),
     {state: null, changed: false, events: []},

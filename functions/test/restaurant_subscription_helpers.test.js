@@ -199,7 +199,7 @@ test("subscription helper source requires an atomic update and has no create pat
   assert.doesNotMatch(source, /from\s+["']\.\/index\.js["']/);
 });
 
-test("Stripe webhook wiring uses the existing-only helper without logging merged metadata", () => {
+test("Stripe webhook wiring updates only an existing generation-bound account without logging metadata", () => {
   const source = readFileSync(
     path.resolve(__dirname, "../src/index.ts"),
     "utf8",
@@ -214,9 +214,11 @@ test("Stripe webhook wiring uses the existing-only helper without logging merged
   assert.ok(syncStart >= 0 && syncEnd > syncStart);
   const syncSource = source.slice(syncStart, syncEnd);
 
-  assert.match(syncSource, /updateExistingRestaurantSubscription\(/);
-  assert.match(syncSource, /updateResult === "missing-account"/);
-  assert.doesNotMatch(syncSource, /\.set\(updateData/);
+  assert.match(syncSource, /transaction\.get\(accountRef\)/);
+  assert.match(syncSource, /!accountSnapshot\.exists/);
+  assert.match(syncSource, /accountGeneration !== incoming\.ownerRecordGeneration/);
+  assert.match(syncSource, /transaction\.update\(accountRef, updateData\)/);
+  assert.doesNotMatch(syncSource, /transaction\.set\(accountRef/);
   assert.doesNotMatch(syncSource, /\{\s*subscriptionId:[\s\S]*?\bmetadata\s*,/);
 });
 

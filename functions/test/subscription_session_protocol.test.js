@@ -18,18 +18,20 @@ const checkoutCancelBaseUrl =
 const portalBaseUrl =
   "https://app.bitestar.app/subscription/portal-return";
 const stripePriceId = "price_1TJKGjBwoT6e93tVkesJPfxD";
+const ownerBillingMetadataVersion = "bitestar.owner-billing-metadata.v1";
 
 const canaries = Object.freeze({
   apiSecret: "sk_test_session_protocol_fake_secret",
   checkoutUrl: "https://checkout.stripe.test/session/synthetic-secret",
-  customer: "cus_session_protocol_customer",
+  checkoutSession: "cs_test_sessionprotocolcheckout",
+  customer: "cus_sessionprotocolcustomer",
   document: "restaurant_accounts/session-protocol-owner",
   email: "session-protocol-owner@example.test",
   paymentIntent: "pi_session_protocol_payment",
   portalUrl: "https://billing.stripe.test/session/synthetic-secret",
   rawError: "raw-provider-session-protocol-error",
   stack: "Error: synthetic provider stack",
-  subscription: "sub_session_protocol_subscription",
+  subscription: "sub_sessionprotocolsubscription",
   uid: "session-protocol-owner",
 });
 
@@ -54,10 +56,18 @@ function createHarness() {
     accountLookupFailure: null,
     billingPortalCalls: [],
     billingPortalFailure: null,
+    billingPortalStateSnapshots: [],
     billingPortalResponse: {url: canaries.portalUrl},
+    checkoutBillingStateSnapshots: [],
+    checkoutBeforeResponse: null,
     checkoutCalls: [],
+    checkoutOptions: [],
     checkoutFailure: null,
-    checkoutResponse: {url: canaries.checkoutUrl},
+    checkoutResponse: {
+      id: canaries.checkoutSession,
+      customer: canaries.customer,
+      url: canaries.checkoutUrl,
+    },
     dbCalls: [],
     globalOptions: [],
     hashCalls: 0,
@@ -67,6 +77,14 @@ function createHarness() {
     ledgerWrites: [],
     logs: [],
     operationTimeline: [],
+    ownerBillingDocument: undefined,
+    ownerBillingReads: [],
+    ownerBillingVersion: 0,
+    ownerBillingWrites: [],
+    ownerRecordDocument: undefined,
+    ownerRecordReads: [],
+    ownerRecordVersion: 0,
+    ownerRecordWrites: [],
     parameterValue: portalBaseUrl,
     randomBytesCalls: 0,
     randomBytesQueue: [],
@@ -90,10 +108,18 @@ function createHarness() {
     state.accountLookupFailure = null;
     state.billingPortalCalls = [];
     state.billingPortalFailure = null;
+    state.billingPortalStateSnapshots = [];
     state.billingPortalResponse = {url: canaries.portalUrl};
+    state.checkoutBillingStateSnapshots = [];
+    state.checkoutBeforeResponse = null;
     state.checkoutCalls = [];
+    state.checkoutOptions = [];
     state.checkoutFailure = null;
-    state.checkoutResponse = {url: canaries.checkoutUrl};
+    state.checkoutResponse = {
+      id: canaries.checkoutSession,
+      customer: canaries.customer,
+      url: canaries.checkoutUrl,
+    };
     state.dbCalls = [];
     state.hashCalls = 0;
     state.ledgerDocument = undefined;
@@ -102,6 +128,14 @@ function createHarness() {
     state.ledgerWrites = [];
     state.logs = [];
     state.operationTimeline = [];
+    state.ownerBillingDocument = undefined;
+    state.ownerBillingReads = [];
+    state.ownerBillingVersion = 0;
+    state.ownerBillingWrites = [];
+    state.ownerRecordDocument = undefined;
+    state.ownerRecordReads = [];
+    state.ownerRecordVersion = 0;
+    state.ownerRecordWrites = [];
     state.parameterValue = portalBaseUrl;
     state.randomBytesCalls = 0;
     state.randomBytesQueue = [];
@@ -112,6 +146,90 @@ function createHarness() {
     state.transactionCallbackAttempts = 0;
     state.transactionCommits = 0;
     state.writes = [];
+  }
+
+  function seedOwnerState(ownerState = "open", generation = 0) {
+    const now = new Date();
+    state.ownerRecordDocument = ownerState === "open" && generation === 0
+      ? createInitialOwnerRecordState(canaries.uid, now)
+      : buildOwnerRecordStateDocument({
+        ownerUid: canaries.uid,
+        generation,
+        state: ownerState,
+        activeJobId: ownerState === "removing"
+          ? "job_session_protocol_removal"
+          : null,
+        createdAt: now,
+        updatedAt: now,
+      });
+    state.ownerRecordVersion += 1;
+    return structuredClone(state.ownerRecordDocument);
+  }
+
+  function seedKnownBillingState(rawStripeStatus = "active") {
+    const now = new Date();
+    const ownerRecord = state.ownerRecordDocument === undefined
+      ? seedOwnerState()
+      : structuredClone(state.ownerRecordDocument);
+    const checkoutAttemptId = "attempt_session_protocol_checkout";
+    state.ownerBillingDocument = buildOwnerBillingStateDocument({
+      ownerUid: canaries.uid,
+      ownerRecordGeneration: ownerRecord.generation,
+      lifecycleState: "subscription_known",
+      rawStripeStatus,
+      billingPosture: classifyOwnerBillingRawStripeStatus(rawStripeStatus),
+      stripeCustomerId: canaries.customer,
+      stripeSubscriptionId: canaries.subscription,
+      checkoutAttemptId,
+      checkoutRequestFingerprint: "a".repeat(64),
+      checkoutAttemptCreatedAt: now,
+      checkoutSessionId: canaries.checkoutSession,
+      lastStripeEventCreated: 1_900_000_000,
+      lastStripeEventId: "evt_sessionprotocolactive",
+      lastStripeEventPayloadFingerprint: "b".repeat(64),
+      stripeEventConflictKind: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    state.ownerBillingVersion += 1;
+    return structuredClone(state.ownerBillingDocument);
+  }
+
+  function seedCheckoutBillingState(lifecycleState) {
+    assert.ok(
+      lifecycleState === "checkout_pending" || lifecycleState === "unknown",
+    );
+    const now = new Date();
+    const ownerRecord = state.ownerRecordDocument === undefined
+      ? seedOwnerState()
+      : structuredClone(state.ownerRecordDocument);
+    state.ownerBillingDocument = buildOwnerBillingStateDocument({
+      ownerUid: canaries.uid,
+      ownerRecordGeneration: ownerRecord.generation,
+      lifecycleState,
+      rawStripeStatus: null,
+      billingPosture: lifecycleState === "unknown"
+        ? "unknown"
+        : "blocking",
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
+      checkoutAttemptId: "attempt_session_protocol_checkout",
+      checkoutRequestFingerprint: "a".repeat(64),
+      checkoutAttemptCreatedAt: now,
+      checkoutSessionId: null,
+      lastStripeEventCreated: null,
+      lastStripeEventId: null,
+      lastStripeEventPayloadFingerprint: null,
+      stripeEventConflictKind: null,
+      createdAt: now,
+      updatedAt: now,
+    });
+    state.ownerBillingVersion += 1;
+    return structuredClone(state.ownerBillingDocument);
+  }
+
+  function seedActiveBillingState() {
+    return seedKnownBillingState("active");
   }
 
   const db = {
@@ -171,8 +289,12 @@ function createHarness() {
       };
       const runAttempt = async (commit) => {
         const pendingLedgerWrites = [];
+        const pendingOwnerBillingWrites = [];
+        const pendingOwnerRecordWrites = [];
         const pendingWrites = [];
         let ledgerReadVersion = null;
+        let ownerBillingReadVersion = null;
+        let ownerRecordReadVersion = null;
         state.transactionCallbackAttempts += 1;
         const result = await callback({
           async get(reference) {
@@ -192,6 +314,36 @@ function createHarness() {
                 data: () => ledgerSnapshot === undefined
                   ? undefined
                   : structuredClone(ledgerSnapshot),
+                ref: reference,
+              };
+            }
+            if (reference.path.startsWith("private_owner_record_states/")) {
+              state.operationTimeline.push({operation: "ownerRecordRead"});
+              state.ownerRecordReads.push(reference.path);
+              ownerRecordReadVersion = state.ownerRecordVersion;
+              const snapshot = state.ownerRecordDocument === undefined
+                ? undefined
+                : structuredClone(state.ownerRecordDocument);
+              return {
+                exists: snapshot !== undefined,
+                data: () => snapshot === undefined
+                  ? undefined
+                  : structuredClone(snapshot),
+                ref: reference,
+              };
+            }
+            if (reference.path.startsWith("private_owner_billing_states/")) {
+              state.operationTimeline.push({operation: "ownerBillingRead"});
+              state.ownerBillingReads.push(reference.path);
+              ownerBillingReadVersion = state.ownerBillingVersion;
+              const snapshot = state.ownerBillingDocument === undefined
+                ? undefined
+                : structuredClone(state.ownerBillingDocument);
+              return {
+                exists: snapshot !== undefined,
+                data: () => snapshot === undefined
+                  ? undefined
+                  : structuredClone(snapshot),
                 ref: reference,
               };
             }
@@ -238,6 +390,22 @@ function createHarness() {
               });
               return;
             }
+            if (reference.path.startsWith("private_owner_record_states/")) {
+              pendingOwnerRecordWrites.push({
+                operation: "set",
+                path: reference.path,
+                data: structuredClone(data),
+              });
+              return;
+            }
+            if (reference.path.startsWith("private_owner_billing_states/")) {
+              pendingOwnerBillingWrites.push({
+                operation: "set",
+                path: reference.path,
+                data: structuredClone(data),
+              });
+              return;
+            }
             pendingWrites.push({
               operation: "set",
               path: reference.path,
@@ -252,12 +420,42 @@ function createHarness() {
           ) {
             return {conflict: true, result};
           }
+          if (
+            pendingOwnerRecordWrites.length > 0 &&
+            ownerRecordReadVersion !== state.ownerRecordVersion
+          ) {
+            return {conflict: true, result};
+          }
+          if (
+            pendingOwnerBillingWrites.length > 0 &&
+            ownerBillingReadVersion !== state.ownerBillingVersion
+          ) {
+            return {conflict: true, result};
+          }
           for (const write of pendingLedgerWrites) {
             state.ledgerDocument = structuredClone(write.data);
             state.ledgerVersion += 1;
             state.ledgerWrites.push(write);
             state.operationTimeline.push({
               operation: "ledgerCommit",
+              data: structuredClone(write.data),
+            });
+          }
+          for (const write of pendingOwnerRecordWrites) {
+            state.ownerRecordDocument = structuredClone(write.data);
+            state.ownerRecordVersion += 1;
+            state.ownerRecordWrites.push(write);
+            state.operationTimeline.push({
+              operation: "ownerRecordCommit",
+              data: structuredClone(write.data),
+            });
+          }
+          for (const write of pendingOwnerBillingWrites) {
+            state.ownerBillingDocument = structuredClone(write.data);
+            state.ownerBillingVersion += 1;
+            state.ownerBillingWrites.push(write);
+            state.operationTimeline.push({
+              operation: "ownerBillingCommit",
               data: structuredClone(write.data),
             });
           }
@@ -304,6 +502,9 @@ function createHarness() {
             state.billingPortalCalls.push(
               structuredClone(parameters),
             );
+            state.billingPortalStateSnapshots.push(
+              structuredClone(state.ownerBillingDocument),
+            );
             if (state.billingPortalFailure !== null) {
               throw state.billingPortalFailure;
             }
@@ -313,11 +514,18 @@ function createHarness() {
       };
       this.checkout = {
         sessions: {
-          create: async (parameters) => {
+          create: async (parameters, options) => {
             state.operationTimeline.push({operation: "checkoutCreate"});
             state.checkoutCalls.push(structuredClone(parameters));
+            state.checkoutOptions.push(structuredClone(options));
+            state.checkoutBillingStateSnapshots.push(
+              structuredClone(state.ownerBillingDocument),
+            );
             if (state.checkoutFailure !== null) {
               throw state.checkoutFailure;
+            }
+            if (state.checkoutBeforeResponse !== null) {
+              await state.checkoutBeforeResponse();
             }
             return state.checkoutResponse;
           },
@@ -463,6 +671,10 @@ function createHarness() {
     redeemBiteSaverSubscriptionReturn:
       entryPoint.redeemBiteSaverSubscriptionReturn,
     reset,
+    seedActiveBillingState,
+    seedCheckoutBillingState,
+    seedKnownBillingState,
+    seedOwnerState,
     state,
   };
 }
@@ -551,14 +763,48 @@ function normalizeCheckoutPayload(payload, returnToken) {
   return normalized;
 }
 
-function historicalCreateCheckoutPayload({includeTrial}) {
-  const subscriptionData = {
-    metadata: {
+function assertCheckoutMetadata(payload) {
+  const metadata = payload.metadata;
+  assert.deepEqual(payload.subscription_data.metadata, metadata);
+  assert.deepEqual(Object.keys(metadata).sort(), [
+    "billingPlanName",
+    "checkoutAttemptId",
+    "contractVersion",
+    "ownerRecordGeneration",
+    "ownerUid",
+    "restaurantAccountId",
+    "source",
+  ]);
+  assert.equal(metadata.contractVersion, ownerBillingMetadataVersion);
+  assert.equal(metadata.ownerUid, canaries.uid);
+  assert.equal(metadata.restaurantAccountId, canaries.uid);
+  assert.equal(metadata.ownerRecordGeneration, "0");
+  assert.match(
+    metadata.checkoutAttemptId,
+    /^attempt_[A-Za-z0-9_-]{43}$/,
+  );
+  assert.equal(metadata.billingPlanName, "coupon_monthly");
+  assert.equal(metadata.source, "bitesaver_subscription");
+  return metadata;
+}
+
+function assertCheckoutIdempotency(state, callIndex, metadata) {
+  assert.deepEqual(state.checkoutOptions[callIndex], {
+    idempotencyKey: ownerBillingStripeIdempotencyKey({
       ownerUid: canaries.uid,
-      restaurantAccountId: canaries.uid,
-      billingPlanName: "coupon_monthly",
-      source: "bitesaver_subscription",
-    },
+      ownerRecordGeneration: Number(metadata.ownerRecordGeneration),
+      checkoutAttemptId: metadata.checkoutAttemptId,
+    }),
+  });
+  assert.match(
+    state.checkoutOptions[callIndex].idempotencyKey,
+    /^bsco_[a-f0-9]{64}$/,
+  );
+}
+
+function historicalCreateCheckoutPayload({includeTrial, metadata}) {
+  const subscriptionData = {
+    metadata,
   };
   if (includeTrial) {
     subscriptionData.trial_period_days = 60;
@@ -572,19 +818,14 @@ function historicalCreateCheckoutPayload({includeTrial}) {
       },
     ],
     subscription_data: subscriptionData,
-    metadata: {
-      ownerUid: canaries.uid,
-      restaurantAccountId: canaries.uid,
-      billingPlanName: "coupon_monthly",
-      source: "bitesaver_subscription",
-    },
+    metadata,
     client_reference_id: canaries.uid,
     success_url: checkoutSuccessBaseUrl,
     cancel_url: checkoutCancelBaseUrl,
   };
 }
 
-function historicalSubscriptionCheckoutPayload() {
+function historicalSubscriptionCheckoutPayload(metadata) {
   return {
     mode: "subscription",
     line_items: [
@@ -596,17 +837,9 @@ function historicalSubscriptionCheckoutPayload() {
     success_url: checkoutSuccessBaseUrl,
     cancel_url: checkoutCancelBaseUrl,
     client_reference_id: canaries.uid,
-    metadata: {
-      ownerUid: canaries.uid,
-      restaurantAccountId: canaries.uid,
-      source: "bitesaver_subscription",
-    },
+    metadata,
     subscription_data: {
-      metadata: {
-        ownerUid: canaries.uid,
-        restaurantAccountId: canaries.uid,
-        source: "bitesaver_subscription",
-      },
+      metadata,
     },
   };
 }
@@ -637,12 +870,27 @@ function exportedConstants(source) {
 }
 
 const harness = createHarness();
+const {
+  buildOwnerRecordStateDocument,
+  createInitialOwnerRecordState,
+} = require("../lib/owner_record_state_contract.js");
+const {
+  buildOwnerBillingStateDocument,
+  classifyOwnerBillingRawStripeStatus,
+} = require("../lib/owner_billing_state_contract.js");
+const {
+  deriveOwnerBillingReturnToken,
+  ownerBillingStripeIdempotencyKey,
+} = require("../lib/owner_billing_lifecycle.js");
+const {
+  reserveSubscriptionReturnContext,
+} = require("../lib/subscription_return_ledger.js");
 
 test.beforeEach(() => {
   harness.reset();
 });
 
-test("runtime, region, secret bindings, exports, production caller, and webhook source remain stable", () => {
+test("runtime, region, secret bindings, exports, production caller, and generation-aware webhook wiring remain stable", () => {
   const repositoryRoot = path.resolve(__dirname, "../..");
   const source = readFileSync(
     path.join(repositoryRoot, "functions/src/index.ts"),
@@ -762,20 +1010,23 @@ test("runtime, region, secret bindings, exports, production caller, and webhook 
     "export const processProximityPushRequest",
     webhookStart,
   );
-  const baseWebhookStart =
-    baseSource.indexOf("export const stripeWebhook");
-  const baseWebhookEnd = baseSource.indexOf(
-    "export const processProximityPushRequest",
-    baseWebhookStart,
-  );
   assert.ok(webhookStart >= 0 && webhookEnd > webhookStart);
-  assert.ok(
-    baseWebhookStart >= 0 &&
-      baseWebhookEnd > baseWebhookStart,
+  const webhookSource = source.slice(webhookStart, webhookEnd);
+  assert.match(
+    webhookSource,
+    /await bindCompletedCheckoutSession\(\{session, subscription\}\)/,
   );
-  assert.equal(
-    source.slice(webhookStart, webhookEnd),
-    baseSource.slice(baseWebhookStart, baseWebhookEnd),
+  assert.match(
+    webhookSource,
+    /case "customer\.subscription\.paused":/,
+  );
+  assert.match(
+    webhookSource,
+    /case "customer\.subscription\.resumed":/,
+  );
+  assert.match(
+    webhookSource,
+    /await syncRestaurantSubscriptionFromStripe\(subscription, event\)/,
   );
 });
 
@@ -859,12 +1110,19 @@ test("production createCheckoutSession preserves its complete trial-eligible Str
   ]);
   assert.equal(result.url, canaries.checkoutUrl);
   assert.equal(result.returnProtocolVersion, 2);
+  const metadata = assertCheckoutMetadata(
+    harness.state.checkoutCalls[0],
+  );
+  assertCheckoutIdempotency(harness.state, 0, metadata);
   assert.deepEqual(
     normalizeCheckoutPayload(
       harness.state.checkoutCalls[0],
       result.returnToken,
     ),
-    historicalCreateCheckoutPayload({includeTrial: true}),
+    historicalCreateCheckoutPayload({
+      includeTrial: true,
+      metadata,
+    }),
   );
   assert.equal(
     harness.state.checkoutCalls[0]
@@ -898,6 +1156,28 @@ test("production createCheckoutSession preserves its complete trial-eligible Str
     },
   ]);
   assert.deepEqual(harness.state.logs, []);
+  assert.equal(harness.state.ownerRecordDocument.state, "open");
+  assert.equal(harness.state.ownerRecordDocument.generation, 0);
+  assert.equal(
+    harness.state.ownerBillingDocument.lifecycleState,
+    "checkout_pending",
+  );
+  assert.equal(
+    harness.state.ownerBillingDocument.billingPosture,
+    "blocking",
+  );
+  assert.equal(
+    harness.state.ownerBillingDocument.checkoutAttemptId,
+    metadata.checkoutAttemptId,
+  );
+  assert.equal(
+    harness.state.ownerBillingDocument.checkoutSessionId,
+    canaries.checkoutSession,
+  );
+  assert.equal(
+    harness.state.ownerBillingDocument.stripeCustomerId,
+    canaries.customer,
+  );
   assertNoWritesOrSensitiveLogs(harness.state, [result.returnToken]);
 });
 
@@ -909,12 +1189,19 @@ test("production createCheckoutSession preserves used-trial recurring billing wi
   );
 
   assert.equal(harness.state.checkoutCalls.length, 1);
+  const metadata = assertCheckoutMetadata(
+    harness.state.checkoutCalls[0],
+  );
+  assertCheckoutIdempotency(harness.state, 0, metadata);
   assert.deepEqual(
     normalizeCheckoutPayload(
       harness.state.checkoutCalls[0],
       result.returnToken,
     ),
-    historicalCreateCheckoutPayload({includeTrial: false}),
+    historicalCreateCheckoutPayload({
+      includeTrial: false,
+      metadata,
+    }),
   );
   assert.equal(
     Object.hasOwn(
@@ -947,12 +1234,16 @@ test("compatibility createSubscriptionCheckoutSession tokenizes while preserving
   ]);
   assert.equal(result.checkoutUrl, canaries.checkoutUrl);
   assert.equal(result.returnProtocolVersion, 2);
+  const metadata = assertCheckoutMetadata(
+    harness.state.checkoutCalls[0],
+  );
+  assertCheckoutIdempotency(harness.state, 0, metadata);
   assert.deepEqual(
     normalizeCheckoutPayload(
       harness.state.checkoutCalls[0],
       result.returnToken,
     ),
-    historicalSubscriptionCheckoutPayload(),
+    historicalSubscriptionCheckoutPayload(metadata),
   );
   assert.equal(
     Object.hasOwn(
@@ -972,6 +1263,7 @@ test("compatibility createSubscriptionCheckoutSession tokenizes while preserving
 });
 
 test("createCustomerPortalSession preserves customer and configuration with only a tokenized canonical return URL", async () => {
+  const originalBilling = harness.seedActiveBillingState();
   const result = await harness.createCustomerPortalSession(
     authenticatedRequest(),
   );
@@ -1010,51 +1302,293 @@ test("createCustomerPortalSession preserves customer and configuration with only
     },
   ]);
   assert.deepEqual(harness.state.logs, []);
+  assert.deepEqual(
+    harness.state.billingPortalStateSnapshots,
+    [originalBilling],
+  );
+  assert.deepEqual(harness.state.ownerBillingDocument, originalBilling);
   assertNoWritesOrSensitiveLogs(harness.state, [result.returnToken]);
 });
 
-test("fresh sessions receive distinct response tokens that exactly match only their own return URLs", async () => {
-  const productionCheckout =
-    await harness.createCheckoutSession(authenticatedRequest());
-  const compatibilityCheckout =
-    await harness.createSubscriptionCheckoutSession(
-      authenticatedRequest(),
-    );
-  const portal = await harness.createCustomerPortalSession(
+test("an exact Checkout retry reuses one attempt, token, payload, and Stripe idempotency identity", async () => {
+  const first = await harness.createCheckoutSession(
     authenticatedRequest(),
   );
-  const tokens = [
-    productionCheckout.returnToken,
-    compatibilityCheckout.returnToken,
-    portal.returnToken,
-  ];
-
-  assert.equal(new Set(tokens).size, 3);
-  assert.equal(
-    tokenFromReturnUrl(
-      harness.state.checkoutCalls[0].success_url,
-      checkoutSuccessBaseUrl,
-    ),
-    productionCheckout.returnToken,
+  const second = await harness.createCheckoutSession(
+    authenticatedRequest(),
   );
+
+  assert.equal(first.returnToken, second.returnToken);
+  assert.deepEqual(harness.state.checkoutCalls[1], {
+    ...harness.state.checkoutCalls[0],
+  });
+  assert.deepEqual(
+    harness.state.checkoutOptions[1],
+    harness.state.checkoutOptions[0],
+  );
+  assert.equal(
+    harness.state.checkoutCalls[0].metadata.checkoutAttemptId,
+    harness.state.checkoutCalls[1].metadata.checkoutAttemptId,
+  );
+  assert.equal(harness.state.randomBytesCalls, 1);
   assert.equal(
     tokenFromReturnUrl(
       harness.state.checkoutCalls[1].success_url,
       checkoutSuccessBaseUrl,
     ),
-    compatibilityCheckout.returnToken,
+    first.returnToken,
+  );
+  assert.equal(
+    Object.keys(harness.state.ledgerDocument.contexts).length,
+    1,
+  );
+  assertNoWritesOrSensitiveLogs(harness.state, [first.returnToken]);
+});
+
+test("an exact retry after an uncertain Stripe failure reuses the same attempt and resolves it without a second independent identity", async () => {
+  harness.state.checkoutFailure = {
+    name: "StripeAPIError",
+    type: "StripeAPIError",
+    message: canaries.rawError,
+  };
+  await assert.rejects(
+    () => harness.createCheckoutSession(authenticatedRequest()),
+    (error) => error instanceof MockHttpsError && error.code === "internal",
+  );
+  const firstPayload = structuredClone(harness.state.checkoutCalls[0]);
+  const firstOptions = structuredClone(harness.state.checkoutOptions[0]);
+  const firstToken = tokenFromReturnUrl(
+    firstPayload.success_url,
+    checkoutSuccessBaseUrl,
+  );
+  assert.equal(
+    harness.state.ownerBillingDocument.lifecycleState,
+    "unknown",
+  );
+
+  harness.state.checkoutFailure = null;
+  const recovered = await harness.createCheckoutSession(
+    authenticatedRequest(),
+  );
+
+  assert.equal(recovered.returnToken, firstToken);
+  assert.deepEqual(harness.state.checkoutCalls, [
+    firstPayload,
+    firstPayload,
+  ]);
+  assert.deepEqual(harness.state.checkoutOptions, [
+    firstOptions,
+    firstOptions,
+  ]);
+  assert.equal(harness.state.randomBytesCalls, 1);
+  assert.equal(
+    harness.state.ownerBillingDocument.lifecycleState,
+    "checkout_pending",
+  );
+  assert.equal(
+    harness.state.ownerBillingDocument.checkoutSessionId,
+    canaries.checkoutSession,
+  );
+  assert.equal(
+    harness.state.ownerBillingDocument.stripeCustomerId,
+    canaries.customer,
+  );
+  assert.equal(
+    harness.state.ledgerDocument.contexts[hashReturnToken(firstToken)].ready,
+    true,
+  );
+});
+
+test("a different Checkout request conflicts with a pending attempt before a second Stripe call", async () => {
+  const first = await harness.createCheckoutSession(
+    authenticatedRequest(),
+  );
+  const firstAttemptId =
+    harness.state.ownerBillingDocument.checkoutAttemptId;
+
+  await assert.rejects(
+    () => harness.createSubscriptionCheckoutSession(
+      authenticatedRequest(),
+    ),
+    (error) => {
+      assert.ok(error instanceof MockHttpsError);
+      assert.equal(error.code, "internal");
+      assert.equal(error.message, "Could not start Stripe Checkout.");
+      return true;
+    },
+  );
+
+  assert.equal(harness.state.checkoutCalls.length, 1);
+  assert.equal(harness.state.randomBytesCalls, 1);
+  assert.equal(
+    harness.state.ownerBillingDocument.checkoutAttemptId,
+    firstAttemptId,
   );
   assert.equal(
     tokenFromReturnUrl(
-      harness.state.billingPortalCalls[0].return_url,
-      portalBaseUrl,
+      harness.state.checkoutCalls[0].success_url,
+      checkoutSuccessBaseUrl,
     ),
-    portal.returnToken,
+    first.returnToken,
   );
-  for (const token of tokens) {
-    assert.equal(JSON.stringify(harness.state.logs).includes(token), false);
+});
+
+test("removing and removed owner generations block both Checkout writers and the Customer Portal before Stripe", async () => {
+  for (const ownerState of ["removing", "removed"]) {
+    for (const callable of [
+      harness.createCheckoutSession,
+      harness.createSubscriptionCheckoutSession,
+      harness.createCustomerPortalSession,
+    ]) {
+      harness.reset();
+      harness.seedOwnerState(ownerState, 1);
+      harness.seedKnownBillingState("active");
+
+      await assert.rejects(
+        () => callable(authenticatedRequest()),
+        (error) => error instanceof MockHttpsError,
+      );
+
+      assert.deepEqual(harness.state.checkoutCalls, []);
+      assert.deepEqual(harness.state.billingPortalCalls, []);
+      assert.equal(harness.state.randomBytesCalls, 0);
+      assert.deepEqual(harness.state.ownerBillingWrites, []);
+      assert.deepEqual(harness.state.ledgerWrites, []);
+    }
   }
-  assertNoWritesOrSensitiveLogs(harness.state, tokens);
+});
+
+test("every potentially billable known Stripe status blocks both Checkout writers before Stripe", async () => {
+  for (const rawStripeStatus of [
+    "active",
+    "trialing",
+    "past_due",
+    "unpaid",
+    "incomplete",
+    "paused",
+  ]) {
+    for (const callable of [
+      harness.createCheckoutSession,
+      harness.createSubscriptionCheckoutSession,
+    ]) {
+      harness.reset();
+      harness.seedKnownBillingState(rawStripeStatus);
+
+      await assert.rejects(
+        () => callable(authenticatedRequest()),
+        (error) => error instanceof MockHttpsError,
+      );
+
+      assert.deepEqual(harness.state.checkoutCalls, []);
+      assert.deepEqual(harness.state.checkoutOptions, []);
+      assert.equal(harness.state.randomBytesCalls, 0);
+      assert.deepEqual(harness.state.ownerBillingWrites, []);
+      assert.deepEqual(harness.state.ledgerWrites, []);
+    }
+  }
+});
+
+test("exact terminal known Stripe statuses start one fresh pending attempt through both Checkout writers", async () => {
+  const checkoutWriters = [
+    {
+      callable: harness.createCheckoutSession,
+      responseUrlField: "url",
+    },
+    {
+      callable: harness.createSubscriptionCheckoutSession,
+      responseUrlField: "checkoutUrl",
+    },
+  ];
+  for (const rawStripeStatus of [
+    "canceled",
+    "incomplete_expired",
+  ]) {
+    for (const writer of checkoutWriters) {
+      harness.reset();
+      const terminalState =
+        harness.seedKnownBillingState(rawStripeStatus);
+
+      const result = await writer.callable(authenticatedRequest());
+
+      assert.equal(result[writer.responseUrlField], canaries.checkoutUrl);
+      assert.equal(harness.state.checkoutCalls.length, 1);
+      assert.equal(harness.state.checkoutOptions.length, 1);
+      assert.equal(harness.state.randomBytesCalls, 1);
+      assert.equal(
+        harness.state.checkoutCalls[0].customer,
+        terminalState.stripeCustomerId,
+      );
+      const metadata = assertCheckoutMetadata(
+        harness.state.checkoutCalls[0],
+      );
+      assertCheckoutIdempotency(harness.state, 0, metadata);
+      assert.notEqual(
+        metadata.checkoutAttemptId,
+        terminalState.checkoutAttemptId,
+      );
+      assert.equal(
+        harness.state.checkoutBillingStateSnapshots[0].lifecycleState,
+        "checkout_pending",
+      );
+      assert.equal(
+        harness.state.checkoutBillingStateSnapshots[0].rawStripeStatus,
+        null,
+      );
+      assert.equal(
+        harness.state.checkoutBillingStateSnapshots[0]
+          .stripeSubscriptionId,
+        null,
+      );
+      assert.equal(
+        harness.state.ownerBillingDocument.lifecycleState,
+        "checkout_pending",
+      );
+      assert.equal(
+        harness.state.ownerBillingDocument.checkoutAttemptId,
+        metadata.checkoutAttemptId,
+      );
+      assert.equal(
+        harness.state.ownerBillingDocument.checkoutSessionId,
+        canaries.checkoutSession,
+      );
+      assert.equal(
+        harness.state.ownerBillingDocument.stripeCustomerId,
+        canaries.customer,
+      );
+    }
+  }
+});
+
+test("the Customer Portal requires a known subscription and an exact current customer", async () => {
+  const unavailableFixtures = [
+    () => harness.seedOwnerState(),
+    () => harness.seedCheckoutBillingState("checkout_pending"),
+    () => harness.seedCheckoutBillingState("unknown"),
+    () => {
+      harness.seedActiveBillingState();
+      harness.state.accountDocument.stripeCustomerId = "cus_mismatch";
+    },
+  ];
+
+  for (const configure of unavailableFixtures) {
+    harness.reset();
+    configure();
+    await assert.rejects(
+      () => harness.createCustomerPortalSession(authenticatedRequest()),
+      (error) => {
+        assert.ok(error instanceof MockHttpsError);
+        assert.equal(error.code, "internal");
+        assert.equal(
+          error.message,
+          "Unable to open subscription management right now.",
+        );
+        return true;
+      },
+    );
+    assert.deepEqual(harness.state.billingPortalCalls, []);
+    assert.equal(harness.state.randomBytesCalls, 0);
+    assert.deepEqual(harness.state.ledgerWrites, []);
+  }
 });
 
 test("Checkout failures expose only fixed callable errors and sanitized token-free log metadata", async () => {
@@ -1117,6 +1651,7 @@ test("Checkout failures expose only fixed callable errors and sanitized token-fr
 });
 
 test("Portal failures expose no return token, customer, URL, or raw provider detail", async () => {
+  harness.seedActiveBillingState();
   harness.state.billingPortalFailure = {
     name: "StripeAPIError",
     type: "StripeAPIError",
@@ -1226,23 +1761,33 @@ test("production Checkout account lookup failures are sanitized and create no St
   assertNoWritesOrSensitiveLogs(harness.state);
 });
 
-test("production session authorizes before token generation and activates only after Stripe succeeds", async () => {
+test("production session commits generation-bound pending state before Stripe and remains pending until webhook", async () => {
   const response = await harness.createCheckoutSession(
     authenticatedRequest(),
   );
   const tokenHash = hashReturnToken(response.returnToken);
-  assert.deepEqual(
-    harness.state.operationTimeline.map((entry) => entry.operation),
-    [
-      "accountRead",
-      "ledgerRead",
-      "tokenGenerated",
-      "tokenHashed",
-      "ledgerCommit",
-      "checkoutCreate",
-      "ledgerRead",
-      "ledgerCommit",
-    ],
+  const operations = harness.state.operationTimeline.map(
+    (entry) => entry.operation,
+  );
+  const checkoutIndex = operations.indexOf("checkoutCreate");
+  for (const requiredCommit of [
+    "ownerRecordCommit",
+    "ownerBillingCommit",
+    "ledgerCommit",
+  ]) {
+    assert.ok(operations.indexOf(requiredCommit) < checkoutIndex);
+  }
+  assert.ok(operations.indexOf("accountRead") < checkoutIndex);
+  assert.ok(operations.indexOf("ownerRecordRead") < checkoutIndex);
+  assert.ok(operations.indexOf("ownerBillingRead") < checkoutIndex);
+  assert.ok(operations.indexOf("ledgerRead") < checkoutIndex);
+  assert.equal(
+    harness.state.checkoutBillingStateSnapshots[0].lifecycleState,
+    "checkout_pending",
+  );
+  assert.equal(
+    harness.state.checkoutBillingStateSnapshots[0].checkoutSessionId,
+    null,
   );
   const commits = harness.state.operationTimeline.filter(
     (entry) => entry.operation === "ledgerCommit",
@@ -1251,12 +1796,74 @@ test("production session authorizes before token generation and activates only a
   assert.equal(commits[0].data.contexts[tokenHash].ready, false);
   assert.equal(commits[1].data.contexts[tokenHash].ready, true);
   assert.equal(
+    harness.state.ownerBillingDocument.lifecycleState,
+    "checkout_pending",
+  );
+  assert.equal(
+    harness.state.ownerBillingDocument.checkoutSessionId,
+    canaries.checkoutSession,
+  );
+  assert.equal(
+    harness.state.ownerBillingDocument.stripeCustomerId,
+    canaries.customer,
+  );
+  assert.equal(
     JSON.stringify(harness.state.ledgerDocument).includes(
       response.returnToken,
     ),
     false,
   );
   assert.deepEqual(harness.state.writes, []);
+});
+
+test("a post-Stripe owner-generation transition prevents session binding and withholds the Checkout URL", async () => {
+  harness.state.checkoutBeforeResponse = () => {
+    harness.seedOwnerState("removing", 1);
+  };
+
+  await assert.rejects(
+    () => harness.createCheckoutSession(authenticatedRequest()),
+    (error) => {
+      assert.ok(error instanceof MockHttpsError);
+      assert.equal(error.code, "internal");
+      assert.equal(error.message, "Failed to create checkout session");
+      return true;
+    },
+  );
+
+  assert.equal(harness.state.checkoutCalls.length, 1);
+  assert.equal(harness.state.ownerRecordDocument.state, "removing");
+  assert.equal(harness.state.ownerRecordDocument.generation, 1);
+  assert.equal(
+    harness.state.ownerBillingDocument.ownerRecordGeneration,
+    0,
+  );
+  assert.equal(
+    harness.state.ownerBillingDocument.lifecycleState,
+    "unknown",
+  );
+  assert.equal(
+    harness.state.ownerBillingDocument.checkoutSessionId,
+    null,
+  );
+  assert.equal(
+    harness.state.ownerBillingDocument.stripeCustomerId,
+    null,
+  );
+  const returnToken = tokenFromReturnUrl(
+    harness.state.checkoutCalls[0].success_url,
+    checkoutSuccessBaseUrl,
+  );
+  assert.equal(
+    harness.state.ledgerDocument.contexts[
+      hashReturnToken(returnToken)
+    ].ready,
+    false,
+  );
+  assert.equal(
+    JSON.stringify(harness.state.logs).includes(returnToken),
+    false,
+  );
 });
 
 test("missing, mismatched, or cross-document accounts generate no token and read no private state", async () => {
@@ -1311,29 +1918,32 @@ test("missing, mismatched, or cross-document accounts generate no token and read
 });
 
 test("token-hash collision retries with a fresh authorized candidate and one Stripe session", async () => {
-  const firstToken = deterministicReturnToken(21);
-  const secondToken = deterministicReturnToken(22);
+  const firstAttemptId =
+    `attempt_${Buffer.alloc(32, 21).toString("base64url")}`;
+  const secondAttemptId =
+    `attempt_${Buffer.alloc(32, 22).toString("base64url")}`;
+  const firstToken = deriveOwnerBillingReturnToken({
+    ownerUid: canaries.uid,
+    ownerRecordGeneration: 0,
+    checkoutAttemptId: firstAttemptId,
+  });
+  const secondToken = deriveOwnerBillingReturnToken({
+    ownerUid: canaries.uid,
+    ownerRecordGeneration: 0,
+    checkoutAttemptId: secondAttemptId,
+  });
   const firstHash = hashReturnToken(firstToken);
   const now = Date.now();
-  harness.state.ledgerDocument = {
-    schemaVersion: 1,
+  harness.state.ledgerDocument = reserveSubscriptionReturnContext({
+    rawState: undefined,
     ownerUid: canaries.uid,
     restaurantAccountDocumentId: canaries.uid,
-    nextEventId: 1,
-    contexts: {
-      [firstHash]: {
-        schemaVersion: 1,
-        family: "checkout",
-        createdAtEpochMs: now,
-        expiresAtEpochMs: now + 86_400_000,
-        ready: true,
-        consumedEventId: null,
-      },
-    },
-    events: {},
-    createdAtEpochMs: now,
-    updatedAtEpochMs: now,
-  };
+    ownerRecordGeneration: 0,
+    tokenHash: firstHash,
+    family: "checkout",
+    nowEpochMs: now,
+  });
+  harness.state.ledgerVersion += 1;
   harness.state.randomBytesQueue = [
     Buffer.alloc(32, 21),
     Buffer.alloc(32, 22),
@@ -1466,7 +2076,7 @@ test("claim transaction failure discards staged claim state without a partial wr
   assert.equal(recovered.claimed, true);
 });
 
-test("Stripe failure removes only the unready context and leaks no token", async () => {
+test("Stripe failure preserves one unready return context and one unknown retryable billing attempt", async () => {
   harness.state.checkoutFailure = {
     name: "StripeAPIError",
     type: "StripeAPIError",
@@ -1487,8 +2097,34 @@ test("Stripe failure removes only the unready context and leaks no token", async
     harness.state.checkoutCalls[0].success_url,
     checkoutSuccessBaseUrl,
   );
-  assert.deepEqual(harness.state.ledgerDocument.contexts, {});
+  const context =
+    harness.state.ledgerDocument.contexts[hashReturnToken(token)];
+  assert.equal(context.ready, false);
+  assert.equal(context.consumedEventId, null);
   assert.deepEqual(harness.state.ledgerDocument.events, {});
+  assert.equal(
+    harness.state.ownerBillingDocument.lifecycleState,
+    "unknown",
+  );
+  assert.equal(
+    harness.state.ownerBillingDocument.billingPosture,
+    "unknown",
+  );
+  assert.equal(
+    harness.state.ownerBillingDocument.checkoutAttemptId,
+    harness.state.checkoutCalls[0].metadata.checkoutAttemptId,
+  );
+  assert.equal(
+    harness.state.ownerBillingDocument.checkoutRequestFingerprint,
+    harness.state.checkoutBillingStateSnapshots[0]
+      .checkoutRequestFingerprint,
+  );
+  assert.equal(
+    harness.state.ownerBillingDocument.checkoutAttemptCreatedAt
+      .getTime(),
+    harness.state.checkoutBillingStateSnapshots[0]
+      .checkoutAttemptCreatedAt.getTime(),
+  );
   assert.equal(JSON.stringify(harness.state.logs).includes(token), false);
   assertNoWritesOrSensitiveLogs(harness.state, [token]);
 });
@@ -1660,7 +2296,7 @@ test("redeem, claim, and list enforce ownership and replay cleaned tombstones sa
   assert.deepEqual(harness.state.writes, []);
 });
 
-test("new return handlers reject missing account ownership before private-state access", async () => {
+test("new return handlers reject missing account ownership before parsing or mutating private state", async () => {
   const token = deterministicReturnToken(23);
   for (const invoke of [
     () => harness.redeemBiteSaverSubscriptionReturn(
@@ -1680,12 +2316,17 @@ test("new return handlers reject missing account ownership before private-state 
       assert.equal(error.code, "permission-denied");
       return true;
     });
-    assert.deepEqual(harness.state.ledgerReads, []);
+    assert.deepEqual(harness.state.ledgerReads, [
+      `private_subscription_return_state/${canaries.uid}`,
+    ]);
+    assert.deepEqual(harness.state.ownerRecordReads, [
+      `private_owner_record_states/${canaries.uid}`,
+    ]);
     assert.equal(harness.state.hashCalls, 0);
     assert.deepEqual(harness.state.ledgerWrites, []);
     assert.deepEqual(
       harness.state.operationTimeline.map((entry) => entry.operation),
-      ["accountRead"],
+      ["accountRead", "ownerRecordRead", "ledgerRead"],
     );
   }
 });

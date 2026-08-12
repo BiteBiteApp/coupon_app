@@ -64,7 +64,41 @@ import {
   type BiteSaverAccountSnapshot,
   type BiteSaverTransactionDecision,
 } from "./bitesaver_restaurant_profile.js";
-import { updateExistingRestaurantSubscription } from "./restaurant_subscription_helpers.js";
+import {
+  classifyOwnerBillingRawStripeStatus,
+  createCheckoutPendingOwnerBillingState,
+  initializeOwnerBillingState,
+  markCheckoutUncertain,
+  ownerBillingStateCollection,
+  parseOwnerBillingStateDocument,
+  recordCheckoutSession,
+  type OwnerBillingStateDocument,
+} from "./owner_billing_state_contract.js";
+import {
+  deriveOwnerBillingReturnToken,
+  generateOwnerBillingCheckoutAttemptId,
+  OwnerBillingLifecycleError,
+  ownerBillingCheckoutRequestFingerprint,
+  ownerBillingStripeIdempotencyKey,
+  requireOwnerBillingPortalGate,
+  requireReusableOwnerBillingCheckoutAttempt,
+  type OwnerBillingCheckoutVariant,
+} from "./owner_billing_lifecycle.js";
+import {
+  applyOwnerBillingUnknownStatusWebhookEvent,
+  applyOwnerBillingWebhookEvent,
+  createOwnerBillingUnknownStatusWebhookEvent,
+  createOwnerBillingStripeMetadata,
+  createOwnerBillingWebhookEvent,
+  ownerBillingStripeMetadataContractVersion,
+  requireMatchingOwnerBillingStripeMetadata,
+} from "./owner_billing_webhook.js";
+import {
+  initializeOwnerRecordState,
+  ownerRecordStateCollection,
+  parseOwnerRecordStateDocument,
+  type OwnerRecordStateDocument,
+} from "./owner_record_state_contract.js";
 import {
   SubscriptionPortalConfigurationError,
   requireCanonicalSubscriptionPortalReturnUrl,
@@ -72,7 +106,6 @@ import {
 import {
   buildSubscriptionCheckoutReturnUrls,
   buildSubscriptionReturnUrl,
-  generateSubscriptionReturnToken,
   subscriptionReturnProtocolVersion,
   subscriptionReturnUpdateRequiredMessage,
 } from "./subscription_return_token.js";
@@ -280,12 +313,49 @@ type ReservedSubscriptionReturnContext = Readonly<{
   returnToken: string;
   tokenHash: string;
   accountData: DocumentData;
+  ownerState: OwnerRecordStateDocument;
+  billingState: OwnerBillingStateDocument;
+  checkoutStripeCustomerId: string | null;
 }>;
 
 function subscriptionReturnStateRef(restaurantAccountDocumentId: string) {
   return db
     .collection(subscriptionReturnLedgerCollection)
     .doc(restaurantAccountDocumentId);
+}
+
+function ownerRecordStateRef(ownerUid: string) {
+  return db.collection(ownerRecordStateCollection).doc(ownerUid);
+}
+
+function ownerBillingStateRef(ownerUid: string) {
+  return db.collection(ownerBillingStateCollection).doc(ownerUid);
+}
+
+function storedDocument(
+  documentId: string,
+  snapshot: {exists: boolean; data(): DocumentData | undefined},
+) {
+  return snapshot.exists
+    ? {id: documentId, data: snapshot.data() ?? {}}
+    : null;
+}
+
+function requireOpenReturnOwnerState(
+  ownerUid: string,
+  snapshot: {exists: boolean; data(): DocumentData | undefined},
+): OwnerRecordStateDocument {
+  try {
+    const ownerState = parseOwnerRecordStateDocument(
+      storedDocument(ownerUid, snapshot),
+    );
+    if (ownerState === null || ownerState.state !== "open") {
+      throw new Error("owner state unavailable");
+    }
+    return ownerState;
+  } catch {
+    throw new SubscriptionReturnLedgerError("context_unavailable");
+  }
 }
 
 function throwSubscriptionReturnLedgerHttpsError(error: unknown): never {
@@ -326,6 +396,13 @@ async function reserveServerSubscriptionReturnContext(params: {
   restaurantAccountDocumentId: string;
   family: SubscriptionReturnFamily;
   validateAccount?: (accountData: DocumentData) => void;
+  checkout?: Readonly<{
+    variant: OwnerBillingCheckoutVariant;
+    priceId: string;
+    successBaseUrl: string;
+    cancelBaseUrl: string;
+    trialPeriodDays: number | null;
+  }>;
 }): Promise<ReservedSubscriptionReturnContext> {
   const accountRef = db
     .collection("restaurant_accounts")
@@ -333,6 +410,8 @@ async function reserveServerSubscriptionReturnContext(params: {
   const stateRef = subscriptionReturnStateRef(
     params.restaurantAccountDocumentId,
   );
+  const recordStateRef = ownerRecordStateRef(params.ownerUid);
+  const billingStateRef = ownerBillingStateRef(params.ownerUid);
 
   for (
     let attempt = 0;
@@ -352,8 +431,109 @@ async function reserveServerSubscriptionReturnContext(params: {
         });
         const safeAccountData = rawAccountData ?? {};
         params.validateAccount?.(safeAccountData);
-        const stateSnapshot = await transaction.get(stateRef);
-        const returnToken = generateSubscriptionReturnToken();
+        const [recordSnapshot, billingSnapshot, stateSnapshot] =
+          await Promise.all([
+            transaction.get(recordStateRef),
+            transaction.get(billingStateRef),
+            transaction.get(stateRef),
+          ]);
+        const now = new Date();
+        const initializedOwner = initializeOwnerRecordState(
+          storedDocument(params.ownerUid, recordSnapshot),
+          params.ownerUid,
+          now,
+        );
+        const initializedBilling = initializeOwnerBillingState(
+          storedDocument(params.ownerUid, billingSnapshot),
+          initializedOwner.state,
+          now,
+        );
+        let billingState = initializedBilling.state;
+        let returnToken: string;
+        let allowExistingTokenHash = false;
+        let checkoutStripeCustomerId: string | null = null;
+        if (params.checkout !== undefined) {
+          const checkoutDescriptor = {
+            ...params.checkout,
+            trialPeriodDays:
+              params.checkout.variant === "primary" &&
+                safeAccountData.hasUsedTrial === true
+                ? null
+                : params.checkout.trialPeriodDays,
+            metadataContractVersion:
+              ownerBillingStripeMetadataContractVersion,
+          };
+          if (
+            billingState.lifecycleState === "none" ||
+            (billingState.lifecycleState === "subscription_known" &&
+              billingState.billingPosture === "inactive")
+          ) {
+            checkoutStripeCustomerId = billingState.stripeCustomerId;
+            const requestFingerprint =
+              ownerBillingCheckoutRequestFingerprint({
+                ...checkoutDescriptor,
+                stripeCustomerId: checkoutStripeCustomerId,
+              });
+            const checkoutAttemptId =
+              generateOwnerBillingCheckoutAttemptId();
+            billingState = createCheckoutPendingOwnerBillingState(
+              billingState,
+              {
+                checkoutAttemptId,
+                checkoutRequestFingerprint: requestFingerprint,
+                checkoutAttemptCreatedAt: now,
+                now,
+              },
+            );
+          } else {
+            const candidateCustomerIds = billingState.stripeCustomerId === null
+              ? [null]
+              : [billingState.stripeCustomerId, null];
+            let matchedExistingRequest = false;
+            for (const candidateCustomerId of candidateCustomerIds) {
+              if (
+                ownerBillingCheckoutRequestFingerprint({
+                  ...checkoutDescriptor,
+                  stripeCustomerId: candidateCustomerId,
+                }) === billingState.checkoutRequestFingerprint
+              ) {
+                checkoutStripeCustomerId = candidateCustomerId;
+                matchedExistingRequest = true;
+                break;
+              }
+            }
+            if (!matchedExistingRequest) {
+              checkoutStripeCustomerId = billingState.stripeCustomerId;
+            }
+            const requestFingerprint =
+              ownerBillingCheckoutRequestFingerprint({
+                ...checkoutDescriptor,
+                stripeCustomerId: checkoutStripeCustomerId,
+              });
+            billingState = requireReusableOwnerBillingCheckoutAttempt({
+              billingState,
+              checkoutRequestFingerprint: requestFingerprint,
+              now,
+            });
+            allowExistingTokenHash = true;
+          }
+          returnToken = deriveOwnerBillingReturnToken({
+            ownerUid: params.ownerUid,
+            ownerRecordGeneration: initializedOwner.state.generation,
+            checkoutAttemptId: billingState.checkoutAttemptId,
+          });
+        } else {
+          if (initializedOwner.created || initializedBilling.created) {
+            throw new OwnerBillingLifecycleError("billing_unavailable");
+          }
+          requireOwnerBillingPortalGate({
+            ownerState: initializedOwner.state,
+            billingState,
+            stripeCustomerId: safeAccountData.stripeCustomerId,
+          });
+          returnToken = generateOwnerBillingCheckoutAttemptId()
+            .slice("attempt_".length);
+        }
         const tokenHash = hashSubscriptionReturnToken(returnToken);
         const nextState = reserveSubscriptionReturnContext({
           rawState: stateSnapshot.exists
@@ -362,12 +542,27 @@ async function reserveServerSubscriptionReturnContext(params: {
           ownerUid: params.ownerUid,
           restaurantAccountDocumentId:
             params.restaurantAccountDocumentId,
+          ownerRecordGeneration: initializedOwner.state.generation,
           tokenHash,
           family: params.family,
           nowEpochMs: Date.now(),
+          allowExistingTokenHash,
         });
+        if (initializedOwner.created) {
+          transaction.set(recordStateRef, initializedOwner.state);
+        }
+        if (params.checkout !== undefined) {
+          transaction.set(billingStateRef, billingState);
+        }
         transaction.set(stateRef, nextState);
-        return Object.freeze({returnToken, tokenHash, accountData: safeAccountData});
+        return Object.freeze({
+          returnToken,
+          tokenHash,
+          accountData: safeAccountData,
+          ownerState: initializedOwner.state,
+          billingState,
+          checkoutStripeCustomerId,
+        });
       });
     } catch (error) {
       if (
@@ -385,6 +580,7 @@ async function reserveServerSubscriptionReturnContext(params: {
 async function markServerSubscriptionReturnContextReady(params: {
   ownerUid: string;
   restaurantAccountDocumentId: string;
+  ownerRecordGeneration: number;
   tokenHash: string;
 }): Promise<void> {
   const stateRef = subscriptionReturnStateRef(
@@ -399,6 +595,7 @@ async function markServerSubscriptionReturnContextReady(params: {
       rawState: stateSnapshot.data(),
       ownerUid: params.ownerUid,
       restaurantAccountDocumentId: params.restaurantAccountDocumentId,
+      ownerRecordGeneration: params.ownerRecordGeneration,
       tokenHash: params.tokenHash,
       nowEpochMs: Date.now(),
     });
@@ -409,6 +606,7 @@ async function markServerSubscriptionReturnContextReady(params: {
 async function removeUnreadyServerSubscriptionReturnContext(params: {
   ownerUid: string;
   restaurantAccountDocumentId: string;
+  ownerRecordGeneration: number;
   tokenHash: string;
 }): Promise<void> {
   const stateRef = subscriptionReturnStateRef(
@@ -423,6 +621,7 @@ async function removeUnreadyServerSubscriptionReturnContext(params: {
       rawState: stateSnapshot.data(),
       ownerUid: params.ownerUid,
       restaurantAccountDocumentId: params.restaurantAccountDocumentId,
+      ownerRecordGeneration: params.ownerRecordGeneration,
       tokenHash: params.tokenHash,
       nowEpochMs: Date.now(),
     });
@@ -433,6 +632,7 @@ async function removeUnreadyServerSubscriptionReturnContext(params: {
 async function bestEffortRemoveUnreadySubscriptionReturnContext(params: {
   ownerUid: string;
   restaurantAccountDocumentId: string;
+  ownerRecordGeneration: number;
   tokenHash: string;
 }): Promise<void> {
   try {
@@ -442,6 +642,79 @@ async function bestEffortRemoveUnreadySubscriptionReturnContext(params: {
       reason: "context_cleanup_failed",
     });
   }
+}
+
+async function markServerCheckoutUncertain(params: {
+  ownerUid: string;
+  ownerRecordGeneration: number;
+  checkoutAttemptId: string | null;
+}): Promise<void> {
+  if (params.checkoutAttemptId === null) {
+    return;
+  }
+  const billingRef = ownerBillingStateRef(params.ownerUid);
+  try {
+    await db.runTransaction(async (transaction) => {
+      const snapshot = await transaction.get(billingRef);
+      const current = parseOwnerBillingStateDocument(
+        storedDocument(params.ownerUid, snapshot),
+      );
+      if (
+        current === null ||
+        current.ownerRecordGeneration !== params.ownerRecordGeneration ||
+        current.checkoutAttemptId !== params.checkoutAttemptId ||
+        current.lifecycleState !== "checkout_pending"
+      ) {
+        return;
+      }
+      transaction.set(billingRef, markCheckoutUncertain(current, new Date()));
+    });
+  } catch {
+    logger.warn("Owner billing Checkout uncertainty persistence incomplete", {
+      reason: "state_update_failed",
+    });
+  }
+}
+
+async function recordServerCheckoutSession(params: {
+  ownerUid: string;
+  ownerRecordGeneration: number;
+  checkoutAttemptId: string | null;
+  checkoutSessionId: string;
+  stripeCustomerId: string | null;
+}): Promise<void> {
+  if (params.checkoutAttemptId === null) {
+    throw new Error("Owner billing Checkout attempt is unavailable.");
+  }
+  const ownerRef = ownerRecordStateRef(params.ownerUid);
+  const billingRef = ownerBillingStateRef(params.ownerUid);
+  await db.runTransaction(async (transaction) => {
+    const [ownerSnapshot, billingSnapshot] = await Promise.all([
+      transaction.get(ownerRef),
+      transaction.get(billingRef),
+    ]);
+    const ownerState = parseOwnerRecordStateDocument(
+      storedDocument(params.ownerUid, ownerSnapshot),
+    );
+    const current = parseOwnerBillingStateDocument(
+      storedDocument(params.ownerUid, billingSnapshot),
+    );
+    if (
+      ownerState === null ||
+      current === null ||
+      ownerState.state !== "open" ||
+      ownerState.generation !== params.ownerRecordGeneration ||
+      current.ownerRecordGeneration !== params.ownerRecordGeneration ||
+      current.checkoutAttemptId !== params.checkoutAttemptId
+    ) {
+      throw new Error("Owner billing Checkout state changed.");
+    }
+    transaction.set(billingRef, recordCheckoutSession(current, {
+      checkoutSessionId: params.checkoutSessionId,
+      stripeCustomerId: params.stripeCustomerId,
+      now: new Date(),
+    }));
+  });
 }
 
 function biteSaverAccountSnapshot(
@@ -2845,7 +3118,7 @@ async function recalculateLocalExpertBadgesForUser(
 }
 
 function mapStripeStatusToAppStatus(
-  status: Stripe.Subscription.Status,
+  status: Stripe.Subscription.Status | string,
 ): string {
   switch (status) {
     case "trialing":
@@ -2853,110 +3126,178 @@ function mapStripeStatusToAppStatus(
     case "active":
       return "active";
     case "canceled":
-    case "unpaid":
     case "incomplete_expired":
       return "inactive";
     default:
-      return "inactive";
+      return "active";
   }
-}
-
-async function resolveRestaurantAccountUid(params: {
-  ownerUid?: string | null;
-  restaurantAccountId?: string | null;
-  stripeCustomerId?: string | null;
-}): Promise<string | null> {
-  const ownerUid = params.ownerUid?.trim();
-  if (ownerUid) {
-    return ownerUid;
-  }
-
-  const restaurantAccountId = params.restaurantAccountId?.trim();
-  if (restaurantAccountId) {
-    return restaurantAccountId;
-  }
-
-  const stripeCustomerId = params.stripeCustomerId?.trim();
-  if (!stripeCustomerId) {
-    return null;
-  }
-
-  const snapshot = await db
-    .collection("restaurant_accounts")
-    .where("stripeCustomerId", "==", stripeCustomerId)
-    .limit(1)
-    .get();
-
-  if (snapshot.empty) {
-    return null;
-  }
-
-  return snapshot.docs[0].id;
 }
 
 async function syncRestaurantSubscriptionFromStripe(
   subscription: Stripe.Subscription,
-  fallbackMetadata?: Record<string, string>,
+  event: Stripe.Event,
 ): Promise<void> {
-  const metadata = {
-    ...(fallbackMetadata ?? {}),
-    ...(subscription.metadata ?? {}),
-  };
-
   const stripeCustomerId =
     typeof subscription.customer === "string"
       ? subscription.customer
       : (subscription.customer?.id ?? null);
+  const runtimeStripeStatus: unknown = subscription.status;
+  const hasUnknownStatus =
+    classifyOwnerBillingRawStripeStatus(runtimeStripeStatus) === "unknown";
+  const incoming = hasUnknownStatus
+    ? createOwnerBillingUnknownStatusWebhookEvent({
+      metadata: subscription.metadata,
+      stripeCustomerId,
+      stripeSubscriptionId: subscription.id,
+      rawStripeStatus: runtimeStripeStatus,
+      eventType: event.type,
+      eventCreated: event.created,
+      eventId: event.id,
+    })
+    : createOwnerBillingWebhookEvent({
+      metadata: subscription.metadata,
+      stripeCustomerId,
+      stripeSubscriptionId: subscription.id,
+      rawStripeStatus: runtimeStripeStatus,
+      eventType: event.type,
+      eventCreated: event.created,
+      eventId: event.id,
+    });
+  let updateData: Record<string, unknown> | null = null;
+  if (!hasUnknownStatus) {
+    const supportedStripeStatus =
+      runtimeStripeStatus as Stripe.Subscription.Status;
+    const subscriptionStatus =
+      mapStripeStatusToAppStatus(supportedStripeStatus);
+    const couponPostingEnabled =
+      supportedStripeStatus === "active" ||
+      supportedStripeStatus === "trialing";
+    const trialEndsAt =
+      subscriptionStatus === "trialing"
+        ? unixSecondsToTimestamp(subscription.trial_end)
+        : null;
+    updateData = {
+      subscriptionStatus,
+      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      trialEndsAt,
+      subscriptionEndsAt:
+        unixSecondsToTimestamp((subscription as any).current_period_end) ??
+        unixSecondsToTimestamp(subscription.ended_at) ??
+        unixSecondsToTimestamp(subscription.canceled_at),
+      stripeCustomerId,
+      stripeSubscriptionId: subscription.id,
+      billingPlanName: "coupon_monthly",
+      couponPostingEnabled,
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+    if (couponPostingEnabled) {
+      updateData.hasUsedTrial = true;
+    }
+  }
 
-  const restaurantUid = await resolveRestaurantAccountUid({
-    ownerUid: metadata.ownerUid,
-    restaurantAccountId: metadata.restaurantAccountId,
-    stripeCustomerId,
+  const ownerUid = incoming.ownerUid;
+  const ownerRef = ownerRecordStateRef(ownerUid);
+  const billingRef = ownerBillingStateRef(ownerUid);
+  const accountRef = db.collection("restaurant_accounts").doc(ownerUid);
+  await db.runTransaction(async (transaction) => {
+    const [ownerSnapshot, billingSnapshot, accountSnapshot] =
+      await Promise.all([
+        transaction.get(ownerRef),
+        transaction.get(billingRef),
+        transaction.get(accountRef),
+      ]);
+    const ownerState = parseOwnerRecordStateDocument(
+      storedDocument(ownerUid, ownerSnapshot),
+    );
+    const billingState = parseOwnerBillingStateDocument(
+      storedDocument(ownerUid, billingSnapshot),
+    );
+    if (ownerState === null || billingState === null) {
+      return;
+    }
+    const result = "statusKind" in incoming
+      ? applyOwnerBillingUnknownStatusWebhookEvent({
+        owner: ownerState,
+        current: billingState,
+        incoming,
+        now: new Date(),
+      })
+      : applyOwnerBillingWebhookEvent({
+        owner: ownerState,
+        current: billingState,
+        incoming,
+        now: new Date(),
+      });
+    if (result.changed) {
+      transaction.set(billingRef, result.state);
+    }
+    if (
+      updateData === null ||
+      !result.decision.allowAccountRootUpdate ||
+      !accountSnapshot.exists
+    ) {
+      return;
+    }
+    const accountData = accountSnapshot.data() ?? {};
+    const accountGeneration = accountData.ownerRecordGeneration;
+    if (
+      (accountGeneration !== undefined &&
+        accountGeneration !== incoming.ownerRecordGeneration) ||
+      (typeof accountData.stripeCustomerId === "string" &&
+        accountData.stripeCustomerId.trim() !== "" &&
+        accountData.stripeCustomerId !== incoming.stripeCustomerId) ||
+      (billingState.stripeSubscriptionId !== null &&
+        typeof accountData.stripeSubscriptionId === "string" &&
+        accountData.stripeSubscriptionId.trim() !== "" &&
+        accountData.stripeSubscriptionId !== incoming.stripeSubscriptionId)
+    ) {
+      return;
+    }
+    transaction.update(accountRef, updateData);
   });
+}
 
-  if (!restaurantUid) {
-    logger.warn("Stripe subscription synchronization skipped", {
-      reason: "account_not_resolved",
-    });
-    return;
-  }
-
-  const subscriptionStatus = mapStripeStatusToAppStatus(subscription.status);
-  const couponPostingEnabled =
-    subscriptionStatus === "active" || subscriptionStatus === "trialing";
-  const trialEndsAt =
-    subscriptionStatus === "trialing"
-      ? unixSecondsToTimestamp(subscription.trial_end)
-      : null;
-  const updateData: Record<string, unknown> = {
-    subscriptionStatus,
-    cancelAtPeriodEnd: subscription.cancel_at_period_end,
-    trialEndsAt,
-    subscriptionEndsAt:
-      unixSecondsToTimestamp((subscription as any).current_period_end) ??
-      unixSecondsToTimestamp(subscription.ended_at) ??
-      unixSecondsToTimestamp(subscription.canceled_at),
-    stripeCustomerId,
-    stripeSubscriptionId: subscription.id,
-    billingPlanName: metadata.billingPlanName?.trim() || "coupon_monthly",
-    couponPostingEnabled,
-    updatedAt: FieldValue.serverTimestamp(),
-  };
-
-  if (couponPostingEnabled || subscription.status === "trialing") {
-    updateData.hasUsedTrial = true;
-  }
-
-  const updateResult = await updateExistingRestaurantSubscription(
-    db,
-    restaurantUid,
-    updateData,
-  );
-  if (updateResult === "missing-account") {
-    logger.warn("Stripe subscription synchronization skipped", {
-      reason: "missing_account",
-    });
-  }
+async function bindCompletedCheckoutSession(params: {
+  session: Stripe.Checkout.Session;
+  subscription: Stripe.Subscription;
+}): Promise<void> {
+  const metadata = requireMatchingOwnerBillingStripeMetadata({
+    checkoutSessionMetadata: params.session.metadata,
+    subscriptionMetadata: params.subscription.metadata,
+  });
+  const ownerRecordGeneration = Number(metadata.ownerRecordGeneration);
+  const ownerRef = ownerRecordStateRef(metadata.ownerUid);
+  const billingRef = ownerBillingStateRef(metadata.ownerUid);
+  await db.runTransaction(async (transaction) => {
+    const [ownerSnapshot, billingSnapshot] = await Promise.all([
+      transaction.get(ownerRef),
+      transaction.get(billingRef),
+    ]);
+    const ownerState = parseOwnerRecordStateDocument(
+      storedDocument(metadata.ownerUid, ownerSnapshot),
+    );
+    const billingState = parseOwnerBillingStateDocument(
+      storedDocument(metadata.ownerUid, billingSnapshot),
+    );
+    if (
+      ownerState === null ||
+      billingState === null ||
+      ownerState.state !== "open" ||
+      ownerState.generation !== ownerRecordGeneration ||
+      billingState.ownerRecordGeneration !== ownerRecordGeneration ||
+      billingState.checkoutAttemptId !== metadata.checkoutAttemptId
+    ) {
+      return;
+    }
+    transaction.set(billingRef, recordCheckoutSession(billingState, {
+      checkoutSessionId: params.session.id,
+      stripeCustomerId:
+        typeof params.session.customer === "string"
+          ? params.session.customer
+          : null,
+      now: new Date(),
+    }));
+  });
 }
 
 export const createSubscriptionCheckoutSession = onCall(
@@ -2993,6 +3334,13 @@ export const createSubscriptionCheckoutSession = onCall(
         restaurantAccountDocumentId:
           protocolRequest.restaurantAccountDocumentId,
         family: "checkout",
+        checkout: {
+          variant: "compatibility",
+          priceId: stripePriceId,
+          successBaseUrl,
+          cancelBaseUrl,
+          trialPeriodDays: null,
+        },
       });
     } catch (error) {
       if (
@@ -3022,13 +3370,14 @@ export const createSubscriptionCheckoutSession = onCall(
       const stripe = new Stripe(stripeSecretKey.value(), {
         apiVersion: "2025-08-27.basil",
       });
+      const metadata = createOwnerBillingStripeMetadata({
+        ownerUid,
+        ownerRecordGeneration: reserved.ownerState.generation,
+        checkoutAttemptId: reserved.billingState.checkoutAttemptId,
+      });
       const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData =
         {
-          metadata: {
-            ownerUid,
-            restaurantAccountId: ownerUid,
-            source: "bitesaver_subscription",
-          },
+          metadata,
         };
 
       const session = await stripe.checkout.sessions.create({
@@ -3042,12 +3391,17 @@ export const createSubscriptionCheckoutSession = onCall(
         success_url: successUrl,
         cancel_url: cancelUrl,
         client_reference_id: ownerUid,
-        metadata: {
-          ownerUid,
-          restaurantAccountId: ownerUid,
-          source: "bitesaver_subscription",
-        },
+        metadata,
         subscription_data: subscriptionData,
+        ...(reserved.checkoutStripeCustomerId === null
+          ? {}
+          : {customer: reserved.checkoutStripeCustomerId}),
+      }, {
+        idempotencyKey: ownerBillingStripeIdempotencyKey({
+          ownerUid,
+          ownerRecordGeneration: reserved.ownerState.generation,
+          checkoutAttemptId: reserved.billingState.checkoutAttemptId,
+        }),
       });
 
       if (!session.url) {
@@ -3057,13 +3411,20 @@ export const createSubscriptionCheckoutSession = onCall(
         );
       }
 
+      await recordServerCheckoutSession({
+        ownerUid,
+        ownerRecordGeneration: reserved.ownerState.generation,
+        checkoutAttemptId: reserved.billingState.checkoutAttemptId,
+        checkoutSessionId: session.id,
+        stripeCustomerId:
+          typeof session.customer === "string" ? session.customer : null,
+      });
       checkoutUrl = session.url;
     } catch (error) {
-      await bestEffortRemoveUnreadySubscriptionReturnContext({
+      await markServerCheckoutUncertain({
         ownerUid,
-        restaurantAccountDocumentId:
-          protocolRequest.restaurantAccountDocumentId,
-        tokenHash: reserved.tokenHash,
+        ownerRecordGeneration: reserved.ownerState.generation,
+        checkoutAttemptId: reserved.billingState.checkoutAttemptId,
       });
       logger.error(
         "Stripe subscription Checkout session creation failed",
@@ -3079,6 +3440,7 @@ export const createSubscriptionCheckoutSession = onCall(
         ownerUid,
         restaurantAccountDocumentId:
           protocolRequest.restaurantAccountDocumentId,
+        ownerRecordGeneration: reserved.ownerState.generation,
         tokenHash: reserved.tokenHash,
       });
     } catch (error) {
@@ -3133,6 +3495,13 @@ export const createCheckoutSession = onCall(
         restaurantAccountDocumentId:
           protocolRequest.restaurantAccountDocumentId,
         family: "checkout",
+        checkout: {
+          variant: "primary",
+          priceId: stripePriceId,
+          successBaseUrl,
+          cancelBaseUrl,
+          trialPeriodDays: stripeTrialDays,
+        },
       });
     } catch (error) {
       if (
@@ -3164,14 +3533,14 @@ export const createCheckoutSession = onCall(
         apiVersion: "2025-08-27.basil",
       });
       const includeTrial = !hasUsedTrial;
+      const metadata = createOwnerBillingStripeMetadata({
+        ownerUid,
+        ownerRecordGeneration: reserved.ownerState.generation,
+        checkoutAttemptId: reserved.billingState.checkoutAttemptId,
+      });
       const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData =
         {
-          metadata: {
-            ownerUid,
-            restaurantAccountId: ownerUid,
-            billingPlanName: "coupon_monthly",
-            source: "bitesaver_subscription",
-          },
+          metadata,
         };
       if (includeTrial) {
         subscriptionData.trial_period_days = stripeTrialDays;
@@ -3185,15 +3554,19 @@ export const createCheckoutSession = onCall(
           },
         ],
         subscription_data: subscriptionData,
-        metadata: {
-          ownerUid,
-          restaurantAccountId: ownerUid,
-          billingPlanName: "coupon_monthly",
-          source: "bitesaver_subscription",
-        },
+        metadata,
         client_reference_id: ownerUid,
         success_url: successUrl,
         cancel_url: cancelUrl,
+        ...(reserved.checkoutStripeCustomerId === null
+          ? {}
+          : {customer: reserved.checkoutStripeCustomerId}),
+      }, {
+        idempotencyKey: ownerBillingStripeIdempotencyKey({
+          ownerUid,
+          ownerRecordGeneration: reserved.ownerState.generation,
+          checkoutAttemptId: reserved.billingState.checkoutAttemptId,
+        }),
       });
 
       if (!session.url) {
@@ -3203,13 +3576,20 @@ export const createCheckoutSession = onCall(
         );
       }
 
+      await recordServerCheckoutSession({
+        ownerUid,
+        ownerRecordGeneration: reserved.ownerState.generation,
+        checkoutAttemptId: reserved.billingState.checkoutAttemptId,
+        checkoutSessionId: session.id,
+        stripeCustomerId:
+          typeof session.customer === "string" ? session.customer : null,
+      });
       checkoutUrl = session.url;
     } catch (error) {
-      await bestEffortRemoveUnreadySubscriptionReturnContext({
+      await markServerCheckoutUncertain({
         ownerUid,
-        restaurantAccountDocumentId:
-          protocolRequest.restaurantAccountDocumentId,
-        tokenHash: reserved.tokenHash,
+        ownerRecordGeneration: reserved.ownerState.generation,
+        checkoutAttemptId: reserved.billingState.checkoutAttemptId,
       });
       logger.error(
         "Stripe Checkout session creation failed",
@@ -3225,6 +3605,7 @@ export const createCheckoutSession = onCall(
         ownerUid,
         restaurantAccountDocumentId:
           protocolRequest.restaurantAccountDocumentId,
+        ownerRecordGeneration: reserved.ownerState.generation,
         tokenHash: reserved.tokenHash,
       });
     } catch (error) {
@@ -3348,6 +3729,7 @@ export const createCustomerPortalSession = onCall(
         ownerUid,
         restaurantAccountDocumentId:
           protocolRequest.restaurantAccountDocumentId,
+        ownerRecordGeneration: reserved.ownerState.generation,
         tokenHash: reserved.tokenHash,
       });
       logger.error(
@@ -3364,6 +3746,7 @@ export const createCustomerPortalSession = onCall(
         ownerUid,
         restaurantAccountDocumentId:
           protocolRequest.restaurantAccountDocumentId,
+        ownerRecordGeneration: reserved.ownerState.generation,
         tokenHash: reserved.tokenHash,
       });
     } catch (error) {
@@ -3403,10 +3786,16 @@ export const redeemBiteSaverSubscriptionReturn = onCall(async (request) => {
   const stateRef = subscriptionReturnStateRef(
     parsed.restaurantAccountDocumentId,
   );
+  const recordStateRef = ownerRecordStateRef(ownerUid);
 
   try {
     return await db.runTransaction(async (transaction) => {
-      const accountSnapshot = await transaction.get(accountRef);
+      const [accountSnapshot, ownerSnapshot, stateSnapshot] =
+        await Promise.all([
+          transaction.get(accountRef),
+          transaction.get(recordStateRef),
+          transaction.get(stateRef),
+        ]);
       requireRestaurantAccountOwnership({
         ownerUid,
         restaurantAccountDocumentId:
@@ -3414,7 +3803,10 @@ export const redeemBiteSaverSubscriptionReturn = onCall(async (request) => {
         accountExists: accountSnapshot.exists,
         accountData: accountSnapshot.data(),
       });
-      const stateSnapshot = await transaction.get(stateRef);
+      const ownerState = requireOpenReturnOwnerState(
+        ownerUid,
+        ownerSnapshot,
+      );
       if (!stateSnapshot.exists) {
         throw new SubscriptionReturnLedgerError("context_unavailable");
       }
@@ -3424,6 +3816,7 @@ export const redeemBiteSaverSubscriptionReturn = onCall(async (request) => {
         ownerUid,
         restaurantAccountDocumentId:
           parsed.restaurantAccountDocumentId,
+        ownerRecordGeneration: ownerState.generation,
         tokenHash,
         returnKind: parsed.returnKind,
         nowEpochMs: Date.now(),
@@ -3466,10 +3859,16 @@ export const claimBiteSaverSubscriptionReturnEvent = onCall(
     const stateRef = subscriptionReturnStateRef(
       parsed.restaurantAccountDocumentId,
     );
+    const recordStateRef = ownerRecordStateRef(ownerUid);
 
     try {
       return await db.runTransaction(async (transaction) => {
-        const accountSnapshot = await transaction.get(accountRef);
+        const [accountSnapshot, ownerSnapshot, stateSnapshot] =
+          await Promise.all([
+            transaction.get(accountRef),
+            transaction.get(recordStateRef),
+            transaction.get(stateRef),
+          ]);
         requireRestaurantAccountOwnership({
           ownerUid,
           restaurantAccountDocumentId:
@@ -3477,7 +3876,10 @@ export const claimBiteSaverSubscriptionReturnEvent = onCall(
           accountExists: accountSnapshot.exists,
           accountData: accountSnapshot.data(),
         });
-        const stateSnapshot = await transaction.get(stateRef);
+        const ownerState = requireOpenReturnOwnerState(
+          ownerUid,
+          ownerSnapshot,
+        );
         if (!stateSnapshot.exists) {
           throw new SubscriptionReturnLedgerError("event_unavailable");
         }
@@ -3486,6 +3888,7 @@ export const claimBiteSaverSubscriptionReturnEvent = onCall(
           ownerUid,
           restaurantAccountDocumentId:
             parsed.restaurantAccountDocumentId,
+          ownerRecordGeneration: ownerState.generation,
           eventId: parsed.eventId,
           claimType: parsed.claimType,
           nowEpochMs: Date.now(),
@@ -3529,10 +3932,16 @@ export const listBiteSaverSubscriptionReturnEvents = onCall(
     const stateRef = subscriptionReturnStateRef(
       parsed.restaurantAccountDocumentId,
     );
+    const recordStateRef = ownerRecordStateRef(ownerUid);
 
     try {
       return await db.runTransaction(async (transaction) => {
-        const accountSnapshot = await transaction.get(accountRef);
+        const [accountSnapshot, ownerSnapshot, stateSnapshot] =
+          await Promise.all([
+            transaction.get(accountRef),
+            transaction.get(recordStateRef),
+            transaction.get(stateRef),
+          ]);
         requireRestaurantAccountOwnership({
           ownerUid,
           restaurantAccountDocumentId:
@@ -3540,7 +3949,10 @@ export const listBiteSaverSubscriptionReturnEvents = onCall(
           accountExists: accountSnapshot.exists,
           accountData: accountSnapshot.data(),
         });
-        const stateSnapshot = await transaction.get(stateRef);
+        const ownerState = requireOpenReturnOwnerState(
+          ownerUid,
+          ownerSnapshot,
+        );
         const outcome = listSubscriptionReturnEvents({
           rawState: stateSnapshot.exists
             ? stateSnapshot.data()
@@ -3548,6 +3960,7 @@ export const listBiteSaverSubscriptionReturnEvents = onCall(
           ownerUid,
           restaurantAccountDocumentId:
             parsed.restaurantAccountDocumentId,
+          ownerRecordGeneration: ownerState.generation,
           nowEpochMs: Date.now(),
         });
         if (outcome.changed && outcome.state !== null) {
@@ -3729,18 +4142,17 @@ export const stripeWebhook = onRequest(
             const subscription = await stripe.subscriptions.retrieve(
               session.subscription,
             );
-            await syncRestaurantSubscriptionFromStripe(
-              subscription,
-              session.metadata ?? undefined,
-            );
+            await bindCompletedCheckoutSession({session, subscription});
           }
           break;
         }
         case "customer.subscription.created":
         case "customer.subscription.updated":
-        case "customer.subscription.deleted": {
+        case "customer.subscription.deleted":
+        case "customer.subscription.paused":
+        case "customer.subscription.resumed": {
           const subscription = event.data.object as Stripe.Subscription;
-          await syncRestaurantSubscriptionFromStripe(subscription);
+          await syncRestaurantSubscriptionFromStripe(subscription, event);
           break;
         }
         default:
