@@ -557,9 +557,45 @@ service cloud.firestore {
           ));
     }
 
+    function restaurantOperationLockAllowsMutation(restaurantId) {
+      return !(restaurantId is string) ||
+        restaurantId.size() == 0 ||
+        restaurantId.matches('^.*/.*$') ||
+        !exists(/databases/$(database)/documents/private_rating_restaurant_operation_locks/$(restaurantId));
+    }
+
+    function dishOperationLockAllowsMutation(dishId) {
+      return !(dishId is string) ||
+        dishId.size() == 0 ||
+        dishId.matches('^.*/.*$') ||
+        !exists(/databases/$(database)/documents/private_rating_dish_operation_locks/$(dishId));
+    }
+
+    function dataRestaurantOperationLockAllowsMutation(data) {
+      return !data.keys().hasAny(['restaurantId']) ||
+        restaurantOperationLockAllowsMutation(data.restaurantId);
+    }
+
+    function dataDishOperationLockAllowsMutation(data) {
+      return !data.keys().hasAny(['dishId']) ||
+        dishOperationLockAllowsMutation(data.dishId);
+    }
+
+    function dataDishAndRestaurantOperationLocksAllowMutation(data) {
+      return dataDishOperationLockAllowsMutation(data) &&
+        dataRestaurantOperationLockAllowsMutation(data);
+    }
+
+    function proposalOperationLocksAllowMutation(proposalData) {
+      let sourceDishId = dishProposalSourceDishId(proposalData);
+      let mergeTargetDishId = dishProposalMergeTargetDishId(proposalData);
+      return dataRestaurantOperationLockAllowsMutation(proposalData) &&
+        dishOperationLockAllowsMutation(sourceDishId) &&
+        dishOperationLockAllowsMutation(mergeTargetDishId);
+    }
+
     function canonicalExistingDishId(dishId) {
       return canonicalDishId(dishId) &&
-        exists(/databases/$(database)/documents/bitescore_dishes/$(dishId)) &&
         get(/databases/$(database)/documents/bitescore_dishes/$(dishId)).data.id == dishId;
     }
 
@@ -919,12 +955,14 @@ service cloud.firestore {
 
     match /bitescore_restaurants/{restaurantId} {
       allow read: if true;
-      allow create: if validBiteScoreRestaurantCreateRevision() &&
+      allow create: if restaurantOperationLockAllowsMutation(restaurantId) &&
+        validBiteScoreRestaurantCreateRevision() &&
         (
           isAdmin() ||
           canCreatePublicBiteScoreRestaurant(restaurantId)
         );
-      allow update: if validBiteScoreRestaurantUpdateRevision() &&
+      allow update: if restaurantOperationLockAllowsMutation(restaurantId) &&
+        validBiteScoreRestaurantUpdateRevision() &&
         (
           isAdmin() ||
           canOwnerUpdateBiteScoreRestaurant(restaurantId) ||
@@ -934,19 +972,25 @@ service cloud.firestore {
           biteScoreRestaurantProvenanceUnchanged() ||
           canCompleteBiteScoreRestaurantProvenance()
         );
-      allow delete: if isAdmin();
+      allow delete: if restaurantOperationLockAllowsMutation(restaurantId) &&
+        isAdmin();
     }
 
     match /bitescore_dishes/{dishId} {
       allow read: if true;
       allow create: if canonicalDishId(dishId) &&
+        dishOperationLockAllowsMutation(dishId) &&
+        dataRestaurantOperationLockAllowsMutation(request.resource.data) &&
         request.resource.data.id == dishId &&
         aggregateWriteGenerationAbsentOnClientCreate() &&
         (
           isAdmin() ||
           (emailVerified() && validBiteScoreDishCreateProvenance())
         );
-      allow update: if (
+      allow update: if dishOperationLockAllowsMutation(dishId) &&
+        dataRestaurantOperationLockAllowsMutation(resource.data) &&
+        dataRestaurantOperationLockAllowsMutation(request.resource.data) &&
+        (
           isAdmin() ||
           ownerOfBiteScoreRestaurant(resource.data.restaurantId) ||
           (
@@ -966,7 +1010,9 @@ service cloud.firestore {
         biteScoreDishProvenanceUnchanged() &&
         aggregateWriteGenerationUnchanged() &&
         validAggregateWriteGeneration(request.resource.data);
-      allow delete: if isAdmin() &&
+      allow delete: if dishOperationLockAllowsMutation(dishId) &&
+        dataRestaurantOperationLockAllowsMutation(resource.data) &&
+        isAdmin() &&
         validAggregateWriteGeneration(resource.data);
     }
 
@@ -978,11 +1024,16 @@ service cloud.firestore {
     match /dish_rating_aggregates/{dishId} {
       allow read: if true;
       allow create: if (isAdmin() || emailVerified()) &&
+        dishOperationLockAllowsMutation(dishId) &&
+        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data) &&
         aggregateDataMatchesDishIdentity(dishId, request.resource.data) &&
         aggregateWriteGenerationMatchesDish(dishId, request.resource.data) &&
         !mergeLockBlocksClientAggregates(dishId) &&
         !aggregateDataHasBlockingMergeLock(request.resource.data);
       allow update: if (isAdmin() || emailVerified()) &&
+        dishOperationLockAllowsMutation(dishId) &&
+        dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
+        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data) &&
         aggregateDataMatchesDishIdentity(dishId, resource.data) &&
         aggregateDataMatchesDishIdentity(dishId, request.resource.data) &&
         aggregateWriteGenerationMatchesDish(dishId, request.resource.data) &&
@@ -990,6 +1041,8 @@ service cloud.firestore {
         !aggregateDataHasBlockingMergeLock(resource.data) &&
         !aggregateDataHasBlockingMergeLock(request.resource.data);
       allow delete: if isAdmin() &&
+        dishOperationLockAllowsMutation(dishId) &&
+        dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
         aggregateDataMatchesDishIdentity(dishId, resource.data) &&
         aggregateWriteGenerationMatchesDish(dishId, resource.data) &&
         !mergeLockBlocksClientAggregates(dishId) &&
@@ -999,10 +1052,13 @@ service cloud.firestore {
     match /dish_reviews/{reviewId} {
       allow read: if true;
       allow create: if createsOwnReview() &&
+        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data) &&
         reviewDataHasCanonicalDishId(request.resource.data) &&
         !reviewDataHasBlockingMergeLock(request.resource.data) &&
         reviewDataUserAllowsMilestoneMutation(request.resource.data);
       allow update: if (isAdmin() || updatesOwnReview()) &&
+        dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
+        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data) &&
         reviewDataHasCanonicalDishId(resource.data) &&
         reviewDataHasCanonicalDishId(request.resource.data) &&
         !reviewDataHasBlockingMergeLock(resource.data) &&
@@ -1010,6 +1066,7 @@ service cloud.firestore {
         reviewDataUserAllowsMilestoneMutation(resource.data) &&
         reviewDataUserAllowsMilestoneMutation(request.resource.data);
       allow delete: if (isAdmin() || (signedIn() && resource.data.userId == request.auth.uid)) &&
+        dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
         reviewDataHasCanonicalDishId(resource.data) &&
         !reviewDataHasBlockingMergeLock(resource.data) &&
         reviewDataUserAllowsMilestoneMutation(resource.data);
@@ -1046,54 +1103,85 @@ service cloud.firestore {
 
     match /review_feedback_votes/{voteId} {
       allow read: if true;
-      allow create: if emailVerified() && request.resource.data.userId == request.auth.uid;
+      allow create: if emailVerified() &&
+        request.resource.data.userId == request.auth.uid &&
+        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data);
       allow update: if emailVerified() &&
         resource.data.userId == request.auth.uid &&
-        request.resource.data.userId == request.auth.uid;
-      allow delete: if signedIn() && resource.data.userId == request.auth.uid;
+        request.resource.data.userId == request.auth.uid &&
+        dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
+        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data);
+      allow delete: if signedIn() &&
+        resource.data.userId == request.auth.uid &&
+        dataDishAndRestaurantOperationLocksAllowMutation(resource.data);
     }
 
     match /review_reports/{reportId} {
       allow read: if isAdmin() || readsOwnReport('reportingUserId');
-      allow create: if createsOwnReport('reportingUserId');
-      allow update: if isAdmin() || updatesOwnReport('reportingUserId');
-      allow delete: if isAdmin();
+      allow create: if createsOwnReport('reportingUserId') &&
+        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data);
+      allow update: if (isAdmin() || updatesOwnReport('reportingUserId')) &&
+        dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
+        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data);
+      allow delete: if isAdmin() &&
+        dataDishAndRestaurantOperationLocksAllowMutation(resource.data);
     }
 
     match /restaurant_reports/{reportId} {
       allow read: if isAdmin() || readsOwnReport('reportingUserId');
-      allow create: if createsOwnReport('reportingUserId');
-      allow update: if isAdmin() || updatesOwnReport('reportingUserId');
-      allow delete: if isAdmin();
+      allow create: if createsOwnReport('reportingUserId') &&
+        dataRestaurantOperationLockAllowsMutation(request.resource.data);
+      allow update: if (isAdmin() || updatesOwnReport('reportingUserId')) &&
+        dataRestaurantOperationLockAllowsMutation(resource.data) &&
+        dataRestaurantOperationLockAllowsMutation(request.resource.data);
+      allow delete: if isAdmin() &&
+        dataRestaurantOperationLockAllowsMutation(resource.data);
     }
 
     match /dish_reports/{reportId} {
       allow read: if isAdmin() || readsOwnReport('reportingUserId');
-      allow create: if createsOwnReport('reportingUserId');
-      allow update: if isAdmin() || updatesOwnReport('reportingUserId');
-      allow delete: if isAdmin();
+      allow create: if createsOwnReport('reportingUserId') &&
+        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data);
+      allow update: if (isAdmin() || updatesOwnReport('reportingUserId')) &&
+        dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
+        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data);
+      allow delete: if isAdmin() &&
+        dataDishAndRestaurantOperationLocksAllowMutation(resource.data);
     }
 
     match /duplicate_restaurant_reports/{reportId} {
       allow read: if isAdmin() || readsOwnReport('reportingUserId');
-      allow create: if createsOwnReport('reportingUserId');
-      allow update: if isAdmin() || updatesOwnReport('reportingUserId');
-      allow delete: if isAdmin();
+      allow create: if createsOwnReport('reportingUserId') &&
+        dataRestaurantOperationLockAllowsMutation(request.resource.data);
+      allow update: if (isAdmin() || updatesOwnReport('reportingUserId')) &&
+        dataRestaurantOperationLockAllowsMutation(resource.data) &&
+        dataRestaurantOperationLockAllowsMutation(request.resource.data);
+      allow delete: if isAdmin() &&
+        dataRestaurantOperationLockAllowsMutation(resource.data);
     }
 
     match /dish_edit_proposals/{proposalId} {
       allow read: if isAdmin() || readsOwnDishEditProposal();
       allow create: if createsOwnDishEditProposal() &&
-        dishProposalResolutionIdentitiesValid(request.resource.data);
+        dishProposalResolutionIdentitiesValid(request.resource.data) &&
+        proposalOperationLocksAllowMutation(request.resource.data);
       allow update: if isAdmin() &&
-        dishProposalResolutionIdentitiesValid(request.resource.data);
-      allow delete: if isAdmin();
+        dishProposalResolutionIdentitiesValid(request.resource.data) &&
+        proposalOperationLocksAllowMutation(resource.data) &&
+        proposalOperationLocksAllowMutation(request.resource.data);
+      allow delete: if isAdmin() &&
+        proposalOperationLocksAllowMutation(resource.data);
     }
 
     match /restaurant_claim_requests/{requestId} {
       allow read: if isAdmin() || readsOwnClaimRequest();
-      allow create: if createsOwnClaimRequest();
-      allow update, delete: if isAdmin();
+      allow create: if createsOwnClaimRequest() &&
+        dataRestaurantOperationLockAllowsMutation(request.resource.data);
+      allow update: if isAdmin() &&
+        dataRestaurantOperationLockAllowsMutation(resource.data) &&
+        dataRestaurantOperationLockAllowsMutation(request.resource.data);
+      allow delete: if isAdmin() &&
+        dataRestaurantOperationLockAllowsMutation(resource.data);
     }
 
     match /bitesaver_reports/{reportId} {
@@ -1144,6 +1232,22 @@ service cloud.firestore {
     }
 
     match /private_dish_merge_review_locks/{dishId} {
+      allow read, write: if false;
+    }
+
+    match /private_rating_destructive_jobs/{jobId} {
+      allow read, write: if false;
+    }
+
+    match /private_rating_destructive_job_items/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /private_rating_restaurant_operation_locks/{restaurantId} {
+      allow read, write: if false;
+    }
+
+    match /private_rating_dish_operation_locks/{dishId} {
       allow read, write: if false;
     }
 

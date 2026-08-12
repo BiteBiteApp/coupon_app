@@ -125,11 +125,11 @@ function biteScoreDishCreateData({
 
 function ruleTestDishData(
   dishId,
-  { aggregateWriteGeneration } = {},
+  { aggregateWriteGeneration, restaurantId = "bs-1" } = {},
 ) {
   return {
     id: dishId,
-    restaurantId: "bs-1",
+    restaurantId,
     restaurantName: "BiteScore Pizza",
     name: `Rules fixture ${dishId}`,
     normalizedName: `rules fixture ${dishId}`,
@@ -147,13 +147,14 @@ function ruleTestDishData(
 function reviewWriteData({
   id,
   dishId,
+  restaurantId = "bs-1",
   userId = "customer-a",
   headline = "Merge lock rules fixture",
 } = {}) {
   return {
     id,
     dishId,
-    restaurantId: "bs-1",
+    restaurantId,
     userId,
     overallImpression: 8,
     overallBiteScore: 80,
@@ -166,12 +167,13 @@ function reviewWriteData({
 
 function aggregateWriteData({
   dishId,
+  restaurantId = "bs-1",
   ratingCount = 1,
   aggregateWriteGeneration,
 } = {}) {
   return {
     dishId,
-    restaurantId: "bs-1",
+    restaurantId,
     overallBiteScore: 80,
     ratingCount,
     updatedAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -249,12 +251,54 @@ function reviewMilestoneLockData(
   };
 }
 
+function ratingRestaurantOperationLockData(
+  restaurantId,
+  state = "active",
+) {
+  return {
+    version: "bitestar.rating-restaurant-operation-lock.v1",
+    restaurantId,
+    jobId: `restaurant-job-${restaurantId}`,
+    operation: "restaurantDelete",
+    role: "source",
+    state,
+    fingerprint: "c".repeat(64),
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-01-01T00:00:01.000Z"),
+  };
+}
+
+function ratingDishOperationLockData(dishId, state = "active") {
+  return {
+    version: "bitestar.rating-dish-operation-lock.v1",
+    dishId,
+    jobId: `dish-job-${dishId}`,
+    operation: "dishDelete",
+    role: "source",
+    state,
+    fingerprint: "d".repeat(64),
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-01-01T00:00:01.000Z"),
+  };
+}
+
 async function seedRuleTestDocuments(documents) {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
     const batch = db.batch();
     for (const { documentPath, data } of documents) {
       batch.set(db.doc(documentPath), data);
+    }
+    await batch.commit();
+  });
+}
+
+async function deleteRuleTestDocuments(documentPaths) {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    const batch = db.batch();
+    for (const documentPath of documentPaths) {
+      batch.delete(db.doc(documentPath));
     }
     await batch.commit();
   });
@@ -3409,4 +3453,764 @@ test("private merge review locks cannot be read or written by clients", async ()
     ),
   );
   await assertFails(lockRefForAdmin.delete());
+});
+
+test("rating destructive jobs, items, descendants, and locks stay private", async () => {
+  const existingPaths = [
+    "private_rating_destructive_jobs/job-existing",
+    "private_rating_destructive_job_items/item-existing",
+    "private_rating_destructive_job_items/item-existing/steps/step-existing",
+    "private_rating_restaurant_operation_locks/restaurant-existing",
+    "private_rating_dish_operation_locks/dish-existing",
+  ];
+  const newPaths = [
+    "private_rating_destructive_jobs/job-new",
+    "private_rating_destructive_job_items/item-new",
+    "private_rating_destructive_job_items/item-new/steps/step-new",
+    "private_rating_restaurant_operation_locks/restaurant-new",
+    "private_rating_dish_operation_locks/dish-new",
+  ];
+  await seedRuleTestDocuments(existingPaths.map((documentPath) => ({
+    documentPath,
+    data: {privateCanary: "rating-destructive-private-canary"},
+  })));
+
+  for (const actorName of ["customer", "admin"]) {
+    const db = dbFor(actorName);
+    for (const documentPath of existingPaths) {
+      await assertFails(db.doc(documentPath).get());
+      await assertFails(db.doc(documentPath).update({state: "forged"}));
+      await assertFails(db.doc(documentPath).delete());
+    }
+    for (const documentPath of newPaths) {
+      await assertFails(db.doc(documentPath).set({state: "forged"}));
+    }
+  }
+});
+
+test("restaurant operation locks fail closed and deletion unlocks only the target", async () => {
+  const lockedStates = [
+    ["active", ratingRestaurantOperationLockData("unused", "active")],
+    [
+      "permanent",
+      ratingRestaurantOperationLockData("unused", "merged_source"),
+    ],
+    ["malformed", {unexpected: "malformed-present-lock"}],
+  ];
+  const documents = [];
+  for (const [label, lockTemplate] of lockedStates) {
+    const existingId = `rules-restaurant-${label}`;
+    const createId = `rules-restaurant-create-${label}`;
+    documents.push(
+      {
+        documentPath: `bitescore_restaurants/${existingId}`,
+        data: {
+          ...biteScoreRestaurantCreateData({id: existingId}),
+          restaurantWriteRevision: 4,
+        },
+      },
+      {
+        documentPath:
+          `private_rating_restaurant_operation_locks/${existingId}`,
+        data: {...lockTemplate, restaurantId: existingId},
+      },
+      {
+        documentPath:
+          `private_rating_restaurant_operation_locks/${createId}`,
+        data: {...lockTemplate, restaurantId: createId},
+      },
+    );
+  }
+  const unlockId = "rules-restaurant-unlock-target";
+  const unrelatedId = "rules-restaurant-unrelated";
+  documents.push(
+    {
+      documentPath: `bitescore_restaurants/${unlockId}`,
+      data: {
+        ...biteScoreRestaurantCreateData({id: unlockId}),
+        restaurantWriteRevision: 4,
+      },
+    },
+    {
+      documentPath:
+        `private_rating_restaurant_operation_locks/${unlockId}`,
+      data: ratingRestaurantOperationLockData(unlockId),
+    },
+    {
+      documentPath: `bitescore_restaurants/${unrelatedId}`,
+      data: {
+        ...biteScoreRestaurantCreateData({id: unrelatedId}),
+        restaurantWriteRevision: 4,
+      },
+    },
+  );
+  await seedRuleTestDocuments(documents);
+  const adminDb = dbFor("admin");
+
+  for (const [label] of lockedStates) {
+    const existingRef = adminDb.doc(
+      `bitescore_restaurants/rules-restaurant-${label}`,
+    );
+    await assertFails(existingRef.update({
+      bio: "Blocked by exact operation lock",
+      restaurantWriteRevision: 5,
+      updatedAt: serverTimestamp(),
+    }));
+    await assertFails(existingRef.delete());
+    const createId = `rules-restaurant-create-${label}`;
+    await assertFails(
+      adminDb.doc(`bitescore_restaurants/${createId}`).set(
+        biteScoreRestaurantCreateData({id: createId}),
+      ),
+    );
+  }
+
+  const unlockRef = adminDb.doc(`bitescore_restaurants/${unlockId}`);
+  await assertFails(unlockRef.update({
+    bio: "Still locked",
+    restaurantWriteRevision: 5,
+    updatedAt: serverTimestamp(),
+  }));
+  await deleteRuleTestDocuments([
+    `private_rating_restaurant_operation_locks/${unlockId}`,
+  ]);
+  await assertSucceeds(unlockRef.update({
+    bio: "Unlocked after safe boundary",
+    restaurantWriteRevision: 5,
+    updatedAt: serverTimestamp(),
+  }));
+  await assertSucceeds(
+    adminDb.doc(`bitescore_restaurants/${unrelatedId}`).update({
+      bio: "Unrelated remains writable",
+      restaurantWriteRevision: 5,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  const unlockedCreateId = "rules-restaurant-unlocked-create";
+  await assertSucceeds(
+    adminDb.doc(`bitescore_restaurants/${unlockedCreateId}`).set(
+      biteScoreRestaurantCreateData({id: unlockedCreateId}),
+    ),
+  );
+  await assertSucceeds(
+    adminDb.doc(`bitescore_restaurants/${unlockedCreateId}`).delete(),
+  );
+});
+
+test("dish writes check the exact dish and requested, current, and new restaurants", async () => {
+  const restaurantA = "rules-dish-restaurant-a";
+  const restaurantB = "rules-dish-restaurant-b";
+  const exactDishId = "rules-exact-operation-locked-dish";
+  const currentRestaurantDishId = "rules-current-restaurant-locked-dish";
+  const requestedRestaurantDishId = "rules-requested-restaurant-locked-dish";
+  const unlockDishId = "rules-unlock-operation-dish";
+  await seedRuleTestDocuments([
+    ...[
+      exactDishId,
+      currentRestaurantDishId,
+      requestedRestaurantDishId,
+      unlockDishId,
+    ].map((dishId) => ({
+      documentPath: `bitescore_dishes/${dishId}`,
+      data: ruleTestDishData(dishId, {restaurantId: restaurantA}),
+    })),
+    {
+      documentPath: `private_rating_dish_operation_locks/${exactDishId}`,
+      data: ratingDishOperationLockData(exactDishId, "deleted_source"),
+    },
+    {
+      documentPath:
+        `private_rating_restaurant_operation_locks/${restaurantA}`,
+      data: ratingRestaurantOperationLockData(restaurantA),
+    },
+    {
+      documentPath:
+        `private_rating_restaurant_operation_locks/${restaurantB}`,
+      data: {malformed: "present-target-lock"},
+    },
+    {
+      documentPath: `private_rating_dish_operation_locks/${unlockDishId}`,
+      data: {malformed: "present-dish-lock"},
+    },
+  ]);
+  const adminDb = dbFor("admin");
+
+  const createDishLocked = "rules-create-dish-locked";
+  await seedRuleTestDocuments([{
+    documentPath:
+      `private_rating_dish_operation_locks/${createDishLocked}`,
+    data: ratingDishOperationLockData(createDishLocked),
+  }]);
+  await assertFails(
+    adminDb.doc(`bitescore_dishes/${createDishLocked}`).set(
+      biteScoreDishCreateData({
+        id: createDishLocked,
+        restaurantId: "bs-1",
+      }),
+    ),
+  );
+  await assertFails(
+    adminDb.doc("bitescore_dishes/rules-create-restaurant-locked").set(
+      biteScoreDishCreateData({
+        id: "rules-create-restaurant-locked",
+        restaurantId: restaurantA,
+      }),
+    ),
+  );
+  await assertFails(adminDb.doc(`bitescore_dishes/${exactDishId}`).update({
+    category: "Blocked exact dish",
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(adminDb.doc(`bitescore_dishes/${exactDishId}`).delete());
+  await assertFails(
+    adminDb.doc(`bitescore_dishes/${currentRestaurantDishId}`).update({
+      restaurantId: "bs-1",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(
+    adminDb.doc(`bitescore_dishes/${currentRestaurantDishId}`).delete(),
+  );
+  await assertFails(
+    adminDb.doc(`bitescore_dishes/${requestedRestaurantDishId}`).update({
+      restaurantId: restaurantB,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(
+    adminDb.doc(`bitescore_dishes/${unlockDishId}`).update({
+      category: "Still locked",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+
+  await deleteRuleTestDocuments([
+    `private_rating_dish_operation_locks/${unlockDishId}`,
+    `private_rating_restaurant_operation_locks/${restaurantA}`,
+    `private_rating_restaurant_operation_locks/${restaurantB}`,
+  ]);
+  await assertSucceeds(
+    adminDb.doc(`bitescore_dishes/${unlockDishId}`).update({
+      category: "Unlocked",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  const unrelatedDishId = "rules-unrelated-operation-dish";
+  await assertSucceeds(
+    adminDb.doc(`bitescore_dishes/${unrelatedDishId}`).set(
+      biteScoreDishCreateData({id: unrelatedDishId, restaurantId: "bs-1"}),
+    ),
+  );
+  await assertSucceeds(
+    adminDb.doc(`bitescore_dishes/${unrelatedDishId}`).delete(),
+  );
+});
+
+test("reviews and aggregates check old and new destructive identities", async () => {
+  const restaurantA = "rules-review-restaurant-a";
+  const restaurantB = "rules-review-restaurant-b";
+  const dishA = "rules-review-dish-a";
+  const dishB = "rules-review-dish-b";
+  const reviewPath = "dish_reviews/rules-destructive-identity-review";
+  const aggregatePath = `dish_rating_aggregates/${dishA}`;
+  await seedRuleTestDocuments([
+    {
+      documentPath: `bitescore_dishes/${dishA}`,
+      data: ruleTestDishData(dishA, {restaurantId: restaurantA}),
+    },
+    {
+      documentPath: `bitescore_dishes/${dishB}`,
+      data: ruleTestDishData(dishB, {restaurantId: restaurantB}),
+    },
+    {
+      documentPath: reviewPath,
+      data: reviewWriteData({
+        id: "rules-destructive-identity-review",
+        dishId: dishA,
+        restaurantId: restaurantA,
+      }),
+    },
+    {
+      documentPath: aggregatePath,
+      data: aggregateWriteData({dishId: dishA, restaurantId: restaurantA}),
+    },
+  ]);
+  const adminDb = dbFor("admin");
+  const customerDb = dbFor("customer");
+  const reviewMovement = {
+    dishId: dishB,
+    restaurantId: restaurantB,
+    updatedAt: serverTimestamp(),
+  };
+
+  const sequentialLocks = [
+    [
+      `private_rating_dish_operation_locks/${dishA}`,
+      ratingDishOperationLockData(dishA),
+    ],
+    [
+      `private_rating_dish_operation_locks/${dishB}`,
+      {malformed: "requested-dish-lock"},
+    ],
+    [
+      `private_rating_restaurant_operation_locks/${restaurantA}`,
+      ratingRestaurantOperationLockData(restaurantA, "deleted_source"),
+    ],
+    [
+      `private_rating_restaurant_operation_locks/${restaurantB}`,
+      {malformed: "requested-restaurant-lock"},
+    ],
+  ];
+  for (const [lockPath, lockData] of sequentialLocks) {
+    await seedRuleTestDocuments([{documentPath: lockPath, data: lockData}]);
+    await assertFails(adminDb.doc(reviewPath).update(reviewMovement));
+    await deleteRuleTestDocuments([lockPath]);
+  }
+  await assertSucceeds(adminDb.doc(reviewPath).update(reviewMovement));
+  await seedRuleTestDocuments([{
+    documentPath: `private_rating_dish_operation_locks/${dishB}`,
+    data: ratingDishOperationLockData(dishB, "merged_source"),
+  }]);
+  await assertFails(adminDb.doc(reviewPath).delete());
+  await deleteRuleTestDocuments([
+    `private_rating_dish_operation_locks/${dishB}`,
+  ]);
+  await assertSucceeds(adminDb.doc(reviewPath).delete());
+
+  await seedRuleTestDocuments([{
+    documentPath: `private_rating_dish_operation_locks/${dishA}`,
+    data: ratingDishOperationLockData(dishA),
+  }]);
+  await assertFails(
+    customerDb.doc("dish_reviews/rules-locked-review-create").set(
+      reviewWriteData({
+        id: "rules-locked-review-create",
+        dishId: dishA,
+        restaurantId: restaurantA,
+      }),
+    ),
+  );
+  await assertFails(adminDb.doc(aggregatePath).update({
+    restaurantId: restaurantB,
+    ratingCount: 2,
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(adminDb.doc(aggregatePath).delete());
+  await deleteRuleTestDocuments([
+    `private_rating_dish_operation_locks/${dishA}`,
+  ]);
+
+  for (const restaurantId of [restaurantA, restaurantB]) {
+    const lockPath =
+      `private_rating_restaurant_operation_locks/${restaurantId}`;
+    await seedRuleTestDocuments([{
+      documentPath: lockPath,
+      data: ratingRestaurantOperationLockData(restaurantId),
+    }]);
+    await assertFails(adminDb.doc(aggregatePath).update({
+      restaurantId: restaurantB,
+      ratingCount: 2,
+      updatedAt: serverTimestamp(),
+    }));
+    await deleteRuleTestDocuments([lockPath]);
+  }
+  await assertSucceeds(adminDb.doc(aggregatePath).update({
+    restaurantId: restaurantB,
+    ratingCount: 2,
+    updatedAt: serverTimestamp(),
+  }));
+  await assertSucceeds(adminDb.doc(aggregatePath).delete());
+
+  const aggregateCreatePath =
+    "dish_rating_aggregates/rules-aggregate-create-locked";
+  const aggregateCreateDish = "rules-aggregate-create-locked";
+  await seedRuleTestDocuments([
+    {
+      documentPath: `bitescore_dishes/${aggregateCreateDish}`,
+      data: ruleTestDishData(aggregateCreateDish, {
+        restaurantId: restaurantA,
+      }),
+    },
+    {
+      documentPath:
+        `private_rating_restaurant_operation_locks/${restaurantA}`,
+      data: {malformed: "aggregate-create-restaurant-lock"},
+    },
+  ]);
+  await assertFails(customerDb.doc(aggregateCreatePath).set(
+    aggregateWriteData({
+      dishId: aggregateCreateDish,
+      restaurantId: restaurantA,
+    }),
+  ));
+});
+
+test("restaurant dependents check requested, current, and new restaurant locks", async () => {
+  const restaurantA = "rules-dependent-restaurant-a";
+  const restaurantB = "rules-dependent-restaurant-b";
+  const cases = [
+    {
+      collection: "restaurant_claim_requests",
+      data: {
+        id: "claim-existing",
+        restaurantId: restaurantA,
+        restaurantName: "Restaurant A",
+        requesterUserId: "customer-a",
+        claimantName: "Customer A",
+        email: "customer-a@example.com",
+        phone: "555-0100",
+        status: "pending",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    },
+    {
+      collection: "restaurant_reports",
+      data: {
+        id: "restaurant-report-existing",
+        restaurantId: restaurantA,
+        restaurantName: "Restaurant A",
+        reportingUserId: "customer-a",
+        reason: "closed",
+        status: "pending",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    },
+    {
+      collection: "duplicate_restaurant_reports",
+      data: {
+        id: "duplicate-report-existing",
+        restaurantId: restaurantA,
+        restaurantName: "Restaurant A",
+        reportingUserId: "customer-a",
+        reason: "duplicate",
+        status: "pending",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    },
+  ];
+  await seedRuleTestDocuments(cases.map(({collection, data}) => ({
+    documentPath: `${collection}/existing`,
+    data,
+  })));
+  const customerDb = dbFor("customer");
+  const adminDb = dbFor("admin");
+  const oldLockPath =
+    `private_rating_restaurant_operation_locks/${restaurantA}`;
+  const newLockPath =
+    `private_rating_restaurant_operation_locks/${restaurantB}`;
+
+  await seedRuleTestDocuments([{
+    documentPath: oldLockPath,
+    data: ratingRestaurantOperationLockData(restaurantA),
+  }]);
+  for (const {collection, data} of cases) {
+    await assertFails(
+      customerDb.doc(`${collection}/create-locked`).set({
+        ...data,
+        id: `${collection}-create-locked`,
+      }),
+    );
+    await assertFails(adminDb.doc(`${collection}/existing`).update({
+      restaurantId: restaurantB,
+      updatedAt: serverTimestamp(),
+    }));
+    await assertFails(adminDb.doc(`${collection}/existing`).delete());
+  }
+  await deleteRuleTestDocuments([oldLockPath]);
+  await seedRuleTestDocuments([{
+    documentPath: newLockPath,
+    data: {malformed: "new-restaurant-lock"},
+  }]);
+  for (const {collection} of cases) {
+    await assertFails(adminDb.doc(`${collection}/existing`).update({
+      restaurantId: restaurantB,
+      updatedAt: serverTimestamp(),
+    }));
+  }
+  await deleteRuleTestDocuments([newLockPath]);
+  for (const {collection, data} of cases) {
+    await assertSucceeds(adminDb.doc(`${collection}/existing`).update({
+      restaurantId: restaurantB,
+      updatedAt: serverTimestamp(),
+    }));
+    await assertSucceeds(adminDb.doc(`${collection}/existing`).delete());
+    await assertSucceeds(
+      customerDb.doc(`${collection}/create-unlocked`).set({
+        ...data,
+        id: `${collection}-create-unlocked`,
+        restaurantId: restaurantB,
+      }),
+    );
+  }
+});
+
+test("dish dependents check old and new dish and restaurant locks", async () => {
+  const restaurantA = "rules-dish-dependent-restaurant-a";
+  const restaurantB = "rules-dish-dependent-restaurant-b";
+  const dishA = "rules-dish-dependent-a";
+  const dishB = "rules-dish-dependent-b";
+  const cases = [
+    {
+      collection: "review_reports",
+      actor: "admin",
+      data: {
+        id: "review-report-existing",
+        reviewId: "review-existing",
+        dishId: dishA,
+        restaurantId: restaurantA,
+        reportingUserId: "customer-a",
+        reason: "spam",
+        status: "pending",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    },
+    {
+      collection: "dish_reports",
+      actor: "admin",
+      data: {
+        id: "dish-report-existing",
+        dishId: dishA,
+        dishName: "Dish A",
+        restaurantId: restaurantA,
+        reportingUserId: "customer-a",
+        reason: "duplicate",
+        status: "pending",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    },
+    {
+      collection: "review_feedback_votes",
+      actor: "customer",
+      data: {
+        id: "review-vote-existing",
+        reviewId: "review-existing",
+        dishId: dishA,
+        restaurantId: restaurantA,
+        userId: "customer-a",
+        voteType: "helpful",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+        updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    },
+  ];
+  await seedRuleTestDocuments(cases.map(({collection, data}) => ({
+    documentPath: `${collection}/destructive-existing`,
+    data,
+  })));
+  const customerDb = dbFor("customer");
+  const lockSequence = [
+    [
+      `private_rating_dish_operation_locks/${dishA}`,
+      ratingDishOperationLockData(dishA),
+    ],
+    [
+      `private_rating_dish_operation_locks/${dishB}`,
+      {malformed: "new-dish-lock"},
+    ],
+    [
+      `private_rating_restaurant_operation_locks/${restaurantA}`,
+      ratingRestaurantOperationLockData(restaurantA, "merged_source"),
+    ],
+    [
+      `private_rating_restaurant_operation_locks/${restaurantB}`,
+      {malformed: "new-restaurant-lock"},
+    ],
+  ];
+
+  for (const [lockPath, lockData] of lockSequence) {
+    await seedRuleTestDocuments([{documentPath: lockPath, data: lockData}]);
+    for (const {collection, actor} of cases) {
+      await assertFails(dbFor(actor).doc(
+        `${collection}/destructive-existing`,
+      ).update({
+        dishId: dishB,
+        restaurantId: restaurantB,
+        updatedAt: serverTimestamp(),
+      }));
+    }
+    await deleteRuleTestDocuments([lockPath]);
+  }
+
+  await seedRuleTestDocuments([
+    {
+      documentPath: `private_rating_dish_operation_locks/${dishA}`,
+      data: ratingDishOperationLockData(dishA),
+    },
+    {
+      documentPath:
+        `private_rating_restaurant_operation_locks/${restaurantA}`,
+      data: ratingRestaurantOperationLockData(restaurantA),
+    },
+  ]);
+  for (const {collection, data} of cases) {
+    await assertFails(
+      customerDb.doc(`${collection}/create-locked`).set({
+        ...data,
+        id: `${collection}-create-locked`,
+      }),
+    );
+  }
+  await deleteRuleTestDocuments([
+    `private_rating_dish_operation_locks/${dishA}`,
+    `private_rating_restaurant_operation_locks/${restaurantA}`,
+  ]);
+
+  for (const {collection, actor, data} of cases) {
+    const ref = dbFor(actor).doc(`${collection}/destructive-existing`);
+    await assertSucceeds(ref.update({
+      dishId: dishB,
+      restaurantId: restaurantB,
+      updatedAt: serverTimestamp(),
+    }));
+    await seedRuleTestDocuments([{
+      documentPath: `private_rating_dish_operation_locks/${dishB}`,
+      data: {malformed: "current-delete-lock"},
+    }]);
+    await assertFails(ref.delete());
+    await deleteRuleTestDocuments([
+      `private_rating_dish_operation_locks/${dishB}`,
+    ]);
+    await assertSucceeds(ref.delete());
+    await assertSucceeds(
+      customerDb.doc(`${collection}/create-unlocked`).set({
+        ...data,
+        id: `${collection}-create-unlocked`,
+        dishId: dishB,
+        restaurantId: restaurantB,
+      }),
+    );
+  }
+});
+
+test("dish proposals check every current source and target alias", async () => {
+  const restaurantA = "rules-proposal-restaurant-a";
+  const restaurantB = "rules-proposal-restaurant-b";
+  const oldDish = "rules-proposal-old-dish";
+  const newDish = "rules-proposal-new-dish";
+  const aliasCases = [
+    {
+      label: "targetDishId",
+      lockedDishId: "rules-proposal-target-dish-lock",
+      data: dishProposalWriteData({
+        restaurantId: "bs-1",
+        targetDishId: "rules-proposal-target-dish-lock",
+      }),
+    },
+    {
+      label: "targetId",
+      lockedDishId: "rules-proposal-target-id-lock",
+      data: dishProposalWriteData({
+        type: null,
+        targetType: "rename",
+        targetDishId: null,
+        targetId: "rules-proposal-target-id-lock",
+      }),
+    },
+    {
+      label: "sourceDishId",
+      lockedDishId: "rules-proposal-source-dish-lock",
+      data: dishProposalWriteData({
+        type: "merge",
+        sourceDishId: "rules-proposal-source-dish-lock",
+        targetDishId: "rules-proposal-source-target",
+        mergeTargetDishId: "rules-proposal-source-target",
+        proposedName: null,
+      }),
+    },
+    {
+      label: "mergeTargetDishId",
+      lockedDishId: "rules-proposal-merge-target-lock",
+      data: dishProposalWriteData({
+        type: "merge",
+        sourceDishId: "rules-proposal-merge-source",
+        targetDishId: "rules-proposal-merge-target-lock",
+        mergeTargetDishId: "rules-proposal-merge-target-lock",
+        proposedName: null,
+      }),
+    },
+  ];
+  await seedRuleTestDocuments(aliasCases.map(({lockedDishId}) => ({
+    documentPath: `private_rating_dish_operation_locks/${lockedDishId}`,
+    data: {malformed: "present-alias-lock"},
+  })));
+  const customerDb = dbFor("customer");
+  const adminDb = dbFor("admin");
+  for (const {label, data} of aliasCases) {
+    await assertFails(
+      customerDb.doc(`dish_edit_proposals/create-${label}`).set(data),
+    );
+  }
+  await deleteRuleTestDocuments(aliasCases.map(
+    ({lockedDishId}) =>
+      `private_rating_dish_operation_locks/${lockedDishId}`,
+  ));
+
+  const proposalPath = "dish_edit_proposals/destructive-movement";
+  await seedRuleTestDocuments([{
+    documentPath: proposalPath,
+    data: dishProposalWriteData({
+      id: "destructive-movement",
+      restaurantId: restaurantA,
+      targetDishId: oldDish,
+    }),
+  }]);
+  const movement = {
+    restaurantId: restaurantB,
+    targetDishId: newDish,
+    updatedAt: serverTimestamp(),
+  };
+  const movementLocks = [
+    `private_rating_dish_operation_locks/${oldDish}`,
+    `private_rating_dish_operation_locks/${newDish}`,
+    `private_rating_restaurant_operation_locks/${restaurantA}`,
+    `private_rating_restaurant_operation_locks/${restaurantB}`,
+  ];
+  for (const lockPath of movementLocks) {
+    await seedRuleTestDocuments([{
+      documentPath: lockPath,
+      data: {malformed: "present-movement-lock"},
+    }]);
+    await assertFails(adminDb.doc(proposalPath).update(movement));
+    await deleteRuleTestDocuments([lockPath]);
+  }
+  await assertSucceeds(adminDb.doc(proposalPath).update(movement));
+  await seedRuleTestDocuments([{
+    documentPath: `private_rating_dish_operation_locks/${newDish}`,
+    data: ratingDishOperationLockData(newDish, "deleted_source"),
+  }]);
+  await assertFails(adminDb.doc(proposalPath).delete());
+  await deleteRuleTestDocuments([
+    `private_rating_dish_operation_locks/${newDish}`,
+  ]);
+  await assertSucceeds(adminDb.doc(proposalPath).delete());
+
+  await seedRuleTestDocuments([{
+    documentPath:
+      `private_rating_restaurant_operation_locks/${restaurantA}`,
+    data: ratingRestaurantOperationLockData(restaurantA),
+  }]);
+  await assertFails(
+    customerDb.doc("dish_edit_proposals/create-restaurant-locked").set(
+      dishProposalWriteData({
+        restaurantId: restaurantA,
+        targetDishId: "rules-proposal-unlocked-dish",
+      }),
+    ),
+  );
+  await deleteRuleTestDocuments([
+    `private_rating_restaurant_operation_locks/${restaurantA}`,
+  ]);
+  await assertSucceeds(
+    customerDb.doc("dish_edit_proposals/create-unlocked").set(
+      dishProposalWriteData({
+        restaurantId: restaurantA,
+        targetDishId: "rules-proposal-unlocked-dish",
+      }),
+    ),
+  );
 });

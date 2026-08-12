@@ -22,7 +22,9 @@ import {
 } from "./dish_proposal_private_contract.js";
 import {
   assertActiveReviewMilestoneReconciliationLockInTransaction,
+  parseReviewMilestoneReconciliationLockDocument,
   recordReviewMilestoneReconciliationTerminalState,
+  reviewMilestoneReconciliationLockCollection,
   type ReviewMilestoneReconciliationLockDatabase,
   type ReviewMilestoneReconciliationLockIdentity,
   type ReviewMilestoneReconciliationLockTransaction,
@@ -374,6 +376,7 @@ type ServerFieldValues = {
 type HelperOptions = {
   fieldValues?: ServerFieldValues;
   transactionGuard?: (transaction: TransactionLike) => Promise<void>;
+  reviewMilestoneLockOwner?: ReviewMilestoneReconciliationLockIdentity;
 };
 
 type CallableAuthLike = {
@@ -383,6 +386,10 @@ type CallableAuthLike = {
 
 const betaAdminEmails = new Set(["schuyler.cole@gmail.com"]);
 const maxCelebrationLedgerEntryIds = 30;
+const ratingDestructiveRestaurantOperationLockCollection =
+  "private_rating_restaurant_operation_locks";
+const ratingDestructiveDishOperationLockCollection =
+  "private_rating_dish_operation_locks";
 const dishProposalMemberKeys = Object.freeze([
   "version",
   "proposalDocumentId",
@@ -593,6 +600,15 @@ export async function reverseContributionPointLedgerEntryTransaction(
           pointsDelta: 0,
           status: "invalid",
         };
+      }
+
+      if (freshEntry.actionType === contributionPointAction.reviewMilestone) {
+        await assertReviewMilestoneTransactionAllowed(
+          transaction,
+          db,
+          freshEntry.userId,
+          options,
+        );
       }
 
       const reversalSnapshot = await transaction.get(reversalRef);
@@ -1409,6 +1425,7 @@ export async function awardReviewMilestoneContributionPointsCallableHandler(
   options: HelperOptions = {},
 ): Promise<{ ok: true; result: ContributionPointAwardResult }> {
   const targetUserId = requireCallableTargetUserId(request);
+  await assertExternalReviewMilestoneEntryAllowed(db, targetUserId);
   const validReviewCount = await loadValidPublicReviewCountForUser(
     db,
     targetUserId,
@@ -1828,6 +1845,8 @@ awardApprovedDishProposalContributionPointsForResolutionCycle(
       trustedDraft,
       true,
       fieldValues,
+      options,
+      false,
     );
     return {
       outcome: transactionAward.wasCreated ? "awarded" : "alreadyAwarded",
@@ -1880,6 +1899,7 @@ export async function reconcileReviewMilestoneContributionPointsAfterModerationC
   requireContributionPointAdmin(request.auth);
   const data = readRecord(request.data);
   const userId = readRequiredString(data.userId, "userId");
+  await assertExternalReviewMilestoneEntryAllowed(db, userId);
   const validReviewCount = await loadValidPublicReviewCountForUser(db, userId);
   const earnedMilestones = new Set(reviewMilestonesForCount(validReviewCount));
   const awardResults: ContributionPointAwardResult[] = [];
@@ -2758,6 +2778,7 @@ function withReviewMilestoneLockTransactionGuard(
 ): HelperOptions {
   return {
     ...options,
+    reviewMilestoneLockOwner: identity,
     transactionGuard: async (transaction) => {
       await assertActiveReviewMilestoneReconciliationLockInTransaction(
         reviewMilestoneLockDatabase(db),
@@ -3594,11 +3615,11 @@ function contributionPointStepOptions(
   }
   const fieldValues = options.fieldValues ?? adminServerFieldValues;
   return {
+    ...options,
     fieldValues: {
       serverTimestamp: () => now,
       increment: (delta: number) => fieldValues.increment(delta),
     },
-    transactionGuard: options.transactionGuard,
   };
 }
 
@@ -4562,6 +4583,108 @@ type ContributionPointTransactionAward = Readonly<{
   wasCreated: boolean;
 }>;
 
+async function assertRatingDestructiveAwardLocksInTransaction(
+  transaction: TransactionLike,
+  db: FirestoreLike,
+  draft: ContributionPointAwardDraft,
+): Promise<void> {
+  const restaurantId = readOptionalString(draft.restaurantId);
+  const dishId = readOptionalString(draft.dishId);
+  const lockReferences: DocumentReferenceLike[] = [];
+  if (restaurantId !== null) {
+    lockReferences.push(
+      db.collection(ratingDestructiveRestaurantOperationLockCollection)
+        .doc(restaurantId),
+    );
+  }
+  if (dishId !== null) {
+    lockReferences.push(
+      db.collection(ratingDestructiveDishOperationLockCollection).doc(dishId),
+    );
+  }
+  if (lockReferences.length === 0) {
+    return;
+  }
+  const snapshots = await Promise.all(
+    lockReferences.map((reference) => transaction.get(reference)),
+  );
+  if (snapshots.some((snapshot) => snapshot.exists)) {
+    throw contributionPointOperationUnavailableError();
+  }
+}
+
+async function assertExternalReviewMilestoneEntryAllowed(
+  db: FirestoreLike,
+  userId: string,
+): Promise<void> {
+  await db.runTransaction(async (transaction) => {
+    await assertReviewMilestoneTransactionAllowed(
+      transaction,
+      db,
+      userId,
+      {},
+    );
+  });
+}
+
+async function assertReviewMilestoneTransactionAllowed(
+  transaction: TransactionLike,
+  db: FirestoreLike,
+  userId: string,
+  options: HelperOptions,
+): Promise<void> {
+  const owner = options.reviewMilestoneLockOwner;
+  if (owner !== undefined) {
+    if (owner.userId !== userId) {
+      throw new Error("Private review milestone workflow binding is invalid.");
+    }
+    await assertActiveReviewMilestoneReconciliationLockInTransaction(
+      reviewMilestoneLockDatabase(db),
+      reviewMilestoneLockTransaction(transaction),
+      owner,
+    );
+    return;
+  }
+
+  const reference = db.collection(reviewMilestoneReconciliationLockCollection)
+    .doc(userId);
+  const snapshot = await transaction.get(reference);
+  if (!snapshot.exists) {
+    return;
+  }
+  try {
+    const lock = parseReviewMilestoneReconciliationLockDocument({
+      id: snapshot.id,
+      data: snapshot.data() ?? {},
+    });
+    if (lock?.state === "active") {
+      throw reviewMilestoneOperationUnavailableError();
+    }
+  } catch (error) {
+    if (
+      error instanceof HttpsError &&
+      error.code === "failed-precondition"
+    ) {
+      throw error;
+    }
+    throw reviewMilestoneOperationUnavailableError();
+  }
+}
+
+function contributionPointOperationUnavailableError(): HttpsError {
+  return new HttpsError(
+    "failed-precondition",
+    "Contribution point award is temporarily unavailable.",
+  );
+}
+
+function reviewMilestoneOperationUnavailableError(): HttpsError {
+  return new HttpsError(
+    "failed-precondition",
+    "Review milestone updates are temporarily unavailable.",
+  );
+}
+
 async function awardContributionPointsWithExactSourceKey(
   db: FirestoreLike,
   draft: ContributionPointAwardDraft,
@@ -4603,6 +4726,8 @@ async function runContributionPointAwardTransaction(
       draft,
       exactSourceKey,
       fieldValues,
+      options,
+      true,
     );
   });
   return award.result;
@@ -4614,7 +4739,24 @@ async function awardContributionPointsWithinTransaction(
   draft: ContributionPointAwardDraft,
   exactSourceKey: boolean,
   fieldValues: ServerFieldValues,
+  options: HelperOptions,
+  enforceRatingDestructiveLocks: boolean,
 ): Promise<ContributionPointTransactionAward> {
+  if (enforceRatingDestructiveLocks) {
+    await assertRatingDestructiveAwardLocksInTransaction(
+      transaction,
+      db,
+      draft,
+    );
+  }
+  if (draft.actionType === contributionPointAction.reviewMilestone) {
+    await assertReviewMilestoneTransactionAllowed(
+      transaction,
+      db,
+      draft.userId,
+      options,
+    );
+  }
   const documentId = exactSourceKey
     ? buildContributionLedgerDocumentIdFromExactSourceKey(draft.sourceKey)
     : buildContributionLedgerDocumentIdFromSourceKey(draft.sourceKey);

@@ -134,6 +134,29 @@ test("claim invite handler uses the behaviorally tested revision decision", () =
   assert.match(handler, /invitePreviewUnavailableReason/u);
   assert.match(handler, /decideRestaurantInviteRevisionWrite/u);
   assert.match(handler, /\.\.\.restaurantRevisionDecision\.patch/u);
+  assert.match(
+    source,
+    /const ratingDestructiveRestaurantOperationLockCollection =\s*\n\s*"private_rating_restaurant_operation_locks";/u,
+  );
+  assert.match(handler, /transaction\.get\(restaurantOperationLockRef\)/u);
+  assert.match(handler, /if \(restaurantOperationLockSnapshot\.exists\)/u);
+  assert.match(
+    handler,
+    /"This BiteScore restaurant is temporarily unavailable\."/u,
+  );
+  const resolvedRestaurantId = handler.indexOf(
+    "const restaurantId = readString(inviteDoc.data().restaurantId)",
+  );
+  const lockRead = handler.indexOf(
+    "transaction.get(restaurantOperationLockRef)",
+  );
+  const firstClaimWrite = handler.indexOf("transaction.set(claimRef");
+  assert.ok(
+    resolvedRestaurantId >= 0 &&
+      lockRead > resolvedRestaurantId &&
+      firstClaimWrite > lockRead,
+  );
+  assert.equal(handler.indexOf("transaction.set("), firstClaimWrite);
   assert.ok(
     handler.indexOf("invitePreviewUnavailableReason") <
       handler.indexOf("...restaurantRevisionDecision.patch"),

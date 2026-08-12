@@ -35,6 +35,15 @@ const {
   dishProposalSupporterCollection,
   createDishProposalGroupId,
 } = require("../lib/dish_proposal_private_contract.js");
+const {
+  buildReviewMilestoneReconciliationLockDocument,
+  reviewMilestoneReconciliationLockCollection,
+} = require("../lib/review_milestone_reconciliation_lock.js");
+
+const ratingDestructiveRestaurantOperationLockCollection =
+  "private_rating_restaurant_operation_locks";
+const ratingDestructiveDishOperationLockCollection =
+  "private_rating_dish_operation_locks";
 
 const fakeFieldValues = {
   serverTimestamp: () => ({ __op: "serverTimestamp" }),
@@ -96,6 +105,71 @@ test("duplicate award with the same source key is a no-op", async () => {
     actionGroupId: "dish_created:dish-1",
   });
   assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 3);
+});
+
+test("positive awards fail closed on present destructive operation locks", async () => {
+  for (const lockPath of [
+    `${ratingDestructiveRestaurantOperationLockCollection}/restaurant-1`,
+    `${ratingDestructiveDishOperationLockCollection}/dish-1`,
+  ]) {
+    const db = new FakeFirestore();
+    db.seed(lockPath, {malformed: true});
+
+    await assert.rejects(
+      () => awardContributionPointsTransaction(db, awardDraft(), {
+        fieldValues: fakeFieldValues,
+      }),
+      (error) => {
+        assert.equal(error.code, "failed-precondition");
+        assert.equal(
+          error.message,
+          "Contribution point award is temporarily unavailable.",
+        );
+        assert.equal(JSON.stringify(error).includes("restaurant-1"), false);
+        assert.equal(JSON.stringify(error).includes("dish-1"), false);
+        return true;
+      },
+    );
+
+    assert.equal(
+      db.get(ledgerPath(buildContributionLedgerDocumentIdFromSourceKey(
+        "dish_created:dish-1",
+      ))),
+      undefined,
+    );
+    assert.equal(db.get(userProfilePath("user-1")), undefined);
+  }
+});
+
+test("a destructive lock observed during the award transaction causes no write", async () => {
+  const db = new FakeFirestore();
+  const lockPath =
+    `${ratingDestructiveRestaurantOperationLockCollection}/restaurant-1`;
+  db.onTransactionGet = (ref, workingStore) => {
+    if (ref.path !== lockPath) {
+      return;
+    }
+    db.onTransactionGet = null;
+    const lock = {state: "active"};
+    db.seed(lockPath, lock);
+    workingStore.set(lockPath, lock);
+  };
+
+  await assert.rejects(
+    () => awardContributionPointsTransaction(db, awardDraft(), {
+      fieldValues: fakeFieldValues,
+    }),
+    (error) => error.code === "failed-precondition",
+  );
+
+  assert.deepEqual(db.get(lockPath), {state: "active"});
+  assert.equal(db.get(userProfilePath("user-1")), undefined);
+  assert.equal(
+    db.get(ledgerPath(buildContributionLedgerDocumentIdFromSourceKey(
+      "dish_created:dish-1",
+    ))),
+    undefined,
+  );
 });
 
 test("award restores a previously reversed source-key entry once", async () => {
@@ -312,6 +386,67 @@ test("review milestone callable awards verified milestone points", async () => {
     { ledgerEntryId: ledgerId, points: 1, wasCreated: true },
   ]);
   assert.equal(db.get(ledgerPath(ledgerId)).actionType, "review_milestone");
+  assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 1);
+});
+
+test("external milestone awards block active and malformed reconciliation locks", async () => {
+  for (const lock of [
+    reviewMilestoneLockDocument("active"),
+    {version: "malformed-private-lock"},
+  ]) {
+    const db = new FakeFirestore();
+    seedPublicReviews(db, {userId: "user-1", count: 5});
+    db.seed(
+      `${reviewMilestoneReconciliationLockCollection}/user-1`,
+      lock,
+    );
+
+    await assert.rejects(
+      () => awardReviewMilestoneContributionPointsCallableHandler(
+        db,
+        callableRequest({
+          auth: {uid: "user-1", token: {email: "user-1@example.com"}},
+          data: {userId: "user-1"},
+        }),
+        {fieldValues: fakeFieldValues},
+      ),
+      (error) => {
+        assert.equal(error.code, "failed-precondition");
+        assert.equal(
+          error.message,
+          "Review milestone updates are temporarily unavailable.",
+        );
+        assert.equal(JSON.stringify(error).includes("user-1"), false);
+        return true;
+      },
+    );
+
+    const ledgerId = buildContributionLedgerDocumentIdFromSourceKey(
+      "review_milestone:user-1:5",
+    );
+    assert.equal(db.get(ledgerPath(ledgerId)), undefined);
+    assert.equal(db.get(userProfilePath("user-1")), undefined);
+  }
+});
+
+test("external milestone awards allow an exact released reconciliation lock", async () => {
+  const db = new FakeFirestore();
+  seedPublicReviews(db, {userId: "user-1", count: 5});
+  db.seed(
+    `${reviewMilestoneReconciliationLockCollection}/user-1`,
+    reviewMilestoneLockDocument("released"),
+  );
+
+  const response = await awardReviewMilestoneContributionPointsCallableHandler(
+    db,
+    callableRequest({
+      auth: {uid: "user-1", token: {email: "user-1@example.com"}},
+      data: {userId: "user-1"},
+    }),
+    {fieldValues: fakeFieldValues},
+  );
+
+  assert.equal(response.result.entries[0].wasCreated, true);
   assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 1);
 });
 
@@ -982,6 +1117,107 @@ test("resolution-cycle award accepts normalized group after title-case rename an
   assert.equal(db.get(userProfilePath("submitter-1")).contributionPoints, 1);
 });
 
+test("all external dish-scoped award entry points honor destructive locks", async () => {
+  const genericDb = new FakeFirestore();
+  seedDestructiveRestaurantLock(genericDb);
+  await assertContributionAwardUnavailable(() =>
+    awardContributionPointsCallableHandler(
+      genericDb,
+      callableRequest({
+        auth: adminAuth(),
+        data: {draft: awardDraft()},
+      }),
+      {fieldValues: fakeFieldValues},
+    ));
+
+  const imageDb = new FakeFirestore();
+  seedDishImageAwardData(imageDb, {userId: "user-1"});
+  seedDestructiveRestaurantLock(imageDb);
+  await assertContributionAwardUnavailable(() =>
+    awardDishImageContributionPointsCallableHandler(
+      imageDb,
+      callableRequest({
+        auth: {uid: "user-1", token: {email: "user-1@example.com"}},
+        data: {imageId: "image-1", dishId: "dish-1"},
+      }),
+      {fieldValues: fakeFieldValues},
+    ));
+
+  const createdDb = new FakeFirestore();
+  seedCreatedDishAwardData(createdDb, {
+    userId: "user-1",
+    restaurantId: "restaurant-1",
+    dishId: "dish-1",
+    reviewId: "review-1",
+  });
+  seedDestructiveRestaurantLock(createdDb);
+  await assertContributionAwardUnavailable(() =>
+    awardCreatedDishContributionPointsCallableHandler(
+      createdDb,
+      callableRequest({
+        auth: {uid: "user-1", token: {email: "user-1@example.com"}},
+        data: {
+          restaurantId: "restaurant-1",
+          dishId: "dish-1",
+          reviewId: "review-1",
+        },
+      }),
+      {fieldValues: fakeFieldValues},
+    ));
+
+  const proposalDb = new FakeFirestore();
+  seedApprovedProposalAwardData(proposalDb, {
+    proposalId: "proposal-locked",
+    userId: "submitter-1",
+    type: "rename",
+  });
+  seedDestructiveRestaurantLock(proposalDb);
+  await assertContributionAwardUnavailable(() =>
+    awardApprovedDishProposalContributionPointsCallableHandler(
+      proposalDb,
+      callableRequest({
+        auth: adminAuth(),
+        data: {
+          proposalId: "proposal-locked",
+          oldValue: "Pizza",
+          newValue: "House Pizza",
+        },
+      }),
+      {fieldValues: fakeFieldValues},
+    ));
+
+  for (const db of [genericDb, imageDb, createdDb, proposalDb]) {
+    assert.equal(db.get(userProfilePath("user-1")), undefined);
+    assert.equal(db.get(userProfilePath("submitter-1")), undefined);
+  }
+});
+
+test("active Dish Suggestions resolution-cycle awards may finish under destructive locks", async () => {
+  const db = new FakeFirestore();
+  const fixture = seedResolutionCyclePointAwardData(db, {
+    proposalId: "proposal-active-cycle",
+    supporterUid: "submitter-1",
+    proposedName: "house pizza",
+    appliedDishName: "House Pizza",
+    oldDishName: "Pizza",
+  });
+  seedDestructiveRestaurantLock(db);
+  db.seed(
+    `${ratingDestructiveDishOperationLockCollection}/dish-1`,
+    {malformed: true},
+  );
+
+  const result =
+    await awardApprovedDishProposalContributionPointsForResolutionCycle(
+      db,
+      fixture.request,
+      {fieldValues: fakeFieldValues},
+    );
+
+  assert.equal(result.outcome, "awarded");
+  assert.equal(db.get(userProfilePath("submitter-1")).contributionPoints, 1);
+});
+
 test("resolution-cycle award uses exact source document ID despite duplicate embedded IDs", async () => {
   const db = new FakeFirestore();
   const first = seedResolutionCyclePointAwardData(db, {
@@ -1483,6 +1719,48 @@ test("admin milestone moderation reconcile reverses stale milestone entries", as
   assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 0);
 });
 
+test("external milestone moderation cannot mutate under an active lock", async () => {
+  const db = new FakeFirestore();
+  seedPublicReviews(db, {userId: "user-1", count: 4});
+  const milestoneId = seedLedgerEntry(db, {
+    sourceKey: "review_milestone:user-1:5",
+    userId: "user-1",
+    dishId: null,
+    pointsDelta: 1,
+    actionType: "review_milestone",
+    description: "Reached 5 valid public reviews",
+  });
+  db.seed(userProfilePath("user-1"), {
+    userId: "user-1",
+    contributionPoints: 1,
+  });
+  db.seed(
+    `${reviewMilestoneReconciliationLockCollection}/user-1`,
+    reviewMilestoneLockDocument("active"),
+  );
+
+  await assert.rejects(
+    () =>
+      reconcileReviewMilestoneContributionPointsAfterModerationCallableHandler(
+        db,
+        callableRequest({auth: adminAuth(), data: {userId: "user-1"}}),
+        {fieldValues: fakeFieldValues},
+      ),
+    (error) => error.code === "failed-precondition" &&
+      error.message === "Review milestone updates are temporarily unavailable.",
+  );
+
+  assert.equal(
+    db.get(ledgerPath(milestoneId)).status,
+    contributionPointStatus.active,
+  );
+  assert.equal(db.get(userProfilePath("user-1")).contributionPoints, 1);
+  assert.equal(
+    db.get(ledgerPath(buildContributionReversalDocumentId(milestoneId))),
+    undefined,
+  );
+});
+
 test("admin milestone moderation reconcile awards missing valid milestones", async () => {
   const db = new FakeFirestore();
   seedPublicReviews(db, { userId: "user-1", count: 5 });
@@ -1888,6 +2166,36 @@ function userProfilePath(userId) {
   return `${contributionUserProfilesCollection}/${userId}`;
 }
 
+function seedDestructiveRestaurantLock(db) {
+  db.seed(
+    `${ratingDestructiveRestaurantOperationLockCollection}/restaurant-1`,
+    {malformed: true},
+  );
+}
+
+function reviewMilestoneLockDocument(state) {
+  const now = new Date("2026-08-11T12:00:00.000Z");
+  return buildReviewMilestoneReconciliationLockDocument({
+    userId: "user-1",
+    operationId: "restaurant-delete-operation",
+    lockToken: "a".repeat(64),
+    state,
+    createdAt: now,
+    updatedAt: now,
+  });
+}
+
+async function assertContributionAwardUnavailable(operation) {
+  await assert.rejects(operation, (error) => {
+    assert.equal(error.code, "failed-precondition");
+    assert.equal(
+      error.message,
+      "Contribution point award is temporarily unavailable.",
+    );
+    return true;
+  });
+}
+
 function seedPublicReviews(db, { userId, count }) {
   for (let index = 1; index <= count; index += 1) {
     db.seed(`dish_reviews/review-${index}`, {
@@ -2157,6 +2465,7 @@ class FakeFirestore {
     this.store = new Map();
     this.clock = 0;
     this.failOnSetPath = null;
+    this.onTransactionGet = null;
   }
 
   get size() {
@@ -2191,6 +2500,7 @@ class FakeTransaction {
   }
 
   async get(ref) {
+    this.db.onTransactionGet?.(ref, this.workingStore);
     return new FakeDocumentSnapshot(ref.id, this.workingStore.get(ref.path));
   }
 

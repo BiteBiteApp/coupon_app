@@ -4,9 +4,16 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const {
+  buildDishMergeReviewLockDocument,
   claimDishProposalGroupForApply,
   claimDishProposalGroupForReject,
+  dishMergeAggregateCanBeAdvancedAfterSafeAbort,
+  dishMergeAggregateIsReady,
+  dishMergeReviewLocksBelongToJob,
+  nextDishAggregateWriteGenerations,
+  parseDishMergeReviewLockDocument,
   processDishProposalJobStep,
+  readEffectiveDishAggregateWriteGeneration,
 } = require("../lib/dish_proposal_resolution_jobs.js");
 const {
   maintainDishEditProposalPrivateState,
@@ -15,6 +22,7 @@ const {
   createDishProposalMemberId,
   dishMergeReviewLockCollection,
   dishMergeReviewLockPath,
+  dishMergeReviewLockVersion,
   dishProposalAggregateScanBatchSize,
   dishProposalFinalizationBatchSize,
   dishProposalGroupPath,
@@ -762,6 +770,270 @@ test("resolution claims serialize Apply/Reject races with exactly one winner", a
       assert.equal(database.has(dishMergeReviewLockPath(targetDishId)), false);
     }
   }
+});
+
+test("shared merge lock and generation exports preserve committed invariants", () => {
+  assert.equal(readEffectiveDishAggregateWriteGeneration({}), 0);
+  assert.equal(
+    readEffectiveDishAggregateWriteGeneration({aggregateWriteGeneration: 4}),
+    4,
+  );
+  assert.deepEqual(nextDishAggregateWriteGenerations(4), {
+    active: 5,
+    completion: 6,
+  });
+  assert.throws(
+    () => nextDishAggregateWriteGenerations(Number.MAX_SAFE_INTEGER),
+    /exhausted/u,
+  );
+
+  const job = {
+    jobId: "shared-direct-job",
+    groupId: "shared-direct-job",
+    sourceDishId: "shared-source",
+    mergeTargetDishId: "shared-target",
+    sourceActiveAggregateWriteGeneration: 5,
+    sourceCompletionAggregateWriteGeneration: 6,
+    targetActiveAggregateWriteGeneration: 9,
+    targetCompletionAggregateWriteGeneration: 10,
+  };
+  const sourceLock = buildDishMergeReviewLockDocument({
+    version: dishMergeReviewLockVersion,
+    dishId: job.sourceDishId,
+    jobId: job.jobId,
+    groupId: job.groupId,
+    role: "source",
+    state: "active",
+    blocksClientReviews: true,
+    blocksClientAggregates: true,
+    activeAggregateWriteGeneration:
+      job.sourceActiveAggregateWriteGeneration,
+    completionAggregateWriteGeneration:
+      job.sourceCompletionAggregateWriteGeneration,
+    targetDishId: job.mergeTargetDishId,
+    createdAt: baseTime,
+    indexedAt: baseTime,
+  });
+  const targetLock = buildDishMergeReviewLockDocument({
+    version: dishMergeReviewLockVersion,
+    dishId: job.mergeTargetDishId,
+    jobId: job.jobId,
+    groupId: job.groupId,
+    role: "target",
+    state: "active",
+    blocksClientReviews: true,
+    blocksClientAggregates: true,
+    activeAggregateWriteGeneration:
+      job.targetActiveAggregateWriteGeneration,
+    completionAggregateWriteGeneration:
+      job.targetCompletionAggregateWriteGeneration,
+    targetDishId: null,
+    createdAt: baseTime,
+    indexedAt: baseTime,
+  });
+  const parsedSourceLock = parseDishMergeReviewLockDocument({
+    id: job.sourceDishId,
+    data: sourceLock,
+    createTime: baseTime,
+  });
+  const parsedTargetLock = parseDishMergeReviewLockDocument({
+    id: job.mergeTargetDishId,
+    data: targetLock,
+    createTime: baseTime,
+  });
+  assert.deepEqual(parsedSourceLock, sourceLock);
+  assert.deepEqual(parsedTargetLock, targetLock);
+  assert.equal(
+    dishMergeReviewLocksBelongToJob(
+      job,
+      parsedSourceLock,
+      parsedTargetLock,
+    ),
+    true,
+  );
+  assert.equal(
+    dishMergeAggregateIsReady(
+      {
+        id: job.mergeTargetDishId,
+        data: {
+          dishId: job.mergeTargetDishId,
+          restaurantId: "restaurant-1",
+          aggregateWriteGeneration:
+            job.targetActiveAggregateWriteGeneration,
+          ratingCount: 0,
+          overallBiteScore: 0,
+        },
+        createTime: baseTime,
+      },
+      job.mergeTargetDishId,
+      "restaurant-1",
+      job.targetActiveAggregateWriteGeneration,
+    ),
+    true,
+  );
+  assert.equal(
+    dishMergeAggregateCanBeAdvancedAfterSafeAbort(
+      null,
+      job.sourceDishId,
+      "restaurant-1",
+      job.sourceActiveAggregateWriteGeneration,
+    ),
+    true,
+  );
+});
+
+test("new proposal claims fail closed on destructive restaurant and dish locks", async () => {
+  const cases = [
+    {
+      name: "restaurant",
+      claim: claimDishProposalGroupForApply,
+      path: ({restaurantId}) =>
+        `private_rating_restaurant_operation_locks/${restaurantId}`,
+      lock: {
+        version: "bitestar.rating-restaurant-operation-lock.v1",
+        state: "active",
+      },
+    },
+    {
+      name: "source-dish",
+      claim: claimDishProposalGroupForReject,
+      path: ({sourceDishId}) =>
+        `private_rating_dish_operation_locks/${sourceDishId}`,
+      lock: {
+        version: "bitestar.rating-dish-operation-lock.v1",
+        state: "active",
+      },
+    },
+    {
+      name: "target-dish",
+      claim: claimDishProposalGroupForApply,
+      path: ({targetDishId}) =>
+        `private_rating_dish_operation_locks/${targetDishId}`,
+      lock: {
+        version: "bitestar.rating-dish-operation-lock.v1",
+        state: "merged_source",
+      },
+    },
+    {
+      name: "malformed-present",
+      claim: claimDishProposalGroupForApply,
+      path: ({sourceDishId}) =>
+        `private_rating_dish_operation_locks/${sourceDishId}`,
+      lock: {unexpected: "private state"},
+    },
+  ];
+
+  for (const testCase of cases) {
+    const database = new InMemoryDishProposalDatabase();
+    const sourceDishId = `destructive-${testCase.name}-source`;
+    const targetDishId = `destructive-${testCase.name}-target`;
+    const created = await createProposalGroup(database, {
+      count: 2,
+      prefix: `destructive-${testCase.name}`,
+      type: "merge",
+      sourceDishId,
+      mergeTargetDishId: targetDishId,
+    });
+    seedDish(database, sourceDishId);
+    seedDish(database, targetDishId);
+    database.seed(testCase.path({
+      restaurantId: "restaurant-1",
+      sourceDishId,
+      targetDishId,
+    }), testCase.lock);
+    const committedMutationCount = database.committedOperations.filter(
+      (operation) => operation.type === "set" || operation.type === "delete",
+    ).length;
+
+    const result = await testCase.claim(
+      database,
+      created.groupId,
+      new Date(baseTime.getTime() + 19_000),
+    );
+
+    assert.deepEqual(result, {
+      claimed: false,
+      jobId: null,
+      reason: "dish-locked",
+    }, testCase.name);
+    assert.equal(
+      database.committedOperations.filter(
+        (operation) => operation.type === "set" || operation.type === "delete",
+      ).length,
+      committedMutationCount,
+      testCase.name,
+    );
+    assert.equal(
+      database.documentsIn("private_dish_edit_application_jobs").length,
+      0,
+      testCase.name,
+    );
+    assert.equal(
+      database.documentsIn(dishMergeReviewLockCollection).length,
+      0,
+      testCase.name,
+    );
+    assert.equal(
+      database.data(dishProposalGroupPath(created.groupId)).activeJobId,
+      null,
+      testCase.name,
+    );
+    assert.equal(
+      database.data(`bitescore_dishes/${sourceDishId}`)
+        .aggregateWriteGeneration,
+      undefined,
+      testCase.name,
+    );
+    assert.equal(
+      database.data(`bitescore_dishes/${targetDishId}`)
+        .aggregateWriteGeneration,
+      undefined,
+      testCase.name,
+    );
+  }
+});
+
+test("an already-active proposal job ignores a later destructive lock", async () => {
+  const database = new InMemoryDishProposalDatabase();
+  const sourceDishId = "active-before-destructive-source";
+  const targetDishId = "active-before-destructive-target";
+  const created = await createProposalGroup(database, {
+    count: 2,
+    prefix: "active-before-destructive",
+    type: "merge",
+    sourceDishId,
+    mergeTargetDishId: targetDishId,
+  });
+  seedDish(database, sourceDishId);
+  seedDish(database, targetDishId);
+  const claim = await claimDishProposalGroupForApply(
+    database,
+    created.groupId,
+    new Date(baseTime.getTime() + 19_100),
+  );
+  assert.equal(claim.claimed, true);
+  database.seed(
+    "private_rating_restaurant_operation_locks/restaurant-1",
+    {unexpected: "present after claim"},
+  );
+
+  const repeatClaim = await claimDishProposalGroupForReject(
+    database,
+    created.groupId,
+    new Date(baseTime.getTime() + 19_101),
+  );
+  assert.deepEqual(repeatClaim, {
+    claimed: false,
+    jobId: claim.jobId,
+    reason: "already-active",
+  });
+  const result = await processDishProposalJobStep(
+    dependencies(database),
+    claim.jobId,
+    new Date(baseTime.getTime() + 19_102),
+  );
+  assert.equal(result.status, "active");
+  assert.equal(result.phase, "move_reviews");
 });
 
 test("merge locks are atomic, cannot be stolen, and release only for safe pre-mutation invalidity", async () => {

@@ -207,6 +207,8 @@ const stripeTrialDays = 60;
 const subscriptionReturnSuccessUri = "bitesaver://subscription-success";
 const subscriptionReturnCancelUri = "bitesaver://subscription-cancel";
 const restaurantInviteCollection = "restaurant_invites";
+const ratingDestructiveRestaurantOperationLockCollection =
+  "private_rating_restaurant_operation_locks";
 const restaurantInviteExpirationDays = 90;
 
 function requireTokenizedSubscriptionReturnProtocol(
@@ -2027,7 +2029,20 @@ export const redeemBiteScoreRestaurantClaimInvite = onCall(async (request) => {
     const restaurantRef = db
       .collection("bitescore_restaurants")
       .doc(restaurantId);
-    const restaurantSnapshot = await transaction.get(restaurantRef);
+    const restaurantOperationLockRef = db
+      .collection(ratingDestructiveRestaurantOperationLockCollection)
+      .doc(restaurantId);
+    const [restaurantOperationLockSnapshot, restaurantSnapshot] =
+      await Promise.all([
+        transaction.get(restaurantOperationLockRef),
+        transaction.get(restaurantRef),
+      ]);
+    if (restaurantOperationLockSnapshot.exists) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This BiteScore restaurant is temporarily unavailable.",
+      );
+    }
     if (!restaurantSnapshot.exists) {
       throw new HttpsError(
         "not-found",

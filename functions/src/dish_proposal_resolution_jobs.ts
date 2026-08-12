@@ -93,6 +93,33 @@ type ParsedDish = Readonly<{
   aggregateWriteGeneration: number;
 }>;
 
+const ratingRestaurantOperationLockCollection =
+  "private_rating_restaurant_operation_locks" as const;
+const ratingDishOperationLockCollection =
+  "private_rating_dish_operation_locks" as const;
+
+async function hasBlockingRatingDestructiveOperationLock(
+  transaction: DishProposalPrivateTransaction,
+  group: DishProposalGroupDocument,
+): Promise<boolean> {
+  const paths = new Set<string>([
+    `${ratingRestaurantOperationLockCollection}/${group.restaurantId}`,
+    `${ratingDishOperationLockCollection}/${group.sourceDishId}`,
+  ]);
+  if (group.mergeTargetDishId !== null) {
+    paths.add(
+      `${ratingDishOperationLockCollection}/${group.mergeTargetDishId}`,
+    );
+  }
+  const documents = await Promise.all(
+    [...paths].map((path) => transaction.getDocument(path)),
+  );
+  // Presence is deliberately fail-closed. A malformed private lock must never
+  // let a new proposal job race destructive work, and no lock payload is
+  // needed to make this claim decision.
+  return documents.some((document) => document !== null);
+}
+
 const dishProposalJobKeys = Object.freeze([
   "version",
   "jobId",
@@ -241,7 +268,7 @@ function readInteger(value: unknown): number | null {
     : null;
 }
 
-function readEffectiveAggregateWriteGeneration(
+export function readEffectiveDishAggregateWriteGeneration(
   data: Readonly<Record<string, unknown>>,
 ): number {
   if (!Object.prototype.hasOwnProperty.call(data, "aggregateWriteGeneration")) {
@@ -254,7 +281,7 @@ function readEffectiveAggregateWriteGeneration(
   return generation;
 }
 
-function nextAggregateWriteGenerations(current: number): Readonly<{
+export function nextDishAggregateWriteGenerations(current: number): Readonly<{
   active: number;
   completion: number;
 }> {
@@ -302,7 +329,7 @@ function parseDish(document: DishProposalStoredDocument | null): ParsedDish | nu
       ? document.data.isActive
       : true,
     mergedIntoDishId: readString(document.data.mergedIntoDishId),
-    aggregateWriteGeneration: readEffectiveAggregateWriteGeneration(
+    aggregateWriteGeneration: readEffectiveDishAggregateWriteGeneration(
       document.data,
     ),
   };
@@ -630,11 +657,13 @@ function lockFingerprint(
   ]);
 }
 
-function buildLock(value: Omit<DishMergeReviewLockDocument, "fingerprint">) {
+export function buildDishMergeReviewLockDocument(
+  value: Omit<DishMergeReviewLockDocument, "fingerprint">,
+): DishMergeReviewLockDocument {
   return {...value, fingerprint: lockFingerprint(value)};
 }
 
-function parseLock(
+export function parseDishMergeReviewLockDocument(
   document: DishProposalStoredDocument | null,
 ): DishMergeReviewLockDocument | null {
   if (document === null) {
@@ -644,7 +673,7 @@ function parseLock(
   if (!hasExactKeys(data, dishMergeReviewLockKeys)) {
     throw new Error("Stored merge lock has an invalid field set.");
   }
-  const dishId = readCanonicalDishId(data.dishId);
+  const dishId = readExactDocumentSegment(data.dishId);
   const jobId = readExactDocumentSegment(data.jobId);
   const groupId = readCanonicalPrivateString(data.groupId);
   const role = data.role === "source" || data.role === "target"
@@ -683,7 +712,7 @@ function parseLock(
   }
   const targetDishId = data.targetDishId === null
     ? null
-    : readCanonicalDishId(data.targetDishId);
+    : readExactDocumentSegment(data.targetDishId);
   if (data.targetDishId !== null && targetDishId === null) {
     throw new Error("Stored merge lock targetDishId is malformed.");
   }
@@ -749,6 +778,9 @@ async function claimDishProposalGroup(
         reason: "already-active",
       };
     }
+    if (await hasBlockingRatingDestructiveOperationLock(transaction, group)) {
+      return {claimed: false, jobId: null, reason: "dish-locked"};
+    }
     const resolutionSequence = group.resolutionSequence + 1;
     if (!Number.isSafeInteger(resolutionSequence)) {
       throw new Error("Dish-proposal resolution sequence is exhausted.");
@@ -801,10 +833,10 @@ async function claimDishProposalGroup(
       if (!valid) {
         mergeClaimFailureCode = "merge_targets_invalid";
       } else {
-        const sourceGenerations = nextAggregateWriteGenerations(
+        const sourceGenerations = nextDishAggregateWriteGenerations(
           source.aggregateWriteGeneration,
         );
-        const targetGenerations = nextAggregateWriteGenerations(
+        const targetGenerations = nextDishAggregateWriteGenerations(
           target.aggregateWriteGeneration,
         );
         sourceActiveAggregateWriteGeneration = sourceGenerations.active;
@@ -898,7 +930,7 @@ async function claimDishProposalGroup(
       }, {merge: true});
       transaction.setDocument(
         dishMergeReviewLockPath(group.sourceDishId),
-        buildLock({
+        buildDishMergeReviewLockDocument({
           version: dishMergeReviewLockVersion,
           dishId: group.sourceDishId,
           jobId,
@@ -918,7 +950,7 @@ async function claimDishProposalGroup(
       );
       transaction.setDocument(
         dishMergeReviewLockPath(mergeTargetDishId),
-        buildLock({
+        buildDishMergeReviewLockDocument({
           version: dishMergeReviewLockVersion,
           dishId: mergeTargetDishId,
           jobId,
@@ -986,8 +1018,18 @@ async function loadJob(
   return job;
 }
 
-function locksBelongToJob(
-  job: DishProposalJobDocument,
+export function dishMergeReviewLocksBelongToJob(
+  job: Pick<
+    DishProposalJobDocument,
+    | "jobId"
+    | "groupId"
+    | "sourceDishId"
+    | "mergeTargetDishId"
+    | "sourceActiveAggregateWriteGeneration"
+    | "sourceCompletionAggregateWriteGeneration"
+    | "targetActiveAggregateWriteGeneration"
+    | "targetCompletionAggregateWriteGeneration"
+  >,
   sourceLock: DishMergeReviewLockDocument | null,
   targetLock: DishMergeReviewLockDocument | null,
 ): boolean {
@@ -1061,7 +1103,7 @@ function activeAggregateWriteGenerationForRole(
   return generation;
 }
 
-function aggregateIsReady(
+export function dishMergeAggregateIsReady(
   document: DishProposalStoredDocument | null,
   dishId: string,
   restaurantId: string,
@@ -1079,7 +1121,7 @@ function aggregateIsReady(
     Number.isFinite(data.overallBiteScore);
 }
 
-function aggregateCanBeAdvancedAfterSafeAbort(
+export function dishMergeAggregateCanBeAdvancedAfterSafeAbort(
   document: DishProposalStoredDocument | null,
   dishId: string,
   restaurantId: string,
@@ -1195,9 +1237,9 @@ async function validateMergeStep(
       ]);
     const source = parseDish(sourceDocument);
     const target = parseDish(targetDocument);
-    const sourceLock = parseLock(sourceLockDocument);
-    const targetLock = parseLock(targetLockDocument);
-    if (!locksBelongToJob(job, sourceLock, targetLock)) {
+    const sourceLock = parseDishMergeReviewLockDocument(sourceLockDocument);
+    const targetLock = parseDishMergeReviewLockDocument(targetLockDocument);
+    if (!dishMergeReviewLocksBelongToJob(job, sourceLock, targetLock)) {
       const retryable = updateJob(transaction, job, {
         status: "retryable",
         failureCode: "merge_lock_missing",
@@ -1230,13 +1272,13 @@ async function validateMergeStep(
         targetCompletionGeneration !== null &&
         source.aggregateWriteGeneration === sourceActiveGeneration &&
         target.aggregateWriteGeneration === targetActiveGeneration &&
-        aggregateCanBeAdvancedAfterSafeAbort(
+        dishMergeAggregateCanBeAdvancedAfterSafeAbort(
           sourceAggregateDocument,
           job.sourceDishId,
           job.restaurantId,
           sourceActiveGeneration,
         ) &&
-        aggregateCanBeAdvancedAfterSafeAbort(
+        dishMergeAggregateCanBeAdvancedAfterSafeAbort(
           targetAggregateDocument,
           targetId,
           job.restaurantId,
@@ -1309,10 +1351,10 @@ async function moveReviewsStep(
       transaction.getDocument(dishMergeReviewLockPath(job.sourceDishId)),
       transaction.getDocument(dishMergeReviewLockPath(targetId)),
     ]);
-    if (!locksBelongToJob(
+    if (!dishMergeReviewLocksBelongToJob(
       job,
-      parseLock(sourceLockDocument),
-      parseLock(targetLockDocument),
+      parseDishMergeReviewLockDocument(sourceLockDocument),
+      parseDishMergeReviewLockDocument(targetLockDocument),
     )) {
       const retryable = updateJob(transaction, job, {
         status: "retryable",
@@ -1383,10 +1425,10 @@ async function rebuildAggregateStep(
       transaction.getDocument(dishMergeReviewLockPath(job.sourceDishId)),
       transaction.getDocument(dishMergeReviewLockPath(targetId)),
     ]);
-    if (!locksBelongToJob(
+    if (!dishMergeReviewLocksBelongToJob(
       job,
-      parseLock(sourceLockDocument),
-      parseLock(targetLockDocument),
+      parseDishMergeReviewLockDocument(sourceLockDocument),
+      parseDishMergeReviewLockDocument(targetLockDocument),
     )) {
       const retryable = updateJob(transaction, job, {
         status: "retryable",
@@ -1513,10 +1555,10 @@ async function foldAggregateWinnersStep(
       transaction.getDocument(dishMergeReviewLockPath(job.sourceDishId)),
       transaction.getDocument(dishMergeReviewLockPath(targetId)),
     ]);
-    if (!locksBelongToJob(
+    if (!dishMergeReviewLocksBelongToJob(
       job,
-      parseLock(sourceLockDocument),
-      parseLock(targetLockDocument),
+      parseDishMergeReviewLockDocument(sourceLockDocument),
+      parseDishMergeReviewLockDocument(targetLockDocument),
     )) {
       const retryable = updateJob(transaction, job, {
         status: "retryable",
@@ -1637,10 +1679,10 @@ async function finalizeDishesStep(
       ]);
     const source = parseDish(sourceDocument);
     const target = parseDish(targetDocument);
-    if (!locksBelongToJob(
+    if (!dishMergeReviewLocksBelongToJob(
       job,
-      parseLock(sourceLockDocument),
-      parseLock(targetLockDocument),
+      parseDishMergeReviewLockDocument(sourceLockDocument),
+      parseDishMergeReviewLockDocument(targetLockDocument),
     )) {
       const retryable = updateJob(transaction, job, {
         status: "retryable",
@@ -1660,13 +1702,13 @@ async function finalizeDishesStep(
         job.sourceActiveAggregateWriteGeneration &&
       target.aggregateWriteGeneration ===
         job.targetActiveAggregateWriteGeneration &&
-      aggregateIsReady(
+      dishMergeAggregateIsReady(
         sourceAggregateDocument,
         job.sourceDishId,
         job.restaurantId,
         job.sourceActiveAggregateWriteGeneration,
       ) &&
-      aggregateIsReady(
+      dishMergeAggregateIsReady(
         targetAggregateDocument,
         targetId,
         job.restaurantId,
@@ -1957,13 +1999,13 @@ async function completeJobWithinTransaction(
         limit: 1,
       }),
     ]);
-    sourceLock = parseLock(sourceLockDocument);
-    targetLock = parseLock(targetLockDocument);
+    sourceLock = parseDishMergeReviewLockDocument(sourceLockDocument);
+    targetLock = parseDishMergeReviewLockDocument(targetLockDocument);
     source = parseDish(sourceDocument);
     target = parseDish(targetDocument);
     sourceAggregateDocument = loadedSourceAggregateDocument;
     targetAggregateDocument = loadedTargetAggregateDocument;
-    if (!locksBelongToJob(job, sourceLock, targetLock)) {
+    if (!dishMergeReviewLocksBelongToJob(job, sourceLock, targetLock)) {
       throw new Error("Merge locks were lost before job completion.");
     }
     if (
@@ -1983,13 +2025,13 @@ async function completeJobWithinTransaction(
         job.sourceActiveAggregateWriteGeneration ||
       target.aggregateWriteGeneration !==
         job.targetActiveAggregateWriteGeneration ||
-      !aggregateIsReady(
+      !dishMergeAggregateIsReady(
         sourceAggregateDocument,
         job.sourceDishId,
         job.restaurantId,
         job.sourceActiveAggregateWriteGeneration,
       ) ||
-      !aggregateIsReady(
+      !dishMergeAggregateIsReady(
         targetAggregateDocument,
         job.mergeTargetDishId,
         job.restaurantId,
@@ -2065,7 +2107,7 @@ async function completeJobWithinTransaction(
     );
     transaction.setDocument(
       dishMergeReviewLockPath(job.sourceDishId),
-      buildLock({
+      buildDishMergeReviewLockDocument({
         version: dishMergeReviewLockVersion,
         dishId: job.sourceDishId,
         jobId: job.jobId,
