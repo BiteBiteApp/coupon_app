@@ -27,6 +27,13 @@ const SUPPORTED_FIREBASE_CLI_VERSION = "15.19.1";
 const PROJECT_ID = "coupon-app-29446";
 const SELECTED_FUNCTION_IDS = Object.freeze([
   "createCustomerPortalSession",
+  "getRatingDestructiveOperationStatus",
+  "listRatingAdminDestructiveOperationsPage",
+  "processRatingDestructiveOperationWork",
+  "startRatingDishDelete",
+  "startRatingDishMerge",
+  "startRatingRestaurantDelete",
+  "startRatingRestaurantMerge",
   "stripeWebhook",
 ]);
 const VERIFICATION_ALREADY_IN_PROGRESS =

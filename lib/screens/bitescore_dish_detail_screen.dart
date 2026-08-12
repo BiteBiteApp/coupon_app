@@ -12,6 +12,7 @@ import '../models/dish_review.dart';
 import '../models/local_expert_badge.dart';
 import '../models/local_expert_badge_celebration.dart';
 import '../models/review_feedback_vote.dart';
+import '../models/rating_destructive_operation_models.dart';
 import '../services/admin_access_service.dart';
 import '../services/app_error_text.dart';
 import '../services/bitescore_image_upload_service.dart';
@@ -23,11 +24,13 @@ import '../services/contribution_points_service.dart';
 import '../services/local_expert_badge_celebration_service.dart';
 import '../services/local_expert_badge_recalculation_service.dart';
 import '../services/local_expert_badge_service.dart';
+import '../services/rating_destructive_operations_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/bitescore_category_picker.dart';
 import '../widgets/biterater_theme.dart';
 import '../widgets/local_expert_badge_widget.dart';
 import '../widgets/owner_dish_merge_dialog.dart';
+import '../widgets/rating_destructive_operation_status_dialog.dart';
 import '../widgets/persistent_bottom_navigation.dart';
 import '../widgets/reviewer_identity_badge_row.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
@@ -349,6 +352,7 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
   final String? targetReviewId;
   final bool scrollToReviewSection;
   final String? editReviewId;
+  final RatingDestructiveOperationsService? ratingDestructiveOperationsService;
 
   const BiteScoreDishDetailScreen({
     super.key,
@@ -357,6 +361,7 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
     this.targetReviewId,
     this.scrollToReviewSection = false,
     this.editReviewId,
+    this.ratingDestructiveOperationsService,
   });
 
   @override
@@ -1263,7 +1268,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: BiteRaterTheme.ocean.withOpacity(0.18),
+            color: BiteRaterTheme.ocean.withValues(alpha: 0.18),
             blurRadius: 10,
             offset: const Offset(0, 4),
           ),
@@ -1425,7 +1430,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       decoration: BoxDecoration(
         color: const Color(0xFFF7F9FC),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: BiteRaterTheme.lineBlue.withOpacity(0.65)),
+        border: Border.all(
+          color: BiteRaterTheme.lineBlue.withValues(alpha: 0.65),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1457,9 +1464,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 5),
       decoration: BoxDecoration(
-        color: BiteRaterTheme.ocean.withOpacity(0.07),
+        color: BiteRaterTheme.ocean.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: BiteRaterTheme.ocean.withOpacity(0.16)),
+        border: Border.all(color: BiteRaterTheme.ocean.withValues(alpha: 0.16)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1468,7 +1475,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
           Text(
             label,
             style: TextStyle(
-              color: BiteRaterTheme.mutedInk.withOpacity(0.84),
+              color: BiteRaterTheme.mutedInk.withValues(alpha: 0.84),
               fontSize: 9.5,
               fontWeight: FontWeight.w500,
               height: 1.0,
@@ -1843,11 +1850,11 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       style: OutlinedButton.styleFrom(
         side: BorderSide(
           color: selected
-              ? selectedColor.withOpacity(0.70)
-              : BiteRaterTheme.lineBlue.withOpacity(0.82),
+              ? selectedColor.withValues(alpha: 0.70)
+              : BiteRaterTheme.lineBlue.withValues(alpha: 0.82),
         ),
         backgroundColor: selected
-            ? selectedColor.withOpacity(0.10)
+            ? selectedColor.withValues(alpha: 0.10)
             : Colors.white,
         minimumSize: const Size(0, 32),
         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -1953,7 +1960,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         radius: 22,
         borderColor: isHighlighted
             ? BiteRaterTheme.ocean.withValues(alpha: 0.55)
-            : BiteRaterTheme.grape.withOpacity(0.09),
+            : BiteRaterTheme.grape.withValues(alpha: 0.09),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 220),
           curve: Curves.easeOutCubic,
@@ -2027,7 +2034,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
               Container(
                 height: 0.5,
                 margin: const EdgeInsets.only(top: 6, bottom: 6),
-                color: BiteRaterTheme.lineBlue.withOpacity(0.35),
+                color: BiteRaterTheme.lineBlue.withValues(alpha: 0.35),
               ),
               if (headline.isNotEmpty) ...[
                 Text(
@@ -2229,7 +2236,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       key: _reviewSectionKey,
       child: BiteRaterTheme.liftedCard(
         radius: 22,
-        borderColor: BiteRaterTheme.coral.withOpacity(0.16),
+        borderColor: BiteRaterTheme.coral.withValues(alpha: 0.16),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
@@ -2450,17 +2457,42 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       _showSnackBar('Add at least two active dishes before merging.');
       return;
     }
+    final originatingDishId = _currentEntry.dish.id;
+    final originatingRestaurantId = _currentEntry.restaurant.id;
 
-    final merged = await showDialog<bool>(
+    final operationsService =
+        widget.ratingDestructiveOperationsService ??
+        RatingDestructiveOperationsService();
+    final summary = await showDialog<RatingDestructiveOperationSummary>(
       context: context,
-      builder: (context) => OwnerDishMergeDialog(dishes: activeDishes),
+      builder: (context) => OwnerDishMergeDialog(
+        dishes: activeDishes,
+        operationsService: operationsService,
+      ),
     );
 
-    if (merged == true && mounted) {
+    if (summary == null || !mounted) return;
+    final originIsCurrent =
+        _currentEntry.dish.id == originatingDishId &&
+        _currentEntry.restaurant.id == originatingRestaurantId;
+    if (summary.complete && originIsCurrent) {
       _hasDishChanges = true;
-      _showSnackBar('Dish merge applied.');
       setState(_refresh);
     }
+    showRatingDestructiveOperationFeedback(
+      context,
+      service: operationsService,
+      summary: summary,
+      onComplete: () async {
+        if (!mounted ||
+            _currentEntry.dish.id != originatingDishId ||
+            _currentEntry.restaurant.id != originatingRestaurantId) {
+          return;
+        }
+        _hasDishChanges = true;
+        setState(_refresh);
+      },
+    );
   }
 
   Widget _buildSuggestionCard(BitescoreDish dish) {
@@ -2471,7 +2503,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
 
       return BiteRaterTheme.liftedCard(
         radius: 22,
-        borderColor: BiteRaterTheme.ocean.withOpacity(0.10),
+        borderColor: BiteRaterTheme.ocean.withValues(alpha: 0.10),
         child: Padding(
           padding: const EdgeInsets.all(13),
           child: Column(
@@ -2529,7 +2561,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
       decoration: BoxDecoration(
         color: BiteRaterTheme.cardSurface,
         borderRadius: BorderRadius.circular(21),
-        border: Border.all(color: BiteRaterTheme.ocean.withOpacity(0.08)),
+        border: Border.all(color: BiteRaterTheme.ocean.withValues(alpha: 0.08)),
         boxShadow: const [
           BoxShadow(
             color: Color(0x07000000),
@@ -2546,7 +2578,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
             Text(
               'Suggest dish edits',
               style: TextStyle(
-                color: BiteRaterTheme.mutedInk.withOpacity(0.86),
+                color: BiteRaterTheme.mutedInk.withValues(alpha: 0.86),
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -2853,8 +2885,8 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                           children: [
                             BiteRaterTheme.liftedCard(
                               radius: 24,
-                              borderColor: BiteRaterTheme.peach.withOpacity(
-                                0.22,
+                              borderColor: BiteRaterTheme.peach.withValues(
+                                alpha: 0.22,
                               ),
                               child: Padding(
                                 padding: const EdgeInsets.all(16),
@@ -3948,7 +3980,7 @@ class _ReviewReportDialogState extends State<_ReviewReportDialog> {
     return AlertDialog(
       title: const Text('Report Review'),
       content: DropdownButtonFormField<String>(
-        value: _selectedReason,
+        initialValue: _selectedReason,
         hint: const Text('Select a reason'),
         decoration: const InputDecoration(
           labelText: 'Reason (Optional)',
@@ -4005,7 +4037,7 @@ class _DishReportDialogState extends State<_DishReportDialog> {
     return AlertDialog(
       title: const Text('Report Dish'),
       content: DropdownButtonFormField<String>(
-        value: _selectedReason,
+        initialValue: _selectedReason,
         hint: const Text('Select a reason'),
         decoration: const InputDecoration(
           labelText: 'Reason (Optional)',
@@ -4246,7 +4278,7 @@ class _DishMergeSuggestionDialogState
           }
 
           return DropdownButtonFormField<String>(
-            value: _selectedDishId,
+            initialValue: _selectedDishId,
             decoration: const InputDecoration(
               labelText: 'Merge into',
               border: OutlineInputBorder(),

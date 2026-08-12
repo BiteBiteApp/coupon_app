@@ -7,6 +7,7 @@ const {
   buildRatingDestructiveJobDocument,
   buildRatingDishOperationLockDocument,
   buildRatingRestaurantOperationLockDocument,
+  createRatingDestructiveCallerBindingFingerprint,
   createRatingDestructiveJobId,
   ratingDestructiveJobItemPath,
   ratingDestructiveJobPath,
@@ -45,6 +46,16 @@ const {
 const now = new Date("2026-08-11T15:00:00.000Z");
 const later = new Date("2026-08-11T15:05:00.000Z");
 const maximumSafeInteger = Number.MAX_SAFE_INTEGER;
+const adminCallerUid = "admin-test-uid";
+
+function callerBinding(kind = "admin", uid = adminCallerUid) {
+  return {
+    authorizedCallerKind: kind,
+    callerBindingFingerprint:
+      createRatingDestructiveCallerBindingFingerprint(uid),
+    authorizedCallerUid: uid,
+  };
+}
 
 function clone(value) {
   return value === undefined ? undefined : structuredClone(value);
@@ -289,6 +300,7 @@ function restaurantMergeRequest(changes = {}) {
     targetRestaurantId: "restaurant-b",
     expectedSourceRestaurantRevision: 7,
     expectedTargetRestaurantRevision: 20,
+    ...callerBinding(),
     ...changes,
   };
 }
@@ -300,6 +312,7 @@ function restaurantDeleteRequest(changes = {}) {
     operation: "restaurantDelete",
     sourceRestaurantId: "restaurant-a",
     expectedSourceRestaurantRevision: 7,
+    ...callerBinding(),
     ...changes,
   };
 }
@@ -312,6 +325,7 @@ function dishMergeRequest(changes = {}) {
     sourceDishId: "dish-a",
     targetDishId: "dish-b",
     restaurantId: "restaurant-a",
+    ...callerBinding(),
     ...changes,
   };
 }
@@ -322,6 +336,7 @@ function dishDeleteRequest(changes = {}) {
     requestId: "request-dish-delete",
     operation: "dishDelete",
     sourceDishId: "dish-a",
+    ...callerBinding(),
     ...changes,
   };
 }
@@ -538,6 +553,11 @@ test("strict claim parser accepts only the four exact request shapes", () => {
     {...restaurantDeleteRequest(), expectedSourceRestaurantRevision: -1},
     {...restaurantDeleteRequest(), expectedSourceRestaurantRevision: 1.5},
     {...restaurantDeleteRequest(), expectedSourceRestaurantRevision: "7"},
+    {...dishMergeRequest(), authorizedCallerKind: "customer"},
+    {
+      ...dishMergeRequest(),
+      callerBindingFingerprint: "f".repeat(64),
+    },
   ];
   delete invalid[1].requestId;
   for (const request of invalid) {
@@ -601,6 +621,11 @@ test("restaurantMerge claim atomically reserves both revisions and locks", async
 
   assert.equal(result.claimed, true);
   assert.equal(result.job.operation, "restaurantMerge");
+  assert.equal(result.job.authorizedCallerKind, "admin");
+  assert.equal(
+    result.job.callerBindingFingerprint,
+    createRatingDestructiveCallerBindingFingerprint(adminCallerUid),
+  );
   assert.equal(result.job.phase, "claimed");
   assert.equal(result.job.expectedSourceRestaurantRevision, 7);
   assert.equal(result.job.sourceActiveRestaurantRevision, 8);
@@ -691,6 +716,60 @@ test("dishMerge claim reserves both generations and both lock families", async (
   assert.equal(database.data(ratingDishOperationLockPath("dish-b")).role, "target");
   assert.equal(database.data(dishMergeReviewLockPath("dish-a")).role, "source");
   assert.equal(database.data(dishMergeReviewLockPath("dish-b")).role, "target");
+});
+
+test("dishMerge owner claim rechecks exact claimed ownership transactionally", async () => {
+  const ownerUid = "owner-uid";
+  const allowed = new InMemoryRatingDestructiveDatabase();
+  seedDish(allowed, "dish-a", "restaurant-a", 3);
+  seedDish(allowed, "dish-b", "restaurant-a", 10);
+  seedRestaurant(allowed, "restaurant-a", 7, {
+    isActive: false,
+    isClaimed: true,
+    ownerUserId: ownerUid,
+  });
+  const request = dishMergeRequest({
+    ...callerBinding("owner", ownerUid),
+  });
+  const result = await claimRatingDestructiveOperation(
+    dependencies(allowed),
+    request,
+    now,
+  );
+  assert.equal(result.claimed, true);
+  assert.equal(result.job.authorizedCallerKind, "owner");
+  assert.equal(
+    result.job.callerBindingFingerprint,
+    createRatingDestructiveCallerBindingFingerprint(ownerUid),
+  );
+  assert.equal("authorizedCallerUid" in result.job, false);
+  assert.equal(JSON.stringify(result.job).includes(ownerUid), false);
+
+  for (const restaurantChanges of [
+    {isClaimed: false, ownerUserId: ownerUid},
+    {isClaimed: true, ownerUserId: "unrelated-owner"},
+    {isClaimed: true, ownerUserId: ` ${ownerUid} `},
+  ]) {
+    const denied = new InMemoryRatingDestructiveDatabase();
+    seedDish(denied, "dish-a", "restaurant-a", 3);
+    seedDish(denied, "dish-b", "restaurant-a", 10);
+    seedRestaurant(denied, "restaurant-a", 7, restaurantChanges);
+    await rejectsClaim(denied, request, "permission-denied");
+    assert.equal(denied.committedTransactions.length, 0);
+  }
+});
+
+test("only dishMerge accepts an owner caller kind", () => {
+  for (const request of [
+    restaurantMergeRequest({...callerBinding("owner", "owner-uid")}),
+    restaurantDeleteRequest({...callerBinding("owner", "owner-uid")}),
+    dishDeleteRequest({...callerBinding("owner", "owner-uid")}),
+  ]) {
+    assert.throws(
+      () => parseRatingDestructiveClaimRequest(request),
+      (error) => assertClaimError(error, "permission-denied"),
+    );
+  }
 });
 
 test("dishDelete claim creates one reusable deletion item", async () => {
@@ -799,6 +878,12 @@ test("same request is idempotent without a second revision, generation, or lock"
   assert.equal(
     dishDatabase.documentsIn(ratingDishOperationLockCollection).length,
     2,
+  );
+
+  await rejectsClaim(
+    dishDatabase,
+    dishMergeRequest({...callerBinding("owner", "owner-uid")}),
+    "operation-conflict",
   );
 });
 

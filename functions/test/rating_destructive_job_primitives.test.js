@@ -13,6 +13,7 @@ const {
   buildRatingDestructiveJobDocument,
   buildRatingDestructiveJobItemDocument,
   buildRatingDishOperationLockDocument,
+  createRatingDestructiveCallerBindingFingerprint,
   createRatingDestructiveJobId,
   createRatingDestructiveJobItemId,
   ratingDestructiveJobItemCollection,
@@ -250,6 +251,9 @@ function buildDishDeleteJob(changes = {}) {
       });
   return buildRatingDestructiveJobDocument({
     ...identity,
+    authorizedCallerKind: "admin",
+    callerBindingFingerprint:
+      createRatingDestructiveCallerBindingFingerprint("admin-test-uid"),
     status,
     phase,
     expectedSourceRestaurantRevision: null,

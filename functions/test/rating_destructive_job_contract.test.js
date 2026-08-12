@@ -229,6 +229,11 @@ function jobCore(operation, changes = {}) {
     jobId,
     requestId,
     operation,
+    authorizedCallerKind: "admin",
+    callerBindingFingerprint:
+      contract.createRatingDestructiveCallerBindingFingerprint(
+        "admin-test-uid",
+      ),
     status,
     phase,
     sourceRestaurantId: identity.sourceRestaurantId,
@@ -444,6 +449,40 @@ test("job parser fails closed for version, operation, phase, and status", () => 
   assertInvalidState(() => contract.parseRatingDestructiveJobDocument(
     malformed(document, "jobId", {status: "failed"}),
   ));
+});
+
+test("job caller binding is private, strict, and part of job fingerprint", () => {
+  const admin = buildJob("dishMerge");
+  const ownerFingerprint =
+    contract.createRatingDestructiveCallerBindingFingerprint("owner-uid");
+  const owner = buildJob("dishMerge", {
+    authorizedCallerKind: "owner",
+    callerBindingFingerprint: ownerFingerprint,
+  });
+  assert.match(ownerFingerprint, /^[a-f0-9]{64}$/u);
+  assert.notEqual(ownerFingerprint, "owner-uid");
+  assert.notEqual(owner.fingerprint, admin.fingerprint);
+  assert.equal(owner.authorizedCallerKind, "owner");
+  assert.equal(owner.callerBindingFingerprint, ownerFingerprint);
+
+  assertInvalidRequest(() => buildJob("dishDelete", {
+    authorizedCallerKind: "owner",
+    callerBindingFingerprint: ownerFingerprint,
+  }));
+  assertInvalidRequest(() => buildJob("dishMerge", {
+    authorizedCallerKind: "customer",
+  }));
+  assertInvalidRequest(() => buildJob("dishMerge", {
+    callerBindingFingerprint: "f".repeat(63),
+  }));
+  for (const changes of [
+    {authorizedCallerKind: "customer"},
+    {callerBindingFingerprint: "F".repeat(64)},
+  ]) {
+    assertInvalidState(() => contract.parseRatingDestructiveJobDocument(
+      malformed(owner, "jobId", changes),
+    ));
+  }
 });
 
 test("job parser fails closed for malformed cursor, integer, timestamp, and keys", () => {
@@ -1337,6 +1376,8 @@ test("collection names, versions, paths, and bounds remain exact", () => {
     "bitestar.rating-restaurant-operation-lock.v1");
   assert.equal(contract.ratingDishOperationLockVersion,
     "bitestar.rating-dish-operation-lock.v1");
+  assert.equal(contract.ratingDestructiveCallerBindingDomain,
+    "bitestar.rating-destructive-caller-binding.v1");
   assert.equal(contract.ratingDestructiveDirectBatchLimit, 100);
   assert.equal(contract.ratingDestructiveTrustBatchLimit, 50);
   assert.equal(contract.ratingDestructivePointReversalBatchLimit, 50);

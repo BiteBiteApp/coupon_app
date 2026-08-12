@@ -12,16 +12,19 @@ import '../models/dish_report.dart';
 import '../models/duplicate_restaurant_report.dart';
 import '../models/pagination/paged_models.dart';
 import '../models/rating_admin_paging_models.dart';
+import '../models/rating_destructive_operation_models.dart';
 import '../models/restaurant_report.dart';
 import '../models/review_report.dart';
 import '../services/app_error_text.dart';
 import '../services/bitescore_service.dart';
 import '../services/paged_query_controller.dart';
 import '../services/rating_admin_paging_service.dart';
+import '../services/rating_destructive_operations_service.dart';
 import '../services/restaurant_invite_service.dart';
 import 'biterater_theme.dart';
 import 'clickable_phone_text.dart';
 import 'paged_directory_view.dart';
+import 'rating_destructive_operation_status_dialog.dart';
 
 typedef RatingAdminEditRestaurant =
     Future<bool?> Function(BitescoreRestaurant restaurant);
@@ -90,6 +93,7 @@ class RatingAdminRestaurantPagedView extends StatefulWidget {
     required this.onManageDishes,
     required this.onEditRestaurant,
     this.service,
+    this.operationsService,
     this.loadRestaurant,
     this.deleteRestaurant,
     this.createClaimInvite,
@@ -98,6 +102,7 @@ class RatingAdminRestaurantPagedView extends StatefulWidget {
   final ValueChanged<AdminRestaurantLinkRecord> onManageDishes;
   final RatingAdminEditRestaurant onEditRestaurant;
   final RatingAdminPagingService? service;
+  final RatingDestructiveOperationsService? operationsService;
   final Future<BitescoreRestaurant?> Function(String id)? loadRestaurant;
   final Future<void> Function(String id)? deleteRestaurant;
   final Future<RestaurantInviteCreationResult> Function({
@@ -115,6 +120,7 @@ class _RatingAdminRestaurantPagedViewState
   static const List<int> _radiusOptions = <int>[1, 3, 5, 10, 15, 20, 30, 50];
 
   late final RatingAdminPagingService _service;
+  late final RatingDestructiveOperationsService _operationsService;
   final _formKey = GlobalKey<FormState>();
   final _locationController = TextEditingController();
   final _nameController = TextEditingController();
@@ -132,6 +138,8 @@ class _RatingAdminRestaurantPagedViewState
   void initState() {
     super.initState();
     _service = widget.service ?? RatingAdminPagingService();
+    _operationsService =
+        widget.operationsService ?? RatingDestructiveOperationsService();
   }
 
   @override
@@ -282,16 +290,48 @@ class _RatingAdminRestaurantPagedViewState
     }
     final key = 'delete:' + record.documentId;
     if (!_busy.add(key)) return;
+    final originatingController = _controller;
+    var refreshed = false;
+    Future<void> refreshOriginOnce() async {
+      if (refreshed ||
+          !mounted ||
+          originatingController == null ||
+          !identical(originatingController, _controller)) {
+        return;
+      }
+      refreshed = true;
+      await _refreshAndRefill(originatingController);
+    }
+
     setState(() {});
     try {
-      await (widget.deleteRestaurant?.call(record.documentId) ??
-          BiteScoreService.deleteRestaurantAsAdmin(record.documentId));
+      if (widget.deleteRestaurant != null) {
+        await widget.deleteRestaurant!(record.documentId);
+        if (!mounted || !identical(originatingController, _controller)) return;
+        _snack(context, record.restaurantName + ' deleted.');
+        await refreshOriginOnce();
+        return;
+      }
+      final summary = await _operationsService.startRestaurantDelete(
+        restaurantId: record.documentId,
+        expectedRestaurantRevision: record.restaurantWriteRevision,
+      );
       if (!mounted) return;
-      _snack(context, record.restaurantName + ' deleted.');
-      final controller = _controller;
-      if (controller != null) await _refreshAndRefill(controller);
+      if (!identical(originatingController, _controller)) return;
+      if (summary.complete) await refreshOriginOnce();
+      if (!mounted || !identical(originatingController, _controller)) return;
+      showRatingDestructiveOperationFeedback(
+        context,
+        service: _operationsService,
+        summary: summary,
+        onComplete: refreshOriginOnce,
+      );
+    } on RatingDestructiveOperationsException catch (error) {
+      if (mounted && identical(originatingController, _controller)) {
+        _snack(context, error.message);
+      }
     } catch (error) {
-      if (mounted) {
+      if (mounted && identical(originatingController, _controller)) {
         _snack(
           context,
           AppErrorText.friendly(
@@ -840,11 +880,13 @@ class RatingAdminDishPagedView extends StatefulWidget {
     required this.selectedRestaurant,
     required this.onEditDish,
     this.service,
+    this.operationsService,
   });
 
   final AdminRestaurantLinkRecord? selectedRestaurant;
   final RatingAdminEditDish onEditDish;
   final RatingAdminPagingService? service;
+  final RatingDestructiveOperationsService? operationsService;
 
   @override
   State<RatingAdminDishPagedView> createState() =>
@@ -853,6 +895,7 @@ class RatingAdminDishPagedView extends StatefulWidget {
 
 class _RatingAdminDishPagedViewState extends State<RatingAdminDishPagedView> {
   late final RatingAdminPagingService _service;
+  late final RatingDestructiveOperationsService _operationsService;
   final _nameController = TextEditingController();
   PagedQueryController<RatingAdminDishRecord>? _controller;
   AdminBiteScoreStatus _status = AdminBiteScoreStatus.all;
@@ -862,6 +905,8 @@ class _RatingAdminDishPagedViewState extends State<RatingAdminDishPagedView> {
   void initState() {
     super.initState();
     _service = widget.service ?? RatingAdminPagingService();
+    _operationsService =
+        widget.operationsService ?? RatingDestructiveOperationsService();
     _replaceController();
   }
 
@@ -967,15 +1012,38 @@ class _RatingAdminDishPagedViewState extends State<RatingAdminDishPagedView> {
     }
     final key = 'delete:' + dish.id;
     if (!_busy.add(key)) return;
+    final originatingController = _controller;
+    var refreshed = false;
+    Future<void> refreshOriginOnce() async {
+      if (refreshed ||
+          !mounted ||
+          originatingController == null ||
+          !identical(originatingController, _controller)) {
+        return;
+      }
+      refreshed = true;
+      await _refreshAndRefill(originatingController);
+    }
+
     setState(() {});
     try {
-      await BiteScoreService.deleteDishAsAdmin(dish.id);
+      final summary = await _operationsService.startDishDelete(dishId: dish.id);
       if (!mounted) return;
-      _snack(context, dish.name + ' deleted.');
-      final controller = _controller;
-      if (controller != null) await _refreshAndRefill(controller);
+      if (!identical(originatingController, _controller)) return;
+      if (summary.complete) await refreshOriginOnce();
+      if (!mounted || !identical(originatingController, _controller)) return;
+      showRatingDestructiveOperationFeedback(
+        context,
+        service: _operationsService,
+        summary: summary,
+        onComplete: refreshOriginOnce,
+      );
+    } on RatingDestructiveOperationsException catch (error) {
+      if (mounted && identical(originatingController, _controller)) {
+        _snack(context, error.message);
+      }
     } catch (error) {
-      if (mounted) {
+      if (mounted && identical(originatingController, _controller)) {
         _snack(
           context,
           AppErrorText.friendly(
@@ -1271,6 +1339,7 @@ class RatingAdminQueuePagedView extends StatefulWidget {
     required this.onEditRestaurant,
     required this.onEditDish,
     this.service,
+    this.operationsService,
     this.loadRestaurant,
   });
 
@@ -1278,6 +1347,7 @@ class RatingAdminQueuePagedView extends StatefulWidget {
   final RatingAdminEditRestaurant onEditRestaurant;
   final RatingAdminEditDish onEditDish;
   final RatingAdminPagingService? service;
+  final RatingDestructiveOperationsService? operationsService;
   final Future<BitescoreRestaurant?> Function(String id)? loadRestaurant;
 
   @override
@@ -1287,6 +1357,7 @@ class RatingAdminQueuePagedView extends StatefulWidget {
 
 class _RatingAdminQueuePagedViewState extends State<RatingAdminQueuePagedView> {
   late final RatingAdminPagingService _service;
+  late final RatingDestructiveOperationsService _operationsService;
   late PagedQueryController<RatingAdminQueueRecord> _controller;
   final Set<String> _busy = <String>{};
 
@@ -1294,6 +1365,8 @@ class _RatingAdminQueuePagedViewState extends State<RatingAdminQueuePagedView> {
   void initState() {
     super.initState();
     _service = widget.service ?? RatingAdminPagingService();
+    _operationsService =
+        widget.operationsService ?? RatingDestructiveOperationsService();
     _controller = _newController(widget.kind);
     unawaited(_controller.loadInitial());
   }
@@ -1342,6 +1415,50 @@ class _RatingAdminQueuePagedViewState extends State<RatingAdminQueuePagedView> {
       await _refreshAndRefill(_controller);
     } catch (error) {
       if (mounted) {
+        _snack(context, AppErrorText.friendly(error, fallback: failure));
+      }
+    } finally {
+      if (mounted) setState(() => _busy.remove(key));
+    }
+  }
+
+  Future<void> _runDestructive(
+    RatingAdminQueueRecord record,
+    Future<RatingDestructiveOperationSummary> Function() action,
+    String failure,
+  ) async {
+    final key = 'destructive:' + record.kind.wireName + ':' + record.id;
+    if (!_busy.add(key)) return;
+    final originatingController = _controller;
+    var refreshed = false;
+    Future<void> refreshOriginOnce() async {
+      if (refreshed ||
+          !mounted ||
+          !identical(originatingController, _controller)) {
+        return;
+      }
+      refreshed = true;
+      await _refreshAndRefill(originatingController);
+    }
+
+    setState(() {});
+    try {
+      final summary = await action();
+      if (!mounted || !identical(originatingController, _controller)) return;
+      if (summary.complete) await refreshOriginOnce();
+      if (!mounted || !identical(originatingController, _controller)) return;
+      showRatingDestructiveOperationFeedback(
+        context,
+        service: _operationsService,
+        summary: summary,
+        onComplete: refreshOriginOnce,
+      );
+    } on RatingDestructiveOperationsException catch (error) {
+      if (mounted && identical(originatingController, _controller)) {
+        _snack(context, error.message);
+      }
+    } catch (error) {
+      if (mounted && identical(originatingController, _controller)) {
         _snack(context, AppErrorText.friendly(error, fallback: failure));
       }
     } finally {
@@ -1435,6 +1552,7 @@ class _RatingAdminQueuePagedViewState extends State<RatingAdminQueuePagedView> {
       builder: (context) => RatingAdminMergeCandidateDialog(
         duplicateRestaurant: duplicate,
         service: _service,
+        loadRestaurant: widget.loadRestaurant,
       ),
     );
     if (surviving == null || !mounted) return;
@@ -1450,13 +1568,14 @@ class _RatingAdminQueuePagedViewState extends State<RatingAdminQueuePagedView> {
       action: 'Merge',
     );
     if (!confirmed || !mounted) return;
-    await _run(
+    await _runDestructive(
       record,
-      () => BiteScoreService.mergeRestaurantsAsAdmin(
-        duplicateRestaurant: duplicate,
-        survivingRestaurant: surviving,
+      () => _operationsService.startRestaurantMerge(
+        sourceRestaurantId: duplicate.id,
+        targetRestaurantId: surviving.id,
+        expectedSourceRestaurantRevision: duplicate.restaurantWriteRevision,
+        expectedTargetRestaurantRevision: surviving.restaurantWriteRevision,
       ),
-      duplicate.name + ' merged into ' + surviving.name + '.',
       'Could not merge these restaurants right now.',
     );
   }
@@ -1541,11 +1660,13 @@ class _RatingAdminQueuePagedViewState extends State<RatingAdminQueuePagedView> {
             )) {
               return;
             }
-            await _run(
+            await _runDestructive(
               record,
-              () =>
-                  BiteScoreService.deleteRestaurantAsAdmin(entry.restaurant.id),
-              entry.restaurant.name + ' deleted.',
+              () => _operationsService.startRestaurantDelete(
+                restaurantId: entry.restaurant.id,
+                expectedRestaurantRevision:
+                    entry.restaurant.restaurantWriteRevision,
+              ),
               'Could not delete the restaurant right now.',
             );
           },
@@ -1584,10 +1705,9 @@ class _RatingAdminQueuePagedViewState extends State<RatingAdminQueuePagedView> {
             )) {
               return;
             }
-            await _run(
+            await _runDestructive(
               record,
-              () => BiteScoreService.deleteDishAsAdmin(entry.dish.id),
-              entry.dish.name + ' deleted.',
+              () => _operationsService.startDishDelete(dishId: entry.dish.id),
               'Could not delete the dish right now.',
             );
           },
@@ -1757,11 +1877,13 @@ class RatingAdminDataReportsPagedView extends StatefulWidget {
     required this.onEditRestaurant,
     required this.onEditDish,
     this.service,
+    this.operationsService,
   });
 
   final RatingAdminEditRestaurant onEditRestaurant;
   final RatingAdminEditDish onEditDish;
   final RatingAdminPagingService? service;
+  final RatingDestructiveOperationsService? operationsService;
 
   @override
   State<RatingAdminDataReportsPagedView> createState() =>
@@ -1809,6 +1931,7 @@ class _RatingAdminDataReportsPagedViewState
             key: ValueKey(_kind.wireName),
             kind: _kind,
             service: widget.service,
+            operationsService: widget.operationsService,
             onEditRestaurant: widget.onEditRestaurant,
             onEditDish: widget.onEditDish,
           ),
@@ -2009,10 +2132,12 @@ class RatingAdminMergeCandidateDialog extends StatefulWidget {
     super.key,
     required this.duplicateRestaurant,
     required this.service,
+    this.loadRestaurant,
   });
 
   final BitescoreRestaurant duplicateRestaurant;
   final RatingAdminPagingService service;
+  final Future<BitescoreRestaurant?> Function(String id)? loadRestaurant;
 
   @override
   State<RatingAdminMergeCandidateDialog> createState() =>
@@ -2087,9 +2212,9 @@ class _RatingAdminMergeCandidateDialogState
     }
     setState(() => _loadingId = record.documentId);
     try {
-      final restaurant = await BiteScoreService.loadRestaurantById(
-        record.documentId,
-      );
+      final restaurant =
+          await (widget.loadRestaurant?.call(record.documentId) ??
+              BiteScoreService.loadRestaurantById(record.documentId));
       if (!mounted) return;
       if (restaurant == null || restaurant.id != record.documentId) {
         _snack(context, 'This restaurant is no longer available.');
@@ -2125,6 +2250,7 @@ class _RatingAdminMergeCandidateDialogState
                   width: 180,
                   child:
                       DropdownButtonFormField<RatingAdminRestaurantSearchMode>(
+                        isExpanded: true,
                         initialValue: _mode,
                         decoration: const InputDecoration(
                           labelText: 'Mode',
@@ -2136,12 +2262,18 @@ class _RatingAdminMergeCandidateDialogState
                             >[
                               DropdownMenuItem(
                                 value: RatingAdminRestaurantSearchMode.exactZip,
-                                child: Text('Exact ZIP'),
+                                child: Text(
+                                  'Exact ZIP',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                               DropdownMenuItem(
                                 value:
                                     RatingAdminRestaurantSearchMode.exactCity,
-                                child: Text('Exact City'),
+                                child: Text(
+                                  'Exact City',
+                                  overflow: TextOverflow.ellipsis,
+                                ),
                               ),
                             ],
                         onChanged: (value) {

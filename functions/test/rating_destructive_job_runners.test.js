@@ -9,6 +9,7 @@ const {
   processRatingDestructiveJobStep,
 } = require("../lib/rating_destructive_job_processor.js");
 const {
+  createRatingDestructiveCallerBindingFingerprint,
   ratingDestructiveJobCollection,
   ratingDestructiveJobItemCollection,
   ratingDestructiveJobPath,
@@ -41,6 +42,12 @@ const {
 
 const baseTime = new Date("2026-08-11T12:00:00.000Z");
 const contractVersion = "bitestar.rating-destructive-job.v1";
+const adminCaller = Object.freeze({
+  authorizedCallerKind: "admin",
+  callerBindingFingerprint:
+    createRatingDestructiveCallerBindingFingerprint("admin-test-uid"),
+  authorizedCallerUid: "admin-test-uid",
+});
 const privacyCanaries = Object.freeze([
   "private-review-text-canary",
   "private-report-body-canary",
@@ -560,6 +567,7 @@ test("all four runners no-op when an active selection becomes manual", async (t)
       },
       request: {
         contractVersion,
+        ...adminCaller,
         requestId: "stale-restaurant-merge",
         operation: "restaurantMerge",
         sourceRestaurantId: "stale-source",
@@ -576,6 +584,7 @@ test("all four runners no-op when an active selection becomes manual", async (t)
       },
       request: {
         contractVersion,
+        ...adminCaller,
         requestId: "stale-restaurant-delete",
         operation: "restaurantDelete",
         sourceRestaurantId: "stale-delete",
@@ -595,6 +604,7 @@ test("all four runners no-op when an active selection becomes manual", async (t)
       },
       request: {
         contractVersion,
+        ...adminCaller,
         requestId: "stale-dish-merge",
         operation: "dishMerge",
         sourceDishId: "stale-source-dish",
@@ -612,6 +622,7 @@ test("all four runners no-op when an active selection becomes manual", async (t)
       },
       request: {
         contractVersion,
+        ...adminCaller,
         requestId: "stale-dish-delete",
         operation: "dishDelete",
         sourceDishId: "stale-delete-dish",
@@ -779,6 +790,7 @@ test("restaurantMerge is bounded, retry-safe, exact, private, and unlocks only t
 
   const claimed = await claimRatingDestructiveOperation(deps, {
     contractVersion,
+    ...adminCaller,
     requestId: "restaurant-merge-request",
     operation: "restaurantMerge",
     sourceRestaurantId: "source",
@@ -793,6 +805,7 @@ test("restaurantMerge is bounded, retry-safe, exact, private, and unlocks only t
   assert.equal(database.data(`${ratingRestaurantOperationLockCollection}/target`).active, true);
   const replay = await claimRatingDestructiveOperation(deps, {
     contractVersion,
+    ...adminCaller,
     requestId: "restaurant-merge-request",
     operation: "restaurantMerge",
     sourceRestaurantId: "source",
@@ -1135,6 +1148,7 @@ test("restaurantDelete drains dish/orphan dependents, reconciles users, and reta
 
   const claimed = await claimRatingDestructiveOperation(deps, {
     contractVersion,
+    ...adminCaller,
     requestId: "restaurant-delete-request",
     operation: "restaurantDelete",
     sourceRestaurantId: "delete-me",
@@ -1303,6 +1317,7 @@ test("direct dishMerge moves every review in bounded pages and rebuilds generati
 
   const claimed = await claimRatingDestructiveOperation(deps, {
     contractVersion,
+    ...adminCaller,
     requestId: "direct-merge-request",
     operation: "dishMerge",
     sourceDishId: "source-dish",
@@ -1595,6 +1610,7 @@ test("dishDelete retries bounded point reversal, drains trust first, deduplicate
 
   const claimed = await claimRatingDestructiveOperation(deps, {
     contractVersion,
+    ...adminCaller,
     requestId: "dish-delete-request",
     operation: "dishDelete",
     sourceDishId: "delete-dish",
@@ -1819,6 +1835,7 @@ test("dishDelete retries bounded point reversal, drains trust first, deduplicate
 
   const missingClaim = await claimRatingDestructiveOperation(deps, {
     contractVersion,
+    ...adminCaller,
     requestId: "missing-dish-delete-request",
     operation: "dishDelete",
     sourceDishId: "already-missing-dish",

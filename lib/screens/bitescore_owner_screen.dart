@@ -6,17 +6,20 @@ import '../models/bitescore_dish.dart';
 import '../models/bitescore_restaurant.dart';
 import '../models/dish_review.dart';
 import '../models/restaurant.dart';
+import '../models/rating_destructive_operation_models.dart';
 import '../services/app_error_text.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/bitescore_service.dart';
 import '../services/restaurant_auth_service.dart';
 import '../services/restaurant_menu_service.dart';
+import '../services/rating_destructive_operations_service.dart';
 import '../utils/phone_number_formatter.dart';
 import '../widgets/admin_content_insets.dart';
 import '../widgets/bitescore_category_picker.dart';
 import '../widgets/biterater_theme.dart';
 import '../widgets/clickable_phone_text.dart';
 import '../widgets/owner_dish_merge_dialog.dart';
+import '../widgets/rating_destructive_operation_status_dialog.dart';
 import 'bitescore_create_rate_screen.dart';
 import 'bitescore_dish_detail_screen.dart';
 import 'main_navigation_screen.dart';
@@ -25,11 +28,13 @@ import 'restaurant_menu_management_screen.dart';
 class BiteScoreOwnerScreen extends StatefulWidget {
   final User currentUser;
   final String? initialRestaurantId;
+  final RatingDestructiveOperationsService? ratingDestructiveOperationsService;
 
   const BiteScoreOwnerScreen({
     super.key,
     required this.currentUser,
     this.initialRestaurantId,
+    this.ratingDestructiveOperationsService,
   });
 
   @override
@@ -228,16 +233,33 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
       _showSnackBar('Add at least two active dishes before merging.');
       return;
     }
+    final originatingRestaurantId = activeDishes.first.restaurantId;
 
-    final merged = await showDialog<bool>(
+    final operationsService =
+        widget.ratingDestructiveOperationsService ??
+        RatingDestructiveOperationsService();
+    final summary = await showDialog<RatingDestructiveOperationSummary>(
       context: context,
-      builder: (context) => OwnerDishMergeDialog(dishes: activeDishes),
+      builder: (context) => OwnerDishMergeDialog(
+        dishes: activeDishes,
+        operationsService: operationsService,
+      ),
     );
 
-    if (merged == true && mounted) {
+    if (summary == null || !mounted) return;
+    if (summary.complete && _selectedRestaurantId == originatingRestaurantId) {
       setState(_refresh);
-      _showSnackBar('Dish merge applied.');
     }
+    showRatingDestructiveOperationFeedback(
+      context,
+      service: operationsService,
+      summary: summary,
+      onComplete: () async {
+        if (mounted && _selectedRestaurantId == originatingRestaurantId) {
+          setState(_refresh);
+        }
+      },
+    );
   }
 
   Future<void> _resendVerificationEmail() async {
@@ -386,7 +408,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
 
     return BiteRaterTheme.liftedCard(
       radius: 24,
-      borderColor: BiteRaterTheme.coral.withOpacity(0.16),
+      borderColor: BiteRaterTheme.coral.withValues(alpha: 0.16),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -751,7 +773,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
   Widget _buildInsightStatCard({required String label, required String value}) {
     return BiteRaterTheme.liftedCard(
       radius: 18,
-      borderColor: BiteRaterTheme.grape.withOpacity(0.18),
+      borderColor: BiteRaterTheme.grape.withValues(alpha: 0.18),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Column(
@@ -845,8 +867,8 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
     return OutlinedButton.styleFrom(
       minimumSize: const Size.fromHeight(48),
       foregroundColor: BiteRaterTheme.grape,
-      backgroundColor: BiteRaterTheme.grape.withOpacity(0.06),
-      side: BorderSide(color: BiteRaterTheme.grape.withOpacity(0.22)),
+      backgroundColor: BiteRaterTheme.grape.withValues(alpha: 0.06),
+      side: BorderSide(color: BiteRaterTheme.grape.withValues(alpha: 0.22)),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
     );
@@ -944,11 +966,11 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
     IconData? titleIcon,
     double titleIconSize = 18,
   }) {
-    final colorScheme = Theme.of(context).colorScheme;
-
     return BiteRaterTheme.liftedCard(
       radius: 18,
-      borderColor: (titleAccentColor ?? BiteRaterTheme.coral).withOpacity(0.18),
+      borderColor: (titleAccentColor ?? BiteRaterTheme.coral).withValues(
+        alpha: 0.18,
+      ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
         child: Column(
@@ -975,7 +997,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
 
     return BiteRaterTheme.liftedCard(
       radius: 18,
-      borderColor: trendColor.withOpacity(0.18),
+      borderColor: trendColor.withValues(alpha: 0.18),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
         child: Column(
@@ -988,7 +1010,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
                   width: 4,
                   height: 22,
                   decoration: BoxDecoration(
-                    color: trendColor.withOpacity(0.14),
+                    color: trendColor.withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(999),
                   ),
                 ),
@@ -1067,7 +1089,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
           width: 4,
           height: 22,
           decoration: BoxDecoration(
-            color: resolvedAccentColor.withOpacity(0.14),
+            color: resolvedAccentColor.withValues(alpha: 0.14),
             borderRadius: BorderRadius.circular(999),
           ),
         ),
@@ -1107,7 +1129,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
   Widget _buildCompactInsightsCard(_OwnerInsights insights) {
     return BiteRaterTheme.liftedCard(
       radius: 24,
-      borderColor: BiteRaterTheme.ocean.withOpacity(0.16),
+      borderColor: BiteRaterTheme.ocean.withValues(alpha: 0.16),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 18),
         child: Column(
@@ -1343,6 +1365,9 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
     final insights = _buildInsights(data.entries, data.reviewEntries);
     return _buildCompactInsightsCard(insights);
 
+    // This retained legacy layout is intentionally unreachable while the
+    // compact insights card above remains the current presentation.
+    // ignore: dead_code
     return BiteRaterTheme.liftedCard(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -1529,7 +1554,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
     if (entries.isEmpty) {
       return BiteRaterTheme.liftedCard(
         radius: 20,
-        borderColor: BiteRaterTheme.ocean.withOpacity(0.16),
+        borderColor: BiteRaterTheme.ocean.withValues(alpha: 0.16),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Text(
@@ -1554,7 +1579,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
         return BiteRaterTheme.liftedCard(
           margin: const EdgeInsets.only(bottom: 12),
           radius: 20,
-          borderColor: BiteRaterTheme.grape.withOpacity(0.14),
+          borderColor: BiteRaterTheme.grape.withValues(alpha: 0.14),
           child: ListTile(
             onTap: () {
               Navigator.of(context).push(
@@ -1623,7 +1648,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
           constraints: const BoxConstraints(maxWidth: 520),
           child: BiteRaterTheme.liftedCard(
             radius: 24,
-            borderColor: BiteRaterTheme.mint.withOpacity(0.16),
+            borderColor: BiteRaterTheme.mint.withValues(alpha: 0.16),
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(
@@ -1676,7 +1701,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
           constraints: const BoxConstraints(maxWidth: 520),
           child: BiteRaterTheme.liftedCard(
             radius: 24,
-            borderColor: BiteRaterTheme.mint.withOpacity(0.16),
+            borderColor: BiteRaterTheme.mint.withValues(alpha: 0.16),
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Column(

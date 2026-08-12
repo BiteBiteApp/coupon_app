@@ -4,6 +4,7 @@ import {
   buildRatingDestructiveJobDocument,
   buildRatingDishOperationLockDocument,
   buildRatingRestaurantOperationLockDocument,
+  createRatingDestructiveCallerBindingFingerprint,
   createRatingDestructiveJobItemId,
   createRatingDestructiveJobId,
   parseRatingDestructiveJobDocument,
@@ -14,6 +15,7 @@ import {
   ratingRestaurantOperationLockPath,
   RatingDestructiveContractError,
   type RatingDestructiveFailureCode,
+  type RatingDestructiveAuthorizedCallerKind,
   type RatingDestructiveJobDocument,
 } from "./rating_destructive_job_contract.js";
 import {
@@ -59,7 +61,13 @@ import {
   ReviewMilestoneReconciliationLockError,
 } from "./review_milestone_reconciliation_lock.js";
 
-export type RatingDestructiveClaimRequest =
+type RatingDestructiveClaimCaller = Readonly<{
+  authorizedCallerKind: RatingDestructiveAuthorizedCallerKind;
+  callerBindingFingerprint: string;
+  authorizedCallerUid: string;
+}>;
+
+export type RatingDestructiveClaimRequest = RatingDestructiveClaimCaller & (
   | Readonly<{
     contractVersion: typeof ratingDestructiveJobVersion;
     requestId: string;
@@ -89,7 +97,8 @@ export type RatingDestructiveClaimRequest =
     requestId: string;
     operation: "dishDelete";
     sourceDishId: string;
-  }>;
+  }>
+);
 
 export type RatingDestructiveClaimResult = Readonly<{
   job: RatingDestructiveJobDocument;
@@ -105,6 +114,7 @@ export class RatingDestructiveClaimError extends Error {
     | "stale-revision"
     | "revision-exhausted"
     | "generation-exhausted"
+    | "permission-denied"
     | "malformed-private-state";
 
   public constructor(code: RatingDestructiveClaimError["code"]) {
@@ -155,6 +165,47 @@ function revision(value: unknown): number {
   return value;
 }
 
+function callerUid(value: unknown): string {
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    Buffer.byteLength(value, "utf8") > 128
+  ) {
+    claimFailure("invalid-request");
+  }
+  return value;
+}
+
+function callerKind(value: unknown): RatingDestructiveAuthorizedCallerKind {
+  if (value !== "admin" && value !== "owner") {
+    claimFailure("invalid-request");
+  }
+  return value;
+}
+
+function parseClaimCaller(
+  data: Record<string, unknown>,
+): RatingDestructiveClaimCaller {
+  const authorizedCallerKind = callerKind(data.authorizedCallerKind);
+  const authorizedCallerUid = callerUid(data.authorizedCallerUid);
+  let expectedFingerprint: string;
+  try {
+    expectedFingerprint = createRatingDestructiveCallerBindingFingerprint(
+      authorizedCallerUid,
+    );
+  } catch {
+    claimFailure("invalid-request");
+  }
+  if (data.callerBindingFingerprint !== expectedFingerprint) {
+    claimFailure("invalid-request");
+  }
+  return Object.freeze({
+    authorizedCallerKind,
+    callerBindingFingerprint: expectedFingerprint,
+    authorizedCallerUid,
+  });
+}
+
 /** Strict runtime parser for the future internal Admin claim boundary. */
 export function parseRatingDestructiveClaimRequest(
   value: unknown,
@@ -170,15 +221,20 @@ export function parseRatingDestructiveClaimRequest(
   const common = {
     contractVersion: ratingDestructiveJobVersion,
     requestId: exactDocumentId(data.requestId),
+    ...parseClaimCaller(data),
   } as const;
   switch (data.operation) {
     case "restaurantMerge":
       if (!hasExactKeys(data, [
         "contractVersion", "requestId", "operation", "sourceRestaurantId",
         "targetRestaurantId", "expectedSourceRestaurantRevision",
-        "expectedTargetRestaurantRevision",
+        "expectedTargetRestaurantRevision", "authorizedCallerKind",
+        "callerBindingFingerprint", "authorizedCallerUid",
       ])) {
         claimFailure("invalid-request");
+      }
+      if (common.authorizedCallerKind !== "admin") {
+        claimFailure("permission-denied");
       }
       return Object.freeze({
         ...common,
@@ -196,8 +252,13 @@ export function parseRatingDestructiveClaimRequest(
       if (!hasExactKeys(data, [
         "contractVersion", "requestId", "operation", "sourceRestaurantId",
         "expectedSourceRestaurantRevision",
+        "authorizedCallerKind", "callerBindingFingerprint",
+        "authorizedCallerUid",
       ])) {
         claimFailure("invalid-request");
+      }
+      if (common.authorizedCallerKind !== "admin") {
+        claimFailure("permission-denied");
       }
       return Object.freeze({
         ...common,
@@ -211,6 +272,8 @@ export function parseRatingDestructiveClaimRequest(
       if (!hasExactKeys(data, [
         "contractVersion", "requestId", "operation", "sourceDishId",
         "targetDishId", "restaurantId",
+        "authorizedCallerKind", "callerBindingFingerprint",
+        "authorizedCallerUid",
       ])) {
         claimFailure("invalid-request");
       }
@@ -224,8 +287,13 @@ export function parseRatingDestructiveClaimRequest(
     case "dishDelete":
       if (!hasExactKeys(data, [
         "contractVersion", "requestId", "operation", "sourceDishId",
+        "authorizedCallerKind", "callerBindingFingerprint",
+        "authorizedCallerUid",
       ])) {
         claimFailure("invalid-request");
+      }
+      if (common.authorizedCallerKind !== "admin") {
+        claimFailure("permission-denied");
       }
       return Object.freeze({
         ...common,
@@ -311,7 +379,9 @@ function existingJobMatchesClaimRequest(
     job.version !== ratingDestructiveJobVersion ||
     job.jobId !== jobId ||
     job.requestId !== request.requestId ||
-    job.operation !== request.operation
+    job.operation !== request.operation ||
+    job.authorizedCallerKind !== request.authorizedCallerKind ||
+    job.callerBindingFingerprint !== request.callerBindingFingerprint
   ) {
     return false;
   }
@@ -480,6 +550,8 @@ async function claimRestaurantMerge(
     jobId,
     requestId: request.requestId,
     operation: "restaurantMerge",
+    authorizedCallerKind: request.authorizedCallerKind,
+    callerBindingFingerprint: request.callerBindingFingerprint,
     status: "active",
     phase: "claimed",
     sourceRestaurantId: request.sourceRestaurantId,
@@ -576,6 +648,8 @@ async function claimRestaurantDelete(
     jobId,
     requestId: request.requestId,
     operation: "restaurantDelete",
+    authorizedCallerKind: request.authorizedCallerKind,
+    callerBindingFingerprint: request.callerBindingFingerprint,
     status: "active",
     phase: "claimed",
     sourceRestaurantId: request.sourceRestaurantId,
@@ -662,6 +736,23 @@ async function claimDishMerge(
   ) {
     claimFailure("entity-state-incompatible");
   }
+  if (request.authorizedCallerKind === "owner") {
+    let restaurant;
+    try {
+      restaurant = parseRatingRestaurant(await transaction.getDocument(
+        `bitescore_restaurants/${request.restaurantId}`,
+      ));
+    } catch {
+      claimFailure("entity-state-incompatible");
+    }
+    if (
+      restaurant === null ||
+      restaurant.data.isClaimed !== true ||
+      restaurant.data.ownerUserId !== request.authorizedCallerUid
+    ) {
+      claimFailure("permission-denied");
+    }
+  }
   if (
     parseReviewLock(sourceReviewLockDocument) !== null ||
     parseReviewLock(targetReviewLockDocument) !== null ||
@@ -687,6 +778,8 @@ async function claimDishMerge(
     jobId,
     requestId: request.requestId,
     operation: "dishMerge",
+    authorizedCallerKind: request.authorizedCallerKind,
+    callerBindingFingerprint: request.callerBindingFingerprint,
     status: "active",
     phase: "validate",
     sourceRestaurantId: null,
@@ -849,6 +942,8 @@ async function claimDishDelete(
     jobId,
     requestId: request.requestId,
     operation: "dishDelete",
+    authorizedCallerKind: request.authorizedCallerKind,
+    callerBindingFingerprint: request.callerBindingFingerprint,
     status: "active",
     phase: "process_reviews",
     sourceRestaurantId: null,

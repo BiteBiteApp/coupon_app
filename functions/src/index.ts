@@ -156,6 +156,24 @@ import {
 import {
   createReviewMilestoneLockEnforcedDishProposalPrivateDatabase,
 } from "./review_milestone_reconciliation_lock.js";
+import {
+  createFirestoreRatingDestructiveDependencies,
+} from "./rating_destructive_job_processor.js";
+import {
+  getRatingDestructiveOperationStatusHandler,
+  startRatingDishDeleteHandler,
+  startRatingDishMergeHandler,
+  startRatingRestaurantDeleteHandler,
+  startRatingRestaurantMergeHandler,
+} from "./rating_destructive_callable_handlers.js";
+import {
+  createFirestoreRatingDestructiveStatusPagingDatabase,
+  listRatingAdminDestructiveOperationsPageHandler,
+} from "./rating_destructive_status_paging.js";
+import {
+  createFirestoreRatingDestructiveSchedulerDiscoveryDatabase,
+  processRatingDestructiveOperationWorkHandler,
+} from "./rating_destructive_scheduler.js";
 
 initializeApp();
 
@@ -190,6 +208,12 @@ const ratingAdminPagingDatabase = createFirestoreRatingAdminPagingDatabase(db);
 const ratingAdminRadiusStore = createFirestoreRatingAdminRadiusStore(db);
 const ratingAdminPeoplePagingDatabase =
   createFirestoreRatingAdminPeoplePagingDatabase(db);
+const ratingDestructiveDependencies =
+  createFirestoreRatingDestructiveDependencies(db);
+const ratingDestructiveStatusPagingDatabase =
+  createFirestoreRatingDestructiveStatusPagingDatabase(db);
+const ratingDestructiveSchedulerDiscoveryDatabase =
+  createFirestoreRatingDestructiveSchedulerDiscoveryDatabase(db);
 const requireRatingAdminDishSuggestionAccess = requireAdminInviteAccess;
 const stripeCheckoutSuccessUrl =
   "https://coupon-app-29446.web.app/stripe-success.html";
@@ -1696,6 +1720,52 @@ export const listRatingAdminDishSuggestionsPage = onCall(
   },
 );
 
+export const startRatingRestaurantMerge = onCall(async (request) => {
+  return startRatingRestaurantMergeHandler(request, {
+    privateDatabase: ratingDestructiveDependencies.database,
+    processingDependencies: ratingDestructiveDependencies,
+  });
+});
+
+export const startRatingRestaurantDelete = onCall(async (request) => {
+  return startRatingRestaurantDeleteHandler(request, {
+    privateDatabase: ratingDestructiveDependencies.database,
+    processingDependencies: ratingDestructiveDependencies,
+  });
+});
+
+export const startRatingDishMerge = onCall(async (request) => {
+  return startRatingDishMergeHandler(request, {
+    privateDatabase: ratingDestructiveDependencies.database,
+    processingDependencies: ratingDestructiveDependencies,
+  });
+});
+
+export const startRatingDishDelete = onCall(async (request) => {
+  return startRatingDishDeleteHandler(request, {
+    privateDatabase: ratingDestructiveDependencies.database,
+    processingDependencies: ratingDestructiveDependencies,
+  });
+});
+
+export const getRatingDestructiveOperationStatus = onCall(async (request) => {
+  return getRatingDestructiveOperationStatusHandler(request, {
+    privateDatabase: ratingDestructiveDependencies.database,
+  });
+});
+
+export const listRatingAdminDestructiveOperationsPage = onCall(
+  { secrets: [searchPaginationCursorKey] },
+  async (request) => {
+    const admin = requireAdminInviteAccess(request);
+    return listRatingAdminDestructiveOperationsPageHandler(request.data, {
+      adminUid: admin.uid,
+      cursorSecret: searchPaginationCursorKey.value(),
+      database: ratingDestructiveStatusPagingDatabase,
+    });
+  },
+);
+
 export const applyRatingAdminDishSuggestionGroup = onCall(async (request) => {
   requireRatingAdminDishSuggestionAccess(request);
   return applyRatingAdminDishSuggestionGroupHandler(request.data, {
@@ -1721,6 +1791,17 @@ export const processDishProposalResolutionWork = onSchedule(
       resolutionDependencies: dishProposalResolutionDependencies,
     });
     logger.info("Dish proposal resolution work completed.", summary);
+  },
+);
+
+export const processRatingDestructiveOperationWork = onSchedule(
+  "every 1 minute",
+  async () => {
+    const summary = await processRatingDestructiveOperationWorkHandler({
+      discoveryDatabase: ratingDestructiveSchedulerDiscoveryDatabase,
+      dependencies: ratingDestructiveDependencies,
+    });
+    logger.info("Rating destructive operation work completed.", summary);
   },
 );
 

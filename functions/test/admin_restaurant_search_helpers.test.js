@@ -1125,7 +1125,7 @@ test("Functions entry point uses only the extracted authorization gate", () => {
   );
   assert.equal(
     indexSource.match(/\brequireAdminInviteAccess\s*\(/g)?.length,
-    16,
+    17,
   );
 });
 

@@ -27,6 +27,8 @@ export const ratingRestaurantOperationLockVersion =
   "bitestar.rating-restaurant-operation-lock.v1" as const;
 export const ratingDishOperationLockVersion =
   "bitestar.rating-dish-operation-lock.v1" as const;
+export const ratingDestructiveCallerBindingDomain =
+  "bitestar.rating-destructive-caller-binding.v1" as const;
 
 export const ratingDestructiveDirectBatchLimit = 100;
 export const ratingDestructiveTrustBatchLimit = 50;
@@ -47,6 +49,8 @@ export type RatingDestructiveStatus =
   | "retryable"
   | "manual_review_required"
   | "complete";
+
+export type RatingDestructiveAuthorizedCallerKind = "admin" | "owner";
 
 export type RatingDestructiveJobPhase =
   | "claimed"
@@ -99,6 +103,8 @@ export type RatingDestructiveJobDocument = Readonly<{
   jobId: string;
   requestId: string;
   operation: RatingDestructiveOperation;
+  authorizedCallerKind: RatingDestructiveAuthorizedCallerKind;
+  callerBindingFingerprint: string;
   status: RatingDestructiveStatus;
   phase: RatingDestructiveJobPhase;
   sourceRestaurantId: string | null;
@@ -500,7 +506,8 @@ const failureCodes = Object.freeze([
 ] as const);
 
 const jobCoreKeys = Object.freeze([
-  "jobId", "requestId", "operation", "status", "phase",
+  "jobId", "requestId", "operation", "authorizedCallerKind",
+  "callerBindingFingerprint", "status", "phase",
   "sourceRestaurantId", "targetRestaurantId", "sourceDishId", "targetDishId",
   "restaurantId", "expectedSourceRestaurantRevision",
   "sourceActiveRestaurantRevision", "sourceCompletionRestaurantRevision",
@@ -655,6 +662,40 @@ function fingerprint(version: string, core: unknown): string {
 
 function isFingerprint(value: unknown): value is string {
   return typeof value === "string" && /^[a-f0-9]{64}$/u.test(value);
+}
+
+function callerKind(
+  value: unknown,
+  code: "invalid-request" | "invalid-state",
+): RatingDestructiveAuthorizedCallerKind {
+  if (value !== "admin" && value !== "owner") {
+    return fail(code);
+  }
+  return value;
+}
+
+function exactCallerUid(
+  value: unknown,
+  code: "invalid-request" | "invalid-state",
+): string {
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    Buffer.byteLength(value, "utf8") > 128
+  ) {
+    return fail(code);
+  }
+  return value;
+}
+
+/** Nonreversible, domain-separated binding for private caller authorization. */
+export function createRatingDestructiveCallerBindingFingerprint(
+  uid: string,
+): string {
+  return sha256({
+    domain: ratingDestructiveCallerBindingDomain,
+    uid: exactCallerUid(uid, "invalid-request"),
+  });
 }
 
 function operation(
@@ -1109,6 +1150,10 @@ function readJobCore(
     jobId: exactDocumentId(data.jobId, code),
     requestId: exactDocumentId(data.requestId, code),
     operation: parsedOperation,
+    authorizedCallerKind: callerKind(data.authorizedCallerKind, code),
+    callerBindingFingerprint: isFingerprint(data.callerBindingFingerprint)
+      ? data.callerBindingFingerprint
+      : fail(code),
     status: parsedStatus,
     phase: data.phase as RatingDestructiveJobPhase,
     sourceRestaurantId: nullableDocumentId(data.sourceRestaurantId, code),
@@ -1191,6 +1236,12 @@ function validateJobCore(
   code: "invalid-request" | "invalid-state",
 ): void {
   assertOperationIdentity(value, code);
+  if (
+    value.authorizedCallerKind === "owner" &&
+    value.operation !== "dishMerge"
+  ) {
+    fail(code);
+  }
   const expectedJobId = createRatingDestructiveJobId({
     requestId: value.requestId,
     operation: value.operation,

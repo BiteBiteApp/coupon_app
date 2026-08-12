@@ -117,6 +117,9 @@ const ratingAdminPagedCallables = Object.freeze({
   listRatingAdminUserPointsPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
   listRatingAdminContributionLedgerPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
   listRatingAdminDishSuggestionsPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
+  listRatingAdminDestructiveOperationsPage: [
+    "SEARCH_PAGINATION_CURSOR_KEY",
+  ],
 });
 
 const dishSuggestionActionCallables = Object.freeze([
@@ -125,6 +128,19 @@ const dishSuggestionActionCallables = Object.freeze([
 ]);
 
 const dishSuggestionScheduler = "processDishProposalResolutionWork";
+
+const ratingDestructiveCallables = Object.freeze({
+  startRatingRestaurantMerge: [],
+  startRatingRestaurantDelete: [],
+  startRatingDishMerge: [],
+  startRatingDishDelete: [],
+  getRatingDestructiveOperationStatus: [],
+  listRatingAdminDestructiveOperationsPage: [
+    "SEARCH_PAGINATION_CURSOR_KEY",
+  ],
+});
+
+const ratingDestructiveScheduler = "processRatingDestructiveOperationWork";
 
 function loadCompiledIndexWithRuntimeHarness() {
   const state = {
@@ -421,7 +437,7 @@ test("all Coupon Admin paged callables reject unauthenticated and non-Admin call
   }
 });
 
-test("exactly eight Rating Admin paged v2 callables use least-privilege secrets", () => {
+test("exactly nine Rating Admin paged v2 callables use least-privilege secrets", () => {
   const runtime = loadCompiledIndexWithRuntimeHarness();
   for (const [name, expectedSecrets] of Object.entries(
     ratingAdminPagedCallables,
@@ -441,7 +457,7 @@ test("exactly eight Rating Admin paged v2 callables use least-privilege secrets"
     Object.keys(runtime.exports).filter((name) =>
       name.startsWith("searchRatingAdmin") ||
       name.startsWith("listRatingAdmin")).length,
-    8,
+    9,
   );
 });
 
@@ -523,6 +539,85 @@ test("dish-suggestion actions and scheduler expose only the exact bounded endpoi
       /DishProposal(?:JobStep|JobStatus)/u.test(name)),
     [],
   );
+});
+
+test("Rating destructive operations expose exactly six callables and one bounded scheduler", () => {
+  const runtime = loadCompiledIndexWithRuntimeHarness();
+  for (const [name, expectedSecrets] of Object.entries(
+    ratingDestructiveCallables,
+  )) {
+    const exported = runtime.exports[name];
+    assert.equal(typeof exported, "function", name);
+    assert.equal(exported.__endpoint.platform, "gcfv2", name);
+    assert.deepEqual(exported.__endpoint.region, ["us-central1"], name);
+    assert.ok(exported.__endpoint.callableTrigger, name);
+    assert.equal(Object.hasOwn(exported.__endpoint, "httpsTrigger"), false, name);
+    assert.equal(Object.hasOwn(exported.__endpoint, "eventTrigger"), false, name);
+    assert.equal(Object.hasOwn(exported.__endpoint, "scheduleTrigger"), false, name);
+    assert.deepEqual(
+      exported.__endpoint.secretEnvironmentVariables ?? [],
+      expectedSecrets,
+      name,
+    );
+  }
+
+  const scheduled = runtime.exports[ratingDestructiveScheduler];
+  assert.equal(typeof scheduled, "function", ratingDestructiveScheduler);
+  assert.equal(scheduled.__endpoint.platform, "gcfv2");
+  assert.deepEqual(scheduled.__endpoint.region, ["us-central1"]);
+  assert.deepEqual(scheduled.__endpoint.scheduleTrigger, {
+    schedule: "every 1 minute",
+  });
+  assert.equal(Object.hasOwn(scheduled.__endpoint, "callableTrigger"), false);
+  assert.equal(Object.hasOwn(scheduled.__endpoint, "httpsTrigger"), false);
+  assert.equal(Object.hasOwn(scheduled.__endpoint, "eventTrigger"), false);
+  assert.equal(
+    Object.hasOwn(scheduled.__endpoint, "secretEnvironmentVariables"),
+    false,
+  );
+
+  const expectedNames = [
+    ...Object.keys(ratingDestructiveCallables),
+    ratingDestructiveScheduler,
+  ].sort();
+  assert.deepEqual(
+    Object.keys(runtime.exports).filter((name) =>
+      /^(?:startRating|getRatingDestructive|listRatingAdminDestructive|processRatingDestructive)/u
+        .test(name)).sort(),
+    expectedNames,
+  );
+  assert.deepEqual(
+    Object.keys(runtime.exports).filter((name) =>
+      /RatingDestructive(?:JobStep|JobDocument|JobStatus|OperationLock)/u
+        .test(name)),
+    [],
+  );
+});
+
+test("Rating destructive action and status callables reject missing authentication", async () => {
+  const runtime = loadCompiledIndexWithRuntimeHarness();
+  for (const name of Object.keys(ratingDestructiveCallables).filter(
+    (candidate) => candidate !== "listRatingAdminDestructiveOperationsPage",
+  )) {
+    await assert.rejects(
+      runtime.exports[name]({data: {}, auth: null}),
+      (error) => error.code === "unauthenticated",
+      name,
+    );
+  }
+  assert.equal(runtime.state.firestoreQueries.length, 0);
+});
+
+test("Rating destructive scheduler logs only its fixed aggregate summary", async () => {
+  const runtime = loadCompiledIndexWithRuntimeHarness();
+  await runtime.exports[ratingDestructiveScheduler]();
+  assert.deepEqual(runtime.state.logs, [{
+    level: "info",
+    args: [
+      "Rating destructive operation work completed.",
+      {selectedJobs: 0, processedJobs: 0, failures: 0},
+    ],
+  }]);
 });
 
 test("dish-suggestion callables authorize before request or data access", async () => {

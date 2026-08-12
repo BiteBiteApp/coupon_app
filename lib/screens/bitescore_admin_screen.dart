@@ -8,6 +8,7 @@ import '../models/bitescore_restaurant.dart';
 import '../models/dish_review.dart';
 import '../models/restaurant_claim_request.dart';
 import '../models/rating_admin_paging_models.dart';
+import '../models/rating_destructive_operation_models.dart';
 import '../services/app_error_text.dart';
 import '../services/admin_link_generation_service.dart';
 import '../services/bitescore_service.dart';
@@ -15,6 +16,7 @@ import '../services/restaurant_invite_service.dart';
 import '../services/rating_admin_dish_suggestions_service.dart';
 import '../services/rating_admin_paging_service.dart';
 import '../services/rating_admin_people_paging_service.dart';
+import '../services/rating_destructive_operations_service.dart';
 import '../utils/phone_number_formatter.dart';
 import '../widgets/bitescore_category_picker.dart';
 import '../widgets/biterater_theme.dart';
@@ -23,6 +25,8 @@ import '../widgets/restaurant_invite_admin_panel.dart';
 import '../widgets/rating_admin_dish_suggestions_dashboard.dart';
 import '../widgets/rating_admin_paged_dashboard.dart';
 import '../widgets/rating_admin_people_paged_dashboard.dart';
+import '../widgets/rating_destructive_operations_dashboard.dart';
+import '../widgets/rating_destructive_operation_status_dialog.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
 import 'expert_badge_gallery_screen.dart';
 
@@ -54,6 +58,7 @@ class BiteScoreAdminScreen extends StatefulWidget {
   final RatingAdminPagingService? pagingService;
   final RatingAdminPeoplePagingService? peoplePagingService;
   final RatingAdminDishSuggestionsService? dishSuggestionsService;
+  final RatingDestructiveOperationsService? destructiveOperationsService;
 
   const BiteScoreAdminScreen({
     super.key,
@@ -65,6 +70,7 @@ class BiteScoreAdminScreen extends StatefulWidget {
     @visibleForTesting this.pagingService,
     @visibleForTesting this.peoplePagingService,
     @visibleForTesting this.dishSuggestionsService,
+    @visibleForTesting this.destructiveOperationsService,
   });
 
   @override
@@ -74,13 +80,17 @@ class BiteScoreAdminScreen extends StatefulWidget {
 class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+  late final RatingDestructiveOperationsService _destructiveOperationsService;
   AdminRestaurantLinkRecord? _selectedDishRestaurant;
   int _activeTabIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: kDebugMode ? 11 : 10, vsync: this);
+    _destructiveOperationsService =
+        widget.destructiveOperationsService ??
+        RatingDestructiveOperationsService();
+    _tabController = TabController(length: kDebugMode ? 12 : 11, vsync: this);
     _tabController.addListener(_handleTabChanged);
   }
 
@@ -171,6 +181,7 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
                   const Tab(text: 'Claimed Restaurants'),
                   const Tab(text: 'Users'),
                   const Tab(text: 'User Points'),
+                  const Tab(text: 'Operations'),
                   if (kDebugMode) const Tab(text: 'Expert Badges'),
                 ],
               ),
@@ -191,6 +202,7 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
                 else
                   RatingAdminRestaurantPagedView(
                     service: widget.pagingService,
+                    operationsService: _destructiveOperationsService,
                     onManageDishes: _openRestaurantDishes,
                     onEditRestaurant: _editPagedRestaurant,
                     loadRestaurant: widget.loadRestaurant,
@@ -206,23 +218,27 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
                   RatingAdminDishPagedView(
                     selectedRestaurant: _selectedDishRestaurant,
                     service: widget.pagingService,
+                    operationsService: _destructiveOperationsService,
                     onEditDish: _editPagedDish,
                   ),
                 RatingAdminReviewPagedView(service: widget.pagingService),
                 RatingAdminQueuePagedView(
                   kind: RatingAdminQueueKind.reportedReviews,
                   service: widget.pagingService,
+                  operationsService: _destructiveOperationsService,
                   onEditRestaurant: _editPagedRestaurant,
                   onEditDish: _editPagedDish,
                 ),
                 RatingAdminDataReportsPagedView(
                   service: widget.pagingService,
+                  operationsService: _destructiveOperationsService,
                   onEditRestaurant: _editPagedRestaurant,
                   onEditDish: _editPagedDish,
                 ),
                 RatingAdminQueuePagedView(
                   kind: RatingAdminQueueKind.claims,
                   service: widget.pagingService,
+                  operationsService: _destructiveOperationsService,
                   onEditRestaurant: _editPagedRestaurant,
                   onEditDish: _editPagedDish,
                 ),
@@ -237,6 +253,10 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
                 RatingAdminUsersPagedView(service: widget.peoplePagingService),
                 RatingAdminUserPointsPagedView(
                   service: widget.peoplePagingService,
+                ),
+                RatingAdminDestructiveOperationsPagedView(
+                  service: _destructiveOperationsService,
+                  isActive: _activeTabIndex == 10,
                 ),
                 if (kDebugMode)
                   const ExpertBadgeGalleryScreen(showPreviewControls: true),
@@ -426,6 +446,8 @@ class _BiteScoreRestaurantAdminListState
   final AdminLinkGenerationService _searchService =
       AdminLinkGenerationService();
   final Set<String> _busyActions = <String>{};
+  final RatingDestructiveOperationsService _operationsService =
+      RatingDestructiveOperationsService();
 
   int _radiusMiles = AdminLinkGenerationService.defaultRadiusMiles;
   AdminBiteScoreStatus _status = AdminBiteScoreStatus.all;
@@ -504,17 +526,33 @@ class _BiteScoreRestaurantAdminListState
       _busyActions.add(actionKey);
     });
     try {
+      RatingDestructiveOperationSummary? summary;
       final delete = widget.deleteRestaurant;
       if (delete != null) {
         await delete(restaurant.documentId);
       } else {
-        await BiteScoreService.deleteRestaurantAsAdmin(restaurant.documentId);
+        final fullRestaurant =
+            await (widget.loadRestaurant?.call(restaurant.documentId) ??
+                BiteScoreService.loadRestaurantById(restaurant.documentId));
+        if (fullRestaurant == null ||
+            fullRestaurant.id != restaurant.documentId) {
+          throw const RatingDestructiveOperationsException(
+            RatingDestructiveFailureKind.staleData,
+            'Stale data—refresh required.',
+          );
+        }
+        summary = await _operationsService.startRestaurantDelete(
+          restaurantId: fullRestaurant.id,
+          expectedRestaurantRevision: fullRestaurant.restaurantWriteRevision,
+        );
       }
       if (!context.mounted) {
         return;
       }
-      final result = _searchResult;
-      if (result != null) {
+      Future<void> removeCompletedRestaurant() async {
+        if (!mounted) return;
+        final result = _searchResult;
+        if (result == null) return;
         final remaining = result.results
             .where((record) => record.documentId != restaurant.documentId)
             .toList(growable: false);
@@ -529,7 +567,24 @@ class _BiteScoreRestaurantAdminListState
           );
         });
       }
-      _showSnackBar(context, '${restaurant.restaurantName} deleted.');
+
+      if (summary == null) {
+        await removeCompletedRestaurant();
+        if (context.mounted) {
+          _showSnackBar(context, '${restaurant.restaurantName} deleted.');
+        }
+      } else {
+        if (summary.complete) await removeCompletedRestaurant();
+        if (!context.mounted) return;
+        showRatingDestructiveOperationFeedback(
+          context,
+          service: _operationsService,
+          summary: summary,
+          onComplete: removeCompletedRestaurant,
+        );
+      }
+    } on RatingDestructiveOperationsException catch (error) {
+      if (context.mounted) _showSnackBar(context, error.message);
     } catch (error) {
       if (!context.mounted) {
         return;
@@ -1224,6 +1279,8 @@ class _BiteScoreDishAdminList extends StatefulWidget {
 
 class _BiteScoreDishAdminListState extends State<_BiteScoreDishAdminList> {
   final TextEditingController _searchController = TextEditingController();
+  final RatingDestructiveOperationsService _operationsService =
+      RatingDestructiveOperationsService();
   Future<List<BitescoreDish>>? _dishesFuture;
 
   @override
@@ -1299,12 +1356,24 @@ class _BiteScoreDishAdminListState extends State<_BiteScoreDishAdminList> {
     }
 
     try {
-      await BiteScoreService.deleteDishAsAdmin(dish.id);
+      final summary = await _operationsService.startDishDelete(dishId: dish.id);
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, '${dish.name} deleted.');
-      _reloadDishes();
+      Future<void> reloadOnceComplete() async {
+        if (mounted) _reloadDishes();
+      }
+
+      if (summary.complete) await reloadOnceComplete();
+      if (!context.mounted) return;
+      showRatingDestructiveOperationFeedback(
+        context,
+        service: _operationsService,
+        summary: summary,
+        onComplete: reloadOnceComplete,
+      );
+    } on RatingDestructiveOperationsException catch (error) {
+      if (context.mounted) _showSnackBar(context, error.message);
     } catch (error) {
       if (!context.mounted) {
         return;
@@ -2022,6 +2091,8 @@ class _BiteScoreReportedRestaurantsSection extends StatefulWidget {
 class _BiteScoreReportedRestaurantsSectionState
     extends State<_BiteScoreReportedRestaurantsSection> {
   final TextEditingController _searchController = TextEditingController();
+  final RatingDestructiveOperationsService _operationsService =
+      RatingDestructiveOperationsService();
 
   @override
   void dispose() {
@@ -2106,11 +2177,20 @@ class _BiteScoreReportedRestaurantsSectionState
     }
 
     try {
-      await BiteScoreService.deleteRestaurantAsAdmin(restaurant.id);
+      final summary = await _operationsService.startRestaurantDelete(
+        restaurantId: restaurant.id,
+        expectedRestaurantRevision: restaurant.restaurantWriteRevision,
+      );
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, '${restaurant.name} deleted.');
+      showRatingDestructiveOperationFeedback(
+        context,
+        service: _operationsService,
+        summary: summary,
+      );
+    } on RatingDestructiveOperationsException catch (error) {
+      if (context.mounted) _showSnackBar(context, error.message);
     } catch (error) {
       if (!context.mounted) {
         return;
@@ -2260,6 +2340,8 @@ class _BiteScoreReportedDishesSection extends StatefulWidget {
 class _BiteScoreReportedDishesSectionState
     extends State<_BiteScoreReportedDishesSection> {
   final TextEditingController _searchController = TextEditingController();
+  final RatingDestructiveOperationsService _operationsService =
+      RatingDestructiveOperationsService();
 
   @override
   void dispose() {
@@ -2323,11 +2405,17 @@ class _BiteScoreReportedDishesSectionState
     }
 
     try {
-      await BiteScoreService.deleteDishAsAdmin(dish.id);
+      final summary = await _operationsService.startDishDelete(dishId: dish.id);
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(context, '${dish.name} deleted.');
+      showRatingDestructiveOperationFeedback(
+        context,
+        service: _operationsService,
+        summary: summary,
+      );
+    } on RatingDestructiveOperationsException catch (error) {
+      if (context.mounted) _showSnackBar(context, error.message);
     } catch (error) {
       if (!context.mounted) {
         return;
@@ -2472,6 +2560,8 @@ class _BiteScoreDuplicateRestaurantsSection extends StatefulWidget {
 class _BiteScoreDuplicateRestaurantsSectionState
     extends State<_BiteScoreDuplicateRestaurantsSection> {
   final TextEditingController _searchController = TextEditingController();
+  final RatingDestructiveOperationsService _operationsService =
+      RatingDestructiveOperationsService();
 
   @override
   void dispose() {
@@ -2570,17 +2660,24 @@ class _BiteScoreDuplicateRestaurantsSectionState
     }
 
     try {
-      await BiteScoreService.mergeRestaurantsAsAdmin(
-        duplicateRestaurant: entry.restaurant,
-        survivingRestaurant: survivingRestaurant,
+      final summary = await _operationsService.startRestaurantMerge(
+        sourceRestaurantId: entry.restaurant.id,
+        targetRestaurantId: survivingRestaurant.id,
+        expectedSourceRestaurantRevision:
+            entry.restaurant.restaurantWriteRevision,
+        expectedTargetRestaurantRevision:
+            survivingRestaurant.restaurantWriteRevision,
       );
       if (!context.mounted) {
         return;
       }
-      _showSnackBar(
+      showRatingDestructiveOperationFeedback(
         context,
-        '${entry.restaurant.name} merged into ${survivingRestaurant.name}.',
+        service: _operationsService,
+        summary: summary,
       );
+    } on RatingDestructiveOperationsException catch (error) {
+      if (context.mounted) _showSnackBar(context, error.message);
     } catch (error) {
       if (!context.mounted) {
         return;
