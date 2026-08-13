@@ -297,6 +297,17 @@ void main() {
     expect((call.$2['criteria']! as Map)['queueKind'], 'pendingApplications');
     expect(call.$2['pageSize'], 25);
     expect(find.textContaining('1 result • Page 1 of 1'), findsOneWidget);
+    expect(find.text('Approve'), findsOneWidget);
+    expect(find.text('Reject'), findsOneWidget);
+    expect(find.text('Edit Restaurant'), findsOneWidget);
+    expect(find.text('Create Invite'), findsOneWidget);
+    expect(find.text('Delete Restaurant'), findsNothing);
+    expect(
+      find.text(
+        'Delete this restaurant account and all of its coupons from BiteSaver?',
+      ),
+      findsNothing,
+    );
   });
 
   testWidgets('Name Changes lazily uses its exact queue kind', (tester) async {
@@ -878,7 +889,7 @@ void main() {
     },
   );
 
-  testWidgets('Coupon result actions retain their existing identity sources', (
+  testWidgets('Coupon result actions preserve identity and omit root deletion', (
     tester,
   ) async {
     final backend = _Backend()
@@ -892,7 +903,6 @@ void main() {
     String? loadedId;
     String? editedId;
     String? invitedId;
-    String? deletedId;
 
     tester.view.physicalSize = const Size(1000, 900);
     tester.view.devicePixelRatio = 1;
@@ -935,7 +945,6 @@ void main() {
                     expiresAt: null,
                   );
                 },
-            deleteAccount: (documentId) async => deletedId = documentId,
           ),
         ),
       ),
@@ -956,12 +965,17 @@ void main() {
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
 
-    await tester.ensureVisible(find.text('Delete Restaurant'));
-    await tester.tap(find.text('Delete Restaurant'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
-    await tester.pumpAndSettle();
-    expect(deletedId, 'ACCOUNT_DOC_ACTION');
+    expect(find.text('Approve'), findsOneWidget);
+    expect(find.text('Reject'), findsOneWidget);
+    expect(find.text('Edit Restaurant'), findsOneWidget);
+    expect(find.text('Create Invite'), findsOneWidget);
+    expect(find.text('Delete Restaurant'), findsNothing);
+    expect(
+      find.text(
+        'Delete this restaurant account and all of its coupons from BiteSaver?',
+      ),
+      findsNothing,
+    );
   });
 
   for (final configuration in <(Size, double)>[

@@ -21,7 +21,6 @@ import 'paged_directory_view.dart';
 
 typedef CouponAdminAccountLoader =
     Future<Map<String, dynamic>?> Function(String documentId);
-typedef CouponAdminAccountAction = Future<void> Function(String documentId);
 typedef CouponAdminApplicationReviewAction =
     Future<BiteSaverApplicationReviewResult> Function({
       required String documentId,
@@ -62,7 +61,6 @@ class CouponAdminPagedDashboard extends StatefulWidget {
     this.lifecycleService,
     this.loadAccount,
     this.reviewApplication,
-    this.deleteAccount,
     this.deleteCoupon,
     this.editAccount,
     this.createCouponInvite,
@@ -73,7 +71,6 @@ class CouponAdminPagedDashboard extends StatefulWidget {
   final BiteSaverRestaurantLifecycleService? lifecycleService;
   final CouponAdminAccountLoader? loadAccount;
   final CouponAdminApplicationReviewAction? reviewApplication;
-  final CouponAdminAccountAction? deleteAccount;
   final CouponAdminDeleteCouponAction? deleteCoupon;
   final CouponAdminEditAccountAction? editAccount;
   final CouponAdminCreateInviteAction? createCouponInvite;
@@ -593,40 +590,6 @@ class _CouponAdminPagedDashboardState extends State<CouponAdminPagedDashboard>
         }
       } catch (error) {
         if (mounted) _message(AppErrorText.load('restaurant account'));
-      }
-    });
-  }
-
-  Future<void> _deleteRestaurant(
-    String documentId, {
-    PagedQueryController<CouponAdminQueueRecord>? queueController,
-  }) async {
-    await _busy('restaurant', documentId, 'delete', () async {
-      final confirmed = await _confirmDelete(
-        title: 'Delete Restaurant',
-        message:
-            'Delete this restaurant account and all of its coupons from BiteSaver?',
-      );
-      if (!confirmed || !mounted) return;
-      try {
-        await (widget.deleteAccount?.call(documentId) ??
-            RestaurantAccountService.deleteRestaurantAccount(documentId));
-        if (!mounted) return;
-        _message('Restaurant account deleted.');
-        if (queueController != null) {
-          await _refreshAfterRemoval(queueController);
-        } else {
-          await _restaurantController?.refreshCurrentPage();
-        }
-      } catch (error) {
-        if (mounted) {
-          _message(
-            AppErrorText.friendly(
-              error,
-              fallback: 'Could not delete the restaurant account right now.',
-            ),
-          );
-        }
       }
     });
   }
@@ -1316,14 +1279,6 @@ class _CouponAdminPagedDashboardState extends State<CouponAdminPagedDashboard>
                   icon: const Icon(Icons.add_link),
                   label: const Text('Create Invite'),
                 ),
-                TextButton.icon(
-                  onPressed: () => _deleteRestaurant(
-                    record.id,
-                    queueController: _pendingController,
-                  ),
-                  icon: const Icon(Icons.delete_outline),
-                  label: const Text('Delete Restaurant'),
-                ),
               ],
             ),
             _couponExpansion(record.id, name, 'pending:${record.id}'),
@@ -1443,11 +1398,6 @@ class _CouponAdminPagedDashboardState extends State<CouponAdminPagedDashboard>
         onPressed: () => _createInvite(record),
         icon: const Icon(Icons.add_link),
         label: const Text('Create Invite'),
-      ),
-      TextButton.icon(
-        onPressed: () => _deleteRestaurant(record.documentId),
-        icon: const Icon(Icons.delete_outline),
-        label: const Text('Delete Restaurant'),
       ),
     ],
   );

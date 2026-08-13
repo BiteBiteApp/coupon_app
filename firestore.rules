@@ -817,7 +817,7 @@ service cloud.firestore {
         resource.data.approvalStatus == 'approved';
       allow create: if isAdmin() || canCreateOwnRestaurantAccount(restaurantUid);
       allow update: if isAdmin() || canUpdateOwnRestaurantAccount(restaurantUid);
-      allow delete: if isAdmin();
+      allow delete: if false;
 
       match /coupons/{couponId} {
         allow read: if isAdmin() ||

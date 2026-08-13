@@ -190,25 +190,95 @@ void main() {
     );
   });
 
+  test(
+    'destructive account-root clients are absent while safe unclaim remains',
+    () {
+      final productionDartSource = Directory('lib')
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((file) => file.path.endsWith('.dart'))
+          .map((file) => file.readAsStringSync())
+          .join('\n');
+      expect(
+        productionDartSource,
+        isNot(contains('deleteUserAccountRecordsAsAdmin')),
+      );
+      expect(productionDartSource, isNot(contains('deleteRestaurantAccount')));
+
+      final peopleDashboard = File(
+        'lib/widgets/rating_admin_people_paged_dashboard.dart',
+      ).readAsStringSync();
+      for (final removedAction in <String>[
+        'Delete User Account Records',
+        'Delete account records',
+        'Delete Records',
+        'deleteUserRecords',
+      ]) {
+        expect(
+          peopleDashboard,
+          isNot(contains(removedAction)),
+          reason: removedAction,
+        );
+      }
+
+      final couponDashboard = File(
+        'lib/widgets/coupon_admin_paged_dashboard.dart',
+      ).readAsStringSync();
+      for (final removedAction in <String>[
+        'Delete Restaurant',
+        'Delete this restaurant account and all of its coupons from BiteSaver?',
+        '_deleteRestaurant(',
+        'deleteAccount',
+      ]) {
+        expect(
+          couponDashboard,
+          isNot(contains(removedAction)),
+          reason: removedAction,
+        );
+      }
+      final couponAdminScreen = File(
+        'lib/screens/admin_review_screen.dart',
+      ).readAsStringSync();
+      expect(couponAdminScreen, isNot(contains('deleteAccount')));
+
+      final claimedRestaurantsDashboard = File(
+        'lib/widgets/rating_admin_paged_dashboard.dart',
+      ).readAsStringSync();
+      expect(claimedRestaurantsDashboard, contains("tooltip: 'Remove owner'"));
+      expect(
+        claimedRestaurantsDashboard,
+        contains(
+          'BiteScoreService.unclaimRestaurantAsAdmin(record.restaurant)',
+        ),
+      );
+
+      final biteScoreSource = File(
+        'lib/services/bitescore_service.dart',
+      ).readAsStringSync();
+      final unclaim = sourceSection(
+        biteScoreSource,
+        'static Future<void> unclaimRestaurantAsAdmin',
+        'static Future<BiteScoreReviewSaveResult> createAndRate',
+      );
+      expect(unclaim, contains('restaurant.isClaimed'));
+      expect(unclaim, contains('restaurant.ownerUserId'));
+      expect(unclaim, contains('restaurant.restaurantWriteRevision'));
+      expect(unclaim, contains('_runExpectedRestaurantRevisionTransaction'));
+      expect(unclaim, contains("currentData?['isClaimed'] != true"));
+      expect(unclaim, contains("currentData?['ownerUserId']"));
+      expect(unclaim, contains("'ownerUserId': null"));
+      expect(unclaim, contains("'isClaimed': false"));
+      expect(unclaim, contains('restaurantWriteRevisionField: nextRevision'));
+      expect(unclaim, isNot(contains('.delete(')));
+      expect(unclaim, isNot(contains("collection('restaurant_accounts')")));
+      expect(unclaim, isNot(contains("collection('coupons')")));
+    },
+  );
+
   test('all traced client writers use the production revision transaction', () {
     final biteScoreSource = File(
       'lib/services/bitescore_service.dart',
     ).readAsStringSync();
-    final accountDeletion = sourceSection(
-      biteScoreSource,
-      'static Future<void> deleteUserAccountRecordsAsAdmin',
-      'static Future<List<BitescoreRestaurant>> loadRestaurantsForFinder',
-    );
-    expect(accountDeletion, contains('_firestore.runTransaction'));
-    expect(accountDeletion, contains('_requiredRestaurantWriteRevision'));
-    expect(accountDeletion, contains('_nextExpectedRestaurantWriteRevision'));
-    expect(accountDeletion, contains('restaurantWriteRevisionField'));
-    expect(
-      accountDeletion.lastIndexOf('transaction.get('),
-      lessThan(accountDeletion.indexOf('transaction.set(')),
-    );
-    expect(accountDeletion, contains("currentData?['ownerUserId']) != uid"));
-
     final dishNameRepair = sourceSection(
       biteScoreSource,
       'static Future<void> _synchronizeRestaurantDishNames',

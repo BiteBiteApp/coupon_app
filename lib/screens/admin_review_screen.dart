@@ -7,7 +7,6 @@ import '../widgets/coupon_admin_paged_dashboard.dart';
 
 typedef AdminCouponAccountLoader =
     Future<Map<String, dynamic>?> Function(String documentId);
-typedef AdminCouponAccountAction = Future<void> Function(String documentId);
 typedef AdminCouponApplicationReviewAction =
     Future<BiteSaverApplicationReviewResult> Function({
       required String documentId,
@@ -47,7 +46,6 @@ class AdminReviewScreen extends StatelessWidget {
     @visibleForTesting this.pagingService,
     @visibleForTesting this.loadAccount,
     @visibleForTesting this.reviewApplication,
-    @visibleForTesting this.deleteAccount,
     @visibleForTesting this.deleteCoupon,
     @visibleForTesting this.editAccount,
     @visibleForTesting this.createCouponInvite,
@@ -57,7 +55,6 @@ class AdminReviewScreen extends StatelessWidget {
   final CouponAdminPagingService? pagingService;
   final AdminCouponAccountLoader? loadAccount;
   final AdminCouponApplicationReviewAction? reviewApplication;
-  final AdminCouponAccountAction? deleteAccount;
 
   final AdminCouponDeleteAction? deleteCoupon;
   final AdminCouponEditAction? editAccount;
@@ -71,7 +68,6 @@ class AdminReviewScreen extends StatelessWidget {
       lifecycleService: lifecycleService,
       loadAccount: loadAccount,
       reviewApplication: reviewApplication,
-      deleteAccount: deleteAccount,
       deleteCoupon: deleteCoupon,
       editAccount: editAccount,
       createCouponInvite: createCouponInvite,

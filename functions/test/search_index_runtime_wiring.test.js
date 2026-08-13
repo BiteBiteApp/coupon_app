@@ -147,9 +147,15 @@ function loadCompiledIndexWithRuntimeHarness() {
     globalOptions: null,
     firestoreDocuments: new Map(),
     firestoreQueries: [],
+    firestoreReads: [],
+    firestoreWrites: [],
+    recursiveDeletes: [],
     logs: [],
   };
   const fakeDatabase = {
+    async recursiveDelete(reference) {
+      state.recursiveDeletes.push(reference);
+    },
     collection(collectionPath) {
       const queryState = {
         collectionPath,
@@ -313,6 +319,72 @@ test("all prior exports remain and each search-index trigger is exported once", 
     Object.keys(runtime.exports).filter((name) => Object.hasOwn(expectedTriggers, name)).length,
     Object.keys(expectedTriggers).length,
   );
+});
+
+test("restaurant-account cleanup retains exact wiring and is a repeatable no-op", async () => {
+  const runtime = loadCompiledIndexWithRuntimeHarness();
+  const cleanup = runtime.exports.cleanupDeletedRestaurantCoupons;
+  const endpoint = cleanup.__endpoint;
+
+  assert.equal(endpoint.platform, "gcfv2");
+  assert.deepEqual(endpoint.region, ["us-central1"]);
+  assert.equal(endpoint.eventTrigger.eventType, "document.deleted");
+  assert.equal(
+    endpoint.eventTrigger.eventFilterPathPatterns.document,
+    "restaurant_accounts/{uid}",
+  );
+  assert.equal(Object.hasOwn(endpoint, "callableTrigger"), false);
+  assert.equal(Object.hasOwn(endpoint, "httpsTrigger"), false);
+  assert.equal(Object.hasOwn(endpoint, "scheduleTrigger"), false);
+  assert.equal(Object.hasOwn(endpoint, "secretEnvironmentVariables"), false);
+
+  const eventReads = [];
+  const referenceCollections = [];
+  const sensitiveUid = "owner-uid-must-not-be-read-or-logged";
+  const accountReference = {
+    async get() {
+      runtime.state.firestoreReads.push("event.data.ref.get");
+    },
+    async create() {
+      runtime.state.firestoreWrites.push("event.data.ref.create");
+    },
+    async delete() {
+      runtime.state.firestoreWrites.push("event.data.ref.delete");
+    },
+    async set() {
+      runtime.state.firestoreWrites.push("event.data.ref.set");
+    },
+    async update() {
+      runtime.state.firestoreWrites.push("event.data.ref.update");
+    },
+    collection(collectionPath) {
+      referenceCollections.push(collectionPath);
+      return {collectionPath};
+    },
+  };
+  const event = new Proxy(
+    {
+      params: {uid: sensitiveUid},
+      data: {ref: accountReference},
+    },
+    {
+      get(target, property, receiver) {
+        eventReads.push(String(property));
+        return Reflect.get(target, property, receiver);
+      },
+    },
+  );
+
+  assert.equal(await cleanup(event), undefined);
+  assert.equal(await cleanup(event), undefined);
+  assert.deepEqual(eventReads, []);
+  assert.deepEqual(referenceCollections, []);
+  assert.deepEqual(runtime.state.firestoreQueries, []);
+  assert.deepEqual(runtime.state.firestoreReads, []);
+  assert.deepEqual(runtime.state.firestoreWrites, []);
+  assert.deepEqual(runtime.state.recursiveDeletes, []);
+  assert.deepEqual(runtime.state.logs, []);
+  assert.equal(JSON.stringify(runtime.state.logs).includes(sensitiveUid), false);
 });
 
 test("dish proposal private-state trigger uses exact background-only metadata", () => {

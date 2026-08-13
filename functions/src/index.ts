@@ -4372,16 +4372,7 @@ export const processProximityPushRequest = onDocumentCreated(
 
 export const cleanupDeletedRestaurantCoupons = onDocumentDeleted(
   "restaurant_accounts/{uid}",
-  async (event) => {
-    const uid = event.params.uid as string;
-    const accountRef =
-      event.data?.ref ?? db.collection("restaurant_accounts").doc(uid);
-    await db.recursiveDelete(accountRef.collection("coupons"));
-    await db.recursiveDelete(
-      accountRef.collection("coupon_number_reservations"),
-    );
-    await db.recursiveDelete(accountRef.collection("coupon_code_reservations"));
-  },
+  async () => {},
 );
 
 export const maintainBiteScoreRestaurantGeohash = onDocumentWritten(

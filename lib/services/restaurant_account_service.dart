@@ -1400,28 +1400,6 @@ class RestaurantAccountService {
     ).update({Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp()});
   }
 
-  static Future<void> deleteRestaurantAccount(String uid) async {
-    final couponsSnapshot = await couponsCollection(uid).get();
-    final dailySpecialsSnapshot = await dailySpecialsCollection(uid).get();
-
-    if (couponsSnapshot.docs.isNotEmpty ||
-        dailySpecialsSnapshot.docs.isNotEmpty) {
-      final batch = _firestore.batch();
-
-      for (final doc in couponsSnapshot.docs) {
-        batch.delete(doc.reference);
-      }
-
-      for (final doc in dailySpecialsSnapshot.docs) {
-        batch.delete(doc.reference);
-      }
-
-      await batch.commit();
-    }
-
-    await docForUser(uid).delete();
-  }
-
   static Future<void> _ensureNoDuplicateCoupon({
     required String uid,
     required String title,

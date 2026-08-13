@@ -2,24 +2,15 @@ import 'package:flutter/material.dart';
 
 import '../models/rating_admin_people_paging_models.dart';
 import '../services/app_error_text.dart';
-import '../services/bitescore_service.dart';
 import '../services/paged_query_controller.dart';
 import '../services/rating_admin_people_paging_service.dart';
 import 'biterater_theme.dart';
 import 'paged_directory_view.dart';
 
-typedef RatingAdminDeleteUserRecords =
-    Future<void> Function(BiteScoreAdminUserEntry user);
-
 class RatingAdminUsersPagedView extends StatefulWidget {
-  const RatingAdminUsersPagedView({
-    super.key,
-    this.service,
-    this.deleteUserRecords,
-  });
+  const RatingAdminUsersPagedView({super.key, this.service});
 
   final RatingAdminPeoplePagingService? service;
-  final RatingAdminDeleteUserRecords? deleteUserRecords;
 
   @override
   State<RatingAdminUsersPagedView> createState() =>
@@ -129,22 +120,6 @@ class _RatingAdminUsersPagedViewState extends State<RatingAdminUsersPagedView> {
     await _submit();
   }
 
-  BiteScoreAdminUserEntry _legacyUser(RatingAdminUserRecord user) {
-    return BiteScoreAdminUserEntry(
-      uid: user.uid,
-      email: user.email,
-      phoneNumber: user.phoneNumber,
-      displayName: user.displayName,
-      claimedRestaurantNames: user.claimedRestaurantNames.toSet(),
-      hasRestaurantAccount: user.hasRestaurantAccount,
-      hasBiteScoreOwnership: user.hasBiteScoreOwnership,
-      isAdmin: user.isAdmin,
-      isEmailVerified: user.isEmailVerified,
-      restaurantAccountStatus: user.restaurantAccountStatus,
-      activityTags: user.activityTags,
-    );
-  }
-
   Future<void> _showDetails(RatingAdminUserRecord user) async {
     final claimed = user.claimedRestaurantNames.isEmpty
         ? null
@@ -178,57 +153,6 @@ class _RatingAdminUsersPagedViewState extends State<RatingAdminUsersPagedView> {
         ],
       ),
     );
-  }
-
-  Future<void> _delete(RatingAdminUserRecord user) async {
-    final originatingController = _controller;
-    final originatingGeneration = _usersGeneration;
-    final actionUid = user.uid;
-    final legacyUser = _legacyUser(user);
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Delete User Account Records'),
-        content: Text(
-          'Delete admin-visible owner records for '
-          '${user.email ?? user.phoneNumber ?? user.displayName}? '
-          'This removes coupon owner account data and unclaims BiteScore '
-          'restaurants owned by this user, but it does not delete the '
-          'Firebase Auth login itself.',
-        ),
-        actions: <Widget>[
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            child: const Text('Delete Records'),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    try {
-      await (widget.deleteUserRecords?.call(legacyUser) ??
-          BiteScoreService.deleteUserAccountRecordsAsAdmin(legacyUser));
-      if (!mounted) return;
-      _showMessage('User account records deleted.');
-      if (legacyUser.uid == actionUid &&
-          originatingGeneration == _usersGeneration &&
-          identical(originatingController, _controller) &&
-          !originatingController.isDisposed) {
-        await originatingController.refreshCurrentPage();
-      }
-    } catch (error) {
-      if (!mounted) return;
-      _showMessage(
-        AppErrorText.friendly(
-          error,
-          fallback: 'Could not delete this user\'s account records right now.',
-        ),
-      );
-    }
   }
 
   Widget _controls() {
@@ -375,15 +299,6 @@ class _RatingAdminUsersPagedViewState extends State<RatingAdminUsersPagedView> {
                     ),
                     onPressed: () => _showDetails(user),
                     icon: const Icon(Icons.info_outline),
-                  ),
-                  IconButton.filledTonal(
-                    tooltip: 'Delete account records',
-                    constraints: const BoxConstraints(
-                      minWidth: 48,
-                      minHeight: 48,
-                    ),
-                    onPressed: user.isAdmin ? null : () => _delete(user),
-                    icon: const Icon(Icons.delete_outline),
                   ),
                 ],
               ),

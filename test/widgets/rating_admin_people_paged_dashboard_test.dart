@@ -3,7 +3,6 @@ import 'dart:io';
 
 import 'package:coupon_app/models/pagination/paged_models.dart';
 import 'package:coupon_app/models/rating_admin_people_paging_models.dart';
-import 'package:coupon_app/services/bitescore_service.dart';
 import 'package:coupon_app/services/rating_admin_people_paging_service.dart';
 import 'package:coupon_app/widgets/rating_admin_people_paged_dashboard.dart';
 import 'package:flutter/material.dart';
@@ -179,6 +178,19 @@ void main() {
       widgetSource,
       contains('PagedDirectoryView<RatingAdminContributionLedgerRecord>'),
     );
+    for (final removedDestructiveAction in <String>[
+      'deleteUserRecords',
+      'deleteUserAccountRecordsAsAdmin',
+      'Delete User Account Records',
+      'Delete account records',
+      'Delete Records',
+    ]) {
+      expect(
+        widgetSource,
+        isNot(contains(removedDestructiveAction)),
+        reason: removedDestructiveAction,
+      );
+    }
     final screenSource = File(
       'lib/screens/bitescore_admin_screen.dart',
     ).readAsStringSync();
@@ -192,6 +204,14 @@ void main() {
     ]) {
       expect(screenSource, contains(entryPoint));
     }
+    final claimedRestaurantsSource = File(
+      'lib/widgets/rating_admin_paged_dashboard.dart',
+    ).readAsStringSync();
+    expect(claimedRestaurantsSource, contains("tooltip: 'Remove owner'"));
+    expect(
+      claimedRestaurantsSource,
+      contains('BiteScoreService.unclaimRestaurantAsAdmin(record.restaurant)'),
+    );
   });
 
   testWidgets(
@@ -633,165 +653,39 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('Users preserves details and exact-UID deletion actions', (
+  testWidgets('Users preserves details while account deletion is absent', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(800, 1000);
     addTearDown(tester.view.reset);
-    BiteScoreAdminUserEntry? deleted;
-    var usersCalls = 0;
     final service = RatingAdminPeoplePagingService(
       functionsBoundary: (name, request) async {
-        usersCalls++;
-        return page(
-          items: <Object?>[
-            user(
-              'exact-action-uid',
-              usersCalls == 1 ? 'Action User' : 'Refreshed Action User',
-            ),
-          ],
-        );
+        return page(items: <Object?>[user('exact-action-uid', 'Action User')]);
       },
     );
-    await tester.pumpWidget(
-      host(
-        RatingAdminUsersPagedView(
-          service: service,
-          deleteUserRecords: (user) async => deleted = user,
-        ),
-      ),
-    );
+    await tester.pumpWidget(host(RatingAdminUsersPagedView(service: service)));
     await tester.pumpAndSettle();
+    expect(find.text('Action User'), findsOneWidget);
+    expect(find.byTooltip('View user details'), findsOneWidget);
+    expect(find.byTooltip('Delete account records'), findsNothing);
+    expect(find.widgetWithIcon(IconButton, Icons.delete_outline), findsNothing);
+    expect(find.text('Delete User Account Records'), findsNothing);
+    expect(find.text('Delete Records'), findsNothing);
+
     final details = find.widgetWithIcon(IconButton, Icons.info_outline);
     await tester.ensureVisible(details);
     await tester.tap(details);
     await tester.pumpAndSettle();
     expect(find.textContaining('UID: exact-action-uid'), findsWidgets);
+    expect(
+      find.textContaining('Claimed restaurants: Alpha Cafe'),
+      findsOneWidget,
+    );
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
-    final delete = find.widgetWithIcon(IconButton, Icons.delete_outline);
-    await tester.ensureVisible(delete);
-    await tester.tap(delete);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete Records'));
-    await tester.pumpAndSettle();
-    expect(deleted?.uid, 'exact-action-uid');
-    expect(usersCalls, 2);
-    expect(find.text('Action User'), findsNothing);
-    expect(find.text('Refreshed Action User'), findsOneWidget);
-  });
-
-  testWidgets('delayed Delete cannot refresh replacement search criteria', (
-    tester,
-  ) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(800, 1000);
-    addTearDown(tester.view.reset);
-    final deletion = Completer<void>();
-    final criteriaCalls = <Map<String, Object?>>[];
-    BiteScoreAdminUserEntry? deleted;
-    final service = RatingAdminPeoplePagingService(
-      functionsBoundary: (name, request) async {
-        final criteria = Map<String, Object?>.from(request['criteria']! as Map);
-        criteriaCalls.add(criteria);
-        if (criteria['mode'] == 'viewAll') {
-          return page(items: <Object?>[user('delete-origin', 'Delete Origin')]);
-        }
-        return page(
-          items: <Object?>[
-            user('replacement-user', 'Replacement Search Result'),
-          ],
-        );
-      },
-    );
-
-    await tester.pumpWidget(
-      host(
-        RatingAdminUsersPagedView(
-          service: service,
-          deleteUserRecords: (user) {
-            deleted = user;
-            return deletion.future;
-          },
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    final delete = find.widgetWithIcon(IconButton, Icons.delete_outline);
-    await tester.ensureVisible(delete);
-    await tester.tap(delete);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete Records'));
-    await tester.pump();
-
-    await selectUserMode(tester, RatingAdminUserSearchMode.displayName);
-    await tester.enterText(
-      find.byKey(const ValueKey<String>('rating-admin-user-search-value')),
-      'replacement',
-    );
-    await tester.tap(
-      find.byKey(const ValueKey<String>('rating-admin-user-search-submit')),
-    );
-    await tester.pumpAndSettle();
-    final callsBeforeDeleteCompletes = criteriaCalls.length;
-    expect(find.text('Replacement Search Result'), findsOneWidget);
-
-    deletion.complete();
-    await tester.pumpAndSettle();
-    expect(deleted?.uid, 'delete-origin');
-    expect(criteriaCalls, hasLength(callsBeforeDeleteCompletes));
-    expect(
-      criteriaCalls.where((criteria) => criteria['mode'] == 'displayName'),
-      hasLength(1),
-    );
-    expect(find.text('Replacement Search Result'), findsOneWidget);
-    expect(find.text('Delete Origin'), findsNothing);
-    expect(tester.takeException(), isNull);
-  });
-
-  testWidgets('disposing Users while Delete awaits prevents stale refresh', (
-    tester,
-  ) async {
-    tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(800, 1000);
-    addTearDown(tester.view.reset);
-    final deletion = Completer<void>();
-    var usersCalls = 0;
-    BiteScoreAdminUserEntry? deleted;
-    final service = RatingAdminPeoplePagingService(
-      functionsBoundary: (name, request) async {
-        usersCalls++;
-        return page(items: <Object?>[user('dispose-delete', 'Dispose Delete')]);
-      },
-    );
-
-    await tester.pumpWidget(
-      host(
-        RatingAdminUsersPagedView(
-          service: service,
-          deleteUserRecords: (user) {
-            deleted = user;
-            return deletion.future;
-          },
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    final delete = find.widgetWithIcon(IconButton, Icons.delete_outline);
-    await tester.ensureVisible(delete);
-    await tester.tap(delete);
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Delete Records'));
-    await tester.pump();
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    deletion.complete();
-    await tester.pumpAndSettle();
-
-    expect(deleted?.uid, 'dispose-delete');
-    expect(usersCalls, 1);
-    expect(tester.takeException(), isNull);
+    expect(find.text('Action User'), findsOneWidget);
+    expect(find.byTooltip('Delete account records'), findsNothing);
   });
 
   testWidgets('Users page error retries only the failed bounded request', (

@@ -1137,6 +1137,62 @@ test("wrong restaurant owners cannot manage another owner's content", async () =
   );
 });
 
+test("restaurant account root deletion is denied to owners, other users, and admins", async () => {
+  const accountPath = "restaurant_accounts/owner-1";
+
+  for (const actor of ["restaurantOwner", "wrongRestaurantOwner", "admin"]) {
+    await assertFails(dbFor(actor).doc(accountPath).delete());
+  }
+
+  const account = await assertSucceeds(
+    dbFor("restaurantOwner").doc(accountPath).get(),
+  );
+  assert.equal(account.exists, true);
+});
+
+test("restaurant account root reads and updates keep their existing policy", async () => {
+  const accountPath = "restaurant_accounts/owner-1";
+
+  for (const actor of ["restaurantOwner", "wrongRestaurantOwner", "admin"]) {
+    const account = await assertSucceeds(dbFor(actor).doc(accountPath).get());
+    assert.equal(account.exists, true);
+  }
+
+  await assertSucceeds(
+    dbFor("restaurantOwner").doc(accountPath).update({
+      bio: "Owner-updated profile",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(
+    dbFor("wrongRestaurantOwner").doc(accountPath).update({
+      bio: "Forged profile",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertSucceeds(
+    dbFor("admin").doc(accountPath).update({
+      bio: "Admin-reviewed profile",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+});
+
+test("coupon deletion remains available to the owner and admin only", async () => {
+  const couponPath = "restaurant_accounts/owner-1/coupons/coupon-1";
+  const ownerCoupon = await assertSucceeds(
+    dbFor("restaurantOwner").doc(couponPath).get(),
+  );
+
+  await assertFails(dbFor("wrongRestaurantOwner").doc(couponPath).delete());
+  await assertSucceeds(dbFor("restaurantOwner").doc(couponPath).delete());
+
+  await seedRuleTestDocuments([
+    {documentPath: couponPath, data: ownerCoupon.data()},
+  ]);
+  await assertSucceeds(dbFor("admin").doc(couponPath).delete());
+});
+
 test("restaurant owners can update their own safe public profile fields", async () => {
   await assertSucceeds(
     dbFor("restaurantOwner").doc("restaurant_accounts/owner-1").set(

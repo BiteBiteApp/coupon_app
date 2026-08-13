@@ -505,7 +505,7 @@ test("authoritative resolver is inactive only for strict terminal local state", 
   );
 });
 
-test("root-delete cleanup remains an explicit same-UID reactivation hazard", () => {
+test("root-delete cleanup remains exported as an explicit no-op", () => {
   const indexSource = readFileSync(
     resolve(__dirname, "../src/index.ts"),
     "utf8",
@@ -522,39 +522,19 @@ test("root-delete cleanup remains an explicit same-UID reactivation hazard", () 
 
   assert.match(
     cleanupSource,
-    /export const cleanupDeletedRestaurantCoupons = onDocumentDeleted\(\s*"restaurant_accounts\/\{uid\}"/u,
-  );
-  assert.match(
-    cleanupSource,
-    /const uid = event\.params\.uid as string;/u,
-  );
-  assert.match(
-    cleanupSource,
-    /event\.data\?\.ref \?\? db\.collection\("restaurant_accounts"\)\.doc\(uid\)/u,
-  );
-
-  const recursivelyDeletedChildren = [...cleanupSource.matchAll(
-    /await db\.recursiveDelete\(\s*accountRef\.collection\("([^"]+)"\)\s*,?\s*\)\s*;/gu,
-  )].map((match) => match[1]);
-  assert.deepEqual(recursivelyDeletedChildren, [
-    "coupons",
-    "coupon_number_reservations",
-    "coupon_code_reservations",
-  ]);
-  assert.equal(
-    cleanupSource.match(/\brecursiveDelete\s*\(/gu)?.length,
-    3,
+    /export const cleanupDeletedRestaurantCoupons = onDocumentDeleted\(\s*"restaurant_accounts\/\{uid\}",\s*async \(\) => \{\s*\},\s*\);/u,
   );
 
   assert.doesNotMatch(
     cleanupSource,
-    /ownerRecordGeneration|owner_record_generation|private_owner_record_states|ownerRecordState|generation/u,
+    /\brecursiveDelete\s*\(|\bdb\s*\.|\bevent\s*\.|\blogger\s*\./u,
   );
-  assert.doesNotMatch(cleanupSource, /\.get\s*\(|runTransaction\s*\(/u);
-  assert.doesNotMatch(cleanupSource, /event\.data\?\.before|\.data\s*\(\)/u);
-
-  // This delayed root-delete trigger has no generation fence or source read.
-  // It cannot safely coexist with same-UID reactivation until it is retired or
-  // made generation-aware; an old invocation must never delete newer-generation
-  // children belonging to a deliberately reactivated owner.
+  assert.doesNotMatch(
+    cleanupSource,
+    /\.collection\s*\(|\.doc\s*\(|\.get\s*\(|\.set\s*\(|\.update\s*\(|\.delete\s*\(|\.create\s*\(|\.add\s*\(|runTransaction\s*\(|\.batch\s*\(/u,
+  );
+  assert.doesNotMatch(
+    cleanupSource,
+    /getFirestore\s*\(|getStorage\s*\(|getAuth\s*\(|\bstripe\s*\./u,
+  );
 });
