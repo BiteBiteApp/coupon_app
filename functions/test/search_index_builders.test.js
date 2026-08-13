@@ -82,6 +82,7 @@ function biteSaverRestaurant(overrides = {}) {
     approvalStatus: "approved",
     couponApplicationSubmitted: true,
     subscriptionStatus: "active",
+    couponPostingEnabled: true,
     mainImageUrl: "https://images.example.test/restaurant.jpg",
     website: "https://restaurant.example.test",
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
@@ -202,6 +203,108 @@ test("BiteSaver restaurant projection derives exact visibility and canonical sea
     });
     assert.equal(hidden.publicVisible, false, approvalStatus);
     assert.equal(hidden.adminDirectoryVisible, false, approvalStatus);
+  }
+});
+
+test("BiteSaver public projections require the exact trusted posting flag", () => {
+  const missingFlag = biteSaverRestaurant();
+  delete missingFlag.couponPostingEnabled;
+  const deniedRestaurants = [
+    {
+      label: "active status with a false flag",
+      source: biteSaverRestaurant({
+        subscriptionStatus: "active",
+        couponPostingEnabled: false,
+      }),
+    },
+    {
+      label: "trialing status with a false flag",
+      source: biteSaverRestaurant({
+        subscriptionStatus: "trialing",
+        couponPostingEnabled: false,
+      }),
+    },
+    ...["past_due", "unpaid", "incomplete", "paused", "inactive"].map(
+      (subscriptionStatus) => ({
+        label: `${subscriptionStatus} with a false flag`,
+        source: biteSaverRestaurant({
+          subscriptionStatus,
+          couponPostingEnabled: false,
+        }),
+      }),
+    ),
+    {label: "missing flag", source: missingFlag},
+    {
+      label: "malformed flag",
+      source: biteSaverRestaurant({couponPostingEnabled: "true"}),
+    },
+  ];
+
+  for (const fixture of deniedRestaurants) {
+    const restaurantIndex = buildBiteSaverRestaurantIndex({
+      sourceDocumentId: `restaurant-${fixture.label}`,
+      source: fixture.source,
+      now,
+    });
+    const couponIndex = buildBiteSaverCouponOfferIndex({
+      restaurantAccountId: "account-1",
+      sourceDocumentId: `coupon-${fixture.label}`,
+      offer: coupon(),
+      restaurant: fixture.source,
+      now,
+    });
+    const dailySpecialIndex = buildBiteSaverDailySpecialOfferIndex({
+      restaurantAccountId: "account-1",
+      sourceDocumentId: `special-${fixture.label}`,
+      offer: dailySpecial(),
+      restaurant: fixture.source,
+      now,
+    });
+
+    assert.notEqual(restaurantIndex, null, fixture.label);
+    assert.equal(restaurantIndex.publicVisible, false, fixture.label);
+    assert.equal(restaurantIndex.adminDirectoryVisible, true, fixture.label);
+    assert.notEqual(couponIndex, null, fixture.label);
+    assert.equal(couponIndex.publicVisible, false, fixture.label);
+    assert.equal(couponIndex.adminVisible, true, fixture.label);
+    assert.notEqual(dailySpecialIndex, null, fixture.label);
+    assert.equal(dailySpecialIndex.publicVisible, false, fixture.label);
+    assert.equal(dailySpecialIndex.adminVisible, true, fixture.label);
+  }
+});
+
+test("scheduled cancellation retains public visibility while the trusted flag is true", () => {
+  for (const subscriptionStatus of ["active", "trialing"]) {
+    const restaurant = biteSaverRestaurant({
+      subscriptionStatus,
+      couponPostingEnabled: true,
+      cancelAtPeriodEnd: true,
+      subscriptionEndsAt: new Date(now.getTime() + 86_400_000),
+      trialEndsAt: new Date(now.getTime() - 1),
+    });
+    const restaurantIndex = buildBiteSaverRestaurantIndex({
+      sourceDocumentId: `restaurant-${subscriptionStatus}`,
+      source: restaurant,
+      now,
+    });
+    const couponIndex = buildBiteSaverCouponOfferIndex({
+      restaurantAccountId: "account-1",
+      sourceDocumentId: `coupon-${subscriptionStatus}`,
+      offer: coupon(),
+      restaurant,
+      now,
+    });
+    const dailySpecialIndex = buildBiteSaverDailySpecialOfferIndex({
+      restaurantAccountId: "account-1",
+      sourceDocumentId: `special-${subscriptionStatus}`,
+      offer: dailySpecial(),
+      restaurant,
+      now,
+    });
+
+    assert.equal(restaurantIndex.publicVisible, true, subscriptionStatus);
+    assert.equal(couponIndex.publicVisible, true, subscriptionStatus);
+    assert.equal(dailySpecialIndex.publicVisible, true, subscriptionStatus);
   }
 });
 
@@ -469,7 +572,13 @@ test("coupon projection derives account and inclusive schedule visibility", () =
 
   for (const fixture of [
     {restaurant: biteSaverRestaurant({approvalStatus: "pending"}), offer: coupon()},
-    {restaurant: biteSaverRestaurant({subscriptionStatus: "inactive"}), offer: coupon()},
+    {
+      restaurant: biteSaverRestaurant({
+        subscriptionStatus: "inactive",
+        couponPostingEnabled: false,
+      }),
+      offer: coupon(),
+    },
     {restaurant: biteSaverRestaurant(), offer: coupon({isActive: false})},
     {restaurant: biteSaverRestaurant(), offer: coupon({startTime: new Date(now.getTime() + 1)})},
     {restaurant: biteSaverRestaurant(), offer: coupon({endTime: new Date(now.getTime() - 1)})},
@@ -630,6 +739,22 @@ test("parent fingerprints change only for dependent-index inputs", () => {
   assert.equal(
     biteSaverOfferParentFingerprint(biteSaver),
     biteSaverOfferParentFingerprint({...biteSaver, email: "ignored@example.test"}),
+  );
+  assert.equal(
+    biteSaverOfferParentFingerprint(biteSaver),
+    biteSaverOfferParentFingerprint({
+      ...biteSaver,
+      subscriptionStatus: "inactive",
+      trialEndsAt: new Date(now.getTime() - 1),
+      cancelAtPeriodEnd: true,
+    }),
+  );
+  assert.notEqual(
+    biteSaverOfferParentFingerprint(biteSaver),
+    biteSaverOfferParentFingerprint({
+      ...biteSaver,
+      couponPostingEnabled: false,
+    }),
   );
   assert.notEqual(
     biteSaverOfferParentFingerprint(biteSaver),

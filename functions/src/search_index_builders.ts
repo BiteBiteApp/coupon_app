@@ -87,10 +87,6 @@ function readDate(value: unknown): Date | null {
   return null;
 }
 
-function timestampProjection(value: unknown): unknown {
-  return readDate(value)?.toISOString() ?? null;
-}
-
 function sourceTimestamps(data: SearchIndexSourceData): Record<string, unknown> {
   const createdAt = readDate(data.createdAt);
   const updatedAt = readDate(data.updatedAt);
@@ -213,19 +209,9 @@ function lowerStatus(value: unknown, fallback: string): string {
 
 function parentSubscriptionAllowsOffers(
   data: SearchIndexSourceData,
-  now: Date,
 ): boolean {
-  if (lowerStatus(data.approvalStatus, "pending") !== "approved") {
-    return false;
-  }
-  const subscriptionStatus = lowerStatus(data.subscriptionStatus, "inactive");
-  if (subscriptionStatus === "active") {
-    return true;
-  }
-  const trialEndsAt = readDate(data.trialEndsAt);
-  return subscriptionStatus === "trialing" &&
-    trialEndsAt !== null &&
-    trialEndsAt > now;
+  return lowerStatus(data.approvalStatus, "pending") === "approved" &&
+    data.couponPostingEnabled === true;
 }
 
 export function biteSaverOfferParentFingerprint(
@@ -238,8 +224,7 @@ export function biteSaverOfferParentFingerprint(
     "biteSaverOfferParent",
     firstString(data, ["restaurantName", "name"]),
     lowerStatus(data.approvalStatus, "pending"),
-    lowerStatus(data.subscriptionStatus, "inactive"),
-    timestampProjection(data.trialEndsAt),
+    data.couponPostingEnabled === true,
     firstString(data, ["zipCode", "postalCode", "zip"]),
     firstString(data, ["city"]),
     firstString(data, ["state"]),
@@ -301,7 +286,8 @@ export function buildBiteSaverRestaurantIndex(value: {
     indexDocumentId,
     ...name,
     ...biteSaverGeography(value.source),
-    publicVisible: approvalStatus === "approved",
+    publicVisible:
+      approvalStatus === "approved" && value.source.couponPostingEnabled === true,
     adminDirectoryVisible: approvalStatus === "approved",
     approvalStatus,
     couponApplicationSubmitted:
@@ -567,7 +553,7 @@ export function buildBiteSaverCouponOfferIndex(value: {
   return finalizeIndexDocument({
     ...base,
     publicVisible:
-      parentSubscriptionAllowsOffers(value.restaurant, value.now) && offerActive,
+      parentSubscriptionAllowsOffers(value.restaurant) && offerActive,
     adminVisible: true,
     offerActive,
     ...(startAt === null ? {} : { startAt }),
@@ -718,7 +704,7 @@ export function buildBiteSaverDailySpecialOfferIndex(value: {
   return finalizeIndexDocument({
     ...base,
     publicVisible:
-      parentSubscriptionAllowsOffers(value.restaurant, value.now) &&
+      parentSubscriptionAllowsOffers(value.restaurant) &&
       schedule.offerActive,
     adminVisible: true,
     offerActive: schedule.offerActive,

@@ -216,6 +216,34 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     );
   }
 
+  Restaurant _withoutCustomerOffers(Restaurant source) {
+    return Restaurant(
+      documentId: source.documentId,
+      uid: source.uid,
+      name: source.name,
+      distance: source.distance,
+      city: source.city,
+      state: source.state,
+      zipCode: source.zipCode,
+      coupons: const <Coupon>[],
+      dailySpecials: const <DailySpecial>[],
+      phone: source.phone,
+      streetAddress: source.streetAddress,
+      website: source.website,
+      bio: source.bio,
+      mainImageUrl: source.mainImageUrl,
+      businessHours: source.businessHours,
+      latitude: source.latitude,
+      longitude: source.longitude,
+      profileVersion: source.profileVersion,
+      locationVersion: source.locationVersion,
+      formattedAddress: source.formattedAddress,
+      addressFingerprint: source.addressFingerprint,
+      locationValidatedAt: source.locationValidatedAt,
+      locationSource: source.locationSource,
+    );
+  }
+
   Future<void> _refreshRestaurantDetails() async {
     try {
       Restaurant? freshRestaurant;
@@ -231,8 +259,9 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                 accountDocumentId,
               );
           if (accountData != null) {
-            final dailySpecials =
-                RestaurantAccountService.hasCouponPostingAccess(accountData)
+            final hasPostingAccess =
+                RestaurantAccountService.hasCouponPostingAccess(accountData);
+            final dailySpecials = hasPostingAccess
                 ? await RestaurantAccountService.loadDailySpecialsForRestaurant(
                     accountDocumentId,
                   )
@@ -240,7 +269,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
             freshRestaurant = Restaurant.fromFirestore(
               accountData,
               documentId: accountDocumentId,
-              coupons: restaurant.coupons,
+              coupons: hasPostingAccess ? restaurant.coupons : const <Coupon>[],
               dailySpecials: dailySpecials,
             );
           }
@@ -257,6 +286,11 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
         _restaurant = _withSafeDistanceLabel(freshRestaurant!);
       });
     } catch (_) {
+      if (mounted) {
+        setState(() {
+          _restaurant = _withoutCustomerOffers(restaurant);
+        });
+      }
       return;
     }
   }

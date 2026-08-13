@@ -322,11 +322,14 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     }
   }
 
-  Future<void> _removeSavedSaverRestaurant(Restaurant restaurant) async {
+  Future<void> _removeSavedSaverRestaurant(
+    SavedBiteSaverRestaurantEntry entry,
+  ) async {
     try {
       await BiteScoreService.setSaverRestaurantFavorite(
-        restaurant: restaurant,
+        restaurant: entry.restaurant,
         isFavorite: false,
+        favoriteDocumentIds: entry.favoriteDocumentIds,
       );
       if (!mounted) {
         return;
@@ -501,7 +504,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     );
   }
 
-  Widget _buildSavedSaverRestaurantCard(Restaurant restaurant) {
+  Widget _buildSavedSaverRestaurantCard(SavedBiteSaverRestaurantEntry entry) {
+    final restaurant = entry.restaurant;
     return Card(
       margin: const EdgeInsets.only(top: 12),
       child: ListTile(
@@ -517,7 +521,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           children: [
             IconButton(
               tooltip: 'Remove from Saved',
-              onPressed: () => _removeSavedSaverRestaurant(restaurant),
+              onPressed: () => _removeSavedSaverRestaurant(entry),
               icon: Icon(Icons.favorite, color: Colors.red.shade400, size: 20),
             ),
             const Icon(Icons.chevron_right),
@@ -576,24 +580,6 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           ],
         ),
         onTap: () => _openDish(entry),
-      ),
-    );
-  }
-
-  Widget _buildSavedCouponCard(Coupon coupon) {
-    return Card(
-      margin: const EdgeInsets.only(top: 12),
-      child: ListTile(
-        leading: Icon(Icons.favorite, color: Colors.red.shade400),
-        title: Text(
-          _displayText(coupon.title, 'Untitled coupon'),
-          style: const TextStyle(fontWeight: FontWeight.w700),
-        ),
-        subtitle: Text(
-          "${_displayText(coupon.restaurant, 'Restaurant')} - ${coupon.expires}",
-        ),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => _openCoupon(coupon),
       ),
     );
   }
@@ -1168,7 +1154,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   chosenUsername: null,
                   fallbackUsername: 'anon1',
                   favoriteRestaurants: <BitescoreRestaurant>[],
-                  favoriteSaverRestaurants: <Restaurant>[],
+                  favoriteSaverRestaurants: <SavedBiteSaverRestaurantEntry>[],
                   favoriteDishEntries: <BiteScoreHomeEntry>[],
                   favoriteCoupons: <Coupon>[],
                   reviews: <BiteScoreUserReviewEntry>[],

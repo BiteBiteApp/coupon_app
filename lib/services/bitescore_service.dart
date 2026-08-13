@@ -2,6 +2,7 @@ import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/foundation.dart';
 import 'package:geocoding/geocoding.dart';
 
 import 'admin_access_service.dart';
@@ -137,7 +138,7 @@ class BiteScoreUserProfileData {
   final String? chosenUsername;
   final String fallbackUsername;
   final List<BitescoreRestaurant> favoriteRestaurants;
-  final List<Restaurant> favoriteSaverRestaurants;
+  final List<SavedBiteSaverRestaurantEntry> favoriteSaverRestaurants;
   final List<BiteScoreHomeEntry> favoriteDishEntries;
   final List<Coupon> favoriteCoupons;
   final List<BiteScoreUserReviewEntry> reviews;
@@ -163,6 +164,16 @@ class BiteScoreUserProfileData {
     required this.accountAgeDays,
     required this.moderationFlagCount,
     required this.contributionPoints,
+  });
+}
+
+class SavedBiteSaverRestaurantEntry {
+  final Restaurant restaurant;
+  final List<String> favoriteDocumentIds;
+
+  const SavedBiteSaverRestaurantEntry({
+    required this.restaurant,
+    required this.favoriteDocumentIds,
   });
 }
 
@@ -3080,9 +3091,25 @@ class BiteScoreService {
   static Future<bool> isSaverRestaurantFavoritedByCurrentUser(
     Restaurant restaurant,
   ) async {
-    return isRestaurantFavoritedByCurrentUser(
-      _favoriteSaverRestaurantId(restaurant),
-    );
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null || user.isAnonymous) {
+      return false;
+    }
+
+    try {
+      final favorites = favoriteRestaurantsCollection(user.uid);
+      for (final favoriteDocumentId in <String>{
+        _favoriteSaverRestaurantId(restaurant),
+        _legacyFavoriteSaverRestaurantId(restaurant),
+      }) {
+        if ((await favorites.doc(favoriteDocumentId).get()).exists) {
+          return true;
+        }
+      }
+      return false;
+    } catch (_) {
+      return false;
+    }
   }
 
   static Future<bool> isDishFavoritedByCurrentUser(String dishId) async {
@@ -3151,18 +3178,31 @@ class BiteScoreService {
   static Future<void> setSaverRestaurantFavorite({
     required Restaurant restaurant,
     required bool isFavorite,
+    List<String> favoriteDocumentIds = const <String>[],
   }) async {
     final user = _requireSignedInAppUser();
     final restaurantId = _favoriteSaverRestaurantId(restaurant);
-    final doc = favoriteRestaurantsCollection(user.uid).doc(restaurantId);
+    final favorites = favoriteRestaurantsCollection(user.uid);
+    final doc = favorites.doc(restaurantId);
 
     if (!isFavorite) {
-      await doc.delete();
+      final documentIdsToDelete = <String>{
+        restaurantId,
+        _legacyFavoriteSaverRestaurantId(restaurant),
+        for (final sourceDocumentId in favoriteDocumentIds)
+          if (sourceDocumentId.trim().isNotEmpty) sourceDocumentId.trim(),
+      };
+      final batch = _firestore.batch();
+      for (final documentId in documentIdsToDelete) {
+        batch.delete(favorites.doc(documentId));
+      }
+      await batch.commit();
       return;
     }
 
     await doc.set({
       'restaurantId': restaurantId,
+      'restaurantAccountId': ?restaurant.accountDocumentId,
       'restaurantName': restaurant.name.trim(),
       'restaurantType': 'bitesaver',
       'city': restaurant.city.trim(),
@@ -3202,6 +3242,7 @@ class BiteScoreService {
   static Future<void> setCouponFavorite({
     required Coupon coupon,
     required bool isFavorite,
+    Restaurant? restaurant,
   }) async {
     final user = _requireSignedInAppUser();
     final doc = favoriteCouponsCollection(user.uid).doc(coupon.id.trim());
@@ -3213,6 +3254,7 @@ class BiteScoreService {
 
     await doc.set({
       'couponId': coupon.id.trim(),
+      'restaurantAccountId': ?restaurant?.accountDocumentId,
       'couponTitle': coupon.title.trim(),
       'restaurantName': coupon.restaurant.trim(),
       'distance': coupon.distance.trim(),
@@ -3232,47 +3274,48 @@ class BiteScoreService {
       user.uid,
     ).get();
     final favoriteDishSnapshot = await favoriteDishesCollection(user.uid).get();
+    final favoriteCouponSnapshot = await favoriteCouponsCollection(
+      user.uid,
+    ).get();
     final reviewSnapshot = await reviewsCollection()
         .where('userId', isEqualTo: user.uid)
         .get();
 
     final favoriteRestaurants = <BitescoreRestaurant>[];
-    final favoriteSaverRestaurants = <Restaurant>[];
+    final favoriteSaverRestaurantsByAccount =
+        <String, SavedBiteSaverRestaurantEntry>{};
     final saverFavoriteDocs = favoriteRestaurantSnapshot.docs
         .where(
           (doc) => _readString(doc.data()['restaurantType']) == 'bitesaver',
         )
         .toList();
-    final approvedSaverRestaurantsById = saverFavoriteDocs.isEmpty
-        ? <String, Restaurant>{}
-        : {
-            for (final restaurant
-                in await RestaurantAccountService.loadApprovedRestaurantsWithCoupons())
-              _favoriteSaverRestaurantId(restaurant): restaurant,
-          };
-
+    final customerVisibleSaverRestaurants =
+        saverFavoriteDocs.isEmpty && favoriteCouponSnapshot.docs.isEmpty
+        ? const <Restaurant>[]
+        : await RestaurantAccountService.loadApprovedRestaurantsWithCoupons();
     for (final doc in favoriteRestaurantSnapshot.docs) {
       final data = doc.data();
       final restaurantType = _readString(data['restaurantType']);
       if (restaurantType == 'bitesaver') {
-        final restaurantId = _readString(data['restaurantId']) ?? doc.id;
-        final freshRestaurant = approvedSaverRestaurantsById[restaurantId];
-        if (freshRestaurant != null) {
-          favoriteSaverRestaurants.add(freshRestaurant);
-          continue;
-        }
-
-        favoriteSaverRestaurants.add(
-          Restaurant.fromFirestore({
-            Restaurant.fieldName:
-                _readString(data['restaurantName']) ?? 'Saved Restaurant',
-            Restaurant.fieldCity: _readString(data['city']) ?? '',
-            Restaurant.fieldZipCode: _readString(data['zipCode']) ?? '',
-            Restaurant.fieldStreetAddress: _readString(data['streetAddress']),
-            Restaurant.fieldBusinessHours: data[Restaurant.fieldBusinessHours],
-            Restaurant.fieldDistance: Restaurant.defaultDistanceLabel,
-          }, coupons: const <Coupon>[]),
+        final freshRestaurant = _visibleSaverRestaurantForFavoriteData(
+          data,
+          fallbackRestaurantId: doc.id,
+          customerVisibleRestaurants: customerVisibleSaverRestaurants,
         );
+        if (freshRestaurant != null) {
+          final restaurantKey =
+              freshRestaurant.accountDocumentId ??
+              _favoriteSaverRestaurantId(freshRestaurant);
+          final existing = favoriteSaverRestaurantsByAccount[restaurantKey];
+          final candidate = SavedBiteSaverRestaurantEntry(
+            restaurant: freshRestaurant,
+            favoriteDocumentIds: <String>{
+              ...?existing?.favoriteDocumentIds,
+              doc.id,
+            }.toList(growable: false),
+          );
+          favoriteSaverRestaurantsByAccount[restaurantKey] = candidate;
+        }
         continue;
       }
 
@@ -3285,9 +3328,12 @@ class BiteScoreService {
     favoriteRestaurants.sort(
       (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
     );
-    favoriteSaverRestaurants.sort(
-      (a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()),
-    );
+    final favoriteSaverRestaurants =
+        favoriteSaverRestaurantsByAccount.values.toList()..sort(
+          (a, b) => a.restaurant.name.toLowerCase().compareTo(
+            b.restaurant.name.toLowerCase(),
+          ),
+        );
 
     final favoriteDishIds = favoriteDishSnapshot.docs
         .map((doc) => _readString(doc.data()['dishId']) ?? doc.id)
@@ -3310,26 +3356,17 @@ class BiteScoreService {
       return a.dish.name.toLowerCase().compareTo(b.dish.name.toLowerCase());
     });
 
-    final favoriteCouponSnapshot = await favoriteCouponsCollection(
-      user.uid,
-    ).get();
-    final favoriteCoupons =
-        favoriteCouponSnapshot.docs.map((doc) {
-          final data = doc.data();
-          return Coupon(
-            id: _readString(data['couponId']) ?? doc.id,
-            restaurant: _readString(data['restaurantName']) ?? '',
-            title: _readString(data['couponTitle']) ?? 'Saved Coupon',
-            distance:
-                _readString(data['distance']) ??
-                Restaurant.defaultDistanceLabel,
-            expires: _readString(data['expires']) ?? 'Limited time',
-            usageRule:
-                _readString(data['usageRule']) ?? Coupon.defaultUsageRule,
-          );
-        }).toList()..sort(
-          (a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
-        );
+    final favoriteCoupons = _visibleFavoriteCoupons(
+      favoriteCouponSnapshot.docs
+          .map(
+            (doc) => <String, dynamic>{
+              ...doc.data(),
+              'couponId': _readString(doc.data()['couponId']) ?? doc.id,
+            },
+          )
+          .toList(growable: false),
+      customerVisibleRestaurants: customerVisibleSaverRestaurants,
+    )..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
 
     final reviews =
         reviewSnapshot.docs
@@ -6205,6 +6242,14 @@ class BiteScoreService {
   }
 
   static String _favoriteSaverRestaurantId(Restaurant restaurant) {
+    final accountDocumentId = restaurant.accountDocumentId;
+    if (accountDocumentId != null) {
+      return 'bitesaver_account_$accountDocumentId';
+    }
+    return _legacyFavoriteSaverRestaurantId(restaurant);
+  }
+
+  static String _legacyFavoriteSaverRestaurantId(Restaurant restaurant) {
     final keySource = [
       restaurant.name,
       restaurant.city,
@@ -6217,6 +6262,159 @@ class BiteScoreService {
     return normalizedKey.isEmpty
         ? 'bitesaver_restaurant'
         : 'bitesaver_$normalizedKey';
+  }
+
+  static String _normalizedSaverFavoriteValue(Object? value) {
+    if (value is! String) {
+      return '';
+    }
+    return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
+  }
+
+  static Restaurant? _singleSaverFavoriteMatch(
+    Iterable<Restaurant> candidates,
+  ) {
+    final matches = candidates.toList(growable: false);
+    return matches.length == 1 ? matches.single : null;
+  }
+
+  static Restaurant? _visibleSaverRestaurantForFavoriteData(
+    Map<String, dynamic> favoriteData, {
+    required String fallbackRestaurantId,
+    required List<Restaurant> customerVisibleRestaurants,
+  }) {
+    final accountDocumentId = _readString(favoriteData['restaurantAccountId']);
+    if (accountDocumentId != null) {
+      return _singleSaverFavoriteMatch(
+        customerVisibleRestaurants.where(
+          (restaurant) => restaurant.accountDocumentId == accountDocumentId,
+        ),
+      );
+    }
+
+    final favoriteRestaurantId =
+        _readString(favoriteData['restaurantId']) ?? fallbackRestaurantId;
+    final idMatch = _singleSaverFavoriteMatch(
+      customerVisibleRestaurants.where(
+        (restaurant) =>
+            _favoriteSaverRestaurantId(restaurant) == favoriteRestaurantId ||
+            _legacyFavoriteSaverRestaurantId(restaurant) ==
+                favoriteRestaurantId,
+      ),
+    );
+    if (idMatch != null) {
+      return idMatch;
+    }
+
+    final favoriteCity = _normalizedSaverFavoriteValue(favoriteData['city']);
+    final favoriteZip = _normalizedSaverFavoriteValue(favoriteData['zipCode']);
+    final favoriteStreet = _normalizedSaverFavoriteValue(
+      favoriteData['streetAddress'],
+    );
+    final addressMatch =
+        favoriteCity.isEmpty || favoriteZip.isEmpty || favoriteStreet.isEmpty
+        ? null
+        : _singleSaverFavoriteMatch(
+            customerVisibleRestaurants.where(
+              (restaurant) =>
+                  _normalizedSaverFavoriteValue(restaurant.city) ==
+                      favoriteCity &&
+                  _normalizedSaverFavoriteValue(restaurant.zipCode) ==
+                      favoriteZip &&
+                  _normalizedSaverFavoriteValue(restaurant.streetAddress) ==
+                      favoriteStreet,
+            ),
+          );
+    final favoriteName = _normalizedSaverFavoriteValue(
+      favoriteData['restaurantName'],
+    );
+    final nameMatch = favoriteName.isEmpty
+        ? null
+        : _singleSaverFavoriteMatch(
+            customerVisibleRestaurants.where(
+              (restaurant) =>
+                  _normalizedSaverFavoriteValue(restaurant.name) ==
+                  favoriteName,
+            ),
+          );
+    if (addressMatch != null &&
+        nameMatch != null &&
+        addressMatch.accountDocumentId != nameMatch.accountDocumentId) {
+      return null;
+    }
+    return addressMatch ?? nameMatch;
+  }
+
+  @visibleForTesting
+  static Restaurant? visibleSaverRestaurantForFavoriteDataForTesting(
+    Map<String, dynamic> favoriteData, {
+    String fallbackRestaurantId = '',
+    required List<Restaurant> customerVisibleRestaurants,
+  }) {
+    return _visibleSaverRestaurantForFavoriteData(
+      favoriteData,
+      fallbackRestaurantId: fallbackRestaurantId,
+      customerVisibleRestaurants: customerVisibleRestaurants,
+    );
+  }
+
+  static List<Coupon> _visibleFavoriteCoupons(
+    List<Map<String, dynamic>> favoriteData, {
+    required List<Restaurant> customerVisibleRestaurants,
+  }) {
+    final visibleCoupons = <Coupon>[];
+    for (final favorite in favoriteData) {
+      final couponId = _readString(favorite['couponId']);
+      if (couponId == null) {
+        continue;
+      }
+
+      var candidateRestaurants = customerVisibleRestaurants;
+      final accountDocumentId = _readString(favorite['restaurantAccountId']);
+      if (accountDocumentId != null) {
+        candidateRestaurants = customerVisibleRestaurants
+            .where(
+              (restaurant) => restaurant.accountDocumentId == accountDocumentId,
+            )
+            .toList(growable: false);
+      }
+
+      final couponCandidates = <Coupon>[
+        for (final restaurant in candidateRestaurants)
+          for (final coupon in restaurant.coupons)
+            if (coupon.id.trim() == couponId) coupon,
+      ];
+      if (couponCandidates.length == 1 && accountDocumentId != null) {
+        visibleCoupons.add(couponCandidates.single);
+        continue;
+      }
+
+      final favoriteRestaurantName = _normalizedSaverFavoriteValue(
+        favorite['restaurantName'],
+      );
+      final nameMatches = couponCandidates
+          .where((coupon) {
+            return favoriteRestaurantName.isNotEmpty &&
+                _normalizedSaverFavoriteValue(coupon.restaurant) ==
+                    favoriteRestaurantName;
+          })
+          .toList(growable: false);
+      if (nameMatches.length == 1) {
+        visibleCoupons.add(nameMatches.single);
+      }
+    }
+    return visibleCoupons;
+  }
+
+  @visibleForTesting
+  static List<Coupon> visibleFavoriteCouponsForTesting(
+    List<Map<String, dynamic>> favoriteData, {
+    required List<Restaurant> customerVisibleRestaurants,
+  }) {
+    return _visibleFavoriteCoupons(
+      favoriteData,
+      customerVisibleRestaurants: customerVisibleRestaurants,
+    );
   }
 
   static String _profileBadgeLabelFor({

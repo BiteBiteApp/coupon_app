@@ -261,6 +261,7 @@ class RestaurantAccountService {
     return _firestore
         .collection('restaurant_accounts')
         .where(Restaurant.fieldApprovalStatus, isEqualTo: 'approved')
+        .where('couponPostingEnabled', isEqualTo: true)
         .snapshots();
   }
 
@@ -349,19 +350,29 @@ class RestaurantAccountService {
 
     final directSnapshot = await docForUser(trimmedRestaurantId).get();
     if (directSnapshot.data() != null) {
-      return _resolvedRestaurantAccountFromSnapshot(directSnapshot);
+      final resolved = _resolvedRestaurantAccountFromSnapshot(directSnapshot);
+      return resolved != null && hasCouponPostingAccess(resolved.accountData)
+          ? resolved
+          : null;
     }
 
     final uidSnapshot = await _firestore
         .collection('restaurant_accounts')
         .where(Restaurant.fieldUid, isEqualTo: trimmedRestaurantId)
+        .where(Restaurant.fieldApprovalStatus, isEqualTo: 'approved')
+        .where('couponPostingEnabled', isEqualTo: true)
         .limit(1)
         .get();
     if (uidSnapshot.docs.isEmpty) {
       return null;
     }
 
-    return _resolvedRestaurantAccountFromSnapshot(uidSnapshot.docs.first);
+    final resolved = _resolvedRestaurantAccountFromSnapshot(
+      uidSnapshot.docs.first,
+    );
+    return resolved != null && hasCouponPostingAccess(resolved.accountData)
+        ? resolved
+        : null;
   }
 
   static Future<bool> canPostCoupons(String uid) async {
@@ -405,7 +416,7 @@ class RestaurantAccountService {
 
     final couponRestaurantName = coupon.restaurant.trim().toLowerCase();
     if (couponRestaurantName.isEmpty) {
-      return true;
+      return false;
     }
 
     final restaurants = await loadApprovedRestaurantsWithCoupons();
@@ -417,7 +428,7 @@ class RestaurantAccountService {
       return restaurant.coupons.any((candidate) => candidate.id == coupon.id);
     }
 
-    return true;
+    return false;
   }
 
   static bool hasSubmittedCouponApplication(Map<String, dynamic>? data) {
@@ -1147,11 +1158,12 @@ class RestaurantAccountService {
     required String uid,
     required String couponId,
   }) async {
-    await couponsCollection(uid).doc(couponId).delete();
-
-    await docForUser(
-      uid,
-    ).update({Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp()});
+    final batch = _firestore.batch();
+    batch.delete(couponsCollection(uid).doc(couponId));
+    batch.update(docForUser(uid), {
+      Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
+    });
+    await batch.commit();
   }
 
   static Future<List<RestaurantMenuImage>> loadMenuImages(String uid) async {
@@ -1451,6 +1463,7 @@ class RestaurantAccountService {
     final accountsSnapshot = await _firestore
         .collection('restaurant_accounts')
         .where(Restaurant.fieldApprovalStatus, isEqualTo: 'approved')
+        .where('couponPostingEnabled', isEqualTo: true)
         .get();
 
     final restaurants = <Restaurant>[];
@@ -1462,15 +1475,16 @@ class RestaurantAccountService {
           fallbackUid: doc.id,
         );
         final canShowCustomerOffers = hasCouponPostingAccess(normalizedData);
+        if (!canShowCustomerOffers) {
+          continue;
+        }
 
         final allCoupons = await loadCoupons(doc.id);
         final coupons = customerVisibleCouponsForAccountData(
           normalizedData,
           allCoupons,
         );
-        final dailySpecials = canShowCustomerOffers
-            ? await loadDailySpecialsForRestaurant(doc.id)
-            : const <DailySpecial>[];
+        final dailySpecials = await loadDailySpecialsForRestaurant(doc.id);
         final restaurant = Restaurant.fromFirestore(
           normalizedData,
           documentId: doc.id,
@@ -1600,7 +1614,9 @@ class RestaurantAccountService {
       'subscriptionEndsAt': data['subscriptionEndsAt'],
       'billingPlanName': _readString(data['billingPlanName']),
       'hasUsedTrial': _readBool(data['hasUsedTrial']),
-      'couponPostingEnabled': _readBool(data['couponPostingEnabled']),
+      'couponPostingEnabled': data['couponPostingEnabled'] is bool
+          ? data['couponPostingEnabled'] as bool
+          : null,
       'stripeCustomerId': _readString(data['stripeCustomerId']),
       'stripeSubscriptionId': _readString(data['stripeSubscriptionId']),
       Restaurant.fieldCreatedAt: data[Restaurant.fieldCreatedAt],
@@ -1620,20 +1636,7 @@ class RestaurantAccountService {
       return false;
     }
 
-    final status = (_readString(data['subscriptionStatus']) ?? 'inactive')
-        .toLowerCase();
-    if (status == 'active') {
-      return true;
-    }
-
-    if (status == 'trialing') {
-      final trialEndsAt = _readDateTime(data['trialEndsAt']);
-      if (trialEndsAt != null && trialEndsAt.isAfter(DateTime.now())) {
-        return true;
-      }
-    }
-
-    return false;
+    return data['couponPostingEnabled'] == true;
   }
 
   static Future<void> _ensureCanPostCoupons(String uid) async {

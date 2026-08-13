@@ -2635,13 +2635,21 @@ class _RestaurantCreateCouponScreenState
       }
       accentColor = const Color(0xFF2563EB);
       icon = Icons.schedule_outlined;
-    } else if (_subscriptionStatus == 'active' || _hasCouponPostingAccess) {
+    } else if (_subscriptionStatus == 'active') {
       title = 'Subscription active';
-      message = _subscriptionStatus == 'active' && _cancelAtPeriodEnd
+      message = !_hasCouponPostingAccess
+          ? 'Coupon and daily-special posting is unavailable right now. Manage your subscription for details.'
+          : _cancelAtPeriodEnd
           ? _subscriptionEndsAt == null
                 ? 'Cancels at end of billing period.'
                 : 'Cancels at end of billing period • ${_formatShortDate(_subscriptionEndsAt!)}'
           : 'Your restaurant can post coupons and daily specials right now.';
+      accentColor = const Color(0xFF15803D);
+      icon = Icons.verified_outlined;
+    } else if (_hasCouponPostingAccess) {
+      title = 'Posting access active';
+      message =
+          'Your restaurant can post coupons and daily specials right now.';
       accentColor = const Color(0xFF15803D);
       icon = Icons.verified_outlined;
     } else {
@@ -4635,16 +4643,17 @@ class _RestaurantCreateCouponScreenState
               child: Wrap(
                 spacing: 8,
                 children: [
-                  TextButton.icon(
-                    onPressed: renderedOwnerScope == null
-                        ? null
-                        : () => editCoupon(
-                            coupon,
-                            expectedOwnerScope: renderedOwnerScope,
-                          ),
-                    icon: const Icon(Icons.edit_outlined),
-                    label: const Text('Edit'),
-                  ),
+                  if (_hasCouponPostingAccess)
+                    TextButton.icon(
+                      onPressed: renderedOwnerScope == null
+                          ? null
+                          : () => editCoupon(
+                              coupon,
+                              expectedOwnerScope: renderedOwnerScope,
+                            ),
+                      icon: const Icon(Icons.edit_outlined),
+                      label: const Text('Edit'),
+                    ),
                   TextButton.icon(
                     onPressed:
                         _couponDeleteInFlight || renderedOwnerScope == null
@@ -6111,6 +6120,12 @@ class _RestaurantCreateCouponScreenState
     if (renderedOwnerScope == null) {
       return const SizedBox.shrink();
     }
+    final now = DateTime.now();
+    final hasManageableSubscription =
+        _subscriptionStatus == 'active' ||
+        (_subscriptionStatus == 'trialing' &&
+            _trialEndsAt != null &&
+            _trialEndsAt!.isAfter(now));
     return _buildOwnerExpandableSection(
       title: 'Subscription / Billing',
       initiallyExpanded: _subscriptionBillingSectionExpanded,
@@ -6124,7 +6139,7 @@ class _RestaurantCreateCouponScreenState
       },
       children: [
         _buildSubscriptionStatusSection(),
-        if (!_hasCouponPostingAccess) ...[
+        if (!_hasCouponPostingAccess && !hasManageableSubscription) ...[
           const SizedBox(height: 16),
           _buildSubscriptionPromoSection(),
         ],
@@ -6132,17 +6147,7 @@ class _RestaurantCreateCouponScreenState
     );
   }
 
-  Widget _buildLockedPostingSection() {
-    return _buildOwnerExpandableSection(
-      title: 'Coupon Management / Daily Specials',
-      initiallyExpanded: false,
-      onExpansionChanged: (_) {},
-      children: [_buildSubscriptionPromoSection()],
-    );
-  }
-
   Widget _buildPostingToolLockedMessage({required String message}) {
-    final renderedOwnerScope = _activeOwnerScope;
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -6157,39 +6162,38 @@ class _RestaurantCreateCouponScreenState
           const Icon(Icons.lock_outline, size: 20, color: Color(0xFFB45309)),
           const SizedBox(width: 10),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  message,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w700,
-                    color: Color(0xFF7C2D12),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                TextButton(
-                  onPressed:
-                      _subscriptionCheckoutLoading || renderedOwnerScope == null
-                      ? null
-                      : () => _openSubscriptionSignupScreen(renderedOwnerScope),
-                  style: TextButton.styleFrom(
-                    padding: EdgeInsets.zero,
-                    minimumSize: const Size(0, 32),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  child: Text(
-                    _subscriptionCheckoutLoading
-                        ? 'Opening...'
-                        : 'Start Subscription',
-                  ),
-                ),
-              ],
+            child: Text(
+              message,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF7C2D12),
+              ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildExistingCouponList({required String emptyMessage}) {
+    return ValueListenableBuilder<List<Coupon>>(
+      valueListenable: LocalCouponStore.createdCoupons,
+      builder: (context, coupons, _) {
+        if (coupons.isEmpty) {
+          return Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(emptyMessage, style: const TextStyle(fontSize: 16)),
+          );
+        }
+
+        return Column(children: coupons.map(buildPreviewCard).toList());
+      },
     );
   }
 
@@ -6212,8 +6216,16 @@ class _RestaurantCreateCouponScreenState
         },
         children: [
           _buildPostingToolLockedMessage(
-            message: 'Subscription required to post coupons.',
+            message:
+                'Posting access is required to create or edit coupons. You can still remove your existing coupons below.',
           ),
+          const SizedBox(height: 24),
+          const Text(
+            'Existing Coupons',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 12),
+          _buildExistingCouponList(emptyMessage: 'No existing coupons.'),
         ],
       );
     }
@@ -6483,27 +6495,7 @@ class _RestaurantCreateCouponScreenState
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 12),
-        ValueListenableBuilder<List<Coupon>>(
-          valueListenable: LocalCouponStore.createdCoupons,
-          builder: (context, coupons, _) {
-            if (coupons.isEmpty) {
-              return Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Text(
-                  'No coupons created yet.',
-                  style: TextStyle(fontSize: 16),
-                ),
-              );
-            }
-
-            return Column(children: coupons.map(buildPreviewCard).toList());
-          },
-        ),
+        _buildExistingCouponList(emptyMessage: 'No coupons created yet.'),
       ],
     );
   }
@@ -6598,12 +6590,9 @@ class _RestaurantCreateCouponScreenState
               _buildBasicRestaurantInformationSection(),
               _buildHoursSection(),
               _buildRestaurantImageSection(),
-              if (_hasCouponPostingAccess) ...[
-                _buildSubscriptionBillingSection(),
-                _buildCouponManagementSection(),
-                _buildDailySpecialsSection(),
-              ] else
-                _buildLockedPostingSection(),
+              _buildSubscriptionBillingSection(),
+              _buildCouponManagementSection(),
+              if (_hasCouponPostingAccess) _buildDailySpecialsSection(),
               _buildMenuManagementSection(),
               _buildCustomerPreviewSection(savedProfile),
             ],

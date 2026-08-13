@@ -1,5 +1,7 @@
 import 'package:coupon_app/models/coupon.dart';
+import 'package:coupon_app/models/daily_special.dart';
 import 'package:coupon_app/models/restaurant.dart';
+import 'package:coupon_app/screens/coupon_detail_screen.dart';
 import 'package:coupon_app/screens/home_screen.dart';
 import 'package:coupon_app/screens/restaurant_menu_screen.dart';
 import 'package:coupon_app/screens/restaurant_profile_screen.dart';
@@ -126,6 +128,7 @@ void main() {
         return <String, dynamic>{
           Restaurant.fieldApprovalStatus: 'approved',
           'subscriptionStatus': 'active',
+          'couponPostingEnabled': true,
         };
       }
 
@@ -167,6 +170,239 @@ void main() {
       ]);
     },
   );
+
+  test(
+    'direct coupon visibility requires exact trusted posting access',
+    () async {
+      const coupon = Coupon(
+        id: 'direct-visibility-coupon',
+        restaurant: 'Identity Cafe',
+        title: 'Direct visibility special',
+        distance: '',
+        usageRule: 'Unlimited',
+      );
+      final restaurant = _restaurant(
+        documentId: 'account-document',
+        uid: 'stored-owner',
+      );
+
+      for (final status in <String>['active', 'trialing']) {
+        expect(
+          await RestaurantAccountService.isCouponCustomerVisible(
+            coupon,
+            restaurant: restaurant,
+            accountDataLoader: (_) async => <String, dynamic>{
+              Restaurant.fieldApprovalStatus: 'approved',
+              'subscriptionStatus': status,
+              'couponPostingEnabled': true,
+            },
+          ),
+          isTrue,
+          reason: '$status remains visible with the trusted flag true',
+        );
+      }
+
+      for (final status in <String>[
+        'active',
+        'trialing',
+        'past_due',
+        'unpaid',
+        'incomplete',
+        'paused',
+        'inactive',
+        'canceled',
+      ]) {
+        expect(
+          await RestaurantAccountService.isCouponCustomerVisible(
+            coupon,
+            restaurant: restaurant,
+            accountDataLoader: (_) async => <String, dynamic>{
+              Restaurant.fieldApprovalStatus: 'approved',
+              'subscriptionStatus': status,
+              'couponPostingEnabled': false,
+            },
+          ),
+          isFalse,
+          reason: '$status cannot override the trusted flag false',
+        );
+      }
+    },
+  );
+
+  test(
+    'direct coupon visibility fails closed for invalid account state',
+    () async {
+      const coupon = Coupon(
+        id: 'invalid-account-coupon',
+        restaurant: 'Identity Cafe',
+        title: 'Invalid account special',
+        distance: '',
+        usageRule: 'Unlimited',
+      );
+      final restaurant = _restaurant(
+        documentId: 'account-document',
+        uid: 'stored-owner',
+      );
+
+      for (final accountData in <Map<String, dynamic>?>[
+        null,
+        <String, dynamic>{
+          Restaurant.fieldApprovalStatus: 'approved',
+          'subscriptionStatus': 'active',
+        },
+        <String, dynamic>{
+          Restaurant.fieldApprovalStatus: 'approved',
+          'subscriptionStatus': 'active',
+          'couponPostingEnabled': 'true',
+        },
+        <String, dynamic>{
+          Restaurant.fieldApprovalStatus: 'approved',
+          'subscriptionStatus': 'active',
+          'couponPostingEnabled': 1,
+        },
+        <String, dynamic>{
+          Restaurant.fieldApprovalStatus: 'pending',
+          'subscriptionStatus': 'active',
+          'couponPostingEnabled': true,
+        },
+      ]) {
+        expect(
+          await RestaurantAccountService.isCouponCustomerVisible(
+            coupon,
+            restaurant: restaurant,
+            accountDataLoader: (_) async => accountData,
+          ),
+          isFalse,
+        );
+      }
+    },
+  );
+
+  testWidgets('blocked direct coupon details remain non-redeemable', (
+    tester,
+  ) async {
+    const coupon = Coupon(
+      id: 'blocked-direct-coupon',
+      restaurant: 'Identity Cafe',
+      title: 'Blocked Direct Coupon',
+      distance: '',
+      usageRule: 'Once per customer',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CouponDetailScreen(
+          coupon: coupon,
+          restaurant: _restaurant(
+            documentId: 'blocked-account',
+            uid: 'blocked-owner',
+          ),
+          loadFavoriteState: (_) async => false,
+          loadCustomerVisibility: (_, _) async => false,
+          initializeRedemptionStore: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Not Available'), findsOneWidget);
+    expect(find.text('This offer is no longer available.'), findsWidgets);
+    expect(
+      tester
+          .widget<ElevatedButton>(
+            find.widgetWithText(ElevatedButton, 'Not Available'),
+          )
+          .onPressed,
+      isNull,
+    );
+  });
+
+  testWidgets('coupon visibility lookup failure remains non-redeemable', (
+    tester,
+  ) async {
+    const coupon = Coupon(
+      id: 'failed-direct-coupon',
+      restaurant: 'Identity Cafe',
+      title: 'Failed Direct Coupon',
+      distance: '',
+      usageRule: 'Once per customer',
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CouponDetailScreen(
+          coupon: coupon,
+          loadFavoriteState: (_) async => false,
+          loadCustomerVisibility: (_, _) async =>
+              throw StateError('synthetic visibility failure'),
+          initializeRedemptionStore: () async {},
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Not Available'), findsOneWidget);
+    expect(
+      tester
+          .widget<ElevatedButton>(
+            find.widgetWithText(ElevatedButton, 'Not Available'),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('restaurant refresh failure clears stale customer offers', (
+    tester,
+  ) async {
+    const staleCoupon = Coupon(
+      id: 'stale-profile-coupon',
+      restaurant: 'Identity Cafe',
+      title: 'Stale Profile Coupon',
+      distance: '',
+      usageRule: 'Unlimited',
+    );
+    const staleSpecial = DailySpecial(
+      id: 'stale-profile-special',
+      restaurantId: 'blocked-account',
+      ownerUid: 'blocked-owner',
+      title: 'Stale Profile Special',
+      isActive: true,
+      availabilityMode: DailySpecialAvailabilityMode.specificDays,
+      daysOfWeek: <int>[
+        DateTime.monday,
+        DateTime.tuesday,
+        DateTime.wednesday,
+        DateTime.thursday,
+        DateTime.friday,
+        DateTime.saturday,
+        DateTime.sunday,
+      ],
+      allDay: true,
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RestaurantProfileScreen(
+          restaurant: _restaurant(
+            documentId: 'blocked-account',
+            uid: 'blocked-owner',
+            coupons: const <Coupon>[staleCoupon],
+            dailySpecials: const <DailySpecial>[staleSpecial],
+          ),
+          loadFavorite: (_) async => false,
+          refreshRestaurant: (_) async =>
+              throw StateError('synthetic blocked refresh'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text(staleCoupon.title), findsNothing);
+    expect(find.text(staleSpecial.title), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets(
     'public restaurant detail delegates its complete image URL to shared rendering',
@@ -495,6 +731,8 @@ Restaurant _restaurant({
   required String? documentId,
   required String? uid,
   String? mainImageUrl,
+  List<Coupon> coupons = const <Coupon>[],
+  List<DailySpecial> dailySpecials = const <DailySpecial>[],
 }) {
   return Restaurant(
     documentId: documentId,
@@ -506,6 +744,7 @@ Restaurant _restaurant({
     zipCode: '34428',
     streetAddress: '1 Main Street',
     mainImageUrl: mainImageUrl,
-    coupons: const [],
+    coupons: coupons,
+    dailySpecials: dailySpecials,
   );
 }

@@ -45,17 +45,33 @@ service cloud.firestore {
         get(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)).data.approvalStatus == 'approved';
     }
 
+    function restaurantAccountDataHasPostingAccess(accountData) {
+      return accountData.keys().hasAll([
+          'approvalStatus',
+          'couponPostingEnabled'
+        ]) &&
+        accountData.approvalStatus == 'approved' &&
+        accountData.couponPostingEnabled is bool &&
+        accountData.couponPostingEnabled == true;
+    }
+
     function restaurantAccountHasPostingAccess(restaurantUid) {
       return exists(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)) &&
-        get(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)).data.approvalStatus == 'approved' &&
-        (
-          get(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)).data.couponPostingEnabled == true ||
-          get(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)).data.subscriptionStatus in ['active', 'trialing']
+        restaurantAccountDataHasPostingAccess(
+          get(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)).data
         );
     }
 
     function canManageRestaurantContent(restaurantUid) {
       return isAdmin() || (isSelf(restaurantUid) && restaurantAccountHasPostingAccess(restaurantUid));
+    }
+
+    function canDeleteRestaurantCoupon(restaurantUid) {
+      return isAdmin() ||
+        (
+          isSelf(restaurantUid) &&
+          exists(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid))
+        );
     }
 
     function restaurantAccountProtectedFields() {
@@ -814,7 +830,7 @@ service cloud.firestore {
     match /restaurant_accounts/{restaurantUid} {
       allow get, list: if isAdmin() ||
         isSelf(restaurantUid) ||
-        resource.data.approvalStatus == 'approved';
+        restaurantAccountDataHasPostingAccess(resource.data);
       allow create: if isAdmin() || canCreateOwnRestaurantAccount(restaurantUid);
       allow update: if isAdmin() || canUpdateOwnRestaurantAccount(restaurantUid);
       allow delete: if false;
@@ -822,16 +838,16 @@ service cloud.firestore {
       match /coupons/{couponId} {
         allow read: if isAdmin() ||
           isSelf(restaurantUid) ||
-          isApprovedRestaurantAccount(restaurantUid);
+          restaurantAccountHasPostingAccess(restaurantUid);
         allow create, update: if canManageRestaurantContent(restaurantUid) &&
           request.resource.data.id == couponId;
-        allow delete: if canManageRestaurantContent(restaurantUid);
+        allow delete: if canDeleteRestaurantCoupon(restaurantUid);
       }
 
       match /daily_specials/{specialId} {
         allow read: if isAdmin() ||
           isSelf(restaurantUid) ||
-          isApprovedRestaurantAccount(restaurantUid);
+          restaurantAccountHasPostingAccess(restaurantUid);
         allow create, update: if canManageRestaurantContent(restaurantUid) &&
           request.resource.data.id == specialId &&
           request.resource.data.restaurantId == restaurantUid &&

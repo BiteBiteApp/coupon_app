@@ -282,6 +282,37 @@ function ratingDishOperationLockData(dishId, state = "active") {
   };
 }
 
+function restaurantCouponWriteData(id, overrides = {}) {
+  return {
+    id,
+    restaurant: "Approved Tacos",
+    title: "Free Salsa",
+    usageRule: "Once per customer",
+    startTime: new Date("2026-01-15T00:00:00.000Z"),
+    endTime: new Date("2026-02-15T00:00:00.000Z"),
+    couponNumber: "1002",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    ...overrides,
+  };
+}
+
+function restaurantDailySpecialWriteData(id, overrides = {}) {
+  return {
+    id,
+    restaurantId: "owner-1",
+    ownerUid: "owner-1",
+    title: "Dinner Special",
+    isActive: true,
+    availabilityMode: "recurring",
+    allDay: true,
+    hideWhenUnavailable: true,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    ...overrides,
+  };
+}
+
 async function seedRuleTestDocuments(documents) {
   await testEnv.withSecurityRulesDisabled(async (context) => {
     const db = context.firestore();
@@ -290,6 +321,12 @@ async function seedRuleTestDocuments(documents) {
       batch.set(db.doc(documentPath), data);
     }
     await batch.commit();
+  });
+}
+
+async function updateRuleTestDocument(documentPath, data) {
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await context.firestore().doc(documentPath).update(data);
   });
 }
 
@@ -748,7 +785,7 @@ test("public read of pending/private restaurant accounts is denied", async () =>
   );
 });
 
-test("public read of approved/public restaurant content is allowed", async () => {
+test("public read of approved posting-enabled restaurant content is allowed", async () => {
   const db = dbFor("unauthenticated");
   assert.equal(
     (await assertSucceeds(db.doc("restaurant_accounts/owner-1").get())).exists,
@@ -759,6 +796,7 @@ test("public read of approved/public restaurant content is allowed", async () =>
       await assertSucceeds(
         db.collection("restaurant_accounts")
           .where("approvalStatus", "==", "approved")
+          .where("couponPostingEnabled", "==", true)
           .get(),
       )
     ).size,
@@ -767,6 +805,9 @@ test("public read of approved/public restaurant content is allowed", async () =>
   await assertSucceeds(db.doc("restaurant_accounts/owner-1/coupons/coupon-1").get());
   await assertSucceeds(
     db.doc("restaurant_accounts/owner-1/daily_specials/special-1").get(),
+  );
+  await assertSucceeds(
+    db.doc("restaurant_accounts/owner-1/menu_items/item-1").get(),
   );
   await assertSucceeds(db.doc("bitescore_restaurants/bs-1").get());
   await assertSucceeds(db.doc("bitescore_dishes/dish-1").get());
@@ -1116,6 +1157,379 @@ test("restaurant owners can manage their own approved/subscribed content", async
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     }),
+  );
+});
+
+test("exact true posting flag preserves active, trialing, and scheduled-cancellation access", async () => {
+  const accountPath = "restaurant_accounts/owner-1";
+  const cases = [
+    { label: "active", subscriptionStatus: "active" },
+    { label: "trialing", subscriptionStatus: "trialing" },
+    {
+      label: "scheduled-cancellation",
+      subscriptionStatus: "active",
+      cancelAtPeriodEnd: true,
+      subscriptionCurrentPeriodEnd: new Date("2026-03-01T00:00:00.000Z"),
+    },
+  ];
+
+  for (const [index, projection] of cases.entries()) {
+    await updateRuleTestDocument(accountPath, {
+      approvalStatus: "approved",
+      subscriptionStatus: projection.subscriptionStatus,
+      couponPostingEnabled: true,
+      cancelAtPeriodEnd: projection.cancelAtPeriodEnd ?? false,
+      subscriptionCurrentPeriodEnd:
+        projection.subscriptionCurrentPeriodEnd ??
+        firebase.firestore.FieldValue.delete(),
+    });
+
+    const couponId = `posting-enabled-${projection.label}`;
+    const ownerRef = dbFor("restaurantOwner").doc(
+      `${accountPath}/coupons/${couponId}`,
+    );
+    await assertSucceeds(
+      ownerRef.set(
+        restaurantCouponWriteData(couponId, {
+          couponNumber: `${1100 + index}`,
+        }),
+      ),
+    );
+    await assertSucceeds(
+      ownerRef.update({
+        title: `Updated ${projection.label}`,
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    await assertSucceeds(dbFor("customer").doc(accountPath).get());
+    await assertSucceeds(dbFor("customer").doc(ownerRef.path).get());
+  }
+});
+
+test("false, missing, malformed, and unapproved posting projections fail closed", async () => {
+  const accountPath = "restaurant_accounts/owner-1";
+  const existingCouponPath = `${accountPath}/coupons/coupon-1`;
+  const existingSpecialPath = `${accountPath}/daily_specials/special-1`;
+  const existingMenuPath = `${accountPath}/menu_items/item-1`;
+  const cases = [
+    { label: "active-false", subscriptionStatus: "active", flag: false },
+    { label: "trialing-false", subscriptionStatus: "trialing", flag: false },
+    { label: "past-due", subscriptionStatus: "past_due", flag: false },
+    { label: "unpaid", subscriptionStatus: "unpaid", flag: false },
+    { label: "incomplete", subscriptionStatus: "incomplete", flag: false },
+    { label: "paused", subscriptionStatus: "paused", flag: false },
+    { label: "canceled", subscriptionStatus: "canceled", flag: false },
+    { label: "missing", subscriptionStatus: "active", missingFlag: true },
+    { label: "string", subscriptionStatus: "active", flag: "true" },
+    { label: "number", subscriptionStatus: "active", flag: 1 },
+    { label: "null", subscriptionStatus: "active", flag: null },
+    {
+      label: "pending-true",
+      subscriptionStatus: "active",
+      flag: true,
+      approvalStatus: "pending",
+    },
+  ];
+
+  for (const projection of cases) {
+    await updateRuleTestDocument(accountPath, {
+      approvalStatus: projection.approvalStatus ?? "approved",
+      subscriptionStatus: projection.subscriptionStatus,
+      couponPostingEnabled: projection.missingFlag
+        ? firebase.firestore.FieldValue.delete()
+        : projection.flag,
+    });
+
+    const newCouponPath = `${accountPath}/coupons/blocked-${projection.label}`;
+    await assertFails(
+      dbFor("restaurantOwner")
+        .doc(newCouponPath)
+        .set(restaurantCouponWriteData(`blocked-${projection.label}`)),
+    );
+    assert.equal(
+      (await assertSucceeds(dbFor("admin").doc(newCouponPath).get())).exists,
+      false,
+    );
+
+    const before = await assertSucceeds(
+      dbFor("admin").doc(existingCouponPath).get(),
+    );
+    await assertFails(
+      dbFor("restaurantOwner").doc(existingCouponPath).update({
+        title: `Blocked ${projection.label}`,
+        endTime: new Date("2027-01-01T00:00:00.000Z"),
+        isActive: true,
+        updatedAt: serverTimestamp(),
+      }),
+    );
+    const after = await assertSucceeds(
+      dbFor("admin").doc(existingCouponPath).get(),
+    );
+    assert.equal(after.data().title, before.data().title);
+    assert.equal(
+      after.data().endTime.toMillis(),
+      before.data().endTime.toMillis(),
+    );
+    assert.equal(after.data().isActive, before.data().isActive);
+
+    for (const path of [
+      accountPath,
+      existingCouponPath,
+      existingSpecialPath,
+    ]) {
+      await assertFails(dbFor("customer").doc(path).get());
+      await assertSucceeds(dbFor("restaurantOwner").doc(path).get());
+      await assertSucceeds(dbFor("admin").doc(path).get());
+    }
+
+    if ((projection.approvalStatus ?? "approved") === "approved") {
+      await assertSucceeds(dbFor("customer").doc(existingMenuPath).get());
+    } else {
+      await assertFails(dbFor("customer").doc(existingMenuPath).get());
+    }
+  }
+});
+
+test("public restaurant lists must constrain approval and exact posting access", async () => {
+  const db = dbFor("customer");
+  await assertFails(
+    db.collection("restaurant_accounts")
+      .where("approvalStatus", "==", "approved")
+      .get(),
+  );
+
+  const visible = await assertSucceeds(
+    db.collection("restaurant_accounts")
+      .where("approvalStatus", "==", "approved")
+      .where("couponPostingEnabled", "==", true)
+      .get(),
+  );
+  assert.equal(visible.size, 1);
+  assert.equal(visible.docs[0].id, "owner-1");
+
+  for (const couponPostingEnabled of [
+    false,
+    firebase.firestore.FieldValue.delete(),
+    "true",
+  ]) {
+    await updateRuleTestDocument("restaurant_accounts/owner-1", {
+      couponPostingEnabled,
+    });
+    const hidden = await assertSucceeds(
+      db.collection("restaurant_accounts")
+        .where("approvalStatus", "==", "approved")
+        .where("couponPostingEnabled", "==", true)
+        .get(),
+    );
+    assert.equal(hidden.size, 0);
+  }
+
+  const adminVisible = await assertSucceeds(
+    dbFor("admin")
+      .collection("restaurant_accounts")
+      .where("approvalStatus", "==", "approved")
+      .get(),
+  );
+  assert.equal(adminVisible.size, 1);
+});
+
+test("inactive owners can delete only their coupons without broadening other deletes", async () => {
+  const accountPath = "restaurant_accounts/owner-1";
+  const couponPath = `${accountPath}/coupons/coupon-1`;
+  const specialPath = `${accountPath}/daily_specials/special-1`;
+  const menuPath = `${accountPath}/menu_items/item-1`;
+  const reservationPath = `${accountPath}/coupon_number_reservations/1001`;
+  await updateRuleTestDocument(accountPath, {
+    subscriptionStatus: "canceled",
+    couponPostingEnabled: false,
+  });
+  await seedRuleTestDocuments([
+    {
+      documentPath: reservationPath,
+      data: {
+        couponId: "coupon-1",
+        couponNumber: "1001",
+        createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      },
+    },
+  ]);
+
+  for (const actor of ["wrongRestaurantOwner", "customer"]) {
+    await assertFails(dbFor(actor).doc(couponPath).delete());
+    assert.equal(
+      (await assertSucceeds(dbFor("admin").doc(couponPath).get())).exists,
+      true,
+    );
+  }
+
+  await assertSucceeds(dbFor("restaurantOwner").doc(couponPath).get());
+  await assertSucceeds(dbFor("restaurantOwner").doc(couponPath).delete());
+  await assertSucceeds(dbFor("restaurantOwner").doc(couponPath).delete());
+  assert.equal(
+    (await assertSucceeds(dbFor("admin").doc(couponPath).get())).exists,
+    false,
+  );
+
+  for (const path of [accountPath, specialPath, menuPath, reservationPath]) {
+    assert.equal(
+      (await assertSucceeds(dbFor("admin").doc(path).get())).exists,
+      true,
+    );
+  }
+  for (const path of [specialPath, menuPath, reservationPath]) {
+    await assertFails(dbFor("restaurantOwner").doc(path).delete());
+    assert.equal(
+      (await assertSucceeds(dbFor("admin").doc(path).get())).exists,
+      true,
+    );
+  }
+});
+
+test("inactive-owner service-shaped coupon deletion is atomic and retry-safe", async () => {
+  const accountPath = "restaurant_accounts/owner-1";
+  const couponPath = `${accountPath}/coupons/coupon-1`;
+  await updateRuleTestDocument(accountPath, {
+    subscriptionStatus: "active",
+    couponPostingEnabled: false,
+  });
+
+  const adminDb = dbFor("admin");
+  const accountBefore = await assertSucceeds(adminDb.doc(accountPath).get());
+  const updatedAtBefore = accountBefore.data().updatedAt;
+  const wrongOwnerDb = dbFor("wrongRestaurantOwner");
+  const rejectedBatch = wrongOwnerDb.batch();
+  rejectedBatch.delete(wrongOwnerDb.doc(couponPath));
+  rejectedBatch.update(wrongOwnerDb.doc(accountPath), {
+    updatedAt: new Date("2026-12-01T00:00:00.000Z"),
+  });
+  await assertFails(rejectedBatch.commit());
+
+  assert.equal(
+    (await assertSucceeds(adminDb.doc(couponPath).get())).exists,
+    true,
+  );
+  const accountAfterRejectedBatch = await assertSucceeds(
+    adminDb.doc(accountPath).get(),
+  );
+  assert.equal(
+    accountAfterRejectedBatch.data().updatedAt.toMillis(),
+    updatedAtBefore.toMillis(),
+  );
+
+  const ownerDb = dbFor("restaurantOwner");
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const deleteBatch = ownerDb.batch();
+    deleteBatch.delete(ownerDb.doc(couponPath));
+    deleteBatch.update(ownerDb.doc(accountPath), {
+      updatedAt: serverTimestamp(),
+    });
+    await assertSucceeds(deleteBatch.commit());
+  }
+
+  assert.equal(
+    (await assertSucceeds(adminDb.doc(couponPath).get())).exists,
+    false,
+  );
+  assert.equal(
+    (await assertSucceeds(adminDb.doc(accountPath).get())).exists,
+    true,
+  );
+});
+
+test("inactive owners cannot create or update daily specials or menu content", async () => {
+  const accountPath = "restaurant_accounts/owner-1";
+  await updateRuleTestDocument(accountPath, {
+    subscriptionStatus: "active",
+    couponPostingEnabled: false,
+  });
+
+  const blockedSpecialPath = `${accountPath}/daily_specials/blocked-special`;
+  await assertFails(
+    dbFor("restaurantOwner")
+      .doc(blockedSpecialPath)
+      .set(restaurantDailySpecialWriteData("blocked-special")),
+  );
+  await assertFails(
+    dbFor("restaurantOwner")
+      .doc(`${accountPath}/daily_specials/special-1`)
+      .update({title: "Blocked special edit", updatedAt: serverTimestamp()}),
+  );
+  await assertFails(
+    dbFor("restaurantOwner").doc(`${accountPath}/menu_items/blocked-item`).set({
+      id: "blocked-item",
+      name: "Blocked item",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(
+    dbFor("restaurantOwner").doc(`${accountPath}/menu_items/item-1`).update({
+      name: "Blocked menu edit",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+
+  assert.equal(
+    (await assertSucceeds(dbFor("admin").doc(blockedSpecialPath).get())).exists,
+    false,
+  );
+  assert.equal(
+    (
+      await assertSucceeds(
+        dbFor("admin").doc(`${accountPath}/daily_specials/special-1`).get(),
+      )
+    ).data().title,
+    "Lunch Special",
+  );
+  assert.equal(
+    (
+      await assertSucceeds(
+        dbFor("admin").doc(`${accountPath}/menu_items/item-1`).get(),
+      )
+    ).data().name,
+    "Taco",
+  );
+});
+
+test("admin coupon moderation remains available for inactive restaurants", async () => {
+  const accountPath = "restaurant_accounts/owner-1";
+  const couponId = "admin-inactive-coupon";
+  const couponPath = `${accountPath}/coupons/${couponId}`;
+  await updateRuleTestDocument(accountPath, {
+    subscriptionStatus: "active",
+    couponPostingEnabled: false,
+  });
+
+  const adminRef = dbFor("admin").doc(couponPath);
+  await assertSucceeds(
+    adminRef.set(
+      restaurantCouponWriteData(couponId, {couponNumber: "1200"}),
+    ),
+  );
+  await assertSucceeds(
+    adminRef.update({title: "Admin moderated", updatedAt: serverTimestamp()}),
+  );
+  assert.equal(
+    (await assertSucceeds(adminRef.get())).data().title,
+    "Admin moderated",
+  );
+  await assertSucceeds(adminRef.delete());
+  assert.equal((await assertSucceeds(adminRef.get())).exists, false);
+});
+
+test("owner coupon deletion requires the parent account while admin moderation does not", async () => {
+  const accountPath = "restaurant_accounts/owner-1";
+  const couponPath = `${accountPath}/coupons/coupon-1`;
+  await deleteRuleTestDocuments([accountPath]);
+
+  await assertFails(dbFor("restaurantOwner").doc(couponPath).delete());
+  assert.equal(
+    (await assertSucceeds(dbFor("admin").doc(couponPath).get())).exists,
+    true,
+  );
+  await assertSucceeds(dbFor("admin").doc(couponPath).delete());
+  assert.equal(
+    (await assertSucceeds(dbFor("admin").doc(couponPath).get())).exists,
+    false,
   );
 });
 

@@ -4545,6 +4545,285 @@ void main() {
     _verifyActuallyEndedSubscriptionPresentation,
   );
 
+  testWidgets(
+    'active billing status with posting disabled exposes delete-only coupon management',
+    (tester) async {
+      final deleteCompletion = Completer<void>();
+      final deleteRequests = <({String uid, String couponId})>[];
+      final account = _approvedAccount(
+        subscriptionStatus: 'active',
+        couponPostingEnabled: false,
+      );
+      final existingCoupon = _ownerCoupon(
+        id: 'inactive-owner-coupon',
+        title: 'Inactive Owner Existing Coupon',
+      );
+
+      await _pumpApplicationScreen(
+        tester,
+        loadAccount: (uid) async => Map<String, dynamic>.from(account),
+        loadCoupons: (uid) async => <Coupon>[existingCoupon],
+        deleteCoupon: ({required uid, required couponId}) {
+          deleteRequests.add((uid: uid, couponId: couponId));
+          return deleteCompletion.future;
+        },
+      );
+
+      await _ensureSectionExpanded(
+        tester,
+        'Coupon Management',
+        visibleWhenExpanded: find.text(existingCoupon.title),
+      );
+      expect(find.text(existingCoupon.title), findsOneWidget);
+      expect(
+        find.descendant(
+          of: _cardContaining(existingCoupon.title),
+          matching: find.widgetWithText(TextButton, 'Remove'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: _cardContaining(existingCoupon.title),
+          matching: find.widgetWithText(TextButton, 'Edit'),
+        ),
+        findsNothing,
+      );
+      expect(find.text('Create a New Coupon'), findsNothing);
+      expect(_fieldWithLabel('Coupon Title'), findsNothing);
+      expect(
+        find.widgetWithText(ElevatedButton, 'Create Coupon'),
+        findsNothing,
+      );
+      expect(
+        find.widgetWithText(ElevatedButton, 'Save Daily Special'),
+        findsNothing,
+      );
+      await _ensureSectionExpanded(
+        tester,
+        'Subscription / Billing',
+        visibleWhenExpanded: find.widgetWithText(
+          OutlinedButton,
+          'Manage Subscription',
+        ),
+      );
+      expect(
+        find.text(
+          'Coupon and daily-special posting is unavailable right now. Manage your subscription for details.',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(OutlinedButton, 'Manage Subscription'),
+        findsOneWidget,
+      );
+      expect(
+        find.widgetWithText(FilledButton, 'Start Subscription'),
+        findsNothing,
+      );
+
+      await _tapCardAction(
+        tester,
+        cardText: existingCoupon.title,
+        actionText: 'Remove',
+      );
+      expect(deleteRequests, <({String uid, String couponId})>[
+        (uid: 'owner-1', couponId: existingCoupon.id),
+      ]);
+      expect(find.text(existingCoupon.title), findsOneWidget);
+      expect(LocalCouponStore.createdCoupons.value, <Coupon>[existingCoupon]);
+
+      deleteCompletion.complete();
+      await tester.pumpAndSettle();
+
+      expect(find.text(existingCoupon.title), findsNothing);
+      expect(LocalCouponStore.createdCoupons.value, isEmpty);
+      expect(find.text('Coupon removed.'), findsOneWidget);
+      expect(account['couponPostingEnabled'], isFalse);
+      expect(account['subscriptionStatus'], 'active');
+    },
+  );
+
+  testWidgets('inactive owner deletion failure retains the selected coupon', (
+    tester,
+  ) async {
+    final existingCoupon = _ownerCoupon(
+      id: 'failed-inactive-delete',
+      title: 'Inactive Delete Must Remain',
+    );
+    var deleteCalls = 0;
+
+    await _pumpApplicationScreen(
+      tester,
+      loadAccount: (uid) async => _approvedAccount(
+        subscriptionStatus: 'inactive',
+        couponPostingEnabled: false,
+      ),
+      loadCoupons: (uid) async => <Coupon>[existingCoupon],
+      deleteCoupon: ({required uid, required couponId}) async {
+        deleteCalls += 1;
+        throw StateError('synthetic inactive-owner delete failure');
+      },
+    );
+
+    await _ensureSectionExpanded(
+      tester,
+      'Coupon Management',
+      visibleWhenExpanded: find.text(existingCoupon.title),
+    );
+    await _tapCardAction(
+      tester,
+      cardText: existingCoupon.title,
+      actionText: 'Remove',
+    );
+    await tester.pumpAndSettle();
+
+    expect(deleteCalls, 1);
+    expect(find.text(existingCoupon.title), findsOneWidget);
+    expect(LocalCouponStore.createdCoupons.value, <Coupon>[existingCoupon]);
+    expect(find.text('Coupon removed.'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('active owner retains create edit and delete controls', (
+    tester,
+  ) async {
+    final existingCoupon = _ownerCoupon(
+      id: 'active-owner-coupon',
+      title: 'Active Owner Existing Coupon',
+    );
+
+    await _pumpApplicationScreen(
+      tester,
+      loadAccount: (uid) async => _approvedAccount(
+        subscriptionStatus: 'active',
+        couponPostingEnabled: true,
+      ),
+      loadCoupons: (uid) async => <Coupon>[existingCoupon],
+    );
+
+    await _ensureSectionExpanded(
+      tester,
+      'Coupon Management',
+      visibleWhenExpanded: find.text(existingCoupon.title),
+    );
+    expect(find.text('Create a New Coupon'), findsOneWidget);
+    expect(_fieldWithLabel('Coupon Title'), findsOneWidget);
+    expect(
+      find.widgetWithText(ElevatedButton, 'Create Coupon'),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: _cardContaining(existingCoupon.title),
+        matching: find.widgetWithText(TextButton, 'Edit'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: _cardContaining(existingCoupon.title),
+        matching: find.widgetWithText(TextButton, 'Remove'),
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'inactive same-UID account transition replaces delete-only coupon state',
+    (tester) async {
+      final owner = _TestUser(
+        uid: 'inactive-transition-owner',
+        email: 'inactive-transition@example.test',
+      );
+      const documentA = 'inactive-transition-a';
+      const documentB = 'inactive-transition-b';
+      var currentDocumentId = documentA;
+      final userChanges = StreamController<User?>.broadcast(sync: true);
+      addTearDown(userChanges.close);
+
+      await _pumpApplicationScreen(
+        tester,
+        loadAccount: (uid) async => _approvedAccount(
+          uid: uid,
+          subscriptionStatus: 'inactive',
+          couponPostingEnabled: false,
+        ),
+        loadCoupons: (uid) async => <Coupon>[
+          _ownerCoupon(
+            id: currentDocumentId,
+            title: currentDocumentId == documentA
+                ? 'Inactive Owner A Coupon'
+                : 'Inactive Owner B Coupon',
+          ),
+        ],
+        testCurrentUser: owner,
+        currentUserProvider: () => owner,
+        ownerUserChanges: userChanges.stream,
+        accountDocumentIdForUid: (_) => currentDocumentId,
+      );
+
+      await _ensureSectionExpanded(
+        tester,
+        'Coupon Management',
+        visibleWhenExpanded: find.text('Inactive Owner A Coupon'),
+      );
+      expect(find.text('Inactive Owner A Coupon'), findsOneWidget);
+
+      currentDocumentId = documentB;
+      userChanges.add(owner);
+      await tester.pumpAndSettle();
+      await _ensureSectionExpanded(
+        tester,
+        'Coupon Management',
+        visibleWhenExpanded: find.text('Inactive Owner B Coupon'),
+      );
+
+      expect(find.text('Inactive Owner A Coupon'), findsNothing);
+      expect(find.text('Inactive Owner B Coupon'), findsOneWidget);
+      expect(
+        LocalCouponStore.createdCoupons.value.single.title,
+        'Inactive Owner B Coupon',
+      );
+      expect(find.widgetWithText(TextButton, 'Edit'), findsNothing);
+    },
+  );
+
+  testWidgets('inactive owner sign-out clears coupon state immediately', (
+    tester,
+  ) async {
+    final signOutCompletion = Completer<void>();
+    final existingCoupon = _ownerCoupon(
+      id: 'inactive-signout-coupon',
+      title: 'Inactive Signout Coupon',
+    );
+    var signOutCalls = 0;
+
+    await _pumpApplicationScreen(
+      tester,
+      loadAccount: (uid) async => _approvedAccount(
+        subscriptionStatus: 'inactive',
+        couponPostingEnabled: false,
+      ),
+      loadCoupons: (uid) async => <Coupon>[existingCoupon],
+      signOutRestaurantSession: () {
+        signOutCalls += 1;
+        return signOutCompletion.future;
+      },
+    );
+    expect(LocalCouponStore.createdCoupons.value, <Coupon>[existingCoupon]);
+
+    await tester.tap(find.widgetWithText(TextButton, 'Sign Out'));
+    await _pumpUntil(tester, () => signOutCalls == 1);
+
+    expect(LocalCouponStore.createdCoupons.value, isEmpty);
+    expect(find.text(existingCoupon.title), findsNothing);
+
+    signOutCompletion.complete();
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('customer portal return refreshes subscription state once', (
     tester,
   ) async {
@@ -6863,7 +7142,7 @@ Future<void> _ensureSubscriptionActionVisible(
   }
   return _ensureSectionExpanded(
     tester,
-    'Coupon Management / Daily Specials',
+    'Subscription / Billing',
     visibleWhenExpanded: find.widgetWithText(
       FilledButton,
       'Start Subscription',
@@ -9485,13 +9764,13 @@ Future<void> _verifyActuallyEndedSubscriptionPresentation(
 
   await _ensureSectionExpanded(
     tester,
-    'Coupon Management / Daily Specials',
+    'Subscription / Billing',
     visibleWhenExpanded: find.widgetWithText(
       FilledButton,
       'Start Subscription',
     ),
   );
-  expect(find.text('Subscription / Billing'), findsNothing);
+  expect(find.text('Subscription / Billing'), findsOneWidget);
   expect(find.textContaining('Cancels at end'), findsNothing);
   expect(
     find.widgetWithText(OutlinedButton, 'Manage Subscription'),
@@ -10002,7 +10281,7 @@ Future<void> _verifyReturnDuringPendingCheckoutLaunchIsSingleUse(
   );
   await _ensureSectionExpanded(
     tester,
-    'Coupon Management / Daily Specials',
+    'Subscription / Billing',
     visibleWhenExpanded: find.widgetWithText(
       FilledButton,
       'Start Subscription',
@@ -10132,7 +10411,7 @@ Future<void> _verifyReturnDuringPendingCheckoutLaunchThenFalseIsAuthoritative(
   );
   await _ensureSectionExpanded(
     tester,
-    'Coupon Management / Daily Specials',
+    'Subscription / Billing',
     visibleWhenExpanded: find.widgetWithText(
       FilledButton,
       'Start Subscription',
@@ -10546,7 +10825,7 @@ Future<void> _verifyPendingCheckoutIsOwnerScoped(WidgetTester tester) async {
   );
   await _ensureSectionExpanded(
     tester,
-    'Coupon Management / Daily Specials',
+    'Subscription / Billing',
     visibleWhenExpanded: find.widgetWithText(
       FilledButton,
       'Start Subscription',
@@ -10560,7 +10839,7 @@ Future<void> _verifyPendingCheckoutIsOwnerScoped(WidgetTester tester) async {
   await tester.pumpAndSettle();
   await _ensureSectionExpanded(
     tester,
-    'Coupon Management / Daily Specials',
+    'Subscription / Billing',
     visibleWhenExpanded: find.widgetWithText(
       FilledButton,
       'Start Subscription',
@@ -11124,6 +11403,7 @@ Map<String, dynamic> _approvedAccount({
   String? mainImageUrl,
   List<RestaurantBusinessHours>? businessHours,
   String subscriptionStatus = 'active',
+  Object? couponPostingEnabled,
   bool? cancelAtPeriodEnd,
   Object? trialEndsAt,
   Object? subscriptionEndsAt,
@@ -11148,6 +11428,9 @@ Map<String, dynamic> _approvedAccount({
     Restaurant.fieldApprovalStatus: 'approved',
     'couponApplicationSubmitted': true,
     'subscriptionStatus': subscriptionStatus,
+    'couponPostingEnabled':
+        couponPostingEnabled ??
+        (subscriptionStatus == 'active' || subscriptionStatus == 'trialing'),
     'cancelAtPeriodEnd': ?cancelAtPeriodEnd,
     'trialEndsAt': ?trialEndsAt,
     'subscriptionEndsAt': ?subscriptionEndsAt,

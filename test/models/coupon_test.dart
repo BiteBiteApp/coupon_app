@@ -20,11 +20,15 @@ void main() {
       String approvalStatus = 'approved',
       String subscriptionStatus = 'active',
       DateTime? trialEndsAt,
+      Object? couponPostingEnabled = true,
+      bool includeCouponPostingEnabled = true,
     }) {
       return {
         Restaurant.fieldApprovalStatus: approvalStatus,
         'subscriptionStatus': subscriptionStatus,
         'trialEndsAt': trialEndsAt,
+        if (includeCouponPostingEnabled)
+          'couponPostingEnabled': couponPostingEnabled,
       };
     }
 
@@ -282,59 +286,80 @@ void main() {
       );
     });
 
-    test('customer-visible coupons require an active subscription', () {
+    test('customer-visible coupons require the exact trusted posting flag', () {
       final coupons = [visibleCoupon];
 
-      expect(
-        RestaurantAccountService.customerVisibleCouponsForAccountData(
-          accountData(),
-          coupons,
-        ),
-        coupons,
-      );
-      expect(
-        RestaurantAccountService.customerVisibleCouponsForAccountData(
-          accountData(subscriptionStatus: 'inactive'),
-          coupons,
-        ),
-        isEmpty,
-      );
-      expect(
-        RestaurantAccountService.customerVisibleCouponsForAccountData(
-          accountData(subscriptionStatus: 'canceled'),
-          coupons,
-        ),
-        isEmpty,
-      );
-    });
-
-    test(
-      'customer-visible coupons allow current trials but not expired trials',
-      () {
-        final coupons = [visibleCoupon];
-
+      for (final subscriptionStatus in <String>['active', 'trialing']) {
         expect(
           RestaurantAccountService.customerVisibleCouponsForAccountData(
-            accountData(
-              subscriptionStatus: 'trialing',
-              trialEndsAt: DateTime.now().add(const Duration(days: 1)),
-            ),
+            accountData(subscriptionStatus: subscriptionStatus),
             coupons,
           ),
           coupons,
+          reason: '$subscriptionStatus with an exact true flag',
         );
+      }
+
+      for (final subscriptionStatus in <String>[
+        'active',
+        'trialing',
+        'past_due',
+        'unpaid',
+        'incomplete',
+        'paused',
+        'inactive',
+        'canceled',
+      ]) {
         expect(
           RestaurantAccountService.customerVisibleCouponsForAccountData(
             accountData(
-              subscriptionStatus: 'trialing',
-              trialEndsAt: DateTime.now().subtract(const Duration(days: 1)),
+              subscriptionStatus: subscriptionStatus,
+              couponPostingEnabled: false,
             ),
             coupons,
           ),
           isEmpty,
+          reason: '$subscriptionStatus cannot override a false flag',
         );
+      }
+    });
+
+    test(
+      'customer-visible coupons fail closed for missing or malformed flag',
+      () {
+        final coupons = [visibleCoupon];
+
+        for (final account in <Map<String, dynamic>>[
+          accountData(includeCouponPostingEnabled: false),
+          accountData(couponPostingEnabled: null),
+          accountData(couponPostingEnabled: 'true'),
+          accountData(couponPostingEnabled: 1),
+          accountData(couponPostingEnabled: <String, bool>{'enabled': true}),
+        ]) {
+          expect(
+            RestaurantAccountService.customerVisibleCouponsForAccountData(
+              account,
+              coupons,
+            ),
+            isEmpty,
+          );
+        }
       },
     );
+
+    test('customer-visible coupons still require account approval', () {
+      final coupons = [visibleCoupon];
+
+      for (final approvalStatus in <String>['pending', 'rejected']) {
+        expect(
+          RestaurantAccountService.customerVisibleCouponsForAccountData(
+            accountData(approvalStatus: approvalStatus),
+            coupons,
+          ),
+          isEmpty,
+        );
+      }
+    });
 
     test('canonical restaurant account UID uses stored uid when present', () {
       final uid = RestaurantAccountService.canonicalAccountUidForAccountData({

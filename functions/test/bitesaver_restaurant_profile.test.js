@@ -446,6 +446,7 @@ test("profile request validation rejects unknown and trusted-field injection", (
     "lastProfileRequestId",
     "lastProfileRequestFingerprint",
     "subscriptionStatus",
+    "couponPostingEnabled",
   ];
 
   for (const key of forbiddenKeys) {

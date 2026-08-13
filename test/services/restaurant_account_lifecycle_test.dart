@@ -1017,6 +1017,7 @@ void main() {
             <String, dynamic>{
               Restaurant.fieldApprovalStatus: 'approved',
               'subscriptionStatus': 'trialing',
+              'couponPostingEnabled': true,
               'cancelAtPeriodEnd': true,
               'trialEndsAt': trialEnd,
               'subscriptionEndsAt': trialEnd,
@@ -1043,10 +1044,84 @@ void main() {
           ...normalized,
           'subscriptionStatus': 'inactive',
         }),
-        isFalse,
+        isTrue,
       );
     },
   );
+
+  test('posting access uses exact trusted flag instead of billing status', () {
+    for (final status in <String>[
+      'active',
+      'trialing',
+      'past_due',
+      'unpaid',
+      'incomplete',
+      'paused',
+      'inactive',
+      'canceled',
+    ]) {
+      expect(
+        RestaurantAccountService.hasCouponPostingAccess(<String, dynamic>{
+          Restaurant.fieldApprovalStatus: 'approved',
+          'subscriptionStatus': status,
+          'couponPostingEnabled': false,
+        }),
+        isFalse,
+        reason: '$status cannot override a false trusted flag',
+      );
+    }
+
+    for (final status in <String>['active', 'trialing']) {
+      expect(
+        RestaurantAccountService.hasCouponPostingAccess(<String, dynamic>{
+          Restaurant.fieldApprovalStatus: 'approved',
+          'subscriptionStatus': status,
+          'couponPostingEnabled': true,
+        }),
+        isTrue,
+        reason: '$status retains access while the trusted flag is true',
+      );
+    }
+  });
+
+  test('posting access fails closed for missing or malformed trusted flag', () {
+    for (final flag in <Object?>[
+      null,
+      'true',
+      1,
+      <String, bool>{'enabled': true},
+    ]) {
+      final data = <String, dynamic>{
+        Restaurant.fieldApprovalStatus: 'approved',
+        'subscriptionStatus': 'active',
+        'couponPostingEnabled': ?flag,
+      };
+      final normalized =
+          RestaurantAccountService.normalizedAccountDataForTesting(
+            data,
+            fallbackUid: 'malformed-posting-owner',
+          );
+
+      expect(normalized['couponPostingEnabled'], isNull);
+      expect(
+        RestaurantAccountService.hasCouponPostingAccess(normalized),
+        isFalse,
+      );
+    }
+  });
+
+  test('posting access still requires approved account status', () {
+    for (final approvalStatus in <String>['pending', 'rejected']) {
+      expect(
+        RestaurantAccountService.hasCouponPostingAccess(<String, dynamic>{
+          Restaurant.fieldApprovalStatus: approvalStatus,
+          'subscriptionStatus': 'active',
+          'couponPostingEnabled': true,
+        }),
+        isFalse,
+      );
+    }
+  });
 }
 
 class _TestUser extends Fake implements User {

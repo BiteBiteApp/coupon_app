@@ -762,6 +762,34 @@ test("matching-generation webhooks preserve every raw Stripe status privately an
   }
 });
 
+test("scheduled cancellation retains posting access while Stripe remains active or trialing", async () => {
+  for (const [index, status] of ["active", "trialing"].entries()) {
+    harness.reset();
+    const response = await dispatchWebhook(makeWebhookEvent(
+      makeSubscription({
+        status,
+        cancel_at_period_end: true,
+        trial_end: status === "trialing" ? 1_900_000_000 : null,
+      }),
+      {
+        id: `evt_RuntimeScheduledCancellation${index + 1}`,
+        created: baselineEventCreated + index + 1,
+      },
+    ));
+
+    assertAcknowledged(response);
+    assert.equal(harness.state.updates.length, 1, status);
+    const publicPatch = harness.state.updates[0].data;
+    assert.equal(publicPatch.subscriptionStatus, status, status);
+    assert.equal(publicPatch.cancelAtPeriodEnd, true, status);
+    assert.equal(publicPatch.couponPostingEnabled, true, status);
+    assert.equal(Object.hasOwn(publicPatch, "subscriptionEndsAt"), true, status);
+    assert.equal(Object.hasOwn(publicPatch, "hasUsedTrial"), true, status);
+    assert.deepEqual(harness.state.creates, [], status);
+    assert.deepEqual(harness.state.logs, [], status);
+  }
+});
+
 test("a newer attributable unsupported Stripe status durably overrides terminal inactivity with unknown", async () => {
   harness.state.ownerBillingDocument = clone(makeKnownBillingState({
     rawStripeStatus: "canceled",

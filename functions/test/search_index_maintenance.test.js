@@ -8,6 +8,7 @@ const {
   handleBiteScoreRestaurantWrite,
   processSearchIndexJob,
   reconcileBiteSaverCouponOfferIndex,
+  reconcileBiteSaverDailySpecialOfferIndex,
   reconcileBiteSaverRestaurantIndex,
   reconcileBiteScoreDishIndex,
   reconcileBiteScoreRestaurantIndex,
@@ -103,6 +104,7 @@ function biteSaverRestaurant(overrides = {}) {
     approvalStatus: "approved",
     couponApplicationSubmitted: true,
     subscriptionStatus: "active",
+    couponPostingEnabled: true,
     updatedAt: now,
     ...overrides,
   };
@@ -302,6 +304,112 @@ test("offer direct write and source delete reconcile one deterministic index", a
   database.records.delete("restaurant_accounts/account-1/coupons/coupon-1");
   await reconcileBiteSaverCouponOfferIndex(database, "account-1", "coupon-1", now);
   assert.equal(database.records.has(path), false);
+});
+
+test("a posting-flag-only parent transition disables every public BiteSaver index", async () => {
+  const accountPath = "restaurant_accounts/account-1";
+  const couponPath = `${accountPath}/coupons/coupon-1`;
+  const dailySpecialPath = `${accountPath}/daily_specials/special-1`;
+  const before = biteSaverRestaurant({
+    subscriptionStatus: "active",
+    couponPostingEnabled: true,
+  });
+  const after = {
+    ...before,
+    couponPostingEnabled: false,
+  };
+  const database = new FakeSearchIndexDatabase({
+    [accountPath]: before,
+    [couponPath]: coupon("coupon-1"),
+    [dailySpecialPath]: {
+      id: "special-1",
+      restaurantId: "account-1",
+      ownerUid: "account-1",
+      title: "Current Special",
+      isActive: true,
+      availabilityMode: "todayOnly",
+      allDay: true,
+      expiresAt: new Date(now.getTime() + 60_000),
+      updatedAt: now,
+    },
+  });
+  const restaurantIndexId = createSearchIndexDocumentId({
+    entityKind: "restaurant",
+    sourceKind: "biteSaverRestaurant",
+    sourceDocumentId: "account-1",
+  });
+  const couponIndexId = createSearchIndexDocumentId({
+    entityKind: "offer",
+    sourceKind: "biteSaverCoupon",
+    parentSourceDocumentId: "account-1",
+    sourceDocumentId: "coupon-1",
+  });
+  const dailySpecialIndexId = createSearchIndexDocumentId({
+    entityKind: "offer",
+    sourceKind: "biteSaverDailySpecial",
+    parentSourceDocumentId: "account-1",
+    sourceDocumentId: "special-1",
+  });
+  const restaurantIndexPath =
+    `restaurant_search_index/${restaurantIndexId}`;
+  const couponIndexPath = `bitesaver_offer_index/${couponIndexId}`;
+  const dailySpecialIndexPath =
+    `bitesaver_offer_index/${dailySpecialIndexId}`;
+
+  await reconcileBiteSaverRestaurantIndex(database, "account-1", now);
+  await reconcileBiteSaverCouponOfferIndex(
+    database,
+    "account-1",
+    "coupon-1",
+    now,
+  );
+  await reconcileBiteSaverDailySpecialOfferIndex(
+    database,
+    "account-1",
+    "special-1",
+    now,
+  );
+  assert.equal(database.records.get(restaurantIndexPath).publicVisible, true);
+  assert.equal(database.records.get(couponIndexPath).publicVisible, true);
+  assert.equal(database.records.get(dailySpecialIndexPath).publicVisible, true);
+
+  database.records.set(accountPath, after);
+  await handleBiteSaverRestaurantWrite(database, {
+    restaurantAccountId: "account-1",
+    before,
+    after,
+    now,
+  });
+
+  const restaurantIndex = database.records.get(restaurantIndexPath);
+  assert.equal(restaurantIndex.publicVisible, false);
+  assert.equal(restaurantIndex.adminDirectoryVisible, true);
+  const jobs = [...database.records.entries()].filter(([path]) =>
+    path.startsWith("private_search_index_jobs/"));
+  assert.equal(jobs.length, 1);
+  assert.equal(
+    jobs[0][1].requestedSourceFingerprint,
+    biteSaverOfferParentFingerprint(after),
+  );
+
+  const jobId = jobs[0][0].slice("private_search_index_jobs/".length);
+  const result = await processSearchIndexJob(database, jobId, now);
+  assert.deepEqual(result, {processedCount: 2, continuationCursor: null});
+  const couponIndex = database.records.get(couponIndexPath);
+  const dailySpecialIndex = database.records.get(dailySpecialIndexPath);
+  assert.equal(couponIndex.publicVisible, false);
+  assert.equal(couponIndex.adminVisible, true);
+  assert.equal(dailySpecialIndex.publicVisible, false);
+  assert.equal(dailySpecialIndex.adminVisible, true);
+  assert.equal(database.records.has(accountPath), true);
+  assert.equal(database.records.has(couponPath), true);
+  assert.equal(database.records.has(dailySpecialPath), true);
+  assert.equal(
+    database.operations.some((operation) =>
+      operation.operation === "delete" &&
+      [accountPath, couponPath, dailySpecialPath].includes(operation.path)),
+    false,
+  );
 });
 
 test("duplicate relevant parent events create only one deterministic job", async () => {

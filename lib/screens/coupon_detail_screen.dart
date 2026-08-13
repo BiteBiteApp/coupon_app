@@ -19,11 +19,26 @@ import '../widgets/persistent_bottom_navigation.dart';
 import 'customer_account_screen.dart';
 import 'restaurant_profile_screen.dart';
 
+typedef CouponFavoriteStateLoader = Future<bool> Function(String couponId);
+typedef CouponCustomerVisibilityLoader =
+    Future<bool> Function(Coupon coupon, Restaurant? restaurant);
+typedef CouponRedemptionStoreInitializer = Future<void> Function();
+
 class CouponDetailScreen extends StatefulWidget {
   final Coupon coupon;
   final Restaurant? restaurant;
+  final CouponFavoriteStateLoader? loadFavoriteState;
+  final CouponCustomerVisibilityLoader? loadCustomerVisibility;
+  final CouponRedemptionStoreInitializer? initializeRedemptionStore;
 
-  const CouponDetailScreen({super.key, required this.coupon, this.restaurant});
+  const CouponDetailScreen({
+    super.key,
+    required this.coupon,
+    this.restaurant,
+    @visibleForTesting this.loadFavoriteState,
+    @visibleForTesting this.loadCustomerVisibility,
+    @visibleForTesting this.initializeRedemptionStore,
+  });
 
   @override
   State<CouponDetailScreen> createState() => _CouponDetailScreenState();
@@ -462,7 +477,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   bool _isSavingFavoriteCoupon = false;
   bool _isSubmittingReport = false;
   bool _isOpeningRestaurant = false;
-  bool _isCustomerVisibleOffer = true;
+  bool _isCustomerVisibleOffer = false;
   Timer? _countdownTicker;
 
   bool get _supportsRedeemTimer =>
@@ -489,18 +504,28 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
 
   Future<void> _initializeRedemptionState() async {
     try {
-      await DemoRedemptionStore.ensureInitialized();
-      _isFavoriteCoupon = await BiteScoreService.isCouponFavoritedByCurrentUser(
-        widget.coupon.id,
-      );
+      final redemptionStoreInitializer = widget.initializeRedemptionStore;
+      if (redemptionStoreInitializer == null) {
+        await DemoRedemptionStore.ensureInitialized();
+      } else {
+        await redemptionStoreInitializer();
+      }
+      final favoriteLoader = widget.loadFavoriteState;
+      _isFavoriteCoupon = favoriteLoader == null
+          ? await BiteScoreService.isCouponFavoritedByCurrentUser(
+              widget.coupon.id,
+            )
+          : await favoriteLoader(widget.coupon.id);
       try {
-        _isCustomerVisibleOffer =
-            await RestaurantAccountService.isCouponCustomerVisible(
-              widget.coupon,
-              restaurant: widget.restaurant,
-            );
+        final visibilityLoader = widget.loadCustomerVisibility;
+        _isCustomerVisibleOffer = visibilityLoader == null
+            ? await RestaurantAccountService.isCouponCustomerVisible(
+                widget.coupon,
+                restaurant: widget.restaurant,
+              )
+            : await visibilityLoader(widget.coupon, widget.restaurant);
       } catch (_) {
-        _isCustomerVisibleOffer = true;
+        _isCustomerVisibleOffer = false;
       }
       _syncCountdownTicker();
     } finally {
@@ -514,11 +539,13 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
 
   Future<bool> _refreshCustomerVisibleOffer() async {
     try {
-      final isCustomerVisibleOffer =
-          await RestaurantAccountService.isCouponCustomerVisible(
-            widget.coupon,
-            restaurant: widget.restaurant,
-          );
+      final visibilityLoader = widget.loadCustomerVisibility;
+      final isCustomerVisibleOffer = visibilityLoader == null
+          ? await RestaurantAccountService.isCouponCustomerVisible(
+              widget.coupon,
+              restaurant: widget.restaurant,
+            )
+          : await visibilityLoader(widget.coupon, widget.restaurant);
       if (mounted) {
         setState(() {
           _isCustomerVisibleOffer = isCustomerVisibleOffer;
@@ -646,6 +673,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
       await BiteScoreService.setCouponFavorite(
         coupon: widget.coupon,
         isFavorite: nextIsFavorite,
+        restaurant: widget.restaurant,
       );
       if (!mounted) {
         return;
