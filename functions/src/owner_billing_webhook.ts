@@ -8,16 +8,11 @@ import {
   type OwnerBillingStateDocument,
   type OwnerBillingStripeEventConflictKind,
   parseOwnerBillingStateDocument,
+  requireOwnerBillingUid,
 } from "./owner_billing_state_contract.js";
-import {
-  buildOwnerRecordStateDocument,
-  type OwnerRecordStateDocument,
-  requireOwnerRecordGeneration,
-  requireOwnerRecordUid,
-} from "./owner_record_state_contract.js";
 
 export const ownerBillingStripeMetadataContractVersion =
-  "bitestar.owner-billing-metadata.v1" as const;
+  "bitestar.owner-billing-metadata.v2" as const;
 export const ownerBillingStripeMetadataSource =
   "bitesaver_subscription" as const;
 export const ownerBillingStripeMetadataPlan = "coupon_monthly" as const;
@@ -38,7 +33,6 @@ export type OwnerBillingStripeMetadata = Readonly<{
   contractVersion: typeof ownerBillingStripeMetadataContractVersion;
   ownerUid: string;
   restaurantAccountId: string;
-  ownerRecordGeneration: string;
   checkoutAttemptId: string;
   billingPlanName: typeof ownerBillingStripeMetadataPlan;
   source: typeof ownerBillingStripeMetadataSource;
@@ -47,7 +41,6 @@ export type OwnerBillingStripeMetadata = Readonly<{
 export type OwnerBillingWebhookEvent = Readonly<{
   ownerUid: string;
   restaurantAccountId: string;
-  ownerRecordGeneration: number;
   checkoutAttemptId: string;
   stripeCustomerId: string;
   stripeSubscriptionId: string;
@@ -62,7 +55,6 @@ export type OwnerBillingWebhookEvent = Readonly<{
 export type OwnerBillingWebhookUnknownStatusEvent = Readonly<{
   ownerUid: string;
   restaurantAccountId: string;
-  ownerRecordGeneration: number;
   checkoutAttemptId: string;
   stripeCustomerId: string;
   stripeSubscriptionId: string;
@@ -77,16 +69,9 @@ type OwnerBillingWebhookComparableEvent =
   | OwnerBillingWebhookEvent
   | OwnerBillingWebhookUnknownStatusEvent;
 
-export type OwnerBillingWebhookOwnerFence = Readonly<{
-  ownerUid: string;
-  generation: number;
-  state: "open" | "removing" | "removed";
-}>;
-
 export type OwnerBillingWebhookCurrentEvent = Readonly<{
   ownerUid: string;
   restaurantAccountId: string;
-  ownerRecordGeneration: number;
   checkoutAttemptId: string;
   stripeCustomerId: string;
   stripeSubscriptionId: string;
@@ -102,11 +87,8 @@ export type OwnerBillingWebhookDecision = Readonly<{
     | "ignore_exact_duplicate"
     | "ignore_equal_equivalent"
     | "ignore_older_event"
-    | "ignore_stale_generation"
     | "mark_unknown_conflict"
-    | "reject_future_generation"
-    | "reject_invalid_state"
-    | "reject_owner_not_open";
+    | "reject_invalid_state";
   billingEffect: "apply_incoming" | "retain_current" | "set_unknown";
   conflictKind: OwnerBillingStripeEventConflictKind | null;
   allowAccountRootUpdate: boolean;
@@ -137,7 +119,6 @@ const metadataKeys = Object.freeze([
   "contractVersion",
   "ownerUid",
   "restaurantAccountId",
-  "ownerRecordGeneration",
   "checkoutAttemptId",
   "billingPlanName",
   "source",
@@ -184,7 +165,7 @@ function hasExactKeys(
 
 function requireOwnerUid(value: unknown): string {
   try {
-    return requireOwnerRecordUid(value);
+    return requireOwnerBillingUid(value);
   } catch {
     return invalidMetadata();
   }
@@ -200,31 +181,9 @@ function requireCheckoutAttemptId(value: unknown): string {
   return value;
 }
 
-function requireGenerationMetadata(value: unknown): number {
-  if (
-    typeof value !== "string" ||
-    !/^(?:0|[1-9][0-9]*)$/.test(value)
-  ) {
-    invalidMetadata();
-  }
-  const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed < 0 || String(parsed) !== value) {
-    invalidMetadata();
-  }
-  return parsed;
-}
-
-function requireSafeGeneration(value: unknown): number {
-  try {
-    return requireOwnerRecordGeneration(value);
-  } catch {
-    return invalidEvent();
-  }
-}
-
 function isValidOwnerUid(value: unknown): value is string {
   try {
-    requireOwnerRecordUid(value);
+    requireOwnerBillingUid(value);
     return true;
   } catch {
     return false;
@@ -271,17 +230,14 @@ function requireFingerprint(value: unknown): string {
 
 export function createOwnerBillingStripeMetadata(params: {
   ownerUid: unknown;
-  ownerRecordGeneration: unknown;
   checkoutAttemptId: unknown;
 }): OwnerBillingStripeMetadata {
   const ownerUid = requireOwnerUid(params.ownerUid);
-  const generation = requireSafeGeneration(params.ownerRecordGeneration);
   const checkoutAttemptId = requireCheckoutAttemptId(params.checkoutAttemptId);
   return Object.freeze({
     contractVersion: ownerBillingStripeMetadataContractVersion,
     ownerUid,
     restaurantAccountId: ownerUid,
-    ownerRecordGeneration: String(generation),
     checkoutAttemptId,
     billingPlanName: ownerBillingStripeMetadataPlan,
     source: ownerBillingStripeMetadataSource,
@@ -297,7 +253,6 @@ export function parseOwnerBillingStripeMetadata(
     }
     const ownerUid = requireOwnerUid(raw.ownerUid);
     const restaurantAccountId = requireOwnerUid(raw.restaurantAccountId);
-    requireGenerationMetadata(raw.ownerRecordGeneration);
     const checkoutAttemptId = requireCheckoutAttemptId(raw.checkoutAttemptId);
     if (
       raw.contractVersion !== ownerBillingStripeMetadataContractVersion ||
@@ -311,7 +266,6 @@ export function parseOwnerBillingStripeMetadata(
       contractVersion: ownerBillingStripeMetadataContractVersion,
       ownerUid,
       restaurantAccountId,
-      ownerRecordGeneration: raw.ownerRecordGeneration as string,
       checkoutAttemptId,
       billingPlanName: ownerBillingStripeMetadataPlan,
       source: ownerBillingStripeMetadataSource,
@@ -357,7 +311,6 @@ function effectivePayloadFingerprint(params: {
     params.metadata.contractVersion,
     params.metadata.ownerUid,
     params.metadata.restaurantAccountId,
-    params.metadata.ownerRecordGeneration,
     params.metadata.checkoutAttemptId,
     params.metadata.billingPlanName,
     params.metadata.source,
@@ -402,9 +355,6 @@ export function createOwnerBillingWebhookEvent(params: {
   return Object.freeze({
     ownerUid: metadata.ownerUid,
     restaurantAccountId: metadata.restaurantAccountId,
-    ownerRecordGeneration: requireGenerationMetadata(
-      metadata.ownerRecordGeneration,
-    ),
     checkoutAttemptId: metadata.checkoutAttemptId,
     stripeCustomerId,
     stripeSubscriptionId,
@@ -454,9 +404,6 @@ export function createOwnerBillingUnknownStatusWebhookEvent(params: {
   return Object.freeze({
     ownerUid: metadata.ownerUid,
     restaurantAccountId: metadata.restaurantAccountId,
-    ownerRecordGeneration: requireGenerationMetadata(
-      metadata.ownerRecordGeneration,
-    ),
     checkoutAttemptId: metadata.checkoutAttemptId,
     stripeCustomerId,
     stripeSubscriptionId,
@@ -498,45 +445,28 @@ function sameSubscriptionIdentity(
 ): boolean {
   return current.ownerUid === incoming.ownerUid &&
     current.restaurantAccountId === incoming.restaurantAccountId &&
-    current.ownerRecordGeneration === incoming.ownerRecordGeneration &&
     current.checkoutAttemptId === incoming.checkoutAttemptId &&
     current.stripeCustomerId === incoming.stripeCustomerId &&
     current.stripeSubscriptionId === incoming.stripeSubscriptionId;
 }
 
 export function decideOwnerBillingWebhookEvent(params: {
-  owner: OwnerBillingWebhookOwnerFence;
+  ownerUid: string;
   expectedCheckoutAttemptId: string | null;
   current: OwnerBillingWebhookCurrentEvent | null;
   incoming: OwnerBillingWebhookComparableEvent;
 }): OwnerBillingWebhookDecision {
-  const ownerGeneration = requireSafeGeneration(params.owner.generation);
   if (
-    params.owner.ownerUid !== params.incoming.ownerUid ||
+    params.ownerUid !== params.incoming.ownerUid ||
     params.incoming.restaurantAccountId !== params.incoming.ownerUid ||
-    !isValidOwnerUid(params.owner.ownerUid) ||
-    (params.owner.state !== "open" &&
-      params.owner.state !== "removing" &&
-      params.owner.state !== "removed")
+    !isValidOwnerUid(params.ownerUid)
   ) {
     return decision("reject_invalid_state", "set_unknown");
-  }
-  if (params.owner.state !== "open") {
-    return decision("reject_owner_not_open", "retain_current");
-  }
-  if (params.incoming.ownerRecordGeneration < ownerGeneration) {
-    return decision("ignore_stale_generation", "retain_current");
-  }
-  if (params.incoming.ownerRecordGeneration > ownerGeneration) {
-    return decision("reject_future_generation", "set_unknown", {
-      conflictKind: "identity",
-    });
   }
 
   const current = params.current;
   if (current !== null) {
     try {
-      requireSafeGeneration(current.ownerRecordGeneration);
       requireEventCreated(current.lastStripeEventCreated);
       requireStripeIdentity(current.lastStripeEventId, stripeEventIdPattern);
       requireFingerprint(current.lastStripeEventPayloadFingerprint);
@@ -544,9 +474,8 @@ export function decideOwnerBillingWebhookEvent(params: {
       return decision("reject_invalid_state", "set_unknown");
     }
     if (
-      current.ownerUid !== params.owner.ownerUid ||
-      current.restaurantAccountId !== params.owner.ownerUid ||
-      current.ownerRecordGeneration !== ownerGeneration
+      current.ownerUid !== params.ownerUid ||
+      current.restaurantAccountId !== params.ownerUid
     ) {
       return decision("reject_invalid_state", "set_unknown");
     }
@@ -629,40 +558,12 @@ function requireCurrentBillingState(
   }) ?? invalidEvent();
 }
 
-function requireCurrentOwnerState(
-  owner: OwnerRecordStateDocument,
-): OwnerRecordStateDocument {
-  try {
-    if (owner.version !== "bitestar.owner-record-state.v1") {
-      invalidEvent();
-    }
-    const rebuilt = buildOwnerRecordStateDocument({
-      ownerUid: owner.ownerUid,
-      generation: owner.generation,
-      state: owner.state,
-      activeJobId: owner.activeJobId,
-      createdAt: owner.createdAt,
-      updatedAt: owner.updatedAt,
-    });
-    if (rebuilt.fingerprint !== owner.fingerprint) {
-      invalidEvent();
-    }
-    return rebuilt;
-  } catch (error) {
-    if (error instanceof OwnerBillingWebhookContractError) {
-      throw error;
-    }
-    return invalidEvent();
-  }
-}
-
 function requireCanonicalIncoming(
   incoming: OwnerBillingWebhookEvent,
 ): OwnerBillingWebhookEvent {
   const canonical = createOwnerBillingWebhookEvent({
     metadata: createOwnerBillingStripeMetadata({
       ownerUid: incoming.ownerUid,
-      ownerRecordGeneration: incoming.ownerRecordGeneration,
       checkoutAttemptId: incoming.checkoutAttemptId,
     }),
     stripeCustomerId: incoming.stripeCustomerId,
@@ -686,7 +587,6 @@ function requireCanonicalUnknownStatusIncoming(
   const canonical = createOwnerBillingUnknownStatusWebhookEvent({
     metadata: createOwnerBillingStripeMetadata({
       ownerUid: incoming.ownerUid,
-      ownerRecordGeneration: incoming.ownerRecordGeneration,
       checkoutAttemptId: incoming.checkoutAttemptId,
     }),
     stripeCustomerId: incoming.stripeCustomerId,
@@ -720,7 +620,6 @@ function currentEventFromBillingState(
   return Object.freeze({
     ownerUid: current.ownerUid,
     restaurantAccountId: current.ownerUid,
-    ownerRecordGeneration: current.ownerRecordGeneration,
     checkoutAttemptId: current.checkoutAttemptId,
     stripeCustomerId: current.stripeCustomerId,
     stripeSubscriptionId: current.stripeSubscriptionId,
@@ -760,7 +659,6 @@ function buildAppliedBillingState(params: {
   }
   return buildOwnerBillingStateDocument({
     ownerUid: params.current.ownerUid,
-    ownerRecordGeneration: params.current.ownerRecordGeneration,
     lifecycleState: "subscription_known",
     rawStripeStatus: params.incoming.rawStripeStatus,
     billingPosture: params.incoming.billingPosture,
@@ -803,9 +701,7 @@ function buildUnknownBillingState(params: {
     params.decision.conflictKind === "identity" &&
     params.current.checkoutAttemptId === params.incoming.checkoutAttemptId &&
     params.current.stripeCustomerId === null &&
-    params.current.stripeSubscriptionId === null &&
-    params.incoming.ownerRecordGeneration ===
-      params.current.ownerRecordGeneration;
+    params.current.stripeSubscriptionId === null;
   const useIncoming = !hasCurrentEvent && canRecordIncomingIdentity;
   const rawStripeStatus = useIncoming && "rawStripeStatus" in params.incoming
     ? params.incoming.rawStripeStatus
@@ -839,7 +735,6 @@ function buildUnknownBillingState(params: {
 
   return buildOwnerBillingStateDocument({
     ownerUid: params.current.ownerUid,
-    ownerRecordGeneration: params.current.ownerRecordGeneration,
     lifecycleState: "unknown",
     rawStripeStatus,
     billingPosture: "unknown",
@@ -873,7 +768,6 @@ function buildUnknownStatusBillingState(params: {
   }
   return buildOwnerBillingStateDocument({
     ownerUid: params.current.ownerUid,
-    ownerRecordGeneration: params.current.ownerRecordGeneration,
     lifecycleState: "unknown",
     rawStripeStatus: null,
     billingPosture: "unknown",
@@ -899,24 +793,14 @@ function buildUnknownStatusBillingState(params: {
  * state. It is pure: callers own the Firestore transaction and root update.
  */
 export function applyOwnerBillingWebhookEvent(params: {
-  owner: OwnerRecordStateDocument;
   current: OwnerBillingStateDocument;
   incoming: OwnerBillingWebhookEvent;
   now: Date;
 }): OwnerBillingWebhookApplyResult {
-  const owner = requireCurrentOwnerState(params.owner);
   const current = requireCurrentBillingState(params.current);
   const incoming = requireCanonicalIncoming(params.incoming);
   const now = requireTransitionTime(params.now, current);
-  if (
-    owner.ownerUid !== current.ownerUid ||
-    owner.generation !== current.ownerRecordGeneration
-  ) {
-    invalidEvent();
-  }
   const hasPersistedIdentityConflict =
-    owner.state === "open" &&
-    incoming.ownerRecordGeneration === current.ownerRecordGeneration &&
     (current.lastStripeEventCreated === null ||
       incoming.eventCreated >= current.lastStripeEventCreated) &&
     ((current.stripeCustomerId !== null &&
@@ -928,11 +812,7 @@ export function applyOwnerBillingWebhookEvent(params: {
       conflictKind: "identity",
     })
     : decideOwnerBillingWebhookEvent({
-      owner: {
-        ownerUid: owner.ownerUid,
-        generation: owner.generation,
-        state: owner.state,
-      },
+      ownerUid: current.ownerUid,
       expectedCheckoutAttemptId: current.checkoutAttemptId,
       current: currentEventFromBillingState(current),
       incoming,
@@ -964,24 +844,14 @@ export function applyOwnerBillingWebhookEvent(params: {
  * high-water mark. No unsupported raw value can enter the strict state.
  */
 export function applyOwnerBillingUnknownStatusWebhookEvent(params: {
-  owner: OwnerRecordStateDocument;
   current: OwnerBillingStateDocument;
   incoming: OwnerBillingWebhookUnknownStatusEvent;
   now: Date;
 }): OwnerBillingWebhookApplyResult {
-  const owner = requireCurrentOwnerState(params.owner);
   const current = requireCurrentBillingState(params.current);
   const incoming = requireCanonicalUnknownStatusIncoming(params.incoming);
   const now = requireTransitionTime(params.now, current);
-  if (
-    owner.ownerUid !== current.ownerUid ||
-    owner.generation !== current.ownerRecordGeneration
-  ) {
-    invalidEvent();
-  }
   const hasPersistedIdentityConflict =
-    owner.state === "open" &&
-    incoming.ownerRecordGeneration === current.ownerRecordGeneration &&
     (current.lastStripeEventCreated === null ||
       incoming.eventCreated >= current.lastStripeEventCreated) &&
     ((current.stripeCustomerId !== null &&
@@ -993,11 +863,7 @@ export function applyOwnerBillingUnknownStatusWebhookEvent(params: {
       conflictKind: "identity",
     })
     : decideOwnerBillingWebhookEvent({
-      owner: {
-        ownerUid: owner.ownerUid,
-        generation: owner.generation,
-        state: owner.state,
-      },
+      ownerUid: current.ownerUid,
       expectedCheckoutAttemptId: current.checkoutAttemptId,
       current: currentEventFromBillingState(current),
       incoming,

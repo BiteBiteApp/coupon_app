@@ -6,6 +6,7 @@ const {
   closeSync,
   existsSync,
   fstatSync,
+  lstatSync,
   mkdtempSync,
   openSync,
   readFileSync,
@@ -125,7 +126,18 @@ function trackedRuntimeTypeScriptPaths() {
     .toString("utf8")
     .split("\0")
     .filter(Boolean);
-  const runtimePaths = selectRuntimeTypeScriptPaths(trackedPaths);
+  const runtimePaths = selectRuntimeTypeScriptPaths(trackedPaths)
+    .filter((trackedPath) => {
+      try {
+        lstatSync(path.join(repositoryRoot, trackedPath));
+        return true;
+      } catch (error) {
+        if (error?.code === "ENOENT") {
+          return false;
+        }
+        throw error;
+      }
+    });
   assert.notEqual(runtimePaths.length, 0);
   return runtimePaths;
 }

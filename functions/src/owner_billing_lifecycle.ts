@@ -2,14 +2,9 @@ import {createHash, randomBytes} from "node:crypto";
 
 import {
   buildOwnerBillingStateDocument,
+  requireOwnerBillingUid,
   type OwnerBillingStateDocument,
 } from "./owner_billing_state_contract.js";
-import {
-  buildOwnerRecordStateDocument,
-  type OwnerRecordStateDocument,
-  requireOwnerRecordGeneration,
-  requireOwnerRecordUid,
-} from "./owner_record_state_contract.js";
 import {requireSubscriptionReturnToken} from "./subscription_return_token.js";
 
 export const ownerBillingCheckoutAttemptByteLength = 32;
@@ -33,7 +28,6 @@ export class OwnerBillingLifecycleError extends Error {
     | "invalid_input"
     | "checkout_conflict"
     | "checkout_retry_expired"
-    | "owner_not_open"
     | "billing_unavailable"
     | "customer_mismatch";
 
@@ -102,32 +96,11 @@ function requireCheckoutCustomerId(value: unknown): string | null {
   return customerId;
 }
 
-function validOwnerState(value: OwnerRecordStateDocument):
-  OwnerRecordStateDocument {
-  try {
-    const rebuilt = buildOwnerRecordStateDocument({
-      ownerUid: value.ownerUid,
-      generation: value.generation,
-      state: value.state,
-      activeJobId: value.activeJobId,
-      createdAt: value.createdAt,
-      updatedAt: value.updatedAt,
-    });
-    if (rebuilt.fingerprint !== value.fingerprint) {
-      invalidInput();
-    }
-    return rebuilt;
-  } catch {
-    return invalidInput();
-  }
-}
-
 function validBillingState(value: OwnerBillingStateDocument):
   OwnerBillingStateDocument {
   try {
     const rebuilt = buildOwnerBillingStateDocument({
       ownerUid: value.ownerUid,
-      ownerRecordGeneration: value.ownerRecordGeneration,
       lifecycleState: value.lifecycleState,
       rawStripeStatus: value.rawStripeStatus,
       billingPosture: value.billingPosture,
@@ -175,13 +148,11 @@ export function generateOwnerBillingCheckoutAttemptId(
 /** Reconstructs byte-identical private return material without storing a token. */
 export function deriveOwnerBillingReturnToken(params: {
   ownerUid: unknown;
-  ownerRecordGeneration: unknown;
   checkoutAttemptId: unknown;
 }): string {
   const token = sha256([
-    "bitestar.owner-billing.return-token.v1",
-    requireOwnerRecordUid(params.ownerUid),
-    requireOwnerRecordGeneration(params.ownerRecordGeneration),
+    "bitestar.owner-billing.return-token.v2",
+    requireOwnerBillingUid(params.ownerUid),
     requireExactIdentifier(params.checkoutAttemptId),
   ]).toString("base64url");
   return requireSubscriptionReturnToken(token);
@@ -212,13 +183,11 @@ export function ownerBillingCheckoutRequestFingerprint(
 
 export function ownerBillingStripeIdempotencyKey(params: {
   ownerUid: unknown;
-  ownerRecordGeneration: unknown;
   checkoutAttemptId: unknown;
 }): string {
   return `bsco_${sha256([
-    "bitestar.owner-billing.stripe-idempotency.v1",
-    requireOwnerRecordUid(params.ownerUid),
-    requireOwnerRecordGeneration(params.ownerRecordGeneration),
+    "bitestar.owner-billing.stripe-idempotency.v2",
+    requireOwnerBillingUid(params.ownerUid),
     requireExactIdentifier(params.checkoutAttemptId),
   ]).toString("hex")}`;
 }
@@ -265,18 +234,14 @@ export function requireReusableOwnerBillingCheckoutAttempt(params: {
 }
 
 export function requireOwnerBillingPortalGate(params: {
-  ownerState: OwnerRecordStateDocument;
+  ownerUid: unknown;
   billingState: OwnerBillingStateDocument;
   stripeCustomerId: unknown;
 }): string {
-  const owner = validOwnerState(params.ownerState);
+  const ownerUid = requireOwnerBillingUid(params.ownerUid);
   const billing = validBillingState(params.billingState);
-  if (owner.state !== "open") {
-    throw new OwnerBillingLifecycleError("owner_not_open");
-  }
   if (
-    owner.ownerUid !== billing.ownerUid ||
-    owner.generation !== billing.ownerRecordGeneration ||
+    ownerUid !== billing.ownerUid ||
     billing.lifecycleState !== "subscription_known" ||
     billing.stripeCustomerId === null
   ) {

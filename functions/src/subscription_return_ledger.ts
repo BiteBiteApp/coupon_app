@@ -7,7 +7,7 @@ import {
 
 export const subscriptionReturnLedgerCollection =
   "private_subscription_return_state";
-export const subscriptionReturnLedgerSchemaVersion = 2 as const;
+export const subscriptionReturnLedgerSchemaVersion = 3 as const;
 export const subscriptionReturnLedgerMaximumContexts = 32;
 export const subscriptionReturnLedgerMaximumEvents = 32;
 export const subscriptionReturnLedgerLifetimeMilliseconds =
@@ -55,7 +55,6 @@ export type SubscriptionReturnListRequest = Readonly<{
 
 export type SubscriptionReturnLedgerContext = Readonly<{
   schemaVersion: typeof subscriptionReturnLedgerSchemaVersion;
-  ownerRecordGeneration: number;
   family: SubscriptionReturnFamily;
   createdAtEpochMs: number;
   expiresAtEpochMs: number;
@@ -70,7 +69,6 @@ export type SubscriptionReturnLedgerEvent = Readonly<{
   returnKind: SubscriptionReturnKind;
   ownerUid: string;
   restaurantAccountDocumentId: string;
-  ownerRecordGeneration: number;
   createdAtEpochMs: number;
   expiresAtEpochMs: number;
   navigationClaimed: boolean;
@@ -82,7 +80,6 @@ export type SubscriptionReturnLedgerState = Readonly<{
   schemaVersion: typeof subscriptionReturnLedgerSchemaVersion;
   ownerUid: string;
   restaurantAccountDocumentId: string;
-  ownerRecordGeneration: number;
   nextEventId: number;
   contexts: Readonly<Record<string, SubscriptionReturnLedgerContext>>;
   events: Readonly<Record<string, SubscriptionReturnLedgerEvent>>;
@@ -121,7 +118,6 @@ export class SubscriptionReturnLedgerError extends Error {
 
 type MutableContext = {
   schemaVersion: typeof subscriptionReturnLedgerSchemaVersion;
-  ownerRecordGeneration: number;
   family: SubscriptionReturnFamily;
   createdAtEpochMs: number;
   expiresAtEpochMs: number;
@@ -136,7 +132,6 @@ type MutableEvent = {
   returnKind: SubscriptionReturnKind;
   ownerUid: string;
   restaurantAccountDocumentId: string;
-  ownerRecordGeneration: number;
   createdAtEpochMs: number;
   expiresAtEpochMs: number;
   navigationClaimed: boolean;
@@ -148,7 +143,6 @@ type MutableState = {
   schemaVersion: typeof subscriptionReturnLedgerSchemaVersion;
   ownerUid: string;
   restaurantAccountDocumentId: string;
-  ownerRecordGeneration: number;
   nextEventId: number;
   contexts: Record<string, MutableContext>;
   events: Record<string, MutableEvent>;
@@ -215,7 +209,6 @@ function contextFingerprint(
 ): string {
   return sha256Fingerprint([
     context.schemaVersion,
-    context.ownerRecordGeneration,
     context.family,
     context.createdAtEpochMs,
     context.expiresAtEpochMs,
@@ -233,7 +226,6 @@ function eventFingerprint(
     event.returnKind,
     event.ownerUid,
     event.restaurantAccountDocumentId,
-    event.ownerRecordGeneration,
     event.createdAtEpochMs,
     event.expiresAtEpochMs,
     event.navigationClaimed,
@@ -252,7 +244,6 @@ function stateFingerprint(state: Omit<MutableState, "fingerprint">): string {
     state.schemaVersion,
     state.ownerUid,
     state.restaurantAccountDocumentId,
-    state.ownerRecordGeneration,
     state.nextEventId,
     contexts,
     events,
@@ -483,17 +474,6 @@ function requireOwnerUid(value: unknown): string {
   return value;
 }
 
-function requireOwnerRecordGeneration(value: unknown): number {
-  if (
-    typeof value !== "number" ||
-    !Number.isSafeInteger(value) ||
-    value < 0
-  ) {
-    invalidState();
-  }
-  return value;
-}
-
 export function requireRestaurantAccountOwnership(params: {
   ownerUid: string;
   restaurantAccountDocumentId: string;
@@ -582,14 +562,12 @@ function requireNow(nowEpochMs: number): number {
 
 function requireContext(
   value: unknown,
-  ownerRecordGeneration: number,
   nowEpochMs: number,
 ): MutableContext {
   if (
     !isPlainRecord(value) ||
     !hasExactKeys(value, [
       "schemaVersion",
-      "ownerRecordGeneration",
       "family",
       "createdAtEpochMs",
       "expiresAtEpochMs",
@@ -598,7 +576,6 @@ function requireContext(
       "fingerprint",
     ]) ||
     value.schemaVersion !== subscriptionReturnLedgerSchemaVersion ||
-    value.ownerRecordGeneration !== ownerRecordGeneration ||
     (value.family !== "checkout" && value.family !== "customerPortal") ||
     typeof value.ready !== "boolean" ||
     (value.consumedEventId !== null &&
@@ -614,7 +591,6 @@ function requireContext(
   });
   const context: MutableContext = {
     schemaVersion: subscriptionReturnLedgerSchemaVersion,
-    ownerRecordGeneration,
     family: value.family,
     createdAtEpochMs: timestamps.createdAtEpochMs,
     expiresAtEpochMs: timestamps.expiresAtEpochMs,
@@ -632,7 +608,6 @@ function requireEvent(
   value: unknown,
   ownerUid: string,
   restaurantAccountDocumentId: string,
-  ownerRecordGeneration: number,
   nowEpochMs: number,
 ): MutableEvent {
   if (
@@ -643,7 +618,6 @@ function requireEvent(
       "returnKind",
       "ownerUid",
       "restaurantAccountDocumentId",
-      "ownerRecordGeneration",
       "createdAtEpochMs",
       "expiresAtEpochMs",
       "navigationClaimed",
@@ -655,7 +629,6 @@ function requireEvent(
     !isSubscriptionReturnKind(value.returnKind) ||
     value.ownerUid !== ownerUid ||
     value.restaurantAccountDocumentId !== restaurantAccountDocumentId ||
-    value.ownerRecordGeneration !== ownerRecordGeneration ||
     typeof value.navigationClaimed !== "boolean" ||
     typeof value.refreshClaimed !== "boolean"
   ) {
@@ -672,7 +645,6 @@ function requireEvent(
     returnKind: value.returnKind,
     ownerUid,
     restaurantAccountDocumentId,
-    ownerRecordGeneration,
     createdAtEpochMs: timestamps.createdAtEpochMs,
     expiresAtEpochMs: timestamps.expiresAtEpochMs,
     navigationClaimed: value.navigationClaimed,
@@ -703,7 +675,6 @@ function cloneAndValidateState(
       "schemaVersion",
       "ownerUid",
       "restaurantAccountDocumentId",
-      "ownerRecordGeneration",
       "nextEventId",
       "contexts",
       "events",
@@ -722,9 +693,6 @@ function cloneAndValidateState(
   if (ownerUid !== restaurantAccountDocumentId) {
     invalidState();
   }
-  const ownerRecordGeneration = requireOwnerRecordGeneration(
-    value.ownerRecordGeneration,
-  );
   const createdAtEpochMs = requireSafeEpochMilliseconds(
     value.createdAtEpochMs,
   );
@@ -764,11 +732,7 @@ function cloneAndValidateState(
 
   const contexts: Record<string, MutableContext> = {};
   for (const key of contextKeys as string[]) {
-    contexts[key] = requireContext(
-      rawContexts[key],
-      ownerRecordGeneration,
-      nowEpochMs,
-    );
+    contexts[key] = requireContext(rawContexts[key], nowEpochMs);
   }
   const events: Record<string, MutableEvent> = {};
   for (const key of eventKeys as string[]) {
@@ -776,7 +740,6 @@ function cloneAndValidateState(
       rawEvents[key],
       ownerUid,
       restaurantAccountDocumentId,
-      ownerRecordGeneration,
       nowEpochMs,
     );
     if (
@@ -824,7 +787,6 @@ function cloneAndValidateState(
     schemaVersion: subscriptionReturnLedgerSchemaVersion,
     ownerUid,
     restaurantAccountDocumentId,
-    ownerRecordGeneration,
     nextEventId: value.nextEventId,
     contexts,
     events,
@@ -841,15 +803,12 @@ function cloneAndValidateState(
 function createEmptyState(params: {
   ownerUid: string;
   restaurantAccountDocumentId: string;
-  ownerRecordGeneration: number;
   nowEpochMs: number;
 }): MutableState {
   const nowEpochMs = requireNow(params.nowEpochMs);
   if (
     !isValidRestaurantAccountDocumentId(params.ownerUid) ||
-    params.restaurantAccountDocumentId !== params.ownerUid ||
-    !Number.isSafeInteger(params.ownerRecordGeneration) ||
-    params.ownerRecordGeneration < 0
+    params.restaurantAccountDocumentId !== params.ownerUid
   ) {
     throw new SubscriptionReturnLedgerError("invalid_owner");
   }
@@ -857,7 +816,6 @@ function createEmptyState(params: {
     schemaVersion: subscriptionReturnLedgerSchemaVersion,
     ownerUid: params.ownerUid,
     restaurantAccountDocumentId: params.restaurantAccountDocumentId,
-    ownerRecordGeneration: params.ownerRecordGeneration,
     nextEventId: 1,
     contexts: {},
     events: {},
@@ -871,15 +829,13 @@ function stateForOwner(params: {
   rawState: unknown;
   ownerUid: string;
   restaurantAccountDocumentId: string;
-  ownerRecordGeneration: number;
   nowEpochMs: number;
 }): MutableState {
   const state = cloneAndValidateState(params.rawState, params.nowEpochMs);
   if (
     state.ownerUid !== params.ownerUid ||
     state.restaurantAccountDocumentId !==
-      params.restaurantAccountDocumentId ||
-    state.ownerRecordGeneration !== params.ownerRecordGeneration
+      params.restaurantAccountDocumentId
   ) {
     throw new SubscriptionReturnLedgerError("invalid_owner");
   }
@@ -929,7 +885,6 @@ export function reserveSubscriptionReturnContext(params: {
   rawState: unknown | undefined;
   ownerUid: string;
   restaurantAccountDocumentId: string;
-  ownerRecordGeneration: number;
   tokenHash: string;
   family: SubscriptionReturnFamily;
   nowEpochMs: number;
@@ -944,8 +899,6 @@ export function reserveSubscriptionReturnContext(params: {
   if (existingContext !== undefined) {
     if (
       params.allowExistingTokenHash === true &&
-      existingContext.ownerRecordGeneration ===
-        params.ownerRecordGeneration &&
       existingContext.family === params.family &&
       existingContext.consumedEventId === null &&
       existingContext.expiresAtEpochMs > params.nowEpochMs
@@ -974,7 +927,6 @@ export function reserveSubscriptionReturnContext(params: {
   );
   state.contexts[tokenHash] = {
     schemaVersion: subscriptionReturnLedgerSchemaVersion,
-    ownerRecordGeneration: params.ownerRecordGeneration,
     family: params.family,
     createdAtEpochMs: contextCreatedAtEpochMs,
     expiresAtEpochMs:
@@ -992,7 +944,6 @@ export function markSubscriptionReturnContextReady(params: {
   rawState: unknown;
   ownerUid: string;
   restaurantAccountDocumentId: string;
-  ownerRecordGeneration: number;
   tokenHash: string;
   nowEpochMs: number;
 }): SubscriptionReturnLedgerState {
@@ -1012,7 +963,6 @@ export function removeUnreadySubscriptionReturnContext(params: {
   rawState: unknown;
   ownerUid: string;
   restaurantAccountDocumentId: string;
-  ownerRecordGeneration: number;
   tokenHash: string;
   nowEpochMs: number;
 }): SubscriptionReturnLedgerState {
@@ -1035,7 +985,6 @@ export function redeemSubscriptionReturnContext(params: {
   rawState: unknown;
   ownerUid: string;
   restaurantAccountDocumentId: string;
-  ownerRecordGeneration: number;
   tokenHash: string;
   returnKind: SubscriptionReturnKind;
   nowEpochMs: number;
@@ -1097,7 +1046,6 @@ export function redeemSubscriptionReturnContext(params: {
     returnKind: params.returnKind,
     ownerUid: params.ownerUid,
     restaurantAccountDocumentId: params.restaurantAccountDocumentId,
-    ownerRecordGeneration: params.ownerRecordGeneration,
     createdAtEpochMs: eventCreatedAtEpochMs,
     expiresAtEpochMs:
       eventCreatedAtEpochMs +
@@ -1121,7 +1069,6 @@ export function claimSubscriptionReturnEvent(params: {
   rawState: unknown;
   ownerUid: string;
   restaurantAccountDocumentId: string;
-  ownerRecordGeneration: number;
   eventId: string;
   claimType: SubscriptionReturnClaimType;
   nowEpochMs: number;
@@ -1169,7 +1116,6 @@ export function listSubscriptionReturnEvents(params: {
   rawState: unknown | undefined;
   ownerUid: string;
   restaurantAccountDocumentId: string;
-  ownerRecordGeneration: number;
   nowEpochMs: number;
 }): Readonly<{
   state: SubscriptionReturnLedgerState | null;

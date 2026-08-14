@@ -1,8 +1,9 @@
+"use strict";
+
 const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const billing = require("../lib/owner_billing_state_contract.js");
-const owner = require("../lib/owner_record_state_contract.js");
 
 const ownerUid = "owner-billing-contract-uid";
 const createdAt = new Date("2026-08-11T12:00:00.000Z");
@@ -22,38 +23,12 @@ const expectedPostures = Object.freeze({
   unpaid: "blocking",
 });
 
-function openOwner(generation = 0) {
-  return owner.buildOwnerRecordStateDocument({
-    ownerUid,
-    generation,
-    state: "open",
-    activeJobId: null,
-    createdAt,
-    updatedAt,
-  });
+function initial(uid = ownerUid) {
+  return billing.createInitialOwnerBillingState(uid, createdAt);
 }
 
-function ownerWithState(state, generation = 0) {
-  return owner.buildOwnerRecordStateDocument({
-    ownerUid,
-    generation,
-    state,
-    activeJobId: state === "removing" ? "removal-job" : null,
-    createdAt,
-    updatedAt,
-  });
-}
-
-function initial(generation = 0) {
-  return billing.createInitialOwnerBillingState(
-    ownerUid,
-    generation,
-    createdAt,
-  );
-}
-
-function pending(generation = 0) {
-  return billing.createCheckoutPendingOwnerBillingState(initial(generation), {
+function pending() {
+  return billing.createCheckoutPendingOwnerBillingState(initial(), {
     checkoutAttemptId: "attempt_contract_1",
     checkoutRequestFingerprint: fingerprintA,
     checkoutAttemptCreatedAt: attemptAt,
@@ -61,10 +36,9 @@ function pending(generation = 0) {
   });
 }
 
-function known(status, changes = {}) {
+function known(status = "active", changes = {}) {
   return billing.buildOwnerBillingStateDocument({
     ownerUid,
-    ownerRecordGeneration: 0,
     lifecycleState: "subscription_known",
     rawStripeStatus: status,
     billingPosture: expectedPostures[status],
@@ -87,7 +61,6 @@ function known(status, changes = {}) {
 function unknown(changes = {}) {
   return billing.buildOwnerBillingStateDocument({
     ownerUid,
-    ownerRecordGeneration: 0,
     lifecycleState: "unknown",
     rawStripeStatus: null,
     billingPosture: "unknown",
@@ -107,32 +80,28 @@ function unknown(changes = {}) {
   });
 }
 
+function coreOf(document) {
+  const core = {...document};
+  delete core.version;
+  delete core.fingerprint;
+  return core;
+}
+
 function stored(document, changes = {}, id = ownerUid) {
   return {id, data: {...document, ...changes}};
 }
 
-function timestampLike(value) {
-  return {toDate: () => new Date(value.getTime())};
-}
-
-function assertInvalidState(action) {
+function assertContractError(action, expectedCode) {
   assert.throws(action, (error) => {
     assert.equal(error.name, "OwnerBillingStateContractError");
-    assert.equal(error.code, "invalid-state");
-    assert.equal(error.message, "Stored owner billing state is invalid.");
+    assert.equal(error.code, expectedCode);
     return true;
   });
 }
 
-test("owner billing publishes the exact private schema and versions", () => {
-  assert.equal(
-    billing.ownerBillingStateCollection,
-    "private_owner_billing_states",
-  );
-  assert.equal(
-    billing.ownerBillingStateVersion,
-    "bitestar.owner-billing-state.v1",
-  );
+test("owner billing publishes one exact generation-free private schema", () => {
+  assert.equal(billing.ownerBillingStateCollection, "private_owner_billing_states");
+  assert.equal(billing.ownerBillingStateVersion, "bitestar.owner-billing-state.v2");
   const document = initial();
   assert.deepEqual(Object.keys(document).sort(), [
     "billingPosture",
@@ -146,7 +115,6 @@ test("owner billing publishes the exact private schema and versions", () => {
     "lastStripeEventId",
     "lastStripeEventPayloadFingerprint",
     "lifecycleState",
-    "ownerRecordGeneration",
     "ownerUid",
     "rawStripeStatus",
     "stripeCustomerId",
@@ -158,448 +126,73 @@ test("owner billing publishes the exact private schema and versions", () => {
   assert.match(document.fingerprint, /^[a-f0-9]{64}$/u);
   assert.equal(document.lifecycleState, "none");
   assert.equal(document.billingPosture, "inactive");
-  assert.equal(JSON.stringify(document).includes("email"), false);
-  assert.equal(JSON.stringify(document).includes("paymentMethod"), false);
 });
 
-test("raw Stripe status classifier is exhaustive and conservative", () => {
+test("raw Stripe status classification is exhaustive and conservative", () => {
   assert.deepEqual(
     [...billing.ownerBillingRawStripeStatuses].sort(),
     Object.keys(expectedPostures).sort(),
   );
   for (const [status, posture] of Object.entries(expectedPostures)) {
-    assert.equal(
-      billing.classifyOwnerBillingRawStripeStatus(status),
-      posture,
-      status,
-    );
+    assert.equal(billing.classifyOwnerBillingRawStripeStatus(status), posture);
   }
   for (const unsupported of [null, undefined, "", "future_status", 1, {}]) {
-    assert.equal(
-      billing.classifyOwnerBillingRawStripeStatus(unsupported),
-      "unknown",
-    );
-  }
-  assert.equal(
-    billing.classifyOwnerBillingRawStripeStatus("unpaid"),
-    "blocking",
-  );
-});
-
-test("billing parser distinguishes absence and accepts Timestamp-like values", () => {
-  assert.equal(billing.parseOwnerBillingStateDocument(null), null);
-  const document = pending();
-  const parsed = billing.parseOwnerBillingStateDocument(stored(document, {
-    checkoutAttemptCreatedAt: timestampLike(document.checkoutAttemptCreatedAt),
-    createdAt: timestampLike(document.createdAt),
-    updatedAt: timestampLike(document.updatedAt),
-  }));
-  assert.deepEqual(parsed, document);
-  assert.notEqual(parsed.createdAt, document.createdAt);
-});
-
-test("every installed Stripe status builds, parses, and resolves exactly", () => {
-  const ownerState = openOwner();
-  for (const [status, posture] of Object.entries(expectedPostures)) {
-    const document = known(status);
-    const parsed = billing.parseOwnerBillingStateDocument(stored(document));
-    assert.deepEqual(parsed, document, status);
-    assert.equal(parsed.billingPosture, posture, status);
-    assert.equal(parsed.checkoutAttemptId, "attempt_contract_1", status);
-    assert.equal(
-      billing.resolveAuthoritativeOwnerBillingPosture(ownerState, parsed),
-      posture,
-      status,
-    );
+    assert.equal(billing.classifyOwnerBillingRawStripeStatus(unsupported), "unknown");
   }
 });
 
-test("billing lifecycle transitions never infer inactive after Checkout starts", () => {
-  const ownerState = openOwner();
-  const initialState = initial();
-  assert.equal(
-    billing.resolveAuthoritativeOwnerBillingPosture(ownerState, initialState),
-    "inactive",
-  );
-
-  const pendingState = pending();
-  assert.equal(pendingState.lifecycleState, "checkout_pending");
-  assert.equal(pendingState.billingPosture, "blocking");
-  assert.equal(pendingState.checkoutAttemptId, "attempt_contract_1");
-  assert.equal(
-    billing.resolveAuthoritativeOwnerBillingPosture(ownerState, pendingState),
-    "blocking",
-  );
-
-  const withSession = billing.recordCheckoutSession(pendingState, {
-    checkoutSessionId: "cs_test_contractresult",
-    stripeCustomerId: "cus_contractresult",
-    now: updatedAt,
-  });
-  assert.equal(withSession.lifecycleState, "checkout_pending");
-  assert.equal(withSession.billingPosture, "blocking");
-  assert.equal(withSession.checkoutSessionId, "cs_test_contractresult");
-  assert.equal(withSession.stripeCustomerId, "cus_contractresult");
-
-  const uncertain = billing.markCheckoutUncertain(withSession, updatedAt);
-  assert.equal(uncertain.lifecycleState, "unknown");
-  assert.equal(uncertain.billingPosture, "unknown");
-  assert.equal(uncertain.checkoutAttemptId, pendingState.checkoutAttemptId);
-  assert.equal(
-    uncertain.checkoutRequestFingerprint,
-    pendingState.checkoutRequestFingerprint,
-  );
-  assert.deepEqual(
-    uncertain.checkoutAttemptCreatedAt,
-    pendingState.checkoutAttemptCreatedAt,
-  );
-  assert.equal(
-    billing.resolveAuthoritativeOwnerBillingPosture(ownerState, uncertain),
-    "unknown",
-  );
-
-  const exactRetryResult = billing.recordCheckoutSession(uncertain, {
-    checkoutSessionId: "cs_test_contractresult",
-    stripeCustomerId: "cus_contractresult",
-    now: updatedAt,
-  });
-  assert.equal(exactRetryResult.lifecycleState, "checkout_pending");
-  assert.equal(exactRetryResult.checkoutAttemptId, pendingState.checkoutAttemptId);
-});
-
-test("Checkout result arriving after webhook preserves authoritative subscription state", () => {
-  const webhookState = known("active", {checkoutSessionId: null});
-  const sessionRecordedAt = new Date("2026-08-11T12:03:00.000Z");
-
-  const afterCheckoutResult = billing.recordCheckoutSession(webhookState, {
-    checkoutSessionId: "cs_test_webhookfirst",
-    stripeCustomerId: "cus_contract",
-    now: sessionRecordedAt,
-  });
-
-  assert.equal(afterCheckoutResult.lifecycleState, "subscription_known");
-  assert.equal(afterCheckoutResult.rawStripeStatus, "active");
-  assert.equal(afterCheckoutResult.billingPosture, "blocking");
-  assert.equal(afterCheckoutResult.stripeCustomerId, "cus_contract");
-  assert.equal(afterCheckoutResult.stripeSubscriptionId, "sub_contract");
-  assert.equal(afterCheckoutResult.checkoutAttemptId, "attempt_contract_1");
-  assert.equal(afterCheckoutResult.checkoutRequestFingerprint, fingerprintA);
-  assert.deepEqual(afterCheckoutResult.checkoutAttemptCreatedAt, attemptAt);
-  assert.equal(afterCheckoutResult.checkoutSessionId, "cs_test_webhookfirst");
-  assert.equal(afterCheckoutResult.lastStripeEventCreated, 1_786_446_120);
-  assert.equal(afterCheckoutResult.lastStripeEventId, "evt_contract");
-  assert.equal(
-    afterCheckoutResult.lastStripeEventPayloadFingerprint,
-    fingerprintB,
-  );
-  assert.equal(afterCheckoutResult.stripeEventConflictKind, null);
-  assert.deepEqual(afterCheckoutResult.createdAt, webhookState.createdAt);
-  assert.deepEqual(afterCheckoutResult.updatedAt, sessionRecordedAt);
-  assert.equal(
-    billing.resolveAuthoritativeOwnerBillingPosture(
-      openOwner(),
-      afterCheckoutResult,
-    ),
-    "blocking",
-  );
-
-  const exactReplay = billing.recordCheckoutSession(afterCheckoutResult, {
-    checkoutSessionId: "cs_test_webhookfirst",
-    stripeCustomerId: "cus_contract",
-    now: sessionRecordedAt,
-  });
-  assert.deepEqual(exactReplay, afterCheckoutResult);
-  assert.throws(
-    () => billing.recordCheckoutSession(afterCheckoutResult, {
-      checkoutSessionId: "cs_test_differentsession",
-      stripeCustomerId: "cus_contract",
-      now: sessionRecordedAt,
-    }),
-    (error) => error.code === "invalid-state",
-  );
-  assert.throws(
-    () => billing.recordCheckoutSession(afterCheckoutResult, {
-      checkoutSessionId: "cs_test_webhookfirst",
-      stripeCustomerId: "cus_different",
-      now: sessionRecordedAt,
-    }),
-    (error) => error.code === "invalid-state",
-  );
-});
-
-test("uncertain Checkout response preserves one exact attempt and later session", () => {
-  const pendingState = pending();
-  const uncertainAt = new Date("2026-08-11T12:02:00.000Z");
-  const sessionAt = new Date("2026-08-11T12:03:00.000Z");
-  const retryUncertainAt = new Date("2026-08-11T12:04:00.000Z");
-
-  const uncertain = billing.markCheckoutUncertain(pendingState, uncertainAt);
-  assert.equal(uncertain.lifecycleState, "unknown");
-  assert.equal(uncertain.billingPosture, "unknown");
-  assert.equal(uncertain.checkoutAttemptId, pendingState.checkoutAttemptId);
-  assert.equal(
-    uncertain.checkoutRequestFingerprint,
-    pendingState.checkoutRequestFingerprint,
-  );
-  assert.deepEqual(
-    uncertain.checkoutAttemptCreatedAt,
-    pendingState.checkoutAttemptCreatedAt,
-  );
-  assert.equal(uncertain.checkoutSessionId, null);
-  assert.equal(uncertain.stripeCustomerId, null);
-  assert.equal(uncertain.stripeSubscriptionId, null);
-  assert.equal(uncertain.lastStripeEventId, null);
-
-  const recoveredPending = billing.recordCheckoutSession(uncertain, {
-    checkoutSessionId: "cs_test_uncertainresult",
-    stripeCustomerId: "cus_uncertainresult",
-    now: sessionAt,
-  });
-  assert.equal(recoveredPending.lifecycleState, "checkout_pending");
-  assert.equal(recoveredPending.billingPosture, "blocking");
-  assert.equal(
-    recoveredPending.checkoutAttemptId,
-    pendingState.checkoutAttemptId,
-  );
-  assert.equal(
-    recoveredPending.checkoutRequestFingerprint,
-    pendingState.checkoutRequestFingerprint,
-  );
-  assert.deepEqual(
-    recoveredPending.checkoutAttemptCreatedAt,
-    pendingState.checkoutAttemptCreatedAt,
-  );
-  assert.equal(recoveredPending.checkoutSessionId, "cs_test_uncertainresult");
-  assert.equal(recoveredPending.stripeCustomerId, "cus_uncertainresult");
-  assert.equal(recoveredPending.stripeSubscriptionId, null);
-  assert.equal(recoveredPending.lastStripeEventCreated, null);
-  assert.equal(recoveredPending.stripeEventConflictKind, null);
-
-  const uncertainAgain = billing.markCheckoutUncertain(
-    recoveredPending,
-    retryUncertainAt,
-  );
-  assert.equal(uncertainAgain.lifecycleState, "unknown");
-  assert.equal(uncertainAgain.checkoutSessionId, "cs_test_uncertainresult");
-  assert.equal(uncertainAgain.stripeCustomerId, "cus_uncertainresult");
-  assert.equal(
-    uncertainAgain.checkoutAttemptId,
-    pendingState.checkoutAttemptId,
-  );
-
-  const exactSessionReplay = billing.recordCheckoutSession(uncertainAgain, {
-    checkoutSessionId: "cs_test_uncertainresult",
-    stripeCustomerId: "cus_uncertainresult",
-    now: retryUncertainAt,
-  });
-  assert.equal(exactSessionReplay.lifecycleState, "checkout_pending");
-  assert.equal(exactSessionReplay.checkoutSessionId, "cs_test_uncertainresult");
-  assert.throws(
-    () => billing.recordCheckoutSession(uncertainAgain, {
-      checkoutSessionId: "cs_test_secondresult",
-      stripeCustomerId: "cus_uncertainresult",
-      now: retryUncertainAt,
-    }),
-    (error) => error.code === "invalid-state",
-  );
-});
-
-test("late Checkout persistence cannot weaken conservative resolver posture", () => {
-  const ownerState = openOwner();
-  const canceledBeforeSession = known("canceled", {checkoutSessionId: null});
-  const canceledAfterSession = billing.recordCheckoutSession(
-    canceledBeforeSession,
-    {
-      checkoutSessionId: "cs_test_terminalresult",
-      now: new Date("2026-08-11T12:03:00.000Z"),
-    },
-  );
-  assert.equal(canceledAfterSession.lifecycleState, "subscription_known");
-  assert.equal(canceledAfterSession.rawStripeStatus, "canceled");
-  assert.equal(
-    billing.resolveAuthoritativeOwnerBillingPosture(
-      ownerState,
-      canceledAfterSession,
-    ),
-    "inactive",
-  );
-
-  const uncertainState = billing.markCheckoutUncertain(pending(), updatedAt);
-  assert.equal(
-    billing.resolveAuthoritativeOwnerBillingPosture(
-      ownerState,
-      uncertainState,
-    ),
-    "unknown",
-  );
-  assert.equal(
-    billing.resolveAuthoritativeOwnerBillingPosture(ownerState, pending()),
-    "blocking",
-  );
-  assert.equal(
-    billing.resolveAuthoritativeOwnerBillingPosture(
-      openOwner(1),
-      canceledAfterSession,
-    ),
-    "unknown",
-  );
-});
-
-test("billing initialization creates once for an exact open generation", () => {
-  const ownerState = openOwner(8);
-  const initialized = billing.initializeOwnerBillingState(
-    null,
-    ownerState,
-    createdAt,
-  );
-  assert.equal(initialized.created, true);
-  assert.equal(initialized.state.ownerRecordGeneration, 8);
-  assert.equal(initialized.state.lifecycleState, "none");
-
+test("billing initialization creates once and binds the exact authenticated owner", () => {
+  const created = billing.initializeOwnerBillingState(null, ownerUid, createdAt);
+  assert.equal(created.created, true);
+  assert.deepEqual(created.state, initial());
   const existing = billing.initializeOwnerBillingState(
-    stored(initialized.state),
-    ownerState,
+    stored(created.state),
+    ownerUid,
     updatedAt,
   );
   assert.equal(existing.created, false);
-  assert.deepEqual(existing.state, initialized.state);
-
-  assert.throws(
-    () => billing.initializeOwnerBillingState(
-      stored(initialized.state),
-      openOwner(9),
-      updatedAt,
-    ),
-    (error) => error.code === "invalid-state",
-  );
-  for (const state of ["removing", "removed"]) {
-    assert.throws(
-      () => billing.initializeOwnerBillingState(
-        null,
-        ownerWithState(state, 8),
-        updatedAt,
-      ),
-      (error) => error.code === "invalid-state",
-    );
-  }
-});
-
-test("authoritative resolver fails closed for missing or mismatched state", () => {
-  const ownerState = openOwner();
-  const initialState = initial();
-  assert.equal(
-    billing.resolveAuthoritativeOwnerBillingPosture(null, initialState),
-    "unknown",
-  );
-  assert.equal(
-    billing.resolveAuthoritativeOwnerBillingPosture(ownerState, null),
-    "unknown",
-  );
-  assert.equal(
-    billing.resolveAuthoritativeOwnerBillingPosture(
-      openOwner(1),
-      initialState,
-    ),
-    "unknown",
-  );
-  assert.equal(
-    billing.resolveAuthoritativeOwnerBillingPosture(
-      ownerWithState("removing"),
-      initialState,
-    ),
-    "unknown",
-  );
-  assert.equal(
-    billing.resolveAuthoritativeOwnerBillingPosture(
-      ownerWithState("removed"),
-      initialState,
-    ),
-    "unknown",
-  );
-
-  const forgedBilling = {...initialState, fingerprint: "0".repeat(64)};
-  assert.equal(
-    billing.resolveAuthoritativeOwnerBillingPosture(
-      ownerState,
-      forgedBilling,
-    ),
-    "unknown",
-  );
-  const forgedOwner = {...ownerState, fingerprint: "0".repeat(64)};
-  assert.equal(
-    billing.resolveAuthoritativeOwnerBillingPosture(
-      forgedOwner,
-      initialState,
-    ),
-    "unknown",
+  assert.deepEqual(existing.state, created.state);
+  assertContractError(
+    () => billing.initializeOwnerBillingState(stored(created.state), "other-owner", updatedAt),
+    "invalid-state",
   );
 });
 
-test("event-order, identity, and unsupported-status conflicts are persisted only as unknown", () => {
-  for (const conflictKind of [
-    "event_order",
-    "identity",
-    "unsupported_status",
-  ]) {
-    const conflict = unknown({
-      rawStripeStatus: "active",
-      stripeCustomerId: "cus_contract",
-      stripeSubscriptionId: "sub_contract",
-      checkoutAttemptId: "attempt_contract_1",
-      checkoutRequestFingerprint: fingerprintA,
-      checkoutAttemptCreatedAt: attemptAt,
-      checkoutSessionId: "cs_test_contract",
-      lastStripeEventCreated: 1_786_446_120,
-      lastStripeEventId: "evt_contract",
-      lastStripeEventPayloadFingerprint: fingerprintB,
-      stripeEventConflictKind: conflictKind,
-    });
-    assert.equal(conflict.lifecycleState, "unknown");
-    assert.equal(conflict.billingPosture, "unknown");
-    assert.equal(conflict.stripeEventConflictKind, conflictKind);
-    assert.equal(
-      billing.resolveAuthoritativeOwnerBillingPosture(openOwner(), conflict),
-      "unknown",
-    );
-    assert.deepEqual(
-      billing.parseOwnerBillingStateDocument(stored(conflict)),
-      conflict,
-    );
-  }
-});
-
-test("stored-document resolver contains malformed-present state as unknown", () => {
-  const ownerState = openOwner();
-  const billingState = initial();
-  assert.equal(
-    billing.resolveAuthoritativeOwnerBillingPostureFromStoredDocuments(
-      stored(ownerState),
-      stored(billingState),
-    ),
-    "inactive",
+test("strict parser accepts timestamp-like values and rejects extra or forged fields", () => {
+  assert.equal(billing.parseOwnerBillingStateDocument(null), null);
+  const document = pending();
+  const parsed = billing.parseOwnerBillingStateDocument({
+    id: ownerUid,
+    data: {
+      ...document,
+      createdAt: {toDate: () => new Date(document.createdAt)},
+      updatedAt: {toDate: () => new Date(document.updatedAt)},
+      checkoutAttemptCreatedAt: {
+        toDate: () => new Date(document.checkoutAttemptCreatedAt),
+      },
+    },
+  });
+  assert.deepEqual(parsed, document);
+  assertContractError(
+    () => billing.parseOwnerBillingStateDocument(stored(document, {extra: true})),
+    "invalid-state",
   );
-  assert.equal(
-    billing.resolveAuthoritativeOwnerBillingPostureFromStoredDocuments(
-      stored(ownerState, {fingerprint: "0".repeat(64)}),
-      stored(billingState),
-    ),
-    "unknown",
+  assertContractError(
+    () => billing.parseOwnerBillingStateDocument(stored(document, {fingerprint: "0".repeat(64)})),
+    "invalid-state",
   );
-  assert.equal(
-    billing.resolveAuthoritativeOwnerBillingPostureFromStoredDocuments(
-      stored(ownerState),
-      stored(billingState, {unexpected: true}),
-    ),
-    "unknown",
+  assertContractError(
+    () => billing.parseOwnerBillingStateDocument(stored(document, {}, "other-owner")),
+    "invalid-state",
   );
 });
 
-test("billing parser rejects wrong keys, versions, IDs, and fingerprints", () => {
+test("strict parser rejects wrong schema, missing keys, IDs, and fingerprints", () => {
   const document = initial();
   const {updatedAt: omitted, ...missingKey} = document;
   void omitted;
   const candidates = [
-    stored(document, {version: "bitestar.owner-billing-state.v2"}),
+    stored(document, {version: "bitestar.owner-billing-state.v1"}),
     {id: ownerUid, data: missingKey},
     stored(document, {unexpected: true}),
     stored(document, {fingerprint: "0".repeat(64)}),
@@ -607,19 +200,171 @@ test("billing parser rejects wrong keys, versions, IDs, and fingerprints", () =>
     stored(document, {}, `${ownerUid}/child`),
   ];
   for (const candidate of candidates) {
-    assertInvalidState(() => billing.parseOwnerBillingStateDocument(candidate));
+    assertContractError(
+      () => billing.parseOwnerBillingStateDocument(candidate),
+      "invalid-state",
+    );
   }
 });
 
-test("billing builder rejects malformed generation, status, and identifiers", () => {
-  const base = known("active");
-  const core = {...base};
-  delete core.version;
-  delete core.fingerprint;
-  const invalidChanges = [
-    {ownerRecordGeneration: -1},
-    {ownerRecordGeneration: 0.5},
-    {ownerRecordGeneration: Number.MAX_SAFE_INTEGER + 1},
+test("every installed Stripe status builds and parses with its exact posture", () => {
+  for (const [status, posture] of Object.entries(expectedPostures)) {
+    const document = known(status);
+    assert.deepEqual(
+      billing.parseOwnerBillingStateDocument(stored(document)),
+      document,
+      status,
+    );
+    assert.equal(document.billingPosture, posture, status);
+  }
+});
+
+test("checkout reservation, uncertainty, and late session recording stay conservative", () => {
+  const reserved = pending();
+  assert.equal(reserved.lifecycleState, "checkout_pending");
+  assert.equal(reserved.billingPosture, "blocking");
+  const uncertain = billing.markCheckoutUncertain(reserved, updatedAt);
+  assert.equal(uncertain.lifecycleState, "unknown");
+  assert.equal(uncertain.billingPosture, "unknown");
+  const recorded = billing.recordCheckoutSession(uncertain, {
+    checkoutSessionId: "cs_test_contract",
+    stripeCustomerId: "cus_contract",
+    now: new Date("2026-08-11T12:03:00.000Z"),
+  });
+  assert.equal(recorded.lifecycleState, "checkout_pending");
+  assert.equal(recorded.billingPosture, "blocking");
+  assert.equal(recorded.checkoutSessionId, "cs_test_contract");
+  assert.equal(recorded.stripeCustomerId, "cus_contract");
+});
+
+test("late Checkout results preserve webhook authority and reject conflicts", () => {
+  const webhookState = known("active", {checkoutSessionId: null});
+  const sessionRecordedAt = new Date("2026-08-11T12:03:00.000Z");
+  const recorded = billing.recordCheckoutSession(webhookState, {
+    checkoutSessionId: "cs_test_webhookfirst",
+    stripeCustomerId: "cus_contract",
+    now: sessionRecordedAt,
+  });
+
+  assert.equal(recorded.lifecycleState, "subscription_known");
+  assert.equal(recorded.rawStripeStatus, "active");
+  assert.equal(recorded.billingPosture, "blocking");
+  assert.equal(recorded.stripeCustomerId, "cus_contract");
+  assert.equal(recorded.stripeSubscriptionId, "sub_contract");
+  assert.equal(recorded.checkoutAttemptId, "attempt_contract_1");
+  assert.equal(recorded.checkoutRequestFingerprint, fingerprintA);
+  assert.deepEqual(recorded.checkoutAttemptCreatedAt, attemptAt);
+  assert.equal(recorded.checkoutSessionId, "cs_test_webhookfirst");
+  assert.equal(recorded.lastStripeEventCreated, 1_786_446_120);
+  assert.equal(recorded.lastStripeEventId, "evt_contract");
+  assert.equal(recorded.lastStripeEventPayloadFingerprint, fingerprintB);
+  assert.equal(recorded.stripeEventConflictKind, null);
+  assert.deepEqual(recorded.createdAt, webhookState.createdAt);
+  assert.deepEqual(recorded.updatedAt, sessionRecordedAt);
+
+  assert.deepEqual(
+    billing.recordCheckoutSession(recorded, {
+      checkoutSessionId: "cs_test_webhookfirst",
+      stripeCustomerId: "cus_contract",
+      now: sessionRecordedAt,
+    }),
+    recorded,
+  );
+  for (const input of [
+    {
+      checkoutSessionId: "cs_test_differentsession",
+      stripeCustomerId: "cus_contract",
+    },
+    {
+      checkoutSessionId: "cs_test_webhookfirst",
+      stripeCustomerId: "cus_different",
+    },
+  ]) {
+    assertContractError(
+      () => billing.recordCheckoutSession(recorded, {
+        ...input,
+        now: sessionRecordedAt,
+      }),
+      "invalid-state",
+    );
+  }
+});
+
+test("uncertain Checkout retains one attempt and rejects a second session", () => {
+  const uncertain = billing.markCheckoutUncertain(pending(), updatedAt);
+  const sessionAt = new Date("2026-08-11T12:03:00.000Z");
+  const uncertainAgainAt = new Date("2026-08-11T12:04:00.000Z");
+  const recovered = billing.recordCheckoutSession(uncertain, {
+    checkoutSessionId: "cs_test_uncertainresult",
+    stripeCustomerId: "cus_uncertainresult",
+    now: sessionAt,
+  });
+  const uncertainAgain = billing.markCheckoutUncertain(
+    recovered,
+    uncertainAgainAt,
+  );
+
+  assert.equal(uncertainAgain.lifecycleState, "unknown");
+  assert.equal(uncertainAgain.checkoutAttemptId, "attempt_contract_1");
+  assert.equal(uncertainAgain.checkoutRequestFingerprint, fingerprintA);
+  assert.deepEqual(uncertainAgain.checkoutAttemptCreatedAt, attemptAt);
+  assert.equal(uncertainAgain.checkoutSessionId, "cs_test_uncertainresult");
+  assert.equal(uncertainAgain.stripeCustomerId, "cus_uncertainresult");
+  assertContractError(
+    () => billing.recordCheckoutSession(uncertainAgain, {
+      checkoutSessionId: "cs_test_secondresult",
+      stripeCustomerId: "cus_uncertainresult",
+      now: uncertainAgainAt,
+    }),
+    "invalid-state",
+  );
+});
+
+test("terminal Stripe status can begin a new attempt while billable status cannot", () => {
+  for (const status of ["canceled", "incomplete_expired"]) {
+    const result = billing.createCheckoutPendingOwnerBillingState(known(status), {
+      checkoutAttemptId: "attempt_contract_2",
+      checkoutRequestFingerprint: "c".repeat(64),
+      checkoutAttemptCreatedAt: new Date("2026-08-11T12:03:00.000Z"),
+      now: new Date("2026-08-11T12:03:00.000Z"),
+    });
+    assert.equal(result.lifecycleState, "checkout_pending");
+  }
+  for (const status of ["active", "trialing", "past_due", "unpaid", "paused", "incomplete"]) {
+    assertContractError(
+      () => billing.createCheckoutPendingOwnerBillingState(known(status), {
+        checkoutAttemptId: "attempt_contract_2",
+        checkoutRequestFingerprint: "c".repeat(64),
+        checkoutAttemptCreatedAt: new Date("2026-08-11T12:03:00.000Z"),
+        now: new Date("2026-08-11T12:03:00.000Z"),
+      }),
+      "invalid-state",
+    );
+  }
+});
+
+test("billing schema rejects malformed identities, relationships, and timestamps", () => {
+  assertContractError(() => initial("owner/child"), "invalid-request");
+  assertContractError(
+    () => billing.buildOwnerBillingStateDocument({
+      ...known(),
+      lifecycleState: "subscription_known",
+      stripeCustomerId: null,
+    }),
+    "invalid-request",
+  );
+  assertContractError(
+    () => billing.recordCheckoutSession(pending(), {
+      checkoutSessionId: "cs_test_contract",
+      now: new Date(createdAt.getTime() - 1),
+    }),
+    "invalid-request",
+  );
+});
+
+test("billing builder rejects malformed status, Stripe identity, and event fields", () => {
+  const core = coreOf(known());
+  for (const changes of [
     {rawStripeStatus: "future_status"},
     {stripeCustomerId: "customer_contract"},
     {stripeCustomerId: " cus_contract"},
@@ -629,29 +374,20 @@ test("billing builder rejects malformed generation, status, and identifiers", ()
     {lastStripeEventId: "event_contract"},
     {lastStripeEventCreated: -1},
     {lastStripeEventCreated: 1.5},
-  ];
-  for (const changes of invalidChanges) {
-    assert.throws(
+    {stripeEventConflictKind: "future_conflict"},
+  ]) {
+    assertContractError(
       () => billing.buildOwnerBillingStateDocument({...core, ...changes}),
-      (error) => error.code === "invalid-request",
+      "invalid-request",
     );
   }
 });
 
-test("billing schema enforces nullable-field relationships for every lifecycle", () => {
-  const noneCore = {...initial()};
-  delete noneCore.version;
-  delete noneCore.fingerprint;
-  const pendingCore = {...pending()};
-  delete pendingCore.version;
-  delete pendingCore.fingerprint;
-  const knownCore = {...known("active")};
-  delete knownCore.version;
-  delete knownCore.fingerprint;
-  const unknownCore = {...unknown()};
-  delete unknownCore.version;
-  delete unknownCore.fingerprint;
-
+test("billing schema enforces every lifecycle field relationship", () => {
+  const noneCore = coreOf(initial());
+  const pendingCore = coreOf(pending());
+  const knownCore = coreOf(known());
+  const unknownCore = coreOf(unknown());
   const invalidCores = [
     {...noneCore, billingPosture: "blocking"},
     {...noneCore, stripeCustomerId: "cus_contract"},
@@ -678,56 +414,51 @@ test("billing schema enforces nullable-field relationships for every lifecycle",
     {...unknownCore, stripeEventConflictKind: "event_order"},
   ];
   for (const core of invalidCores) {
-    assert.throws(
+    assertContractError(
       () => billing.buildOwnerBillingStateDocument(core),
-      (error) => error.code === "invalid-request",
+      "invalid-request",
     );
   }
 });
 
-test("billing schema enforces timestamp ordering and exact fingerprints", () => {
-  assert.throws(
-    () => billing.createInitialOwnerBillingState(
-      ownerUid,
-      0,
-      new Date("invalid"),
-    ),
-    (error) => error.code === "invalid-request",
+test("billing timestamps and fingerprints fail closed", () => {
+  assertContractError(
+    () => initial("owner/child"),
+    "invalid-request",
   );
-  assert.throws(
-    () => billing.createCheckoutPendingOwnerBillingState(initial(), {
-      checkoutAttemptId: "attempt",
-      checkoutRequestFingerprint: fingerprintA,
-      checkoutAttemptCreatedAt: new Date(createdAt.getTime() - 1),
-      now: attemptAt,
-    }),
-    (error) => error.code === "invalid-request",
+  assertContractError(
+    () => billing.createInitialOwnerBillingState(ownerUid, new Date("invalid")),
+    "invalid-request",
   );
-  assert.throws(
+  for (const checkoutAttemptCreatedAt of [
+    new Date(createdAt.getTime() - 1),
+    updatedAt,
+  ]) {
+    assertContractError(
+      () => billing.createCheckoutPendingOwnerBillingState(initial(), {
+        checkoutAttemptId: "attempt_contract_2",
+        checkoutRequestFingerprint: fingerprintA,
+        checkoutAttemptCreatedAt,
+        now: attemptAt,
+      }),
+      "invalid-request",
+    );
+  }
+  assertContractError(
     () => billing.createCheckoutPendingOwnerBillingState(initial(), {
-      checkoutAttemptId: "attempt",
-      checkoutRequestFingerprint: fingerprintA,
-      checkoutAttemptCreatedAt: updatedAt,
-      now: attemptAt,
-    }),
-    (error) => error.code === "invalid-request",
-  );
-  assert.throws(
-    () => billing.createCheckoutPendingOwnerBillingState(initial(), {
-      checkoutAttemptId: "attempt",
+      checkoutAttemptId: "attempt_contract_2",
       checkoutRequestFingerprint: "not-a-fingerprint",
       checkoutAttemptCreatedAt: attemptAt,
       now: attemptAt,
     }),
-    (error) => error.code === "invalid-request",
+    "invalid-request",
   );
 });
 
-test("malformed-present billing state fails closed instead of becoming absent", () => {
-  const document = known("active");
-  const mutations = [
+test("malformed-present billing records never become absent", () => {
+  const document = known();
+  for (const mutation of [
     {ownerUid: "owner/child"},
-    {ownerRecordGeneration: -1},
     {lifecycleState: "future"},
     {rawStripeStatus: "future_status"},
     {billingPosture: "inactive"},
@@ -737,31 +468,12 @@ test("malformed-present billing state fails closed instead of becoming absent", 
     {stripeEventConflictKind: "future_conflict"},
     {updatedAt: new Date(createdAt.getTime() - 1)},
     {createdAt: {toDate: () => new Date("invalid")}},
-  ];
-  for (const mutation of mutations) {
-    assertInvalidState(() =>
-      billing.parseOwnerBillingStateDocument(stored(document, mutation)));
-  }
-});
-
-test("future reactivation billing reset retains the open generation", () => {
-  const ownerState = openOwner(91);
-  const reset = billing.resetOwnerBillingStateForReactivation(
-    ownerState,
-    updatedAt,
-  );
-  assert.equal(reset.ownerRecordGeneration, 91);
-  assert.equal(reset.lifecycleState, "none");
-  assert.equal(reset.billingPosture, "inactive");
-  assert.equal(reset.stripeCustomerId, null);
-
-  for (const state of ["removing", "removed"]) {
-    assert.throws(
-      () => billing.resetOwnerBillingStateForReactivation(
-        ownerWithState(state, 91),
-        updatedAt,
+  ]) {
+    assertContractError(
+      () => billing.parseOwnerBillingStateDocument(
+        stored(document, mutation),
       ),
-      (error) => error.code === "invalid-state",
+      "invalid-state",
     );
   }
 });

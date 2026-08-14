@@ -18,7 +18,7 @@ const checkoutCancelBaseUrl =
 const portalBaseUrl =
   "https://app.bitestar.app/subscription/portal-return";
 const stripePriceId = "price_1TJKGjBwoT6e93tVkesJPfxD";
-const ownerBillingMetadataVersion = "bitestar.owner-billing-metadata.v1";
+const ownerBillingMetadataVersion = "bitestar.owner-billing-metadata.v2";
 
 const canaries = Object.freeze({
   apiSecret: "sk_test_session_protocol_fake_secret",
@@ -81,10 +81,6 @@ function createHarness() {
     ownerBillingReads: [],
     ownerBillingVersion: 0,
     ownerBillingWrites: [],
-    ownerRecordDocument: undefined,
-    ownerRecordReads: [],
-    ownerRecordVersion: 0,
-    ownerRecordWrites: [],
     parameterValue: portalBaseUrl,
     randomBytesCalls: 0,
     randomBytesQueue: [],
@@ -132,10 +128,6 @@ function createHarness() {
     state.ownerBillingReads = [];
     state.ownerBillingVersion = 0;
     state.ownerBillingWrites = [];
-    state.ownerRecordDocument = undefined;
-    state.ownerRecordReads = [];
-    state.ownerRecordVersion = 0;
-    state.ownerRecordWrites = [];
     state.parameterValue = portalBaseUrl;
     state.randomBytesCalls = 0;
     state.randomBytesQueue = [];
@@ -148,33 +140,11 @@ function createHarness() {
     state.writes = [];
   }
 
-  function seedOwnerState(ownerState = "open", generation = 0) {
-    const now = new Date();
-    state.ownerRecordDocument = ownerState === "open" && generation === 0
-      ? createInitialOwnerRecordState(canaries.uid, now)
-      : buildOwnerRecordStateDocument({
-        ownerUid: canaries.uid,
-        generation,
-        state: ownerState,
-        activeJobId: ownerState === "removing"
-          ? "job_session_protocol_removal"
-          : null,
-        createdAt: now,
-        updatedAt: now,
-      });
-    state.ownerRecordVersion += 1;
-    return structuredClone(state.ownerRecordDocument);
-  }
-
   function seedKnownBillingState(rawStripeStatus = "active") {
     const now = new Date();
-    const ownerRecord = state.ownerRecordDocument === undefined
-      ? seedOwnerState()
-      : structuredClone(state.ownerRecordDocument);
     const checkoutAttemptId = "attempt_session_protocol_checkout";
     state.ownerBillingDocument = buildOwnerBillingStateDocument({
       ownerUid: canaries.uid,
-      ownerRecordGeneration: ownerRecord.generation,
       lifecycleState: "subscription_known",
       rawStripeStatus,
       billingPosture: classifyOwnerBillingRawStripeStatus(rawStripeStatus),
@@ -200,12 +170,8 @@ function createHarness() {
       lifecycleState === "checkout_pending" || lifecycleState === "unknown",
     );
     const now = new Date();
-    const ownerRecord = state.ownerRecordDocument === undefined
-      ? seedOwnerState()
-      : structuredClone(state.ownerRecordDocument);
     state.ownerBillingDocument = buildOwnerBillingStateDocument({
       ownerUid: canaries.uid,
-      ownerRecordGeneration: ownerRecord.generation,
       lifecycleState,
       rawStripeStatus: null,
       billingPosture: lifecycleState === "unknown"
@@ -290,11 +256,9 @@ function createHarness() {
       const runAttempt = async (commit) => {
         const pendingLedgerWrites = [];
         const pendingOwnerBillingWrites = [];
-        const pendingOwnerRecordWrites = [];
         const pendingWrites = [];
         let ledgerReadVersion = null;
         let ownerBillingReadVersion = null;
-        let ownerRecordReadVersion = null;
         state.transactionCallbackAttempts += 1;
         const result = await callback({
           async get(reference) {
@@ -314,21 +278,6 @@ function createHarness() {
                 data: () => ledgerSnapshot === undefined
                   ? undefined
                   : structuredClone(ledgerSnapshot),
-                ref: reference,
-              };
-            }
-            if (reference.path.startsWith("private_owner_record_states/")) {
-              state.operationTimeline.push({operation: "ownerRecordRead"});
-              state.ownerRecordReads.push(reference.path);
-              ownerRecordReadVersion = state.ownerRecordVersion;
-              const snapshot = state.ownerRecordDocument === undefined
-                ? undefined
-                : structuredClone(state.ownerRecordDocument);
-              return {
-                exists: snapshot !== undefined,
-                data: () => snapshot === undefined
-                  ? undefined
-                  : structuredClone(snapshot),
                 ref: reference,
               };
             }
@@ -390,14 +339,6 @@ function createHarness() {
               });
               return;
             }
-            if (reference.path.startsWith("private_owner_record_states/")) {
-              pendingOwnerRecordWrites.push({
-                operation: "set",
-                path: reference.path,
-                data: structuredClone(data),
-              });
-              return;
-            }
             if (reference.path.startsWith("private_owner_billing_states/")) {
               pendingOwnerBillingWrites.push({
                 operation: "set",
@@ -421,12 +362,6 @@ function createHarness() {
             return {conflict: true, result};
           }
           if (
-            pendingOwnerRecordWrites.length > 0 &&
-            ownerRecordReadVersion !== state.ownerRecordVersion
-          ) {
-            return {conflict: true, result};
-          }
-          if (
             pendingOwnerBillingWrites.length > 0 &&
             ownerBillingReadVersion !== state.ownerBillingVersion
           ) {
@@ -438,15 +373,6 @@ function createHarness() {
             state.ledgerWrites.push(write);
             state.operationTimeline.push({
               operation: "ledgerCommit",
-              data: structuredClone(write.data),
-            });
-          }
-          for (const write of pendingOwnerRecordWrites) {
-            state.ownerRecordDocument = structuredClone(write.data);
-            state.ownerRecordVersion += 1;
-            state.ownerRecordWrites.push(write);
-            state.operationTimeline.push({
-              operation: "ownerRecordCommit",
               data: structuredClone(write.data),
             });
           }
@@ -674,7 +600,6 @@ function createHarness() {
     seedActiveBillingState,
     seedCheckoutBillingState,
     seedKnownBillingState,
-    seedOwnerState,
     state,
   };
 }
@@ -770,7 +695,6 @@ function assertCheckoutMetadata(payload) {
     "billingPlanName",
     "checkoutAttemptId",
     "contractVersion",
-    "ownerRecordGeneration",
     "ownerUid",
     "restaurantAccountId",
     "source",
@@ -778,7 +702,6 @@ function assertCheckoutMetadata(payload) {
   assert.equal(metadata.contractVersion, ownerBillingMetadataVersion);
   assert.equal(metadata.ownerUid, canaries.uid);
   assert.equal(metadata.restaurantAccountId, canaries.uid);
-  assert.equal(metadata.ownerRecordGeneration, "0");
   assert.match(
     metadata.checkoutAttemptId,
     /^attempt_[A-Za-z0-9_-]{43}$/,
@@ -792,7 +715,6 @@ function assertCheckoutIdempotency(state, callIndex, metadata) {
   assert.deepEqual(state.checkoutOptions[callIndex], {
     idempotencyKey: ownerBillingStripeIdempotencyKey({
       ownerUid: canaries.uid,
-      ownerRecordGeneration: Number(metadata.ownerRecordGeneration),
       checkoutAttemptId: metadata.checkoutAttemptId,
     }),
   });
@@ -871,10 +793,6 @@ function exportedConstants(source) {
 
 const harness = createHarness();
 const {
-  buildOwnerRecordStateDocument,
-  createInitialOwnerRecordState,
-} = require("../lib/owner_record_state_contract.js");
-const {
   buildOwnerBillingStateDocument,
   classifyOwnerBillingRawStripeStatus,
 } = require("../lib/owner_billing_state_contract.js");
@@ -890,7 +808,7 @@ test.beforeEach(() => {
   harness.reset();
 });
 
-test("runtime, region, secret bindings, exports, production caller, and generation-aware webhook wiring remain stable", () => {
+test("runtime, region, secret bindings, exports, production caller, and webhook wiring remain stable", () => {
   const repositoryRoot = path.resolve(__dirname, "../..");
   const source = readFileSync(
     path.join(repositoryRoot, "functions/src/index.ts"),
@@ -1156,8 +1074,6 @@ test("production createCheckoutSession preserves its complete trial-eligible Str
     },
   ]);
   assert.deepEqual(harness.state.logs, []);
-  assert.equal(harness.state.ownerRecordDocument.state, "open");
-  assert.equal(harness.state.ownerRecordDocument.generation, 0);
   assert.equal(
     harness.state.ownerBillingDocument.lifecycleState,
     "checkout_pending",
@@ -1433,31 +1349,6 @@ test("a different Checkout request conflicts with a pending attempt before a sec
   );
 });
 
-test("removing and removed owner generations block both Checkout writers and the Customer Portal before Stripe", async () => {
-  for (const ownerState of ["removing", "removed"]) {
-    for (const callable of [
-      harness.createCheckoutSession,
-      harness.createSubscriptionCheckoutSession,
-      harness.createCustomerPortalSession,
-    ]) {
-      harness.reset();
-      harness.seedOwnerState(ownerState, 1);
-      harness.seedKnownBillingState("active");
-
-      await assert.rejects(
-        () => callable(authenticatedRequest()),
-        (error) => error instanceof MockHttpsError,
-      );
-
-      assert.deepEqual(harness.state.checkoutCalls, []);
-      assert.deepEqual(harness.state.billingPortalCalls, []);
-      assert.equal(harness.state.randomBytesCalls, 0);
-      assert.deepEqual(harness.state.ownerBillingWrites, []);
-      assert.deepEqual(harness.state.ledgerWrites, []);
-    }
-  }
-});
-
 test("every potentially billable known Stripe status blocks both Checkout writers before Stripe", async () => {
   for (const rawStripeStatus of [
     "active",
@@ -1561,7 +1452,7 @@ test("exact terminal known Stripe statuses start one fresh pending attempt throu
 
 test("the Customer Portal requires a known subscription and an exact current customer", async () => {
   const unavailableFixtures = [
-    () => harness.seedOwnerState(),
+    () => {},
     () => harness.seedCheckoutBillingState("checkout_pending"),
     () => harness.seedCheckoutBillingState("unknown"),
     () => {
@@ -1761,7 +1652,7 @@ test("production Checkout account lookup failures are sanitized and create no St
   assertNoWritesOrSensitiveLogs(harness.state);
 });
 
-test("production session commits generation-bound pending state before Stripe and remains pending until webhook", async () => {
+test("production session commits pending billing and return state before Stripe", async () => {
   const response = await harness.createCheckoutSession(
     authenticatedRequest(),
   );
@@ -1771,14 +1662,12 @@ test("production session commits generation-bound pending state before Stripe an
   );
   const checkoutIndex = operations.indexOf("checkoutCreate");
   for (const requiredCommit of [
-    "ownerRecordCommit",
     "ownerBillingCommit",
     "ledgerCommit",
   ]) {
     assert.ok(operations.indexOf(requiredCommit) < checkoutIndex);
   }
   assert.ok(operations.indexOf("accountRead") < checkoutIndex);
-  assert.ok(operations.indexOf("ownerRecordRead") < checkoutIndex);
   assert.ok(operations.indexOf("ownerBillingRead") < checkoutIndex);
   assert.ok(operations.indexOf("ledgerRead") < checkoutIndex);
   assert.equal(
@@ -1814,56 +1703,6 @@ test("production session commits generation-bound pending state before Stripe an
     false,
   );
   assert.deepEqual(harness.state.writes, []);
-});
-
-test("a post-Stripe owner-generation transition prevents session binding and withholds the Checkout URL", async () => {
-  harness.state.checkoutBeforeResponse = () => {
-    harness.seedOwnerState("removing", 1);
-  };
-
-  await assert.rejects(
-    () => harness.createCheckoutSession(authenticatedRequest()),
-    (error) => {
-      assert.ok(error instanceof MockHttpsError);
-      assert.equal(error.code, "internal");
-      assert.equal(error.message, "Failed to create checkout session");
-      return true;
-    },
-  );
-
-  assert.equal(harness.state.checkoutCalls.length, 1);
-  assert.equal(harness.state.ownerRecordDocument.state, "removing");
-  assert.equal(harness.state.ownerRecordDocument.generation, 1);
-  assert.equal(
-    harness.state.ownerBillingDocument.ownerRecordGeneration,
-    0,
-  );
-  assert.equal(
-    harness.state.ownerBillingDocument.lifecycleState,
-    "unknown",
-  );
-  assert.equal(
-    harness.state.ownerBillingDocument.checkoutSessionId,
-    null,
-  );
-  assert.equal(
-    harness.state.ownerBillingDocument.stripeCustomerId,
-    null,
-  );
-  const returnToken = tokenFromReturnUrl(
-    harness.state.checkoutCalls[0].success_url,
-    checkoutSuccessBaseUrl,
-  );
-  assert.equal(
-    harness.state.ledgerDocument.contexts[
-      hashReturnToken(returnToken)
-    ].ready,
-    false,
-  );
-  assert.equal(
-    JSON.stringify(harness.state.logs).includes(returnToken),
-    false,
-  );
 });
 
 test("missing, mismatched, or cross-document accounts generate no token and read no private state", async () => {
@@ -1924,12 +1763,10 @@ test("token-hash collision retries with a fresh authorized candidate and one Str
     `attempt_${Buffer.alloc(32, 22).toString("base64url")}`;
   const firstToken = deriveOwnerBillingReturnToken({
     ownerUid: canaries.uid,
-    ownerRecordGeneration: 0,
     checkoutAttemptId: firstAttemptId,
   });
   const secondToken = deriveOwnerBillingReturnToken({
     ownerUid: canaries.uid,
-    ownerRecordGeneration: 0,
     checkoutAttemptId: secondAttemptId,
   });
   const firstHash = hashReturnToken(firstToken);
@@ -1938,7 +1775,6 @@ test("token-hash collision retries with a fresh authorized candidate and one Str
     rawState: undefined,
     ownerUid: canaries.uid,
     restaurantAccountDocumentId: canaries.uid,
-    ownerRecordGeneration: 0,
     tokenHash: firstHash,
     family: "checkout",
     nowEpochMs: now,
@@ -2319,14 +2155,11 @@ test("new return handlers reject missing account ownership before parsing or mut
     assert.deepEqual(harness.state.ledgerReads, [
       `private_subscription_return_state/${canaries.uid}`,
     ]);
-    assert.deepEqual(harness.state.ownerRecordReads, [
-      `private_owner_record_states/${canaries.uid}`,
-    ]);
     assert.equal(harness.state.hashCalls, 0);
     assert.deepEqual(harness.state.ledgerWrites, []);
     assert.deepEqual(
       harness.state.operationTimeline.map((entry) => entry.operation),
-      ["accountRead", "ownerRecordRead", "ledgerRead"],
+      ["accountRead", "ledgerRead"],
     );
   }
 });

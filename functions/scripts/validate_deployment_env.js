@@ -574,9 +574,17 @@ function trackedRuntimeTypeScriptSources(options = {}) {
     .split("\0")
     .filter((relativePath) => relativePath.endsWith(".ts"))
     .sort()
-    .map((relativePath) => {
+    .flatMap((relativePath) => {
       const filePath = path.resolve(repositoryRoot, relativePath);
-      const metadata = lstatSync(filePath);
+      let metadata;
+      try {
+        metadata = lstatSync(filePath);
+      } catch (error) {
+        if (error?.code === "ENOENT") {
+          return [];
+        }
+        throw error;
+      }
       if (metadata.isSymbolicLink() || !metadata.isFile()) {
         throw new SafeValidationError("source_file_rejected");
       }
@@ -584,10 +592,10 @@ function trackedRuntimeTypeScriptSources(options = {}) {
       if (!isPathWithin(resolved, sourceRoot)) {
         throw new SafeValidationError("source_file_rejected");
       }
-      return {
+      return [{
         filePath: resolved,
         sourceText: readFileSync(resolved, "utf8"),
-      };
+      }];
     });
 }
 

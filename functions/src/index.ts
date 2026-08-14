@@ -94,12 +94,6 @@ import {
   requireMatchingOwnerBillingStripeMetadata,
 } from "./owner_billing_webhook.js";
 import {
-  initializeOwnerRecordState,
-  ownerRecordStateCollection,
-  parseOwnerRecordStateDocument,
-  type OwnerRecordStateDocument,
-} from "./owner_record_state_contract.js";
-import {
   SubscriptionPortalConfigurationError,
   requireCanonicalSubscriptionPortalReturnUrl,
 } from "./subscription_portal_config.js";
@@ -313,7 +307,6 @@ type ReservedSubscriptionReturnContext = Readonly<{
   returnToken: string;
   tokenHash: string;
   accountData: DocumentData;
-  ownerState: OwnerRecordStateDocument;
   billingState: OwnerBillingStateDocument;
   checkoutStripeCustomerId: string | null;
 }>;
@@ -322,10 +315,6 @@ function subscriptionReturnStateRef(restaurantAccountDocumentId: string) {
   return db
     .collection(subscriptionReturnLedgerCollection)
     .doc(restaurantAccountDocumentId);
-}
-
-function ownerRecordStateRef(ownerUid: string) {
-  return db.collection(ownerRecordStateCollection).doc(ownerUid);
 }
 
 function ownerBillingStateRef(ownerUid: string) {
@@ -339,23 +328,6 @@ function storedDocument(
   return snapshot.exists
     ? {id: documentId, data: snapshot.data() ?? {}}
     : null;
-}
-
-function requireOpenReturnOwnerState(
-  ownerUid: string,
-  snapshot: {exists: boolean; data(): DocumentData | undefined},
-): OwnerRecordStateDocument {
-  try {
-    const ownerState = parseOwnerRecordStateDocument(
-      storedDocument(ownerUid, snapshot),
-    );
-    if (ownerState === null || ownerState.state !== "open") {
-      throw new Error("owner state unavailable");
-    }
-    return ownerState;
-  } catch {
-    throw new SubscriptionReturnLedgerError("context_unavailable");
-  }
 }
 
 function throwSubscriptionReturnLedgerHttpsError(error: unknown): never {
@@ -410,7 +382,6 @@ async function reserveServerSubscriptionReturnContext(params: {
   const stateRef = subscriptionReturnStateRef(
     params.restaurantAccountDocumentId,
   );
-  const recordStateRef = ownerRecordStateRef(params.ownerUid);
   const billingStateRef = ownerBillingStateRef(params.ownerUid);
 
   for (
@@ -431,21 +402,15 @@ async function reserveServerSubscriptionReturnContext(params: {
         });
         const safeAccountData = rawAccountData ?? {};
         params.validateAccount?.(safeAccountData);
-        const [recordSnapshot, billingSnapshot, stateSnapshot] =
+        const [billingSnapshot, stateSnapshot] =
           await Promise.all([
-            transaction.get(recordStateRef),
             transaction.get(billingStateRef),
             transaction.get(stateRef),
           ]);
         const now = new Date();
-        const initializedOwner = initializeOwnerRecordState(
-          storedDocument(params.ownerUid, recordSnapshot),
-          params.ownerUid,
-          now,
-        );
         const initializedBilling = initializeOwnerBillingState(
           storedDocument(params.ownerUid, billingSnapshot),
-          initializedOwner.state,
+          params.ownerUid,
           now,
         );
         let billingState = initializedBilling.state;
@@ -519,15 +484,14 @@ async function reserveServerSubscriptionReturnContext(params: {
           }
           returnToken = deriveOwnerBillingReturnToken({
             ownerUid: params.ownerUid,
-            ownerRecordGeneration: initializedOwner.state.generation,
             checkoutAttemptId: billingState.checkoutAttemptId,
           });
         } else {
-          if (initializedOwner.created || initializedBilling.created) {
+          if (initializedBilling.created) {
             throw new OwnerBillingLifecycleError("billing_unavailable");
           }
           requireOwnerBillingPortalGate({
-            ownerState: initializedOwner.state,
+            ownerUid: params.ownerUid,
             billingState,
             stripeCustomerId: safeAccountData.stripeCustomerId,
           });
@@ -542,15 +506,11 @@ async function reserveServerSubscriptionReturnContext(params: {
           ownerUid: params.ownerUid,
           restaurantAccountDocumentId:
             params.restaurantAccountDocumentId,
-          ownerRecordGeneration: initializedOwner.state.generation,
           tokenHash,
           family: params.family,
           nowEpochMs: Date.now(),
           allowExistingTokenHash,
         });
-        if (initializedOwner.created) {
-          transaction.set(recordStateRef, initializedOwner.state);
-        }
         if (params.checkout !== undefined) {
           transaction.set(billingStateRef, billingState);
         }
@@ -559,7 +519,6 @@ async function reserveServerSubscriptionReturnContext(params: {
           returnToken,
           tokenHash,
           accountData: safeAccountData,
-          ownerState: initializedOwner.state,
           billingState,
           checkoutStripeCustomerId,
         });
@@ -580,7 +539,6 @@ async function reserveServerSubscriptionReturnContext(params: {
 async function markServerSubscriptionReturnContextReady(params: {
   ownerUid: string;
   restaurantAccountDocumentId: string;
-  ownerRecordGeneration: number;
   tokenHash: string;
 }): Promise<void> {
   const stateRef = subscriptionReturnStateRef(
@@ -595,7 +553,6 @@ async function markServerSubscriptionReturnContextReady(params: {
       rawState: stateSnapshot.data(),
       ownerUid: params.ownerUid,
       restaurantAccountDocumentId: params.restaurantAccountDocumentId,
-      ownerRecordGeneration: params.ownerRecordGeneration,
       tokenHash: params.tokenHash,
       nowEpochMs: Date.now(),
     });
@@ -606,7 +563,6 @@ async function markServerSubscriptionReturnContextReady(params: {
 async function removeUnreadyServerSubscriptionReturnContext(params: {
   ownerUid: string;
   restaurantAccountDocumentId: string;
-  ownerRecordGeneration: number;
   tokenHash: string;
 }): Promise<void> {
   const stateRef = subscriptionReturnStateRef(
@@ -621,7 +577,6 @@ async function removeUnreadyServerSubscriptionReturnContext(params: {
       rawState: stateSnapshot.data(),
       ownerUid: params.ownerUid,
       restaurantAccountDocumentId: params.restaurantAccountDocumentId,
-      ownerRecordGeneration: params.ownerRecordGeneration,
       tokenHash: params.tokenHash,
       nowEpochMs: Date.now(),
     });
@@ -632,7 +587,6 @@ async function removeUnreadyServerSubscriptionReturnContext(params: {
 async function bestEffortRemoveUnreadySubscriptionReturnContext(params: {
   ownerUid: string;
   restaurantAccountDocumentId: string;
-  ownerRecordGeneration: number;
   tokenHash: string;
 }): Promise<void> {
   try {
@@ -646,7 +600,6 @@ async function bestEffortRemoveUnreadySubscriptionReturnContext(params: {
 
 async function markServerCheckoutUncertain(params: {
   ownerUid: string;
-  ownerRecordGeneration: number;
   checkoutAttemptId: string | null;
 }): Promise<void> {
   if (params.checkoutAttemptId === null) {
@@ -661,7 +614,6 @@ async function markServerCheckoutUncertain(params: {
       );
       if (
         current === null ||
-        current.ownerRecordGeneration !== params.ownerRecordGeneration ||
         current.checkoutAttemptId !== params.checkoutAttemptId ||
         current.lifecycleState !== "checkout_pending"
       ) {
@@ -678,7 +630,6 @@ async function markServerCheckoutUncertain(params: {
 
 async function recordServerCheckoutSession(params: {
   ownerUid: string;
-  ownerRecordGeneration: number;
   checkoutAttemptId: string | null;
   checkoutSessionId: string;
   stripeCustomerId: string | null;
@@ -686,25 +637,14 @@ async function recordServerCheckoutSession(params: {
   if (params.checkoutAttemptId === null) {
     throw new Error("Owner billing Checkout attempt is unavailable.");
   }
-  const ownerRef = ownerRecordStateRef(params.ownerUid);
   const billingRef = ownerBillingStateRef(params.ownerUid);
   await db.runTransaction(async (transaction) => {
-    const [ownerSnapshot, billingSnapshot] = await Promise.all([
-      transaction.get(ownerRef),
-      transaction.get(billingRef),
-    ]);
-    const ownerState = parseOwnerRecordStateDocument(
-      storedDocument(params.ownerUid, ownerSnapshot),
-    );
+    const billingSnapshot = await transaction.get(billingRef);
     const current = parseOwnerBillingStateDocument(
       storedDocument(params.ownerUid, billingSnapshot),
     );
     if (
-      ownerState === null ||
       current === null ||
-      ownerState.state !== "open" ||
-      ownerState.generation !== params.ownerRecordGeneration ||
-      current.ownerRecordGeneration !== params.ownerRecordGeneration ||
       current.checkoutAttemptId !== params.checkoutAttemptId
     ) {
       throw new Error("Owner billing Checkout state changed.");
@@ -3196,34 +3136,27 @@ async function syncRestaurantSubscriptionFromStripe(
   }
 
   const ownerUid = incoming.ownerUid;
-  const ownerRef = ownerRecordStateRef(ownerUid);
   const billingRef = ownerBillingStateRef(ownerUid);
   const accountRef = db.collection("restaurant_accounts").doc(ownerUid);
   await db.runTransaction(async (transaction) => {
-    const [ownerSnapshot, billingSnapshot, accountSnapshot] =
+    const [billingSnapshot, accountSnapshot] =
       await Promise.all([
-        transaction.get(ownerRef),
         transaction.get(billingRef),
         transaction.get(accountRef),
       ]);
-    const ownerState = parseOwnerRecordStateDocument(
-      storedDocument(ownerUid, ownerSnapshot),
-    );
     const billingState = parseOwnerBillingStateDocument(
       storedDocument(ownerUid, billingSnapshot),
     );
-    if (ownerState === null || billingState === null) {
+    if (billingState === null) {
       return;
     }
     const result = "statusKind" in incoming
       ? applyOwnerBillingUnknownStatusWebhookEvent({
-        owner: ownerState,
         current: billingState,
         incoming,
         now: new Date(),
       })
       : applyOwnerBillingWebhookEvent({
-        owner: ownerState,
         current: billingState,
         incoming,
         now: new Date(),
@@ -3239,10 +3172,7 @@ async function syncRestaurantSubscriptionFromStripe(
       return;
     }
     const accountData = accountSnapshot.data() ?? {};
-    const accountGeneration = accountData.ownerRecordGeneration;
     if (
-      (accountGeneration !== undefined &&
-        accountGeneration !== incoming.ownerRecordGeneration) ||
       (typeof accountData.stripeCustomerId === "string" &&
         accountData.stripeCustomerId.trim() !== "" &&
         accountData.stripeCustomerId !== incoming.stripeCustomerId) ||
@@ -3265,26 +3195,14 @@ async function bindCompletedCheckoutSession(params: {
     checkoutSessionMetadata: params.session.metadata,
     subscriptionMetadata: params.subscription.metadata,
   });
-  const ownerRecordGeneration = Number(metadata.ownerRecordGeneration);
-  const ownerRef = ownerRecordStateRef(metadata.ownerUid);
   const billingRef = ownerBillingStateRef(metadata.ownerUid);
   await db.runTransaction(async (transaction) => {
-    const [ownerSnapshot, billingSnapshot] = await Promise.all([
-      transaction.get(ownerRef),
-      transaction.get(billingRef),
-    ]);
-    const ownerState = parseOwnerRecordStateDocument(
-      storedDocument(metadata.ownerUid, ownerSnapshot),
-    );
+    const billingSnapshot = await transaction.get(billingRef);
     const billingState = parseOwnerBillingStateDocument(
       storedDocument(metadata.ownerUid, billingSnapshot),
     );
     if (
-      ownerState === null ||
       billingState === null ||
-      ownerState.state !== "open" ||
-      ownerState.generation !== ownerRecordGeneration ||
-      billingState.ownerRecordGeneration !== ownerRecordGeneration ||
       billingState.checkoutAttemptId !== metadata.checkoutAttemptId
     ) {
       return;
@@ -3372,7 +3290,6 @@ export const createSubscriptionCheckoutSession = onCall(
       });
       const metadata = createOwnerBillingStripeMetadata({
         ownerUid,
-        ownerRecordGeneration: reserved.ownerState.generation,
         checkoutAttemptId: reserved.billingState.checkoutAttemptId,
       });
       const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData =
@@ -3399,7 +3316,6 @@ export const createSubscriptionCheckoutSession = onCall(
       }, {
         idempotencyKey: ownerBillingStripeIdempotencyKey({
           ownerUid,
-          ownerRecordGeneration: reserved.ownerState.generation,
           checkoutAttemptId: reserved.billingState.checkoutAttemptId,
         }),
       });
@@ -3413,7 +3329,6 @@ export const createSubscriptionCheckoutSession = onCall(
 
       await recordServerCheckoutSession({
         ownerUid,
-        ownerRecordGeneration: reserved.ownerState.generation,
         checkoutAttemptId: reserved.billingState.checkoutAttemptId,
         checkoutSessionId: session.id,
         stripeCustomerId:
@@ -3423,7 +3338,6 @@ export const createSubscriptionCheckoutSession = onCall(
     } catch (error) {
       await markServerCheckoutUncertain({
         ownerUid,
-        ownerRecordGeneration: reserved.ownerState.generation,
         checkoutAttemptId: reserved.billingState.checkoutAttemptId,
       });
       logger.error(
@@ -3440,7 +3354,6 @@ export const createSubscriptionCheckoutSession = onCall(
         ownerUid,
         restaurantAccountDocumentId:
           protocolRequest.restaurantAccountDocumentId,
-        ownerRecordGeneration: reserved.ownerState.generation,
         tokenHash: reserved.tokenHash,
       });
     } catch (error) {
@@ -3535,7 +3448,6 @@ export const createCheckoutSession = onCall(
       const includeTrial = !hasUsedTrial;
       const metadata = createOwnerBillingStripeMetadata({
         ownerUid,
-        ownerRecordGeneration: reserved.ownerState.generation,
         checkoutAttemptId: reserved.billingState.checkoutAttemptId,
       });
       const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData =
@@ -3564,7 +3476,6 @@ export const createCheckoutSession = onCall(
       }, {
         idempotencyKey: ownerBillingStripeIdempotencyKey({
           ownerUid,
-          ownerRecordGeneration: reserved.ownerState.generation,
           checkoutAttemptId: reserved.billingState.checkoutAttemptId,
         }),
       });
@@ -3578,7 +3489,6 @@ export const createCheckoutSession = onCall(
 
       await recordServerCheckoutSession({
         ownerUid,
-        ownerRecordGeneration: reserved.ownerState.generation,
         checkoutAttemptId: reserved.billingState.checkoutAttemptId,
         checkoutSessionId: session.id,
         stripeCustomerId:
@@ -3588,7 +3498,6 @@ export const createCheckoutSession = onCall(
     } catch (error) {
       await markServerCheckoutUncertain({
         ownerUid,
-        ownerRecordGeneration: reserved.ownerState.generation,
         checkoutAttemptId: reserved.billingState.checkoutAttemptId,
       });
       logger.error(
@@ -3605,7 +3514,6 @@ export const createCheckoutSession = onCall(
         ownerUid,
         restaurantAccountDocumentId:
           protocolRequest.restaurantAccountDocumentId,
-        ownerRecordGeneration: reserved.ownerState.generation,
         tokenHash: reserved.tokenHash,
       });
     } catch (error) {
@@ -3729,7 +3637,6 @@ export const createCustomerPortalSession = onCall(
         ownerUid,
         restaurantAccountDocumentId:
           protocolRequest.restaurantAccountDocumentId,
-        ownerRecordGeneration: reserved.ownerState.generation,
         tokenHash: reserved.tokenHash,
       });
       logger.error(
@@ -3746,7 +3653,6 @@ export const createCustomerPortalSession = onCall(
         ownerUid,
         restaurantAccountDocumentId:
           protocolRequest.restaurantAccountDocumentId,
-        ownerRecordGeneration: reserved.ownerState.generation,
         tokenHash: reserved.tokenHash,
       });
     } catch (error) {
@@ -3786,14 +3692,12 @@ export const redeemBiteSaverSubscriptionReturn = onCall(async (request) => {
   const stateRef = subscriptionReturnStateRef(
     parsed.restaurantAccountDocumentId,
   );
-  const recordStateRef = ownerRecordStateRef(ownerUid);
 
   try {
     return await db.runTransaction(async (transaction) => {
-      const [accountSnapshot, ownerSnapshot, stateSnapshot] =
+      const [accountSnapshot, stateSnapshot] =
         await Promise.all([
           transaction.get(accountRef),
-          transaction.get(recordStateRef),
           transaction.get(stateRef),
         ]);
       requireRestaurantAccountOwnership({
@@ -3803,10 +3707,6 @@ export const redeemBiteSaverSubscriptionReturn = onCall(async (request) => {
         accountExists: accountSnapshot.exists,
         accountData: accountSnapshot.data(),
       });
-      const ownerState = requireOpenReturnOwnerState(
-        ownerUid,
-        ownerSnapshot,
-      );
       if (!stateSnapshot.exists) {
         throw new SubscriptionReturnLedgerError("context_unavailable");
       }
@@ -3816,7 +3716,6 @@ export const redeemBiteSaverSubscriptionReturn = onCall(async (request) => {
         ownerUid,
         restaurantAccountDocumentId:
           parsed.restaurantAccountDocumentId,
-        ownerRecordGeneration: ownerState.generation,
         tokenHash,
         returnKind: parsed.returnKind,
         nowEpochMs: Date.now(),
@@ -3859,14 +3758,12 @@ export const claimBiteSaverSubscriptionReturnEvent = onCall(
     const stateRef = subscriptionReturnStateRef(
       parsed.restaurantAccountDocumentId,
     );
-    const recordStateRef = ownerRecordStateRef(ownerUid);
 
     try {
       return await db.runTransaction(async (transaction) => {
-        const [accountSnapshot, ownerSnapshot, stateSnapshot] =
+        const [accountSnapshot, stateSnapshot] =
           await Promise.all([
             transaction.get(accountRef),
-            transaction.get(recordStateRef),
             transaction.get(stateRef),
           ]);
         requireRestaurantAccountOwnership({
@@ -3876,10 +3773,6 @@ export const claimBiteSaverSubscriptionReturnEvent = onCall(
           accountExists: accountSnapshot.exists,
           accountData: accountSnapshot.data(),
         });
-        const ownerState = requireOpenReturnOwnerState(
-          ownerUid,
-          ownerSnapshot,
-        );
         if (!stateSnapshot.exists) {
           throw new SubscriptionReturnLedgerError("event_unavailable");
         }
@@ -3888,7 +3781,6 @@ export const claimBiteSaverSubscriptionReturnEvent = onCall(
           ownerUid,
           restaurantAccountDocumentId:
             parsed.restaurantAccountDocumentId,
-          ownerRecordGeneration: ownerState.generation,
           eventId: parsed.eventId,
           claimType: parsed.claimType,
           nowEpochMs: Date.now(),
@@ -3932,14 +3824,12 @@ export const listBiteSaverSubscriptionReturnEvents = onCall(
     const stateRef = subscriptionReturnStateRef(
       parsed.restaurantAccountDocumentId,
     );
-    const recordStateRef = ownerRecordStateRef(ownerUid);
 
     try {
       return await db.runTransaction(async (transaction) => {
-        const [accountSnapshot, ownerSnapshot, stateSnapshot] =
+        const [accountSnapshot, stateSnapshot] =
           await Promise.all([
             transaction.get(accountRef),
-            transaction.get(recordStateRef),
             transaction.get(stateRef),
           ]);
         requireRestaurantAccountOwnership({
@@ -3949,10 +3839,6 @@ export const listBiteSaverSubscriptionReturnEvents = onCall(
           accountExists: accountSnapshot.exists,
           accountData: accountSnapshot.data(),
         });
-        const ownerState = requireOpenReturnOwnerState(
-          ownerUid,
-          ownerSnapshot,
-        );
         const outcome = listSubscriptionReturnEvents({
           rawState: stateSnapshot.exists
             ? stateSnapshot.data()
@@ -3960,7 +3846,6 @@ export const listBiteSaverSubscriptionReturnEvents = onCall(
           ownerUid,
           restaurantAccountDocumentId:
             parsed.restaurantAccountDocumentId,
-          ownerRecordGeneration: ownerState.generation,
           nowEpochMs: Date.now(),
         });
         if (outcome.changed && outcome.state !== null) {

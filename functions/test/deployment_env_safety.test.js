@@ -6,8 +6,10 @@ const {
   linkSync,
   lstatSync,
   mkdtempSync,
+  mkdirSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   renameSync,
   rmSync,
   symlinkSync,
@@ -238,6 +240,35 @@ function syntheticSource(sourceText, fileName = "fixture.ts") {
   ]);
 }
 
+function runFixtureGit(repositoryRoot, args) {
+  const result = spawnSync("git", args, {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+  });
+  assert.equal(result.error, undefined, args.join(" "));
+  assert.equal(result.signal, null, args.join(" "));
+  assert.equal(result.status, 0, result.stderr);
+  return result.stdout;
+}
+
+function createTrackedSourceRepository(repositoryRoot) {
+  const sourceRoot = path.join(repositoryRoot, "functions/src");
+  const retainedPath = path.join(sourceRoot, "retained.ts");
+  const deletedPath = path.join(sourceRoot, "deleted.ts");
+  mkdirSync(sourceRoot, {recursive: true});
+  writeFileSync(retainedPath, "export const retained = true;\n", "utf8");
+  writeFileSync(deletedPath, "export const deleted = true;\n", "utf8");
+  runFixtureGit(repositoryRoot, ["init", "--quiet"]);
+  runFixtureGit(repositoryRoot, [
+    "add",
+    "--",
+    "functions/src/retained.ts",
+    "functions/src/deleted.ts",
+  ]);
+  unlinkSync(deletedPath);
+  return {sourceRoot, retainedPath};
+}
+
 test("the source-derived deployment allowlist contains only the nonsecret portal parameter", () => {
   assert.deepEqual(ALLOWED_PARAMETER_NAMES, [
     "STRIPE_CUSTOMER_PORTAL_RETURN_URL",
@@ -251,6 +282,70 @@ test("the source-derived deployment allowlist contains only the nonsecret portal
     assert.match(filePath, /\/functions\/src\/.*\.ts$/);
     assert.doesNotMatch(filePath, /\/(?:lib|scripts|test)\//);
   }
+});
+
+test("tracked source scan durably omits deletion and rejects every unsafe nonfile", () => {
+  withFixture((repositoryRoot) => {
+    const {retainedPath} = createTrackedSourceRepository(repositoryRoot);
+    assert.deepEqual(
+      trackedRuntimeTypeScriptSources({repositoryRoot}),
+      [{
+        filePath: realpathSync(retainedPath),
+        sourceText: "export const retained = true;\n",
+      }],
+    );
+  });
+
+  withFixture((repositoryRoot) => {
+    const {sourceRoot} = createTrackedSourceRepository(repositoryRoot);
+    const symlinkPath = path.join(sourceRoot, "symlink.ts");
+    symlinkSync("retained.ts", symlinkPath);
+    runFixtureGit(repositoryRoot, ["add", "--", "functions/src/symlink.ts"]);
+    assert.throws(
+      () => trackedRuntimeTypeScriptSources({repositoryRoot}),
+      (error) => error?.name === "SafeValidationError" &&
+        error.category === "source_file_rejected",
+    );
+  });
+
+  withFixture((repositoryRoot) => {
+    const {sourceRoot} = createTrackedSourceRepository(repositoryRoot);
+    const nonfilePath = path.join(sourceRoot, "tracked-directory.ts");
+    writeFileSync(nonfilePath, "tracked before replacement\n", "utf8");
+    runFixtureGit(repositoryRoot, [
+      "add",
+      "--",
+      "functions/src/tracked-directory.ts",
+    ]);
+    unlinkSync(nonfilePath);
+    mkdirSync(nonfilePath);
+    assert.throws(
+      () => trackedRuntimeTypeScriptSources({repositoryRoot}),
+      (error) => error?.name === "SafeValidationError" &&
+        error.category === "source_file_rejected",
+    );
+  });
+
+  withFixture((repositoryRoot) => {
+    createTrackedSourceRepository(repositoryRoot);
+    const retainedBlob = runFixtureGit(repositoryRoot, [
+      "rev-parse",
+      ":functions/src/retained.ts",
+    ]).trim();
+    const overlongPath = `functions/src/${"a".repeat(300)}.ts`;
+    runFixtureGit(repositoryRoot, [
+      "update-index",
+      "--add",
+      "--cacheinfo",
+      "100644",
+      retainedBlob,
+      overlongPath,
+    ]);
+    assert.throws(
+      () => trackedRuntimeTypeScriptSources({repositoryRoot}),
+      (error) => error?.code === "ENAMETOOLONG",
+    );
+  });
 });
 
 test("syntax-aware discovery ignores comments, strings, templates, tags, locals, and unrelated imports", () => {

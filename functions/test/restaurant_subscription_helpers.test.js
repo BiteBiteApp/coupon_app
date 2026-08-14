@@ -199,7 +199,7 @@ test("subscription helper source requires an atomic update and has no create pat
   assert.doesNotMatch(source, /from\s+["']\.\/index\.js["']/);
 });
 
-test("Stripe webhook wiring updates only an existing generation-bound account without logging metadata", () => {
+test("Stripe webhook wiring updates only an existing identity-matched account without logging metadata", () => {
   const source = readFileSync(
     path.resolve(__dirname, "../src/index.ts"),
     "utf8",
@@ -216,7 +216,8 @@ test("Stripe webhook wiring updates only an existing generation-bound account wi
 
   assert.match(syncSource, /transaction\.get\(accountRef\)/);
   assert.match(syncSource, /!accountSnapshot\.exists/);
-  assert.match(syncSource, /accountGeneration !== incoming\.ownerRecordGeneration/);
+  assert.match(syncSource, /accountData\.stripeCustomerId !== incoming\.stripeCustomerId/);
+  assert.match(syncSource, /accountData\.stripeSubscriptionId !== incoming\.stripeSubscriptionId/);
   assert.match(syncSource, /transaction\.update\(accountRef, updateData\)/);
   assert.doesNotMatch(syncSource, /transaction\.set\(accountRef/);
   assert.doesNotMatch(syncSource, /\{\s*subscriptionId:[\s\S]*?\bmetadata\s*,/);

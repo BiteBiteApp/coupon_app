@@ -7,9 +7,6 @@ const path = require("node:path");
 const test = require("node:test");
 
 const {
-  buildOwnerRecordStateDocument,
-} = require("../lib/owner_record_state_contract.js");
-const {
   createCheckoutPendingOwnerBillingState,
   createInitialOwnerBillingState,
 } = require("../lib/owner_billing_state_contract.js");
@@ -21,7 +18,6 @@ const {
 
 const canonicalReturnUrl =
   "https://app.bitestar.app/subscription/portal-return";
-const ownerGeneration = 7;
 const baselineEventCreated = 1_700_000_000;
 const checkoutAttemptId = "attempt_RuntimeOwner7";
 const checkoutRequestFingerprint = "a".repeat(64);
@@ -62,25 +58,9 @@ function clone(value) {
   return value === undefined ? undefined : structuredClone(value);
 }
 
-function makeOwnerState(overrides = {}) {
-  const state = overrides.state ?? "open";
-  return buildOwnerRecordStateDocument({
-    ownerUid: sensitiveCanaries.uid,
-    generation: ownerGeneration,
-    state,
-    activeJobId:
-      state === "removing" ? "job_RuntimeOwnerRemoval1" : null,
-    createdAt: contractCreatedAt,
-    updatedAt: contractCreatedAt,
-    ...overrides,
-  });
-}
-
 function makePendingBillingState(overrides = {}) {
-  const generation = overrides.ownerRecordGeneration ?? ownerGeneration;
   const initial = createInitialOwnerBillingState(
     sensitiveCanaries.uid,
-    generation,
     contractCreatedAt,
   );
   return createCheckoutPendingOwnerBillingState(initial, {
@@ -97,24 +77,18 @@ function makePendingBillingState(overrides = {}) {
 function makeMetadata(overrides = {}) {
   return createOwnerBillingStripeMetadata({
     ownerUid: overrides.ownerUid ?? sensitiveCanaries.uid,
-    ownerRecordGeneration:
-      overrides.ownerRecordGeneration ?? ownerGeneration,
     checkoutAttemptId:
       overrides.checkoutAttemptId ?? checkoutAttemptId,
   });
 }
 
 function makeKnownBillingState(overrides = {}) {
-  const generation = overrides.ownerRecordGeneration ?? ownerGeneration;
-  const owner = makeOwnerState({generation});
   const current = makePendingBillingState({
-    ownerRecordGeneration: generation,
     checkoutAttemptId:
       overrides.checkoutAttemptId ?? checkoutAttemptId,
   });
   const incoming = createOwnerBillingWebhookEvent({
     metadata: makeMetadata({
-      ownerRecordGeneration: generation,
       checkoutAttemptId:
         overrides.checkoutAttemptId ?? checkoutAttemptId,
     }),
@@ -130,7 +104,6 @@ function makeKnownBillingState(overrides = {}) {
     eventId: overrides.eventId ?? "evt_RuntimeBaseline1",
   });
   return applyOwnerBillingWebhookEvent({
-    owner,
     current,
     incoming,
     now: baselineUpdatedAt,
@@ -186,8 +159,6 @@ function createHarness() {
     accountDocument: undefined,
     accountExists: true,
     accountLookupFailure: null,
-    ownerRecordDocument: undefined,
-    ownerRecordExists: true,
     ownerBillingDocument: undefined,
     ownerBillingExists: true,
     ledgerDocument: undefined,
@@ -215,7 +186,6 @@ function createHarness() {
   function reset() {
     state.accountDocument = {
       uid: sensitiveCanaries.uid,
-      ownerRecordGeneration: ownerGeneration,
       email: sensitiveCanaries.email,
       profileField: "preserve-profile",
       stripeCustomerId: sensitiveCanaries.customer,
@@ -223,8 +193,6 @@ function createHarness() {
     };
     state.accountExists = true;
     state.accountLookupFailure = null;
-    state.ownerRecordDocument = clone(makeOwnerState());
-    state.ownerRecordExists = true;
     state.ownerBillingDocument = clone(makeKnownBillingState());
     state.ownerBillingExists = true;
     state.ledgerDocument = undefined;
@@ -259,12 +227,6 @@ function createHarness() {
         data: state.accountDocument,
       };
     }
-    if (reference.path.startsWith("private_owner_record_states/")) {
-      return {
-        exists: state.ownerRecordExists,
-        data: state.ownerRecordDocument,
-      };
-    }
     if (reference.path.startsWith("private_owner_billing_states/")) {
       return {
         exists: state.ownerBillingExists,
@@ -289,11 +251,6 @@ function createHarness() {
   }
 
   function persistSet(reference, data) {
-    if (reference.path.startsWith("private_owner_record_states/")) {
-      state.ownerRecordExists = true;
-      state.ownerRecordDocument = clone(data);
-      return;
-    }
     if (reference.path.startsWith("private_owner_billing_states/")) {
       state.ownerBillingExists = true;
       state.ownerBillingDocument = clone(data);
@@ -565,11 +522,6 @@ function privateBillingWrites() {
     entry.path.startsWith("private_owner_billing_states/"));
 }
 
-function privateOwnerWrites() {
-  return harness.state.sets.filter((entry) =>
-    entry.path.startsWith("private_owner_record_states/"));
-}
-
 function returnLedgerWrites() {
   return harness.state.sets.filter((entry) =>
     entry.path.startsWith("private_subscription_return_state/"));
@@ -596,7 +548,7 @@ function assertLogsContainNoSensitiveValues(logs, extraCanaries = []) {
     if (log.metadata !== undefined) {
       assert.doesNotMatch(
         JSON.stringify(log.metadata),
-        /"(?:error|message|stack|signature|rawBody|headers|event|customerId|subscriptionId|email|uid|documentId|requestUrl|returnUrl|portalUrl|generation|metadata)"\s*:/i,
+        /"(?:error|message|stack|signature|rawBody|headers|event|customerId|subscriptionId|email|uid|documentId|requestUrl|returnUrl|portalUrl|metadata)"\s*:/i,
       );
     }
   }
@@ -698,7 +650,7 @@ test("unsupported webhook events remain acknowledged no-ops", async () => {
   ]);
 });
 
-test("matching-generation webhooks preserve every raw Stripe status privately and map public state conservatively", async () => {
+test("webhooks preserve every raw Stripe status privately and map public state conservatively", async () => {
   const fixtures = [
     {raw: "active", posture: "blocking", public: "active", enabled: true},
     {raw: "trialing", posture: "blocking", public: "trialing", enabled: true},
@@ -729,11 +681,6 @@ test("matching-generation webhooks preserve every raw Stripe status privately an
     assert.equal(privateBillingWrites().length, 1, fixture.raw);
     const privateState = privateBillingWrites()[0].data;
     assert.equal(privateState.ownerUid, sensitiveCanaries.uid, fixture.raw);
-    assert.equal(
-      privateState.ownerRecordGeneration,
-      ownerGeneration,
-      fixture.raw,
-    );
     assert.equal(privateState.lifecycleState, "subscription_known", fixture.raw);
     assert.equal(privateState.rawStripeStatus, fixture.raw, fixture.raw);
     assert.equal(privateState.billingPosture, fixture.posture, fixture.raw);
@@ -871,7 +818,7 @@ test("a newer attributable unsupported Stripe status durably overrides terminal 
   assert.equal(harness.state.accountDocument.subscriptionStatus, "active");
 });
 
-test("all supported subscription event types enter the generation-bound handler", async () => {
+test("all supported subscription event types enter the billing handler", async () => {
   const eventTypes = [
     "customer.subscription.created",
     "customer.subscription.updated",
@@ -905,11 +852,11 @@ test("strict final webhook metadata rejects missing, malformed, mismatched, and 
   const fixtures = [
     () => {
       const value = {...base};
-      delete value.ownerRecordGeneration;
+      delete value.checkoutAttemptId;
       return value;
     },
-    () => ({...base, ownerRecordGeneration: ownerGeneration}),
-    () => ({...base, ownerRecordGeneration: "07"}),
+    () => ({...base, checkoutAttemptId: ""}),
+    () => ({...base, ownerUid: ""}),
     () => ({...base, restaurantAccountId: "another-owner"}),
     () => ({...base, source: "legacy"}),
     () => ({...base, unexpected: "field"}),
@@ -955,56 +902,12 @@ test("supported webhook events require a positive safe integer event.created", a
   }
 });
 
-test("missing private authority is an acknowledged fail-closed no-op", async () => {
-  for (const missing of ["owner", "billing"]) {
-    harness.reset();
-    if (missing === "owner") {
-      harness.state.ownerRecordExists = false;
-      harness.state.ownerRecordDocument = undefined;
-    } else {
-      harness.state.ownerBillingExists = false;
-      harness.state.ownerBillingDocument = undefined;
-    }
-    const response = await dispatchWebhook(makeWebhookEvent());
-    assertAcknowledged(response);
-    assert.deepEqual(harness.state.sets, [], missing);
-    assert.deepEqual(harness.state.updates, [], missing);
-    assert.deepEqual(harness.state.creates, [], missing);
-  }
-});
-
-test("stale generation is ignored and future generation becomes private unknown without a root update", async () => {
-  const staleResponse = await dispatchWebhook(makeWebhookEvent(
-    makeSubscription({
-      id: "sub_RuntimeStaleGenerationOther1",
-      customer: "cus_RuntimeStaleGenerationOther1",
-      status: "canceled",
-      metadata: makeMetadata({
-        ownerRecordGeneration: ownerGeneration - 1,
-        checkoutAttemptId: "attempt_RuntimeStaleGenerationOther1",
-      }),
-    }),
-    {id: "evt_RuntimeStaleGeneration1"},
-  ));
-  assertAcknowledged(staleResponse);
-  assert.deepEqual(privateBillingWrites(), []);
-  assert.deepEqual(harness.state.updates, []);
-
-  harness.reset();
-  const futureResponse = await dispatchWebhook(makeWebhookEvent(
-    makeSubscription({
-      metadata: makeMetadata({ownerRecordGeneration: ownerGeneration + 1}),
-    }),
-    {id: "evt_RuntimeFutureGeneration1"},
-  ));
-  assertAcknowledged(futureResponse);
-  assert.equal(privateBillingWrites().length, 1);
-  assert.equal(privateBillingWrites()[0].data.lifecycleState, "unknown");
-  assert.equal(privateBillingWrites()[0].data.billingPosture, "unknown");
-  assert.equal(
-    privateBillingWrites()[0].data.stripeEventConflictKind,
-    "identity",
-  );
+test("missing private billing authority is an acknowledged fail-closed no-op", async () => {
+  harness.state.ownerBillingExists = false;
+  harness.state.ownerBillingDocument = undefined;
+  const response = await dispatchWebhook(makeWebhookEvent());
+  assertAcknowledged(response);
+  assert.deepEqual(harness.state.sets, []);
   assert.deepEqual(harness.state.updates, []);
   assert.deepEqual(harness.state.creates, []);
 });
@@ -1038,7 +941,7 @@ test("older, exact-duplicate, and equal-time equivalent events are idempotent no
   }
 });
 
-test("a strictly older same-generation event cannot regress private or root state despite wholly different billing identity", async () => {
+test("a strictly older event cannot regress private or root state despite wholly different billing identity", async () => {
   const billingBefore = clone(harness.state.ownerBillingDocument);
   const accountBefore = clone(harness.state.accountDocument);
   const response = await dispatchWebhook(makeWebhookEvent(
@@ -1175,9 +1078,8 @@ test("equal-time and newer checkout-attempt, customer, or subscription identity 
   }
 });
 
-test("root generation and current Stripe identity mismatches block only the root patch", async () => {
+test("current Stripe identity mismatches block only the root patch", async () => {
   const accountVariants = [
-    {ownerRecordGeneration: ownerGeneration + 1},
     {stripeCustomerId: "cus_RuntimeRootOther1"},
     {stripeSubscriptionId: "sub_RuntimeRootOther1"},
   ];
@@ -1217,149 +1119,6 @@ test("a missing account root is never recreated while private billing still adva
   assert.deepEqual(harness.state.creates, []);
 });
 
-test("removing and removed owner states block private regression and every account-root update", async () => {
-  for (const ownerState of ["removing", "removed"]) {
-    harness.reset();
-    harness.state.ownerRecordDocument = clone(makeOwnerState({state: ownerState}));
-    const before = clone(harness.state.ownerBillingDocument);
-    const response = await dispatchWebhook(makeWebhookEvent(
-      makeSubscription({
-        id: `sub_RuntimeOwner${ownerState === "removing" ? "Removing" : "Removed"}Other1`,
-        customer: `cus_RuntimeOwner${ownerState === "removing" ? "Removing" : "Removed"}Other1`,
-        status: "canceled",
-        metadata: makeMetadata({
-          checkoutAttemptId:
-            `attempt_RuntimeOwner${ownerState === "removing" ? "Removing" : "Removed"}Other1`,
-        }),
-      }),
-      {id: `evt_RuntimeOwner${ownerState === "removing" ? "Removing" : "Removed"}1`},
-    ));
-    assertAcknowledged(response);
-    assert.deepEqual(harness.state.ownerBillingDocument, before, ownerState);
-    assert.deepEqual(privateBillingWrites(), [], ownerState);
-    assert.deepEqual(harness.state.updates, [], ownerState);
-    assert.deepEqual(harness.state.creates, [], ownerState);
-  }
-});
-
-test("non-open owners ignore known and unsupported future-generation events", async () => {
-  const statusCases = [
-    {label: "Known", status: "canceled"},
-    {label: "Unsupported", status: "future_runtime_billing_status"},
-  ];
-
-  for (const ownerState of ["removing", "removed"]) {
-    for (const statusCase of statusCases) {
-      harness.reset();
-      harness.state.ownerRecordDocument = clone(
-        makeOwnerState({state: ownerState}),
-      );
-      harness.state.ownerBillingDocument = clone(makePendingBillingState());
-      const label = `${ownerState}/${statusCase.label}`;
-      const suffix =
-        `${ownerState === "removing" ? "Removing" : "Removed"}` +
-        statusCase.label;
-      const eventId = `evt_RuntimeNonOpenFuture${suffix}1`;
-      const ownerBefore = clone(harness.state.ownerRecordDocument);
-      const billingBefore = clone(harness.state.ownerBillingDocument);
-      const accountBefore = clone(harness.state.accountDocument);
-
-      const response = await dispatchWebhook(makeWebhookEvent(
-        makeSubscription({
-          status: statusCase.status,
-          metadata: makeMetadata({
-            ownerRecordGeneration: ownerGeneration + 1,
-          }),
-        }),
-        {
-          id: eventId,
-          created: baselineEventCreated + 100,
-        },
-      ));
-
-      assertAcknowledged(response);
-      assert.deepEqual(privateOwnerWrites(), [], label);
-      assert.deepEqual(privateBillingWrites(), [], label);
-      assert.deepEqual(returnLedgerWrites(), [], label);
-      assert.deepEqual(harness.state.sets, [], label);
-      assert.deepEqual(harness.state.updates, [], label);
-      assert.deepEqual(harness.state.creates, [], label);
-      assert.deepEqual(
-        harness.state.ownerRecordDocument,
-        ownerBefore,
-        label,
-      );
-      assert.deepEqual(
-        harness.state.ownerBillingDocument,
-        billingBefore,
-        label,
-      );
-      assert.deepEqual(harness.state.accountDocument, accountBefore, label);
-      assert.equal(
-        harness.state.ownerBillingDocument.lifecycleState,
-        "checkout_pending",
-        label,
-      );
-      assert.equal(
-        harness.state.ownerBillingDocument.billingPosture,
-        "blocking",
-        label,
-      );
-      assert.equal(
-        harness.state.ownerBillingDocument.ownerRecordGeneration,
-        ownerGeneration,
-        label,
-      );
-      assert.equal(
-        harness.state.ownerRecordDocument.state,
-        ownerState,
-        label,
-      );
-      assert.equal(
-        harness.state.ownerRecordDocument.updatedAt.getTime(),
-        ownerBefore.updatedAt.getTime(),
-        label,
-      );
-      assert.equal(
-        harness.state.ownerBillingDocument.updatedAt.getTime(),
-        billingBefore.updatedAt.getTime(),
-        label,
-      );
-      for (const field of [
-        "lastStripeEventCreated",
-        "lastStripeEventId",
-        "lastStripeEventPayloadFingerprint",
-        "stripeEventConflictKind",
-      ]) {
-        assert.deepEqual(
-          harness.state.ownerBillingDocument[field],
-          billingBefore[field],
-          `${label}/${field}`,
-        );
-      }
-      assert.deepEqual(harness.state.subscriptionRetrieveCalls, [], label);
-      assert.deepEqual(harness.state.billingPortalCalls, [], label);
-      assert.equal(harness.state.stripeConstructorCalls, 1, label);
-      assert.equal(harness.state.constructEventCalls, 1, label);
-      assert.deepEqual(harness.state.logs, [], label);
-      assertLogsContainNoSensitiveValues(harness.state.logs, [
-        eventId,
-        ...(statusCase.label === "Unsupported"
-          ? [statusCase.status]
-          : []),
-      ]);
-      if (statusCase.label === "Unsupported") {
-        assert.equal(
-          JSON.stringify(harness.state.ownerBillingDocument)
-            .includes(statusCase.status),
-          false,
-          label,
-        );
-      }
-    }
-  }
-});
-
 test("checkout completion binds only matching final metadata and never establishes subscription status", async () => {
   harness.state.ownerBillingDocument = clone(makePendingBillingState());
   harness.state.subscriptionRetrieveResponse = makeSubscription();
@@ -1381,7 +1140,7 @@ test("checkout completion binds only matching final metadata and never establish
   assert.deepEqual(harness.state.updates, []);
 });
 
-test("checkout completion rejects mismatched metadata and ignores a stale generation", async () => {
+test("checkout completion rejects mismatched metadata", async () => {
   harness.state.ownerBillingDocument = clone(makePendingBillingState());
   harness.state.subscriptionRetrieveResponse = makeSubscription({
     metadata: makeMetadata({checkoutAttemptId: "attempt_RuntimeOther1"}),
@@ -1391,21 +1150,6 @@ test("checkout completion rejects mismatched metadata and ignores a stale genera
   assert.deepEqual(privateBillingWrites(), []);
   assert.deepEqual(harness.state.updates, []);
   assertLogsContainNoSensitiveValues(harness.state.logs);
-
-  harness.reset();
-  harness.state.ownerBillingDocument = clone(makePendingBillingState());
-  const staleMetadata = makeMetadata({
-    ownerRecordGeneration: ownerGeneration - 1,
-  });
-  harness.state.subscriptionRetrieveResponse = makeSubscription({
-    metadata: staleMetadata,
-  });
-  const staleResponse = await dispatchWebhook(makeCheckoutCompletedEvent({
-    metadata: staleMetadata,
-  }));
-  assertAcknowledged(staleResponse);
-  assert.deepEqual(privateBillingWrites(), []);
-  assert.deepEqual(harness.state.updates, []);
 });
 
 test("webhook transaction failures return retry-safe sanitized HTTP 500", async () => {
@@ -1491,32 +1235,18 @@ async function assertPortalGateRejectsWithoutStripe() {
   );
   assert.equal(harness.state.stripeConstructorCalls, 0);
   assert.deepEqual(harness.state.billingPortalCalls, []);
-  assert.deepEqual(privateOwnerWrites(), []);
   assert.deepEqual(privateBillingWrites(), []);
   assert.deepEqual(returnLedgerWrites(), []);
   assertLogsContainNoSensitiveValues(harness.state.logs);
 }
 
-test("portal generation, owner lifecycle, and exact customer gates reject before Stripe", async () => {
-  harness.state.ownerRecordDocument = clone(makeOwnerState({
-    generation: ownerGeneration + 1,
-  }));
-  harness.state.accountDocument.ownerRecordGeneration = ownerGeneration + 1;
-  await assertPortalGateRejectsWithoutStripe();
-
-  for (const ownerState of ["removing", "removed"]) {
-    harness.reset();
-    harness.state.ownerRecordDocument = clone(makeOwnerState({state: ownerState}));
-    await assertPortalGateRejectsWithoutStripe();
-  }
-
-  harness.reset();
+test("portal exact customer and private billing gates reject before Stripe", async () => {
   harness.state.accountDocument.stripeCustomerId = "cus_RuntimeOther1";
   await assertPortalGateRejectsWithoutStripe();
 
   harness.reset();
-  harness.state.ownerRecordExists = false;
-  harness.state.ownerRecordDocument = undefined;
+  harness.state.ownerBillingExists = false;
+  harness.state.ownerBillingDocument = undefined;
   await assertPortalGateRejectsWithoutStripe();
 });
 
@@ -1542,12 +1272,11 @@ test("portal requires an existing linked customer before reading private state",
     },
   );
   assert.deepEqual(harness.state.billingPortalCalls, []);
-  assert.deepEqual(privateOwnerWrites(), []);
   assert.deepEqual(privateBillingWrites(), []);
   assert.deepEqual(returnLedgerWrites(), []);
 });
 
-test("successful portal creation preserves billing state and keeps generation and Stripe IDs private", async () => {
+test("successful portal creation preserves billing state and keeps Stripe IDs private", async () => {
   const billingBefore = clone(harness.state.ownerBillingDocument);
 
   const result = await harness.createCustomerPortalSession({
@@ -1573,12 +1302,7 @@ test("successful portal creation preserves billing state and keeps generation an
   for (const write of privateBillingWrites()) {
     assert.deepEqual(write.data, billingBefore);
   }
-  assert.deepEqual(privateOwnerWrites(), []);
   assert.equal(returnLedgerWrites().length, 2);
-  assert.equal(
-    harness.state.ledgerDocument.ownerRecordGeneration,
-    ownerGeneration,
-  );
   assert.deepEqual(harness.state.logs, []);
 });
 
@@ -1620,7 +1344,7 @@ test("portal Stripe failure is sanitized and does not alter authoritative billin
   assertLogsContainNoSensitiveValues(harness.state.logs);
 });
 
-test("source wiring retains strict event-created input, generation-bound private refs, and sanitized logging", () => {
+test("source wiring retains strict event-created input, billing refs, and sanitized logging", () => {
   const source = readFileSync(
     path.resolve(__dirname, "../src/index.ts"),
     "utf8",
@@ -1642,16 +1366,14 @@ test("source wiring retains strict event-created input, generation-bound private
   const portalSource = source.slice(portalStart, portalEnd);
   const webhookSource = source.slice(webhookStart, webhookEnd);
 
-  assert.match(source, /private_owner_record_states|ownerRecordStateCollection/);
   assert.match(source, /private_owner_billing_states|ownerBillingStateCollection/);
+  assert.match(source, /subscriptionReturnLedgerCollection/);
   assert.match(
     source,
     /createOwnerBillingWebhookEvent\(\{[\s\S]*?eventCreated:\s*event\.created/,
   );
-  assert.match(
-    source,
-    /transaction\.get\(ownerRef\)[\s\S]*?transaction\.get\(billingRef\)[\s\S]*?transaction\.get\(accountRef\)/,
-  );
+  assert.match(source, /transaction\.get\(billingRef\)/);
+  assert.match(source, /transaction\.get\(accountRef\)/);
   assert.match(
     source,
     /requireOwnerBillingPortalGate\([\s\S]*?stripeCustomerId/,
@@ -1672,7 +1394,7 @@ test("source wiring retains strict event-created input, generation-bound private
     for (const loggerCall of loggerCalls) {
       assert.doesNotMatch(
         loggerCall,
-        /\b(?:ownerUid|stripeCustomerId|returnUrl|ownerRecordGeneration)\s*[,}]|session\.url|subscription\.id|event\.id/,
+        /\b(?:ownerUid|stripeCustomerId|returnUrl)\s*[,}]|session\.url|subscription\.id|event\.id/,
       );
       assert.doesNotMatch(
         loggerCall,

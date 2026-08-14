@@ -2,19 +2,10 @@ import {createHash} from "node:crypto";
 
 import type Stripe from "stripe";
 
-import {
-  buildOwnerRecordStateDocument,
-  type OwnerRecordStateDocument,
-  type OwnerRecordStateStoredDocument,
-  parseOwnerRecordStateDocument,
-  requireOwnerRecordGeneration,
-  requireOwnerRecordUid,
-} from "./owner_record_state_contract.js";
-
 export const ownerBillingStateCollection =
   "private_owner_billing_states" as const;
 export const ownerBillingStateVersion =
-  "bitestar.owner-billing-state.v1" as const;
+  "bitestar.owner-billing-state.v2" as const;
 
 export type OwnerBillingLifecycleState =
   | "none"
@@ -32,7 +23,6 @@ export type OwnerBillingStripeEventConflictKind =
 export type OwnerBillingStateDocument = Readonly<{
   version: typeof ownerBillingStateVersion;
   ownerUid: string;
-  ownerRecordGeneration: number;
   lifecycleState: OwnerBillingLifecycleState;
   rawStripeStatus: OwnerBillingRawStripeStatus | null;
   billingPosture: OwnerBillingPosture;
@@ -90,7 +80,6 @@ export const ownerBillingRawStripeStatuses = Object.freeze(
 
 const coreKeys = Object.freeze([
   "ownerUid",
-  "ownerRecordGeneration",
   "lifecycleState",
   "rawStripeStatus",
   "billingPosture",
@@ -153,6 +142,22 @@ function exactIdentifier(
     (prefix === null && !/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/u.test(value))
   ) {
     return fail(code);
+  }
+  return value;
+}
+
+export function requireOwnerBillingUid(value: unknown): string {
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    value.length > 128 ||
+    value === "." ||
+    value === ".." ||
+    value.includes("/") ||
+    /[\u0000-\u001f\u007f]/u.test(value) ||
+    Buffer.byteLength(value, "utf8") > 1_500
+  ) {
+    return fail("invalid-request");
   }
   return value;
 }
@@ -437,12 +442,8 @@ function readCore(
     return fail(code);
   }
   let ownerUid: string;
-  let ownerRecordGeneration: number;
   try {
-    ownerUid = requireOwnerRecordUid(data.ownerUid);
-    ownerRecordGeneration = requireOwnerRecordGeneration(
-      data.ownerRecordGeneration,
-    );
+    ownerUid = requireOwnerBillingUid(data.ownerUid);
   } catch {
     return fail(code);
   }
@@ -453,7 +454,6 @@ function readCore(
   }
   const core: OwnerBillingStateCore = Object.freeze({
     ownerUid,
-    ownerRecordGeneration,
     lifecycleState: lifecycleState(data.lifecycleState, code),
     rawStripeStatus: rawStripeStatus(data.rawStripeStatus, code),
     billingPosture: billingPosture(data.billingPosture, code),
@@ -514,27 +514,6 @@ function readCore(
   return core;
 }
 
-function validOwnerRecordState(
-  state: OwnerRecordStateDocument,
-): OwnerRecordStateDocument | null {
-  try {
-    if (state.version !== "bitestar.owner-record-state.v1") {
-      return null;
-    }
-    const rebuilt = buildOwnerRecordStateDocument({
-      ownerUid: state.ownerUid,
-      generation: state.generation,
-      state: state.state,
-      activeJobId: state.activeJobId,
-      createdAt: state.createdAt,
-      updatedAt: state.updatedAt,
-    });
-    return rebuilt.fingerprint === state.fingerprint ? rebuilt : null;
-  } catch {
-    return null;
-  }
-}
-
 function validBillingState(
   state: OwnerBillingStateDocument,
 ): OwnerBillingStateDocument | null {
@@ -544,7 +523,6 @@ function validBillingState(
     }
     const rebuilt = buildOwnerBillingStateDocument({
       ownerUid: state.ownerUid,
-      ownerRecordGeneration: state.ownerRecordGeneration,
       lifecycleState: state.lifecycleState,
       rawStripeStatus: state.rawStripeStatus,
       billingPosture: state.billingPosture,
@@ -614,7 +592,7 @@ export function parseOwnerBillingStateDocument(
     delete coreData.fingerprint;
     const core = readCore(coreData, "invalid-state");
     if (
-      requireOwnerRecordUid(document.id) !== core.ownerUid ||
+      requireOwnerBillingUid(document.id) !== core.ownerUid ||
       data.fingerprint !== fingerprint(core)
     ) {
       return fail("invalid-state");
@@ -629,17 +607,13 @@ export function parseOwnerBillingStateDocument(
   }
 }
 
-/** Explicit final-schema initialization for an open owner generation. */
+/** Explicit generation-free initialization for one authenticated owner. */
 export function createInitialOwnerBillingState(
   ownerUid: string,
-  ownerRecordGeneration: number,
   now: Date,
 ): OwnerBillingStateDocument {
   return buildOwnerBillingStateDocument({
-    ownerUid: requireOwnerRecordUid(ownerUid),
-    ownerRecordGeneration: requireOwnerRecordGeneration(
-      ownerRecordGeneration,
-    ),
+    ownerUid: requireOwnerBillingUid(ownerUid),
     lifecycleState: "none",
     rawStripeStatus: null,
     billingPosture: "inactive",
@@ -660,32 +634,22 @@ export function createInitialOwnerBillingState(
 
 /**
  * Initializes only an absent final-schema billing record. Existing records
- * must bind exactly to the supplied open owner generation.
+ * must bind exactly to the authenticated owner.
  */
 export function initializeOwnerBillingState(
   document: OwnerBillingStateStoredDocument | null,
-  ownerState: OwnerRecordStateDocument,
+  ownerUid: string,
   now: Date,
 ): Readonly<{state: OwnerBillingStateDocument; created: boolean}> {
-  const validOwner = validOwnerRecordState(ownerState);
-  if (validOwner === null || validOwner.state !== "open") {
-    return fail("invalid-state");
-  }
+  const exactOwnerUid = requireOwnerBillingUid(ownerUid);
   const existing = parseOwnerBillingStateDocument(document);
   if (existing === null) {
     return Object.freeze({
-      state: createInitialOwnerBillingState(
-        validOwner.ownerUid,
-        validOwner.generation,
-        now,
-      ),
+      state: createInitialOwnerBillingState(exactOwnerUid, now),
       created: true,
     });
   }
-  if (
-    existing.ownerUid !== validOwner.ownerUid ||
-    existing.ownerRecordGeneration !== validOwner.generation
-  ) {
+  if (existing.ownerUid !== exactOwnerUid) {
     return fail("invalid-state");
   }
   return Object.freeze({state: existing, created: false});
@@ -734,7 +698,6 @@ export function createCheckoutPendingOwnerBillingState(
       : null;
   return buildOwnerBillingStateDocument({
     ownerUid: transition.current.ownerUid,
-    ownerRecordGeneration: transition.current.ownerRecordGeneration,
     lifecycleState: "checkout_pending",
     rawStripeStatus: null,
     billingPosture: "blocking",
@@ -774,7 +737,6 @@ export function markCheckoutUncertain(
   }
   return buildOwnerBillingStateDocument({
     ownerUid: transition.current.ownerUid,
-    ownerRecordGeneration: transition.current.ownerRecordGeneration,
     lifecycleState: "unknown",
     rawStripeStatus: null,
     billingPosture: "unknown",
@@ -852,7 +814,6 @@ export function recordCheckoutSession(
     transition.current.lifecycleState;
   return buildOwnerBillingStateDocument({
     ownerUid: transition.current.ownerUid,
-    ownerRecordGeneration: transition.current.ownerRecordGeneration,
     lifecycleState,
     rawStripeStatus: transition.current.rawStripeStatus,
     billingPosture: canResolveUncertainCheckout ?
@@ -873,64 +834,4 @@ export function recordCheckoutSession(
     createdAt: transition.current.createdAt,
     updatedAt: transition.now,
   });
-}
-
-/** Pure future-reactivation billing reset; never called automatically. */
-export function resetOwnerBillingStateForReactivation(
-  openOwnerState: OwnerRecordStateDocument,
-  now: Date,
-): OwnerBillingStateDocument {
-  const validOwner = validOwnerRecordState(openOwnerState);
-  if (validOwner === null || validOwner.state !== "open") {
-    return fail("invalid-state");
-  }
-  return createInitialOwnerBillingState(
-    validOwner.ownerUid,
-    validOwner.generation,
-    now,
-  );
-}
-
-/** Conservative future owner-removal resolver. It never calls Stripe. */
-export function resolveAuthoritativeOwnerBillingPosture(
-  ownerState: OwnerRecordStateDocument | null,
-  billingState: OwnerBillingStateDocument | null,
-): OwnerBillingPosture {
-  if (ownerState === null || billingState === null) {
-    return "unknown";
-  }
-  const validOwner = validOwnerRecordState(ownerState);
-  const validBilling = validBillingState(billingState);
-  if (
-    validOwner === null ||
-    validBilling === null ||
-    validOwner.state !== "open" ||
-    validOwner.ownerUid !== validBilling.ownerUid ||
-    validOwner.generation !== validBilling.ownerRecordGeneration
-  ) {
-    return "unknown";
-  }
-  switch (validBilling.lifecycleState) {
-  case "none":
-    return "inactive";
-  case "checkout_pending":
-    return "blocking";
-  case "subscription_known":
-    return classifyOwnerBillingRawStripeStatus(validBilling.rawStripeStatus);
-  case "unknown":
-    return "unknown";
-  }
-}
-
-export function resolveAuthoritativeOwnerBillingPostureFromStoredDocuments(
-  ownerDocument: OwnerRecordStateStoredDocument | null,
-  billingDocument: OwnerBillingStateStoredDocument | null,
-): OwnerBillingPosture {
-  try {
-    const ownerState = parseOwnerRecordStateDocument(ownerDocument);
-    const billingState = parseOwnerBillingStateDocument(billingDocument);
-    return resolveAuthoritativeOwnerBillingPosture(ownerState, billingState);
-  } catch {
-    return "unknown";
-  }
 }
