@@ -251,20 +251,35 @@ function runFixtureGit(repositoryRoot, args) {
   return result.stdout;
 }
 
-function createTrackedSourceRepository(repositoryRoot) {
+function createCommittedSourceRepository(repositoryRoot, sources = {
+  "retained.ts": "export const retained = true;\n",
+  "deleted.ts": "export const deleted = true;\n",
+}) {
   const sourceRoot = path.join(repositoryRoot, "functions/src");
-  const retainedPath = path.join(sourceRoot, "retained.ts");
-  const deletedPath = path.join(sourceRoot, "deleted.ts");
   mkdirSync(sourceRoot, {recursive: true});
-  writeFileSync(retainedPath, "export const retained = true;\n", "utf8");
-  writeFileSync(deletedPath, "export const deleted = true;\n", "utf8");
+  const sourcePaths = {};
+  for (const [name, source] of Object.entries(sources)) {
+    const sourcePath = path.join(sourceRoot, name);
+    writeFileSync(sourcePath, source, "utf8");
+    sourcePaths[name] = sourcePath;
+  }
   runFixtureGit(repositoryRoot, ["init", "--quiet"]);
+  runFixtureGit(repositoryRoot, ["config", "user.name", "BiteStar Audit"]);
   runFixtureGit(repositoryRoot, [
-    "add",
-    "--",
-    "functions/src/retained.ts",
-    "functions/src/deleted.ts",
+    "config",
+    "user.email",
+    "audit@example.invalid",
   ]);
+  runFixtureGit(repositoryRoot, ["add", "--", "functions/src"]);
+  runFixtureGit(repositoryRoot, ["commit", "--quiet", "-m", "fixture"]);
+  return {sourceRoot, sourcePaths};
+}
+
+function createTrackedSourceRepository(repositoryRoot) {
+  const {sourceRoot, sourcePaths} =
+    createCommittedSourceRepository(repositoryRoot);
+  const retainedPath = sourcePaths["retained.ts"];
+  const deletedPath = sourcePaths["deleted.ts"];
   unlinkSync(deletedPath);
   return {sourceRoot, retainedPath};
 }
@@ -327,25 +342,340 @@ test("tracked source scan durably omits deletion and rejects every unsafe nonfil
   });
 
   withFixture((repositoryRoot) => {
-    createTrackedSourceRepository(repositoryRoot);
-    const retainedBlob = runFixtureGit(repositoryRoot, [
-      "rev-parse",
-      ":functions/src/retained.ts",
-    ]).trim();
-    const overlongPath = `functions/src/${"a".repeat(300)}.ts`;
-    runFixtureGit(repositoryRoot, [
-      "update-index",
-      "--add",
-      "--cacheinfo",
-      "100644",
-      retainedBlob,
-      overlongPath,
-    ]);
+    const {retainedPath} = createTrackedSourceRepository(repositoryRoot);
+    const filesystemError = Object.assign(
+      new Error("simulated source lstat failure"),
+      {code: "EACCES"},
+    );
     assert.throws(
-      () => trackedRuntimeTypeScriptSources({repositoryRoot}),
-      (error) => error?.code === "ENAMETOOLONG",
+      () => trackedRuntimeTypeScriptSources({
+        repositoryRoot,
+        sourceLstat(filePath) {
+          if (filePath === retainedPath) {
+            throw filesystemError;
+          }
+          return lstatSync(filePath);
+        },
+      }),
+      (error) => error === filesystemError,
     );
   });
+});
+
+test("tracked source scan permits only deletions captured from staged or unstaged Git state", () => {
+  withFixture((repositoryRoot) => {
+    const {sourcePaths} = createCommittedSourceRepository(repositoryRoot);
+    runFixtureGit(repositoryRoot, [
+      "rm",
+      "--quiet",
+      "--",
+      "functions/src/deleted.ts",
+    ]);
+    assert.deepEqual(
+      trackedRuntimeTypeScriptSources({repositoryRoot}),
+      [{
+        filePath: realpathSync(sourcePaths["retained.ts"]),
+        sourceText: "export const retained = true;\n",
+      }],
+    );
+  });
+
+  withFixture((repositoryRoot) => {
+    const {sourcePaths} = createCommittedSourceRepository(repositoryRoot, {
+      "retained.ts": "export const retained = true;\n",
+      "deleted source.ts": "export const deleted = true;\n",
+    });
+    unlinkSync(sourcePaths["deleted source.ts"]);
+    assert.deepEqual(
+      trackedRuntimeTypeScriptSources({repositoryRoot}),
+      [{
+        filePath: realpathSync(sourcePaths["retained.ts"]),
+        sourceText: "export const retained = true;\n",
+      }],
+    );
+  });
+
+  withFixture((repositoryRoot) => {
+    const {sourcePaths} = createCommittedSourceRepository(repositoryRoot, {
+      "retained.ts": "export const retained = true;\n",
+      "deleted\nsource.ts": "export const deleted = true;\n",
+    });
+    unlinkSync(sourcePaths["deleted\nsource.ts"]);
+    assert.deepEqual(
+      trackedRuntimeTypeScriptSources({repositoryRoot}),
+      [{
+        filePath: realpathSync(sourcePaths["retained.ts"]),
+        sourceText: "export const retained = true;\n",
+      }],
+    );
+  });
+});
+
+test("tracked source scan rejects an unexpected disappearance after Git enumeration", () => {
+  withFixture((repositoryRoot) => {
+    const {sourcePaths} = createCommittedSourceRepository(repositoryRoot);
+    const disappearingPath = sourcePaths["deleted.ts"];
+    const deploymentEnvPath = writeFixture(
+      repositoryRoot,
+      canonicalSource(),
+    );
+    const result = validateDeploymentEnv(
+      deploymentEnvPath,
+      {
+        allowedRoot: repositoryRoot,
+        repositoryRoot,
+        testHooks: {
+          afterTrackedSourceEnumeration({relativePaths}) {
+            assert.ok(relativePaths.includes("functions/src/deleted.ts"));
+            unlinkSync(disappearingPath);
+          },
+        },
+      },
+    );
+    assert.equal(result.ok, false);
+    assert.deepEqual(result.issues, [{
+      category: "source_file_disappeared",
+      parameterName: '"functions/src/deleted.ts"',
+    }]);
+  });
+});
+
+test("untracked runtime TypeScript cannot bypass source validation", () => {
+  withFixture((repositoryRoot) => {
+    const {sourceRoot} = createCommittedSourceRepository(repositoryRoot);
+    const untrackedPath = path.join(sourceRoot, "new source.ts");
+    writeFileSync(untrackedPath, "export const untracked = true;\n", "utf8");
+    assert.throws(
+      () => trackedRuntimeTypeScriptSources({repositoryRoot}),
+      (error) =>
+        error?.name === "SafeValidationError" &&
+        error.category === "untracked_source_file" &&
+        error.parameterName === '"functions/src/new source.ts"',
+    );
+    const deploymentEnvPath = writeFixture(
+      repositoryRoot,
+      canonicalSource(),
+    );
+    const result = validateDeploymentEnv(deploymentEnvPath, {
+      allowedRoot: repositoryRoot,
+      repositoryRoot,
+    });
+    assert.equal(result.ok, false);
+    assert.deepEqual(result.issues, [{
+      category: "untracked_source_file",
+      parameterName: '"functions/src/new source.ts"',
+    }]);
+    assert.match(
+      captureSafeResultOutput(result).stdout,
+      /"functions\/src\/new source\.ts": untracked_source_file/,
+    );
+  });
+
+  withFixture((repositoryRoot) => {
+    const {sourcePaths} = createCommittedSourceRepository(repositoryRoot);
+    const renamedPath = path.join(
+      path.dirname(sourcePaths["deleted.ts"]),
+      "renamed.ts",
+    );
+    renameSync(sourcePaths["deleted.ts"], renamedPath);
+    assert.throws(
+      () => trackedRuntimeTypeScriptSources({repositoryRoot}),
+      (error) =>
+        error?.name === "SafeValidationError" &&
+        error.category === "untracked_source_file" &&
+        error.parameterName === '"functions/src/renamed.ts"',
+    );
+  });
+
+  withFixture((repositoryRoot) => {
+    const {sourcePaths} = createCommittedSourceRepository(repositoryRoot);
+    runFixtureGit(repositoryRoot, [
+      "rm",
+      "--quiet",
+      "--",
+      "functions/src/deleted.ts",
+    ]);
+    writeFileSync(
+      sourcePaths["deleted.ts"],
+      "export const recreated = true;\n",
+      "utf8",
+    );
+    assert.throws(
+      () => trackedRuntimeTypeScriptSources({repositoryRoot}),
+      (error) =>
+        error?.name === "SafeValidationError" &&
+        error.category === "untracked_source_file" &&
+        error.parameterName === '"functions/src/deleted.ts"',
+    );
+  });
+
+  withFixture((repositoryRoot) => {
+    const {sourcePaths} = createCommittedSourceRepository(repositoryRoot);
+    writeFileSync(
+      path.join(repositoryRoot, "unrelated.ts"),
+      "export const unrelated = true;\n",
+      "utf8",
+    );
+    assert.deepEqual(
+      trackedRuntimeTypeScriptSources({repositoryRoot}),
+      Object.entries(sourcePaths)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([name, filePath]) => ({
+          filePath: realpathSync(filePath),
+          sourceText: name === "deleted.ts"
+            ? "export const deleted = true;\n"
+            : "export const retained = true;\n",
+        })),
+    );
+  });
+});
+
+test("literal source root must be a confined nonsymlink directory", () => {
+  withFixture((repositoryRoot) => {
+    const functionsRoot = path.join(repositoryRoot, "functions");
+    const targetRoot = path.join(repositoryRoot, "source-target");
+    mkdirSync(functionsRoot, {recursive: true});
+    mkdirSync(targetRoot);
+    symlinkSync(targetRoot, path.join(functionsRoot, "src"), "dir");
+    assert.throws(
+      () => trackedRuntimeTypeScriptSources({repositoryRoot}),
+      (error) =>
+        error?.name === "SafeValidationError" &&
+        error.category === "source_root_rejected",
+    );
+  });
+
+  withFixture((repositoryRoot) => {
+    const functionsRoot = path.join(repositoryRoot, "functions");
+    mkdirSync(functionsRoot, {recursive: true});
+    writeFileSync(path.join(functionsRoot, "src"), "not a directory\n");
+    assert.throws(
+      () => trackedRuntimeTypeScriptSources({repositoryRoot}),
+      (error) =>
+        error?.name === "SafeValidationError" &&
+        error.category === "source_root_rejected",
+    );
+  });
+
+  withFixture((fixtureRoot) => {
+    const repositoryRoot = path.join(fixtureRoot, "repository");
+    mkdirSync(repositoryRoot);
+    createCommittedSourceRepository(repositoryRoot);
+    const externalFunctions = path.join(fixtureRoot, "external-functions");
+    renameSync(path.join(repositoryRoot, "functions"), externalFunctions);
+    symlinkSync(externalFunctions, path.join(repositoryRoot, "functions"), "dir");
+    assert.equal(
+      lstatSync(path.join(repositoryRoot, "functions/src")).isDirectory(),
+      true,
+    );
+    assert.throws(
+      () => trackedRuntimeTypeScriptSources({repositoryRoot}),
+      (error) =>
+        error?.name === "SafeValidationError" &&
+        error.category === "source_root_outside_repository",
+    );
+  });
+});
+
+test("Git source path discovery fails closed on process and output failures", () => {
+  const cases = [
+    {
+      label: "nonzero exit",
+      result: {
+        error: undefined,
+        status: 1,
+        signal: null,
+        stdout: Buffer.alloc(0),
+        stderr: Buffer.alloc(0),
+      },
+    },
+    {
+      label: "signal",
+      result: {
+        error: undefined,
+        status: null,
+        signal: "SIGTERM",
+        stdout: Buffer.alloc(0),
+        stderr: Buffer.alloc(0),
+      },
+    },
+    {
+      label: "stderr",
+      result: {
+        error: undefined,
+        status: 0,
+        signal: null,
+        stdout: Buffer.alloc(0),
+        stderr: Buffer.from("unexpected stderr"),
+      },
+    },
+    {
+      label: "oversized output",
+      result: {
+        error: Object.assign(new Error("maxBuffer exceeded"), {
+          code: "ENOBUFS",
+        }),
+        status: null,
+        signal: "SIGTERM",
+        stdout: Buffer.alloc(4 * 1024 * 1024 + 1),
+        stderr: Buffer.alloc(0),
+      },
+    },
+    {
+      label: "invalid UTF-8",
+      result: {
+        error: undefined,
+        status: 0,
+        signal: null,
+        stdout: Buffer.from([0xff, 0x00]),
+        stderr: Buffer.alloc(0),
+      },
+    },
+    {
+      label: "unterminated output",
+      result: {
+        error: undefined,
+        status: 0,
+        signal: null,
+        stdout: Buffer.from("functions/src/file.ts"),
+        stderr: Buffer.alloc(0),
+      },
+    },
+    {
+      label: "invalid relative path",
+      result: {
+        error: undefined,
+        status: 0,
+        signal: null,
+        stdout: Buffer.from("../outside.ts\0"),
+        stderr: Buffer.alloc(0),
+      },
+    },
+  ];
+
+  for (const testCase of cases) {
+    withFixture((repositoryRoot) => {
+      mkdirSync(path.join(repositoryRoot, "functions/src"), {
+        recursive: true,
+      });
+      assert.throws(
+        () => trackedRuntimeTypeScriptSources({
+          repositoryRoot,
+          spawnGit(command, arguments_, options) {
+            assert.equal(command, "git", testCase.label);
+            assert.ok(Array.isArray(arguments_), testCase.label);
+            assert.equal(options.encoding, "buffer", testCase.label);
+            assert.equal(options.maxBuffer, 4 * 1024 * 1024, testCase.label);
+            return testCase.result;
+          },
+        }),
+        (error) =>
+          error?.name === "SafeValidationError" &&
+          error.category === "source_file_listing_failed",
+        testCase.label,
+      );
+    });
+  }
 });
 
 test("syntax-aware discovery ignores comments, strings, templates, tags, locals, and unrelated imports", () => {

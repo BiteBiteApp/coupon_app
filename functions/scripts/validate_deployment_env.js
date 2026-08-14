@@ -38,6 +38,7 @@ const SUPPORTED_SECRET_FACTORIES = new Set([
 const MAX_FILE_BYTES = 16 * 1024;
 const MAX_LINE_LENGTH = 2048;
 const MAX_PARAMETER_NAME_LENGTH = 128;
+const MAX_SOURCE_PATH_LISTING_BYTES = 4 * 1024 * 1024;
 const SAFE_PRE_UPDATE_MODES = new Set([0o600, 0o644]);
 const STRICT_MODE = new Set([0o600]);
 const RESERVED_PARAMETER_NAMES = new Set([
@@ -109,6 +110,72 @@ function isPathWithin(candidatePath, allowedRoot) {
       relative !== ".." &&
       !path.isAbsolute(relative))
   );
+}
+
+function safePathLabel(relativePath) {
+  return JSON.stringify(relativePath)
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
+function normalizedGitPath(relativePath) {
+  if (
+    relativePath === "" ||
+    path.posix.isAbsolute(relativePath) ||
+    path.posix.normalize(relativePath) !== relativePath ||
+    relativePath === ".." ||
+    relativePath.startsWith("../")
+  ) {
+    throw new SafeValidationError("source_file_listing_failed");
+  }
+  return relativePath;
+}
+
+function gitPathListing(repositoryRoot, arguments_, options) {
+  const spawnGit = options.spawnGit ?? spawnSync;
+  const listing = spawnGit("git", arguments_, {
+    cwd: repositoryRoot,
+    encoding: "buffer",
+    maxBuffer: MAX_SOURCE_PATH_LISTING_BYTES,
+  });
+  if (
+    listing === null ||
+    typeof listing !== "object" ||
+    listing.error !== undefined ||
+    listing.status !== 0 ||
+    listing.signal !== null ||
+    !Buffer.isBuffer(listing.stdout) ||
+    !Buffer.isBuffer(listing.stderr) ||
+    listing.stdout.length > MAX_SOURCE_PATH_LISTING_BYTES ||
+    listing.stderr.length !== 0
+  ) {
+    throw new SafeValidationError("source_file_listing_failed");
+  }
+
+  let decodedListing;
+  try {
+    decodedListing = new TextDecoder("utf-8", {fatal: true}).decode(
+      listing.stdout,
+    );
+  } catch {
+    throw new SafeValidationError("source_file_listing_failed");
+  }
+  if (decodedListing === "") {
+    return [];
+  }
+  if (!decodedListing.endsWith("\0")) {
+    throw new SafeValidationError("source_file_listing_failed");
+  }
+  const paths = decodedListing.slice(0, -1).split("\0");
+  if (paths.some((relativePath) => relativePath === "")) {
+    throw new SafeValidationError("source_file_listing_failed");
+  }
+  return paths.map(normalizedGitPath);
+}
+
+function isRuntimeTypeScriptPath(relativePath) {
+  return relativePath.startsWith("functions/src/") &&
+    relativePath.endsWith(".ts");
 }
 
 function fileTypeFromStat(stat) {
@@ -541,47 +608,111 @@ function trackedRuntimeTypeScriptSources(options = {}) {
   const repositoryRoot = path.resolve(
     options.repositoryRoot ?? path.resolve(__dirname, "../.."),
   );
-  const sourceRoot = realpathSync(
-    path.join(repositoryRoot, "functions/src"),
-  );
-  const listing = spawnSync(
-    "git",
-    ["ls-files", "-z", "--", "functions/src"],
-    {
-      cwd: repositoryRoot,
-      encoding: "buffer",
-      maxBuffer: 4 * 1024 * 1024,
-    },
-  );
-  if (
-    listing.status !== 0 ||
-    listing.signal !== null ||
-    listing.stderr.length !== 0
-  ) {
-    throw new SafeValidationError("source_file_listing_failed");
-  }
-
-  let decodedListing;
+  const resolvedRepositoryRoot = realpathSync(repositoryRoot);
+  const sourceRootPath = path.join(repositoryRoot, "functions/src");
+  let sourceRootMetadata;
   try {
-    decodedListing = new TextDecoder("utf-8", {fatal: true}).decode(
-      listing.stdout,
-    );
+    sourceRootMetadata = lstatSync(sourceRootPath);
   } catch {
-    throw new SafeValidationError("source_file_listing_failed");
+    throw new SafeValidationError("source_root_rejected");
+  }
+  if (
+    sourceRootMetadata.isSymbolicLink() ||
+    !sourceRootMetadata.isDirectory()
+  ) {
+    throw new SafeValidationError("source_root_rejected");
+  }
+  let sourceRoot;
+  try {
+    sourceRoot = realpathSync(sourceRootPath);
+  } catch {
+    throw new SafeValidationError("source_root_rejected");
+  }
+  if (!isPathWithin(sourceRoot, resolvedRepositoryRoot)) {
+    throw new SafeValidationError("source_root_outside_repository");
   }
 
-  return decodedListing
-    .split("\0")
-    .filter((relativePath) => relativePath.endsWith(".ts"))
+  const unstagedDeletedPaths = gitPathListing(
+    repositoryRoot,
+    [
+      "diff",
+      "--name-only",
+      "-z",
+      "--diff-filter=D",
+      "--no-renames",
+      "--",
+      "functions/src",
+    ],
+    options,
+  );
+  const stagedDeletedPaths = gitPathListing(
+    repositoryRoot,
+    [
+      "diff",
+      "--cached",
+      "--name-only",
+      "-z",
+      "--diff-filter=D",
+      "--no-renames",
+      "--",
+      "functions/src",
+    ],
+    options,
+  );
+  const deletedPaths = new Set(
+    [...unstagedDeletedPaths, ...stagedDeletedPaths]
+      .filter(isRuntimeTypeScriptPath),
+  );
+
+  const untrackedPaths = gitPathListing(
+    repositoryRoot,
+    [
+      "ls-files",
+      "--others",
+      "--exclude-standard",
+      "-z",
+      "--",
+      "functions/src",
+    ],
+    options,
+  );
+  const untrackedRuntimePath = untrackedPaths
+    .filter(isRuntimeTypeScriptPath)
+    .sort()[0];
+  if (untrackedRuntimePath !== undefined) {
+    throw new SafeValidationError(
+      "untracked_source_file",
+      safePathLabel(untrackedRuntimePath),
+    );
+  }
+
+  const trackedPaths = gitPathListing(
+    repositoryRoot,
+    ["ls-files", "-z", "--", "functions/src"],
+    options,
+  );
+  runTestHook(options, "afterTrackedSourceEnumeration", {
+    relativePaths: Object.freeze([...trackedPaths]),
+  });
+  const sourceLstat = options.sourceLstat ?? lstatSync;
+
+  return trackedPaths
+    .filter(isRuntimeTypeScriptPath)
     .sort()
     .flatMap((relativePath) => {
       const filePath = path.resolve(repositoryRoot, relativePath);
       let metadata;
       try {
-        metadata = lstatSync(filePath);
+        metadata = sourceLstat(filePath);
       } catch (error) {
         if (error?.code === "ENOENT") {
-          return [];
+          if (deletedPaths.has(relativePath)) {
+            return [];
+          }
+          throw new SafeValidationError(
+            "source_file_disappeared",
+            safePathLabel(relativePath),
+          );
         }
         throw error;
       }
@@ -612,8 +743,14 @@ function sourceAllowlistIssues(options = {}) {
       options.sourceParameterAnalysis ??
       discoverTrackedParameterDefinitions({
         repositoryRoot: options.repositoryRoot,
+        sourceLstat: options.sourceLstat,
+        spawnGit: options.spawnGit,
+        testHooks: options.testHooks,
       });
-  } catch {
+  } catch (error) {
+    if (error instanceof SafeValidationError) {
+      return [safeIssue(error.category, error.parameterName)];
+    }
     return [safeIssue("source_parameter_analysis_failed")];
   }
 

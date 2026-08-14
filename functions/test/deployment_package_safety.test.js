@@ -8,12 +8,14 @@ const {
   fstatSync,
   lstatSync,
   mkdtempSync,
+  mkdirSync,
   openSync,
   readFileSync,
   readdirSync,
   realpathSync,
   rmSync,
   unlinkSync,
+  writeFileSync,
 } = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
@@ -24,6 +26,9 @@ const {
   verificationConcurrencyTestOnly,
   verificationIsolationTestOnly,
 } = require("../scripts/verify_firebase_cli_packaging.js");
+const {
+  trackedRuntimeTypeScriptSources,
+} = require("../scripts/validate_deployment_env.js");
 
 const repositoryRoot = path.resolve(__dirname, "../..");
 const firebaseConfig = JSON.parse(
@@ -109,37 +114,33 @@ function selectRuntimeTypeScriptPaths(trackedPaths) {
     .sort();
 }
 
-function trackedRuntimeTypeScriptPaths() {
-  const result = spawnSync(
-    "git",
-    ["ls-files", "-z", "--", "functions/src"],
-    {
-      cwd: repositoryRoot,
-      encoding: "buffer",
-    },
+function trackedRuntimeTypeScriptPaths(options = {}) {
+  const selectedRepositoryRoot = path.resolve(
+    options.repositoryRoot ?? repositoryRoot,
   );
-  assert.equal(result.status, 0);
-  assert.equal(result.signal, null);
-  assert.equal(result.stderr.length, 0);
-
-  const trackedPaths = result.stdout
-    .toString("utf8")
-    .split("\0")
-    .filter(Boolean);
-  const runtimePaths = selectRuntimeTypeScriptPaths(trackedPaths)
-    .filter((trackedPath) => {
-      try {
-        lstatSync(path.join(repositoryRoot, trackedPath));
-        return true;
-      } catch (error) {
-        if (error?.code === "ENOENT") {
-          return false;
-        }
-        throw error;
-      }
-    });
+  const resolvedRepositoryRoot = realpathSync(selectedRepositoryRoot);
+  const trackedPaths = trackedRuntimeTypeScriptSources({
+    repositoryRoot: selectedRepositoryRoot,
+    testHooks: options.testHooks,
+  }).map(({filePath}) =>
+    path.relative(resolvedRepositoryRoot, filePath)
+      .split(path.sep)
+      .join(path.posix.sep));
+  const runtimePaths = selectRuntimeTypeScriptPaths(trackedPaths);
   assert.notEqual(runtimePaths.length, 0);
   return runtimePaths;
+}
+
+function runSourceFixtureGit(repository, arguments_) {
+  const result = spawnSync("git", arguments_, {
+    cwd: repository,
+    encoding: "utf8",
+  });
+  assert.equal(result.error, undefined, arguments_.join(" "));
+  assert.equal(result.signal, null, arguments_.join(" "));
+  assert.equal(result.status, 0, result.stderr);
+  assert.equal(result.stderr, "");
+  return result.stdout;
 }
 
 function loadParentFirebaseCliStateTargets() {
@@ -430,6 +431,45 @@ test("provider-secret scan recursively covers deterministic tracked runtime Type
       "functions/src/nested/runtime.ts",
       "functions/src/z.ts",
     ],
+  );
+});
+
+test("provider-secret source selection rejects an unexpected post-enumeration disappearance", (t) => {
+  const fixtureRoot = mkdtempSync(
+    path.join(os.tmpdir(), "bitestar-package-source-scan-"),
+  );
+  t.after(() => {
+    rmSync(fixtureRoot, {recursive: true, force: true});
+  });
+  const sourceRoot = path.join(fixtureRoot, "functions/src");
+  const disappearingPath = path.join(sourceRoot, "disappearing.ts");
+  mkdirSync(sourceRoot, {recursive: true});
+  writeFileSync(
+    path.join(sourceRoot, "retained.ts"),
+    "export const retained = true;\n",
+    "utf8",
+  );
+  writeFileSync(
+    disappearingPath,
+    "export const disappearing = true;\n",
+    "utf8",
+  );
+  runSourceFixtureGit(fixtureRoot, ["init", "--quiet"]);
+  runSourceFixtureGit(fixtureRoot, ["add", "--", "functions/src"]);
+
+  assert.throws(
+    () => trackedRuntimeTypeScriptPaths({
+      repositoryRoot: fixtureRoot,
+      testHooks: {
+        afterTrackedSourceEnumeration() {
+          unlinkSync(disappearingPath);
+        },
+      },
+    }),
+    (error) =>
+      error?.name === "SafeValidationError" &&
+      error.category === "source_file_disappeared" &&
+      error.parameterName === '"functions/src/disappearing.ts"',
   );
 });
 
