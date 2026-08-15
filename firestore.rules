@@ -1001,11 +1001,8 @@ service cloud.firestore {
 
     match /restaurant_accounts/{restaurantUid} {
       allow get: if isAdmin() ||
-        isSelf(restaurantUid) ||
-        restaurantAccountDataIsCustomerVisible(resource.data);
-      allow list: if isAdmin() ||
-        isSelf(restaurantUid) ||
-        restaurantAccountDataHasPostingAccess(resource.data);
+        isSelf(restaurantUid);
+      allow list: if isAdmin();
       allow create: if isAdmin() || canCreateOwnRestaurantAccount(restaurantUid);
       allow update: if
         (isAdmin() &&

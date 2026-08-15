@@ -880,36 +880,84 @@ test("public writes are denied by default", async () => {
   );
 });
 
-test("public read of pending/private restaurant accounts is denied", async () => {
+test("restaurant account root gets are private to the exact owner and Admin", async () => {
+  await seedRuleTestDocuments([
+    {
+      documentPath: "restaurant_accounts/hidden-owner",
+      data: {
+        uid: "hidden-owner",
+        restaurantName: "Hidden Restaurant",
+        approvalStatus: "approved",
+        couponPostingEnabled: true,
+        adminHidden: true,
+      },
+    },
+    {
+      documentPath: "restaurant_accounts/posting-disabled-owner",
+      data: {
+        uid: "posting-disabled-owner",
+        restaurantName: "Posting Disabled Restaurant",
+        approvalStatus: "approved",
+        couponPostingEnabled: false,
+      },
+    },
+    {
+      documentPath: "restaurant_accounts/rejected-owner",
+      data: {
+        uid: "rejected-owner",
+        restaurantName: "Rejected Restaurant",
+        approvalStatus: "rejected",
+        couponPostingEnabled: false,
+      },
+    },
+  ]);
+
+  const rootPaths = [
+    "restaurant_accounts/owner-1",
+    "restaurant_accounts/pending-owner",
+    "restaurant_accounts/hidden-owner",
+    "restaurant_accounts/posting-disabled-owner",
+    "restaurant_accounts/rejected-owner",
+  ];
+  for (const actor of ["unauthenticated", "customer"]) {
+    for (const rootPath of rootPaths) {
+      await assertFails(dbFor(actor).doc(rootPath).get());
+    }
+  }
   await assertFails(
-    dbFor("unauthenticated").doc("restaurant_accounts/pending-owner").get(),
+    dbFor("wrongRestaurantOwner").doc("restaurant_accounts/owner-1").get(),
   );
+  await assertSucceeds(
+    dbFor("restaurantOwner").doc("restaurant_accounts/owner-1").get(),
+  );
+  for (const rootPath of rootPaths) {
+    await assertSucceeds(dbFor("admin").doc(rootPath).get());
+  }
 });
 
-test("public read of approved posting-enabled restaurant content is allowed", async () => {
+test("public child content remains readable through internal parent checks", async () => {
+  const accountPath = "restaurant_accounts/owner-1";
+  const customerPaths = [
+    `${accountPath}/coupons/coupon-1`,
+    `${accountPath}/daily_specials/special-1`,
+    `${accountPath}/menu_items/item-1`,
+    `${accountPath}/menu_sections/section-1`,
+    `${accountPath}/menu_images/image-1`,
+  ];
+  for (const actor of ["unauthenticated", "customer"]) {
+    await assertFails(dbFor(actor).doc(accountPath).get());
+    for (const childPath of customerPaths) {
+      await assertSucceeds(dbFor(actor).doc(childPath).get());
+    }
+  }
+  for (const actor of ["restaurantOwner", "admin"]) {
+    await assertSucceeds(dbFor(actor).doc(accountPath).get());
+    for (const childPath of customerPaths) {
+      await assertSucceeds(dbFor(actor).doc(childPath).get());
+    }
+  }
+
   const db = dbFor("unauthenticated");
-  assert.equal(
-    (await assertSucceeds(db.doc("restaurant_accounts/owner-1").get())).exists,
-    true,
-  );
-  assert.equal(
-    (
-      await assertSucceeds(
-        db.collection("restaurant_accounts")
-          .where("approvalStatus", "==", "approved")
-          .where("couponPostingEnabled", "==", true)
-          .get(),
-      )
-    ).size,
-    1,
-  );
-  await assertSucceeds(db.doc("restaurant_accounts/owner-1/coupons/coupon-1").get());
-  await assertSucceeds(
-    db.doc("restaurant_accounts/owner-1/daily_specials/special-1").get(),
-  );
-  await assertSucceeds(
-    db.doc("restaurant_accounts/owner-1/menu_items/item-1").get(),
-  );
   await assertSucceeds(db.doc("bitescore_restaurants/bs-1").get());
   await assertSucceeds(db.doc("bitescore_dishes/dish-1").get());
   await assertSucceeds(db.doc("dish_rating_aggregates/dish-1").get());
@@ -1273,7 +1321,7 @@ test("BiteSaver Admin Restore removes only the veto and preserves posting gates"
     adminHidden: false,
     updatedAt: serverTimestamp(),
   }));
-  await assertSucceeds(dbFor("customer").doc(accountPath).get());
+  await assertFails(dbFor("customer").doc(accountPath).get());
   await assertSucceeds(
     dbFor("customer").doc(`${accountPath}/coupons/coupon-1`).get(),
   );
@@ -1677,7 +1725,7 @@ test("exact true posting flag preserves active, trialing, and scheduled-cancella
         updatedAt: serverTimestamp(),
       }),
     );
-    await assertSucceeds(dbFor("customer").doc(accountPath).get());
+    await assertFails(dbFor("customer").doc(accountPath).get());
     await assertSucceeds(dbFor("customer").doc(ownerRef.path).get());
   }
 });
@@ -1766,47 +1814,50 @@ test("false, missing, malformed, and unapproved posting projections fail closed"
   }
 });
 
-test("public restaurant lists must constrain approval and exact posting access", async () => {
-  const db = dbFor("customer");
-  await assertFails(
-    db.collection("restaurant_accounts")
-      .where("approvalStatus", "==", "approved")
-      .get(),
-  );
+test("restaurant account root lists and queries are Admin-only", async () => {
+  await seedRuleTestDocuments([
+    {
+      documentPath: "restaurant_accounts/hidden-approved-owner",
+      data: {
+        uid: "hidden-approved-owner",
+        restaurantName: "Hidden Approved Restaurant",
+        approvalStatus: "approved",
+        couponPostingEnabled: true,
+        adminHidden: true,
+      },
+    },
+  ]);
 
-  const visible = await assertSucceeds(
-    db.collection("restaurant_accounts")
-      .where("approvalStatus", "==", "approved")
-      .where("couponPostingEnabled", "==", true)
-      .get(),
-  );
-  assert.equal(visible.size, 1);
-  assert.equal(visible.docs[0].id, "owner-1");
-
-  for (const couponPostingEnabled of [
-    false,
-    firebase.firestore.FieldValue.delete(),
-    "true",
-  ]) {
-    await updateRuleTestDocument("restaurant_accounts/owner-1", {
-      couponPostingEnabled,
-    });
-    const hidden = await assertSucceeds(
+  for (const actor of ["unauthenticated", "customer", "restaurantOwner"]) {
+    const db = dbFor(actor);
+    await assertFails(db.collection("restaurant_accounts").get());
+    await assertFails(
       db.collection("restaurant_accounts")
         .where("approvalStatus", "==", "approved")
         .where("couponPostingEnabled", "==", true)
         .get(),
     );
-    assert.equal(hidden.size, 0);
+    await assertFails(
+      db.collection("restaurant_accounts")
+        .where("uid", "==", "owner-1")
+        .get(),
+    );
   }
 
-  const adminVisible = await assertSucceeds(
-    dbFor("admin")
-      .collection("restaurant_accounts")
+  const adminDb = dbFor("admin");
+  const adminAll = await assertSucceeds(
+    adminDb.collection("restaurant_accounts").get(),
+  );
+  assert.equal(adminAll.size, 3);
+  const adminApproved = await assertSucceeds(
+    adminDb.collection("restaurant_accounts")
       .where("approvalStatus", "==", "approved")
       .get(),
   );
-  assert.equal(adminVisible.size, 1);
+  assert.deepEqual(
+    adminApproved.docs.map((document) => document.id).sort(),
+    ["hidden-approved-owner", "owner-1"],
+  );
 });
 
 test("inactive owners can delete only their coupons without broadening other deletes", async () => {
@@ -2027,10 +2078,16 @@ test("wrong restaurant owners cannot manage another owner's content", async () =
   );
 });
 
-test("restaurant account root deletion is denied to owners, other users, and admins", async () => {
+test("restaurant account root deletion is denied to every client role", async () => {
   const accountPath = "restaurant_accounts/owner-1";
 
-  for (const actor of ["restaurantOwner", "wrongRestaurantOwner", "admin"]) {
+  for (const actor of [
+    "unauthenticated",
+    "customer",
+    "restaurantOwner",
+    "wrongRestaurantOwner",
+    "admin",
+  ]) {
     await assertFails(dbFor(actor).doc(accountPath).delete());
   }
 
@@ -2040,12 +2097,15 @@ test("restaurant account root deletion is denied to owners, other users, and adm
   assert.equal(account.exists, true);
 });
 
-test("restaurant account root reads and updates keep their existing policy", async () => {
+test("restaurant root reads isolate owners while update policy stays unchanged", async () => {
   const accountPath = "restaurant_accounts/owner-1";
 
-  for (const actor of ["restaurantOwner", "wrongRestaurantOwner", "admin"]) {
+  for (const actor of ["restaurantOwner", "admin"]) {
     const account = await assertSucceeds(dbFor(actor).doc(accountPath).get());
     assert.equal(account.exists, true);
+  }
+  for (const actor of ["unauthenticated", "customer", "wrongRestaurantOwner"]) {
+    await assertFails(dbFor(actor).doc(accountPath).get());
   }
 
   await assertSucceeds(
