@@ -3,6 +3,8 @@
   "scripts": {
     "build": "tsc",
     "build:watch": "tsc --watch",
+    "validate:deployment": "node scripts/validate_deployment_env.js validate .env.coupon-app-29446",
+    "predeploy:safe": "npm run build && npm run validate:deployment",
     "test": "npm run build && node --test test/*.test.js",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",

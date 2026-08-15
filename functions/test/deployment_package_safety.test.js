@@ -35,6 +35,9 @@ const firebaseConfig = JSON.parse(
   readFileSync(path.join(repositoryRoot, "firebase.json"), "utf8"),
 );
 const functionsConfig = firebaseConfig.functions[0];
+const functionsPackage = JSON.parse(
+  readFileSync(path.join(repositoryRoot, "functions/package.json"), "utf8"),
+);
 
 const expectedIgnoreEntries = [
   "node_modules",
@@ -294,6 +297,51 @@ test("Functions ignore configuration explicitly excludes local environments whil
   );
 });
 
+test("every Functions codebase builds once and validates immediately before packaging", () => {
+  const firebasePredeployCommand =
+    'npm --prefix "$RESOURCE_DIR" run predeploy:safe';
+  const validatorCommand =
+    "node scripts/validate_deployment_env.js validate .env.coupon-app-29446";
+  const safePredeployCommand =
+    "npm run build && npm run validate:deployment";
+
+  assert.ok(firebaseConfig.functions.length > 0);
+  for (const configuredCodebase of firebaseConfig.functions) {
+    assert.deepEqual(configuredCodebase.predeploy, [
+      firebasePredeployCommand,
+    ]);
+  }
+
+  assert.equal(
+    functionsPackage.scripts["validate:deployment"],
+    validatorCommand,
+  );
+  assert.equal(
+    functionsPackage.scripts["predeploy:safe"],
+    safePredeployCommand,
+  );
+  assert.deepEqual(safePredeployCommand.split(" && "), [
+    "npm run build",
+    "npm run validate:deployment",
+  ]);
+  assert.equal(
+    safePredeployCommand.split("validate:deployment").length - 1,
+    1,
+  );
+  assert.doesNotMatch(safePredeployCommand, /\|\||;|&\s*$/);
+
+  const officialFunctionsDeployScripts = Object.entries(
+    functionsPackage.scripts,
+  ).filter(([, command]) => /\bfirebase\s+deploy\b/.test(command));
+  assert.deepEqual(officialFunctionsDeployScripts, [
+    ["deploy", "firebase deploy --only functions"],
+  ]);
+  assert.doesNotMatch(
+    officialFunctionsDeployScripts[0][1],
+    /(?:--config\b|\bgcloud\b)/,
+  );
+});
+
 test("required source, package, compiled, validator, and test artifacts are not excluded", () => {
   const requiredPaths = [
     "package.json",
@@ -349,17 +397,18 @@ test("required source, package, compiled, validator, and test artifacts are not 
   }
 });
 
-test("Hosting and non-ignore Functions configuration are unchanged", () => {
+test("Hosting and non-predeploy Functions configuration are unchanged", () => {
   assert.equal(
     sha256Json(firebaseConfig.hosting),
     "cb4b7d7a46f049c2cdf504d2082ceadbc7c13a7cac5e4f7b0d2b608966a6a212",
   );
 
-  const functionsWithoutIgnore = {...functionsConfig};
-  delete functionsWithoutIgnore.ignore;
+  const functionsWithoutIgnoreOrPredeploy = {...functionsConfig};
+  delete functionsWithoutIgnoreOrPredeploy.ignore;
+  delete functionsWithoutIgnoreOrPredeploy.predeploy;
   assert.equal(
-    sha256Json(functionsWithoutIgnore),
-    "088b5dcfe6dcd024bce848010dc7894547812f95c84853b11a758a13a146d2a5",
+    sha256Json(functionsWithoutIgnoreOrPredeploy),
+    "f75bd45791e38b84bd1b4fa52b8d91772770fd626536089e5e5cb5036b0c8589",
   );
 
   assert.deepEqual(
