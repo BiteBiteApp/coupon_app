@@ -161,6 +161,8 @@ void main() {
                 'distanceMiles': null,
                 'isActive': true,
                 'isClaimed': false,
+                'claimAvailable': true,
+                'claimStateValid': true,
                 'ownerUserId': null,
                 'linkedBiteSaverUid': null,
                 'restaurantWriteRevision': 4,
@@ -179,6 +181,11 @@ void main() {
       expect(response.items.single.documentId, 'restaurant-1');
       expect(response.items.single.distanceMiles, isNull);
       expect(response.items.single.restaurantWriteRevision, 4);
+      expect(
+        response.items.single.claimState,
+        AdminRestaurantClaimState.available,
+      );
+      expect(response.items.single.canCreateClaimInvite, isTrue);
       expect(
         response.items.single.toAdminLinkRecord().recordKey,
         'biteScore:restaurant-1',
@@ -203,6 +210,8 @@ void main() {
       'distanceMiles': null,
       'isActive': true,
       'isClaimed': false,
+      'claimAvailable': true,
+      'claimStateValid': true,
       'ownerUserId': null,
       'linkedBiteSaverUid': null,
       'restaurantWriteRevision': revision,

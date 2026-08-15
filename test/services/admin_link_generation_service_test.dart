@@ -193,6 +193,7 @@ void main() {
         expect(biteScore.documentId, 'actual-bitescore-doc');
         expect(biteScore.actionId, 'actual-bitescore-doc');
         expect(biteScore.isClaimed, isTrue);
+        expect(biteScore.claimState, AdminRestaurantClaimState.claimed);
         expect(biteScore.ownerUserId, 'owner-1');
         expect(biteScore.linkedBiteSaverUid, 'account-1');
 
@@ -267,6 +268,8 @@ void main() {
       expect(record.restaurantName, 'River Grill');
       expect(record.isActive, isTrue);
       expect(record.isClaimed, isFalse);
+      expect(record.claimState, AdminRestaurantClaimState.unavailable);
+      expect(record.canCreateBiteScoreClaimInvite, isFalse);
       expect(record.ownerUserId, 'score-owner');
       expect(record.linkedBiteSaverUid, 'linked-saver-account');
       expect(record.approvalStatus, isNull);
@@ -423,6 +426,18 @@ Map<String, dynamic> _biteScoreData({
   required String documentId,
   Map<String, dynamic> extra = const {},
 }) {
+  final isActive = extra.containsKey('isActive') ? extra['isActive'] : true;
+  final isClaimed = extra.containsKey('isClaimed') ? extra['isClaimed'] : false;
+  final hasOwnerUserId = extra.containsKey('ownerUserId');
+  final ownerUserId = extra['ownerUserId'];
+  final strictlyUnclaimed =
+      isClaimed == false &&
+      (!hasOwnerUserId || ownerUserId == null || ownerUserId == '');
+  final validlyClaimed =
+      isClaimed == true &&
+      ownerUserId is String &&
+      ownerUserId.trim().isNotEmpty;
+  final activityValid = isActive == true;
   return {
     'source': 'biteScore',
     'documentId': documentId,
@@ -439,6 +454,8 @@ Map<String, dynamic> _biteScoreData({
     'distanceMiles': 1.25,
     'isActive': true,
     'isClaimed': false,
+    'claimAvailable': activityValid && strictlyUnclaimed,
+    'claimStateValid': activityValid && (strictlyUnclaimed || validlyClaimed),
     ...extra,
   };
 }

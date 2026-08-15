@@ -812,6 +812,7 @@ test("result mapping exposes only controlled compatibility and status fields", (
         website: undefined,
         websiteUrl: "https://legacy-score.example",
         isClaimed: true,
+        ownerUserId: "owner-1",
         email: "private@example.com",
         privateNote: "not returned",
       }),
@@ -834,12 +835,62 @@ test("result mapping exposes only controlled compatibility and status fields", (
   assert.equal(score.website, "https://legacy-score.example");
   assert.equal(score.isActive, true);
   assert.equal(score.isClaimed, true);
+  assert.equal(score.claimAvailable, false);
+  assert.equal(score.claimStateValid, true);
   assert.equal(Object.hasOwn(score, "email"), false);
   assert.equal(Object.hasOwn(score, "privateNote"), false);
   assert.equal(saver.approvalStatus, "pending");
   assert.equal(saver.couponApplicationSubmitted, false);
   assert.equal(Object.hasOwn(saver, "email"), false);
   assert.equal(Object.hasOwn(saver, "stripeCustomerId"), false);
+});
+
+test("malformed ownership remains visible but never projects as claimable", () => {
+  const candidates = [
+    biteScoreDocument("valid-unclaimed"),
+    biteScoreDocument("valid-claimed", {
+      isClaimed: true,
+      ownerUserId: "owner-1",
+    }),
+    biteScoreDocument("claimed-without-owner", {isClaimed: true}),
+    biteScoreDocument("owner-without-claim", {ownerUserId: "owner-2"}),
+    biteScoreDocument("string-claim", {isClaimed: "false"}),
+    biteScoreDocument("whitespace-owner", {ownerUserId: " "}),
+    biteScoreDocument("conflicting-activity", {active: false}),
+  ];
+  const response = processAdminRestaurantSearchCandidates({
+    request: processingRequest(),
+    searchCenter: center,
+    candidates,
+    anyQueryReachedCandidateLimit: false,
+  });
+
+  assert.equal(response.results.length, candidates.length);
+  const byId = new Map(
+    response.results.map((result) => [result.documentId, result]),
+  );
+  assert.deepEqual(
+    [byId.get("valid-unclaimed").isClaimed,
+      byId.get("valid-unclaimed").claimAvailable,
+      byId.get("valid-unclaimed").claimStateValid],
+    [false, true, true],
+  );
+  assert.deepEqual(
+    [byId.get("valid-claimed").isClaimed,
+      byId.get("valid-claimed").claimAvailable,
+      byId.get("valid-claimed").claimStateValid],
+    [true, false, true],
+  );
+  for (const id of [
+    "claimed-without-owner",
+    "owner-without-claim",
+    "string-claim",
+    "whitespace-owner",
+    "conflicting-activity",
+  ]) {
+    assert.equal(byId.get(id).claimAvailable, false, id);
+    assert.equal(byId.get(id).claimStateValid, false, id);
+  }
 });
 
 test("inactive and all modes retain actual stored BiteScore status", () => {

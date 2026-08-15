@@ -17,9 +17,15 @@ import 'package:coupon_app/widgets/rating_admin_paged_dashboard.dart';
 Map<String, Object?> restaurant(
   String id,
   String name, {
+  bool isActive = true,
   bool isClaimed = false,
   String? ownerUserId,
+  bool? claimAvailable,
+  bool? claimStateValid,
 }) {
+  final validlyClaimed = isClaimed && ownerUserId?.trim().isNotEmpty == true;
+  final strictlyUnclaimed =
+      !isClaimed && (ownerUserId == null || ownerUserId.isEmpty);
   return <String, Object?>{
     'source': 'biteScore',
     'documentId': id,
@@ -34,8 +40,11 @@ Map<String, Object?> restaurant(
     'latitude': 28.5,
     'longitude': -81.3,
     'distanceMiles': null,
-    'isActive': true,
+    'isActive': isActive,
     'isClaimed': isClaimed,
+    'claimAvailable': claimAvailable ?? (isActive && strictlyUnclaimed),
+    'claimStateValid':
+        claimStateValid ?? (isActive && (strictlyUnclaimed || validlyClaimed)),
     'ownerUserId': ownerUserId,
     'linkedBiteSaverUid': null,
     'restaurantWriteRevision': 4,
@@ -233,6 +242,10 @@ Future<void> startRadiusSearch(
   RatingAdminPagingService service, {
   String location = 'Orlando',
   double height = 900,
+  Future<RestaurantInviteCreationResult> Function({
+    required String restaurantId,
+  })?
+  createClaimInvite,
 }) async {
   await tester.pumpWidget(
     host(
@@ -240,6 +253,7 @@ Future<void> startRadiusSearch(
         service: service,
         onManageDishes: (_) {},
         onEditRestaurant: (_) async => false,
+        createClaimInvite: createClaimInvite,
       ),
       height: height,
     ),
@@ -809,6 +823,46 @@ void main() {
     await tester.pumpAndSettle();
     expect(deletedId, documentId);
   });
+
+  testWidgets(
+    'Rating results fail closed for hidden and malformed claim projections',
+    (tester) async {
+      var inviteCalls = 0;
+      tester.view.physicalSize = const Size(390, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      for (final record in <Map<String, Object?>>[
+        restaurant('HIDDEN_DOC', 'Hidden Restaurant', isActive: false),
+        restaurant(
+          'MALFORMED_DOC',
+          'Malformed Restaurant',
+          ownerUserId: 'contradictory-owner',
+        ),
+      ]) {
+        final service = RatingAdminPagingService(
+          functionsBoundary: (_, _) async =>
+              page(items: <Object?>[record], pageSize: 50, pageNumber: 1),
+        );
+        await startRadiusSearch(
+          tester,
+          service,
+          createClaimInvite: ({required restaurantId}) async {
+            inviteCalls += 1;
+            throw StateError('must not be called');
+          },
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Claim unavailable'), findsNWidgets(2));
+        final button = tester.widget<OutlinedButton>(
+          find.widgetWithText(OutlinedButton, 'Claim unavailable'),
+        );
+        expect(button.onPressed, isNull);
+      }
+      expect(inviteCalls, 0);
+    },
+  );
 
   testWidgets('migrated restaurant controls are overflow-free at key widths', (
     tester,

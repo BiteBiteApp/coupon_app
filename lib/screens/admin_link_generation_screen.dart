@@ -286,7 +286,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
   Future<void> _generateBiteScoreClaimInvite(
     AdminRestaurantLinkRecord record,
   ) async {
-    if (record.isClaimed == true) {
+    if (!record.canCreateBiteScoreClaimInvite) {
       return;
     }
     await _runBusyAction(record, 'claim-invite', () async {
@@ -795,11 +795,8 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
             const SizedBox(height: 8),
             if (record.isBiteScore)
               Text(
-                record.isActive != true
-                    ? 'Inactive'
-                    : record.isClaimed == true
-                    ? 'Claimed'
-                    : 'Unclaimed',
+                '${record.isActive == true ? 'Active' : 'Inactive'} • '
+                '${record.claimState.label}',
                 key: ValueKey('admin-link-status-${record.recordKey}'),
               )
             else
@@ -839,9 +836,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
                               : 'Generate Coupon Invite',
                         ),
                       ),
-                    if (record.isBiteScore &&
-                        record.isActive == true &&
-                        record.isClaimed != true)
+                    if (record.canCreateBiteScoreClaimInvite)
                       OutlinedButton.icon(
                         key: ValueKey('${record.recordKey}:claim-invite'),
                         onPressed: isClaimInviteBusy
@@ -864,8 +859,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
                         ),
                       ),
                     if (record.isBiteScore &&
-                        record.isActive == true &&
-                        record.isClaimed == true)
+                        record.claimState == AdminRestaurantClaimState.claimed)
                       const Chip(label: Text('Already claimed')),
                     if (record.isBiteScore && record.isActive == true)
                       OutlinedButton.icon(

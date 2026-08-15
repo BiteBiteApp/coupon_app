@@ -22,7 +22,10 @@ import {
   normalizeStateCode,
   normalizeZip5,
 } from "./search_normalization.js";
-import { biteScoreRestaurantIsActive } from "./search_index_builders.js";
+import {
+  biteScoreRestaurantClaimProjection,
+  biteScoreRestaurantIsActive,
+} from "./search_index_builders.js";
 import { readRestaurantWriteRevision } from "./restaurant_write_revision.js";
 
 export const ratingAdminRestaurantPageSize = adminDirectoryDefaultPageSize;
@@ -168,6 +171,7 @@ export function restaurantSourceProjection(
   const latitude = readNumber(data.latitude);
   const longitude = readNumber(data.longitude);
   const restaurantWriteRevision = readRestaurantWriteRevision(data);
+  const claim = biteScoreRestaurantClaimProjection(data);
   if (name === null ||
       latitude === null ||
       longitude === null ||
@@ -189,7 +193,7 @@ export function restaurantSourceProjection(
     phone: readString(data.phone, 100),
     website: readString(data.website, 2_048),
     ownerUserId: readString(data.ownerUserId, 1_500),
-    isClaimed: data.isClaimed === true,
+    isClaimed: claim.isClaimed,
     isActive: biteScoreRestaurantIsActive(data),
     restaurantWriteRevision,
     createdAtMillis: timestampMillis(data.createdAt),
@@ -206,6 +210,7 @@ export function ratingAdminRestaurantProjection(
   const name = readString(data.name, 100) ??
     readString(data.restaurantName, 100);
   const isActive = biteScoreRestaurantIsActive(data);
+  const claim = biteScoreRestaurantClaimProjection(data);
   const restaurantWriteRevision = readRestaurantWriteRevision(data);
   if (name === null ||
       restaurantWriteRevision === null ||
@@ -229,7 +234,7 @@ export function ratingAdminRestaurantProjection(
     longitude: readNumber(data.longitude),
     distanceMiles,
     isActive,
-    isClaimed: data.isClaimed === true,
+    ...claim,
     ownerUserId: readString(data.ownerUserId, 1_500),
     linkedBiteSaverUid: readString(data.linkedBiteSaverUid, 1_500),
     restaurantWriteRevision,

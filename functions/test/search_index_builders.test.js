@@ -7,6 +7,7 @@ const {GeoPoint} = require("firebase-admin/firestore");
 const {
   biteSaverOfferParentFingerprint,
   biteScoreDishParentFingerprint,
+  biteScoreRestaurantClaimProjection,
   biteScoreRestaurantIsActive,
   boundedDescriptionSummary,
   buildBiteSaverCouponOfferIndex,
@@ -385,7 +386,7 @@ test("BiteSaver restaurant name/address changes produce safe changed fingerprint
 test("BiteScore restaurant supports canonical and imported aliases with active Admin posture", () => {
   const active = buildBiteScoreRestaurantIndex({
     sourceDocumentId: "restaurant-1",
-    source: biteScoreRestaurant({isClaimed: true}),
+    source: biteScoreRestaurant({isClaimed: true, ownerUserId: "owner-1"}),
     now,
   });
   assert.equal(active.publicVisible, true);
@@ -439,6 +440,7 @@ test("BiteScore activity is strict across public restaurant and parent-dish proj
   for (const fixture of cases) {
     const source = biteScoreRestaurantWithActivity(fixture.activity, {
       isClaimed: true,
+      ownerUserId: "owner-1",
     });
     assert.equal(
       biteScoreRestaurantIsActive(source),
@@ -455,6 +457,12 @@ test("BiteScore activity is strict across public restaurant and parent-dish proj
     assert.equal(restaurantIndex.publicVisible, fixture.expected, fixture.label);
     assert.equal(restaurantIndex.adminDirectoryVisible, true, fixture.label);
     assert.equal(restaurantIndex.isClaimed, true, fixture.label);
+    assert.equal(
+      restaurantIndex.claimStateValid,
+      fixture.expected,
+      fixture.label,
+    );
+    assert.equal(restaurantIndex.claimAvailable, false, fixture.label);
 
     const dishIndex = buildBiteScoreDishIndex({
       sourceDocumentId: "dish-1",
@@ -469,6 +477,123 @@ test("BiteScore activity is strict across public restaurant and parent-dish proj
     assert.equal(dishIndex.adminVisible, true, fixture.label);
     assert.equal(dishIndex.restaurantClaimed, true, fixture.label);
   }
+});
+
+test("BiteScore claim projection follows the strict availability truth table", () => {
+  const availableCases = [
+    {},
+    {isClaimed: false},
+    {isClaimed: false, ownerUserId: null},
+    {isClaimed: false, ownerUserId: ""},
+  ];
+  for (const ownership of availableCases) {
+    const projection = biteScoreRestaurantClaimProjection({
+      isActive: true,
+      ...ownership,
+    });
+    assert.deepEqual(projection, {
+      isClaimed: false,
+      claimAvailable: true,
+      claimStateValid: true,
+    });
+  }
+
+  assert.deepEqual(
+    biteScoreRestaurantClaimProjection({
+      isActive: true,
+      isClaimed: true,
+      ownerUserId: "owner-1",
+    }),
+    {isClaimed: true, claimAvailable: false, claimStateValid: true},
+  );
+
+  const malformedIsClaimedValues = [
+    null,
+    "false",
+    0,
+    [],
+    {},
+    new Date("2026-08-08T00:00:00.000Z"),
+    new GeoPoint(1, 1),
+  ];
+  for (const isClaimed of malformedIsClaimedValues) {
+    assert.deepEqual(
+      biteScoreRestaurantClaimProjection({isActive: true, isClaimed}),
+      {isClaimed: false, claimAvailable: false, claimStateValid: false},
+    );
+  }
+
+  const malformedOwners = [" ", 1, false, [], {}, new Date(), new GeoPoint(1, 1)];
+  for (const ownerUserId of malformedOwners) {
+    for (const isClaimed of [false, true]) {
+      assert.deepEqual(
+        biteScoreRestaurantClaimProjection({
+          isActive: true,
+          isClaimed,
+          ownerUserId,
+        }),
+        {isClaimed: false, claimAvailable: false, claimStateValid: false},
+      );
+    }
+  }
+
+  for (const ownership of [
+    {isClaimed: true},
+    {isClaimed: true, ownerUserId: null},
+    {isClaimed: true, ownerUserId: ""},
+    {isClaimed: true, ownerUserId: " "},
+    {isClaimed: false, ownerUserId: "owner-1"},
+  ]) {
+    assert.deepEqual(
+      biteScoreRestaurantClaimProjection({isActive: true, ...ownership}),
+      {isClaimed: false, claimAvailable: false, claimStateValid: false},
+    );
+  }
+});
+
+test("BiteScore claim projection fails closed for hidden or malformed activity", () => {
+  const activityCases = [
+    {isActive: false},
+    {active: false},
+    {isActive: true, active: false},
+    {isActive: "true"},
+    {active: null},
+  ];
+  for (const activity of activityCases) {
+    assert.deepEqual(
+      biteScoreRestaurantClaimProjection({...activity, isClaimed: false}),
+      {isClaimed: false, claimAvailable: false, claimStateValid: false},
+    );
+  }
+});
+
+test("BiteScore public visibility is independent of strict claim state", () => {
+  const claimed = buildBiteScoreRestaurantIndex({
+    sourceDocumentId: "claimed",
+    source: biteScoreRestaurant({isClaimed: true, ownerUserId: "owner-1"}),
+    now,
+  });
+  const malformed = buildBiteScoreRestaurantIndex({
+    sourceDocumentId: "malformed",
+    source: biteScoreRestaurant({isClaimed: false, ownerUserId: "owner-1"}),
+    now,
+  });
+  const available = buildBiteScoreRestaurantIndex({
+    sourceDocumentId: "available",
+    source: biteScoreRestaurant(),
+    now,
+  });
+
+  assert.equal(claimed.publicVisible, true);
+  assert.equal(claimed.isClaimed, true);
+  assert.equal(claimed.claimAvailable, false);
+  assert.equal(malformed.publicVisible, true);
+  assert.equal(malformed.isClaimed, false);
+  assert.equal(malformed.claimAvailable, false);
+  assert.equal(malformed.claimStateValid, false);
+  assert.equal(available.publicVisible, true);
+  assert.equal(available.claimAvailable, true);
+  assert.notEqual(available.sourceFingerprint, malformed.sourceFingerprint);
 });
 
 test("BiteScore restaurant omits incomplete geography and invalid geohash safely", () => {

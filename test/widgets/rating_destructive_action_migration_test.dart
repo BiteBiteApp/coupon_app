@@ -79,6 +79,8 @@ Map<String, Object?> _restaurantRecord(
   'distanceMiles': null,
   'isActive': true,
   'isClaimed': false,
+  'claimAvailable': true,
+  'claimStateValid': true,
   'ownerUserId': null,
   'linkedBiteSaverUid': null,
   'restaurantWriteRevision': revision,

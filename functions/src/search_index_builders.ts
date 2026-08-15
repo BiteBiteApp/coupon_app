@@ -24,6 +24,12 @@ import {
 export type SearchIndexSourceData = Readonly<Record<string, unknown>>;
 export type SearchIndexDocument = Readonly<Record<string, unknown>>;
 
+export type BiteScoreRestaurantClaimProjection = Readonly<{
+  isClaimed: boolean;
+  claimAvailable: boolean;
+  claimStateValid: boolean;
+}>;
+
 export function biteScoreRestaurantIsActive(
   data: SearchIndexSourceData,
 ): boolean {
@@ -31,6 +37,32 @@ export function biteScoreRestaurantIsActive(
   const hasLegacy = Object.prototype.hasOwnProperty.call(data, "active");
   return (!hasCanonical || data.isActive === true) &&
     (!hasLegacy || data.active === true);
+}
+
+export function biteScoreRestaurantClaimProjection(
+  data: SearchIndexSourceData,
+): BiteScoreRestaurantClaimProjection {
+  const hasIsClaimed = Object.prototype.hasOwnProperty.call(data, "isClaimed");
+  const hasOwnerUserId = Object.prototype.hasOwnProperty.call(
+    data,
+    "ownerUserId",
+  );
+  const isStrictlyUnclaimed =
+    (!hasIsClaimed || data.isClaimed === false) &&
+    (!hasOwnerUserId ||
+      data.ownerUserId === null ||
+      data.ownerUserId === "");
+  const isValidlyClaimed =
+    data.isClaimed === true &&
+    typeof data.ownerUserId === "string" &&
+    data.ownerUserId.trim().length > 0;
+  const isActive = biteScoreRestaurantIsActive(data);
+
+  return Object.freeze({
+    isClaimed: isValidlyClaimed,
+    claimAvailable: isActive && isStrictlyUnclaimed,
+    claimStateValid: isActive && (isStrictlyUnclaimed || isValidlyClaimed),
+  });
 }
 
 export const maximumOfferDescriptionLength = 500;
@@ -322,6 +354,7 @@ export function buildBiteScoreRestaurantIndex(value: {
     return null;
   }
   const isActive = biteScoreRestaurantIsActive(value.source);
+  const claim = biteScoreRestaurantClaimProjection(value.source);
   const indexDocumentId = createSearchIndexDocumentId({
     entityKind: "restaurant",
     sourceKind: "biteScoreRestaurant",
@@ -338,7 +371,7 @@ export function buildBiteScoreRestaurantIndex(value: {
     publicVisible: isActive,
     adminDirectoryVisible: true,
     isActive,
-    isClaimed: value.source.isClaimed === true,
+    ...claim,
     ...sourceTimestamps(value.source),
   }, value.now);
 }

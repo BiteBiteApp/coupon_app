@@ -17,6 +17,7 @@ import {
   type RestaurantGeocodingFetch,
   type RestaurantGeocodingResponse,
 } from "./restaurant_geocoding.js";
+import { biteScoreRestaurantClaimProjection } from "./search_index_builders.js";
 
 export type AdminRestaurantSource = "biteScore" | "biteSaver";
 export type AdminBiteScoreStatus = "active" | "inactive" | "all";
@@ -151,6 +152,8 @@ export type AdminRestaurantSearchResult = {
   distanceMiles: number;
   isActive?: boolean;
   isClaimed?: boolean;
+  claimAvailable?: boolean;
+  claimStateValid?: boolean;
   ownerUserId?: string | null;
   linkedBiteSaverUid?: string | null;
   approvalStatus?: string;
@@ -676,6 +679,7 @@ function mapCandidate(
   };
 
   if (candidate.source === "biteScore") {
+    const claim = biteScoreRestaurantClaimProjection(data);
     return {
       ...common,
       source: "biteScore",
@@ -683,7 +687,7 @@ function mapCandidate(
       // must route to the actual Firestore document that produced this row.
       actionId: documentId,
       isActive: storedIsActive as boolean,
-      isClaimed: data.isClaimed === true,
+      ...claim,
       ownerUserId: readString(data.ownerUserId),
       linkedBiteSaverUid: readString(data.linkedBiteSaverUid),
     };

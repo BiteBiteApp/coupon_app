@@ -439,6 +439,64 @@ void main() {
     expect(claimCalls, 0);
   });
 
+  testWidgets(
+    'hidden and malformed BiteScore records show unavailable without claim actions',
+    (tester) async {
+      var claimCalls = 0;
+      await _pumpScreen(
+        tester,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+            }) async => _result(
+              records: [
+                _biteScoreRecord(
+                  documentId: 'hidden-doc',
+                  isActive: false,
+                  claimAvailable: false,
+                  claimStateValid: false,
+                ),
+                _biteScoreRecord(
+                  documentId: 'malformed-doc',
+                  ownerUserId: 'contradictory-owner',
+                  claimAvailable: false,
+                  claimStateValid: false,
+                ),
+              ],
+            ),
+        createClaimInvite: ({required restaurantId}) async {
+          claimCalls += 1;
+          throw StateError('must not be called');
+        },
+      );
+
+      await _submitSearch(tester);
+
+      expect(find.text('Inactive • Claim unavailable'), findsOneWidget);
+      expect(find.text('Active • Claim unavailable'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('biteScore:hidden-doc:claim-invite')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('biteScore:malformed-doc:claim-invite')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('biteScore:malformed-doc:coupon-invite')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('biteScore:malformed-doc:customer-link')),
+        findsOneWidget,
+      );
+      expect(claimCalls, 0);
+    },
+  );
+
   testWidgets('customer links use one source-specific action and dialog', (
     tester,
   ) async {
@@ -1157,8 +1215,18 @@ AdminRestaurantLinkSearchResult _result({
 AdminRestaurantLinkRecord _biteScoreRecord({
   required String documentId,
   String name = 'River Grill',
+  bool isActive = true,
   bool isClaimed = false,
+  String? ownerUserId,
+  bool? claimAvailable,
+  bool? claimStateValid,
 }) {
+  final resolvedOwnerUserId = ownerUserId ?? (isClaimed ? 'owner-1' : null);
+  final validlyClaimed =
+      isClaimed && resolvedOwnerUserId?.trim().isNotEmpty == true;
+  final strictlyUnclaimed =
+      !isClaimed &&
+      (resolvedOwnerUserId == null || resolvedOwnerUserId.isEmpty);
   return AdminRestaurantLinkRecord(
     source: AdminRestaurantLinkSource.biteScore,
     documentId: documentId,
@@ -1173,8 +1241,12 @@ AdminRestaurantLinkRecord _biteScoreRecord({
     latitude: 28.8517,
     longitude: -82.487,
     distanceMiles: 1.25,
-    isActive: true,
+    isActive: isActive,
     isClaimed: isClaimed,
+    claimAvailable: claimAvailable ?? (isActive && strictlyUnclaimed),
+    claimStateValid:
+        claimStateValid ?? (isActive && (strictlyUnclaimed || validlyClaimed)),
+    ownerUserId: resolvedOwnerUserId,
   );
 }
 

@@ -28,6 +28,34 @@ enum AdminBiteScoreStatus {
   const AdminBiteScoreStatus(this.callableValue, this.label);
 }
 
+enum AdminRestaurantClaimState {
+  claimed('Claimed'),
+  available('Unclaimed'),
+  unavailable('Claim unavailable');
+
+  final String label;
+
+  const AdminRestaurantClaimState(this.label);
+}
+
+AdminRestaurantClaimState adminRestaurantClaimStateFromProjection({
+  required bool? isActive,
+  required bool? isClaimed,
+  required bool? claimAvailable,
+  required bool? claimStateValid,
+}) {
+  if (isActive != true || claimStateValid != true) {
+    return AdminRestaurantClaimState.unavailable;
+  }
+  if (isClaimed == true && claimAvailable == false) {
+    return AdminRestaurantClaimState.claimed;
+  }
+  if (isClaimed == false && claimAvailable == true) {
+    return AdminRestaurantClaimState.available;
+  }
+  return AdminRestaurantClaimState.unavailable;
+}
+
 class AdminRestaurantSearchCenter {
   final double latitude;
   final double longitude;
@@ -81,6 +109,8 @@ class AdminRestaurantLinkRecord {
 
   final bool? isActive;
   final bool? isClaimed;
+  final bool? claimAvailable;
+  final bool? claimStateValid;
   final String? ownerUserId;
   final String? linkedBiteSaverUid;
 
@@ -105,6 +135,8 @@ class AdminRestaurantLinkRecord {
     required this.distanceMiles,
     this.isActive,
     this.isClaimed,
+    this.claimAvailable,
+    this.claimStateValid,
     this.ownerUserId,
     this.linkedBiteSaverUid,
     this.approvalStatus,
@@ -115,6 +147,17 @@ class AdminRestaurantLinkRecord {
 
   bool get isBiteScore => source == AdminRestaurantLinkSource.biteScore;
   bool get isBiteSaver => source == AdminRestaurantLinkSource.biteSaver;
+
+  AdminRestaurantClaimState get claimState =>
+      adminRestaurantClaimStateFromProjection(
+        isActive: isActive,
+        isClaimed: isClaimed,
+        claimAvailable: claimAvailable,
+        claimStateValid: claimStateValid,
+      );
+
+  bool get canCreateBiteScoreClaimInvite =>
+      isBiteScore && claimState == AdminRestaurantClaimState.available;
 
   bool get canCopyCouponCustomerLink =>
       isBiteSaver &&
@@ -153,10 +196,15 @@ class AdminRestaurantLinkRecord {
 
     final isActive = data['isActive'];
     final isClaimed = data['isClaimed'];
+    final claimAvailable = data['claimAvailable'];
+    final claimStateValid = data['claimStateValid'];
     final approvalStatus = data['approvalStatus'];
     final couponApplicationSubmitted = data['couponApplicationSubmitted'];
     if (source == AdminRestaurantLinkSource.biteScore &&
-        (isActive is! bool || isClaimed is! bool)) {
+        (isActive is! bool ||
+            isClaimed is! bool ||
+            claimAvailable is! bool ||
+            claimStateValid is! bool)) {
       return null;
     }
     if (source == AdminRestaurantLinkSource.biteSaver &&
@@ -185,6 +233,16 @@ class AdminRestaurantLinkRecord {
       isClaimed:
           source == AdminRestaurantLinkSource.biteScore && isClaimed is bool
           ? isClaimed
+          : null,
+      claimAvailable:
+          source == AdminRestaurantLinkSource.biteScore &&
+              claimAvailable is bool
+          ? claimAvailable
+          : null,
+      claimStateValid:
+          source == AdminRestaurantLinkSource.biteScore &&
+              claimStateValid is bool
+          ? claimStateValid
           : null,
       ownerUserId: source == AdminRestaurantLinkSource.biteScore
           ? _optionalString(data['ownerUserId'])

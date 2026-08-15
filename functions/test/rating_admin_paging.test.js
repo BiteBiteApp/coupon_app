@@ -219,6 +219,16 @@ test("restaurant Admin projections preserve all records with strict activity sta
     assert.equal(sourceProjection.isActive, fixture.expected, fixture.label);
     assert.equal(adminProjection.isActive, fixture.expected, fixture.label);
     assert.equal(
+      adminProjection.claimAvailable,
+      fixture.expected,
+      fixture.label,
+    );
+    assert.equal(
+      adminProjection.claimStateValid,
+      fixture.expected,
+      fixture.label,
+    );
+    assert.equal(
       ratingAdminRestaurantProjection(source, null, "active") !== null,
       fixture.expected,
       fixture.label,
@@ -229,6 +239,64 @@ test("restaurant Admin projections preserve all records with strict activity sta
       fixture.label,
     );
   }
+});
+
+test("Rating Admin claim projections retain malformed records but fail closed", () => {
+  const fixtures = [
+    {
+      id: "valid-unclaimed",
+      ownership: {},
+      expected: [false, true, true],
+    },
+    {
+      id: "valid-claimed",
+      ownership: {isClaimed: true, ownerUserId: "owner-1"},
+      expected: [true, false, true],
+    },
+    {
+      id: "claimed-without-owner",
+      ownership: {isClaimed: true},
+      expected: [false, false, false],
+    },
+    {
+      id: "owner-without-claim",
+      ownership: {isClaimed: false, ownerUserId: "owner-1"},
+      expected: [false, false, false],
+    },
+    {
+      id: "malformed-claim",
+      ownership: {isClaimed: "false"},
+      expected: [false, false, false],
+    },
+    {
+      id: "whitespace-owner",
+      ownership: {isClaimed: false, ownerUserId: " "},
+      expected: [false, false, false],
+    },
+  ];
+
+  for (const fixture of fixtures) {
+    const source = restaurantSource(fixture.id, fixture.ownership);
+    const projection = ratingAdminRestaurantProjection(source);
+    assert.notEqual(projection, null, fixture.id);
+    assert.deepEqual(
+      [
+        projection.isClaimed,
+        projection.claimAvailable,
+        projection.claimStateValid,
+      ],
+      fixture.expected,
+      fixture.id,
+    );
+    assert.equal(projection.documentId, fixture.id, fixture.id);
+  }
+
+  assert.equal(
+    restaurantSourceProjection(
+      restaurantSource("malformed-source", {isClaimed: true}),
+    ).isClaimed,
+    false,
+  );
 });
 
 test("Rating Admin constants preserve the shared protocol sizes and secret", () => {

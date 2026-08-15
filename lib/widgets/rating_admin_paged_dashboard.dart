@@ -346,6 +346,7 @@ class _RatingAdminRestaurantPagedViewState
   }
 
   Future<void> _invite(RatingAdminRestaurantRecord record) async {
+    if (!record.canCreateClaimInvite) return;
     final key = 'invite:' + record.documentId;
     if (!_busy.add(key)) return;
     setState(() {});
@@ -682,13 +683,7 @@ class _RatingAdminRestaurantPagedViewState
                                         record.isActive ? 'Active' : 'Hidden',
                                       ),
                                     ),
-                                    Chip(
-                                      label: Text(
-                                        record.isClaimed
-                                            ? 'Claimed'
-                                            : 'Unclaimed',
-                                      ),
-                                    ),
+                                    Chip(label: Text(record.claimState.label)),
                                     if (record.distanceMiles != null)
                                       Chip(
                                         label: Text(
@@ -706,18 +701,21 @@ class _RatingAdminRestaurantPagedViewState
                                   children: [
                                     OutlinedButton.icon(
                                       onPressed:
-                                          record.isClaimed ||
+                                          !record.canCreateClaimInvite ||
                                               _busy.contains(
                                                 'invite:' + record.documentId,
                                               )
                                           ? null
                                           : () => _invite(record),
                                       icon: const Icon(Icons.add_link),
-                                      label: Text(
-                                        record.isClaimed
-                                            ? 'Already Claimed'
-                                            : 'Create Claim Invite',
-                                      ),
+                                      label: Text(switch (record.claimState) {
+                                        AdminRestaurantClaimState.claimed =>
+                                          'Already Claimed',
+                                        AdminRestaurantClaimState.available =>
+                                          'Create Claim Invite',
+                                        AdminRestaurantClaimState.unavailable =>
+                                          'Claim unavailable',
+                                      }),
                                     ),
                                     OutlinedButton.icon(
                                       onPressed: () => widget.onManageDishes(

@@ -156,6 +156,8 @@ class RatingAdminRestaurantRecord {
     required this.distanceMiles,
     required this.isActive,
     required this.isClaimed,
+    required this.claimAvailable,
+    required this.claimStateValid,
     required this.ownerUserId,
     required this.linkedBiteSaverUid,
     required this.restaurantWriteRevision,
@@ -179,6 +181,8 @@ class RatingAdminRestaurantRecord {
       'distanceMiles',
       'isActive',
       'isClaimed',
+      'claimAvailable',
+      'claimStateValid',
       'ownerUserId',
       'linkedBiteSaverUid',
       'restaurantWriteRevision',
@@ -201,6 +205,8 @@ class RatingAdminRestaurantRecord {
       distanceMiles: _nullableDouble(data['distanceMiles']),
       isActive: _bool(data['isActive']),
       isClaimed: _bool(data['isClaimed']),
+      claimAvailable: _bool(data['claimAvailable']),
+      claimStateValid: _bool(data['claimStateValid']),
       ownerUserId: _nullableString(data['ownerUserId']),
       linkedBiteSaverUid: _nullableString(data['linkedBiteSaverUid']),
       restaurantWriteRevision: _safeNonnegativeInt(
@@ -222,11 +228,24 @@ class RatingAdminRestaurantRecord {
   final double? distanceMiles;
   final bool isActive;
   final bool isClaimed;
+  final bool claimAvailable;
+  final bool claimStateValid;
   final String? ownerUserId;
   final String? linkedBiteSaverUid;
   final int restaurantWriteRevision;
 
   String get recordKey => 'biteScore:$documentId';
+
+  AdminRestaurantClaimState get claimState =>
+      adminRestaurantClaimStateFromProjection(
+        isActive: isActive,
+        isClaimed: isClaimed,
+        claimAvailable: claimAvailable,
+        claimStateValid: claimStateValid,
+      );
+
+  bool get canCreateClaimInvite =>
+      claimState == AdminRestaurantClaimState.available;
 
   AdminRestaurantLinkRecord toAdminLinkRecord() => AdminRestaurantLinkRecord(
     source: AdminRestaurantLinkSource.biteScore,
@@ -244,6 +263,8 @@ class RatingAdminRestaurantRecord {
     distanceMiles: distanceMiles ?? 0,
     isActive: isActive,
     isClaimed: isClaimed,
+    claimAvailable: claimAvailable,
+    claimStateValid: claimStateValid,
     ownerUserId: ownerUserId,
     linkedBiteSaverUid: linkedBiteSaverUid,
   );
