@@ -98,6 +98,76 @@ function biteScoreRestaurantCreateData({
   };
 }
 
+function claimableBiteScoreRestaurantData(
+  id,
+  { overrides = {}, omittedFields = [] } = {},
+) {
+  const data = {
+    ...biteScoreRestaurantCreateData({ id }),
+    restaurantWriteRevision: 4,
+    ...overrides,
+  };
+  for (const field of omittedFields) {
+    delete data[field];
+  }
+  return data;
+}
+
+function restaurantClaimRequestData(
+  id,
+  restaurantId,
+  overrides = {},
+) {
+  return {
+    id,
+    restaurantId,
+    restaurantName: `Claim fixture ${restaurantId}`,
+    requesterUserId: "customer-a",
+    claimantName: "Customer A",
+    email: "customer-a@example.com",
+    phone: "555-0100",
+    status: "pending",
+    createdAt: new Date("2026-01-01T00:00:00.000Z"),
+    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+    ...overrides,
+  };
+}
+
+function restaurantClaimApprovalBatch(
+  db,
+  {
+    claimId,
+    restaurantId,
+    requesterUserId = "customer-a",
+    nextRevision = 5,
+    claimPatch = {},
+    restaurantPatch = {},
+  },
+) {
+  const batch = db.batch();
+  batch.set(
+    db.doc(`restaurant_claim_requests/${claimId}`),
+    {
+      status: "approved",
+      updatedAt: serverTimestamp(),
+      ...claimPatch,
+    },
+    { merge: true },
+  );
+  batch.set(
+    db.doc(`bitescore_restaurants/${restaurantId}`),
+    {
+      ownerUserId: requesterUserId,
+      isClaimed: true,
+      restaurantWriteRevision: nextRevision,
+      updatedAt: serverTimestamp(),
+      ...restaurantPatch,
+    },
+    { merge: true },
+  );
+  return batch;
+}
+
 function biteScoreDishCreateData({
   id = "new-dish-1",
   restaurantId = "bs-1",
@@ -2777,6 +2847,582 @@ test("client access to customer device installation tokens is denied", async () 
   );
 });
 
+test("direct BiteScore claims enforce the strict restaurant activity matrix", async () => {
+  const cases = [
+    {
+      label: "activity-absent",
+      allowed: true,
+      omittedFields: ["isActive", "active"],
+    },
+    {
+      label: "canonical-active-only",
+      allowed: true,
+      omittedFields: ["active"],
+    },
+    {
+      label: "canonical-inactive-only",
+      allowed: false,
+      overrides: { isActive: false },
+      omittedFields: ["active"],
+    },
+    {
+      label: "legacy-active-only",
+      allowed: true,
+      omittedFields: ["isActive"],
+    },
+    {
+      label: "legacy-inactive-only",
+      allowed: false,
+      overrides: { active: false },
+      omittedFields: ["isActive"],
+    },
+    { label: "both-active", allowed: true },
+    {
+      label: "both-inactive",
+      allowed: false,
+      overrides: { isActive: false, active: false },
+    },
+    {
+      label: "canonical-active-legacy-inactive",
+      allowed: false,
+      overrides: { isActive: true, active: false },
+    },
+    {
+      label: "canonical-inactive-legacy-active",
+      allowed: false,
+      overrides: { isActive: false, active: true },
+    },
+    {
+      label: "canonical-string",
+      allowed: false,
+      overrides: { isActive: "true" },
+      omittedFields: ["active"],
+    },
+    {
+      label: "legacy-null",
+      allowed: false,
+      overrides: { active: null },
+      omittedFields: ["isActive"],
+    },
+    {
+      label: "legacy-string-with-canonical-active",
+      allowed: false,
+      overrides: { isActive: true, active: "true" },
+    },
+  ];
+  await seedRuleTestDocuments(cases.map((entry) => ({
+    documentPath: `bitescore_restaurants/claim-${entry.label}`,
+    data: claimableBiteScoreRestaurantData(
+      `claim-${entry.label}`,
+      {
+        overrides: entry.overrides,
+        omittedFields: entry.omittedFields,
+      },
+    ),
+  })));
+
+  const db = dbFor("customer");
+  for (const entry of cases) {
+    const restaurantId = `claim-${entry.label}`;
+    const claimId = `claim-request-${entry.label}`;
+    const write = db.doc(`restaurant_claim_requests/${claimId}`).set(
+      restaurantClaimRequestData(claimId, restaurantId),
+    );
+    if (entry.allowed) {
+      await assertSucceeds(write);
+    } else {
+      await assertFails(write);
+    }
+  }
+});
+
+test("direct BiteScore claims enforce strict unclaimed ownership types", async () => {
+  const db = dbFor("customer");
+  const adminDb = dbFor("admin");
+  const allowedCases = [
+    {
+      label: "ownership-absent",
+      omittedFields: ["isClaimed", "ownerUserId"],
+    },
+    { label: "false-owner-absent", omittedFields: ["ownerUserId"] },
+    {
+      label: "claim-absent-owner-null",
+      overrides: { ownerUserId: null },
+      omittedFields: ["isClaimed"],
+    },
+    {
+      label: "claim-absent-owner-empty",
+      overrides: { ownerUserId: "" },
+      omittedFields: ["isClaimed"],
+    },
+    { label: "false-owner-null", overrides: { ownerUserId: null } },
+    { label: "false-owner-empty", overrides: { ownerUserId: "" } },
+  ];
+  const invalidIsClaimedValues = [
+    ["claimed-true", true],
+    ["claimed-null", null],
+    ["claimed-integer", 0],
+    ["claimed-double", 1.5],
+    ["claimed-string", "false"],
+    ["claimed-map", { malformed: true }],
+    ["claimed-list", [false]],
+    ["claimed-timestamp", new Date("2026-01-02T00:00:00.000Z")],
+    ["claimed-geopoint", new firebase.firestore.GeoPoint(28, -82)],
+    ["claimed-reference", adminDb.doc("bitescore_restaurants/bs-1")],
+  ];
+  const invalidOwnerValues = [
+    ["owner-whitespace", " "],
+    ["owner-nonempty", "owner-1"],
+    ["owner-integer", 7],
+    ["owner-double", 1.5],
+    ["owner-true", true],
+    ["owner-false", false],
+    ["owner-map", { malformed: true }],
+    ["owner-list", ["owner-1"]],
+    ["owner-timestamp", new Date("2026-01-02T00:00:00.000Z")],
+    ["owner-geopoint", new firebase.firestore.GeoPoint(28, -82)],
+    ["owner-reference", adminDb.doc("bitescore_restaurants/bs-1")],
+  ];
+  const documents = [];
+  for (const entry of allowedCases) {
+    const restaurantId = `claim-${entry.label}`;
+    documents.push({
+      documentPath: `bitescore_restaurants/${restaurantId}`,
+      data: claimableBiteScoreRestaurantData(restaurantId, entry),
+    });
+  }
+  for (const [label, isClaimed] of invalidIsClaimedValues) {
+    const restaurantId = `claim-${label}`;
+    documents.push({
+      documentPath: `bitescore_restaurants/${restaurantId}`,
+      data: claimableBiteScoreRestaurantData(restaurantId, {
+        overrides: { isClaimed },
+      }),
+    });
+  }
+  for (const [label, ownerUserId] of invalidOwnerValues) {
+    const restaurantId = `claim-${label}`;
+    documents.push({
+      documentPath: `bitescore_restaurants/${restaurantId}`,
+      data: claimableBiteScoreRestaurantData(restaurantId, {
+        overrides: { ownerUserId },
+      }),
+    });
+  }
+  await seedRuleTestDocuments(documents);
+
+  for (const entry of allowedCases) {
+    const restaurantId = `claim-${entry.label}`;
+    const claimId = `claim-request-${entry.label}`;
+    await assertSucceeds(
+      db.doc(`restaurant_claim_requests/${claimId}`).set(
+        restaurantClaimRequestData(claimId, restaurantId),
+      ),
+    );
+  }
+  for (const [label] of [
+    ...invalidIsClaimedValues,
+    ...invalidOwnerValues,
+  ]) {
+    const restaurantId = `claim-${label}`;
+    const claimId = `claim-request-${label}`;
+    await assertFails(
+      db.doc(`restaurant_claim_requests/${claimId}`).set(
+        restaurantClaimRequestData(claimId, restaurantId),
+      ),
+    );
+  }
+});
+
+test("direct claims require an exact canonical restaurant and no lock", async () => {
+  const exactId = "claim-canonical-exact";
+  const missingEmbeddedId = "claim-canonical-missing-id";
+  const mismatchedEmbeddedId = "claim-canonical-mismatched-id";
+  const lockedId = "claim-canonical-locked";
+  await seedRuleTestDocuments([
+    {
+      documentPath: `bitescore_restaurants/${exactId}`,
+      data: claimableBiteScoreRestaurantData(exactId),
+    },
+    {
+      documentPath: `bitescore_restaurants/${missingEmbeddedId}`,
+      data: claimableBiteScoreRestaurantData(missingEmbeddedId, {
+        omittedFields: ["id"],
+      }),
+    },
+    {
+      documentPath: `bitescore_restaurants/${mismatchedEmbeddedId}`,
+      data: claimableBiteScoreRestaurantData(mismatchedEmbeddedId, {
+        overrides: { id: "another-restaurant" },
+      }),
+    },
+    {
+      documentPath: `bitescore_restaurants/${lockedId}`,
+      data: claimableBiteScoreRestaurantData(lockedId),
+    },
+    {
+      documentPath:
+        `private_rating_restaurant_operation_locks/${lockedId}`,
+      data: ratingRestaurantOperationLockData(lockedId),
+    },
+  ]);
+
+  const db = dbFor("customer");
+  await assertSucceeds(
+    db.doc("restaurant_claim_requests/canonical-exact").set(
+      restaurantClaimRequestData("canonical-exact", exactId),
+    ),
+  );
+  for (const [claimId, restaurantId] of [
+    ["canonical-missing", "claim-canonical-missing"],
+    ["canonical-missing-id", missingEmbeddedId],
+    ["canonical-mismatched-id", mismatchedEmbeddedId],
+    ["canonical-locked", lockedId],
+    ["canonical-slash", "restaurant/alias"],
+  ]) {
+    await assertFails(
+      db.doc(`restaurant_claim_requests/${claimId}`).set(
+        restaurantClaimRequestData(claimId, restaurantId),
+      ),
+    );
+  }
+
+  const missingRestaurantId = restaurantClaimRequestData(
+    "canonical-missing-field",
+    exactId,
+  );
+  delete missingRestaurantId.restaurantId;
+  await assertFails(
+    db.doc("restaurant_claim_requests/canonical-missing-field")
+      .set(missingRestaurantId),
+  );
+  await assertFails(
+    db.doc("restaurant_claim_requests/canonical-forged-requester").set(
+      restaurantClaimRequestData("canonical-forged-requester", exactId, {
+        requesterUserId: "customer-b",
+      }),
+    ),
+  );
+});
+
+test("Admin claim approval atomically assigns a canonical active restaurant", async () => {
+  const restaurantId = "claim-approval-active";
+  const claimId = "claim-approval-active";
+  await seedRuleTestDocuments([
+    {
+      documentPath: `bitescore_restaurants/${restaurantId}`,
+      data: claimableBiteScoreRestaurantData(restaurantId),
+    },
+    {
+      documentPath: `restaurant_claim_requests/${claimId}`,
+      data: restaurantClaimRequestData(claimId, restaurantId),
+    },
+  ]);
+
+  const db = dbFor("admin");
+  await assertSucceeds(
+    restaurantClaimApprovalBatch(db, { claimId, restaurantId }).commit(),
+  );
+  const claim = (await db.doc(
+    `restaurant_claim_requests/${claimId}`,
+  ).get()).data();
+  const restaurant = (await db.doc(
+    `bitescore_restaurants/${restaurantId}`,
+  ).get()).data();
+  assert.equal(claim.status, "approved");
+  assert.equal(restaurant.ownerUserId, "customer-a");
+  assert.equal(restaurant.isClaimed, true);
+  assert.equal(restaurant.restaurantWriteRevision, 5);
+});
+
+test("Admin approval rejects hidden, malformed, claimed, and locked states", async () => {
+  const db = dbFor("admin");
+  const invalidIsClaimedValues = [
+    ["claimed-true", true],
+    ["claimed-null", null],
+    ["claimed-integer", 0],
+    ["claimed-double", 1.5],
+    ["claimed-string", "false"],
+    ["claimed-map", { malformed: true }],
+    ["claimed-list", [false]],
+    ["claimed-timestamp", new Date("2026-01-02T00:00:00.000Z")],
+    ["claimed-geopoint", new firebase.firestore.GeoPoint(28, -82)],
+    ["claimed-reference", db.doc("bitescore_restaurants/bs-1")],
+  ];
+  const invalidOwnerValues = [
+    ["owner-whitespace", " "],
+    ["owner-nonempty", "owner-1"],
+    ["owner-integer", 7],
+    ["owner-double", 1.5],
+    ["owner-true", true],
+    ["owner-false", false],
+    ["owner-map", { malformed: true }],
+    ["owner-list", ["owner-1"]],
+    ["owner-timestamp", new Date("2026-01-02T00:00:00.000Z")],
+    ["owner-geopoint", new firebase.firestore.GeoPoint(28, -82)],
+    ["owner-reference", db.doc("bitescore_restaurants/bs-1")],
+  ];
+  const cases = [
+    {
+      label: "hidden",
+      overrides: { isActive: false, active: false },
+    },
+    {
+      label: "activity-conflict",
+      overrides: { isActive: true, active: false },
+    },
+    {
+      label: "activity-malformed",
+      overrides: { isActive: "true", active: true },
+    },
+    { label: "restaurant-id-missing", omittedFields: ["id"] },
+    {
+      label: "restaurant-id-mismatch",
+      overrides: { id: "another-restaurant" },
+    },
+    ...invalidIsClaimedValues.map(([label, isClaimed]) => ({
+      label,
+      overrides: { isClaimed },
+    })),
+    ...invalidOwnerValues.map(([label, ownerUserId]) => ({
+      label,
+      overrides: { ownerUserId },
+    })),
+  ];
+  const documents = [];
+  for (const entry of cases) {
+    const restaurantId = `approval-${entry.label}`;
+    const claimId = `approval-${entry.label}`;
+    documents.push(
+      {
+        documentPath: `bitescore_restaurants/${restaurantId}`,
+        data: claimableBiteScoreRestaurantData(restaurantId, {
+          overrides: entry.overrides,
+          omittedFields: entry.omittedFields,
+        }),
+      },
+      {
+        documentPath: `restaurant_claim_requests/${claimId}`,
+        data: restaurantClaimRequestData(claimId, restaurantId),
+      },
+    );
+  }
+  const lockedId = "approval-locked";
+  documents.push(
+    {
+      documentPath: `bitescore_restaurants/${lockedId}`,
+      data: claimableBiteScoreRestaurantData(lockedId),
+    },
+    {
+      documentPath: `restaurant_claim_requests/${lockedId}`,
+      data: restaurantClaimRequestData(lockedId, lockedId),
+    },
+    {
+      documentPath:
+        `private_rating_restaurant_operation_locks/${lockedId}`,
+      data: ratingRestaurantOperationLockData(lockedId),
+    },
+  );
+  await seedRuleTestDocuments(documents);
+
+  for (const entry of [...cases, { label: "locked" }]) {
+    const restaurantId = `approval-${entry.label}`;
+    const claimId = `approval-${entry.label}`;
+    await assertFails(
+      restaurantClaimApprovalBatch(db, { claimId, restaurantId }).commit(),
+    );
+    const claim = (await db.doc(
+      `restaurant_claim_requests/${claimId}`,
+    ).get()).data();
+    assert.equal(claim.status, "pending", entry.label);
+  }
+});
+
+test("Admin approval requires getAfter ownership and narrow exact identities", async () => {
+  const variants = [
+    { label: "status-only", statusOnly: true },
+    { label: "claim-id", claimPatch: { id: "another-claim" } },
+    {
+      label: "claim-restaurant",
+      claimPatch: { restaurantId: "another-restaurant" },
+    },
+    {
+      label: "claim-requester",
+      claimPatch: { requesterUserId: "customer-b" },
+    },
+    {
+      label: "claim-extra-field",
+      claimPatch: { claimantName: "Changed during approval" },
+    },
+    { label: "restaurant-owner", restaurantPatch: { ownerUserId: "customer-b" } },
+    { label: "restaurant-claimed", restaurantPatch: { isClaimed: false } },
+    { label: "restaurant-extra-field", restaurantPatch: { bio: "Too broad" } },
+    { label: "restaurant-hidden-after", restaurantPatch: { active: false } },
+    { label: "stale-revision", nextRevision: 4 },
+  ];
+  await seedRuleTestDocuments(variants.flatMap((entry) => {
+    const restaurantId = `approval-after-${entry.label}`;
+    const claimId = `approval-after-${entry.label}`;
+    return [
+      {
+        documentPath: `bitescore_restaurants/${restaurantId}`,
+        data: claimableBiteScoreRestaurantData(restaurantId),
+      },
+      {
+        documentPath: `restaurant_claim_requests/${claimId}`,
+        data: restaurantClaimRequestData(claimId, restaurantId),
+      },
+    ];
+  }));
+
+  const db = dbFor("admin");
+  for (const entry of variants) {
+    const restaurantId = `approval-after-${entry.label}`;
+    const claimId = `approval-after-${entry.label}`;
+    const write = entry.statusOnly
+      ? db.doc(`restaurant_claim_requests/${claimId}`).update({
+        status: "approved",
+        updatedAt: serverTimestamp(),
+      })
+      : restaurantClaimApprovalBatch(db, {
+        claimId,
+        restaurantId,
+        claimPatch: entry.claimPatch,
+        restaurantPatch: entry.restaurantPatch,
+        nextRevision: entry.nextRevision,
+      }).commit();
+    await assertFails(write);
+    const claim = (await db.doc(
+      `restaurant_claim_requests/${claimId}`,
+    ).get()).data();
+    const restaurant = (await db.doc(
+      `bitescore_restaurants/${restaurantId}`,
+    ).get()).data();
+    assert.equal(claim.status, "pending", entry.label);
+    assert.equal(restaurant.isClaimed, false, entry.label);
+    assert.equal(restaurant.ownerUserId, undefined, entry.label);
+    assert.equal(restaurant.restaurantWriteRevision, 4, entry.label);
+  }
+});
+
+test("claim approval observes state, claim, and lock changes before commit", async () => {
+  const variants = ["hidden", "claimed", "lock", "request-rejected"];
+  await seedRuleTestDocuments(variants.flatMap((label) => {
+    const restaurantId = `approval-race-${label}`;
+    const claimId = `approval-race-${label}`;
+    return [
+      {
+        documentPath: `bitescore_restaurants/${restaurantId}`,
+        data: claimableBiteScoreRestaurantData(restaurantId),
+      },
+      {
+        documentPath: `restaurant_claim_requests/${claimId}`,
+        data: restaurantClaimRequestData(claimId, restaurantId),
+      },
+    ];
+  }));
+
+  const db = dbFor("admin");
+  for (const label of variants) {
+    const restaurantId = `approval-race-${label}`;
+    const claimId = `approval-race-${label}`;
+    const preparedApproval = restaurantClaimApprovalBatch(db, {
+      claimId,
+      restaurantId,
+      nextRevision: label == "hidden" || label == "claimed" ? 6 : 5,
+    });
+    if (label == "hidden") {
+      await db.doc(`bitescore_restaurants/${restaurantId}`).update({
+        isActive: false,
+        active: false,
+        restaurantWriteRevision: 5,
+        updatedAt: serverTimestamp(),
+      });
+    } else if (label == "claimed") {
+      await db.doc(`bitescore_restaurants/${restaurantId}`).update({
+        ownerUserId: "customer-b",
+        isClaimed: true,
+        restaurantWriteRevision: 5,
+        updatedAt: serverTimestamp(),
+      });
+    } else if (label == "lock") {
+      await seedRuleTestDocuments([{
+        documentPath:
+          `private_rating_restaurant_operation_locks/${restaurantId}`,
+        data: ratingRestaurantOperationLockData(restaurantId),
+      }]);
+    } else {
+      await db.doc(`restaurant_claim_requests/${claimId}`).update({
+        status: "rejected",
+        updatedAt: serverTimestamp(),
+      });
+    }
+
+    await assertFails(preparedApproval.commit());
+    const claim = (await db.doc(
+      `restaurant_claim_requests/${claimId}`,
+    ).get()).data();
+    const restaurant = (await db.doc(
+      `bitescore_restaurants/${restaurantId}`,
+    ).get()).data();
+    assert.notEqual(claim.status, "approved", label);
+    assert.notEqual(restaurant.ownerUserId, "customer-a", label);
+  }
+});
+
+test("claim denial remains independent and clients cannot assign ownership", async () => {
+  const restaurantId = "claim-denial-hidden";
+  const claimId = "claim-denial-hidden";
+  const ordinaryRestaurantId = "claim-direct-owner-assignment";
+  await seedRuleTestDocuments([
+    {
+      documentPath: `bitescore_restaurants/${restaurantId}`,
+      data: claimableBiteScoreRestaurantData(restaurantId, {
+        overrides: { isActive: false, active: false },
+      }),
+    },
+    {
+      documentPath: `restaurant_claim_requests/${claimId}`,
+      data: restaurantClaimRequestData(claimId, restaurantId),
+    },
+    {
+      documentPath: `bitescore_restaurants/${ordinaryRestaurantId}`,
+      data: claimableBiteScoreRestaurantData(ordinaryRestaurantId),
+    },
+  ]);
+
+  await assertSucceeds(
+    dbFor("admin").doc(`restaurant_claim_requests/${claimId}`).update({
+      status: "rejected",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(
+    dbFor("customer").doc(
+      `bitescore_restaurants/${ordinaryRestaurantId}`,
+    ).update({
+      ownerUserId: "customer-a",
+      isClaimed: true,
+      restaurantWriteRevision: 5,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(
+    dbFor("biteScoreOwner").doc("bitescore_restaurants/bs-1").update({
+      ownerUserId: "customer-a",
+      isClaimed: true,
+      restaurantWriteRevision: 5,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(
+    dbFor("customer").doc(`restaurant_claim_requests/${claimId}`).update({
+      status: "approved",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+});
+
 test("admin custom claim can read/update moderation and admin workflows", async () => {
   const db = dbFor("admin");
   await assertSucceeds(
@@ -2796,7 +3442,7 @@ test("admin custom claim can read/update moderation and admin workflows", async 
   await assertSucceeds(
     db.doc("restaurant_claim_requests/claim-1").set(
       {
-        status: "approved",
+        status: "rejected",
         updatedAt: serverTimestamp(),
       },
       { merge: true },
@@ -4361,10 +5007,20 @@ test("restaurant dependents check requested, current, and new restaurant locks",
       },
     },
   ];
-  await seedRuleTestDocuments(cases.map(({collection, data}) => ({
-    documentPath: `${collection}/existing`,
-    data,
-  })));
+  await seedRuleTestDocuments([
+    {
+      documentPath: `bitescore_restaurants/${restaurantA}`,
+      data: claimableBiteScoreRestaurantData(restaurantA),
+    },
+    {
+      documentPath: `bitescore_restaurants/${restaurantB}`,
+      data: claimableBiteScoreRestaurantData(restaurantB),
+    },
+    ...cases.map(({collection, data}) => ({
+      documentPath: `${collection}/existing`,
+      data,
+    })),
+  ]);
   const customerDb = dbFor("customer");
   const adminDb = dbFor("admin");
   const oldLockPath =

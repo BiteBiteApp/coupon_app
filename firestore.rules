@@ -435,19 +435,36 @@ service cloud.firestore {
       return !changedKeys().hasAny(biteScoreRestaurantProvenanceFields());
     }
 
+    function strictBiteScoreRestaurantActivity(data) {
+      return (!data.keys().hasAny(['isActive']) ||
+          (data.isActive is bool && data.isActive == true)) &&
+        (!data.keys().hasAny(['active']) ||
+          (data.active is bool && data.active == true));
+    }
+
+    function strictUnclaimedBiteScoreRestaurant(data) {
+      return (!data.keys().hasAny(['isClaimed']) ||
+          (data.isClaimed is bool && data.isClaimed == false)) &&
+        (!data.keys().hasAny(['ownerUserId']) ||
+          data.ownerUserId == null ||
+          (data.ownerUserId is string && data.ownerUserId == ''));
+    }
+
+    function strictBiteScoreRestaurantClaimedBy(data, ownerUserId) {
+      return data.keys().hasAll(['isClaimed', 'ownerUserId']) &&
+        data.isClaimed is bool &&
+        data.isClaimed == true &&
+        data.ownerUserId is string &&
+        data.ownerUserId.size() > 0 &&
+        data.ownerUserId == ownerUserId;
+    }
+
     function canCreatePublicBiteScoreRestaurant(restaurantId) {
       return emailVerified() &&
         request.resource.data.id == restaurantId &&
         validBiteScoreRestaurantInitialProvenance() &&
-        (!('ownerUserId' in request.resource.data) ||
-          request.resource.data.ownerUserId == null ||
-          request.resource.data.ownerUserId == '') &&
-        (!('isClaimed' in request.resource.data) ||
-          request.resource.data.isClaimed == false) &&
-        (!('isActive' in request.resource.data) ||
-          request.resource.data.isActive == true) &&
-        (!('active' in request.resource.data) ||
-          request.resource.data.active == true);
+        strictUnclaimedBiteScoreRestaurant(request.resource.data) &&
+        strictBiteScoreRestaurantActivity(request.resource.data);
     }
 
     function canonicalDishId(dishId) {
@@ -578,6 +595,23 @@ service cloud.firestore {
         restaurantId.size() == 0 ||
         restaurantId.matches('^.*/.*$') ||
         !exists(/databases/$(database)/documents/private_rating_restaurant_operation_locks/$(restaurantId));
+    }
+
+    function canonicalCurrentRestaurantAllowsClaim(restaurantId) {
+      return restaurantId is string &&
+        restaurantId.size() > 0 &&
+        !restaurantId.matches('^.*/.*$') &&
+        exists(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)) &&
+        get(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)).data.keys().hasAny(['id']) &&
+        get(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)).data.id is string &&
+        get(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)).data.id == restaurantId &&
+        strictBiteScoreRestaurantActivity(
+          get(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)).data
+        ) &&
+        strictUnclaimedBiteScoreRestaurant(
+          get(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)).data
+        ) &&
+        restaurantOperationLockAllowsMutation(restaurantId);
     }
 
     function dishOperationLockAllowsMutation(dishId) {
@@ -767,12 +801,101 @@ service cloud.firestore {
 
     function createsOwnClaimRequest() {
       return emailVerified() &&
+        request.resource.data.keys().hasAll([
+          'restaurantId',
+          'requesterUserId',
+          'status'
+        ]) &&
         request.resource.data.requesterUserId == request.auth.uid &&
-        request.resource.data.status == 'pending';
+        request.resource.data.status == 'pending' &&
+        canonicalCurrentRestaurantAllowsClaim(
+          request.resource.data.restaurantId
+        );
     }
 
     function readsOwnClaimRequest() {
       return signedIn() && resource.data.requesterUserId == request.auth.uid;
+    }
+
+    function writesRestaurantClaimApproval() {
+      return changedKeys().hasAny(['status']) &&
+        request.resource.data.keys().hasAny(['status']) &&
+        request.resource.data.status == 'approved';
+    }
+
+    function pendingClaimApprovalIdentityIsValid(requestId) {
+      return resource.data.keys().hasAll([
+          'id',
+          'restaurantId',
+          'requesterUserId',
+          'status'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'id',
+          'restaurantId',
+          'requesterUserId',
+          'status'
+        ]) &&
+        resource.data.id is string &&
+        resource.data.id == requestId &&
+        request.resource.data.id == requestId &&
+        resource.data.restaurantId is string &&
+        resource.data.restaurantId.size() > 0 &&
+        !resource.data.restaurantId.matches('^.*/.*$') &&
+        request.resource.data.restaurantId == resource.data.restaurantId &&
+        resource.data.requesterUserId is string &&
+        resource.data.requesterUserId.size() > 0 &&
+        request.resource.data.requesterUserId == resource.data.requesterUserId &&
+        resource.data.status == 'pending' &&
+        request.resource.data.status == 'approved' &&
+        changedKeys().hasOnly(['status', 'updatedAt']);
+    }
+
+    function claimApprovalRestaurantWriteFields() {
+      return [
+        'ownerUserId',
+        'isClaimed',
+        'restaurantWriteRevision',
+        'updatedAt'
+      ];
+    }
+
+    function claimApprovalRestaurantTransitionIsValid(
+      restaurantId,
+      requesterUserId
+    ) {
+      return existsAfter(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)) &&
+        getAfter(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)).data.keys().hasAny(['id']) &&
+        getAfter(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)).data.id is string &&
+        getAfter(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)).data.id == restaurantId &&
+        strictBiteScoreRestaurantActivity(
+          getAfter(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)).data
+        ) &&
+        strictBiteScoreRestaurantClaimedBy(
+          getAfter(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)).data,
+          requesterUserId
+        ) &&
+        validBiteScoreRestaurantWriteRevision(
+          get(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)).data
+        ) &&
+        validBiteScoreRestaurantWriteRevision(
+          getAfter(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)).data
+        ) &&
+        getAfter(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)).data.restaurantWriteRevision ==
+          get(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)).data.restaurantWriteRevision + 1 &&
+        getAfter(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)).data
+          .diff(get(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)).data)
+          .affectedKeys()
+          .hasOnly(claimApprovalRestaurantWriteFields());
+    }
+
+    function canApprovePendingClaimRequest(requestId) {
+      return pendingClaimApprovalIdentityIsValid(requestId) &&
+        canonicalCurrentRestaurantAllowsClaim(resource.data.restaurantId) &&
+        claimApprovalRestaurantTransitionIsValid(
+          resource.data.restaurantId,
+          resource.data.requesterUserId
+        );
     }
 
     function publicProfileWriteFields() {
@@ -1195,7 +1318,11 @@ service cloud.firestore {
         dataRestaurantOperationLockAllowsMutation(request.resource.data);
       allow update: if isAdmin() &&
         dataRestaurantOperationLockAllowsMutation(resource.data) &&
-        dataRestaurantOperationLockAllowsMutation(request.resource.data);
+        dataRestaurantOperationLockAllowsMutation(request.resource.data) &&
+        (
+          !writesRestaurantClaimApproval() ||
+          canApprovePendingClaimRequest(requestId)
+        );
       allow delete: if isAdmin() &&
         dataRestaurantOperationLockAllowsMutation(resource.data);
     }

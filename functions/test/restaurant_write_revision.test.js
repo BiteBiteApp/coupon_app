@@ -145,7 +145,7 @@ test("claim invite handler uses the behaviorally tested revision decision", () =
     /"This BiteScore restaurant is temporarily unavailable\."/u,
   );
   const resolvedRestaurantId = handler.indexOf(
-    "const restaurantId = readString(inviteDoc.data().restaurantId)",
+    "const restaurantId = readString(inviteData.restaurantId)",
   );
   const lockRead = handler.indexOf(
     "transaction.get(restaurantOperationLockRef)",

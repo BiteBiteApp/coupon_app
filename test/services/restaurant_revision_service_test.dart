@@ -92,6 +92,35 @@ BitescoreRestaurant parsedRestaurant({
   return BitescoreRestaurant.tryFromFinderFirestore(data, fallbackId: id)!;
 }
 
+Map<String, dynamic> claimableRestaurantData({
+  String id = 'restaurant-1',
+  int revision = 4,
+  Map<String, dynamic> fields = const <String, dynamic>{},
+}) => <String, dynamic>{
+  'id': id,
+  'restaurantWriteRevision': revision,
+  ...fields,
+};
+
+Map<String, dynamic> pendingClaimData({
+  Object? id = 'claim-1',
+  Object? restaurantId = 'restaurant-1',
+  Object? requesterUserId = 'requester-1',
+  Object? status = 'pending',
+}) => <String, dynamic>{
+  'id': id,
+  'restaurantId': restaurantId,
+  'restaurantName': 'Root Kitchen',
+  'requesterUserId': requesterUserId,
+  'claimantName': 'Claimant One',
+  'email': 'claimant@example.com',
+  'phone': '555-0101',
+  'status': status,
+};
+
+TypeMatcher<ArgumentError> claimArgumentError(String message) =>
+    isA<ArgumentError>().having((error) => error.message, 'message', message);
+
 void main() {
   group('restaurant revision transaction guards', () {
     test('fresh expected revision advances exactly once', () {
@@ -149,6 +178,259 @@ void main() {
         );
       }
     });
+  });
+
+  group('BiteScore claim write boundary', () {
+    test('direct claim accepts every strict active-unclaimed shape', () {
+      final activityCases = <Map<String, dynamic>>[
+        const <String, dynamic>{},
+        const <String, dynamic>{'isActive': true},
+        const <String, dynamic>{'active': true},
+        const <String, dynamic>{'isActive': true, 'active': true},
+      ];
+      final ownershipCases = <Map<String, dynamic>>[
+        const <String, dynamic>{},
+        const <String, dynamic>{'isClaimed': false},
+        const <String, dynamic>{'ownerUserId': null},
+        const <String, dynamic>{'ownerUserId': ''},
+        const <String, dynamic>{'isClaimed': false, 'ownerUserId': null},
+        const <String, dynamic>{'isClaimed': false, 'ownerUserId': ''},
+      ];
+
+      for (final activity in activityCases) {
+        for (final ownership in ownershipCases) {
+          final data = claimableRestaurantData(
+            fields: <String, dynamic>{...activity, ...ownership},
+          );
+          expect(
+            () => BiteScoreService.requireRestaurantAvailableForClaimForTesting(
+              data: data,
+              restaurantDocumentId: 'restaurant-1',
+            ),
+            returnsNormally,
+            reason: '$activity $ownership',
+          );
+        }
+      }
+    });
+
+    test('direct claim fails closed for unavailable activity and identity', () {
+      final unavailable = claimArgumentError(
+        BiteScoreService.restaurantClaimUnavailableMessage,
+      );
+      final invalidData = <Map<String, dynamic>?>[
+        null,
+        claimableRestaurantData(id: 'other-restaurant'),
+        claimableRestaurantData(fields: const {'isActive': false}),
+        claimableRestaurantData(fields: const {'active': false}),
+        claimableRestaurantData(
+          fields: const {'isActive': true, 'active': false},
+        ),
+        claimableRestaurantData(fields: const {'isActive': 'true'}),
+        claimableRestaurantData(fields: const {'active': null}),
+      ];
+      final missingIdentity = claimableRestaurantData()..remove('id');
+      invalidData.add(missingIdentity);
+
+      for (final data in invalidData) {
+        expect(
+          () => BiteScoreService.requireRestaurantAvailableForClaimForTesting(
+            data: data,
+            restaurantDocumentId: 'restaurant-1',
+          ),
+          throwsA(unavailable),
+          reason: '$data',
+        );
+      }
+    });
+
+    test('direct claim rejects every malformed isClaimed type', () {
+      final unavailable = claimArgumentError(
+        BiteScoreService.restaurantClaimUnavailableMessage,
+      );
+      for (final value in <Object?>[
+        true,
+        null,
+        0,
+        'false',
+        <String, Object?>{},
+        <Object?>[],
+      ]) {
+        expect(
+          () => BiteScoreService.requireRestaurantAvailableForClaimForTesting(
+            data: claimableRestaurantData(fields: {'isClaimed': value}),
+            restaurantDocumentId: 'restaurant-1',
+          ),
+          throwsA(unavailable),
+          reason: 'isClaimed=$value',
+        );
+      }
+    });
+
+    test('direct claim rejects malformed owner and contradictory state', () {
+      final unavailable = claimArgumentError(
+        BiteScoreService.restaurantClaimUnavailableMessage,
+      );
+      for (final value in <Object?>[
+        ' ',
+        '\t',
+        'owner-1',
+        7,
+        false,
+        <String, Object?>{},
+        <Object?>[],
+      ]) {
+        expect(
+          () => BiteScoreService.requireRestaurantAvailableForClaimForTesting(
+            data: claimableRestaurantData(fields: {'ownerUserId': value}),
+            restaurantDocumentId: 'restaurant-1',
+          ),
+          throwsA(unavailable),
+          reason: 'ownerUserId=$value',
+        );
+      }
+      expect(
+        () => BiteScoreService.requireRestaurantAvailableForClaimForTesting(
+          data: claimableRestaurantData(
+            fields: const {'isClaimed': false, 'ownerUserId': 'owner-1'},
+          ),
+          restaurantDocumentId: 'restaurant-1',
+        ),
+        throwsA(unavailable),
+      );
+      expect(
+        () => BiteScoreService.requireRestaurantAvailableForClaimForTesting(
+          data: claimableRestaurantData(
+            fields: const {'isClaimed': true, 'ownerUserId': null},
+          ),
+          restaurantDocumentId: 'restaurant-1',
+        ),
+        throwsA(unavailable),
+      );
+    });
+
+    test(
+      'pending approval retains exact association and one revision step',
+      () {
+        expect(
+          BiteScoreService.nextPendingClaimApprovalRevisionForTesting(
+            restaurantData: claimableRestaurantData(
+              fields: const {
+                'isActive': true,
+                'active': true,
+                'isClaimed': false,
+                'ownerUserId': null,
+              },
+            ),
+            restaurantDocumentId: 'restaurant-1',
+            expectedRestaurantRevision: 4,
+            claimData: pendingClaimData(),
+            claimDocumentId: 'claim-1',
+            requesterUserId: 'requester-1',
+          ),
+          5,
+        );
+      },
+    );
+
+    test('pending approval checks hidden state before stale revision', () {
+      expect(
+        () => BiteScoreService.nextPendingClaimApprovalRevisionForTesting(
+          restaurantData: claimableRestaurantData(
+            revision: 5,
+            fields: const {'isActive': false},
+          ),
+          restaurantDocumentId: 'restaurant-1',
+          expectedRestaurantRevision: 4,
+          claimData: pendingClaimData(),
+          claimDocumentId: 'claim-1',
+          requesterUserId: 'requester-1',
+        ),
+        throwsA(
+          claimArgumentError(
+            BiteScoreService.restaurantClaimUnavailableMessage,
+          ),
+        ),
+      );
+      expect(
+        () => BiteScoreService.nextPendingClaimApprovalRevisionForTesting(
+          restaurantData: claimableRestaurantData(revision: 5),
+          restaurantDocumentId: 'restaurant-1',
+          expectedRestaurantRevision: 4,
+          claimData: pendingClaimData(),
+          claimDocumentId: 'claim-1',
+          requesterUserId: 'requester-1',
+        ),
+        throwsA(isA<BiteScoreRestaurantChangedException>()),
+      );
+    });
+
+    test('pending approval rejects changed raw claim identity and status', () {
+      final changedClaims = <Map<String, dynamic>>[
+        pendingClaimData(id: 'other-claim'),
+        pendingClaimData(restaurantId: 'other-restaurant'),
+        pendingClaimData(requesterUserId: 'other-requester'),
+        pendingClaimData(status: 'rejected'),
+        pendingClaimData(status: ' pending '),
+        pendingClaimData()..remove('email'),
+      ];
+      for (final claimData in changedClaims) {
+        expect(
+          () => BiteScoreService.nextPendingClaimApprovalRevisionForTesting(
+            restaurantData: claimableRestaurantData(),
+            restaurantDocumentId: 'restaurant-1',
+            expectedRestaurantRevision: 4,
+            claimData: claimData,
+            claimDocumentId: 'claim-1',
+            requesterUserId: 'requester-1',
+          ),
+          throwsA(isA<BiteScoreRestaurantChangedException>()),
+          reason: '$claimData',
+        );
+      }
+    });
+
+    test(
+      'only final permission denial is mapped to a private safe error',
+      () async {
+        final privateError = FirebaseException(
+          plugin: 'cloud_firestore',
+          code: 'permission-denied',
+          message: 'private lock and revision details',
+        );
+        await expectLater(
+          BiteScoreService.runControlledRestaurantClaimWriteForTesting<void>(
+            () async => throw privateError,
+          ),
+          throwsA(
+            claimArgumentError(
+              BiteScoreService.restaurantClaimTemporarilyUnavailableMessage,
+            ).having(
+              (error) => error.toString(),
+              'safe text',
+              isNot(contains('private lock and revision details')),
+            ),
+          ),
+        );
+
+        final networkError = FirebaseException(
+          plugin: 'cloud_firestore',
+          code: 'unavailable',
+        );
+        await expectLater(
+          BiteScoreService.runControlledRestaurantClaimWriteForTesting<void>(
+            () async => throw networkError,
+          ),
+          throwsA(same(networkError)),
+        );
+        await expectLater(
+          BiteScoreService.runControlledRestaurantClaimWriteForTesting<String>(
+            () async => 'created',
+          ),
+          completion('created'),
+        );
+      },
+    );
   });
 
   group('BiteScore hidden-state visibility', () {
@@ -645,14 +927,70 @@ void main() {
     );
     expect(ownerEdit, contains('updateRestaurantAsAdmin'));
 
+    final directClaim = sourceSection(
+      biteScoreSource,
+      'static Future<void> submitRestaurantClaim',
+      'static Future<void> approveClaimAsAdmin',
+    );
+    final directRestaurantRead = directClaim.indexOf(
+      'final restaurantSnapshot = await restaurantRef.get()',
+    );
+    final directValidation = directClaim.indexOf(
+      '_requireRestaurantAvailableForClaim(',
+    );
+    final duplicateRead = directClaim.indexOf(
+      'final duplicateSnapshot = await claimRequestsCollection()',
+    );
+    final pendingWrite = directClaim.indexOf(
+      'await _createPendingRestaurantClaimRequestOnly(',
+    );
+    expect(
+      directClaim,
+      contains('restaurantsCollection().doc(normalizedRestaurantId)'),
+    );
+    expect(
+      directClaim,
+      contains('restaurantDocumentId: restaurantSnapshot.id'),
+    );
+    expect(directClaim, contains('_runControlledRestaurantClaimWrite'));
+    expect(
+      directRestaurantRead >= 0 &&
+          directRestaurantRead < directValidation &&
+          directValidation < duplicateRead &&
+          duplicateRead < pendingWrite,
+      isTrue,
+    );
+
     final claim = sourceSection(
       biteScoreSource,
       'static Future<void> approveClaimAsAdmin',
       'static Future<void> rejectClaimAsAdmin',
     );
     expect(claim, contains('initialRestaurant'));
-    expect(claim, contains('_runExpectedRestaurantRevisionTransaction'));
+    expect(claim, contains('_requireRestaurantAvailableForClaim'));
+    expect(claim, contains('_runControlledRestaurantClaimWrite'));
+    expect(claim, contains('_firestore.runTransaction'));
+    expect(claim, contains('_nextPendingClaimApprovalRevision'));
     expect(claim, contains('restaurantWriteRevisionField'));
+    expect(RegExp(r'transaction\.get\(').allMatches(claim).length, 2);
+    expect(RegExp(r'transaction\.set\(').allMatches(claim).length, 2);
+    final approvalTransaction = claim.indexOf('_firestore.runTransaction');
+    final restaurantRead = claim.indexOf('transaction.get(restaurantRef)');
+    final claimRead = claim.indexOf('transaction.get(claimRef)');
+    final approvalValidation = claim.indexOf(
+      '_nextPendingClaimApprovalRevision(',
+    );
+    final claimWrite = claim.indexOf('transaction.set(claimRef');
+    final restaurantWrite = claim.indexOf('transaction.set(restaurantRef');
+    expect(
+      approvalTransaction >= 0 &&
+          approvalTransaction < restaurantRead &&
+          restaurantRead < claimRead &&
+          claimRead < approvalValidation &&
+          approvalValidation < claimWrite &&
+          claimWrite < restaurantWrite,
+      isTrue,
+    );
 
     final unclaim = sourceSection(
       biteScoreSource,

@@ -690,6 +690,10 @@ class BiteScoreService {
   static const String loginRequiredMessage = 'Please sign in to continue';
   static const String emailVerificationRequiredMessage =
       'Please verify your email first';
+  static const String restaurantClaimUnavailableMessage =
+      'Restaurant is unavailable for claiming.';
+  static const String restaurantClaimTemporarilyUnavailableMessage =
+      'Restaurant claim is temporarily unavailable.';
 
   static int _requiredRestaurantWriteRevision(Map<String, dynamic>? data) {
     final revision = BitescoreRestaurant.readRestaurantWriteRevision(data);
@@ -763,6 +767,115 @@ class BiteScoreService {
     currentData: currentData,
     expectedRevision: expectedRevision,
   );
+
+  static bool _isStrictlyUnclaimedRestaurantData(Map<String, dynamic> data) {
+    if (data.containsKey('isClaimed')) {
+      final isClaimed = data['isClaimed'];
+      if (isClaimed is! bool || isClaimed) {
+        return false;
+      }
+    }
+
+    if (!data.containsKey('ownerUserId')) {
+      return true;
+    }
+    final ownerUserId = data['ownerUserId'];
+    return ownerUserId == null ||
+        (ownerUserId is String && ownerUserId.isEmpty);
+  }
+
+  static void _requireRestaurantAvailableForClaim({
+    required Map<String, dynamic>? data,
+    required String restaurantDocumentId,
+  }) {
+    if (data == null ||
+        restaurantDocumentId.isEmpty ||
+        data['id'] != restaurantDocumentId ||
+        !BitescoreRestaurant.readActivity(data) ||
+        !_isStrictlyUnclaimedRestaurantData(data)) {
+      throw ArgumentError(restaurantClaimUnavailableMessage);
+    }
+  }
+
+  static int _nextPendingClaimApprovalRevision({
+    required Map<String, dynamic>? restaurantData,
+    required String restaurantDocumentId,
+    required int expectedRestaurantRevision,
+    required Map<String, dynamic>? claimData,
+    required String claimDocumentId,
+    required String requesterUserId,
+  }) {
+    _requireRestaurantAvailableForClaim(
+      data: restaurantData,
+      restaurantDocumentId: restaurantDocumentId,
+    );
+
+    final currentClaim = RestaurantClaimRequest.tryFromFirestore(
+      claimData,
+      fallbackId: claimDocumentId,
+    );
+    if (claimData == null ||
+        claimData['id'] != claimDocumentId ||
+        claimData['restaurantId'] != restaurantDocumentId ||
+        claimData['requesterUserId'] != requesterUserId ||
+        claimData['status'] != 'pending' ||
+        currentClaim == null ||
+        currentClaim.id != claimDocumentId ||
+        currentClaim.restaurantId != restaurantDocumentId ||
+        currentClaim.requesterUserId != requesterUserId ||
+        currentClaim.status != 'pending') {
+      throw const BiteScoreRestaurantChangedException();
+    }
+
+    return _nextExpectedRestaurantWriteRevision(
+      currentData: restaurantData,
+      expectedRevision: expectedRestaurantRevision,
+    );
+  }
+
+  static Future<T> _runControlledRestaurantClaimWrite<T>(
+    Future<T> Function() write,
+  ) async {
+    try {
+      return await write();
+    } on FirebaseException catch (error) {
+      if (error.code == 'permission-denied') {
+        throw ArgumentError(restaurantClaimTemporarilyUnavailableMessage);
+      }
+      rethrow;
+    }
+  }
+
+  @visibleForTesting
+  static void requireRestaurantAvailableForClaimForTesting({
+    required Map<String, dynamic>? data,
+    required String restaurantDocumentId,
+  }) => _requireRestaurantAvailableForClaim(
+    data: data,
+    restaurantDocumentId: restaurantDocumentId,
+  );
+
+  @visibleForTesting
+  static int nextPendingClaimApprovalRevisionForTesting({
+    required Map<String, dynamic>? restaurantData,
+    required String restaurantDocumentId,
+    required int expectedRestaurantRevision,
+    required Map<String, dynamic>? claimData,
+    required String claimDocumentId,
+    required String requesterUserId,
+  }) => _nextPendingClaimApprovalRevision(
+    restaurantData: restaurantData,
+    restaurantDocumentId: restaurantDocumentId,
+    expectedRestaurantRevision: expectedRestaurantRevision,
+    claimData: claimData,
+    claimDocumentId: claimDocumentId,
+    requesterUserId: requesterUserId,
+  );
+
+  @visibleForTesting
+  static Future<T> runControlledRestaurantClaimWriteForTesting<T>(
+    Future<T> Function() write,
+  ) => _runControlledRestaurantClaimWrite(write);
 
   static bool _restaurantProfileFieldsEqual(
     BitescoreRestaurant current,
@@ -3969,8 +4082,19 @@ class BiteScoreService {
       throw ArgumentError('Phone is required.');
     }
 
+    final normalizedRestaurantId = restaurantId.trim();
+    if (normalizedRestaurantId.isEmpty) {
+      throw ArgumentError(restaurantClaimUnavailableMessage);
+    }
+    final restaurantRef = restaurantsCollection().doc(normalizedRestaurantId);
+    final restaurantSnapshot = await restaurantRef.get();
+    _requireRestaurantAvailableForClaim(
+      data: restaurantSnapshot.data(),
+      restaurantDocumentId: restaurantSnapshot.id,
+    );
+
     final duplicateSnapshot = await claimRequestsCollection()
-        .where('restaurantId', isEqualTo: restaurantId)
+        .where('restaurantId', isEqualTo: normalizedRestaurantId)
         .where('requesterUserId', isEqualTo: user.uid)
         .where('status', isEqualTo: 'pending')
         .limit(1)
@@ -3982,7 +4106,7 @@ class BiteScoreService {
     }
 
     await _createPendingRestaurantClaimRequestOnly(
-      restaurantId: restaurantId,
+      restaurantId: normalizedRestaurantId,
       restaurantName: restaurantName,
       requesterUserId: user.uid,
       claimantName: claimantName,
@@ -4002,19 +4126,21 @@ class BiteScoreService {
     required String message,
   }) async {
     final claimRef = claimRequestsCollection().doc();
-    await claimRef.set({
-      'id': claimRef.id,
-      'restaurantId': restaurantId.trim(),
-      'restaurantName': restaurantName.trim(),
-      'requesterUserId': requesterUserId.trim(),
-      'claimantName': claimantName.trim(),
-      'email': email.trim(),
-      'phone': phone.trim(),
-      'message': message.trim().isEmpty ? null : message.trim(),
-      'status': 'pending',
-      'createdAt': FieldValue.serverTimestamp(),
-      'updatedAt': FieldValue.serverTimestamp(),
-    });
+    await _runControlledRestaurantClaimWrite(
+      () => claimRef.set({
+        'id': claimRef.id,
+        'restaurantId': restaurantId.trim(),
+        'restaurantName': restaurantName.trim(),
+        'requesterUserId': requesterUserId.trim(),
+        'claimantName': claimantName.trim(),
+        'email': email.trim(),
+        'phone': phone.trim(),
+        'message': message.trim().isEmpty ? null : message.trim(),
+        'status': 'pending',
+        'createdAt': FieldValue.serverTimestamp(),
+        'updatedAt': FieldValue.serverTimestamp(),
+      }),
+    );
   }
 
   static Future<void> approveClaimAsAdmin(
@@ -4025,35 +4151,35 @@ class BiteScoreService {
       throw ArgumentError('This claim request is missing a requester user ID.');
     }
 
-    final restaurantRef = restaurantsCollection().doc(request.restaurantId);
+    final restaurantDocumentId = request.restaurantId.trim();
+    final claimDocumentId = request.id.trim();
+    if (restaurantDocumentId.isEmpty || claimDocumentId.isEmpty) {
+      throw const BiteScoreRestaurantChangedException();
+    }
+    final restaurantRef = restaurantsCollection().doc(restaurantDocumentId);
     final initialRestaurant = await restaurantRef.get();
     final initialRestaurantData = initialRestaurant.data();
+    _requireRestaurantAvailableForClaim(
+      data: initialRestaurantData,
+      restaurantDocumentId: initialRestaurant.id,
+    );
     final expectedRevision = _requiredRestaurantWriteRevision(
       initialRestaurantData,
     );
-    if (initialRestaurantData?['isClaimed'] == true ||
-        _readString(initialRestaurantData?['ownerUserId']) != null) {
-      throw const BiteScoreRestaurantChangedException();
-    }
-    final claimRef = claimRequestsCollection().doc(request.id);
-    await _runExpectedRestaurantRevisionTransaction<void>(
-      restaurantRef: restaurantRef,
-      expectedRevision: expectedRevision,
-      apply: (transaction, currentRestaurantSnapshot, nextRevision) async {
+    final claimRef = claimRequestsCollection().doc(claimDocumentId);
+    await _runControlledRestaurantClaimWrite(
+      () => _firestore.runTransaction<void>((transaction) async {
+        final currentRestaurantSnapshot = await transaction.get(restaurantRef);
         final currentClaimSnapshot = await transaction.get(claimRef);
         final currentRestaurantData = currentRestaurantSnapshot.data();
-        final currentClaim = RestaurantClaimRequest.tryFromFirestore(
-          currentClaimSnapshot.data(),
-          fallbackId: currentClaimSnapshot.id,
+        final nextRevision = _nextPendingClaimApprovalRevision(
+          restaurantData: currentRestaurantData,
+          restaurantDocumentId: currentRestaurantSnapshot.id,
+          expectedRestaurantRevision: expectedRevision,
+          claimData: currentClaimSnapshot.data(),
+          claimDocumentId: currentClaimSnapshot.id,
+          requesterUserId: requesterUserId,
         );
-        if (currentRestaurantData?['isClaimed'] == true ||
-            _readString(currentRestaurantData?['ownerUserId']) != null ||
-            currentClaim == null ||
-            currentClaim.status != 'pending' ||
-            currentClaim.restaurantId != request.restaurantId ||
-            currentClaim.requesterUserId?.trim() != requesterUserId) {
-          throw const BiteScoreRestaurantChangedException();
-        }
         transaction.set(claimRef, {
           'status': 'approved',
           'updatedAt': FieldValue.serverTimestamp(),
@@ -4064,7 +4190,7 @@ class BiteScoreService {
           BitescoreRestaurant.restaurantWriteRevisionField: nextRevision,
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));
-      },
+      }),
     );
   }
 

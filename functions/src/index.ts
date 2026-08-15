@@ -131,6 +131,7 @@ import {
   reconcileBiteSaverDailySpecialOfferIndex,
   reconcileBiteScoreDishIndex,
 } from "./search_index_maintenance.js";
+import { biteScoreRestaurantIsActive } from "./search_index_builders.js";
 import {
   couponAdminCursorSecretName,
   createFirestoreCouponAdminPagingDatabase,
@@ -1577,6 +1578,65 @@ function serializeInviteDoc(
   };
 }
 
+function requireBiteScoreRestaurantClaimable(
+  restaurantData: Readonly<Record<string, unknown>>,
+  restaurantDocumentId: string,
+): void {
+  if (
+    restaurantData.id !== restaurantDocumentId ||
+    !biteScoreRestaurantIsActive(restaurantData)
+  ) {
+    throw new HttpsError(
+      "failed-precondition",
+      "This BiteScore restaurant is unavailable for claiming.",
+    );
+  }
+
+  const hasIsClaimed = Object.prototype.hasOwnProperty.call(
+    restaurantData,
+    "isClaimed",
+  );
+  const hasOwnerUserId = Object.prototype.hasOwnProperty.call(
+    restaurantData,
+    "ownerUserId",
+  );
+  const isStrictlyUnclaimed =
+    (!hasIsClaimed || restaurantData.isClaimed === false) &&
+    (!hasOwnerUserId ||
+      restaurantData.ownerUserId === null ||
+      restaurantData.ownerUserId === "");
+  if (!isStrictlyUnclaimed) {
+    throw new HttpsError(
+      "failed-precondition",
+      "This BiteScore restaurant has already been claimed.",
+    );
+  }
+}
+
+function biteScoreClaimInviteHasConsistentActiveState(
+  inviteData: Readonly<Record<string, unknown>>,
+  restaurantId: string,
+): boolean {
+  return inviteData.type === "bitescore_claim_invite" &&
+    inviteData.side === "bitescore" &&
+    inviteData.status === "active" &&
+    inviteData.restaurantId === restaurantId &&
+    inviteData.maxUses === 1 &&
+    inviteData.useCount === 0 &&
+    inviteData.usedAt === null &&
+    inviteData.usedByUid === null &&
+    inviteData.usedByEmail === null &&
+    inviteData.revokedAt === null &&
+    inviteData.revokedByUid === null;
+}
+
+function throwInvalidBiteScoreClaimInvite(): never {
+  throw new HttpsError(
+    "failed-precondition",
+    "This invite link is no longer valid.",
+  );
+}
+
 export const createCouponRestaurantInvite = onCall(async (request) => {
   const admin = requireAdminInviteAccess(request);
   const data = readRecord(request.data);
@@ -1651,62 +1711,78 @@ export const createBiteScoreRestaurantClaimInvite = onCall(async (request) => {
     );
   }
 
-  const restaurantSnapshot = await db
+  const restaurantRef = db
     .collection("bitescore_restaurants")
-    .doc(restaurantId)
-    .get();
-  if (!restaurantSnapshot.exists) {
-    throw new HttpsError(
-      "not-found",
-      "The selected BiteScore restaurant was not found.",
-    );
-  }
-
-  const restaurantData = restaurantSnapshot.data() ?? {};
-  const restaurantName =
-    readString(restaurantData.name) ??
-    readString(restaurantData.restaurantName);
-  if (!restaurantName) {
-    throw new HttpsError(
-      "failed-precondition",
-      "The selected BiteScore restaurant is missing a name.",
-    );
-  }
-
+    .doc(restaurantId);
+  const restaurantOperationLockRef = db
+    .collection(ratingDestructiveRestaurantOperationLockCollection)
+    .doc(restaurantId);
   const token = generateInviteToken();
   const tokenHash = hashInviteToken(token);
   const expiresAt = inviteExpirationTimestamp();
   const inviteRef = db.collection(restaurantInviteCollection).doc();
-  const addressParts = [
-    readString(restaurantData.address) ??
-      readString(restaurantData.streetAddress),
-    readString(restaurantData.city),
-    readString(restaurantData.state) ?? readString(restaurantData.stateCode),
-    readString(restaurantData.zipCode) ??
-      readString(restaurantData.zip) ??
-      readString(restaurantData.postalCode),
-  ].filter((part): part is string => Boolean(part));
 
-  await inviteRef.set({
-    tokenHash,
-    type: "bitescore_claim_invite",
-    side: "bitescore",
-    status: "active",
-    restaurantId,
-    restaurantName,
-    restaurantAddressSummary: addressParts.join(", "),
-    createdAt: FieldValue.serverTimestamp(),
-    createdByUid: admin.uid,
-    createdByEmail: admin.email,
-    expiresAt,
-    usedAt: null,
-    usedByUid: null,
-    usedByEmail: null,
-    maxUses: 1,
-    useCount: 0,
-    lastAccessedAt: null,
-    revokedAt: null,
-    revokedByUid: null,
+  await db.runTransaction(async (transaction) => {
+    const [restaurantOperationLockSnapshot, restaurantSnapshot] =
+      await Promise.all([
+        transaction.get(restaurantOperationLockRef),
+        transaction.get(restaurantRef),
+      ]);
+    if (restaurantOperationLockSnapshot.exists) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This BiteScore restaurant is temporarily unavailable.",
+      );
+    }
+    if (!restaurantSnapshot.exists) {
+      throw new HttpsError(
+        "not-found",
+        "The selected BiteScore restaurant was not found.",
+      );
+    }
+
+    const restaurantData = restaurantSnapshot.data() ?? {};
+    requireBiteScoreRestaurantClaimable(restaurantData, restaurantId);
+    const restaurantName =
+      readString(restaurantData.name) ??
+      readString(restaurantData.restaurantName);
+    if (!restaurantName) {
+      throw new HttpsError(
+        "failed-precondition",
+        "The selected BiteScore restaurant is missing a name.",
+      );
+    }
+    const addressParts = [
+      readString(restaurantData.address) ??
+        readString(restaurantData.streetAddress),
+      readString(restaurantData.city),
+      readString(restaurantData.state) ?? readString(restaurantData.stateCode),
+      readString(restaurantData.zipCode) ??
+        readString(restaurantData.zip) ??
+        readString(restaurantData.postalCode),
+    ].filter((part): part is string => Boolean(part));
+
+    transaction.set(inviteRef, {
+      tokenHash,
+      type: "bitescore_claim_invite",
+      side: "bitescore",
+      status: "active",
+      restaurantId,
+      restaurantName,
+      restaurantAddressSummary: addressParts.join(", "),
+      createdAt: FieldValue.serverTimestamp(),
+      createdByUid: admin.uid,
+      createdByEmail: admin.email,
+      expiresAt,
+      usedAt: null,
+      usedByUid: null,
+      usedByEmail: null,
+      maxUses: 1,
+      useCount: 0,
+      lastAccessedAt: null,
+      revokedAt: null,
+      revokedByUid: null,
+    });
   });
 
   return {
@@ -2282,6 +2358,18 @@ export const redeemBiteScoreRestaurantClaimInvite = onCall(async (request) => {
     }
 
     const inviteDoc = inviteSnapshot.docs[0];
+    const inviteData = inviteDoc.data();
+    if (
+      inviteData.type !== "bitescore_claim_invite" ||
+      inviteData.side !== "bitescore"
+    ) {
+      throwInvalidBiteScoreClaimInvite();
+    }
+    const restaurantId = readString(inviteData.restaurantId);
+    if (!restaurantId || inviteData.restaurantId !== restaurantId) {
+      throwInvalidBiteScoreClaimInvite();
+    }
+
     const invite = serializeInviteDoc(inviteDoc);
     const unavailableReason = invitePreviewUnavailableReason(
       invite,
@@ -2291,6 +2379,14 @@ export const redeemBiteScoreRestaurantClaimInvite = onCall(async (request) => {
       unavailableReason,
     );
     if (inviteRevisionGate.type === "terminal") {
+      if (
+        inviteRevisionGate.reason === "wrong-side" ||
+        (inviteRevisionGate.reason === "inactive" &&
+          inviteData.status !== "revoked" &&
+          inviteData.status !== "used")
+      ) {
+        throwInvalidBiteScoreClaimInvite();
+      }
       throw new HttpsError(
         "failed-precondition",
         inviteRevisionGate.reason === "used"
@@ -2300,24 +2396,11 @@ export const redeemBiteScoreRestaurantClaimInvite = onCall(async (request) => {
       );
     }
 
-    if (
-      invite.type !== "bitescore_claim_invite" ||
-      invite.side !== "bitescore"
-    ) {
-      throw new HttpsError(
-        "failed-precondition",
-        "This invite link is no longer valid.",
-        { reason: "wrong-type" },
-      );
-    }
-
-    const restaurantId = readString(inviteDoc.data().restaurantId);
-    if (!restaurantId) {
-      throw new HttpsError(
-        "failed-precondition",
-        "This invite link is no longer valid.",
-        { reason: "missing-restaurant-id" },
-      );
+    if (!biteScoreClaimInviteHasConsistentActiveState(
+      inviteData,
+      restaurantId,
+    )) {
+      throwInvalidBiteScoreClaimInvite();
     }
 
     const restaurantRef = db
@@ -2338,13 +2421,11 @@ export const redeemBiteScoreRestaurantClaimInvite = onCall(async (request) => {
       );
     }
     if (!restaurantSnapshot.exists) {
-      throw new HttpsError(
-        "not-found",
-        "The invited BiteScore restaurant was not found.",
-      );
+      throwInvalidBiteScoreClaimInvite();
     }
 
     const restaurantData = restaurantSnapshot.data() ?? {};
+    requireBiteScoreRestaurantClaimable(restaurantData, restaurantId);
     const restaurantRevisionDecision = decideRestaurantInviteRevisionWrite(
       null,
       restaurantData,
@@ -2358,22 +2439,9 @@ export const redeemBiteScoreRestaurantClaimInvite = onCall(async (request) => {
     const restaurantName =
       readString(restaurantData.name) ??
       readString(restaurantData.restaurantName) ??
-      readString(inviteDoc.data().restaurantName);
+      readString(inviteData.restaurantName);
     if (!restaurantName) {
-      throw new HttpsError(
-        "failed-precondition",
-        "The invited BiteScore restaurant is missing a name.",
-        { reason: "missing-restaurant-name" },
-      );
-    }
-
-    const existingOwnerUid = readString(restaurantData.ownerUserId);
-    if (existingOwnerUid && existingOwnerUid !== uid) {
-      throw new HttpsError(
-        "failed-precondition",
-        "This BiteScore restaurant has already been claimed.",
-        { reason: "already-claimed" },
-      );
+      throwInvalidBiteScoreClaimInvite();
     }
 
     const claimRef = db.collection("restaurant_claim_requests").doc();
@@ -2411,7 +2479,7 @@ export const redeemBiteScoreRestaurantClaimInvite = onCall(async (request) => {
         usedAt: FieldValue.serverTimestamp(),
         usedByUid: uid,
         usedByEmail: userEmail,
-        useCount: (readNumber(inviteDoc.data().useCount) ?? 0) + 1,
+        useCount: (readNumber(inviteData.useCount) ?? 0) + 1,
       },
       { merge: true },
     );
