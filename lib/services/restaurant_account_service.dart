@@ -37,6 +37,19 @@ class RestaurantAccountAdminVisibilityException implements Exception {
 
 class RestaurantAccountService {
   static const String adminHiddenField = 'adminHidden';
+  static const String restaurantSearchIndexCollection =
+      'restaurant_search_index';
+  static const String customerPublicProjectionVersion =
+      'bitestar.bitesaver-public-restaurant.v1';
+  static const String publicProjectionVersionField = 'publicProjectionVersion';
+  static const String publicVisibleField = 'publicVisible';
+  static const String offerCatalogUpdatedAtField = 'offerCatalogUpdatedAt';
+  static const String projectionEntityTypeField = 'entityType';
+  static const String projectionSourceField = 'source';
+  static const String projectionSourceDocumentIdField = 'sourceDocumentId';
+  static const String projectionIndexDocumentIdField = 'indexDocumentId';
+  static const String projectionDisplayNameField = 'displayName';
+  static const String projectionPrimaryImageUrlField = 'primaryImageUrl';
   static const int maxCouponNumberGenerationAttempts = 10000;
   static const String _couponNumberReservationsCollection =
       'coupon_number_reservations';
@@ -52,6 +65,18 @@ class RestaurantAccountService {
   static const String _couponNumberReservationUpdatedAtField = 'updatedAt';
 
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
+  static Query<Map<String, dynamic>> _customerRestaurantProjectionQuery() {
+    return _firestore
+        .collection(restaurantSearchIndexCollection)
+        .where(projectionSourceField, isEqualTo: 'biteSaver')
+        .where(projectionEntityTypeField, isEqualTo: 'restaurant')
+        .where(
+          publicProjectionVersionField,
+          isEqualTo: customerPublicProjectionVersion,
+        )
+        .where(publicVisibleField, isEqualTo: true);
+  }
 
   static DocumentReference<Map<String, dynamic>> docForUser(String uid) {
     return _firestore.collection('restaurant_accounts').doc(uid);
@@ -274,11 +299,7 @@ class RestaurantAccountService {
   }
 
   static Stream<QuerySnapshot<Map<String, dynamic>>> approvedAccountsStream() {
-    return _firestore
-        .collection('restaurant_accounts')
-        .where(Restaurant.fieldApprovalStatus, isEqualTo: 'approved')
-        .where('couponPostingEnabled', isEqualTo: true)
-        .snapshots();
+    return _customerRestaurantProjectionQuery().snapshots();
   }
 
   @Deprecated('Use reviewBiteSaverApplication instead.')
@@ -356,6 +377,99 @@ class RestaurantAccountService {
     );
   }
 
+  static Future<Map<String, dynamic>?> loadCustomerRestaurantProjectionById(
+    String restaurantId,
+  ) async {
+    final canonicalRestaurantId = restaurantId.trim();
+    if (canonicalRestaurantId.isEmpty || canonicalRestaurantId.contains('/')) {
+      return null;
+    }
+
+    final snapshot = await _customerRestaurantProjectionQuery()
+        .where(
+          projectionSourceDocumentIdField,
+          isEqualTo: canonicalRestaurantId,
+        )
+        .limit(2)
+        .get();
+    if (snapshot.docs.length != 1) {
+      return null;
+    }
+    final data = snapshot.docs.single.data();
+    return customerRestaurantFromProjectionData(
+              data,
+              expectedRestaurantId: canonicalRestaurantId,
+              projectionDocumentId: snapshot.docs.single.id,
+            ) ==
+            null
+        ? null
+        : Map<String, dynamic>.unmodifiable(data);
+  }
+
+  static Restaurant? customerRestaurantFromProjectionData(
+    Map<String, dynamic>? data, {
+    String? expectedRestaurantId,
+    String? projectionDocumentId,
+    List<Coupon> coupons = const <Coupon>[],
+    List<DailySpecial> dailySpecials = const <DailySpecial>[],
+  }) {
+    if (data == null ||
+        data[publicProjectionVersionField] != customerPublicProjectionVersion ||
+        data[projectionEntityTypeField] != 'restaurant' ||
+        data[projectionSourceField] != 'biteSaver' ||
+        data[publicVisibleField] != true) {
+      return null;
+    }
+
+    final restaurantId = _readString(data[projectionSourceDocumentIdField]);
+    final indexDocumentId = _readString(data[projectionIndexDocumentIdField]);
+    final expectedId = _readString(expectedRestaurantId);
+    final expectedIndexId = _readString(projectionDocumentId);
+    if (restaurantId == null ||
+        restaurantId.contains('/') ||
+        indexDocumentId == null ||
+        indexDocumentId.contains('/') ||
+        (expectedId != null && restaurantId != expectedId) ||
+        (expectedIndexId != null && indexDocumentId != expectedIndexId)) {
+      return null;
+    }
+
+    final latitude = _readDouble(data[Restaurant.fieldLatitude]);
+    final longitude = _readDouble(data[Restaurant.fieldLongitude]);
+    final hasValidCoordinates =
+        latitude != null &&
+        longitude != null &&
+        latitude.isFinite &&
+        longitude.isFinite &&
+        latitude >= -90 &&
+        latitude <= 90 &&
+        longitude >= -180 &&
+        longitude <= 180 &&
+        (latitude != 0 || longitude != 0);
+    final restaurant = Restaurant(
+      documentId: restaurantId,
+      name: _readString(data[projectionDisplayNameField]) ?? '',
+      distance: Restaurant.defaultDistanceLabel,
+      city: _readString(data[Restaurant.fieldCity]) ?? '',
+      state: _readString(data[Restaurant.fieldState]) ?? '',
+      zipCode: _readString(data[Restaurant.fieldZipCode]) ?? '',
+      phone: _readString(data[Restaurant.fieldPhone]),
+      streetAddress: _readString(data[Restaurant.fieldStreetAddress]),
+      website: _readString(data[Restaurant.fieldWebsite]),
+      bio: _readString(data[Restaurant.fieldBio]),
+      mainImageUrl: _readString(data[projectionPrimaryImageUrlField]),
+      businessHours: RestaurantBusinessHours.listFromFirestore(
+        data[Restaurant.fieldBusinessHours],
+      ),
+      coupons: coupons,
+      dailySpecials: dailySpecials,
+      latitude: hasValidCoordinates ? latitude : null,
+      longitude: hasValidCoordinates ? longitude : null,
+      formattedAddress: _readString(data[Restaurant.fieldFormattedAddress]),
+    );
+    return restaurant.hasValidRequiredFields ? restaurant : null;
+  }
+
   static Future<void> setAdminHiddenAsAdmin({
     required String documentId,
     required bool expectedAdminHidden,
@@ -427,47 +541,21 @@ class RestaurantAccountService {
     String restaurantId,
   ) async {
     final trimmedRestaurantId = restaurantId.trim();
-    if (trimmedRestaurantId.isEmpty) {
+    if (trimmedRestaurantId.isEmpty || trimmedRestaurantId.contains('/')) {
       return null;
     }
 
-    DocumentSnapshot<Map<String, dynamic>> directSnapshot;
-    try {
-      directSnapshot = await docForUser(trimmedRestaurantId).get();
-    } on FirebaseException catch (error) {
-      // Hidden accounts are intentionally denied by Rules. Treat that public
-      // resolution result like any other unavailable restaurant.
-      if (error.code == 'permission-denied') {
-        return null;
-      }
-      rethrow;
-    }
-    if (directSnapshot.data() != null) {
-      final resolved = _resolvedRestaurantAccountFromSnapshot(directSnapshot);
-      return resolved != null &&
-              isCustomerVisibleAccountData(resolved.accountData)
-          ? resolved
-          : null;
-    }
-
-    final uidSnapshot = await _firestore
-        .collection('restaurant_accounts')
-        .where(Restaurant.fieldUid, isEqualTo: trimmedRestaurantId)
-        .where(Restaurant.fieldApprovalStatus, isEqualTo: 'approved')
-        .where('couponPostingEnabled', isEqualTo: true)
-        .limit(1)
-        .get();
-    if (uidSnapshot.docs.isEmpty) {
-      return null;
-    }
-
-    final resolved = _resolvedRestaurantAccountFromSnapshot(
-      uidSnapshot.docs.first,
+    final projection = await loadCustomerRestaurantProjectionById(
+      trimmedRestaurantId,
     );
-    return resolved != null &&
-            isCustomerVisibleAccountData(resolved.accountData)
-        ? resolved
-        : null;
+    if (projection == null) {
+      return null;
+    }
+    return ResolvedRestaurantAccount(
+      documentId: trimmedRestaurantId,
+      accountUid: trimmedRestaurantId,
+      accountData: projection,
+    );
   }
 
   static Future<bool> canPostCoupons(String uid) async {
@@ -487,6 +575,10 @@ class RestaurantAccountService {
     return hasCouponPostingAccess(data) && !isAdminHidden(data);
   }
 
+  static bool isCustomerVisibleProjectionData(Map<String, dynamic>? data) {
+    return customerRestaurantFromProjectionData(data) != null;
+  }
+
   static List<Coupon> customerVisibleCouponsForAccountData(
     Map<String, dynamic>? data,
     List<Coupon> coupons,
@@ -498,40 +590,84 @@ class RestaurantAccountService {
     return coupons;
   }
 
+  static List<Coupon> customerVisibleCouponsForProjectionData(
+    Map<String, dynamic>? data,
+    List<Coupon> coupons,
+  ) {
+    if (!isCustomerVisibleProjectionData(data)) {
+      return const <Coupon>[];
+    }
+    return coupons;
+  }
+
   static Future<bool> isCouponCustomerVisible(
     Coupon coupon, {
     Restaurant? restaurant,
     @visibleForTesting
     Future<Map<String, dynamic>?> Function(String accountDocumentId)?
-    accountDataLoader,
+    projectionDataLoader,
+    @visibleForTesting
+    Future<Map<String, dynamic>?> Function(
+      String accountDocumentId,
+      String couponId,
+    )?
+    couponDataLoader,
   }) async {
     if (!coupon.isActiveAt(DateTime.now())) {
       return false;
     }
 
-    final accountDocumentId = restaurant?.accountDocumentId;
-    if (accountDocumentId != null) {
-      final data = await (accountDataLoader ?? loadAccountByDocumentId)(
-        accountDocumentId,
-      );
-      return isCustomerVisibleAccountData(data);
+    final restaurantDocumentId = restaurant?.accountDocumentId?.trim();
+    final couponRestaurantDocumentId = coupon.restaurantAccountId?.trim();
+    if (restaurantDocumentId != null &&
+        restaurantDocumentId.isNotEmpty &&
+        couponRestaurantDocumentId != null &&
+        couponRestaurantDocumentId.isNotEmpty &&
+        restaurantDocumentId != couponRestaurantDocumentId) {
+      return false;
     }
-
-    final couponRestaurantName = coupon.restaurant.trim().toLowerCase();
-    if (couponRestaurantName.isEmpty) {
+    final accountDocumentId =
+        restaurantDocumentId ?? couponRestaurantDocumentId;
+    if (accountDocumentId == null || accountDocumentId.isEmpty) {
+      return false;
+    }
+    final data =
+        await (projectionDataLoader ?? loadCustomerRestaurantProjectionById)(
+          accountDocumentId,
+        );
+    if (customerRestaurantFromProjectionData(
+          data,
+          expectedRestaurantId: accountDocumentId,
+        ) ==
+        null) {
       return false;
     }
 
-    final restaurants = await loadApprovedRestaurantsWithCoupons();
-    for (final restaurant in restaurants) {
-      if (restaurant.name.trim().toLowerCase() != couponRestaurantName) {
-        continue;
-      }
-
-      return restaurant.coupons.any((candidate) => candidate.id == coupon.id);
+    if (restaurant != null) {
+      return true;
     }
 
-    return false;
+    final couponId = coupon.id.trim();
+    if (couponId.isEmpty || couponId.contains('/')) {
+      return false;
+    }
+    final currentCouponData =
+        await (couponDataLoader ?? _loadCustomerCouponDataById)(
+          accountDocumentId,
+          couponId,
+        );
+    return Coupon.tryFromFirestore(currentCouponData, fallbackId: couponId) !=
+        null;
+  }
+
+  static Future<Map<String, dynamic>?> _loadCustomerCouponDataById(
+    String accountDocumentId,
+    String couponId,
+  ) async {
+    final snapshot = await couponsCollection(
+      accountDocumentId,
+    ).doc(couponId).get();
+    return snapshot.data();
   }
 
   static bool hasSubmittedCouponApplication(Map<String, dynamic>? data) {
@@ -1079,8 +1215,12 @@ class RestaurantAccountService {
   }
 
   static Future<List<Coupon>> loadCoupons(String uid) async {
+    final trimmedUid = uid.trim();
+    if (trimmedUid.isEmpty) {
+      return const <Coupon>[];
+    }
     final snapshot = await couponsCollection(
-      uid,
+      trimmedUid,
     ).orderBy(Coupon.fieldCreatedAt, descending: true).get();
 
     final coupons = <Coupon>[];
@@ -1107,7 +1247,7 @@ class RestaurantAccountService {
     for (final entry in parsedCoupons) {
       final formattedNumber = entry.coupon.formattedCouponNumber;
       if (formattedNumber != null) {
-        coupons.add(entry.coupon);
+        coupons.add(entry.coupon.copyWith(restaurantAccountId: trimmedUid));
         continue;
       }
 
@@ -1119,7 +1259,12 @@ class RestaurantAccountService {
         reservedNumbers: usedCouponNumbers,
       );
       usedCouponNumbers.add(couponNumber);
-      coupons.add(coupon.copyWith(couponNumber: couponNumber));
+      coupons.add(
+        coupon.copyWith(
+          couponNumber: couponNumber,
+          restaurantAccountId: trimmedUid,
+        ),
+      );
       backfillBatch.set(doc.reference, {
         Coupon.fieldCouponNumber: couponNumber,
       }, SetOptions(merge: true));
@@ -1563,41 +1708,39 @@ class RestaurantAccountService {
   }
 
   static Future<List<Restaurant>> loadApprovedRestaurantsWithCoupons() async {
-    final accountsSnapshot = await _firestore
-        .collection('restaurant_accounts')
-        .where(Restaurant.fieldApprovalStatus, isEqualTo: 'approved')
-        .where('couponPostingEnabled', isEqualTo: true)
-        .get();
+    final accountsSnapshot = await _customerRestaurantProjectionQuery().get();
 
     final restaurants = <Restaurant>[];
 
     for (final doc in accountsSnapshot.docs) {
       try {
-        final normalizedData = _normalizedRestaurantAccountData(
-          doc.data(),
-          fallbackUid: doc.id,
+        final projectionData = doc.data();
+        final publicRestaurant = customerRestaurantFromProjectionData(
+          projectionData,
+          projectionDocumentId: doc.id,
         );
-        final canShowCustomerOffers = isCustomerVisibleAccountData(
-          normalizedData,
-        );
-        if (!canShowCustomerOffers) {
+        final accountDocumentId = publicRestaurant?.accountDocumentId;
+        if (publicRestaurant == null || accountDocumentId == null) {
           continue;
         }
 
-        final allCoupons = await loadCoupons(doc.id);
-        final coupons = customerVisibleCouponsForAccountData(
-          normalizedData,
+        final allCoupons = await loadCoupons(accountDocumentId);
+        final coupons = customerVisibleCouponsForProjectionData(
+          projectionData,
           allCoupons,
         );
-        final dailySpecials = await loadDailySpecialsForRestaurant(doc.id);
-        final restaurant = Restaurant.fromFirestore(
-          normalizedData,
-          documentId: doc.id,
+        final dailySpecials = await loadDailySpecialsForRestaurant(
+          accountDocumentId,
+        );
+        final restaurant = customerRestaurantFromProjectionData(
+          projectionData,
+          expectedRestaurantId: accountDocumentId,
+          projectionDocumentId: doc.id,
           coupons: coupons,
           dailySpecials: dailySpecials,
         );
 
-        if (!restaurant.hasValidRequiredFields) {
+        if (restaurant == null) {
           continue;
         }
 
@@ -1608,29 +1751,6 @@ class RestaurantAccountService {
     }
 
     return restaurants;
-  }
-
-  static ResolvedRestaurantAccount? _resolvedRestaurantAccountFromSnapshot(
-    DocumentSnapshot<Map<String, dynamic>> snapshot,
-  ) {
-    final data = snapshot.data();
-    if (data == null) {
-      return null;
-    }
-
-    final normalizedData = _normalizedRestaurantAccountData(
-      data,
-      fallbackUid: snapshot.id,
-    );
-    final accountUid = _canonicalAccountUidFromNormalizedData(
-      normalizedData,
-      fallbackUid: snapshot.id,
-    );
-    return ResolvedRestaurantAccount(
-      documentId: snapshot.id,
-      accountUid: accountUid,
-      accountData: normalizedData,
-    );
   }
 
   @visibleForTesting

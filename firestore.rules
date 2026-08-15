@@ -78,6 +78,13 @@ service cloud.firestore {
         );
     }
 
+    function restaurantSearchIndexDataIsPublicBiteSaverProjection(indexData) {
+      return indexData.source == 'biteSaver' &&
+        indexData.entityType == 'restaurant' &&
+        indexData.publicProjectionVersion == 'bitestar.bitesaver-public-restaurant.v1' &&
+        indexData.publicVisible == true;
+    }
+
     function canManageRestaurantContent(restaurantUid) {
       return isAdmin() || (isSelf(restaurantUid) && restaurantAccountHasPostingAccess(restaurantUid));
     }
@@ -1065,6 +1072,26 @@ service cloud.firestore {
       match /{document=**} {
         allow read, write: if false;
       }
+    }
+
+    match /restaurant_search_index/{indexDocumentId} {
+      allow get: if isAdmin() ||
+        restaurantSearchIndexDataIsPublicBiteSaverProjection(resource.data);
+      allow list: if isAdmin() ||
+        restaurantSearchIndexDataIsPublicBiteSaverProjection(resource.data);
+      allow create, update, delete: if false;
+    }
+
+    match /dish_search_index/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /bitesaver_offer_index/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /private_search_index_jobs/{document=**} {
+      allow read, write: if false;
     }
 
     match /restaurant_name_change_requests/{requestId} {

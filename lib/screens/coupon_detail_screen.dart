@@ -799,20 +799,29 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   }
 
   Future<Restaurant?> _findRestaurantForCoupon(Coupon coupon) async {
-    final restaurants =
-        await RestaurantAccountService.loadApprovedRestaurantsWithCoupons();
-    final couponRestaurant = coupon.restaurant.trim().toLowerCase();
-    if (couponRestaurant.isEmpty) {
+    final accountDocumentId = coupon.restaurantAccountId?.trim();
+    if (accountDocumentId == null || accountDocumentId.isEmpty) {
       return null;
     }
-
-    for (final restaurant in restaurants) {
-      if (restaurant.name.trim().toLowerCase() == couponRestaurant) {
-        return restaurant;
-      }
+    final projectionData =
+        await RestaurantAccountService.loadCustomerRestaurantProjectionById(
+          accountDocumentId,
+        );
+    if (RestaurantAccountService.customerRestaurantFromProjectionData(
+          projectionData,
+          expectedRestaurantId: accountDocumentId,
+        ) ==
+        null) {
+      return null;
     }
-
-    return null;
+    final coupons = await RestaurantAccountService.loadCoupons(
+      accountDocumentId,
+    );
+    return RestaurantAccountService.customerRestaurantFromProjectionData(
+      projectionData,
+      expectedRestaurantId: accountDocumentId,
+      coupons: coupons,
+    );
   }
 
   String _expiredMessage() {

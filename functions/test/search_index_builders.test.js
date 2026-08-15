@@ -5,6 +5,8 @@ const test = require("node:test");
 const {GeoPoint} = require("firebase-admin/firestore");
 
 const {
+  biteSaverOfferCatalogUpdatedAtField,
+  biteSaverRestaurantPublicProjectionVersion,
   biteSaverOfferParentFingerprint,
   biteScoreDishParentFingerprint,
   biteScoreRestaurantClaimProjection,
@@ -32,7 +34,7 @@ const coordinates = Object.freeze({latitude: 28.8517, longitude: -82.487});
 const geohash = canonicalRestaurantGeohash(coordinates);
 const canaries = Object.freeze([
   "private-email-canary@example.test",
-  "private-phone-canary",
+  "private-auth-phone-canary",
   "cus_private_stripe_canary",
   "sub_private_subscription_canary",
   "private-owner-auth-token-canary",
@@ -43,12 +45,19 @@ const canaries = Object.freeze([
   "private-redemption-history-canary",
   "private-nested-data-canary",
   "private-client-normalized-token-canary",
+  "private-auth-display-name-canary",
+  "private-auth-uid-canary",
+  "private-application-canary",
+  "private-admin-canary",
+  "private-billing-canary",
+  "private-checkout-canary",
+  "private-profile-request-canary",
 ]);
 
 function privateCanaryFields() {
   return {
     email: canaries[0],
-    phone: canaries[1],
+    phoneNumber: canaries[1],
     stripeCustomerId: canaries[2],
     subscriptionId: canaries[3],
     ownerUid: canaries[4],
@@ -61,8 +70,33 @@ function privateCanaryFields() {
     arbitraryPrivateData: {nested: canaries[10]},
     normalizedName: canaries[11],
     namePrefixTokens: [canaries[11]],
+    displayName: canaries[12],
+    uid: canaries[13],
+    couponApplicationSubmitted: canaries[14],
+    approvedByUid: canaries[15],
+    billingPlanName: canaries[16],
+    stripeCheckoutSessionId: canaries[17],
+    profileRequestId: canaries[18],
+    profileRequestFingerprint: canaries[18],
     publicVisible: false,
   };
+}
+
+function publicBusinessHoursFixture() {
+  return [
+    "Sunday",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+  ].map((day) => ({
+    day,
+    opensAt: "9:00 AM",
+    closesAt: "5:00 PM",
+    closed: day === "Sunday",
+  }));
 }
 
 function assertCanariesAbsent(value) {
@@ -85,8 +119,16 @@ function biteSaverRestaurant(overrides = {}) {
     couponApplicationSubmitted: true,
     subscriptionStatus: "active",
     couponPostingEnabled: true,
+    streetAddress: " 123 Citrus Avenue ",
+    phone: "+1 352-555-0100",
     mainImageUrl: "https://images.example.test/restaurant.jpg",
     website: "https://restaurant.example.test",
+    bio: "Family owned.\nFresh every day.",
+    businessHours: publicBusinessHoursFixture(),
+    formattedAddress: "123 Citrus Avenue, Crystal River, FL 34428",
+    menuSourceSide: "biteScore",
+    linkedBiteScoreRestaurantId: "bitescore-restaurant-1",
+    offerCatalogUpdatedAt: new Date("2026-08-08T15:30:00.000Z"),
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
     updatedAt: new Date("2026-08-08T15:00:00.000Z"),
     ...overrides,
@@ -189,6 +231,14 @@ test("BiteSaver restaurant projection derives exact visibility and canonical sea
     source: biteSaverRestaurant(),
     now,
   });
+  assert.equal(
+    biteSaverRestaurantPublicProjectionVersion,
+    "bitestar.bitesaver-public-restaurant.v1",
+  );
+  assert.equal(
+    approved.publicProjectionVersion,
+    biteSaverRestaurantPublicProjectionVersion,
+  );
   assert.equal(approved.searchIndexVersion, "bitestar.search-index.v1");
   assert.equal(approved.entityType, "restaurant");
   assert.equal(approved.source, "biteSaver");
@@ -202,8 +252,87 @@ test("BiteSaver restaurant projection derives exact visibility and canonical sea
   assert.equal(approved.geohash, geohash);
   assert.equal(approved.publicVisible, true);
   assert.equal(approved.adminDirectoryVisible, true);
+  assert.equal(approved.streetAddress, "123 Citrus Avenue");
+  assert.equal(approved.city, "Crystal River");
+  assert.equal(approved.state, "fl");
+  assert.equal(approved.zipCode, "34428-1234");
+  assert.equal(approved.phone, "+1 352-555-0100");
+  assert.equal(approved.website, "https://restaurant.example.test");
+  assert.equal(approved.bio, "Family owned.\nFresh every day.");
+  assert.equal(
+    approved.primaryImageUrl,
+    "https://images.example.test/restaurant.jpg",
+  );
+  assert.deepEqual(approved.businessHours, publicBusinessHoursFixture());
+  assert.equal(
+    approved.formattedAddress,
+    "123 Citrus Avenue, Crystal River, FL 34428",
+  );
+  assert.equal(approved.menuSourceSide, "biteScore");
+  assert.equal(
+    approved.linkedBiteScoreRestaurantId,
+    "bitescore-restaurant-1",
+  );
+  assert.equal(
+    approved[biteSaverOfferCatalogUpdatedAtField].toISOString(),
+    "2026-08-08T15:30:00.000Z",
+  );
+  assert.deepEqual(
+    Object.keys(approved).sort(),
+    [
+      "adminDirectoryVisible",
+      "bio",
+      "businessHours",
+      "city",
+      "cityStateKey",
+      "displayName",
+      "entityType",
+      "formattedAddress",
+      "geohash",
+      "indexDocumentId",
+      "indexedAt",
+      "latitude",
+      "linkedBiteScoreRestaurantId",
+      "location",
+      "longitude",
+      "menuSourceSide",
+      "namePrefixTokens",
+      "normalizedCity",
+      "normalizedName",
+      "normalizedState",
+      "offerCatalogUpdatedAt",
+      "phone",
+      "primaryImageUrl",
+      "publicProjectionVersion",
+      "publicVisible",
+      "searchIndexVersion",
+      "source",
+      "sourceDocumentId",
+      "sourceFingerprint",
+      "state",
+      "streetAddress",
+      "website",
+      "zip5",
+      "zipCode",
+    ].sort(),
+  );
+  for (const entry of approved.businessHours) {
+    assert.deepEqual(
+      Object.keys(entry).sort(),
+      ["closesAt", "closed", "day", "opensAt"].sort(),
+    );
+  }
 
-  for (const approvalStatus of ["pending", "rejected", "private"]) {
+  for (const approvalStatus of [
+    "pending",
+    "rejected",
+    "private",
+    "Approved",
+    " approved ",
+    "APPROVED",
+    null,
+    true,
+  ]) {
     const hidden = buildBiteSaverRestaurantIndex({
       sourceDocumentId: `account-${approvalStatus}`,
       source: biteSaverRestaurant({approvalStatus}),
@@ -212,6 +341,87 @@ test("BiteSaver restaurant projection derives exact visibility and canonical sea
     assert.equal(hidden.publicVisible, false, approvalStatus);
     assert.equal(hidden.adminDirectoryVisible, false, approvalStatus);
   }
+});
+
+test("BiteSaver restaurant public profile fields are individually validated and closed", () => {
+  for (const unsafeName of ["Cafe\u0000Secret", "Cafe\u200bSecret"]) {
+    assert.equal(buildBiteSaverRestaurantIndex({
+      sourceDocumentId: "account-unsafe-name",
+      source: biteSaverRestaurant({
+        restaurantName: unsafeName,
+        name: unsafeName,
+      }),
+      now,
+    }), null);
+  }
+
+  const malformedHours = publicBusinessHoursFixture();
+  malformedHours[0] = {
+    ...malformedHours[0],
+    internalOwnerNote: "must-not-project",
+  };
+  const projection = buildBiteSaverRestaurantIndex({
+    sourceDocumentId: "account-malformed-public-profile",
+    source: biteSaverRestaurant({
+      streetAddress: "x".repeat(201),
+      phone: {private: true},
+      website: "x".repeat(501),
+      bio: "unsafe\u0000bio",
+      mainImageUrl: "data:image/png;base64,private",
+      imageUrl: "https://images.example.test/legacy-safe.jpg",
+      businessHours: malformedHours,
+      formattedAddress: "x".repeat(501),
+      menuSourceSide: "biteScore",
+      linkedBiteScoreRestaurantId: "invalid/document/id",
+      linkedBiteSaverUid: "private-linked-owner",
+      arbitraryPublicLookingField: "must-not-project",
+    }),
+    now,
+  });
+
+  assert.equal(Object.hasOwn(projection, "streetAddress"), false);
+  assert.equal(Object.hasOwn(projection, "phone"), false);
+  assert.equal(Object.hasOwn(projection, "website"), false);
+  assert.equal(Object.hasOwn(projection, "bio"), false);
+  assert.equal(
+    projection.primaryImageUrl,
+    "https://images.example.test/legacy-safe.jpg",
+  );
+  assert.equal(Object.hasOwn(projection, "businessHours"), false);
+  assert.equal(Object.hasOwn(projection, "formattedAddress"), false);
+  assert.equal(projection.menuSourceSide, "biteScore");
+  assert.equal(
+    Object.hasOwn(projection, "linkedBiteScoreRestaurantId"),
+    false,
+  );
+  assert.equal(Object.hasOwn(projection, "linkedBiteSaverUid"), false);
+  assert.equal(Object.hasOwn(projection, "arbitraryPublicLookingField"), false);
+  assert.equal(JSON.stringify(projection).includes("must-not-project"), false);
+
+  const emptyHours = buildBiteSaverRestaurantIndex({
+    sourceDocumentId: "account-empty-hours",
+    source: biteSaverRestaurant({
+      businessHours: [],
+      website: "restaurant.example.test/menu",
+    }),
+    now,
+  });
+  assert.deepEqual(emptyHours.businessHours, []);
+  assert.equal(emptyHours.website, "restaurant.example.test/menu");
+
+  const legacyMenu = buildBiteSaverRestaurantIndex({
+    sourceDocumentId: "account-legacy-menu",
+    source: biteSaverRestaurant({
+      menuSourceSide: "biteSaver",
+      linkedBiteScoreRestaurantId: "must-be-ignored",
+    }),
+    now,
+  });
+  assert.equal(legacyMenu.menuSourceSide, "biteSaver");
+  assert.equal(
+    Object.hasOwn(legacyMenu, "linkedBiteScoreRestaurantId"),
+    false,
+  );
 });
 
 test("BiteSaver public projections require the exact trusted posting flag", () => {
@@ -281,37 +491,90 @@ test("BiteSaver public projections require the exact trusted posting flag", () =
   }
 });
 
-test("BiteSaver Admin hidden veto covers restaurant, coupon, and daily-special projections", () => {
-  for (const adminHidden of [undefined, false, true]) {
+test("BiteSaver public projections require the exact approved status", () => {
+  const fixtures = [
+    {label: "exact approved", approvalStatus: "approved", expected: true},
+    {label: "capitalized", approvalStatus: "Approved", expected: false},
+    {label: "padded", approvalStatus: " approved ", expected: false},
+    {label: "uppercase", approvalStatus: "APPROVED", expected: false},
+    {label: "missing", approvalStatus: undefined, expected: false},
+    {label: "null", approvalStatus: null, expected: false},
+    {label: "boolean", approvalStatus: true, expected: false},
+  ];
+
+  for (const fixture of fixtures) {
     const restaurant = biteSaverRestaurant({
-      ...(adminHidden === undefined ? {} : {adminHidden}),
+      approvalStatus: fixture.approvalStatus,
     });
     const restaurantIndex = buildBiteSaverRestaurantIndex({
-      sourceDocumentId: `restaurant-${String(adminHidden)}`,
+      sourceDocumentId: `restaurant-${fixture.label}`,
       source: restaurant,
       now,
     });
     const couponIndex = buildBiteSaverCouponOfferIndex({
       restaurantAccountId: "account-1",
-      sourceDocumentId: `coupon-${String(adminHidden)}`,
+      sourceDocumentId: `coupon-${fixture.label}`,
       offer: coupon(),
       restaurant,
       now,
     });
     const dailySpecialIndex = buildBiteSaverDailySpecialOfferIndex({
       restaurantAccountId: "account-1",
-      sourceDocumentId: `special-${String(adminHidden)}`,
+      sourceDocumentId: `special-${fixture.label}`,
       offer: dailySpecial(),
       restaurant,
       now,
     });
-    const expectedPublicVisibility = adminHidden !== true;
 
-    assert.equal(restaurantIndex.publicVisible, expectedPublicVisibility);
+    assert.equal(restaurantIndex.publicVisible, fixture.expected, fixture.label);
+    assert.equal(
+      restaurantIndex.adminDirectoryVisible,
+      fixture.expected,
+      fixture.label,
+    );
+    assert.equal(couponIndex.publicVisible, fixture.expected, fixture.label);
+    assert.equal(dailySpecialIndex.publicVisible, fixture.expected, fixture.label);
+  }
+});
+
+test("BiteSaver Admin hidden veto fails closed across all public projections", () => {
+  const fixtures = [
+    {label: "missing", overrides: {}, expected: true},
+    {label: "boolean false", overrides: {adminHidden: false}, expected: true},
+    {label: "boolean true", overrides: {adminHidden: true}, expected: false},
+    {label: "own undefined", overrides: {adminHidden: undefined}, expected: false},
+    {label: "null", overrides: {adminHidden: null}, expected: false},
+    {label: "false string", overrides: {adminHidden: "false"}, expected: false},
+    {label: "zero", overrides: {adminHidden: 0}, expected: false},
+    {label: "object", overrides: {adminHidden: {}}, expected: false},
+  ];
+  for (const fixture of fixtures) {
+    const restaurant = biteSaverRestaurant(fixture.overrides);
+    const restaurantIndex = buildBiteSaverRestaurantIndex({
+      sourceDocumentId: `restaurant-${fixture.label}`,
+      source: restaurant,
+      now,
+    });
+    const couponIndex = buildBiteSaverCouponOfferIndex({
+      restaurantAccountId: "account-1",
+      sourceDocumentId: `coupon-${fixture.label}`,
+      offer: coupon(),
+      restaurant,
+      now,
+    });
+    const dailySpecialIndex = buildBiteSaverDailySpecialOfferIndex({
+      restaurantAccountId: "account-1",
+      sourceDocumentId: `special-${fixture.label}`,
+      offer: dailySpecial(),
+      restaurant,
+      now,
+    });
+
+    assert.equal(restaurantIndex.publicVisible, fixture.expected, fixture.label);
     assert.equal(restaurantIndex.adminDirectoryVisible, true);
-    assert.equal(couponIndex.publicVisible, expectedPublicVisibility);
+    assert.equal(couponIndex.publicVisible, fixture.expected, fixture.label);
     assert.equal(couponIndex.adminVisible, true);
-    assert.equal(dailySpecialIndex.publicVisible, expectedPublicVisibility);
+    assert.equal(dailySpecialIndex.publicVisible, fixture.expected, fixture.label);
     assert.equal(dailySpecialIndex.adminVisible, true);
   }
 });
@@ -416,6 +679,107 @@ test("BiteSaver restaurant name/address changes produce safe changed fingerprint
   assert.equal(changed.normalizedCity, "ocala");
   assert.equal(changed.zip5, "34470");
   assert.notEqual(changed.sourceFingerprint, original.sourceFingerprint);
+});
+
+test("BiteSaver offer catalog signal is a sanitized public-only projection input", () => {
+  const original = buildBiteSaverRestaurantIndex({
+    sourceDocumentId: "account-offers",
+    source: biteSaverRestaurant({
+      offerCatalogUpdatedAt: new Date("2026-08-08T15:30:00.000Z"),
+    }),
+    now,
+  });
+  const advanced = buildBiteSaverRestaurantIndex({
+    sourceDocumentId: "account-offers",
+    source: biteSaverRestaurant({
+      offerCatalogUpdatedAt: new Date("2026-08-08T15:31:00.000Z"),
+    }),
+    now: new Date(now.getTime() + 60_000),
+  });
+  const rebuilt = buildBiteSaverRestaurantIndex({
+    sourceDocumentId: "account-offers",
+    source: biteSaverRestaurant({
+      offerCatalogUpdatedAt: new Date("2026-08-08T15:31:00.000Z"),
+    }),
+    now: new Date(now.getTime() + 120_000),
+  });
+
+  assert.equal(
+    advanced[biteSaverOfferCatalogUpdatedAtField].toISOString(),
+    "2026-08-08T15:31:00.000Z",
+  );
+  assert.notEqual(advanced.sourceFingerprint, original.sourceFingerprint);
+  assert.equal(rebuilt.sourceFingerprint, advanced.sourceFingerprint);
+  assert.equal(
+    rebuilt[biteSaverOfferCatalogUpdatedAtField].toISOString(),
+    advanced[biteSaverOfferCatalogUpdatedAtField].toISOString(),
+  );
+
+  for (const malformedSignal of [
+    null,
+    "2026-08-08T15:31:00.000Z",
+    123,
+    true,
+    {couponTitle: canaries[0]},
+    [new Date("2026-08-08T15:31:00.000Z")],
+    new Date("invalid"),
+  ]) {
+    const malformed = buildBiteSaverRestaurantIndex({
+      sourceDocumentId: "account-malformed-offers",
+      source: biteSaverRestaurant({offerCatalogUpdatedAt: malformedSignal}),
+      now,
+    });
+    assert.equal(
+      Object.hasOwn(malformed, biteSaverOfferCatalogUpdatedAtField),
+      false,
+    );
+    assertCanariesAbsent(malformed);
+  }
+});
+
+test("BiteSaver restaurant fingerprints ignore private and lifecycle-only source fields", () => {
+  const source = biteSaverRestaurant();
+  const original = buildBiteSaverRestaurantIndex({
+    sourceDocumentId: "account-fingerprint",
+    source,
+    now,
+  });
+  const privateOnlyChange = buildBiteSaverRestaurantIndex({
+    sourceDocumentId: "account-fingerprint",
+    source: {
+      ...source,
+      email: "changed-private@example.test",
+      phoneNumber: "+1 352-555-9999",
+      approvalStatus: "approved",
+      couponApplicationSubmitted: false,
+      subscriptionStatus: "past_due",
+      stripeCustomerId: "cus_changed_private",
+      updatedAt: new Date("2026-08-09T00:00:00.000Z"),
+    },
+    now: new Date("2026-08-10T00:00:00.000Z"),
+  });
+
+  assert.equal(
+    privateOnlyChange.sourceFingerprint,
+    original.sourceFingerprint,
+  );
+  assert.equal(
+    privateOnlyChange[biteSaverOfferCatalogUpdatedAtField].toISOString(),
+    original[biteSaverOfferCatalogUpdatedAtField].toISOString(),
+  );
+  for (const forbiddenKey of [
+    "approvalStatus",
+    "couponApplicationSubmitted",
+    "sourceCreatedAt",
+    "sourceUpdatedAt",
+  ]) {
+    assert.equal(Object.hasOwn(original, forbiddenKey), false, forbiddenKey);
+    assert.equal(
+      Object.hasOwn(privateOnlyChange, forbiddenKey),
+      false,
+      forbiddenKey,
+    );
+  }
 });
 
 test("BiteScore restaurant supports canonical and imported aliases with active Admin posture", () => {
@@ -977,6 +1341,22 @@ test("parent fingerprints change only for dependent-index inputs", () => {
   assert.notEqual(
     biteSaverOfferParentFingerprint(biteSaver),
     biteSaverOfferParentFingerprint({...biteSaver, adminHidden: true}),
+  );
+  assert.equal(
+    biteSaverOfferParentFingerprint(biteSaver),
+    biteSaverOfferParentFingerprint({...biteSaver, adminHidden: false}),
+  );
+  assert.notEqual(
+    biteSaverOfferParentFingerprint(biteSaver),
+    biteSaverOfferParentFingerprint({...biteSaver, adminHidden: null}),
+  );
+  assert.notEqual(
+    biteSaverOfferParentFingerprint(biteSaver),
+    biteSaverOfferParentFingerprint({...biteSaver, approvalStatus: "Approved"}),
+  );
+  assert.equal(
+    biteSaverOfferParentFingerprint({...biteSaver, adminHidden: true}),
+    biteSaverOfferParentFingerprint({...biteSaver, adminHidden: null}),
   );
   assert.notEqual(
     biteSaverOfferParentFingerprint(biteSaver),

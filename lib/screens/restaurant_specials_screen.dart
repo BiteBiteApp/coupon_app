@@ -41,22 +41,23 @@ class _RestaurantSpecialsScreenState extends State<RestaurantSpecialsScreen> {
       if (loader != null) {
         specials = await loader(accountDocumentId);
       } else {
-        final accountData =
-            await RestaurantAccountService.loadAccountByDocumentId(
+        final projectionData =
+            await RestaurantAccountService.loadCustomerRestaurantProjectionById(
               accountDocumentId,
             );
         specials =
-            accountData != null &&
-                RestaurantAccountService.isCustomerVisibleAccountData(
-                  accountData,
-                )
+            RestaurantAccountService.customerRestaurantFromProjectionData(
+                  projectionData,
+                  expectedRestaurantId: accountDocumentId,
+                ) !=
+                null
             ? await RestaurantAccountService.loadActiveDailySpecialsForRestaurant(
                 accountDocumentId,
               )
             : const <DailySpecial>[];
       }
     } else {
-      specials = widget.restaurant.dailySpecials;
+      specials = const <DailySpecial>[];
     }
 
     final now = DateTime.now();

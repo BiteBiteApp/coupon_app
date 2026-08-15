@@ -3506,9 +3506,15 @@ class BiteScoreService {
       return;
     }
 
+    final rawRestaurantAccountId =
+        restaurant?.accountDocumentId ?? coupon.restaurantAccountId;
+    final restaurantAccountId = rawRestaurantAccountId?.trim().isEmpty == false
+        ? rawRestaurantAccountId!.trim()
+        : null;
+
     await doc.set({
       'couponId': coupon.id.trim(),
-      'restaurantAccountId': ?restaurant?.accountDocumentId,
+      'restaurantAccountId': ?restaurantAccountId,
       'couponTitle': coupon.title.trim(),
       'restaurantName': coupon.restaurant.trim(),
       'distance': coupon.distance.trim(),

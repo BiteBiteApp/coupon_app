@@ -90,23 +90,24 @@ class _RestaurantCustomerDeepLinkScreenState
     final accountDocumentId = resolvedAccount.documentId;
     final accountData = resolvedAccount.accountData;
     final coupons =
-        RestaurantAccountService.customerVisibleCouponsForAccountData(
+        RestaurantAccountService.customerVisibleCouponsForProjectionData(
           accountData,
           await RestaurantAccountService.loadCoupons(accountDocumentId),
         );
     final dailySpecials =
-        RestaurantAccountService.isCustomerVisibleAccountData(accountData)
+        RestaurantAccountService.isCustomerVisibleProjectionData(accountData)
         ? await RestaurantAccountService.loadDailySpecialsForRestaurant(
             accountDocumentId,
           )
         : const <DailySpecial>[];
-    final restaurant = Restaurant.fromFirestore(
-      accountData,
-      documentId: resolvedAccount.documentId,
-      coupons: coupons,
-      dailySpecials: dailySpecials,
-    );
-    if (!restaurant.hasValidRequiredFields) {
+    final restaurant =
+        RestaurantAccountService.customerRestaurantFromProjectionData(
+          accountData,
+          expectedRestaurantId: resolvedAccount.documentId,
+          coupons: coupons,
+          dailySpecials: dailySpecials,
+        );
+    if (restaurant == null) {
       return const _RestaurantDeepLinkResolution.notFound();
     }
 

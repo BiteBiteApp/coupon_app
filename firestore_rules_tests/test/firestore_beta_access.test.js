@@ -15,6 +15,8 @@ const {
 const projectId = "demo-coupon-app-rules";
 const rulesPath = path.resolve(__dirname, "../../firestore.rules");
 const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp;
+const biteSaverRestaurantPublicProjectionVersion =
+  "bitestar.bitesaver-public-restaurant.v1";
 
 let testEnv;
 let actors;
@@ -381,6 +383,35 @@ function restaurantDailySpecialWriteData(id, overrides = {}) {
     updatedAt: serverTimestamp(),
     ...overrides,
   };
+}
+
+function restaurantSearchIndexRuleData(
+  indexDocumentId,
+  {publicVisible = true, overrides = {}, omittedFields = []} = {},
+) {
+  const data = {
+    searchIndexVersion: "bitestar.search-index.v1",
+    publicProjectionVersion: biteSaverRestaurantPublicProjectionVersion,
+    entityType: "restaurant",
+    source: "biteSaver",
+    sourceDocumentId: "owner-1",
+    indexDocumentId,
+    displayName: "Approved Tacos",
+    normalizedName: "approved tacos",
+    namePrefixTokens: ["approved", "tacos"],
+    phone: "555-0101",
+    city: "Lecanto",
+    state: "FL",
+    zip5: "34461",
+    publicVisible,
+    sourceFingerprint: "e".repeat(64),
+    indexedAt: new Date("2026-01-01T00:00:00.000Z"),
+    ...overrides,
+  };
+  for (const field of omittedFields) {
+    delete data[field];
+  }
+  return data;
 }
 
 async function seedRuleTestDocuments(documents) {
@@ -883,6 +914,288 @@ test("public read of approved posting-enabled restaurant content is allowed", as
   await assertSucceeds(db.doc("bitescore_dishes/dish-1").get());
   await assertSucceeds(db.doc("dish_rating_aggregates/dish-1").get());
   await assertSucceeds(db.doc("dish_reviews/dish-1_customer-a").get());
+});
+
+test("public restaurant projection gets require the exact current BiteSaver contract", async () => {
+  const publicPath = "restaurant_search_index/public-current";
+  const deniedPaths = [
+    "restaurant_search_index/public-hidden",
+    "restaurant_search_index/public-visible-malformed",
+    "restaurant_search_index/public-visible-missing",
+    "restaurant_search_index/stale-version-missing",
+    "restaurant_search_index/stale-version-wrong",
+    "restaurant_search_index/bitescore-current",
+    "restaurant_search_index/wrong-entity",
+  ];
+  await seedRuleTestDocuments([
+    {
+      documentPath: publicPath,
+      data: restaurantSearchIndexRuleData("public-current"),
+    },
+    {
+      documentPath: deniedPaths[0],
+      data: restaurantSearchIndexRuleData("public-hidden", {
+        publicVisible: false,
+      }),
+    },
+    {
+      documentPath: deniedPaths[1],
+      data: restaurantSearchIndexRuleData("public-visible-malformed", {
+        publicVisible: "true",
+      }),
+    },
+    {
+      documentPath: deniedPaths[2],
+      data: restaurantSearchIndexRuleData("public-visible-missing", {
+        omittedFields: ["publicVisible"],
+      }),
+    },
+    {
+      documentPath: deniedPaths[3],
+      data: restaurantSearchIndexRuleData("stale-version-missing", {
+        omittedFields: ["publicProjectionVersion"],
+        overrides: {privateCanary: "stale-private-index-data"},
+      }),
+    },
+    {
+      documentPath: deniedPaths[4],
+      data: restaurantSearchIndexRuleData("stale-version-wrong", {
+        overrides: {
+          publicProjectionVersion: "bitestar.bitesaver-public-restaurant.v0",
+          privateCanary: "wrong-version-private-index-data",
+        },
+      }),
+    },
+    {
+      documentPath: deniedPaths[5],
+      data: restaurantSearchIndexRuleData("bitescore-current", {
+        overrides: {
+          source: "biteScore",
+          privateCanary: "bitescore-out-of-scope-data",
+        },
+      }),
+    },
+    {
+      documentPath: deniedPaths[6],
+      data: restaurantSearchIndexRuleData("wrong-entity", {
+        overrides: {entityType: "dish"},
+      }),
+    },
+  ]);
+
+  for (const actorName of ["unauthenticated", "customer"]) {
+    const db = dbFor(actorName);
+    const publicSnapshot = await assertSucceeds(db.doc(publicPath).get());
+    assert.equal(publicSnapshot.exists, true);
+    assert.equal(publicSnapshot.data().displayName, "Approved Tacos");
+    assert.equal(publicSnapshot.data().phone, "555-0101");
+    for (const field of [
+      "uid",
+      "email",
+      "phoneNumber",
+      "emailVerified",
+      "couponApplicationSubmitted",
+      "approvalStatus",
+      "approvedAt",
+      "approvedByUid",
+      "adminHidden",
+      "couponPostingEnabled",
+      "subscriptionStatus",
+      "subscriptionEndsAt",
+      "cancelAtPeriodEnd",
+      "trialEndsAt",
+      "billingPlanName",
+      "hasUsedTrial",
+      "stripeCustomerId",
+      "stripeSubscriptionId",
+      "stripePriceId",
+      "stripeCheckoutSessionId",
+      "inviteId",
+      "inviteRestaurantKey",
+      "inviteTokenHash",
+      "tokenHash",
+      "profileRequestId",
+      "profileRequestFingerprint",
+      "privateCanary",
+      "unknownLegacyField",
+    ]) {
+      assert.equal(
+        Object.prototype.hasOwnProperty.call(publicSnapshot.data(), field),
+        false,
+        field,
+      );
+    }
+    for (const deniedPath of deniedPaths) {
+      await assertFails(db.doc(deniedPath).get());
+    }
+  }
+
+  const adminDb = dbFor("admin");
+  for (const documentPath of [publicPath, ...deniedPaths]) {
+    await assertSucceeds(adminDb.doc(documentPath).get());
+  }
+  await assertSucceeds(
+    dbFor("restaurantOwner").doc("restaurant_accounts/owner-1").get(),
+  );
+  await assertSucceeds(
+    adminDb.doc("restaurant_accounts/pending-owner").get(),
+  );
+});
+
+test("public restaurant projection lists must constrain all four contract gates", async () => {
+  await seedRuleTestDocuments([
+    {
+      documentPath: "restaurant_search_index/public-current",
+      data: restaurantSearchIndexRuleData("public-current"),
+    },
+    {
+      documentPath: "restaurant_search_index/public-hidden",
+      data: restaurantSearchIndexRuleData("public-hidden", {
+        publicVisible: false,
+      }),
+    },
+    {
+      documentPath: "restaurant_search_index/stale-version-missing",
+      data: restaurantSearchIndexRuleData("stale-version-missing", {
+        omittedFields: ["publicProjectionVersion"],
+        overrides: {privateCanary: "stale-private-index-data"},
+      }),
+    },
+    {
+      documentPath: "restaurant_search_index/bitescore-current",
+      data: restaurantSearchIndexRuleData("bitescore-current", {
+        overrides: {source: "biteScore"},
+      }),
+    },
+  ]);
+
+  for (const actorName of ["unauthenticated", "customer"]) {
+    const collection = dbFor(actorName).collection("restaurant_search_index");
+    const publicQuery = collection
+      .where("source", "==", "biteSaver")
+      .where("entityType", "==", "restaurant")
+      .where(
+        "publicProjectionVersion",
+        "==",
+        biteSaverRestaurantPublicProjectionVersion,
+      )
+      .where("publicVisible", "==", true);
+    const publicSnapshot = await assertSucceeds(publicQuery.get());
+    assert.equal(publicSnapshot.size, 1);
+    assert.equal(publicSnapshot.docs[0].id, "public-current");
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(
+        publicSnapshot.docs[0].data(),
+        "privateCanary",
+      ),
+      false,
+    );
+
+    const routeSnapshot = await assertSucceeds(
+      publicQuery.where("sourceDocumentId", "==", "owner-1").limit(1).get(),
+    );
+    assert.equal(routeSnapshot.size, 1);
+    assert.equal(routeSnapshot.docs[0].data().sourceDocumentId, "owner-1");
+
+    await assertFails(collection.get());
+    await assertFails(collection.where("publicVisible", "==", true).get());
+    await assertFails(
+      collection
+        .where("source", "==", "biteSaver")
+        .where("entityType", "==", "restaurant")
+        .where(
+          "publicProjectionVersion",
+          "==",
+          biteSaverRestaurantPublicProjectionVersion,
+        )
+        .get(),
+    );
+    await assertFails(
+      collection
+        .where("source", "==", "biteSaver")
+        .where("entityType", "==", "restaurant")
+        .where("publicVisible", "==", true)
+        .get(),
+    );
+    await assertFails(
+      collection
+        .where("source", "==", "biteSaver")
+        .where(
+          "publicProjectionVersion",
+          "==",
+          biteSaverRestaurantPublicProjectionVersion,
+        )
+        .where("publicVisible", "==", true)
+        .get(),
+    );
+    await assertFails(
+      collection
+        .where("entityType", "==", "restaurant")
+        .where(
+          "publicProjectionVersion",
+          "==",
+          biteSaverRestaurantPublicProjectionVersion,
+        )
+        .where("publicVisible", "==", true)
+        .get(),
+    );
+  }
+
+  const adminSnapshot = await assertSucceeds(
+    dbFor("admin").collection("restaurant_search_index").get(),
+  );
+  assert.equal(adminSnapshot.size, 4);
+});
+
+test("search indexes remain server-written and non-restaurant artifacts stay private", async () => {
+  const publicPath = "restaurant_search_index/public-current";
+  const privatePaths = [
+    "dish_search_index/private-dish",
+    "bitesaver_offer_index/private-offer",
+    "private_search_index_jobs/private-job",
+    "private_search_index_jobs/private-job/steps/private-step",
+  ];
+  await seedRuleTestDocuments([
+    {
+      documentPath: publicPath,
+      data: restaurantSearchIndexRuleData("public-current"),
+    },
+    ...privatePaths.map((documentPath) => ({
+      documentPath,
+      data: {privateCanary: "server-only-search-data"},
+    })),
+  ]);
+
+  for (const actorName of [
+    "unauthenticated",
+    "customer",
+    "restaurantOwner",
+    "admin",
+  ]) {
+    const db = dbFor(actorName);
+    await assertFails(
+      db.doc("restaurant_search_index/client-created").set({
+        source: "biteSaver",
+        entityType: "restaurant",
+        publicProjectionVersion: biteSaverRestaurantPublicProjectionVersion,
+        publicVisible: true,
+      }),
+    );
+    await assertFails(db.doc(publicPath).update({restaurantName: "Forged"}));
+    await assertFails(db.doc(publicPath).delete());
+    for (const privatePath of privatePaths) {
+      await assertFails(db.doc(privatePath).get());
+      await assertFails(db.doc(privatePath).update({state: "forged"}));
+      await assertFails(db.doc(privatePath).delete());
+    }
+  }
+
+  for (const actorName of ["customer", "admin"]) {
+    const db = dbFor(actorName);
+    await assertFails(db.collection("dish_search_index").get());
+    await assertFails(db.collection("bitesaver_offer_index").get());
+    await assertFails(db.collection("private_search_index_jobs").get());
+  }
 });
 
 test("BiteSaver Admin Hide is narrow, owner-safe, and blocks customer content", async () => {

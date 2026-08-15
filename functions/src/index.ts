@@ -124,11 +124,11 @@ import {
 import { stripeLogMetadata } from "./stripe_log_safety.js";
 import {
   createFirestoreSearchIndexDatabase,
+  handleBiteSaverCouponOfferWrite,
+  handleBiteSaverDailySpecialOfferWrite,
   handleBiteSaverRestaurantWrite,
   handleBiteScoreRestaurantWrite,
   processSearchIndexJob,
-  reconcileBiteSaverCouponOfferIndex,
-  reconcileBiteSaverDailySpecialOfferIndex,
   reconcileBiteScoreDishIndex,
 } from "./search_index_maintenance.js";
 import { biteScoreRestaurantIsActive } from "./search_index_builders.js";
@@ -4447,24 +4447,22 @@ export const maintainBiteScoreDishSearchIndexFromAggregate = onDocumentWritten(
 export const maintainBiteSaverCouponOfferSearchIndex = onDocumentWritten(
   "restaurant_accounts/{restaurantAccountId}/coupons/{couponId}",
   async (event) => {
-    await reconcileBiteSaverCouponOfferIndex(
-      searchIndexDatabase,
-      event.params.restaurantAccountId as string,
-      event.params.couponId as string,
-      new Date(),
-    );
+    await handleBiteSaverCouponOfferWrite(searchIndexDatabase, {
+      restaurantAccountId: event.params.restaurantAccountId as string,
+      couponId: event.params.couponId as string,
+      now: new Date(),
+    });
   },
 );
 
 export const maintainBiteSaverDailySpecialSearchIndex = onDocumentWritten(
   "restaurant_accounts/{restaurantAccountId}/daily_specials/{dailySpecialId}",
   async (event) => {
-    await reconcileBiteSaverDailySpecialOfferIndex(
-      searchIndexDatabase,
-      event.params.restaurantAccountId as string,
-      event.params.dailySpecialId as string,
-      new Date(),
-    );
+    await handleBiteSaverDailySpecialOfferWrite(searchIndexDatabase, {
+      restaurantAccountId: event.params.restaurantAccountId as string,
+      dailySpecialId: event.params.dailySpecialId as string,
+      now: new Date(),
+    });
   },
 );
 

@@ -230,17 +230,26 @@ class RestaurantMenuService {
 
   static Future<RestaurantMenuSource?> resolveBiteSaverPublicMenuSource({
     required String uid,
-    RestaurantMenuQueryBoundary? queryBoundary,
+    Future<Map<String, dynamic>?> Function(String restaurantId)?
+    projectionLoader,
   }) async {
     final trimmedUid = uid.trim();
     if (trimmedUid.isEmpty) {
       return null;
     }
 
-    final accountData = await _loadBiteSaverAccountData(
-      trimmedUid,
-      queryBoundary: queryBoundary,
-    );
+    final accountData =
+        await (projectionLoader ??
+            RestaurantAccountService.loadCustomerRestaurantProjectionById)(
+          trimmedUid,
+        );
+    if (RestaurantAccountService.customerRestaurantFromProjectionData(
+          accountData,
+          expectedRestaurantId: trimmedUid,
+        ) ==
+        null) {
+      return null;
+    }
     final sourceSide = _readString(accountData?[menuSourceSideField]);
     if (sourceSide == menuSourceBiteScore) {
       final biteScoreRestaurantId = _readString(

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:coupon_app/models/coupon.dart';
 import 'package:coupon_app/models/restaurant.dart';
 import 'package:coupon_app/services/bitescore_service.dart';
@@ -5,6 +7,25 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('saved BiteSaver customer visibility', () {
+    test('saved coupon writes preserve the projection restaurant ID', () {
+      final source = File(
+        'lib/services/bitescore_service.dart',
+      ).readAsStringSync();
+      final start = source.indexOf('static Future<void> setCouponFavorite');
+      final end = source.indexOf(
+        'static Future<BiteScoreUserProfileData>',
+        start,
+      );
+      final implementation = source.substring(start, end);
+
+      expect(implementation, contains('coupon.restaurantAccountId'));
+      expect(implementation, contains("'restaurantAccountId'"));
+      expect(
+        implementation,
+        isNot(contains('loadApprovedRestaurantsWithCoupons')),
+      );
+    });
+
     test('stable account identity survives name and address changes', () {
       final current = _restaurant(
         documentId: 'account-1',

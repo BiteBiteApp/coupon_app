@@ -4,6 +4,8 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const {
+  handleBiteSaverCouponOfferWrite,
+  handleBiteSaverDailySpecialOfferWrite,
   handleBiteSaverRestaurantWrite,
   handleBiteScoreRestaurantWrite,
   processSearchIndexJob,
@@ -14,6 +16,7 @@ const {
   reconcileBiteScoreRestaurantIndex,
 } = require("../lib/search_index_maintenance.js");
 const {
+  biteSaverOfferCatalogUpdatedAtField,
   biteSaverOfferParentFingerprint,
   biteScoreDishParentFingerprint,
 } = require("../lib/search_index_builders.js");
@@ -38,6 +41,7 @@ class FakeSearchIndexDatabase {
     this.failSetPath = null;
     this.deleteDocumentHook = null;
     this.getDocumentHook = null;
+    this.nextServerTimestampMilliseconds = now.getTime();
   }
 
   async getDocument(path) {
@@ -73,6 +77,20 @@ class FakeSearchIndexDatabase {
   async updateDocument(path, data) {
     this.operations.push({operation: "update", path, data});
     this.records.set(path, {...(this.records.get(path) ?? {}), ...data});
+  }
+
+  async updateExistingDocumentServerTimestamp(path, field) {
+    this.operations.push({operation: "serverTimestamp", path, field});
+    if (!this.records.has(path)) {
+      const error = new Error("missing-document");
+      error.code = 5;
+      throw error;
+    }
+    this.nextServerTimestampMilliseconds += 1;
+    this.records.set(path, {
+      ...this.records.get(path),
+      [field]: new Date(this.nextServerTimestampMilliseconds),
+    });
   }
 
   async queryDocuments(query) {
@@ -146,6 +164,21 @@ function coupon(id, overrides = {}) {
     title: `Coupon ${id}`,
     startTime: new Date(now.getTime() - 60_000),
     endTime: new Date(now.getTime() + 60_000),
+    updatedAt: now,
+    ...overrides,
+  };
+}
+
+function dailySpecial(id, overrides = {}) {
+  return {
+    id,
+    restaurantId: "account-1",
+    ownerUid: "account-1",
+    title: `Special ${id}`,
+    isActive: true,
+    availabilityMode: "todayOnly",
+    allDay: true,
+    expiresAt: new Date(now.getTime() + 60_000),
     updatedAt: now,
     ...overrides,
   };
@@ -304,6 +337,152 @@ test("offer direct write and source delete reconcile one deterministic index", a
   database.records.delete("restaurant_accounts/account-1/coupons/coupon-1");
   await reconcileBiteSaverCouponOfferIndex(database, "account-1", "coupon-1", now);
   assert.equal(database.records.has(path), false);
+});
+
+test("coupon and daily-special create, update, and delete advance the public catalog signal", async () => {
+  const offerKinds = [
+    {
+      childCollection: "coupons",
+      sourceKind: "biteSaverCoupon",
+      sourceDocumentId: "coupon-1",
+      source: (title) => coupon("coupon-1", {title}),
+      handle: (database) => handleBiteSaverCouponOfferWrite(database, {
+        restaurantAccountId: "account-1",
+        couponId: "coupon-1",
+        now,
+      }),
+    },
+    {
+      childCollection: "daily_specials",
+      sourceKind: "biteSaverDailySpecial",
+      sourceDocumentId: "special-1",
+      source: (title) => dailySpecial("special-1", {title}),
+      handle: (database) => handleBiteSaverDailySpecialOfferWrite(database, {
+        restaurantAccountId: "account-1",
+        dailySpecialId: "special-1",
+        now,
+      }),
+    },
+  ];
+
+  for (const offerKind of offerKinds) {
+    for (const mutation of ["create", "update", "delete"]) {
+      const accountPath = "restaurant_accounts/account-1";
+      const childPath = `${accountPath}/${offerKind.childCollection}/${offerKind.sourceDocumentId}`;
+      const database = new FakeSearchIndexDatabase({
+        [accountPath]: biteSaverRestaurant(),
+      });
+      await reconcileBiteSaverRestaurantIndex(database, "account-1", now);
+      const restaurantIndexId = createSearchIndexDocumentId({
+        entityKind: "restaurant",
+        sourceKind: "biteSaverRestaurant",
+        sourceDocumentId: "account-1",
+      });
+      const restaurantIndexPath = `restaurant_search_index/${restaurantIndexId}`;
+      const originalFingerprint =
+        database.records.get(restaurantIndexPath).sourceFingerprint;
+      const offerIndexId = createSearchIndexDocumentId({
+        entityKind: "offer",
+        sourceKind: offerKind.sourceKind,
+        parentSourceDocumentId: "account-1",
+        sourceDocumentId: offerKind.sourceDocumentId,
+      });
+      const offerIndexPath = `bitesaver_offer_index/${offerIndexId}`;
+
+      if (mutation !== "create") {
+        database.records.set(childPath, offerKind.source("Before"));
+        await offerKind.handle(database);
+        database.operations.length = 0;
+      }
+      if (mutation === "delete") {
+        database.records.delete(childPath);
+      } else {
+        database.records.set(childPath, offerKind.source("After"));
+      }
+
+      await offerKind.handle(database);
+      const offerCatalogUpdatedAt =
+        database.records.get(accountPath)[biteSaverOfferCatalogUpdatedAtField];
+      assert.ok(offerCatalogUpdatedAt instanceof Date, `${offerKind.sourceKind} ${mutation}`);
+      assert.equal(
+        database.operations.filter((entry) => entry.operation === "serverTimestamp").length,
+        1,
+        `${offerKind.sourceKind} ${mutation}`,
+      );
+      assert.equal(
+        database.operations.some((entry) => entry.operation === "query"),
+        false,
+        `${offerKind.sourceKind} ${mutation}`,
+      );
+      assert.equal(
+        database.records.has(offerIndexPath),
+        mutation !== "delete",
+        `${offerKind.sourceKind} ${mutation}`,
+      );
+
+      await reconcileBiteSaverRestaurantIndex(database, "account-1", now);
+      const projection = database.records.get(restaurantIndexPath);
+      assert.equal(
+        projection[biteSaverOfferCatalogUpdatedAtField].getTime(),
+        offerCatalogUpdatedAt.getTime(),
+        `${offerKind.sourceKind} ${mutation}`,
+      );
+      assert.notEqual(
+        projection.sourceFingerprint,
+        originalFingerprint,
+        `${offerKind.sourceKind} ${mutation}`,
+      );
+    }
+  }
+});
+
+test("offer catalog retries advance monotonically without loops or parent recreation", async () => {
+  const accountPath = "restaurant_accounts/account-1";
+  const database = new FakeSearchIndexDatabase({
+    [accountPath]: biteSaverRestaurant(),
+    [`${accountPath}/coupons/coupon-1`]: coupon("coupon-1"),
+  });
+
+  await handleBiteSaverCouponOfferWrite(database, {
+    restaurantAccountId: "account-1",
+    couponId: "coupon-1",
+    now,
+  });
+  const first = database.records.get(accountPath)[biteSaverOfferCatalogUpdatedAtField];
+  await handleBiteSaverCouponOfferWrite(database, {
+    restaurantAccountId: "account-1",
+    couponId: "coupon-1",
+    now,
+  });
+  const second = database.records.get(accountPath)[biteSaverOfferCatalogUpdatedAtField];
+
+  assert.ok(first instanceof Date);
+  assert.ok(second instanceof Date);
+  assert.ok(second > first);
+  assert.equal(
+    database.operations.filter((entry) => entry.operation === "serverTimestamp").length,
+    2,
+  );
+  assert.equal(
+    database.operations.some((entry) => entry.operation === "query"),
+    false,
+  );
+  assert.equal(
+    [...database.records.keys()].some((path) =>
+      path.startsWith("private_search_index_jobs/")),
+    false,
+  );
+
+  const missingParentDatabase = new FakeSearchIndexDatabase();
+  await handleBiteSaverCouponOfferWrite(missingParentDatabase, {
+    restaurantAccountId: "missing-account",
+    couponId: "coupon-1",
+    now,
+  });
+  assert.equal(
+    missingParentDatabase.records.has("restaurant_accounts/missing-account"),
+    false,
+  );
 });
 
 test("a posting-flag-only parent transition disables every public BiteSaver index", async () => {

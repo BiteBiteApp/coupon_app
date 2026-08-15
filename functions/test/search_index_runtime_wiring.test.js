@@ -457,6 +457,35 @@ test("compiled trigger metadata uses exact private paths and background event ty
   }
 });
 
+test("offer triggers delegate catalog signaling after existing child reconciliation", () => {
+  const source = readFileSync(
+    path.resolve(__dirname, "../src/index.ts"),
+    "utf8",
+  );
+  const couponStart = source.indexOf(
+    "export const maintainBiteSaverCouponOfferSearchIndex",
+  );
+  const specialStart = source.indexOf(
+    "export const maintainBiteSaverDailySpecialSearchIndex",
+  );
+  const nextTriggerStart = source.indexOf(
+    "export const maintainAdminUserDirectoryFromRestaurantAccount",
+  );
+  assert.ok(couponStart >= 0);
+  assert.ok(specialStart > couponStart);
+  assert.ok(nextTriggerStart > specialStart);
+
+  const couponTrigger = source.slice(couponStart, specialStart);
+  const specialTrigger = source.slice(specialStart, nextTriggerStart);
+  assert.match(couponTrigger, /await handleBiteSaverCouponOfferWrite/u);
+  assert.match(specialTrigger, /await handleBiteSaverDailySpecialOfferWrite/u);
+  for (const trigger of [couponTrigger, specialTrigger]) {
+    assert.doesNotMatch(trigger, /FieldValue\.serverTimestamp/u);
+    assert.doesNotMatch(trigger, /\bupdatedAt\b/u);
+    assert.doesNotMatch(trigger, /\.collection\(/u);
+  }
+});
+
 test("global runtime remains us-central1 Node 24 with no new parameter binding", () => {
   const runtime = loadCompiledIndexWithRuntimeHarness();
   assert.deepEqual(runtime.state.globalOptions, {region: "us-central1", maxInstances: 10});
@@ -812,13 +841,17 @@ test("existing geohash triggers retain their original exact paths", () => {
   );
 });
 
-test("current Firestore rules leave all new private collections unmatched and denied", () => {
+test("Firestore rules expose only current BiteSaver restaurant projections", () => {
   const rules = readFileSync(path.resolve(__dirname, "../../firestore.rules"), "utf8");
   for (const collection of [
     "restaurant_search_index",
     "dish_search_index",
     "bitesaver_offer_index",
     "private_search_index_jobs",
+  ]) {
+    assert.equal(rules.includes(`match /${collection}/`), true, collection);
+  }
+  for (const collection of [
     "private_admin_restaurant_search_sessions",
     "private_admin_restaurant_search_active_sessions",
     "private_rating_admin_restaurant_search_sessions",
@@ -826,6 +859,10 @@ test("current Firestore rules leave all new private collections unmatched and de
   ]) {
     assert.equal(rules.includes(collection), false, collection);
   }
+  assert.match(
+    rules,
+    /publicProjectionVersion == 'bitestar\.bitesaver-public-restaurant\.v1'/u,
+  );
   assert.match(
     rules,
     /match \/\{document=\*\*\} \{\s*allow read, write: if false;\s*\}\s*\}\s*\}\s*$/u,

@@ -8,6 +8,7 @@ import {
 import {
   buildCityStateKey,
   buildWordPrefixTokens,
+  maximumSearchNameLength,
   maximumWordPrefixTokenCount,
   normalizeCityName,
   normalizeSearchName,
@@ -70,6 +71,41 @@ export const maximumPublicUrlLength = 2_048;
 export const maximumDishCategorySourceCount = 32;
 export const maximumDishCategoryInputCount = 128;
 export const maximumSearchLocationTextLength = 100;
+export const biteSaverRestaurantPublicProjectionVersion =
+  "bitestar.bitesaver-public-restaurant.v1" as const;
+export const biteSaverOfferCatalogUpdatedAtField =
+  "offerCatalogUpdatedAt" as const;
+
+const maximumPublicStreetAddressLength = 200;
+const maximumPublicCityLength = 100;
+const maximumPublicStateLength = 10;
+const maximumPublicZipCodeLength = 20;
+const maximumPublicPhoneLength = 50;
+const maximumPublicWebsiteLength = 500;
+const maximumPublicBioLength = 2_000;
+const maximumPublicImageUrlLength = 2_000;
+const maximumPublicFormattedAddressLength = 500;
+const maximumPublicMenuRestaurantIdLength = 1_500;
+const maximumPublicBusinessHoursTimeLength = 40;
+const unsupportedPublicSingleLineCharacterPattern = /[\p{Cc}\p{Cf}]/u;
+const unsupportedPublicMultilineCharacterPattern =
+  /[\p{Cf}\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u;
+const businessDayNames = Object.freeze([
+  "Sunday",
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+]);
+const businessDayNameSet = new Set<string>(businessDayNames);
+const publicBusinessHoursKeys = Object.freeze([
+  "day",
+  "opensAt",
+  "closesAt",
+  "closed",
+]);
 
 type GeographyProjection = Readonly<Record<string, unknown>>;
 
@@ -97,6 +133,214 @@ function firstString(
 function boundedString(value: unknown, maximumLength: number): string | null {
   const text = readString(value);
   return text !== null && Array.from(text).length <= maximumLength ? text : null;
+}
+
+function boundedPublicSingleLineString(
+  value: unknown,
+  maximumLength: number,
+): string | null {
+  if (
+    typeof value !== "string" ||
+    unsupportedPublicSingleLineCharacterPattern.test(value)
+  ) {
+    return null;
+  }
+  return boundedString(value, maximumLength);
+}
+
+function boundedPublicMultilineString(
+  value: unknown,
+  maximumLength: number,
+): string | null {
+  if (
+    typeof value !== "string" ||
+    unsupportedPublicMultilineCharacterPattern.test(value)
+  ) {
+    return null;
+  }
+  const normalized = value
+    .normalize("NFKC")
+    .replace(/\r\n?/gu, "\n")
+    .split("\n")
+    .map((line) => line.trim().replace(/[^\S\n]+/gu, " "))
+    .join("\n")
+    .trim();
+  return normalized && Array.from(normalized).length <= maximumLength
+    ? normalized
+    : null;
+}
+
+function publicProfileUrl(value: unknown, maximumLength: number): string | null {
+  const url = boundedPublicSingleLineString(value, maximumLength);
+  return url !== null && /^https?:\/\//iu.test(url) ? url : null;
+}
+
+function firstBoundedPublicString(
+  data: SearchIndexSourceData,
+  fields: readonly string[],
+  maximumLength: number,
+): string | null {
+  for (const field of fields) {
+    const value = boundedPublicSingleLineString(data[field], maximumLength);
+    if (value !== null) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+function publicBusinessHours(
+  value: unknown,
+): readonly Readonly<Record<string, unknown>>[] | null {
+  if (
+    !Array.isArray(value) ||
+    (value.length !== 0 && value.length !== businessDayNames.length)
+  ) {
+    return null;
+  }
+
+  const result: Readonly<Record<string, unknown>>[] = [];
+  const seenDays = new Set<string>();
+  for (const rawEntry of value) {
+    if (!isRecord(rawEntry)) {
+      return null;
+    }
+    const keys = Object.keys(rawEntry);
+    if (
+      keys.length !== publicBusinessHoursKeys.length ||
+      publicBusinessHoursKeys.some(
+        (key) => !Object.prototype.hasOwnProperty.call(rawEntry, key),
+      ) ||
+      keys.some((key) => !publicBusinessHoursKeys.includes(key))
+    ) {
+      return null;
+    }
+    const day = boundedPublicSingleLineString(rawEntry.day, 16);
+    const opensAt = boundedPublicSingleLineString(
+      rawEntry.opensAt,
+      maximumPublicBusinessHoursTimeLength,
+    );
+    const closesAt = boundedPublicSingleLineString(
+      rawEntry.closesAt,
+      maximumPublicBusinessHoursTimeLength,
+    );
+    if (
+      day === null ||
+      !businessDayNameSet.has(day) ||
+      seenDays.has(day) ||
+      opensAt === null ||
+      closesAt === null ||
+      typeof rawEntry.closed !== "boolean"
+    ) {
+      return null;
+    }
+    seenDays.add(day);
+    result.push(Object.freeze({
+      day,
+      opensAt,
+      closesAt,
+      closed: rawEntry.closed,
+    }));
+  }
+  if (
+    result.length === businessDayNames.length &&
+    businessDayNames.some((day) => !seenDays.has(day))
+  ) {
+    return null;
+  }
+  return Object.freeze(result);
+}
+
+function publicMenuRoutingProjection(
+  data: SearchIndexSourceData,
+): Readonly<Record<string, unknown>> {
+  if (data.menuSourceSide === "biteSaver") {
+    return Object.freeze({ menuSourceSide: "biteSaver" });
+  }
+  if (data.menuSourceSide !== "biteScore") {
+    return Object.freeze({});
+  }
+  const linkedRestaurantId = boundedPublicSingleLineString(
+    data.linkedBiteScoreRestaurantId,
+    maximumPublicMenuRestaurantIdLength,
+  );
+  return Object.freeze({
+    menuSourceSide: "biteScore",
+    ...(linkedRestaurantId === null ||
+      linkedRestaurantId.includes("/") ||
+      Buffer.byteLength(linkedRestaurantId, "utf8") >
+        maximumPublicMenuRestaurantIdLength
+      ? {}
+      : { linkedBiteScoreRestaurantId: linkedRestaurantId }),
+  });
+}
+
+function biteSaverPublicProfileProjection(
+  data: SearchIndexSourceData,
+): Readonly<Record<string, unknown>> {
+  const streetAddress = firstBoundedPublicString(
+    data,
+    ["streetAddress", "address"],
+    maximumPublicStreetAddressLength,
+  );
+  const city = boundedPublicSingleLineString(data.city, maximumPublicCityLength);
+  const state = boundedPublicSingleLineString(data.state, maximumPublicStateLength);
+  const zipCode = firstBoundedPublicString(
+    data,
+    ["zipCode", "postalCode", "zip"],
+    maximumPublicZipCodeLength,
+  );
+  const phone = boundedPublicSingleLineString(data.phone, maximumPublicPhoneLength);
+  const website = boundedPublicSingleLineString(
+    data.website,
+    maximumPublicWebsiteLength,
+  );
+  const bio = boundedPublicMultilineString(data.bio, maximumPublicBioLength);
+  const primaryImageUrl = publicProfileUrl(
+    data.mainImageUrl,
+    maximumPublicImageUrlLength,
+  ) ?? publicProfileUrl(data.imageUrl, maximumPublicImageUrlLength);
+  const formattedAddress = boundedPublicSingleLineString(
+    data.formattedAddress,
+    maximumPublicFormattedAddressLength,
+  );
+  const businessHours = Object.prototype.hasOwnProperty.call(
+      data,
+      "businessHours",
+    )
+    ? publicBusinessHours(data.businessHours)
+    : null;
+
+  return Object.freeze({
+    ...(streetAddress === null ? {} : { streetAddress }),
+    ...(city === null ? {} : { city }),
+    ...(state === null ? {} : { state }),
+    ...(zipCode === null ? {} : { zipCode }),
+    ...(phone === null ? {} : { phone }),
+    ...(website === null ? {} : { website }),
+    ...(bio === null ? {} : { bio }),
+    ...(primaryImageUrl === null ? {} : { primaryImageUrl }),
+    ...(businessHours === null ? {} : { businessHours }),
+    ...(formattedAddress === null ? {} : { formattedAddress }),
+    ...publicMenuRoutingProjection(data),
+  });
+}
+
+function biteSaverOfferCatalogProjection(
+  data: SearchIndexSourceData,
+): Readonly<Record<string, unknown>> {
+  const offerCatalogUpdatedAt = readDate(
+    data[biteSaverOfferCatalogUpdatedAtField],
+  );
+  return Object.freeze(
+    offerCatalogUpdatedAt === null
+      ? {}
+      : { [biteSaverOfferCatalogUpdatedAtField]: offerCatalogUpdatedAt },
+  );
 }
 
 export function boundedDescriptionSummary(value: unknown): string | null {
@@ -244,16 +488,23 @@ function finalizeIndexDocument(
   return Object.freeze(document);
 }
 
-function lowerStatus(value: unknown, fallback: string): string {
-  return boundedString(value, 64)?.toLowerCase() ?? fallback;
+function biteSaverApprovalIsApproved(data: SearchIndexSourceData): boolean {
+  return data.approvalStatus === "approved";
+}
+
+function biteSaverAdminHiddenAllowsPublic(
+  data: SearchIndexSourceData,
+): boolean {
+  return !Object.prototype.hasOwnProperty.call(data, "adminHidden") ||
+    data.adminHidden === false;
 }
 
 function parentSubscriptionAllowsOffers(
   data: SearchIndexSourceData,
 ): boolean {
-  return lowerStatus(data.approvalStatus, "pending") === "approved" &&
+  return biteSaverApprovalIsApproved(data) &&
     data.couponPostingEnabled === true &&
-    data.adminHidden !== true;
+    biteSaverAdminHiddenAllowsPublic(data);
 }
 
 export function biteSaverOfferParentFingerprint(
@@ -265,9 +516,7 @@ export function biteSaverOfferParentFingerprint(
   return createSourceFingerprint([
     "biteSaverOfferParent",
     firstString(data, ["restaurantName", "name"]),
-    lowerStatus(data.approvalStatus, "pending"),
-    data.couponPostingEnabled === true,
-    data.adminHidden === true,
+    parentSubscriptionAllowsOffers(data),
     firstString(data, ["zipCode", "postalCode", "zip"]),
     firstString(data, ["city"]),
     firstString(data, ["state"]),
@@ -307,21 +556,22 @@ export function buildBiteSaverRestaurantIndex(value: {
   if (value.source === null) {
     return null;
   }
-  const name = normalizedNameProjection(
-    firstString(value.source, ["restaurantName", "name"]),
-  );
+  const name = normalizedNameProjection(firstBoundedPublicString(
+    value.source,
+    ["restaurantName", "name"],
+    maximumSearchNameLength,
+  ));
   if (name === null) {
     return null;
   }
-  const approvalStatus = lowerStatus(value.source.approvalStatus, "pending");
-  const imageUrl = publicUrl(value.source.mainImageUrl ?? value.source.imageUrl);
-  const website = publicUrl(value.source.website);
+  const approvalIsApproved = biteSaverApprovalIsApproved(value.source);
   const indexDocumentId = createSearchIndexDocumentId({
     entityKind: "restaurant",
     sourceKind: "biteSaverRestaurant",
     sourceDocumentId: value.sourceDocumentId,
   });
   return finalizeIndexDocument({
+    publicProjectionVersion: biteSaverRestaurantPublicProjectionVersion,
     searchIndexVersion,
     entityType: "restaurant",
     source: "biteSaver",
@@ -329,17 +579,10 @@ export function buildBiteSaverRestaurantIndex(value: {
     indexDocumentId,
     ...name,
     ...biteSaverGeography(value.source),
-    publicVisible:
-      approvalStatus === "approved" &&
-      value.source.couponPostingEnabled === true &&
-      value.source.adminHidden !== true,
-    adminDirectoryVisible: approvalStatus === "approved",
-    approvalStatus,
-    couponApplicationSubmitted:
-      value.source.couponApplicationSubmitted === true,
-    ...(imageUrl === null ? {} : { primaryImageUrl: imageUrl }),
-    ...(website === null ? {} : { website }),
-    ...sourceTimestamps(value.source),
+    publicVisible: parentSubscriptionAllowsOffers(value.source),
+    adminDirectoryVisible: approvalIsApproved,
+    ...biteSaverPublicProfileProjection(value.source),
+    ...biteSaverOfferCatalogProjection(value.source),
   }, value.now);
 }
 

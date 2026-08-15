@@ -26,7 +26,7 @@ typedef PublicRestaurantFavoriteLoader =
     Future<bool> Function(Restaurant restaurant);
 typedef PublicRestaurantDetailsRefresher =
     Future<Restaurant?> Function(Restaurant restaurant);
-typedef PublicRestaurantAccountLoader =
+typedef PublicRestaurantProjectionLoader =
     Future<Map<String, dynamic>?> Function(String accountDocumentId);
 typedef PublicRestaurantMenuResolver =
     Future<RestaurantMenuSource?> Function(String accountDocumentId);
@@ -45,7 +45,7 @@ class RestaurantProfileScreen extends StatefulWidget {
   final Restaurant restaurant;
   final PublicRestaurantFavoriteLoader? loadFavorite;
   final PublicRestaurantDetailsRefresher? refreshRestaurant;
-  final PublicRestaurantAccountLoader? loadAccountData;
+  final PublicRestaurantProjectionLoader? loadProjectionData;
   final PublicRestaurantMenuResolver? resolvePublicMenu;
   final PublicRestaurantReportPrompt? promptForReport;
   final PublicRestaurantReportSubmitter? submitReport;
@@ -55,7 +55,7 @@ class RestaurantProfileScreen extends StatefulWidget {
     required this.restaurant,
     @visibleForTesting this.loadFavorite,
     @visibleForTesting this.refreshRestaurant,
-    @visibleForTesting this.loadAccountData,
+    @visibleForTesting this.loadProjectionData,
     @visibleForTesting this.resolvePublicMenu,
     @visibleForTesting this.promptForReport,
     @visibleForTesting this.submitReport,
@@ -88,9 +88,12 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   void initState() {
     super.initState();
     _restaurant = widget.restaurant;
+    final hasCanonicalRestaurantId =
+        widget.restaurant.accountDocumentId != null;
     _isCustomerRestaurantAvailabilityResolved =
-        widget.refreshRestaurant != null ||
-        widget.restaurant.accountDocumentId == null;
+        widget.refreshRestaurant != null || !hasCanonicalRestaurantId;
+    _isCustomerRestaurantAvailable =
+        widget.refreshRestaurant != null || hasCanonicalRestaurantId;
     _loadFavoriteState();
     _refreshRestaurantDetails();
   }
@@ -264,34 +267,32 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
       } else {
         final accountDocumentId = restaurant.accountDocumentId;
         if (accountDocumentId != null) {
-          final accountData =
-              await (widget.loadAccountData?.call(accountDocumentId) ??
-                  RestaurantAccountService.loadAccountByDocumentId(
+          final projectionData =
+              await (widget.loadProjectionData?.call(accountDocumentId) ??
+                  RestaurantAccountService.loadCustomerRestaurantProjectionById(
                     accountDocumentId,
                   ));
-          if (accountData != null) {
-            final isCustomerVisible =
-                RestaurantAccountService.isCustomerVisibleAccountData(
-                  accountData,
+          if (projectionData != null) {
+            final publicRestaurant =
+                RestaurantAccountService.customerRestaurantFromProjectionData(
+                  projectionData,
+                  expectedRestaurantId: accountDocumentId,
                 );
-            if (!isCustomerVisible) {
-              _markCustomerRestaurantUnavailable();
-              return;
+            if (publicRestaurant != null) {
+              final dailySpecials =
+                  await RestaurantAccountService.loadDailySpecialsForRestaurant(
+                    accountDocumentId,
+                  );
+              freshRestaurant =
+                  RestaurantAccountService.customerRestaurantFromProjectionData(
+                    projectionData,
+                    expectedRestaurantId: accountDocumentId,
+                    coupons: restaurant.coupons,
+                    dailySpecials: dailySpecials,
+                  );
             }
-            final dailySpecials =
-                await RestaurantAccountService.loadDailySpecialsForRestaurant(
-                  accountDocumentId,
-                );
-            freshRestaurant = Restaurant.fromFirestore(
-              accountData,
-              documentId: accountDocumentId,
-              coupons: restaurant.coupons,
-              dailySpecials: dailySpecials,
-            );
           }
         }
-
-        freshRestaurant ??= await _findMatchingApprovedRestaurant();
       }
 
       if (!mounted) {
@@ -337,40 +338,9 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     });
   }
 
-  Future<Restaurant?> _findMatchingApprovedRestaurant() async {
-    final approvedRestaurants =
-        await RestaurantAccountService.loadApprovedRestaurantsWithCoupons();
-
-    for (final candidate in approvedRestaurants) {
-      if (_matchesRestaurantIdentity(candidate, restaurant)) {
-        return candidate;
-      }
-    }
-
-    return null;
-  }
-
-  bool _matchesRestaurantIdentity(
-    Restaurant candidate,
-    Restaurant currentRestaurant,
-  ) {
-    return _normalizeRestaurantIdentity(candidate.name) ==
-            _normalizeRestaurantIdentity(currentRestaurant.name) &&
-        _normalizeRestaurantIdentity(candidate.city) ==
-            _normalizeRestaurantIdentity(currentRestaurant.city) &&
-        _normalizeRestaurantIdentity(candidate.zipCode) ==
-            _normalizeRestaurantIdentity(currentRestaurant.zipCode) &&
-        _normalizeRestaurantIdentity(candidate.streetAddress ?? '') ==
-            _normalizeRestaurantIdentity(currentRestaurant.streetAddress ?? '');
-  }
-
-  String _normalizeRestaurantIdentity(String value) {
-    return value.trim().toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '');
-  }
-
   String _placeholderImageForRestaurant(Restaurant restaurant) {
-    final stableKey = restaurant.uid?.trim().isNotEmpty == true
-        ? restaurant.uid!.trim()
+    final stableKey = restaurant.accountDocumentId?.trim().isNotEmpty == true
+        ? restaurant.accountDocumentId!.trim()
         : '${restaurant.name}|${restaurant.city}|${restaurant.zipCode}';
     final hash = stableKey.codeUnits.fold<int>(
       0,
@@ -437,6 +407,11 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
         : await resolver(accountDocumentId);
 
     if (!context.mounted) {
+      return;
+    }
+
+    if (source == null) {
+      await _showLaunchError(context, 'Menu is not available right now.');
       return;
     }
 

@@ -20,6 +20,7 @@ class Coupon {
   static const String defaultUsageRule = 'Once per customer';
 
   final String id;
+  final String? restaurantAccountId;
   final String restaurant;
   final String title;
   final String distance;
@@ -36,6 +37,7 @@ class Coupon {
 
   const Coupon({
     required this.id,
+    this.restaurantAccountId,
     required this.restaurant,
     required this.title,
     required this.distance,
@@ -136,6 +138,7 @@ class Coupon {
 
   Coupon copyWith({
     String? id,
+    String? restaurantAccountId,
     String? restaurant,
     String? title,
     String? distance,
@@ -152,6 +155,7 @@ class Coupon {
   }) {
     return Coupon(
       id: id ?? this.id,
+      restaurantAccountId: restaurantAccountId ?? this.restaurantAccountId,
       restaurant: restaurant ?? this.restaurant,
       title: title ?? this.title,
       distance: distance ?? this.distance,

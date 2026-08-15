@@ -555,7 +555,7 @@ void main() {
     await tester.tap(biteSaverLink);
     await _pumpOpenDialog(tester);
     expect(
-      find.text('https://go.bitestar.app/r/coupons/canonical-account-uid'),
+      find.text('https://go.bitestar.app/r/coupons/saver-link-doc'),
       findsOneWidget,
     );
     await tester.tap(find.byKey(const ValueKey('copy-link-action')));
@@ -565,7 +565,7 @@ void main() {
 
     expect(copied, [
       'https://go.bitestar.app/r/bitescore/score-link-doc',
-      'https://go.bitestar.app/r/coupons/canonical-account-uid',
+      'https://go.bitestar.app/r/coupons/saver-link-doc',
     ]);
     expect(
       find.byKey(const ValueKey('biteSaver:pending-doc:customer-link')),
@@ -799,7 +799,7 @@ void main() {
       await tester.tap(saverLink);
       await _pumpOpenDialog(tester);
       expect(
-        find.text('https://go.bitestar.app/r/coupons/approved-account-uid'),
+        find.text('https://go.bitestar.app/r/coupons/saver-qr-doc'),
         findsOneWidget,
       );
       await tester.tap(find.byKey(const ValueKey('create-link-qr')));
@@ -821,7 +821,7 @@ void main() {
         ),
         (
           restaurantName: 'River Grill',
-          url: 'https://go.bitestar.app/r/coupons/approved-account-uid',
+          url: 'https://go.bitestar.app/r/coupons/saver-qr-doc',
           linkType: RestaurantQrLinkType.customerBiteSaver,
         ),
       ]);

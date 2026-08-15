@@ -1,10 +1,12 @@
 import {
   FieldPath,
+  FieldValue,
   type DocumentData,
   type Firestore,
   type Query,
 } from "firebase-admin/firestore";
 import {
+  biteSaverOfferCatalogUpdatedAtField,
   biteSaverOfferParentFingerprint,
   biteScoreDishParentFingerprint,
   buildBiteSaverCouponOfferIndex,
@@ -55,6 +57,10 @@ export interface SearchIndexDatabase {
     data: SearchIndexJobDocument,
   ): Promise<boolean>;
   updateDocument(path: string, data: Readonly<Record<string, unknown>>): Promise<void>;
+  updateExistingDocumentServerTimestamp(
+    path: string,
+    field: string,
+  ): Promise<void>;
   queryDocuments(query: SearchIndexQuery): Promise<readonly SearchIndexStoredDocument[]>;
 }
 
@@ -89,6 +95,9 @@ export function createFirestoreSearchIndexDatabase(
     },
     async updateDocument(path, data) {
       await database.doc(path).set(data, { merge: true });
+    },
+    async updateExistingDocumentServerTimestamp(path, field) {
+      await database.doc(path).update({ [field]: FieldValue.serverTimestamp() });
     },
     async queryDocuments(options) {
       let query: Query<DocumentData, DocumentData> = database.collection(
@@ -288,6 +297,81 @@ export async function reconcileBiteSaverDailySpecialOfferIndex(
       restaurant,
       now,
     }),
+  );
+}
+
+function isMissingDocumentError(error: unknown): boolean {
+  if (error === null || typeof error !== "object") {
+    return false;
+  }
+  const code = (error as { code?: unknown }).code;
+  return code === 5 || code === "not-found";
+}
+
+export async function recordBiteSaverOfferCatalogChange(
+  database: SearchIndexDatabase,
+  restaurantAccountId: string,
+): Promise<boolean> {
+  const canonicalRestaurantAccountId = restaurantAccountId.trim();
+  if (
+    !canonicalRestaurantAccountId ||
+    canonicalRestaurantAccountId.includes("/")
+  ) {
+    throw new Error(
+      "Restaurant account ID must be one Firestore document-ID segment.",
+    );
+  }
+  try {
+    await database.updateExistingDocumentServerTimestamp(
+      `restaurant_accounts/${canonicalRestaurantAccountId}`,
+      biteSaverOfferCatalogUpdatedAtField,
+    );
+    return true;
+  } catch (error) {
+    if (isMissingDocumentError(error)) {
+      return false;
+    }
+    throw error;
+  }
+}
+
+export async function handleBiteSaverCouponOfferWrite(
+  database: SearchIndexDatabase,
+  value: {
+    restaurantAccountId: string;
+    couponId: string;
+    now: Date;
+  },
+): Promise<void> {
+  await reconcileBiteSaverCouponOfferIndex(
+    database,
+    value.restaurantAccountId,
+    value.couponId,
+    value.now,
+  );
+  await recordBiteSaverOfferCatalogChange(
+    database,
+    value.restaurantAccountId,
+  );
+}
+
+export async function handleBiteSaverDailySpecialOfferWrite(
+  database: SearchIndexDatabase,
+  value: {
+    restaurantAccountId: string;
+    dailySpecialId: string;
+    now: Date;
+  },
+): Promise<void> {
+  await reconcileBiteSaverDailySpecialOfferIndex(
+    database,
+    value.restaurantAccountId,
+    value.dailySpecialId,
+    value.now,
+  );
+  await recordBiteSaverOfferCatalogChange(
+    database,
+    value.restaurantAccountId,
   );
 }
 

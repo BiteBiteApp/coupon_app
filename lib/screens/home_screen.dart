@@ -38,14 +38,29 @@ class SearchCenter {
   });
 }
 
+@visibleForTesting
+String buildBiteSaverHomeProjectionSignature(
+  Iterable<MapEntry<String, Map<String, dynamic>>> documents,
+) {
+  return documents
+      .map((document) {
+        final data = document.value;
+        return '${document.key}|${data['sourceFingerprint'] ?? ''}|${data[RestaurantAccountService.publicVisibleField] ?? ''}|${data[RestaurantAccountService.offerCatalogUpdatedAtField] ?? ''}';
+      })
+      .join('||');
+}
+
 class HomeScreen extends StatefulWidget {
   final Stream<QuerySnapshot<Map<String, dynamic>>>? approvedAccountsStream;
+  @visibleForTesting
+  final Stream<String>? approvedAccountsSignatureStream;
   final Future<List<Restaurant>> Function()? restaurantLoader;
   final bool initializeFirebaseBackedState;
 
   const HomeScreen({
     super.key,
     this.approvedAccountsStream,
+    this.approvedAccountsSignatureStream,
     this.restaurantLoader,
     this.initializeFirebaseBackedState = true,
   });
@@ -92,6 +107,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isRestaurantsLoading = true;
   Object? _restaurantsError;
   String _approvedAccountsSignature = '';
+  late final Stream<String> _approvedAccountsSignatures;
+  int _restaurantLoadGeneration = 0;
 
   final List<Restaurant> sampleRestaurants = const [
     Restaurant(
@@ -304,6 +321,11 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _approvedAccountsSignatures =
+        widget.approvedAccountsSignatureStream ??
+        (widget.approvedAccountsStream ??
+                RestaurantAccountService.approvedAccountsStream())
+            .map(_buildApprovedAccountsSignature);
     if (widget.initializeFirebaseBackedState) {
       DemoRedemptionStore.ensureInitialized();
     }
@@ -388,6 +410,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _loadRestaurants() async {
+    final loadGeneration = ++_restaurantLoadGeneration;
     final shouldShowLoading = _restaurants.isEmpty;
 
     if (mounted) {
@@ -403,7 +426,7 @@ class _HomeScreenState extends State<HomeScreen> {
       final restaurants =
           await (widget.restaurantLoader?.call() ??
               RestaurantAccountService.loadApprovedRestaurantsWithCoupons());
-      if (!mounted) {
+      if (!mounted || loadGeneration != _restaurantLoadGeneration) {
         return;
       }
       setState(() {
@@ -412,7 +435,7 @@ class _HomeScreenState extends State<HomeScreen> {
         _isRestaurantsLoading = false;
       });
     } catch (error) {
-      if (!mounted) {
+      if (!mounted || loadGeneration != _restaurantLoadGeneration) {
         return;
       }
       setState(() {
@@ -429,12 +452,9 @@ class _HomeScreenState extends State<HomeScreen> {
       return '';
     }
 
-    return snapshot.docs
-        .map((doc) {
-          final data = doc.data();
-          return '${doc.id}|${data[Restaurant.fieldApprovalStatus] ?? ''}|${data[Restaurant.fieldUpdatedAt] ?? ''}';
-        })
-        .join('||');
+    return buildBiteSaverHomeProjectionSignature(
+      snapshot.docs.map((doc) => MapEntry(doc.id, doc.data())),
+    );
   }
 
   @override
@@ -3281,10 +3301,8 @@ class _HomeScreenState extends State<HomeScreen> {
     return ValueListenableBuilder<int>(
       valueListenable: DemoRedemptionStore.changes,
       builder: (context, changes, child) {
-        return StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-          stream:
-              widget.approvedAccountsStream ??
-              RestaurantAccountService.approvedAccountsStream(),
+        return StreamBuilder<String>(
+          stream: _approvedAccountsSignatures,
           builder: (context, snapshot) {
             if (snapshot.hasError) {
               return Scaffold(
@@ -3327,9 +3345,7 @@ class _HomeScreenState extends State<HomeScreen> {
               );
             }
 
-            final approvedAccountsSignature = _buildApprovedAccountsSignature(
-              snapshot.data,
-            );
+            final approvedAccountsSignature = snapshot.data ?? '';
             if (approvedAccountsSignature != _approvedAccountsSignature) {
               _approvedAccountsSignature = approvedAccountsSignature;
               WidgetsBinding.instance.addPostFrameCallback((_) {

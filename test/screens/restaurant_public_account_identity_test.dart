@@ -51,6 +51,175 @@ void main() {
     },
   );
 
+  test(
+    'home projection signature reacts only to public restaurant changes',
+    () {
+      final base = <MapEntry<String, Map<String, dynamic>>>[
+        MapEntry('restaurant-index-1', <String, dynamic>{
+          'sourceFingerprint': 'fingerprint-1',
+          RestaurantAccountService.publicVisibleField: true,
+          RestaurantAccountService.offerCatalogUpdatedAtField: DateTime.utc(
+            2026,
+            8,
+            15,
+            12,
+          ),
+        }),
+      ];
+      final baseSignature = buildBiteSaverHomeProjectionSignature(base);
+
+      expect(buildBiteSaverHomeProjectionSignature(base), baseSignature);
+      expect(
+        buildBiteSaverHomeProjectionSignature(
+          <MapEntry<String, Map<String, dynamic>>>[
+            MapEntry('restaurant-index-1', <String, dynamic>{
+              ...base.single.value,
+              'email': 'private-owner@example.test',
+              'subscriptionStatus': 'past_due',
+              'updatedAt': DateTime.utc(2026, 8, 15, 13),
+            }),
+          ],
+        ),
+        baseSignature,
+      );
+      expect(
+        buildBiteSaverHomeProjectionSignature(
+          <MapEntry<String, Map<String, dynamic>>>[
+            MapEntry('restaurant-index-1', <String, dynamic>{
+              ...base.single.value,
+              'sourceFingerprint': 'fingerprint-2',
+            }),
+          ],
+        ),
+        isNot(baseSignature),
+      );
+      expect(
+        buildBiteSaverHomeProjectionSignature(
+          <MapEntry<String, Map<String, dynamic>>>[
+            MapEntry('restaurant-index-1', <String, dynamic>{
+              ...base.single.value,
+              RestaurantAccountService.publicVisibleField: false,
+            }),
+          ],
+        ),
+        isNot(baseSignature),
+      );
+      for (final changedAt in <DateTime>[
+        DateTime.utc(2026, 8, 15, 12, 1),
+        DateTime.utc(2026, 8, 15, 12, 2),
+      ]) {
+        expect(
+          buildBiteSaverHomeProjectionSignature(
+            <MapEntry<String, Map<String, dynamic>>>[
+              MapEntry('restaurant-index-1', <String, dynamic>{
+                ...base.single.value,
+                RestaurantAccountService.offerCatalogUpdatedAtField: changedAt,
+              }),
+            ],
+          ),
+          isNot(baseSignature),
+        );
+      }
+    },
+  );
+
+  testWidgets(
+    'home reloads once per changed public signature and ignores identical snapshots',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(1024, 1200);
+      addTearDown(tester.view.reset);
+      final signatures = StreamController<String>.broadcast();
+      addTearDown(signatures.close);
+      var loadCount = 0;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            approvedAccountsSignatureStream: signatures.stream,
+            restaurantLoader: () async {
+              loadCount += 1;
+              return const <Restaurant>[];
+            },
+            initializeFirebaseBackedState: false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(loadCount, 1);
+
+      Future<void> emit(String signature) async {
+        signatures.add(signature);
+        await tester.pumpAndSettle();
+      }
+
+      await emit('restaurant|fingerprint-1|true|');
+      expect(loadCount, 2);
+      await emit('restaurant|fingerprint-1|true|');
+      expect(loadCount, 2);
+      await emit('restaurant|fingerprint-2|true|');
+      expect(loadCount, 3);
+      await emit('restaurant|fingerprint-2|false|');
+      expect(loadCount, 4);
+      await emit('restaurant|fingerprint-2|true|coupon-change');
+      expect(loadCount, 5);
+      await emit('restaurant|fingerprint-2|true|special-change');
+      expect(loadCount, 6);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'rapid offer signals cannot let an older reload overwrite state',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(1024, 1200);
+      addTearDown(tester.view.reset);
+      final signatures = StreamController<String>.broadcast();
+      addTearDown(signatures.close);
+      final pendingLoads = <Completer<List<Restaurant>>>[];
+      var loadCount = 0;
+
+      Future<List<Restaurant>> loadRestaurants() {
+        loadCount += 1;
+        if (loadCount == 1) {
+          return Future<List<Restaurant>>.value(const <Restaurant>[]);
+        }
+        final pending = Completer<List<Restaurant>>();
+        pendingLoads.add(pending);
+        return pending.future;
+      }
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: HomeScreen(
+            approvedAccountsSignatureStream: signatures.stream,
+            restaurantLoader: loadRestaurants,
+            initializeFirebaseBackedState: false,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      signatures.add('restaurant|fingerprint|true|coupon-change');
+      await tester.pump();
+      await tester.pump();
+      signatures.add('restaurant|fingerprint|true|special-change');
+      await tester.pump();
+      await tester.pump();
+      expect(loadCount, 3);
+      expect(pendingLoads, hasLength(2));
+
+      pendingLoads.last.complete(const <Restaurant>[]);
+      await tester.pumpAndSettle();
+      pendingLoads.first.completeError(StateError('stale reload failure'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Could not load nearby deals right now.'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets(
     'home filtering preserves the canonical Firestore account document ID',
     (tester) async {
@@ -112,69 +281,99 @@ void main() {
   );
 
   test(
-    'coupon visibility prefers the document ID and falls back to stored UID',
+    'coupon visibility uses the stable account ID and safe projection',
     () async {
       const coupon = Coupon(
         id: 'identity-coupon',
+        restaurantAccountId: 'coupon-account',
         restaurant: 'Identity Cafe',
         title: 'Identity special',
         distance: '',
         usageRule: 'Unlimited',
       );
+      const restaurantCoupon = Coupon(
+        id: 'restaurant-coupon',
+        restaurantAccountId: 'account-document',
+        restaurant: 'Identity Cafe',
+        title: 'Restaurant identity special',
+        distance: '',
+        usageRule: 'Unlimited',
+      );
       final loadedAccountIds = <String>[];
+      final loadedCouponPaths = <String>[];
 
-      Future<Map<String, dynamic>?> loadActiveAccount(
+      Future<Map<String, dynamic>?> loadVisibleProjection(
         String accountDocumentId,
       ) async {
         loadedAccountIds.add(accountDocumentId);
+        return _publicProjection(accountDocumentId);
+      }
+
+      Future<Map<String, dynamic>?> loadCoupon(
+        String accountDocumentId,
+        String couponId,
+      ) async {
+        loadedCouponPaths.add('$accountDocumentId/$couponId');
         return <String, dynamic>{
-          Restaurant.fieldApprovalStatus: 'approved',
-          'subscriptionStatus': 'active',
-          'couponPostingEnabled': true,
+          'restaurant': 'Identity Cafe',
+          'title': 'Identity special',
+          'distance': '',
+          'usageRule': 'Unlimited',
+          'startTime': DateTime.now().subtract(const Duration(hours: 1)),
+          'endTime': DateTime.now().add(const Duration(hours: 1)),
         };
       }
 
       expect(
         await RestaurantAccountService.isCouponCustomerVisible(
-          coupon,
+          restaurantCoupon,
           restaurant: _restaurant(
             documentId: ' account-document ',
             uid: 'stored-owner',
           ),
-          accountDataLoader: loadActiveAccount,
+          projectionDataLoader: loadVisibleProjection,
         ),
         isTrue,
       );
+      expect(
+        await RestaurantAccountService.isCouponCustomerVisible(
+          coupon,
+          projectionDataLoader: loadVisibleProjection,
+          couponDataLoader: loadCoupon,
+        ),
+        isTrue,
+      );
+
       expect(
         await RestaurantAccountService.isCouponCustomerVisible(
           coupon,
           restaurant: _restaurant(
-            documentId: ' matching-account ',
-            uid: 'matching-account',
+            documentId: 'different-account',
+            uid: 'different-owner',
           ),
-          accountDataLoader: loadActiveAccount,
+          projectionDataLoader: loadVisibleProjection,
         ),
-        isTrue,
+        isFalse,
+        reason: 'conflicting stable restaurant identities must fail closed',
       );
+
+      expect(loadedAccountIds, <String>['account-document', 'coupon-account']);
+      expect(loadedCouponPaths, <String>['coupon-account/identity-coupon']);
+
       expect(
         await RestaurantAccountService.isCouponCustomerVisible(
           coupon,
-          restaurant: _restaurant(documentId: ' ', uid: ' legacy-owner '),
-          accountDataLoader: loadActiveAccount,
+          projectionDataLoader: loadVisibleProjection,
+          couponDataLoader: (_, _) async => null,
         ),
-        isTrue,
+        isFalse,
+        reason: 'saved coupons must still exist in their exact child path',
       );
-
-      expect(loadedAccountIds, <String>[
-        'account-document',
-        'matching-account',
-        'legacy-owner',
-      ]);
     },
   );
 
   test(
-    'direct coupon visibility requires exact trusted posting access',
+    'direct coupon visibility requires an exact visible projection',
     () async {
       const coupon = Coupon(
         id: 'direct-visibility-coupon',
@@ -188,91 +387,32 @@ void main() {
         uid: 'stored-owner',
       );
 
-      for (final status in <String>['active', 'trialing']) {
-        expect(
-          await RestaurantAccountService.isCouponCustomerVisible(
-            coupon,
-            restaurant: restaurant,
-            accountDataLoader: (_) async => <String, dynamic>{
-              Restaurant.fieldApprovalStatus: 'approved',
-              'subscriptionStatus': status,
-              'couponPostingEnabled': true,
-            },
-          ),
-          isTrue,
-          reason: '$status remains visible with the trusted flag true',
-        );
-      }
-
-      for (final status in <String>[
-        'active',
-        'trialing',
-        'past_due',
-        'unpaid',
-        'incomplete',
-        'paused',
-        'inactive',
-        'canceled',
-      ]) {
-        expect(
-          await RestaurantAccountService.isCouponCustomerVisible(
-            coupon,
-            restaurant: restaurant,
-            accountDataLoader: (_) async => <String, dynamic>{
-              Restaurant.fieldApprovalStatus: 'approved',
-              'subscriptionStatus': status,
-              'couponPostingEnabled': false,
-            },
-          ),
-          isFalse,
-          reason: '$status cannot override the trusted flag false',
-        );
-      }
-    },
-  );
-
-  test(
-    'direct coupon visibility fails closed for invalid account state',
-    () async {
-      const coupon = Coupon(
-        id: 'invalid-account-coupon',
-        restaurant: 'Identity Cafe',
-        title: 'Invalid account special',
-        distance: '',
-        usageRule: 'Unlimited',
-      );
-      final restaurant = _restaurant(
-        documentId: 'account-document',
-        uid: 'stored-owner',
+      expect(
+        await RestaurantAccountService.isCouponCustomerVisible(
+          coupon,
+          restaurant: restaurant,
+          projectionDataLoader: (_) async =>
+              _publicProjection('account-document'),
+        ),
+        isTrue,
       );
 
-      for (final accountData in <Map<String, dynamic>?>[
+      for (final projectionData in <Map<String, dynamic>?>[
         null,
+        _publicProjection('account-document', publicVisible: false),
+        _publicProjection('account-document', publicVisible: 'true'),
+        _publicProjection('different-account'),
         <String, dynamic>{
-          Restaurant.fieldApprovalStatus: 'approved',
-          'subscriptionStatus': 'active',
-        },
-        <String, dynamic>{
-          Restaurant.fieldApprovalStatus: 'approved',
-          'subscriptionStatus': 'active',
-          'couponPostingEnabled': 'true',
-        },
-        <String, dynamic>{
-          Restaurant.fieldApprovalStatus: 'approved',
-          'subscriptionStatus': 'active',
-          'couponPostingEnabled': 1,
-        },
-        <String, dynamic>{
-          Restaurant.fieldApprovalStatus: 'pending',
-          'subscriptionStatus': 'active',
-          'couponPostingEnabled': true,
+          ..._publicProjection('account-document'),
+          RestaurantAccountService.publicProjectionVersionField:
+              'bitestar.bitesaver-public-restaurant.v0',
         },
       ]) {
         expect(
           await RestaurantAccountService.isCouponCustomerVisible(
             coupon,
             restaurant: restaurant,
-            accountDataLoader: (_) async => accountData,
+            projectionDataLoader: (_) async => projectionData,
           ),
           isFalse,
         );
@@ -286,7 +426,7 @@ void main() {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(900, 1000);
       addTearDown(tester.view.reset);
-      final account = Completer<Map<String, dynamic>?>();
+      final projection = Completer<Map<String, dynamic>?>();
 
       await tester.pumpWidget(
         MaterialApp(
@@ -296,7 +436,7 @@ void main() {
               uid: 'pending-owner',
             ),
             loadFavorite: (_) async => false,
-            loadAccountData: (_) => account.future,
+            loadProjectionData: (_) => projection.future,
           ),
         ),
       );
@@ -306,11 +446,9 @@ void main() {
       expect(find.text('Identity Cafe'), findsNothing);
       expect(find.text('Available Coupons'), findsNothing);
 
-      account.complete(<String, dynamic>{
-        Restaurant.fieldApprovalStatus: 'approved',
-        'couponPostingEnabled': true,
-        'adminHidden': true,
-      });
+      projection.complete(
+        _publicProjection('pending-account', publicVisible: false),
+      );
       await tester.pumpAndSettle();
 
       expect(
@@ -335,11 +473,8 @@ void main() {
               uid: 'hidden-owner',
             ),
             loadFavorite: (_) async => false,
-            loadAccountData: (_) async => <String, dynamic>{
-              Restaurant.fieldApprovalStatus: 'approved',
-              'couponPostingEnabled': true,
-              'adminHidden': true,
-            },
+            loadProjectionData: (_) async =>
+                _publicProjection('hidden-account', publicVisible: false),
           ),
         ),
       );
@@ -353,6 +488,26 @@ void main() {
       expect(find.text('Available Coupons'), findsNothing);
     },
   );
+
+  testWidgets('profile without a stable restaurant ID fails closed', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RestaurantProfileScreen(
+          restaurant: _restaurant(documentId: null, uid: null),
+          loadFavorite: (_) async => false,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('This restaurant is not currently available in BiteSaver.'),
+      findsOneWidget,
+    );
+    expect(find.text('Identity Cafe'), findsNothing);
+  });
 
   testWidgets('blocked direct coupon details remain non-redeemable', (
     tester,
@@ -588,6 +743,34 @@ void main() {
     );
   }
 
+  testWidgets('unavailable public menu cannot fall back to account children', (
+    tester,
+  ) async {
+    final restaurant = _restaurant(
+      documentId: 'menu-unavailable',
+      uid: 'private-owner-id',
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RestaurantProfileScreen(
+          restaurant: restaurant,
+          loadFavorite: (_) async => false,
+          refreshRestaurant: (_) async => restaurant,
+          resolvePublicMenu: (_) async => null,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Restaurant Information'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Menu'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RestaurantMenuScreen), findsNothing);
+    expect(find.text('Menu is not available right now.'), findsOneWidget);
+  });
+
   for (final scenario in <({String label, String documentId, String uid})>[
     (
       label: 'matching',
@@ -624,22 +807,58 @@ void main() {
     );
   }
 
+  testWidgets('specials without a stable restaurant ID discard embedded data', (
+    tester,
+  ) async {
+    final embedded = DailySpecial(
+      id: 'embedded-special',
+      restaurantId: 'missing-account',
+      ownerUid: 'private-owner',
+      title: 'Must not render',
+      isActive: true,
+      availabilityMode: DailySpecialAvailabilityMode.specificDays,
+      daysOfWeek: <int>[DateTime.now().weekday],
+      allDay: true,
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RestaurantSpecialsScreen(
+          restaurant: _restaurant(
+            documentId: null,
+            uid: null,
+            dailySpecials: <DailySpecial>[embedded],
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Must not render'), findsNothing);
+    expect(find.text('No specials posted right now.'), findsOneWidget);
+  });
+
   group('production public-menu query identity', () {
     test(
       'mismatched stored UID reads only the canonical account and menu paths',
       () async {
         final boundary = _RecordingRestaurantMenuQueryBoundary(
-          documents: {
-            'restaurant_accounts/actual-doc-id': {
-              RestaurantMenuService.menuSourceSideField:
-                  RestaurantMenuService.menuSourceBiteSaver,
-            },
-            'restaurant_accounts/legacy-stored-uid': {
-              RestaurantMenuService.menuSourceSideField:
-                  RestaurantMenuService.menuSourceBiteScore,
-              RestaurantMenuService.linkedBiteScoreRestaurantIdField:
-                  'wrong-restaurant',
-            },
+          projections: {
+            'actual-doc-id': _publicProjection(
+              'actual-doc-id',
+              overrides: <String, dynamic>{
+                RestaurantMenuService.menuSourceSideField:
+                    RestaurantMenuService.menuSourceBiteSaver,
+              },
+            ),
+            'legacy-stored-uid': _publicProjection(
+              'legacy-stored-uid',
+              overrides: <String, dynamic>{
+                RestaurantMenuService.menuSourceSideField:
+                    RestaurantMenuService.menuSourceBiteScore,
+                RestaurantMenuService.linkedBiteScoreRestaurantIdField:
+                    'wrong-restaurant',
+              },
+            ),
           },
         );
 
@@ -653,9 +872,8 @@ void main() {
 
         expect(source?.isLegacyBiteSaver, isTrue);
         expect(source?.id, 'actual-doc-id');
-        expect(boundary.documentReads, <String>[
-          'restaurant_accounts/actual-doc-id',
-        ]);
+        expect(boundary.projectionReads, <String>['actual-doc-id']);
+        expect(boundary.documentReads, isEmpty);
         expect(
           boundary.collectionReads,
           unorderedEquals(<String>[
@@ -677,11 +895,14 @@ void main() {
 
     test('matching document and stored IDs query that exact ID', () async {
       final boundary = _RecordingRestaurantMenuQueryBoundary(
-        documents: {
-          'restaurant_accounts/matching-account': {
-            RestaurantMenuService.menuSourceSideField:
-                RestaurantMenuService.menuSourceBiteSaver,
-          },
+        projections: {
+          'matching-account': _publicProjection(
+            'matching-account',
+            overrides: <String, dynamic>{
+              RestaurantMenuService.menuSourceSideField:
+                  RestaurantMenuService.menuSourceBiteSaver,
+            },
+          ),
         },
       );
 
@@ -697,7 +918,7 @@ void main() {
       expect(
         boundary.allReads,
         unorderedEquals(<String>[
-          'restaurant_accounts/matching-account',
+          'restaurant_search_index/matching-account',
           'restaurant_accounts/matching-account/menu_images',
           'restaurant_accounts/matching-account/menu_items',
           'restaurant_accounts/matching-account/menu_sections',
@@ -707,11 +928,14 @@ void main() {
 
     test('missing document ID queries the stored UID fallback', () async {
       final boundary = _RecordingRestaurantMenuQueryBoundary(
-        documents: {
-          'restaurant_accounts/legacy-owner': {
-            RestaurantMenuService.menuSourceSideField:
-                RestaurantMenuService.menuSourceBiteSaver,
-          },
+        projections: {
+          'legacy-owner': _publicProjection(
+            'legacy-owner',
+            overrides: <String, dynamic>{
+              RestaurantMenuService.menuSourceSideField:
+                  RestaurantMenuService.menuSourceBiteSaver,
+            },
+          ),
         },
       );
 
@@ -724,7 +948,7 @@ void main() {
       expect(
         boundary.allReads,
         unorderedEquals(<String>[
-          'restaurant_accounts/legacy-owner',
+          'restaurant_search_index/legacy-owner',
           'restaurant_accounts/legacy-owner/menu_images',
           'restaurant_accounts/legacy-owner/menu_items',
           'restaurant_accounts/legacy-owner/menu_sections',
@@ -748,11 +972,11 @@ void main() {
 
 Future<RestaurantMenuSource?> _resolveAndLoadPublicMenu({
   required Restaurant restaurant,
-  required RestaurantMenuQueryBoundary boundary,
+  required _RecordingRestaurantMenuQueryBoundary boundary,
 }) async {
   final source = await RestaurantMenuService.resolveBiteSaverPublicMenuSource(
     uid: restaurant.accountDocumentId ?? '',
-    queryBoundary: boundary,
+    projectionLoader: boundary.loadProjection,
   );
   if (source == null) {
     return null;
@@ -768,18 +992,31 @@ Future<RestaurantMenuSource?> _resolveAndLoadPublicMenu({
 
 class _RecordingRestaurantMenuQueryBoundary
     implements RestaurantMenuQueryBoundary {
+  final Map<String, Map<String, dynamic>> projections;
   final Map<String, Map<String, dynamic>> documents;
   final Map<String, List<RestaurantMenuQueryDocument>> collections;
+  final List<String> projectionReads = [];
   final List<String> documentReads = [];
   final List<String> collectionReads = [];
 
   _RecordingRestaurantMenuQueryBoundary({
+    Map<String, Map<String, dynamic>>? projections,
     Map<String, Map<String, dynamic>>? documents,
     Map<String, List<RestaurantMenuQueryDocument>>? collections,
-  }) : documents = documents ?? const {},
+  }) : projections = projections ?? const {},
+       documents = documents ?? const {},
        collections = collections ?? const {};
 
-  List<String> get allReads => <String>[...documentReads, ...collectionReads];
+  List<String> get allReads => <String>[
+    ...projectionReads.map((id) => 'restaurant_search_index/$id'),
+    ...documentReads,
+    ...collectionReads,
+  ];
+
+  Future<Map<String, dynamic>?> loadProjection(String restaurantId) async {
+    projectionReads.add(restaurantId);
+    return projections[restaurantId];
+  }
 
   @override
   Future<RestaurantMenuQueryDocument?> getDocument(String documentPath) async {
@@ -801,6 +1038,29 @@ class _RecordingRestaurantMenuQueryBoundary
     collectionReads.add(collectionPath);
     return collections[collectionPath] ?? const [];
   }
+}
+
+Map<String, dynamic> _publicProjection(
+  String restaurantId, {
+  Object? publicVisible = true,
+  Map<String, dynamic> overrides = const <String, dynamic>{},
+}) {
+  return <String, dynamic>{
+    RestaurantAccountService.publicProjectionVersionField:
+        RestaurantAccountService.customerPublicProjectionVersion,
+    RestaurantAccountService.projectionEntityTypeField: 'restaurant',
+    RestaurantAccountService.projectionSourceField: 'biteSaver',
+    RestaurantAccountService.projectionSourceDocumentIdField: restaurantId,
+    RestaurantAccountService.projectionIndexDocumentIdField:
+        'index-$restaurantId',
+    RestaurantAccountService.projectionDisplayNameField: 'Identity Cafe',
+    Restaurant.fieldStreetAddress: '1 Main Street',
+    Restaurant.fieldCity: 'Crystal River',
+    Restaurant.fieldState: 'FL',
+    Restaurant.fieldZipCode: '34428',
+    RestaurantAccountService.publicVisibleField: publicVisible,
+    ...overrides,
+  };
 }
 
 Restaurant _restaurant({

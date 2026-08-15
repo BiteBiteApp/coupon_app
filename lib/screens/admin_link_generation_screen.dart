@@ -330,7 +330,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
                 record.documentId,
               )
             : RestaurantCustomerLinkService.couponRestaurantUrl(
-                record.actionId,
+                record.documentId,
               );
         await _showLinkActionDialog(
           title: isBiteScore
