@@ -1,31 +1,624 @@
 {
   "indexes": [
     {
+      "collectionGroup": "admin_user_claimed_restaurant_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "claimedRestaurantVersion", "order": "ASCENDING" },
+        { "fieldPath": "isClaimed", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "restaurantNamePrefixTokens", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "ownerUid", "order": "ASCENDING" },
+        { "fieldPath": "normalizedRestaurantName", "order": "ASCENDING" },
+        { "fieldPath": "sourceRestaurantId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "admin_user_claimed_restaurant_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "claimedRestaurantVersion", "order": "ASCENDING" },
+        { "fieldPath": "ownerUid", "order": "ASCENDING" },
+        { "fieldPath": "isClaimed", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "normalizedRestaurantName", "order": "ASCENDING" },
+        { "fieldPath": "sourceRestaurantId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "admin_user_directory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "displayNamePrefixTokens", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "normalizedDisplayName", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "admin_user_directory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "normalizedEmail", "order": "ASCENDING" },
+        { "fieldPath": "normalizedDisplayName", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "admin_user_directory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "normalizedPhone", "order": "ASCENDING" },
+        { "fieldPath": "normalizedDisplayName", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "admin_user_directory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "includedInUserPointsDirectory", "order": "ASCENDING" },
+        { "fieldPath": "contributionPoints", "order": "DESCENDING" },
+        { "fieldPath": "normalizedUserPointsDisplayName", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "admin_user_directory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "includedInUserPointsDirectory", "order": "ASCENDING" },
+        { "fieldPath": "contributionPoints", "order": "ASCENDING" },
+        { "fieldPath": "normalizedUserPointsDisplayName", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "admin_user_directory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "includedInUserPointsDirectory", "order": "ASCENDING" },
+        { "fieldPath": "normalizedUserPointsDisplayName", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "admin_user_directory",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "includedInUserPointsDirectory", "order": "ASCENDING" },
+        { "fieldPath": "lastContributionAt", "order": "DESCENDING" },
+        { "fieldPath": "contributionPoints", "order": "DESCENDING" },
+        { "fieldPath": "normalizedUserPointsDisplayName", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bitesaver_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bitescore_contribution_point_ledger",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "bitescore_restaurants",
       "queryScope": "COLLECTION",
       "fields": [
-        {
-          "fieldPath": "isActive",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "geohash",
-          "order": "ASCENDING"
-        }
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "geohash", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bitescore_restaurants",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerUserId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bitescore_restaurants",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "ownerUserId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dish_edit_proposals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dish_edit_proposals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dish_edit_proposals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "createdByUserId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dish_edit_proposals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "createdByUserId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dish_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dish_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "reportingUserId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dish_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "reportingUserId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dish_reviews",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dish_reviews",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dish_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "adminVisible", "order": "ASCENDING" },
+        { "fieldPath": "restaurantSourceDocumentId", "order": "ASCENDING" },
+        { "fieldPath": "normalizedName", "order": "ASCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dish_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "adminVisible", "order": "ASCENDING" },
+        { "fieldPath": "restaurantSourceDocumentId", "order": "ASCENDING" },
+        { "fieldPath": "namePrefixTokens", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "normalizedName", "order": "ASCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dish_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "adminVisible", "order": "ASCENDING" },
+        { "fieldPath": "restaurantSourceDocumentId", "order": "ASCENDING" },
+        { "fieldPath": "dishActive", "order": "ASCENDING" },
+        { "fieldPath": "normalizedName", "order": "ASCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dish_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "adminVisible", "order": "ASCENDING" },
+        { "fieldPath": "restaurantSourceDocumentId", "order": "ASCENDING" },
+        { "fieldPath": "dishActive", "order": "ASCENDING" },
+        { "fieldPath": "namePrefixTokens", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "normalizedName", "order": "ASCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "duplicate_restaurant_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "duplicate_restaurant_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "reportingUserId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "duplicate_restaurant_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "reportingUserId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "private_dish_edit_application_jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "private_dish_edit_proposal_group_members",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "groupId", "order": "ASCENDING" },
+        { "fieldPath": "currentPending", "order": "ASCENDING" },
+        { "fieldPath": "trustedServerCreateTime", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "private_dish_edit_proposal_group_members",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "groupId", "order": "ASCENDING" },
+        { "fieldPath": "currentPending", "order": "ASCENDING" },
+        { "fieldPath": "membershipGeneration", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "private_dish_edit_proposal_groups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "resolutionIdentitiesValid", "order": "ASCENDING" },
+        { "fieldPath": "oldestTrustedServerCreateTime", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "private_dish_edit_proposal_groups",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "resolutionIdentitiesValid", "order": "ASCENDING" },
+        { "fieldPath": "autoEligible", "order": "ASCENDING" },
+        { "fieldPath": "dueAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "private_rating_destructive_jobs",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "ASCENDING" }
       ]
     },
     {
       "collectionGroup": "restaurant_accounts",
       "queryScope": "COLLECTION",
       "fields": [
-        {
-          "fieldPath": "approvalStatus",
-          "order": "ASCENDING"
-        },
-        {
-          "fieldPath": "geohash",
-          "order": "ASCENDING"
-        }
+        { "fieldPath": "approvalStatus", "order": "ASCENDING" },
+        { "fieldPath": "geohash", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_accounts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "approvalStatus", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_claim_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_claim_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "restaurantId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_claim_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "requesterUserId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_claim_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "requesterUserId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_invites",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "side", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_name_change_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "reportingUserId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "reportingUserId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "adminDirectoryVisible", "order": "ASCENDING" },
+        { "fieldPath": "zip5", "order": "ASCENDING" },
+        { "fieldPath": "normalizedName", "order": "ASCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "adminDirectoryVisible", "order": "ASCENDING" },
+        { "fieldPath": "zip5", "order": "ASCENDING" },
+        { "fieldPath": "namePrefixTokens", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "normalizedName", "order": "ASCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "adminDirectoryVisible", "order": "ASCENDING" },
+        { "fieldPath": "cityStateKey", "order": "ASCENDING" },
+        { "fieldPath": "normalizedName", "order": "ASCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "adminDirectoryVisible", "order": "ASCENDING" },
+        { "fieldPath": "cityStateKey", "order": "ASCENDING" },
+        { "fieldPath": "namePrefixTokens", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "normalizedName", "order": "ASCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "adminDirectoryVisible", "order": "ASCENDING" },
+        { "fieldPath": "geohash", "order": "ASCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "adminDirectoryVisible", "order": "ASCENDING" },
+        { "fieldPath": "namePrefixTokens", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "geohash", "order": "ASCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "adminDirectoryVisible", "order": "ASCENDING" },
+        { "fieldPath": "isClaimed", "order": "ASCENDING" },
+        { "fieldPath": "normalizedName", "order": "ASCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "adminDirectoryVisible", "order": "ASCENDING" },
+        { "fieldPath": "isClaimed", "order": "ASCENDING" },
+        { "fieldPath": "namePrefixTokens", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "normalizedName", "order": "ASCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "adminDirectoryVisible", "order": "ASCENDING" },
+        { "fieldPath": "zip5", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "normalizedName", "order": "ASCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "adminDirectoryVisible", "order": "ASCENDING" },
+        { "fieldPath": "zip5", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "namePrefixTokens", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "normalizedName", "order": "ASCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "adminDirectoryVisible", "order": "ASCENDING" },
+        { "fieldPath": "cityStateKey", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "normalizedName", "order": "ASCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "adminDirectoryVisible", "order": "ASCENDING" },
+        { "fieldPath": "cityStateKey", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "namePrefixTokens", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "normalizedName", "order": "ASCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "adminDirectoryVisible", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "geohash", "order": "ASCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "adminDirectoryVisible", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "namePrefixTokens", "arrayConfig": "CONTAINS" },
+        { "fieldPath": "geohash", "order": "ASCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "review_feedback_votes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "review_feedback_votes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "review_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "review_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "reportingUserId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "review_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "reportingUserId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "results",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "distanceMillimeters", "order": "ASCENDING" },
+        { "fieldPath": "normalizedName", "order": "ASCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "ASCENDING" }
       ]
     }
   ],
