@@ -778,6 +778,7 @@ function sourceProjection(
     distanceMiles: distanceMillimeters / (KILOMETERS_PER_MILE * 1_000_000),
     approvalStatus,
     couponApplicationSubmitted: data.couponApplicationSubmitted === true,
+    adminHidden: data.adminHidden === true,
     uid: optionalString("uid", 1_500),
     linkedBiteScoreRestaurantId: optionalString("linkedBiteScoreRestaurantId", 1_500),
   });

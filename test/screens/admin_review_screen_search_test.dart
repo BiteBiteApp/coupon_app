@@ -8,6 +8,7 @@ import 'package:coupon_app/models/pagination/paged_models.dart';
 import 'package:coupon_app/models/coupon_admin_paging_models.dart';
 import 'package:coupon_app/screens/admin_review_screen.dart';
 import 'package:coupon_app/services/coupon_admin_paging_service.dart';
+import 'package:coupon_app/services/restaurant_account_service.dart';
 import 'package:coupon_app/services/restaurant_invite_service.dart';
 
 Map<String, Object?> _page(
@@ -49,6 +50,7 @@ Map<String, Object?> _restaurant(
   String? name,
   String? actionId,
   String? uid,
+  bool adminHidden = false,
 }) => <String, Object?>{
   'source': 'biteSaver',
   'documentId': id,
@@ -65,6 +67,7 @@ Map<String, Object?> _restaurant(
   'distanceMiles': null,
   'approvalStatus': 'approved',
   'couponApplicationSubmitted': true,
+  'adminHidden': adminHidden,
   'uid': uid ?? 'uid-$id',
   'linkedBiteScoreRestaurantId': null,
 };
@@ -197,6 +200,7 @@ Future<void> _pumpScreen(
   _Backend backend, {
   Size size = const Size(1000, 900),
   double textScale = 1,
+  AdminCouponSetVisibilityAction? setRestaurantVisibility,
 }) async {
   tester.view.physicalSize = size;
   tester.view.devicePixelRatio = 1;
@@ -214,6 +218,7 @@ Future<void> _pumpScreen(
             pagingService: CouponAdminPagingService(
               functionsBoundary: backend.call,
             ),
+            setRestaurantVisibility: setRestaurantVisibility,
           ),
         ),
       ),
@@ -977,6 +982,159 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets(
+    'visible restaurant confirms narrow Hide while preserving data and billing',
+    (tester) async {
+      final calls = <(String, bool, bool)>[];
+      final backend = _Backend();
+      await _pumpScreen(
+        tester,
+        backend,
+        setRestaurantVisibility:
+            ({
+              required documentId,
+              required expectedAdminHidden,
+              required adminHidden,
+            }) async {
+              calls.add((documentId, expectedAdminHidden, adminHidden));
+            },
+      );
+      await _selectExactZipAndSearch(tester);
+
+      expect(find.text('Hide from BiteSaver'), findsOneWidget);
+      expect(find.text('Restore to BiteSaver'), findsNothing);
+      expect(find.text('Hidden'), findsNothing);
+
+      await tester.tap(find.text('Hide from BiteSaver'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Hide “Restaurant one” from BiteSaver?'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('coupon, daily-special, owner, and billing data'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining(
+          "does not cancel or change the restaurant's Stripe",
+        ),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Hide Restaurant'));
+      await tester.pumpAndSettle();
+      expect(calls, <(String, bool, bool)>[('one', false, true)]);
+      expect(
+        find.text('Restaurant one hidden from BiteSaver.'),
+        findsOneWidget,
+      );
+      expect(
+        backend.calls
+            .where((call) => call.$1 == 'searchCouponAdminRestaurantsPage')
+            .length,
+        2,
+      );
+    },
+  );
+
+  testWidgets(
+    'hidden restaurant remains discoverable and confirms eligibility-aware Restore',
+    (tester) async {
+      final calls = <(String, bool, bool)>[];
+      final backend = _Backend()
+        ..custom = (name, request) async => _page(<Map<String, Object?>>[
+          _restaurant('hidden-one', adminHidden: true),
+        ], exactTotal: 1);
+      await _pumpScreen(
+        tester,
+        backend,
+        setRestaurantVisibility:
+            ({
+              required documentId,
+              required expectedAdminHidden,
+              required adminHidden,
+            }) async {
+              calls.add((documentId, expectedAdminHidden, adminHidden));
+            },
+      );
+      await _selectExactZipAndSearch(tester);
+
+      expect(find.text('Restaurant hidden-one'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('coupon-admin-hidden-chip-hidden-one')),
+        findsOneWidget,
+      );
+      expect(find.text('Restore to BiteSaver'), findsOneWidget);
+
+      await tester.ensureVisible(find.text('Restore to BiteSaver'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Restore to BiteSaver'));
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Restore “Restaurant hidden-one” to BiteSaver?'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('subscription and publication requirements'),
+        findsOneWidget,
+      );
+      await tester.tap(find.text('Restore Restaurant'));
+      await tester.pumpAndSettle();
+
+      expect(calls, <(String, bool, bool)>[('hidden-one', true, false)]);
+      expect(
+        find.text('Restaurant hidden-one restored to BiteSaver.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'visibility mutation blocks duplicate taps and reports stale state',
+    (tester) async {
+      final mutation = Completer<void>();
+      var calls = 0;
+      final backend = _Backend();
+      await _pumpScreen(
+        tester,
+        backend,
+        setRestaurantVisibility:
+            ({
+              required documentId,
+              required expectedAdminHidden,
+              required adminHidden,
+            }) {
+              calls += 1;
+              return mutation.future;
+            },
+      );
+      await _selectExactZipAndSearch(tester);
+      await tester.tap(find.text('Hide from BiteSaver'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Hide Restaurant'));
+      await tester.pump();
+
+      final disabled = tester.widget<OutlinedButton>(
+        find.widgetWithText(OutlinedButton, 'Hide from BiteSaver'),
+      );
+      expect(disabled.onPressed, isNull);
+      expect(calls, 1);
+      mutation.completeError(
+        const RestaurantAccountAdminVisibilityException(
+          kind: RestaurantAccountAdminVisibilityFailureKind.staleState,
+          message: 'Restaurant visibility changed. Refresh and try again.',
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(calls, 1);
+      expect(
+        find.text('Restaurant visibility changed. Refresh and try again.'),
+        findsOneWidget,
+      );
+    },
+  );
 
   for (final configuration in <(Size, double)>[
     (const Size(320, 900), 1),

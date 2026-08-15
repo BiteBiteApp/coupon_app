@@ -778,6 +778,7 @@ function restaurantProjection(
     distanceMiles,
     approvalStatus,
     couponApplicationSubmitted: readBoolean(data.couponApplicationSubmitted),
+    adminHidden: readBoolean(data.adminHidden),
     uid: readString(data.uid, 1_500),
     linkedBiteScoreRestaurantId: readString(data.linkedBiteScoreRestaurantId, 1_500),
   });

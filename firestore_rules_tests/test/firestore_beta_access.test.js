@@ -885,6 +885,99 @@ test("public read of approved posting-enabled restaurant content is allowed", as
   await assertSucceeds(db.doc("dish_reviews/dish-1_customer-a").get());
 });
 
+test("BiteSaver Admin Hide is narrow, owner-safe, and blocks customer content", async () => {
+  const accountPath = "restaurant_accounts/owner-1";
+  const customerPaths = [
+    `${accountPath}/coupons/coupon-1`,
+    `${accountPath}/daily_specials/special-1`,
+    `${accountPath}/menu_images/image-1`,
+    `${accountPath}/menu_items/item-1`,
+    `${accountPath}/menu_sections/section-1`,
+  ];
+  const adminRef = dbFor("admin").doc(accountPath);
+
+  for (const actor of ["restaurantOwner", "wrongRestaurantOwner", "customer"]) {
+    await assertFails(dbFor(actor).doc(accountPath).update({
+      adminHidden: true,
+      updatedAt: serverTimestamp(),
+    }));
+  }
+  await assertFails(adminRef.update({adminHidden: true}));
+  await assertFails(adminRef.update({
+    adminHidden: "true",
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(adminRef.update({
+    adminHidden: true,
+    bio: "Combined unrelated mutation",
+    updatedAt: serverTimestamp(),
+  }));
+
+  await assertSucceeds(adminRef.update({
+    adminHidden: true,
+    updatedAt: serverTimestamp(),
+  }));
+  const hidden = await assertSucceeds(adminRef.get());
+  assert.equal(hidden.data().adminHidden, true);
+  assert.equal(hidden.data().couponPostingEnabled, true);
+  assert.equal(hidden.data().stripeCustomerId, "cus_seed_owner_1");
+  assert.equal(hidden.data().stripeSubscriptionId, "sub_seed_owner_1");
+
+  await assertFails(dbFor("customer").doc(accountPath).get());
+  for (const path of customerPaths) {
+    await assertFails(dbFor("customer").doc(path).get());
+    await assertSucceeds(dbFor("restaurantOwner").doc(path).get());
+    await assertSucceeds(dbFor("admin").doc(path).get());
+  }
+  await assertSucceeds(
+    dbFor("restaurantOwner").doc(accountPath).update({
+      bio: "Owner profile access remains available while hidden",
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertSucceeds(
+    dbFor("restaurantOwner").doc(`${accountPath}/coupons/coupon-1`).update({
+      title: "Owner-authored hidden coupon",
+    }),
+  );
+});
+
+test("BiteSaver Admin Restore removes only the veto and preserves posting gates", async () => {
+  const accountPath = "restaurant_accounts/owner-1";
+  const adminRef = dbFor("admin").doc(accountPath);
+  await assertSucceeds(adminRef.update({
+    adminHidden: true,
+    updatedAt: serverTimestamp(),
+  }));
+
+  await assertFails(
+    dbFor("restaurantOwner").doc(accountPath).update({
+      adminHidden: false,
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertSucceeds(adminRef.update({
+    adminHidden: false,
+    updatedAt: serverTimestamp(),
+  }));
+  await assertSucceeds(dbFor("customer").doc(accountPath).get());
+  await assertSucceeds(
+    dbFor("customer").doc(`${accountPath}/coupons/coupon-1`).get(),
+  );
+  const restored = await assertSucceeds(adminRef.get());
+  assert.equal(restored.data().adminHidden, false);
+  assert.equal(restored.data().couponPostingEnabled, true);
+  assert.equal(restored.data().subscriptionStatus, "active");
+
+  await updateRuleTestDocument(accountPath, {couponPostingEnabled: false});
+  await assertFails(dbFor("customer").doc(accountPath).get());
+  await assertFails(
+    dbFor("customer").doc(`${accountPath}/coupons/coupon-1`).get(),
+  );
+  await assertSucceeds(dbFor("restaurantOwner").doc(accountPath).get());
+  await assertSucceeds(dbFor("admin").doc(accountPath).get());
+});
+
 test("public can read review feedback votes for dish detail trust summaries", async () => {
   const snapshot = await assertSucceeds(
     dbFor("unauthenticated")

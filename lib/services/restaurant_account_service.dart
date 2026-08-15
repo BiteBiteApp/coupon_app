@@ -20,7 +20,23 @@ class ResolvedRestaurantAccount {
   });
 }
 
+enum RestaurantAccountAdminVisibilityFailureKind { missingAccount, staleState }
+
+class RestaurantAccountAdminVisibilityException implements Exception {
+  const RestaurantAccountAdminVisibilityException({
+    required this.kind,
+    required this.message,
+  });
+
+  final RestaurantAccountAdminVisibilityFailureKind kind;
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class RestaurantAccountService {
+  static const String adminHiddenField = 'adminHidden';
   static const int maxCouponNumberGenerationAttempts = 10000;
   static const String _couponNumberReservationsCollection =
       'coupon_number_reservations';
@@ -340,6 +356,73 @@ class RestaurantAccountService {
     );
   }
 
+  static Future<void> setAdminHiddenAsAdmin({
+    required String documentId,
+    required bool expectedAdminHidden,
+    required bool adminHidden,
+  }) async {
+    final canonicalDocumentId = documentId.trim();
+    if (canonicalDocumentId.isEmpty || adminHidden == expectedAdminHidden) {
+      throw ArgumentError('A valid restaurant visibility change is required.');
+    }
+
+    final accountRef = _firestore
+        .collection('restaurant_accounts')
+        .doc(canonicalDocumentId);
+    await _firestore.runTransaction<void>((transaction) async {
+      final currentSnapshot = await transaction.get(accountRef);
+      final fields = _adminVisibilityWrite(
+        currentData: currentSnapshot.data(),
+        expectedAdminHidden: expectedAdminHidden,
+        adminHidden: adminHidden,
+        updatedAt: FieldValue.serverTimestamp(),
+      );
+      transaction.update(accountRef, fields);
+    });
+  }
+
+  static Map<String, dynamic> _adminVisibilityWrite({
+    required Map<String, dynamic>? currentData,
+    required bool expectedAdminHidden,
+    required bool adminHidden,
+    required Object updatedAt,
+  }) {
+    if (currentData == null) {
+      throw const RestaurantAccountAdminVisibilityException(
+        kind: RestaurantAccountAdminVisibilityFailureKind.missingAccount,
+        message:
+            'This restaurant account no longer exists. Refresh and try again.',
+      );
+    }
+    if (isAdminHidden(currentData) != expectedAdminHidden) {
+      throw const RestaurantAccountAdminVisibilityException(
+        kind: RestaurantAccountAdminVisibilityFailureKind.staleState,
+        message:
+            'Restaurant visibility changed since this result loaded. Refresh and try again.',
+      );
+    }
+    if (adminHidden == expectedAdminHidden) {
+      throw ArgumentError('A visibility change is required.');
+    }
+    return <String, dynamic>{
+      adminHiddenField: adminHidden,
+      Restaurant.fieldUpdatedAt: updatedAt,
+    };
+  }
+
+  @visibleForTesting
+  static Map<String, dynamic> adminVisibilityWriteForTesting({
+    required Map<String, dynamic>? currentData,
+    required bool expectedAdminHidden,
+    required bool adminHidden,
+    required Object updatedAt,
+  }) => _adminVisibilityWrite(
+    currentData: currentData,
+    expectedAdminHidden: expectedAdminHidden,
+    adminHidden: adminHidden,
+    updatedAt: updatedAt,
+  );
+
   static Future<ResolvedRestaurantAccount?> resolveCustomerRestaurantAccount(
     String restaurantId,
   ) async {
@@ -348,10 +431,21 @@ class RestaurantAccountService {
       return null;
     }
 
-    final directSnapshot = await docForUser(trimmedRestaurantId).get();
+    DocumentSnapshot<Map<String, dynamic>> directSnapshot;
+    try {
+      directSnapshot = await docForUser(trimmedRestaurantId).get();
+    } on FirebaseException catch (error) {
+      // Hidden accounts are intentionally denied by Rules. Treat that public
+      // resolution result like any other unavailable restaurant.
+      if (error.code == 'permission-denied') {
+        return null;
+      }
+      rethrow;
+    }
     if (directSnapshot.data() != null) {
       final resolved = _resolvedRestaurantAccountFromSnapshot(directSnapshot);
-      return resolved != null && hasCouponPostingAccess(resolved.accountData)
+      return resolved != null &&
+              isCustomerVisibleAccountData(resolved.accountData)
           ? resolved
           : null;
     }
@@ -370,7 +464,8 @@ class RestaurantAccountService {
     final resolved = _resolvedRestaurantAccountFromSnapshot(
       uidSnapshot.docs.first,
     );
-    return resolved != null && hasCouponPostingAccess(resolved.accountData)
+    return resolved != null &&
+            isCustomerVisibleAccountData(resolved.accountData)
         ? resolved
         : null;
   }
@@ -384,11 +479,19 @@ class RestaurantAccountService {
     return _canPostCouponsFromData(data);
   }
 
+  static bool isAdminHidden(Map<String, dynamic>? data) {
+    return data?[adminHiddenField] == true;
+  }
+
+  static bool isCustomerVisibleAccountData(Map<String, dynamic>? data) {
+    return hasCouponPostingAccess(data) && !isAdminHidden(data);
+  }
+
   static List<Coupon> customerVisibleCouponsForAccountData(
     Map<String, dynamic>? data,
     List<Coupon> coupons,
   ) {
-    if (!hasCouponPostingAccess(data)) {
+    if (!isCustomerVisibleAccountData(data)) {
       return const <Coupon>[];
     }
 
@@ -411,7 +514,7 @@ class RestaurantAccountService {
       final data = await (accountDataLoader ?? loadAccountByDocumentId)(
         accountDocumentId,
       );
-      return hasCouponPostingAccess(data);
+      return isCustomerVisibleAccountData(data);
     }
 
     final couponRestaurantName = coupon.restaurant.trim().toLowerCase();
@@ -1474,7 +1577,9 @@ class RestaurantAccountService {
           doc.data(),
           fallbackUid: doc.id,
         );
-        final canShowCustomerOffers = hasCouponPostingAccess(normalizedData);
+        final canShowCustomerOffers = isCustomerVisibleAccountData(
+          normalizedData,
+        );
         if (!canShowCustomerOffers) {
           continue;
         }
@@ -1617,6 +1722,7 @@ class RestaurantAccountService {
       'couponPostingEnabled': data['couponPostingEnabled'] is bool
           ? data['couponPostingEnabled'] as bool
           : null,
+      adminHiddenField: isAdminHidden(data),
       'stripeCustomerId': _readString(data['stripeCustomerId']),
       'stripeSubscriptionId': _readString(data['stripeSubscriptionId']),
       Restaurant.fieldCreatedAt: data[Restaurant.fieldCreatedAt],

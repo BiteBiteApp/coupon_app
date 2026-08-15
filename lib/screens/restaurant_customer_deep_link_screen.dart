@@ -95,7 +95,7 @@ class _RestaurantCustomerDeepLinkScreenState
           await RestaurantAccountService.loadCoupons(accountDocumentId),
         );
     final dailySpecials =
-        RestaurantAccountService.hasCouponPostingAccess(accountData)
+        RestaurantAccountService.isCustomerVisibleAccountData(accountData)
         ? await RestaurantAccountService.loadDailySpecialsForRestaurant(
             accountDocumentId,
           )

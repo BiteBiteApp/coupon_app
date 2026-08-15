@@ -53,6 +53,12 @@ typedef CouponAdminCreateInviteAction =
     });
 typedef CouponAdminManualInviteAction =
     Future<RestaurantInviteCreationResult?> Function(BuildContext context);
+typedef CouponAdminSetVisibilityAction =
+    Future<void> Function({
+      required String documentId,
+      required bool expectedAdminHidden,
+      required bool adminHidden,
+    });
 
 class CouponAdminPagedDashboard extends StatefulWidget {
   const CouponAdminPagedDashboard({
@@ -65,6 +71,7 @@ class CouponAdminPagedDashboard extends StatefulWidget {
     this.editAccount,
     this.createCouponInvite,
     this.createManualInvite,
+    this.setRestaurantVisibility,
   });
 
   final CouponAdminPagingService? pagingService;
@@ -75,6 +82,7 @@ class CouponAdminPagedDashboard extends StatefulWidget {
   final CouponAdminEditAccountAction? editAccount;
   final CouponAdminCreateInviteAction? createCouponInvite;
   final CouponAdminManualInviteAction? createManualInvite;
+  final CouponAdminSetVisibilityAction? setRestaurantVisibility;
 
   @override
   State<CouponAdminPagedDashboard> createState() =>
@@ -672,6 +680,91 @@ class _CouponAdminPagedDashboardState extends State<CouponAdminPagedDashboard>
     });
   }
 
+  Future<void> _setRestaurantVisibility(
+    CouponAdminRestaurantRecord record,
+  ) async {
+    await _busy('restaurant', record.documentId, 'visibility', () async {
+      final targetAdminHidden = !record.adminHidden;
+      final confirmed =
+          await showDialog<bool>(
+            context: context,
+            builder: (dialogContext) => AlertDialog(
+              title: Text(
+                targetAdminHidden
+                    ? 'Hide “${record.restaurantName}” from BiteSaver?'
+                    : 'Restore “${record.restaurantName}” to BiteSaver?',
+              ),
+              content: Text(
+                targetAdminHidden
+                    ? 'Customers will no longer see this restaurant or its '
+                          'BiteSaver offers. Existing restaurant account, '
+                          'coupon, daily-special, owner, and billing data will '
+                          'remain stored.\n\nThis does not cancel or change the '
+                          "restaurant's Stripe subscription or billing.\n\n"
+                          'You can restore the restaurant later.'
+                    : 'The Admin visibility block will be removed. The '
+                          'restaurant will become visible to customers only '
+                          'if its existing BiteSaver subscription and '
+                          'publication requirements also allow it.',
+              ),
+              actions: <Widget>[
+                TextButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(false),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: () => Navigator.of(dialogContext).pop(true),
+                  child: Text(
+                    targetAdminHidden
+                        ? 'Hide Restaurant'
+                        : 'Restore Restaurant',
+                  ),
+                ),
+              ],
+            ),
+          ) ==
+          true;
+      if (!confirmed || !mounted) return;
+
+      try {
+        final update = widget.setRestaurantVisibility;
+        if (update != null) {
+          await update(
+            documentId: record.documentId,
+            expectedAdminHidden: record.adminHidden,
+            adminHidden: targetAdminHidden,
+          );
+        } else {
+          await RestaurantAccountService.setAdminHiddenAsAdmin(
+            documentId: record.documentId,
+            expectedAdminHidden: record.adminHidden,
+            adminHidden: targetAdminHidden,
+          );
+        }
+        if (!mounted) return;
+        _message(
+          targetAdminHidden
+              ? '${record.restaurantName} hidden from BiteSaver.'
+              : '${record.restaurantName} restored to BiteSaver.',
+        );
+        await _restaurantController?.refreshCurrentPage();
+      } on RestaurantAccountAdminVisibilityException catch (error) {
+        if (mounted) _message(error.message);
+      } catch (error) {
+        if (mounted) {
+          _message(
+            AppErrorText.friendly(
+              error,
+              fallback: targetAdminHidden
+                  ? 'Could not hide the restaurant right now.'
+                  : 'Could not restore the restaurant right now.',
+            ),
+          );
+        }
+      }
+    });
+  }
+
   Future<void> _createPendingInvite(CouponAdminQueueRecord record) async {
     final data = record.toRestaurantData();
     final restaurant = CouponAdminRestaurantRecord(
@@ -691,6 +784,7 @@ class _CouponAdminPagedDashboardState extends State<CouponAdminPagedDashboard>
       couponApplicationSubmitted: record.flag('couponApplicationSubmitted'),
       uid: record.text('uid'),
       linkedBiteScoreRestaurantId: null,
+      adminHidden: false,
     );
     await _createInvite(restaurant);
   }
@@ -1204,6 +1298,14 @@ class _CouponAdminPagedDashboardState extends State<CouponAdminPagedDashboard>
             Text(
               'Application submitted: ${record.couponApplicationSubmitted ? 'Yes' : 'No'}',
             ),
+            if (record.adminHidden) ...<Widget>[
+              const SizedBox(height: 6),
+              Chip(
+                key: ValueKey('coupon-admin-hidden-chip-${record.documentId}'),
+                avatar: const Icon(Icons.visibility_off_outlined, size: 18),
+                label: const Text('Hidden'),
+              ),
+            ],
             const SizedBox(height: 10),
             _restaurantActions(record),
             _couponExpansion(
@@ -1393,6 +1495,19 @@ class _CouponAdminPagedDashboardState extends State<CouponAdminPagedDashboard>
         onPressed: () => _editRestaurant(record.documentId),
         icon: const Icon(Icons.edit_outlined),
         label: const Text('Edit Restaurant'),
+      ),
+      OutlinedButton.icon(
+        onPressed: _isBusy('restaurant', record.documentId, 'visibility')
+            ? null
+            : () => _setRestaurantVisibility(record),
+        icon: Icon(
+          record.adminHidden
+              ? Icons.visibility_outlined
+              : Icons.visibility_off_outlined,
+        ),
+        label: Text(
+          record.adminHidden ? 'Restore to BiteSaver' : 'Hide from BiteSaver',
+        ),
       ),
       OutlinedButton.icon(
         onPressed: () => _createInvite(record),

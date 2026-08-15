@@ -412,6 +412,62 @@ test("a posting-flag-only parent transition disables every public BiteSaver inde
   );
 });
 
+test("an Admin Hide transition reconciles the restaurant and stored offer indexes", async () => {
+  const accountPath = "restaurant_accounts/account-1";
+  const couponPath = `${accountPath}/coupons/coupon-1`;
+  const before = biteSaverRestaurant();
+  const after = {...before, adminHidden: true};
+  const database = new FakeSearchIndexDatabase({
+    [accountPath]: before,
+    [couponPath]: coupon("coupon-1"),
+  });
+  const restaurantIndexId = createSearchIndexDocumentId({
+    entityKind: "restaurant",
+    sourceKind: "biteSaverRestaurant",
+    sourceDocumentId: "account-1",
+  });
+  const couponIndexId = createSearchIndexDocumentId({
+    entityKind: "offer",
+    sourceKind: "biteSaverCoupon",
+    parentSourceDocumentId: "account-1",
+    sourceDocumentId: "coupon-1",
+  });
+  const restaurantIndexPath = `restaurant_search_index/${restaurantIndexId}`;
+  const couponIndexPath = `bitesaver_offer_index/${couponIndexId}`;
+
+  await reconcileBiteSaverRestaurantIndex(database, "account-1", now);
+  await reconcileBiteSaverCouponOfferIndex(database, "account-1", "coupon-1", now);
+  assert.equal(database.records.get(restaurantIndexPath).publicVisible, true);
+  assert.equal(database.records.get(couponIndexPath).publicVisible, true);
+
+  database.records.set(accountPath, after);
+  await handleBiteSaverRestaurantWrite(database, {
+    restaurantAccountId: "account-1",
+    before,
+    after,
+    now,
+  });
+  assert.equal(database.records.get(restaurantIndexPath).publicVisible, false);
+  assert.equal(database.records.get(restaurantIndexPath).adminDirectoryVisible, true);
+
+  const jobs = [...database.records.entries()].filter(([path]) =>
+    path.startsWith("private_search_index_jobs/"));
+  assert.equal(jobs.length, 1);
+  assert.equal(
+    jobs[0][1].requestedSourceFingerprint,
+    biteSaverOfferParentFingerprint(after),
+  );
+  await processSearchIndexJob(
+    database,
+    jobs[0][0].slice("private_search_index_jobs/".length),
+    now,
+  );
+  assert.equal(database.records.get(couponIndexPath).publicVisible, false);
+  assert.equal(database.records.get(couponIndexPath).adminVisible, true);
+  assert.equal(database.records.has(accountPath), true);
+  assert.equal(database.records.has(couponPath), true);
+});
+
 test("duplicate relevant parent events create only one deterministic job", async () => {
   const before = biteSaverRestaurant({restaurantName: "Before"});
   const after = biteSaverRestaurant({restaurantName: "After"});

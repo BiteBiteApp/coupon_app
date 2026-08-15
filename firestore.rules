@@ -40,11 +40,6 @@ service cloud.firestore {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
 
-    function isApprovedRestaurantAccount(restaurantUid) {
-      return exists(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)) &&
-        get(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)).data.approvalStatus == 'approved';
-    }
-
     function restaurantAccountDataHasPostingAccess(accountData) {
       return accountData.keys().hasAll([
           'approvalStatus',
@@ -59,6 +54,27 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)) &&
         restaurantAccountDataHasPostingAccess(
           get(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)).data
+        );
+    }
+
+    function restaurantAccountDataIsCustomerVisible(accountData) {
+      return restaurantAccountDataHasPostingAccess(accountData) &&
+        (!accountData.keys().hasAny(['adminHidden']) || accountData.adminHidden != true);
+    }
+
+    function restaurantAccountIsCustomerVisible(restaurantUid) {
+      return exists(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)) &&
+        restaurantAccountDataIsCustomerVisible(
+          get(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)).data
+        );
+    }
+
+    function restaurantAccountMenuIsCustomerVisible(restaurantUid) {
+      return exists(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)) &&
+        get(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)).data.approvalStatus == 'approved' &&
+        (
+          !get(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)).data.keys().hasAny(['adminHidden']) ||
+          get(/databases/$(database)/documents/restaurant_accounts/$(restaurantUid)).data.adminHidden != true
         );
     }
 
@@ -77,6 +93,7 @@ service cloud.firestore {
     function restaurantAccountProtectedFields() {
       return [
         'approvalStatus',
+        'adminHidden',
         'approvedAt',
         'approvedByUid',
         'billingPlanName',
@@ -201,6 +218,14 @@ service cloud.firestore {
         !changedKeys().hasAny(restaurantAccountOwnerLockedFields()) &&
         changedKeys().hasOnly(restaurantAccountClientWritableFields()) &&
         validRestaurantAccountMenuRoutingUpdate();
+    }
+
+    function validAdminRestaurantVisibilityUpdate() {
+      return changedKeys().hasAny(['adminHidden']) &&
+        changedKeys().hasOnly(['adminHidden', 'updatedAt']) &&
+        request.resource.data.keys().hasAll(['adminHidden', 'updatedAt']) &&
+        request.resource.data.adminHidden is bool &&
+        request.resource.data.updatedAt == request.time;
     }
 
     function profileWritableFields() {
@@ -968,17 +993,24 @@ service cloud.firestore {
     }
 
     match /restaurant_accounts/{restaurantUid} {
-      allow get, list: if isAdmin() ||
+      allow get: if isAdmin() ||
+        isSelf(restaurantUid) ||
+        restaurantAccountDataIsCustomerVisible(resource.data);
+      allow list: if isAdmin() ||
         isSelf(restaurantUid) ||
         restaurantAccountDataHasPostingAccess(resource.data);
       allow create: if isAdmin() || canCreateOwnRestaurantAccount(restaurantUid);
-      allow update: if isAdmin() || canUpdateOwnRestaurantAccount(restaurantUid);
+      allow update: if
+        (isAdmin() &&
+          (!changedKeys().hasAny(['adminHidden']) ||
+            validAdminRestaurantVisibilityUpdate())) ||
+        canUpdateOwnRestaurantAccount(restaurantUid);
       allow delete: if false;
 
       match /coupons/{couponId} {
         allow read: if isAdmin() ||
           isSelf(restaurantUid) ||
-          restaurantAccountHasPostingAccess(restaurantUid);
+          restaurantAccountIsCustomerVisible(restaurantUid);
         allow create, update: if canManageRestaurantContent(restaurantUid) &&
           request.resource.data.id == couponId;
         allow delete: if canDeleteRestaurantCoupon(restaurantUid);
@@ -987,7 +1019,7 @@ service cloud.firestore {
       match /daily_specials/{specialId} {
         allow read: if isAdmin() ||
           isSelf(restaurantUid) ||
-          restaurantAccountHasPostingAccess(restaurantUid);
+          restaurantAccountIsCustomerVisible(restaurantUid);
         allow create, update: if canManageRestaurantContent(restaurantUid) &&
           request.resource.data.id == specialId &&
           request.resource.data.restaurantId == restaurantUid &&
@@ -998,7 +1030,7 @@ service cloud.firestore {
       match /menu_images/{imageId} {
         allow read: if isAdmin() ||
           isSelf(restaurantUid) ||
-          isApprovedRestaurantAccount(restaurantUid);
+          restaurantAccountMenuIsCustomerVisible(restaurantUid);
         allow create, update: if canManageRestaurantContent(restaurantUid) &&
           request.resource.data.id == imageId;
         allow delete: if canManageRestaurantContent(restaurantUid);
@@ -1007,7 +1039,7 @@ service cloud.firestore {
       match /menu_items/{itemId} {
         allow read: if isAdmin() ||
           isSelf(restaurantUid) ||
-          isApprovedRestaurantAccount(restaurantUid);
+          restaurantAccountMenuIsCustomerVisible(restaurantUid);
         allow create, update: if canManageRestaurantContent(restaurantUid) &&
           request.resource.data.id == itemId;
         allow delete: if canManageRestaurantContent(restaurantUid);
@@ -1016,7 +1048,7 @@ service cloud.firestore {
       match /menu_sections/{sectionId} {
         allow read: if isAdmin() ||
           isSelf(restaurantUid) ||
-          isApprovedRestaurantAccount(restaurantUid);
+          restaurantAccountMenuIsCustomerVisible(restaurantUid);
         allow create, update: if canManageRestaurantContent(restaurantUid) &&
           request.resource.data.id == sectionId;
         allow delete: if canManageRestaurantContent(restaurantUid);

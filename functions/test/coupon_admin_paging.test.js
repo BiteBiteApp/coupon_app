@@ -253,6 +253,35 @@ test("exact ZIP reaches 250 restaurants in five server pages without duplicates"
   assert.equal(database.gets.every((paths) => paths.length <= 50), true);
 });
 
+test("exact and radius Admin searches keep hidden BiteSaver accounts discoverable", async () => {
+  const center = {latitude: 28.8517, longitude: -82.487, displayName: "Center"};
+  const database = restaurantDatabase(1, (document) => {
+    document.data.geohash = canonicalRestaurantGeohash(center);
+    document.data.latitude = center.latitude;
+    document.data.longitude = center.longitude;
+  });
+  database.sourceDocuments["restaurant_accounts/r0000"].data.adminHidden = true;
+  const exact = await searchCouponAdminRestaurantsPageHandler(
+    request({mode: "exactZip", zipCode: "01234"}),
+    handlerContext(database),
+  );
+  assert.equal(exact.items.length, 1);
+  assert.equal(exact.items[0].adminHidden, true);
+
+  const radius = await searchCouponAdminRadiusRestaurantsPage(
+    request({mode: "nearbyRadius", locationQuery: "Center", radiusMiles: 10}),
+    handlerContext(database, {
+      radiusStore: new FakeRadiusStore(),
+      geocodeLocation: async () => center,
+      sessionIdSource: () => "hidden-radius",
+      leaseTokenSource: () => "hidden-radius-lease",
+    }),
+  );
+  assert.equal(radius.preparation.state, "ready");
+  assert.equal(radius.items.length, 1);
+  assert.equal(radius.items[0].adminHidden, true);
+});
+
 test("exact ZIP supports backward and last pages with stable IDs", async () => {
   const database = restaurantDatabase(111);
   const context = handlerContext(database);

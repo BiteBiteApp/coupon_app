@@ -107,6 +107,7 @@ class CouponAdminRestaurantRecord {
     required this.distanceMiles,
     required this.approvalStatus,
     required this.couponApplicationSubmitted,
+    required this.adminHidden,
     required this.uid,
     required this.linkedBiteScoreRestaurantId,
   });
@@ -129,6 +130,7 @@ class CouponAdminRestaurantRecord {
       'distanceMiles',
       'approvalStatus',
       'couponApplicationSubmitted',
+      'adminHidden',
       'uid',
       'linkedBiteScoreRestaurantId',
     });
@@ -150,6 +152,7 @@ class CouponAdminRestaurantRecord {
       distanceMiles: _nullableDouble(data['distanceMiles']),
       approvalStatus: _string(data['approvalStatus']),
       couponApplicationSubmitted: _bool(data['couponApplicationSubmitted']),
+      adminHidden: _bool(data['adminHidden']),
       uid: _nullableString(data['uid']),
       linkedBiteScoreRestaurantId: _nullableString(
         data['linkedBiteScoreRestaurantId'],
@@ -171,6 +174,7 @@ class CouponAdminRestaurantRecord {
   final double? distanceMiles;
   final String approvalStatus;
   final bool couponApplicationSubmitted;
+  final bool adminHidden;
   final String? uid;
   final String? linkedBiteScoreRestaurantId;
 
@@ -189,6 +193,7 @@ class CouponAdminRestaurantRecord {
     'longitude': longitude,
     'approvalStatus': approvalStatus,
     'couponApplicationSubmitted': couponApplicationSubmitted,
+    'adminHidden': adminHidden,
   };
 }
 

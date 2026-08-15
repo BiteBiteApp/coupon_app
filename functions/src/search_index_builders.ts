@@ -252,7 +252,8 @@ function parentSubscriptionAllowsOffers(
   data: SearchIndexSourceData,
 ): boolean {
   return lowerStatus(data.approvalStatus, "pending") === "approved" &&
-    data.couponPostingEnabled === true;
+    data.couponPostingEnabled === true &&
+    data.adminHidden !== true;
 }
 
 export function biteSaverOfferParentFingerprint(
@@ -266,6 +267,7 @@ export function biteSaverOfferParentFingerprint(
     firstString(data, ["restaurantName", "name"]),
     lowerStatus(data.approvalStatus, "pending"),
     data.couponPostingEnabled === true,
+    data.adminHidden === true,
     firstString(data, ["zipCode", "postalCode", "zip"]),
     firstString(data, ["city"]),
     firstString(data, ["state"]),
@@ -328,7 +330,9 @@ export function buildBiteSaverRestaurantIndex(value: {
     ...name,
     ...biteSaverGeography(value.source),
     publicVisible:
-      approvalStatus === "approved" && value.source.couponPostingEnabled === true,
+      approvalStatus === "approved" &&
+      value.source.couponPostingEnabled === true &&
+      value.source.adminHidden !== true,
     adminDirectoryVisible: approvalStatus === "approved",
     approvalStatus,
     couponApplicationSubmitted:

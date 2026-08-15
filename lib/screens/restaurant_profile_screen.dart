@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -25,6 +26,8 @@ typedef PublicRestaurantFavoriteLoader =
     Future<bool> Function(Restaurant restaurant);
 typedef PublicRestaurantDetailsRefresher =
     Future<Restaurant?> Function(Restaurant restaurant);
+typedef PublicRestaurantAccountLoader =
+    Future<Map<String, dynamic>?> Function(String accountDocumentId);
 typedef PublicRestaurantMenuResolver =
     Future<RestaurantMenuSource?> Function(String accountDocumentId);
 typedef PublicRestaurantReportPrompt =
@@ -42,6 +45,7 @@ class RestaurantProfileScreen extends StatefulWidget {
   final Restaurant restaurant;
   final PublicRestaurantFavoriteLoader? loadFavorite;
   final PublicRestaurantDetailsRefresher? refreshRestaurant;
+  final PublicRestaurantAccountLoader? loadAccountData;
   final PublicRestaurantMenuResolver? resolvePublicMenu;
   final PublicRestaurantReportPrompt? promptForReport;
   final PublicRestaurantReportSubmitter? submitReport;
@@ -51,6 +55,7 @@ class RestaurantProfileScreen extends StatefulWidget {
     required this.restaurant,
     @visibleForTesting this.loadFavorite,
     @visibleForTesting this.refreshRestaurant,
+    @visibleForTesting this.loadAccountData,
     @visibleForTesting this.resolvePublicMenu,
     @visibleForTesting this.promptForReport,
     @visibleForTesting this.submitReport,
@@ -66,6 +71,8 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   bool _isSavingFavoriteRestaurant = false;
   bool _showRestaurantInfo = false;
   bool _isSubmittingReport = false;
+  bool _isCustomerRestaurantAvailabilityResolved = false;
+  bool _isCustomerRestaurantAvailable = true;
   double _modeDragProgress = 0;
   AppMode? _pressedMode;
   late Restaurant _restaurant;
@@ -81,6 +88,9 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   void initState() {
     super.initState();
     _restaurant = widget.restaurant;
+    _isCustomerRestaurantAvailabilityResolved =
+        widget.refreshRestaurant != null ||
+        widget.restaurant.accountDocumentId == null;
     _loadFavoriteState();
     _refreshRestaurantDetails();
   }
@@ -255,21 +265,27 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
         final accountDocumentId = restaurant.accountDocumentId;
         if (accountDocumentId != null) {
           final accountData =
-              await RestaurantAccountService.loadAccountByDocumentId(
-                accountDocumentId,
-              );
-          if (accountData != null) {
-            final hasPostingAccess =
-                RestaurantAccountService.hasCouponPostingAccess(accountData);
-            final dailySpecials = hasPostingAccess
-                ? await RestaurantAccountService.loadDailySpecialsForRestaurant(
+              await (widget.loadAccountData?.call(accountDocumentId) ??
+                  RestaurantAccountService.loadAccountByDocumentId(
                     accountDocumentId,
-                  )
-                : const <DailySpecial>[];
+                  ));
+          if (accountData != null) {
+            final isCustomerVisible =
+                RestaurantAccountService.isCustomerVisibleAccountData(
+                  accountData,
+                );
+            if (!isCustomerVisible) {
+              _markCustomerRestaurantUnavailable();
+              return;
+            }
+            final dailySpecials =
+                await RestaurantAccountService.loadDailySpecialsForRestaurant(
+                  accountDocumentId,
+                );
             freshRestaurant = Restaurant.fromFirestore(
               accountData,
               documentId: accountDocumentId,
-              coupons: hasPostingAccess ? restaurant.coupons : const <Coupon>[],
+              coupons: restaurant.coupons,
               dailySpecials: dailySpecials,
             );
           }
@@ -278,21 +294,47 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
         freshRestaurant ??= await _findMatchingApprovedRestaurant();
       }
 
-      if (!mounted || freshRestaurant == null) {
+      if (!mounted) {
+        return;
+      }
+      if (freshRestaurant == null) {
+        if (!_isCustomerRestaurantAvailabilityResolved) {
+          _markCustomerRestaurantUnavailable();
+        }
         return;
       }
 
       setState(() {
+        _isCustomerRestaurantAvailabilityResolved = true;
+        _isCustomerRestaurantAvailable = true;
         _restaurant = _withSafeDistanceLabel(freshRestaurant!);
       });
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _restaurant = _withoutCustomerOffers(restaurant);
-        });
+    } on FirebaseException catch (error) {
+      if (error.code == 'permission-denied') {
+        _markCustomerRestaurantUnavailable();
+        return;
       }
-      return;
+      _retainRestaurantWithoutOffers();
+    } catch (_) {
+      _retainRestaurantWithoutOffers();
     }
+  }
+
+  void _markCustomerRestaurantUnavailable() {
+    if (!mounted) return;
+    setState(() {
+      _isCustomerRestaurantAvailabilityResolved = true;
+      _isCustomerRestaurantAvailable = false;
+      _restaurant = _withoutCustomerOffers(restaurant);
+    });
+  }
+
+  void _retainRestaurantWithoutOffers() {
+    if (!mounted) return;
+    setState(() {
+      _isCustomerRestaurantAvailabilityResolved = true;
+      _restaurant = _withoutCustomerOffers(restaurant);
+    });
   }
 
   Future<Restaurant?> _findMatchingApprovedRestaurant() async {
@@ -1268,6 +1310,57 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_isCustomerRestaurantAvailabilityResolved) {
+      return Scaffold(
+        backgroundColor: BiteSaverColors.pageBackground,
+        appBar: AppBar(
+          leading: IconButton(
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const BackButtonIcon(),
+          ),
+          backgroundColor: BiteSaverColors.pageBackground,
+          surfaceTintColor: BiteSaverColors.pageBackground,
+          elevation: 0,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (!_isCustomerRestaurantAvailable) {
+      return Scaffold(
+        backgroundColor: BiteSaverColors.pageBackground,
+        appBar: AppBar(
+          leading: IconButton(
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+            onPressed: () => Navigator.of(context).maybePop(),
+            icon: const BackButtonIcon(),
+          ),
+          backgroundColor: BiteSaverColors.pageBackground,
+          surfaceTintColor: BiteSaverColors.pageBackground,
+          elevation: 0,
+        ),
+        bottomNavigationBar: const PersistentBottomNavigation(
+          mode: AppMode.biteSaver,
+        ),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Icon(Icons.storefront_outlined, size: 56),
+                SizedBox(height: 16),
+                Text(
+                  'This restaurant is not currently available in BiteSaver.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
     return ValueListenableBuilder<int>(
       valueListenable: DemoRedemptionStore.changes,
       builder: (context, changes, child) {

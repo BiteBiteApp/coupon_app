@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:coupon_app/models/coupon.dart';
 import 'package:coupon_app/models/daily_special.dart';
 import 'package:coupon_app/models/restaurant.dart';
@@ -275,6 +277,80 @@ void main() {
           isFalse,
         );
       }
+    },
+  );
+
+  testWidgets(
+    'account-backed profile stays fail-closed while visibility is unresolved',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1000);
+      addTearDown(tester.view.reset);
+      final account = Completer<Map<String, dynamic>?>();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RestaurantProfileScreen(
+            restaurant: _restaurant(
+              documentId: 'pending-account',
+              uid: 'pending-owner',
+            ),
+            loadFavorite: (_) async => false,
+            loadAccountData: (_) => account.future,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(CircularProgressIndicator), findsOneWidget);
+      expect(find.text('Identity Cafe'), findsNothing);
+      expect(find.text('Available Coupons'), findsNothing);
+
+      account.complete(<String, dynamic>{
+        Restaurant.fieldApprovalStatus: 'approved',
+        'couponPostingEnabled': true,
+        'adminHidden': true,
+      });
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('This restaurant is not currently available in BiteSaver.'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'hidden account replaces stale customer profile with unavailable state',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1000);
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RestaurantProfileScreen(
+            restaurant: _restaurant(
+              documentId: 'hidden-account',
+              uid: 'hidden-owner',
+            ),
+            loadFavorite: (_) async => false,
+            loadAccountData: (_) async => <String, dynamic>{
+              Restaurant.fieldApprovalStatus: 'approved',
+              'couponPostingEnabled': true,
+              'adminHidden': true,
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('This restaurant is not currently available in BiteSaver.'),
+        findsOneWidget,
+      );
+      expect(find.text('Identity Cafe'), findsNothing);
+      expect(find.text('Available Coupons'), findsNothing);
     },
   );
 

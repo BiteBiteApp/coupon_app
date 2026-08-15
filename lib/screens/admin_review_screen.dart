@@ -37,6 +37,12 @@ typedef AdminCouponInviteAction =
       required double? latitude,
       required double? longitude,
     });
+typedef AdminCouponSetVisibilityAction =
+    Future<void> Function({
+      required String documentId,
+      required bool expectedAdminHidden,
+      required bool adminHidden,
+    });
 
 /// Coupon-side Admin entry point.
 /// All displayed directories and queues use [CouponAdminPagingService].
@@ -49,6 +55,7 @@ class AdminReviewScreen extends StatelessWidget {
     @visibleForTesting this.deleteCoupon,
     @visibleForTesting this.editAccount,
     @visibleForTesting this.createCouponInvite,
+    @visibleForTesting this.setRestaurantVisibility,
     @visibleForTesting this.lifecycleService,
   });
 
@@ -59,6 +66,7 @@ class AdminReviewScreen extends StatelessWidget {
   final AdminCouponDeleteAction? deleteCoupon;
   final AdminCouponEditAction? editAccount;
   final AdminCouponInviteAction? createCouponInvite;
+  final AdminCouponSetVisibilityAction? setRestaurantVisibility;
   final BiteSaverRestaurantLifecycleService? lifecycleService;
 
   @override
@@ -71,6 +79,7 @@ class AdminReviewScreen extends StatelessWidget {
       deleteCoupon: deleteCoupon,
       editAccount: editAccount,
       createCouponInvite: createCouponInvite,
+      setRestaurantVisibility: setRestaurantVisibility,
     );
   }
 }

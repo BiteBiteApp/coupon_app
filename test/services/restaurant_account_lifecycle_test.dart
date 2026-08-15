@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:coupon_app/models/coupon.dart';
 import 'package:coupon_app/models/restaurant.dart';
 import 'package:coupon_app/screens/restaurant_auth_screen.dart';
 import 'package:coupon_app/services/restaurant_account_service.dart';
@@ -1121,6 +1122,168 @@ void main() {
         isFalse,
       );
     }
+  });
+
+  group('BiteSaver Admin visibility override', () {
+    Map<String, dynamic> eligibleAccount({Object? adminHidden}) =>
+        <String, dynamic>{
+          Restaurant.fieldApprovalStatus: 'approved',
+          'couponPostingEnabled': true,
+          'adminHidden': ?adminHidden,
+        };
+
+    test('missing and false adminHidden remain customer-visible', () {
+      expect(
+        RestaurantAccountService.isCustomerVisibleAccountData(
+          eligibleAccount(),
+        ),
+        isTrue,
+      );
+      expect(
+        RestaurantAccountService.isCustomerVisibleAccountData(
+          eligibleAccount(adminHidden: false),
+        ),
+        isTrue,
+      );
+      expect(
+        RestaurantAccountService.isCustomerVisibleAccountData(
+          eligibleAccount(adminHidden: 'true'),
+        ),
+        isTrue,
+        reason: 'Only the exact Boolean true value is the Admin veto.',
+      );
+    });
+
+    test(
+      'hidden is an additional customer veto without changing posting access',
+      () {
+        final hidden = eligibleAccount(adminHidden: true);
+
+        expect(RestaurantAccountService.hasCouponPostingAccess(hidden), isTrue);
+        expect(
+          RestaurantAccountService.isCustomerVisibleAccountData(hidden),
+          isFalse,
+        );
+        expect(
+          RestaurantAccountService.customerVisibleCouponsForAccountData(
+            hidden,
+            const <Coupon>[],
+          ),
+          isEmpty,
+        );
+        expect(
+          RestaurantAccountService.isCustomerVisibleAccountData(
+            <String, dynamic>{
+              ...hidden,
+              'adminHidden': false,
+              'couponPostingEnabled': false,
+            },
+          ),
+          isFalse,
+          reason: 'Restore cannot override the trusted publication flag.',
+        );
+      },
+    );
+
+    test('normalization preserves exact Admin hidden semantics', () {
+      for (final fixture in <(Object?, bool)>[
+        (null, false),
+        (false, false),
+        (true, true),
+        ('true', false),
+      ]) {
+        final normalized =
+            RestaurantAccountService.normalizedAccountDataForTesting(
+              <String, dynamic>{'adminHidden': ?fixture.$1},
+              fallbackUid: 'account-1',
+            );
+        expect(normalized['adminHidden'], fixture.$2);
+      }
+    });
+
+    test('visible-to-hidden and hidden-to-restored writes are narrow', () {
+      final updatedAt = Object();
+      final hide = RestaurantAccountService.adminVisibilityWriteForTesting(
+        currentData: eligibleAccount(),
+        expectedAdminHidden: false,
+        adminHidden: true,
+        updatedAt: updatedAt,
+      );
+      final restore = RestaurantAccountService.adminVisibilityWriteForTesting(
+        currentData: eligibleAccount(adminHidden: true),
+        expectedAdminHidden: true,
+        adminHidden: false,
+        updatedAt: updatedAt,
+      );
+
+      expect(hide, <String, dynamic>{
+        'adminHidden': true,
+        Restaurant.fieldUpdatedAt: updatedAt,
+      });
+      expect(restore, <String, dynamic>{
+        'adminHidden': false,
+        Restaurant.fieldUpdatedAt: updatedAt,
+      });
+      for (final write in <Map<String, dynamic>>[hide, restore]) {
+        expect(write, isNot(contains('couponPostingEnabled')));
+        expect(write.keys, <String>{'adminHidden', Restaurant.fieldUpdatedAt});
+      }
+    });
+
+    test('missing and stale accounts fail without producing a write', () {
+      expect(
+        () => RestaurantAccountService.adminVisibilityWriteForTesting(
+          currentData: null,
+          expectedAdminHidden: false,
+          adminHidden: true,
+          updatedAt: Object(),
+        ),
+        throwsA(
+          isA<RestaurantAccountAdminVisibilityException>().having(
+            (error) => error.kind,
+            'kind',
+            RestaurantAccountAdminVisibilityFailureKind.missingAccount,
+          ),
+        ),
+      );
+      expect(
+        () => RestaurantAccountService.adminVisibilityWriteForTesting(
+          currentData: eligibleAccount(adminHidden: true),
+          expectedAdminHidden: false,
+          adminHidden: true,
+          updatedAt: Object(),
+        ),
+        throwsA(
+          isA<RestaurantAccountAdminVisibilityException>().having(
+            (error) => error.kind,
+            'kind',
+            RestaurantAccountAdminVisibilityFailureKind.staleState,
+          ),
+        ),
+      );
+    });
+
+    test('production mutation uses one canonical transaction and update', () {
+      final source = File(
+        'lib/services/restaurant_account_service.dart',
+      ).readAsStringSync();
+      final start = source.indexOf('static Future<void> setAdminHiddenAsAdmin');
+      final end = source.indexOf(
+        'static Map<String, dynamic> _adminVisibilityWrite',
+        start,
+      );
+      final mutation = source.substring(start, end);
+
+      expect(mutation, contains(".collection('restaurant_accounts')"));
+      expect(mutation, contains('.doc(canonicalDocumentId)'));
+      expect(mutation, contains('_firestore.runTransaction<void>'));
+      expect(mutation, contains('transaction.get(accountRef)'));
+      expect(mutation, contains('transaction.update(accountRef, fields)'));
+      expect(mutation, contains('FieldValue.serverTimestamp()'));
+      expect(mutation, isNot(contains('transaction.set')));
+      expect(mutation, isNot(contains('couponPostingEnabled')));
+      expect(mutation, isNot(contains('stripe')));
+    });
   });
 }
 

@@ -52,6 +52,7 @@ Map<String, Object?> restaurant(String id) => <String, Object?>{
   'distanceMiles': null,
   'approvalStatus': 'approved',
   'couponApplicationSubmitted': true,
+  'adminHidden': false,
   'uid': 'uid-$id',
   'linkedBiteScoreRestaurantId': null,
 };

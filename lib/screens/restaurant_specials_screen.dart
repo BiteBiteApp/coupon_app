@@ -47,7 +47,9 @@ class _RestaurantSpecialsScreenState extends State<RestaurantSpecialsScreen> {
             );
         specials =
             accountData != null &&
-                RestaurantAccountService.hasCouponPostingAccess(accountData)
+                RestaurantAccountService.isCustomerVisibleAccountData(
+                  accountData,
+                )
             ? await RestaurantAccountService.loadActiveDailySpecialsForRestaurant(
                 accountDocumentId,
               )

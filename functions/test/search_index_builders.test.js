@@ -281,6 +281,41 @@ test("BiteSaver public projections require the exact trusted posting flag", () =
   }
 });
 
+test("BiteSaver Admin hidden veto covers restaurant, coupon, and daily-special projections", () => {
+  for (const adminHidden of [undefined, false, true]) {
+    const restaurant = biteSaverRestaurant({
+      ...(adminHidden === undefined ? {} : {adminHidden}),
+    });
+    const restaurantIndex = buildBiteSaverRestaurantIndex({
+      sourceDocumentId: `restaurant-${String(adminHidden)}`,
+      source: restaurant,
+      now,
+    });
+    const couponIndex = buildBiteSaverCouponOfferIndex({
+      restaurantAccountId: "account-1",
+      sourceDocumentId: `coupon-${String(adminHidden)}`,
+      offer: coupon(),
+      restaurant,
+      now,
+    });
+    const dailySpecialIndex = buildBiteSaverDailySpecialOfferIndex({
+      restaurantAccountId: "account-1",
+      sourceDocumentId: `special-${String(adminHidden)}`,
+      offer: dailySpecial(),
+      restaurant,
+      now,
+    });
+    const expectedPublicVisibility = adminHidden !== true;
+
+    assert.equal(restaurantIndex.publicVisible, expectedPublicVisibility);
+    assert.equal(restaurantIndex.adminDirectoryVisible, true);
+    assert.equal(couponIndex.publicVisible, expectedPublicVisibility);
+    assert.equal(couponIndex.adminVisible, true);
+    assert.equal(dailySpecialIndex.publicVisible, expectedPublicVisibility);
+    assert.equal(dailySpecialIndex.adminVisible, true);
+  }
+});
+
 test("scheduled cancellation retains public visibility while the trusted flag is true", () => {
   for (const subscriptionStatus of ["active", "trialing"]) {
     const restaurant = biteSaverRestaurant({
@@ -938,6 +973,10 @@ test("parent fingerprints change only for dependent-index inputs", () => {
       ...biteSaver,
       couponPostingEnabled: false,
     }),
+  );
+  assert.notEqual(
+    biteSaverOfferParentFingerprint(biteSaver),
+    biteSaverOfferParentFingerprint({...biteSaver, adminHidden: true}),
   );
   assert.notEqual(
     biteSaverOfferParentFingerprint(biteSaver),
