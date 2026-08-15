@@ -395,7 +395,7 @@ void main() {
   testWidgets(
     'restaurant directory delete sends exact ID and revision and refreshes only complete',
     (tester) async {
-      tester.view.physicalSize = const Size(800, 1000);
+      tester.view.physicalSize = const Size(800, 1200);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -429,6 +429,7 @@ void main() {
             onManageDishes: (_) {},
             onEditRestaurant: (_) async => false,
           ),
+          height: 1200,
         ),
       );
       await _startRestaurantSearch(tester);

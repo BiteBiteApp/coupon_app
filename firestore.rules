@@ -378,6 +378,23 @@ service cloud.firestore {
           resource.data.restaurantWriteRevision + 1;
     }
 
+    function validAdminBiteScoreRestaurantActivityUpdate() {
+      return isAdmin() &&
+        changedKeys().hasAny(['isActive', 'active']) &&
+        changedKeys().hasOnly([
+          'isActive',
+          'active',
+          'restaurantWriteRevision',
+          'updatedAt'
+        ]) &&
+        changedKeys().hasAll(['restaurantWriteRevision', 'updatedAt']) &&
+        request.resource.data.keys().hasAll(['isActive', 'active']) &&
+        request.resource.data.isActive is bool &&
+        request.resource.data.active is bool &&
+        request.resource.data.isActive == request.resource.data.active &&
+        request.resource.data.updatedAt == request.time;
+    }
+
     function validBiteScoreDishCreateProvenance() {
       return request.resource.data.createdByUserId == request.auth.uid &&
         request.resource.data.createdFromCreateFlow == true &&
@@ -1103,7 +1120,13 @@ service cloud.firestore {
       allow update: if restaurantOperationLockAllowsMutation(restaurantId) &&
         validBiteScoreRestaurantUpdateRevision() &&
         (
-          isAdmin() ||
+          (
+            isAdmin() &&
+            (
+              !changedKeys().hasAny(['isActive', 'active']) ||
+              validAdminBiteScoreRestaurantActivityUpdate()
+            )
+          ) ||
           canOwnerUpdateBiteScoreRestaurant(restaurantId) ||
           canCompleteBiteScoreRestaurantProvenance()
         ) &&

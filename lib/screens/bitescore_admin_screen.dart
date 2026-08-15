@@ -42,6 +42,12 @@ typedef AdminBiteScoreRestaurantLoader =
     Future<BitescoreRestaurant?> Function(String documentId);
 typedef AdminBiteScoreRestaurantDeleteAction =
     Future<void> Function(String documentId);
+typedef AdminBiteScoreRestaurantActivityAction =
+    Future<void> Function({
+      required String restaurantId,
+      required int expectedRestaurantWriteRevision,
+      required bool isActive,
+    });
 typedef AdminBiteScoreInviteAction =
     Future<RestaurantInviteCreationResult> Function({
       required String restaurantId,
@@ -53,6 +59,7 @@ class BiteScoreAdminScreen extends StatefulWidget {
   final AdminBiteScoreRestaurantSearchCallback? searchRestaurants;
   final AdminBiteScoreRestaurantLoader? loadRestaurant;
   final AdminBiteScoreRestaurantDeleteAction? deleteRestaurant;
+  final AdminBiteScoreRestaurantActivityAction? setRestaurantActivity;
   final AdminBiteScoreInviteAction? createClaimInvite;
   final AdminBiteScoreDishLoader? loadRestaurantDishes;
   final RatingAdminPagingService? pagingService;
@@ -65,6 +72,7 @@ class BiteScoreAdminScreen extends StatefulWidget {
     @visibleForTesting this.searchRestaurants,
     @visibleForTesting this.loadRestaurant,
     @visibleForTesting this.deleteRestaurant,
+    @visibleForTesting this.setRestaurantActivity,
     @visibleForTesting this.createClaimInvite,
     @visibleForTesting this.loadRestaurantDishes,
     @visibleForTesting this.pagingService,
@@ -197,6 +205,7 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
                     searchRestaurants: widget.searchRestaurants,
                     loadRestaurant: widget.loadRestaurant,
                     deleteRestaurant: widget.deleteRestaurant,
+                    setRestaurantActivity: widget.setRestaurantActivity,
                     createClaimInvite: widget.createClaimInvite,
                   )
                 else
@@ -207,6 +216,7 @@ class _BiteScoreAdminScreenState extends State<BiteScoreAdminScreen>
                     onEditRestaurant: _editPagedRestaurant,
                     loadRestaurant: widget.loadRestaurant,
                     deleteRestaurant: widget.deleteRestaurant,
+                    setRestaurantActivity: widget.setRestaurantActivity,
                     createClaimInvite: widget.createClaimInvite,
                   ),
                 if (widget.loadRestaurantDishes != null)
@@ -418,6 +428,7 @@ class _BiteScoreRestaurantAdminList extends StatefulWidget {
   final AdminBiteScoreRestaurantSearchCallback? searchRestaurants;
   final AdminBiteScoreRestaurantLoader? loadRestaurant;
   final AdminBiteScoreRestaurantDeleteAction? deleteRestaurant;
+  final AdminBiteScoreRestaurantActivityAction? setRestaurantActivity;
   final AdminBiteScoreInviteAction? createClaimInvite;
 
   const _BiteScoreRestaurantAdminList({
@@ -425,6 +436,7 @@ class _BiteScoreRestaurantAdminList extends StatefulWidget {
     this.searchRestaurants,
     this.loadRestaurant,
     this.deleteRestaurant,
+    this.setRestaurantActivity,
     this.createClaimInvite,
   });
 
@@ -655,6 +667,97 @@ class _BiteScoreRestaurantAdminListState
         setState(() {
           _selectedRestaurantLoadingId = null;
         });
+      }
+    }
+  }
+
+  Future<void> _setRestaurantActivity(
+    BuildContext context,
+    AdminRestaurantLinkRecord record,
+  ) async {
+    final actionKey = 'activity:${record.documentId}';
+    if (!_busyActions.add(actionKey)) return;
+    setState(() {});
+    try {
+      final load = widget.loadRestaurant;
+      final restaurant = load != null
+          ? await load(record.documentId)
+          : await BiteScoreService.loadRestaurantById(record.documentId);
+      if (!context.mounted) return;
+      if (restaurant == null || restaurant.id != record.documentId) {
+        throw const BiteScoreRestaurantWriteStateException();
+      }
+
+      final targetIsActive = !restaurant.isActive;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: Text(
+            targetIsActive
+                ? 'Restore “${restaurant.name}” to BiteScore?'
+                : 'Hide “${restaurant.name}” from BiteScore?',
+          ),
+          content: Text(
+            targetIsActive
+                ? 'The restaurant will become available through the existing '
+                      'customer visibility rules.'
+                : 'Customers will no longer see this restaurant or its dishes '
+                      'through BiteScore. New restaurant claims are already '
+                      'blocked by the secure claim system. Existing restaurant, '
+                      'dish, review, rating, image, ownership, and history data '
+                      'will remain stored. You can restore the restaurant later.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(
+                targetIsActive ? 'Restore Restaurant' : 'Hide Restaurant',
+              ),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !context.mounted) return;
+
+      final update = widget.setRestaurantActivity;
+      if (update != null) {
+        await update(
+          restaurantId: restaurant.id,
+          expectedRestaurantWriteRevision: restaurant.restaurantWriteRevision,
+          isActive: targetIsActive,
+        );
+      } else {
+        await BiteScoreService.setRestaurantActivityAsAdmin(
+          restaurantId: restaurant.id,
+          expectedRestaurantWriteRevision: restaurant.restaurantWriteRevision,
+          isActive: targetIsActive,
+        );
+      }
+      if (!context.mounted) return;
+      _showSnackBar(
+        context,
+        targetIsActive
+            ? '${restaurant.name} restored.'
+            : '${restaurant.name} hidden.',
+      );
+      await _submitSearch();
+    } catch (error) {
+      if (context.mounted) {
+        _showSnackBar(
+          context,
+          AppErrorText.friendly(
+            error,
+            fallback: 'Could not update restaurant visibility right now.',
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _busyActions.remove(actionKey));
       }
     }
   }
@@ -1166,6 +1269,9 @@ class _BiteScoreRestaurantAdminListState
     ].where((part) => part.trim().isNotEmpty).join(', ');
     final inviteBusy = _busyActions.contains('invite:${restaurant.documentId}');
     final deleteBusy = _busyActions.contains('delete:${restaurant.documentId}');
+    final activityBusy = _busyActions.contains(
+      'activity:${restaurant.documentId}',
+    );
     final editBusy = _selectedRestaurantLoadingId == restaurant.documentId;
 
     return KeyedSubtree(
@@ -1245,6 +1351,24 @@ class _BiteScoreRestaurantAdminListState
                         : () => _editRestaurant(restaurant),
                     icon: const Icon(Icons.edit_outlined),
                     label: const Text('Edit'),
+                  ),
+                  OutlinedButton.icon(
+                    key: ValueKey(
+                      'legacy-rating-admin-activity-${restaurant.documentId}',
+                    ),
+                    onPressed: activityBusy
+                        ? null
+                        : () => _setRestaurantActivity(context, restaurant),
+                    icon: Icon(
+                      restaurant.isActive == true
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined,
+                    ),
+                    label: Text(
+                      restaurant.isActive == true
+                          ? 'Hide / Mark Closed'
+                          : 'Restore Restaurant',
+                    ),
                   ),
                   OutlinedButton.icon(
                     onPressed: deleteBusy

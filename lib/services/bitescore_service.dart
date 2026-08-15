@@ -768,6 +768,37 @@ class BiteScoreService {
     expectedRevision: expectedRevision,
   );
 
+  static Map<String, dynamic> _restaurantActivityWrite({
+    required Map<String, dynamic>? currentData,
+    required int expectedRevision,
+    required bool isActive,
+    required Object updatedAt,
+  }) {
+    final nextRevision = _nextExpectedRestaurantWriteRevision(
+      currentData: currentData,
+      expectedRevision: expectedRevision,
+    );
+    return <String, dynamic>{
+      'isActive': isActive,
+      'active': isActive,
+      BitescoreRestaurant.restaurantWriteRevisionField: nextRevision,
+      'updatedAt': updatedAt,
+    };
+  }
+
+  @visibleForTesting
+  static Map<String, dynamic> restaurantActivityWriteForTesting({
+    required Map<String, dynamic>? currentData,
+    required int expectedRevision,
+    required bool isActive,
+    required Object updatedAt,
+  }) => _restaurantActivityWrite(
+    currentData: currentData,
+    expectedRevision: expectedRevision,
+    isActive: isActive,
+    updatedAt: updatedAt,
+  );
+
   static bool _isStrictlyUnclaimedRestaurantData(Map<String, dynamic> data) {
     if (data.containsKey('isClaimed')) {
       final isClaimed = data['isClaimed'];
@@ -5105,6 +5136,34 @@ class BiteScoreService {
       restaurantId: restaurant.id,
       restaurantName: updatedRestaurant.name,
       expectedRestaurantWriteRevision: dishNameSynchronizationRevision,
+    );
+  }
+
+  static Future<void> setRestaurantActivityAsAdmin({
+    required String restaurantId,
+    required int expectedRestaurantWriteRevision,
+    required bool isActive,
+  }) async {
+    final canonicalRestaurantId = restaurantId.trim();
+    if (canonicalRestaurantId.isEmpty) {
+      throw const BiteScoreRestaurantWriteStateException();
+    }
+    final restaurantRef = restaurantsCollection().doc(canonicalRestaurantId);
+    await _runExpectedRestaurantRevisionTransaction<void>(
+      restaurantRef: restaurantRef,
+      expectedRevision: expectedRestaurantWriteRevision,
+      apply: (transaction, currentSnapshot, _) async {
+        transaction.set(
+          restaurantRef,
+          _restaurantActivityWrite(
+            currentData: currentSnapshot.data(),
+            expectedRevision: expectedRestaurantWriteRevision,
+            isActive: isActive,
+            updatedAt: FieldValue.serverTimestamp(),
+          ),
+          SetOptions(merge: true),
+        );
+      },
     );
   }
 

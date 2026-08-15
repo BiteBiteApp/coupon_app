@@ -246,6 +246,7 @@ Future<void> startRadiusSearch(
     required String restaurantId,
   })?
   createClaimInvite,
+  RatingAdminSetRestaurantActivity? setRestaurantActivity,
 }) async {
   await tester.pumpWidget(
     host(
@@ -254,6 +255,7 @@ Future<void> startRadiusSearch(
         onManageDishes: (_) {},
         onEditRestaurant: (_) async => false,
         createClaimInvite: createClaimInvite,
+        setRestaurantActivity: setRestaurantActivity,
       ),
       height: height,
     ),
@@ -861,6 +863,169 @@ void main() {
         expect(button.onPressed, isNull);
       }
       expect(inviteCalls, 0);
+    },
+  );
+
+  testWidgets(
+    'active Rating restaurant hides with revision fencing and preserved actions',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final activityWrite = Completer<void>();
+      final calls = <({String id, int revision, bool isActive})>[];
+      var pageLoads = 0;
+      final service = RatingAdminPagingService(
+        functionsBoundary: (_, _) async {
+          pageLoads += 1;
+          return page(
+            items: <Object?>[restaurant('ACTIVE_DOC', 'Active Restaurant')],
+            pageSize: 50,
+            pageNumber: 1,
+          );
+        },
+      );
+      await startRadiusSearch(
+        tester,
+        service,
+        height: 1000,
+        setRestaurantActivity:
+            ({
+              required restaurantId,
+              required expectedRestaurantWriteRevision,
+              required isActive,
+            }) {
+              calls.add((
+                id: restaurantId,
+                revision: expectedRestaurantWriteRevision,
+                isActive: isActive,
+              ));
+              return activityWrite.future;
+            },
+      );
+      await tester.pumpAndSettle();
+
+      final hide = find.widgetWithText(OutlinedButton, 'Hide / Mark Closed');
+      await tester.ensureVisible(hide);
+      expect(hide, findsOneWidget);
+      expect(find.text('Manage Dishes'), findsOneWidget);
+      expect(find.text('Edit'), findsOneWidget);
+      expect(find.text('Delete'), findsOneWidget);
+
+      await tester.tap(hide);
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Hide “Active Restaurant” from BiteScore?'),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('Existing restaurant, dish, review, rating, image'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('remain stored'), findsOneWidget);
+      expect(
+        find.textContaining('restore the restaurant later'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Hide Restaurant'));
+      await tester.pump();
+      expect(calls, [(id: 'ACTIVE_DOC', revision: 4, isActive: false)]);
+      expect(tester.widget<OutlinedButton>(hide).onPressed, isNull);
+      await tester.tap(hide, warnIfMissed: false);
+      await tester.pump();
+      expect(calls, hasLength(1));
+
+      activityWrite.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(find.text('Active Restaurant hidden.'), findsOneWidget);
+      expect(pageLoads, 2);
+    },
+  );
+
+  testWidgets(
+    'hidden and malformed Rating states restore and stale failures are controlled',
+    (tester) async {
+      tester.view.physicalSize = const Size(390, 1000);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      final writes = <({String id, int revision, bool isActive})>[];
+      for (final scenario in <({String id, bool fail})>[
+        (id: 'HIDDEN_DOC', fail: false),
+        (id: 'MALFORMED_CONFLICTING_DOC', fail: true),
+      ]) {
+        await tester.pumpWidget(const SizedBox.shrink());
+        await tester.pump();
+        final service = RatingAdminPagingService(
+          functionsBoundary: (_, _) async => page(
+            items: <Object?>[
+              restaurant(
+                scenario.id,
+                scenario.fail ? 'Malformed Restaurant' : 'Hidden Restaurant',
+                isActive: false,
+              ),
+            ],
+            pageSize: 50,
+            pageNumber: 1,
+          ),
+        );
+        await startRadiusSearch(
+          tester,
+          service,
+          height: 1000,
+          setRestaurantActivity:
+              ({
+                required restaurantId,
+                required expectedRestaurantWriteRevision,
+                required isActive,
+              }) async {
+                writes.add((
+                  id: restaurantId,
+                  revision: expectedRestaurantWriteRevision,
+                  isActive: isActive,
+                ));
+                if (scenario.fail) {
+                  throw const BiteScoreRestaurantChangedException();
+                }
+              },
+        );
+        await tester.pumpAndSettle();
+
+        final restore = find.widgetWithText(
+          OutlinedButton,
+          'Restore Restaurant',
+        );
+        await tester.ensureVisible(restore);
+        expect(restore, findsOneWidget);
+        await tester.tap(restore);
+        await tester.pumpAndSettle();
+        expect(find.textContaining('Restore “'), findsOneWidget);
+        expect(
+          find.textContaining('existing customer visibility rules'),
+          findsOneWidget,
+        );
+        await tester.tap(
+          find.widgetWithText(FilledButton, 'Restore Restaurant'),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 350));
+
+        if (scenario.fail) {
+          expect(
+            find.text('This restaurant changed. Refresh and try again.'),
+            findsOneWidget,
+          );
+        } else {
+          expect(find.text('Hidden Restaurant restored.'), findsOneWidget);
+        }
+      }
+      expect(writes, [
+        (id: 'HIDDEN_DOC', revision: 4, isActive: true),
+        (id: 'MALFORMED_CONFLICTING_DOC', revision: 4, isActive: true),
+      ]);
     },
   );
 

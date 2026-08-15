@@ -2163,6 +2163,202 @@ test("BiteScore restaurant update requires the current revision plus one", async
   );
 });
 
+test("Admin exact BiteScore Hide and Restore writes preserve all other data", async () => {
+  const restaurantRef = dbFor("admin").doc("bitescore_restaurants/bs-1");
+  const original = (await restaurantRef.get()).data();
+
+  await assertSucceeds(
+    restaurantRef.set(
+      {
+        isActive: false,
+        active: false,
+        restaurantWriteRevision: 5,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+  const hidden = (await restaurantRef.get()).data();
+  assert.equal(hidden.isActive, false);
+  assert.equal(hidden.active, false);
+  assert.equal(hidden.restaurantWriteRevision, 5);
+  for (const field of [
+    "id",
+    "name",
+    "address",
+    "location",
+    "ownerUserId",
+    "isClaimed",
+    "sharedMenuId",
+  ]) {
+    assert.deepEqual(hidden[field], original[field], field);
+  }
+
+  await assertSucceeds(
+    restaurantRef.set(
+      {
+        isActive: true,
+        active: true,
+        restaurantWriteRevision: 6,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+  const restored = (await restaurantRef.get()).data();
+  assert.equal(restored.isActive, true);
+  assert.equal(restored.active, true);
+  assert.equal(restored.restaurantWriteRevision, 6);
+  assert.equal(restored.ownerUserId, "bitescore-owner");
+  assert.equal(restored.isClaimed, true);
+});
+
+test("Admin Restore normalizes hidden malformed and conflicting activity", async () => {
+  const cases = [
+    { id: "restore-hidden", isActive: false, active: false },
+    { id: "restore-malformed", isActive: "true", active: false },
+    { id: "restore-conflicting", isActive: true, active: false },
+  ];
+  await seedRuleTestDocuments(cases.map((entry) => ({
+    documentPath: `bitescore_restaurants/${entry.id}`,
+    data: {
+      id: entry.id,
+      name: `Restaurant ${entry.id}`,
+      isActive: entry.isActive,
+      active: entry.active,
+      restaurantWriteRevision: 4,
+      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+    },
+  })));
+
+  for (const entry of cases) {
+    const ref = dbFor("admin").doc(`bitescore_restaurants/${entry.id}`);
+    await assertSucceeds(
+      ref.set(
+        {
+          isActive: true,
+          active: true,
+          restaurantWriteRevision: 5,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      ),
+    );
+    const restored = (await ref.get()).data();
+    assert.equal(restored.isActive, true, entry.id);
+    assert.equal(restored.active, true, entry.id);
+    assert.equal(restored.restaurantWriteRevision, 5, entry.id);
+  }
+});
+
+test("non-Admins cannot change BiteScore restaurant activity", async () => {
+  for (const actor of ["customer", "biteScoreOwner"]) {
+    await assertFails(
+      dbFor(actor).doc("bitescore_restaurants/bs-1").set(
+        {
+          isActive: false,
+          active: false,
+          restaurantWriteRevision: 5,
+          updatedAt: serverTimestamp(),
+        },
+        { merge: true },
+      ),
+    );
+  }
+});
+
+test("Admin activity writes cannot include profile ownership or claim changes", async () => {
+  const restaurantRef = dbFor("admin").doc("bitescore_restaurants/bs-1");
+  for (const extra of [
+    { name: "Changed while hiding" },
+    { address: "99 Changed Address" },
+    { ownerUserId: "other-owner" },
+    { isClaimed: false },
+    { linkedBiteSaverUid: "other-link" },
+  ]) {
+    await assertFails(
+      restaurantRef.set(
+        {
+          isActive: false,
+          active: false,
+          restaurantWriteRevision: 5,
+          updatedAt: serverTimestamp(),
+          ...extra,
+        },
+        { merge: true },
+      ),
+    );
+  }
+});
+
+test("Admin activity writes require equal Booleans timestamp and exact revision", async () => {
+  const restaurantRef = dbFor("admin").doc("bitescore_restaurants/bs-1");
+  const invalidWrites = [
+    {
+      isActive: false,
+      active: true,
+      restaurantWriteRevision: 5,
+      updatedAt: serverTimestamp(),
+    },
+    {
+      isActive: "false",
+      active: false,
+      restaurantWriteRevision: 5,
+      updatedAt: serverTimestamp(),
+    },
+    {
+      isActive: false,
+      active: 0,
+      restaurantWriteRevision: 5,
+      updatedAt: serverTimestamp(),
+    },
+    {
+      isActive: false,
+      active: false,
+      restaurantWriteRevision: 4,
+      updatedAt: serverTimestamp(),
+    },
+    {
+      isActive: false,
+      active: false,
+      restaurantWriteRevision: 6,
+      updatedAt: serverTimestamp(),
+    },
+    {
+      isActive: false,
+      active: false,
+      restaurantWriteRevision: 5,
+      updatedAt: new Date("2025-01-01T00:00:00.000Z"),
+    },
+  ];
+  for (const write of invalidWrites) {
+    await assertFails(restaurantRef.set(write, { merge: true }));
+  }
+});
+
+test("existing Admin and owner profile edits remain available without activity changes", async () => {
+  await assertSucceeds(
+    dbFor("admin").doc("bitescore_restaurants/bs-1").set(
+      {
+        phone: "555-0199",
+        restaurantWriteRevision: 5,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+  await assertSucceeds(
+    dbFor("biteScoreOwner").doc("bitescore_restaurants/bs-1").set(
+      {
+        bio: "Owner profile edit remains available",
+        restaurantWriteRevision: 6,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+});
+
 test("BiteScore restaurant revision accepts the safe maximum and then exhausts", async () => {
   const restaurantPath = "bitescore_restaurants/revision-maximum";
   await seedRuleTestDocuments([

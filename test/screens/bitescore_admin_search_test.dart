@@ -331,8 +331,18 @@ void main() {
       expect(find.text('Street address'), findsAtLeastNWidgets(1));
       expect(find.text('Cuisine tags'), findsAtLeastNWidgets(1));
       expect(find.text('Bio / Hours / Notes'), findsAtLeastNWidgets(1));
-      expect(find.text('Hide Restaurant'), findsNothing);
-      expect(find.text('Restore Restaurant'), findsNothing);
+      final editDialog = find.byType(AlertDialog);
+      expect(
+        find.descendant(of: editDialog, matching: find.text('Hide Restaurant')),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: editDialog,
+          matching: find.text('Restore Restaurant'),
+        ),
+        findsNothing,
+      );
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
       expect(find.text('Hidden Cafe'), findsOneWidget);
@@ -342,6 +352,206 @@ void main() {
       );
     },
   );
+
+  testWidgets(
+    'legacy active action loads canonical state and submits captured revision',
+    (tester) async {
+      var searchCalls = 0;
+      var loadCalls = 0;
+      final activityWrite = Completer<void>();
+      final writes = <({String id, int revision, bool isActive})>[];
+      await _pumpScreen(
+        tester,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+              required biteScoreStatus,
+            }) async {
+              searchCalls += 1;
+              return _result(
+                records: [
+                  _record(documentId: 'legacy-active', name: 'Projected Name'),
+                ],
+              );
+            },
+        loadRestaurant: (documentId) async {
+          loadCalls += 1;
+          return _restaurant(
+            documentId: documentId,
+            name: 'Canonical Current Name',
+            isActive: true,
+            revision: 7,
+          );
+        },
+        setRestaurantActivity:
+            ({
+              required restaurantId,
+              required expectedRestaurantWriteRevision,
+              required isActive,
+            }) {
+              writes.add((
+                id: restaurantId,
+                revision: expectedRestaurantWriteRevision,
+                isActive: isActive,
+              ));
+              return activityWrite.future;
+            },
+      );
+
+      await _submitSearch(tester);
+      final hide = find.widgetWithText(OutlinedButton, 'Hide / Mark Closed');
+      await _scrollToWidget(tester, hide);
+      await tester.tap(hide);
+      await tester.pumpAndSettle();
+      expect(loadCalls, 1);
+      expect(
+        find.text('Hide “Canonical Current Name” from BiteScore?'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('remain stored'), findsOneWidget);
+      expect(
+        find.textContaining('restore the restaurant later'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Hide Restaurant'));
+      await tester.pump();
+      expect(writes, [(id: 'legacy-active', revision: 7, isActive: false)]);
+      expect(tester.widget<OutlinedButton>(hide).onPressed, isNull);
+
+      activityWrite.complete();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
+      expect(find.text('Canonical Current Name hidden.'), findsOneWidget);
+      expect(searchCalls, 2);
+      expect(loadCalls, 1);
+    },
+  );
+
+  testWidgets(
+    'legacy hidden and conflicting canonical states restore without profile save',
+    (tester) async {
+      final writes = <({String id, int revision, bool isActive})>[];
+      for (final scenario in <({String id, Map<String, dynamic> activity})>[
+        (
+          id: 'legacy-hidden',
+          activity: <String, dynamic>{'isActive': false, 'active': false},
+        ),
+        (
+          id: 'legacy-conflicting',
+          activity: <String, dynamic>{'isActive': true, 'active': false},
+        ),
+      ]) {
+        await _pumpScreen(
+          tester,
+          search: _fixedSearch([
+            _record(
+              documentId: scenario.id,
+              name: 'Projected ${scenario.id}',
+              isActive: false,
+            ),
+          ]),
+          loadRestaurant: (documentId) async => _restaurantFromActivity(
+            documentId: documentId,
+            name: 'Canonical ${scenario.id}',
+            revision: 9,
+            activity: scenario.activity,
+          ),
+          setRestaurantActivity:
+              ({
+                required restaurantId,
+                required expectedRestaurantWriteRevision,
+                required isActive,
+              }) async {
+                writes.add((
+                  id: restaurantId,
+                  revision: expectedRestaurantWriteRevision,
+                  isActive: isActive,
+                ));
+              },
+        );
+        await _submitSearch(tester);
+        final restore = find.widgetWithText(
+          OutlinedButton,
+          'Restore Restaurant',
+        );
+        await _scrollToWidget(tester, restore);
+        await tester.tap(restore);
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Restore “Canonical ${scenario.id}” to BiteScore?'),
+          findsOneWidget,
+        );
+        await tester.tap(
+          find.widgetWithText(FilledButton, 'Restore Restaurant'),
+        );
+        await tester.pumpAndSettle();
+      }
+      expect(writes, [
+        (id: 'legacy-hidden', revision: 9, isActive: true),
+        (id: 'legacy-conflicting', revision: 9, isActive: true),
+      ]);
+    },
+  );
+
+  testWidgets('legacy stale activity revision is controlled and not retried', (
+    tester,
+  ) async {
+    var loadCalls = 0;
+    var writeCalls = 0;
+    var searchCalls = 0;
+    await _pumpScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+            required biteScoreStatus,
+          }) async {
+            searchCalls += 1;
+            return _result(records: [_record(documentId: 'legacy-stale')]);
+          },
+      loadRestaurant: (documentId) async {
+        loadCalls += 1;
+        return _restaurant(
+          documentId: documentId,
+          name: 'Stale Restaurant',
+          isActive: true,
+          revision: 11,
+        );
+      },
+      setRestaurantActivity:
+          ({
+            required restaurantId,
+            required expectedRestaurantWriteRevision,
+            required isActive,
+          }) async {
+            writeCalls += 1;
+            expect(expectedRestaurantWriteRevision, 11);
+            throw const BiteScoreRestaurantChangedException();
+          },
+    );
+    await _submitSearch(tester);
+    final hide = find.widgetWithText(OutlinedButton, 'Hide / Mark Closed');
+    await _scrollToWidget(tester, hide);
+    await tester.tap(hide);
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FilledButton, 'Hide Restaurant'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text('This restaurant changed. Refresh and try again.'),
+      findsOneWidget,
+    );
+    expect(loadCalls, 1);
+    expect(writeCalls, 1);
+    expect(searchCalls, 1);
+  });
 
   testWidgets('selected document load failures are controlled', (tester) async {
     final record = _record(documentId: 'missing-document');
@@ -554,6 +764,40 @@ void main() {
       expect(serviceSource, contains('restaurant?.copyWith(id: snapshot.id)'));
     },
   );
+
+  test('profile editor stays free of restaurant visibility writes', () {
+    final source = File(
+      'lib/screens/bitescore_admin_screen.dart',
+    ).readAsStringSync();
+    final start = source.indexOf('class _BiteScoreRestaurantEditDialog');
+    final end = source.indexOf('class _BiteScoreDishEditDialog', start);
+    expect(start, greaterThanOrEqualTo(0));
+    expect(end, greaterThan(start));
+    final editor = source.substring(start, end);
+
+    expect(editor, isNot(contains('isActive')));
+    expect(editor, isNot(contains("'active'")));
+    expect(editor, isNot(contains('Hide / Mark Closed')));
+    expect(editor, isNot(contains('Restore Restaurant')));
+    expect(editor, contains('Restaurant name'));
+    expect(editor, contains('Street address'));
+    expect(editor, contains('Cuisine tags'));
+    expect(editor, contains('Bio / Hours / Notes'));
+
+    final serviceSource = File(
+      'lib/services/bitescore_service.dart',
+    ).readAsStringSync();
+    final profileStart = serviceSource.indexOf(
+      'static Future<void> updateRestaurantAsAdmin',
+    );
+    final profileEnd = serviceSource.indexOf(
+      'static Future<void> setRestaurantActivityAsAdmin',
+      profileStart,
+    );
+    final profileSave = serviceSource.substring(profileStart, profileEnd);
+    expect(profileSave, contains("..remove('isActive')"));
+    expect(profileSave, contains("..remove('active')"));
+  });
 }
 
 final Finder _locationField = find.byKey(
@@ -578,6 +822,7 @@ Future<void> _pumpScreen(
   required AdminBiteScoreRestaurantSearchCallback search,
   AdminBiteScoreRestaurantLoader? loadRestaurant,
   AdminBiteScoreRestaurantDeleteAction? deleteRestaurant,
+  AdminBiteScoreRestaurantActivityAction? setRestaurantActivity,
   AdminBiteScoreInviteAction? createClaimInvite,
   AdminBiteScoreDishLoader? loadDishes,
   double textScale = 1,
@@ -602,6 +847,7 @@ Future<void> _pumpScreen(
           searchRestaurants: search,
           loadRestaurant: loadRestaurant,
           deleteRestaurant: deleteRestaurant,
+          setRestaurantActivity: setRestaurantActivity,
           createClaimInvite: createClaimInvite,
           loadRestaurantDishes: loadDishes,
         ),
@@ -724,19 +970,41 @@ AdminRestaurantLinkRecord _record({
 BitescoreRestaurant _restaurant({
   required String documentId,
   required bool isActive,
+  String name = 'Hidden Cafe',
+  int revision = 0,
 }) {
   return BitescoreRestaurant(
     id: documentId,
-    name: 'Hidden Cafe',
-    normalizedName: 'hidden cafe',
+    name: name,
+    normalizedName: name.toLowerCase(),
     address: '1 Main Street',
     city: 'Crystal River',
     state: 'FL',
     zipCode: '34428',
     location: const GeoPoint(28.8517, -82.487),
-    restaurantWriteRevision: 0,
+    restaurantWriteRevision: revision,
     isActive: isActive,
   );
+}
+
+BitescoreRestaurant _restaurantFromActivity({
+  required String documentId,
+  required String name,
+  required int revision,
+  required Map<String, dynamic> activity,
+}) {
+  return BitescoreRestaurant.tryFromFinderFirestore(<String, dynamic>{
+    'id': documentId,
+    'name': name,
+    'normalizedName': name.toLowerCase(),
+    'address': '1 Main Street',
+    'city': 'Crystal River',
+    'state': 'FL',
+    'zipCode': '34428',
+    'location': const GeoPoint(28.8517, -82.487),
+    'restaurantWriteRevision': revision,
+    ...activity,
+  }, fallbackId: documentId)!;
 }
 
 BitescoreDish _dish({

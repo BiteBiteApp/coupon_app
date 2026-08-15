@@ -180,6 +180,123 @@ void main() {
     });
   });
 
+  group('Admin restaurant activity write', () {
+    test('hide and restore write only the four fenced fields', () {
+      final updatedAt = Object();
+      for (final scenario in <({bool current, bool target})>[
+        (current: true, target: false),
+        (current: false, target: true),
+      ]) {
+        final current = <String, dynamic>{
+          'id': 'restaurant-1',
+          'name': 'Preserved Restaurant',
+          'ownerUserId': 'owner-1',
+          'isClaimed': true,
+          'isActive': scenario.current,
+          'active': scenario.current,
+          'restaurantWriteRevision': 4,
+        };
+        final patch = BiteScoreService.restaurantActivityWriteForTesting(
+          currentData: current,
+          expectedRevision: 4,
+          isActive: scenario.target,
+          updatedAt: updatedAt,
+        );
+
+        expect(patch.keys, <String>{
+          'isActive',
+          'active',
+          'restaurantWriteRevision',
+          'updatedAt',
+        });
+        expect(patch['isActive'], scenario.target);
+        expect(patch['active'], scenario.target);
+        expect(patch['restaurantWriteRevision'], 5);
+        expect(patch['updatedAt'], same(updatedAt));
+
+        final merged = <String, dynamic>{...current, ...patch};
+        expect(merged['name'], 'Preserved Restaurant');
+        expect(merged['ownerUserId'], 'owner-1');
+        expect(merged['isClaimed'], isTrue);
+      }
+    });
+
+    test('restore normalizes malformed and conflicting activity aliases', () {
+      final updatedAt = Object();
+      for (final current in <Map<String, dynamic>>[
+        <String, dynamic>{
+          'isActive': 'true',
+          'active': false,
+          'restaurantWriteRevision': 4,
+        },
+        <String, dynamic>{
+          'isActive': true,
+          'active': false,
+          'restaurantWriteRevision': 4,
+        },
+      ]) {
+        final patch = BiteScoreService.restaurantActivityWriteForTesting(
+          currentData: current,
+          expectedRevision: 4,
+          isActive: true,
+          updatedAt: updatedAt,
+        );
+        expect(patch['isActive'], isTrue);
+        expect(patch['active'], isTrue);
+        expect(patch['restaurantWriteRevision'], 5);
+      }
+    });
+
+    test('missing, malformed, and stale revisions fail closed', () {
+      for (final currentData in <Map<String, dynamic>?>[
+        null,
+        <String, dynamic>{},
+        <String, dynamic>{'restaurantWriteRevision': '4'},
+      ]) {
+        expect(
+          () => BiteScoreService.restaurantActivityWriteForTesting(
+            currentData: currentData,
+            expectedRevision: 4,
+            isActive: false,
+            updatedAt: Object(),
+          ),
+          throwsA(isA<BiteScoreRestaurantWriteStateException>()),
+        );
+      }
+      expect(
+        () => BiteScoreService.restaurantActivityWriteForTesting(
+          currentData: <String, dynamic>{'restaurantWriteRevision': 5},
+          expectedRevision: 4,
+          isActive: false,
+          updatedAt: Object(),
+        ),
+        throwsA(isA<BiteScoreRestaurantChangedException>()),
+      );
+    });
+
+    test('production activity method is transactional and profile-free', () {
+      final source = File(
+        'lib/services/bitescore_service.dart',
+      ).readAsStringSync();
+      final section = sourceSection(
+        source,
+        'static Future<void> setRestaurantActivityAsAdmin',
+        'static Future<void> updateRestaurantAsOwner',
+      );
+
+      expect(section, contains('_runExpectedRestaurantRevisionTransaction'));
+      expect(section, contains('currentSnapshot.data()'));
+      expect(section, contains('FieldValue.serverTimestamp()'));
+      expect(section, contains('SetOptions(merge: true)'));
+      expect(section, isNot(contains('_verifyRestaurantAddress')));
+      expect(section, isNot(contains('updateRestaurantAsAdmin')));
+      expect(section, isNot(contains('ownerUserId')));
+      expect(section, isNot(contains('isClaimed')));
+      expect(section, isNot(contains('linkedBiteSaverUid')));
+      expect(section, isNot(contains('Stripe')));
+    });
+  });
+
   group('BiteScore claim write boundary', () {
     test('direct claim accepts every strict active-unclaimed shape', () {
       final activityCases = <Map<String, dynamic>>[

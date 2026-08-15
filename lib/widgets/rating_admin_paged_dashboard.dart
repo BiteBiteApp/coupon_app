@@ -29,6 +29,12 @@ import 'rating_destructive_operation_status_dialog.dart';
 typedef RatingAdminEditRestaurant =
     Future<bool?> Function(BitescoreRestaurant restaurant);
 typedef RatingAdminEditDish = Future<bool?> Function(BitescoreDish dish);
+typedef RatingAdminSetRestaurantActivity =
+    Future<void> Function({
+      required String restaurantId,
+      required int expectedRestaurantWriteRevision,
+      required bool isActive,
+    });
 
 Future<bool> _confirm(
   BuildContext context, {
@@ -97,6 +103,7 @@ class RatingAdminRestaurantPagedView extends StatefulWidget {
     this.loadRestaurant,
     this.deleteRestaurant,
     this.createClaimInvite,
+    this.setRestaurantActivity,
   });
 
   final ValueChanged<AdminRestaurantLinkRecord> onManageDishes;
@@ -109,6 +116,7 @@ class RatingAdminRestaurantPagedView extends StatefulWidget {
     required String restaurantId,
   })?
   createClaimInvite;
+  final RatingAdminSetRestaurantActivity? setRestaurantActivity;
 
   @override
   State<RatingAdminRestaurantPagedView> createState() =>
@@ -269,6 +277,74 @@ class _RatingAdminRestaurantPagedViewState
           AppErrorText.friendly(
             error,
             fallback: 'Could not edit the restaurant right now.',
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy.remove(key));
+    }
+  }
+
+  Future<void> _setRestaurantActivity(
+    RatingAdminRestaurantRecord record,
+  ) async {
+    final targetIsActive = !record.isActive;
+    final confirmed = await _confirm(
+      context,
+      title: targetIsActive
+          ? 'Restore “${record.restaurantName}” to BiteScore?'
+          : 'Hide “${record.restaurantName}” from BiteScore?',
+      message: targetIsActive
+          ? 'The restaurant will become available through the existing '
+                'customer visibility rules.'
+          : 'Customers will no longer see this restaurant or its dishes '
+                'through BiteScore. New restaurant claims are already blocked '
+                'by the secure claim system. Existing restaurant, dish, '
+                'review, rating, image, ownership, and history data will '
+                'remain stored. You can restore the restaurant later.',
+      action: targetIsActive ? 'Restore Restaurant' : 'Hide Restaurant',
+    );
+    if (!confirmed || !mounted) return;
+
+    final key = 'activity:' + record.documentId;
+    if (!_busy.add(key)) return;
+    final originatingController = _controller;
+    setState(() {});
+    try {
+      final update = widget.setRestaurantActivity;
+      if (update != null) {
+        await update(
+          restaurantId: record.documentId,
+          expectedRestaurantWriteRevision: record.restaurantWriteRevision,
+          isActive: targetIsActive,
+        );
+      } else {
+        await BiteScoreService.setRestaurantActivityAsAdmin(
+          restaurantId: record.documentId,
+          expectedRestaurantWriteRevision: record.restaurantWriteRevision,
+          isActive: targetIsActive,
+        );
+      }
+      if (!mounted) return;
+      _snack(
+        context,
+        targetIsActive
+            ? record.restaurantName + ' restored.'
+            : record.restaurantName + ' hidden.',
+      );
+      if (originatingController != null &&
+          identical(originatingController, _controller)) {
+        await _refreshAndRefill(originatingController);
+      }
+    } catch (error) {
+      if (mounted) {
+        _snack(
+          context,
+          AppErrorText.friendly(
+            error,
+            fallback: targetIsActive
+                ? 'Could not restore the restaurant right now.'
+                : 'Could not hide the restaurant right now.',
           ),
         );
       }
@@ -735,6 +811,29 @@ class _RatingAdminRestaurantPagedViewState
                                           : () => _edit(record),
                                       icon: const Icon(Icons.edit_outlined),
                                       label: const Text('Edit'),
+                                    ),
+                                    OutlinedButton.icon(
+                                      key: ValueKey(
+                                        'rating-admin-activity-' +
+                                            record.documentId,
+                                      ),
+                                      onPressed:
+                                          _busy.contains(
+                                            'activity:' + record.documentId,
+                                          )
+                                          ? null
+                                          : () =>
+                                                _setRestaurantActivity(record),
+                                      icon: Icon(
+                                        record.isActive
+                                            ? Icons.visibility_off_outlined
+                                            : Icons.visibility_outlined,
+                                      ),
+                                      label: Text(
+                                        record.isActive
+                                            ? 'Hide / Mark Closed'
+                                            : 'Restore Restaurant',
+                                      ),
                                     ),
                                     OutlinedButton.icon(
                                       onPressed:
