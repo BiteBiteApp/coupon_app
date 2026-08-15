@@ -162,6 +162,13 @@ function restaurantSource(id, overrides = {}) {
   };
 }
 
+function restaurantSourceWithActivity(id, activity) {
+  const source = restaurantSource(id);
+  delete source.data.isActive;
+  Object.assign(source.data, activity);
+  return source;
+}
+
 test("restaurant projections carry only a valid exact source revision", () => {
   assert.equal(
     restaurantSourceProjection(restaurantSource("restaurant-1"))
@@ -182,6 +189,45 @@ test("restaurant projections carry only a valid exact source revision", () => {
     }
     assert.equal(ratingAdminRestaurantProjection(source), null);
     assert.equal(restaurantSourceProjection(source), null);
+  }
+});
+
+test("restaurant Admin projections preserve all records with strict activity status", () => {
+  const cases = [
+    {label: "both absent", activity: {}, expected: true},
+    {label: "canonical true", activity: {isActive: true}, expected: true},
+    {label: "canonical false", activity: {isActive: false}, expected: false},
+    {label: "legacy true", activity: {active: true}, expected: true},
+    {label: "legacy false", activity: {active: false}, expected: false},
+    {label: "both true", activity: {isActive: true, active: true}, expected: true},
+    {label: "both false", activity: {isActive: false, active: false}, expected: false},
+    {label: "conflicting", activity: {isActive: true, active: false}, expected: false},
+    {label: "malformed canonical", activity: {isActive: "true"}, expected: false},
+    {label: "malformed legacy", activity: {active: null}, expected: false},
+    {label: "valid plus malformed", activity: {isActive: true, active: {}}, expected: false},
+  ];
+
+  for (const fixture of cases) {
+    const source = restaurantSourceWithActivity(
+      "restaurant-activity",
+      fixture.activity,
+    );
+    const sourceProjection = restaurantSourceProjection(source);
+    const adminProjection = ratingAdminRestaurantProjection(source);
+    assert.notEqual(sourceProjection, null, fixture.label);
+    assert.notEqual(adminProjection, null, fixture.label);
+    assert.equal(sourceProjection.isActive, fixture.expected, fixture.label);
+    assert.equal(adminProjection.isActive, fixture.expected, fixture.label);
+    assert.equal(
+      ratingAdminRestaurantProjection(source, null, "active") !== null,
+      fixture.expected,
+      fixture.label,
+    );
+    assert.equal(
+      ratingAdminRestaurantProjection(source, null, "inactive") !== null,
+      !fixture.expected,
+      fixture.label,
+    );
   }
 });
 

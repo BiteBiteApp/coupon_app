@@ -7,6 +7,7 @@ const {GeoPoint} = require("firebase-admin/firestore");
 const {
   biteSaverOfferParentFingerprint,
   biteScoreDishParentFingerprint,
+  biteScoreRestaurantIsActive,
   boundedDescriptionSummary,
   buildBiteSaverCouponOfferIndex,
   buildBiteSaverDailySpecialOfferIndex,
@@ -105,6 +106,12 @@ function biteScoreRestaurant(overrides = {}) {
     updatedAt: new Date("2026-08-08T15:00:00.000Z"),
     ...overrides,
   };
+}
+
+function biteScoreRestaurantWithActivity(activity, overrides = {}) {
+  const source = biteScoreRestaurant(overrides);
+  delete source.isActive;
+  return Object.assign(source, activity);
 }
 
 function dish(overrides = {}) {
@@ -411,6 +418,57 @@ test("BiteScore restaurant supports canonical and imported aliases with active A
   assert.equal(aliases.displayName, "Imported Diner");
   assert.equal(aliases.zip5, "03440");
   assert.equal(aliases.cityStateKey, "FL|ocala");
+});
+
+test("BiteScore activity is strict across public restaurant and parent-dish projections", () => {
+  const cases = [
+    {label: "both absent", activity: {}, expected: true},
+    {label: "canonical true", activity: {isActive: true}, expected: true},
+    {label: "canonical false", activity: {isActive: false}, expected: false},
+    {label: "legacy true", activity: {active: true}, expected: true},
+    {label: "legacy false", activity: {active: false}, expected: false},
+    {label: "both true", activity: {isActive: true, active: true}, expected: true},
+    {label: "both false", activity: {isActive: false, active: false}, expected: false},
+    {label: "canonical conflict", activity: {isActive: true, active: false}, expected: false},
+    {label: "legacy conflict", activity: {isActive: false, active: true}, expected: false},
+    {label: "malformed canonical", activity: {isActive: "true"}, expected: false},
+    {label: "malformed legacy", activity: {active: null}, expected: false},
+    {label: "valid plus malformed", activity: {isActive: true, active: 1}, expected: false},
+  ];
+
+  for (const fixture of cases) {
+    const source = biteScoreRestaurantWithActivity(fixture.activity, {
+      isClaimed: true,
+    });
+    assert.equal(
+      biteScoreRestaurantIsActive(source),
+      fixture.expected,
+      fixture.label,
+    );
+
+    const restaurantIndex = buildBiteScoreRestaurantIndex({
+      sourceDocumentId: "restaurant-activity",
+      source,
+      now,
+    });
+    assert.equal(restaurantIndex.isActive, fixture.expected, fixture.label);
+    assert.equal(restaurantIndex.publicVisible, fixture.expected, fixture.label);
+    assert.equal(restaurantIndex.adminDirectoryVisible, true, fixture.label);
+    assert.equal(restaurantIndex.isClaimed, true, fixture.label);
+
+    const dishIndex = buildBiteScoreDishIndex({
+      sourceDocumentId: "dish-1",
+      dish: dish(),
+      restaurantDocumentId: "restaurant-1",
+      restaurant: source,
+      aggregate: aggregate(),
+      now,
+    });
+    assert.equal(dishIndex.restaurantActive, fixture.expected, fixture.label);
+    assert.equal(dishIndex.publicVisible, fixture.expected, fixture.label);
+    assert.equal(dishIndex.adminVisible, true, fixture.label);
+    assert.equal(dishIndex.restaurantClaimed, true, fixture.label);
+  }
 });
 
 test("BiteScore restaurant omits incomplete geography and invalid geohash safely", () => {
@@ -761,13 +819,30 @@ test("parent fingerprints change only for dependent-index inputs", () => {
     biteSaverOfferParentFingerprint({...biteSaver, restaurantName: "Renamed"}),
   );
   const biteScore = biteScoreRestaurant();
+  const biteScoreLegacyDefault = biteScoreRestaurantWithActivity({});
   assert.equal(
     biteScoreDishParentFingerprint(biteScore),
     biteScoreDishParentFingerprint({...biteScore, phone: "ignored"}),
   );
+  assert.equal(
+    biteScoreDishParentFingerprint(biteScore),
+    biteScoreDishParentFingerprint(biteScoreLegacyDefault),
+  );
   assert.notEqual(
     biteScoreDishParentFingerprint(biteScore),
     biteScoreDishParentFingerprint({...biteScore, isActive: false}),
+  );
+  assert.notEqual(
+    biteScoreDishParentFingerprint(biteScore),
+    biteScoreDishParentFingerprint(
+      biteScoreRestaurantWithActivity({isActive: "true"}),
+    ),
+  );
+  assert.notEqual(
+    biteScoreDishParentFingerprint(biteScore),
+    biteScoreDishParentFingerprint(
+      biteScoreRestaurantWithActivity({isActive: true, active: false}),
+    ),
   );
   assert.notEqual(biteSaverOfferParentFingerprint(null), biteSaverOfferParentFingerprint(biteSaver));
   assert.notEqual(biteScoreDishParentFingerprint(null), biteScoreDishParentFingerprint(biteScore));

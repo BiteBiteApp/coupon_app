@@ -3540,7 +3540,6 @@ class _BiteScoreRestaurantEditDialogState
   late final TextEditingController _phoneController;
   late final TextEditingController _bioController;
   late final TextEditingController _cuisineController;
-  late bool _isActive;
   bool _isSaving = false;
 
   @override
@@ -3558,7 +3557,6 @@ class _BiteScoreRestaurantEditDialogState
     _cuisineController = TextEditingController(
       text: widget.restaurant.cuisineTags.join(', '),
     );
-    _isActive = widget.restaurant.isActive;
   }
 
   @override
@@ -3591,7 +3589,6 @@ class _BiteScoreRestaurantEditDialogState
         website: widget.restaurant.website ?? '',
         bio: _bioController.text,
         cuisineTags: _cuisineController.text,
-        isActive: _isActive,
       );
       if (!mounted) {
         return;
@@ -3686,17 +3683,6 @@ class _BiteScoreRestaurantEditDialogState
                 controller: _bioController,
                 label: 'Bio / Hours / Notes',
                 maxLines: 4,
-              ),
-              const SizedBox(height: 12),
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                value: _isActive,
-                title: const Text('Visible in BiteScore'),
-                onChanged: (value) {
-                  setState(() {
-                    _isActive = value;
-                  });
-                },
               ),
             ],
           ),

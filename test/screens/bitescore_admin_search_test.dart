@@ -326,10 +326,13 @@ void main() {
 
       expect(loadedId, 'hidden-document');
       expect(find.text('Edit Restaurant'), findsOneWidget);
-      expect(
-        tester.widget<SwitchListTile>(find.byType(SwitchListTile)).value,
-        false,
-      );
+      expect(find.text('Visible in BiteScore'), findsNothing);
+      expect(find.text('Restaurant name'), findsAtLeastNWidgets(1));
+      expect(find.text('Street address'), findsAtLeastNWidgets(1));
+      expect(find.text('Cuisine tags'), findsAtLeastNWidgets(1));
+      expect(find.text('Bio / Hours / Notes'), findsAtLeastNWidgets(1));
+      expect(find.text('Hide Restaurant'), findsNothing);
+      expect(find.text('Restore Restaurant'), findsNothing);
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
       expect(find.text('Hidden Cafe'), findsOneWidget);

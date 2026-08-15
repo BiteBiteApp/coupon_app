@@ -13,10 +13,41 @@ import '../widgets/persistent_bottom_navigation.dart';
 import '../widgets/reviewer_activity_pill.dart';
 import 'bitescore_dish_detail_screen.dart';
 
+typedef PublicReviewerProfileLoader =
+    Future<BiteScorePublicReviewerProfileData> Function(String userId);
+typedef PublicReviewerBadgesLoader =
+    Future<List<LocalExpertBadge>> Function(String userId);
+typedef PublicReviewerReviewEntryLoader =
+    Future<BiteScoreUserReviewEntry?> Function(BiteScoreUserReviewEntry entry);
+typedef PublicReviewerAggregateLoader =
+    Future<DishRatingAggregate?> Function(String dishId);
+typedef PublicReviewerDishDestinationBuilder =
+    Widget Function({
+      required BiteScoreHomeEntry entry,
+      required String? targetReviewId,
+      required bool scrollToReviewSection,
+      required String? editReviewId,
+    });
+
 class PublicReviewerProfileScreen extends StatefulWidget {
   final String userId;
+  final PublicReviewerProfileLoader? profileLoader;
+  final PublicReviewerBadgesLoader? badgesLoader;
+  final PublicReviewerReviewEntryLoader? reviewEntryLoader;
+  final PublicReviewerAggregateLoader? aggregateLoader;
+  final PublicReviewerDishDestinationBuilder? dishDestinationBuilder;
+  final bool Function(BiteScoreUserReviewEntry entry)? canEditReview;
 
-  const PublicReviewerProfileScreen({super.key, required this.userId});
+  const PublicReviewerProfileScreen({
+    super.key,
+    required this.userId,
+    this.profileLoader,
+    this.badgesLoader,
+    this.reviewEntryLoader,
+    this.aggregateLoader,
+    this.dishDestinationBuilder,
+    this.canEditReview,
+  });
 
   @override
   State<PublicReviewerProfileScreen> createState() =>
@@ -35,12 +66,14 @@ class _PublicReviewerProfileScreenState
   }
 
   void _refresh() {
-    _profileFuture = BiteScoreService.loadPublicReviewerProfileData(
-      widget.userId,
-    );
-    _localExpertBadgesFuture = LocalExpertBadgeService.loadBadgesForUser(
-      widget.userId,
-    );
+    final profileLoader = widget.profileLoader;
+    _profileFuture = profileLoader == null
+        ? BiteScoreService.loadPublicReviewerProfileData(widget.userId)
+        : profileLoader(widget.userId);
+    final badgesLoader = widget.badgesLoader;
+    _localExpertBadgesFuture = badgesLoader == null
+        ? LocalExpertBadgeService.loadBadgesForUser(widget.userId)
+        : badgesLoader(widget.userId);
   }
 
   void _showSnackBar(String message) {
@@ -83,6 +116,10 @@ class _PublicReviewerProfileScreenState
   }
 
   bool _canEditReview(BiteScoreUserReviewEntry entry) {
+    final canEditReview = widget.canEditReview;
+    if (canEditReview != null) {
+      return canEditReview(entry);
+    }
     final user = FirebaseAuth.instance.currentUser;
     return user != null &&
         !user.isAnonymous &&
@@ -93,33 +130,53 @@ class _PublicReviewerProfileScreenState
     BiteScoreUserReviewEntry entry, {
     bool editReview = false,
   }) async {
-    final dish = entry.dish;
-    final restaurant = entry.restaurant;
-    if (dish == null || restaurant == null) {
-      _showSnackBar('This dish is no longer available.');
-      return;
-    }
-
     try {
+      final reviewEntryLoader = widget.reviewEntryLoader;
+      final refreshedEntry = reviewEntryLoader == null
+          ? await _loadCustomerVisibleReviewEntry(entry)
+          : await reviewEntryLoader(entry);
+      if (refreshedEntry == null ||
+          !BiteScoreService.isCustomerVisibleReviewEntry(refreshedEntry)) {
+        _showSnackBar('This dish is no longer available.');
+        return;
+      }
+      final dish = refreshedEntry.dish!;
+      final restaurant = refreshedEntry.restaurant!;
+
+      final aggregateLoader = widget.aggregateLoader;
       final aggregate =
-          await BiteScoreService.loadDishRatingAggregate(dish.id) ??
+          (aggregateLoader == null
+              ? await BiteScoreService.loadDishRatingAggregate(dish.id)
+              : await aggregateLoader(dish.id)) ??
           DishRatingAggregate(dishId: dish.id, restaurantId: restaurant.id);
       if (!mounted) {
         return;
       }
 
+      final destinationBuilder = widget.dishDestinationBuilder;
       await Navigator.of(context).push(
         MaterialPageRoute(
-          builder: (_) => BiteScoreDishDetailScreen(
-            entry: BiteScoreHomeEntry(
+          builder: (_) {
+            final homeEntry = BiteScoreHomeEntry(
               dish: dish,
               restaurant: restaurant,
               aggregate: aggregate,
-            ),
-            targetReviewId: editReview ? null : entry.review.id,
-            scrollToReviewSection: editReview,
-            editReviewId: editReview ? entry.review.id : null,
-          ),
+            );
+            if (destinationBuilder != null) {
+              return destinationBuilder(
+                entry: homeEntry,
+                targetReviewId: editReview ? null : entry.review.id,
+                scrollToReviewSection: editReview,
+                editReviewId: editReview ? entry.review.id : null,
+              );
+            }
+            return BiteScoreDishDetailScreen(
+              entry: homeEntry,
+              targetReviewId: editReview ? null : entry.review.id,
+              scrollToReviewSection: editReview,
+              editReviewId: editReview ? entry.review.id : null,
+            );
+          },
         ),
       );
 
@@ -134,6 +191,12 @@ class _PublicReviewerProfileScreenState
         ),
       );
     }
+  }
+
+  Future<BiteScoreUserReviewEntry?> _loadCustomerVisibleReviewEntry(
+    BiteScoreUserReviewEntry entry,
+  ) {
+    return BiteScoreService.loadCustomerVisibleReviewEntry(entry.review);
   }
 
   Widget _buildBadgeCard(BiteScorePublicReviewerProfileData profileData) {
@@ -393,6 +456,9 @@ class _PublicReviewerProfileScreenState
   }
 
   Widget _buildBody(BiteScorePublicReviewerProfileData profileData) {
+    final visibleReviews = profileData.reviews
+        .where(BiteScoreService.isCustomerVisibleReviewEntry)
+        .toList(growable: false);
     return RefreshIndicator(
       onRefresh: () async {
         setState(_refresh);
@@ -412,7 +478,7 @@ class _PublicReviewerProfileScreenState
               fontWeight: FontWeight.w900,
             ),
           ),
-          if (profileData.reviews.isEmpty)
+          if (visibleReviews.isEmpty)
             BiteRaterTheme.liftedCard(
               margin: const EdgeInsets.only(top: 12),
               radius: 20,
@@ -429,7 +495,7 @@ class _PublicReviewerProfileScreenState
               ),
             )
           else
-            ...profileData.reviews.map(_buildReviewCard),
+            ...visibleReviews.map(_buildReviewCard),
         ],
       ),
     );

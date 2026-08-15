@@ -31,6 +31,88 @@ void main() {
     expect(finder?.restaurantWriteRevision, 4);
   });
 
+  test('strict and finder parsing share fail-closed restaurant activity', () {
+    final cases = <String, ({Map<String, dynamic> fields, bool expected})>{
+      'both absent': (fields: const <String, dynamic>{}, expected: true),
+      'canonical true': (
+        fields: const <String, dynamic>{'isActive': true},
+        expected: true,
+      ),
+      'canonical false': (
+        fields: const <String, dynamic>{'isActive': false},
+        expected: false,
+      ),
+      'legacy true': (
+        fields: const <String, dynamic>{'active': true},
+        expected: true,
+      ),
+      'legacy false': (
+        fields: const <String, dynamic>{'active': false},
+        expected: false,
+      ),
+      'both true': (
+        fields: const <String, dynamic>{'isActive': true, 'active': true},
+        expected: true,
+      ),
+      'both false': (
+        fields: const <String, dynamic>{'isActive': false, 'active': false},
+        expected: false,
+      ),
+      'canonical true conflicts': (
+        fields: const <String, dynamic>{'isActive': true, 'active': false},
+        expected: false,
+      ),
+      'legacy true conflicts': (
+        fields: const <String, dynamic>{'isActive': false, 'active': true},
+        expected: false,
+      ),
+      'canonical string is malformed': (
+        fields: const <String, dynamic>{'isActive': 'true'},
+        expected: false,
+      ),
+      'legacy null is malformed': (
+        fields: const <String, dynamic>{'active': null},
+        expected: false,
+      ),
+      'valid canonical plus malformed legacy': (
+        fields: const <String, dynamic>{'isActive': true, 'active': 1},
+        expected: false,
+      ),
+      'malformed canonical plus valid legacy': (
+        fields: const <String, dynamic>{
+          'isActive': <String, Object>{},
+          'active': true,
+        },
+        expected: false,
+      ),
+    };
+
+    for (final MapEntry(key: label, value: fixture) in cases.entries) {
+      final data = restaurantData()..addAll(fixture.fields);
+      expect(
+        BitescoreRestaurant.readActivity(data),
+        fixture.expected,
+        reason: label,
+      );
+      expect(
+        BitescoreRestaurant.tryFromFirestore(
+          data,
+          fallbackId: 'restaurant-1',
+        )?.isActive,
+        fixture.expected,
+        reason: 'strict: $label',
+      );
+      expect(
+        BitescoreRestaurant.tryFromFinderFirestore(
+          data,
+          fallbackId: 'restaurant-1',
+        )?.isActive,
+        fixture.expected,
+        reason: 'finder: $label',
+      );
+    }
+  });
+
   test('missing and malformed stored revisions fail closed', () {
     final missing = restaurantData()..remove('restaurantWriteRevision');
     expect(

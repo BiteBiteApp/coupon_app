@@ -3,7 +3,10 @@ import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:coupon_app/models/bitescore_dish.dart';
 import 'package:coupon_app/models/bitescore_restaurant.dart';
+import 'package:coupon_app/models/dish_rating_aggregate.dart';
+import 'package:coupon_app/models/dish_review.dart';
 import 'package:coupon_app/services/bitescore_service.dart';
 import 'package:coupon_app/services/restaurant_menu_service.dart';
 
@@ -16,24 +19,78 @@ String sourceSection(String source, String start, String end) {
 }
 
 BitescoreRestaurant restaurant({
+  String id = 'restaurant-1',
   String name = 'Root Kitchen',
   String phone = '555-0100',
+  String city = 'Orlando',
+  String state = 'FL',
+  String zipCode = '32801',
+  bool isActive = true,
   int revision = 4,
   DateTime? updatedAt,
 }) => BitescoreRestaurant(
-  id: 'restaurant-1',
+  id: id,
   name: name,
   normalizedName: name.toLowerCase(),
   address: '1 Main St',
-  city: 'Orlando',
-  state: 'FL',
-  zipCode: '32801',
+  city: city,
+  state: state,
+  zipCode: zipCode,
   location: const GeoPoint(28.5, -81.3),
   phone: phone,
   cuisineTags: const <String>['American'],
+  isActive: isActive,
   restaurantWriteRevision: revision,
   updatedAt: updatedAt,
 );
+
+BitescoreDish dish({
+  String id = 'dish-1',
+  String restaurantId = 'restaurant-1',
+  bool isActive = true,
+  String? mergedIntoDishId,
+}) => BitescoreDish(
+  id: id,
+  restaurantId: restaurantId,
+  restaurantName: 'Root Kitchen',
+  name: 'House Burger',
+  normalizedName: 'house burger',
+  isActive: isActive,
+  mergedIntoDishId: mergedIntoDishId,
+);
+
+DishReview review({
+  String dishId = 'dish-1',
+  String restaurantId = 'restaurant-1',
+}) => DishReview(
+  id: 'review-1',
+  dishId: dishId,
+  restaurantId: restaurantId,
+  userId: 'reviewer-1',
+  overallImpression: 8,
+  overallBiteScore: 80,
+);
+
+BitescoreRestaurant parsedRestaurant({
+  required String id,
+  required String name,
+  required Map<String, dynamic> activity,
+  String city = 'Orlando',
+  String state = 'FL',
+}) {
+  final data = <String, dynamic>{
+    'name': name,
+    'normalizedName': name.toLowerCase(),
+    'address': '1 Main St',
+    'city': city,
+    'state': state,
+    'zipCode': '32801',
+    'location': const GeoPoint(28.5, -81.3),
+    'restaurantWriteRevision': 4,
+    ...activity,
+  };
+  return BitescoreRestaurant.tryFromFinderFirestore(data, fallbackId: id)!;
+}
 
 void main() {
   group('restaurant revision transaction guards', () {
@@ -92,6 +149,261 @@ void main() {
         );
       }
     });
+  });
+
+  group('BiteScore hidden-state visibility', () {
+    test(
+      'customer Finder dedupes while Admin preserves every restaurant ID',
+      () {
+        final activeLegacy = parsedRestaurant(
+          id: 'active-legacy',
+          name: 'Alpha Cafe',
+          activity: const <String, dynamic>{},
+        );
+        final activeCanonical = parsedRestaurant(
+          id: 'active-canonical',
+          name: 'Beta Cafe',
+          city: 'Tampa',
+          activity: const <String, dynamic>{'isActive': true},
+        );
+        final hidden = parsedRestaurant(
+          id: 'hidden',
+          name: 'Hidden Cafe',
+          activity: const <String, dynamic>{'isActive': false},
+        );
+        final malformed = parsedRestaurant(
+          id: 'malformed',
+          name: 'Malformed Cafe',
+          activity: const <String, dynamic>{'isActive': 'true'},
+        );
+        final conflicting = parsedRestaurant(
+          id: 'conflicting',
+          name: 'Conflicting Cafe',
+          activity: const <String, dynamic>{'isActive': true, 'active': false},
+        );
+        final duplicateActive = activeLegacy.copyWith(id: 'duplicate-active');
+        final duplicateHidden = activeLegacy.copyWith(
+          id: 'duplicate-hidden',
+          isActive: false,
+        );
+        final source = <BitescoreRestaurant>[
+          activeCanonical,
+          hidden,
+          malformed,
+          conflicting,
+          activeLegacy,
+          duplicateActive,
+          duplicateHidden,
+        ];
+
+        final customer = BiteScoreService.customerRestaurantDirectoryForTesting(
+          source,
+        );
+        final admin = BiteScoreService.adminRestaurantDirectoryForTesting(
+          source,
+        );
+
+        expect(customer.map((entry) => entry.id), <String>[
+          'active-legacy',
+          'active-canonical',
+        ]);
+        expect(customer.every((entry) => entry.isActive), isTrue);
+        expect(admin.map((entry) => entry.id).toSet(), <String>{
+          'active-legacy',
+          'active-canonical',
+          'hidden',
+          'malformed',
+          'conflicting',
+          'duplicate-active',
+          'duplicate-hidden',
+        });
+        expect(
+          admin
+              .where((entry) => !entry.isActive)
+              .map((entry) => entry.id)
+              .toSet(),
+          <String>{'hidden', 'malformed', 'conflicting', 'duplicate-hidden'},
+        );
+        expect(
+          admin.map((entry) => '${entry.state}|${entry.city}|${entry.name}'),
+          orderedEquals(
+            [
+              ...admin.map(
+                (entry) => '${entry.state}|${entry.city}|${entry.name}',
+              ),
+            ]..sort(),
+          ),
+        );
+      },
+    );
+
+    test(
+      'customer home joins reject hidden parents and unavailable dishes',
+      () {
+        final activeRestaurant = restaurant();
+        final hiddenRestaurant = restaurant(
+          id: 'restaurant-hidden',
+          name: 'Hidden Kitchen',
+          isActive: false,
+        );
+        final visibleDish = dish();
+        final hiddenParentDish = dish(
+          id: 'dish-hidden-parent',
+          restaurantId: hiddenRestaurant.id,
+        );
+        final hiddenDish = dish(id: 'dish-hidden', isActive: false);
+        final mergedDish = dish(
+          id: 'dish-merged',
+          mergedIntoDishId: 'dish-survivor',
+        );
+
+        final entries = BiteScoreService.customerVisibleHomeEntriesForTesting(
+          restaurants: <BitescoreRestaurant>[
+            hiddenRestaurant,
+            activeRestaurant,
+          ],
+          dishes: <BitescoreDish>[
+            visibleDish,
+            hiddenParentDish,
+            hiddenDish,
+            mergedDish,
+          ],
+          aggregates: const <String, DishRatingAggregate>{},
+        );
+
+        expect(entries.map((entry) => entry.dish.id), <String>['dish-1']);
+        expect(entries.single.restaurant.id, activeRestaurant.id);
+        expect(entries.single.aggregate.dishId, visibleDish.id);
+      },
+    );
+
+    test(
+      'review presentation requires a consistent active dish and parent',
+      () {
+        final activeRestaurant = restaurant();
+        final activeDish = dish();
+        BiteScoreUserReviewEntry entry({
+          DishReview? sourceReview,
+          BitescoreDish? sourceDish,
+          BitescoreRestaurant? sourceRestaurant,
+        }) => BiteScoreUserReviewEntry(
+          review: sourceReview ?? review(),
+          dish: sourceDish ?? activeDish,
+          restaurant: sourceRestaurant ?? activeRestaurant,
+        );
+
+        expect(BiteScoreService.isCustomerVisibleReviewEntry(entry()), isTrue);
+        expect(
+          BiteScoreService.isCustomerVisibleReviewEntry(
+            entry(sourceRestaurant: activeRestaurant.copyWith(isActive: false)),
+          ),
+          isFalse,
+        );
+        expect(
+          BiteScoreService.isCustomerVisibleReviewEntry(
+            entry(sourceDish: dish(isActive: false)),
+          ),
+          isFalse,
+        );
+        expect(
+          BiteScoreService.isCustomerVisibleReviewEntry(
+            entry(sourceDish: dish(mergedIntoDishId: 'dish-survivor')),
+          ),
+          isFalse,
+        );
+        expect(
+          BiteScoreService.isCustomerVisibleReviewEntry(
+            entry(sourceReview: review(restaurantId: 'other-restaurant')),
+          ),
+          isFalse,
+        );
+        expect(
+          BiteScoreService.isCustomerVisibleReviewEntry(
+            entry(sourceRestaurant: restaurant(id: 'other-restaurant')),
+          ),
+          isFalse,
+        );
+        expect(
+          BiteScoreService.isCustomerVisibleReviewEntry(
+            BiteScoreUserReviewEntry(
+              review: review(),
+              dish: null,
+              restaurant: activeRestaurant,
+            ),
+          ),
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'public profile keeps historical badge inputs separate from cards',
+      () {
+        final source = File(
+          'lib/services/bitescore_service.dart',
+        ).readAsStringSync();
+        final profile = sourceSection(
+          source,
+          'loadPublicReviewerProfileData',
+          'static Future<bool> isPublicUsernameAvailable',
+        );
+
+        expect(profile, contains('loadCustomerVisibleReviewEntry(review)'));
+        expect(profile, contains('reviews: reviewEntries'));
+        expect(profile, contains('reviewCount: reviews.length'));
+        expect(
+          profile,
+          contains(
+            '_profileBadgeLabelFor(\n'
+            '      reviewCount: reviews.length,',
+          ),
+        );
+      },
+    );
+
+    test(
+      'all affected Admin moderation loaders use the all-state directory',
+      () {
+        final source = File(
+          'lib/services/bitescore_service.dart',
+        ).readAsStringSync();
+        final sections = <String>[
+          sourceSection(
+            source,
+            'reportedRestaurantsAdminStream',
+            'reportedDishesAdminStream',
+          ),
+          sourceSection(
+            source,
+            'reportedDishesAdminStream',
+            'duplicateRestaurantReportsAdminStream',
+          ),
+          sourceSection(
+            source,
+            'duplicateRestaurantReportsAdminStream',
+            'claimRequestsAdminStream',
+          ),
+          sourceSection(
+            source,
+            'claimRequestsAdminStream',
+            'approvedOwnershipsAdminStream',
+          ),
+        ];
+        for (final section in sections) {
+          expect(section, contains('loadRestaurantsForAdminModeration()'));
+          expect(section, isNot(contains('loadRestaurantsForFinder()')));
+        }
+
+        final finder = sourceSection(
+          source,
+          'static Future<List<BitescoreRestaurant>> loadRestaurantsForFinder',
+          'static Future<List<BitescoreDish>> loadDishes',
+        );
+        expect(finder, contains('_customerRestaurantDirectory'));
+        expect(finder, contains('_adminRestaurantDirectory'));
+        expect(finder, isNot(contains('includeHidden')));
+      },
+    );
   });
 
   group('restaurant rename retry repair', () {
@@ -322,6 +634,9 @@ void main() {
     expect(adminEdit, contains('if (profileWriteRequired)'));
     expect(adminEdit, contains('_synchronizeRestaurantDishNames'));
     expect(adminEdit, contains('dishNameSynchronizationRevision'));
+    expect(adminEdit, contains("..remove('isActive')"));
+    expect(adminEdit, contains("..remove('active')"));
+    expect(adminEdit, isNot(contains('bool? isActive')));
 
     final ownerEdit = sourceSection(
       biteScoreSource,

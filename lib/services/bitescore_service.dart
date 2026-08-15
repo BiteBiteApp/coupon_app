@@ -1422,7 +1422,7 @@ class BiteScoreService {
     }
 
     return query.snapshots().asyncMap((snapshot) async {
-      final restaurants = await loadRestaurantsForFinder();
+      final restaurants = await loadRestaurantsForAdminModeration();
       final restaurantsById = <String, BitescoreRestaurant>{
         for (final restaurant in restaurants) restaurant.id: restaurant,
       };
@@ -1488,7 +1488,7 @@ class BiteScoreService {
 
     return query.snapshots().asyncMap((snapshot) async {
       final dishesSnapshot = await dishesCollection().get();
-      final restaurants = await loadRestaurantsForFinder();
+      final restaurants = await loadRestaurantsForAdminModeration();
 
       final dishesById = <String, BitescoreDish>{};
       for (final doc in dishesSnapshot.docs) {
@@ -1569,7 +1569,7 @@ class BiteScoreService {
     }
 
     return query.snapshots().asyncMap((snapshot) async {
-      final restaurants = await loadRestaurantsForFinder();
+      final restaurants = await loadRestaurantsForAdminModeration();
       final restaurantsById = <String, BitescoreRestaurant>{
         for (final restaurant in restaurants) restaurant.id: restaurant,
       };
@@ -1638,7 +1638,7 @@ class BiteScoreService {
     }
 
     return query.snapshots().asyncMap((snapshot) async {
-      final restaurants = await loadRestaurantsForFinder();
+      final restaurants = await loadRestaurantsForAdminModeration();
       final restaurantsById = <String, BitescoreRestaurant>{
         for (final restaurant in restaurants) restaurant.id: restaurant,
       };
@@ -2430,6 +2430,18 @@ class BiteScoreService {
   }
 
   static Future<List<BitescoreRestaurant>> loadRestaurantsForFinder() async {
+    final restaurants = await _loadCompatibleRestaurantDirectory();
+    return _customerRestaurantDirectory(restaurants);
+  }
+
+  static Future<List<BitescoreRestaurant>>
+  loadRestaurantsForAdminModeration() async {
+    final restaurants = await _loadCompatibleRestaurantDirectory();
+    return _adminRestaurantDirectory(restaurants);
+  }
+
+  static Future<List<BitescoreRestaurant>>
+  _loadCompatibleRestaurantDirectory() async {
     final docs = await _loadAllRestaurantDocuments();
 
     final parsedRestaurants = docs
@@ -2441,16 +2453,38 @@ class BiteScoreService {
         )
         .whereType<BitescoreRestaurant>()
         .toList();
-    final normalizedRestaurants = _applyFinderCompatibilityFallbacks(
-      parsedRestaurants,
-    );
+    return _applyFinderCompatibilityFallbacks(parsedRestaurants);
+  }
 
+  static List<BitescoreRestaurant> _customerRestaurantDirectory(
+    Iterable<BitescoreRestaurant> restaurants,
+  ) {
+    return _deduplicateAndSortRestaurantDirectory(
+      restaurants.where((restaurant) => restaurant.isActive),
+    );
+  }
+
+  static List<BitescoreRestaurant> _adminRestaurantDirectory(
+    Iterable<BitescoreRestaurant> restaurants,
+  ) {
+    return _sortRestaurantDirectory(restaurants);
+  }
+
+  static List<BitescoreRestaurant> _deduplicateAndSortRestaurantDirectory(
+    Iterable<BitescoreRestaurant> restaurants,
+  ) {
     final dedupedRestaurants = <String, BitescoreRestaurant>{};
-    for (final restaurant in normalizedRestaurants) {
+    for (final restaurant in restaurants) {
       final key = _finderRestaurantKey(restaurant);
       dedupedRestaurants.putIfAbsent(key, () => restaurant);
     }
-    final restaurants = dedupedRestaurants.values.toList()
+    return _sortRestaurantDirectory(dedupedRestaurants.values);
+  }
+
+  static List<BitescoreRestaurant> _sortRestaurantDirectory(
+    Iterable<BitescoreRestaurant> restaurants,
+  ) {
+    final sortedRestaurants = restaurants.toList()
       ..sort((a, b) {
         final byState = a.state.compareTo(b.state);
         if (byState != 0) {
@@ -2463,7 +2497,21 @@ class BiteScoreService {
         return a.name.compareTo(b.name);
       });
 
-    return restaurants;
+    return sortedRestaurants;
+  }
+
+  @visibleForTesting
+  static List<BitescoreRestaurant> customerRestaurantDirectoryForTesting(
+    Iterable<BitescoreRestaurant> restaurants,
+  ) {
+    return _customerRestaurantDirectory(restaurants);
+  }
+
+  @visibleForTesting
+  static List<BitescoreRestaurant> adminRestaurantDirectoryForTesting(
+    Iterable<BitescoreRestaurant> restaurants,
+  ) {
+    return _adminRestaurantDirectory(restaurants);
   }
 
   static Future<List<BitescoreDish>> loadDishes() async {
@@ -2575,19 +2623,36 @@ class BiteScoreService {
   }
 
   static Future<List<BiteScoreHomeEntry>> loadHomeEntries() async {
-    final restaurants = (await loadRestaurantsForFinder())
-        .where((restaurant) => restaurant.isActive)
-        .toList();
+    final restaurants = await loadRestaurantsForFinder();
     final dishes = await loadDishes();
     final aggregates = await loadRatingAggregates();
 
+    return _customerVisibleHomeEntries(
+      restaurants: restaurants,
+      dishes: dishes,
+      aggregates: aggregates,
+    );
+  }
+
+  static List<BiteScoreHomeEntry> _customerVisibleHomeEntries({
+    required Iterable<BitescoreRestaurant> restaurants,
+    required Iterable<BitescoreDish> dishes,
+    required Map<String, DishRatingAggregate> aggregates,
+  }) {
+    final activeRestaurants = restaurants.where(
+      (restaurant) => restaurant.isActive,
+    );
+
     final restaurantsById = <String, BitescoreRestaurant>{
-      for (final restaurant in restaurants) restaurant.id: restaurant,
+      for (final restaurant in activeRestaurants) restaurant.id: restaurant,
     };
 
     final entries = <BiteScoreHomeEntry>[];
 
     for (final dish in dishes) {
+      if (!dish.isActive || dish.isMerged) {
+        continue;
+      }
       final restaurant = restaurantsById[dish.restaurantId];
       if (restaurant == null) {
         continue;
@@ -2607,6 +2672,19 @@ class BiteScoreService {
     }
 
     return deduplicateHomeEntriesForDisplay(entries);
+  }
+
+  @visibleForTesting
+  static List<BiteScoreHomeEntry> customerVisibleHomeEntriesForTesting({
+    required Iterable<BitescoreRestaurant> restaurants,
+    required Iterable<BitescoreDish> dishes,
+    required Map<String, DishRatingAggregate> aggregates,
+  }) {
+    return _customerVisibleHomeEntries(
+      restaurants: restaurants,
+      dishes: dishes,
+      aggregates: aggregates,
+    );
   }
 
   static Future<List<BiteScoreHomeEntry>> loadEntriesForRestaurant(
@@ -2652,6 +2730,38 @@ class BiteScoreService {
       fallbackId: snapshot.id,
     );
     return restaurant?.copyWith(id: snapshot.id);
+  }
+
+  static bool isCustomerVisibleReviewEntry(BiteScoreUserReviewEntry entry) {
+    final dish = entry.dish;
+    final restaurant = entry.restaurant;
+    if (dish == null || restaurant == null) {
+      return false;
+    }
+
+    return dish.isActive &&
+        !dish.isMerged &&
+        restaurant.isActive &&
+        entry.review.dishId == dish.id &&
+        entry.review.restaurantId == dish.restaurantId &&
+        restaurant.id == dish.restaurantId;
+  }
+
+  static Future<BiteScoreUserReviewEntry?> loadCustomerVisibleReviewEntry(
+    DishReview review,
+  ) async {
+    final dish = await loadDishById(review.dishId);
+    if (dish == null) {
+      return null;
+    }
+
+    final restaurant = await loadRestaurantById(dish.restaurantId);
+    final entry = BiteScoreUserReviewEntry(
+      review: review,
+      dish: dish,
+      restaurant: restaurant,
+    );
+    return isCustomerVisibleReviewEntry(entry) ? entry : null;
   }
 
   static Future<DishRatingAggregate?> loadDishRatingAggregate(
@@ -3389,15 +3499,10 @@ class BiteScoreService {
 
     final reviewEntries = <BiteScoreUserReviewEntry>[];
     for (final review in reviews) {
-      final dish = await loadDishById(review.dishId);
-      final restaurant = await loadRestaurantById(review.restaurantId);
-      reviewEntries.add(
-        BiteScoreUserReviewEntry(
-          review: review,
-          dish: dish,
-          restaurant: restaurant,
-        ),
-      );
+      final entry = await loadCustomerVisibleReviewEntry(review);
+      if (entry != null) {
+        reviewEntries.add(entry);
+      }
     }
 
     final reviewTrustByReviewId = await loadReviewTrustSummaries(
@@ -3469,15 +3574,10 @@ class BiteScoreService {
 
     final reviewEntries = <BiteScoreUserReviewEntry>[];
     for (final review in reviews) {
-      final dish = await loadDishById(review.dishId);
-      final restaurant = await loadRestaurantById(review.restaurantId);
-      reviewEntries.add(
-        BiteScoreUserReviewEntry(
-          review: review,
-          dish: dish,
-          restaurant: restaurant,
-        ),
-      );
+      final entry = await loadCustomerVisibleReviewEntry(review);
+      if (entry != null) {
+        reviewEntries.add(entry);
+      }
     }
 
     final trustByReviewId = await loadReviewTrustSummaries(reviews);
@@ -4779,7 +4879,6 @@ class BiteScoreService {
     required String bio,
     required String cuisineTags,
     List<RestaurantBusinessHours>? businessHours,
-    bool? isActive,
   }) async {
     final expectedRevision = restaurant.restaurantWriteRevision;
     final normalizedName = _normalize(name);
@@ -4835,7 +4934,6 @@ class BiteScoreService {
       bio: bio.trim().isEmpty ? null : bio.trim(),
       businessHours: businessHours ?? restaurant.businessHours,
       cuisineTags: tagList,
-      isActive: isActive ?? restaurant.isActive,
       restaurantWriteRevision: expectedRevision,
     );
 
@@ -4853,10 +4951,14 @@ class BiteScoreService {
         expectedRevision: expectedRevision,
         apply: (transaction, _, nextRevision) async {
           dishNameSynchronizationRevision = nextRevision;
+          final profileData =
+              updatedRestaurant
+                  .copyWith(restaurantWriteRevision: nextRevision)
+                  .toFirestoreMap()
+                ..remove('isActive')
+                ..remove('active');
           transaction.set(restaurantRef, {
-            ...updatedRestaurant
-                .copyWith(restaurantWriteRevision: nextRevision)
-                .toFirestoreMap(),
+            ...profileData,
             'createdAt': restaurant.createdAt == null
                 ? FieldValue.serverTimestamp()
                 : Timestamp.fromDate(restaurant.createdAt!),
@@ -4904,7 +5006,6 @@ class BiteScoreService {
       bio: bio,
       cuisineTags: restaurant.cuisineTags.join(', '),
       businessHours: businessHours,
-      isActive: restaurant.isActive,
     );
   }
 

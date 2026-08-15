@@ -24,6 +24,15 @@ import {
 export type SearchIndexSourceData = Readonly<Record<string, unknown>>;
 export type SearchIndexDocument = Readonly<Record<string, unknown>>;
 
+export function biteScoreRestaurantIsActive(
+  data: SearchIndexSourceData,
+): boolean {
+  const hasCanonical = Object.prototype.hasOwnProperty.call(data, "isActive");
+  const hasLegacy = Object.prototype.hasOwnProperty.call(data, "active");
+  return (!hasCanonical || data.isActive === true) &&
+    (!hasLegacy || data.active === true);
+}
+
 export const maximumOfferDescriptionLength = 500;
 export const maximumPublicUrlLength = 2_048;
 export const maximumDishCategorySourceCount = 32;
@@ -245,7 +254,7 @@ export function biteScoreDishParentFingerprint(
   return createSourceFingerprint([
     "biteScoreDishParent",
     firstString(data, ["name", "restaurantName", "restaurant_name"]),
-    data.isActive !== false && data.active !== false,
+    biteScoreRestaurantIsActive(data),
     data.isClaimed === true,
     firstString(data, ["zipCode", "zip", "postalCode", "postcode"]),
     firstString(data, ["city", "locality", "municipality", "town"]),
@@ -312,7 +321,7 @@ export function buildBiteScoreRestaurantIndex(value: {
   if (name === null) {
     return null;
   }
-  const isActive = value.source.isActive !== false && value.source.active !== false;
+  const isActive = biteScoreRestaurantIsActive(value.source);
   const indexDocumentId = createSearchIndexDocumentId({
     entityKind: "restaurant",
     sourceKind: "biteScoreRestaurant",
@@ -390,8 +399,7 @@ export function buildBiteScoreDishIndex(value: {
   }
   const dishActive = value.dish.isActive !== false &&
     readString(value.dish.mergedIntoDishId) === null;
-  const restaurantActive = value.restaurant.isActive !== false &&
-    value.restaurant.active !== false;
+  const restaurantActive = biteScoreRestaurantIsActive(value.restaurant);
   const tokens = categoryTokens(value.dish);
   let normalizedCategory: string | null = null;
   const category = readString(value.dish.category);

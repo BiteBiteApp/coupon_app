@@ -12,14 +12,30 @@ import 'bitescore_restaurant_dishes_screen.dart';
 import 'main_navigation_screen.dart';
 import 'restaurant_profile_screen.dart';
 
+typedef BiteScoreRestaurantDeepLinkLoader =
+    Future<BitescoreRestaurant?> Function(String restaurantId);
+typedef BiteScoreRestaurantEntriesLoader =
+    Future<List<BiteScoreHomeEntry>> Function(BitescoreRestaurant restaurant);
+typedef BiteScoreRestaurantDestinationBuilder =
+    Widget Function(
+      BitescoreRestaurant restaurant,
+      List<BiteScoreHomeEntry> entries,
+    );
+
 class RestaurantCustomerDeepLinkScreen extends StatefulWidget {
   final String side;
   final String restaurantId;
+  final BiteScoreRestaurantDeepLinkLoader? biteScoreRestaurantLoader;
+  final BiteScoreRestaurantEntriesLoader? biteScoreEntriesLoader;
+  final BiteScoreRestaurantDestinationBuilder? biteScoreDestinationBuilder;
 
   const RestaurantCustomerDeepLinkScreen({
     super.key,
     required this.side,
     required this.restaurantId,
+    this.biteScoreRestaurantLoader,
+    this.biteScoreEntriesLoader,
+    this.biteScoreDestinationBuilder,
   });
 
   @override
@@ -46,15 +62,17 @@ class _RestaurantCustomerDeepLinkScreenState
     }
 
     if (_isBiteScore) {
-      final restaurant = await BiteScoreService.loadRestaurantById(
-        restaurantId,
-      );
-      if (restaurant == null) {
+      final restaurantLoader = widget.biteScoreRestaurantLoader;
+      final restaurant = restaurantLoader == null
+          ? await BiteScoreService.loadRestaurantById(restaurantId)
+          : await restaurantLoader(restaurantId);
+      if (restaurant == null || !restaurant.isActive) {
         return const _RestaurantDeepLinkResolution.notFound();
       }
-      final entries = await BiteScoreService.loadEntriesForRestaurant(
-        restaurant,
-      );
+      final entriesLoader = widget.biteScoreEntriesLoader;
+      final entries = entriesLoader == null
+          ? await BiteScoreService.loadEntriesForRestaurant(restaurant)
+          : await entriesLoader(restaurant);
       return _RestaurantDeepLinkResolution.biteScore(
         restaurant: restaurant,
         entries: entries,
@@ -111,7 +129,7 @@ class _RestaurantCustomerDeepLinkScreenState
   String get _title => _isBiteScore ? 'BiteScore Restaurant' : 'Restaurant';
 
   String get _notFoundMessage => _isBiteScore
-      ? 'This BiteScore restaurant could not be found.'
+      ? 'This BiteScore restaurant is not currently available.'
       : 'We couldn’t find this restaurant.';
 
   String get _noOffersMessage =>
@@ -213,8 +231,16 @@ class _RestaurantCustomerDeepLinkScreenState
           return RestaurantProfileScreen(restaurant: couponRestaurant);
         }
 
+        final biteScoreRestaurant = resolution.biteScoreRestaurant!;
+        final destinationBuilder = widget.biteScoreDestinationBuilder;
+        if (destinationBuilder != null) {
+          return destinationBuilder(
+            biteScoreRestaurant,
+            resolution.biteScoreEntries,
+          );
+        }
         return BiteScoreRestaurantDishesScreen(
-          restaurant: resolution.biteScoreRestaurant!,
+          restaurant: biteScoreRestaurant,
           entries: resolution.biteScoreEntries,
         );
       },

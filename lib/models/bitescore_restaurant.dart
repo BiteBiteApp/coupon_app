@@ -262,7 +262,7 @@ class BitescoreRestaurant {
       ),
       cuisineTags: _readStringList(data['cuisineTags']),
       isClaimed: _readBool(data['isClaimed']) ?? false,
-      isActive: _readBool(data['isActive']) ?? true,
+      isActive: readActivity(data),
       createdByUserId: _readString(data['createdByUserId']),
       createdFromDishId: _readString(data['createdFromDishId']),
       createdFromReviewId: _readString(data['createdFromReviewId']),
@@ -363,8 +363,7 @@ class BitescoreRestaurant {
       ),
       cuisineTags: _readStringList(data['cuisineTags']),
       isClaimed: _readBool(data['isClaimed']) ?? false,
-      isActive:
-          _readBool(data['isActive']) ?? _readBool(data['active']) ?? true,
+      isActive: readActivity(data),
       createdByUserId: _readString(data['createdByUserId']),
       createdFromDishId: _readString(data['createdFromDishId']),
       createdFromReviewId: _readString(data['createdFromReviewId']),
@@ -390,6 +389,26 @@ class BitescoreRestaurant {
     }
 
     return null;
+  }
+
+  static bool readActivity(Map<String, dynamic> data) {
+    final hasCanonical = data.containsKey('isActive');
+    final hasLegacy = data.containsKey('active');
+    if (!hasCanonical && !hasLegacy) {
+      return true;
+    }
+
+    final canonical = data['isActive'];
+    final legacy = data['active'];
+    if ((hasCanonical && canonical is! bool) ||
+        (hasLegacy && legacy is! bool)) {
+      return false;
+    }
+    if (hasCanonical && hasLegacy && canonical != legacy) {
+      return false;
+    }
+
+    return hasCanonical ? canonical as bool : legacy as bool;
   }
 
   static bool isValidRestaurantWriteRevision(Object? value) {

@@ -22,6 +22,7 @@ import {
   normalizeStateCode,
   normalizeZip5,
 } from "./search_normalization.js";
+import { biteScoreRestaurantIsActive } from "./search_index_builders.js";
 import { readRestaurantWriteRevision } from "./restaurant_write_revision.js";
 
 export const ratingAdminRestaurantPageSize = adminDirectoryDefaultPageSize;
@@ -189,7 +190,7 @@ export function restaurantSourceProjection(
     website: readString(data.website, 2_048),
     ownerUserId: readString(data.ownerUserId, 1_500),
     isClaimed: data.isClaimed === true,
-    isActive: data.isActive !== false && data.active !== false,
+    isActive: biteScoreRestaurantIsActive(data),
     restaurantWriteRevision,
     createdAtMillis: timestampMillis(data.createdAt),
     updatedAtMillis: timestampMillis(data.updatedAt),
@@ -204,7 +205,7 @@ export function ratingAdminRestaurantProjection(
   const data = document.data;
   const name = readString(data.name, 100) ??
     readString(data.restaurantName, 100);
-  const isActive = data.isActive !== false && data.active !== false;
+  const isActive = biteScoreRestaurantIsActive(data);
   const restaurantWriteRevision = readRestaurantWriteRevision(data);
   if (name === null ||
       restaurantWriteRevision === null ||
