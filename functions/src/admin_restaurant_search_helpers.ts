@@ -17,7 +17,17 @@ import {
   type RestaurantGeocodingFetch,
   type RestaurantGeocodingResponse,
 } from "./restaurant_geocoding.js";
-import { biteScoreRestaurantClaimProjection } from "./search_index_builders.js";
+import {
+  biteSaverCatalogBindingAdminState,
+  biteScoreRestaurantClaimProjection,
+  type BiteSaverCatalogBindingAdminState,
+} from "./search_index_builders.js";
+import {
+  biteSaverAccountCatalogBindingState,
+  biteScoreCatalogBindingState,
+  biteScoreCatalogRestaurantIdField,
+  readBiteScoreCatalogRestaurantId,
+} from "./restaurant_invite_helpers.js";
 
 export type AdminRestaurantSource = "biteScore" | "biteSaver";
 export type AdminBiteScoreStatus = "active" | "inactive" | "all";
@@ -136,6 +146,82 @@ export type AdminRestaurantSearchCandidate = AdminRestaurantQueryDocument & {
   source: AdminRestaurantSource;
 };
 
+export type AdminCatalogBindingVerificationRequest = Readonly<{
+  catalogRestaurantId: string;
+  biteSaverCatalogBindingId: string | null;
+}>;
+
+export function verifiedAdminBiteSaverCatalogIdsFromDocuments(params: {
+  requests: readonly AdminCatalogBindingVerificationRequest[];
+  accountDocuments: readonly Readonly<Record<string, unknown>>[];
+  saturatedCatalogRestaurantIds?: ReadonlySet<string>;
+}): ReadonlySet<string> {
+  const expectedBindings = new Map<string, string | null>();
+  const contradictoryRequests = new Set<string>();
+  for (const request of params.requests) {
+    const hasExisting = expectedBindings.has(request.catalogRestaurantId);
+    const existing = expectedBindings.get(request.catalogRestaurantId);
+    if (
+      hasExisting &&
+      existing !== request.biteSaverCatalogBindingId
+    ) {
+      contradictoryRequests.add(request.catalogRestaurantId);
+    } else {
+      expectedBindings.set(
+        request.catalogRestaurantId,
+        request.biteSaverCatalogBindingId,
+      );
+    }
+  }
+
+  const accountDocumentsByCatalogId = new Map<
+    string,
+    Readonly<Record<string, unknown>>[]
+  >();
+  for (const data of params.accountDocuments) {
+    const catalogRestaurantId = readBiteScoreCatalogRestaurantId(
+      data[biteScoreCatalogRestaurantIdField],
+    );
+    if (
+      catalogRestaurantId === null ||
+      !expectedBindings.has(catalogRestaurantId)
+    ) {
+      continue;
+    }
+    const matches = accountDocumentsByCatalogId.get(catalogRestaurantId) ?? [];
+    accountDocumentsByCatalogId.set(catalogRestaurantId, [...matches, data]);
+  }
+
+  const verifiedCatalogRestaurantIds = new Set<string>();
+  for (const [catalogRestaurantId, expectedBindingId] of expectedBindings) {
+    if (
+      contradictoryRequests.has(catalogRestaurantId) ||
+      params.saturatedCatalogRestaurantIds?.has(catalogRestaurantId)
+    ) {
+      continue;
+    }
+    const matches = accountDocumentsByCatalogId.get(catalogRestaurantId) ?? [];
+    if (expectedBindingId === null) {
+      if (matches.length === 0) {
+        verifiedCatalogRestaurantIds.add(catalogRestaurantId);
+      }
+      continue;
+    }
+    if (matches.length !== 1) {
+      continue;
+    }
+    const binding = biteSaverAccountCatalogBindingState(matches[0]);
+    if (
+      binding.type === "bound" &&
+      binding.biteScoreCatalogRestaurantId === catalogRestaurantId &&
+      binding.biteSaverCatalogBindingId === expectedBindingId
+    ) {
+      verifiedCatalogRestaurantIds.add(catalogRestaurantId);
+    }
+  }
+  return verifiedCatalogRestaurantIds;
+}
+
 export type AdminRestaurantSearchResult = {
   source: AdminRestaurantSource;
   documentId: string;
@@ -154,6 +240,7 @@ export type AdminRestaurantSearchResult = {
   isClaimed?: boolean;
   claimAvailable?: boolean;
   claimStateValid?: boolean;
+  biteSaverCatalogBindingState?: BiteSaverCatalogBindingAdminState;
   ownerUserId?: string | null;
   linkedBiteSaverUid?: string | null;
   approvalStatus?: string;
@@ -180,6 +267,9 @@ export type AdminRestaurantSearchDependencies = {
   executeQueryPlan: (
     plan: AdminRestaurantQueryPlan,
   ) => Promise<AdminRestaurantQueryDocument[]>;
+  verifyBiteSaverCatalogBindings?: (
+    requests: readonly AdminCatalogBindingVerificationRequest[],
+  ) => Promise<ReadonlySet<string>>;
   geocodingTimeoutMilliseconds?: number;
 };
 
@@ -595,6 +685,7 @@ function mapCandidate(
   candidate: AdminRestaurantSearchCandidate,
   center: RestaurantCoordinates,
   biteScoreStatus: AdminBiteScoreStatus,
+  verifiedBiteSaverCatalogIds: ReadonlySet<string>,
 ): AdminRestaurantSearchResult | null {
   const documentId = candidate.documentId.trim();
   if (!documentId) {
@@ -688,6 +779,11 @@ function mapCandidate(
       actionId: documentId,
       isActive: storedIsActive as boolean,
       ...claim,
+      biteSaverCatalogBindingState: biteSaverCatalogBindingAdminState(
+        documentId,
+        data,
+        verifiedBiteSaverCatalogIds.has(documentId),
+      ),
       ownerUserId: readString(data.ownerUserId),
       linkedBiteSaverUid: readString(data.linkedBiteSaverUid),
     };
@@ -712,11 +808,18 @@ export function processAdminRestaurantSearchCandidates(params: {
   searchCenter: ResolvedAdminRestaurantSearchCenter;
   candidates: readonly AdminRestaurantSearchCandidate[];
   anyQueryReachedCandidateLimit: boolean;
+  verifiedBiteSaverCatalogIds?: ReadonlySet<string>;
 }): AdminRestaurantSearchResponse {
+  const verifiedBiteSaverCatalogIds =
+    params.verifiedBiteSaverCatalogIds ?? new Set<string>();
   const deduplicated = new Map<string, AdminRestaurantSearchCandidate>();
   for (const candidate of params.candidates) {
     const documentId = candidate.documentId.trim();
-    if (!documentId) {
+    if (
+      !documentId ||
+      (candidate.source === "biteScore" &&
+        candidate.documentId !== documentId)
+    ) {
       continue;
     }
     const key = restaurantSourceDocumentKey(candidate.source, documentId);
@@ -731,6 +834,7 @@ export function processAdminRestaurantSearchCandidates(params: {
       candidate,
       params.searchCenter,
       params.request.biteScoreStatus,
+      verifiedBiteSaverCatalogIds,
     );
     if (!mapped || mapped.distanceMiles > params.request.radiusMiles) {
       continue;
@@ -818,10 +922,64 @@ export async function executeAdminRestaurantSearch(
     }
   }
 
+  const baseResponse = processAdminRestaurantSearchCandidates({
+    request,
+    searchCenter,
+    candidates,
+    anyQueryReachedCandidateLimit,
+  });
+  if (dependencies.verifyBiteSaverCatalogBindings === undefined) {
+    return baseResponse;
+  }
+
+  const candidatesByKey = new Map(
+    candidates.map((candidate) => [
+      restaurantSourceDocumentKey(candidate.source, candidate.documentId),
+      candidate,
+    ]),
+  );
+  const verificationRequests: AdminCatalogBindingVerificationRequest[] = [];
+  for (const result of baseResponse.results) {
+    if (result.source !== "biteScore") {
+      continue;
+    }
+    const candidate = candidatesByKey.get(
+      restaurantSourceDocumentKey(result.source, result.documentId),
+    );
+    if (candidate === undefined) {
+      continue;
+    }
+    const binding = biteScoreCatalogBindingState(candidate.data);
+    const locallyConsistentState = biteSaverCatalogBindingAdminState(
+      result.documentId,
+      candidate.data,
+      true,
+    );
+    if (locallyConsistentState !== "unavailable") {
+      verificationRequests.push(Object.freeze({
+        catalogRestaurantId: result.documentId,
+        biteSaverCatalogBindingId: binding.type === "bound"
+          ? binding.biteSaverCatalogBindingId
+          : null,
+      }));
+    }
+  }
+  if (verificationRequests.length === 0) {
+    return baseResponse;
+  }
+
+  let verifiedBiteSaverCatalogIds: ReadonlySet<string>;
+  try {
+    verifiedBiteSaverCatalogIds =
+      await dependencies.verifyBiteSaverCatalogBindings(verificationRequests);
+  } catch (_error) {
+    return baseResponse;
+  }
   return processAdminRestaurantSearchCandidates({
     request,
     searchCenter,
     candidates,
     anyQueryReachedCandidateLimit,
+    verifiedBiteSaverCatalogIds,
   });
 }

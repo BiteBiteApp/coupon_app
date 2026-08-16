@@ -130,6 +130,19 @@ service cloud.firestore {
       ];
     }
 
+    function restaurantAccountCatalogBindingFields() {
+      return [
+        'biteScoreCatalogRestaurantId',
+        'biteSaverCatalogBindingId'
+      ];
+    }
+
+    function biteScoreCatalogBindingFields() {
+      return [
+        'biteSaverCatalogBindingId'
+      ];
+    }
+
     function restaurantAccountClientWritableFields() {
       return [
         'uid',
@@ -1003,12 +1016,17 @@ service cloud.firestore {
       allow get: if isAdmin() ||
         isSelf(restaurantUid);
       allow list: if isAdmin();
-      allow create: if isAdmin() || canCreateOwnRestaurantAccount(restaurantUid);
+      allow create: if
+        !request.resource.data.keys().hasAny(restaurantAccountCatalogBindingFields()) &&
+        (isAdmin() || canCreateOwnRestaurantAccount(restaurantUid));
       allow update: if
-        (isAdmin() &&
-          (!changedKeys().hasAny(['adminHidden']) ||
-            validAdminRestaurantVisibilityUpdate())) ||
-        canUpdateOwnRestaurantAccount(restaurantUid);
+        !changedKeys().hasAny(restaurantAccountCatalogBindingFields()) &&
+        (
+          (isAdmin() &&
+            (!changedKeys().hasAny(['adminHidden']) ||
+              validAdminRestaurantVisibilityUpdate())) ||
+          canUpdateOwnRestaurantAccount(restaurantUid)
+        );
       allow delete: if false;
 
       match /coupons/{couponId} {
@@ -1167,13 +1185,17 @@ service cloud.firestore {
 
     match /bitescore_restaurants/{restaurantId} {
       allow read: if true;
-      allow create: if restaurantOperationLockAllowsMutation(restaurantId) &&
+      allow create: if
+        !request.resource.data.keys().hasAny(biteScoreCatalogBindingFields()) &&
+        restaurantOperationLockAllowsMutation(restaurantId) &&
         validBiteScoreRestaurantCreateRevision() &&
         (
           isAdmin() ||
           canCreatePublicBiteScoreRestaurant(restaurantId)
         );
-      allow update: if restaurantOperationLockAllowsMutation(restaurantId) &&
+      allow update: if
+        !changedKeys().hasAny(biteScoreCatalogBindingFields()) &&
+        restaurantOperationLockAllowsMutation(restaurantId) &&
         validBiteScoreRestaurantUpdateRevision() &&
         (
           (

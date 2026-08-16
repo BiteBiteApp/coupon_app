@@ -80,6 +80,17 @@ void main() {
   });
 
   group('RestaurantInviteService', () {
+    test('keeps account and catalog owner-invite identities separate', () {
+      expect(
+        RestaurantInviteService.createCouponInvite(
+          restaurantName: 'River Grill',
+          restaurantId: 'account-uid',
+          biteScoreCatalogRestaurantId: 'catalog-restaurant-id',
+        ),
+        throwsArgumentError,
+      );
+    });
+
     test('requires BiteScore restaurant ID before creating claim invite', () {
       expect(
         RestaurantInviteService.createBiteScoreClaimInvite(restaurantId: ''),

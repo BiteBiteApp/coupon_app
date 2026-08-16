@@ -36,18 +36,26 @@ import {
 } from "./contribution_points_helpers.js";
 import { requireAdminInviteAccess } from "./admin_authorization.js";
 import {
+  type AdminCatalogBindingVerificationRequest,
   AdminRestaurantQueryPlan,
   executeAdminRestaurantSearch,
   geocodeAdminLocationQuery,
+  verifiedAdminBiteSaverCatalogIdsFromDocuments,
 } from "./admin_restaurant_search_helpers.js";
 import {
+  biteSaverAccountCatalogBindingState,
+  biteSaverCatalogBindingIdField,
+  biteScoreCatalogBindingState,
+  biteScoreCatalogRestaurantIdField,
   couponInviteRestaurantIdentity,
   filterAndSortInviteSummaries,
+  generateBiteSaverCatalogBindingId,
   generateInviteToken,
   hashInviteToken,
   invitePreviewUnavailableReason,
   inviteLink,
   normalizeInviteSide,
+  readBiteScoreCatalogRestaurantId,
 } from "./restaurant_invite_helpers.js";
 import {
   decideRestaurantGeohashWrite,
@@ -131,7 +139,11 @@ import {
   processSearchIndexJob,
   reconcileBiteScoreDishIndex,
 } from "./search_index_maintenance.js";
-import { biteScoreRestaurantIsActive } from "./search_index_builders.js";
+import {
+  biteScoreBiteSaverCatalogProfile,
+  biteScoreRestaurantClaimProjection,
+  biteScoreRestaurantIsActive,
+} from "./search_index_builders.js";
 import {
   couponAdminCursorSecretName,
   createFirestoreCouponAdminPagingDatabase,
@@ -1531,6 +1543,43 @@ async function executeAdminRestaurantQueryPlan(
   }));
 }
 
+async function verifyAdminBiteSaverCatalogBindings(
+  requests: readonly AdminCatalogBindingVerificationRequest[],
+): Promise<ReadonlySet<string>> {
+  const catalogRestaurantIds = [
+    ...new Set(requests.map((request) => request.catalogRestaurantId)),
+  ];
+  const accountDocuments: Readonly<Record<string, unknown>>[] = [];
+  const saturatedCatalogRestaurantIds = new Set<string>();
+  const verificationChunkSize = 10;
+  for (let offset = 0; offset < catalogRestaurantIds.length;
+    offset += verificationChunkSize) {
+    const chunk = catalogRestaurantIds.slice(
+      offset,
+      offset + verificationChunkSize,
+    );
+    const snapshot = await db
+      .collection("restaurant_accounts")
+      .where(biteScoreCatalogRestaurantIdField, "in", chunk)
+      .limit(chunk.length * 2)
+      .get();
+    if (snapshot.docs.length >= chunk.length * 2) {
+      for (const catalogRestaurantId of chunk) {
+        saturatedCatalogRestaurantIds.add(catalogRestaurantId);
+      }
+      continue;
+    }
+    for (const document of snapshot.docs) {
+      accountDocuments.push(document.data());
+    }
+  }
+  return verifiedAdminBiteSaverCatalogIdsFromDocuments({
+    requests,
+    accountDocuments,
+    saturatedCatalogRestaurantIds,
+  });
+}
+
 function readRecord(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" && !Array.isArray(value)
     ? (value as Record<string, unknown>)
@@ -1613,6 +1662,117 @@ function requireBiteScoreRestaurantClaimable(
   }
 }
 
+function requireBiteScoreRestaurantAvailableForBiteSaver(
+  restaurantData: Readonly<Record<string, unknown>>,
+  restaurantDocumentId: string,
+): void {
+  if (
+    restaurantData.id !== restaurantDocumentId ||
+    !biteScoreRestaurantIsActive(restaurantData) ||
+    !biteScoreRestaurantClaimProjection(restaurantData).claimStateValid
+  ) {
+    throw new HttpsError(
+      "failed-precondition",
+      "This BiteScore restaurant is unavailable for BiteSaver onboarding.",
+    );
+  }
+}
+
+function couponPrefillFromBiteScoreCatalog(
+  restaurantData: Readonly<Record<string, unknown>>,
+): Record<string, unknown> | null {
+  const profile = biteScoreBiteSaverCatalogProfile(restaurantData);
+  if (profile === null) {
+    return null;
+  }
+  return {
+    restaurantName: profile.restaurantName,
+    streetAddress: profile.streetAddress,
+    city: profile.city,
+    state: profile.state,
+    zipCode: profile.zipCode,
+    phone: profile.phone,
+    website: profile.website,
+    latitude: profile.latitude,
+    longitude: profile.longitude,
+  };
+}
+
+function catalogBackedCouponInviteHasConsistentActiveState(
+  inviteData: Readonly<Record<string, unknown>>,
+  inviteId: string,
+  catalogRestaurantId: string,
+): boolean {
+  return inviteData.type === "coupon_invite" &&
+    inviteData.side === "coupon" &&
+    inviteData.status === "active" &&
+    inviteData.restaurantId === null &&
+    inviteData.pendingRestaurantKey === `pending_${inviteId}` &&
+    inviteData[biteScoreCatalogRestaurantIdField] === catalogRestaurantId &&
+    inviteData.maxUses === 1 &&
+    inviteData.useCount === 0 &&
+    inviteData.usedAt === null &&
+    inviteData.usedByUid === null &&
+    inviteData.usedByEmail === null &&
+    inviteData.revokedAt === null &&
+    inviteData.revokedByUid === null;
+}
+
+function throwInvalidCatalogBackedCouponInvite(): never {
+  throw new HttpsError(
+    "failed-precondition",
+    "This invite link is no longer valid.",
+  );
+}
+
+function requireCouponInviteAccountIdentity(
+  inviteData: Readonly<Record<string, unknown>>,
+  accountData: Readonly<Record<string, unknown>>,
+  accountExists: boolean,
+  authenticatedUid: string,
+): void {
+  const rawInviteRestaurantId = inviteData.restaurantId;
+  const inviteRestaurantId = readString(rawInviteRestaurantId);
+  const hasNonemptyInviteRestaurantId = inviteRestaurantId !== undefined;
+  if (
+    hasNonemptyInviteRestaurantId &&
+    (rawInviteRestaurantId !== inviteRestaurantId ||
+      inviteRestaurantId !== authenticatedUid)
+  ) {
+    throw new HttpsError(
+      "failed-precondition",
+      "This invite belongs to a different restaurant account.",
+      { reason: "conflicting-account" },
+    );
+  }
+  if (
+    !hasNonemptyInviteRestaurantId &&
+    rawInviteRestaurantId !== null &&
+    rawInviteRestaurantId !== undefined &&
+    rawInviteRestaurantId !== ""
+  ) {
+    throwInvalidCatalogBackedCouponInvite();
+  }
+
+  if (!accountExists) {
+    return;
+  }
+  const hasStoredUid = Object.prototype.hasOwnProperty.call(accountData, "uid");
+  const storedUid = readString(accountData.uid);
+  if (
+    hasStoredUid &&
+    (storedUid === undefined ||
+      accountData.uid !== storedUid ||
+      storedUid !== authenticatedUid)
+  ) {
+    throw new HttpsError(
+      "failed-precondition",
+      "This signed-in account does not own the existing restaurant account.",
+      { reason: "conflicting-account" },
+    );
+  }
+}
+
 function biteScoreClaimInviteHasConsistentActiveState(
   inviteData: Readonly<Record<string, unknown>>,
   restaurantId: string,
@@ -1643,33 +1803,42 @@ export const createCouponRestaurantInvite = onCall(async (request) => {
   const token = generateInviteToken();
   const tokenHash = hashInviteToken(token);
   const inviteRef = db.collection(restaurantInviteCollection).doc();
-
-  const restaurantName = readString(data.restaurantName);
-  if (!restaurantName) {
+  const hasCatalogRestaurantId = Object.prototype.hasOwnProperty.call(
+    data,
+    biteScoreCatalogRestaurantIdField,
+  );
+  const catalogRestaurantId = hasCatalogRestaurantId
+    ? readBiteScoreCatalogRestaurantId(
+        data[biteScoreCatalogRestaurantIdField],
+      )
+    : null;
+  if (hasCatalogRestaurantId && catalogRestaurantId === null) {
     throw new HttpsError(
       "invalid-argument",
-      "Restaurant name is required for a coupon invite.",
+      "A valid BiteScore catalog restaurant ID is required.",
     );
   }
-
   const { restaurantId, pendingRestaurantKey } = couponInviteRestaurantIdentity(
-    data.restaurantId,
+    catalogRestaurantId === null ? data.restaurantId : null,
     inviteRef.id,
   );
-  const couponPrefill = {
-    restaurantName,
-    streetAddress: readString(data.streetAddress) ?? null,
-    city: readString(data.city) ?? null,
-    state: readString(data.state) ?? null,
-    zipCode: readString(data.zipCode) ?? null,
-    phone: readString(data.phone) ?? null,
-    website: readString(data.website) ?? null,
-    latitude: readOptionalNumber(data.latitude),
-    longitude: readOptionalNumber(data.longitude),
-  };
+  if (
+    catalogRestaurantId !== null &&
+    Object.prototype.hasOwnProperty.call(data, "restaurantId") &&
+    data.restaurantId !== null &&
+    data.restaurantId !== ""
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Catalog restaurant identity must not use the account restaurant ID field.",
+    );
+  }
   const expiresAt = inviteExpirationTimestamp();
 
-  await inviteRef.set({
+  const inviteDocument = (
+    restaurantName: string,
+    couponPrefill: Readonly<Record<string, unknown>>,
+  ): Record<string, unknown> => ({
     tokenHash,
     type: "coupon_invite",
     side: "coupon",
@@ -1678,6 +1847,9 @@ export const createCouponRestaurantInvite = onCall(async (request) => {
     pendingRestaurantKey,
     restaurantName,
     couponPrefill,
+    ...(catalogRestaurantId === null
+      ? {}
+      : { [biteScoreCatalogRestaurantIdField]: catalogRestaurantId }),
     createdAt: FieldValue.serverTimestamp(),
     createdByUid: admin.uid,
     createdByEmail: admin.email,
@@ -1691,6 +1863,103 @@ export const createCouponRestaurantInvite = onCall(async (request) => {
     revokedAt: null,
     revokedByUid: null,
   });
+
+  if (catalogRestaurantId === null) {
+    const restaurantName = readString(data.restaurantName);
+    if (!restaurantName) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Restaurant name is required for a coupon invite.",
+      );
+    }
+    await inviteRef.set(inviteDocument(restaurantName, {
+      restaurantName,
+      streetAddress: readString(data.streetAddress) ?? null,
+      city: readString(data.city) ?? null,
+      state: readString(data.state) ?? null,
+      zipCode: readString(data.zipCode) ?? null,
+      phone: readString(data.phone) ?? null,
+      website: readString(data.website) ?? null,
+      latitude: readOptionalNumber(data.latitude),
+      longitude: readOptionalNumber(data.longitude),
+    }));
+  } else {
+    const restaurantRef = db
+      .collection("bitescore_restaurants")
+      .doc(catalogRestaurantId);
+    const restaurantOperationLockRef = db
+      .collection(ratingDestructiveRestaurantOperationLockCollection)
+      .doc(catalogRestaurantId);
+    const catalogAccountBindingsQuery = db
+      .collection("restaurant_accounts")
+      .where(biteScoreCatalogRestaurantIdField, "==", catalogRestaurantId)
+      .limit(2);
+    await db.runTransaction(async (transaction) => {
+      const [
+        restaurantOperationLockSnapshot,
+        restaurantSnapshot,
+        catalogAccountBindingsSnapshot,
+      ] = await Promise.all([
+        transaction.get(restaurantOperationLockRef),
+        transaction.get(restaurantRef),
+        transaction.get(catalogAccountBindingsQuery),
+      ]);
+      if (restaurantOperationLockSnapshot.exists) {
+        throw new HttpsError(
+          "failed-precondition",
+          "This BiteScore restaurant is temporarily unavailable.",
+        );
+      }
+      if (!restaurantSnapshot.exists) {
+        throw new HttpsError(
+          "not-found",
+          "The selected BiteScore restaurant was not found.",
+        );
+      }
+      if (!catalogAccountBindingsSnapshot.empty) {
+        throw new HttpsError(
+          "failed-precondition",
+          "This BiteScore restaurant has an unavailable BiteSaver binding state.",
+        );
+      }
+
+      const restaurantData = restaurantSnapshot.data() ?? {};
+      requireBiteScoreRestaurantAvailableForBiteSaver(
+        restaurantData,
+        catalogRestaurantId,
+      );
+      const binding = biteScoreCatalogBindingState(restaurantData);
+      if (binding.type !== "unbound") {
+        throw new HttpsError(
+          "failed-precondition",
+          binding.type === "bound"
+            ? "This BiteScore restaurant is already active in BiteSaver."
+            : "This BiteScore restaurant has an unavailable BiteSaver binding state.",
+        );
+      }
+      if (
+        decideRestaurantInviteRevisionWrite(null, restaurantData).type !==
+          "write"
+      ) {
+        throw new HttpsError(
+          "failed-precondition",
+          "This BiteScore restaurant has an unavailable revision state.",
+        );
+      }
+      const couponPrefill = couponPrefillFromBiteScoreCatalog(restaurantData);
+      const restaurantName = readString(couponPrefill?.restaurantName);
+      if (couponPrefill === null || !restaurantName) {
+        throw new HttpsError(
+          "failed-precondition",
+          "The selected BiteScore restaurant is missing a name.",
+        );
+      }
+      transaction.set(
+        inviteRef,
+        inviteDocument(restaurantName, couponPrefill),
+      );
+    });
+  }
 
   return {
     inviteId: inviteRef.id,
@@ -1843,6 +2112,7 @@ export const searchAdminRestaurants = onCall(
       getGeocodingApiKey: () => googleMapsApiKey.value(),
       fetchGeocoding: (url, init) => fetch(url, init),
       executeQueryPlan: executeAdminRestaurantQueryPlan,
+      verifyBiteSaverCatalogBindings: verifyAdminBiteSaverCatalogBindings,
     });
   },
 );
@@ -2211,6 +2481,7 @@ export const redeemCouponRestaurantInvite = onCall(async (request) => {
     .where("tokenHash", "==", tokenHash)
     .limit(1);
   const accountRef = db.collection("restaurant_accounts").doc(uid);
+  const newCatalogBindingId = generateBiteSaverCatalogBindingId();
 
   const result = await db.runTransaction(async (transaction) => {
     const inviteSnapshot = await transaction.get(inviteQuery);
@@ -2240,8 +2511,31 @@ export const redeemCouponRestaurantInvite = onCall(async (request) => {
     }
 
     const inviteData = inviteDoc.data();
-    const couponPrefill = readRecord(inviteData.couponPrefill);
-    const restaurantName =
+    const hasCatalogRestaurantId = Object.prototype.hasOwnProperty.call(
+      inviteData,
+      biteScoreCatalogRestaurantIdField,
+    );
+    const catalogRestaurantId = hasCatalogRestaurantId
+      ? readBiteScoreCatalogRestaurantId(
+          inviteData[biteScoreCatalogRestaurantIdField],
+        )
+      : null;
+    if (hasCatalogRestaurantId && catalogRestaurantId === null) {
+      throwInvalidCatalogBackedCouponInvite();
+    }
+    if (
+      catalogRestaurantId !== null &&
+      !catalogBackedCouponInviteHasConsistentActiveState(
+        inviteData,
+        inviteDoc.id,
+        catalogRestaurantId,
+      )
+    ) {
+      throwInvalidCatalogBackedCouponInvite();
+    }
+
+    let couponPrefill = readRecord(inviteData.couponPrefill);
+    let restaurantName =
       readString(inviteData.restaurantName) ??
       readString(couponPrefill.restaurantName);
     if (!restaurantName) {
@@ -2252,8 +2546,94 @@ export const redeemCouponRestaurantInvite = onCall(async (request) => {
       );
     }
 
-    const accountSnapshot = await transaction.get(accountRef);
+    let accountSnapshot;
+    let catalogRestaurantSnapshot;
+    let catalogRestaurantOperationLockSnapshot;
+    let catalogAccountBindingsSnapshot;
+    if (catalogRestaurantId === null) {
+      accountSnapshot = await transaction.get(accountRef);
+    } else {
+      const catalogRestaurantRef = db
+        .collection("bitescore_restaurants")
+        .doc(catalogRestaurantId);
+      const catalogRestaurantOperationLockRef = db
+        .collection(ratingDestructiveRestaurantOperationLockCollection)
+        .doc(catalogRestaurantId);
+      const catalogAccountBindingsQuery = db
+        .collection("restaurant_accounts")
+        .where(biteScoreCatalogRestaurantIdField, "==", catalogRestaurantId)
+        .limit(2);
+      [
+        accountSnapshot,
+        catalogRestaurantSnapshot,
+        catalogRestaurantOperationLockSnapshot,
+        catalogAccountBindingsSnapshot,
+      ] = await Promise.all([
+        transaction.get(accountRef),
+        transaction.get(catalogRestaurantRef),
+        transaction.get(catalogRestaurantOperationLockRef),
+        transaction.get(catalogAccountBindingsQuery),
+      ]);
+    }
     const accountData = accountSnapshot.data() ?? {};
+    requireCouponInviteAccountIdentity(
+      inviteData,
+      accountData,
+      accountSnapshot.exists,
+      uid,
+    );
+    const accountCatalogBinding =
+      biteSaverAccountCatalogBindingState(accountData);
+    if (accountCatalogBinding.type === "invalid") {
+      throwInvalidCatalogBackedCouponInvite();
+    }
+
+    let catalogRestaurantRef;
+    let catalogRestaurantRevisionPatch: Readonly<Record<string, number>> | null =
+      null;
+    if (catalogRestaurantId !== null) {
+      if (
+        catalogRestaurantOperationLockSnapshot?.exists ||
+        !catalogRestaurantSnapshot?.exists ||
+        !catalogAccountBindingsSnapshot?.empty
+      ) {
+        throwInvalidCatalogBackedCouponInvite();
+      }
+      const catalogRestaurantData = catalogRestaurantSnapshot.data() ?? {};
+      try {
+        requireBiteScoreRestaurantAvailableForBiteSaver(
+          catalogRestaurantData,
+          catalogRestaurantId,
+        );
+      } catch {
+        throwInvalidCatalogBackedCouponInvite();
+      }
+      if (
+        biteScoreCatalogBindingState(catalogRestaurantData).type !== "unbound" ||
+        accountCatalogBinding.type !== "unbound"
+      ) {
+        throwInvalidCatalogBackedCouponInvite();
+      }
+      const catalogRestaurantRevisionDecision =
+        decideRestaurantInviteRevisionWrite(null, catalogRestaurantData);
+      if (catalogRestaurantRevisionDecision.type !== "write") {
+        throwInvalidCatalogBackedCouponInvite();
+      }
+      catalogRestaurantRef = catalogRestaurantSnapshot.ref;
+      catalogRestaurantRevisionPatch =
+        catalogRestaurantRevisionDecision.patch;
+      const currentCatalogPrefill =
+        couponPrefillFromBiteScoreCatalog(catalogRestaurantData);
+      const currentCatalogRestaurantName = readString(
+        currentCatalogPrefill?.restaurantName,
+      );
+      if (currentCatalogPrefill === null || !currentCatalogRestaurantName) {
+        throwInvalidCatalogBackedCouponInvite();
+      }
+      couponPrefill = currentCatalogPrefill;
+      restaurantName = currentCatalogRestaurantName;
+    }
+
     const existingRestaurantName = readString(accountData.restaurantName);
     const existingSubmitted = accountData.couponApplicationSubmitted === true;
     const existingApprovalStatus = readString(accountData.approvalStatus);
@@ -2292,6 +2672,12 @@ export const redeemCouponRestaurantInvite = onCall(async (request) => {
       inviteId: invite.id,
       inviteRestaurantKey: invite.pendingRestaurantKey || null,
       updatedAt: FieldValue.serverTimestamp(),
+      ...(catalogRestaurantId === null
+        ? {}
+        : {
+            [biteScoreCatalogRestaurantIdField]: catalogRestaurantId,
+            [biteSaverCatalogBindingIdField]: newCatalogBindingId,
+          }),
     };
     if (latitude !== null) {
       accountUpdate.latitude = latitude;
@@ -2304,6 +2690,20 @@ export const redeemCouponRestaurantInvite = onCall(async (request) => {
     }
 
     transaction.set(accountRef, accountUpdate, { merge: true });
+    if (
+      catalogRestaurantRef !== undefined &&
+      catalogRestaurantRevisionPatch !== null
+    ) {
+      transaction.set(
+        catalogRestaurantRef,
+        {
+          [biteSaverCatalogBindingIdField]: newCatalogBindingId,
+          ...catalogRestaurantRevisionPatch,
+          updatedAt: FieldValue.serverTimestamp(),
+        },
+        { merge: true },
+      );
+    }
     transaction.set(
       inviteDoc.ref,
       {

@@ -343,6 +343,91 @@ test("BiteSaver restaurant projection derives exact visibility and canonical sea
   }
 });
 
+test("BiteSaver projection emits only a strict reciprocal catalog binding", () => {
+  const firstBindingId = "A".repeat(43);
+  const secondBindingId = "B".repeat(43);
+  const bound = buildBiteSaverRestaurantIndex({
+    sourceDocumentId: "owner-auth-uid",
+    source: biteSaverRestaurant({
+      biteScoreCatalogRestaurantId: "catalog-restaurant-1",
+      biteSaverCatalogBindingId: firstBindingId,
+      uid: "owner-auth-uid",
+      ownerUid: "private-owner-auth-token-canary",
+    }),
+    now,
+  });
+  const changed = buildBiteSaverRestaurantIndex({
+    sourceDocumentId: "owner-auth-uid",
+    source: biteSaverRestaurant({
+      biteScoreCatalogRestaurantId: "catalog-restaurant-1",
+      biteSaverCatalogBindingId: secondBindingId,
+    }),
+    now: new Date(now.getTime() + 1_000),
+  });
+
+  assert.equal(
+    bound.biteScoreCatalogRestaurantId,
+    "catalog-restaurant-1",
+  );
+  assert.equal(bound.biteSaverCatalogBindingId, firstBindingId);
+  assert.equal(bound.publicVisible, true);
+  assert.equal(Object.hasOwn(bound, "uid"), false);
+  assert.equal(Object.hasOwn(bound, "ownerUid"), false);
+  assertCanariesAbsent(bound);
+  assert.notEqual(bound.sourceFingerprint, changed.sourceFingerprint);
+  assert.equal(
+    changed.publicProjectionVersion,
+    "bitestar.bitesaver-public-restaurant.v1",
+  );
+
+  const ineligible = buildBiteSaverRestaurantIndex({
+    sourceDocumentId: "owner-auth-uid",
+    source: biteSaverRestaurant({
+      approvalStatus: "pending",
+      biteScoreCatalogRestaurantId: "catalog-restaurant-1",
+      biteSaverCatalogBindingId: firstBindingId,
+    }),
+    now,
+  });
+  assert.equal(ineligible.publicVisible, false);
+  assert.equal(
+    ineligible.biteScoreCatalogRestaurantId,
+    "catalog-restaurant-1",
+  );
+
+  for (const malformed of [
+    {biteScoreCatalogRestaurantId: "catalog-restaurant-1"},
+    {biteSaverCatalogBindingId: firstBindingId},
+    {
+      biteScoreCatalogRestaurantId: "catalog/restaurant",
+      biteSaverCatalogBindingId: firstBindingId,
+    },
+    {
+      biteScoreCatalogRestaurantId: "catalog-restaurant-1",
+      biteSaverCatalogBindingId: "short",
+    },
+    {
+      biteScoreCatalogRestaurantId: null,
+      biteSaverCatalogBindingId: null,
+    },
+  ]) {
+    const projection = buildBiteSaverRestaurantIndex({
+      sourceDocumentId: "malformed-binding",
+      source: biteSaverRestaurant(malformed),
+      now,
+    });
+    assert.equal(
+      Object.hasOwn(projection, "biteScoreCatalogRestaurantId"),
+      false,
+    );
+    assert.equal(
+      Object.hasOwn(projection, "biteSaverCatalogBindingId"),
+      false,
+    );
+    assert.equal(projection.publicVisible, false);
+  }
+});
+
 test("BiteSaver restaurant public profile fields are individually validated and closed", () => {
   for (const unsafeName of ["Cafe\u0000Secret", "Cafe\u200bSecret"]) {
     assert.equal(buildBiteSaverRestaurantIndex({

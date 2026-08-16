@@ -65,13 +65,13 @@ void main() {
   });
 
   test(
-    'renders I C SA and SC markers without changing the QR region',
+    'renders I C SA and SR markers without changing the QR region',
     () async {
       final expectedMarkers = <RestaurantQrLinkType, String>{
         RestaurantQrLinkType.couponInvite: 'I',
         RestaurantQrLinkType.biteScoreClaimInvite: 'C',
         RestaurantQrLinkType.customerBiteSaver: 'SA',
-        RestaurantQrLinkType.customerBiteScore: 'SC',
+        RestaurantQrLinkType.customerBiteScore: 'SR',
       };
       Uint8List? referenceQrRegion;
       RestaurantQrImageResult? referenceResult;

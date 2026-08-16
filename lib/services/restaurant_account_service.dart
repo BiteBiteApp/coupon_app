@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
+import '../models/bitescore_restaurant.dart';
 import '../models/coupon.dart';
 import '../models/daily_special.dart';
 import '../models/restaurant.dart';
@@ -18,6 +20,72 @@ class ResolvedRestaurantAccount {
     required this.accountUid,
     required this.accountData,
   });
+}
+
+enum CustomerRestaurantLinkResolutionState {
+  available,
+  catalogNotAvailable,
+  unavailable,
+}
+
+class CustomerRestaurantLinkResolution {
+  final CustomerRestaurantLinkResolutionState state;
+  final ResolvedRestaurantAccount? account;
+
+  const CustomerRestaurantLinkResolution._({
+    required this.state,
+    required this.account,
+  });
+
+  const CustomerRestaurantLinkResolution.available(
+    ResolvedRestaurantAccount account,
+  ) : this._(
+        state: CustomerRestaurantLinkResolutionState.available,
+        account: account,
+      );
+
+  const CustomerRestaurantLinkResolution.catalogNotAvailable()
+    : this._(
+        state: CustomerRestaurantLinkResolutionState.catalogNotAvailable,
+        account: null,
+      );
+
+  const CustomerRestaurantLinkResolution.unavailable()
+    : this._(
+        state: CustomerRestaurantLinkResolutionState.unavailable,
+        account: null,
+      );
+}
+
+class CustomerRestaurantProjectionDocument {
+  final String documentId;
+  final Map<String, dynamic> data;
+
+  const CustomerRestaurantProjectionDocument({
+    required this.documentId,
+    required this.data,
+  });
+}
+
+typedef CustomerRestaurantAccountProjectionLoader =
+    Future<List<CustomerRestaurantProjectionDocument>> Function(
+      String restaurantId,
+    );
+typedef CustomerRestaurantCatalogDocumentLoader =
+    Future<Map<String, dynamic>?> Function(String restaurantId);
+typedef CustomerRestaurantCatalogProjectionLoader =
+    Future<List<CustomerRestaurantProjectionDocument>> Function({
+      required String catalogRestaurantId,
+      required String bindingId,
+    });
+
+enum _CustomerCatalogRestaurantState { missing, invalid, unbound, bound }
+
+class _CustomerCatalogRestaurantBinding {
+  final _CustomerCatalogRestaurantState state;
+  final String? bindingId;
+
+  const _CustomerCatalogRestaurantBinding(this.state, {this.bindingId});
 }
 
 enum RestaurantAccountAdminVisibilityFailureKind { missingAccount, staleState }
@@ -50,6 +118,10 @@ class RestaurantAccountService {
   static const String projectionIndexDocumentIdField = 'indexDocumentId';
   static const String projectionDisplayNameField = 'displayName';
   static const String projectionPrimaryImageUrlField = 'primaryImageUrl';
+  static const String biteScoreCatalogRestaurantIdField =
+      'biteScoreCatalogRestaurantId';
+  static const String biteSaverCatalogBindingIdField =
+      'biteSaverCatalogBindingId';
   static const int maxCouponNumberGenerationAttempts = 10000;
   static const String _couponNumberReservationsCollection =
       'coupon_number_reservations';
@@ -65,6 +137,9 @@ class RestaurantAccountService {
   static const String _couponNumberReservationUpdatedAtField = 'updatedAt';
 
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static final RegExp _biteSaverCatalogBindingIdPattern = RegExp(
+    r'^[A-Za-z0-9_-]{43}$',
+  );
 
   static Query<Map<String, dynamic>> _customerRestaurantProjectionQuery() {
     return _firestore
@@ -385,25 +460,83 @@ class RestaurantAccountService {
       return null;
     }
 
-    final snapshot = await _customerRestaurantProjectionQuery()
-        .where(
-          projectionSourceDocumentIdField,
-          isEqualTo: canonicalRestaurantId,
-        )
-        .limit(2)
-        .get();
-    if (snapshot.docs.length != 1) {
+    final matches = await _loadCustomerRestaurantProjectionMatchesByAccountId(
+      canonicalRestaurantId,
+    );
+    if (matches.length != 1) {
       return null;
     }
-    final data = snapshot.docs.single.data();
+    final match = matches.single;
     return customerRestaurantFromProjectionData(
-              data,
+              match.data,
               expectedRestaurantId: canonicalRestaurantId,
-              projectionDocumentId: snapshot.docs.single.id,
+              projectionDocumentId: match.documentId,
             ) ==
             null
         ? null
-        : Map<String, dynamic>.unmodifiable(data);
+        : Map<String, dynamic>.unmodifiable(match.data);
+  }
+
+  static Future<List<CustomerRestaurantProjectionDocument>>
+  _loadCustomerRestaurantProjectionMatchesByAccountId(
+    String restaurantId,
+  ) async {
+    final snapshot = await _customerRestaurantProjectionQuery()
+        .where(projectionSourceDocumentIdField, isEqualTo: restaurantId)
+        .limit(2)
+        .get();
+    return snapshot.docs
+        .map(
+          (document) => CustomerRestaurantProjectionDocument(
+            documentId: document.id,
+            data: Map<String, dynamic>.unmodifiable(document.data()),
+          ),
+        )
+        .toList(growable: false);
+  }
+
+  static Future<Map<String, dynamic>?> _loadCustomerCatalogRestaurantDocument(
+    String restaurantId,
+  ) async {
+    try {
+      final snapshot = await _firestore
+          .collection(BitescoreRestaurant.collectionName)
+          .doc(restaurantId)
+          .get();
+      final data = snapshot.data();
+      return data == null ? null : Map<String, dynamic>.unmodifiable(data);
+    } on FirebaseException catch (error) {
+      if (error.code == 'not-found') {
+        return null;
+      }
+      if (error.code == 'permission-denied') {
+        return const <String, dynamic>{};
+      }
+      rethrow;
+    }
+  }
+
+  static Future<List<CustomerRestaurantProjectionDocument>>
+  _loadCustomerRestaurantProjectionMatchesByCatalogBinding({
+    required String catalogRestaurantId,
+    required String bindingId,
+  }) async {
+    final snapshot = await _customerRestaurantProjectionQuery()
+        .where(
+          biteScoreCatalogRestaurantIdField,
+          isEqualTo: catalogRestaurantId,
+        )
+        .where(biteSaverCatalogBindingIdField, isEqualTo: bindingId)
+        .limit(2)
+        .get();
+    return snapshot.docs
+        .map(
+          (document) => CustomerRestaurantProjectionDocument(
+            documentId: document.id,
+            data: Map<String, dynamic>.unmodifiable(document.data()),
+          ),
+        )
+        .toList(growable: false);
   }
 
   static Restaurant? customerRestaurantFromProjectionData(
@@ -417,7 +550,8 @@ class RestaurantAccountService {
         data[publicProjectionVersionField] != customerPublicProjectionVersion ||
         data[projectionEntityTypeField] != 'restaurant' ||
         data[projectionSourceField] != 'biteSaver' ||
-        data[publicVisibleField] != true) {
+        data[publicVisibleField] != true ||
+        !_hasValidCustomerProjectionBindingState(data)) {
       return null;
     }
 
@@ -556,6 +690,337 @@ class RestaurantAccountService {
       accountUid: trimmedRestaurantId,
       accountData: projection,
     );
+  }
+
+  static Future<CustomerRestaurantLinkResolution>
+  resolveCustomerRestaurantAccountLink(
+    String restaurantId, {
+    CustomerRestaurantAccountProjectionLoader? accountProjectionLoader,
+    CustomerRestaurantCatalogDocumentLoader? catalogDocumentLoader,
+    CustomerRestaurantCatalogProjectionLoader? catalogProjectionLoader,
+  }) async {
+    final routeId = restaurantId;
+    if (routeId.isEmpty || routeId.trim() != routeId || routeId.contains('/')) {
+      return const CustomerRestaurantLinkResolution.unavailable();
+    }
+
+    final loadAccountProjections =
+        accountProjectionLoader ??
+        _loadCustomerRestaurantProjectionMatchesByAccountId;
+    final loadCatalogDocument =
+        catalogDocumentLoader ?? _loadCustomerCatalogRestaurantDocument;
+    late final List<CustomerRestaurantProjectionDocument> accountMatches;
+    late final Map<String, dynamic>? catalogData;
+    if (_readCanonicalDocumentId(routeId) == null) {
+      accountMatches = await loadAccountProjections(routeId);
+      catalogData = null;
+    } else {
+      final initialLookup = await Future.wait<Object?>(<Future<Object?>>[
+        loadAccountProjections(routeId),
+        loadCatalogDocument(routeId),
+      ]);
+      accountMatches =
+          initialLookup[0] as List<CustomerRestaurantProjectionDocument>;
+      catalogData = initialLookup[1] as Map<String, dynamic>?;
+    }
+
+    if (accountMatches.length > 1) {
+      return const CustomerRestaurantLinkResolution.unavailable();
+    }
+
+    final directMatch = accountMatches.singleOrNull;
+    final directAccount = directMatch == null
+        ? null
+        : _resolvedCustomerAccountFromProjection(
+            directMatch,
+            expectedAccountId: routeId,
+          );
+    if (directMatch != null && directAccount == null) {
+      return const CustomerRestaurantLinkResolution.unavailable();
+    }
+
+    if (directAccount != null &&
+        directMatch!.data.containsKey(biteScoreCatalogRestaurantIdField)) {
+      final directCatalogRestaurantId = _readCanonicalDocumentId(
+        directMatch.data[biteScoreCatalogRestaurantIdField],
+      );
+      final directBindingId = _readBiteSaverCatalogBindingId(
+        directMatch.data[biteSaverCatalogBindingIdField],
+      );
+      if (directCatalogRestaurantId == null || directBindingId == null) {
+        return const CustomerRestaurantLinkResolution.unavailable();
+      }
+      final reciprocalCatalogData = directCatalogRestaurantId == routeId
+          ? catalogData
+          : await loadCatalogDocument(directCatalogRestaurantId);
+      final reciprocalBindingId = _customerCatalogReciprocalBindingId(
+        directCatalogRestaurantId,
+        reciprocalCatalogData,
+      );
+      if (reciprocalBindingId != directBindingId) {
+        return const CustomerRestaurantLinkResolution.unavailable();
+      }
+    }
+
+    final catalogBinding = _customerCatalogRestaurantBinding(
+      routeId,
+      catalogData,
+    );
+    switch (catalogBinding.state) {
+      case _CustomerCatalogRestaurantState.missing:
+        return directAccount == null
+            ? const CustomerRestaurantLinkResolution.unavailable()
+            : CustomerRestaurantLinkResolution.available(directAccount);
+      case _CustomerCatalogRestaurantState.invalid:
+        return const CustomerRestaurantLinkResolution.unavailable();
+      case _CustomerCatalogRestaurantState.unbound:
+        return directAccount == null
+            ? const CustomerRestaurantLinkResolution.catalogNotAvailable()
+            : const CustomerRestaurantLinkResolution.unavailable();
+      case _CustomerCatalogRestaurantState.bound:
+        break;
+    }
+
+    final bindingId = catalogBinding.bindingId!;
+    final loadCatalogProjections =
+        catalogProjectionLoader ??
+        _loadCustomerRestaurantProjectionMatchesByCatalogBinding;
+    final catalogMatches = await loadCatalogProjections(
+      catalogRestaurantId: routeId,
+      bindingId: bindingId,
+    );
+    if (catalogMatches.length != 1) {
+      return const CustomerRestaurantLinkResolution.unavailable();
+    }
+
+    final catalogMatch = catalogMatches.single;
+    final catalogAccount = _resolvedCustomerAccountFromProjection(
+      catalogMatch,
+      expectedCatalogRestaurantId: routeId,
+      expectedBindingId: bindingId,
+    );
+    if (catalogAccount == null) {
+      return const CustomerRestaurantLinkResolution.unavailable();
+    }
+    if (directAccount != null &&
+        (directAccount.documentId != catalogAccount.documentId ||
+            directMatch!.documentId != catalogMatch.documentId)) {
+      return const CustomerRestaurantLinkResolution.unavailable();
+    }
+
+    return CustomerRestaurantLinkResolution.available(catalogAccount);
+  }
+
+  static ResolvedRestaurantAccount? _resolvedCustomerAccountFromProjection(
+    CustomerRestaurantProjectionDocument projection, {
+    String? expectedAccountId,
+    String? expectedCatalogRestaurantId,
+    String? expectedBindingId,
+  }) {
+    final data = projection.data;
+    final accountId = _readCustomerAccountDocumentId(
+      data[projectionSourceDocumentIdField],
+    );
+    if (accountId == null ||
+        (expectedAccountId != null && accountId != expectedAccountId) ||
+        !_hasValidCustomerProjectionBindingState(
+          data,
+          expectedCatalogRestaurantId: expectedCatalogRestaurantId,
+          expectedBindingId: expectedBindingId,
+        ) ||
+        customerRestaurantFromProjectionData(
+              data,
+              expectedRestaurantId: accountId,
+              projectionDocumentId: projection.documentId,
+            ) ==
+            null) {
+      return null;
+    }
+
+    return ResolvedRestaurantAccount(
+      documentId: accountId,
+      accountUid: accountId,
+      accountData: Map<String, dynamic>.unmodifiable(data),
+    );
+  }
+
+  static _CustomerCatalogRestaurantBinding _customerCatalogRestaurantBinding(
+    String routeId,
+    Map<String, dynamic>? data,
+  ) {
+    if (data == null) {
+      return const _CustomerCatalogRestaurantBinding(
+        _CustomerCatalogRestaurantState.missing,
+      );
+    }
+    if (_readCanonicalDocumentId(data['id']) != routeId) {
+      return const _CustomerCatalogRestaurantBinding(
+        _CustomerCatalogRestaurantState.invalid,
+      );
+    }
+
+    try {
+      final restaurant =
+          BitescoreRestaurant.tryFromFirestore(data, fallbackId: routeId) ??
+          BitescoreRestaurant.tryFromFinderFirestore(data, fallbackId: routeId);
+      if (restaurant == null ||
+          restaurant.id != routeId ||
+          !restaurant.isActive ||
+          !_hasCompleteBiteSaverCatalogProfile(restaurant)) {
+        return const _CustomerCatalogRestaurantBinding(
+          _CustomerCatalogRestaurantState.invalid,
+        );
+      }
+    } catch (_) {
+      return const _CustomerCatalogRestaurantBinding(
+        _CustomerCatalogRestaurantState.invalid,
+      );
+    }
+
+    if (!data.containsKey(biteSaverCatalogBindingIdField)) {
+      return const _CustomerCatalogRestaurantBinding(
+        _CustomerCatalogRestaurantState.unbound,
+      );
+    }
+    final bindingId = _readBiteSaverCatalogBindingId(
+      data[biteSaverCatalogBindingIdField],
+    );
+    if (bindingId == null) {
+      return const _CustomerCatalogRestaurantBinding(
+        _CustomerCatalogRestaurantState.invalid,
+      );
+    }
+    return _CustomerCatalogRestaurantBinding(
+      _CustomerCatalogRestaurantState.bound,
+      bindingId: bindingId,
+    );
+  }
+
+  static String? _customerCatalogReciprocalBindingId(
+    String catalogRestaurantId,
+    Map<String, dynamic>? data,
+  ) {
+    if (data == null || _readCanonicalDocumentId(catalogRestaurantId) == null) {
+      return null;
+    }
+    return _readBiteSaverCatalogBindingId(data[biteSaverCatalogBindingIdField]);
+  }
+
+  static bool _hasCompleteBiteSaverCatalogProfile(
+    BitescoreRestaurant restaurant,
+  ) {
+    final latitude = restaurant.latitude;
+    final longitude = restaurant.longitude;
+    return restaurant.name.trim().isNotEmpty &&
+        restaurant.address.trim().isNotEmpty &&
+        restaurant.city.trim().isNotEmpty &&
+        restaurant.state.trim().isNotEmpty &&
+        restaurant.zipCode.trim().isNotEmpty &&
+        restaurant.restaurantWriteRevision <
+            BitescoreRestaurant.maxRestaurantWriteRevision &&
+        latitude != null &&
+        longitude != null &&
+        latitude.isFinite &&
+        longitude.isFinite &&
+        latitude >= -90 &&
+        latitude <= 90 &&
+        longitude >= -180 &&
+        longitude <= 180 &&
+        (latitude != 0 || longitude != 0);
+  }
+
+  static bool _hasValidCustomerProjectionBindingState(
+    Map<String, dynamic> data, {
+    String? expectedCatalogRestaurantId,
+    String? expectedBindingId,
+  }) {
+    final hasCatalogRestaurantId = data.containsKey(
+      biteScoreCatalogRestaurantIdField,
+    );
+    final hasBindingId = data.containsKey(biteSaverCatalogBindingIdField);
+    if (!hasCatalogRestaurantId && !hasBindingId) {
+      return expectedCatalogRestaurantId == null && expectedBindingId == null;
+    }
+    if (!hasCatalogRestaurantId || !hasBindingId) {
+      return false;
+    }
+
+    final catalogRestaurantId = _readCanonicalDocumentId(
+      data[biteScoreCatalogRestaurantIdField],
+    );
+    final bindingId = _readBiteSaverCatalogBindingId(
+      data[biteSaverCatalogBindingIdField],
+    );
+    return catalogRestaurantId != null &&
+        bindingId != null &&
+        (expectedCatalogRestaurantId == null ||
+            catalogRestaurantId == expectedCatalogRestaurantId) &&
+        (expectedBindingId == null || bindingId == expectedBindingId);
+  }
+
+  static String? _readCanonicalDocumentId(Object? value) {
+    if (value is! String ||
+        value.isEmpty ||
+        value != value.trim() ||
+        value == '.' ||
+        value == '..' ||
+        value.contains('/')) {
+      return null;
+    }
+    try {
+      if (utf8.encode(value).length > 1500) {
+        return null;
+      }
+    } on FormatException {
+      return null;
+    }
+    if (value.runes.any(_isUnsupportedFirestoreDocumentIdCodePoint)) {
+      return null;
+    }
+    return value;
+  }
+
+  static String? _readCustomerAccountDocumentId(Object? value) {
+    if (value is! String) {
+      return null;
+    }
+    final trimmed = value.trim();
+    return trimmed.isEmpty || trimmed.contains('/') ? null : trimmed;
+  }
+
+  static bool _isUnsupportedFirestoreDocumentIdCodePoint(int codePoint) {
+    return codePoint <= 0x1f ||
+        (codePoint >= 0x7f && codePoint <= 0x9f) ||
+        codePoint == 0xad ||
+        (codePoint >= 0x600 && codePoint <= 0x605) ||
+        codePoint == 0x61c ||
+        codePoint == 0x6dd ||
+        codePoint == 0x70f ||
+        (codePoint >= 0x890 && codePoint <= 0x891) ||
+        codePoint == 0x8e2 ||
+        (codePoint >= 0x17b4 && codePoint <= 0x17b5) ||
+        codePoint == 0x180e ||
+        (codePoint >= 0x200b && codePoint <= 0x200f) ||
+        (codePoint >= 0x202a && codePoint <= 0x202e) ||
+        (codePoint >= 0x2060 && codePoint <= 0x2064) ||
+        (codePoint >= 0x2066 && codePoint <= 0x206f) ||
+        codePoint == 0xfeff ||
+        (codePoint >= 0xfff9 && codePoint <= 0xfffb) ||
+        codePoint == 0x110bd ||
+        codePoint == 0x110cd ||
+        (codePoint >= 0x13430 && codePoint <= 0x1343f) ||
+        (codePoint >= 0x1bca0 && codePoint <= 0x1bca3) ||
+        (codePoint >= 0x1d173 && codePoint <= 0x1d17a) ||
+        codePoint == 0xe0001 ||
+        (codePoint >= 0xe0020 && codePoint <= 0xe007f);
+  }
+
+  static String? _readBiteSaverCatalogBindingId(Object? value) {
+    if (value is! String ||
+        !_biteSaverCatalogBindingIdPattern.hasMatch(value)) {
+      return null;
+    }
+    return value;
   }
 
   static Future<bool> canPostCoupons(String uid) async {

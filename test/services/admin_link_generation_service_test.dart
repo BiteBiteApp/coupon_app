@@ -6,6 +6,17 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('AdminLinkGenerationService request', () {
+    test('keeps SC as the valid South Carolina location code', () {
+      expect(
+        AdminLinkGenerationService.locationValidationError('Charleston, SC'),
+        isNull,
+      );
+      expect(
+        AdminLinkGenerationService.normalizeLocation(' Charleston, sc '),
+        'Charleston, SC',
+      );
+    });
+
     test('sends a normalized ZIP request with safe defaults', () async {
       Map<String, dynamic>? capturedPayload;
       final service = AdminLinkGenerationService(
@@ -194,6 +205,10 @@ void main() {
         expect(biteScore.actionId, 'actual-bitescore-doc');
         expect(biteScore.isClaimed, isTrue);
         expect(biteScore.claimState, AdminRestaurantClaimState.claimed);
+        expect(
+          biteScore.biteSaverCatalogBindingState,
+          AdminBiteSaverCatalogBindingState.unbound,
+        );
         expect(biteScore.ownerUserId, 'owner-1');
         expect(biteScore.linkedBiteSaverUid, 'account-1');
 
@@ -243,6 +258,7 @@ void main() {
               documentId: 'actual-bitescore-document',
               extra: {
                 'id': 'stored-compatibility-id',
+                'isClaimed': true,
                 'ownerUserId': 'score-owner',
                 'linkedBiteSaverUid': 'linked-saver-account',
                 'approvalStatus': 'approved',
@@ -267,9 +283,10 @@ void main() {
       expect(record.actionId, 'actual-bitescore-document');
       expect(record.restaurantName, 'River Grill');
       expect(record.isActive, isTrue);
-      expect(record.isClaimed, isFalse);
-      expect(record.claimState, AdminRestaurantClaimState.unavailable);
+      expect(record.isClaimed, isTrue);
+      expect(record.claimState, AdminRestaurantClaimState.claimed);
       expect(record.canCreateBiteScoreClaimInvite, isFalse);
+      expect(record.canCreateBiteSaverOwnerInvite, isTrue);
       expect(record.ownerUserId, 'score-owner');
       expect(record.linkedBiteSaverUid, 'linked-saver-account');
       expect(record.approvalStatus, isNull);
@@ -304,6 +321,60 @@ void main() {
         expect(result.results.single.isActive, isFalse);
       },
     );
+
+    test('parses only the closed BiteSaver catalog binding states', () async {
+      final service = AdminLinkGenerationService(
+        callable: (_) async => _response(
+          results: [
+            for (final state in AdminBiteSaverCatalogBindingState.values)
+              _biteScoreData(
+                documentId: 'catalog-${state.callableValue}',
+                extra: {'biteSaverCatalogBindingState': state.callableValue},
+              ),
+            _biteScoreData(
+              documentId: 'catalog-invalid',
+              extra: const {'biteSaverCatalogBindingState': 'repairable'},
+            ),
+            {..._biteScoreData(documentId: 'catalog-missing')}
+              ..remove('biteSaverCatalogBindingState'),
+          ],
+          returnedCount: 5,
+        ),
+      );
+
+      final result = await service.search(
+        locationQuery: '34428',
+        radiusMiles: 10,
+        sources: {AdminRestaurantLinkSource.biteScore},
+      );
+
+      expect(result.results, hasLength(3));
+      expect(
+        result.results.map((record) => record.biteSaverCatalogBindingState),
+        AdminBiteSaverCatalogBindingState.values,
+      );
+      expect(
+        result.results
+            .where(
+              (record) =>
+                  record.biteSaverCatalogBindingState ==
+                  AdminBiteSaverCatalogBindingState.unbound,
+            )
+            .single
+            .canCreateBiteSaverOwnerInvite,
+        isTrue,
+      );
+      expect(
+        result.results
+            .where(
+              (record) =>
+                  record.biteSaverCatalogBindingState !=
+                  AdminBiteSaverCatalogBindingState.unbound,
+            )
+            .every((record) => !record.canCreateBiteSaverOwnerInvite),
+        isTrue,
+      );
+    });
 
     test('BiteSaver records ignore injected BiteScore-only fields', () async {
       final service = AdminLinkGenerationService(
@@ -456,6 +527,7 @@ Map<String, dynamic> _biteScoreData({
     'isClaimed': false,
     'claimAvailable': activityValid && strictlyUnclaimed,
     'claimStateValid': activityValid && (strictlyUnclaimed || validlyClaimed),
+    'biteSaverCatalogBindingState': 'unbound',
     ...extra,
   };
 }

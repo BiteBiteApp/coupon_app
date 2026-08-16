@@ -224,6 +224,7 @@ class RestaurantInviteService {
   static Future<RestaurantInviteCreationResult> createCouponInvite({
     required String restaurantName,
     String? restaurantId,
+    String? biteScoreCatalogRestaurantId,
     String? streetAddress,
     String? city,
     String? state,
@@ -233,10 +234,21 @@ class RestaurantInviteService {
     double? latitude,
     double? longitude,
   }) async {
+    final normalizedRestaurantId = _trimmedOrNull(restaurantId);
+    final normalizedBiteScoreCatalogRestaurantId = _trimmedOrNull(
+      biteScoreCatalogRestaurantId,
+    );
+    if (normalizedRestaurantId != null &&
+        normalizedBiteScoreCatalogRestaurantId != null) {
+      throw ArgumentError(
+        'A BiteSaver account ID and BiteScore catalog restaurant ID cannot both be supplied.',
+      );
+    }
+
     final callable = _functions.httpsCallable('createCouponRestaurantInvite');
     final payload = <String, dynamic>{
-      if (_trimmedOrNull(restaurantId) != null)
-        'restaurantId': _trimmedOrNull(restaurantId),
+      'restaurantId': ?normalizedRestaurantId,
+      'biteScoreCatalogRestaurantId': ?normalizedBiteScoreCatalogRestaurantId,
       'restaurantName': restaurantName.trim(),
       if (_trimmedOrNull(streetAddress) != null)
         'streetAddress': _trimmedOrNull(streetAddress),

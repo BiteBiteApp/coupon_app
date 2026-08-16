@@ -2128,6 +2128,100 @@ test("restaurant root reads isolate owners while update policy stays unchanged",
   );
 });
 
+test("permanent catalog binding fields are writable only by trusted server code", async () => {
+  const bindingId = "A".repeat(43);
+  const accountRef = dbFor("restaurantOwner").doc(
+    "restaurant_accounts/owner-1",
+  );
+  const biteScoreRef = dbFor("biteScoreOwner").doc(
+    "bitescore_restaurants/bs-1",
+  );
+
+  await assertFails(
+    dbFor("customer").doc("restaurant_accounts/customer-a").set({
+      uid: "customer-a",
+      restaurantName: "Customer Forged Binding Cafe",
+      approvalStatus: "pending",
+      biteScoreCatalogRestaurantId: "bs-1",
+      biteSaverCatalogBindingId: bindingId,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }),
+  );
+  await assertFails(accountRef.set(
+    {
+      biteScoreCatalogRestaurantId: "bs-1",
+      biteSaverCatalogBindingId: bindingId,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  ));
+  await assertFails(dbFor("admin").doc(accountRef.path).set(
+    {
+      biteScoreCatalogRestaurantId: "bs-1",
+      biteSaverCatalogBindingId: bindingId,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  ));
+  await assertFails(biteScoreRef.set(
+    {
+      biteSaverCatalogBindingId: bindingId,
+      restaurantWriteRevision: 5,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  ));
+  await assertFails(dbFor("admin").doc(biteScoreRef.path).set(
+    {
+      biteSaverCatalogBindingId: bindingId,
+      restaurantWriteRevision: 5,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  ));
+  await assertFails(
+    dbFor("customer").doc("bitescore_restaurants/new-bound-restaurant").set({
+      ...biteScoreRestaurantCreateData({ id: "new-bound-restaurant" }),
+      biteSaverCatalogBindingId: bindingId,
+    }),
+  );
+
+  await updateRuleTestDocument("restaurant_accounts/owner-1", {
+    biteScoreCatalogRestaurantId: "bs-1",
+    biteSaverCatalogBindingId: bindingId,
+  });
+  await updateRuleTestDocument("bitescore_restaurants/bs-1", {
+    biteSaverCatalogBindingId: bindingId,
+  });
+
+  await assertSucceeds(accountRef.set(
+    { bio: "Binding-safe owner edit", updatedAt: serverTimestamp() },
+    { merge: true },
+  ));
+  await assertSucceeds(dbFor("admin").doc(accountRef.path).set(
+    { adminHidden: true, updatedAt: serverTimestamp() },
+    { merge: true },
+  ));
+  await assertSucceeds(biteScoreRef.set(
+    {
+      bio: "Binding-safe BiteScore owner edit",
+      restaurantWriteRevision: 5,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  ));
+  await assertSucceeds(dbFor("admin").doc(biteScoreRef.path).set(
+    {
+      isActive: false,
+      active: false,
+      restaurantWriteRevision: 6,
+      updatedAt: serverTimestamp(),
+    },
+    { merge: true },
+  ));
+});
+
 test("coupon deletion remains available to the owner and admin only", async () => {
   const couponPath = "restaurant_accounts/owner-1/coupons/coupon-1";
   const ownerCoupon = await assertSucceeds(

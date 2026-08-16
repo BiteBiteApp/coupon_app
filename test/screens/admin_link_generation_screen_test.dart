@@ -308,7 +308,7 @@ void main() {
       await _submitSearch(tester);
       expect(tester.takeException(), isNull, reason: '${sizes[index]}');
       final customerLink = find.byKey(
-        ValueKey('biteScore:responsive-$index:customer-link'),
+        ValueKey('biteScore:responsive-$index:customer-bitescore-link'),
       );
       await tester.ensureVisible(customerLink);
       await tester.tap(customerLink);
@@ -344,6 +344,7 @@ void main() {
           ({
             required restaurantName,
             required restaurantId,
+            required biteScoreCatalogRestaurantId,
             required streetAddress,
             required city,
             required state,
@@ -356,6 +357,7 @@ void main() {
             couponArguments = {
               'restaurantName': restaurantName,
               'restaurantId': restaurantId,
+              'biteScoreCatalogRestaurantId': biteScoreCatalogRestaurantId,
               'streetAddress': streetAddress,
               'city': city,
               'state': state,
@@ -377,6 +379,27 @@ void main() {
     );
     await _submitSearch(tester);
 
+    expect(
+      find.byKey(const ValueKey('biteScore:actual-score-doc:coupon-invite')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('biteScore:actual-score-doc:claim-invite')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey('biteScore:actual-score-doc:customer-bitesaver-link'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey('biteScore:actual-score-doc:customer-bitescore-link'),
+      ),
+      findsOneWidget,
+    );
+
     final couponButton = find.byKey(
       const ValueKey('biteScore:actual-score-doc:coupon-invite'),
     );
@@ -385,6 +408,10 @@ void main() {
     await _pumpOpenDialog(tester);
 
     expect(couponArguments?['restaurantId'], isNull);
+    expect(
+      couponArguments?['biteScoreCatalogRestaurantId'],
+      'actual-score-doc',
+    );
     expect(couponArguments?['restaurantName'], 'River Grill');
     expect(couponArguments?['streetAddress'], '1 Main Street');
     expect(find.byKey(const ValueKey('admin-link-action-url')), findsOneWidget);
@@ -406,7 +433,7 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('claimed BiteScore record cannot generate a claim invite', (
+  testWidgets('claimed BiteScore record keeps independent BiteSaver actions', (
     tester,
   ) async {
     var claimCalls = 0;
@@ -436,7 +463,96 @@ void main() {
       find.byKey(const ValueKey('biteScore:claimed-doc:claim-invite')),
       findsNothing,
     );
+    expect(
+      find.byKey(const ValueKey('biteScore:claimed-doc:coupon-invite')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey('biteScore:claimed-doc:customer-bitesaver-link'),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        const ValueKey('biteScore:claimed-doc:customer-bitescore-link'),
+      ),
+      findsOneWidget,
+    );
     expect(claimCalls, 0);
+  });
+
+  testWidgets('four cross-side states expose exactly the required actions', (
+    tester,
+  ) async {
+    await _pumpScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+          }) async => _result(
+            records: [
+              _biteScoreRecord(documentId: 'neither'),
+              _biteScoreRecord(documentId: 'score-claimed', isClaimed: true),
+              _biteScoreRecord(
+                documentId: 'saver-bound',
+                biteSaverCatalogBindingState:
+                    AdminBiteSaverCatalogBindingState.bound,
+              ),
+              _biteScoreRecord(
+                documentId: 'both',
+                isClaimed: true,
+                biteSaverCatalogBindingState:
+                    AdminBiteSaverCatalogBindingState.bound,
+              ),
+            ],
+          ),
+    );
+
+    await _submitSearch(tester);
+
+    const actionSuffixes = <String>{
+      'coupon-invite',
+      'claim-invite',
+      'customer-bitesaver-link',
+      'customer-bitescore-link',
+    };
+    const expectedActions = <String, Set<String>>{
+      'neither': <String>{
+        'coupon-invite',
+        'claim-invite',
+        'customer-bitesaver-link',
+        'customer-bitescore-link',
+      },
+      'score-claimed': <String>{
+        'coupon-invite',
+        'customer-bitesaver-link',
+        'customer-bitescore-link',
+      },
+      'saver-bound': <String>{
+        'claim-invite',
+        'customer-bitesaver-link',
+        'customer-bitescore-link',
+      },
+      'both': <String>{'customer-bitesaver-link', 'customer-bitescore-link'},
+    };
+    for (final state in expectedActions.entries) {
+      for (final suffix in actionSuffixes) {
+        expect(
+          find.byKey(ValueKey('biteScore:${state.key}:$suffix')),
+          state.value.contains(suffix) ? findsOneWidget : findsNothing,
+          reason: '${state.key}:$suffix',
+        );
+      }
+    }
+    expect(find.text('BiteSaver Owner Invite'), findsNWidgets(2));
+    expect(find.text('BiteScore Claim Invite'), findsNWidgets(2));
+    expect(find.text('Customer BiteSaver'), findsNWidgets(4));
+    expect(find.text('Customer BiteScore'), findsNWidgets(4));
+    expect(find.textContaining('Repair'), findsNothing);
   });
 
   testWidgets(
@@ -464,6 +580,8 @@ void main() {
                   ownerUserId: 'contradictory-owner',
                   claimAvailable: false,
                   claimStateValid: false,
+                  biteSaverCatalogBindingState:
+                      AdminBiteSaverCatalogBindingState.unavailable,
                 ),
               ],
             ),
@@ -475,8 +593,14 @@ void main() {
 
       await _submitSearch(tester);
 
-      expect(find.text('Inactive • Claim unavailable'), findsOneWidget);
-      expect(find.text('Active • Claim unavailable'), findsOneWidget);
+      expect(
+        find.text('Inactive • Claim unavailable • BiteSaver Unbound'),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Active • Claim unavailable • BiteSaver Unavailable'),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const ValueKey('biteScore:hidden-doc:claim-invite')),
         findsNothing,
@@ -487,17 +611,37 @@ void main() {
       );
       expect(
         find.byKey(const ValueKey('biteScore:malformed-doc:coupon-invite')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(
+          const ValueKey('biteScore:malformed-doc:customer-bitescore-link'),
+        ),
         findsOneWidget,
       );
       expect(
-        find.byKey(const ValueKey('biteScore:malformed-doc:customer-link')),
-        findsOneWidget,
+        find.byKey(
+          const ValueKey('biteScore:malformed-doc:customer-bitesaver-link'),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.byKey(
+          const ValueKey('biteScore:hidden-doc:customer-bitescore-link'),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.byKey(
+          const ValueKey('biteScore:hidden-doc:customer-bitesaver-link'),
+        ),
+        findsNothing,
       );
       expect(claimCalls, 0);
     },
   );
 
-  testWidgets('customer links use one source-specific action and dialog', (
+  testWidgets('customer links use separate permanent source actions', (
     tester,
   ) async {
     final copied = <String>[];
@@ -528,11 +672,28 @@ void main() {
     );
     await _submitSearch(tester);
 
+    final biteScoreBiteSaverLink = find.byKey(
+      const ValueKey('biteScore:score-link-doc:customer-bitesaver-link'),
+    );
+    await tester.ensureVisible(biteScoreBiteSaverLink);
+    expect(find.text('Customer BiteSaver'), findsNWidgets(2));
+    await tester.tap(biteScoreBiteSaverLink);
+    await _pumpOpenDialog(tester);
+    expect(find.text('Customer BiteSaver Link'), findsOneWidget);
+    expect(
+      find.text('https://go.bitestar.app/r/coupons/score-link-doc'),
+      findsOneWidget,
+    );
+    await tester.tap(find.byKey(const ValueKey('copy-link-action')));
+    await tester.pump();
+    await tester.tap(find.byKey(const ValueKey('close-link-action-dialog')));
+    await tester.pumpAndSettle();
+
     final biteScoreLink = find.byKey(
-      const ValueKey('biteScore:score-link-doc:customer-link'),
+      const ValueKey('biteScore:score-link-doc:customer-bitescore-link'),
     );
     await tester.ensureVisible(biteScoreLink);
-    expect(find.text('Customer BiteScore Link'), findsOneWidget);
+    expect(find.text('Customer BiteScore'), findsOneWidget);
     await tester.tap(biteScoreLink);
     await _pumpOpenDialog(tester);
     expect(find.text('Customer BiteScore Link'), findsOneWidget);
@@ -548,10 +709,10 @@ void main() {
     await tester.pumpAndSettle();
 
     final biteSaverLink = find.byKey(
-      const ValueKey('biteSaver:saver-link-doc:customer-link'),
+      const ValueKey('biteSaver:saver-link-doc:customer-bitesaver-link'),
     );
     await tester.ensureVisible(biteSaverLink);
-    expect(find.text('Customer BiteSaver Link'), findsOneWidget);
+    expect(find.text('Customer BiteSaver'), findsNWidgets(2));
     await tester.tap(biteSaverLink);
     await _pumpOpenDialog(tester);
     expect(
@@ -564,11 +725,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(copied, [
+      'https://go.bitestar.app/r/coupons/score-link-doc',
       'https://go.bitestar.app/r/bitescore/score-link-doc',
       'https://go.bitestar.app/r/coupons/saver-link-doc',
     ]);
     expect(
-      find.byKey(const ValueKey('biteSaver:pending-doc:customer-link')),
+      find.byKey(
+        const ValueKey('biteSaver:pending-doc:customer-bitesaver-link'),
+      ),
       findsNothing,
     );
     expect(
@@ -589,15 +753,12 @@ void main() {
     expect(
       find.descendant(
         of: saverCard,
-        matching: find.text('Generate BiteScore Claim Invite'),
+        matching: find.text('BiteScore Claim Invite'),
       ),
       findsNothing,
     );
     expect(
-      find.descendant(
-        of: saverCard,
-        matching: find.text('Customer BiteScore Link'),
-      ),
+      find.descendant(of: saverCard, matching: find.text('Customer BiteScore')),
       findsNothing,
     );
 
@@ -605,18 +766,16 @@ void main() {
       const ValueKey('admin-link-record-biteScore:score-link-doc'),
     );
     expect(
-      find.descendant(
-        of: scoreCard,
-        matching: find.text('Customer BiteSaver Link'),
-      ),
-      findsNothing,
+      find.descendant(of: scoreCard, matching: find.text('Customer BiteSaver')),
+      findsOneWidget,
     );
   });
 
-  testWidgets('BiteSaver coupon invite uses canonical action ID', (
+  testWidgets('BiteSaver owner invite uses canonical account action ID', (
     tester,
   ) async {
     String? capturedRestaurantId;
+    String? capturedCatalogRestaurantId;
     await _pumpScreen(
       tester,
       search:
@@ -638,6 +797,7 @@ void main() {
           ({
             required restaurantName,
             required restaurantId,
+            required biteScoreCatalogRestaurantId,
             required streetAddress,
             required city,
             required state,
@@ -648,6 +808,7 @@ void main() {
             required longitude,
           }) async {
             capturedRestaurantId = restaurantId;
+            capturedCatalogRestaurantId = biteScoreCatalogRestaurantId;
             return _invite('https://go.bitestar.app/invite/coupon/token');
           },
     );
@@ -661,6 +822,7 @@ void main() {
     await _pumpOpenDialog(tester);
 
     expect(capturedRestaurantId, 'canonical-account-uid');
+    expect(capturedCatalogRestaurantId, isNull);
     await tester.tap(find.text('Close'));
     await tester.pumpAndSettle();
   });
@@ -683,6 +845,7 @@ void main() {
             ({
               required restaurantName,
               required restaurantId,
+              required biteScoreCatalogRestaurantId,
               required streetAddress,
               required city,
               required state,
@@ -697,7 +860,7 @@ void main() {
       await _submitSearch(tester);
 
       final customerLink = find.byKey(
-        const ValueKey('biteScore:clipboard-doc:customer-link'),
+        const ValueKey('biteScore:clipboard-doc:customer-bitescore-link'),
       );
       await tester.ensureVisible(customerLink);
       await tester.tap(customerLink);
@@ -768,7 +931,7 @@ void main() {
       await _submitSearch(tester);
 
       final scoreLink = find.byKey(
-        const ValueKey('biteScore:score-qr-doc:customer-link'),
+        const ValueKey('biteScore:score-qr-doc:customer-bitescore-link'),
       );
       await tester.ensureVisible(scoreLink);
       await tester.tap(scoreLink);
@@ -792,8 +955,25 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      final catalogBiteSaverLink = find.byKey(
+        const ValueKey('biteScore:score-qr-doc:customer-bitesaver-link'),
+      );
+      await tester.ensureVisible(catalogBiteSaverLink);
+      await tester.tap(catalogBiteSaverLink);
+      await _pumpOpenDialog(tester);
+      expect(
+        find.text('https://go.bitestar.app/r/coupons/score-qr-doc'),
+        findsOneWidget,
+      );
+      await tester.tap(find.byKey(const ValueKey('create-link-qr')));
+      await _pumpOpenDialog(tester);
+      await tester.tap(
+        find.byKey(const ValueKey('restaurant-qr-preview-close')),
+      );
+      await tester.pumpAndSettle();
+
       final saverLink = find.byKey(
-        const ValueKey('biteSaver:saver-qr-doc:customer-link'),
+        const ValueKey('biteSaver:saver-qr-doc:customer-bitesaver-link'),
       );
       await tester.ensureVisible(saverLink);
       await tester.tap(saverLink);
@@ -810,7 +990,9 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.byKey(const ValueKey('biteSaver:pending-qr-doc:customer-link')),
+        find.byKey(
+          const ValueKey('biteSaver:pending-qr-doc:customer-bitesaver-link'),
+        ),
         findsNothing,
       );
       expect(rendered, [
@@ -818,6 +1000,11 @@ void main() {
           restaurantName: 'Score Place',
           url: 'https://go.bitestar.app/r/bitescore/score-qr-doc',
           linkType: RestaurantQrLinkType.customerBiteScore,
+        ),
+        (
+          restaurantName: 'Score Place',
+          url: 'https://go.bitestar.app/r/coupons/score-qr-doc',
+          linkType: RestaurantQrLinkType.customerBiteSaver,
         ),
         (
           restaurantName: 'River Grill',
@@ -833,6 +1020,7 @@ void main() {
   ) async {
     var couponCalls = 0;
     var claimCalls = 0;
+    String? ownerInviteCatalogId;
     final rendered =
         <
           ({String restaurantName, String url, RestaurantQrLinkType linkType})
@@ -857,6 +1045,7 @@ void main() {
           ({
             required restaurantName,
             required restaurantId,
+            required biteScoreCatalogRestaurantId,
             required streetAddress,
             required city,
             required state,
@@ -867,6 +1056,7 @@ void main() {
             required longitude,
           }) async {
             couponCalls += 1;
+            ownerInviteCatalogId = biteScoreCatalogRestaurantId;
             return _invite(
               'https://go.bitestar.app/invite/coupon/fake-secure-token',
             );
@@ -896,6 +1086,7 @@ void main() {
     await tester.tap(couponInvite);
     await _pumpOpenDialog(tester);
     expect(couponCalls, 1);
+    expect(ownerInviteCatalogId, 'secure-qr-doc');
     await tester.tap(find.byKey(const ValueKey('create-link-qr')));
     await _pumpOpenDialog(tester);
     expect(
@@ -969,10 +1160,13 @@ void main() {
       await _submitSearch(tester);
 
       final first = find.byKey(
-        const ValueKey('biteScore:qr-busy-one:customer-link'),
+        const ValueKey('biteScore:qr-busy-one:customer-bitescore-link'),
       );
       final second = find.byKey(
-        const ValueKey('biteScore:qr-busy-two:customer-link'),
+        const ValueKey('biteScore:qr-busy-two:customer-bitescore-link'),
+      );
+      final firstBiteSaver = find.byKey(
+        const ValueKey('biteScore:qr-busy-one:customer-bitesaver-link'),
       );
       await tester.ensureVisible(first);
       await tester.tap(first);
@@ -980,6 +1174,10 @@ void main() {
 
       expect(tester.widget<OutlinedButton>(first).onPressed, isNull);
       expect(tester.widget<OutlinedButton>(second).onPressed, isNotNull);
+      expect(
+        tester.widget<OutlinedButton>(firstBiteSaver).onPressed,
+        isNotNull,
+      );
       final createQr = find.byKey(const ValueKey('create-link-qr'));
       await tester.tap(createQr);
       await tester.pump();
@@ -1035,7 +1233,7 @@ void main() {
     await _submitSearch(tester);
 
     final customerLink = find.byKey(
-      const ValueKey('biteScore:qr-failure:customer-link'),
+      const ValueKey('biteScore:qr-failure:customer-bitescore-link'),
     );
     await tester.ensureVisible(customerLink);
     await tester.tap(customerLink);
@@ -1078,6 +1276,7 @@ void main() {
             ({
               required restaurantName,
               required restaurantId,
+              required biteScoreCatalogRestaurantId,
               required streetAddress,
               required city,
               required state,
@@ -1220,6 +1419,8 @@ AdminRestaurantLinkRecord _biteScoreRecord({
   String? ownerUserId,
   bool? claimAvailable,
   bool? claimStateValid,
+  AdminBiteSaverCatalogBindingState biteSaverCatalogBindingState =
+      AdminBiteSaverCatalogBindingState.unbound,
 }) {
   final resolvedOwnerUserId = ownerUserId ?? (isClaimed ? 'owner-1' : null);
   final validlyClaimed =
@@ -1247,6 +1448,7 @@ AdminRestaurantLinkRecord _biteScoreRecord({
     claimStateValid:
         claimStateValid ?? (isActive && (strictlyUnclaimed || validlyClaimed)),
     ownerUserId: resolvedOwnerUserId,
+    biteSaverCatalogBindingState: biteSaverCatalogBindingState,
   );
 }
 

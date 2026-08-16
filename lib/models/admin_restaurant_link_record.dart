@@ -38,6 +38,26 @@ enum AdminRestaurantClaimState {
   const AdminRestaurantClaimState(this.label);
 }
 
+enum AdminBiteSaverCatalogBindingState {
+  unbound('unbound', 'Unbound'),
+  bound('bound', 'Bound'),
+  unavailable('unavailable', 'Unavailable');
+
+  final String callableValue;
+  final String label;
+
+  const AdminBiteSaverCatalogBindingState(this.callableValue, this.label);
+
+  static AdminBiteSaverCatalogBindingState? fromCallableValue(Object? value) {
+    for (final state in values) {
+      if (state.callableValue == value) {
+        return state;
+      }
+    }
+    return null;
+  }
+}
+
 AdminRestaurantClaimState adminRestaurantClaimStateFromProjection({
   required bool? isActive,
   required bool? isClaimed,
@@ -113,6 +133,7 @@ class AdminRestaurantLinkRecord {
   final bool? claimStateValid;
   final String? ownerUserId;
   final String? linkedBiteSaverUid;
+  final AdminBiteSaverCatalogBindingState biteSaverCatalogBindingState;
 
   final String? approvalStatus;
   final bool? couponApplicationSubmitted;
@@ -139,6 +160,8 @@ class AdminRestaurantLinkRecord {
     this.claimStateValid,
     this.ownerUserId,
     this.linkedBiteSaverUid,
+    this.biteSaverCatalogBindingState =
+        AdminBiteSaverCatalogBindingState.unavailable,
     this.approvalStatus,
     this.couponApplicationSubmitted,
     this.uid,
@@ -158,6 +181,19 @@ class AdminRestaurantLinkRecord {
 
   bool get canCreateBiteScoreClaimInvite =>
       isBiteScore && claimState == AdminRestaurantClaimState.available;
+
+  bool get canCreateBiteSaverOwnerInvite =>
+      isBiteScore &&
+      isActive == true &&
+      biteSaverCatalogBindingState == AdminBiteSaverCatalogBindingState.unbound;
+
+  bool get canCopyCatalogBiteSaverCustomerLink =>
+      isBiteScore &&
+      isActive == true &&
+      (biteSaverCatalogBindingState ==
+              AdminBiteSaverCatalogBindingState.bound ||
+          (biteSaverCatalogBindingState ==
+              AdminBiteSaverCatalogBindingState.unbound));
 
   bool get canCopyCouponCustomerLink =>
       isBiteSaver &&
@@ -198,13 +234,18 @@ class AdminRestaurantLinkRecord {
     final isClaimed = data['isClaimed'];
     final claimAvailable = data['claimAvailable'];
     final claimStateValid = data['claimStateValid'];
+    final biteSaverCatalogBindingState =
+        AdminBiteSaverCatalogBindingState.fromCallableValue(
+          data['biteSaverCatalogBindingState'],
+        );
     final approvalStatus = data['approvalStatus'];
     final couponApplicationSubmitted = data['couponApplicationSubmitted'];
     if (source == AdminRestaurantLinkSource.biteScore &&
         (isActive is! bool ||
             isClaimed is! bool ||
             claimAvailable is! bool ||
-            claimStateValid is! bool)) {
+            claimStateValid is! bool ||
+            biteSaverCatalogBindingState == null)) {
       return null;
     }
     if (source == AdminRestaurantLinkSource.biteSaver &&
@@ -250,6 +291,10 @@ class AdminRestaurantLinkRecord {
       linkedBiteSaverUid: source == AdminRestaurantLinkSource.biteScore
           ? _optionalString(data['linkedBiteSaverUid'])
           : null,
+      biteSaverCatalogBindingState:
+          source == AdminRestaurantLinkSource.biteScore
+          ? biteSaverCatalogBindingState!
+          : AdminBiteSaverCatalogBindingState.unavailable,
       approvalStatus: source == AdminRestaurantLinkSource.biteSaver
           ? _optionalString(approvalStatus)
           : null,

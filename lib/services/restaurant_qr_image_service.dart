@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:qr/qr.dart';
 
 enum RestaurantQrLinkType {
-  customerBiteScore('customer-bitescore', 'SC'),
+  customerBiteScore('customer-bitescore', 'SR'),
   customerBiteSaver('customer-bitesaver', 'SA'),
   couponInvite('coupon-invite', 'I'),
   biteScoreClaimInvite('bitescore-claim-invite', 'C');

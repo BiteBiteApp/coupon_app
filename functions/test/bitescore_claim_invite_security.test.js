@@ -13,6 +13,8 @@ const lockPath = `private_rating_restaurant_operation_locks/${restaurantId}`;
 const adminEmail = "schuyler.cole@gmail.com";
 const tokenA = "A".repeat(43);
 const tokenB = "B".repeat(43);
+const tokenC = "C".repeat(43);
+const tokenD = "D".repeat(43);
 
 function hashToken(token) {
   return createHash("sha256").update(token, "utf8").digest("hex");
@@ -341,6 +343,7 @@ function loadRuntime() {
   }
 
   return {
+    createCouponInvite: exports.createCouponRestaurantInvite,
     createInvite: exports.createBiteScoreRestaurantClaimInvite,
     database,
     data(documentPath) {
@@ -361,6 +364,7 @@ function loadRuntime() {
     patch(documentPath, data) {
       writeDocument(documentPath, data, true);
     },
+    redeemCouponInvite: exports.redeemCouponRestaurantInvite,
     redeemInvite: exports.redeemBiteScoreRestaurantClaimInvite,
     reset() {
       state.autoId = 0;
@@ -396,6 +400,8 @@ function canonicalRestaurant(overrides = {}) {
     isClaimed: false,
     ownerUserId: null,
     restaurantWriteRevision: 4,
+    latitude: 28.8517,
+    longitude: -82.487,
     ...overrides,
   };
 }
@@ -453,6 +459,102 @@ function redemptionRequest(token, uid = "owner-1") {
       token: {email: `${uid}@example.test`, name: `Owner ${uid}`},
     },
     data: {token},
+  };
+}
+
+function couponAdminRequest(catalogRestaurantId = restaurantId, overrides = {}) {
+  return {
+    auth: {uid: "admin-1", token: {email: adminEmail}},
+    data: {
+      biteScoreCatalogRestaurantId: catalogRestaurantId,
+      ...overrides,
+    },
+  };
+}
+
+function couponRedemptionRequest(token, uid = "owner-1") {
+  return {
+    auth: {
+      uid,
+      token: {
+        email: `${uid}@example.test`,
+        email_verified: true,
+      },
+    },
+    data: {token},
+  };
+}
+
+function catalogCouponInvite(
+  token,
+  inviteId,
+  catalogRestaurantId = restaurantId,
+  overrides = {},
+) {
+  return {
+    tokenHash: hashToken(token),
+    type: "coupon_invite",
+    side: "coupon",
+    status: "active",
+    restaurantId: null,
+    pendingRestaurantKey: `pending_${inviteId}`,
+    biteScoreCatalogRestaurantId: catalogRestaurantId,
+    restaurantName: "Claimable Cafe",
+    couponPrefill: {
+      restaurantName: "Claimable Cafe",
+      streetAddress: "1 Main St",
+      city: "Ocala",
+      state: "FL",
+      zipCode: "34470",
+      phone: "555-0100",
+      website: "https://catalog.example.test",
+      latitude: 28.8517,
+      longitude: -82.487,
+    },
+    createdAt: actualFirestore.Timestamp.fromMillis(Date.now() - 1_000),
+    createdByUid: "admin-1",
+    createdByEmail: adminEmail,
+    expiresAt: actualFirestore.Timestamp.fromMillis(Date.now() + 60_000),
+    usedAt: null,
+    usedByUid: null,
+    usedByEmail: null,
+    maxUses: 1,
+    useCount: 0,
+    lastAccessedAt: null,
+    revokedAt: null,
+    revokedByUid: null,
+    ...overrides,
+  };
+}
+
+function accountCouponInvite(token, accountId, overrides = {}) {
+  return {
+    tokenHash: hashToken(token),
+    type: "coupon_invite",
+    side: "coupon",
+    status: "active",
+    restaurantId: accountId,
+    pendingRestaurantKey: null,
+    restaurantName: "Existing Cafe",
+    couponPrefill: {
+      restaurantName: "Existing Cafe",
+      city: "Ocala",
+      state: "FL",
+      zipCode: "34470",
+    },
+    createdAt: actualFirestore.Timestamp.fromMillis(Date.now() - 1_000),
+    createdByUid: "admin-1",
+    createdByEmail: adminEmail,
+    expiresAt: actualFirestore.Timestamp.fromMillis(Date.now() + 60_000),
+    usedAt: null,
+    usedByUid: null,
+    usedByEmail: null,
+    maxUses: 1,
+    useCount: 0,
+    lastAccessedAt: null,
+    revokedAt: null,
+    revokedByUid: null,
+    ...overrides,
   };
 }
 
@@ -934,4 +1036,574 @@ test("pending approval and invite redemption have exactly one owner winner", asy
   assert.deepEqual(runtime.state.conflictSources, [[restaurantPath]]);
   assert.equal(runtime.data(restaurantPath).ownerUserId, "owner-1");
   assert.equal(runtime.data(restaurantPath).restaurantWriteRevision, 5);
+});
+
+test("catalog-backed BiteSaver invite creation exact-reads canonical source data", async () => {
+  runtime.reset();
+  const originalRestaurant = canonicalRestaurant({
+    phoneNumber: "555-0100",
+    websiteUrl: "https://catalog.example.test",
+    latitude: 28.8517,
+    longitude: -82.487,
+  });
+  runtime.seed(restaurantPath, originalRestaurant);
+
+  const result = await runtime.createCouponInvite(couponAdminRequest(
+    restaurantId,
+    {
+      restaurantName: "Client-Supplied Wrong Name",
+      streetAddress: "999 Wrong Address",
+    },
+  ));
+  const invites = runtime.documents("restaurant_invites");
+  assert.equal(invites.length, 1);
+  const invite = invites[0];
+  assert.equal(result.inviteId, invite.id);
+  assert.equal(invite.data.biteScoreCatalogRestaurantId, restaurantId);
+  assert.equal(invite.data.restaurantId, null);
+  assert.equal(invite.data.pendingRestaurantKey, `pending_${invite.id}`);
+  assert.equal(invite.data.restaurantName, "Claimable Cafe");
+  assert.equal(invite.data.couponPrefill.streetAddress, "1 Main St");
+  assert.equal(invite.data.couponPrefill.phone, "555-0100");
+  assert.equal(
+    invite.data.couponPrefill.website,
+    "https://catalog.example.test",
+  );
+  assert.equal(invite.data.couponPrefill.latitude, 28.8517);
+  assert.equal(invite.data.tokenHash, hashToken(result.token));
+  assert.equal(Object.hasOwn(invite.data, "token"), false);
+  assert.equal(JSON.stringify(invite.data).includes(result.token), false);
+  assert.equal(JSON.stringify(runtime.state.logs).includes(result.token), false);
+  assert.deepEqual(runtime.data(restaurantPath), originalRestaurant);
+  assert.equal(runtime.documents("restaurant_accounts").length, 0);
+});
+
+test("claimed catalog independently creates and redeems a BiteSaver invite", async () => {
+  runtime.reset();
+  const originalRestaurant = canonicalRestaurant({
+    isClaimed: true,
+    ownerUserId: "score-owner",
+  });
+  runtime.seed(restaurantPath, originalRestaurant);
+
+  const created = await runtime.createCouponInvite(couponAdminRequest());
+  const activeInvite = runtime.data(
+    `restaurant_invites/${created.inviteId}`,
+  );
+  assert.equal(activeInvite.biteScoreCatalogRestaurantId, restaurantId);
+  assert.equal(activeInvite.status, "active");
+  assert.deepEqual(runtime.data(restaurantPath), originalRestaurant);
+
+  await runtime.redeemCouponInvite(
+    couponRedemptionRequest(created.token, "coupon-owner"),
+  );
+
+  const account = runtime.data("restaurant_accounts/coupon-owner");
+  const restaurant = runtime.data(restaurantPath);
+  const usedInvite = runtime.data(
+    `restaurant_invites/${created.inviteId}`,
+  );
+  assert.equal(account.uid, "coupon-owner");
+  assert.equal(account.biteScoreCatalogRestaurantId, restaurantId);
+  assert.match(account.biteSaverCatalogBindingId, /^[A-Za-z0-9_-]{43}$/u);
+  assert.equal(
+    restaurant.biteSaverCatalogBindingId,
+    account.biteSaverCatalogBindingId,
+  );
+  assert.equal(restaurant.isClaimed, true);
+  assert.equal(restaurant.ownerUserId, "score-owner");
+  assert.equal(restaurant.restaurantWriteRevision, 5);
+  assert.equal(runtime.data(`restaurant_accounts/${restaurantId}`), undefined);
+  assert.equal(usedInvite.status, "used");
+  assert.equal(usedInvite.useCount, 1);
+});
+
+test("catalog-backed BiteSaver invite creation fails closed for ineligible binding state", async () => {
+  const missingRevision = canonicalRestaurant();
+  delete missingRevision.restaurantWriteRevision;
+  const invalidRestaurants = [
+    canonicalRestaurant({isActive: false, active: false}),
+    canonicalRestaurant({id: "stale-compatibility-id"}),
+    canonicalRestaurant({isClaimed: true, ownerUserId: null}),
+    canonicalRestaurant({isClaimed: false, ownerUserId: "score-owner"}),
+    canonicalRestaurant({biteSaverCatalogBindingId: "B".repeat(43)}),
+    canonicalRestaurant({biteSaverCatalogBindingId: "short"}),
+    canonicalRestaurant({biteSaverCatalogBindingId: null}),
+    missingRevision,
+    canonicalRestaurant({restaurantWriteRevision: "4"}),
+    canonicalRestaurant({restaurantWriteRevision: Number.MAX_SAFE_INTEGER}),
+    canonicalRestaurant({address: null}),
+    canonicalRestaurant({city: null}),
+    canonicalRestaurant({state: null}),
+    canonicalRestaurant({zipCode: null}),
+    canonicalRestaurant({latitude: 0, longitude: 0}),
+  ];
+  for (const restaurant of invalidRestaurants) {
+    runtime.reset();
+    runtime.seed(restaurantPath, restaurant);
+    await expectFailedPrecondition(
+      runtime.createCouponInvite(couponAdminRequest()),
+    );
+    assert.equal(runtime.documents("restaurant_invites").length, 0);
+  }
+
+  runtime.reset();
+  await assert.rejects(
+    runtime.createCouponInvite(couponAdminRequest()),
+    (error) => error.code === "not-found",
+  );
+  assert.equal(runtime.documents("restaurant_invites").length, 0);
+
+  runtime.reset();
+  runtime.seed(restaurantPath, canonicalRestaurant());
+  await assert.rejects(
+    runtime.createCouponInvite(couponAdminRequest("bad/catalog/id")),
+    (error) => error.code === "invalid-argument",
+  );
+  await assert.rejects(
+    runtime.createCouponInvite(couponAdminRequest(restaurantId, {
+      restaurantId,
+    })),
+    (error) => error.code === "invalid-argument",
+  );
+  assert.equal(runtime.documents("restaurant_invites").length, 0);
+
+  runtime.reset();
+  runtime.seed(restaurantPath, canonicalRestaurant());
+  let injectedBindingRace = false;
+  runtime.setBeforeCommit(() => {
+    if (!injectedBindingRace) {
+      injectedBindingRace = true;
+      runtime.patch(restaurantPath, {
+        biteSaverCatalogBindingId: "R".repeat(43),
+      });
+    }
+  });
+  await expectFailedPrecondition(
+    runtime.createCouponInvite(couponAdminRequest()),
+  );
+  assert.ok(runtime.state.conflicts >= 1);
+  assert.equal(runtime.documents("restaurant_invites").length, 0);
+
+  runtime.reset();
+  runtime.seed(restaurantPath, canonicalRestaurant());
+  runtime.seed("restaurant_accounts/orphan-owner", {
+    uid: "orphan-owner",
+    restaurantName: "Claimable Cafe",
+    biteScoreCatalogRestaurantId: restaurantId,
+    biteSaverCatalogBindingId: "O".repeat(43),
+  });
+  await expectFailedPrecondition(
+    runtime.createCouponInvite(couponAdminRequest()),
+  );
+  assert.equal(runtime.documents("restaurant_invites").length, 0);
+});
+
+test("catalog-backed redemption atomically creates reciprocal binding and preserves menu identity", async () => {
+  runtime.reset();
+  runtime.seed(restaurantPath, canonicalRestaurant({
+    phone: "555-0100",
+    website: "https://catalog.example.test",
+    latitude: 28.8517,
+    longitude: -82.487,
+    linkedBiteSaverUid: "legacy-reversible-menu-owner",
+    menuSourceSide: "biteSaver",
+    menuRestaurantId: "legacy-menu-id",
+  }));
+  const created = await runtime.createCouponInvite(couponAdminRequest());
+
+  await runtime.redeemCouponInvite(
+    couponRedemptionRequest(created.token, "owner-1"),
+  );
+
+  const account = runtime.data("restaurant_accounts/owner-1");
+  const restaurant = runtime.data(restaurantPath);
+  const invite = runtime.data(`restaurant_invites/${created.inviteId}`);
+  assert.equal(account.uid, "owner-1");
+  assert.equal(account.biteScoreCatalogRestaurantId, restaurantId);
+  assert.match(account.biteSaverCatalogBindingId, /^[A-Za-z0-9_-]{43}$/u);
+  assert.equal(
+    restaurant.biteSaverCatalogBindingId,
+    account.biteSaverCatalogBindingId,
+  );
+  assert.equal(restaurant.restaurantWriteRevision, 5);
+  assert.equal(restaurant.ownerUserId, null);
+  assert.equal(restaurant.isClaimed, false);
+  assert.equal(
+    restaurant.linkedBiteSaverUid,
+    "legacy-reversible-menu-owner",
+  );
+  assert.equal(restaurant.menuSourceSide, "biteSaver");
+  assert.equal(restaurant.menuRestaurantId, "legacy-menu-id");
+  assert.equal(Object.hasOwn(account, "linkedBiteScoreRestaurantId"), false);
+  assert.equal(Object.hasOwn(account, "linkedBiteSaverUid"), false);
+  assert.equal(runtime.data(`restaurant_accounts/${restaurantId}`), undefined);
+  assert.equal(invite.status, "used");
+  assert.equal(invite.useCount, 1);
+  assert.equal(JSON.stringify(invite).includes(created.token), false);
+});
+
+test("catalog-backed redemption preserves existing account menu fields", async () => {
+  runtime.reset();
+  runtime.seed(restaurantPath, canonicalRestaurant());
+  runtime.seed("restaurant_accounts/owner-1", {
+    uid: "owner-1",
+    restaurantName: "Claimable Cafe",
+    couponApplicationSubmitted: true,
+    approvalStatus: "approved",
+    menuSourceSide: "biteScore",
+    linkedBiteScoreRestaurantId: "reversible-menu-link",
+    menuRestaurantId: "owner-menu-id",
+  });
+  runtime.seed(
+    "restaurant_invites/invite-c",
+    catalogCouponInvite(tokenC, "invite-c"),
+  );
+
+  await runtime.redeemCouponInvite(couponRedemptionRequest(tokenC));
+  const account = runtime.data("restaurant_accounts/owner-1");
+  assert.equal(account.menuSourceSide, "biteScore");
+  assert.equal(
+    account.linkedBiteScoreRestaurantId,
+    "reversible-menu-link",
+  );
+  assert.equal(account.menuRestaurantId, "owner-menu-id");
+});
+
+test("catalog-backed redemption activates from the current catalog snapshot", async () => {
+  runtime.reset();
+  runtime.seed(restaurantPath, canonicalRestaurant({
+    name: "Current Catalog Name",
+    address: "22 Current Address",
+    city: "Tampa",
+    zipCode: "33602",
+  }));
+  runtime.seed(
+    "restaurant_invites/invite-c",
+    catalogCouponInvite(tokenC, "invite-c", restaurantId, {
+      restaurantName: "Stale Invite Name",
+      couponPrefill: {
+        restaurantName: "Stale Invite Name",
+        streetAddress: "1 Stale Address",
+        city: "Ocala",
+        state: "FL",
+        zipCode: "34470",
+      },
+    }),
+  );
+
+  await runtime.redeemCouponInvite(couponRedemptionRequest(tokenC));
+  const account = runtime.data("restaurant_accounts/owner-1");
+  assert.equal(account.restaurantName, "Current Catalog Name");
+  assert.equal(account.streetAddress, "22 Current Address");
+  assert.equal(account.city, "Tampa");
+  assert.equal(account.zipCode, "33602");
+});
+
+test("catalog redemption validation failures leave invite and documents unchanged", async () => {
+  const invalidCatalogs = [
+    canonicalRestaurant({isActive: false, active: false}),
+    canonicalRestaurant({id: "other-catalog-id"}),
+    canonicalRestaurant({isClaimed: true, ownerUserId: null}),
+    canonicalRestaurant({isClaimed: false, ownerUserId: "score-owner"}),
+    canonicalRestaurant({restaurantWriteRevision: "4"}),
+    canonicalRestaurant({restaurantWriteRevision: Number.MAX_SAFE_INTEGER}),
+    canonicalRestaurant({biteSaverCatalogBindingId: "short"}),
+    canonicalRestaurant({biteSaverCatalogBindingId: "Z".repeat(43)}),
+    canonicalRestaurant({address: null}),
+    canonicalRestaurant({latitude: null}),
+  ];
+  for (const restaurant of invalidCatalogs) {
+    runtime.reset();
+    runtime.seed(restaurantPath, restaurant);
+    runtime.seed(
+      "restaurant_invites/invite-c",
+      catalogCouponInvite(tokenC, "invite-c"),
+    );
+    await expectGenericInvalidInvite(
+      runtime.redeemCouponInvite(couponRedemptionRequest(tokenC)),
+    );
+    assert.equal(runtime.data("restaurant_invites/invite-c").status, "active");
+    assert.equal(runtime.data("restaurant_invites/invite-c").useCount, 0);
+    assert.equal(runtime.data("restaurant_accounts/owner-1"), undefined);
+    assert.deepEqual(runtime.data(restaurantPath), restaurant);
+  }
+
+  runtime.reset();
+  runtime.seed(
+    "restaurant_invites/invite-c",
+    catalogCouponInvite(tokenC, "invite-c"),
+  );
+  await expectGenericInvalidInvite(
+    runtime.redeemCouponInvite(couponRedemptionRequest(tokenC)),
+  );
+  assert.equal(runtime.data("restaurant_invites/invite-c").status, "active");
+  assert.equal(runtime.data("restaurant_accounts/owner-1"), undefined);
+
+  runtime.reset();
+  runtime.seed(restaurantPath, canonicalRestaurant());
+  runtime.seed("restaurant_accounts/owner-1", {
+    uid: "owner-1",
+    restaurantName: "Claimable Cafe",
+    biteScoreCatalogRestaurantId: restaurantId,
+  });
+  runtime.seed(
+    "restaurant_invites/invite-c",
+    catalogCouponInvite(tokenC, "invite-c"),
+  );
+  await expectGenericInvalidInvite(
+    runtime.redeemCouponInvite(couponRedemptionRequest(tokenC)),
+  );
+  assert.equal(runtime.data("restaurant_invites/invite-c").status, "active");
+  assert.equal(runtime.data(restaurantPath).restaurantWriteRevision, 4);
+  assert.equal(
+    Object.hasOwn(runtime.data(restaurantPath), "biteSaverCatalogBindingId"),
+    false,
+  );
+
+  runtime.reset();
+  runtime.seed(restaurantPath, canonicalRestaurant());
+  runtime.seed("restaurant_accounts/owner-1", {
+    uid: "owner-1",
+    restaurantName: "Claimable Cafe",
+    biteScoreCatalogRestaurantId: "another-catalog",
+    biteSaverCatalogBindingId: "Q".repeat(43),
+  });
+  runtime.seed(
+    "restaurant_invites/invite-c",
+    catalogCouponInvite(tokenC, "invite-c"),
+  );
+  await expectGenericInvalidInvite(
+    runtime.redeemCouponInvite(couponRedemptionRequest(tokenC)),
+  );
+  assert.equal(runtime.data("restaurant_invites/invite-c").status, "active");
+  assert.equal(runtime.data(restaurantPath).restaurantWriteRevision, 4);
+
+  runtime.reset();
+  runtime.seed(restaurantPath, canonicalRestaurant());
+  runtime.seed(
+    "restaurant_invites/invite-c",
+    catalogCouponInvite(tokenC, "invite-c"),
+  );
+  let injectedRevisionRace = false;
+  runtime.setBeforeCommit(() => {
+    if (!injectedRevisionRace) {
+      injectedRevisionRace = true;
+      runtime.patch(restaurantPath, {restaurantWriteRevision: "invalid"});
+    }
+  });
+  await expectGenericInvalidInvite(
+    runtime.redeemCouponInvite(couponRedemptionRequest(tokenC)),
+  );
+  assert.ok(runtime.state.conflicts >= 1);
+  assert.equal(runtime.data("restaurant_invites/invite-c").status, "active");
+  assert.equal(runtime.data("restaurant_accounts/owner-1"), undefined);
+});
+
+test("catalog redemption rejects locks, orphan bindings, and tampered invites", async () => {
+  const invalidCases = [
+    {
+      inviteOverrides: {restaurantId: "owner-1"},
+      orphanAccount: null,
+      seedOperationLock: false,
+    },
+    {
+      inviteOverrides: {pendingRestaurantKey: "pending_wrong-invite"},
+      orphanAccount: null,
+      seedOperationLock: false,
+    },
+    {
+      inviteOverrides: {},
+      orphanAccount: null,
+      seedOperationLock: true,
+    },
+    {
+      inviteOverrides: {},
+      orphanAccount: {
+        uid: "orphan-owner",
+        restaurantName: "Claimable Cafe",
+        biteScoreCatalogRestaurantId: restaurantId,
+        biteSaverCatalogBindingId: "O".repeat(43),
+      },
+      seedOperationLock: false,
+    },
+    {
+      inviteOverrides: {},
+      orphanAccount: {
+        uid: "orphan-owner",
+        restaurantName: "Claimable Cafe",
+        biteScoreCatalogRestaurantId: restaurantId,
+      },
+      seedOperationLock: false,
+    },
+  ];
+
+  for (const invalidCase of invalidCases) {
+    runtime.reset();
+    const originalRestaurant = canonicalRestaurant();
+    const originalInvite = catalogCouponInvite(
+      tokenC,
+      "invite-c",
+      restaurantId,
+      invalidCase.inviteOverrides,
+    );
+    runtime.seed(restaurantPath, originalRestaurant);
+    runtime.seed("restaurant_invites/invite-c", originalInvite);
+    if (invalidCase.orphanAccount !== null) {
+      runtime.seed(
+        "restaurant_accounts/orphan-owner",
+        invalidCase.orphanAccount,
+      );
+    }
+    if (invalidCase.seedOperationLock) {
+      runtime.seed(lockPath, {
+        operationType: "permanent-delete",
+        status: "running",
+      });
+    }
+    const originalAccounts = runtime.documents("restaurant_accounts");
+
+    await expectGenericInvalidInvite(
+      runtime.redeemCouponInvite(couponRedemptionRequest(tokenC)),
+    );
+    assert.deepEqual(runtime.data(restaurantPath), originalRestaurant);
+    assert.deepEqual(runtime.data("restaurant_invites/invite-c"), originalInvite);
+    assert.deepEqual(runtime.documents("restaurant_accounts"), originalAccounts);
+  }
+});
+
+async function assertExactlyOneCatalogRedemption(requests) {
+  const results = await Promise.allSettled(requests);
+  assert.equal(results.filter((result) => result.status === "fulfilled").length, 1);
+  assert.equal(results.filter((result) => result.status === "rejected").length, 1);
+  assert.ok(runtime.state.conflicts >= 1);
+  assert.equal(
+    runtime.documents("restaurant_invites")
+      .filter((invite) => invite.data.status === "used").length,
+    1,
+  );
+}
+
+test("competing BiteSaver redemptions give one catalog exactly one account", async () => {
+  runtime.reset();
+  runtime.seed(restaurantPath, canonicalRestaurant());
+  runtime.seed(
+    "restaurant_invites/invite-c",
+    catalogCouponInvite(tokenC, "invite-c"),
+  );
+  runtime.seed(
+    "restaurant_invites/invite-d",
+    catalogCouponInvite(tokenD, "invite-d"),
+  );
+  synchronizeNextTwoTransactionCommits();
+
+  await assertExactlyOneCatalogRedemption([
+    runtime.redeemCouponInvite(couponRedemptionRequest(tokenC, "owner-1")),
+    runtime.redeemCouponInvite(couponRedemptionRequest(tokenD, "owner-2")),
+  ]);
+  const accounts = runtime.documents("restaurant_accounts");
+  assert.equal(accounts.length, 1);
+  assert.equal(
+    runtime.data(restaurantPath).biteSaverCatalogBindingId,
+    accounts[0].data.biteSaverCatalogBindingId,
+  );
+  assert.equal(accounts[0].data.biteScoreCatalogRestaurantId, restaurantId);
+});
+
+test("one BiteSaver account cannot bind to two catalog restaurants", async () => {
+  const secondRestaurantId = "second-catalog-restaurant";
+  const secondRestaurantPath =
+    `bitescore_restaurants/${secondRestaurantId}`;
+  runtime.reset();
+  runtime.seed(restaurantPath, canonicalRestaurant());
+  runtime.seed(secondRestaurantPath, canonicalRestaurant({
+    id: secondRestaurantId,
+  }));
+  runtime.seed(
+    "restaurant_invites/invite-c",
+    catalogCouponInvite(tokenC, "invite-c"),
+  );
+  runtime.seed(
+    "restaurant_invites/invite-d",
+    catalogCouponInvite(tokenD, "invite-d", secondRestaurantId),
+  );
+  synchronizeNextTwoTransactionCommits();
+
+  await assertExactlyOneCatalogRedemption([
+    runtime.redeemCouponInvite(couponRedemptionRequest(tokenC, "owner-1")),
+    runtime.redeemCouponInvite(couponRedemptionRequest(tokenD, "owner-1")),
+  ]);
+  const account = runtime.data("restaurant_accounts/owner-1");
+  assert.ok(
+    [restaurantId, secondRestaurantId].includes(
+      account.biteScoreCatalogRestaurantId,
+    ),
+  );
+  const boundCatalogs = [
+    runtime.data(restaurantPath),
+    runtime.data(secondRestaurantPath),
+  ].filter((restaurant) =>
+    Object.hasOwn(restaurant, "biteSaverCatalogBindingId"));
+  assert.equal(boundCatalogs.length, 1);
+  assert.equal(
+    boundCatalogs[0].biteSaverCatalogBindingId,
+    account.biteSaverCatalogBindingId,
+  );
+});
+
+test("account-backed BiteSaver invites require the authenticated account ID", async () => {
+  runtime.reset();
+  const created = await runtime.createCouponInvite({
+    auth: {uid: "admin-1", token: {email: adminEmail}},
+    data: {
+      restaurantId: "owner-1",
+      restaurantName: "Existing Cafe",
+      city: "Ocala",
+      state: "FL",
+      zipCode: "34470",
+    },
+  });
+
+  await expectFailedPrecondition(
+    runtime.redeemCouponInvite(
+      couponRedemptionRequest(created.token, "owner-2"),
+    ),
+    /different restaurant account/u,
+  );
+  assert.equal(runtime.data("restaurant_accounts/owner-2"), undefined);
+  assert.equal(
+    runtime.data(`restaurant_invites/${created.inviteId}`).status,
+    "active",
+  );
+  assert.equal(
+    runtime.data(`restaurant_invites/${created.inviteId}`).useCount,
+    0,
+  );
+
+  await runtime.redeemCouponInvite(
+    couponRedemptionRequest(created.token, "owner-1"),
+  );
+  assert.equal(runtime.data("restaurant_accounts/owner-1").uid, "owner-1");
+  assert.equal(
+    runtime.data(`restaurant_invites/${created.inviteId}`).status,
+    "used",
+  );
+
+  runtime.reset();
+  runtime.seed("restaurant_accounts/owner-1", {
+    uid: "owner-1",
+    restaurantName: "Existing Cafe",
+    biteScoreCatalogRestaurantId: restaurantId,
+  });
+  runtime.seed(
+    "restaurant_invites/legacy-malformed-binding",
+    accountCouponInvite(tokenC, "owner-1"),
+  );
+  await expectGenericInvalidInvite(
+    runtime.redeemCouponInvite(couponRedemptionRequest(tokenC, "owner-1")),
+  );
+  assert.equal(
+    runtime.data("restaurant_invites/legacy-malformed-binding").status,
+    "active",
+  );
 });

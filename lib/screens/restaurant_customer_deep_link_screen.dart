@@ -16,6 +16,8 @@ typedef BiteScoreRestaurantDeepLinkLoader =
     Future<BitescoreRestaurant?> Function(String restaurantId);
 typedef BiteScoreRestaurantEntriesLoader =
     Future<List<BiteScoreHomeEntry>> Function(BitescoreRestaurant restaurant);
+typedef CustomerRestaurantDeepLinkResolver =
+    Future<CustomerRestaurantLinkResolution> Function(String restaurantId);
 typedef BiteScoreRestaurantDestinationBuilder =
     Widget Function(
       BitescoreRestaurant restaurant,
@@ -25,6 +27,7 @@ typedef BiteScoreRestaurantDestinationBuilder =
 class RestaurantCustomerDeepLinkScreen extends StatefulWidget {
   final String side;
   final String restaurantId;
+  final CustomerRestaurantDeepLinkResolver? customerRestaurantResolver;
   final BiteScoreRestaurantDeepLinkLoader? biteScoreRestaurantLoader;
   final BiteScoreRestaurantEntriesLoader? biteScoreEntriesLoader;
   final BiteScoreRestaurantDestinationBuilder? biteScoreDestinationBuilder;
@@ -33,6 +36,7 @@ class RestaurantCustomerDeepLinkScreen extends StatefulWidget {
     super.key,
     required this.side,
     required this.restaurantId,
+    this.customerRestaurantResolver,
     this.biteScoreRestaurantLoader,
     this.biteScoreEntriesLoader,
     this.biteScoreDestinationBuilder,
@@ -56,8 +60,8 @@ class _RestaurantCustomerDeepLinkScreenState
   }
 
   Future<_RestaurantDeepLinkResolution> _resolveLink() async {
-    final restaurantId = widget.restaurantId.trim();
-    if (restaurantId.isEmpty) {
+    final restaurantId = widget.restaurantId;
+    if (restaurantId.isEmpty || restaurantId.trim() != restaurantId) {
       return const _RestaurantDeepLinkResolution.notFound();
     }
 
@@ -79,11 +83,20 @@ class _RestaurantCustomerDeepLinkScreenState
       );
     }
 
-    final resolvedAccount =
-        await RestaurantAccountService.resolveCustomerRestaurantAccount(
-          restaurantId,
-        );
-    if (resolvedAccount == null) {
+    final customerRestaurantResolver = widget.customerRestaurantResolver;
+    final customerResolution = customerRestaurantResolver == null
+        ? await RestaurantAccountService.resolveCustomerRestaurantAccountLink(
+            restaurantId,
+          )
+        : await customerRestaurantResolver(restaurantId);
+    if (customerResolution.state ==
+        CustomerRestaurantLinkResolutionState.catalogNotAvailable) {
+      return const _RestaurantDeepLinkResolution.catalogNotAvailable();
+    }
+    final resolvedAccount = customerResolution.account;
+    if (customerResolution.state !=
+            CustomerRestaurantLinkResolutionState.available ||
+        resolvedAccount == null) {
       return const _RestaurantDeepLinkResolution.notFound();
     }
 
@@ -135,6 +148,9 @@ class _RestaurantCustomerDeepLinkScreenState
 
   String get _noOffersMessage =>
       'This restaurant does not have any customer-visible offers right now.';
+
+  String get _catalogNotAvailableMessage =>
+      'This restaurant is not currently available in BiteSaver.';
 
   void _openSafeHome() {
     final mode = _isBiteScore ? AppMode.biteScore : AppMode.biteSaver;
@@ -223,6 +239,10 @@ class _RestaurantCustomerDeepLinkScreenState
         if (resolution.state == _RestaurantDeepLinkResolutionState.notFound) {
           return _buildSafeState(_notFoundMessage);
         }
+        if (resolution.state ==
+            _RestaurantDeepLinkResolutionState.catalogNotAvailable) {
+          return _buildSafeState(_catalogNotAvailableMessage);
+        }
         if (resolution.state == _RestaurantDeepLinkResolutionState.noOffers) {
           return _buildSafeState(_noOffersMessage);
         }
@@ -270,6 +290,14 @@ class _RestaurantDeepLinkResolution {
         biteScoreEntries: const [],
       );
 
+  const _RestaurantDeepLinkResolution.catalogNotAvailable()
+    : this._(
+        state: _RestaurantDeepLinkResolutionState.catalogNotAvailable,
+        restaurant: null,
+        biteScoreRestaurant: null,
+        biteScoreEntries: const [],
+      );
+
   const _RestaurantDeepLinkResolution.coupon({required Restaurant restaurant})
     : this._(
         state: _RestaurantDeepLinkResolutionState.loaded,
@@ -297,4 +325,9 @@ class _RestaurantDeepLinkResolution {
        );
 }
 
-enum _RestaurantDeepLinkResolutionState { loaded, notFound, noOffers }
+enum _RestaurantDeepLinkResolutionState {
+  loaded,
+  notFound,
+  catalogNotAvailable,
+  noOffers,
+}

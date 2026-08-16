@@ -21,6 +21,15 @@ import {
   requireSearchIndexDocumentSize,
   searchIndexVersion,
 } from "./search_index_contract.js";
+import {
+  biteSaverAccountCatalogBindingState,
+  biteScoreCatalogBindingState,
+  readBiteScoreCatalogRestaurantId,
+} from "./restaurant_invite_helpers.js";
+import {
+  maximumRestaurantWriteRevision,
+  readRestaurantWriteRevision,
+} from "./restaurant_write_revision.js";
 
 export type SearchIndexSourceData = Readonly<Record<string, unknown>>;
 export type SearchIndexDocument = Readonly<Record<string, unknown>>;
@@ -29,6 +38,21 @@ export type BiteScoreRestaurantClaimProjection = Readonly<{
   isClaimed: boolean;
   claimAvailable: boolean;
   claimStateValid: boolean;
+}>;
+
+export type BiteSaverCatalogBindingAdminState =
+  "unbound" | "bound" | "unavailable";
+
+export type BiteScoreBiteSaverCatalogProfile = Readonly<{
+  restaurantName: string;
+  streetAddress: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  phone: string | null;
+  website: string | null;
+  latitude: number;
+  longitude: number;
 }>;
 
 export function biteScoreRestaurantIsActive(
@@ -66,6 +90,37 @@ export function biteScoreRestaurantClaimProjection(
   });
 }
 
+export function biteSaverCatalogBindingAdminState(
+  restaurantDocumentId: string,
+  data: SearchIndexSourceData,
+  reciprocalBindingVerified = false,
+): BiteSaverCatalogBindingAdminState {
+  const restaurantWriteRevision = readRestaurantWriteRevision(data);
+  if (
+    readBiteScoreCatalogRestaurantId(restaurantDocumentId) !==
+      restaurantDocumentId ||
+    data.id !== restaurantDocumentId ||
+    !biteScoreRestaurantIsActive(data) ||
+    biteScoreBiteSaverCatalogProfile(data) === null ||
+    restaurantWriteRevision === null ||
+    restaurantWriteRevision >= maximumRestaurantWriteRevision
+  ) {
+    return "unavailable";
+  }
+
+  const binding = biteScoreCatalogBindingState(data);
+  if (binding.type === "invalid") {
+    return "unavailable";
+  }
+  if (binding.type === "bound") {
+    return reciprocalBindingVerified ? "bound" : "unavailable";
+  }
+  return reciprocalBindingVerified &&
+      biteScoreRestaurantClaimProjection(data).claimStateValid
+    ? "unbound"
+    : "unavailable";
+}
+
 export const maximumOfferDescriptionLength = 500;
 export const maximumPublicUrlLength = 2_048;
 export const maximumDishCategorySourceCount = 32;
@@ -83,6 +138,67 @@ const maximumPublicZipCodeLength = 20;
 const maximumPublicPhoneLength = 50;
 const maximumPublicWebsiteLength = 500;
 const maximumPublicBioLength = 2_000;
+
+export function biteScoreBiteSaverCatalogProfile(
+  data: SearchIndexSourceData,
+): BiteScoreBiteSaverCatalogProfile | null {
+  const restaurantName = firstBoundedPublicString(
+    data,
+    ["name", "restaurantName", "restaurant_name"],
+    maximumSearchNameLength,
+  );
+  const streetAddress = firstBoundedPublicString(
+    data,
+    ["address", "streetAddress", "formattedAddress", "fullAddress"],
+    maximumPublicStreetAddressLength,
+  );
+  const city = firstBoundedPublicString(
+    data,
+    ["city", "locality", "municipality", "town"],
+    maximumPublicCityLength,
+  );
+  const state = firstBoundedPublicString(
+    data,
+    ["state", "stateCode", "state_name", "region", "province"],
+    maximumPublicStateLength,
+  );
+  const zipCode = firstBoundedPublicString(
+    data,
+    ["zipCode", "zip", "zip_code", "postalCode", "postcode"],
+    maximumPublicZipCodeLength,
+  );
+  const coordinates = extractBiteScoreRestaurantCoordinates(data);
+  if (
+    restaurantName === null ||
+    streetAddress === null ||
+    city === null ||
+    state === null ||
+    zipCode === null ||
+    coordinates === null
+  ) {
+    return null;
+  }
+
+  return Object.freeze({
+    restaurantName,
+    streetAddress,
+    city,
+    state,
+    zipCode,
+    phone: firstBoundedPublicString(
+      data,
+      ["phone", "phoneNumber"],
+      maximumPublicPhoneLength,
+    ),
+    website: firstBoundedPublicString(
+      data,
+      ["website", "websiteUrl", "url"],
+      maximumPublicWebsiteLength,
+    ),
+    latitude: coordinates.latitude,
+    longitude: coordinates.longitude,
+  });
+}
 const maximumPublicImageUrlLength = 2_000;
 const maximumPublicFormattedAddressLength = 500;
 const maximumPublicMenuRestaurantIdLength = 1_500;
@@ -343,6 +459,19 @@ function biteSaverOfferCatalogProjection(
   );
 }
 
+function biteSaverCatalogBindingProjection(
+  data: SearchIndexSourceData,
+): Readonly<Record<string, unknown>> {
+  const binding = biteSaverAccountCatalogBindingState(data);
+  if (binding.type !== "bound") {
+    return Object.freeze({});
+  }
+  return Object.freeze({
+    biteScoreCatalogRestaurantId: binding.biteScoreCatalogRestaurantId,
+    biteSaverCatalogBindingId: binding.biteSaverCatalogBindingId,
+  });
+}
+
 export function boundedDescriptionSummary(value: unknown): string | null {
   const text = readString(value);
   if (text === null) {
@@ -565,6 +694,7 @@ export function buildBiteSaverRestaurantIndex(value: {
     return null;
   }
   const approvalIsApproved = biteSaverApprovalIsApproved(value.source);
+  const catalogBinding = biteSaverAccountCatalogBindingState(value.source);
   const indexDocumentId = createSearchIndexDocumentId({
     entityKind: "restaurant",
     sourceKind: "biteSaverRestaurant",
@@ -579,10 +709,13 @@ export function buildBiteSaverRestaurantIndex(value: {
     indexDocumentId,
     ...name,
     ...biteSaverGeography(value.source),
-    publicVisible: parentSubscriptionAllowsOffers(value.source),
+    publicVisible:
+      parentSubscriptionAllowsOffers(value.source) &&
+      catalogBinding.type !== "invalid",
     adminDirectoryVisible: approvalIsApproved,
     ...biteSaverPublicProfileProjection(value.source),
     ...biteSaverOfferCatalogProjection(value.source),
+    ...biteSaverCatalogBindingProjection(value.source),
   }, value.now);
 }
 

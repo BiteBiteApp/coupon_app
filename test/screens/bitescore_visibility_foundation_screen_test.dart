@@ -6,6 +6,7 @@ import 'package:coupon_app/models/dish_review.dart';
 import 'package:coupon_app/screens/public_reviewer_profile_screen.dart';
 import 'package:coupon_app/screens/restaurant_customer_deep_link_screen.dart';
 import 'package:coupon_app/services/bitescore_service.dart';
+import 'package:coupon_app/services/restaurant_account_service.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -217,6 +218,68 @@ void main() {
 
     expect(find.text('active:Visible Kitchen:0'), findsOneWidget);
     expect(dishLoads, 1);
+  });
+
+  testWidgets(
+    'valid active unbound catalog shows exact BiteSaver unavailable state',
+    (tester) async {
+      final resolvedIds = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RestaurantCustomerDeepLinkScreen(
+            side: 'coupons',
+            restaurantId: 'catalog-1',
+            customerRestaurantResolver: (restaurantId) async {
+              resolvedIds.add(restaurantId);
+              return const CustomerRestaurantLinkResolution.catalogNotAvailable();
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(resolvedIds, <String>['catalog-1']);
+      expect(
+        find.text('This restaurant is not currently available in BiteSaver.'),
+        findsOneWidget,
+      );
+      expect(find.text('We couldn’t find this restaurant.'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('whitespace route IDs fail before customer resolution', (
+    tester,
+  ) async {
+    for (final routeId in const <String>[
+      ' catalog-1',
+      'catalog-1 ',
+      ' catalog-1 ',
+      '   ',
+    ]) {
+      var resolverCalls = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: RestaurantCustomerDeepLinkScreen(
+            key: ValueKey(routeId),
+            side: 'coupons',
+            restaurantId: routeId,
+            customerRestaurantResolver: (_) async {
+              resolverCalls += 1;
+              return const CustomerRestaurantLinkResolution.catalogNotAvailable();
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(resolverCalls, 0, reason: routeId.codeUnits.toString());
+      expect(find.text('We couldn’t find this restaurant.'), findsOneWidget);
+      expect(
+        find.text('This restaurant is not currently available in BiteSaver.'),
+        findsNothing,
+      );
+    }
   });
 
   testWidgets(

@@ -17,6 +17,7 @@ const {
   processAdminRestaurantSearchCandidates,
   resolveAdminRestaurantSearchCenter,
   validateAdminRestaurantSearchRequest,
+  verifiedAdminBiteSaverCatalogIdsFromDocuments,
 } = require("../lib/admin_restaurant_search_helpers.js");
 const {
   exactRestaurantDistanceKilometers,
@@ -84,7 +85,7 @@ function biteScoreDocument(documentId, overrides = {}) {
     source: "biteScore",
     documentId,
     data: {
-      id: `stored-${documentId}`,
+      id: documentId,
       name: `BiteScore ${documentId}`,
       address: "1 Catalog Way",
       city: "Crystal River",
@@ -96,6 +97,7 @@ function biteScoreDocument(documentId, overrides = {}) {
       longitude: center.longitude,
       isActive: true,
       isClaimed: false,
+      restaurantWriteRevision: 4,
       ...overrides,
     },
   };
@@ -863,6 +865,10 @@ test("malformed ownership remains visible but never projects as claimable", () =
     searchCenter: center,
     candidates,
     anyQueryReachedCandidateLimit: false,
+    verifiedBiteSaverCatalogIds: new Set([
+      "valid-unclaimed",
+      "valid-claimed",
+    ]),
   });
 
   assert.equal(response.results.length, candidates.length);
@@ -872,14 +878,16 @@ test("malformed ownership remains visible but never projects as claimable", () =
   assert.deepEqual(
     [byId.get("valid-unclaimed").isClaimed,
       byId.get("valid-unclaimed").claimAvailable,
-      byId.get("valid-unclaimed").claimStateValid],
-    [false, true, true],
+      byId.get("valid-unclaimed").claimStateValid,
+      byId.get("valid-unclaimed").biteSaverCatalogBindingState],
+    [false, true, true, "unbound"],
   );
   assert.deepEqual(
     [byId.get("valid-claimed").isClaimed,
       byId.get("valid-claimed").claimAvailable,
-      byId.get("valid-claimed").claimStateValid],
-    [true, false, true],
+      byId.get("valid-claimed").claimStateValid,
+      byId.get("valid-claimed").biteSaverCatalogBindingState],
+    [true, false, true, "unbound"],
   );
   for (const id of [
     "claimed-without-owner",
@@ -890,7 +898,135 @@ test("malformed ownership remains visible but never projects as claimable", () =
   ]) {
     assert.equal(byId.get(id).claimAvailable, false, id);
     assert.equal(byId.get(id).claimStateValid, false, id);
+    assert.equal(
+      byId.get(id).biteSaverCatalogBindingState,
+      "unavailable",
+      id,
+    );
   }
+});
+
+test("Admin results expose only derived catalog binding state", () => {
+  const bindingId = "A".repeat(43);
+  const candidates = [
+    biteScoreDocument("unbound"),
+    biteScoreDocument("bound", {biteSaverCatalogBindingId: bindingId}),
+    biteScoreDocument("unverified-bound", {
+      biteSaverCatalogBindingId: bindingId,
+    }),
+    biteScoreDocument("malformed", {biteSaverCatalogBindingId: "short"}),
+    biteScoreDocument("null-binding", {biteSaverCatalogBindingId: null}),
+    biteScoreDocument("noncanonical", {id: "stale-compatibility-id"}),
+    biteScoreDocument("incomplete-profile", {address: null}),
+    biteScoreDocument("."),
+    {
+      ...biteScoreDocument("catalog"),
+      documentId: " catalog ",
+    },
+  ];
+  const response = processAdminRestaurantSearchCandidates({
+    request: processingRequest(),
+    searchCenter: center,
+    candidates,
+    anyQueryReachedCandidateLimit: false,
+    verifiedBiteSaverCatalogIds: new Set(["unbound", "bound"]),
+  });
+  const byId = new Map(
+    response.results.map((result) => [result.documentId, result]),
+  );
+
+  assert.equal(byId.get("unbound").biteSaverCatalogBindingState, "unbound");
+  assert.equal(byId.has("catalog"), false);
+  assert.equal(byId.get("bound").biteSaverCatalogBindingState, "bound");
+  assert.equal(
+    byId.get("unverified-bound").biteSaverCatalogBindingState,
+    "unavailable",
+  );
+  for (const id of [
+    "malformed",
+    "null-binding",
+    "noncanonical",
+    "incomplete-profile",
+    ".",
+  ]) {
+    assert.equal(
+      byId.get(id).biteSaverCatalogBindingState,
+      "unavailable",
+      id,
+    );
+  }
+  for (const result of response.results) {
+    assert.equal(Object.hasOwn(result, "biteSaverCatalogBindingId"), false);
+    assert.equal(Object.hasOwn(result, "biteScoreCatalogRestaurantId"), false);
+  }
+});
+
+test("Admin bound state requires one batch-verified reciprocal account", async () => {
+  const bindingId = "A".repeat(43);
+  const verificationRequests = [];
+  const response = await executeAdminRestaurantSearch(
+    coordinateRequest({sources: ["biteScore"]}),
+    {
+      getGeocodingApiKey: () => "unused",
+      fetchGeocoding: async () => {
+        throw new Error("unused");
+      },
+      executeQueryPlan: async () => [{
+        documentId: "bound",
+        data: biteScoreDocument("bound", {
+          biteSaverCatalogBindingId: bindingId,
+        }).data,
+      }],
+      verifyBiteSaverCatalogBindings: async (requests) => {
+        verificationRequests.push(...requests);
+        return new Set(["bound"]);
+      },
+    },
+  );
+
+  assert.deepEqual(verificationRequests, [{
+    catalogRestaurantId: "bound",
+    biteSaverCatalogBindingId: bindingId,
+  }]);
+  assert.equal(
+    response.results[0].biteSaverCatalogBindingState,
+    "bound",
+  );
+  assert.equal(Object.hasOwn(response.results[0], "biteSaverCatalogBindingId"), false);
+});
+
+test("Admin reciprocal verification fails closed for every inconsistent grouping", () => {
+  const bindingId = "A".repeat(43);
+  const differentBindingId = "B".repeat(43);
+  const requests = [
+    {catalogRestaurantId: "unbound-clean", biteSaverCatalogBindingId: null},
+    {catalogRestaurantId: "unbound-orphan", biteSaverCatalogBindingId: null},
+    {catalogRestaurantId: "bound", biteSaverCatalogBindingId: bindingId},
+    {catalogRestaurantId: "mismatch", biteSaverCatalogBindingId: bindingId},
+    {catalogRestaurantId: "duplicate", biteSaverCatalogBindingId: bindingId},
+    {catalogRestaurantId: "saturated", biteSaverCatalogBindingId: null},
+    {catalogRestaurantId: "contradictory", biteSaverCatalogBindingId: null},
+    {catalogRestaurantId: "contradictory", biteSaverCatalogBindingId: bindingId},
+  ];
+  const account = (catalogRestaurantId, accountBindingId) => ({
+    biteScoreCatalogRestaurantId: catalogRestaurantId,
+    ...(accountBindingId === undefined
+      ? {}
+      : {biteSaverCatalogBindingId: accountBindingId}),
+  });
+  const verified = verifiedAdminBiteSaverCatalogIdsFromDocuments({
+    requests,
+    accountDocuments: [
+      account("unbound-orphan", undefined),
+      account("bound", bindingId),
+      account("mismatch", differentBindingId),
+      account("duplicate", bindingId),
+      account("duplicate", bindingId),
+    ],
+    saturatedCatalogRestaurantIds: new Set(["saturated"]),
+  });
+
+  assert.deepEqual([...verified].sort(), ["bound", "unbound-clean"]);
 });
 
 test("inactive and all modes retain actual stored BiteScore status", () => {
@@ -1287,8 +1423,18 @@ test("Functions query executor applies only the requested status filter", () => 
     indexSource,
     /plan\.biteScoreIsActive !== null[\s\S]*collection\.where\("isActive", "==", plan\.biteScoreIsActive\)[\s\S]*\.orderBy\("geohash"\)[\s\S]*\.limit\(plan\.candidateLimit\)/,
   );
-  assert.doesNotMatch(
+  const queryExecutorSource = indexSource.slice(
+    indexSource.indexOf("async function executeAdminRestaurantQueryPlan"),
+    indexSource.indexOf("async function verifyAdminBiteSaverCatalogBindings"),
+  );
+  assert.match(queryExecutorSource, /\.get\(\)/);
+  assert.doesNotMatch(queryExecutorSource, /\.set\(/);
+  assert.match(
     indexSource,
-    /executeAdminRestaurantQueryPlan[\s\S]{0,1200}\.get\(\)[\s\S]{0,1200}\.set\(/,
+    /verifyAdminBiteSaverCatalogBindings[\s\S]*collection\("restaurant_accounts"\)[\s\S]*where\(biteScoreCatalogRestaurantIdField, "in", chunk\)[\s\S]*limit\(chunk\.length \* 2\)/,
+  );
+  assert.match(
+    indexSource,
+    /searchAdminRestaurants[\s\S]*verifyBiteSaverCatalogBindings: verifyAdminBiteSaverCatalogBindings/,
   );
 });

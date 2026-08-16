@@ -22,6 +22,7 @@ typedef AdminCouponInviteCallback =
     Future<RestaurantInviteCreationResult> Function({
       required String restaurantName,
       required String? restaurantId,
+      required String? biteScoreCatalogRestaurantId,
       required String streetAddress,
       required String city,
       required String state,
@@ -230,7 +231,12 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
     );
   }
 
-  Future<void> _generateCouponInvite(AdminRestaurantLinkRecord record) async {
+  Future<void> _generateBiteSaverOwnerInvite(
+    AdminRestaurantLinkRecord record,
+  ) async {
+    if (record.isBiteScore && !record.canCreateBiteSaverOwnerInvite) {
+      return;
+    }
     await _runBusyAction(record, 'coupon-invite', () async {
       try {
         final createInvite = widget.createCouponInvite;
@@ -238,6 +244,9 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
             ? await createInvite(
                 restaurantName: record.restaurantName,
                 restaurantId: record.isBiteSaver ? record.actionId : null,
+                biteScoreCatalogRestaurantId: record.isBiteScore
+                    ? record.documentId
+                    : null,
                 streetAddress: record.streetAddress,
                 city: record.city,
                 state: record.state,
@@ -250,6 +259,9 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
             : await RestaurantInviteService.createCouponInvite(
                 restaurantName: record.restaurantName,
                 restaurantId: record.isBiteSaver ? record.actionId : null,
+                biteScoreCatalogRestaurantId: record.isBiteScore
+                    ? record.documentId
+                    : null,
                 streetAddress: record.streetAddress,
                 city: record.city,
                 state: record.state,
@@ -263,7 +275,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
           return;
         }
         await _showLinkActionDialog(
-          title: 'Coupon Invite Created',
+          title: 'BiteSaver Owner Invite Created',
           linkUrl: result.inviteUrl,
           restaurantName: record.restaurantName,
           linkType: RestaurantQrLinkType.couponInvite,
@@ -276,7 +288,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
         _showSnackBar(
           AppErrorText.friendly(
             error,
-            fallback: 'Could not create the coupon invite right now.',
+            fallback: 'Could not create the BiteSaver owner invite right now.',
           ),
         );
       }
@@ -321,26 +333,49 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
     });
   }
 
-  Future<void> _openCustomerLink(AdminRestaurantLinkRecord record) async {
-    await _runBusyAction(record, 'customer-link', () async {
+  Future<void> _openCustomerBiteSaverLink(
+    AdminRestaurantLinkRecord record,
+  ) async {
+    if (!record.canCopyCatalogBiteSaverCustomerLink &&
+        !record.canCopyCouponCustomerLink) {
+      return;
+    }
+    await _runBusyAction(record, 'customer-bitesaver-link', () async {
       try {
-        final isBiteScore = record.isBiteScore;
-        final link = isBiteScore
-            ? RestaurantCustomerLinkService.biteScoreRestaurantUrl(
-                record.documentId,
-              )
-            : RestaurantCustomerLinkService.couponRestaurantUrl(
-                record.documentId,
-              );
+        final link = RestaurantCustomerLinkService.couponRestaurantUrl(
+          record.documentId,
+        );
         await _showLinkActionDialog(
-          title: isBiteScore
-              ? 'Customer BiteScore Link'
-              : 'Customer BiteSaver Link',
+          title: 'Customer BiteSaver Link',
           linkUrl: link,
           restaurantName: record.restaurantName,
-          linkType: isBiteScore
-              ? RestaurantQrLinkType.customerBiteScore
-              : RestaurantQrLinkType.customerBiteSaver,
+          linkType: RestaurantQrLinkType.customerBiteSaver,
+          isSensitive: false,
+        );
+      } catch (_) {
+        if (mounted) {
+          _showSnackBar('Could not open the customer link.');
+        }
+      }
+    });
+  }
+
+  Future<void> _openCustomerBiteScoreLink(
+    AdminRestaurantLinkRecord record,
+  ) async {
+    if (!record.isBiteScore || record.isActive != true) {
+      return;
+    }
+    await _runBusyAction(record, 'customer-bitescore-link', () async {
+      try {
+        final link = RestaurantCustomerLinkService.biteScoreRestaurantUrl(
+          record.documentId,
+        );
+        await _showLinkActionDialog(
+          title: 'Customer BiteScore Link',
+          linkUrl: link,
+          restaurantName: record.restaurantName,
+          linkType: RestaurantQrLinkType.customerBiteScore,
           isSensitive: false,
         );
       } catch (_) {
@@ -758,7 +793,14 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
     ].where((value) => value.isNotEmpty).join(', ');
     final isCouponInviteBusy = _isActionBusy(record, 'coupon-invite');
     final isClaimInviteBusy = _isActionBusy(record, 'claim-invite');
-    final isCustomerLinkBusy = _isActionBusy(record, 'customer-link');
+    final isCustomerBiteSaverLinkBusy = _isActionBusy(
+      record,
+      'customer-bitesaver-link',
+    );
+    final isCustomerBiteScoreLinkBusy = _isActionBusy(
+      record,
+      'customer-bitescore-link',
+    );
 
     return Card(
       key: ValueKey('admin-link-record-${record.recordKey}'),
@@ -796,7 +838,8 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
             if (record.isBiteScore)
               Text(
                 '${record.isActive == true ? 'Active' : 'Inactive'} • '
-                '${record.claimState.label}',
+                '${record.claimState.label} • '
+                'BiteSaver ${record.biteSaverCatalogBindingState.label}',
                 key: ValueKey('admin-link-status-${record.recordKey}'),
               )
             else
@@ -814,12 +857,13 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
                   spacing: 8,
                   runSpacing: 8,
                   children: [
-                    if (record.isBiteSaver || record.isActive == true)
+                    if (record.isBiteSaver ||
+                        record.canCreateBiteSaverOwnerInvite)
                       FilledButton.icon(
                         key: ValueKey('${record.recordKey}:coupon-invite'),
                         onPressed: isCouponInviteBusy
                             ? null
-                            : () => _generateCouponInvite(record),
+                            : () => _generateBiteSaverOwnerInvite(record),
                         icon: isCouponInviteBusy
                             ? const SizedBox.square(
                                 dimension: 16,
@@ -832,8 +876,8 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
                           isCouponInviteBusy
                               ? 'Generating...'
                               : compactLabels
-                              ? 'Coupon Invite'
-                              : 'Generate Coupon Invite',
+                              ? 'Owner Invite'
+                              : 'BiteSaver Owner Invite',
                         ),
                       ),
                     if (record.canCreateBiteScoreClaimInvite)
@@ -855,40 +899,45 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
                               ? 'Generating...'
                               : compactLabels
                               ? 'Claim Invite'
-                              : 'Generate BiteScore Claim Invite',
+                              : 'BiteScore Claim Invite',
                         ),
                       ),
                     if (record.isBiteScore &&
                         record.claimState == AdminRestaurantClaimState.claimed)
                       const Chip(label: Text('Already claimed')),
-                    if (record.isBiteScore && record.isActive == true)
+                    if (record.canCopyCatalogBiteSaverCustomerLink ||
+                        record.canCopyCouponCustomerLink)
                       OutlinedButton.icon(
-                        key: ValueKey('${record.recordKey}:customer-link'),
-                        onPressed: isCustomerLinkBusy
+                        key: ValueKey(
+                          '${record.recordKey}:customer-bitesaver-link',
+                        ),
+                        onPressed: isCustomerBiteSaverLinkBusy
                             ? null
-                            : () => _openCustomerLink(record),
+                            : () => _openCustomerBiteSaverLink(record),
                         icon: const Icon(Icons.link),
                         label: Text(
-                          isCustomerLinkBusy
+                          isCustomerBiteSaverLinkBusy
                               ? 'Opening...'
                               : compactLabels
-                              ? 'BiteScore Link'
-                              : 'Customer BiteScore Link',
+                              ? 'BiteSaver'
+                              : 'Customer BiteSaver',
                         ),
                       ),
-                    if (record.canCopyCouponCustomerLink)
+                    if (record.isBiteScore && record.isActive == true)
                       OutlinedButton.icon(
-                        key: ValueKey('${record.recordKey}:customer-link'),
-                        onPressed: isCustomerLinkBusy
+                        key: ValueKey(
+                          '${record.recordKey}:customer-bitescore-link',
+                        ),
+                        onPressed: isCustomerBiteScoreLinkBusy
                             ? null
-                            : () => _openCustomerLink(record),
+                            : () => _openCustomerBiteScoreLink(record),
                         icon: const Icon(Icons.link),
                         label: Text(
-                          isCustomerLinkBusy
+                          isCustomerBiteScoreLinkBusy
                               ? 'Opening...'
                               : compactLabels
-                              ? 'BiteSaver Link'
-                              : 'Customer BiteSaver Link',
+                              ? 'BiteScore'
+                              : 'Customer BiteScore',
                         ),
                       ),
                   ],

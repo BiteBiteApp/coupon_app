@@ -2,12 +2,17 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const {
+  biteSaverAccountCatalogBindingState,
+  biteScoreCatalogBindingState,
   couponInviteRestaurantIdentity,
   filterAndSortInviteSummaries,
+  generateBiteSaverCatalogBindingId,
   generateInviteToken,
   hashInviteToken,
+  isValidBiteSaverCatalogBindingId,
   invitePreviewUnavailableReason,
   inviteLink,
+  readBiteScoreCatalogRestaurantId,
 } = require("../lib/restaurant_invite_helpers.js");
 
 test("coupon invite can omit existing restaurant ID", () => {
@@ -52,6 +57,95 @@ test("generated token is high entropy url-safe text", () => {
 
   assert.match(token, /^[A-Za-z0-9_-]+$/);
   assert.ok(token.length >= 40);
+});
+
+test("catalog binding IDs are exact 32-byte base64url values", () => {
+  const bindingId = generateBiteSaverCatalogBindingId();
+
+  assert.equal(bindingId.length, 43);
+  assert.match(bindingId, /^[A-Za-z0-9_-]{43}$/u);
+  assert.equal(isValidBiteSaverCatalogBindingId(bindingId), true);
+  for (const malformed of [
+    "A".repeat(42),
+    "A".repeat(44),
+    `${"A".repeat(42)}=`,
+    `${"A".repeat(42)}+`,
+    ` ${"A".repeat(43)}`,
+    null,
+    7,
+  ]) {
+    assert.equal(isValidBiteSaverCatalogBindingId(malformed), false);
+  }
+});
+
+test("catalog document IDs require one exact bounded Firestore path segment", () => {
+  assert.equal(
+    readBiteScoreCatalogRestaurantId("catalog_restaurant-1"),
+    "catalog_restaurant-1",
+  );
+  assert.equal(readBiteScoreCatalogRestaurantId("Café 🍽️"), "Café 🍽️");
+  for (const malformed of [
+    "",
+    " padded",
+    "padded ",
+    ".",
+    "..",
+    "two/segments",
+    "hidden\u0000value",
+    "x".repeat(1_501),
+    null,
+  ]) {
+    assert.equal(readBiteScoreCatalogRestaurantId(malformed), null);
+  }
+});
+
+test("account catalog binding state fails closed for partial or malformed pairs", () => {
+  const bindingId = "A".repeat(43);
+  assert.deepEqual(biteSaverAccountCatalogBindingState({}), {type: "unbound"});
+  assert.deepEqual(biteSaverAccountCatalogBindingState({
+    biteScoreCatalogRestaurantId: "catalog-1",
+    biteSaverCatalogBindingId: bindingId,
+  }), {
+    type: "bound",
+    biteScoreCatalogRestaurantId: "catalog-1",
+    biteSaverCatalogBindingId: bindingId,
+  });
+  for (const malformed of [
+    {biteScoreCatalogRestaurantId: "catalog-1"},
+    {biteSaverCatalogBindingId: bindingId},
+    {
+      biteScoreCatalogRestaurantId: "catalog/1",
+      biteSaverCatalogBindingId: bindingId,
+    },
+    {
+      biteScoreCatalogRestaurantId: "catalog-1",
+      biteSaverCatalogBindingId: "short",
+    },
+    {
+      biteScoreCatalogRestaurantId: null,
+      biteSaverCatalogBindingId: null,
+    },
+  ]) {
+    assert.deepEqual(
+      biteSaverAccountCatalogBindingState(malformed),
+      {type: "invalid"},
+    );
+  }
+});
+
+test("catalog binding state treats only absence as unbound", () => {
+  const bindingId = "_".repeat(43);
+  assert.deepEqual(biteScoreCatalogBindingState({}), {type: "unbound"});
+  assert.deepEqual(
+    biteScoreCatalogBindingState({biteSaverCatalogBindingId: bindingId}),
+    {type: "bound", biteSaverCatalogBindingId: bindingId},
+  );
+  for (const malformed of [null, "", "_".repeat(42), "_".repeat(44), 7]) {
+    assert.deepEqual(
+      biteScoreCatalogBindingState({biteSaverCatalogBindingId: malformed}),
+      {type: "invalid"},
+    );
+  }
 });
 
 test("invite listing filters coupon and bitescore sides", () => {
