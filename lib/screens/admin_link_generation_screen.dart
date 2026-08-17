@@ -395,6 +395,37 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
     await Clipboard.setData(ClipboardData(text: text));
   }
 
+  Future<void> _copyMailingAddress(AdminRestaurantLinkRecord record) async {
+    await _runBusyAction(record, 'copy-mailing-address', () async {
+      final restaurantName = record.restaurantName.trim();
+      final streetAddress = record.streetAddress.trim();
+      final city = record.city.trim();
+      final state = record.state.trim();
+      final zipCode = record.zipCode.trim();
+      if (restaurantName.isEmpty ||
+          streetAddress.isEmpty ||
+          city.isEmpty ||
+          state.isEmpty ||
+          zipCode.isEmpty) {
+        _showSnackBar('Mailing address is incomplete.');
+        return;
+      }
+
+      final mailingAddress =
+          '$restaurantName\n$streetAddress\n$city, $state $zipCode';
+      try {
+        await _writeClipboard(mailingAddress);
+        if (mounted) {
+          _showSnackBar('Mailing address copied.');
+        }
+      } catch (_) {
+        if (mounted) {
+          _showSnackBar('Could not copy the mailing address.');
+        }
+      }
+    });
+  }
+
   Future<void> _showLinkActionDialog({
     required String title,
     required String linkUrl,
@@ -801,6 +832,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
       record,
       'customer-bitescore-link',
     );
+    final isMailingAddressBusy = _isActionBusy(record, 'copy-mailing-address');
 
     return Card(
       key: ValueKey('admin-link-record-${record.recordKey}'),
@@ -940,6 +972,25 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
                               : 'Customer BiteScore',
                         ),
                       ),
+                    OutlinedButton.icon(
+                      key: ValueKey('${record.recordKey}:copy-mailing-address'),
+                      onPressed: isMailingAddressBusy
+                          ? null
+                          : () => _copyMailingAddress(record),
+                      icon: isMailingAddressBusy
+                          ? const SizedBox.square(
+                              dimension: 16,
+                              child: CircularProgressIndicator(strokeWidth: 2),
+                            )
+                          : const Icon(Icons.content_copy_outlined),
+                      label: Text(
+                        isMailingAddressBusy
+                            ? 'Copying...'
+                            : compactLabels
+                            ? 'Address'
+                            : 'Copy Mailing Address',
+                      ),
+                    ),
                   ],
                 );
               },

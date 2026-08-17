@@ -828,6 +828,175 @@ void main() {
   });
 
   testWidgets(
+    'copies trimmed BiteScore and BiteSaver public mailing fields only',
+    (tester) async {
+      final copied = <String>[];
+      var searchCalls = 0;
+      var mutationCalls = 0;
+      var qrCalls = 0;
+      await _pumpScreen(
+        tester,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+            }) async {
+              searchCalls += 1;
+              return _result(
+                records: [
+                  _biteScoreRecord(
+                    documentId: 'mailing-score',
+                    name: '  Score Place  ',
+                    streetAddress: '  10 Score Road  ',
+                    city: '  Crystal River  ',
+                    state: '  FL  ',
+                    zipCode: '  34428  ',
+                  ),
+                  _biteSaverRecord(
+                    documentId: 'mailing-saver',
+                    actionId: 'mailing-saver-owner',
+                    name: 'Saver Place',
+                    streetAddress: '20 Saver Avenue',
+                    city: 'Inverness',
+                    state: 'FL',
+                    zipCode: '34450',
+                  ),
+                ],
+              );
+            },
+        createCouponInvite:
+            ({
+              required restaurantName,
+              required restaurantId,
+              required biteScoreCatalogRestaurantId,
+              required streetAddress,
+              required city,
+              required state,
+              required zipCode,
+              required phone,
+              required website,
+              required latitude,
+              required longitude,
+            }) async {
+              mutationCalls += 1;
+              return _invite('https://example.test/unused-coupon-invite');
+            },
+        createClaimInvite: ({required restaurantId}) async {
+          mutationCalls += 1;
+          return _invite('https://example.test/unused-claim-invite');
+        },
+        writeClipboard: (value) async => copied.add(value),
+        renderQrImage:
+            ({required restaurantName, required url, required linkType}) async {
+              qrCalls += 1;
+              return _qrImage(restaurantName, linkType);
+            },
+      );
+      await _submitSearch(tester);
+      expect(find.text('Copy Mailing Address'), findsNWidgets(2));
+
+      final biteScoreAction = find.byKey(
+        const ValueKey('biteScore:mailing-score:copy-mailing-address'),
+      );
+      await tester.ensureVisible(biteScoreAction);
+      await tester.tap(biteScoreAction);
+      await tester.pump();
+      expect(copied, ['Score Place\n10 Score Road\nCrystal River, FL 34428']);
+      expect(find.text('Mailing address copied.'), findsOneWidget);
+
+      final biteSaverAction = find.byKey(
+        const ValueKey('biteSaver:mailing-saver:copy-mailing-address'),
+      );
+      await tester.ensureVisible(biteSaverAction);
+      await tester.tap(biteSaverAction);
+      await tester.pump();
+      expect(copied, [
+        'Score Place\n10 Score Road\nCrystal River, FL 34428',
+        'Saver Place\n20 Saver Avenue\nInverness, FL 34450',
+      ]);
+      expect(searchCalls, 1);
+      expect(mutationCalls, 0);
+      expect(qrCalls, 0);
+    },
+  );
+
+  testWidgets('incomplete mailing fields fail without clipboard writes', (
+    tester,
+  ) async {
+    final copied = <String>[];
+    final records = [
+      _biteScoreRecord(documentId: 'missing-name', name: '   '),
+      _biteScoreRecord(documentId: 'missing-street', streetAddress: '\t'),
+      _biteScoreRecord(documentId: 'missing-city', city: '   '),
+      _biteScoreRecord(documentId: 'missing-state', state: '\n'),
+      _biteScoreRecord(documentId: 'missing-zip', zipCode: '   '),
+    ];
+    await _pumpScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+          }) async => _result(records: records),
+      writeClipboard: (value) async => copied.add(value),
+    );
+    await _submitSearch(tester);
+
+    for (final record in records) {
+      final action = find.byKey(
+        ValueKey('${record.recordKey}:copy-mailing-address'),
+      );
+      await tester.ensureVisible(action);
+      await tester.tap(action);
+      await tester.pump();
+      expect(copied, isEmpty, reason: record.documentId);
+      expect(
+        find.text('Mailing address is incomplete.'),
+        findsOneWidget,
+        reason: record.documentId,
+      );
+    }
+  });
+
+  testWidgets('mailing clipboard exceptions show controlled feedback', (
+    tester,
+  ) async {
+    var clipboardAttempts = 0;
+    await _pumpScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+          }) async => _result(
+            records: [_biteScoreRecord(documentId: 'mailing-failure')],
+          ),
+      writeClipboard: (_) async {
+        clipboardAttempts += 1;
+        throw StateError('clipboard denied');
+      },
+    );
+    await _submitSearch(tester);
+
+    final action = find.byKey(
+      const ValueKey('biteScore:mailing-failure:copy-mailing-address'),
+    );
+    await tester.ensureVisible(action);
+    await tester.tap(action);
+    await tester.pump();
+
+    expect(clipboardAttempts, 1);
+    expect(find.text('Could not copy the mailing address.'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
     'clipboard failures show controlled feedback for both link types',
     (tester) async {
       await _pumpScreen(
@@ -1414,6 +1583,10 @@ AdminRestaurantLinkSearchResult _result({
 AdminRestaurantLinkRecord _biteScoreRecord({
   required String documentId,
   String name = 'River Grill',
+  String streetAddress = '1 Main Street',
+  String city = 'Crystal River',
+  String state = 'FL',
+  String zipCode = '34428',
   bool isActive = true,
   bool isClaimed = false,
   String? ownerUserId,
@@ -1433,10 +1606,10 @@ AdminRestaurantLinkRecord _biteScoreRecord({
     documentId: documentId,
     actionId: documentId,
     restaurantName: name,
-    streetAddress: '1 Main Street',
-    city: 'Crystal River',
-    state: 'FL',
-    zipCode: '34428',
+    streetAddress: streetAddress,
+    city: city,
+    state: state,
+    zipCode: zipCode,
     phone: '555-0100',
     website: 'https://example.com',
     latitude: 28.8517,
@@ -1455,17 +1628,22 @@ AdminRestaurantLinkRecord _biteScoreRecord({
 AdminRestaurantLinkRecord _biteSaverRecord({
   required String documentId,
   required String actionId,
+  String name = 'River Grill',
+  String streetAddress = '1 Main Street',
+  String city = 'Crystal River',
+  String state = 'FL',
+  String zipCode = '34428',
   String approvalStatus = 'pending',
 }) {
   return AdminRestaurantLinkRecord(
     source: AdminRestaurantLinkSource.biteSaver,
     documentId: documentId,
     actionId: actionId,
-    restaurantName: 'River Grill',
-    streetAddress: '1 Main Street',
-    city: 'Crystal River',
-    state: 'FL',
-    zipCode: '34428',
+    restaurantName: name,
+    streetAddress: streetAddress,
+    city: city,
+    state: state,
+    zipCode: zipCode,
     phone: '555-0100',
     website: 'https://example.com',
     latitude: 28.8517,
