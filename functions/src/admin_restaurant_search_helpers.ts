@@ -28,6 +28,14 @@ import {
   biteScoreCatalogRestaurantIdField,
   readBiteScoreCatalogRestaurantId,
 } from "./restaurant_invite_helpers.js";
+import {
+  type AdminRestaurantQrPreparationStoredDocument,
+  type AdminRestaurantQrPreparationProjection,
+  parseAdminRestaurantQrPreparationDocument,
+  projectAdminRestaurantQrPreparation,
+  unavailableAdminRestaurantQrPreparationProjection,
+  validateAdminRestaurantQrPreparedClaimAssociation,
+} from "./admin_restaurant_qr_preparation.js";
 
 export type AdminRestaurantSource = "biteScore" | "biteSaver";
 export type AdminBiteScoreStatus = "active" | "inactive" | "all";
@@ -247,6 +255,7 @@ export type AdminRestaurantSearchResult = {
   couponApplicationSubmitted?: boolean;
   uid?: string | null;
   linkedBiteScoreRestaurantId?: string | null;
+  preparation?: AdminRestaurantQrPreparationProjection;
 };
 
 export type AdminRestaurantSearchResponse = {
@@ -270,6 +279,16 @@ export type AdminRestaurantSearchDependencies = {
   verifyBiteSaverCatalogBindings?: (
     requests: readonly AdminCatalogBindingVerificationRequest[],
   ) => Promise<ReadonlySet<string>>;
+  loadQrPreparationDocuments?: (
+    catalogRestaurantIds: readonly string[],
+  ) => Promise<
+    ReadonlyMap<string, Readonly<Record<string, unknown>>>
+  >;
+  loadQrPreparationInvitationDocuments?: (
+    invitationIds: readonly string[],
+  ) => Promise<
+    ReadonlyMap<string, Readonly<Record<string, unknown>>>
+  >;
   geocodingTimeoutMilliseconds?: number;
 };
 
@@ -658,6 +677,20 @@ function readString(value: unknown): string | null {
     : null;
 }
 
+function readOptionalExactIdentity(
+  data: RestaurantDocumentData,
+  fieldName: string,
+): string | null | undefined {
+  if (
+    !Object.prototype.hasOwnProperty.call(data, fieldName) ||
+    data[fieldName] === null ||
+    data[fieldName] === ""
+  ) {
+    return null;
+  }
+  return readBiteScoreCatalogRestaurantId(data[fieldName]) ?? undefined;
+}
+
 function firstString(
   data: RestaurantDocumentData,
   fieldNames: readonly string[],
@@ -687,8 +720,8 @@ function mapCandidate(
   biteScoreStatus: AdminBiteScoreStatus,
   verifiedBiteSaverCatalogIds: ReadonlySet<string>,
 ): AdminRestaurantSearchResult | null {
-  const documentId = candidate.documentId.trim();
-  if (!documentId) {
+  const documentId = readBiteScoreCatalogRestaurantId(candidate.documentId);
+  if (documentId === null) {
     return null;
   }
   const data = candidate.data;
@@ -771,6 +804,14 @@ function mapCandidate(
 
   if (candidate.source === "biteScore") {
     const claim = biteScoreRestaurantClaimProjection(data);
+    const ownerUserId = readOptionalExactIdentity(data, "ownerUserId");
+    const linkedBiteSaverUid = readOptionalExactIdentity(
+      data,
+      "linkedBiteSaverUid",
+    );
+    if (ownerUserId === undefined || linkedBiteSaverUid === undefined) {
+      return null;
+    }
     return {
       ...common,
       source: "biteScore",
@@ -784,12 +825,19 @@ function mapCandidate(
         data,
         verifiedBiteSaverCatalogIds.has(documentId),
       ),
-      ownerUserId: readString(data.ownerUserId),
-      linkedBiteSaverUid: readString(data.linkedBiteSaverUid),
+      ownerUserId,
+      linkedBiteSaverUid,
     };
   }
 
-  const uid = readString(data.uid);
+  const uid = readOptionalExactIdentity(data, "uid");
+  const linkedBiteScoreRestaurantId = readOptionalExactIdentity(
+    data,
+    "linkedBiteScoreRestaurantId",
+  );
+  if (uid === undefined || linkedBiteScoreRestaurantId === undefined) {
+    return null;
+  }
   return {
     ...common,
     source: "biteSaver",
@@ -797,10 +845,25 @@ function mapCandidate(
     approvalStatus: readString(data.approvalStatus) ?? "",
     couponApplicationSubmitted: data.couponApplicationSubmitted === true,
     uid,
-    linkedBiteScoreRestaurantId: readString(
-      data.linkedBiteScoreRestaurantId,
-    ),
+    linkedBiteScoreRestaurantId,
   };
+}
+
+function exactCandidatesByKey(
+  candidates: readonly AdminRestaurantSearchCandidate[],
+): ReadonlyMap<string, AdminRestaurantSearchCandidate> {
+  const candidatesByKey = new Map<string, AdminRestaurantSearchCandidate>();
+  for (const candidate of candidates) {
+    const documentId = readBiteScoreCatalogRestaurantId(candidate.documentId);
+    if (documentId === null) {
+      continue;
+    }
+    const key = restaurantSourceDocumentKey(candidate.source, documentId);
+    if (!candidatesByKey.has(key)) {
+      candidatesByKey.set(key, { ...candidate, documentId });
+    }
+  }
+  return candidatesByKey;
 }
 
 export function processAdminRestaurantSearchCandidates(params: {
@@ -812,21 +875,7 @@ export function processAdminRestaurantSearchCandidates(params: {
 }): AdminRestaurantSearchResponse {
   const verifiedBiteSaverCatalogIds =
     params.verifiedBiteSaverCatalogIds ?? new Set<string>();
-  const deduplicated = new Map<string, AdminRestaurantSearchCandidate>();
-  for (const candidate of params.candidates) {
-    const documentId = candidate.documentId.trim();
-    if (
-      !documentId ||
-      (candidate.source === "biteScore" &&
-        candidate.documentId !== documentId)
-    ) {
-      continue;
-    }
-    const key = restaurantSourceDocumentKey(candidate.source, documentId);
-    if (!deduplicated.has(key)) {
-      deduplicated.set(key, { ...candidate, documentId });
-    }
-  }
+  const deduplicated = exactCandidatesByKey(params.candidates);
 
   const exactMatches: AdminRestaurantSearchResult[] = [];
   for (const candidate of deduplicated.values()) {
@@ -881,6 +930,134 @@ export function processAdminRestaurantSearchCandidates(params: {
   };
 }
 
+async function attachAdminRestaurantQrPreparation(
+  response: AdminRestaurantSearchResponse,
+  dependencies: AdminRestaurantSearchDependencies,
+  candidatesByKey: ReadonlyMap<string, AdminRestaurantSearchCandidate>,
+): Promise<AdminRestaurantSearchResponse> {
+  if (dependencies.loadQrPreparationDocuments === undefined) {
+    return response;
+  }
+  const canonicalIds = [
+    ...new Set(
+      response.results
+        .filter((result) => result.source === "biteScore")
+        .map((result) => result.documentId),
+    ),
+  ];
+  let documents: ReadonlyMap<
+    string,
+    Readonly<Record<string, unknown>>
+  >;
+  try {
+    documents = await dependencies.loadQrPreparationDocuments(canonicalIds);
+  } catch (_error) {
+    throw new HttpsError(
+      "unavailable",
+      "Restaurant preparation state is temporarily unavailable.",
+    );
+  }
+  const nowMillis = Date.now();
+  const preparedClaimInviteIds = [
+    ...new Set(
+      response.results
+        .filter((result) => result.source === "biteScore")
+        .map((result) => documents.get(result.documentId) ?? null)
+        .map((rawPreparation) =>
+          parseAdminRestaurantQrPreparationDocument(rawPreparation)
+            ?.cPrepared?.id ?? null)
+        .filter((inviteId): inviteId is string => inviteId !== null),
+    ),
+  ];
+  let invitationDocuments = new Map<
+    string,
+    Readonly<Record<string, unknown>>
+  >();
+  if (
+    preparedClaimInviteIds.length > 0 &&
+    dependencies.loadQrPreparationInvitationDocuments !== undefined
+  ) {
+    try {
+      invitationDocuments = new Map(
+        await dependencies.loadQrPreparationInvitationDocuments(
+          preparedClaimInviteIds,
+        ),
+      );
+    } catch (_error) {
+      throw new HttpsError(
+        "unavailable",
+        "Restaurant preparation state is temporarily unavailable.",
+      );
+    }
+  }
+  return {
+    ...response,
+    results: response.results.map((result) => {
+      if (result.source !== "biteScore") {
+        return {
+          ...result,
+          preparation: unavailableAdminRestaurantQrPreparationProjection(),
+        };
+      }
+      const biteSaverParticipation =
+        result.biteSaverCatalogBindingState === "bound"
+          ? "bound" as const
+          : result.biteSaverCatalogBindingState === "unbound"
+          ? "unbound" as const
+          : "unavailable" as const;
+      const biteScoreClaim =
+        result.isActive === true &&
+          result.claimStateValid === true &&
+          result.isClaimed === true &&
+          result.claimAvailable === false
+          ? "claimed" as const
+          : result.isActive === true &&
+            result.claimStateValid === true &&
+            result.isClaimed === false &&
+            result.claimAvailable === true
+          ? "available" as const
+          : "unavailable" as const;
+      const rawPreparation = documents.get(result.documentId) ?? null;
+      const parsedPreparation =
+        parseAdminRestaurantQrPreparationDocument(rawPreparation);
+      const preparedClaimInviteId = parsedPreparation?.cPrepared?.id ?? null;
+      const invitationData = preparedClaimInviteId === null
+        ? undefined
+        : invitationDocuments.get(preparedClaimInviteId);
+      const invitation: AdminRestaurantQrPreparationStoredDocument | null =
+        preparedClaimInviteId !== null && invitationData !== undefined
+          ? Object.freeze({
+              id: preparedClaimInviteId,
+              data: invitationData,
+            })
+          : null;
+      const candidate = candidatesByKey.get(
+        restaurantSourceDocumentKey(result.source, result.documentId),
+      );
+      const claimPreparedValidation = candidate === undefined
+        ? Object.freeze({ state: "unavailable" as const, inviteId: null })
+        : validateAdminRestaurantQrPreparedClaimAssociation({
+            catalogRestaurantId: result.documentId,
+            rawPreparation,
+            restaurantData: candidate.data,
+            invitation,
+            nowMillis,
+          });
+      return {
+        ...result,
+        preparation: projectAdminRestaurantQrPreparation({
+          catalogRestaurantId: result.documentId,
+          rawPreparation,
+          biteSaverParticipation,
+          biteScoreClaim,
+          claimPreparedValidation,
+          nowMillis,
+        }),
+      };
+    }),
+  };
+}
+
 export async function executeAdminRestaurantSearch(
   rawRequest: unknown,
   dependencies: AdminRestaurantSearchDependencies,
@@ -928,16 +1105,15 @@ export async function executeAdminRestaurantSearch(
     candidates,
     anyQueryReachedCandidateLimit,
   });
+  const candidatesByKey = exactCandidatesByKey(candidates);
   if (dependencies.verifyBiteSaverCatalogBindings === undefined) {
-    return baseResponse;
+    return attachAdminRestaurantQrPreparation(
+      baseResponse,
+      dependencies,
+      candidatesByKey,
+    );
   }
 
-  const candidatesByKey = new Map(
-    candidates.map((candidate) => [
-      restaurantSourceDocumentKey(candidate.source, candidate.documentId),
-      candidate,
-    ]),
-  );
   const verificationRequests: AdminCatalogBindingVerificationRequest[] = [];
   for (const result of baseResponse.results) {
     if (result.source !== "biteScore") {
@@ -965,7 +1141,11 @@ export async function executeAdminRestaurantSearch(
     }
   }
   if (verificationRequests.length === 0) {
-    return baseResponse;
+    return attachAdminRestaurantQrPreparation(
+      baseResponse,
+      dependencies,
+      candidatesByKey,
+    );
   }
 
   let verifiedBiteSaverCatalogIds: ReadonlySet<string>;
@@ -973,13 +1153,22 @@ export async function executeAdminRestaurantSearch(
     verifiedBiteSaverCatalogIds =
       await dependencies.verifyBiteSaverCatalogBindings(verificationRequests);
   } catch (_error) {
-    return baseResponse;
+    return attachAdminRestaurantQrPreparation(
+      baseResponse,
+      dependencies,
+      candidatesByKey,
+    );
   }
-  return processAdminRestaurantSearchCandidates({
+  const verifiedResponse = processAdminRestaurantSearchCandidates({
     request,
     searchCenter,
     candidates,
     anyQueryReachedCandidateLimit,
     verifiedBiteSaverCatalogIds,
   });
+  return attachAdminRestaurantQrPreparation(
+    verifiedResponse,
+    dependencies,
+    candidatesByKey,
+  );
 }

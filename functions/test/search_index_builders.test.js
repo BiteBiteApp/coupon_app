@@ -8,6 +8,7 @@ const {
   biteSaverOfferCatalogUpdatedAtField,
   biteSaverRestaurantPublicProjectionVersion,
   biteSaverOfferParentFingerprint,
+  biteSaverCatalogBindingAdminState,
   biteScoreDishParentFingerprint,
   biteScoreRestaurantClaimProjection,
   biteScoreRestaurantIsActive,
@@ -1031,6 +1032,63 @@ test("BiteScore claim projection follows the strict availability truth table", (
     assert.deepEqual(
       biteScoreRestaurantClaimProjection({isActive: true, ...ownership}),
       {isClaimed: false, claimAvailable: false, claimStateValid: false},
+    );
+  }
+});
+
+test("Admin BiteSaver eligibility requires exact optional owner identities", () => {
+  const base = {
+    id: "restaurant-1",
+    name: "The Copper Spoon",
+    address: "1 Main St",
+    city: "Ocala",
+    state: "FL",
+    zipCode: "34470",
+    latitude: coordinates.latitude,
+    longitude: coordinates.longitude,
+    isActive: true,
+    isClaimed: false,
+    restaurantWriteRevision: 1,
+  };
+  for (const optionalIdentities of [
+    {},
+    {ownerUserId: null, linkedBiteSaverUid: null},
+    {ownerUserId: "", linkedBiteSaverUid: ""},
+    {linkedBiteSaverUid: "account-1"},
+  ]) {
+    assert.equal(
+      biteSaverCatalogBindingAdminState(
+        "restaurant-1",
+        {...base, ...optionalIdentities},
+        true,
+      ),
+      "unbound",
+    );
+  }
+  assert.equal(
+    biteSaverCatalogBindingAdminState(
+      "restaurant-1",
+      {...base, isClaimed: true, ownerUserId: "owner-1"},
+      true,
+    ),
+    "unbound",
+  );
+  for (const malformedIdentities of [
+    {linkedBiteSaverUid: " account-1"},
+    {linkedBiteSaverUid: "account-1 "},
+    {linkedBiteSaverUid: "account/1"},
+    {linkedBiteSaverUid: "   "},
+    {linkedBiteSaverUid: 7},
+    {isClaimed: true, ownerUserId: " owner-1"},
+    {isClaimed: true, ownerUserId: "owner/1"},
+  ]) {
+    assert.equal(
+      biteSaverCatalogBindingAdminState(
+        "restaurant-1",
+        {...base, ...malformedIdentities},
+        true,
+      ),
+      "unavailable",
     );
   }
 });

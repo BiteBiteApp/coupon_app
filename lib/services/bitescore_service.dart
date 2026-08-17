@@ -4260,6 +4260,7 @@ class BiteScoreService {
         transaction.set(restaurantRef, {
           'ownerUserId': null,
           'isClaimed': false,
+          'claimInvitationEpochAt': FieldValue.serverTimestamp(),
           BitescoreRestaurant.restaurantWriteRevisionField: nextRevision,
           'updatedAt': FieldValue.serverTimestamp(),
         }, SetOptions(merge: true));

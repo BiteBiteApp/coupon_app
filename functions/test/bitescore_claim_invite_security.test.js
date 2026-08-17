@@ -9,6 +9,8 @@ const actualFirestore = require("firebase-admin/firestore");
 
 const restaurantId = "claimable-restaurant";
 const restaurantPath = `bitescore_restaurants/${restaurantId}`;
+const preparationPath =
+  `private_admin_restaurant_qr_preparation/${restaurantId}`;
 const lockPath = `private_rating_restaurant_operation_locks/${restaurantId}`;
 const adminEmail = "schuyler.cole@gmail.com";
 const tokenA = "A".repeat(43);
@@ -26,6 +28,12 @@ function deepClone(value) {
   }
   if (value instanceof actualFirestore.Timestamp) {
     return actualFirestore.Timestamp.fromMillis(value.toMillis());
+  }
+  if (value instanceof Date) {
+    return new Date(value.getTime());
+  }
+  if (Object.hasOwn(value, "__fieldValue")) {
+    return value;
   }
   if (Array.isArray(value)) {
     return value.map(deepClone);
@@ -52,8 +60,14 @@ function loadRuntime() {
     if (value === serverTimestamp) {
       return actualFirestore.Timestamp.fromMillis(Date.now());
     }
+    if (value === deleteField) {
+      return deleteField;
+    }
     if (value instanceof actualFirestore.Timestamp) {
       return actualFirestore.Timestamp.fromMillis(value.toMillis());
+    }
+    if (value instanceof Date) {
+      return new Date(value.getTime());
     }
     if (Array.isArray(value)) {
       return value.map(resolveWriteValue);
@@ -247,6 +261,9 @@ function loadRuntime() {
     collection(collectionPath) {
       return new FakeCollectionReference(collectionPath);
     },
+    doc(documentPath) {
+      return new FakeDocumentReference(documentPath);
+    },
     async runTransaction(operation) {
       for (let attempt = 1; attempt <= 8; attempt += 1) {
         state.transactionAttempts += 1;
@@ -364,8 +381,14 @@ function loadRuntime() {
     patch(documentPath, data) {
       writeDocument(documentPath, data, true);
     },
+    maintainPreparationAfterUnclaim:
+      exports.maintainAdminRestaurantQrPreparationFromBiteScoreUnclaim,
+    listInvites: exports.listRestaurantInvites,
+    previewInvite: exports.previewRestaurantInvite,
     redeemCouponInvite: exports.redeemCouponRestaurantInvite,
     redeemInvite: exports.redeemBiteScoreRestaurantClaimInvite,
+    revokeInvite: exports.revokeRestaurantInvite,
+    updatePreparation: exports.updateAdminRestaurantQrPreparation,
     reset() {
       state.autoId = 0;
       state.beforeCommit = null;
@@ -445,10 +468,38 @@ function activeInvite(token, overrides = {}) {
   };
 }
 
-function adminRequest() {
+function validPreparation(overrides = {}) {
+  return {
+    schemaVersion: 1,
+    saPrepared: false,
+    srPrepared: false,
+    ...overrides,
+  };
+}
+
+function adminRequest(requestRestaurantId = restaurantId) {
   return {
     auth: {uid: "admin-1", token: {email: adminEmail}},
-    data: {restaurantId},
+    data: {restaurantId: requestRestaurantId},
+  };
+}
+
+function revokeRequest(inviteId) {
+  return {
+    auth: {uid: "admin-1", token: {email: adminEmail}},
+    data: {inviteId},
+  };
+}
+
+function preparationRequest(type, prepared, expectedInviteId = undefined) {
+  return {
+    auth: {uid: "admin-1", token: {email: adminEmail}},
+    data: {
+      catalogRestaurantId: restaurantId,
+      type,
+      prepared,
+      ...(expectedInviteId === undefined ? {} : {expectedInviteId}),
+    },
   };
 }
 
@@ -482,6 +533,37 @@ function couponRedemptionRequest(token, uid = "owner-1") {
       },
     },
     data: {token},
+  };
+}
+
+function inviteListRequest(side = undefined) {
+  return {
+    auth: {uid: "admin-1", token: {email: adminEmail}},
+    data: {
+      ...(side === undefined ? {} : {side}),
+      limit: 50,
+    },
+  };
+}
+
+function invitePreviewRequest(token, side) {
+  return {data: {token, side}};
+}
+
+function writtenRestaurantEvent(before, after, updateTime) {
+  return {
+    params: {restaurantId},
+    data: {
+      before: {
+        exists: before !== null,
+        data: () => before,
+      },
+      after: {
+        exists: after !== null,
+        data: () => after,
+        updateTime,
+      },
+    },
   };
 }
 
@@ -558,6 +640,109 @@ function accountCouponInvite(token, accountId, overrides = {}) {
   };
 }
 
+test("invitation list and preview preserve exact optional identities", async () => {
+  runtime.reset();
+  runtime.seed(
+    "restaurant_invites/account-exact",
+    accountCouponInvite(tokenA, "owner-account-exact"),
+  );
+  runtime.seed(
+    "restaurant_invites/pending-exact",
+    catalogCouponInvite(tokenB, "pending-exact", restaurantId, {
+      pendingRestaurantKey: "pending_pending-exact",
+    }),
+  );
+  runtime.seed(
+    "restaurant_invites/claim-exact",
+    activeInvite(tokenC, {restaurantId: "catalog-exact"}),
+  );
+
+  const listed = await runtime.listInvites(inviteListRequest());
+  const byId = new Map(listed.invites.map((invite) => [invite.id, invite]));
+  assert.equal(byId.get("account-exact").restaurantId, "owner-account-exact");
+  assert.equal(
+    byId.get("pending-exact").pendingRestaurantKey,
+    "pending_pending-exact",
+  );
+
+  const couponPreview = await runtime.previewInvite(
+    invitePreviewRequest(tokenB, "coupon"),
+  );
+  assert.equal(couponPreview.pendingRestaurantKey, "pending_pending-exact");
+  const claimPreview = await runtime.previewInvite(
+    invitePreviewRequest(tokenC, "bitescore"),
+  );
+  assert.equal(claimPreview.restaurantId, "catalog-exact");
+});
+
+test("invitation list and preview fail closed for malformed identities", async () => {
+  runtime.reset();
+  const invalidIdentities = [
+    "",
+    "   ",
+    " padded-id ",
+    "slash/id",
+    ".",
+    "..",
+    "control\u0000id",
+    "x".repeat(1_501),
+  ];
+  for (const [index, invalidIdentity] of invalidIdentities.entries()) {
+    const suffix = String(index);
+    runtime.seed(
+      `restaurant_invites/bad-account-${suffix}`,
+      accountCouponInvite(`account-token-${suffix}`, invalidIdentity),
+    );
+    runtime.seed(
+      `restaurant_invites/bad-pending-${suffix}`,
+      catalogCouponInvite(
+        `pending-token-${suffix}`,
+        `bad-pending-${suffix}`,
+        restaurantId,
+        {pendingRestaurantKey: invalidIdentity},
+      ),
+    );
+  }
+
+  const listed = await runtime.listInvites(inviteListRequest("coupon"));
+  assert.equal(listed.invites.length, invalidIdentities.length * 2);
+  for (const invite of listed.invites) {
+    if (invite.id.startsWith("bad-account-")) {
+      assert.equal(invite.restaurantId, "", invite.id);
+    } else {
+      assert.equal(invite.pendingRestaurantKey, "", invite.id);
+    }
+    assert.notEqual(invite.restaurantId, "padded-id", invite.id);
+    assert.notEqual(invite.pendingRestaurantKey, "padded-id", invite.id);
+  }
+
+  runtime.reset();
+  runtime.seed(
+    "restaurant_invites/bad-claim-preview",
+    activeInvite(tokenA, {restaurantId: " catalog-alias "}),
+  );
+  assert.equal(
+    (await runtime.previewInvite(
+      invitePreviewRequest(tokenA, "bitescore"),
+    )).restaurantId,
+    "",
+  );
+
+  runtime.reset();
+  runtime.seed(
+    "restaurant_invites/bad-pending-preview",
+    catalogCouponInvite(tokenB, "bad-pending-preview", restaurantId, {
+      pendingRestaurantKey: " pending-alias ",
+    }),
+  );
+  assert.equal(
+    (await runtime.previewInvite(
+      invitePreviewRequest(tokenB, "coupon"),
+    )).pendingRestaurantKey,
+    "",
+  );
+});
+
 async function expectFailedPrecondition(operation, messagePattern = undefined) {
   await assert.rejects(operation, (error) => {
     assert.equal(error.code, "failed-precondition");
@@ -631,6 +816,242 @@ test("creation is transactional and stores only a token hash", async () => {
   assert.equal(JSON.stringify(runtime.state.logs).includes(result.token), false);
   assert.equal(runtime.state.logs.length, 0);
   assert.match(result.inviteUrl, new RegExp(`${result.token}$`, "u"));
+});
+
+test("claim invite creation preserves prepared A while latest advances to B", async () => {
+  runtime.reset();
+  const expiryA = actualFirestore.Timestamp.fromMillis(Date.now() + 30_000);
+  runtime.seed(restaurantPath, canonicalRestaurant());
+  runtime.seed(preparationPath, validPreparation({
+    cLatestInviteId: "claim-invite-a",
+    cLatestInviteExpiresAt: expiryA,
+    cPreparedInviteId: "claim-invite-a",
+    cPreparedInviteExpiresAt: expiryA,
+  }));
+
+  const created = await runtime.createInvite(adminRequest());
+  const preparation = runtime.data(preparationPath);
+  assert.equal(preparation.cLatestInviteId, created.inviteId);
+  assert.equal(preparation.cPreparedInviteId, "claim-invite-a");
+  assert.equal(
+    preparation.cPreparedInviteExpiresAt.toMillis(),
+    expiryA.toMillis(),
+  );
+  assert.equal(runtime.documents("restaurant_invites").length, 1);
+});
+
+test("claim invite creation rolls back invitation and preparation together", async () => {
+  runtime.reset();
+  const originalPreparation = validPreparation({saPrepared: true});
+  runtime.seed(restaurantPath, canonicalRestaurant());
+  runtime.seed(preparationPath, originalPreparation);
+  runtime.setBeforeCommit(() => {
+    throw new Error("injected commit failure");
+  });
+
+  await assert.rejects(
+    runtime.createInvite(adminRequest()),
+    /injected commit failure/u,
+  );
+  assert.equal(runtime.documents("restaurant_invites").length, 0);
+  assert.deepEqual(runtime.data(preparationPath), originalPreparation);
+
+  runtime.reset();
+  const malformedPreparation = validPreparation({unexpected: true});
+  runtime.seed(restaurantPath, canonicalRestaurant());
+  runtime.seed(preparationPath, malformedPreparation);
+  await expectFailedPrecondition(runtime.createInvite(adminRequest()));
+  assert.equal(runtime.documents("restaurant_invites").length, 0);
+  assert.deepEqual(runtime.data(preparationPath), malformedPreparation);
+});
+
+test("creation and revocation reject inexact Firestore identities", async () => {
+  const invalidIds = [
+    ` ${restaurantId}`,
+    `${restaurantId} `,
+    "",
+    "   ",
+    "restaurant/id",
+    ".",
+    "..",
+  ];
+  for (const invalidId of invalidIds) {
+    runtime.reset();
+    runtime.seed(restaurantPath, canonicalRestaurant());
+    await assert.rejects(
+      runtime.createInvite(adminRequest(invalidId)),
+      (error) => error.code === "invalid-argument",
+      `claim restaurant ID ${JSON.stringify(invalidId)}`,
+    );
+    assert.equal(runtime.documents("restaurant_invites").length, 0);
+
+    await assert.rejects(
+      runtime.createCouponInvite({
+        auth: {uid: "admin-1", token: {email: adminEmail}},
+        data: {
+          restaurantId: invalidId,
+          restaurantName: "Existing Cafe",
+        },
+      }),
+      (error) => error.code === "invalid-argument",
+      `BiteSaver account ID ${JSON.stringify(invalidId)}`,
+    );
+    assert.equal(runtime.documents("restaurant_invites").length, 0);
+
+    runtime.seed("restaurant_invites/exact-invite", activeInvite(tokenA));
+    await assert.rejects(
+      runtime.revokeInvite(revokeRequest(invalidId)),
+      (error) => error.code === "invalid-argument",
+      `revoke invite ID ${JSON.stringify(invalidId)}`,
+    );
+    assert.equal(
+      runtime.data("restaurant_invites/exact-invite").status,
+      "active",
+    );
+  }
+});
+
+test("redemption rejects inexact authenticated Firestore identities", async () => {
+  for (const invalidUid of [
+    " owner-1",
+    "owner-1 ",
+    "",
+    "   ",
+    "owner/1",
+    ".",
+    "..",
+    "owner\u0000id",
+    "u".repeat(1_501),
+  ]) {
+    runtime.reset();
+    runtime.seed(restaurantPath, canonicalRestaurant());
+    runtime.seed("restaurant_invites/claim-invite-a", activeInvite(tokenA));
+    await assert.rejects(
+      runtime.redeemInvite(redemptionRequest(tokenA, invalidUid)),
+      (error) => error.code === "unauthenticated",
+      `claim UID ${JSON.stringify(invalidUid)}`,
+    );
+    assert.equal(
+      runtime.data("restaurant_invites/claim-invite-a").status,
+      "active",
+    );
+
+    runtime.reset();
+    runtime.seed(restaurantPath, canonicalRestaurant());
+    runtime.seed(
+      "restaurant_invites/coupon-invite-a",
+      catalogCouponInvite(tokenB, "coupon-invite-a"),
+    );
+    await assert.rejects(
+      runtime.redeemCouponInvite(
+        couponRedemptionRequest(tokenB, invalidUid),
+      ),
+      (error) => error.code === "unauthenticated",
+      `coupon UID ${JSON.stringify(invalidUid)}`,
+    );
+    assert.equal(
+      runtime.data("restaurant_invites/coupon-invite-a").status,
+      "active",
+    );
+    assert.equal(runtime.documents("restaurant_accounts").length, 0);
+  }
+});
+
+test("real revoke keeps prepared A when latest unprepared B is revoked", async () => {
+  const expiresAt = actualFirestore.Timestamp.fromMillis(Date.now() + 60_000);
+  const fixtures = [
+    {
+      type: "C",
+      inviteA: activeInvite(tokenA),
+      inviteB: activeInvite(tokenB),
+      latestIdField: "cLatestInviteId",
+      latestExpiryField: "cLatestInviteExpiresAt",
+      preparedIdField: "cPreparedInviteId",
+      preparedExpiryField: "cPreparedInviteExpiresAt",
+    },
+    {
+      type: "I",
+      inviteA: catalogCouponInvite(tokenA, "invite-a"),
+      inviteB: catalogCouponInvite(tokenB, "invite-b"),
+      latestIdField: "iLatestInviteId",
+      latestExpiryField: "iLatestInviteExpiresAt",
+      preparedIdField: "iPreparedInviteId",
+      preparedExpiryField: "iPreparedInviteExpiresAt",
+    },
+  ];
+  for (const fixture of fixtures) {
+    runtime.reset();
+    runtime.seed("restaurant_invites/invite-a", fixture.inviteA);
+    runtime.seed("restaurant_invites/invite-b", fixture.inviteB);
+    runtime.seed(preparationPath, validPreparation({
+      [fixture.latestIdField]: "invite-b",
+      [fixture.latestExpiryField]: expiresAt,
+      [fixture.preparedIdField]: "invite-a",
+      [fixture.preparedExpiryField]: expiresAt,
+      saPrepared: true,
+    }));
+
+    await runtime.revokeInvite(revokeRequest("invite-b"));
+    const preparation = runtime.data(preparationPath);
+    assert.equal(
+      Object.hasOwn(preparation, fixture.latestIdField),
+      false,
+      `${fixture.type} latest ID`,
+    );
+    assert.equal(
+      Object.hasOwn(preparation, fixture.latestExpiryField),
+      false,
+      `${fixture.type} latest expiry`,
+    );
+    assert.equal(
+      preparation[fixture.preparedIdField],
+      "invite-a",
+      `${fixture.type} prepared A`,
+    );
+    assert.equal(preparation.saPrepared, true);
+    assert.equal(runtime.data("restaurant_invites/invite-a").status, "active");
+    assert.equal(runtime.data("restaurant_invites/invite-b").status, "revoked");
+  }
+});
+
+test("revoke and redeem hard failures roll back preparation atomically", async () => {
+  const invite = activeInvite(tokenA);
+  const originalPreparation = validPreparation({
+    cLatestInviteId: "invite-a",
+    cLatestInviteExpiresAt: invite.expiresAt,
+    cPreparedInviteId: "invite-a",
+    cPreparedInviteExpiresAt: invite.expiresAt,
+    saPrepared: true,
+  });
+
+  runtime.reset();
+  runtime.seed("restaurant_invites/invite-a", invite);
+  runtime.seed(preparationPath, originalPreparation);
+  runtime.setBeforeCommit(() => {
+    throw new Error("injected revoke commit failure");
+  });
+  await assert.rejects(
+    runtime.revokeInvite(revokeRequest("invite-a")),
+    /injected revoke commit failure/u,
+  );
+  assert.deepEqual(runtime.data("restaurant_invites/invite-a"), invite);
+  assert.deepEqual(runtime.data(preparationPath), originalPreparation);
+
+  runtime.reset();
+  runtime.seed(restaurantPath, canonicalRestaurant());
+  runtime.seed("restaurant_invites/invite-a", invite);
+  runtime.seed(preparationPath, originalPreparation);
+  runtime.setBeforeCommit(() => {
+    throw new Error("injected redemption commit failure");
+  });
+  await assert.rejects(
+    runtime.redeemInvite(redemptionRequest(tokenA)),
+    /injected redemption commit failure/u,
+  );
+  assert.equal(runtime.data(restaurantPath).isClaimed, false);
+  assert.deepEqual(runtime.data("restaurant_invites/invite-a"), invite);
+  assert.deepEqual(runtime.data(preparationPath), originalPreparation);
+  assert.equal(runtime.documents("restaurant_claim_requests").length, 0);
 });
 
 test("both claim callables use the complete strict activity truth table", async () => {
@@ -767,6 +1188,243 @@ test("hidden redemption leaves the invite unused and restoration preserves valid
   assert.equal(JSON.stringify(runtime.state.logs).includes(tokenA), false);
 });
 
+test("safe unclaim epoch rejects old C redemption before cleanup and accepts fresh C", async () => {
+  const epoch = actualFirestore.Timestamp.fromMillis(Date.now() - 5_000);
+  const oldCreatedAt = actualFirestore.Timestamp.fromMillis(
+    epoch.toMillis() - 1,
+  );
+  const freshCreatedAt = actualFirestore.Timestamp.fromMillis(
+    epoch.toMillis() + 1,
+  );
+
+  runtime.reset();
+  const currentRestaurant = canonicalRestaurant({
+    claimInvitationEpochAt: epoch,
+  });
+  const oldInvite = activeInvite(tokenA, {createdAt: oldCreatedAt});
+  runtime.seed(restaurantPath, currentRestaurant);
+  runtime.seed("restaurant_invites/invite-a", oldInvite);
+  runtime.seed(preparationPath, validPreparation({
+    cLatestInviteId: "invite-a",
+    cLatestInviteExpiresAt: oldInvite.expiresAt,
+    cPreparedInviteId: "invite-a",
+    cPreparedInviteExpiresAt: oldInvite.expiresAt,
+  }));
+
+  await expectGenericInvalidInvite(
+    runtime.redeemInvite(redemptionRequest(tokenA)),
+  );
+  assert.deepEqual(runtime.data("restaurant_invites/invite-a"), oldInvite);
+  assert.deepEqual(runtime.data(restaurantPath), currentRestaurant);
+  assert.equal(runtime.data(preparationPath).cPreparedInviteId, "invite-a");
+  assert.equal(runtime.documents("restaurant_claim_requests").length, 0);
+
+  runtime.reset();
+  const freshInvite = activeInvite(tokenB, {createdAt: freshCreatedAt});
+  runtime.seed(restaurantPath, currentRestaurant);
+  runtime.seed("restaurant_invites/invite-b", freshInvite);
+  runtime.seed(preparationPath, validPreparation({
+    cLatestInviteId: "invite-b",
+    cLatestInviteExpiresAt: freshInvite.expiresAt,
+    cPreparedInviteId: "invite-b",
+    cPreparedInviteExpiresAt: freshInvite.expiresAt,
+    iLatestInviteId: "coupon-invite-a",
+    iLatestInviteExpiresAt: freshInvite.expiresAt,
+  }));
+
+  await runtime.redeemInvite(redemptionRequest(tokenB));
+  const preparation = runtime.data(preparationPath);
+  assert.equal(Object.hasOwn(preparation, "cLatestInviteId"), false);
+  assert.equal(Object.hasOwn(preparation, "cLatestInviteExpiresAt"), false);
+  assert.equal(Object.hasOwn(preparation, "cPreparedInviteId"), false);
+  assert.equal(Object.hasOwn(preparation, "cPreparedInviteExpiresAt"), false);
+  assert.equal(preparation.iLatestInviteId, "coupon-invite-a");
+  assert.equal(runtime.data("restaurant_invites/invite-b").status, "used");
+  assert.equal(runtime.data(restaurantPath).isClaimed, true);
+});
+
+test("claim epoch fails closed for equal timestamps and malformed state", async () => {
+  const epoch = actualFirestore.Timestamp.fromMillis(Date.now() - 5_000);
+  for (const malformedEpoch of ["not-a-timestamp", null, 7, {}]) {
+    runtime.reset();
+    runtime.seed(restaurantPath, canonicalRestaurant({
+      claimInvitationEpochAt: malformedEpoch,
+    }));
+    runtime.seed("restaurant_invites/invite-a", activeInvite(tokenA));
+    await expectGenericInvalidInvite(
+      runtime.redeemInvite(redemptionRequest(tokenA)),
+    );
+    await expectFailedPrecondition(runtime.createInvite(adminRequest()));
+    assert.equal(runtime.data("restaurant_invites/invite-a").status, "active");
+    assert.equal(runtime.documents("restaurant_claim_requests").length, 0);
+  }
+
+  runtime.reset();
+  runtime.seed(restaurantPath, canonicalRestaurant({
+    claimInvitationEpochAt: epoch,
+  }));
+  runtime.seed("restaurant_invites/invite-a", activeInvite(tokenA, {
+    createdAt: epoch,
+  }));
+  await expectGenericInvalidInvite(
+    runtime.redeemInvite(redemptionRequest(tokenA)),
+  );
+  assert.equal(runtime.data("restaurant_invites/invite-a").status, "active");
+});
+
+test("pre-unclaim C preparation projects unprepared before delayed cleanup", async () => {
+  const epoch = actualFirestore.Timestamp.fromMillis(Date.now() - 5_000);
+  const oldInvite = activeInvite(tokenA, {
+    createdAt: actualFirestore.Timestamp.fromMillis(epoch.toMillis() - 1),
+  });
+  runtime.reset();
+  runtime.seed(restaurantPath, canonicalRestaurant({
+    claimInvitationEpochAt: epoch,
+  }));
+  runtime.seed("restaurant_invites/invite-a", oldInvite);
+  runtime.seed(preparationPath, validPreparation({
+    cLatestInviteId: "invite-a",
+    cLatestInviteExpiresAt: oldInvite.expiresAt,
+    cPreparedInviteId: "invite-a",
+    cPreparedInviteExpiresAt: oldInvite.expiresAt,
+  }));
+
+  const updated = await runtime.updatePreparation(
+    preparationRequest("SA", true),
+  );
+  assert.equal(updated.preparation.sa, "prepared");
+  assert.equal(updated.preparation.c, "unprepared");
+  assert.equal(runtime.data(preparationPath).cPreparedInviteId, "invite-a");
+});
+
+test("delayed retried unclaim cleanup preserves only the fresh C epoch", async () => {
+  const epoch = actualFirestore.Timestamp.fromMillis(Date.now() - 5_000);
+  const before = canonicalRestaurant({
+    isClaimed: true,
+    ownerUserId: "prior-owner",
+    restaurantWriteRevision: 4,
+  });
+  const after = canonicalRestaurant({
+    claimInvitationEpochAt: epoch,
+    restaurantWriteRevision: 5,
+  });
+
+  runtime.reset();
+  const oldInvite = activeInvite(tokenA, {
+    createdAt: actualFirestore.Timestamp.fromMillis(epoch.toMillis() - 1),
+  });
+  runtime.seed("restaurant_invites/invite-a", oldInvite);
+  runtime.seed(preparationPath, validPreparation({
+    cLatestInviteId: "invite-a",
+    cLatestInviteExpiresAt: oldInvite.expiresAt,
+    cPreparedInviteId: "invite-a",
+    cPreparedInviteExpiresAt: oldInvite.expiresAt,
+    saPrepared: true,
+  }));
+  const event = writtenRestaurantEvent(
+    before,
+    after,
+    actualFirestore.Timestamp.fromMillis(epoch.toMillis() + 10_000),
+  );
+  await runtime.maintainPreparationAfterUnclaim(event);
+  await runtime.maintainPreparationAfterUnclaim(event);
+  const cleared = runtime.data(preparationPath);
+  assert.equal(Object.hasOwn(cleared, "cLatestInviteId"), false);
+  assert.equal(Object.hasOwn(cleared, "cPreparedInviteId"), false);
+  assert.equal(cleared.saPrepared, true);
+
+  runtime.reset();
+  const freshInvite = activeInvite(tokenB, {
+    createdAt: actualFirestore.Timestamp.fromMillis(epoch.toMillis() + 1),
+  });
+  runtime.seed("restaurant_invites/invite-b", freshInvite);
+  const freshPreparation = validPreparation({
+    cLatestInviteId: "invite-b",
+    cLatestInviteExpiresAt: freshInvite.expiresAt,
+    cPreparedInviteId: "invite-b",
+    cPreparedInviteExpiresAt: freshInvite.expiresAt,
+    srPrepared: true,
+  });
+  runtime.seed(preparationPath, freshPreparation);
+  await runtime.maintainPreparationAfterUnclaim(event);
+  await runtime.maintainPreparationAfterUnclaim(event);
+  assert.deepEqual(runtime.data(preparationPath), freshPreparation);
+
+  runtime.reset();
+  const hiddenBefore = canonicalRestaurant({
+    isActive: false,
+    active: false,
+    isClaimed: true,
+    ownerUserId: "prior-owner",
+    restaurantWriteRevision: 4,
+  });
+  const hiddenAfter = canonicalRestaurant({
+    isActive: false,
+    active: false,
+    claimInvitationEpochAt: epoch,
+    restaurantWriteRevision: 5,
+  });
+  runtime.seed(restaurantPath, hiddenAfter);
+  runtime.seed("restaurant_invites/invite-a", oldInvite);
+  runtime.seed(preparationPath, validPreparation({
+    cLatestInviteId: "invite-a",
+    cLatestInviteExpiresAt: oldInvite.expiresAt,
+    cPreparedInviteId: "invite-a",
+    cPreparedInviteExpiresAt: oldInvite.expiresAt,
+    saPrepared: true,
+  }));
+  await runtime.maintainPreparationAfterUnclaim(
+    writtenRestaurantEvent(hiddenBefore, hiddenAfter, epoch),
+  );
+  const hiddenCleared = runtime.data(preparationPath);
+  assert.equal(Object.hasOwn(hiddenCleared, "cLatestInviteId"), false);
+  assert.equal(Object.hasOwn(hiddenCleared, "cPreparedInviteId"), false);
+  assert.equal(hiddenCleared.saPrepared, true);
+
+  runtime.patch(restaurantPath, {isActive: true, active: true});
+  const restoredPreparation = runtime.data(preparationPath);
+  assert.equal(Object.hasOwn(restoredPreparation, "cLatestInviteId"), false);
+  assert.equal(Object.hasOwn(restoredPreparation, "cPreparedInviteId"), false);
+});
+
+test("C redemption transaction retry preserves unrelated preparation fields", async () => {
+  runtime.reset();
+  const invite = activeInvite(tokenA);
+  runtime.seed(restaurantPath, canonicalRestaurant());
+  runtime.seed("restaurant_invites/invite-a", invite);
+  runtime.seed(preparationPath, validPreparation({
+    saPrepared: true,
+    cLatestInviteId: "invite-a",
+    cLatestInviteExpiresAt: invite.expiresAt,
+    cPreparedInviteId: "invite-a",
+    cPreparedInviteExpiresAt: invite.expiresAt,
+    iLatestInviteId: "coupon-invite-a",
+    iLatestInviteExpiresAt: invite.expiresAt,
+  }));
+  let injected = false;
+  runtime.setBeforeCommit(() => {
+    if (!injected) {
+      injected = true;
+      runtime.patch(preparationPath, {srPrepared: true});
+    }
+  });
+
+  await runtime.redeemInvite(redemptionRequest(tokenA));
+  assert.ok(runtime.state.conflicts >= 1);
+  assert.ok(
+    runtime.state.conflictSources.some((sources) =>
+      sources.includes(preparationPath)),
+  );
+  assert.equal(runtime.documents("restaurant_claim_requests").length, 1);
+  assert.equal(runtime.data("restaurant_invites/invite-a").useCount, 1);
+  const preparation = runtime.data(preparationPath);
+  assert.equal(preparation.saPrepared, true);
+  assert.equal(preparation.srPrepared, true);
+  assert.equal(preparation.iLatestInviteId, "coupon-invite-a");
+  assert.equal(Object.hasOwn(preparation, "cLatestInviteId"), false);
+  assert.equal(Object.hasOwn(preparation, "cPreparedInviteId"), false);
+});
+
 test("restoration never revives expired, revoked, or used invites", async () => {
   const terminalInvites = [
     {
@@ -836,6 +1494,11 @@ test("malformed BiteScore invites share one privacy-safe redemption error", asyn
     activeInvite(tokenA, {maxUses: "1"}),
     activeInvite(tokenA, {useCount: -1}),
     activeInvite(tokenA, {restaurantId: ` ${restaurantId} `}),
+    activeInvite(tokenA, {restaurantId: "restaurant/id"}),
+    activeInvite(tokenA, {restaurantId: "."}),
+    activeInvite(tokenA, {restaurantId: ".."}),
+    activeInvite(tokenA, {restaurantId: "restaurant\u0000id"}),
+    activeInvite(tokenA, {restaurantId: "r".repeat(1_501)}),
     activeInvite(tokenA, {type: "coupon_invite"}),
     activeInvite(tokenA, {side: "coupon"}),
     activeInvite(tokenA, {restaurantId: null}),
@@ -1078,6 +1741,106 @@ test("catalog-backed BiteSaver invite creation exact-reads canonical source data
   assert.equal(runtime.documents("restaurant_accounts").length, 0);
 });
 
+test("catalog-backed I lifecycle preserves A through B then prepares B", async () => {
+  runtime.reset();
+  const expiryA = actualFirestore.Timestamp.fromMillis(Date.now() + 30_000);
+  runtime.seed(restaurantPath, canonicalRestaurant());
+  runtime.seed(preparationPath, validPreparation({
+    iLatestInviteId: "coupon-invite-a",
+    iLatestInviteExpiresAt: expiryA,
+    iPreparedInviteId: "coupon-invite-a",
+    iPreparedInviteExpiresAt: expiryA,
+    srPrepared: true,
+  }));
+
+  const createdB = await runtime.createCouponInvite(couponAdminRequest());
+  let preparation = runtime.data(preparationPath);
+  assert.equal(preparation.iLatestInviteId, createdB.inviteId);
+  assert.equal(preparation.iPreparedInviteId, "coupon-invite-a");
+  assert.equal(
+    preparation.iPreparedInviteExpiresAt.toMillis(),
+    expiryA.toMillis(),
+  );
+
+  const updated = await runtime.updatePreparation(
+    preparationRequest("I", true, createdB.inviteId),
+  );
+  assert.equal(updated.preparation.i, "prepared");
+  preparation = runtime.data(preparationPath);
+  assert.equal(preparation.iPreparedInviteId, createdB.inviteId);
+  assert.equal(preparation.iLatestInviteId, createdB.inviteId);
+  assert.equal(preparation.srPrepared, true);
+});
+
+test("catalog-backed I creation and redemption roll back atomically", async () => {
+  const expiryA = actualFirestore.Timestamp.fromMillis(Date.now() + 30_000);
+  const originalPreparation = validPreparation({
+    iLatestInviteId: "coupon-invite-a",
+    iLatestInviteExpiresAt: expiryA,
+    iPreparedInviteId: "coupon-invite-a",
+    iPreparedInviteExpiresAt: expiryA,
+    saPrepared: true,
+  });
+
+  runtime.reset();
+  runtime.seed(restaurantPath, canonicalRestaurant());
+  runtime.seed(preparationPath, originalPreparation);
+  runtime.setBeforeCommit(() => {
+    throw new Error("injected I creation commit failure");
+  });
+  await assert.rejects(
+    runtime.createCouponInvite(couponAdminRequest()),
+    /injected I creation commit failure/u,
+  );
+  assert.equal(runtime.documents("restaurant_invites").length, 0);
+  assert.deepEqual(runtime.data(preparationPath), originalPreparation);
+
+  runtime.reset();
+  const invite = catalogCouponInvite(tokenC, "coupon-invite-a");
+  const redemptionPreparation = validPreparation({
+    iLatestInviteId: "coupon-invite-a",
+    iLatestInviteExpiresAt: invite.expiresAt,
+    iPreparedInviteId: "coupon-invite-a",
+    iPreparedInviteExpiresAt: invite.expiresAt,
+    cLatestInviteId: "claim-invite-z",
+    cLatestInviteExpiresAt: invite.expiresAt,
+    saPrepared: true,
+  });
+  runtime.seed(restaurantPath, canonicalRestaurant());
+  runtime.seed("restaurant_invites/coupon-invite-a", invite);
+  runtime.seed(preparationPath, redemptionPreparation);
+  runtime.setBeforeCommit(() => {
+    throw new Error("injected I redemption commit failure");
+  });
+  await assert.rejects(
+    runtime.redeemCouponInvite(couponRedemptionRequest(tokenC)),
+    /injected I redemption commit failure/u,
+  );
+  assert.deepEqual(
+    runtime.data("restaurant_invites/coupon-invite-a"),
+    invite,
+  );
+  assert.deepEqual(runtime.data(preparationPath), redemptionPreparation);
+  assert.equal(runtime.documents("restaurant_accounts").length, 0);
+  assert.equal(
+    Object.hasOwn(runtime.data(restaurantPath), "biteSaverCatalogBindingId"),
+    false,
+  );
+
+  runtime.setBeforeCommit(null);
+  await runtime.redeemCouponInvite(couponRedemptionRequest(tokenC));
+  const preparation = runtime.data(preparationPath);
+  assert.equal(Object.hasOwn(preparation, "iLatestInviteId"), false);
+  assert.equal(Object.hasOwn(preparation, "iPreparedInviteId"), false);
+  assert.equal(preparation.cLatestInviteId, "claim-invite-z");
+  assert.equal(preparation.saPrepared, true);
+  assert.equal(
+    runtime.data("restaurant_invites/coupon-invite-a").status,
+    "used",
+  );
+  assert.equal(runtime.documents("restaurant_accounts").length, 1);
+});
+
 test("claimed catalog independently creates and redeems a BiteSaver invite", async () => {
   runtime.reset();
   const originalRestaurant = canonicalRestaurant({
@@ -1156,10 +1919,19 @@ test("catalog-backed BiteSaver invite creation fails closed for ineligible bindi
 
   runtime.reset();
   runtime.seed(restaurantPath, canonicalRestaurant());
-  await assert.rejects(
-    runtime.createCouponInvite(couponAdminRequest("bad/catalog/id")),
-    (error) => error.code === "invalid-argument",
-  );
+  for (const invalidCatalogId of [
+    ` ${restaurantId}`,
+    `${restaurantId} `,
+    "",
+    "   ",
+    "bad/catalog/id",
+  ]) {
+    await assert.rejects(
+      runtime.createCouponInvite(couponAdminRequest(invalidCatalogId)),
+      (error) => error.code === "invalid-argument",
+      JSON.stringify(invalidCatalogId),
+    );
+  }
   await assert.rejects(
     runtime.createCouponInvite(couponAdminRequest(restaurantId, {
       restaurantId,

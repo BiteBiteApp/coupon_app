@@ -96,6 +96,11 @@ export function biteSaverCatalogBindingAdminState(
   reciprocalBindingVerified = false,
 ): BiteSaverCatalogBindingAdminState {
   const restaurantWriteRevision = readRestaurantWriteRevision(data);
+  const optionalIdentityIsValid = (fieldName: string): boolean =>
+    !Object.prototype.hasOwnProperty.call(data, fieldName) ||
+    data[fieldName] === null ||
+    data[fieldName] === "" ||
+    readBiteScoreCatalogRestaurantId(data[fieldName]) !== null;
   if (
     readBiteScoreCatalogRestaurantId(restaurantDocumentId) !==
       restaurantDocumentId ||
@@ -103,7 +108,9 @@ export function biteSaverCatalogBindingAdminState(
     !biteScoreRestaurantIsActive(data) ||
     biteScoreBiteSaverCatalogProfile(data) === null ||
     restaurantWriteRevision === null ||
-    restaurantWriteRevision >= maximumRestaurantWriteRevision
+    restaurantWriteRevision >= maximumRestaurantWriteRevision ||
+    !optionalIdentityIsValid("ownerUserId") ||
+    !optionalIdentityIsValid("linkedBiteSaverUid")
   ) {
     return "unavailable";
   }

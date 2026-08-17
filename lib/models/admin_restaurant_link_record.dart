@@ -1,3 +1,5 @@
+import '../services/firestore_document_id.dart';
+
 enum AdminRestaurantLinkSource {
   biteScore('biteScore', 'BiteScore'),
   biteSaver('biteSaver', 'BiteSaver');
@@ -36,6 +38,161 @@ enum AdminRestaurantClaimState {
   final String label;
 
   const AdminRestaurantClaimState(this.label);
+}
+
+enum AdminRestaurantPreparationType {
+  ownerInvite('I'),
+  claimInvite('C'),
+  biteSaverCustomer('SA'),
+  biteScoreCustomer('SR');
+
+  final String marker;
+
+  const AdminRestaurantPreparationType(this.marker);
+}
+
+enum AdminRestaurantPreparationStatus {
+  prepared('Prepared'),
+  unprepared('Unprepared'),
+  notRequired('N/R'),
+  unavailable('Unavailable');
+
+  final String label;
+
+  const AdminRestaurantPreparationStatus(this.label);
+
+  static AdminRestaurantPreparationStatus? fromCallableValue(Object? value) {
+    return switch (value) {
+      'prepared' => prepared,
+      'unprepared' => unprepared,
+      'notRequired' => notRequired,
+      'unavailable' => unavailable,
+      _ => null,
+    };
+  }
+}
+
+class AdminRestaurantPreparationState {
+  final String? canonicalCatalogRestaurantId;
+  final AdminRestaurantPreparationStatus ownerInvite;
+  final AdminRestaurantPreparationStatus claimInvite;
+  final AdminRestaurantPreparationStatus biteSaverCustomer;
+  final AdminRestaurantPreparationStatus biteScoreCustomer;
+
+  const AdminRestaurantPreparationState({
+    required this.canonicalCatalogRestaurantId,
+    required this.ownerInvite,
+    required this.claimInvite,
+    required this.biteSaverCustomer,
+    required this.biteScoreCustomer,
+  });
+
+  const AdminRestaurantPreparationState.unavailable()
+    : canonicalCatalogRestaurantId = null,
+      ownerInvite = AdminRestaurantPreparationStatus.unavailable,
+      claimInvite = AdminRestaurantPreparationStatus.unavailable,
+      biteSaverCustomer = AdminRestaurantPreparationStatus.unavailable,
+      biteScoreCustomer = AdminRestaurantPreparationStatus.unavailable;
+
+  AdminRestaurantPreparationStatus statusFor(
+    AdminRestaurantPreparationType type,
+  ) {
+    return switch (type) {
+      AdminRestaurantPreparationType.ownerInvite => ownerInvite,
+      AdminRestaurantPreparationType.claimInvite => claimInvite,
+      AdminRestaurantPreparationType.biteSaverCustomer => biteSaverCustomer,
+      AdminRestaurantPreparationType.biteScoreCustomer => biteScoreCustomer,
+    };
+  }
+
+  bool isValidForParticipation({
+    required AdminBiteSaverCatalogBindingState biteSaverCatalogBindingState,
+    required AdminRestaurantClaimState claimState,
+  }) {
+    final invitationStatuses = {
+      AdminRestaurantPreparationStatus.prepared,
+      AdminRestaurantPreparationStatus.unprepared,
+    };
+    final ownerInviteIsValid = switch (biteSaverCatalogBindingState) {
+      AdminBiteSaverCatalogBindingState.unbound => invitationStatuses.contains(
+        ownerInvite,
+      ),
+      AdminBiteSaverCatalogBindingState.bound =>
+        ownerInvite == AdminRestaurantPreparationStatus.notRequired,
+      AdminBiteSaverCatalogBindingState.unavailable =>
+        ownerInvite == AdminRestaurantPreparationStatus.unavailable,
+    };
+    final claimInviteIsValid = switch (claimState) {
+      AdminRestaurantClaimState.available => invitationStatuses.contains(
+        claimInvite,
+      ),
+      AdminRestaurantClaimState.claimed =>
+        claimInvite == AdminRestaurantPreparationStatus.notRequired,
+      AdminRestaurantClaimState.unavailable =>
+        claimInvite == AdminRestaurantPreparationStatus.unavailable,
+    };
+    return ownerInviteIsValid &&
+        claimInviteIsValid &&
+        invitationStatuses.contains(biteSaverCustomer) &&
+        invitationStatuses.contains(biteScoreCustomer);
+  }
+
+  static AdminRestaurantPreparationState tryFromCallableData(
+    Object? value, {
+    required AdminRestaurantLinkSource source,
+    required String documentId,
+    required AdminBiteSaverCatalogBindingState biteSaverCatalogBindingState,
+    required AdminRestaurantClaimState claimState,
+  }) {
+    final data = _stringKeyedMap(value);
+    if (data == null) {
+      return const AdminRestaurantPreparationState.unavailable();
+    }
+    final canonicalId = exactFirestoreDocumentId(
+      data['canonicalCatalogRestaurantId'],
+    );
+    final ownerInvite = AdminRestaurantPreparationStatus.fromCallableValue(
+      data['i'],
+    );
+    final claimInvite = AdminRestaurantPreparationStatus.fromCallableValue(
+      data['c'],
+    );
+    final biteSaverCustomer =
+        AdminRestaurantPreparationStatus.fromCallableValue(data['sa']);
+    final biteScoreCustomer =
+        AdminRestaurantPreparationStatus.fromCallableValue(data['sr']);
+    final allUnavailable =
+        ownerInvite == AdminRestaurantPreparationStatus.unavailable &&
+        claimInvite == AdminRestaurantPreparationStatus.unavailable &&
+        biteSaverCustomer == AdminRestaurantPreparationStatus.unavailable &&
+        biteScoreCustomer == AdminRestaurantPreparationStatus.unavailable;
+    final identityIsValid = source == AdminRestaurantLinkSource.biteScore
+        ? canonicalId == documentId
+        : canonicalId == null && allUnavailable;
+    if (!identityIsValid ||
+        ownerInvite == null ||
+        claimInvite == null ||
+        biteSaverCustomer == null ||
+        biteScoreCustomer == null) {
+      return const AdminRestaurantPreparationState.unavailable();
+    }
+    if (allUnavailable) {
+      return const AdminRestaurantPreparationState.unavailable();
+    }
+    final state = AdminRestaurantPreparationState(
+      canonicalCatalogRestaurantId: canonicalId,
+      ownerInvite: ownerInvite,
+      claimInvite: claimInvite,
+      biteSaverCustomer: biteSaverCustomer,
+      biteScoreCustomer: biteScoreCustomer,
+    );
+    return state.isValidForParticipation(
+          biteSaverCatalogBindingState: biteSaverCatalogBindingState,
+          claimState: claimState,
+        )
+        ? state
+        : const AdminRestaurantPreparationState.unavailable();
+  }
 }
 
 enum AdminBiteSaverCatalogBindingState {
@@ -139,6 +296,7 @@ class AdminRestaurantLinkRecord {
   final bool? couponApplicationSubmitted;
   final String? uid;
   final String? linkedBiteScoreRestaurantId;
+  final AdminRestaurantPreparationState preparation;
 
   const AdminRestaurantLinkRecord({
     required this.source,
@@ -166,6 +324,7 @@ class AdminRestaurantLinkRecord {
     this.couponApplicationSubmitted,
     this.uid,
     this.linkedBiteScoreRestaurantId,
+    this.preparation = const AdminRestaurantPreparationState.unavailable(),
   });
 
   bool get isBiteScore => source == AdminRestaurantLinkSource.biteScore;
@@ -209,8 +368,8 @@ class AdminRestaurantLinkRecord {
     }
 
     final source = AdminRestaurantLinkSource.fromCallableValue(data['source']);
-    final documentId = _requiredString(data['documentId']);
-    final actionId = _requiredString(data['actionId']);
+    final documentId = exactFirestoreDocumentId(data['documentId']);
+    final actionId = exactFirestoreDocumentId(data['actionId']);
     final restaurantName = _requiredString(data['restaurantName']);
     final latitude = _finiteDouble(data['latitude']);
     final longitude = _finiteDouble(data['longitude']);
@@ -253,6 +412,39 @@ class AdminRestaurantLinkRecord {
       return null;
     }
 
+    final ownerUserId = source == AdminRestaurantLinkSource.biteScore
+        ? _optionalExactFirestorePathSegment(data, 'ownerUserId')
+        : null;
+    final linkedBiteSaverUid = source == AdminRestaurantLinkSource.biteScore
+        ? _optionalExactFirestorePathSegment(data, 'linkedBiteSaverUid')
+        : null;
+    final uid = source == AdminRestaurantLinkSource.biteSaver
+        ? _optionalExactFirestorePathSegment(data, 'uid')
+        : null;
+    final linkedBiteScoreRestaurantId =
+        source == AdminRestaurantLinkSource.biteSaver
+        ? _optionalExactFirestorePathSegment(
+            data,
+            'linkedBiteScoreRestaurantId',
+          )
+        : null;
+    if ((source == AdminRestaurantLinkSource.biteScore &&
+            ((_hasInvalidOptionalIdentity(data, 'ownerUserId')) ||
+                _hasInvalidOptionalIdentity(data, 'linkedBiteSaverUid'))) ||
+        (source == AdminRestaurantLinkSource.biteSaver &&
+            (_hasInvalidOptionalIdentity(data, 'uid') ||
+                _hasInvalidOptionalIdentity(
+                  data,
+                  'linkedBiteScoreRestaurantId',
+                )))) {
+      return null;
+    }
+    final claimState = adminRestaurantClaimStateFromProjection(
+      isActive: isActive is bool ? isActive : null,
+      isClaimed: isClaimed is bool ? isClaimed : null,
+      claimAvailable: claimAvailable is bool ? claimAvailable : null,
+      claimStateValid: claimStateValid is bool ? claimStateValid : null,
+    );
     return AdminRestaurantLinkRecord(
       source: source,
       documentId: documentId,
@@ -285,12 +477,8 @@ class AdminRestaurantLinkRecord {
               claimStateValid is bool
           ? claimStateValid
           : null,
-      ownerUserId: source == AdminRestaurantLinkSource.biteScore
-          ? _optionalString(data['ownerUserId'])
-          : null,
-      linkedBiteSaverUid: source == AdminRestaurantLinkSource.biteScore
-          ? _optionalString(data['linkedBiteSaverUid'])
-          : null,
+      ownerUserId: ownerUserId,
+      linkedBiteSaverUid: linkedBiteSaverUid,
       biteSaverCatalogBindingState:
           source == AdminRestaurantLinkSource.biteScore
           ? biteSaverCatalogBindingState!
@@ -303,12 +491,20 @@ class AdminRestaurantLinkRecord {
               couponApplicationSubmitted is bool
           ? couponApplicationSubmitted
           : null,
-      uid: source == AdminRestaurantLinkSource.biteSaver
-          ? _optionalString(data['uid'])
-          : null,
-      linkedBiteScoreRestaurantId: source == AdminRestaurantLinkSource.biteSaver
-          ? _optionalString(data['linkedBiteScoreRestaurantId'])
-          : null,
+      uid: uid,
+      linkedBiteScoreRestaurantId: linkedBiteScoreRestaurantId,
+      preparation: AdminRestaurantPreparationState.tryFromCallableData(
+        data['preparation'],
+        source: source,
+        documentId: documentId,
+        biteSaverCatalogBindingState:
+            source == AdminRestaurantLinkSource.biteScore
+            ? biteSaverCatalogBindingState!
+            : AdminBiteSaverCatalogBindingState.unavailable,
+        claimState: source == AdminRestaurantLinkSource.biteScore
+            ? claimState
+            : AdminRestaurantClaimState.unavailable,
+      ),
     );
   }
 }
@@ -401,6 +597,18 @@ String? _optionalString(Object? value) {
   }
   final trimmed = value.trim();
   return trimmed.isEmpty ? null : trimmed;
+}
+
+String? _optionalExactFirestorePathSegment(
+  Map<String, dynamic> data,
+  String field,
+) {
+  final value = data[field];
+  return value == null ? null : exactFirestoreDocumentId(value);
+}
+
+bool _hasInvalidOptionalIdentity(Map<String, dynamic> data, String field) {
+  return data[field] != null && exactFirestoreDocumentId(data[field]) == null;
 }
 
 double? _finiteDouble(Object? value) {

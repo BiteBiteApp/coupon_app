@@ -44,12 +44,15 @@ const baselineExports = Object.freeze([
   "stripeWebhook",
   "subscriptionCheckoutCancel",
   "subscriptionCheckoutSuccess",
+  "updateAdminRestaurantQrPreparation",
 ]);
 
 const expectedTriggers = Object.freeze({
   maintainBiteSaverRestaurantSearchIndex:
     "restaurant_accounts/{restaurantAccountId}",
   maintainBiteScoreRestaurantSearchIndex:
+    "bitescore_restaurants/{restaurantId}",
+  maintainAdminRestaurantQrPreparationFromBiteScoreUnclaim:
     "bitescore_restaurants/{restaurantId}",
   maintainBiteScoreDishSearchIndex:
     "bitescore_dishes/{dishId}",
@@ -202,14 +205,17 @@ function loadCompiledIndexWithRuntimeHarness() {
   }
   function backgroundTrigger(eventType) {
     return (...arguments_) => {
-      const document = arguments_[0];
+      const options = typeof arguments_[0] === "string" ?
+        {document: arguments_[0]} :
+        arguments_[0];
       const handler = arguments_[arguments_.length - 1];
       handler.__endpoint = {
         platform: "gcfv2",
         region: [state.globalOptions?.region],
         eventTrigger: {
           eventType,
-          eventFilterPathPatterns: {document},
+          eventFilterPathPatterns: {document: options.document},
+          retry: options.retry ?? false,
         },
       };
       return handler;
@@ -455,6 +461,16 @@ test("compiled trigger metadata uses exact private paths and background event ty
     value !== "processPrivateSearchIndexJob")) {
     assert.equal(runtime.exports[name].__endpoint.eventTrigger.eventType, "document.written");
   }
+  assert.equal(
+    runtime.exports
+      .maintainAdminRestaurantQrPreparationFromBiteScoreUnclaim
+      .__endpoint.eventTrigger.retry,
+    true,
+  );
+  for (const name of Object.keys(expectedTriggers).filter((value) =>
+    value !== "maintainAdminRestaurantQrPreparationFromBiteScoreUnclaim")) {
+    assert.equal(runtime.exports[name].__endpoint.eventTrigger.retry, false, name);
+  }
 });
 
 test("offer triggers delegate catalog signaling after existing child reconciliation", () => {
@@ -484,6 +500,45 @@ test("offer triggers delegate catalog signaling after existing child reconciliat
     assert.doesNotMatch(trigger, /\bupdatedAt\b/u);
     assert.doesNotMatch(trigger, /\.collection\(/u);
   }
+});
+
+test("Admin search loads prepared claim invitations through one exact batch", () => {
+  const source = readFileSync(
+    path.resolve(__dirname, "../src/index.ts"),
+    "utf8",
+  );
+  const loaderStart = source.indexOf(
+    "async function loadAdminRestaurantQrPreparationInvitationDocuments",
+  );
+  const loaderEnd = source.indexOf(
+    "function requireTokenizedSubscriptionReturnProtocol",
+    loaderStart,
+  );
+  assert.ok(loaderStart >= 0);
+  assert.ok(loaderEnd > loaderStart);
+  const loader = source.slice(loaderStart, loaderEnd);
+  assert.match(loader, /readBiteScoreCatalogRestaurantId\(invitationId\)/u);
+  assert.match(loader, /new Set<string>\(\)/u);
+  assert.equal([...loader.matchAll(/\.getAll\(/ug)].length, 1);
+  assert.match(
+    loader,
+    /db\.collection\(restaurantInviteCollection\)\.doc\(invitationId\)/u,
+  );
+
+  const searchStart = source.indexOf(
+    "export const searchAdminRestaurants",
+  );
+  const searchEnd = source.indexOf(
+    "export const updateAdminRestaurantQrPreparation",
+    searchStart,
+  );
+  assert.ok(searchStart >= 0);
+  assert.ok(searchEnd > searchStart);
+  const search = source.slice(searchStart, searchEnd);
+  assert.match(
+    search,
+    /loadQrPreparationInvitationDocuments:\s*\n\s*loadAdminRestaurantQrPreparationInvitationDocuments/u,
+  );
 });
 
 test("global runtime remains us-central1 Node 24 with no new parameter binding", () => {
@@ -536,6 +591,37 @@ test("all Coupon Admin paged callables reject unauthenticated and non-Admin call
       `${name} non-Admin`,
     );
   }
+});
+
+test("preparation updates reject non-Admin callers before data access", async () => {
+  const runtime = loadCompiledIndexWithRuntimeHarness();
+  const updatePreparation =
+    runtime.exports.updateAdminRestaurantQrPreparation;
+
+  assert.equal(updatePreparation.__endpoint.platform, "gcfv2");
+  assert.deepEqual(updatePreparation.__endpoint.region, ["us-central1"]);
+  assert.equal(
+    Object.hasOwn(updatePreparation.__endpoint, "secretEnvironmentVariables"),
+    false,
+  );
+  for (const request of [
+    {data: {}, auth: null},
+    {
+      data: {},
+      auth: {
+        uid: "not-admin",
+        token: {email: "not-admin@example.test"},
+      },
+    },
+  ]) {
+    await assert.rejects(
+      updatePreparation(request),
+      (error) => error.code === "permission-denied",
+    );
+  }
+  assert.deepEqual(runtime.state.firestoreQueries, []);
+  assert.deepEqual(runtime.state.firestoreReads, []);
+  assert.deepEqual(runtime.state.firestoreWrites, []);
 });
 
 test("exactly nine Rating Admin paged v2 callables use least-privilege secrets", () => {

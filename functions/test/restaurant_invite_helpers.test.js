@@ -16,20 +16,51 @@ const {
 } = require("../lib/restaurant_invite_helpers.js");
 
 test("coupon invite can omit existing restaurant ID", () => {
-  const identity = couponInviteRestaurantIdentity("", "invite_123");
-
-  assert.equal(identity.restaurantId, null);
-  assert.equal(identity.pendingRestaurantKey, "pending_invite_123");
+  for (const omitted of [null, undefined, ""]) {
+    const identity = couponInviteRestaurantIdentity(omitted, "invite_123");
+    assert.equal(identity.restaurantId, null);
+    assert.equal(identity.pendingRestaurantKey, "pending_invite_123");
+  }
 });
 
 test("coupon invite preserves existing restaurant ID when provided", () => {
   const identity = couponInviteRestaurantIdentity(
-    " restaurant_account_123 ",
+    "restaurant_account_123",
     "invite_123",
   );
 
   assert.equal(identity.restaurantId, "restaurant_account_123");
   assert.equal(identity.pendingRestaurantKey, null);
+});
+
+test("coupon invite identities reject malformed path segments without trimming", () => {
+  for (const malformedRestaurantId of [
+    " restaurant_account_123",
+    "restaurant_account_123 ",
+    "   ",
+    "restaurant/account",
+  ]) {
+    assert.throws(
+      () => couponInviteRestaurantIdentity(
+        malformedRestaurantId,
+        "invite_123",
+      ),
+      TypeError,
+      malformedRestaurantId,
+    );
+  }
+  for (const malformedInviteId of [
+    " invite_123",
+    "invite_123 ",
+    "",
+    "invite/123",
+  ]) {
+    assert.throws(
+      () => couponInviteRestaurantIdentity(null, malformedInviteId),
+      TypeError,
+      malformedInviteId,
+    );
+  }
 });
 
 test("invite links use BiteStar HTTPS URLs", () => {

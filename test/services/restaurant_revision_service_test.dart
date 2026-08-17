@@ -979,6 +979,10 @@ void main() {
       expect(unclaim, contains("currentData?['ownerUserId']"));
       expect(unclaim, contains("'ownerUserId': null"));
       expect(unclaim, contains("'isClaimed': false"));
+      expect(
+        unclaim,
+        contains("'claimInvitationEpochAt': FieldValue.serverTimestamp()"),
+      );
       expect(unclaim, contains('restaurantWriteRevisionField: nextRevision'));
       expect(unclaim, isNot(contains('.delete(')));
       expect(unclaim, isNot(contains("collection('restaurant_accounts')")));

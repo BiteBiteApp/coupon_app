@@ -157,6 +157,236 @@ void main() {
 
   group('Admin restaurant link response parsing', () {
     test(
+      'parses valid preparation and fails closed on malformed projections',
+      () async {
+        final service = AdminLinkGenerationService(
+          callable: (_) async => _response(
+            results: [
+              _biteScoreData(
+                documentId: 'prepared-doc',
+                extra: {
+                  'preparation': {
+                    'canonicalCatalogRestaurantId': 'prepared-doc',
+                    'i': 'prepared',
+                    'c': 'unprepared',
+                    'sa': 'prepared',
+                    'sr': 'unprepared',
+                  },
+                },
+              ),
+              _biteScoreData(
+                documentId: 'malformed-doc',
+                extra: {
+                  'preparation': {
+                    'canonicalCatalogRestaurantId': 'different-doc',
+                    'i': 'prepared',
+                    'c': 'unprepared',
+                    'sa': 'prepared',
+                    'sr': 'unprepared',
+                  },
+                },
+              ),
+              _biteSaverData(
+                documentId: 'standalone-account',
+                extra: {
+                  'preparation': {
+                    'canonicalCatalogRestaurantId': null,
+                    'i': 'unavailable',
+                    'c': 'unavailable',
+                    'sa': 'unavailable',
+                    'sr': 'unavailable',
+                  },
+                },
+              ),
+              _biteSaverData(
+                documentId: 'unsafe-standalone-state',
+                extra: {
+                  'preparation': {
+                    'canonicalCatalogRestaurantId': null,
+                    'i': 'unavailable',
+                    'c': 'unavailable',
+                    'sa': 'prepared',
+                    'sr': 'unavailable',
+                  },
+                },
+              ),
+            ],
+          ),
+        );
+
+        final result = await service.search(
+          locationQuery: '34428',
+          radiusMiles: 10,
+          sources: AdminRestaurantLinkSource.values.toSet(),
+        );
+
+        final prepared = result.results[0].preparation;
+        expect(prepared.canonicalCatalogRestaurantId, 'prepared-doc');
+        expect(prepared.ownerInvite, AdminRestaurantPreparationStatus.prepared);
+        expect(
+          prepared.claimInvite,
+          AdminRestaurantPreparationStatus.unprepared,
+        );
+        expect(
+          prepared.biteSaverCustomer,
+          AdminRestaurantPreparationStatus.prepared,
+        );
+        expect(
+          prepared.biteScoreCustomer,
+          AdminRestaurantPreparationStatus.unprepared,
+        );
+        for (final record in result.results.skip(1)) {
+          expect(
+            AdminRestaurantPreparationType.values.map(
+              record.preparation.statusFor,
+            ),
+            everyElement(AdminRestaurantPreparationStatus.unavailable),
+          );
+        }
+      },
+    );
+
+    test('accepts every valid participation matrix', () {
+      for (final binding in AdminBiteSaverCatalogBindingState.values) {
+        for (final claimState in AdminRestaurantClaimState.values) {
+          final ownerStatus = switch (binding) {
+            AdminBiteSaverCatalogBindingState.unbound => 'prepared',
+            AdminBiteSaverCatalogBindingState.bound => 'notRequired',
+            AdminBiteSaverCatalogBindingState.unavailable => 'unavailable',
+          };
+          final claimStatus = switch (claimState) {
+            AdminRestaurantClaimState.available => 'unprepared',
+            AdminRestaurantClaimState.claimed => 'notRequired',
+            AdminRestaurantClaimState.unavailable => 'unavailable',
+          };
+
+          final state = AdminRestaurantPreparationState.tryFromCallableData(
+            {
+              'canonicalCatalogRestaurantId': 'matrix-doc',
+              'i': ownerStatus,
+              'c': claimStatus,
+              'sa': 'prepared',
+              'sr': 'unprepared',
+            },
+            source: AdminRestaurantLinkSource.biteScore,
+            documentId: 'matrix-doc',
+            biteSaverCatalogBindingState: binding,
+            claimState: claimState,
+          );
+
+          expect(
+            state.canonicalCatalogRestaurantId,
+            'matrix-doc',
+            reason: '$binding / $claimState',
+          );
+        }
+      }
+    });
+
+    test('rejects impossible and mixed-unavailable status combinations', () {
+      final invalidProjections = <Map<String, Object?>>[
+        {
+          'canonicalCatalogRestaurantId': ' matrix-doc',
+          'i': 'prepared',
+          'c': 'unprepared',
+          'sa': 'prepared',
+          'sr': 'unprepared',
+        },
+        {
+          'canonicalCatalogRestaurantId': 'matrix-doc',
+          'i': 'notRequired',
+          'c': 'unprepared',
+          'sa': 'prepared',
+          'sr': 'unprepared',
+        },
+        {
+          'canonicalCatalogRestaurantId': 'matrix-doc',
+          'i': 'prepared',
+          'c': 'notRequired',
+          'sa': 'prepared',
+          'sr': 'unprepared',
+        },
+        {
+          'canonicalCatalogRestaurantId': 'matrix-doc',
+          'i': 'prepared',
+          'c': 'unprepared',
+          'sa': 'notRequired',
+          'sr': 'unprepared',
+        },
+        {
+          'canonicalCatalogRestaurantId': 'matrix-doc',
+          'i': 'prepared',
+          'c': 'unprepared',
+          'sa': 'prepared',
+          'sr': 'unavailable',
+        },
+        {
+          'canonicalCatalogRestaurantId': 'matrix-doc',
+          'i': 'unavailable',
+          'c': 'unavailable',
+          'sa': 'unavailable',
+          'sr': 'unavailable',
+        },
+      ];
+
+      for (final projection in invalidProjections) {
+        final state = AdminRestaurantPreparationState.tryFromCallableData(
+          projection,
+          source: AdminRestaurantLinkSource.biteScore,
+          documentId: 'matrix-doc',
+          biteSaverCatalogBindingState:
+              AdminBiteSaverCatalogBindingState.unbound,
+          claimState: AdminRestaurantClaimState.available,
+        );
+        expect(state.canonicalCatalogRestaurantId, isNull);
+        expect(
+          AdminRestaurantPreparationType.values.map(state.statusFor),
+          everyElement(AdminRestaurantPreparationStatus.unavailable),
+        );
+      }
+    });
+
+    test(
+      'rejects aliased Firestore identities without trimming display text',
+      () async {
+        final invalidIds = <String>[
+          ' restaurant-id',
+          'restaurant-id ',
+          '',
+          '   ',
+          'restaurant/id',
+          '.',
+          '..',
+        ];
+        final service = AdminLinkGenerationService(
+          callable: (_) async => _response(
+            results: [
+              for (final id in invalidIds) _biteScoreData(documentId: id),
+              _biteScoreData(
+                documentId: 'valid-id',
+                extra: {
+                  'restaurantName': '  Display Name  ',
+                  'streetAddress': '  1 Main Street  ',
+                },
+              ),
+            ],
+          ),
+        );
+
+        final result = await service.search(
+          locationQuery: '34428',
+          radiusMiles: 10,
+          sources: {AdminRestaurantLinkSource.biteScore},
+        );
+
+        expect(result.results, hasLength(1));
+        expect(result.results.single.documentId, 'valid-id');
+        expect(result.results.single.restaurantName, 'Display Name');
+        expect(result.results.single.streetAddress, '1 Main Street');
+      },
+    );
+
+    test(
       'preserves metadata, actual IDs, action IDs, and source status',
       () async {
         final service = AdminLinkGenerationService(
@@ -456,6 +686,122 @@ void main() {
             ),
           ),
         );
+      },
+    );
+  });
+
+  group('Admin preparation mutation', () {
+    test('sends the exact catalog type and invitation identity', () async {
+      Map<String, dynamic>? capturedPayload;
+      final service = AdminLinkGenerationService(
+        preparationCallable: (payload) async {
+          capturedPayload = payload;
+          return {
+            'preparation': {
+              'canonicalCatalogRestaurantId': 'catalog-doc',
+              'i': 'prepared',
+              'c': 'unprepared',
+              'sa': 'unprepared',
+              'sr': 'unprepared',
+            },
+          };
+        },
+      );
+
+      final state = await service.updatePreparation(
+        catalogRestaurantId: 'catalog-doc',
+        type: AdminRestaurantPreparationType.ownerInvite,
+        prepared: true,
+        expectedInviteId: 'invite-7',
+        biteSaverCatalogBindingState: AdminBiteSaverCatalogBindingState.unbound,
+        claimState: AdminRestaurantClaimState.available,
+      );
+
+      expect(capturedPayload, {
+        'catalogRestaurantId': 'catalog-doc',
+        'type': 'I',
+        'prepared': true,
+        'expectedInviteId': 'invite-7',
+      });
+      expect(state.ownerInvite, AdminRestaurantPreparationStatus.prepared);
+    });
+
+    test('rejects invalid identities before invoking the callable', () async {
+      var calls = 0;
+      final service = AdminLinkGenerationService(
+        preparationCallable: (_) async {
+          calls += 1;
+          return const <String, Object?>{};
+        },
+      );
+      final invalidIds = <String>[
+        ' restaurant-id',
+        'restaurant-id ',
+        '',
+        '   ',
+        'restaurant/id',
+      ];
+
+      for (final invalidId in invalidIds) {
+        await expectLater(
+          service.updatePreparation(
+            catalogRestaurantId: invalidId,
+            type: AdminRestaurantPreparationType.ownerInvite,
+            prepared: true,
+            expectedInviteId: 'invite-id',
+            biteSaverCatalogBindingState:
+                AdminBiteSaverCatalogBindingState.unbound,
+            claimState: AdminRestaurantClaimState.available,
+          ),
+          throwsA(isA<AdminLinkGenerationException>()),
+        );
+        await expectLater(
+          service.updatePreparation(
+            catalogRestaurantId: 'catalog-doc',
+            type: AdminRestaurantPreparationType.ownerInvite,
+            prepared: true,
+            expectedInviteId: invalidId,
+            biteSaverCatalogBindingState:
+                AdminBiteSaverCatalogBindingState.unbound,
+            claimState: AdminRestaurantClaimState.available,
+          ),
+          throwsA(isA<AdminLinkGenerationException>()),
+        );
+      }
+      expect(calls, 0);
+    });
+
+    test(
+      'rejects malformed and semantically impossible responses safely',
+      () async {
+        var calls = 0;
+        final service = AdminLinkGenerationService(
+          preparationCallable: (_) async {
+            calls += 1;
+            return {
+              'preparation': {
+                'canonicalCatalogRestaurantId': 'catalog-doc',
+                'i': 'notRequired',
+                'c': 'unprepared',
+                'sa': 'unprepared',
+                'sr': 'unprepared',
+              },
+            };
+          },
+        );
+
+        await expectLater(
+          service.updatePreparation(
+            catalogRestaurantId: 'catalog-doc',
+            type: AdminRestaurantPreparationType.claimInvite,
+            prepared: true,
+            biteSaverCatalogBindingState:
+                AdminBiteSaverCatalogBindingState.unbound,
+            claimState: AdminRestaurantClaimState.available,
+          ),
+          throwsA(isA<AdminLinkGenerationException>()),
+        );
+        expect(calls, 1);
       },
     );
   });

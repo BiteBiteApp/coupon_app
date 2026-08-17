@@ -799,6 +799,72 @@ test("actual Firestore document IDs and canonical action IDs are preserved", () 
   );
 });
 
+test("search identities reject unsafe exact path segments without aliasing", () => {
+  const unsafeIds = [
+    "",
+    "   ",
+    " padded",
+    "padded ",
+    "two/segments",
+    ".",
+    "..",
+    "hidden\u0000value",
+    "x".repeat(1_501),
+  ];
+  const candidates = unsafeIds.flatMap((documentId) => [
+    biteScoreDocument(documentId),
+    biteSaverDocument(documentId),
+  ]);
+  candidates.push(
+    biteScoreDocument("invalid-score-owner", {
+      ownerUserId: " owner-1",
+    }),
+    biteScoreDocument("invalid-score-link", {
+      linkedBiteSaverUid: "account-1 ",
+    }),
+    biteSaverDocument("invalid-saver-uid", {
+      uid: " account-uid ",
+    }),
+    biteSaverDocument("invalid-saver-link", {
+      linkedBiteScoreRestaurantId: "score/id",
+    }),
+    biteScoreDocument("legacy-empty-score", {
+      ownerUserId: "",
+      linkedBiteSaverUid: null,
+    }),
+    biteSaverDocument("legacy-empty-saver", {
+      uid: "",
+      linkedBiteScoreRestaurantId: null,
+    }),
+  );
+
+  const response = processAdminRestaurantSearchCandidates({
+    request: processingRequest(),
+    searchCenter: center,
+    candidates,
+    anyQueryReachedCandidateLimit: false,
+  });
+  const byId = new Map(
+    response.results.map((result) => [result.documentId, result]),
+  );
+
+  assert.deepEqual(
+    [...byId.keys()].sort(),
+    ["legacy-empty-saver", "legacy-empty-score"],
+  );
+  assert.equal(byId.get("legacy-empty-score").ownerUserId, null);
+  assert.equal(byId.get("legacy-empty-score").linkedBiteSaverUid, null);
+  assert.equal(byId.get("legacy-empty-saver").uid, null);
+  assert.equal(
+    byId.get("legacy-empty-saver").actionId,
+    "legacy-empty-saver",
+  );
+  assert.equal(
+    byId.get("legacy-empty-saver").linkedBiteScoreRestaurantId,
+    null,
+  );
+});
+
 test("result mapping exposes only controlled compatibility and status fields", () => {
   const response = processAdminRestaurantSearchCandidates({
     request: processingRequest(),
@@ -871,7 +937,7 @@ test("malformed ownership remains visible but never projects as claimable", () =
     ]),
   });
 
-  assert.equal(response.results.length, candidates.length);
+  assert.equal(response.results.length, candidates.length - 1);
   const byId = new Map(
     response.results.map((result) => [result.documentId, result]),
   );
@@ -893,7 +959,6 @@ test("malformed ownership remains visible but never projects as claimable", () =
     "claimed-without-owner",
     "owner-without-claim",
     "string-claim",
-    "whitespace-owner",
     "conflicting-activity",
   ]) {
     assert.equal(byId.get(id).claimAvailable, false, id);
@@ -904,6 +969,7 @@ test("malformed ownership remains visible but never projects as claimable", () =
       id,
     );
   }
+  assert.equal(byId.has("whitespace-owner"), false);
 });
 
 test("Admin results expose only derived catalog binding state", () => {
@@ -937,6 +1003,7 @@ test("Admin results expose only derived catalog binding state", () => {
 
   assert.equal(byId.get("unbound").biteSaverCatalogBindingState, "unbound");
   assert.equal(byId.has("catalog"), false);
+  assert.equal(byId.has("."), false);
   assert.equal(byId.get("bound").biteSaverCatalogBindingState, "bound");
   assert.equal(
     byId.get("unverified-bound").biteSaverCatalogBindingState,
@@ -947,7 +1014,6 @@ test("Admin results expose only derived catalog binding state", () => {
     "null-binding",
     "noncanonical",
     "incomplete-profile",
-    ".",
   ]) {
     assert.equal(
       byId.get(id).biteSaverCatalogBindingState,
@@ -993,6 +1059,186 @@ test("Admin bound state requires one batch-verified reciprocal account", async (
     "bound",
   );
   assert.equal(Object.hasOwn(response.results[0], "biteSaverCatalogBindingId"), false);
+});
+
+test("Admin preparation state uses one deduplicated batch load and fail-closed projections", async () => {
+  const bindingId = "A".repeat(43);
+  const suppliedSources = new Set();
+  const preparationLoads = [];
+  const response = await executeAdminRestaurantSearch(
+    coordinateRequest({sources: ["biteScore", "biteSaver"]}),
+    {
+      getGeocodingApiKey: () => "unused",
+      fetchGeocoding: async () => {
+        throw new Error("unused");
+      },
+      executeQueryPlan: async (plan) => {
+        if (suppliedSources.has(plan.source)) {
+          return [];
+        }
+        suppliedSources.add(plan.source);
+        if (plan.source === "biteSaver") {
+          return [{
+            documentId: "standalone-account",
+            data: biteSaverDocument("standalone-account").data,
+          }];
+        }
+        return [
+          {
+            documentId: "available",
+            data: biteScoreDocument("available").data,
+          },
+          {
+            documentId: "bound",
+            data: biteScoreDocument("bound", {
+              biteSaverCatalogBindingId: bindingId,
+              isClaimed: true,
+              ownerUserId: "owner-uid",
+            }).data,
+          },
+        ];
+      },
+      verifyBiteSaverCatalogBindings: async () =>
+        new Set(["available", "bound"]),
+      loadQrPreparationDocuments: async (catalogRestaurantIds) => {
+        preparationLoads.push([...catalogRestaurantIds]);
+        return new Map([
+          ["available", {
+            schemaVersion: 1,
+            saPrepared: true,
+            srPrepared: false,
+            iPreparedInviteId: "invite-1",
+            iPreparedInviteExpiresAt: new Date(Date.now() + 60_000),
+          }],
+          ["bound", {schemaVersion: "malformed"}],
+        ]);
+      },
+    },
+  );
+
+  assert.equal(preparationLoads.length, 1);
+  assert.deepEqual([...preparationLoads[0]].sort(), ["available", "bound"]);
+  const byId = new Map(
+    response.results.map((result) => [result.documentId, result]),
+  );
+  assert.deepEqual(byId.get("available").preparation, {
+    canonicalCatalogRestaurantId: "available",
+    i: "prepared",
+    c: "unprepared",
+    sa: "prepared",
+    sr: "unprepared",
+  });
+  assert.deepEqual(byId.get("bound").preparation, {
+    canonicalCatalogRestaurantId: "bound",
+    i: "unavailable",
+    c: "unavailable",
+    sa: "unavailable",
+    sr: "unavailable",
+  });
+  assert.deepEqual(byId.get("standalone-account").preparation, {
+    canonicalCatalogRestaurantId: null,
+    i: "unavailable",
+    c: "unavailable",
+    sa: "unavailable",
+    sr: "unavailable",
+  });
+});
+
+test("C preparation projection is epoch-safe before delayed cleanup", async () => {
+  const nowMillis = Date.now();
+  const epoch = new Date(nowMillis - 10_000);
+  const expiresAt = new Date(nowMillis + 60_000);
+  const preparationLoads = [];
+  const invitationLoads = [];
+  let suppliedCandidates = false;
+  const restaurantIds = ["stale", "missing", "invalid", "fresh"];
+  const invitationId = (restaurantId) => `claim-${restaurantId}`;
+  const activeClaimInvite = (restaurantId, createdAt, overrides = {}) => ({
+    type: "bitescore_claim_invite",
+    side: "bitescore",
+    status: "active",
+    restaurantId,
+    maxUses: 1,
+    useCount: 0,
+    usedAt: null,
+    usedByUid: null,
+    usedByEmail: null,
+    revokedAt: null,
+    revokedByUid: null,
+    createdAt,
+    expiresAt,
+    ...overrides,
+  });
+
+  const response = await executeAdminRestaurantSearch(
+    coordinateRequest({sources: ["biteScore"]}),
+    {
+      getGeocodingApiKey: () => "unused",
+      fetchGeocoding: async () => {
+        throw new Error("unused");
+      },
+      executeQueryPlan: async () => {
+        if (suppliedCandidates) return [];
+        suppliedCandidates = true;
+        return restaurantIds.map((restaurantId) => ({
+          documentId: restaurantId,
+          data: biteScoreDocument(restaurantId, {
+            claimInvitationEpochAt: epoch,
+          }).data,
+        }));
+      },
+      verifyBiteSaverCatalogBindings: async () => new Set(restaurantIds),
+      loadQrPreparationDocuments: async (catalogRestaurantIds) => {
+        preparationLoads.push([...catalogRestaurantIds]);
+        return new Map(restaurantIds.map((restaurantId) => [
+          restaurantId,
+          {
+            schemaVersion: 1,
+            cPreparedInviteId: invitationId(restaurantId),
+            cPreparedInviteExpiresAt: expiresAt,
+          },
+        ]));
+      },
+      loadQrPreparationInvitationDocuments: async (invitationIds) => {
+        invitationLoads.push([...invitationIds]);
+        return new Map([
+          [invitationId("stale"), activeClaimInvite(
+            "stale",
+            new Date(epoch.getTime() - 1),
+          )],
+          [invitationId("invalid"), activeClaimInvite(
+            "another-restaurant",
+            new Date(epoch.getTime() + 1),
+          )],
+          [invitationId("fresh"), activeClaimInvite(
+            "fresh",
+            new Date(epoch.getTime() + 1),
+          )],
+        ]);
+      },
+    },
+  );
+
+  assert.equal(preparationLoads.length, 1);
+  assert.deepEqual(
+    [...preparationLoads[0]].sort(),
+    [...restaurantIds].sort(),
+  );
+  assert.equal(invitationLoads.length, 1);
+  assert.deepEqual(
+    [...invitationLoads[0]].sort(),
+    restaurantIds.map(invitationId).sort(),
+  );
+  const byId = new Map(
+    response.results.map((result) => [result.documentId, result]),
+  );
+  assert.equal(byId.get("stale").preparation.c, "unprepared");
+  assert.equal(byId.get("missing").preparation.c, "unprepared");
+  assert.equal(byId.get("invalid").preparation.c, "unprepared");
+  assert.equal(byId.get("fresh").preparation.c, "prepared");
+  for (const result of response.results) {
+    assert.equal(Object.hasOwn(result, "claimInvitationEpochAt"), false);
+  }
 });
 
 test("Admin reciprocal verification fails closed for every inconsistent grouping", () => {

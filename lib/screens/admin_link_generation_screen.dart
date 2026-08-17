@@ -45,6 +45,15 @@ typedef AdminQrImageRenderCallback =
       required String url,
       required RestaurantQrLinkType linkType,
     });
+typedef AdminPreparationUpdateCallback =
+    Future<AdminRestaurantPreparationState> Function({
+      required String catalogRestaurantId,
+      required AdminRestaurantPreparationType type,
+      required bool prepared,
+      required AdminBiteSaverCatalogBindingState biteSaverCatalogBindingState,
+      required AdminRestaurantClaimState claimState,
+      String? expectedInviteId,
+    });
 
 class AdminLinkGenerationScreen extends StatefulWidget {
   final AdminRestaurantSearchCallback? searchRestaurants;
@@ -53,6 +62,7 @@ class AdminLinkGenerationScreen extends StatefulWidget {
   final AdminClipboardWriteCallback? writeClipboard;
   final AdminQrImageRenderCallback? renderQrImage;
   final RestaurantQrExporter? qrExporter;
+  final AdminPreparationUpdateCallback? updatePreparation;
 
   const AdminLinkGenerationScreen({
     super.key,
@@ -62,6 +72,7 @@ class AdminLinkGenerationScreen extends StatefulWidget {
     @visibleForTesting this.writeClipboard,
     @visibleForTesting this.renderQrImage,
     @visibleForTesting this.qrExporter,
+    @visibleForTesting this.updatePreparation,
   });
 
   @override
@@ -79,8 +90,12 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
     AdminRestaurantLinkSource.biteSaver,
   };
   final Set<String> _busyActions = <String>{};
+  final Map<String, AdminRestaurantPreparationState> _preparationOverrides = {};
+  final Set<String> _busyPreparationCatalogIds = <String>{};
+  final Map<String, int> _preparationMutationGenerations = <String, int>{};
 
   int _radiusMiles = AdminLinkGenerationService.defaultRadiusMiles;
+  int _searchGeneration = 0;
   bool _isSearching = false;
   bool _hasSubmitted = false;
   AdminRestaurantLinkSearchResult? _searchResult;
@@ -110,10 +125,12 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
 
     FocusScope.of(context).unfocus();
     setState(() {
+      _searchGeneration += 1;
       _hasSubmitted = true;
       _isSearching = true;
       _searchResult = null;
       _searchError = null;
+      _preparationOverrides.clear();
     });
 
     try {
@@ -211,6 +228,124 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
     }
   }
 
+  AdminRestaurantPreparationState _preparationFor(
+    AdminRestaurantLinkRecord record,
+  ) {
+    final canonicalId = record.preparation.canonicalCatalogRestaurantId;
+    return canonicalId == null
+        ? record.preparation
+        : _preparationOverrides[canonicalId] ?? record.preparation;
+  }
+
+  bool _isPreparationBusy(AdminRestaurantLinkRecord record) {
+    final canonicalId = record.preparation.canonicalCatalogRestaurantId;
+    return canonicalId != null &&
+        _busyPreparationCatalogIds.contains(canonicalId);
+  }
+
+  Future<AdminRestaurantPreparationState> _persistPreparation({
+    required AdminRestaurantLinkRecord record,
+    required AdminRestaurantPreparationType type,
+    required bool prepared,
+    String? expectedInviteId,
+  }) async {
+    if (!mounted) {
+      throw const AdminLinkGenerationException(
+        'Preparation tracking is no longer available.',
+      );
+    }
+    final canonicalId = record.preparation.canonicalCatalogRestaurantId;
+    if (canonicalId == null) {
+      throw const AdminLinkGenerationException(
+        'Preparation tracking is unavailable for this restaurant record.',
+      );
+    }
+    if (_busyPreparationCatalogIds.contains(canonicalId)) {
+      throw const AdminLinkGenerationException(
+        'Another preparation update is already in progress for this restaurant.',
+      );
+    }
+    final searchGeneration = _searchGeneration;
+    final mutationGeneration =
+        (_preparationMutationGenerations[canonicalId] ?? 0) + 1;
+    _preparationMutationGenerations[canonicalId] = mutationGeneration;
+    setState(() {
+      _busyPreparationCatalogIds.add(canonicalId);
+    });
+    try {
+      final update = widget.updatePreparation;
+      final state = update != null
+          ? await update(
+              catalogRestaurantId: canonicalId,
+              type: type,
+              prepared: prepared,
+              biteSaverCatalogBindingState: record.biteSaverCatalogBindingState,
+              claimState: record.claimState,
+              expectedInviteId: expectedInviteId,
+            )
+          : await _searchService.updatePreparation(
+              catalogRestaurantId: canonicalId,
+              type: type,
+              prepared: prepared,
+              biteSaverCatalogBindingState: record.biteSaverCatalogBindingState,
+              claimState: record.claimState,
+              expectedInviteId: expectedInviteId,
+            );
+      if (state.canonicalCatalogRestaurantId != canonicalId ||
+          !state.isValidForParticipation(
+            biteSaverCatalogBindingState: record.biteSaverCatalogBindingState,
+            claimState: record.claimState,
+          )) {
+        throw const AdminLinkGenerationException(
+          'Preparation status returned an invalid response.',
+        );
+      }
+      if (mounted &&
+          _searchGeneration == searchGeneration &&
+          _preparationMutationGenerations[canonicalId] == mutationGeneration) {
+        setState(() {
+          _preparationOverrides[canonicalId] = state;
+        });
+      }
+      return state;
+    } finally {
+      _busyPreparationCatalogIds.remove(canonicalId);
+      if (mounted) {
+        setState(() {});
+      }
+    }
+  }
+
+  Future<void> _togglePreparation(
+    AdminRestaurantLinkRecord record,
+    AdminRestaurantPreparationType type,
+    bool prepared,
+  ) async {
+    await _runBusyAction(record, 'preparation-${type.marker}', () async {
+      try {
+        await _persistPreparation(
+          record: record,
+          type: type,
+          prepared: prepared,
+        );
+        if (mounted) {
+          _showSnackBar(
+            '${type.marker} preparation ${prepared ? 'marked' : 'cleared'}.',
+          );
+        }
+      } catch (error) {
+        if (mounted) {
+          _showSnackBar(
+            AppErrorText.friendly(
+              error,
+              fallback: 'Could not update preparation status right now.',
+            ),
+          );
+        }
+      }
+    });
+  }
+
   Future<RestaurantQrImageResult> _renderQrImage({
     required String restaurantName,
     required String url,
@@ -275,11 +410,14 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
           return;
         }
         await _showLinkActionDialog(
+          record: record,
           title: 'BiteSaver Owner Invite Created',
           linkUrl: result.inviteUrl,
           restaurantName: record.restaurantName,
           linkType: RestaurantQrLinkType.couponInvite,
           isSensitive: true,
+          preparationType: AdminRestaurantPreparationType.ownerInvite,
+          expectedInviteId: result.inviteId,
         );
       } catch (error) {
         if (!mounted) {
@@ -313,11 +451,14 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
           return;
         }
         await _showLinkActionDialog(
+          record: record,
           title: 'BiteScore Claim Invite Created',
           linkUrl: result.inviteUrl,
           restaurantName: record.restaurantName,
           linkType: RestaurantQrLinkType.biteScoreClaimInvite,
           isSensitive: true,
+          preparationType: AdminRestaurantPreparationType.claimInvite,
+          expectedInviteId: result.inviteId,
         );
       } catch (error) {
         if (!mounted) {
@@ -346,11 +487,13 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
           record.documentId,
         );
         await _showLinkActionDialog(
+          record: record,
           title: 'Customer BiteSaver Link',
           linkUrl: link,
           restaurantName: record.restaurantName,
           linkType: RestaurantQrLinkType.customerBiteSaver,
           isSensitive: false,
+          preparationType: AdminRestaurantPreparationType.biteSaverCustomer,
         );
       } catch (_) {
         if (mounted) {
@@ -372,11 +515,13 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
           record.documentId,
         );
         await _showLinkActionDialog(
+          record: record,
           title: 'Customer BiteScore Link',
           linkUrl: link,
           restaurantName: record.restaurantName,
           linkType: RestaurantQrLinkType.customerBiteScore,
           isSensitive: false,
+          preparationType: AdminRestaurantPreparationType.biteScoreCustomer,
         );
       } catch (_) {
         if (mounted) {
@@ -427,11 +572,14 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
   }
 
   Future<void> _showLinkActionDialog({
+    required AdminRestaurantLinkRecord record,
     required String title,
     required String linkUrl,
     required String restaurantName,
     required RestaurantQrLinkType linkType,
     required bool isSensitive,
+    required AdminRestaurantPreparationType preparationType,
+    String? expectedInviteId,
   }) async {
     while (mounted) {
       final image = await showDialog<RestaurantQrImageResult>(
@@ -552,6 +700,17 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
         isSensitive: isSensitive,
         showBack: true,
         exporter: widget.qrExporter,
+        onExportSucceeded:
+            record.preparation.canonicalCatalogRestaurantId == null
+            ? null
+            : () async {
+                await _persistPreparation(
+                  record: record,
+                  type: preparationType,
+                  prepared: true,
+                  expectedInviteId: expectedInviteId,
+                );
+              },
       );
       if (!mounted || exit != RestaurantQrPreviewExit.back) {
         return;
@@ -787,6 +946,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
       );
     }
 
+    final recordOccurrences = <String, int>{};
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -808,12 +968,61 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
           ),
         ],
         const SizedBox(height: 12),
-        ...result.results.map(_buildResultCard),
+        ...result.results.map((record) {
+          final occurrence = recordOccurrences[record.recordKey] ?? 0;
+          recordOccurrences[record.recordKey] = occurrence + 1;
+          return _buildResultCard(record, duplicateIndex: occurrence);
+        }),
       ],
     );
   }
 
-  Widget _buildResultCard(AdminRestaurantLinkRecord record) {
+  Widget _buildPreparationStatus(AdminRestaurantLinkRecord record) {
+    final preparation = _preparationFor(record);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('QR preparation', style: Theme.of(context).textTheme.labelLarge),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: AdminRestaurantPreparationType.values
+              .map((type) {
+                final status = preparation.statusFor(type);
+                final busy = _isPreparationBusy(record);
+                final canToggle =
+                    preparation.canonicalCatalogRestaurantId != null &&
+                    (status == AdminRestaurantPreparationStatus.prepared ||
+                        status == AdminRestaurantPreparationStatus.unprepared);
+                return FilterChip(
+                  key: ValueKey(
+                    '${record.recordKey}:preparation-${type.marker}',
+                  ),
+                  selected: status == AdminRestaurantPreparationStatus.prepared,
+                  onSelected: !canToggle || busy
+                      ? null
+                      : (selected) =>
+                            _togglePreparation(record, type, selected),
+                  avatar: busy
+                      ? const SizedBox.square(
+                          dimension: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : null,
+                  label: Text('${type.marker} · ${status.label}'),
+                );
+              })
+              .toList(growable: false),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResultCard(
+    AdminRestaurantLinkRecord record, {
+    int duplicateIndex = 0,
+  }) {
     final stateAndZip = [
       record.state,
       record.zipCode,
@@ -834,8 +1043,9 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
     );
     final isMailingAddressBusy = _isActionBusy(record, 'copy-mailing-address');
 
+    final cardKey = 'admin-link-record-${record.recordKey}';
     return Card(
-      key: ValueKey('admin-link-record-${record.recordKey}'),
+      key: ValueKey(duplicateIndex == 0 ? cardKey : '$cardKey#$duplicateIndex'),
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -879,6 +1089,8 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
                 'Approval: ${_approvalLabel(record.approvalStatus)}',
                 key: ValueKey('admin-link-status-${record.recordKey}'),
               ),
+            const SizedBox(height: 12),
+            _buildPreparationStatus(record),
             const SizedBox(height: 12),
             LayoutBuilder(
               builder: (context, actionConstraints) {

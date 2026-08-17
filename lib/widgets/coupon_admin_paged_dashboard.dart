@@ -51,6 +51,20 @@ typedef CouponAdminCreateInviteAction =
       required double? latitude,
       required double? longitude,
     });
+typedef CouponAdminManualInviteCreator =
+    Future<RestaurantInviteCreationResult> Function({
+      required String restaurantName,
+      String? restaurantId,
+      String? biteScoreCatalogRestaurantId,
+      String? streetAddress,
+      String? city,
+      String? state,
+      String? zipCode,
+      String? phone,
+      String? website,
+      double? latitude,
+      double? longitude,
+    });
 typedef CouponAdminManualInviteAction =
     Future<RestaurantInviteCreationResult?> Function(BuildContext context);
 typedef CouponAdminSetVisibilityAction =
@@ -842,7 +856,7 @@ class _CouponAdminPagedDashboardState extends State<CouponAdminPagedDashboard>
         ? await widget.createManualInvite!(context)
         : await showDialog<RestaurantInviteCreationResult>(
             context: context,
-            builder: (context) => const _CouponAdminManualInviteDialog(),
+            builder: (context) => const CouponAdminManualInviteDialog(),
           );
     if (result != null && mounted) {
       await _showInviteLink(result);
@@ -1761,16 +1775,18 @@ class _CouponAdminField extends StatelessWidget {
   );
 }
 
-class _CouponAdminManualInviteDialog extends StatefulWidget {
-  const _CouponAdminManualInviteDialog();
+class CouponAdminManualInviteDialog extends StatefulWidget {
+  const CouponAdminManualInviteDialog({super.key, this.createInvite});
+
+  final CouponAdminManualInviteCreator? createInvite;
 
   @override
-  State<_CouponAdminManualInviteDialog> createState() =>
+  State<CouponAdminManualInviteDialog> createState() =>
       _CouponAdminManualInviteDialogState();
 }
 
 class _CouponAdminManualInviteDialogState
-    extends State<_CouponAdminManualInviteDialog> {
+    extends State<CouponAdminManualInviteDialog> {
   final List<TextEditingController> _controllers =
       List<TextEditingController>.generate(10, (_) => TextEditingController());
   bool _saving = false;
@@ -1792,8 +1808,11 @@ class _CouponAdminManualInviteDialogState
     }
     setState(() => _saving = true);
     try {
-      final result = await RestaurantInviteService.createCouponInvite(
-        restaurantId: _controllers[0].text,
+      final createInvite =
+          widget.createInvite ?? RestaurantInviteService.createCouponInvite;
+      final restaurantIdInput = _controllers[0].text;
+      final result = await createInvite(
+        restaurantId: restaurantIdInput.isEmpty ? null : restaurantIdInput,
         restaurantName: _controllers[1].text,
         streetAddress: _controllers[2].text,
         city: _controllers[3].text,

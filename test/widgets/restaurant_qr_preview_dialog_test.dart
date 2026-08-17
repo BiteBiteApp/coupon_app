@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -57,6 +58,7 @@ void main() {
   ) async {
     var copyCalls = 0;
     var downloadCalls = 0;
+    var preparationCalls = 0;
     String? filename;
     final exporter = RestaurantQrExporter(
       capabilities: const RestaurantQrExportCapabilities(
@@ -71,21 +73,31 @@ void main() {
         filename = value;
       },
     );
-    await _pumpDialog(tester, isSensitive: false, exporter: exporter);
+    await _pumpDialog(
+      tester,
+      isSensitive: false,
+      exporter: exporter,
+      onExportSucceeded: () async {
+        preparationCalls += 1;
+      },
+    );
 
     await tester.tap(find.byKey(const ValueKey('restaurant-qr-copy-image')));
     await tester.pump();
     expect(copyCalls, 1);
+    expect(preparationCalls, 1);
     expect(find.text('QR image copied.'), findsOneWidget);
 
     await tester.tap(find.byKey(const ValueKey('restaurant-qr-download-png')));
     await tester.pump();
     expect(downloadCalls, 1);
+    expect(preparationCalls, 2);
     expect(filename, 'river-grill-customer-bitescore-qr.png');
     expect(find.text('QR image download started.'), findsOneWidget);
   });
 
   testWidgets('copy and download failures remain controlled', (tester) async {
+    var preparationCalls = 0;
     final exporter = RestaurantQrExporter(
       capabilities: const RestaurantQrExportCapabilities(
         canCopyImage: true,
@@ -98,7 +110,14 @@ void main() {
         'https://go.bitestar.app/invite/coupon/fake-test-token',
       ),
     );
-    await _pumpDialog(tester, isSensitive: true, exporter: exporter);
+    await _pumpDialog(
+      tester,
+      isSensitive: true,
+      exporter: exporter,
+      onExportSucceeded: () async {
+        preparationCalls += 1;
+      },
+    );
 
     await tester.tap(find.byKey(const ValueKey('restaurant-qr-copy-image')));
     await tester.pump();
@@ -107,11 +126,197 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('fake-test-token'), findsNothing);
+    expect(preparationCalls, 0);
 
     await tester.tap(find.byKey(const ValueKey('restaurant-qr-download-png')));
     await tester.pump();
     expect(find.text('Could not download the QR image.'), findsOneWidget);
     expect(find.textContaining('fake-test-token'), findsNothing);
+    expect(preparationCalls, 0);
+  });
+
+  testWidgets(
+    'tracking failure preserves export success with distinct feedback',
+    (tester) async {
+      var copyCalls = 0;
+      final exporter = RestaurantQrExporter(
+        capabilities: const RestaurantQrExportCapabilities(
+          canCopyImage: true,
+          canDownloadPng: true,
+        ),
+        copyPng: (_) async {
+          copyCalls += 1;
+        },
+        downloadPng: (_, _) async {},
+      );
+      await _pumpDialog(
+        tester,
+        isSensitive: false,
+        exporter: exporter,
+        onExportSucceeded: () async => throw StateError('tracking unavailable'),
+      );
+
+      await tester.tap(find.byKey(const ValueKey('restaurant-qr-copy-image')));
+      await tester.pump();
+
+      expect(copyCalls, 1);
+      expect(
+        find.text(
+          'QR image copied, but preparation status could not be saved.',
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('export and tracking share one non-dismissible operation lock', (
+    tester,
+  ) async {
+    final export = Completer<void>();
+    final tracking = Completer<void>();
+    var copyCalls = 0;
+    var downloadCalls = 0;
+    var trackingCalls = 0;
+    RestaurantQrPreviewExit? result;
+    final exporter = RestaurantQrExporter(
+      capabilities: const RestaurantQrExportCapabilities(
+        canCopyImage: true,
+        canDownloadPng: true,
+      ),
+      copyPng: (_) {
+        copyCalls += 1;
+        return export.future;
+      },
+      downloadPng: (_, _) async {
+        downloadCalls += 1;
+      },
+    );
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Builder(
+            builder: (context) => FilledButton(
+              onPressed: () async {
+                result = await showRestaurantQrPreviewDialog(
+                  context: context,
+                  image: _imageResult(),
+                  isSensitive: false,
+                  showBack: true,
+                  exporter: exporter,
+                  onExportSucceeded: () {
+                    trackingCalls += 1;
+                    return tracking.future;
+                  },
+                );
+              },
+              child: const Text('Open'),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('restaurant-qr-copy-image')));
+    await tester.pump();
+
+    expect(copyCalls, 1);
+    expect(downloadCalls, 0);
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const ValueKey('restaurant-qr-download-png')),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<TextButton>(
+            find.byKey(const ValueKey('restaurant-qr-preview-close')),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(
+      tester
+          .widget<TextButton>(
+            find.byKey(const ValueKey('restaurant-qr-preview-back')),
+          )
+          .onPressed,
+      isNull,
+    );
+    await tester.tapAt(const Offset(2, 2));
+    await tester.pump();
+    await tester.binding.handlePopRoute();
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('restaurant-qr-preview-dialog')),
+      findsOneWidget,
+    );
+    expect(result, isNull);
+
+    export.complete();
+    await tester.pump();
+    expect(trackingCalls, 1);
+    expect(
+      tester
+          .widget<OutlinedButton>(
+            find.byKey(const ValueKey('restaurant-qr-copy-image')),
+          )
+          .onPressed,
+      isNull,
+    );
+    tracking.completeError(StateError('tracking unavailable'));
+    await tester.pumpAndSettle();
+
+    expect(copyCalls, 1);
+    expect(downloadCalls, 0);
+    expect(
+      find.text('QR image copied, but preparation status could not be saved.'),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<FilledButton>(
+            find.byKey(const ValueKey('restaurant-qr-download-png')),
+          )
+          .onPressed,
+      isNotNull,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('completion after disposal skips tracking and disposed context', (
+    tester,
+  ) async {
+    final export = Completer<void>();
+    var trackingCalls = 0;
+    await _pumpDialog(
+      tester,
+      isSensitive: false,
+      exporter: RestaurantQrExporter(
+        capabilities: const RestaurantQrExportCapabilities(
+          canCopyImage: true,
+          canDownloadPng: false,
+        ),
+        copyPng: (_) => export.future,
+        downloadPng: (_, _) async {},
+      ),
+      onExportSucceeded: () async {
+        trackingCalls += 1;
+      },
+    );
+    await tester.tap(find.byKey(const ValueKey('restaurant-qr-copy-image')));
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox.shrink());
+    export.complete();
+    await tester.pump();
+    await tester.pump();
+
+    expect(trackingCalls, 0);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('back and close return distinct dialog results', (tester) async {
@@ -194,6 +399,7 @@ Future<void> _pumpDialog(
   required RestaurantQrExporter exporter,
   double textScale = 1,
   bool configureView = true,
+  RestaurantQrExportSucceededCallback? onExportSucceeded,
 }) async {
   if (configureView) {
     tester.view.devicePixelRatio = 1;
@@ -215,6 +421,7 @@ Future<void> _pumpDialog(
           isSensitive: isSensitive,
           showBack: true,
           exporter: exporter,
+          onExportSucceeded: onExportSucceeded,
         ),
       ),
     ),

@@ -5,6 +5,7 @@ import {
   DocumentData,
   QueryDocumentSnapshot,
   Timestamp,
+  type Transaction,
   getFirestore,
 } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
@@ -42,6 +43,19 @@ import {
   geocodeAdminLocationQuery,
   verifiedAdminBiteSaverCatalogIdsFromDocuments,
 } from "./admin_restaurant_search_helpers.js";
+import {
+  adminRestaurantQrPreparationCollection,
+  biteScoreClaimInvitationEpochAtField,
+  biteScoreClaimInvitationEpochIsValid,
+  biteScoreClaimInvitationIsInCurrentEpoch,
+  clearClaimPreparationAfterUnclaim,
+  createFirestoreAdminRestaurantQrPreparationDatabase,
+  firestoreAdminRestaurantQrPreparationPatch,
+  invitationPreparationIdentity,
+  latestInvitationPreparationPatch,
+  terminalInvitationPreparationPatch,
+  updateAdminRestaurantQrPreparationCallableHandler,
+} from "./admin_restaurant_qr_preparation.js";
 import {
   biteSaverAccountCatalogBindingState,
   biteSaverCatalogBindingIdField,
@@ -225,6 +239,8 @@ setGlobalOptions({
 const db: Firestore = getFirestore();
 const searchIndexDatabase = createFirestoreSearchIndexDatabase(db);
 const adminUserDirectoryDatabase = createFirestoreAdminUserDirectoryDatabase(db);
+const adminRestaurantQrPreparationDatabase =
+  createFirestoreAdminRestaurantQrPreparationDatabase(db);
 const dishProposalPrivateDatabase =
   createFirestoreDishProposalPrivateDatabase(db);
 const baseDishProposalResolutionDependencies =
@@ -274,6 +290,62 @@ const restaurantInviteCollection = "restaurant_invites";
 const ratingDestructiveRestaurantOperationLockCollection =
   "private_rating_restaurant_operation_locks";
 const restaurantInviteExpirationDays = 90;
+
+function adminRestaurantQrPreparationRef(catalogRestaurantId: string) {
+  return db
+    .collection(adminRestaurantQrPreparationCollection)
+    .doc(catalogRestaurantId);
+}
+
+function mergeAdminRestaurantQrPreparation(
+  transaction: Transaction,
+  catalogRestaurantId: string,
+  patch: Parameters<typeof firestoreAdminRestaurantQrPreparationPatch>[0],
+): void {
+  transaction.set(
+    adminRestaurantQrPreparationRef(catalogRestaurantId),
+    firestoreAdminRestaurantQrPreparationPatch(patch),
+    { merge: true },
+  );
+}
+
+async function loadAdminRestaurantQrPreparationInvitationDocuments(
+  invitationIds: readonly string[],
+): Promise<ReadonlyMap<string, Readonly<Record<string, unknown>>>> {
+  const uniqueInvitationIds: string[] = [];
+  const seenInvitationIds = new Set<string>();
+  for (const invitationId of invitationIds) {
+    const safeInvitationId = readBiteScoreCatalogRestaurantId(invitationId);
+    if (safeInvitationId === null) {
+      throw new Error("The preparation invitation identity is invalid.");
+    }
+    if (!seenInvitationIds.has(safeInvitationId)) {
+      seenInvitationIds.add(safeInvitationId);
+      uniqueInvitationIds.push(safeInvitationId);
+    }
+  }
+  if (uniqueInvitationIds.length === 0) {
+    return new Map();
+  }
+  const snapshots = await db.getAll(
+    ...uniqueInvitationIds.map((invitationId) =>
+      db.collection(restaurantInviteCollection).doc(invitationId)
+    ),
+  );
+  const documents = new Map<
+    string,
+    Readonly<Record<string, unknown>>
+  >();
+  for (const snapshot of snapshots) {
+    if (snapshot.exists) {
+      documents.set(
+        snapshot.id,
+        snapshot.data() as Readonly<Record<string, unknown>>,
+      );
+    }
+  }
+  return documents;
+}
 
 function requireTokenizedSubscriptionReturnProtocol(
   data: unknown,
@@ -1508,6 +1580,13 @@ function readString(value: unknown): string | undefined {
   return typeof value === "string" && value.trim() ? value.trim() : undefined;
 }
 
+function readOptionalExactDocumentIdForResponse(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "";
+  }
+  return readBiteScoreCatalogRestaurantId(value) ?? "";
+}
+
 function readNumber(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value)
     ? value
@@ -1609,21 +1688,23 @@ function serializeInviteDoc(
     type: readString(data.type) ?? "",
     side: readString(data.side) ?? "",
     status: readString(data.status) ?? "",
-    restaurantId: readString(data.restaurantId) ?? "",
-    pendingRestaurantKey: readString(data.pendingRestaurantKey) ?? "",
+    restaurantId: readOptionalExactDocumentIdForResponse(data.restaurantId),
+    pendingRestaurantKey: readOptionalExactDocumentIdForResponse(
+      data.pendingRestaurantKey,
+    ),
     restaurantName: readString(data.restaurantName) ?? "",
-    createdByUid: readString(data.createdByUid) ?? "",
+    createdByUid: readOptionalExactDocumentIdForResponse(data.createdByUid),
     createdByEmail: readString(data.createdByEmail) ?? "",
     createdAtMillis: timestampMillis(data.createdAt),
     expiresAtMillis: timestampMillis(data.expiresAt),
     usedAtMillis: timestampMillis(data.usedAt),
-    usedByUid: readString(data.usedByUid) ?? "",
+    usedByUid: readOptionalExactDocumentIdForResponse(data.usedByUid),
     usedByEmail: readString(data.usedByEmail) ?? "",
     maxUses: readNumber(data.maxUses) ?? 1,
     useCount: readNumber(data.useCount) ?? 0,
     lastAccessedAtMillis: timestampMillis(data.lastAccessedAt),
     revokedAtMillis: timestampMillis(data.revokedAt),
-    revokedByUid: readString(data.revokedByUid) ?? "",
+    revokedByUid: readOptionalExactDocumentIdForResponse(data.revokedByUid),
   };
 }
 
@@ -1818,15 +1899,31 @@ export const createCouponRestaurantInvite = onCall(async (request) => {
       "A valid BiteScore catalog restaurant ID is required.",
     );
   }
+  const hasAccountRestaurantId = Object.prototype.hasOwnProperty.call(
+    data,
+    "restaurantId",
+  );
+  const accountRestaurantId = catalogRestaurantId === null &&
+      hasAccountRestaurantId
+    ? readBiteScoreCatalogRestaurantId(data.restaurantId)
+    : null;
+  if (
+    catalogRestaurantId === null &&
+    hasAccountRestaurantId &&
+    accountRestaurantId === null
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      "A valid BiteSaver account restaurant ID is required.",
+    );
+  }
   const { restaurantId, pendingRestaurantKey } = couponInviteRestaurantIdentity(
-    catalogRestaurantId === null ? data.restaurantId : null,
+    accountRestaurantId,
     inviteRef.id,
   );
   if (
     catalogRestaurantId !== null &&
-    Object.prototype.hasOwnProperty.call(data, "restaurantId") &&
-    data.restaurantId !== null &&
-    data.restaurantId !== ""
+    hasAccountRestaurantId
   ) {
     throw new HttpsError(
       "invalid-argument",
@@ -1894,15 +1991,20 @@ export const createCouponRestaurantInvite = onCall(async (request) => {
       .collection("restaurant_accounts")
       .where(biteScoreCatalogRestaurantIdField, "==", catalogRestaurantId)
       .limit(2);
+    const preparationRef = adminRestaurantQrPreparationRef(
+      catalogRestaurantId,
+    );
     await db.runTransaction(async (transaction) => {
       const [
         restaurantOperationLockSnapshot,
         restaurantSnapshot,
         catalogAccountBindingsSnapshot,
+        preparationSnapshot,
       ] = await Promise.all([
         transaction.get(restaurantOperationLockRef),
         transaction.get(restaurantRef),
         transaction.get(catalogAccountBindingsQuery),
+        transaction.get(preparationRef),
       ]);
       if (restaurantOperationLockSnapshot.exists) {
         throw new HttpsError(
@@ -1954,9 +2056,22 @@ export const createCouponRestaurantInvite = onCall(async (request) => {
           "The selected BiteScore restaurant is missing a name.",
         );
       }
+      const preparationPatch = latestInvitationPreparationPatch(
+        preparationSnapshot.exists
+          ? preparationSnapshot.data() ?? {}
+          : null,
+        "I",
+        inviteRef.id,
+        expiresAt,
+      );
       transaction.set(
         inviteRef,
         inviteDocument(restaurantName, couponPrefill),
+      );
+      mergeAdminRestaurantQrPreparation(
+        transaction,
+        catalogRestaurantId,
+        preparationPatch,
       );
     });
   }
@@ -1972,8 +2087,8 @@ export const createCouponRestaurantInvite = onCall(async (request) => {
 export const createBiteScoreRestaurantClaimInvite = onCall(async (request) => {
   const admin = requireAdminInviteAccess(request);
   const data = readRecord(request.data);
-  const restaurantId = readString(data.restaurantId);
-  if (!restaurantId) {
+  const restaurantId = readBiteScoreCatalogRestaurantId(data.restaurantId);
+  if (restaurantId === null) {
     throw new HttpsError(
       "invalid-argument",
       "BiteScore restaurant ID is required.",
@@ -1986,16 +2101,22 @@ export const createBiteScoreRestaurantClaimInvite = onCall(async (request) => {
   const restaurantOperationLockRef = db
     .collection(ratingDestructiveRestaurantOperationLockCollection)
     .doc(restaurantId);
+  const preparationRef = adminRestaurantQrPreparationRef(restaurantId);
   const token = generateInviteToken();
   const tokenHash = hashInviteToken(token);
   const expiresAt = inviteExpirationTimestamp();
   const inviteRef = db.collection(restaurantInviteCollection).doc();
 
   await db.runTransaction(async (transaction) => {
-    const [restaurantOperationLockSnapshot, restaurantSnapshot] =
+    const [
+      restaurantOperationLockSnapshot,
+      restaurantSnapshot,
+      preparationSnapshot,
+    ] =
       await Promise.all([
         transaction.get(restaurantOperationLockRef),
         transaction.get(restaurantRef),
+        transaction.get(preparationRef),
       ]);
     if (restaurantOperationLockSnapshot.exists) {
       throw new HttpsError(
@@ -2011,6 +2132,12 @@ export const createBiteScoreRestaurantClaimInvite = onCall(async (request) => {
     }
 
     const restaurantData = restaurantSnapshot.data() ?? {};
+    if (!biteScoreClaimInvitationEpochIsValid(restaurantData)) {
+      throw new HttpsError(
+        "failed-precondition",
+        "This BiteScore restaurant has an unavailable claim invitation state.",
+      );
+    }
     requireBiteScoreRestaurantClaimable(restaurantData, restaurantId);
     const restaurantName =
       readString(restaurantData.name) ??
@@ -2021,6 +2148,14 @@ export const createBiteScoreRestaurantClaimInvite = onCall(async (request) => {
         "The selected BiteScore restaurant is missing a name.",
       );
     }
+    const preparationPatch = latestInvitationPreparationPatch(
+      preparationSnapshot.exists
+        ? preparationSnapshot.data() ?? {}
+        : null,
+      "C",
+      inviteRef.id,
+      expiresAt,
+    );
     const addressParts = [
       readString(restaurantData.address) ??
         readString(restaurantData.streetAddress),
@@ -2052,6 +2187,11 @@ export const createBiteScoreRestaurantClaimInvite = onCall(async (request) => {
       revokedAt: null,
       revokedByUid: null,
     });
+    mergeAdminRestaurantQrPreparation(
+      transaction,
+      restaurantId,
+      preparationPatch,
+    );
   });
 
   return {
@@ -2065,25 +2205,52 @@ export const createBiteScoreRestaurantClaimInvite = onCall(async (request) => {
 export const revokeRestaurantInvite = onCall(async (request) => {
   const admin = requireAdminInviteAccess(request);
   const data = readRecord(request.data);
-  const inviteId = readString(data.inviteId);
-  if (!inviteId) {
+  const inviteId = readBiteScoreCatalogRestaurantId(data.inviteId);
+  if (inviteId === null) {
     throw new HttpsError("invalid-argument", "Invite ID is required.");
   }
 
   const inviteRef = db.collection(restaurantInviteCollection).doc(inviteId);
-  const inviteSnapshot = await inviteRef.get();
-  if (!inviteSnapshot.exists) {
-    throw new HttpsError("not-found", "Invite not found.");
-  }
+  await db.runTransaction(async (transaction) => {
+    const inviteSnapshot = await transaction.get(inviteRef);
+    if (!inviteSnapshot.exists) {
+      throw new HttpsError("not-found", "Invite not found.");
+    }
+    const inviteData = inviteSnapshot.data() ?? {};
+    const identity = invitationPreparationIdentity(
+      inviteSnapshot.id,
+      inviteData,
+    );
+    const preparationSnapshot = identity === null
+      ? null
+      : await transaction.get(
+          adminRestaurantQrPreparationRef(identity.catalogRestaurantId),
+        );
 
-  await inviteRef.set(
-    {
-      status: "revoked",
-      revokedAt: FieldValue.serverTimestamp(),
-      revokedByUid: admin.uid,
-    },
-    { merge: true },
-  );
+    transaction.set(
+      inviteRef,
+      {
+        status: "revoked",
+        revokedAt: FieldValue.serverTimestamp(),
+        revokedByUid: admin.uid,
+      },
+      { merge: true },
+    );
+    if (identity !== null && preparationSnapshot?.exists) {
+      const patch = terminalInvitationPreparationPatch(
+        preparationSnapshot.data() ?? null,
+        identity.type,
+        inviteSnapshot.id,
+      );
+      if (patch !== null) {
+        mergeAdminRestaurantQrPreparation(
+          transaction,
+          identity.catalogRestaurantId,
+          patch,
+        );
+      }
+    }
+  });
 
   return { inviteId, status: "revoked" };
 });
@@ -2113,9 +2280,23 @@ export const searchAdminRestaurants = onCall(
       fetchGeocoding: (url, init) => fetch(url, init),
       executeQueryPlan: executeAdminRestaurantQueryPlan,
       verifyBiteSaverCatalogBindings: verifyAdminBiteSaverCatalogBindings,
+      loadQrPreparationDocuments: (catalogRestaurantIds) =>
+        adminRestaurantQrPreparationDatabase.getPreparationDocuments(
+          catalogRestaurantIds,
+        ),
+      loadQrPreparationInvitationDocuments:
+        loadAdminRestaurantQrPreparationInvitationDocuments,
     });
   },
 );
+
+export const updateAdminRestaurantQrPreparation = onCall(async (request) => {
+  return updateAdminRestaurantQrPreparationCallableHandler(request, {
+    database: adminRestaurantQrPreparationDatabase,
+    requireAdmin: requireAdminInviteAccess,
+    now: () => new Date(),
+  });
+});
 
 export const searchCouponAdminRestaurantsPage = onCall(
   {
@@ -2460,7 +2641,7 @@ export const previewRestaurantInvite = onCall(async (request) => {
 });
 
 export const redeemCouponRestaurantInvite = onCall(async (request) => {
-  const uid = request.auth?.uid?.trim();
+  const uid = readBiteScoreCatalogRestaurantId(request.auth?.uid);
   const userEmail = readString(request.auth?.token.email);
   if (!uid || !userEmail) {
     throw new HttpsError(
@@ -2550,6 +2731,7 @@ export const redeemCouponRestaurantInvite = onCall(async (request) => {
     let catalogRestaurantSnapshot;
     let catalogRestaurantOperationLockSnapshot;
     let catalogAccountBindingsSnapshot;
+    let qrPreparationSnapshot;
     if (catalogRestaurantId === null) {
       accountSnapshot = await transaction.get(accountRef);
     } else {
@@ -2563,16 +2745,21 @@ export const redeemCouponRestaurantInvite = onCall(async (request) => {
         .collection("restaurant_accounts")
         .where(biteScoreCatalogRestaurantIdField, "==", catalogRestaurantId)
         .limit(2);
+      const qrPreparationRef = adminRestaurantQrPreparationRef(
+        catalogRestaurantId,
+      );
       [
         accountSnapshot,
         catalogRestaurantSnapshot,
         catalogRestaurantOperationLockSnapshot,
         catalogAccountBindingsSnapshot,
+        qrPreparationSnapshot,
       ] = await Promise.all([
         transaction.get(accountRef),
         transaction.get(catalogRestaurantRef),
         transaction.get(catalogRestaurantOperationLockRef),
         transaction.get(catalogAccountBindingsQuery),
+        transaction.get(qrPreparationRef),
       ]);
     }
     const accountData = accountSnapshot.data() ?? {};
@@ -2715,6 +2902,20 @@ export const redeemCouponRestaurantInvite = onCall(async (request) => {
       },
       { merge: true },
     );
+    if (catalogRestaurantId !== null && qrPreparationSnapshot?.exists) {
+      const patch = terminalInvitationPreparationPatch(
+        qrPreparationSnapshot.data() ?? null,
+        "I",
+        inviteDoc.id,
+      );
+      if (patch !== null) {
+        mergeAdminRestaurantQrPreparation(
+          transaction,
+          catalogRestaurantId,
+          patch,
+        );
+      }
+    }
 
     return {
       inviteId: invite.id,
@@ -2726,7 +2927,7 @@ export const redeemCouponRestaurantInvite = onCall(async (request) => {
 });
 
 export const redeemBiteScoreRestaurantClaimInvite = onCall(async (request) => {
-  const uid = request.auth?.uid?.trim();
+  const uid = readBiteScoreCatalogRestaurantId(request.auth?.uid);
   const userEmail = readString(request.auth?.token.email);
   const userName =
     readString(request.auth?.token.name) ??
@@ -2765,8 +2966,10 @@ export const redeemBiteScoreRestaurantClaimInvite = onCall(async (request) => {
     ) {
       throwInvalidBiteScoreClaimInvite();
     }
-    const restaurantId = readString(inviteData.restaurantId);
-    if (!restaurantId || inviteData.restaurantId !== restaurantId) {
+    const restaurantId = readBiteScoreCatalogRestaurantId(
+      inviteData.restaurantId,
+    );
+    if (restaurantId === null || inviteData.restaurantId !== restaurantId) {
       throwInvalidBiteScoreClaimInvite();
     }
 
@@ -2809,10 +3012,16 @@ export const redeemBiteScoreRestaurantClaimInvite = onCall(async (request) => {
     const restaurantOperationLockRef = db
       .collection(ratingDestructiveRestaurantOperationLockCollection)
       .doc(restaurantId);
-    const [restaurantOperationLockSnapshot, restaurantSnapshot] =
+    const qrPreparationRef = adminRestaurantQrPreparationRef(restaurantId);
+    const [
+      restaurantOperationLockSnapshot,
+      restaurantSnapshot,
+      qrPreparationSnapshot,
+    ] =
       await Promise.all([
         transaction.get(restaurantOperationLockRef),
         transaction.get(restaurantRef),
+        transaction.get(qrPreparationRef),
       ]);
     if (restaurantOperationLockSnapshot.exists) {
       throw new HttpsError(
@@ -2825,6 +3034,12 @@ export const redeemBiteScoreRestaurantClaimInvite = onCall(async (request) => {
     }
 
     const restaurantData = restaurantSnapshot.data() ?? {};
+    if (!biteScoreClaimInvitationIsInCurrentEpoch(
+      restaurantData,
+      inviteData,
+    )) {
+      throwInvalidBiteScoreClaimInvite();
+    }
     requireBiteScoreRestaurantClaimable(restaurantData, restaurantId);
     const restaurantRevisionDecision = decideRestaurantInviteRevisionWrite(
       null,
@@ -2883,6 +3098,20 @@ export const redeemBiteScoreRestaurantClaimInvite = onCall(async (request) => {
       },
       { merge: true },
     );
+    if (qrPreparationSnapshot.exists) {
+      const patch = terminalInvitationPreparationPatch(
+        qrPreparationSnapshot.data() ?? null,
+        "C",
+        inviteDoc.id,
+      );
+      if (patch !== null) {
+        mergeAdminRestaurantQrPreparation(
+          transaction,
+          restaurantId,
+          patch,
+        );
+      }
+    }
 
     return {
       inviteId: invite.id,
@@ -4821,6 +5050,29 @@ export const maintainBiteScoreRestaurantSearchIndex = onDocumentWritten(
     });
   },
 );
+
+export const maintainAdminRestaurantQrPreparationFromBiteScoreUnclaim =
+  onDocumentWritten(
+    {
+      document: "bitescore_restaurants/{restaurantId}",
+      retry: true,
+    },
+    async (event) => {
+      const before = event.data?.before.exists
+        ? event.data.before.data() as Record<string, unknown>
+        : null;
+      const after = event.data?.after.exists
+        ? event.data.after.data() as Record<string, unknown>
+        : null;
+      await clearClaimPreparationAfterUnclaim(
+        adminRestaurantQrPreparationDatabase,
+        event.params.restaurantId as string,
+        before,
+        after,
+        after?.[biteScoreClaimInvitationEpochAtField] ?? null,
+      );
+    },
+  );
 
 export const maintainBiteScoreDishSearchIndex = onDocumentWritten(
   "bitescore_dishes/{dishId}",

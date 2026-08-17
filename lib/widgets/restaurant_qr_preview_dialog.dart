@@ -5,20 +5,25 @@ import '../services/restaurant_qr_image_service.dart';
 
 enum RestaurantQrPreviewExit { close, back }
 
+typedef RestaurantQrExportSucceededCallback = Future<void> Function();
+
 Future<RestaurantQrPreviewExit?> showRestaurantQrPreviewDialog({
   required BuildContext context,
   required RestaurantQrImageResult image,
   required bool isSensitive,
   bool showBack = false,
   RestaurantQrExporter? exporter,
+  RestaurantQrExportSucceededCallback? onExportSucceeded,
 }) {
   return showDialog<RestaurantQrPreviewExit>(
     context: context,
+    barrierDismissible: false,
     builder: (_) => RestaurantQrPreviewDialog(
       image: image,
       isSensitive: isSensitive,
       showBack: showBack,
       exporter: exporter,
+      onExportSucceeded: onExportSucceeded,
     ),
   );
 }
@@ -33,6 +38,7 @@ class RestaurantQrPreviewDialog extends StatefulWidget {
   final bool isSensitive;
   final bool showBack;
   final RestaurantQrExporter? exporter;
+  final RestaurantQrExportSucceededCallback? onExportSucceeded;
 
   const RestaurantQrPreviewDialog({
     super.key,
@@ -40,6 +46,7 @@ class RestaurantQrPreviewDialog extends StatefulWidget {
     required this.isSensitive,
     this.showBack = false,
     this.exporter,
+    this.onExportSucceeded,
   });
 
   @override
@@ -49,9 +56,10 @@ class RestaurantQrPreviewDialog extends StatefulWidget {
 
 class _RestaurantQrPreviewDialogState extends State<RestaurantQrPreviewDialog> {
   late RestaurantQrExporter _exporter;
-  bool _isCopying = false;
-  bool _isDownloading = false;
+  _RestaurantQrExportOperation? _activeOperation;
   String? _statusMessage;
+
+  bool get _isExporting => _activeOperation != null;
 
   @override
   void initState() {
@@ -68,18 +76,48 @@ class _RestaurantQrPreviewDialogState extends State<RestaurantQrPreviewDialog> {
   }
 
   Future<void> _copyImage() async {
-    if (_isCopying) {
+    await _runExport(_RestaurantQrExportOperation.copy);
+  }
+
+  Future<void> _downloadImage() async {
+    await _runExport(_RestaurantQrExportOperation.download);
+  }
+
+  Future<void> _runExport(_RestaurantQrExportOperation operation) async {
+    if (_isExporting) {
       return;
     }
     setState(() {
-      _isCopying = true;
+      _activeOperation = operation;
       _statusMessage = null;
     });
     try {
-      await _exporter.copyPng(widget.image.pngBytes);
+      switch (operation) {
+        case _RestaurantQrExportOperation.copy:
+          await _exporter.copyPng(widget.image.pngBytes);
+          break;
+        case _RestaurantQrExportOperation.download:
+          await _exporter.downloadPng(
+            widget.image.pngBytes,
+            widget.image.safeFilename,
+          );
+          break;
+      }
+      if (!mounted) {
+        return;
+      }
+      final preparationSaved = await _savePreparationStatus();
       if (mounted) {
         setState(() {
-          _statusMessage = 'QR image copied.';
+          _statusMessage = switch ((operation, preparationSaved)) {
+            (_RestaurantQrExportOperation.copy, true) => 'QR image copied.',
+            (_RestaurantQrExportOperation.copy, false) =>
+              'QR image copied, but preparation status could not be saved.',
+            (_RestaurantQrExportOperation.download, true) =>
+              'QR image download started.',
+            (_RestaurantQrExportOperation.download, false) =>
+              'QR image download started, but preparation status could not be saved.',
+          };
         });
       }
     } on RestaurantQrExportException catch (error) {
@@ -91,54 +129,30 @@ class _RestaurantQrPreviewDialogState extends State<RestaurantQrPreviewDialog> {
     } catch (_) {
       if (mounted) {
         setState(() {
-          _statusMessage = 'Could not copy the QR image.';
+          _statusMessage = operation == _RestaurantQrExportOperation.copy
+              ? 'Could not copy the QR image.'
+              : 'Could not download the QR image.';
         });
       }
     } finally {
       if (mounted) {
         setState(() {
-          _isCopying = false;
+          _activeOperation = null;
         });
       }
     }
   }
 
-  Future<void> _downloadImage() async {
-    if (_isDownloading) {
-      return;
+  Future<bool> _savePreparationStatus() async {
+    final callback = widget.onExportSucceeded;
+    if (callback == null) {
+      return true;
     }
-    setState(() {
-      _isDownloading = true;
-      _statusMessage = null;
-    });
     try {
-      await _exporter.downloadPng(
-        widget.image.pngBytes,
-        widget.image.safeFilename,
-      );
-      if (mounted) {
-        setState(() {
-          _statusMessage = 'QR image download started.';
-        });
-      }
-    } on RestaurantQrExportException catch (error) {
-      if (mounted) {
-        setState(() {
-          _statusMessage = error.message;
-        });
-      }
+      await callback();
+      return true;
     } catch (_) {
-      if (mounted) {
-        setState(() {
-          _statusMessage = 'Could not download the QR image.';
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isDownloading = false;
-        });
-      }
+      return false;
     }
   }
 
@@ -152,102 +166,119 @@ class _RestaurantQrPreviewDialogState extends State<RestaurantQrPreviewDialog> {
         ? capabilities.copyUnavailableReason
         : null;
 
-    return AlertDialog(
-      key: const ValueKey('restaurant-qr-preview-dialog'),
-      scrollable: true,
-      insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-      title: const Text('QR Image Preview'),
-      content: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 600),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Semantics(
-              label: 'Print-ready restaurant QR image preview',
-              image: true,
-              child: Image.memory(
-                widget.image.pngBytes,
-                key: const ValueKey('restaurant-qr-preview-image'),
-                fit: BoxFit.contain,
-                gaplessPlayback: true,
-                filterQuality: FilterQuality.none,
-              ),
-            ),
-            if (widget.isSensitive) ...[
-              const SizedBox(height: 16),
-              Container(
-                key: const ValueKey('restaurant-qr-sensitive-warning'),
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.errorContainer,
-                  borderRadius: BorderRadius.circular(12),
+    return PopScope(
+      canPop: !_isExporting,
+      child: AlertDialog(
+        key: const ValueKey('restaurant-qr-preview-dialog'),
+        scrollable: true,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
+        title: const Text('QR Image Preview'),
+        content: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Semantics(
+                label: 'Print-ready restaurant QR image preview',
+                image: true,
+                child: Image.memory(
+                  widget.image.pngBytes,
+                  key: const ValueKey('restaurant-qr-preview-image'),
+                  fit: BoxFit.contain,
+                  gaplessPlayback: true,
+                  filterQuality: FilterQuality.none,
                 ),
-                child: Text(
-                  RestaurantQrPreviewDialog.sensitiveWarning,
-                  style: TextStyle(
-                    color: Theme.of(context).colorScheme.onErrorContainer,
+              ),
+              if (widget.isSensitive) ...[
+                const SizedBox(height: 16),
+                Container(
+                  key: const ValueKey('restaurant-qr-sensitive-warning'),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.errorContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    RestaurantQrPreviewDialog.sensitiveWarning,
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onErrorContainer,
+                    ),
                   ),
                 ),
-              ),
+              ],
+              if (unavailableMessage != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  unavailableMessage,
+                  key: const ValueKey('restaurant-qr-export-unavailable'),
+                ),
+              ],
+              if (_statusMessage != null) ...[
+                const SizedBox(height: 12),
+                Text(
+                  _statusMessage!,
+                  key: const ValueKey('restaurant-qr-export-status'),
+                ),
+              ],
             ],
-            if (unavailableMessage != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                unavailableMessage,
-                key: const ValueKey('restaurant-qr-export-unavailable'),
-              ),
-            ],
-            if (_statusMessage != null) ...[
-              const SizedBox(height: 12),
-              Text(
-                _statusMessage!,
-                key: const ValueKey('restaurant-qr-export-status'),
-              ),
-            ],
-          ],
+          ),
         ),
+        actions: [
+          if (widget.showBack)
+            TextButton.icon(
+              key: const ValueKey('restaurant-qr-preview-back'),
+              onPressed: _isExporting
+                  ? null
+                  : () =>
+                        Navigator.of(context).pop(RestaurantQrPreviewExit.back),
+              icon: const Icon(Icons.arrow_back),
+              label: const Text('Back'),
+            ),
+          TextButton(
+            key: const ValueKey('restaurant-qr-preview-close'),
+            onPressed: _isExporting
+                ? null
+                : () =>
+                      Navigator.of(context).pop(RestaurantQrPreviewExit.close),
+            child: const Text('Close'),
+          ),
+          if (capabilities.canCopyImage)
+            OutlinedButton.icon(
+              key: const ValueKey('restaurant-qr-copy-image'),
+              onPressed: _isExporting ? null : _copyImage,
+              icon: _activeOperation == _RestaurantQrExportOperation.copy
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.copy_all_outlined),
+              label: Text(
+                _activeOperation == _RestaurantQrExportOperation.copy
+                    ? 'Copying...'
+                    : 'Copy Image',
+              ),
+            ),
+          if (capabilities.canDownloadPng)
+            FilledButton.icon(
+              key: const ValueKey('restaurant-qr-download-png'),
+              onPressed: _isExporting ? null : _downloadImage,
+              icon: _activeOperation == _RestaurantQrExportOperation.download
+                  ? const SizedBox.square(
+                      dimension: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.download_outlined),
+              label: Text(
+                _activeOperation == _RestaurantQrExportOperation.download
+                    ? 'Downloading...'
+                    : 'Download PNG',
+              ),
+            ),
+        ],
       ),
-      actions: [
-        if (widget.showBack)
-          TextButton.icon(
-            key: const ValueKey('restaurant-qr-preview-back'),
-            onPressed: () =>
-                Navigator.of(context).pop(RestaurantQrPreviewExit.back),
-            icon: const Icon(Icons.arrow_back),
-            label: const Text('Back'),
-          ),
-        TextButton(
-          key: const ValueKey('restaurant-qr-preview-close'),
-          onPressed: () =>
-              Navigator.of(context).pop(RestaurantQrPreviewExit.close),
-          child: const Text('Close'),
-        ),
-        if (capabilities.canCopyImage)
-          OutlinedButton.icon(
-            key: const ValueKey('restaurant-qr-copy-image'),
-            onPressed: _isCopying ? null : _copyImage,
-            icon: _isCopying
-                ? const SizedBox.square(
-                    dimension: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.copy_all_outlined),
-            label: Text(_isCopying ? 'Copying...' : 'Copy Image'),
-          ),
-        if (capabilities.canDownloadPng)
-          FilledButton.icon(
-            key: const ValueKey('restaurant-qr-download-png'),
-            onPressed: _isDownloading ? null : _downloadImage,
-            icon: _isDownloading
-                ? const SizedBox.square(
-                    dimension: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.download_outlined),
-            label: Text(_isDownloading ? 'Downloading...' : 'Download PNG'),
-          ),
-      ],
     );
   }
 }
+
+enum _RestaurantQrExportOperation { copy, download }

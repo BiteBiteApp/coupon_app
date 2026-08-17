@@ -119,14 +119,28 @@ export function couponInviteRestaurantIdentity(
   rawRestaurantId: unknown,
   inviteId: string,
 ): { restaurantId: string | null; pendingRestaurantKey: string | null } {
-  const restaurantId =
-    typeof rawRestaurantId === "string" && rawRestaurantId.trim()
-      ? rawRestaurantId.trim()
-      : null;
+  const safeInviteId = readBiteScoreCatalogRestaurantId(inviteId);
+  if (safeInviteId === null) {
+    throw new TypeError("A valid invitation document ID is required.");
+  }
+  if (
+    rawRestaurantId === null ||
+    rawRestaurantId === undefined ||
+    rawRestaurantId === ""
+  ) {
+    return {
+      restaurantId: null,
+      pendingRestaurantKey: `pending_${safeInviteId}`,
+    };
+  }
+  const restaurantId = readBiteScoreCatalogRestaurantId(rawRestaurantId);
+  if (restaurantId === null) {
+    throw new TypeError("A valid restaurant document ID is required.");
+  }
 
   return {
     restaurantId,
-    pendingRestaurantKey: restaurantId ? null : `pending_${inviteId}`,
+    pendingRestaurantKey: null,
   };
 }
 

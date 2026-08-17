@@ -1299,6 +1299,590 @@ void main() {
   });
 
   testWidgets(
+    'preparation chips render all states and manual updates fail safely',
+    (tester) async {
+      final updates =
+          <
+            ({
+              String catalogRestaurantId,
+              AdminRestaurantPreparationType type,
+              bool prepared,
+              String? expectedInviteId,
+            })
+          >[];
+      await _pumpScreen(
+        tester,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+            }) async => _result(
+              records: [
+                _biteScoreRecord(
+                  documentId: 'preparation-doc',
+                  preparation: _preparationState(
+                    'preparation-doc',
+                    ownerInvite: AdminRestaurantPreparationStatus.prepared,
+                    claimInvite: AdminRestaurantPreparationStatus.unprepared,
+                    biteSaverCustomer:
+                        AdminRestaurantPreparationStatus.prepared,
+                    biteScoreCustomer:
+                        AdminRestaurantPreparationStatus.unprepared,
+                  ),
+                ),
+              ],
+            ),
+        updatePreparation:
+            ({
+              required catalogRestaurantId,
+              required type,
+              required prepared,
+              required biteSaverCatalogBindingState,
+              required claimState,
+              expectedInviteId,
+            }) async {
+              updates.add((
+                catalogRestaurantId: catalogRestaurantId,
+                type: type,
+                prepared: prepared,
+                expectedInviteId: expectedInviteId,
+              ));
+              if (type == AdminRestaurantPreparationType.ownerInvite) {
+                throw const AdminLinkGenerationException(
+                  'Preparation save was rejected safely.',
+                );
+              }
+              return _preparationState(
+                catalogRestaurantId,
+                ownerInvite: AdminRestaurantPreparationStatus.prepared,
+                claimInvite: prepared
+                    ? AdminRestaurantPreparationStatus.prepared
+                    : AdminRestaurantPreparationStatus.unprepared,
+                biteSaverCustomer: AdminRestaurantPreparationStatus.prepared,
+                biteScoreCustomer: AdminRestaurantPreparationStatus.unprepared,
+              );
+            },
+      );
+      await _submitSearch(tester);
+
+      expect(find.text('I · Prepared'), findsOneWidget);
+      expect(find.text('C · Unprepared'), findsOneWidget);
+      expect(find.text('SA · Prepared'), findsOneWidget);
+      expect(find.text('SR · Unprepared'), findsOneWidget);
+
+      final claimChip = find.byKey(
+        const ValueKey('biteScore:preparation-doc:preparation-C'),
+      );
+      await tester.ensureVisible(claimChip);
+      await tester.tap(claimChip);
+      await tester.pumpAndSettle();
+      expect(updates.single, (
+        catalogRestaurantId: 'preparation-doc',
+        type: AdminRestaurantPreparationType.claimInvite,
+        prepared: true,
+        expectedInviteId: null,
+      ));
+      expect(find.text('C · Prepared'), findsOneWidget);
+
+      final ownerChip = find.byKey(
+        const ValueKey('biteScore:preparation-doc:preparation-I'),
+      );
+      await tester.ensureVisible(ownerChip);
+      await tester.tap(ownerChip);
+      await tester.pumpAndSettle();
+      expect(updates, hasLength(2));
+      expect(
+        find.text('Preparation save was rejected safely.'),
+        findsOneWidget,
+      );
+      expect(find.text('I · Prepared'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'only successful QR export marks exact permanent and invite types',
+    (tester) async {
+      final updates =
+          <
+            ({
+              String catalogRestaurantId,
+              AdminRestaurantPreparationType type,
+              bool prepared,
+              String? expectedInviteId,
+            })
+          >[];
+      final exporter = RestaurantQrExporter(
+        capabilities: const RestaurantQrExportCapabilities(
+          canCopyImage: true,
+          canDownloadPng: true,
+        ),
+        copyPng: (_) async {},
+        downloadPng: (_, _) async {},
+      );
+      await _pumpScreen(
+        tester,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+            }) async => _result(
+              records: [
+                _biteScoreRecord(
+                  documentId: 'export-doc',
+                  preparation: _preparationState('export-doc'),
+                ),
+                _biteSaverRecord(
+                  documentId: 'account-document-id',
+                  actionId: 'account-uid',
+                  approvalStatus: 'approved',
+                ),
+              ],
+            ),
+        createCouponInvite:
+            ({
+              required restaurantName,
+              required restaurantId,
+              required biteScoreCatalogRestaurantId,
+              required streetAddress,
+              required city,
+              required state,
+              required zipCode,
+              required phone,
+              required website,
+              required latitude,
+              required longitude,
+            }) async => _invite(
+              'https://go.bitestar.app/invite/coupon/exact-token',
+              inviteId: 'owner-invite-id',
+            ),
+        createClaimInvite: ({required restaurantId}) async => _invite(
+          'https://go.bitestar.app/invite/bitescore/exact-token',
+          inviteId: 'claim-invite-id',
+        ),
+        writeClipboard: (_) async {},
+        renderQrImage:
+            ({
+              required restaurantName,
+              required url,
+              required linkType,
+            }) async => _qrImage(restaurantName, linkType),
+        qrExporter: exporter,
+        updatePreparation:
+            ({
+              required catalogRestaurantId,
+              required type,
+              required prepared,
+              required biteSaverCatalogBindingState,
+              required claimState,
+              expectedInviteId,
+            }) async {
+              updates.add((
+                catalogRestaurantId: catalogRestaurantId,
+                type: type,
+                prepared: prepared,
+                expectedInviteId: expectedInviteId,
+              ));
+              return _preparationState(
+                catalogRestaurantId,
+                ownerInvite: type == AdminRestaurantPreparationType.ownerInvite
+                    ? AdminRestaurantPreparationStatus.prepared
+                    : AdminRestaurantPreparationStatus.unprepared,
+                claimInvite: type == AdminRestaurantPreparationType.claimInvite
+                    ? AdminRestaurantPreparationStatus.prepared
+                    : AdminRestaurantPreparationStatus.unprepared,
+                biteSaverCustomer:
+                    type == AdminRestaurantPreparationType.biteSaverCustomer
+                    ? AdminRestaurantPreparationStatus.prepared
+                    : AdminRestaurantPreparationStatus.unprepared,
+                biteScoreCustomer:
+                    type == AdminRestaurantPreparationType.biteScoreCustomer
+                    ? AdminRestaurantPreparationStatus.prepared
+                    : AdminRestaurantPreparationStatus.unprepared,
+              );
+            },
+      );
+      await _submitSearch(tester);
+
+      final customerLink = find.byKey(
+        const ValueKey('biteScore:export-doc:customer-bitescore-link'),
+      );
+      await tester.ensureVisible(customerLink);
+      await tester.tap(customerLink);
+      await _pumpOpenDialog(tester);
+      await tester.tap(find.byKey(const ValueKey('copy-link-action')));
+      await tester.pump();
+      expect(updates, isEmpty);
+      await tester.tap(find.byKey(const ValueKey('create-link-qr')));
+      await _pumpOpenDialog(tester);
+      expect(updates, isEmpty);
+      await tester.tap(find.byKey(const ValueKey('restaurant-qr-copy-image')));
+      await tester.pump();
+      expect(updates.single, (
+        catalogRestaurantId: 'export-doc',
+        type: AdminRestaurantPreparationType.biteScoreCustomer,
+        prepared: true,
+        expectedInviteId: null,
+      ));
+      await tester.tap(
+        find.byKey(const ValueKey('restaurant-qr-preview-close')),
+      );
+      await tester.pumpAndSettle();
+
+      final biteSaverCustomerLink = find.byKey(
+        const ValueKey('biteScore:export-doc:customer-bitesaver-link'),
+      );
+      await tester.ensureVisible(biteSaverCustomerLink);
+      await tester.tap(biteSaverCustomerLink);
+      await _pumpOpenDialog(tester);
+      await tester.tap(find.byKey(const ValueKey('create-link-qr')));
+      await _pumpOpenDialog(tester);
+      expect(updates, hasLength(1));
+      await tester.tap(
+        find.byKey(const ValueKey('restaurant-qr-download-png')),
+      );
+      await tester.pump();
+      expect(updates.last, (
+        catalogRestaurantId: 'export-doc',
+        type: AdminRestaurantPreparationType.biteSaverCustomer,
+        prepared: true,
+        expectedInviteId: null,
+      ));
+      await tester.tap(
+        find.byKey(const ValueKey('restaurant-qr-preview-close')),
+      );
+      await tester.pumpAndSettle();
+
+      final ownerInvite = find.byKey(
+        const ValueKey('biteScore:export-doc:coupon-invite'),
+      );
+      await tester.ensureVisible(ownerInvite);
+      await tester.tap(ownerInvite);
+      await _pumpOpenDialog(tester);
+      expect(updates, hasLength(2));
+      await tester.tap(find.byKey(const ValueKey('create-link-qr')));
+      await _pumpOpenDialog(tester);
+      expect(updates, hasLength(2));
+      await tester.tap(find.byKey(const ValueKey('restaurant-qr-copy-image')));
+      await tester.pump();
+      expect(updates.last, (
+        catalogRestaurantId: 'export-doc',
+        type: AdminRestaurantPreparationType.ownerInvite,
+        prepared: true,
+        expectedInviteId: 'owner-invite-id',
+      ));
+      await tester.tap(
+        find.byKey(const ValueKey('restaurant-qr-preview-close')),
+      );
+      await tester.pumpAndSettle();
+
+      final claimInvite = find.byKey(
+        const ValueKey('biteScore:export-doc:claim-invite'),
+      );
+      await tester.ensureVisible(claimInvite);
+      await tester.tap(claimInvite);
+      await _pumpOpenDialog(tester);
+      await tester.tap(find.byKey(const ValueKey('create-link-qr')));
+      await _pumpOpenDialog(tester);
+      expect(updates, hasLength(3));
+      await tester.tap(
+        find.byKey(const ValueKey('restaurant-qr-download-png')),
+      );
+      await tester.pump();
+      expect(updates.last, (
+        catalogRestaurantId: 'export-doc',
+        type: AdminRestaurantPreparationType.claimInvite,
+        prepared: true,
+        expectedInviteId: 'claim-invite-id',
+      ));
+      await tester.tap(
+        find.byKey(const ValueKey('restaurant-qr-preview-close')),
+      );
+      await tester.pumpAndSettle();
+
+      final accountCustomerLink = find.byKey(
+        const ValueKey('biteSaver:account-document-id:customer-bitesaver-link'),
+      );
+      await tester.ensureVisible(accountCustomerLink);
+      await tester.tap(accountCustomerLink);
+      await _pumpOpenDialog(tester);
+      await tester.tap(find.byKey(const ValueKey('create-link-qr')));
+      await _pumpOpenDialog(tester);
+      await tester.tap(find.byKey(const ValueKey('restaurant-qr-copy-image')));
+      await tester.pump();
+      expect(updates, hasLength(4));
+    },
+  );
+
+  testWidgets('preparation busy state locks every type for one restaurant', (
+    tester,
+  ) async {
+    final completer = Completer<AdminRestaurantPreparationState>();
+    await _pumpScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+          }) async => _result(
+            records: [
+              _biteScoreRecord(
+                documentId: 'preparation-busy',
+                preparation: _preparationState('preparation-busy'),
+              ),
+            ],
+          ),
+      updatePreparation:
+          ({
+            required catalogRestaurantId,
+            required type,
+            required prepared,
+            required biteSaverCatalogBindingState,
+            required claimState,
+            expectedInviteId,
+          }) => completer.future,
+    );
+    await _submitSearch(tester);
+
+    final saChip = find.byKey(
+      const ValueKey('biteScore:preparation-busy:preparation-SA'),
+    );
+    final srChip = find.byKey(
+      const ValueKey('biteScore:preparation-busy:preparation-SR'),
+    );
+    await tester.ensureVisible(saChip);
+    await tester.tap(saChip);
+    await tester.pump();
+
+    expect(tester.widget<FilterChip>(saChip).onSelected, isNull);
+    expect(tester.widget<FilterChip>(srChip).onSelected, isNull);
+    expect(
+      find.descendant(
+        of: saChip,
+        matching: find.byType(CircularProgressIndicator),
+      ),
+      findsOneWidget,
+    );
+
+    completer.complete(
+      _preparationState(
+        'preparation-busy',
+        biteSaverCustomer: AdminRestaurantPreparationStatus.prepared,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('SA · Prepared'), findsOneWidget);
+  });
+
+  testWidgets(
+    'one canonical lock prevents overlap and updates duplicate rows together',
+    (tester) async {
+      final completer = Completer<AdminRestaurantPreparationState>();
+      var calls = 0;
+      final duplicatedRecord = _biteScoreRecord(
+        documentId: 'duplicate-canonical',
+        preparation: _preparationState('duplicate-canonical'),
+      );
+      await _pumpScreen(
+        tester,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+            }) async => _result(records: [duplicatedRecord, duplicatedRecord]),
+        updatePreparation:
+            ({
+              required catalogRestaurantId,
+              required type,
+              required prepared,
+              required biteSaverCatalogBindingState,
+              required claimState,
+              expectedInviteId,
+            }) {
+              calls += 1;
+              return completer.future;
+            },
+      );
+      await _submitSearch(tester);
+
+      final saChips = find.byKey(
+        const ValueKey('biteScore:duplicate-canonical:preparation-SA'),
+      );
+      final srChips = find.byKey(
+        const ValueKey('biteScore:duplicate-canonical:preparation-SR'),
+      );
+      expect(saChips, findsNWidgets(2));
+      await tester.ensureVisible(saChips.first);
+      await tester.tap(saChips.first);
+      await tester.pump();
+
+      expect(calls, 1);
+      for (final chip in tester.widgetList<FilterChip>(srChips)) {
+        expect(chip.onSelected, isNull);
+      }
+      await tester.tap(srChips.last);
+      await tester.pump();
+      expect(calls, 1);
+
+      completer.complete(
+        _preparationState(
+          'duplicate-canonical',
+          biteSaverCustomer: AdminRestaurantPreparationStatus.prepared,
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('SA · Prepared'), findsNWidgets(2));
+    },
+  );
+
+  testWidgets('a delayed mutation cannot overwrite a newer search generation', (
+    tester,
+  ) async {
+    final mutation = Completer<AdminRestaurantPreparationState>();
+    var searchCalls = 0;
+    await _pumpScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+          }) async {
+            searchCalls += 1;
+            return _result(
+              records: [
+                _biteScoreRecord(
+                  documentId: 'generation-safe',
+                  preparation: _preparationState(
+                    'generation-safe',
+                    biteScoreCustomer: searchCalls == 1
+                        ? AdminRestaurantPreparationStatus.unprepared
+                        : AdminRestaurantPreparationStatus.prepared,
+                  ),
+                ),
+              ],
+            );
+          },
+      updatePreparation:
+          ({
+            required catalogRestaurantId,
+            required type,
+            required prepared,
+            required biteSaverCatalogBindingState,
+            required claimState,
+            expectedInviteId,
+          }) => mutation.future,
+    );
+    await _submitSearch(tester);
+
+    final saChip = find.byKey(
+      const ValueKey('biteScore:generation-safe:preparation-SA'),
+    );
+    await tester.ensureVisible(saChip);
+    await tester.tap(saChip);
+    await tester.pump();
+
+    final searchButton = find.byKey(const ValueKey('admin-link-search-button'));
+    await tester.ensureVisible(searchButton);
+    await tester.tap(searchButton);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(searchCalls, 2);
+    expect(find.text('SR · Prepared'), findsOneWidget);
+
+    mutation.complete(
+      _preparationState(
+        'generation-safe',
+        biteSaverCustomer: AdminRestaurantPreparationStatus.prepared,
+        biteScoreCustomer: AdminRestaurantPreparationStatus.unprepared,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('SA · Unprepared'), findsOneWidget);
+    expect(find.text('SR · Prepared'), findsOneWidget);
+  });
+
+  testWidgets('tracking completion after screen disposal is context safe', (
+    tester,
+  ) async {
+    final mutation = Completer<AdminRestaurantPreparationState>();
+    var mutationCalls = 0;
+    await _pumpScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+          }) async => _result(
+            records: [
+              _biteScoreRecord(
+                documentId: 'dispose-safe',
+                preparation: _preparationState('dispose-safe'),
+              ),
+            ],
+          ),
+      renderQrImage:
+          ({required restaurantName, required url, required linkType}) async =>
+              _qrImage(restaurantName, linkType),
+      qrExporter: RestaurantQrExporter(
+        capabilities: const RestaurantQrExportCapabilities(
+          canCopyImage: true,
+          canDownloadPng: false,
+        ),
+        copyPng: (_) async {},
+        downloadPng: (_, _) async {},
+      ),
+      updatePreparation:
+          ({
+            required catalogRestaurantId,
+            required type,
+            required prepared,
+            required biteSaverCatalogBindingState,
+            required claimState,
+            expectedInviteId,
+          }) {
+            mutationCalls += 1;
+            return mutation.future;
+          },
+    );
+    await _submitSearch(tester);
+
+    final customerLink = find.byKey(
+      const ValueKey('biteScore:dispose-safe:customer-bitescore-link'),
+    );
+    await tester.ensureVisible(customerLink);
+    await tester.tap(customerLink);
+    await _pumpOpenDialog(tester);
+    await tester.tap(find.byKey(const ValueKey('create-link-qr')));
+    await _pumpOpenDialog(tester);
+    await tester.tap(find.byKey(const ValueKey('restaurant-qr-copy-image')));
+    await tester.pump();
+    expect(mutationCalls, 1);
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    mutation.complete(
+      _preparationState(
+        'dispose-safe',
+        biteScoreCustomer: AdminRestaurantPreparationStatus.prepared,
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
     'dialog QR busy state prevents duplicates without blocking peers or copy',
     (tester) async {
       final completer = Completer<RestaurantQrImageResult>();
@@ -1511,6 +2095,7 @@ Future<void> _pumpScreen(
   AdminClipboardWriteCallback? writeClipboard,
   AdminQrImageRenderCallback? renderQrImage,
   RestaurantQrExporter? qrExporter,
+  AdminPreparationUpdateCallback? updatePreparation,
   double textScale = 1,
   bool configureView = true,
 }) async {
@@ -1536,6 +2121,7 @@ Future<void> _pumpScreen(
           writeClipboard: writeClipboard,
           renderQrImage: renderQrImage,
           qrExporter: qrExporter ?? _unsupportedQrExporter(),
+          updatePreparation: updatePreparation,
         ),
       ),
     ),
@@ -1594,6 +2180,8 @@ AdminRestaurantLinkRecord _biteScoreRecord({
   bool? claimStateValid,
   AdminBiteSaverCatalogBindingState biteSaverCatalogBindingState =
       AdminBiteSaverCatalogBindingState.unbound,
+  AdminRestaurantPreparationState preparation =
+      const AdminRestaurantPreparationState.unavailable(),
 }) {
   final resolvedOwnerUserId = ownerUserId ?? (isClaimed ? 'owner-1' : null);
   final validlyClaimed =
@@ -1622,6 +2210,27 @@ AdminRestaurantLinkRecord _biteScoreRecord({
         claimStateValid ?? (isActive && (strictlyUnclaimed || validlyClaimed)),
     ownerUserId: resolvedOwnerUserId,
     biteSaverCatalogBindingState: biteSaverCatalogBindingState,
+    preparation: preparation,
+  );
+}
+
+AdminRestaurantPreparationState _preparationState(
+  String catalogRestaurantId, {
+  AdminRestaurantPreparationStatus ownerInvite =
+      AdminRestaurantPreparationStatus.unprepared,
+  AdminRestaurantPreparationStatus claimInvite =
+      AdminRestaurantPreparationStatus.unprepared,
+  AdminRestaurantPreparationStatus biteSaverCustomer =
+      AdminRestaurantPreparationStatus.unprepared,
+  AdminRestaurantPreparationStatus biteScoreCustomer =
+      AdminRestaurantPreparationStatus.unprepared,
+}) {
+  return AdminRestaurantPreparationState(
+    canonicalCatalogRestaurantId: catalogRestaurantId,
+    ownerInvite: ownerInvite,
+    claimInvite: claimInvite,
+    biteSaverCustomer: biteSaverCustomer,
+    biteScoreCustomer: biteScoreCustomer,
   );
 }
 
@@ -1689,9 +2298,12 @@ RestaurantQrExporter _unsupportedQrExporter() {
   );
 }
 
-RestaurantInviteCreationResult _invite(String url) {
+RestaurantInviteCreationResult _invite(
+  String url, {
+  String inviteId = 'invite-id',
+}) {
   return RestaurantInviteCreationResult(
-    inviteId: 'invite-id',
+    inviteId: inviteId,
     token: 'not-persisted',
     inviteUrl: url,
     expiresAt: null,

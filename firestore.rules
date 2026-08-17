@@ -521,6 +521,58 @@ service cloud.firestore {
         data.ownerUserId == ownerUserId;
     }
 
+    function validAdminBiteScoreClaimInvitationEpochTransition() {
+      return isAdmin() &&
+        resource.data.keys().hasAll(['isClaimed', 'ownerUserId']) &&
+        resource.data.isClaimed is bool &&
+        resource.data.isClaimed == true &&
+        resource.data.ownerUserId is string &&
+        resource.data.ownerUserId.size() > 0 &&
+        request.resource.data.keys().hasAll(['isClaimed', 'ownerUserId']) &&
+        request.resource.data.isClaimed is bool &&
+        request.resource.data.isClaimed == false &&
+        request.resource.data.ownerUserId == null &&
+        strictUnclaimedBiteScoreRestaurant(request.resource.data) &&
+        changedKeys().hasAll([
+          'ownerUserId',
+          'isClaimed',
+          'claimInvitationEpochAt',
+          'restaurantWriteRevision',
+          'updatedAt'
+        ]) &&
+        changedKeys().hasOnly([
+          'ownerUserId',
+          'isClaimed',
+          'claimInvitationEpochAt',
+          'restaurantWriteRevision',
+          'updatedAt'
+        ]) &&
+        request.resource.data.claimInvitationEpochAt is timestamp &&
+        request.resource.data.claimInvitationEpochAt == request.time &&
+        (
+          !resource.data.keys().hasAny(['claimInvitationEpochAt']) ||
+          (
+            resource.data.claimInvitationEpochAt is timestamp &&
+            request.resource.data.claimInvitationEpochAt >
+              resource.data.claimInvitationEpochAt
+          )
+        );
+    }
+
+    function validBiteScoreClaimInvitationEpochUpdate() {
+      return (
+          !changedKeys().hasAny(['claimInvitationEpochAt']) &&
+          !(
+            resource.data.keys().hasAll(['isClaimed', 'ownerUserId']) &&
+            resource.data.isClaimed is bool &&
+            resource.data.isClaimed == true &&
+            resource.data.ownerUserId is string &&
+            resource.data.ownerUserId.size() > 0 &&
+            strictUnclaimedBiteScoreRestaurant(request.resource.data)
+          )
+        ) || validAdminBiteScoreClaimInvitationEpochTransition();
+    }
+
     function canCreatePublicBiteScoreRestaurant(restaurantId) {
       return emailVerified() &&
         request.resource.data.id == restaurantId &&
@@ -1187,6 +1239,7 @@ service cloud.firestore {
       allow read: if true;
       allow create: if
         !request.resource.data.keys().hasAny(biteScoreCatalogBindingFields()) &&
+        !request.resource.data.keys().hasAny(['claimInvitationEpochAt']) &&
         restaurantOperationLockAllowsMutation(restaurantId) &&
         validBiteScoreRestaurantCreateRevision() &&
         (
@@ -1195,6 +1248,7 @@ service cloud.firestore {
         );
       allow update: if
         !changedKeys().hasAny(biteScoreCatalogBindingFields()) &&
+        validBiteScoreClaimInvitationEpochUpdate() &&
         restaurantOperationLockAllowsMutation(restaurantId) &&
         validBiteScoreRestaurantUpdateRevision() &&
         (
@@ -1472,6 +1526,10 @@ service cloud.firestore {
     }
 
     match /restaurant_invites/{inviteId} {
+      allow read, write: if false;
+    }
+
+    match /private_admin_restaurant_qr_preparation/{restaurantId} {
       allow read, write: if false;
     }
 

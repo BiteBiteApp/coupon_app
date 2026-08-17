@@ -838,6 +838,14 @@ async function seedFirestore() {
       createdAt: seededAt,
       expiresAt: new Date("2026-04-01T00:00:00.000Z"),
     });
+    batch.set(
+      db.doc("private_admin_restaurant_qr_preparation/bs-1"),
+      {
+        schemaVersion: 1,
+        saPrepared: true,
+        srPrepared: false,
+      },
+    );
     batch.set(db.doc("bitescore_contribution_point_ledger/entry-1"), {
       id: "entry-1",
       userId: "customer-a",
@@ -3085,6 +3093,192 @@ test("stale restaurant unclaim update is rejected", async () => {
   assert.equal(currentData.restaurantWriteRevision, 5);
 });
 
+test("safe Admin unclaim requires and locks a server-time claim invitation epoch", async () => {
+  const restaurantRef = dbFor("admin").doc("bitescore_restaurants/bs-1");
+
+  await assertFails(
+    restaurantRef.set(
+      {
+        ownerUserId: null,
+        isClaimed: false,
+        restaurantWriteRevision: 5,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+  await assertFails(
+    restaurantRef.set(
+      {
+        ownerUserId: firebase.firestore.FieldValue.delete(),
+        isClaimed: firebase.firestore.FieldValue.delete(),
+        restaurantWriteRevision: 5,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+  await assertFails(
+    restaurantRef.set(
+      {
+        ownerUserId: firebase.firestore.FieldValue.delete(),
+        isClaimed: firebase.firestore.FieldValue.delete(),
+        claimInvitationEpochAt: serverTimestamp(),
+        restaurantWriteRevision: 5,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+  await assertFails(
+    restaurantRef.set(
+      {
+        ownerUserId: null,
+        isClaimed: false,
+        claimInvitationEpochAt: new Date("2026-01-02T00:00:00.000Z"),
+        restaurantWriteRevision: 5,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+
+  await assertSucceeds(
+    restaurantRef.set(
+      {
+        ownerUserId: null,
+        isClaimed: false,
+        claimInvitationEpochAt: serverTimestamp(),
+        restaurantWriteRevision: 5,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+  const unclaimed = (await restaurantRef.get()).data();
+  assert.equal(unclaimed.isClaimed, false);
+  assert.equal(unclaimed.ownerUserId, null);
+  assert.ok(
+    unclaimed.claimInvitationEpochAt instanceof firebase.firestore.Timestamp,
+  );
+  const epochMillis = unclaimed.claimInvitationEpochAt.toMillis();
+
+  await assertSucceeds(
+    restaurantRef.set(
+      {
+        phone: "555-0177",
+        restaurantWriteRevision: 6,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+  assert.equal(
+    (await restaurantRef.get()).data().claimInvitationEpochAt.toMillis(),
+    epochMillis,
+  );
+  await assertFails(
+    restaurantRef.set(
+      {
+        claimInvitationEpochAt: serverTimestamp(),
+        restaurantWriteRevision: 7,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+});
+
+test("claim invitation epoch is absent on create and advances only on safe unclaim", async () => {
+  const createId = "client-created-claim-epoch";
+  const adminDb = dbFor("admin");
+  await assertFails(
+    adminDb.doc(`bitescore_restaurants/${createId}`).set({
+      id: createId,
+      name: "Forged Epoch Cafe",
+      restaurantWriteRevision: 0,
+      claimInvitationEpochAt: serverTimestamp(),
+    }),
+  );
+
+  const restaurantPath = "bitescore_restaurants/repeated-safe-unclaim";
+  const originalEpoch = new Date("2026-01-01T00:00:00.000Z");
+  await seedRuleTestDocuments([{
+    documentPath: restaurantPath,
+    data: {
+      id: "repeated-safe-unclaim",
+      name: "Repeated Safe Unclaim Cafe",
+      ownerUserId: "bitescore-owner",
+      isClaimed: true,
+      claimInvitationEpochAt: originalEpoch,
+      restaurantWriteRevision: 8,
+    },
+  }]);
+  const restaurantRef = adminDb.doc(restaurantPath);
+  await assertFails(
+    dbFor("biteScoreOwner").doc(restaurantPath).set(
+      {
+        claimInvitationEpochAt: serverTimestamp(),
+        restaurantWriteRevision: 9,
+      },
+      { merge: true },
+    ),
+  );
+  await assertSucceeds(
+    restaurantRef.set(
+      {
+        ownerUserId: null,
+        isClaimed: false,
+        claimInvitationEpochAt: serverTimestamp(),
+        restaurantWriteRevision: 9,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+  const nextEpoch = (await restaurantRef.get()).data().claimInvitationEpochAt;
+  assert.ok(nextEpoch.toMillis() > originalEpoch.getTime());
+});
+
+test("safe Admin unclaim advances the epoch while a restaurant is hidden", async () => {
+  const restaurantPath = "bitescore_restaurants/hidden-safe-unclaim";
+  await seedRuleTestDocuments([{
+    documentPath: restaurantPath,
+    data: {
+      id: "hidden-safe-unclaim",
+      name: "Hidden Safe Unclaim Cafe",
+      isActive: false,
+      active: false,
+      ownerUserId: "bitescore-owner",
+      isClaimed: true,
+      restaurantWriteRevision: 8,
+    },
+  }]);
+
+  const restaurantRef = dbFor("admin").doc(restaurantPath);
+  await assertSucceeds(
+    restaurantRef.set(
+      {
+        ownerUserId: null,
+        isClaimed: false,
+        claimInvitationEpochAt: serverTimestamp(),
+        restaurantWriteRevision: 9,
+        updatedAt: serverTimestamp(),
+      },
+      { merge: true },
+    ),
+  );
+
+  const unclaimed = (await restaurantRef.get()).data();
+  assert.equal(unclaimed.isActive, false);
+  assert.equal(unclaimed.active, false);
+  assert.equal(unclaimed.isClaimed, false);
+  assert.equal(unclaimed.ownerUserId, null);
+  assert.ok(
+    unclaimed.claimInvitationEpochAt instanceof firebase.firestore.Timestamp,
+  );
+});
+
 test("restaurant revision preserves owner and Admin authorization and isolation", async () => {
   await seedRuleTestDocuments([
     {
@@ -3537,6 +3731,21 @@ test("client writes to restaurant_invites are denied", async () => {
       createdAt: serverTimestamp(),
     }),
   );
+});
+
+test("all clients are denied QR preparation reads and writes", async () => {
+  for (const actor of [
+    "unauthenticated",
+    "customer",
+    "restaurantOwner",
+    "admin",
+  ]) {
+    const document = dbFor(actor).doc(
+      "private_admin_restaurant_qr_preparation/bs-1",
+    );
+    await assertFails(document.get());
+    await assertFails(document.set({ schemaVersion: 1, saPrepared: false }));
+  }
 });
 
 test("client writes to contribution ledger are denied", async () => {

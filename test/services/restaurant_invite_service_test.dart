@@ -22,6 +22,17 @@ void main() {
         DateTime.fromMillisecondsSinceEpoch(1767225600000),
       );
     });
+
+    test('rejects a response invitation ID that would require trimming', () {
+      expect(
+        () => RestaurantInviteCreationResult.fromCallableData({
+          'inviteId': ' invite_123 ',
+          'token': 'plain-token',
+          'inviteUrl': 'https://go.bitestar.app/invite/coupon/plain-token',
+        }),
+        throwsFormatException,
+      );
+    });
   });
 
   group('RestaurantInviteAdminEntry', () {
@@ -77,6 +88,31 @@ void main() {
       expect(entry.usedByEmail, 'owner@example.com');
       expect(entry.isActive, isTrue);
     });
+
+    test('rejects malformed Admin-entry document identities', () {
+      final base = <String, Object?>{
+        'id': 'invite_123',
+        'type': 'coupon_invite',
+        'side': 'coupon',
+        'status': 'active',
+        'restaurantId': 'restaurant_123',
+        'pendingRestaurantKey': '',
+        'restaurantName': 'Test Restaurant',
+      };
+      for (final entry in <MapEntry<String, String>>[
+        const MapEntry('id', ' invite_123'),
+        const MapEntry('restaurantId', 'restaurant_123 '),
+        const MapEntry('pendingRestaurantKey', 'pending/key'),
+      ]) {
+        expect(
+          () => RestaurantInviteAdminEntry.fromCallableData({
+            ...base,
+            entry.key: entry.value,
+          }),
+          throwsFormatException,
+        );
+      }
+    });
   });
 
   group('RestaurantInviteService', () {
@@ -96,6 +132,45 @@ void main() {
         RestaurantInviteService.createBiteScoreClaimInvite(restaurantId: ''),
         throwsArgumentError,
       );
+    });
+
+    test('rejects aliased restaurant and invitation document IDs', () async {
+      const invalidIds = <String>[
+        ' restaurant-id',
+        'restaurant-id ',
+        '',
+        '   ',
+        'restaurant/id',
+        '.',
+        '..',
+      ];
+
+      for (final invalidId in invalidIds) {
+        await expectLater(
+          RestaurantInviteService.createCouponInvite(
+            restaurantName: 'River Grill',
+            restaurantId: invalidId,
+          ),
+          throwsArgumentError,
+        );
+        await expectLater(
+          RestaurantInviteService.createCouponInvite(
+            restaurantName: 'River Grill',
+            biteScoreCatalogRestaurantId: invalidId,
+          ),
+          throwsArgumentError,
+        );
+        await expectLater(
+          RestaurantInviteService.createBiteScoreClaimInvite(
+            restaurantId: invalidId,
+          ),
+          throwsArgumentError,
+        );
+        await expectLater(
+          RestaurantInviteService.revokeInvite(invalidId),
+          throwsArgumentError,
+        );
+      }
     });
 
     test('parses double-slash coupon invite custom-scheme links', () {
@@ -324,6 +399,31 @@ void main() {
       );
       expect(preview.couponPrefill, isNull);
     });
+
+    test('rejects malformed preview document identities', () {
+      final base = <String, Object?>{
+        'inviteId': 'invite_bitescore',
+        'side': 'bitescore',
+        'type': 'bitescore_claim_invite',
+        'status': 'active',
+        'restaurantId': 'restaurant_123',
+        'pendingRestaurantKey': '',
+        'restaurantName': 'Claim Restaurant',
+      };
+      for (final entry in <MapEntry<String, String>>[
+        const MapEntry('inviteId', 'invite_bitescore '),
+        const MapEntry('restaurantId', ' restaurant_123'),
+        const MapEntry('pendingRestaurantKey', 'pending/key'),
+      ]) {
+        expect(
+          () => RestaurantInvitePreview.fromCallableData({
+            ...base,
+            entry.key: entry.value,
+          }),
+          throwsFormatException,
+        );
+      }
+    });
   });
 
   group('RestaurantInviteRedemptionResult', () {
@@ -348,6 +448,26 @@ void main() {
       expect(result.inviteId, 'invite_bitescore');
       expect(result.restaurantId, 'restaurant_123');
       expect(result.restaurantName, 'Claimed Restaurant');
+    });
+
+    test('rejects malformed redemption document identities', () {
+      for (final data in <Map<String, Object?>>[
+        {
+          'inviteId': ' invite_bitescore',
+          'restaurantId': 'restaurant_123',
+          'restaurantName': 'Claimed Restaurant',
+        },
+        {
+          'inviteId': 'invite_bitescore',
+          'restaurantId': 'restaurant/123',
+          'restaurantName': 'Claimed Restaurant',
+        },
+      ]) {
+        expect(
+          () => RestaurantInviteRedemptionResult.fromCallableData(data),
+          throwsFormatException,
+        );
+      }
     });
   });
 }

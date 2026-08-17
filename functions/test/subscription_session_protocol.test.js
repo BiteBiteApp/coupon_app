@@ -845,6 +845,8 @@ test("runtime, region, secret bindings, exports, production caller, and webhook 
     [
       ...exportedConstants(baseSource),
       "claimBiteSaverSubscriptionReturnEvent",
+      "updateAdminRestaurantQrPreparation",
+      "maintainAdminRestaurantQrPreparationFromBiteScoreUnclaim",
       "applyRatingAdminDishSuggestionGroup",
       "getRatingDestructiveOperationStatus",
       "listCouponAdminCouponsPage",

@@ -1,8 +1,11 @@
 import 'package:cloud_functions/cloud_functions.dart';
 
 import '../models/admin_restaurant_link_record.dart';
+import 'firestore_document_id.dart';
 
 typedef AdminRestaurantCallable =
+    Future<Object?> Function(Map<String, dynamic> payload);
+typedef AdminRestaurantPreparationCallable =
     Future<Object?> Function(Map<String, dynamic> payload);
 
 class AdminLinkGenerationException implements Exception {
@@ -73,9 +76,13 @@ class AdminLinkGenerationService {
   };
 
   final AdminRestaurantCallable _callable;
+  final AdminRestaurantPreparationCallable _preparationCallable;
 
-  AdminLinkGenerationService({AdminRestaurantCallable? callable})
-    : _callable = callable ?? _callFirebase;
+  AdminLinkGenerationService({
+    AdminRestaurantCallable? callable,
+    AdminRestaurantPreparationCallable? preparationCallable,
+  }) : _callable = callable ?? _callFirebase,
+       _preparationCallable = preparationCallable ?? _callPreparationFirebase;
 
   static String? locationValidationError(String value) {
     final normalized = _normalizeWhitespace(
@@ -183,6 +190,71 @@ class AdminLinkGenerationService {
   static Future<Object?> _callFirebase(Map<String, dynamic> payload) async {
     final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
     final callable = functions.httpsCallable('searchAdminRestaurants');
+    final response = await callable.call<Object?>(payload);
+    return response.data;
+  }
+
+  Future<AdminRestaurantPreparationState> updatePreparation({
+    required String catalogRestaurantId,
+    required AdminRestaurantPreparationType type,
+    required bool prepared,
+    required AdminBiteSaverCatalogBindingState biteSaverCatalogBindingState,
+    required AdminRestaurantClaimState claimState,
+    String? expectedInviteId,
+  }) async {
+    final exactCatalogId = exactFirestoreDocumentId(catalogRestaurantId);
+    final exactInviteId = expectedInviteId == null
+        ? null
+        : exactFirestoreDocumentId(expectedInviteId);
+    if (exactCatalogId == null ||
+        (expectedInviteId != null && exactInviteId == null)) {
+      throw const AdminLinkGenerationException(
+        'Preparation identity is unavailable.',
+      );
+    }
+    Object? rawResponse;
+    try {
+      rawResponse = await _preparationCallable(<String, dynamic>{
+        'catalogRestaurantId': exactCatalogId,
+        'type': type.marker,
+        'prepared': prepared,
+        'expectedInviteId': ?exactInviteId,
+      });
+    } catch (error) {
+      if (error is AdminLinkGenerationException) {
+        rethrow;
+      }
+      throw const AdminLinkGenerationException(
+        'Could not update preparation status right now.',
+      );
+    }
+    if (rawResponse is! Map || rawResponse['preparation'] == null) {
+      throw const AdminLinkGenerationException(
+        'Preparation status returned an invalid response.',
+      );
+    }
+    final state = AdminRestaurantPreparationState.tryFromCallableData(
+      rawResponse['preparation'],
+      source: AdminRestaurantLinkSource.biteScore,
+      documentId: exactCatalogId,
+      biteSaverCatalogBindingState: biteSaverCatalogBindingState,
+      claimState: claimState,
+    );
+    if (state.canonicalCatalogRestaurantId != exactCatalogId) {
+      throw const AdminLinkGenerationException(
+        'Preparation status returned an invalid response.',
+      );
+    }
+    return state;
+  }
+
+  static Future<Object?> _callPreparationFirebase(
+    Map<String, dynamic> payload,
+  ) async {
+    final functions = FirebaseFunctions.instanceFor(region: 'us-central1');
+    final callable = functions.httpsCallable(
+      'updateAdminRestaurantQrPreparation',
+    );
     final response = await callable.call<Object?>(payload);
     return response.data;
   }

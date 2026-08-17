@@ -1,5 +1,7 @@
 import 'package:cloud_functions/cloud_functions.dart';
 
+import 'firestore_document_id.dart';
+
 class RestaurantInviteCreationResult {
   final String inviteId;
   final String token;
@@ -17,7 +19,7 @@ class RestaurantInviteCreationResult {
     Map<String, dynamic> data,
   ) {
     return RestaurantInviteCreationResult(
-      inviteId: _readString(data['inviteId']),
+      inviteId: _readRequiredDocumentId(data['inviteId'], 'Invitation ID'),
       token: _readString(data['token']),
       inviteUrl: _readString(data['inviteUrl']),
       expiresAt: _readDateTimeFromMillis(data['expiresAtMillis']),
@@ -68,12 +70,18 @@ class RestaurantInviteAdminEntry {
     Map<String, dynamic> data,
   ) {
     return RestaurantInviteAdminEntry(
-      id: _readString(data['id']),
+      id: _readRequiredDocumentId(data['id'], 'Invitation ID'),
       type: _readString(data['type']),
       side: _readString(data['side']),
       status: _readString(data['status']),
-      restaurantId: _readString(data['restaurantId']),
-      pendingRestaurantKey: _readString(data['pendingRestaurantKey']),
+      restaurantId: _readOptionalDocumentId(
+        data['restaurantId'],
+        'Restaurant ID',
+      ),
+      pendingRestaurantKey: _readOptionalDocumentId(
+        data['pendingRestaurantKey'],
+        'Pending restaurant key',
+      ),
       restaurantName: _readString(data['restaurantName']),
       createdByEmail: _readString(data['createdByEmail']),
       createdAt: _readDateTimeFromMillis(data['createdAtMillis']),
@@ -169,15 +177,21 @@ class RestaurantInvitePreview {
         : null;
 
     return RestaurantInvitePreview(
-      inviteId: _readString(data['inviteId']),
+      inviteId: _readRequiredDocumentId(data['inviteId'], 'Invitation ID'),
       side: _readString(data['side']),
       type: _readString(data['type']),
       status: _readString(data['status']),
       restaurantName: _readString(data['restaurantName']),
       expiresAt: _readDateTimeFromMillis(data['expiresAtMillis']),
-      pendingRestaurantKey: _readString(data['pendingRestaurantKey']),
+      pendingRestaurantKey: _readOptionalDocumentId(
+        data['pendingRestaurantKey'],
+        'Pending restaurant key',
+      ),
       couponPrefill: prefill,
-      restaurantId: _readString(data['restaurantId']),
+      restaurantId: _readOptionalDocumentId(
+        data['restaurantId'],
+        'Restaurant ID',
+      ),
       restaurantAddressSummary: _readString(data['restaurantAddressSummary']),
     );
   }
@@ -198,8 +212,11 @@ class RestaurantInviteRedemptionResult {
     Map<String, dynamic> data,
   ) {
     return RestaurantInviteRedemptionResult(
-      inviteId: _readString(data['inviteId']),
-      restaurantId: _readString(data['restaurantId']),
+      inviteId: _readRequiredDocumentId(data['inviteId'], 'Invitation ID'),
+      restaurantId: _readOptionalDocumentId(
+        data['restaurantId'],
+        'Restaurant ID',
+      ),
       restaurantName: _readString(data['restaurantName']),
     );
   }
@@ -234,12 +251,16 @@ class RestaurantInviteService {
     double? latitude,
     double? longitude,
   }) async {
-    final normalizedRestaurantId = _trimmedOrNull(restaurantId);
-    final normalizedBiteScoreCatalogRestaurantId = _trimmedOrNull(
-      biteScoreCatalogRestaurantId,
+    final exactRestaurantId = _optionalExactDocumentId(
+      restaurantId,
+      'BiteSaver account ID',
     );
-    if (normalizedRestaurantId != null &&
-        normalizedBiteScoreCatalogRestaurantId != null) {
+    final exactBiteScoreCatalogRestaurantId = _optionalExactDocumentId(
+      biteScoreCatalogRestaurantId,
+      'BiteScore catalog restaurant ID',
+    );
+    if (exactRestaurantId != null &&
+        exactBiteScoreCatalogRestaurantId != null) {
       throw ArgumentError(
         'A BiteSaver account ID and BiteScore catalog restaurant ID cannot both be supplied.',
       );
@@ -247,8 +268,8 @@ class RestaurantInviteService {
 
     final callable = _functions.httpsCallable('createCouponRestaurantInvite');
     final payload = <String, dynamic>{
-      'restaurantId': ?normalizedRestaurantId,
-      'biteScoreCatalogRestaurantId': ?normalizedBiteScoreCatalogRestaurantId,
+      'restaurantId': ?exactRestaurantId,
+      'biteScoreCatalogRestaurantId': ?exactBiteScoreCatalogRestaurantId,
       'restaurantName': restaurantName.trim(),
       if (_trimmedOrNull(streetAddress) != null)
         'streetAddress': _trimmedOrNull(streetAddress),
@@ -271,8 +292,8 @@ class RestaurantInviteService {
   static Future<RestaurantInviteCreationResult> createBiteScoreClaimInvite({
     required String restaurantId,
   }) async {
-    final trimmedRestaurantId = restaurantId.trim();
-    if (trimmedRestaurantId.isEmpty) {
+    final exactRestaurantId = exactFirestoreDocumentId(restaurantId);
+    if (exactRestaurantId == null) {
       throw ArgumentError(
         'BiteScore restaurant ID is required to create a claim invite.',
       );
@@ -282,7 +303,7 @@ class RestaurantInviteService {
       'createBiteScoreRestaurantClaimInvite',
     );
     final response = await callable.call<Map<String, dynamic>>({
-      'restaurantId': trimmedRestaurantId,
+      'restaurantId': exactRestaurantId,
     });
     return RestaurantInviteCreationResult.fromCallableData(response.data);
   }
@@ -310,8 +331,12 @@ class RestaurantInviteService {
   }
 
   static Future<void> revokeInvite(String inviteId) async {
+    final exactInviteId = exactFirestoreDocumentId(inviteId);
+    if (exactInviteId == null) {
+      throw ArgumentError('A valid invitation ID is required to revoke it.');
+    }
     final callable = _functions.httpsCallable('revokeRestaurantInvite');
-    await callable.call<Map<String, dynamic>>({'inviteId': inviteId.trim()});
+    await callable.call<Map<String, dynamic>>({'inviteId': exactInviteId});
   }
 
   static Future<RestaurantInvitePreview> previewInvite({
@@ -424,6 +449,32 @@ String _readString(dynamic value) {
 String? _trimmedOrNull(String? value) {
   final trimmed = value?.trim();
   return trimmed == null || trimmed.isEmpty ? null : trimmed;
+}
+
+String? _optionalExactDocumentId(String? value, String label) {
+  if (value == null) {
+    return null;
+  }
+  final exact = exactFirestoreDocumentId(value);
+  if (exact == null) {
+    throw ArgumentError('$label is invalid.');
+  }
+  return exact;
+}
+
+String _readRequiredDocumentId(Object? value, String label) {
+  final exact = exactFirestoreDocumentId(value);
+  if (exact == null) {
+    throw FormatException('$label is invalid.');
+  }
+  return exact;
+}
+
+String _readOptionalDocumentId(Object? value, String label) {
+  if (value == null || value == '') {
+    return '';
+  }
+  return _readRequiredDocumentId(value, label);
 }
 
 int? _readInt(dynamic value) {
