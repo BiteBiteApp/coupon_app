@@ -7,14 +7,17 @@ const test = require("node:test");
 const {
   adminRestaurantPerBoundCandidateLimit,
   adminRestaurantSources,
+  attachAdminRestaurantQrPreparation,
   buildAdminRestaurantQueryPlans,
   defaultAdminRestaurantResultLimit,
   executeAdminRestaurantSearch,
   geocodeAdminLocationQuery,
+  maximumAdminRestaurantNameFilterLength,
   maximumAdminRestaurantRadiusMiles,
   maximumAdminRestaurantResultLimit,
   normalizeAdminLocationQuery,
   processAdminRestaurantSearchCandidates,
+  readNormalizedAdminRestaurantNameFilter,
   resolveAdminRestaurantSearchCenter,
   validateAdminRestaurantSearchRequest,
   verifiedAdminBiteSaverCatalogIdsFromDocuments,
@@ -326,23 +329,95 @@ test("request validation enforces result-limit defaults and bounds", () => {
   }
 });
 
-test("restaurant-name validation trims, normalizes, and caps safe text", () => {
+test("restaurant-name validation bounds only the fully normalized filter", () => {
   const request = processingRequest({ restaurantName: "  Blue   CAFÉ  " });
   assert.equal(request.restaurantName, "Blue CAFÉ");
   assert.equal(request.normalizedRestaurantName, "blue café");
+  assert.equal(maximumAdminRestaurantNameFilterLength, 100);
   assert.equal(
     processingRequest({ restaurantName: " ".repeat(10) }).restaurantName,
     null,
   );
+  const exactAscii = processingRequest({restaurantName: "A".repeat(100)});
+  assert.equal(exactAscii.restaurantName, "A".repeat(100));
+  assert.equal(exactAscii.normalizedRestaurantName, "a".repeat(100));
+
+  const exactCompatibilityExpansion = processingRequest({
+    restaurantName: "\uFB00".repeat(50),
+  });
+  assert.equal(exactCompatibilityExpansion.restaurantName.length, 50);
   assert.equal(
-    processingRequest({ restaurantName: "A".repeat(100) }).restaurantName
-      .length,
+    exactCompatibilityExpansion.normalizedRestaurantName,
+    "ff".repeat(50),
+  );
+  assert.equal(
+    exactCompatibilityExpansion.normalizedRestaurantName.length,
     100,
   );
-  assert.throws(
-    () => processingRequest({ restaurantName: "A".repeat(101) }),
-    expectHttpsError("invalid-argument", /100 characters/),
+
+  const exactLowercaseExpansion = processingRequest({
+    restaurantName: "\u0130".repeat(50),
+  });
+  assert.equal(exactLowercaseExpansion.restaurantName.length, 50);
+  assert.equal(
+    exactLowercaseExpansion.normalizedRestaurantName,
+    "i\u0307".repeat(50),
   );
+  assert.equal(exactLowercaseExpansion.normalizedRestaurantName.length, 100);
+
+  const compatibilityContractionInput = "e\u0301".repeat(51);
+  assert.equal(compatibilityContractionInput.length, 102);
+  const compatibilityContraction = processingRequest({
+    restaurantName: compatibilityContractionInput,
+  });
+  assert.equal(compatibilityContraction.restaurantName.length, 102);
+  assert.equal(
+    compatibilityContraction.normalizedRestaurantName,
+    "\u00E9".repeat(51),
+  );
+  assert.equal(compatibilityContraction.normalizedRestaurantName.length, 51);
+
+  for (const restaurantName of [
+    "A".repeat(101),
+    "\uFB00".repeat(51),
+    "\uFB00".repeat(100),
+    "\u0130".repeat(51),
+  ]) {
+    assert.throws(
+      () => processingRequest({restaurantName}),
+      expectHttpsError("invalid-argument", /100 characters/),
+    );
+  }
+  assert.throws(
+    () => processingRequest({restaurantName: "\u00A8"}),
+    expectHttpsError("invalid-argument", /unsupported text/),
+  );
+
+  for (const accepted of [
+    exactAscii,
+    exactCompatibilityExpansion,
+    exactLowercaseExpansion,
+    compatibilityContraction,
+  ]) {
+    assert.equal(
+      readNormalizedAdminRestaurantNameFilter(
+        accepted.normalizedRestaurantName,
+      ),
+      accepted.normalizedRestaurantName,
+    );
+  }
+  for (const invalidStoredValue of [
+    "",
+    "   ",
+    "A",
+    "\uFB00",
+    "a".repeat(101),
+  ]) {
+    assert.equal(
+      readNormalizedAdminRestaurantNameFilter(invalidStoredValue),
+      null,
+    );
+  }
 });
 
 test("mocked ZIP geocoding uses the official endpoint and US restriction", async () => {
@@ -1063,8 +1138,10 @@ test("Admin bound state requires one batch-verified reciprocal account", async (
 
 test("Admin preparation state uses one deduplicated batch load and fail-closed projections", async () => {
   const bindingId = "A".repeat(43);
+  const preparedExpiry = new Date(Date.now() + 60_000);
   const suppliedSources = new Set();
   const preparationLoads = [];
+  const invitationLoads = [];
   const response = await executeAdminRestaurantSearch(
     coordinateRequest({sources: ["biteScore", "biteSaver"]}),
     {
@@ -1108,16 +1185,36 @@ test("Admin preparation state uses one deduplicated batch load and fail-closed p
             saPrepared: true,
             srPrepared: false,
             iPreparedInviteId: "invite-1",
-            iPreparedInviteExpiresAt: new Date(Date.now() + 60_000),
+            iPreparedInviteExpiresAt: preparedExpiry,
           }],
           ["bound", {schemaVersion: "malformed"}],
         ]);
+      },
+      loadQrPreparationInvitationDocuments: async (invitationIds) => {
+        invitationLoads.push([...invitationIds]);
+        return new Map([["invite-1", {
+          type: "coupon_invite",
+          side: "coupon",
+          biteScoreCatalogRestaurantId: "available",
+          restaurantId: null,
+          pendingRestaurantKey: "pending_invite-1",
+          status: "active",
+          maxUses: 1,
+          useCount: 0,
+          usedAt: null,
+          usedByUid: null,
+          usedByEmail: null,
+          revokedAt: null,
+          revokedByUid: null,
+          expiresAt: preparedExpiry,
+        }]]);
       },
     },
   );
 
   assert.equal(preparationLoads.length, 1);
   assert.deepEqual([...preparationLoads[0]].sort(), ["available", "bound"]);
+  assert.deepEqual(invitationLoads, [["invite-1"]]);
   const byId = new Map(
     response.results.map((result) => [result.documentId, result]),
   );
@@ -1239,6 +1336,164 @@ test("C preparation projection is epoch-safe before delayed cleanup", async () =
   for (const result of response.results) {
     assert.equal(Object.hasOwn(result, "claimInvitationEpochAt"), false);
   }
+});
+
+test("legacy 100-row I+C preparation uses two bounded invitation batches", async () => {
+  const nowMillis = Date.now();
+  const epoch = new Date(nowMillis - 10_000);
+  const expiresAt = new Date(nowMillis + 60_000);
+  const restaurantIds = Array.from(
+    {length: 100},
+    (_, index) => `legacy-${String(index).padStart(3, "0")}`,
+  );
+  const candidates = restaurantIds.map((restaurantId) =>
+    biteScoreDocument(restaurantId, {claimInvitationEpochAt: epoch}));
+  const response = processAdminRestaurantSearchCandidates({
+    request: processingRequest({
+      resultLimit: 100,
+      sources: ["biteScore"],
+    }),
+    searchCenter: center,
+    candidates,
+    anyQueryReachedCandidateLimit: false,
+    verifiedBiteSaverCatalogIds: new Set(restaurantIds),
+  });
+  assert.equal(response.results.length, 100);
+
+  const preparationDocuments = new Map(restaurantIds.map((restaurantId) => [
+    restaurantId,
+    {
+      schemaVersion: 1,
+      iLatestInviteId: `owner-b-${restaurantId}`,
+      iLatestInviteExpiresAt: expiresAt,
+      iPreparedInviteId: `owner-a-${restaurantId}`,
+      iPreparedInviteExpiresAt: expiresAt,
+      cPreparedInviteId: `claim-${restaurantId}`,
+      cPreparedInviteExpiresAt: expiresAt,
+    },
+  ]));
+  const activeInvitationFields = {
+    status: "active",
+    maxUses: 1,
+    useCount: 0,
+    usedAt: null,
+    usedByUid: null,
+    usedByEmail: null,
+    revokedAt: null,
+    revokedByUid: null,
+    expiresAt,
+  };
+  const invitationDocuments = new Map(restaurantIds.flatMap((restaurantId) => [
+    [`owner-a-${restaurantId}`, {
+      ...activeInvitationFields,
+      type: "coupon_invite",
+      side: "coupon",
+      biteScoreCatalogRestaurantId: restaurantId,
+      restaurantId: null,
+      pendingRestaurantKey: `pending_owner-a-${restaurantId}`,
+    }],
+    [`claim-${restaurantId}`, {
+      ...activeInvitationFields,
+      type: "bitescore_claim_invite",
+      side: "bitescore",
+      restaurantId,
+      createdAt: new Date(epoch.getTime() + 1),
+    }],
+  ]));
+  const candidatesByKey = new Map(candidates.map((candidate) => [
+    `${candidate.source}:${candidate.documentId}`,
+    candidate,
+  ]));
+  const invitationLoads = [];
+  const projected = await attachAdminRestaurantQrPreparation(
+    response,
+    {
+      loadQrPreparationDocuments: async () => preparationDocuments,
+      loadQrPreparationInvitationDocuments: async (invitationIds) => {
+        invitationLoads.push([...invitationIds]);
+        return new Map(invitationIds.map((invitationId) => [
+          invitationId,
+          invitationDocuments.get(invitationId),
+        ]));
+      },
+    },
+    candidatesByKey,
+  );
+
+  assert.deepEqual(invitationLoads.map((batch) => batch.length), [100, 100]);
+  const loadedInvitationIds = invitationLoads.flat();
+  assert.equal(new Set(loadedInvitationIds).size, 200);
+  for (const restaurantId of restaurantIds) {
+    assert.ok(loadedInvitationIds.includes(`owner-a-${restaurantId}`));
+    assert.ok(loadedInvitationIds.includes(`claim-${restaurantId}`));
+    assert.equal(loadedInvitationIds.includes(`owner-b-${restaurantId}`), false);
+  }
+  for (const result of projected.results) {
+    assert.equal(result.preparation.i, "prepared", result.documentId);
+    assert.equal(result.preparation.c, "prepared", result.documentId);
+  }
+
+  const overflowRestaurantId = "legacy-overflow";
+  const oversizedPreparationDocuments = new Map(preparationDocuments);
+  oversizedPreparationDocuments.set(overflowRestaurantId, {
+    schemaVersion: 1,
+    iLatestInviteId: `owner-b-${overflowRestaurantId}`,
+    iLatestInviteExpiresAt: expiresAt,
+    iPreparedInviteId: `owner-a-${overflowRestaurantId}`,
+    iPreparedInviteExpiresAt: expiresAt,
+    cPreparedInviteId: `claim-${overflowRestaurantId}`,
+    cPreparedInviteExpiresAt: expiresAt,
+  });
+  let oversizedInvitationLoadCount = 0;
+  await assert.rejects(
+    () => attachAdminRestaurantQrPreparation(
+      {
+        ...response,
+        results: [
+          ...response.results,
+          {
+            ...response.results[0],
+            documentId: overflowRestaurantId,
+            actionId: overflowRestaurantId,
+          },
+        ],
+      },
+      {
+        loadQrPreparationDocuments: async () =>
+          oversizedPreparationDocuments,
+        loadQrPreparationInvitationDocuments: async () => {
+          oversizedInvitationLoadCount += 1;
+          return new Map();
+        },
+      },
+      candidatesByKey,
+    ),
+    expectHttpsError("unavailable", /preparation state/i),
+  );
+  assert.equal(oversizedInvitationLoadCount, 0);
+
+  let failedLoadCount = 0;
+  await assert.rejects(
+    () => attachAdminRestaurantQrPreparation(
+      response,
+      {
+        loadQrPreparationDocuments: async () => preparationDocuments,
+        loadQrPreparationInvitationDocuments: async (invitationIds) => {
+          failedLoadCount += 1;
+          if (failedLoadCount === 2) {
+            throw new Error("second bounded invitation read failed");
+          }
+          return new Map(invitationIds.map((invitationId) => [
+            invitationId,
+            invitationDocuments.get(invitationId),
+          ]));
+        },
+      },
+      candidatesByKey,
+    ),
+    expectHttpsError("unavailable", /preparation state/i),
+  );
+  assert.equal(failedLoadCount, 2);
 });
 
 test("Admin reciprocal verification fails closed for every inconsistent grouping", () => {
@@ -1378,6 +1633,20 @@ test("name filtering is post-bound, case-insensitive, and non-regex", () => {
     anyQueryReachedCandidateLimit: false,
   });
   assert.equal(regexTextResponse.returnedCount, 1);
+
+  const compatibilityResponse = processAdminRestaurantSearchCandidates({
+    request: processingRequest({restaurantName: "\uFB00LOW"}),
+    searchCenter: center,
+    candidates: [
+      biteScoreDocument("compatibility", {name: "The FFlow Cafe"}),
+      biteScoreDocument("nonmatch", {name: "The Slow Cafe"}),
+    ],
+    anyQueryReachedCandidateLimit: false,
+  });
+  assert.deepEqual(
+    compatibilityResponse.results.map((result) => result.documentId),
+    ["compatibility"],
+  );
 
   const plans = buildAdminRestaurantQueryPlans(center, 10, ["biteScore"]);
   assert.doesNotMatch(JSON.stringify(plans), /restaurantName|Blue Cafe/);
@@ -1558,7 +1827,7 @@ test("Functions entry point uses only the extracted authorization gate", () => {
   );
   assert.equal(
     indexSource.match(/\brequireAdminInviteAccess\s*\(/g)?.length,
-    17,
+    18,
   );
 });
 

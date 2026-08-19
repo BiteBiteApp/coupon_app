@@ -18,6 +18,18 @@ typedef AdminRestaurantSearchCallback =
       required Set<AdminRestaurantLinkSource> sources,
     });
 
+typedef AdminRestaurantPagedSearchCallback =
+    Future<AdminRestaurantLinkPagedResult> Function({
+      required String locationQuery,
+      required int radiusMiles,
+      required String? restaurantName,
+      required Set<AdminRestaurantLinkSource> sources,
+      required String searchInstanceId,
+      required String clientRequestId,
+      String? cursor,
+      AdminRestaurantSearchCenter? resolvedSearchCenter,
+    });
+
 typedef AdminCouponInviteCallback =
     Future<RestaurantInviteCreationResult> Function({
       required String restaurantName,
@@ -55,8 +67,25 @@ typedef AdminPreparationUpdateCallback =
       String? expectedInviteId,
     });
 
+enum _AdminLinkPageRequestKind { initial, preparation, loadMore }
+
+class _PendingAdminLinkPageRequest {
+  const _PendingAdminLinkPageRequest({
+    required this.generation,
+    required this.cursor,
+    required this.clientRequestId,
+    required this.kind,
+  });
+
+  final int generation;
+  final String? cursor;
+  final String clientRequestId;
+  final _AdminLinkPageRequestKind kind;
+}
+
 class AdminLinkGenerationScreen extends StatefulWidget {
   final AdminRestaurantSearchCallback? searchRestaurants;
+  final AdminRestaurantPagedSearchCallback? searchRestaurantPage;
   final AdminCouponInviteCallback? createCouponInvite;
   final AdminBiteScoreClaimInviteCallback? createBiteScoreClaimInvite;
   final AdminClipboardWriteCallback? writeClipboard;
@@ -67,6 +96,7 @@ class AdminLinkGenerationScreen extends StatefulWidget {
   const AdminLinkGenerationScreen({
     super.key,
     @visibleForTesting this.searchRestaurants,
+    @visibleForTesting this.searchRestaurantPage,
     @visibleForTesting this.createCouponInvite,
     @visibleForTesting this.createBiteScoreClaimInvite,
     @visibleForTesting this.writeClipboard,
@@ -84,6 +114,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
   final _formKey = GlobalKey<FormState>();
   final _locationController = TextEditingController();
   final _restaurantNameController = TextEditingController();
+  final _scrollController = ScrollController();
   final _searchService = AdminLinkGenerationService();
   final Set<AdminRestaurantLinkSource> _selectedSources = {
     AdminRestaurantLinkSource.biteScore,
@@ -97,14 +128,33 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
   int _radiusMiles = AdminLinkGenerationService.defaultRadiusMiles;
   int _searchGeneration = 0;
   bool _isSearching = false;
+  bool _isContinuing = false;
+  bool _isLoadingMore = false;
   bool _hasSubmitted = false;
   AdminRestaurantLinkSearchResult? _searchResult;
   String? _searchError;
+  String? _appendError;
+  String? _nextCursor;
+  String? _searchInstanceId;
+  AdminRestaurantSearchCenter? _resolvedSearchCenter;
+  bool _isPreparing = false;
+  bool _searchExpired = false;
+  int _requestSequence = 0;
+  _PendingAdminLinkPageRequest? _pendingPageRequest;
+  String? _activeLocationQuery;
+  String? _activeRestaurantName;
+  int? _activeRadiusMiles;
+  Set<AdminRestaurantLinkSource>? _activeSources;
+  String? _queryFingerprint;
+  AdminRestaurantMaterializedOrder? _consumedBoundary;
+
+  bool get _pageBusy => _isSearching || _isContinuing || _isLoadingMore;
 
   @override
   void dispose() {
     _locationController.dispose();
     _restaurantNameController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -115,7 +165,6 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
     final formIsValid = _formKey.currentState?.validate() ?? false;
     if (!formIsValid || _selectedSources.isEmpty) {
       setState(() {
-        _hasSubmitted = true;
         _searchError = _selectedSources.isEmpty
             ? 'Select at least one restaurant source.'
             : null;
@@ -124,31 +173,60 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
     }
 
     FocusScope.of(context).unfocus();
+    final generation = _searchGeneration + 1;
+    final searchInstanceId =
+        'admin-link-${DateTime.now().microsecondsSinceEpoch}-$generation';
+    final locationQuery = _locationController.text;
+    final restaurantName = _normalizedOptionalName;
+    final sources = Set<AdminRestaurantLinkSource>.unmodifiable(
+      _selectedSources,
+    );
+    if (_scrollController.hasClients) {
+      _scrollController.jumpTo(0);
+    }
     setState(() {
-      _searchGeneration += 1;
+      _searchGeneration = generation;
       _hasSubmitted = true;
       _isSearching = true;
+      _isContinuing = false;
+      _isLoadingMore = false;
       _searchResult = null;
       _searchError = null;
+      _appendError = null;
+      _nextCursor = null;
+      _isPreparing = false;
+      _searchExpired = false;
+      _searchInstanceId = searchInstanceId;
+      _resolvedSearchCenter = null;
+      _activeLocationQuery = locationQuery;
+      _activeRestaurantName = restaurantName;
+      _activeRadiusMiles = _radiusMiles;
+      _activeSources = sources;
+      _pendingPageRequest = null;
       _preparationOverrides.clear();
+      _queryFingerprint = null;
+      _consumedBoundary = null;
     });
+
+    if (widget.searchRestaurants == null) {
+      final pending = _newPendingPageRequest(
+        generation: generation,
+        cursor: null,
+        kind: _AdminLinkPageRequestKind.initial,
+      );
+      await _performPageRequest(pending);
+      return;
+    }
 
     try {
       final search = widget.searchRestaurants;
-      final result = search != null
-          ? await search(
-              locationQuery: _locationController.text,
-              radiusMiles: _radiusMiles,
-              restaurantName: _normalizedOptionalName,
-              sources: Set.unmodifiable(_selectedSources),
-            )
-          : await _searchService.search(
-              locationQuery: _locationController.text,
-              radiusMiles: _radiusMiles,
-              restaurantName: _normalizedOptionalName,
-              sources: Set.unmodifiable(_selectedSources),
-            );
-      if (!mounted) {
+      final result = await search!(
+        locationQuery: locationQuery,
+        radiusMiles: _radiusMiles,
+        restaurantName: restaurantName,
+        sources: sources,
+      );
+      if (!mounted || _searchGeneration != generation) {
         return;
       }
       setState(() {
@@ -156,7 +234,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
         _searchError = null;
       });
     } catch (error) {
-      if (!mounted) {
+      if (!mounted || _searchGeneration != generation) {
         return;
       }
       setState(() {
@@ -169,12 +247,259 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
               );
       });
     } finally {
-      if (mounted) {
+      if (mounted && _searchGeneration == generation) {
         setState(() {
           _isSearching = false;
         });
       }
     }
+  }
+
+  _PendingAdminLinkPageRequest _newPendingPageRequest({
+    required int generation,
+    required String? cursor,
+    required _AdminLinkPageRequestKind kind,
+  }) {
+    _requestSequence += 1;
+    final pending = _PendingAdminLinkPageRequest(
+      generation: generation,
+      cursor: cursor,
+      clientRequestId:
+          '${_searchInstanceId ?? 'admin-link'}-request-$_requestSequence',
+      kind: kind,
+    );
+    _pendingPageRequest = pending;
+    return pending;
+  }
+
+  Future<void> _performPageRequest(_PendingAdminLinkPageRequest pending) async {
+    if (!mounted || pending.generation != _searchGeneration) {
+      return;
+    }
+    final isInitial = pending.kind == _AdminLinkPageRequestKind.initial;
+    final wasPreparing = pending.kind == _AdminLinkPageRequestKind.preparation;
+    setState(() {
+      if (isInitial) {
+        _isSearching = true;
+      } else if (wasPreparing) {
+        _isContinuing = true;
+      } else {
+        _isLoadingMore = true;
+      }
+      _searchError = null;
+      _appendError = null;
+    });
+    try {
+      final callback = widget.searchRestaurantPage;
+      final result = callback != null
+          ? await callback(
+              locationQuery: _activeLocationQuery!,
+              radiusMiles: _activeRadiusMiles!,
+              restaurantName: _activeRestaurantName,
+              sources: _activeSources!,
+              searchInstanceId: _searchInstanceId!,
+              clientRequestId: pending.clientRequestId,
+              cursor: pending.cursor,
+              resolvedSearchCenter: pending.cursor == null
+                  ? null
+                  : _resolvedSearchCenter,
+            )
+          : await _searchService.searchPage(
+              locationQuery: _activeLocationQuery!,
+              radiusMiles: _activeRadiusMiles!,
+              restaurantName: _activeRestaurantName,
+              sources: _activeSources!,
+              searchInstanceId: _searchInstanceId!,
+              clientRequestId: pending.clientRequestId,
+              cursor: pending.cursor,
+              resolvedSearchCenter: pending.cursor == null
+                  ? null
+                  : _resolvedSearchCenter,
+            );
+      if (!mounted || pending.generation != _searchGeneration) {
+        return;
+      }
+      _applyPageResult(result, pending);
+    } catch (error) {
+      if (!mounted || pending.generation != _searchGeneration) {
+        return;
+      }
+      final message = error is AdminLinkGenerationException
+          ? error.message
+          : AppErrorText.friendly(
+              error,
+              fallback: 'Could not continue this restaurant search right now.',
+            );
+      setState(() {
+        if (error is AdminLinkSearchExpiredException) {
+          _searchExpired = true;
+          _nextCursor = null;
+          _appendError = null;
+          _searchError = null;
+        } else if (isInitial) {
+          _searchError = message;
+        } else {
+          _appendError = message;
+        }
+      });
+    } finally {
+      if (mounted && pending.generation == _searchGeneration) {
+        setState(() {
+          _isSearching = false;
+          _isContinuing = false;
+          _isLoadingMore = false;
+        });
+      }
+    }
+  }
+
+  void _applyPageResult(
+    AdminRestaurantLinkPagedResult pageResult,
+    _PendingAdminLinkPageRequest pending,
+  ) {
+    final existing =
+        _searchResult?.results ?? const <AdminRestaurantLinkRecord>[];
+    final queryFingerprint = pageResult.page.queryFingerprint;
+    if (pageResult.radiusMiles != _activeRadiusMiles ||
+        !_sameSources(pageResult.queriedSources, _activeSources!)) {
+      throw const AdminLinkGenerationException(
+        'Restaurant search returned an invalid page.',
+      );
+    }
+    if (pending.cursor != null &&
+        (_queryFingerprint == null || queryFingerprint != _queryFingerprint)) {
+      throw const AdminLinkGenerationException(
+        'Restaurant search returned an invalid continuation page.',
+      );
+    }
+    if (pending.cursor != null && _resolvedSearchCenter != null) {
+      final center = pageResult.searchCenter;
+      final expectedCenter = _resolvedSearchCenter!;
+      if (center.latitude != expectedCenter.latitude ||
+          center.longitude != expectedCenter.longitude ||
+          center.displayName != expectedCenter.displayName) {
+        throw const AdminLinkGenerationException(
+          'Restaurant search returned an invalid continuation page.',
+        );
+      }
+    }
+    final loadedKeys = existing.map((record) => record.recordKey).toSet();
+    for (final record in pageResult.page.items) {
+      if (!loadedKeys.add(record.recordKey)) {
+        throw const AdminLinkGenerationException(
+          'Restaurant search returned duplicate records. Refresh the search.',
+        );
+      }
+    }
+    final pageBoundary = pageResult.consumedBoundary;
+    if (pending.kind == _AdminLinkPageRequestKind.loadMore) {
+      final previousBoundary = _consumedBoundary;
+      final firstPageOrder = pageResult.page.items.isEmpty
+          ? null
+          : pageResult.page.items.first.materializedOrder;
+      if (!pageResult.isReady ||
+          previousBoundary == null ||
+          pageBoundary == null ||
+          pageBoundary.compareTo(previousBoundary) <= 0 ||
+          (pageResult.page.items.isNotEmpty &&
+              (firstPageOrder == null ||
+                  firstPageOrder.compareTo(previousBoundary) <= 0))) {
+        throw const AdminLinkGenerationException(
+          'Restaurant search returned an invalid continuation page.',
+        );
+      }
+    }
+    AdminRestaurantMaterializedOrder? previousPageOrder;
+    for (final record in pageResult.page.items) {
+      final order = record.materializedOrder;
+      if (order == null ||
+          !order.matchesRecord(record) ||
+          !_activeSources!.contains(record.source) ||
+          (previousPageOrder != null &&
+              order.compareTo(previousPageOrder) <= 0) ||
+          pageBoundary == null ||
+          order.compareTo(pageBoundary) > 0) {
+        throw const AdminLinkGenerationException(
+          'Restaurant search returned an invalid page.',
+        );
+      }
+      previousPageOrder = order;
+    }
+    final accumulated = <AdminRestaurantLinkRecord>[
+      ...existing,
+      ...pageResult.page.items,
+    ];
+    setState(() {
+      _resolvedSearchCenter = pageResult.searchCenter;
+      _isPreparing = pageResult.isPreparing;
+      _nextCursor = pageResult.nextCursor;
+      _searchResult = pageResult.asAccumulatedResult(accumulated);
+      _searchError = pageResult.isFailed
+          ? pageResult.preparationMessage ??
+                'Restaurant search preparation failed. Run the search again.'
+          : null;
+      _appendError = null;
+      _searchExpired = false;
+      _pendingPageRequest = null;
+      _queryFingerprint = queryFingerprint;
+      if (pageResult.isReady) {
+        _consumedBoundary = pageBoundary;
+      }
+    });
+  }
+
+  bool _sameSources(
+    List<AdminRestaurantLinkSource> first,
+    Set<AdminRestaurantLinkSource> second,
+  ) {
+    final orderedSecond = AdminRestaurantLinkSource.values
+        .where(second.contains)
+        .toList(growable: false);
+    if (first.length != orderedSecond.length) {
+      return false;
+    }
+    for (var index = 0; index < first.length; index += 1) {
+      if (first[index] != orderedSecond[index]) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  Future<void> _continueSearch() async {
+    if (_pageBusy || !_isPreparing || _nextCursor == null) {
+      return;
+    }
+    await _performPageRequest(
+      _newPendingPageRequest(
+        generation: _searchGeneration,
+        cursor: _nextCursor,
+        kind: _AdminLinkPageRequestKind.preparation,
+      ),
+    );
+  }
+
+  Future<void> _loadMore() async {
+    if (_pageBusy || _isPreparing || _nextCursor == null) {
+      return;
+    }
+    await _performPageRequest(
+      _newPendingPageRequest(
+        generation: _searchGeneration,
+        cursor: _nextCursor,
+        kind: _AdminLinkPageRequestKind.loadMore,
+      ),
+    );
+  }
+
+  Future<void> _retryPendingPage() async {
+    final pending = _pendingPageRequest;
+    if (_pageBusy ||
+        pending == null ||
+        pending.generation != _searchGeneration) {
+      return;
+    }
+    await _performPageRequest(pending);
   }
 
   String? get _normalizedOptionalName {
@@ -733,25 +1058,108 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        return SingleChildScrollView(
+        final result = _searchResult;
+        final records =
+            !_isSearching &&
+                !_searchExpired &&
+                _searchError == null &&
+                !_isPreparing &&
+                result != null &&
+                result.results.isNotEmpty
+            ? result.results
+            : const <AdminRestaurantLinkRecord>[];
+        final rendersRecords = records.isNotEmpty;
+        final recordOccurrences = <String, int>{};
+        final duplicateIndices = records
+            .map((record) {
+              final occurrence = recordOccurrences[record.recordKey] ?? 0;
+              recordOccurrences[record.recordKey] = occurrence + 1;
+              return occurrence;
+            })
+            .toList(growable: false);
+        final itemCount = rendersRecords ? records.length + 4 : 3;
+        return ListView.builder(
           key: const ValueKey('admin-link-generation-scroll-view'),
+          controller: _scrollController,
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 24),
-          child: Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1120),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  _buildSearchCard(),
-                  const SizedBox(height: 16),
-                  _buildSearchState(),
-                ],
+          keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+          itemCount: itemCount,
+          itemBuilder: (context, index) {
+            Widget child;
+            if (index == 0) {
+              child = _buildSearchCard();
+            } else if (index == 1) {
+              child = const SizedBox(height: 16);
+            } else if (!rendersRecords) {
+              child = _buildSearchState();
+            } else if (index == 2) {
+              child = _buildResultsSummary(result!);
+            } else if (index < records.length + 3) {
+              final recordIndex = index - 3;
+              final record = records[recordIndex];
+              child = _buildResultCard(
+                record,
+                duplicateIndex: duplicateIndices[recordIndex],
+              );
+            } else {
+              child = _buildResultsFooter();
+            }
+            return Align(
+              alignment: Alignment.topCenter,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 1120),
+                child: SizedBox(width: double.infinity, child: child),
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildResultsSummary(AdminRestaurantLinkSearchResult result) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          '${result.results.length} restaurant ${result.results.length == 1 ? 'record' : 'records'} near ${result.searchCenter.displayName}',
+          style: Theme.of(context).textTheme.titleMedium,
+        ),
+        if (result.resultsMayBeTruncated) ...[
+          const SizedBox(height: 12),
+          Card(
+            key: const ValueKey('admin-link-truncated-state'),
+            color: Theme.of(context).colorScheme.tertiaryContainer,
+            child: const Padding(
+              padding: EdgeInsets.all(16),
+              child: Text(
+                'Results were limited. Narrow the radius or add a restaurant name to refine the search.',
               ),
             ),
           ),
-        );
-      },
+        ],
+        const SizedBox(height: 12),
+      ],
+    );
+  }
+
+  Widget _buildResultsFooter() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_appendError != null) ...[
+          Card(
+            key: const ValueKey('admin-link-append-error-state'),
+            color: Theme.of(context).colorScheme.errorContainer,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(_appendError!),
+            ),
+          ),
+          const SizedBox(height: 8),
+        ],
+        if (_nextCursor != null) _buildLoadMoreButton(),
+      ],
     );
   }
 
@@ -913,13 +1321,51 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
         ),
       );
     }
+    if (_searchExpired) {
+      return Card(
+        key: const ValueKey('admin-link-expired-state'),
+        color: Theme.of(context).colorScheme.errorContainer,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'This search expired. Run it again to see current results.',
+              ),
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                key: const ValueKey('admin-link-expired-search-button'),
+                onPressed: _pageBusy ? null : _submitSearch,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Search again'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     if (_searchError != null) {
       return Card(
         key: const ValueKey('admin-link-error-state'),
         color: Theme.of(context).colorScheme.errorContainer,
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child: Text(_searchError!),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(_searchError!),
+              if (_pendingPageRequest != null) ...[
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  key: const ValueKey('admin-link-retry-search-button'),
+                  onPressed: _pageBusy ? null : _retryPendingPage,
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Retry'),
+                ),
+              ],
+            ],
+          ),
         ),
       );
     }
@@ -933,47 +1379,110 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
       );
     }
 
-    final result = _searchResult;
-    if (result == null || result.results.isEmpty) {
-      return const Card(
-        key: ValueKey('admin-link-no-results-state'),
+    if (_isPreparing) {
+      return Card(
+        key: const ValueKey('admin-link-preparing-state'),
+        color: Theme.of(context).colorScheme.secondaryContainer,
         child: Padding(
-          padding: EdgeInsets.all(20),
-          child: Text(
-            'No matching restaurants were found within this search area.',
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Preparing complete nearby results…',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'BiteStar is safely checking the remaining nearby restaurants.',
+              ),
+              if (_appendError != null) ...[
+                const SizedBox(height: 10),
+                Text(_appendError!),
+              ],
+              const SizedBox(height: 12),
+              FilledButton.icon(
+                key: const ValueKey('admin-link-continue-search-button'),
+                onPressed: _isContinuing
+                    ? null
+                    : _appendError == null
+                    ? _continueSearch
+                    : _retryPendingPage,
+                icon: _isContinuing
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.manage_search),
+                label: Text(
+                  _isContinuing
+                      ? 'Continuing...'
+                      : _appendError == null
+                      ? 'Continue search'
+                      : 'Retry',
+                ),
+              ),
+            ],
           ),
         ),
       );
     }
 
-    final recordOccurrences = <String, int>{};
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Text(
-          '${result.results.length} restaurant ${result.results.length == 1 ? 'record' : 'records'} near ${result.searchCenter.displayName}',
-          style: Theme.of(context).textTheme.titleMedium,
-        ),
-        if (result.resultsMayBeTruncated) ...[
-          const SizedBox(height: 12),
-          Card(
-            key: const ValueKey('admin-link-truncated-state'),
-            color: Theme.of(context).colorScheme.tertiaryContainer,
-            child: const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text(
-                'Results were limited. Narrow the radius or add a restaurant name to refine the search.',
-              ),
+    final hasMore = _nextCursor != null;
+    return Card(
+      key: ValueKey(
+        hasMore
+            ? 'admin-link-sparse-results-state'
+            : 'admin-link-no-results-state',
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              hasMore
+                  ? 'Some nearby records changed while this page was loading. Continue for more current results.'
+                  : 'No matching restaurants were found within this search area.',
             ),
-          ),
-        ],
-        const SizedBox(height: 12),
-        ...result.results.map((record) {
-          final occurrence = recordOccurrences[record.recordKey] ?? 0;
-          recordOccurrences[record.recordKey] = occurrence + 1;
-          return _buildResultCard(record, duplicateIndex: occurrence);
-        }),
-      ],
+            if (_appendError != null) ...[
+              const SizedBox(height: 10),
+              Text(_appendError!),
+            ],
+            if (hasMore) ...[
+              const SizedBox(height: 12),
+              _buildLoadMoreButton(),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLoadMoreButton() {
+    return Align(
+      alignment: Alignment.center,
+      child: OutlinedButton.icon(
+        key: const ValueKey('admin-link-load-more-button'),
+        onPressed: _isLoadingMore
+            ? null
+            : _appendError == null
+            ? _loadMore
+            : _retryPendingPage,
+        icon: _isLoadingMore
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.expand_more),
+        label: Text(
+          _isLoadingMore
+              ? 'Loading more...'
+              : _appendError == null
+              ? 'Load More'
+              : 'Retry Load More',
+        ),
+      ),
     );
   }
 

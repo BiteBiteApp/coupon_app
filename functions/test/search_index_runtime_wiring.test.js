@@ -108,6 +108,13 @@ const couponAdminPagedCallables = Object.freeze({
   listCouponAdminInviteHistoryPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
 });
 
+const adminLinkPagedCallables = Object.freeze({
+  searchAdminLinkRestaurantsPage: [
+    "SEARCH_PAGINATION_CURSOR_KEY",
+    "GOOGLE_MAPS_API_KEY",
+  ],
+});
+
 const ratingAdminPagedCallables = Object.freeze({
   searchRatingAdminRestaurantsPage: [
     "SEARCH_PAGINATION_CURSOR_KEY",
@@ -502,7 +509,7 @@ test("offer triggers delegate catalog signaling after existing child reconciliat
   }
 });
 
-test("Admin search loads prepared claim invitations through one exact batch", () => {
+test("Admin search loads prepared owner and claim invitations through one exact batch", () => {
   const source = readFileSync(
     path.resolve(__dirname, "../src/index.ts"),
     "utf8",
@@ -539,6 +546,12 @@ test("Admin search loads prepared claim invitations through one exact batch", ()
     search,
     /loadQrPreparationInvitationDocuments:\s*\n\s*loadAdminRestaurantQrPreparationInvitationDocuments/u,
   );
+  const helperSource = readFileSync(
+    path.resolve(__dirname, "../src/admin_restaurant_search_helpers.ts"),
+    "utf8",
+  );
+  assert.match(helperSource, /parsed\?\.iPrepared\?\.id/u);
+  assert.match(helperSource, /parsed\?\.cPrepared\?\.id/u);
 });
 
 test("global runtime remains us-central1 Node 24 with no new parameter binding", () => {
@@ -568,6 +581,56 @@ test("exactly four Coupon Admin paged v2 callables use least-privilege secrets",
   assert.deepEqual(
     runtime.exports.searchAdminRestaurants.__endpoint.secretEnvironmentVariables,
     ["GOOGLE_MAPS_API_KEY"],
+  );
+});
+
+test("the Admin Link paged callable uses exactly its cursor and geocoding secrets", () => {
+  const runtime = loadCompiledIndexWithRuntimeHarness();
+  for (const [name, expectedSecrets] of Object.entries(adminLinkPagedCallables)) {
+    const exported = runtime.exports[name];
+    assert.equal(typeof exported, "function", name);
+    assert.deepEqual(
+      [...exported.__endpoint.secretEnvironmentVariables].sort(),
+      [...expectedSecrets].sort(),
+      name,
+    );
+  }
+  assert.deepEqual(
+    runtime.exports.searchAdminRestaurants.__endpoint.secretEnvironmentVariables,
+    ["GOOGLE_MAPS_API_KEY"],
+  );
+});
+
+test("Admin Link callables preserve exact authorized UIDs before parsing", async () => {
+  const runtime = loadCompiledIndexWithRuntimeHarness();
+  const authorized = {
+    uid: "auth0|admin.user@example.com",
+    token: {email: " SCHUYLER.COLE@GMAIL.COM "},
+  };
+  for (const name of Object.keys(adminLinkPagedCallables)) {
+    await assert.rejects(
+      runtime.exports[name]({data: {}, auth: null}),
+      (error) => error.code === "permission-denied",
+    );
+    await assert.rejects(
+      runtime.exports[name]({
+        data: {},
+        auth: {uid: "not-admin", token: {email: "not-admin@example.test"}},
+      }),
+      (error) => error.code === "permission-denied",
+    );
+    await assert.rejects(
+      runtime.exports[name]({data: {}, auth: {...authorized, uid: " padded "}}),
+      (error) => error.code === "permission-denied",
+    );
+    await assert.rejects(
+      runtime.exports[name]({data: {}, auth: authorized}),
+      (error) => error.code === "invalid-argument",
+    );
+  }
+  await assert.rejects(
+    runtime.exports.searchAdminRestaurants({data: {}, auth: authorized}),
+    (error) => error.code === "invalid-argument",
   );
 });
 

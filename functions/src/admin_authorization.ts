@@ -2,6 +2,8 @@ import type { CallableRequest } from "firebase-functions/v2/https";
 import { HttpsError } from "firebase-functions/v2/https";
 
 const adminInviteEmails = new Set(["schuyler.cole@gmail.com"]);
+const maximumFirebaseUidLength = 128;
+const unsupportedAdminUidCharacterPattern = /[\p{Cc}\p{Cf}]/u;
 
 type AdminInviteContext = {
   uid: string;
@@ -10,6 +12,22 @@ type AdminInviteContext = {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readExactAdminUid(value: unknown): string | null {
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    value.length > maximumFirebaseUidLength ||
+    value.trim() !== value ||
+    value === "." ||
+    value === ".." ||
+    value.includes("/") ||
+    unsupportedAdminUidCharacterPattern.test(value)
+  ) {
+    return null;
+  }
+  return value;
 }
 
 export function requireAdminInviteAccess(
@@ -21,7 +39,7 @@ export function requireAdminInviteAccess(
   const tokenValue = authRecord?.token;
   const token = isRecord(tokenValue) ? tokenValue : null;
   const emailValue = token?.email;
-  const uid = typeof uidValue === "string" ? uidValue.trim() : "";
+  const uid = readExactAdminUid(uidValue);
   const email =
     typeof emailValue === "string" ? emailValue.trim().toLowerCase() : "";
 
@@ -44,7 +62,7 @@ export function requireAdminInviteAccess(
   }
 
   if (
-    !uid ||
+    uid === null ||
     !email ||
     malformedProviderMetadata ||
     isAnonymous ||

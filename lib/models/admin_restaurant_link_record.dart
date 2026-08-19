@@ -1,4 +1,35 @@
+import 'dart:convert';
+
 import '../services/firestore_document_id.dart';
+import 'pagination/paged_models.dart';
+
+const int adminRestaurantMaterializedOrderNameMaximumLength = 200;
+const String adminRestaurantPageCursorPrefix = 'bsp1.';
+const int adminRestaurantPageCursorMaximumLength = 8192;
+const int _adminRestaurantPageCursorEnvelopeOverheadBytes = 28;
+
+bool isValidAdminRestaurantPageCursor(String value) {
+  if (!value.startsWith(adminRestaurantPageCursorPrefix) ||
+      value.length > adminRestaurantPageCursorMaximumLength) {
+    return false;
+  }
+  final encoded = value.substring(adminRestaurantPageCursorPrefix.length);
+  if (encoded.length < 39 ||
+      encoded.length % 4 == 1 ||
+      !RegExp(r'^[A-Za-z0-9_-]+$').hasMatch(encoded)) {
+    return false;
+  }
+  try {
+    final paddingLength = (4 - encoded.length % 4) % 4;
+    final padded = '$encoded${List.filled(paddingLength, '=').join()}';
+    final packed = base64Url.decode(padded);
+    final canonical = base64Url.encode(packed).replaceAll('=', '');
+    return packed.length > _adminRestaurantPageCursorEnvelopeOverheadBytes &&
+        canonical == encoded;
+  } on FormatException {
+    return false;
+  }
+}
 
 enum AdminRestaurantLinkSource {
   biteScore('biteScore', 'BiteScore'),
@@ -16,6 +47,80 @@ enum AdminRestaurantLinkSource {
       }
     }
     return null;
+  }
+}
+
+class AdminRestaurantMaterializedOrder
+    implements Comparable<AdminRestaurantMaterializedOrder> {
+  static const int _maximumSafeJsonInteger = 9007199254740991;
+
+  final int distanceMillimeters;
+  final String normalizedName;
+  final String sourceDocumentId;
+  final AdminRestaurantLinkSource source;
+
+  const AdminRestaurantMaterializedOrder({
+    required this.distanceMillimeters,
+    required this.normalizedName,
+    required this.sourceDocumentId,
+    required this.source,
+  });
+
+  static AdminRestaurantMaterializedOrder? tryFromCallableData(Object? value) {
+    final data = _stringKeyedMap(value);
+    const keys = <String>{
+      'distanceMillimeters',
+      'normalizedName',
+      'sourceDocumentId',
+      'source',
+    };
+    if (data == null ||
+        data.keys.length != keys.length ||
+        !data.keys.toSet().containsAll(keys)) {
+      return null;
+    }
+    final distanceMillimeters = data['distanceMillimeters'];
+    final normalizedName = data['normalizedName'];
+    final sourceDocumentId = exactFirestoreDocumentId(data['sourceDocumentId']);
+    final source = AdminRestaurantLinkSource.fromCallableValue(data['source']);
+    if (distanceMillimeters is! int ||
+        distanceMillimeters < 0 ||
+        distanceMillimeters > _maximumSafeJsonInteger ||
+        normalizedName is! String ||
+        normalizedName.isEmpty ||
+        normalizedName.length >
+            adminRestaurantMaterializedOrderNameMaximumLength ||
+        sourceDocumentId == null ||
+        source == null) {
+      return null;
+    }
+    return AdminRestaurantMaterializedOrder(
+      distanceMillimeters: distanceMillimeters,
+      normalizedName: normalizedName,
+      sourceDocumentId: sourceDocumentId,
+      source: source,
+    );
+  }
+
+  bool matchesRecord(AdminRestaurantLinkRecord record) {
+    return source == record.source && sourceDocumentId == record.documentId;
+  }
+
+  @override
+  int compareTo(AdminRestaurantMaterializedOrder other) {
+    var comparison = distanceMillimeters.compareTo(other.distanceMillimeters);
+    if (comparison != 0) {
+      return comparison;
+    }
+    comparison = _compareUtf8(normalizedName, other.normalizedName);
+    if (comparison != 0) {
+      return comparison;
+    }
+    comparison = _compareUtf8(sourceDocumentId, other.sourceDocumentId);
+    if (comparison != 0) {
+      return comparison;
+    }
+    return source.callableValue.compareTo(other.source.callableValue);
   }
 }
 
@@ -297,6 +402,7 @@ class AdminRestaurantLinkRecord {
   final String? uid;
   final String? linkedBiteScoreRestaurantId;
   final AdminRestaurantPreparationState preparation;
+  final AdminRestaurantMaterializedOrder? materializedOrder;
 
   const AdminRestaurantLinkRecord({
     required this.source,
@@ -325,6 +431,7 @@ class AdminRestaurantLinkRecord {
     this.uid,
     this.linkedBiteScoreRestaurantId,
     this.preparation = const AdminRestaurantPreparationState.unavailable(),
+    this.materializedOrder,
   });
 
   bool get isBiteScore => source == AdminRestaurantLinkSource.biteScore;
@@ -445,6 +552,17 @@ class AdminRestaurantLinkRecord {
       claimAvailable: claimAvailable is bool ? claimAvailable : null,
       claimStateValid: claimStateValid is bool ? claimStateValid : null,
     );
+    final materializedOrder = data.containsKey('materializedOrder')
+        ? AdminRestaurantMaterializedOrder.tryFromCallableData(
+            data['materializedOrder'],
+          )
+        : null;
+    if (data.containsKey('materializedOrder') &&
+        (materializedOrder == null ||
+            materializedOrder.source != source ||
+            materializedOrder.sourceDocumentId != documentId)) {
+      return null;
+    }
     return AdminRestaurantLinkRecord(
       source: source,
       documentId: documentId,
@@ -505,6 +623,7 @@ class AdminRestaurantLinkRecord {
             ? claimState
             : AdminRestaurantClaimState.unavailable,
       ),
+      materializedOrder: materializedOrder,
     );
   }
 }
@@ -572,6 +691,218 @@ class AdminRestaurantLinkSearchResult {
   }
 }
 
+class AdminRestaurantLinkPagedResult {
+  final PagedResponse<AdminRestaurantLinkRecord> page;
+  final AdminRestaurantSearchCenter searchCenter;
+  final double radiusMiles;
+  final List<AdminRestaurantLinkSource> queriedSources;
+  final AdminRestaurantMaterializedOrder? consumedBoundary;
+
+  const AdminRestaurantLinkPagedResult({
+    required this.page,
+    required this.searchCenter,
+    required this.radiusMiles,
+    required this.queriedSources,
+    this.consumedBoundary,
+  });
+
+  bool get isPreparing =>
+      page.preparation?.state == PagePreparationState.preparing;
+  bool get isReady => page.preparation?.state == PagePreparationState.ready;
+  bool get isFailed => page.preparation?.state == PagePreparationState.failed;
+  bool get hasNext => page.hasNext;
+  String? get nextCursor => page.cursors.next;
+  String? get preparationMessage => page.preparation?.message;
+
+  factory AdminRestaurantLinkPagedResult.fromCallableData(Object? value) {
+    final data = _stringKeyedMap(value);
+    const protocolKeys = <String>{
+      'protocolVersion',
+      'items',
+      'pageSize',
+      'hasNext',
+      'hasPrevious',
+      'nextCursor',
+      'previousCursor',
+      'currentPageNumber',
+      'total',
+      'queryFingerprint',
+      'snapshotTimestampMs',
+      'capabilities',
+      'preparation',
+    };
+    const requiredMetadataKeys = <String>{
+      'searchCenter',
+      'radiusMiles',
+      'queriedSources',
+    };
+    const metadataKeys = <String>{...requiredMetadataKeys, 'consumedBoundary'};
+    if (data == null ||
+        data.keys.any(
+          (key) => !protocolKeys.contains(key) && !metadataKeys.contains(key),
+        ) ||
+        !data.keys.toSet().containsAll(<String>{
+          'protocolVersion',
+          'items',
+          'pageSize',
+          'hasNext',
+          'hasPrevious',
+          'queryFingerprint',
+          'snapshotTimestampMs',
+          'capabilities',
+          'preparation',
+          ...requiredMetadataKeys,
+        })) {
+      throw const FormatException('Invalid paged restaurant response.');
+    }
+    final protocolData = <String, Object?>{
+      for (final entry in data.entries)
+        if (protocolKeys.contains(entry.key)) entry.key: entry.value,
+    };
+    late final PagedResponse<AdminRestaurantLinkRecord> page;
+    try {
+      page = PagedResponse<AdminRestaurantLinkRecord>.fromJson(
+        protocolData,
+        itemParser: (raw) =>
+            AdminRestaurantLinkRecord.tryFromCallableData(raw) ??
+            (throw const PagedProtocolException()),
+      );
+    } on PagedProtocolException {
+      throw const FormatException('Invalid paged restaurant response.');
+    }
+    final preparation = page.preparation;
+    final nextCursor = page.cursors.next;
+    if (page.pageSize != adminDirectoryDefaultPageSize ||
+        page.hasPrevious ||
+        page.cursors.previous != null ||
+        page.pageNumber != null ||
+        page.total?.state != PagedTotalState.unknown ||
+        preparation == null ||
+        preparation.totalUnits == null ||
+        preparation.totalUnits! <= 0 ||
+        page.capabilities.first ||
+        page.capabilities.previous ||
+        page.capabilities.numberedVisitedPages ||
+        page.capabilities.last ||
+        (nextCursor != null && !isValidAdminRestaurantPageCursor(nextCursor))) {
+      throw const FormatException('Invalid paged restaurant response.');
+    }
+    final consumedBoundary = data.containsKey('consumedBoundary')
+        ? AdminRestaurantMaterializedOrder.tryFromCallableData(
+            data['consumedBoundary'],
+          )
+        : null;
+    if (data.containsKey('consumedBoundary') && consumedBoundary == null) {
+      throw const FormatException('Invalid paged restaurant response.');
+    }
+    switch (preparation.state) {
+      case PagePreparationState.preparing:
+        if (page.items.isNotEmpty ||
+            !page.hasNext ||
+            nextCursor == null ||
+            consumedBoundary != null ||
+            preparation.completedUnits >= preparation.totalUnits!) {
+          throw const FormatException('Invalid paged restaurant response.');
+        }
+      case PagePreparationState.ready:
+        if (preparation.completedUnits != preparation.totalUnits! ||
+            ((page.items.isNotEmpty || page.hasNext) &&
+                consumedBoundary == null)) {
+          throw const FormatException('Invalid paged restaurant response.');
+        }
+      case PagePreparationState.failed:
+        if (page.items.isNotEmpty ||
+            page.hasNext ||
+            nextCursor != null ||
+            consumedBoundary != null ||
+            preparation.completedUnits >= preparation.totalUnits!) {
+          throw const FormatException('Invalid paged restaurant response.');
+        }
+    }
+    final keys = <String>{};
+    AdminRestaurantMaterializedOrder? previousOrder;
+    for (final record in page.items) {
+      final order = record.materializedOrder;
+      if (!keys.add(record.recordKey) ||
+          order == null ||
+          !order.matchesRecord(record) ||
+          (previousOrder != null && order.compareTo(previousOrder) <= 0) ||
+          (consumedBoundary != null && order.compareTo(consumedBoundary) > 0)) {
+        throw const FormatException('Invalid paged restaurant identity.');
+      }
+      previousOrder = order;
+    }
+    final rawSearchCenter = _stringKeyedMap(data['searchCenter']);
+    const searchCenterKeys = <String>{'latitude', 'longitude', 'displayName'};
+    final rawDisplayName = rawSearchCenter?['displayName'];
+    final searchCenter =
+        rawSearchCenter == null ||
+            rawSearchCenter.keys.length != searchCenterKeys.length ||
+            !rawSearchCenter.keys.toSet().containsAll(searchCenterKeys) ||
+            rawDisplayName is! String ||
+            rawDisplayName.length > 500
+        ? null
+        : AdminRestaurantSearchCenter.tryFromCallableData(rawSearchCenter);
+    final radiusMiles = _finiteDouble(data['radiusMiles']);
+    final rawSources = data['queriedSources'];
+    if (searchCenter == null ||
+        radiusMiles == null ||
+        radiusMiles <= 0 ||
+        radiusMiles > 50 ||
+        rawSources is! List ||
+        rawSources.isEmpty ||
+        rawSources.length > AdminRestaurantLinkSource.values.length) {
+      throw const FormatException('Invalid paged restaurant response.');
+    }
+    final sources = <AdminRestaurantLinkSource>[];
+    for (final rawSource in rawSources) {
+      final source = AdminRestaurantLinkSource.fromCallableValue(rawSource);
+      if (source == null || sources.contains(source)) {
+        throw const FormatException('Invalid paged restaurant response.');
+      }
+      sources.add(source);
+    }
+    final canonicalSources = AdminRestaurantLinkSource.values
+        .where(sources.contains)
+        .toList(growable: false);
+    if (!List.generate(
+      sources.length,
+      (index) => sources[index] == canonicalSources[index],
+    ).every((matches) => matches)) {
+      throw const FormatException('Invalid paged restaurant response.');
+    }
+    if (consumedBoundary != null &&
+        !sources.contains(consumedBoundary.source)) {
+      throw const FormatException('Invalid paged restaurant response.');
+    }
+    for (final record in page.items) {
+      if (!sources.contains(record.source)) {
+        throw const FormatException('Invalid paged restaurant response.');
+      }
+    }
+    return AdminRestaurantLinkPagedResult(
+      page: page,
+      searchCenter: searchCenter,
+      radiusMiles: radiusMiles,
+      queriedSources: List.unmodifiable(sources),
+      consumedBoundary: consumedBoundary,
+    );
+  }
+
+  AdminRestaurantLinkSearchResult asAccumulatedResult(
+    List<AdminRestaurantLinkRecord> records,
+  ) {
+    return AdminRestaurantLinkSearchResult(
+      searchCenter: searchCenter,
+      radiusMiles: radiusMiles,
+      results: List.unmodifiable(records),
+      resultsMayBeTruncated: false,
+      returnedCount: records.length,
+      queriedSources: queriedSources,
+    );
+  }
+}
+
 Map<String, dynamic>? _stringKeyedMap(Object? value) {
   if (value is! Map) {
     return null;
@@ -617,4 +948,19 @@ double? _finiteDouble(Object? value) {
   }
   final number = value.toDouble();
   return number.isFinite ? number : null;
+}
+
+int _compareUtf8(String first, String second) {
+  final firstBytes = utf8.encode(first);
+  final secondBytes = utf8.encode(second);
+  final commonLength = firstBytes.length < secondBytes.length
+      ? firstBytes.length
+      : secondBytes.length;
+  for (var index = 0; index < commonLength; index += 1) {
+    final comparison = firstBytes[index].compareTo(secondBytes[index]);
+    if (comparison != 0) {
+      return comparison;
+    }
+  }
+  return firstBytes.length.compareTo(secondBytes.length);
 }

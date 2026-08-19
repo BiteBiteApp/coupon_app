@@ -57,6 +57,17 @@ export type AdminRestaurantQrPreparedClaimValidation =
     inviteId: string | null;
   }>;
 
+export type AdminRestaurantQrPreparedOwnerValidation =
+  | Readonly<{ state: "absent"; inviteId: null }>
+  | Readonly<{
+    state: "eligible" | "ineligible";
+    inviteId: string;
+  }>
+  | Readonly<{
+    state: "unavailable";
+    inviteId: string | null;
+  }>;
+
 export type AdminRestaurantQrPreparationPatch = Readonly<{
   set: Readonly<Record<string, unknown>>;
   deleteFields: readonly string[];
@@ -369,6 +380,7 @@ export function projectAdminRestaurantQrPreparation(params: Readonly<{
   rawPreparation: Readonly<Record<string, unknown>> | null;
   biteSaverParticipation: BiteSaverParticipationState;
   biteScoreClaim: BiteScoreClaimState;
+  ownerPreparedValidation: AdminRestaurantQrPreparedOwnerValidation;
   claimPreparedValidation: AdminRestaurantQrPreparedClaimValidation;
   nowMillis: number;
 }>): AdminRestaurantQrPreparationProjection {
@@ -384,20 +396,6 @@ export function projectAdminRestaurantQrPreparation(params: Readonly<{
       sr: "unavailable",
     });
   }
-  const invitationStatus = (
-    association: ParsedInvitationAssociation | null,
-    applicability: BiteSaverParticipationState | BiteScoreClaimState,
-  ): AdminRestaurantQrPreparationStatus => {
-    if (applicability === "bound" || applicability === "claimed") {
-      return "notRequired";
-    }
-    if (applicability === "unavailable") {
-      return "unavailable";
-    }
-    return invitationPrepared(association, params.nowMillis)
-      ? "prepared"
-      : "unprepared";
-  };
   const claimInvitationStatus = (): AdminRestaurantQrPreparationStatus => {
     if (params.biteScoreClaim === "claimed") {
       return "notRequired";
@@ -424,9 +422,29 @@ export function projectAdminRestaurantQrPreparation(params: Readonly<{
       ? "prepared"
       : "unprepared";
   };
+  const ownerInvitationStatus = (): AdminRestaurantQrPreparationStatus => {
+    if (params.biteSaverParticipation === "bound") {
+      return "notRequired";
+    }
+    if (params.biteSaverParticipation === "unavailable") {
+      return "unavailable";
+    }
+    const validation = params.ownerPreparedValidation;
+    if (validation.state === "unavailable") {
+      return "unavailable";
+    }
+    if (parsed.iPrepared === null) {
+      return validation.state === "absent" ? "unprepared" : "unavailable";
+    }
+    return validation.state === "eligible" &&
+        validation.inviteId === parsed.iPrepared.id &&
+        invitationPrepared(parsed.iPrepared, params.nowMillis)
+      ? "prepared"
+      : "unprepared";
+  };
   return Object.freeze({
     canonicalCatalogRestaurantId: params.catalogRestaurantId,
-    i: invitationStatus(parsed.iPrepared, params.biteSaverParticipation),
+    i: ownerInvitationStatus(),
     c: claimInvitationStatus(),
     sa: parsed.saPrepared ? "prepared" : "unprepared",
     sr: parsed.srPrepared ? "prepared" : "unprepared",
@@ -700,6 +718,44 @@ export function validateAdminRestaurantQrPreparedClaimAssociation(
   });
 }
 
+export function validateAdminRestaurantQrPreparedOwnerAssociation(
+  params: Readonly<{
+    catalogRestaurantId: string;
+    rawPreparation: Readonly<Record<string, unknown>> | null;
+    restaurantData: Readonly<Record<string, unknown>>;
+    invitation: AdminRestaurantQrPreparationStoredDocument | null;
+    nowMillis: number;
+  }>,
+): AdminRestaurantQrPreparedOwnerValidation {
+  const parsed = parseAdminRestaurantQrPreparationDocument(
+    params.rawPreparation,
+  );
+  if (parsed === null) {
+    return Object.freeze({ state: "unavailable", inviteId: null });
+  }
+  const prepared = parsed.iPrepared;
+  if (prepared === null) {
+    return Object.freeze({ state: "absent", inviteId: null });
+  }
+  if (params.invitation === null || params.invitation.id !== prepared.id) {
+    return Object.freeze({ state: "ineligible", inviteId: prepared.id });
+  }
+  const expiresAtMillis = validInvitationExpiresAt({
+    type: "I",
+    inviteId: prepared.id,
+    inviteData: params.invitation.data,
+    catalogRestaurantId: params.catalogRestaurantId,
+    restaurantData: params.restaurantData,
+    nowMillis: params.nowMillis,
+  });
+  return Object.freeze({
+    state: expiresAtMillis === prepared.expiresAtMillis
+      ? "eligible"
+      : "ineligible",
+    inviteId: prepared.id,
+  });
+}
+
 function patchForMutation(params: Readonly<{
   request: ParsedMutationRequest;
   parsed: ParsedPreparationDocument;
@@ -847,6 +903,24 @@ export async function updateAdminRestaurantQrPreparation(
             `restaurant_invites/${updatedParsed.cPrepared.id}`,
           );
     }
+    let preparedOwnerInvitation:
+      AdminRestaurantQrPreparationStoredDocument | null = null;
+    if (updatedParsed.iPrepared !== null) {
+      preparedOwnerInvitation = request.prepared && request.type === "I" &&
+          requestInvitation?.id === updatedParsed.iPrepared.id
+        ? requestInvitation
+        : await transaction.getDocument(
+            `restaurant_invites/${updatedParsed.iPrepared.id}`,
+          );
+    }
+    const ownerPreparedValidation =
+      validateAdminRestaurantQrPreparedOwnerAssociation({
+        catalogRestaurantId: request.catalogRestaurantId,
+        rawPreparation: updated,
+        restaurantData: restaurant.data,
+        invitation: preparedOwnerInvitation,
+        nowMillis,
+      });
     const claimPreparedValidation =
       validateAdminRestaurantQrPreparedClaimAssociation({
         catalogRestaurantId: request.catalogRestaurantId,
@@ -861,6 +935,7 @@ export async function updateAdminRestaurantQrPreparation(
       rawPreparation: updated,
       biteSaverParticipation: biteSaverState,
       biteScoreClaim: claimState,
+      ownerPreparedValidation,
       claimPreparedValidation,
       nowMillis,
     });

@@ -176,6 +176,10 @@ import {
 import { searchRatingAdminRestaurantsPageHandler } from "./rating_admin_restaurant_search.js";
 import { createFirestoreRatingAdminRadiusStore } from "./rating_admin_radius_sessions.js";
 import {
+  createFirestoreAdminLinkRestaurantRadiusStore,
+  searchAdminLinkRestaurantsPageHandler,
+} from "./admin_link_restaurant_radius_sessions.js";
+import {
   createFirestoreRatingAdminPeoplePagingDatabase,
   listRatingAdminContributionLedgerPageHandler,
   listRatingAdminUserPointsPageHandler,
@@ -262,6 +266,8 @@ const couponAdminPagingDatabase = createFirestoreCouponAdminPagingDatabase(db);
 const couponAdminRadiusStore = createFirestoreCouponAdminRadiusStore(db);
 const ratingAdminPagingDatabase = createFirestoreRatingAdminPagingDatabase(db);
 const ratingAdminRadiusStore = createFirestoreRatingAdminRadiusStore(db);
+const adminLinkRestaurantRadiusStore =
+  createFirestoreAdminLinkRestaurantRadiusStore(db);
 const ratingAdminPeoplePagingDatabase =
   createFirestoreRatingAdminPeoplePagingDatabase(db);
 const ratingDestructiveDependencies =
@@ -326,6 +332,9 @@ async function loadAdminRestaurantQrPreparationInvitationDocuments(
   }
   if (uniqueInvitationIds.length === 0) {
     return new Map();
+  }
+  if (uniqueInvitationIds.length > 100) {
+    throw new Error("The preparation invitation batch is too large.");
   }
   const snapshots = await db.getAll(
     ...uniqueInvitationIds.map((invitationId) =>
@@ -2279,6 +2288,29 @@ export const searchAdminRestaurants = onCall(
       getGeocodingApiKey: () => googleMapsApiKey.value(),
       fetchGeocoding: (url, init) => fetch(url, init),
       executeQueryPlan: executeAdminRestaurantQueryPlan,
+      verifyBiteSaverCatalogBindings: verifyAdminBiteSaverCatalogBindings,
+      loadQrPreparationDocuments: (catalogRestaurantIds) =>
+        adminRestaurantQrPreparationDatabase.getPreparationDocuments(
+          catalogRestaurantIds,
+        ),
+      loadQrPreparationInvitationDocuments:
+        loadAdminRestaurantQrPreparationInvitationDocuments,
+    });
+  },
+);
+
+export const searchAdminLinkRestaurantsPage = onCall(
+  {
+    secrets: [searchPaginationCursorKey, googleMapsApiKey],
+  },
+  async (request) => {
+    const admin = requireAdminInviteAccess(request);
+    return searchAdminLinkRestaurantsPageHandler(request.data, {
+      adminUid: admin.uid,
+      cursorSecret: searchPaginationCursorKey.value(),
+      store: adminLinkRestaurantRadiusStore,
+      getGeocodingApiKey: () => googleMapsApiKey.value(),
+      fetchGeocoding: (url, init) => fetch(url, init),
       verifyBiteSaverCatalogBindings: verifyAdminBiteSaverCatalogBindings,
       loadQrPreparationDocuments: (catalogRestaurantIds) =>
         adminRestaurantQrPreparationDatabase.getPreparationDocuments(

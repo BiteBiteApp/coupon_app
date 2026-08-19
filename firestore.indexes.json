@@ -620,6 +620,16 @@
         { "fieldPath": "normalizedName", "order": "ASCENDING" },
         { "fieldPath": "sourceDocumentId", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "results",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "distanceMillimeters", "order": "ASCENDING" },
+        { "fieldPath": "normalizedName", "order": "ASCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "ASCENDING" },
+        { "fieldPath": "source", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

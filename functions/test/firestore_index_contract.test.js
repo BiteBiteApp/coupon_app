@@ -594,6 +594,20 @@ const REQUIRED_INDEX_CONTRACT = [
     "results",
     [...ascending("distanceMillimeters", "normalizedName", "sourceDocumentId")],
   ),
+  requiredIndex(
+    "admin-link.radius-results",
+    "P2",
+    ["functions/src/admin_link_restaurant_radius_sessions.ts"],
+    "results",
+    [
+      ...ascending(
+        "distanceMillimeters",
+        "normalizedName",
+        "sourceDocumentId",
+        "source",
+      ),
+    ],
+  ),
 ];
 
 const AUTOMATIC_INDEX_CONTRACT = [
@@ -677,14 +691,14 @@ test("Firestore composite index contract is unique, scoped, and structurally val
 
   assert.equal(new Set(signatures).size, signatures.length);
   assert.equal(new Set(contractIds).size, contractIds.length);
-  assert.equal(configuration.indexes.length, 67);
+  assert.equal(configuration.indexes.length, 68);
   assert.equal(
     REQUIRED_INDEX_CONTRACT.filter(({ phase }) => phase === "LEGACY").length,
     2,
   );
   assert.equal(
     REQUIRED_INDEX_CONTRACT.filter(({ phase }) => phase === "P2").length,
-    60,
+    61,
   );
   assert.equal(
     REQUIRED_INDEX_CONTRACT.filter(({ phase }) => phase === "LATER").length,

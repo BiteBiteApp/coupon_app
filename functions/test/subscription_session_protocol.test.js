@@ -885,6 +885,7 @@ test("runtime, region, secret bindings, exports, production caller, and webhook 
       "redeemBiteSaverSubscriptionReturn",
       "rejectRatingAdminDishSuggestionGroup",
       "searchCouponAdminRestaurantsPage",
+      "searchAdminLinkRestaurantsPage",
       "searchRatingAdminRestaurantsPage",
       "searchRatingAdminUsersPage",
       "startRatingDishDelete",

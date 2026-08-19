@@ -35,6 +35,7 @@ import {
   projectAdminRestaurantQrPreparation,
   unavailableAdminRestaurantQrPreparationProjection,
   validateAdminRestaurantQrPreparedClaimAssociation,
+  validateAdminRestaurantQrPreparedOwnerAssociation,
 } from "./admin_restaurant_qr_preparation.js";
 
 export type AdminRestaurantSource = "biteScore" | "biteSaver";
@@ -51,9 +52,10 @@ export const maximumAdminRestaurantRadiusMiles =
   MAX_RESTAURANT_SEARCH_RADIUS_KM / KILOMETERS_PER_MILE;
 export const adminGeocodingTimeoutMilliseconds =
   defaultRestaurantGeocodingTimeoutMilliseconds;
+const adminRestaurantPreparationInvitationBatchSize = 100;
 
 const maximumLocationQueryLength = 100;
-const maximumRestaurantNameLength = 100;
+export const maximumAdminRestaurantNameFilterLength = 100;
 const usStateCodes = new Set([
   "AL",
   "AK",
@@ -403,7 +405,7 @@ function validateBiteScoreStatus(
   return value;
 }
 
-function validateRestaurantName(value: unknown): {
+export function validateAdminRestaurantNameFilter(value: unknown): {
   restaurantName: string | null;
   normalizedRestaurantName: string | null;
 } {
@@ -421,16 +423,49 @@ function validateRestaurantName(value: unknown): {
   if (!restaurantName) {
     return { restaurantName: null, normalizedRestaurantName: null };
   }
-  if (restaurantName.length > maximumRestaurantNameLength) {
+  const normalizedRestaurantName = normalizeAdminRestaurantName(
+    restaurantName,
+  );
+  if (
+    !normalizedRestaurantName ||
+    normalizedRestaurantName.length > maximumAdminRestaurantNameFilterLength
+  ) {
     throw new HttpsError(
       "invalid-argument",
       "Restaurant name must be no more than 100 characters.",
     );
   }
+  // Persisted session criteria must reparse to the identical filter value.
+  if (
+    normalizeAdminRestaurantName(normalizedRestaurantName) !==
+      normalizedRestaurantName
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Restaurant name contains unsupported text.",
+    );
+  }
   return {
     restaurantName,
-    normalizedRestaurantName: normalizeAdminRestaurantName(restaurantName),
+    normalizedRestaurantName,
   };
+}
+
+export function readNormalizedAdminRestaurantNameFilter(
+  value: unknown,
+): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
+  try {
+    const validated = validateAdminRestaurantNameFilter(value);
+    return validated.restaurantName === value &&
+        validated.normalizedRestaurantName === value
+      ? value
+      : null;
+  } catch (_error) {
+    return null;
+  }
 }
 
 export function validateAdminRestaurantSearchRequest(
@@ -496,7 +531,7 @@ export function validateAdminRestaurantSearchRequest(
     );
   }
 
-  const name = validateRestaurantName(data.restaurantName);
+  const name = validateAdminRestaurantNameFilter(data.restaurantName);
   const sources = validateSources(data.sources);
   return {
     center,
@@ -930,9 +965,12 @@ export function processAdminRestaurantSearchCandidates(params: {
   };
 }
 
-async function attachAdminRestaurantQrPreparation(
+export async function attachAdminRestaurantQrPreparation(
   response: AdminRestaurantSearchResponse,
-  dependencies: AdminRestaurantSearchDependencies,
+  dependencies: Pick<
+    AdminRestaurantSearchDependencies,
+    "loadQrPreparationDocuments" | "loadQrPreparationInvitationDocuments"
+  >,
   candidatesByKey: ReadonlyMap<string, AdminRestaurantSearchCandidate>,
 ): Promise<AdminRestaurantSearchResponse> {
   if (dependencies.loadQrPreparationDocuments === undefined) {
@@ -958,31 +996,53 @@ async function attachAdminRestaurantQrPreparation(
     );
   }
   const nowMillis = Date.now();
-  const preparedClaimInviteIds = [
+  const preparedInviteIds = [
     ...new Set(
       response.results
         .filter((result) => result.source === "biteScore")
         .map((result) => documents.get(result.documentId) ?? null)
-        .map((rawPreparation) =>
-          parseAdminRestaurantQrPreparationDocument(rawPreparation)
-            ?.cPrepared?.id ?? null)
-        .filter((inviteId): inviteId is string => inviteId !== null),
+        .flatMap((rawPreparation) => {
+          const parsed = parseAdminRestaurantQrPreparationDocument(
+            rawPreparation,
+          );
+          return [parsed?.iPrepared?.id, parsed?.cPrepared?.id];
+        })
+        .filter((inviteId): inviteId is string => typeof inviteId === "string"),
     ),
   ];
+  if (
+    preparedInviteIds.length > maximumAdminRestaurantResultLimit * 2
+  ) {
+    throw new HttpsError(
+      "unavailable",
+      "Restaurant preparation state is temporarily unavailable.",
+    );
+  }
   let invitationDocuments = new Map<
     string,
     Readonly<Record<string, unknown>>
   >();
   if (
-    preparedClaimInviteIds.length > 0 &&
+    preparedInviteIds.length > 0 &&
     dependencies.loadQrPreparationInvitationDocuments !== undefined
   ) {
     try {
-      invitationDocuments = new Map(
-        await dependencies.loadQrPreparationInvitationDocuments(
-          preparedClaimInviteIds,
-        ),
-      );
+      invitationDocuments = new Map();
+      for (
+        let offset = 0;
+        offset < preparedInviteIds.length;
+        offset += adminRestaurantPreparationInvitationBatchSize
+      ) {
+        const batch = preparedInviteIds.slice(
+          offset,
+          offset + adminRestaurantPreparationInvitationBatchSize,
+        );
+        const loaded = await dependencies
+          .loadQrPreparationInvitationDocuments(batch);
+        for (const [invitationId, invitation] of loaded) {
+          invitationDocuments.set(invitationId, invitation);
+        }
+      }
     } catch (_error) {
       throw new HttpsError(
         "unavailable",
@@ -1020,7 +1080,18 @@ async function attachAdminRestaurantQrPreparation(
       const rawPreparation = documents.get(result.documentId) ?? null;
       const parsedPreparation =
         parseAdminRestaurantQrPreparationDocument(rawPreparation);
+      const preparedOwnerInviteId = parsedPreparation?.iPrepared?.id ?? null;
       const preparedClaimInviteId = parsedPreparation?.cPrepared?.id ?? null;
+      const ownerInvitationData = preparedOwnerInviteId === null
+        ? undefined
+        : invitationDocuments.get(preparedOwnerInviteId);
+      const ownerInvitation: AdminRestaurantQrPreparationStoredDocument | null =
+        preparedOwnerInviteId !== null && ownerInvitationData !== undefined
+          ? Object.freeze({
+              id: preparedOwnerInviteId,
+              data: ownerInvitationData,
+            })
+          : null;
       const invitationData = preparedClaimInviteId === null
         ? undefined
         : invitationDocuments.get(preparedClaimInviteId);
@@ -1043,6 +1114,15 @@ async function attachAdminRestaurantQrPreparation(
             invitation,
             nowMillis,
           });
+      const ownerPreparedValidation = candidate === undefined
+        ? Object.freeze({ state: "unavailable" as const, inviteId: null })
+        : validateAdminRestaurantQrPreparedOwnerAssociation({
+            catalogRestaurantId: result.documentId,
+            rawPreparation,
+            restaurantData: candidate.data,
+            invitation: ownerInvitation,
+            nowMillis,
+          });
       return {
         ...result,
         preparation: projectAdminRestaurantQrPreparation({
@@ -1050,12 +1130,101 @@ async function attachAdminRestaurantQrPreparation(
           rawPreparation,
           biteSaverParticipation,
           biteScoreClaim,
+          ownerPreparedValidation,
           claimPreparedValidation,
           nowMillis,
         }),
       };
     }),
   };
+}
+
+export async function rehydrateAdminRestaurantSearchPage(params: Readonly<{
+  request: ValidatedAdminRestaurantSearchRequest;
+  searchCenter: ResolvedAdminRestaurantSearchCenter;
+  candidates: readonly AdminRestaurantSearchCandidate[];
+  dependencies: Pick<
+    AdminRestaurantSearchDependencies,
+    | "verifyBiteSaverCatalogBindings"
+    | "loadQrPreparationDocuments"
+    | "loadQrPreparationInvitationDocuments"
+  >;
+}>): Promise<AdminRestaurantSearchResponse> {
+  const candidatesByKey = exactCandidatesByKey(params.candidates);
+  let response = processAdminRestaurantSearchCandidates({
+    request: params.request,
+    searchCenter: params.searchCenter,
+    candidates: params.candidates,
+    anyQueryReachedCandidateLimit: false,
+  });
+  if (params.dependencies.verifyBiteSaverCatalogBindings !== undefined) {
+    const verificationRequests: AdminCatalogBindingVerificationRequest[] = [];
+    for (const result of response.results) {
+      if (result.source !== "biteScore") {
+        continue;
+      }
+      const candidate = candidatesByKey.get(
+        restaurantSourceDocumentKey(result.source, result.documentId),
+      );
+      if (candidate === undefined) {
+        continue;
+      }
+      const binding = biteScoreCatalogBindingState(candidate.data);
+      const locallyConsistentState = biteSaverCatalogBindingAdminState(
+        result.documentId,
+        candidate.data,
+        true,
+      );
+      if (locallyConsistentState !== "unavailable") {
+        verificationRequests.push(Object.freeze({
+          catalogRestaurantId: result.documentId,
+          biteSaverCatalogBindingId: binding.type === "bound"
+            ? binding.biteSaverCatalogBindingId
+            : null,
+        }));
+      }
+    }
+    if (verificationRequests.length > 0) {
+      try {
+        const verifiedBiteSaverCatalogIds =
+          await params.dependencies.verifyBiteSaverCatalogBindings(
+            verificationRequests,
+          );
+        response = processAdminRestaurantSearchCandidates({
+          request: params.request,
+          searchCenter: params.searchCenter,
+          candidates: params.candidates,
+          anyQueryReachedCandidateLimit: false,
+          verifiedBiteSaverCatalogIds,
+        });
+      } catch (_error) {
+        // Binding-dependent actions fail closed in the unverified projection.
+      }
+    }
+  }
+
+  const projectedByKey = new Map(
+    response.results.map((result) => [
+      restaurantSourceDocumentKey(result.source, result.documentId),
+      result,
+    ]),
+  );
+  const orderedResults = params.candidates.flatMap((candidate) => {
+    const result = projectedByKey.get(
+      restaurantSourceDocumentKey(candidate.source, candidate.documentId),
+    );
+    return result === undefined ? [] : [result];
+  });
+  return attachAdminRestaurantQrPreparation(
+    {
+      ...response,
+      results: orderedResults,
+      returnedCount: orderedResults.length,
+      resultsMayBeTruncated: false,
+    },
+    params.dependencies,
+    candidatesByKey,
+  );
 }
 
 export async function executeAdminRestaurantSearch(

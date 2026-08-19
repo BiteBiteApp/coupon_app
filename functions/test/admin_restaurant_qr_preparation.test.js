@@ -18,6 +18,7 @@ const {
   updateAdminRestaurantQrPreparation,
   updateAdminRestaurantQrPreparationCallableHandler,
   validateAdminRestaurantQrPreparedClaimAssociation,
+  validateAdminRestaurantQrPreparedOwnerAssociation,
 } = require("../lib/admin_restaurant_qr_preparation.js");
 const {HttpsError} = require("firebase-functions/v2/https");
 
@@ -299,6 +300,7 @@ test("missing and strictly valid version-1 documents parse", () => {
     rawPreparation: null,
     biteSaverParticipation: "unbound",
     biteScoreClaim: "available",
+    ownerPreparedValidation: {state: "absent", inviteId: null},
     claimPreparedValidation: {state: "absent", inviteId: null},
     nowMillis: now.getTime(),
   }), {
@@ -339,6 +341,7 @@ test("unknown, future, mistyped, and contradictory preparation data fail closed"
     rawPreparation: {schemaVersion: 1, unknownField: false},
     biteSaverParticipation: "bound",
     biteScoreClaim: "claimed",
+    ownerPreparedValidation: {state: "unavailable", inviteId: null},
     claimPreparedValidation: {state: "unavailable", inviteId: null},
     nowMillis: now.getTime(),
   }), {
@@ -577,11 +580,23 @@ test("a newer latest invite preserves an older valid prepared invite", async () 
   await applyPatch(data, latestPatch);
   assert.equal(prepRecord(data).iLatestInviteId, "invite-b");
   assert.equal(prepRecord(data).iPreparedInviteId, "invite-a");
+  const ownerPreparedValidation =
+    validateAdminRestaurantQrPreparedOwnerAssociation({
+      catalogRestaurantId: "restaurant-1",
+      rawPreparation: prepRecord(data),
+      restaurantData: data.records.get("bitescore_restaurants/restaurant-1"),
+      invitation: {
+        id: "invite-a",
+        data: data.records.get("restaurant_invites/invite-a"),
+      },
+      nowMillis: now.getTime(),
+    });
   assert.equal(projectAdminRestaurantQrPreparation({
     catalogRestaurantId: "restaurant-1",
     rawPreparation: prepRecord(data),
     biteSaverParticipation: "unbound",
     biteScoreClaim: "available",
+    ownerPreparedValidation,
     claimPreparedValidation: {state: "absent", inviteId: null},
     nowMillis: now.getTime(),
   }).i, "prepared");
@@ -600,6 +615,55 @@ test("a newer latest invite preserves an older valid prepared invite", async () 
     now,
   );
   assert.equal(prepRecord(data).iPreparedInviteId, "invite-b");
+});
+
+test("prepared I projection rejects every invalid authoritative invitation shape", () => {
+  const rawPreparation = {
+    schemaVersion: 1,
+    iPreparedInviteId: "invite-1",
+    iPreparedInviteExpiresAt: future,
+  };
+  const restaurantData = {isActive: true};
+  const status = (invitation) => {
+    const ownerPreparedValidation =
+      validateAdminRestaurantQrPreparedOwnerAssociation({
+        catalogRestaurantId: "restaurant-1",
+        rawPreparation,
+        restaurantData,
+        invitation,
+        nowMillis: now.getTime(),
+      });
+    return projectAdminRestaurantQrPreparation({
+      catalogRestaurantId: "restaurant-1",
+      rawPreparation,
+      biteSaverParticipation: "unbound",
+      biteScoreClaim: "available",
+      ownerPreparedValidation,
+      claimPreparedValidation: {state: "absent", inviteId: null},
+      nowMillis: now.getTime(),
+    }).i;
+  };
+  const valid = {id: "invite-1", data: invite("I")};
+  assert.equal(status(valid), "prepared");
+  assert.equal(status(null), "unprepared");
+  for (const overrides of [
+    {expiresAt: past},
+    {status: "revoked"},
+    {useCount: 1},
+    {usedAt: now},
+    {revokedAt: now},
+    {biteScoreCatalogRestaurantId: "other"},
+    {pendingRestaurantKey: "pending_other"},
+    {type: "bitescore_claim_invite"},
+    {side: "bitescore"},
+    {expiresAt: new Date(future.getTime() + 1)},
+  ]) {
+    assert.equal(
+      status({id: "invite-1", data: invite("I", "restaurant-1", overrides)}),
+      "unprepared",
+      JSON.stringify(overrides),
+    );
+  }
 });
 
 test("C invitation A stays valid after B becomes latest within one epoch", async () => {
@@ -707,6 +771,7 @@ test("N/R derives from current participation without altering stored preparation
     rawPreparation: raw,
     biteSaverParticipation: "bound",
     biteScoreClaim: "claimed",
+    ownerPreparedValidation: {state: "eligible", inviteId: "invite-1"},
     claimPreparedValidation: {state: "eligible", inviteId: "claim-1"},
     nowMillis: now.getTime(),
   });
@@ -732,6 +797,7 @@ test("C projection validation distinguishes pre-epoch, fresh, and unavailable st
       rawPreparation,
       biteSaverParticipation: "unbound",
       biteScoreClaim: "available",
+      ownerPreparedValidation: {state: "absent", inviteId: null},
       claimPreparedValidation,
       nowMillis: now.getTime(),
     }).c;

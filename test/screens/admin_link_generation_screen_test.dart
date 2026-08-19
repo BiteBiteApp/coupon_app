@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:coupon_app/models/admin_restaurant_link_record.dart';
+import 'package:coupon_app/models/pagination/paged_models.dart';
 import 'package:coupon_app/screens/admin_link_generation_screen.dart';
 import 'package:coupon_app/services/admin_link_generation_service.dart';
 import 'package:coupon_app/services/restaurant_invite_service.dart';
@@ -11,6 +12,797 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'paged search prepares explicitly and returns page one on continue',
+    (tester) async {
+      final calls = <({String instance, String request, String? cursor})>[];
+      await _pumpPagedScreen(
+        tester,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+              required searchInstanceId,
+              required clientRequestId,
+              cursor,
+              resolvedSearchCenter,
+            }) async {
+              calls.add((
+                instance: searchInstanceId,
+                request: clientRequestId,
+                cursor: cursor,
+              ));
+              return calls.length == 1
+                  ? _pagedResult(
+                      preparing: true,
+                      hasNext: true,
+                      nextCursor: _pageCursor('preparation-cursor'),
+                    )
+                  : _pagedResult(
+                      records: [_biteScoreRecord(documentId: 'ready')],
+                    );
+            },
+      );
+
+      await _submitSearch(tester);
+      expect(
+        find.byKey(const ValueKey('admin-link-preparing-state')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('admin-link-no-results-state')),
+        findsNothing,
+      );
+      expect(find.text('Preparing complete nearby results…'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey('admin-link-continue-search-button')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('River Grill'), findsOneWidget);
+      expect(calls, hasLength(2));
+      expect(calls[1].instance, calls[0].instance);
+      expect(calls[1].request, isNot(calls[0].request));
+      expect(calls[1].cursor, _pageCursor('preparation-cursor'));
+    },
+  );
+
+  testWidgets('Load More appends once and preserves manual preparation state', (
+    tester,
+  ) async {
+    final completer = Completer<AdminRestaurantLinkPagedResult>();
+    var calls = 0;
+    await _pumpPagedScreen(
+      tester,
+      updatePreparation:
+          ({
+            required catalogRestaurantId,
+            required type,
+            required prepared,
+            required biteSaverCatalogBindingState,
+            required claimState,
+            expectedInviteId,
+          }) async => AdminRestaurantPreparationState(
+            canonicalCatalogRestaurantId: catalogRestaurantId,
+            ownerInvite: AdminRestaurantPreparationStatus.unprepared,
+            claimInvite: AdminRestaurantPreparationStatus.unprepared,
+            biteSaverCustomer: prepared
+                ? AdminRestaurantPreparationStatus.prepared
+                : AdminRestaurantPreparationStatus.unprepared,
+            biteScoreCustomer: AdminRestaurantPreparationStatus.unprepared,
+          ),
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+            required searchInstanceId,
+            required clientRequestId,
+            cursor,
+            resolvedSearchCenter,
+          }) {
+            calls += 1;
+            if (calls == 1) {
+              return Future.value(
+                _pagedResult(
+                  records: [
+                    _biteScoreRecord(
+                      documentId: 'first',
+                      preparation: _availablePreparation('first'),
+                    ),
+                  ],
+                  hasNext: true,
+                  nextCursor: _pageCursor('page-2'),
+                ),
+              );
+            }
+            return completer.future;
+          },
+    );
+    await _submitSearch(tester);
+    await tester.tap(
+      find.byKey(const ValueKey('biteScore:first:preparation-SA')),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<FilterChip>(
+            find.byKey(const ValueKey('biteScore:first:preparation-SA')),
+          )
+          .selected,
+      isTrue,
+    );
+
+    await tester.pump(const Duration(seconds: 4));
+    final loadMore = await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-load-more-button'),
+    );
+    await tester.tap(loadMore);
+    await tester.pump();
+    await tester.tap(loadMore, warnIfMissed: false);
+    expect(calls, 2);
+    expect(find.text('River Grill'), findsOneWidget);
+
+    completer.complete(
+      _pagedResult(
+        records: [
+          _biteScoreRecord(
+            documentId: 'second',
+            orderDistanceMillimeters: 2011681,
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+    await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-record-biteScore:first'),
+      delta: -600,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-link-record-biteScore:first')),
+      findsOneWidget,
+    );
+    expect(
+      tester
+          .widget<FilterChip>(
+            find.byKey(const ValueKey('biteScore:first:preparation-SA')),
+          )
+          .selected,
+      isTrue,
+    );
+    await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-record-biteScore:second'),
+    );
+    expect(
+      find.byKey(const ValueKey('admin-link-record-biteScore:second')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('duplicate append fails closed and keeps loaded rows retryable', (
+    tester,
+  ) async {
+    var calls = 0;
+    final first = _biteScoreRecord(documentId: 'first');
+    await _pumpPagedScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+            required searchInstanceId,
+            required clientRequestId,
+            cursor,
+            resolvedSearchCenter,
+          }) async {
+            calls += 1;
+            return calls == 1
+                ? _pagedResult(
+                    records: [first],
+                    hasNext: true,
+                    nextCursor: _pageCursor('duplicate-page-2'),
+                  )
+                : _pagedResult(records: [first]);
+          },
+    );
+    await _submitSearch(tester);
+    final loadMore = await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-load-more-button'),
+    );
+    await tester.tap(loadMore);
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('duplicate records'), findsOneWidget);
+    expect(find.text('Retry Load More'), findsOneWidget);
+    await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-record-biteScore:first'),
+      delta: -600,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-link-record-biteScore:first')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('sparse current page remains honest and keeps Load More', (
+    tester,
+  ) async {
+    await _pumpPagedScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+            required searchInstanceId,
+            required clientRequestId,
+            cursor,
+            resolvedSearchCenter,
+          }) async => _pagedResult(
+            hasNext: true,
+            nextCursor: _pageCursor('sparse-next'),
+          ),
+    );
+    await _submitSearch(tester);
+
+    expect(
+      find.byKey(const ValueKey('admin-link-sparse-results-state')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-link-no-results-state')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-link-load-more-button')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'final sparse page is authoritative only after continuation is exhausted',
+    (tester) async {
+      await _pumpPagedScreen(
+        tester,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+              required searchInstanceId,
+              required clientRequestId,
+              cursor,
+              resolvedSearchCenter,
+            }) async => _pagedResult(
+              consumedBoundary: const AdminRestaurantMaterializedOrder(
+                distanceMillimeters: 7,
+                normalizedName: 'filtered restaurant',
+                sourceDocumentId: 'filtered-final',
+                source: AdminRestaurantLinkSource.biteScore,
+              ),
+            ),
+      );
+
+      await _submitSearch(tester);
+
+      expect(
+        find.byKey(const ValueKey('admin-link-no-results-state')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('admin-link-sparse-results-state')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('admin-link-load-more-button')),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets('Load More retry reuses its exact client request identity', (
+    tester,
+  ) async {
+    final requestIds = <String>[];
+    var calls = 0;
+    await _pumpPagedScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+            required searchInstanceId,
+            required clientRequestId,
+            cursor,
+            resolvedSearchCenter,
+          }) async {
+            calls += 1;
+            requestIds.add(clientRequestId);
+            if (calls == 1) {
+              return _pagedResult(
+                records: [
+                  _biteScoreRecord(
+                    documentId: 'retry-first',
+                    orderDistanceMillimeters: 0,
+                  ),
+                ],
+                hasNext: true,
+                nextCursor: _pageCursor('retry-next'),
+              );
+            }
+            if (calls == 2) {
+              throw const AdminLinkGenerationException(
+                'The Load More response was lost.',
+              );
+            }
+            return _pagedResult(
+              records: [
+                _biteScoreRecord(
+                  documentId: 'retry-second',
+                  orderDistanceMillimeters: 1,
+                ),
+              ],
+            );
+          },
+    );
+    await _submitSearch(tester);
+    final loadMore = await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-load-more-button'),
+    );
+
+    await tester.tap(loadMore);
+    await tester.pumpAndSettle();
+    expect(find.text('Retry Load More'), findsOneWidget);
+    final retry = await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-load-more-button'),
+    );
+    await tester.tap(retry);
+    await tester.pumpAndSettle();
+
+    expect(calls, 3);
+    expect(requestIds[2], requestIds[1]);
+    expect(requestIds[1], isNot(requestIds[0]));
+    await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-record-biteScore:retry-second'),
+      delta: -600,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-link-record-biteScore:retry-second')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'continuation rejects fingerprint and boundary overlap without losing rows',
+    (tester) async {
+      final first = _biteScoreRecord(
+        documentId: 'boundary-first',
+        orderDistanceMillimeters: 10,
+        preparation: _availablePreparation('boundary-first'),
+      );
+      final continuationRequestIds = <String>[];
+      var calls = 0;
+      await _pumpPagedScreen(
+        tester,
+        updatePreparation:
+            ({
+              required catalogRestaurantId,
+              required type,
+              required prepared,
+              required biteSaverCatalogBindingState,
+              required claimState,
+              expectedInviteId,
+            }) async => AdminRestaurantPreparationState(
+              canonicalCatalogRestaurantId: catalogRestaurantId,
+              ownerInvite: AdminRestaurantPreparationStatus.unprepared,
+              claimInvite: AdminRestaurantPreparationStatus.unprepared,
+              biteSaverCustomer: prepared
+                  ? AdminRestaurantPreparationStatus.prepared
+                  : AdminRestaurantPreparationStatus.unprepared,
+              biteScoreCustomer: AdminRestaurantPreparationStatus.unprepared,
+            ),
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+              required searchInstanceId,
+              required clientRequestId,
+              cursor,
+              resolvedSearchCenter,
+            }) async {
+              calls += 1;
+              if (cursor != null) {
+                continuationRequestIds.add(clientRequestId);
+              }
+              if (calls == 1) {
+                return _pagedResult(
+                  records: [first],
+                  hasNext: true,
+                  nextCursor: _pageCursor('boundary-next'),
+                );
+              }
+              if (calls == 2) {
+                return _pagedResult(
+                  records: [
+                    _biteScoreRecord(
+                      documentId: 'wrong-fingerprint',
+                      orderDistanceMillimeters: 11,
+                    ),
+                  ],
+                  queryFingerprint:
+                      'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb',
+                );
+              }
+              if (calls == 3) {
+                return _pagedResult(consumedBoundary: first.materializedOrder);
+              }
+              if (calls == 4) {
+                return _pagedResult(
+                  records: [
+                    _biteScoreRecord(
+                      documentId: 'overlapping-order',
+                      orderDistanceMillimeters: 9,
+                    ),
+                  ],
+                  consumedBoundary: const AdminRestaurantMaterializedOrder(
+                    distanceMillimeters: 20,
+                    normalizedName: 'later boundary',
+                    sourceDocumentId: 'later-boundary',
+                    source: AdminRestaurantLinkSource.biteScore,
+                  ),
+                );
+              }
+              return _pagedResult(
+                records: [
+                  _biteScoreRecord(
+                    documentId: 'boundary-second',
+                    orderDistanceMillimeters: 11,
+                  ),
+                ],
+              );
+            },
+      );
+      await _submitSearch(tester);
+      await tester.tap(
+        find.byKey(const ValueKey('biteScore:boundary-first:preparation-SA')),
+      );
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+      for (var rejected = 0; rejected < 3; rejected += 1) {
+        final retry = await _scrollToAdminKey(
+          tester,
+          const ValueKey('admin-link-load-more-button'),
+        );
+        await tester.tap(retry);
+        await tester.pumpAndSettle();
+        expect(find.text('Retry Load More'), findsOneWidget);
+      }
+      final validRetry = await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-load-more-button'),
+      );
+      await tester.tap(validRetry);
+      await tester.pumpAndSettle();
+
+      expect(calls, 5);
+      expect(continuationRequestIds.toSet(), hasLength(1));
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('biteScore:boundary-first:preparation-SA'),
+        delta: -600,
+      );
+      expect(
+        tester
+            .widget<FilterChip>(
+              find.byKey(
+                const ValueKey('biteScore:boundary-first:preparation-SA'),
+              ),
+            )
+            .selected,
+        isTrue,
+      );
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-record-biteScore:boundary-second'),
+      );
+      expect(
+        find.byKey(
+          const ValueKey('admin-link-record-biteScore:boundary-second'),
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('expired continuation asks for a fresh explicit search', (
+    tester,
+  ) async {
+    final instances = <String>[];
+    var calls = 0;
+    await _pumpPagedScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+            required searchInstanceId,
+            required clientRequestId,
+            cursor,
+            resolvedSearchCenter,
+          }) async {
+            calls += 1;
+            instances.add(searchInstanceId);
+            if (calls == 1) {
+              return _pagedResult(
+                records: [
+                  _biteScoreRecord(
+                    documentId: 'expired-old',
+                    orderDistanceMillimeters: 0,
+                  ),
+                ],
+                hasNext: true,
+                nextCursor: _pageCursor('expires'),
+              );
+            }
+            if (calls == 2) {
+              throw const AdminLinkSearchExpiredException();
+            }
+            return _pagedResult(
+              records: [
+                _biteScoreRecord(
+                  documentId: 'expired-fresh',
+                  orderDistanceMillimeters: 0,
+                ),
+              ],
+            );
+          },
+    );
+    await _submitSearch(tester);
+    final loadMore = await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-load-more-button'),
+    );
+    await tester.tap(loadMore);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('admin-link-expired-state')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-link-no-results-state')),
+      findsNothing,
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('admin-link-expired-search-button')),
+    );
+    await tester.pumpAndSettle();
+    expect(calls, 3);
+    expect(instances[2], isNot(instances[0]));
+    await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-record-biteScore:expired-fresh'),
+    );
+  });
+
+  testWidgets('late Load More cannot overwrite a newer explicit search', (
+    tester,
+  ) async {
+    final oldLoad = Completer<AdminRestaurantLinkPagedResult>();
+    final instances = <String>[];
+    var calls = 0;
+    await _pumpPagedScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+            required searchInstanceId,
+            required clientRequestId,
+            cursor,
+            resolvedSearchCenter,
+          }) {
+            calls += 1;
+            instances.add(searchInstanceId);
+            if (calls == 1) {
+              return Future.value(
+                _pagedResult(
+                  records: [_biteScoreRecord(documentId: 'old-first')],
+                  hasNext: true,
+                  nextCursor: _pageCursor('old-next'),
+                ),
+              );
+            }
+            if (calls == 2) {
+              return oldLoad.future;
+            }
+            return Future.value(
+              _pagedResult(
+                records: [_biteScoreRecord(documentId: 'new-search')],
+              ),
+            );
+          },
+    );
+    await _submitSearch(tester);
+    final loadMore = await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-load-more-button'),
+    );
+    await tester.tap(loadMore);
+    await tester.pump();
+
+    final nameField = await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-restaurant-name-field'),
+      delta: -600,
+      settle: false,
+    );
+    await tester.enterText(nameField, 'Fresh');
+    final searchButton = await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-search-button'),
+      settle: false,
+    );
+    await tester.tap(searchButton);
+    await tester.pumpAndSettle();
+    await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-record-biteScore:new-search'),
+    );
+    expect(
+      find.byKey(const ValueKey('admin-link-record-biteScore:new-search')),
+      findsOneWidget,
+    );
+    expect(instances[2], isNot(instances[0]));
+
+    oldLoad.complete(
+      _pagedResult(records: [_biteScoreRecord(documentId: 'old-late')]),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('admin-link-record-biteScore:new-search')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-link-record-biteScore:old-late')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('hundreds of accumulated results use lazy card construction', (
+    tester,
+  ) async {
+    final records = List.generate(
+      400,
+      (index) => _biteScoreRecord(
+        documentId: 'lazy-${index.toString().padLeft(3, '0')}',
+        name: 'Lazy Restaurant $index',
+        orderDistanceMillimeters: index,
+      ),
+    );
+    await _pumpScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+          }) async => _result(records: records),
+    );
+    await _submitSearch(tester);
+
+    final builtCards = find.byWidgetPredicate((widget) {
+      final key = widget.key;
+      return key is ValueKey<String> &&
+          key.value.startsWith('admin-link-record-');
+    });
+    expect(builtCards.evaluate().length, lessThan(20));
+    expect(find.text('Lazy Restaurant 399'), findsNothing);
+    await tester.scrollUntilVisible(
+      find.byKey(const ValueKey('admin-link-record-biteScore:lazy-399')),
+      700,
+      scrollable: find.byType(Scrollable).first,
+      maxScrolls: 500,
+    );
+    expect(find.text('Lazy Restaurant 399'), findsOneWidget);
+  });
+
+  testWidgets('append preserves the primary scroll offset from 10 to 11 rows', (
+    tester,
+  ) async {
+    await _expectAppendPreservesScrollOffset(
+      tester,
+      initialCount: 10,
+      appendedCount: 1,
+    );
+  });
+
+  testWidgets(
+    'append preserves the primary scroll offset from 50 to 100 rows',
+    (tester) async {
+      await _expectAppendPreservesScrollOffset(
+        tester,
+        initialCount: 50,
+        appendedCount: 50,
+      );
+    },
+  );
+
+  testWidgets('new explicit keyboard search resets the primary scroll offset', (
+    tester,
+  ) async {
+    var calls = 0;
+    await _pumpPagedScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+            required searchInstanceId,
+            required clientRequestId,
+            cursor,
+            resolvedSearchCenter,
+          }) async {
+            calls += 1;
+            return _pagedResult(
+              records: _orderedRecords(
+                prefix: 'search-$calls',
+                start: 0,
+                count: 50,
+              ),
+            );
+          },
+    );
+    await _submitSearch(tester);
+    final list = tester.widget<ListView>(
+      find.byKey(const ValueKey('admin-link-generation-scroll-view')),
+    );
+    final controller = list.controller!;
+    final nameField = await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-restaurant-name-field'),
+      delta: -700,
+    );
+    await tester.enterText(nameField, 'Fresh search');
+    controller.jumpTo(controller.position.maxScrollExtent);
+    await tester.pump();
+    expect(controller.offset, greaterThan(0));
+
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pumpAndSettle();
+
+    expect(calls, 2);
+    expect(controller.offset, 0);
+  });
+
   testWidgets('initial state gives instructions and performs no search', (
     tester,
   ) async {
@@ -58,8 +850,87 @@ void main() {
       find.text('Enter a five-digit ZIP code or City, ST.'),
       findsOneWidget,
     );
+    expect(
+      find.byKey(const ValueKey('admin-link-no-results-state')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-link-initial-state')),
+      findsOneWidget,
+    );
     expect(calls, 0);
   });
+
+  testWidgets('empty location stays instructional and never calls search', (
+    tester,
+  ) async {
+    var calls = 0;
+    await _pumpScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+          }) async {
+            calls += 1;
+            return _result();
+          },
+    );
+
+    await _submitSearch(tester, location: '');
+
+    expect(
+      find.text('Enter a five-digit ZIP code or City, ST.'),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-link-no-results-state')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-link-initial-state')),
+      findsOneWidget,
+    );
+    expect(calls, 0);
+  });
+
+  testWidgets(
+    'whitespace location stays instructional and never calls search',
+    (tester) async {
+      var calls = 0;
+      await _pumpScreen(
+        tester,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+            }) async {
+              calls += 1;
+              return _result();
+            },
+      );
+
+      await _submitSearch(tester, location: '   ');
+
+      expect(
+        find.text('Enter a five-digit ZIP code or City, ST.'),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('admin-link-no-results-state')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('admin-link-initial-state')),
+        findsOneWidget,
+      );
+      expect(calls, 0);
+    },
+  );
 
   testWidgets('keyboard search action submits a valid ZIP', (tester) async {
     var calls = 0;
@@ -307,10 +1178,10 @@ void main() {
       );
       await _submitSearch(tester);
       expect(tester.takeException(), isNull, reason: '${sizes[index]}');
-      final customerLink = find.byKey(
+      final customerLink = await _scrollToAdminKey(
+        tester,
         ValueKey('biteScore:responsive-$index:customer-bitescore-link'),
       );
-      await tester.ensureVisible(customerLink);
       await tester.tap(customerLink);
       await _pumpOpenDialog(tester);
       expect(tester.takeException(), isNull, reason: '${sizes[index]} dialog');
@@ -2101,7 +2972,7 @@ Future<void> _pumpScreen(
 }) async {
   if (configureView) {
     tester.view.devicePixelRatio = 1;
-    tester.view.physicalSize = const Size(900, 900);
+    tester.view.physicalSize = const Size(900, 6000);
     addTearDown(tester.view.resetPhysicalSize);
     addTearDown(tester.view.resetDevicePixelRatio);
   }
@@ -2129,16 +3000,211 @@ Future<void> _pumpScreen(
   await tester.pump();
 }
 
+Future<void> _pumpPagedScreen(
+  WidgetTester tester, {
+  required AdminRestaurantPagedSearchCallback search,
+  AdminPreparationUpdateCallback? updatePreparation,
+}) async {
+  tester.view.devicePixelRatio = 1;
+  tester.view.physicalSize = const Size(900, 900);
+  addTearDown(tester.view.resetPhysicalSize);
+  addTearDown(tester.view.resetDevicePixelRatio);
+  await tester.pumpWidget(
+    MaterialApp(
+      home: Scaffold(
+        body: AdminLinkGenerationScreen(
+          searchRestaurantPage: search,
+          qrExporter: _unsupportedQrExporter(),
+          updatePreparation: updatePreparation,
+        ),
+      ),
+    ),
+  );
+  await tester.pump();
+}
+
+Future<Finder> _scrollToAdminKey(
+  WidgetTester tester,
+  ValueKey<String> key, {
+  double delta = 600,
+  bool settle = true,
+}) async {
+  final finder = find.byKey(key);
+  await tester.scrollUntilVisible(
+    finder,
+    delta,
+    scrollable: find.byType(Scrollable).first,
+    maxScrolls: 100,
+  );
+  await Scrollable.ensureVisible(tester.element(finder), alignment: 0.5);
+  if (settle) {
+    await tester.pumpAndSettle();
+  } else {
+    await tester.pump();
+  }
+  return finder;
+}
+
+Future<void> _expectAppendPreservesScrollOffset(
+  WidgetTester tester, {
+  required int initialCount,
+  required int appendedCount,
+}) async {
+  var calls = 0;
+  await _pumpPagedScreen(
+    tester,
+    search:
+        ({
+          required locationQuery,
+          required radiusMiles,
+          required restaurantName,
+          required sources,
+          required searchInstanceId,
+          required clientRequestId,
+          cursor,
+          resolvedSearchCenter,
+        }) async {
+          calls += 1;
+          if (calls == 1) {
+            return _pagedResult(
+              records: _orderedRecords(
+                prefix: 'offset-initial-$initialCount',
+                start: 0,
+                count: initialCount,
+              ),
+              hasNext: true,
+              nextCursor: _pageCursor('offset-$initialCount'),
+            );
+          }
+          return _pagedResult(
+            records: _orderedRecords(
+              prefix: 'offset-appended-$initialCount',
+              start: initialCount,
+              count: appendedCount,
+            ),
+          );
+        },
+  );
+  await _submitSearch(tester);
+  final listFinder = find.byKey(
+    const ValueKey('admin-link-generation-scroll-view'),
+  );
+  final controller = tester.widget<ListView>(listFinder).controller!;
+  final loadMore = await _scrollToAdminKey(
+    tester,
+    const ValueKey('admin-link-load-more-button'),
+  );
+  final offsetBeforeAppend = controller.offset;
+  expect(offsetBeforeAppend, greaterThan(0));
+
+  await tester.tap(loadMore);
+  await tester.pumpAndSettle();
+
+  expect(calls, 2);
+  expect(tester.widget<ListView>(listFinder).controller, same(controller));
+  expect(controller.offset, closeTo(offsetBeforeAppend, 0.5));
+}
+
+String _pageCursor(String label) {
+  final packed = utf8.encode('admin-link-packed-cursor-envelope:$label');
+  return '$adminRestaurantPageCursorPrefix${base64Url.encode(packed).replaceAll('=', '')}';
+}
+
+List<AdminRestaurantLinkRecord> _orderedRecords({
+  required String prefix,
+  required int start,
+  required int count,
+}) {
+  return List.generate(count, (index) {
+    final order = start + index;
+    return _biteScoreRecord(
+      documentId: '$prefix-${order.toString().padLeft(3, '0')}',
+      name: 'Ordered Restaurant $order',
+      orderDistanceMillimeters: order,
+    );
+  }, growable: false);
+}
+
+AdminRestaurantLinkPagedResult _pagedResult({
+  List<AdminRestaurantLinkRecord> records = const [],
+  bool preparing = false,
+  bool hasNext = false,
+  String? nextCursor,
+  String queryFingerprint =
+      'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  AdminRestaurantMaterializedOrder? consumedBoundary,
+}) {
+  final effectiveBoundary = preparing
+      ? null
+      : consumedBoundary ??
+            (records.isNotEmpty
+                ? records.last.materializedOrder
+                : hasNext
+                ? const AdminRestaurantMaterializedOrder(
+                    distanceMillimeters: 1,
+                    normalizedName: 'sparse boundary',
+                    sourceDocumentId: 'sparse-boundary',
+                    source: AdminRestaurantLinkSource.biteScore,
+                  )
+                : null);
+  return AdminRestaurantLinkPagedResult(
+    page: PagedResponse<AdminRestaurantLinkRecord>(
+      items: records,
+      pageSize: 50,
+      hasNext: hasNext,
+      hasPrevious: false,
+      nextCursor: nextCursor,
+      total: const PagedTotal.unknown(),
+      queryFingerprint: queryFingerprint,
+      snapshotTimestampMs: 1,
+      capabilities: PageCapabilities(
+        first: false,
+        previous: false,
+        numberedVisitedPages: false,
+        next: hasNext,
+        last: false,
+      ),
+      preparation: PagePreparation.fromJson({
+        'state': preparing ? 'preparing' : 'ready',
+        'completedUnits': preparing ? 1 : 2,
+        'totalUnits': 2,
+      }),
+    ),
+    searchCenter: const AdminRestaurantSearchCenter(
+      latitude: 28.8517,
+      longitude: -82.487,
+      displayName: 'Crystal River, FL',
+    ),
+    radiusMiles: 10,
+    queriedSources: AdminRestaurantLinkSource.values,
+    consumedBoundary: effectiveBoundary,
+  );
+}
+
+AdminRestaurantPreparationState _availablePreparation(String id) {
+  return AdminRestaurantPreparationState(
+    canonicalCatalogRestaurantId: id,
+    ownerInvite: AdminRestaurantPreparationStatus.unprepared,
+    claimInvite: AdminRestaurantPreparationStatus.unprepared,
+    biteSaverCustomer: AdminRestaurantPreparationStatus.unprepared,
+    biteScoreCustomer: AdminRestaurantPreparationStatus.unprepared,
+  );
+}
+
 Future<void> _submitSearch(
   WidgetTester tester, {
   String location = '34428',
 }) async {
-  await tester.enterText(
-    find.byKey(const ValueKey('admin-link-location-field')),
-    location,
+  final locationField = await _scrollToAdminKey(
+    tester,
+    const ValueKey('admin-link-location-field'),
+    delta: -600,
   );
-  final button = find.byKey(const ValueKey('admin-link-search-button'));
-  await tester.ensureVisible(button);
+  await tester.enterText(locationField, location);
+  final button = await _scrollToAdminKey(
+    tester,
+    const ValueKey('admin-link-search-button'),
+  );
   await tester.tap(button);
   await tester.pumpAndSettle();
 }
@@ -2182,6 +3248,7 @@ AdminRestaurantLinkRecord _biteScoreRecord({
       AdminBiteSaverCatalogBindingState.unbound,
   AdminRestaurantPreparationState preparation =
       const AdminRestaurantPreparationState.unavailable(),
+  int orderDistanceMillimeters = 2011680,
 }) {
   final resolvedOwnerUserId = ownerUserId ?? (isClaimed ? 'owner-1' : null);
   final validlyClaimed =
@@ -2211,6 +3278,12 @@ AdminRestaurantLinkRecord _biteScoreRecord({
     ownerUserId: resolvedOwnerUserId,
     biteSaverCatalogBindingState: biteSaverCatalogBindingState,
     preparation: preparation,
+    materializedOrder: AdminRestaurantMaterializedOrder(
+      distanceMillimeters: orderDistanceMillimeters,
+      normalizedName: name.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase(),
+      sourceDocumentId: documentId,
+      source: AdminRestaurantLinkSource.biteScore,
+    ),
   );
 }
 
@@ -2261,6 +3334,12 @@ AdminRestaurantLinkRecord _biteSaverRecord({
     approvalStatus: approvalStatus,
     couponApplicationSubmitted: true,
     uid: actionId,
+    materializedOrder: AdminRestaurantMaterializedOrder(
+      distanceMillimeters: 2414016,
+      normalizedName: name.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase(),
+      sourceDocumentId: documentId,
+      source: AdminRestaurantLinkSource.biteSaver,
+    ),
   );
 }
 

@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const { spawnSync } = require("node:child_process");
+const { createHash } = require("node:crypto");
 const { readFileSync } = require("node:fs");
 const path = require("node:path");
 const test = require("node:test");
@@ -9,6 +10,9 @@ const {
   requireAuthenticatedRestaurantAccountActor,
   requireRestaurantAccountAdminAccess,
 } = require("../lib/admin_authorization.js");
+const {
+  createAdminLinkRestaurantParsedContext,
+} = require("../lib/admin_link_restaurant_paging.js");
 
 function expectHttpsError(code, messagePattern) {
   return (error) => {
@@ -227,6 +231,98 @@ test("invite authorization remains email-only", () => {
   );
   assert.throws(
     () => requireAdminInviteAccess({}),
+    expectHttpsError("permission-denied", /Admin access/i),
+  );
+});
+
+test("invite authorization preserves exact valid UIDs and rejects invalid forms", () => {
+  const authorizedRequest = (uid) => ({
+    auth: {
+      uid,
+      token: { email: " SCHUYLER.COLE@GMAIL.COM " },
+    },
+  });
+  const legitimateUid = "auth0|admin.user:tenant@example.com";
+  assert.deepEqual(
+    requireAdminInviteAccess(authorizedRequest(legitimateUid)),
+    {
+      uid: legitimateUid,
+      email: "schuyler.cole@gmail.com",
+    },
+  );
+  assert.equal(
+    requireAdminInviteAccess(authorizedRequest("x".repeat(128))).uid.length,
+    128,
+  );
+
+  for (const uid of [
+    "",
+    " admin-user",
+    "admin-user ",
+    ".",
+    "..",
+    "admin/user",
+    "admin\u0000user",
+    "admin\u200buser",
+    "x".repeat(129),
+  ]) {
+    assert.throws(
+      () => requireAdminInviteAccess(authorizedRequest(uid)),
+      expectHttpsError("permission-denied", /Admin access/i),
+      JSON.stringify(uid),
+    );
+  }
+});
+
+test("authorized Admin caller bindings do not alias through UID normalization", () => {
+  const pageRequest = {
+    protocolVersion: "bitestar.page.v1",
+    pageSize: 50,
+    criteria: {
+      schemaVersion: 1,
+      orderingVersion: 1,
+      purpose: "adminLinkRestaurantWorkspace",
+      center: {
+        mode: "coordinates",
+        latitudeMicros: 28_851_700,
+        longitudeMicros: -82_487_000,
+      },
+      radiusMicromiles: 10_000_000,
+      restaurantName: null,
+      sources: ["biteScore"],
+      biteScoreStatus: "active",
+      futureFilters: {},
+      searchInstanceId: "auth-binding-1",
+    },
+    direction: "first",
+    requestExactCount: false,
+    clientRequestId: "auth-binding-request-1",
+  };
+  const bindingForAuthorizedUid = (uid) => {
+    const admin = requireAdminInviteAccess({
+      auth: {
+        uid,
+        token: { email: "schuyler.cole@gmail.com" },
+      },
+    });
+    return createAdminLinkRestaurantParsedContext(pageRequest, {
+      adminUid: admin.uid,
+      cursorSecret: "A".repeat(43),
+      now: () => 1_700_000_000_000,
+    }).callerBinding;
+  };
+  const exactUid = "auth0|admin.user@example.com";
+  const distinctUid = "auth0|admin-user@example.com";
+  const exactBinding = bindingForAuthorizedUid(exactUid);
+  assert.equal(
+    exactBinding,
+    createHash("sha256")
+      .update(JSON.stringify(["adminLinkRestaurants", exactUid]), "utf8")
+      .digest("hex"),
+  );
+  assert.notEqual(exactBinding, bindingForAuthorizedUid(distinctUid));
+  assert.throws(
+    () => bindingForAuthorizedUid(` ${exactUid}`),
     expectHttpsError("permission-denied", /Admin access/i),
   );
 });
