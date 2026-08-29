@@ -24,10 +24,12 @@ const baselineExports = Object.freeze([
   "createSubscriptionCheckoutSession",
   "listBiteSaverSubscriptionReturnEvents",
   "listRestaurantInvites",
+  "markAdminRestaurantQrBatchPrepared",
   "maintainBiteSaverRestaurantGeohash",
   "maintainBiteScoreRestaurantGeohash",
   "markContributionPointLedgerEntriesCelebrated",
   "previewRestaurantInvite",
+  "prepareAdminRestaurantQrBatch",
   "processProximityPushRequest",
   "recalculateLocalExpertBadgesOnReviewWrite",
   "recalculateMyLocalExpertBadges",
@@ -685,6 +687,37 @@ test("preparation updates reject non-Admin callers before data access", async ()
   assert.deepEqual(runtime.state.firestoreQueries, []);
   assert.deepEqual(runtime.state.firestoreReads, []);
   assert.deepEqual(runtime.state.firestoreWrites, []);
+});
+
+test("exactly two Admin QR batch callables are wired without secrets", async () => {
+  const runtime = loadCompiledIndexWithRuntimeHarness();
+  const names = [
+    "prepareAdminRestaurantQrBatch",
+    "markAdminRestaurantQrBatchPrepared",
+  ];
+  for (const name of names) {
+    const callable = runtime.exports[name];
+    assert.equal(typeof callable, "function", name);
+    assert.equal(callable.__endpoint.platform, "gcfv2", name);
+    assert.deepEqual(callable.__endpoint.region, ["us-central1"], name);
+    assert.equal(
+      Object.hasOwn(callable.__endpoint, "secretEnvironmentVariables"),
+      false,
+      name,
+    );
+    await assert.rejects(
+      callable({data: {}, auth: null}),
+      (error) => error.code === "permission-denied",
+      name,
+    );
+  }
+  assert.deepEqual(runtime.state.firestoreQueries, []);
+  assert.deepEqual(
+    Object.keys(runtime.exports)
+      .filter((name) => names.includes(name))
+      .sort(),
+    [...names].sort(),
+  );
 });
 
 test("exactly nine Rating Admin paged v2 callables use least-privilege secrets", () => {

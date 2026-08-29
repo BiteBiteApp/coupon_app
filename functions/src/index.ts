@@ -37,6 +37,11 @@ import {
 } from "./contribution_points_helpers.js";
 import { requireAdminInviteAccess } from "./admin_authorization.js";
 import {
+  createFirestoreAdminRestaurantQrBatchDatabase,
+  markAdminRestaurantQrBatchPreparedCallableHandler,
+  prepareAdminRestaurantQrBatchCallableHandler,
+} from "./admin_restaurant_qr_batch.js";
+import {
   type AdminCatalogBindingVerificationRequest,
   AdminRestaurantQueryPlan,
   executeAdminRestaurantSearch,
@@ -61,6 +66,8 @@ import {
   biteSaverCatalogBindingIdField,
   biteScoreCatalogBindingState,
   biteScoreCatalogRestaurantIdField,
+  buildBiteScoreRestaurantClaimInviteDocument,
+  buildCouponRestaurantInviteDocument,
   couponInviteRestaurantIdentity,
   filterAndSortInviteSummaries,
   generateBiteSaverCatalogBindingId,
@@ -245,6 +252,8 @@ const searchIndexDatabase = createFirestoreSearchIndexDatabase(db);
 const adminUserDirectoryDatabase = createFirestoreAdminUserDirectoryDatabase(db);
 const adminRestaurantQrPreparationDatabase =
   createFirestoreAdminRestaurantQrPreparationDatabase(db);
+const adminRestaurantQrBatchDatabase =
+  createFirestoreAdminRestaurantQrBatchDatabase(db);
 const dishProposalPrivateDatabase =
   createFirestoreDishProposalPrivateDatabase(db);
 const baseDishProposalResolutionDependencies =
@@ -1944,30 +1953,16 @@ export const createCouponRestaurantInvite = onCall(async (request) => {
   const inviteDocument = (
     restaurantName: string,
     couponPrefill: Readonly<Record<string, unknown>>,
-  ): Record<string, unknown> => ({
+  ): Readonly<Record<string, unknown>> => buildCouponRestaurantInviteDocument({
     tokenHash,
-    type: "coupon_invite",
-    side: "coupon",
-    status: "active",
+    actor: admin,
+    createdAt: FieldValue.serverTimestamp(),
+    expiresAt,
     restaurantId,
     pendingRestaurantKey,
+    catalogRestaurantId,
     restaurantName,
     couponPrefill,
-    ...(catalogRestaurantId === null
-      ? {}
-      : { [biteScoreCatalogRestaurantIdField]: catalogRestaurantId }),
-    createdAt: FieldValue.serverTimestamp(),
-    createdByUid: admin.uid,
-    createdByEmail: admin.email,
-    expiresAt,
-    usedAt: null,
-    usedByUid: null,
-    usedByEmail: null,
-    maxUses: 1,
-    useCount: 0,
-    lastAccessedAt: null,
-    revokedAt: null,
-    revokedByUid: null,
   });
 
   if (catalogRestaurantId === null) {
@@ -2175,27 +2170,15 @@ export const createBiteScoreRestaurantClaimInvite = onCall(async (request) => {
         readString(restaurantData.postalCode),
     ].filter((part): part is string => Boolean(part));
 
-    transaction.set(inviteRef, {
+    transaction.set(inviteRef, buildBiteScoreRestaurantClaimInviteDocument({
       tokenHash,
-      type: "bitescore_claim_invite",
-      side: "bitescore",
-      status: "active",
-      restaurantId,
+      actor: admin,
+      createdAt: FieldValue.serverTimestamp(),
+      expiresAt,
+      catalogRestaurantId: restaurantId,
       restaurantName,
       restaurantAddressSummary: addressParts.join(", "),
-      createdAt: FieldValue.serverTimestamp(),
-      createdByUid: admin.uid,
-      createdByEmail: admin.email,
-      expiresAt,
-      usedAt: null,
-      usedByUid: null,
-      usedByEmail: null,
-      maxUses: 1,
-      useCount: 0,
-      lastAccessedAt: null,
-      revokedAt: null,
-      revokedByUid: null,
-    });
+    }));
     mergeAdminRestaurantQrPreparation(
       transaction,
       restaurantId,
@@ -2327,6 +2310,24 @@ export const updateAdminRestaurantQrPreparation = onCall(async (request) => {
     database: adminRestaurantQrPreparationDatabase,
     requireAdmin: requireAdminInviteAccess,
     now: () => new Date(),
+  });
+});
+
+export const prepareAdminRestaurantQrBatch = onCall(async (request) => {
+  return prepareAdminRestaurantQrBatchCallableHandler(request, {
+    database: adminRestaurantQrBatchDatabase,
+    requireAdmin: requireAdminInviteAccess,
+    now: () => new Date(),
+    serverTimestamp: () => FieldValue.serverTimestamp(),
+  });
+});
+
+export const markAdminRestaurantQrBatchPrepared = onCall(async (request) => {
+  return markAdminRestaurantQrBatchPreparedCallableHandler(request, {
+    database: adminRestaurantQrBatchDatabase,
+    requireAdmin: requireAdminInviteAccess,
+    now: () => new Date(),
+    serverTimestamp: () => FieldValue.serverTimestamp(),
   });
 });
 

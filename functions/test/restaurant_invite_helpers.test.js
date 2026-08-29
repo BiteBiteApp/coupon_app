@@ -13,6 +13,7 @@ const {
   invitePreviewUnavailableReason,
   inviteLink,
   readBiteScoreCatalogRestaurantId,
+  restaurantCustomerLink,
 } = require("../lib/restaurant_invite_helpers.js");
 
 test("coupon invite can omit existing restaurant ID", () => {
@@ -127,6 +128,74 @@ test("catalog document IDs require one exact bounded Firestore path segment", ()
     null,
   ]) {
     assert.equal(readBiteScoreCatalogRestaurantId(malformed), null);
+  }
+});
+
+test("catalog document IDs reject unpaired surrogates without changing valid Unicode", () => {
+  const malformed = [
+    "\uD800",
+    "\uDC00",
+    "\uD800x",
+    "restaurant-\uD800-west",
+    "restaurant-\uDC00-west",
+  ];
+  for (const value of malformed) {
+    assert.equal(readBiteScoreCatalogRestaurantId(value), null);
+  }
+
+  const accepted = [
+    "restaurant-1",
+    "restaurant-\uD83D\uDE00",
+    "餐厅-東京-Café",
+    "Café 🍽️",
+  ];
+  for (const value of accepted) {
+    const result = readBiteScoreCatalogRestaurantId(value);
+    assert.equal(result, value);
+    assert.deepEqual(
+      Array.from({length: result.length}, (_, index) => result.charCodeAt(index)),
+      Array.from({length: value.length}, (_, index) => value.charCodeAt(index)),
+    );
+  }
+
+  const exactlyMaximumBytes = `${"x".repeat(1_496)}\uD83D\uDE00`;
+  const overMaximumBytes = `${"x".repeat(1_497)}\uD83D\uDE00`;
+  assert.equal(Buffer.byteLength(exactlyMaximumBytes, "utf8"), 1_500);
+  assert.equal(
+    readBiteScoreCatalogRestaurantId(exactlyMaximumBytes),
+    exactlyMaximumBytes,
+  );
+  assert.equal(Buffer.byteLength(overMaximumBytes, "utf8"), 1_501);
+  assert.equal(readBiteScoreCatalogRestaurantId(overMaximumBytes), null);
+});
+
+test("canonical customer routes encode valid Unicode and reject malformed IDs safely", () => {
+  assert.equal(
+    restaurantCustomerLink("coupons", "restaurant-1"),
+    "https://go.bitestar.app/r/coupons/restaurant-1",
+  );
+  assert.equal(
+    restaurantCustomerLink("bitescore", "restaurant-1"),
+    "https://go.bitestar.app/r/bitescore/restaurant-1",
+  );
+  assert.equal(
+    restaurantCustomerLink("coupons", "restaurant-\uD83D\uDE00"),
+    "https://go.bitestar.app/r/coupons/restaurant-%F0%9F%98%80",
+  );
+  assert.equal(
+    restaurantCustomerLink("bitescore", "餐厅-Café"),
+    "https://go.bitestar.app/r/bitescore/%E9%A4%90%E5%8E%85-Caf%C3%A9",
+  );
+
+  for (const malformed of ["\uD800", "\uDC00", "ordinary-\uD800-id"]) {
+    assert.throws(
+      () => restaurantCustomerLink("coupons", malformed),
+      (error) => error instanceof TypeError && !(error instanceof URIError),
+    );
+    assert.throws(
+      () => restaurantCustomerLink("bitescore", malformed),
+      (error) => error instanceof TypeError && !(error instanceof URIError),
+    );
   }
 });
 

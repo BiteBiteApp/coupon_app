@@ -112,6 +112,10 @@ export interface AdminRestaurantQrPreparationTransaction {
     path: string,
     patch: AdminRestaurantQrPreparationPatch,
   ): void;
+  createDocument(
+    path: string,
+    data: Readonly<Record<string, unknown>>,
+  ): void;
 }
 
 export interface AdminRestaurantQrPreparationDatabase {
@@ -139,8 +143,9 @@ type ParsedPreparationDocument = Readonly<{
   cPrepared: ParsedInvitationAssociation | null;
 }>;
 
-type BiteSaverParticipationState = "unbound" | "bound" | "unavailable";
-type BiteScoreClaimState = "available" | "claimed" | "unavailable";
+export type BiteSaverParticipationState =
+  "unbound" | "bound" | "unavailable";
+export type BiteScoreClaimState = "available" | "claimed" | "unavailable";
 
 type ParsedMutationRequest = Readonly<{
   catalogRestaurantId: string;
@@ -548,7 +553,7 @@ function parseMutationRequest(value: unknown): ParsedMutationRequest {
   });
 }
 
-function biteSaverParticipationState(
+export function adminRestaurantBiteSaverParticipationState(
   restaurantDocumentId: string,
   restaurantData: Readonly<Record<string, unknown>>,
   catalogRestaurantId: string,
@@ -605,7 +610,7 @@ export function biteScoreClaimInvitationEpochIsValid(
   ) !== null;
 }
 
-function biteScoreClaimState(
+export function adminRestaurantBiteScoreClaimState(
   restaurantData: Readonly<Record<string, unknown>>,
 ): BiteScoreClaimState {
   const projection = biteScoreRestaurantClaimProjection(restaurantData);
@@ -640,7 +645,7 @@ function requireApplicable(
   }
 }
 
-function validInvitationExpiresAt(params: Readonly<{
+export function validAdminRestaurantQrInvitationExpiresAt(params: Readonly<{
   type: "I" | "C";
   inviteId: string;
   inviteData: Readonly<Record<string, unknown>>;
@@ -685,9 +690,9 @@ function validInvitationExpiresAt(params: Readonly<{
 }
 
 function requireValidInvitation(params: Parameters<
-  typeof validInvitationExpiresAt
+  typeof validAdminRestaurantQrInvitationExpiresAt
 >[0]): number {
-  const expiresAtMillis = validInvitationExpiresAt(params);
+  const expiresAtMillis = validAdminRestaurantQrInvitationExpiresAt(params);
   if (expiresAtMillis === null) {
     throw new HttpsError(
       "failed-precondition",
@@ -725,7 +730,7 @@ export function validateAdminRestaurantQrPreparedClaimAssociation(
   if (params.invitation === null || params.invitation.id !== prepared.id) {
     return Object.freeze({ state: "ineligible", inviteId: prepared.id });
   }
-  const expiresAtMillis = validInvitationExpiresAt({
+  const expiresAtMillis = validAdminRestaurantQrInvitationExpiresAt({
     type: "C",
     inviteId: prepared.id,
     inviteData: params.invitation.data,
@@ -763,7 +768,7 @@ export function validateAdminRestaurantQrPreparedOwnerAssociation(
   if (params.invitation === null || params.invitation.id !== prepared.id) {
     return Object.freeze({ state: "ineligible", inviteId: prepared.id });
   }
-  const expiresAtMillis = validInvitationExpiresAt({
+  const expiresAtMillis = validAdminRestaurantQrInvitationExpiresAt({
     type: "I",
     inviteId: prepared.id,
     inviteData: params.invitation.data,
@@ -815,7 +820,7 @@ function patchForMutation(params: Readonly<{
   });
 }
 
-function applyPatch(
+export function applyAdminRestaurantQrPreparationPatch(
   raw: Readonly<Record<string, unknown>> | null,
   patch: AdminRestaurantQrPreparationPatch,
 ): Readonly<Record<string, unknown>> {
@@ -865,13 +870,13 @@ export async function updateAdminRestaurantQrPreparation(
         "The BiteScore claim invitation state is unavailable.",
       );
     }
-    const biteSaverState = biteSaverParticipationState(
+    const biteSaverState = adminRestaurantBiteSaverParticipationState(
       restaurant.id,
       restaurant.data,
       request.catalogRestaurantId,
       accounts,
     );
-    const claimState = biteScoreClaimState(restaurant.data);
+    const claimState = adminRestaurantBiteScoreClaimState(restaurant.data);
     if (request.prepared && (request.type === "I" || request.type === "C")) {
       requireApplicable(request.type, biteSaverState, claimState);
     }
@@ -908,7 +913,10 @@ export async function updateAdminRestaurantQrPreparation(
     }
 
     const patch = patchForMutation({ request, parsed, inviteExpiresAtMillis });
-    const updated = applyPatch(rawPreparation, patch);
+    const updated = applyAdminRestaurantQrPreparationPatch(
+      rawPreparation,
+      patch,
+    );
     const updatedParsed = parseAdminRestaurantQrPreparationDocument(updated);
     if (updatedParsed === null) {
       throw new HttpsError(
@@ -1002,6 +1010,51 @@ export function latestInvitationPreparationPatch(
       [fields.latestId]: safeInviteId,
       [fields.latestExpiry]: new Date(expiresAtMillis),
     }),
+    deleteFields: Object.freeze([]),
+  });
+}
+
+export type AdminRestaurantQrPreparedBatchMark = Readonly<{
+  type: AdminRestaurantQrPreparationType;
+  invitationId: string | null;
+  invitationExpiresAtMillis: number | null;
+}>;
+
+export function preparedAdminRestaurantQrPreparationPatch(
+  rawPreparation: Readonly<Record<string, unknown>> | null,
+  marks: readonly AdminRestaurantQrPreparedBatchMark[],
+): AdminRestaurantQrPreparationPatch {
+  if (parseAdminRestaurantQrPreparationDocument(rawPreparation) === null) {
+    throw new HttpsError(
+      "failed-precondition",
+      "The stored preparation state is unavailable.",
+    );
+  }
+  const set: Record<string, unknown> = { schemaVersion: 1 };
+  for (const mark of marks) {
+    if (mark.type === "SA") {
+      set.saPrepared = true;
+      continue;
+    }
+    if (mark.type === "SR") {
+      set.srPrepared = true;
+      continue;
+    }
+    const invitationId = safeDocumentId(mark.invitationId);
+    const invitationExpiresAtMillis = mark.invitationExpiresAtMillis;
+    if (
+      invitationId === null ||
+      typeof invitationExpiresAtMillis !== "number" ||
+      !Number.isFinite(invitationExpiresAtMillis)
+    ) {
+      throw new Error("The prepared invitation reference is invalid.");
+    }
+    const fields = preparationFields[mark.type];
+    set[fields.preparedId] = invitationId;
+    set[fields.preparedExpiry] = new Date(invitationExpiresAtMillis);
+  }
+  return Object.freeze({
+    set: Object.freeze(set),
     deleteFields: Object.freeze([]),
   });
 }
@@ -1244,6 +1297,9 @@ function firestoreTransactionBoundary(
         firestoreAdminRestaurantQrPreparationPatch(patch),
         { merge: true },
       );
+    },
+    createDocument(path, data) {
+      transaction.create(database.doc(path), data);
     },
   };
 }

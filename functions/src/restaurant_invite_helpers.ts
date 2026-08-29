@@ -1,6 +1,7 @@
 import { createHash, randomBytes } from "node:crypto";
 
 export const restaurantInviteBaseUrl = "https://go.bitestar.app/invite";
+export const restaurantCustomerBaseUrl = "https://go.bitestar.app/r";
 export const biteScoreCatalogRestaurantIdField =
   "biteScoreCatalogRestaurantId" as const;
 export const biteSaverCatalogBindingIdField =
@@ -9,6 +10,25 @@ export const biteSaverCatalogBindingIdField =
 const biteSaverCatalogBindingIdPattern = /^[A-Za-z0-9_-]{43}$/u;
 const maximumFirestoreDocumentIdBytes = 1_500;
 const unsupportedFirestoreDocumentIdCharacterPattern = /[\p{Cc}\p{Cf}]/u;
+
+function hasWellFormedUtf16(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      if (index + 1 >= value.length) {
+        return false;
+      }
+      const trailingCodeUnit = value.charCodeAt(index + 1);
+      if (trailingCodeUnit < 0xdc00 || trailingCodeUnit > 0xdfff) {
+        return false;
+      }
+      index += 1;
+    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      return false;
+    }
+  }
+  return true;
+}
 
 export function generateInviteToken(): string {
   return randomBytes(32).toString("base64url");
@@ -36,6 +56,7 @@ export function readBiteScoreCatalogRestaurantId(
     value === ".." ||
     value.includes("/") ||
     unsupportedFirestoreDocumentIdCharacterPattern.test(value) ||
+    !hasWellFormedUtf16(value) ||
     Buffer.byteLength(value, "utf8") > maximumFirestoreDocumentIdBytes
   ) {
     return null;
@@ -113,6 +134,113 @@ export function hashInviteToken(token: string): string {
 
 export function inviteLink(side: "coupon" | "bitescore", token: string): string {
   return `${restaurantInviteBaseUrl}/${side}/${token}`;
+}
+
+export function restaurantCustomerLink(
+  side: "coupons" | "bitescore",
+  catalogRestaurantId: string,
+): string {
+  const safeCatalogRestaurantId = readBiteScoreCatalogRestaurantId(
+    catalogRestaurantId,
+  );
+  if (safeCatalogRestaurantId === null) {
+    throw new TypeError("A valid canonical restaurant ID is required.");
+  }
+  return `${restaurantCustomerBaseUrl}/${side}/${
+    encodeURIComponent(safeCatalogRestaurantId)
+  }`;
+}
+
+export type RestaurantInviteAuditActor = Readonly<{
+  uid: string;
+  email: string;
+}>;
+
+type RestaurantInviteLifecycleFields = Readonly<{
+  tokenHash: string;
+  status: "active";
+  createdAt: unknown;
+  createdByUid: string;
+  createdByEmail: string;
+  expiresAt: unknown;
+  usedAt: null;
+  usedByUid: null;
+  usedByEmail: null;
+  maxUses: 1;
+  useCount: 0;
+  lastAccessedAt: null;
+  revokedAt: null;
+  revokedByUid: null;
+}>;
+
+function restaurantInviteLifecycleFields(params: Readonly<{
+  tokenHash: string;
+  actor: RestaurantInviteAuditActor;
+  createdAt: unknown;
+  expiresAt: unknown;
+}>): RestaurantInviteLifecycleFields {
+  return Object.freeze({
+    tokenHash: params.tokenHash,
+    status: "active",
+    createdAt: params.createdAt,
+    createdByUid: params.actor.uid,
+    createdByEmail: params.actor.email,
+    expiresAt: params.expiresAt,
+    usedAt: null,
+    usedByUid: null,
+    usedByEmail: null,
+    maxUses: 1,
+    useCount: 0,
+    lastAccessedAt: null,
+    revokedAt: null,
+    revokedByUid: null,
+  });
+}
+
+export function buildCouponRestaurantInviteDocument(params: Readonly<{
+  tokenHash: string;
+  actor: RestaurantInviteAuditActor;
+  createdAt: unknown;
+  expiresAt: unknown;
+  restaurantId: string | null;
+  pendingRestaurantKey: string | null;
+  catalogRestaurantId: string | null;
+  restaurantName: string;
+  couponPrefill: Readonly<Record<string, unknown>>;
+}>): Readonly<Record<string, unknown>> {
+  return Object.freeze({
+    ...restaurantInviteLifecycleFields(params),
+    type: "coupon_invite",
+    side: "coupon",
+    restaurantId: params.restaurantId,
+    pendingRestaurantKey: params.pendingRestaurantKey,
+    restaurantName: params.restaurantName,
+    couponPrefill: params.couponPrefill,
+    ...(params.catalogRestaurantId === null
+      ? {}
+      : {
+          [biteScoreCatalogRestaurantIdField]: params.catalogRestaurantId,
+        }),
+  });
+}
+
+export function buildBiteScoreRestaurantClaimInviteDocument(params: Readonly<{
+  tokenHash: string;
+  actor: RestaurantInviteAuditActor;
+  createdAt: unknown;
+  expiresAt: unknown;
+  catalogRestaurantId: string;
+  restaurantName: string;
+  restaurantAddressSummary: string;
+}>): Readonly<Record<string, unknown>> {
+  return Object.freeze({
+    ...restaurantInviteLifecycleFields(params),
+    type: "bitescore_claim_invite",
+    side: "bitescore",
+    restaurantId: params.catalogRestaurantId,
+    restaurantName: params.restaurantName,
+    restaurantAddressSummary: params.restaurantAddressSummary,
+  });
 }
 
 export function couponInviteRestaurantIdentity(
