@@ -5,6 +5,7 @@ import '../models/admin_restaurant_link_record.dart';
 import '../models/pagination/paged_models.dart';
 import '../services/admin_link_generation_service.dart';
 import '../services/app_error_text.dart';
+import '../services/firestore_document_id.dart';
 import '../services/restaurant_customer_link_service.dart';
 import '../services/restaurant_invite_service.dart';
 import '../services/restaurant_qr_export.dart';
@@ -127,6 +128,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
   final Set<String> _busyPreparationCatalogIds = <String>{};
   final Map<String, int> _preparationMutationGenerations = <String, int>{};
   final Set<String> _suppressedCompletedCatalogIds = <String>{};
+  final Set<String> _selectedCatalogRestaurantIds = <String>{};
 
   int _radiusMiles = AdminLinkGenerationService.defaultRadiusMiles;
   int _searchGeneration = 0;
@@ -216,6 +218,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
       _pendingPageRequest = null;
       _preparationOverrides.clear();
       _suppressedCompletedCatalogIds.clear();
+      _selectedCatalogRestaurantIds.clear();
       _queryFingerprint = null;
       _consumedBoundary = null;
     });
@@ -614,6 +617,9 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
 
   void _invalidateSearchForCriteriaChange() {
     _searchGeneration += 1;
+    _isSearching = false;
+    _isContinuing = false;
+    _isLoadingMore = false;
     _hasSubmitted = false;
     _searchResult = null;
     _searchError = null;
@@ -635,6 +641,93 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
     _continueChecking = false;
     _preparationOverrides.clear();
     _suppressedCompletedCatalogIds.clear();
+    _selectedCatalogRestaurantIds.clear();
+  }
+
+  String? _selectableCatalogRestaurantId(
+    AdminRestaurantLinkRecord record, {
+    required bool forNewSelection,
+  }) {
+    if (!record.isBiteScore ||
+        exactFirestoreDocumentId(record.documentId) != record.documentId ||
+        record.isActive != true ||
+        record.actionId != record.documentId ||
+        (forNewSelection && _searchExpired) ||
+        _suppressedCompletedCatalogIds.contains(record.documentId)) {
+      return null;
+    }
+    final loadedRecords = _searchResult?.results;
+    if (loadedRecords == null ||
+        !loadedRecords.any((loaded) => identical(loaded, record))) {
+      return null;
+    }
+    final preparation = _preparationFor(record);
+    if (preparation.isUnavailable ||
+        preparation.canonicalCatalogRestaurantId != record.documentId ||
+        !preparation.isValidForParticipation(
+          biteSaverCatalogBindingState: record.biteSaverCatalogBindingState,
+          claimState: record.claimState,
+        )) {
+      return null;
+    }
+    return record.documentId;
+  }
+
+  Set<String> _loadedSelectableCatalogRestaurantIds({
+    required bool forNewSelection,
+  }) {
+    final records = _searchResult?.results;
+    if (records == null) {
+      return <String>{};
+    }
+    return records
+        .map(
+          (record) => _selectableCatalogRestaurantId(
+            record,
+            forNewSelection: forNewSelection,
+          ),
+        )
+        .whereType<String>()
+        .toSet();
+  }
+
+  void _setRestaurantSelected(AdminRestaurantLinkRecord record, bool selected) {
+    final wasSelected = _selectedCatalogRestaurantIds.contains(
+      record.documentId,
+    );
+    final catalogId = _selectableCatalogRestaurantId(
+      record,
+      forNewSelection: selected && !wasSelected,
+    );
+    if (catalogId == null) {
+      return;
+    }
+    setState(() {
+      if (selected) {
+        _selectedCatalogRestaurantIds.add(catalogId);
+      } else {
+        _selectedCatalogRestaurantIds.remove(catalogId);
+      }
+    });
+  }
+
+  void _selectAllLoaded() {
+    final selectableIds = _loadedSelectableCatalogRestaurantIds(
+      forNewSelection: true,
+    );
+    if (selectableIds.isEmpty) {
+      return;
+    }
+    setState(() {
+      _selectedCatalogRestaurantIds.addAll(selectableIds);
+    });
+  }
+
+  void _deselectAll() {
+    if (_selectedCatalogRestaurantIds.isEmpty) {
+      return;
+    }
+    setState(_selectedCatalogRestaurantIds.clear);
   }
 
   String _actionKey(AdminRestaurantLinkRecord record, String action) {
@@ -747,6 +840,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
           _preparationOverrides[canonicalId] = state;
           if (_activeNeedsQrPreparation == true && state.isComplete) {
             _suppressedCompletedCatalogIds.add(canonicalId);
+            _selectedCatalogRestaurantIds.remove(canonicalId);
             final currentResult = _searchResult;
             if (currentResult != null) {
               final remaining = currentResult.results
@@ -1196,7 +1290,6 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
         final result = _searchResult;
         final records =
             !_isSearching &&
-                !_searchExpired &&
                 _searchError == null &&
                 !_isPreparing &&
                 result != null &&
@@ -1212,7 +1305,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
               return occurrence;
             })
             .toList(growable: false);
-        final itemCount = rendersRecords ? records.length + 4 : 3;
+        final itemCount = rendersRecords ? records.length + 5 : 3;
         return ListView.builder(
           key: const ValueKey('admin-link-generation-scroll-view'),
           controller: _scrollController,
@@ -1229,8 +1322,10 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
               child = _buildSearchState();
             } else if (index == 2) {
               child = _buildResultsSummary(result!);
-            } else if (index < records.length + 3) {
-              final recordIndex = index - 3;
+            } else if (index == 3) {
+              child = _buildSelectionStrip();
+            } else if (index < records.length + 4) {
+              final recordIndex = index - 4;
               final record = records[recordIndex];
               child = _buildResultCard(
                 record,
@@ -1277,8 +1372,54 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
           const SizedBox(height: 12),
           _buildPreparationUnavailableWarning(),
         ],
+        if (_searchExpired) ...[
+          const SizedBox(height: 12),
+          _buildExpiredState(),
+        ],
         const SizedBox(height: 12),
       ],
+    );
+  }
+
+  Widget _buildSelectionStrip() {
+    final selectableIds = _loadedSelectableCatalogRestaurantIds(
+      forNewSelection: false,
+    );
+    final loadedCount = _searchResult?.results.length ?? 0;
+    final selectableCount = selectableIds.length;
+    final selectedCount = _selectedCatalogRestaurantIds.length;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Wrap(
+        spacing: 12,
+        runSpacing: 8,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          OutlinedButton(
+            key: const ValueKey('admin-link-select-all-loaded'),
+            onPressed: _searchExpired || selectableCount == 0
+                ? null
+                : _selectAllLoaded,
+            child: const Text('Select All Loaded'),
+          ),
+          TextButton(
+            key: const ValueKey('admin-link-deselect-all'),
+            onPressed: selectedCount == 0 ? null : _deselectAll,
+            child: const Text('Deselect All'),
+          ),
+          Text(
+            '$selectedCount selected',
+            key: const ValueKey('admin-link-selected-count'),
+            style: Theme.of(context).textTheme.titleSmall,
+          ),
+          if (selectableCount != loadedCount)
+            Text(
+              '$selectableCount selectable of $loadedCount loaded',
+              key: const ValueKey('admin-link-selectable-loaded-count'),
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+        ],
+      ),
     );
   }
 
@@ -1359,6 +1500,9 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
                               AdminLinkGenerationService.locationValidationError(
                                 value ?? '',
                               ),
+                          onChanged: (_) {
+                            setState(_invalidateSearchForCriteriaChange);
+                          },
                           onFieldSubmitted: (_) => _submitSearch(),
                         ),
                       ),
@@ -1379,6 +1523,9 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
                               (value ?? '').trim().length > 100
                               ? 'Use no more than 100 characters.'
                               : null,
+                          onChanged: (_) {
+                            setState(_invalidateSearchForCriteriaChange);
+                          },
                           onFieldSubmitted: (_) => _submitSearch(),
                         ),
                       ),
@@ -1405,9 +1552,10 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
                           onChanged: _pageBusy
                               ? null
                               : (value) {
-                                  if (value != null) {
+                                  if (value != null && value != _radiusMiles) {
                                     setState(() {
                                       _radiusMiles = value;
+                                      _invalidateSearchForCriteriaChange();
                                     });
                                   }
                                 },
@@ -1502,28 +1650,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
       );
     }
     if (_searchExpired) {
-      return Card(
-        key: const ValueKey('admin-link-expired-state'),
-        color: Theme.of(context).colorScheme.errorContainer,
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'This search expired. Run it again to see current results.',
-              ),
-              const SizedBox(height: 12),
-              FilledButton.icon(
-                key: const ValueKey('admin-link-expired-search-button'),
-                onPressed: _pageBusy ? null : _submitSearch,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Search again'),
-              ),
-            ],
-          ),
-        ),
-      );
+      return _buildExpiredState();
     }
     if (_searchError != null) {
       return Card(
@@ -1646,6 +1773,31 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
     );
   }
 
+  Widget _buildExpiredState() {
+    return Card(
+      key: const ValueKey('admin-link-expired-state'),
+      color: Theme.of(context).colorScheme.errorContainer,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'This search expired. Run it again to see current results.',
+            ),
+            const SizedBox(height: 12),
+            FilledButton.icon(
+              key: const ValueKey('admin-link-expired-search-button'),
+              onPressed: _pageBusy ? null : _submitSearch,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Search again'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildLoadMoreButton() {
     final checking = _activeNeedsQrPreparation == true && _continueChecking;
     return Align(
@@ -1726,6 +1878,11 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
     AdminRestaurantLinkRecord record, {
     int duplicateIndex = 0,
   }) {
+    final selected = _selectedCatalogRestaurantIds.contains(record.documentId);
+    final selectableCatalogId = _selectableCatalogRestaurantId(
+      record,
+      forNewSelection: !selected,
+    );
     final stateAndZip = [
       record.state,
       record.zipCode,
@@ -1760,6 +1917,48 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
               runSpacing: 8,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
+                if (record.isBiteScore)
+                  selectableCatalogId != null
+                      ? Semantics(
+                          container: true,
+                          label:
+                              'Select ${record.restaurantName} for batch work',
+                          checked: selected,
+                          enabled: true,
+                          onTap: () =>
+                              _setRestaurantSelected(record, !selected),
+                          child: ExcludeSemantics(
+                            child: Checkbox(
+                              key: ValueKey(
+                                '${record.recordKey}:batch-selection'
+                                '${duplicateIndex == 0 ? '' : '#$duplicateIndex'}',
+                              ),
+                              value: selected,
+                              onChanged: (value) => _setRestaurantSelected(
+                                record,
+                                value ?? false,
+                              ),
+                            ),
+                          ),
+                        )
+                      : Tooltip(
+                          message: 'Batch selection unavailable',
+                          child: Semantics(
+                            container: true,
+                            label: 'Batch selection unavailable',
+                            enabled: false,
+                            child: ExcludeSemantics(
+                              child: Checkbox(
+                                key: ValueKey(
+                                  '${record.recordKey}:batch-selection-unavailable'
+                                  '${duplicateIndex == 0 ? '' : '#$duplicateIndex'}',
+                                ),
+                                value: selected,
+                                onChanged: null,
+                              ),
+                            ),
+                          ),
+                        ),
                 Text(
                   record.restaurantName,
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(

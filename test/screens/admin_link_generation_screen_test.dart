@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' as ui;
 
 import 'package:coupon_app/models/admin_restaurant_link_record.dart';
 import 'package:coupon_app/models/pagination/paged_models.dart';
@@ -70,6 +71,1231 @@ void main() {
       expect(calls[1].cursor, _pageCursor('preparation-cursor'));
     },
   );
+
+  testWidgets(
+    'canonical selection is exact deduplicated accessible and excludes unsafe rows',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      final canonical = _biteScoreRecord(
+        documentId: 'canonical-id',
+        name: 'Canonical Cafe',
+        preparation: _availablePreparation('canonical-id'),
+      );
+      final complete = _biteScoreRecord(
+        documentId: 'complete-id',
+        name: 'Prepared Place',
+        preparation: _preparationState(
+          'complete-id',
+          ownerInvite: AdminRestaurantPreparationStatus.prepared,
+          claimInvite: AdminRestaurantPreparationStatus.prepared,
+          biteSaverCustomer: AdminRestaurantPreparationStatus.prepared,
+          biteScoreCustomer: AdminRestaurantPreparationStatus.prepared,
+        ),
+      );
+      await _pumpScreen(
+        tester,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+            }) async => _result(
+              records: [
+                canonical,
+                canonical,
+                complete,
+                _biteScoreRecord(
+                  documentId: 'inactive-id',
+                  isActive: false,
+                  preparation: _availablePreparation('inactive-id'),
+                ),
+                _biteScoreRecord(documentId: 'unavailable-id'),
+                _biteScoreRecord(
+                  documentId: ' invalid-id',
+                  preparation: _availablePreparation(' invalid-id'),
+                ),
+                _biteScoreRecord(
+                  documentId: 'mismatched-action',
+                  actionId: 'different-action',
+                  preparation: _availablePreparation('mismatched-action'),
+                ),
+                _biteSaverRecord(
+                  documentId: 'bound-duplicate',
+                  actionId: 'bound-account',
+                  linkedBiteScoreRestaurantId: 'canonical-id',
+                ),
+                _biteSaverRecord(
+                  documentId: 'standalone-saver',
+                  actionId: 'standalone-account',
+                ),
+              ],
+            ),
+      );
+      await _submitSearch(tester);
+
+      expect(find.text('0 selected'), findsOneWidget);
+      expect(find.text('2 selectable of 9 loaded'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Select Canonical Cafe for batch work'),
+        findsNWidgets(2),
+      );
+      expect(
+        find.bySemanticsLabel('Select Prepared Place for batch work'),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const ValueKey('biteScore:inactive-id:batch-selection-unavailable'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const ValueKey(
+            'biteScore:unavailable-id:batch-selection-unavailable',
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel('Batch selection unavailable'),
+        findsNWidgets(4),
+      );
+
+      final saverCards = [
+        find.byKey(
+          const ValueKey('admin-link-record-biteSaver:bound-duplicate'),
+        ),
+        find.byKey(
+          const ValueKey('admin-link-record-biteSaver:standalone-saver'),
+        ),
+      ];
+      for (final card in saverCards) {
+        expect(
+          find.descendant(of: card, matching: find.byType(Checkbox)),
+          findsNothing,
+        );
+      }
+
+      final duplicateCheckboxes = find.byWidgetPredicate(
+        (widget) =>
+            widget is Checkbox &&
+            widget.key is ValueKey<String> &&
+            (widget.key! as ValueKey<String>).value.startsWith(
+              'biteScore:canonical-id:batch-selection',
+            ),
+      );
+      expect(duplicateCheckboxes, findsNWidgets(2));
+      await tester.tap(duplicateCheckboxes.first);
+      await tester.pump();
+      expect(find.text('1 selected'), findsOneWidget);
+      expect(
+        tester
+            .widgetList<Checkbox>(duplicateCheckboxes)
+            .map((box) => box.value),
+        everyElement(isTrue),
+      );
+
+      await tester.tap(duplicateCheckboxes.last);
+      await tester.pump();
+      expect(find.text('0 selected'), findsOneWidget);
+      expect(
+        tester
+            .widgetList<Checkbox>(duplicateCheckboxes)
+            .map((box) => box.value),
+        everyElement(isFalse),
+      );
+      semantics.dispose();
+    },
+  );
+
+  testWidgets('selection checkbox supports semantic tap in both states', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await _pumpScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+          }) async => _result(
+            records: [
+              _biteScoreRecord(
+                documentId: 'semantic-selection',
+                name: 'Semantic Cafe',
+                preparation: _availablePreparation('semantic-selection'),
+              ),
+            ],
+          ),
+    );
+    await _submitSearch(tester);
+    final selectionSemantics = find.semantics.byLabel(
+      'Select Semantic Cafe for batch work',
+    );
+    expect(selectionSemantics, findsOneWidget);
+    expect(
+      selectionSemantics.evaluate().single,
+      matchesSemantics(
+        label: 'Select Semantic Cafe for batch work',
+        hasCheckedState: true,
+        hasEnabledState: true,
+        isEnabled: true,
+        hasTapAction: true,
+      ),
+    );
+
+    tester.semantics.tap(selectionSemantics);
+    await tester.pump();
+    expect(find.text('1 selected'), findsOneWidget);
+    expect(
+      selectionSemantics.evaluate().single,
+      matchesSemantics(
+        label: 'Select Semantic Cafe for batch work',
+        hasCheckedState: true,
+        isChecked: true,
+        hasEnabledState: true,
+        isEnabled: true,
+        hasTapAction: true,
+      ),
+    );
+
+    tester.semantics.performAction(selectionSemantics, ui.SemanticsAction.tap);
+    await tester.pump();
+    expect(find.text('0 selected'), findsOneWidget);
+    expect(
+      selectionSemantics.evaluate().single,
+      matchesSemantics(
+        label: 'Select Semantic Cafe for batch work',
+        hasCheckedState: true,
+        hasEnabledState: true,
+        isEnabled: true,
+        hasTapAction: true,
+      ),
+    );
+    semantics.dispose();
+  });
+
+  testWidgets(
+    'Select All Loaded handles hundreds lazily without backend selection calls',
+    (tester) async {
+      var searchCalls = 0;
+      var couponInviteCalls = 0;
+      var claimInviteCalls = 0;
+      var clipboardWrites = 0;
+      var qrRenderCalls = 0;
+      var qrCopyExports = 0;
+      var qrDownloadExports = 0;
+      var preparationCalls = 0;
+      final records = <AdminRestaurantLinkRecord>[
+        ...List.generate(
+          205,
+          (index) => _biteScoreRecord(
+            documentId: 'bulk-${index.toString().padLeft(3, '0')}',
+            name: 'Bulk Restaurant $index',
+            preparation: _availablePreparation(
+              'bulk-${index.toString().padLeft(3, '0')}',
+            ),
+            orderDistanceMillimeters: index,
+          ),
+        ),
+        _biteScoreRecord(
+          documentId: 'bulk-inactive',
+          isActive: false,
+          preparation: _availablePreparation('bulk-inactive'),
+        ),
+        _biteSaverRecord(
+          documentId: 'bulk-saver',
+          actionId: 'bulk-saver-account',
+        ),
+      ];
+      await _pumpScreen(
+        tester,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+            }) async {
+              searchCalls += 1;
+              return _result(records: records);
+            },
+        createCouponInvite:
+            ({
+              required restaurantName,
+              required restaurantId,
+              required biteScoreCatalogRestaurantId,
+              required streetAddress,
+              required city,
+              required state,
+              required zipCode,
+              required phone,
+              required website,
+              required latitude,
+              required longitude,
+            }) async {
+              couponInviteCalls += 1;
+              return _invite('https://go.bitestar.app/invite/coupon/unused');
+            },
+        createClaimInvite: ({required restaurantId}) async {
+          claimInviteCalls += 1;
+          return _invite('https://go.bitestar.app/invite/bitescore/unused');
+        },
+        writeClipboard: (_) async {
+          clipboardWrites += 1;
+        },
+        renderQrImage:
+            ({required restaurantName, required url, required linkType}) async {
+              qrRenderCalls += 1;
+              return _qrImage(restaurantName, linkType);
+            },
+        qrExporter: RestaurantQrExporter(
+          capabilities: const RestaurantQrExportCapabilities(
+            canCopyImage: true,
+            canDownloadPng: true,
+          ),
+          copyPng: (_) async {
+            qrCopyExports += 1;
+          },
+          downloadPng: (_, _) async {
+            qrDownloadExports += 1;
+          },
+        ),
+        updatePreparation:
+            ({
+              required catalogRestaurantId,
+              required type,
+              required prepared,
+              required biteSaverCatalogBindingState,
+              required claimState,
+              expectedInviteId,
+            }) async {
+              preparationCalls += 1;
+              return _availablePreparation(catalogRestaurantId);
+            },
+      );
+      await _submitSearch(tester);
+
+      final builtCards = find.byWidgetPredicate((widget) {
+        final key = widget.key;
+        return key is ValueKey<String> &&
+            key.value.startsWith('admin-link-record-');
+      });
+      expect(builtCards.evaluate().length, lessThan(25));
+      expect(find.text('205 selectable of 207 loaded'), findsOneWidget);
+
+      final individual = find.byKey(
+        const ValueKey('biteScore:bulk-000:batch-selection'),
+      );
+      await tester.tap(individual);
+      await tester.pump();
+      expect(find.text('1 selected'), findsOneWidget);
+      await tester.tap(individual);
+      await tester.pump();
+      expect(find.text('0 selected'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey('admin-link-select-all-loaded')),
+      );
+      await tester.pump();
+      expect(find.text('205 selected'), findsOneWidget);
+      expect(searchCalls, 1);
+
+      await tester.tap(find.byKey(const ValueKey('admin-link-deselect-all')));
+      await tester.pump();
+      expect(find.text('0 selected'), findsOneWidget);
+      expect(
+        (
+          search: searchCalls,
+          couponInvite: couponInviteCalls,
+          claimInvite: claimInviteCalls,
+          clipboard: clipboardWrites,
+          qrRender: qrRenderCalls,
+          qrCopyExport: qrCopyExports,
+          qrDownloadExport: qrDownloadExports,
+          preparation: preparationCalls,
+        ),
+        (
+          search: 1,
+          couponInvite: 0,
+          claimInvite: 0,
+          clipboard: 0,
+          qrRender: 0,
+          qrCopyExport: 0,
+          qrDownloadExport: 0,
+          preparation: 0,
+        ),
+      );
+    },
+  );
+
+  testWidgets(
+    'Load More keeps selection and Select All Loaded adds only new loaded IDs',
+    (tester) async {
+      var calls = 0;
+      await _pumpPagedScreen(
+        tester,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+              required searchInstanceId,
+              required clientRequestId,
+              required needsQrPreparation,
+              cursor,
+              resolvedSearchCenter,
+            }) async {
+              calls += 1;
+              return calls == 1
+                  ? _pagedResult(
+                      records: [
+                        _selectableOrderedRecord('loaded-a', 0),
+                        _selectableOrderedRecord('loaded-b', 1),
+                      ],
+                      hasNext: true,
+                      nextCursor: _pageCursor('selection-next'),
+                    )
+                  : _pagedResult(
+                      records: [
+                        _selectableOrderedRecord('loaded-c', 2),
+                        _selectableOrderedRecord('loaded-d', 3),
+                      ],
+                    );
+            },
+      );
+      await _submitSearch(tester);
+      await tester.tap(
+        find.byKey(const ValueKey('admin-link-select-all-loaded')),
+      );
+      await tester.pump();
+      expect(find.text('2 selected'), findsOneWidget);
+
+      final loadMore = await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-load-more-button'),
+      );
+      await tester.tap(loadMore);
+      await tester.pumpAndSettle();
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-selected-count'),
+        delta: -700,
+      );
+      expect(find.text('2 selected'), findsOneWidget);
+      final appended = await _scrollToAdminKey(
+        tester,
+        const ValueKey('biteScore:loaded-c:batch-selection'),
+      );
+      expect(tester.widget<Checkbox>(appended).value, isFalse);
+
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-select-all-loaded'),
+        delta: -700,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('admin-link-select-all-loaded')),
+      );
+      await tester.pump();
+      expect(find.text('4 selected'), findsOneWidget);
+      expect(calls, 2);
+    },
+  );
+
+  testWidgets('append failure and exact retry preserve existing selection', (
+    tester,
+  ) async {
+    var calls = 0;
+    await _pumpPagedScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+            required searchInstanceId,
+            required clientRequestId,
+            required needsQrPreparation,
+            cursor,
+            resolvedSearchCenter,
+          }) async {
+            calls += 1;
+            if (calls == 1) {
+              return _pagedResult(
+                records: [_selectableOrderedRecord('retry-selected', 0)],
+                hasNext: true,
+                nextCursor: _pageCursor('selection-retry'),
+              );
+            }
+            if (calls == 2) {
+              throw const AdminLinkGenerationException('Append failed.');
+            }
+            return _pagedResult(
+              records: [_selectableOrderedRecord('retry-appended', 1)],
+            );
+          },
+    );
+    await _submitSearch(tester);
+    await tester.tap(
+      find.byKey(const ValueKey('biteScore:retry-selected:batch-selection')),
+    );
+    await tester.pump();
+
+    var loadMore = await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-load-more-button'),
+    );
+    await tester.tap(loadMore);
+    await tester.pumpAndSettle();
+    expect(find.text('1 selected'), findsOneWidget);
+    expect(find.text('Retry Load More'), findsOneWidget);
+
+    loadMore = await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-load-more-button'),
+    );
+    await tester.tap(loadMore);
+    await tester.pumpAndSettle();
+    expect(find.text('1 selected'), findsOneWidget);
+    expect(calls, 3);
+  });
+
+  testWidgets(
+    'expired search keeps rows and selection but permits only deselection',
+    (tester) async {
+      final semantics = tester.ensureSemantics();
+      var calls = 0;
+      await _pumpPagedScreen(
+        tester,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+              required searchInstanceId,
+              required clientRequestId,
+              required needsQrPreparation,
+              cursor,
+              resolvedSearchCenter,
+            }) async {
+              calls += 1;
+              if (calls == 1) {
+                return _pagedResult(
+                  records: [
+                    _selectableOrderedRecord('expiry-a', 0, name: 'Expiry A'),
+                    _selectableOrderedRecord('expiry-b', 1, name: 'Expiry B'),
+                    _selectableOrderedRecord('expiry-c', 2, name: 'Expiry C'),
+                    _selectableOrderedRecord('expiry-d', 3, name: 'Expiry D'),
+                  ],
+                  hasNext: true,
+                  nextCursor: _pageCursor('selection-expiry'),
+                );
+              }
+              if (calls == 2) {
+                throw const AdminLinkSearchExpiredException();
+              }
+              return _pagedResult(
+                records: [_selectableOrderedRecord('expiry-fresh', 0)],
+              );
+            },
+      );
+      await _submitSearch(tester);
+      for (final id in ['expiry-a', 'expiry-c', 'expiry-d']) {
+        final selection = await _scrollToAdminKey(
+          tester,
+          ValueKey('biteScore:$id:batch-selection'),
+        );
+        await tester.tap(selection);
+        await tester.pump();
+      }
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-selected-count'),
+        delta: -700,
+      );
+      expect(find.text('3 selected'), findsOneWidget);
+
+      final loadMore = await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-load-more-button'),
+      );
+      await tester.tap(loadMore);
+      await tester.pumpAndSettle();
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-selected-count'),
+        delta: -700,
+      );
+      expect(
+        find.byKey(const ValueKey('admin-link-expired-state')),
+        findsOneWidget,
+      );
+      expect(find.text('3 selected'), findsOneWidget);
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.byKey(const ValueKey('admin-link-select-all-loaded')),
+            )
+            .onPressed,
+        isNull,
+      );
+
+      final expiryA = await _scrollToAdminKey(
+        tester,
+        const ValueKey('biteScore:expiry-a:batch-selection'),
+      );
+      expect(tester.widget<Checkbox>(expiryA).value, isTrue);
+      await tester.tap(expiryA);
+      await tester.pump();
+
+      final expiryB = await _scrollToAdminKey(
+        tester,
+        const ValueKey('biteScore:expiry-b:batch-selection-unavailable'),
+      );
+      expect(tester.widget<Checkbox>(expiryB).value, isFalse);
+      expect(tester.widget<Checkbox>(expiryB).onChanged, isNull);
+      final expiryBSemantics = tester.getSemantics(expiryB);
+      expect(
+        expiryBSemantics.getSemanticsData().hasAction(ui.SemanticsAction.tap),
+        isFalse,
+      );
+      expect(
+        expiryBSemantics.getSemanticsData().flagsCollection.isEnabled,
+        ui.Tristate.isFalse,
+      );
+      await tester.tap(expiryB);
+      await tester.pump();
+
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-selected-count'),
+        delta: -700,
+      );
+      expect(find.text('2 selected'), findsOneWidget);
+
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('biteScore:expiry-c:batch-selection'),
+      );
+      final expiryCSemantics = find.semantics.byLabel(
+        'Select Expiry C for batch work',
+      );
+      expect(expiryCSemantics, findsOneWidget);
+      tester.semantics.tap(expiryCSemantics);
+      await tester.pump();
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-selected-count'),
+        delta: -700,
+      );
+      expect(find.text('1 selected'), findsOneWidget);
+      expect(
+        tester
+            .widget<TextButton>(
+              find.byKey(const ValueKey('admin-link-deselect-all')),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      await tester.tap(find.byKey(const ValueKey('admin-link-deselect-all')));
+      await tester.pump();
+      expect(find.text('0 selected'), findsOneWidget);
+
+      final searchAgain = await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-expired-search-button'),
+        delta: -700,
+      );
+      await tester.tap(searchAgain);
+      await tester.pumpAndSettle();
+      expect(find.text('0 selected'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('admin-link-record-biteScore:expiry-fresh')),
+        findsOneWidget,
+      );
+      semantics.dispose();
+    },
+  );
+
+  testWidgets('all criteria edits immediately clear results and selection', (
+    tester,
+  ) async {
+    var calls = 0;
+    await _pumpScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+          }) async {
+            calls += 1;
+            return _result(
+              records: [
+                _biteScoreRecord(
+                  documentId: 'criteria-$calls',
+                  preparation: _availablePreparation('criteria-$calls'),
+                ),
+              ],
+            );
+          },
+    );
+
+    Future<void> searchAndSelect({String location = '34428'}) async {
+      await _submitSearch(tester, location: location);
+      final selection = find.byKey(
+        ValueKey('biteScore:criteria-$calls:batch-selection'),
+      );
+      await tester.tap(selection);
+      await tester.pump();
+      expect(find.text('1 selected'), findsOneWidget);
+    }
+
+    VoidCallback captureDeselectAll() => tester
+        .widget<TextButton>(
+          find.byKey(const ValueKey('admin-link-deselect-all')),
+        )
+        .onPressed!;
+
+    void expectSelectionWasAlreadyCleared(VoidCallback deselectAll) {
+      final screenElement = tester.element(
+        find.byType(AdminLinkGenerationScreen),
+      );
+      expect(screenElement.dirty, isFalse);
+      deselectAll();
+      expect(
+        screenElement.dirty,
+        isFalse,
+        reason: 'Deselect All must already be a no-op after the edit.',
+      );
+    }
+
+    await searchAndSelect();
+    var deselectAll = captureDeselectAll();
+    var callsBeforeEdit = calls;
+    await tester.enterText(
+      find.byKey(const ValueKey('admin-link-location-field')),
+      '34429',
+    );
+    await tester.pump();
+    expect(calls, callsBeforeEdit);
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const ValueKey('admin-link-location-field')),
+          )
+          .controller!
+          .text,
+      '34429',
+    );
+    expectSelectionWasAlreadyCleared(deselectAll);
+    expect(
+      find.byKey(const ValueKey('admin-link-initial-state')),
+      findsOneWidget,
+    );
+
+    await searchAndSelect(location: '34429');
+    deselectAll = captureDeselectAll();
+    callsBeforeEdit = calls;
+    await tester.enterText(
+      find.byKey(const ValueKey('admin-link-restaurant-name-field')),
+      'Fresh Name',
+    );
+    await tester.pump();
+    expect(calls, callsBeforeEdit);
+    expect(
+      tester
+          .widget<TextFormField>(
+            find.byKey(const ValueKey('admin-link-restaurant-name-field')),
+          )
+          .controller!
+          .text,
+      'Fresh Name',
+    );
+    expectSelectionWasAlreadyCleared(deselectAll);
+    expect(
+      find.byKey(const ValueKey('admin-link-initial-state')),
+      findsOneWidget,
+    );
+
+    await searchAndSelect(location: '34429');
+    deselectAll = captureDeselectAll();
+    callsBeforeEdit = calls;
+    await tester.tap(find.byKey(const ValueKey('admin-link-radius-field')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('20 miles').last);
+    await tester.pumpAndSettle();
+    expect(calls, callsBeforeEdit);
+    expectSelectionWasAlreadyCleared(deselectAll);
+    expect(
+      tester
+          .widget<DropdownButtonFormField<int>>(
+            find.byKey(const ValueKey('admin-link-radius-field')),
+          )
+          .initialValue,
+      20,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-link-initial-state')),
+      findsOneWidget,
+    );
+
+    await searchAndSelect(location: '34429');
+    deselectAll = captureDeselectAll();
+    callsBeforeEdit = calls;
+    await tester.tap(find.byKey(const ValueKey('admin-link-source-biteSaver')));
+    await tester.pump();
+    expect(calls, callsBeforeEdit);
+    expect(
+      tester
+          .widget<FilterChip>(
+            find.byKey(const ValueKey('admin-link-source-biteSaver')),
+          )
+          .selected,
+      isFalse,
+    );
+    expectSelectionWasAlreadyCleared(deselectAll);
+    expect(
+      find.byKey(const ValueKey('admin-link-initial-state')),
+      findsOneWidget,
+    );
+
+    await searchAndSelect(location: '34429');
+    deselectAll = captureDeselectAll();
+    callsBeforeEdit = calls;
+    await tester.tap(
+      find.byKey(const ValueKey('admin-link-filter-needs-qr-preparation')),
+    );
+    await tester.pump();
+    expect(calls, callsBeforeEdit);
+    expect(
+      tester
+          .widget<FilterChip>(
+            find.byKey(
+              const ValueKey('admin-link-filter-needs-qr-preparation'),
+            ),
+          )
+          .selected,
+      isTrue,
+    );
+    expectSelectionWasAlreadyCleared(deselectAll);
+    expect(
+      find.byKey(const ValueKey('admin-link-initial-state')),
+      findsOneWidget,
+    );
+
+    await _submitSearch(tester, location: '34429');
+    expect(find.text('0 selected'), findsOneWidget);
+  });
+
+  testWidgets('new explicit Search clears selection before its response', (
+    tester,
+  ) async {
+    final nextSearch = Completer<AdminRestaurantLinkSearchResult>();
+    var calls = 0;
+    await _pumpScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+          }) {
+            calls += 1;
+            if (calls == 1) {
+              return Future.value(
+                _result(
+                  records: [
+                    _biteScoreRecord(
+                      documentId: 'old-explicit',
+                      preparation: _availablePreparation('old-explicit'),
+                    ),
+                  ],
+                ),
+              );
+            }
+            return nextSearch.future;
+          },
+    );
+    await _submitSearch(tester);
+    await tester.tap(
+      find.byKey(const ValueKey('biteScore:old-explicit:batch-selection')),
+    );
+    await tester.pump();
+    expect(find.text('1 selected'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('admin-link-search-button')));
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('admin-link-record-biteScore:old-explicit')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-link-loading-state')),
+      findsOneWidget,
+    );
+
+    nextSearch.complete(
+      _result(
+        records: [
+          _biteScoreRecord(
+            documentId: 'fresh-explicit',
+            preparation: _availablePreparation('fresh-explicit'),
+          ),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('0 selected'), findsOneWidget);
+  });
+
+  testWidgets(
+    'Continue checking preserves selection and leaves new rows clear',
+    (tester) async {
+      var calls = 0;
+      await _pumpPagedScreen(
+        tester,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+              required searchInstanceId,
+              required clientRequestId,
+              required needsQrPreparation,
+              cursor,
+              resolvedSearchCenter,
+            }) async {
+              calls += 1;
+              return calls == 1
+                  ? _pagedResult(
+                      needsQrPreparation: true,
+                      records: [
+                        _filteredRecord(
+                          'checking-selected',
+                          orderDistanceMillimeters: 0,
+                        ),
+                      ],
+                      hasNext: true,
+                      nextCursor: _pageCursor('selection-checking'),
+                    )
+                  : _pagedResult(
+                      needsQrPreparation: true,
+                      records: [
+                        _filteredRecord(
+                          'checking-new',
+                          orderDistanceMillimeters: 1,
+                        ),
+                      ],
+                    );
+            },
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('admin-link-filter-needs-qr-preparation')),
+      );
+      await _submitSearch(tester);
+      await tester.tap(
+        find.byKey(
+          const ValueKey('biteScore:checking-selected:batch-selection'),
+        ),
+      );
+      await tester.pump();
+
+      final continueChecking = await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-load-more-button'),
+      );
+      expect(find.text('Continue checking'), findsOneWidget);
+      await tester.tap(continueChecking);
+      await tester.pumpAndSettle();
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-selected-count'),
+        delta: -700,
+      );
+      expect(find.text('1 selected'), findsOneWidget);
+      final newSelection = await _scrollToAdminKey(
+        tester,
+        const ValueKey('biteScore:checking-new:batch-selection'),
+      );
+      expect(tester.widget<Checkbox>(newSelection).value, isFalse);
+    },
+  );
+
+  testWidgets('selection preserves scroll offset and survives lazy rebuilds', (
+    tester,
+  ) async {
+    final records = List.generate(
+      90,
+      (index) => _biteScoreRecord(
+        documentId: 'selection-lazy-${index.toString().padLeft(2, '0')}',
+        name: 'Selection Lazy $index',
+        preparation: _availablePreparation(
+          'selection-lazy-${index.toString().padLeft(2, '0')}',
+        ),
+        orderDistanceMillimeters: index,
+      ),
+    );
+    await _pumpScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+          }) async => _result(records: records),
+    );
+    await _submitSearch(tester);
+    final list = find.byKey(
+      const ValueKey('admin-link-generation-scroll-view'),
+    );
+    final controller = tester.widget<ListView>(list).controller!;
+    var selection = await _scrollToAdminKey(
+      tester,
+      const ValueKey('biteScore:selection-lazy-45:batch-selection'),
+    );
+    final offset = controller.offset;
+    expect(offset, greaterThan(0));
+    await tester.tap(selection);
+    await tester.pump();
+    expect(controller.offset, closeTo(offset, 0.5));
+
+    await _scrollToAdminKey(
+      tester,
+      const ValueKey('biteScore:selection-lazy-89:batch-selection'),
+    );
+    expect(
+      find.byKey(const ValueKey('biteScore:selection-lazy-45:batch-selection')),
+      findsNothing,
+    );
+    selection = await _scrollToAdminKey(
+      tester,
+      const ValueKey('biteScore:selection-lazy-45:batch-selection'),
+      delta: -700,
+    );
+    expect(tester.widget<Checkbox>(selection).value, isTrue);
+  });
+
+  testWidgets('bulk selection callbacks preserve a nonzero scroll offset', (
+    tester,
+  ) async {
+    final records = List.generate(
+      100,
+      (index) => _selectableOrderedRecord(
+        'bulk-scroll-${index.toString().padLeft(3, '0')}',
+        index,
+        name: 'Bulk Scroll $index',
+      ),
+    );
+    await _pumpScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+          }) async => _result(records: records),
+    );
+    await _submitSearch(tester);
+    final list = find.byKey(
+      const ValueKey('admin-link-generation-scroll-view'),
+    );
+    final controller = tester.widget<ListView>(list).controller!;
+    final selectAll = tester
+        .widget<OutlinedButton>(
+          find.byKey(const ValueKey('admin-link-select-all-loaded')),
+        )
+        .onPressed!;
+
+    await _scrollToAdminKey(
+      tester,
+      const ValueKey('biteScore:bulk-scroll-050:batch-selection'),
+    );
+    final offsetBeforeSelectAll = controller.offset;
+    expect(offsetBeforeSelectAll, greaterThan(0));
+    selectAll();
+    await tester.pump();
+    expect(controller.offset, closeTo(offsetBeforeSelectAll, 0.5));
+    expect(tester.widget<ListView>(list).controller, same(controller));
+
+    await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-selected-count'),
+      delta: -700,
+    );
+    expect(find.text('100 selected'), findsOneWidget);
+    final deselectAll = tester
+        .widget<TextButton>(
+          find.byKey(const ValueKey('admin-link-deselect-all')),
+        )
+        .onPressed!;
+
+    await _scrollToAdminKey(
+      tester,
+      const ValueKey('biteScore:bulk-scroll-060:batch-selection'),
+    );
+    final offsetBeforeDeselectAll = controller.offset;
+    expect(offsetBeforeDeselectAll, greaterThan(0));
+    deselectAll();
+    await tester.pump();
+    expect(controller.offset, closeTo(offsetBeforeDeselectAll, 0.5));
+    expect(tester.widget<ListView>(list).controller, same(controller));
+
+    await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-selected-count'),
+      delta: -700,
+    );
+    expect(find.text('0 selected'), findsOneWidget);
+  });
+
+  testWidgets('existing Admin actions preserve the exact selection set', (
+    tester,
+  ) async {
+    var inviteCalls = 0;
+    var qrRenderCalls = 0;
+    var preparationCalls = 0;
+    final clipboardWrites = <String>[];
+    await _pumpScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+          }) async => _result(
+            records: [
+              _biteScoreRecord(
+                documentId: 'action-selected',
+                name: 'Action Selected',
+                preparation: _availablePreparation('action-selected'),
+              ),
+              _biteScoreRecord(
+                documentId: 'action-unselected',
+                name: 'Action Unselected',
+                preparation: _availablePreparation('action-unselected'),
+              ),
+            ],
+          ),
+      createCouponInvite:
+          ({
+            required restaurantName,
+            required restaurantId,
+            required biteScoreCatalogRestaurantId,
+            required streetAddress,
+            required city,
+            required state,
+            required zipCode,
+            required phone,
+            required website,
+            required latitude,
+            required longitude,
+          }) async {
+            inviteCalls += 1;
+            return _invite(
+              'https://go.bitestar.app/invite/coupon/action-selection',
+            );
+          },
+      writeClipboard: (value) async {
+        clipboardWrites.add(value);
+      },
+      renderQrImage:
+          ({required restaurantName, required url, required linkType}) async {
+            qrRenderCalls += 1;
+            return _qrImage(restaurantName, linkType);
+          },
+      updatePreparation:
+          ({
+            required catalogRestaurantId,
+            required type,
+            required prepared,
+            required biteSaverCatalogBindingState,
+            required claimState,
+            expectedInviteId,
+          }) async {
+            preparationCalls += 1;
+            expect(catalogRestaurantId, 'action-selected');
+            expect(type, AdminRestaurantPreparationType.biteSaverCustomer);
+            return _preparationState(
+              catalogRestaurantId,
+              biteSaverCustomer: AdminRestaurantPreparationStatus.prepared,
+            );
+          },
+    );
+    await _submitSearch(tester);
+    await tester.tap(
+      find.byKey(const ValueKey('biteScore:action-selected:batch-selection')),
+    );
+    await tester.pump();
+
+    Future<void> expectExactSelection() async {
+      final selected = await _scrollToAdminKey(
+        tester,
+        const ValueKey('biteScore:action-selected:batch-selection'),
+      );
+      expect(tester.widget<Checkbox>(selected).value, isTrue);
+      final unselected = await _scrollToAdminKey(
+        tester,
+        const ValueKey('biteScore:action-unselected:batch-selection'),
+      );
+      expect(tester.widget<Checkbox>(unselected).value, isFalse);
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-selected-count'),
+        delta: -700,
+      );
+      expect(find.text('1 selected'), findsOneWidget);
+    }
+
+    final invite = await _scrollToAdminKey(
+      tester,
+      const ValueKey('biteScore:action-selected:coupon-invite'),
+    );
+    await tester.tap(invite);
+    await _pumpOpenDialog(tester);
+    expect(inviteCalls, 1);
+    await tester.tap(find.byKey(const ValueKey('copy-link-action')));
+    await tester.pump();
+    expect(clipboardWrites, hasLength(1));
+    await tester.tap(find.byKey(const ValueKey('create-link-qr')));
+    await _pumpOpenDialog(tester);
+    expect(qrRenderCalls, 1);
+    await tester.tap(find.byKey(const ValueKey('restaurant-qr-preview-close')));
+    await tester.pumpAndSettle();
+    await expectExactSelection();
+
+    final preparation = await _scrollToAdminKey(
+      tester,
+      const ValueKey('biteScore:action-selected:preparation-SA'),
+    );
+    await tester.tap(preparation);
+    await tester.pumpAndSettle();
+    expect(preparationCalls, 1);
+    await expectExactSelection();
+
+    final mailingAddress = await _scrollToAdminKey(
+      tester,
+      const ValueKey('biteScore:action-selected:copy-mailing-address'),
+    );
+    await tester.tap(mailingAddress);
+    await tester.pumpAndSettle();
+    expect(clipboardWrites, hasLength(2));
+    await expectExactSelection();
+  });
 
   testWidgets('Needs QR filter toggles locally and enforces BiteScore source', (
     tester,
@@ -659,6 +1885,12 @@ void main() {
             .selected,
         isTrue,
       );
+      final retainedSelection = find.byKey(
+        const ValueKey('biteScore:$overrideId:batch-selection'),
+      );
+      await tester.tap(retainedSelection);
+      await tester.pump();
+      expect(tester.widget<Checkbox>(retainedSelection).value, isTrue);
 
       final listFinder = find.byKey(
         const ValueKey('admin-link-generation-scroll-view'),
@@ -668,6 +1900,12 @@ void main() {
         tester,
         const ValueKey('biteScore:$completedId:preparation-I'),
       );
+      final completedSelection = find.byKey(
+        const ValueKey('biteScore:$completedId:batch-selection'),
+      );
+      await tester.tap(completedSelection);
+      await tester.pump();
+      expect(tester.widget<Checkbox>(completedSelection).value, isTrue);
       final offsetBeforeRemoval = controller.offset;
       expect(offsetBeforeRemoval, greaterThan(0));
 
@@ -680,6 +1918,12 @@ void main() {
       expect(controller.offset, greaterThan(0));
       expect(controller.offset, closeTo(offsetBeforeRemoval, 1));
       expect(tester.widget<ListView>(listFinder).controller, same(controller));
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-selected-count'),
+        delta: -700,
+      );
+      expect(find.text('1 selected'), findsOneWidget);
 
       await _scrollToAdminKey(
         tester,
@@ -699,6 +1943,16 @@ void main() {
               ),
             )
             .selected,
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<Checkbox>(
+              find.byKey(
+                const ValueKey('biteScore:$overrideId:batch-selection'),
+              ),
+            )
+            .value,
         isTrue,
       );
 
@@ -727,6 +1981,12 @@ void main() {
         find.byKey(const ValueKey('admin-link-record-biteScore:$completedId')),
         findsNothing,
       );
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-selected-count'),
+        delta: -700,
+      );
+      expect(find.text('1 selected'), findsOneWidget);
       await _scrollToAdminKey(
         tester,
         const ValueKey('admin-link-record-biteScore:after-local-completion'),
@@ -759,6 +2019,16 @@ void main() {
               ),
             )
             .selected,
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<Checkbox>(
+              find.byKey(
+                const ValueKey('biteScore:$overrideId:batch-selection'),
+              ),
+            )
+            .value,
         isTrue,
       );
     },
@@ -1334,7 +2604,12 @@ void main() {
             if (calls == 1) {
               return Future.value(
                 _pagedResult(
-                  records: [_biteScoreRecord(documentId: 'old-first')],
+                  records: [
+                    _biteScoreRecord(
+                      documentId: 'old-first',
+                      preparation: _availablePreparation('old-first'),
+                    ),
+                  ],
                   hasNext: true,
                   nextCursor: _pageCursor('old-next'),
                 ),
@@ -1345,12 +2620,23 @@ void main() {
             }
             return Future.value(
               _pagedResult(
-                records: [_biteScoreRecord(documentId: 'new-search')],
+                records: [
+                  _biteScoreRecord(
+                    documentId: 'new-search',
+                    preparation: _availablePreparation('new-search'),
+                  ),
+                ],
               ),
             );
           },
     );
     await _submitSearch(tester);
+    final oldSelection = await _scrollToAdminKey(
+      tester,
+      const ValueKey('biteScore:old-first:batch-selection'),
+    );
+    await tester.tap(oldSelection);
+    await tester.pump();
     final loadMore = await _scrollToAdminKey(
       tester,
       const ValueKey('admin-link-load-more-button'),
@@ -1381,9 +2667,22 @@ void main() {
       findsOneWidget,
     );
     expect(instances[2], isNot(instances[0]));
+    await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-selected-count'),
+      delta: -700,
+    );
+    expect(find.text('0 selected'), findsOneWidget);
 
     oldLoad.complete(
-      _pagedResult(records: [_biteScoreRecord(documentId: 'old-late')]),
+      _pagedResult(
+        records: [
+          _biteScoreRecord(
+            documentId: 'old-late',
+            preparation: _availablePreparation('old-late'),
+          ),
+        ],
+      ),
     );
     await tester.pumpAndSettle();
     expect(
@@ -2945,6 +4244,12 @@ void main() {
       expect(find.text('C · Unprepared'), findsOneWidget);
       expect(find.text('SA · Prepared'), findsOneWidget);
       expect(find.text('SR · Unprepared'), findsOneWidget);
+      final selection = find.byKey(
+        const ValueKey('biteScore:preparation-doc:batch-selection'),
+      );
+      await tester.tap(selection);
+      await tester.pump();
+      expect(tester.widget<Checkbox>(selection).value, isTrue);
 
       final claimChip = find.byKey(
         const ValueKey('biteScore:preparation-doc:preparation-C'),
@@ -2959,6 +4264,7 @@ void main() {
         expectedInviteId: null,
       ));
       expect(find.text('C · Prepared'), findsOneWidget);
+      expect(tester.widget<Checkbox>(selection).value, isTrue);
 
       final ownerChip = find.byKey(
         const ValueKey('biteScore:preparation-doc:preparation-I'),
@@ -2972,6 +4278,7 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('I · Prepared'), findsOneWidget);
+      expect(tester.widget<Checkbox>(selection).value, isTrue);
     },
   );
 
@@ -3942,6 +5249,7 @@ AdminRestaurantLinkSearchResult _result({
 
 AdminRestaurantLinkRecord _biteScoreRecord({
   required String documentId,
+  String? actionId,
   String name = 'River Grill',
   String streetAddress = '1 Main Street',
   String city = 'Crystal River',
@@ -3967,7 +5275,7 @@ AdminRestaurantLinkRecord _biteScoreRecord({
   return AdminRestaurantLinkRecord(
     source: AdminRestaurantLinkSource.biteScore,
     documentId: documentId,
-    actionId: documentId,
+    actionId: actionId ?? documentId,
     restaurantName: name,
     streetAddress: streetAddress,
     city: city,
@@ -4029,6 +5337,7 @@ AdminRestaurantPreparationState _preparationState(
 AdminRestaurantLinkRecord _biteSaverRecord({
   required String documentId,
   required String actionId,
+  String? linkedBiteScoreRestaurantId,
   String name = 'River Grill',
   String streetAddress = '1 Main Street',
   String city = 'Crystal River',
@@ -4053,12 +5362,26 @@ AdminRestaurantLinkRecord _biteSaverRecord({
     approvalStatus: approvalStatus,
     couponApplicationSubmitted: true,
     uid: actionId,
+    linkedBiteScoreRestaurantId: linkedBiteScoreRestaurantId,
     materializedOrder: AdminRestaurantMaterializedOrder(
       distanceMillimeters: 2414016,
       normalizedName: name.trim().replaceAll(RegExp(r'\s+'), ' ').toLowerCase(),
       sourceDocumentId: documentId,
       source: AdminRestaurantLinkSource.biteSaver,
     ),
+  );
+}
+
+AdminRestaurantLinkRecord _selectableOrderedRecord(
+  String documentId,
+  int order, {
+  String name = 'River Grill',
+}) {
+  return _biteScoreRecord(
+    documentId: documentId,
+    name: name,
+    preparation: _availablePreparation(documentId),
+    orderDistanceMillimeters: order,
   );
 }
 
