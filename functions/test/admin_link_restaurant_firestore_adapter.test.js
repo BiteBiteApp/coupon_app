@@ -458,6 +458,8 @@ function makeSession(id, overrides = {}) {
     normalizedRestaurantName: null,
     sources: Object.freeze(["biteScore"]),
     biteScoreStatus: "active",
+    filterContractVersion: 1,
+    needsQrPreparation: false,
     ranges: Object.freeze([Object.freeze({
       source: "biteScore",
       collectionName: "bitescore_restaurants",
@@ -757,6 +759,37 @@ test("production session parser accepts canonical normalized values and rejects 
   database.writeDirect(path, {
     ...database.read(path),
     normalizedRestaurantName: "x".repeat(101),
+  });
+  await assert.rejects(
+    store.getSession(session.id),
+    (error) => error.code === "failed-precondition",
+  );
+});
+
+test("production session storage persists v1 filters and parses legacy missing fields off", async () => {
+  const database = new VersionedFirestoreHarness();
+  const initial = makeSession("session-filter-contract", {
+    needsQrPreparation: true,
+  });
+  const {store, session} = await acquire(database, initial);
+  const stored = database.read(sessionPath(session.id));
+  assert.equal(stored.filterContractVersion, 1);
+  assert.equal(stored.needsQrPreparation, true);
+  assert.equal((await store.getSession(session.id)).needsQrPreparation, true);
+
+  const {
+    filterContractVersion: _filterContractVersion,
+    needsQrPreparation: _needsQrPreparation,
+    ...legacy
+  } = stored;
+  database.writeDirect(sessionPath(session.id), legacy);
+  const parsedLegacy = await store.getSession(session.id);
+  assert.equal(parsedLegacy.filterContractVersion, 1);
+  assert.equal(parsedLegacy.needsQrPreparation, false);
+
+  database.writeDirect(sessionPath(session.id), {
+    ...legacy,
+    filterContractVersion: 1,
   });
   await assert.rejects(
     store.getSession(session.id),
@@ -1312,5 +1345,82 @@ test("F: an old completed request marker remains idempotent after a later advanc
   assert.equal(duplicate.session.lastCompletedRequestId, laterRequestId);
   assert.equal(duplicate.session.scannedDocumentCount, 2);
   assert.equal(duplicate.session.ranges[0].afterDocumentId, "cursor-later");
+  assert.equal(database.readAfterWriteViolations, 0);
+});
+
+test("filtered production advance retry is marker-idempotent without extra progress", async () => {
+  const database = new VersionedFirestoreHarness();
+  const initial = makeSession("session-filtered-idempotency", {
+    needsQrPreparation: true,
+  });
+  const {store, session} = await acquire(database, initial);
+  const clientRequestId = "filtered-completed-advance";
+  const claimed = await claim(
+    store,
+    session,
+    clientRequestId,
+    "lease-filtered-idempotency",
+  );
+  const result = makeResult("a", claimed);
+  const completed = await finish(
+    store,
+    claimed,
+    clientRequestId,
+    [result],
+    {
+      state: "preparing",
+      ranges: advancedRanges(claimed, "filtered-cursor", false),
+    },
+  );
+  assert.equal(completed.needsQrPreparation, true);
+  assert.equal(completed.lastCompletedRequestId, clientRequestId);
+  assert.equal(completed.scannedDocumentCount, 1);
+  assert.equal(completed.ranges[0].afterDocumentId, "filtered-cursor");
+
+  const sessionBeforeRetry = logicalValue(
+    database.read(sessionPath(session.id)),
+  );
+  const parsedSessionBeforeRetry = logicalValue(
+    await store.getSession(session.id),
+  );
+  const activeBeforeRetry = logicalValue(
+    database.read(activePath(activeKeyFor(session))),
+  );
+  const resultPathsBeforeRetry = database.pathsUnder(
+    `${sessionPath(session.id)}/${adminLinkRestaurantResultSubcollection}/`,
+  ).sort();
+  const queryCountBeforeRetry = database.queryConstructionCount;
+  const retryRunId = database.nextRunId();
+
+  const duplicate = await store.claimSession({
+    sessionId: session.id,
+    callerBinding: session.callerBinding,
+    queryFingerprint: session.queryFingerprint,
+    clientRequestId,
+    leaseToken: "lease-filtered-idempotency-retry",
+    nowMs: database.nowMs,
+  });
+
+  assert.equal(duplicate.status, "duplicate");
+  assert.deepEqual(logicalValue(duplicate.session), parsedSessionBeforeRetry);
+  assert.deepEqual(
+    logicalValue(database.read(sessionPath(session.id))),
+    sessionBeforeRetry,
+  );
+  assert.deepEqual(
+    logicalValue(database.read(activePath(activeKeyFor(session)))),
+    activeBeforeRetry,
+  );
+  assert.deepEqual(
+    database.pathsUnder(
+      `${sessionPath(session.id)}/${adminLinkRestaurantResultSubcollection}/`,
+    ).sort(),
+    resultPathsBeforeRetry,
+  );
+  assert.equal(resultPathsBeforeRetry.length, 2);
+  assert.equal(database.queryConstructionCount, queryCountBeforeRetry);
+  assert.equal(database.attemptsFor(retryRunId).length, 1);
+  assert.equal(database.attemptsFor(retryRunId)[0].writes.length, 0);
+  assert.equal(database.attemptsFor(retryRunId)[0].outcome, "committed");
   assert.equal(database.readAfterWriteViolations, 0);
 });

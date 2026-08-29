@@ -8,6 +8,9 @@ const {
   adminLinkRestaurantAbsoluteLifetimeMs,
   adminLinkRestaurantIdleLifetimeMs,
   adminLinkRestaurantLeaseLifetimeMs,
+  adminLinkRestaurantFilterHydrationChunkSize,
+  adminLinkRestaurantFilterMaximumConsumedIdentities,
+  adminLinkRestaurantFilterMaximumHydrationIterations,
   adminLinkRestaurantMaximumAdvanceWrites,
   adminLinkRestaurantRangeChunkSize,
   adminLinkRestaurantReadBudget,
@@ -18,6 +21,7 @@ const {
 } = require("../lib/restaurant_geo_helpers.js");
 const {
   buildAdminRestaurantQueryPlans,
+  verifiedAdminBiteSaverCatalogIdsFromDocuments,
 } = require("../lib/admin_restaurant_search_helpers.js");
 
 const secret = "A".repeat(43);
@@ -160,8 +164,10 @@ class FakeStore {
     this.sessionAdvanceAttempts = 0;
     this.failAdvanceAttempts = 0;
     this.queryResultsAttempts = 0;
+    this.materializedIdentityReadAttempts = 0;
     this.getSourceDocumentsAttempts = 0;
     this.sourceDocumentReadAttempts = 0;
+    this.sourceDocumentIdentityBatches = [];
     this.sessionWriteAttempts = 0;
     this.resultContainerCreateAttempts = 0;
     this.materializedResultWriteAttempts = 0;
@@ -467,12 +473,17 @@ class FakeStore {
     };
     values.sort((first, second) => compareTuple(tuple(first), tuple(second)));
     if (after) values = values.filter((value) => compareTuple(tuple(value), after) > 0);
-    return values.slice(0, limit).map((value) => ({id: value.id, data: value}));
+    const selected = values.slice(0, limit);
+    this.materializedIdentityReadAttempts += selected.length;
+    return selected.map((value) => ({id: value.id, data: value}));
   }
 
   async getSourceDocuments(identities) {
     this.getSourceDocumentsAttempts += 1;
     this.sourceDocumentReadAttempts += identities.length;
+    this.sourceDocumentIdentityBatches.push(identities.map((identity) => ({
+      ...identity,
+    })));
     return identities.flatMap((identity) => {
       const value = this.current.get(identity.source + ":" + identity.documentId);
       return value === undefined ? [] : [value];
@@ -499,6 +510,161 @@ function handler(store, overrides = {}) {
   };
 }
 
+const bindingId = "B".repeat(43);
+
+function filterableBiteScoreDocument(id, overrides = {}) {
+  return biteScoreDocument(id, {
+    id,
+    isClaimed: true,
+    ownerUserId: "owner-" + id,
+    restaurantWriteRevision: 1,
+    biteSaverCatalogBindingId: bindingId,
+    linkedBiteSaverUid: "account-" + id,
+    ...overrides,
+  });
+}
+
+function completePreparation() {
+  return {schemaVersion: 1, saPrepared: true, srPrepared: true};
+}
+
+function filterableUnboundBiteScoreDocument(id, overrides = {}) {
+  return biteScoreDocument(id, {
+    id,
+    isClaimed: false,
+    ownerUserId: null,
+    restaurantWriteRevision: 1,
+    linkedBiteSaverUid: null,
+    ...overrides,
+  });
+}
+
+function strictBindingVerifier(accountDocuments, counters = undefined) {
+  return async (requests) => {
+    const documents = accountDocuments.map((account) => account.data ?? account);
+    const catalogRestaurantIds = [
+      ...new Set(requests.map((request) => request.catalogRestaurantId)),
+    ];
+    const returnedDocuments = [];
+    const saturatedCatalogRestaurantIds = new Set();
+    if (counters !== undefined) {
+      counters.calls += 1;
+      counters.requests += requests.length;
+      counters.largestRequestBatch = Math.max(
+        counters.largestRequestBatch ?? 0,
+        requests.length,
+      );
+    }
+    for (let offset = 0; offset < catalogRestaurantIds.length; offset += 10) {
+      const chunk = catalogRestaurantIds.slice(offset, offset + 10);
+      const chunkIds = new Set(chunk);
+      const snapshotDocuments = documents
+        .filter((data) => chunkIds.has(data.biteScoreCatalogRestaurantId))
+        .slice(0, chunk.length * 2);
+      if (counters !== undefined) {
+        counters.queryCalls = (counters.queryCalls ?? 0) + 1;
+        counters.documentReads += snapshotDocuments.length;
+        counters.largestQueryIdBatch = Math.max(
+          counters.largestQueryIdBatch ?? 0,
+          chunk.length,
+        );
+        counters.largestDocumentBatch = Math.max(
+          counters.largestDocumentBatch ?? 0,
+          snapshotDocuments.length,
+        );
+        const documentsPerCanonical = new Map();
+        for (const data of snapshotDocuments) {
+          const id = data.biteScoreCatalogRestaurantId;
+          documentsPerCanonical.set(
+            id,
+            (documentsPerCanonical.get(id) ?? 0) + 1,
+          );
+        }
+        counters.maximumDocumentsPerCanonical = Math.max(
+          counters.maximumDocumentsPerCanonical ?? 0,
+          ...documentsPerCanonical.values(),
+        );
+      }
+      if (snapshotDocuments.length >= chunk.length * 2) {
+        for (const id of chunk) {
+          saturatedCatalogRestaurantIds.add(id);
+        }
+      } else {
+        returnedDocuments.push(...snapshotDocuments);
+      }
+    }
+    return verifiedAdminBiteSaverCatalogIdsFromDocuments({
+      requests,
+      accountDocuments: returnedDocuments,
+      saturatedCatalogRestaurantIds,
+    });
+  };
+}
+
+function boundBiteSaverDocument(canonicalId, accountId, overrides = {}) {
+  return biteSaverDocument(accountId, {
+    uid: accountId,
+    linkedBiteScoreRestaurantId: canonicalId,
+    biteScoreCatalogRestaurantId: canonicalId,
+    biteSaverCatalogBindingId: bindingId,
+    ...overrides,
+  });
+}
+
+function preparationInvitation(type, id, canonicalId, overrides = {}) {
+  const owner = type === "I";
+  return {
+    type: owner ? "coupon_invite" : "bitescore_claim_invite",
+    side: owner ? "coupon" : "bitescore",
+    status: "active",
+    restaurantId: owner ? null : canonicalId,
+    ...(owner ? {
+      pendingRestaurantKey: `pending_${id}`,
+      biteScoreCatalogRestaurantId: canonicalId,
+    } : {}),
+    maxUses: 1,
+    useCount: 0,
+    usedAt: null,
+    usedByUid: null,
+    usedByEmail: null,
+    revokedAt: null,
+    revokedByUid: null,
+    createdAt: new Date(Date.now() - 60_000),
+    expiresAt: new Date(Date.now() + 60 * 60 * 1_000),
+    ...overrides,
+  };
+}
+
+function filteredHandler(store, preparationDocuments = new Map(), overrides = {}) {
+  return handler(store, {
+    verifyBiteSaverCatalogBindings: async (requests) =>
+      new Set(requests.map((entry) => entry.catalogRestaurantId)),
+    loadQrPreparationDocuments: async (ids) => new Map(
+      ids.flatMap((id) => preparationDocuments.has(id)
+        ? [[id, preparationDocuments.get(id)]]
+        : []),
+    ),
+    loadQrPreparationInvitationDocuments: async () => new Map(),
+    ...overrides,
+  });
+}
+
+function qrFilterCriteria(value, overrides = {}) {
+  return criteria({
+    futureFilters: {needsQrPreparation: value},
+    searchInstanceId: value ? "filter-on" : "filter-off",
+    ...overrides,
+  });
+}
+
+function forwardRequest(pageCriteria, response, clientRequestId) {
+  return request(continuationCriteria(pageCriteria, response), {
+    direction: "forward",
+    cursor: response.nextCursor,
+    clientRequestId,
+  });
+}
+
 test("Admin Link session constants retain exact bounded budgets and expiry", () => {
   assert.equal(adminLinkRestaurantRangeChunkSize, 25);
   assert.equal(adminLinkRestaurantReadBudget, 450);
@@ -507,6 +673,1323 @@ test("Admin Link session constants retain exact bounded budgets and expiry", () 
   assert.equal(adminLinkRestaurantIdleLifetimeMs, 15 * 60 * 1000);
   assert.equal(adminLinkRestaurantAbsoluteLifetimeMs, 60 * 60 * 1000);
   assert.equal(adminLinkRestaurantLeaseLifetimeMs, 30 * 1000);
+  assert.equal(adminLinkRestaurantFilterHydrationChunkSize, 50);
+  assert.equal(adminLinkRestaurantFilterMaximumConsumedIdentities, 100);
+  assert.equal(adminLinkRestaurantFilterMaximumHydrationIterations, 2);
+});
+
+test("Admin Link QR filter contract preserves legacy and validates v1 exactly", async () => {
+  const legacyStore = new FakeStore([]);
+  const legacy = await searchAdminLinkRestaurantsPageHandler(
+    request(criteria()),
+    handler(legacyStore),
+  );
+  assert.equal(Object.hasOwn(legacy, "filterMetadata"), false);
+  assert.equal([...legacyStore.sessions.values()][0].filterContractVersion, 1);
+  assert.equal([...legacyStore.sessions.values()][0].needsQrPreparation, false);
+
+  const filterOffStore = new FakeStore([]);
+  const filterOff = await searchAdminLinkRestaurantsPageHandler(
+    request(qrFilterCriteria(false)),
+    handler(filterOffStore),
+  );
+  assert.deepEqual(filterOff.filterMetadata, {
+    schemaVersion: 1,
+    needsQrPreparation: false,
+    preparationUnavailableEncountered: false,
+  });
+
+  for (const futureFilters of [
+    {needsQrPreparation: "true"},
+    {needsQrPreparation: true, unexpected: false},
+    {unexpected: true},
+  ]) {
+    const store = new FakeStore([]);
+    await assert.rejects(
+      searchAdminLinkRestaurantsPageHandler(
+        request(criteria({futureFilters})),
+        handler(store),
+      ),
+      /invalid/u,
+    );
+    assert.equal(store.createdSessionCount, 0);
+  }
+
+  const biteSaverOnlyStore = new FakeStore([]);
+  await assert.rejects(
+    searchAdminLinkRestaurantsPageHandler(
+      request(qrFilterCriteria(true, {
+        sources: ["biteSaver"],
+        searchInstanceId: "bite-saver-only",
+      })),
+      handler(biteSaverOnlyStore),
+    ),
+    /BiteScore/u,
+  );
+  assert.equal(biteSaverOnlyStore.createdSessionCount, 0);
+});
+
+test("QR filter value is cursor-bound in both directions", async () => {
+  const candidates = Array.from({length: 101}, (_, index) => ({
+    source: "biteScore",
+    ...filterableBiteScoreDocument(
+      `cursor-${String(index + 1).padStart(3, "0")}`,
+    ),
+  }));
+  const preparations = new Map(candidates.map((candidate) => [
+    candidate.documentId,
+    completePreparation(),
+  ]));
+  const filteredStore = new FakeStore(candidates);
+  const filteredCriteria = qrFilterCriteria(true, {
+    searchInstanceId: "same-filter-instance",
+  });
+  const filtered = await searchAdminLinkRestaurantsPageHandler(
+    request(filteredCriteria),
+    filteredHandler(filteredStore, preparations),
+  );
+  assert.equal(filtered.hasNext, true);
+  await assert.rejects(
+    searchAdminLinkRestaurantsPageHandler(
+      forwardRequest(
+        qrFilterCriteria(false, {searchInstanceId: "same-filter-instance"}),
+        filtered,
+        "filtered-cursor-under-off",
+      ),
+      filteredHandler(filteredStore, preparations),
+    ),
+  );
+
+  const unfilteredStore = new FakeStore(candidates.slice(0, 60));
+  const unfilteredCriteria = qrFilterCriteria(false, {
+    searchInstanceId: "same-unfiltered-instance",
+  });
+  const unfiltered = await searchAdminLinkRestaurantsPageHandler(
+    request(unfilteredCriteria),
+    handler(unfilteredStore),
+  );
+  assert.equal(unfiltered.hasNext, true);
+  await assert.rejects(
+    searchAdminLinkRestaurantsPageHandler(
+      forwardRequest(
+        qrFilterCriteria(true, {
+          searchInstanceId: "same-unfiltered-instance",
+        }),
+        unfiltered,
+        "off-cursor-under-filtered",
+      ),
+      filteredHandler(unfilteredStore),
+    ),
+  );
+});
+
+test("QR filter returns 50 unfinished identities only when a real lookahead remains", async () => {
+  const candidates = Array.from({length: 60}, (_, index) => ({
+    source: "biteScore",
+    ...filterableBiteScoreDocument(
+      `unfinished-${String(index + 1).padStart(3, "0")}`,
+    ),
+  }));
+  const store = new FakeStore(candidates);
+  const response = await searchAdminLinkRestaurantsPageHandler(
+    request(qrFilterCriteria(true)),
+    filteredHandler(store),
+  );
+  assert.equal(response.items.length, 50);
+  assert.equal(response.hasNext, true);
+  assert.equal(response.consumedBoundary.sourceDocumentId, "unfinished-050");
+  assert.equal(typeof response.nextCursor, "string");
+  assert.equal(store.queryResultsAttempts, 1);
+  assert.equal(store.materializedIdentityReadAttempts, 51);
+  assert.equal(store.sourceDocumentReadAttempts, 50);
+  assert.deepEqual(response.filterMetadata, {
+    schemaVersion: 1,
+    needsQrPreparation: true,
+    preparationUnavailableEncountered: false,
+  });
+  assert.ok(response.items.every((item) =>
+    item.source === "biteScore" &&
+    item.documentId === item.actionId &&
+    !JSON.stringify(item).includes("private_admin_restaurant_qr_preparation")));
+
+  const terminal = await searchAdminLinkRestaurantsPageHandler(
+    forwardRequest(qrFilterCriteria(true), response, "unfinished-next"),
+    filteredHandler(store),
+  );
+  assert.equal(terminal.items.length, 10);
+  assert.equal(terminal.items[0].documentId, "unfinished-051");
+  assert.equal(terminal.items.at(-1).documentId, "unfinished-060");
+  assert.equal(terminal.hasNext, false);
+  assert.equal(Object.hasOwn(terminal, "nextCursor"), false);
+});
+
+test("an exact terminal page of 50 filtered matches has no false continuation", async () => {
+  const candidates = Array.from({length: 50}, (_, index) => ({
+    source: "biteScore",
+    ...filterableBiteScoreDocument(
+      `terminal-${String(index + 1).padStart(3, "0")}`,
+    ),
+  }));
+  const store = new FakeStore(candidates);
+  const response = await searchAdminLinkRestaurantsPageHandler(
+    request(qrFilterCriteria(true, {
+      searchInstanceId: "exact-terminal-50",
+    })),
+    filteredHandler(store),
+  );
+
+  assert.equal(response.items.length, 50);
+  assert.equal(response.items.at(-1).documentId, "terminal-050");
+  assert.equal(response.consumedBoundary.sourceDocumentId, "terminal-050");
+  assert.equal(response.hasNext, false);
+  assert.equal(response.capabilities.next, false);
+  assert.equal(Object.hasOwn(response, "nextCursor"), false);
+  assert.equal(store.queryResultsAttempts, 1);
+  assert.equal(store.materializedIdentityReadAttempts, 50);
+  assert.equal(store.sourceDocumentReadAttempts, 50);
+});
+
+test("the 50th second-iteration match continues only with proven remainder", async () => {
+  for (const [total, expectedHasNext, expectedMaterializedReads] of [
+    [100, false, 101],
+    [101, true, 102],
+  ]) {
+    const candidates = Array.from({length: total}, (_, index) => ({
+      source: "biteScore",
+      ...filterableBiteScoreDocument(
+        `second-${total}-${String(index + 1).padStart(3, "0")}`,
+      ),
+    }));
+    const preparations = new Map(candidates.slice(0, 50).map((candidate) => [
+      candidate.documentId,
+      completePreparation(),
+    ]));
+    const store = new FakeStore(candidates);
+    const response = await searchAdminLinkRestaurantsPageHandler(
+      request(qrFilterCriteria(true, {
+        searchInstanceId: `second-iteration-${total}`,
+      })),
+      filteredHandler(store, preparations),
+    );
+
+    assert.equal(response.items.length, 50, String(total));
+    assert.equal(
+      response.items.at(-1).documentId,
+      `second-${total}-100`,
+      String(total),
+    );
+    assert.equal(
+      response.consumedBoundary.sourceDocumentId,
+      `second-${total}-100`,
+      String(total),
+    );
+    assert.equal(response.hasNext, expectedHasNext, String(total));
+    assert.equal(
+      Object.hasOwn(response, "nextCursor"),
+      expectedHasNext,
+      String(total),
+    );
+    assert.equal(store.queryResultsAttempts, 2, String(total));
+    assert.equal(
+      store.materializedIdentityReadAttempts,
+      expectedMaterializedReads,
+      String(total),
+    );
+  }
+});
+
+test("QR filter consumes at most 100 complete identities before continuing", async () => {
+  const candidates = Array.from({length: 101}, (_, index) => ({
+    source: "biteScore",
+    ...filterableBiteScoreDocument(
+      `bounded-${String(index + 1).padStart(3, "0")}`,
+    ),
+  }));
+  const preparations = new Map(candidates.slice(0, 100).map((candidate) => [
+    candidate.documentId,
+    completePreparation(),
+  ]));
+  const store = new FakeStore(candidates);
+  const pageCriteria = qrFilterCriteria(true);
+  const first = await searchAdminLinkRestaurantsPageHandler(
+    request(pageCriteria),
+    filteredHandler(store, preparations),
+  );
+  assert.equal(first.items.length, 0);
+  assert.equal(first.hasNext, true);
+  assert.equal(first.consumedBoundary.sourceDocumentId, "bounded-100");
+  assert.equal(store.queryResultsAttempts, 2);
+  assert.equal(store.sourceDocumentReadAttempts, 100);
+
+  const second = await searchAdminLinkRestaurantsPageHandler(
+    forwardRequest(pageCriteria, first, "bounded-continue"),
+    filteredHandler(store, preparations),
+  );
+  assert.deepEqual(second.items.map((item) => item.documentId), [
+    "bounded-101",
+  ]);
+  assert.equal(second.hasNext, false);
+});
+
+// Ready-page hydration and geographic materialization are separate bounded
+// categories. This fixture reaches both maxima in one fresh callable.
+test("a 449-read advance plus BiteScore hydration reaches exactly 1151 reads", async () => {
+  const candidates = Array.from({length: 449}, (_, index) => ({
+    source: "biteScore",
+    ...filterableBiteScoreDocument(
+      `instrumented-${String(index + 1).padStart(3, "0")}`,
+    ),
+  }));
+  const accounts = candidates.flatMap((candidate) => [
+    {
+      biteScoreCatalogRestaurantId: candidate.documentId,
+      biteSaverCatalogBindingId: bindingId,
+    },
+    {
+      biteScoreCatalogRestaurantId: candidate.documentId,
+      biteSaverCatalogBindingId: bindingId,
+    },
+  ]);
+  const future = new Date(Date.now() + 60 * 60 * 1_000);
+  const preparationDocuments = new Map(candidates.map((candidate, index) => {
+    const suffix = String(index + 1).padStart(3, "0");
+    return [candidate.documentId, {
+      schemaVersion: 1,
+      saPrepared: true,
+      srPrepared: true,
+      iPreparedInviteId: `i-${suffix}`,
+      iPreparedInviteExpiresAt: future,
+      cPreparedInviteId: `c-${suffix}`,
+      cPreparedInviteExpiresAt: future,
+    }];
+  }));
+  const invitationDocuments = new Map(candidates.flatMap((candidate, index) => {
+    const suffix = String(index + 1).padStart(3, "0");
+    return [
+      [`i-${suffix}`, preparationInvitation(
+        "I",
+        `i-${suffix}`,
+        candidate.documentId,
+        {expiresAt: future},
+      )],
+      [`c-${suffix}`, preparationInvitation(
+        "C",
+        `c-${suffix}`,
+        candidate.documentId,
+        {expiresAt: future},
+      )],
+    ];
+  }));
+  const reciprocal = {calls: 0, requests: 0, documentReads: 0};
+  const preparation = {calls: 0, documentReads: 0, largestBatch: 0};
+  const invitations = {
+    calls: 0,
+    iDocumentReads: 0,
+    cDocumentReads: 0,
+    largestBatch: 0,
+  };
+  const store = new FakeStore(candidates);
+  const response = await searchAdminLinkRestaurantsPageHandler(
+    request(qrFilterCriteria(true, {
+      searchInstanceId: "instrumented-filter-bound",
+    })),
+    filteredHandler(store, preparationDocuments, {
+      verifyBiteSaverCatalogBindings: strictBindingVerifier(
+        accounts,
+        reciprocal,
+      ),
+      loadQrPreparationDocuments: async (ids) => {
+        preparation.calls += 1;
+        preparation.documentReads += ids.length;
+        preparation.largestBatch = Math.max(
+          preparation.largestBatch,
+          ids.length,
+        );
+        return new Map(ids.map((id) => [id, preparationDocuments.get(id)]));
+      },
+      loadQrPreparationInvitationDocuments: async (ids) => {
+        invitations.calls += 1;
+        invitations.largestBatch = Math.max(
+          invitations.largestBatch,
+          ids.length,
+        );
+        invitations.iDocumentReads += ids.filter((id) => id.startsWith("i-"))
+          .length;
+        invitations.cDocumentReads += ids.filter((id) => id.startsWith("c-"))
+          .length;
+        return new Map(ids.map((id) => [id, invitationDocuments.get(id)]));
+      },
+    }),
+  );
+
+  assert.deepEqual(response.items, []);
+  assert.equal(response.hasNext, true);
+  assert.equal(response.filterMetadata.preparationUnavailableEncountered, true);
+  assert.equal(response.consumedBoundary.sourceDocumentId, "instrumented-100");
+  assert.equal(store.queryResultsAttempts, 2);
+  assert.equal(store.materializedIdentityReadAttempts, 102);
+  assert.equal(store.sourceDocumentReadAttempts, 100);
+  assert.equal(store.getSourceDocumentsAttempts, 2);
+  assert.equal(reciprocal.calls, 2);
+  assert.equal(reciprocal.queryCalls, 10);
+  assert.equal(reciprocal.requests, 100);
+  assert.equal(reciprocal.documentReads, 200);
+  assert.equal(reciprocal.largestRequestBatch, 50);
+  assert.equal(reciprocal.largestQueryIdBatch, 10);
+  assert.equal(reciprocal.largestDocumentBatch, 20);
+  assert.equal(reciprocal.maximumDocumentsPerCanonical, 2);
+  assert.equal(preparation.calls, 2);
+  assert.equal(preparation.documentReads, 100);
+  assert.equal(preparation.largestBatch, 50);
+  assert.equal(invitations.calls, 2);
+  assert.equal(invitations.iDocumentReads, 100);
+  assert.equal(invitations.cDocumentReads, 100);
+  assert.equal(invitations.largestBatch, 100);
+  assert.equal(store.sourceDocumentIdentityBatches.length, 2);
+  assert.ok(store.sourceDocumentIdentityBatches.every((batch) =>
+    batch.length === 50));
+  assert.ok(store.queryResultsAttempts <= 2);
+  assert.ok(store.materializedIdentityReadAttempts <= 102);
+  assert.ok(store.sourceDocumentReadAttempts <= 100);
+  assert.ok(reciprocal.documentReads <= 200);
+  assert.ok(preparation.documentReads <= 100);
+  assert.ok(invitations.iDocumentReads <= 100);
+  assert.ok(invitations.cDocumentReads <= 100);
+  const readyPageHydrationReads =
+    store.materializedIdentityReadAttempts +
+      store.sourceDocumentReadAttempts +
+      reciprocal.documentReads +
+      preparation.documentReads +
+      invitations.iDocumentReads +
+      invitations.cDocumentReads;
+  assert.equal(readyPageHydrationReads, 702);
+  assert.deepEqual(store.advanceReads, [449]);
+  assert.equal(store.advanceReads[0] + readyPageHydrationReads, 1_151);
+});
+
+test("100 malformed BiteSaver identities use exactly 502 ready-page hydration reads and preserve a later canonical", async () => {
+  const accounts = Array.from({length: 101}, (_, index) => {
+    const suffix = String(index + 1).padStart(3, "0");
+    return {
+      source: "biteSaver",
+      ...boundBiteSaverDocument(
+        `reciprocal-canonical-${suffix}`,
+        `reciprocal-account-${suffix}`,
+      ),
+    };
+  });
+  const competingAccounts = accounts.flatMap((account, index) => {
+    const suffix = String(index + 1).padStart(3, "0");
+    return [
+      account,
+      boundBiteSaverDocument(
+        `reciprocal-canonical-${suffix}`,
+        `reciprocal-competitor-${suffix}`,
+      ),
+    ];
+  });
+  const canonicals = accounts.map((account, index) => {
+    const suffix = String(index + 1).padStart(3, "0");
+    return {
+      source: "biteScore",
+      ...filterableBiteScoreDocument(`reciprocal-canonical-${suffix}`, {
+        linkedBiteSaverUid: account.documentId,
+      }),
+    };
+  });
+  const independentCanonicalId = "reciprocal-independent-valid";
+  const independentAccount = boundBiteSaverDocument(
+    independentCanonicalId,
+    "reciprocal-independent-account",
+  );
+  const independentCanonical = {
+    source: "biteScore",
+    ...filterableBiteScoreDocument(independentCanonicalId, {
+      name: "ZZZ Independent valid canonical",
+      linkedBiteSaverUid: independentAccount.documentId,
+    }),
+  };
+  const reciprocal = {calls: 0, requests: 0, documentReads: 0};
+  const preparation = {calls: 0, documentReads: 0, largestBatch: 0};
+  let invitationCalls = 0;
+  let invitationDocumentReads = 0;
+  const store = new FakeStore([...accounts, independentCanonical]);
+  for (const canonical of canonicals) {
+    store.current.set(
+      `biteScore:${canonical.documentId}`,
+      canonical,
+    );
+  }
+  const dependencyOverrides = {
+    verifyBiteSaverCatalogBindings: strictBindingVerifier(
+      [...competingAccounts, independentAccount],
+      reciprocal,
+    ),
+    loadQrPreparationDocuments: async (ids) => {
+      preparation.calls += 1;
+      preparation.documentReads += ids.length;
+      preparation.largestBatch = Math.max(
+        preparation.largestBatch,
+        ids.length,
+      );
+      return new Map();
+    },
+    loadQrPreparationInvitationDocuments: async (ids) => {
+      invitationCalls += 1;
+      invitationDocumentReads += ids.length;
+      return new Map();
+    },
+  };
+  const pageCriteria = qrFilterCriteria(true, {
+    sources: ["biteScore", "biteSaver"],
+    searchInstanceId: "instrumented-reciprocal-bound",
+  });
+  const response = await searchAdminLinkRestaurantsPageHandler(
+    request(pageCriteria),
+    filteredHandler(store, new Map(), dependencyOverrides),
+  );
+
+  const firstRequestIdentities = store.sourceDocumentIdentityBatches.flat();
+  const primarySourceReads = firstRequestIdentities.filter((identity) =>
+    identity.source === "biteSaver").length;
+  const linkedCanonicalReads = firstRequestIdentities.filter((identity) =>
+    identity.source === "biteScore" &&
+      identity.documentId.startsWith("reciprocal-canonical-")).length;
+  assert.deepEqual(response.items, []);
+  assert.equal(response.hasNext, true);
+  assert.equal(
+    response.consumedBoundary.sourceDocumentId,
+    "reciprocal-account-100",
+  );
+  assert.equal(response.filterMetadata.preparationUnavailableEncountered, true);
+  assert.equal(store.queryResultsAttempts, 2);
+  assert.equal(store.materializedIdentityReadAttempts, 102);
+  assert.equal(store.getSourceDocumentsAttempts, 4);
+  assert.equal(store.sourceDocumentReadAttempts, 200);
+  assert.equal(store.sourceDocumentIdentityBatches.length, 4);
+  assert.ok(store.sourceDocumentIdentityBatches.every((batch) =>
+    batch.length === 50));
+  assert.equal(primarySourceReads, 100);
+  assert.equal(linkedCanonicalReads, 100);
+  assert.equal(reciprocal.calls, 2);
+  assert.equal(reciprocal.queryCalls, 10);
+  assert.equal(reciprocal.requests, 100);
+  assert.equal(reciprocal.documentReads, 200);
+  assert.equal(reciprocal.largestRequestBatch, 50);
+  assert.equal(reciprocal.largestQueryIdBatch, 10);
+  assert.equal(reciprocal.largestDocumentBatch, 20);
+  assert.equal(reciprocal.maximumDocumentsPerCanonical, 2);
+  assert.equal(preparation.calls, 2);
+  assert.equal(preparation.documentReads, 0);
+  assert.equal(preparation.largestBatch, 0);
+  assert.equal(invitationCalls, 0);
+  assert.equal(invitationDocumentReads, 0);
+  assert.equal(linkedCanonicalReads + reciprocal.documentReads, 300);
+  assert.ok(linkedCanonicalReads <= 100);
+  assert.ok(reciprocal.documentReads <= 200);
+  assert.ok(linkedCanonicalReads + reciprocal.documentReads <= 300);
+  assert.equal(
+    store.materializedIdentityReadAttempts +
+      primarySourceReads +
+      linkedCanonicalReads +
+      reciprocal.documentReads,
+    502,
+  );
+
+  const later = await searchAdminLinkRestaurantsPageHandler(
+    forwardRequest(pageCriteria, response, "reciprocal-independent-next"),
+    filteredHandler(store, new Map(), dependencyOverrides),
+  );
+  assert.deepEqual(later.items.map((item) => [
+    item.source,
+    item.documentId,
+    item.actionId,
+  ]), [["biteScore", independentCanonicalId, independentCanonicalId]]);
+  assert.equal(
+    later.items.filter((item) => item.documentId === independentCanonicalId)
+      .length,
+    1,
+  );
+  assert.equal(later.filterMetadata.preparationUnavailableEncountered, true);
+  assert.equal(later.hasNext, false);
+  assert.equal(Object.hasOwn(later, "nextCursor"), false);
+});
+
+test("mixed 50/50 scan uses exactly 602 ready-page hydration reads and preserves a valid canonical", async () => {
+  const future = new Date(Date.now() + 60 * 60 * 1_000);
+  const scoreCandidates = [];
+  const saverCandidates = [];
+  const linkedCanonicals = [];
+  const reciprocalDocuments = [];
+  const preparationDocuments = new Map();
+  const invitationDocuments = new Map();
+  for (let index = 1; index <= 50; index += 1) {
+    const suffix = String(index).padStart(3, "0");
+    const scoreId = `mixed-score-${suffix}`;
+    const saverId = `mixed-account-${suffix}`;
+    const linkedId = `mixed-linked-${suffix}`;
+    const score = {
+      source: "biteScore",
+      ...filterableBiteScoreDocument(scoreId, {
+        name: `Mixed ${suffix} B`,
+      }),
+    };
+    const saver = {
+      source: "biteSaver",
+      ...boundBiteSaverDocument(linkedId, saverId, {
+        restaurantName: `Mixed ${suffix} A`,
+      }),
+    };
+    const linkedCanonical = {
+      source: "biteScore",
+      ...filterableBiteScoreDocument(linkedId, {
+        linkedBiteSaverUid: saverId,
+      }),
+    };
+    scoreCandidates.push(score);
+    saverCandidates.push(saver);
+    linkedCanonicals.push(linkedCanonical);
+    reciprocalDocuments.push(
+      boundBiteSaverDocument(scoreId, `mixed-score-account-a-${suffix}`),
+      boundBiteSaverDocument(scoreId, `mixed-score-account-b-${suffix}`),
+      saver,
+      boundBiteSaverDocument(
+        linkedId,
+        `mixed-linked-competitor-${suffix}`,
+      ),
+    );
+    preparationDocuments.set(scoreId, {
+      schemaVersion: 1,
+      saPrepared: true,
+      srPrepared: true,
+      iPreparedInviteId: `i-mixed-${suffix}`,
+      iPreparedInviteExpiresAt: future,
+      cPreparedInviteId: `c-mixed-${suffix}`,
+      cPreparedInviteExpiresAt: future,
+    });
+    invitationDocuments.set(
+      `i-mixed-${suffix}`,
+      preparationInvitation(
+        "I",
+        `i-mixed-${suffix}`,
+        scoreId,
+        {expiresAt: future},
+      ),
+    );
+    invitationDocuments.set(
+      `c-mixed-${suffix}`,
+      preparationInvitation(
+        "C",
+        `c-mixed-${suffix}`,
+        scoreId,
+        {expiresAt: future},
+      ),
+    );
+  }
+  const independentCanonicalId = "mixed-independent-valid";
+  const independentAccount = boundBiteSaverDocument(
+    independentCanonicalId,
+    "mixed-independent-account",
+  );
+  const independentCanonical = {
+    source: "biteScore",
+    ...filterableBiteScoreDocument(independentCanonicalId, {
+      name: "ZZZ Mixed independent canonical",
+      linkedBiteSaverUid: independentAccount.documentId,
+    }),
+  };
+  const reciprocal = {calls: 0, requests: 0, documentReads: 0};
+  const preparation = {calls: 0, documentReads: 0, largestBatch: 0};
+  const invitations = {
+    calls: 0,
+    iDocumentReads: 0,
+    cDocumentReads: 0,
+    largestBatch: 0,
+  };
+  const store = new FakeStore([
+    ...saverCandidates,
+    ...scoreCandidates,
+    independentCanonical,
+  ]);
+  for (const canonical of linkedCanonicals) {
+    store.current.set(`biteScore:${canonical.documentId}`, canonical);
+  }
+  const dependencyOverrides = {
+    verifyBiteSaverCatalogBindings: strictBindingVerifier(
+      [...reciprocalDocuments, independentAccount],
+      reciprocal,
+    ),
+    loadQrPreparationDocuments: async (ids) => {
+      preparation.calls += 1;
+      preparation.documentReads += ids.length;
+      preparation.largestBatch = Math.max(
+        preparation.largestBatch,
+        ids.length,
+      );
+      return new Map(ids.flatMap((id) => preparationDocuments.has(id)
+        ? [[id, preparationDocuments.get(id)]]
+        : []));
+    },
+    loadQrPreparationInvitationDocuments: async (ids) => {
+      invitations.calls += 1;
+      invitations.largestBatch = Math.max(
+        invitations.largestBatch,
+        ids.length,
+      );
+      invitations.iDocumentReads += ids.filter((id) => id.startsWith("i-"))
+        .length;
+      invitations.cDocumentReads += ids.filter((id) => id.startsWith("c-"))
+        .length;
+      return new Map(ids.map((id) => [id, invitationDocuments.get(id)]));
+    },
+  };
+  const pageCriteria = qrFilterCriteria(true, {
+    sources: ["biteScore", "biteSaver"],
+    searchInstanceId: "instrumented-mixed-bound",
+  });
+  const response = await searchAdminLinkRestaurantsPageHandler(
+    request(pageCriteria),
+    filteredHandler(store, preparationDocuments, dependencyOverrides),
+  );
+
+  const firstRequestIdentities = store.sourceDocumentIdentityBatches.flat();
+  const primaryBiteSaverReads = firstRequestIdentities.filter((identity) =>
+    identity.documentId.startsWith("mixed-account-")).length;
+  const primaryBiteScoreReads = firstRequestIdentities.filter((identity) =>
+    identity.documentId.startsWith("mixed-score-")).length;
+  const linkedCanonicalReads = firstRequestIdentities.filter((identity) =>
+    identity.documentId.startsWith("mixed-linked-")).length;
+  assert.deepEqual(response.items, []);
+  assert.equal(response.hasNext, true);
+  assert.equal(response.consumedBoundary.sourceDocumentId, "mixed-score-050");
+  assert.equal(response.filterMetadata.preparationUnavailableEncountered, true);
+  assert.equal(store.queryResultsAttempts, 2);
+  assert.equal(store.materializedIdentityReadAttempts, 102);
+  assert.equal(store.getSourceDocumentsAttempts, 4);
+  assert.equal(store.sourceDocumentReadAttempts, 150);
+  assert.deepEqual(
+    store.sourceDocumentIdentityBatches.map((batch) => batch.length),
+    [50, 25, 50, 25],
+  );
+  assert.equal(primaryBiteSaverReads, 50);
+  assert.equal(primaryBiteScoreReads, 50);
+  assert.equal(linkedCanonicalReads, 50);
+  assert.equal(reciprocal.calls, 4);
+  assert.equal(reciprocal.queryCalls, 12);
+  assert.equal(reciprocal.requests, 100);
+  assert.equal(reciprocal.documentReads, 200);
+  assert.equal(reciprocal.largestRequestBatch, 25);
+  assert.equal(reciprocal.largestQueryIdBatch, 10);
+  assert.equal(reciprocal.largestDocumentBatch, 20);
+  assert.equal(reciprocal.maximumDocumentsPerCanonical, 2);
+  assert.equal(preparation.calls, 2);
+  assert.equal(preparation.documentReads, 50);
+  assert.equal(preparation.largestBatch, 25);
+  assert.equal(invitations.calls, 2);
+  assert.equal(invitations.iDocumentReads, 50);
+  assert.equal(invitations.cDocumentReads, 50);
+  assert.equal(invitations.largestBatch, 50);
+  assert.ok(linkedCanonicalReads <= 100);
+  assert.ok(reciprocal.documentReads <= 200);
+  assert.ok(linkedCanonicalReads + reciprocal.documentReads <= 300);
+  assert.equal(
+    store.materializedIdentityReadAttempts +
+      primaryBiteSaverReads +
+      primaryBiteScoreReads +
+      linkedCanonicalReads +
+      reciprocal.documentReads +
+      preparation.documentReads +
+      invitations.iDocumentReads +
+      invitations.cDocumentReads,
+    602,
+  );
+
+  const later = await searchAdminLinkRestaurantsPageHandler(
+    forwardRequest(pageCriteria, response, "mixed-independent-next"),
+    filteredHandler(store, preparationDocuments, dependencyOverrides),
+  );
+  assert.deepEqual(later.items.map((item) => [
+    item.source,
+    item.documentId,
+    item.actionId,
+  ]), [["biteScore", independentCanonicalId, independentCanonicalId]]);
+  assert.equal(
+    later.items.filter((item) => item.documentId === independentCanonicalId)
+      .length,
+    1,
+  );
+  assert.equal(later.filterMetadata.preparationUnavailableEncountered, false);
+  assert.equal(later.hasNext, false);
+  assert.equal(Object.hasOwn(later, "nextCursor"), false);
+});
+
+test("filtered handler applies authoritative invitation lifecycle preparation states", async () => {
+  const future = new Date(Date.now() + 60 * 60 * 1_000);
+  const past = new Date(Date.now() - 60 * 60 * 1_000);
+  const epoch = new Date(Date.now() - 30_000);
+  const cases = [
+    {
+      label: "missing preparation",
+      expectedStatus: ["i", "unprepared"],
+    },
+    {
+      label: "expired prepared I",
+      preparation: {
+        schemaVersion: 1,
+        iPreparedInviteId: "owner-expired",
+        iPreparedInviteExpiresAt: past,
+      },
+      invitations: new Map([["owner-expired", preparationInvitation(
+        "I",
+        "owner-expired",
+        "lifecycle-expired-prepared-I",
+        {expiresAt: past},
+      )]]),
+      expectedStatus: ["i", "unprepared"],
+    },
+    {
+      label: "revoked prepared I",
+      preparation: {
+        schemaVersion: 1,
+        iPreparedInviteId: "owner-revoked",
+        iPreparedInviteExpiresAt: future,
+      },
+      invitations: new Map([["owner-revoked", preparationInvitation(
+        "I",
+        "owner-revoked",
+        "lifecycle-revoked-prepared-I",
+        {status: "revoked", revokedAt: new Date()},
+      )]]),
+      expectedStatus: ["i", "unprepared"],
+    },
+    {
+      label: "used prepared I",
+      preparation: {
+        schemaVersion: 1,
+        iPreparedInviteId: "owner-used",
+        iPreparedInviteExpiresAt: future,
+      },
+      invitations: new Map([["owner-used", preparationInvitation(
+        "I",
+        "owner-used",
+        "lifecycle-used-prepared-I",
+        {status: "used", useCount: 1, usedAt: new Date()},
+      )]]),
+      expectedStatus: ["i", "unprepared"],
+    },
+    {
+      label: "pre-epoch prepared C",
+      restaurantOverrides: {claimInvitationEpochAt: epoch},
+      preparation: {
+        schemaVersion: 1,
+        cPreparedInviteId: "claim-old",
+        cPreparedInviteExpiresAt: future,
+      },
+      invitations: new Map([["claim-old", preparationInvitation(
+        "C",
+        "claim-old",
+        "lifecycle-pre-epoch-prepared-C",
+        {createdAt: new Date(epoch.getTime() - 1)},
+      )]]),
+      expectedStatus: ["c", "unprepared"],
+    },
+    {
+      label: "prepared I A remains valid after newer B",
+      preparation: {
+        schemaVersion: 1,
+        iLatestInviteId: "owner-b",
+        iLatestInviteExpiresAt: future,
+        iPreparedInviteId: "owner-a",
+        iPreparedInviteExpiresAt: future,
+      },
+      invitations: new Map([["owner-a", preparationInvitation(
+        "I",
+        "owner-a",
+        "lifecycle-prepared-I-A-remains-valid-after-newer-B",
+        {expiresAt: future},
+      )]]),
+      expectedStatus: ["i", "prepared"],
+    },
+    {
+      label: "malformed preparation",
+      preparation: {schemaVersion: 1, privateInviteToken: "must-fail-closed"},
+      expectedWarning: true,
+      expectedVisible: false,
+    },
+  ];
+
+  for (const entry of cases) {
+    const id = `lifecycle-${entry.label.replaceAll(" ", "-")}`;
+    const candidate = {
+      source: "biteScore",
+      ...filterableUnboundBiteScoreDocument(id, {
+        name: entry.label,
+        ...entry.restaurantOverrides,
+      }),
+    };
+    const preparations = entry.preparation === undefined
+      ? new Map()
+      : new Map([[id, entry.preparation]]);
+    const invitations = entry.invitations ?? new Map();
+    const store = new FakeStore([candidate]);
+    const response = await searchAdminLinkRestaurantsPageHandler(
+      request(qrFilterCriteria(true, {
+        searchInstanceId: id,
+      })),
+      filteredHandler(store, preparations, {
+        verifyBiteSaverCatalogBindings: strictBindingVerifier([]),
+        loadQrPreparationInvitationDocuments: async (ids) => new Map(
+          ids.flatMap((invitationId) => invitations.has(invitationId)
+            ? [[invitationId, invitations.get(invitationId)]]
+            : []),
+        ),
+      }),
+    );
+
+    const expectedVisible = entry.expectedVisible ?? true;
+    assert.equal(response.items.length, expectedVisible ? 1 : 0, entry.label);
+    assert.equal(
+      response.filterMetadata.preparationUnavailableEncountered,
+      entry.expectedWarning ?? false,
+      entry.label,
+    );
+    if (entry.expectedStatus !== undefined) {
+      assert.equal(
+        response.items[0].preparation[entry.expectedStatus[0]],
+        entry.expectedStatus[1],
+        entry.label,
+      );
+    }
+    assert.equal(response.hasNext, false, entry.label);
+  }
+
+  const completeId = "lifecycle-all-prepared-not-required";
+  const completeAccount = {
+    source: "biteSaver",
+    ...boundBiteSaverDocument(completeId, `account-${completeId}`),
+  };
+  const completeCandidate = {
+    source: "biteScore",
+    ...filterableBiteScoreDocument(completeId, {
+      linkedBiteSaverUid: completeAccount.documentId,
+    }),
+  };
+  const completeStore = new FakeStore([completeCandidate]);
+  const complete = await searchAdminLinkRestaurantsPageHandler(
+    request(qrFilterCriteria(true, {
+      searchInstanceId: completeId,
+    })),
+    filteredHandler(
+      completeStore,
+      new Map([[completeId, completePreparation()]]),
+      {
+        verifyBiteSaverCatalogBindings: strictBindingVerifier([
+          completeAccount,
+        ]),
+      },
+    ),
+  );
+  assert.deepEqual(complete.items, []);
+  assert.equal(complete.filterMetadata.preparationUnavailableEncountered, false);
+  assert.equal(complete.hasNext, false);
+});
+
+test("QR filter eventually reaches the only unfinished identity at 301", async () => {
+  const candidates = Array.from({length: 301}, (_, index) => ({
+    source: "biteScore",
+    ...filterableBiteScoreDocument(
+      `orlando-${String(index + 1).padStart(3, "0")}`,
+    ),
+  }));
+  const preparations = new Map(candidates.slice(0, 300).map((candidate) => [
+    candidate.documentId,
+    completePreparation(),
+  ]));
+  const store = new FakeStore(candidates);
+  const pageCriteria = qrFilterCriteria(true);
+  let response = await searchAdminLinkRestaurantsPageHandler(
+    request(pageCriteria),
+    filteredHandler(store, preparations),
+  );
+  let continuation = 0;
+  while (response.hasNext) {
+    continuation += 1;
+    response = await searchAdminLinkRestaurantsPageHandler(
+      forwardRequest(pageCriteria, response, `orlando-${continuation}`),
+      filteredHandler(store, preparations),
+    );
+  }
+  assert.equal(continuation, 3);
+  assert.deepEqual(response.items.map((item) => item.documentId), [
+    "orlando-301",
+  ]);
+  assert.equal(store.queryResultsAttempts, 7);
+});
+
+test("all-complete filtered results terminate with truthful advancing boundaries", async () => {
+  const candidates = Array.from({length: 175}, (_, index) => ({
+    source: "biteScore",
+    ...filterableBiteScoreDocument(
+      `complete-${String(index + 1).padStart(3, "0")}`,
+    ),
+  }));
+  const preparations = new Map(candidates.map((candidate) => [
+    candidate.documentId,
+    completePreparation(),
+  ]));
+  const store = new FakeStore(candidates);
+  const pageCriteria = qrFilterCriteria(true, {
+    searchInstanceId: "all-complete",
+  });
+  const first = await searchAdminLinkRestaurantsPageHandler(
+    request(pageCriteria),
+    filteredHandler(store, preparations),
+  );
+  assert.deepEqual(first.items, []);
+  assert.equal(first.hasNext, true);
+  assert.equal(first.consumedBoundary.sourceDocumentId, "complete-100");
+  assert.equal(typeof first.nextCursor, "string");
+
+  const terminal = await searchAdminLinkRestaurantsPageHandler(
+    forwardRequest(pageCriteria, first, "all-complete-final"),
+    filteredHandler(store, preparations),
+  );
+  assert.deepEqual(terminal.items, []);
+  assert.equal(terminal.consumedBoundary.sourceDocumentId, "complete-175");
+  assert.equal(terminal.hasNext, false);
+  assert.equal(terminal.capabilities.next, false);
+  assert.equal(Object.hasOwn(terminal, "nextCursor"), false);
+  assert.deepEqual(terminal.total, {state: "unknown"});
+  assert.deepEqual(terminal.filterMetadata, {
+    schemaVersion: 1,
+    needsQrPreparation: true,
+    preparationUnavailableEncountered: false,
+  });
+  assert.equal(store.queryResultsAttempts, 4);
+});
+
+test("the 50th filtered match sets the exact consumed boundary", async () => {
+  const candidates = Array.from({length: 60}, (_, index) => ({
+    source: "biteScore",
+    ...filterableBiteScoreDocument(
+      `partial-${String(index + 1).padStart(3, "0")}`,
+    ),
+  }));
+  const preparations = new Map([
+    ["partial-050", completePreparation()],
+    ["partial-052", {schemaVersion: 1, saPrepared: "bad"}],
+  ]);
+  const store = new FakeStore(candidates);
+  const pageCriteria = qrFilterCriteria(true);
+  const first = await searchAdminLinkRestaurantsPageHandler(
+    request(pageCriteria),
+    filteredHandler(store, preparations),
+  );
+  assert.equal(first.items.length, 50);
+  assert.equal(first.items.at(-1).documentId, "partial-051");
+  assert.equal(first.consumedBoundary.sourceDocumentId, "partial-051");
+  assert.equal(first.hasNext, true);
+  assert.equal(
+    first.filterMetadata.preparationUnavailableEncountered,
+    false,
+  );
+
+  const second = await searchAdminLinkRestaurantsPageHandler(
+    forwardRequest(pageCriteria, first, "partial-next"),
+    filteredHandler(store, preparations),
+  );
+  assert.equal(second.items[0].documentId, "partial-053");
+  assert.equal(
+    second.filterMetadata.preparationUnavailableEncountered,
+    true,
+  );
+});
+
+test("filtered canonical identity suppresses bound duplicates and warns on standalone BiteSaver", async () => {
+  const canonicalId = "canonical-filtered";
+  const canonical = {
+    source: "biteScore",
+    ...filterableBiteScoreDocument(canonicalId),
+  };
+  const boundAccount = {
+    source: "biteSaver",
+    ...biteSaverDocument("account-bound", {
+      restaurantName: "ZZ Bound duplicate",
+      uid: "account-bound",
+      linkedBiteScoreRestaurantId: canonicalId,
+      biteScoreCatalogRestaurantId: canonicalId,
+      biteSaverCatalogBindingId: bindingId,
+    }),
+  };
+  const standalone = {
+    source: "biteSaver",
+    ...biteSaverDocument("account-standalone", {
+      restaurantName: "ZZZ Standalone",
+      uid: "account-standalone",
+      linkedBiteScoreRestaurantId: null,
+    }),
+  };
+  const store = new FakeStore([canonical, boundAccount, standalone]);
+  const response = await searchAdminLinkRestaurantsPageHandler(
+    request(qrFilterCriteria(true, {
+      sources: ["biteScore", "biteSaver"],
+    })),
+    filteredHandler(store),
+  );
+  assert.deepEqual(response.items.map((item) => item.documentId), [canonicalId]);
+  assert.equal(response.items[0].source, "biteScore");
+  assert.equal(response.filterMetadata.preparationUnavailableEncountered, true);
+  assert.equal(store.getSourceDocumentsAttempts, 2);
+});
+
+test("strict reciprocal verification suppresses one earlier bound account without warning", async () => {
+  const canonicalId = "strict-valid-canonical";
+  const accountId = "strict-valid-account";
+  const canonical = {
+    source: "biteScore",
+    ...filterableBiteScoreDocument(canonicalId, {
+      name: "Zulu canonical",
+      linkedBiteSaverUid: accountId,
+    }),
+  };
+  const account = {
+    source: "biteSaver",
+    ...boundBiteSaverDocument(canonicalId, accountId, {
+      restaurantName: "Alpha bound account",
+    }),
+  };
+  const counters = {calls: 0, requests: 0, documentReads: 0};
+  const store = new FakeStore([account, canonical]);
+  const response = await searchAdminLinkRestaurantsPageHandler(
+    request(qrFilterCriteria(true, {
+      sources: ["biteScore", "biteSaver"],
+      searchInstanceId: "strict-valid-binding",
+    })),
+    filteredHandler(store, new Map(), {
+      verifyBiteSaverCatalogBindings: strictBindingVerifier(
+        [account],
+        counters,
+      ),
+    }),
+  );
+
+  assert.deepEqual(response.items.map((item) => item.documentId), [
+    canonicalId,
+  ]);
+  assert.equal(response.items[0].source, "biteScore");
+  assert.equal(response.filterMetadata.preparationUnavailableEncountered, false);
+  assert.ok(counters.calls >= 1);
+  assert.ok(counters.documentReads >= 1);
+});
+
+test("an earlier malformed BiteSaver row cannot suppress a valid canonical result", async () => {
+  const canonicalId = "malformed-before-valid-canonical";
+  const validAccountId = "authoritative-reciprocal-account";
+  const canonical = {
+    source: "biteScore",
+    ...filterableBiteScoreDocument(canonicalId, {
+      name: "Zulu canonical result",
+      linkedBiteSaverUid: validAccountId,
+    }),
+  };
+  const validAccount = boundBiteSaverDocument(
+    canonicalId,
+    validAccountId,
+  );
+  const staleAccount = {
+    source: "biteSaver",
+    ...biteSaverDocument("stale-legacy-account", {
+      restaurantName: "Alpha stale legacy account",
+      uid: "stale-legacy-account",
+      linkedBiteScoreRestaurantId: canonicalId,
+    }),
+  };
+  const store = new FakeStore([staleAccount, canonical]);
+  const response = await searchAdminLinkRestaurantsPageHandler(
+    request(qrFilterCriteria(true, {
+      sources: ["biteScore", "biteSaver"],
+      searchInstanceId: "malformed-before-valid-canonical",
+    })),
+    filteredHandler(store, new Map(), {
+      verifyBiteSaverCatalogBindings: strictBindingVerifier([
+        staleAccount,
+        validAccount,
+      ]),
+    }),
+  );
+
+  assert.deepEqual(response.items.map((item) => [
+    item.source,
+    item.documentId,
+    item.actionId,
+  ]), [["biteScore", canonicalId, canonicalId]]);
+  assert.equal(
+    response.items.filter((item) => item.documentId === canonicalId).length,
+    1,
+  );
+  assert.equal(response.filterMetadata.preparationUnavailableEncountered, true);
+  assert.equal(response.consumedBoundary.sourceDocumentId, canonicalId);
+  assert.equal(response.hasNext, false);
+});
+
+test("duplicate and malformed reciprocal accounts warn without deduplicating the canonical identity", async () => {
+  for (const [label, accounts] of [
+    ["duplicate", [
+      boundBiteSaverDocument("strict-bad-canonical", "duplicate-a", {
+        restaurantName: "Alpha duplicate A",
+      }),
+      boundBiteSaverDocument("strict-bad-canonical", "duplicate-b", {
+        restaurantName: "Bravo duplicate B",
+      }),
+    ]],
+    ["mismatched binding", [
+      boundBiteSaverDocument("strict-bad-canonical", "mismatch", {
+        restaurantName: "Alpha mismatched account",
+        biteSaverCatalogBindingId: "C".repeat(43),
+      }),
+    ]],
+  ]) {
+    const canonicalId = "strict-bad-canonical";
+    const canonical = {
+      source: "biteScore",
+      ...filterableBiteScoreDocument(canonicalId, {
+        name: "Zulu canonical remains independently evaluated",
+        linkedBiteSaverUid: accounts[0].data.uid,
+      }),
+    };
+    const sourcedAccounts = accounts.map((account) => ({
+      source: "biteSaver",
+      ...account,
+    }));
+    const preparationLoads = [];
+    const store = new FakeStore([...sourcedAccounts, canonical]);
+    const response = await searchAdminLinkRestaurantsPageHandler(
+      request(qrFilterCriteria(true, {
+        sources: ["biteScore", "biteSaver"],
+        searchInstanceId: `strict-${label.replaceAll(" ", "-")}`,
+      })),
+      filteredHandler(store, new Map(), {
+        verifyBiteSaverCatalogBindings: strictBindingVerifier(sourcedAccounts),
+        loadQrPreparationDocuments: async (ids) => {
+          preparationLoads.push([...ids]);
+          return new Map();
+        },
+      }),
+    );
+
+    assert.deepEqual(response.items, [], label);
+    assert.equal(
+      response.filterMetadata.preparationUnavailableEncountered,
+      true,
+      label,
+    );
+    assert.ok(
+      preparationLoads.some((ids) => ids.includes(canonicalId)),
+      `${label}: canonical was not independently evaluated`,
+    );
+    assert.equal(response.consumedBoundary.sourceDocumentId, canonicalId, label);
+  }
+});
+
+test("an earlier-page bound account cannot prevent later canonical output", async () => {
+  const canonicalId = "paged-canonical";
+  const accountId = "paged-account";
+  const account = {
+    source: "biteSaver",
+    ...boundBiteSaverDocument(canonicalId, accountId, {
+      restaurantName: "000 Bound account",
+    }),
+  };
+  const fillers = Array.from({length: 99}, (_, index) => ({
+    source: "biteScore",
+    ...filterableBiteScoreDocument(
+      `paged-filler-${String(index + 1).padStart(3, "0")}`,
+      {name: `100 Filler ${String(index + 1).padStart(3, "0")}`},
+    ),
+  }));
+  const fillerAccounts = fillers.map((candidate) => ({
+    biteScoreCatalogRestaurantId: candidate.documentId,
+    biteSaverCatalogBindingId: bindingId,
+  }));
+  const canonical = {
+    source: "biteScore",
+    ...filterableBiteScoreDocument(canonicalId, {
+      name: "999 Canonical",
+      linkedBiteSaverUid: accountId,
+    }),
+  };
+  const preparations = new Map(fillers.map((candidate) => [
+    candidate.documentId,
+    completePreparation(),
+  ]));
+  const store = new FakeStore([account, ...fillers, canonical]);
+  const pageCriteria = qrFilterCriteria(true, {
+    sources: ["biteScore", "biteSaver"],
+    searchInstanceId: "bound-account-before-page",
+  });
+  const overrides = {
+    verifyBiteSaverCatalogBindings: strictBindingVerifier([
+      account,
+      ...fillerAccounts,
+    ]),
+  };
+  const first = await searchAdminLinkRestaurantsPageHandler(
+    request(pageCriteria),
+    filteredHandler(store, preparations, overrides),
+  );
+  assert.deepEqual(first.items, []);
+  assert.equal(first.hasNext, true);
+  assert.equal(first.consumedBoundary.sourceDocumentId, "paged-filler-099");
+  assert.equal(first.filterMetadata.preparationUnavailableEncountered, false);
+
+  const second = await searchAdminLinkRestaurantsPageHandler(
+    forwardRequest(pageCriteria, first, "bound-account-later-canonical"),
+    filteredHandler(store, preparations, overrides),
+  );
+  assert.deepEqual(second.items.map((item) => item.documentId), [canonicalId]);
+  assert.equal(second.hasNext, false);
+  assert.equal(second.filterMetadata.preparationUnavailableEncountered, false);
+  assert.equal(
+    [...first.items, ...second.items]
+      .filter((item) => item.documentId === canonicalId).length,
+    1,
+  );
+});
+
+test("unfiltered paging keeps reciprocal BiteScore and BiteSaver rows separate", async () => {
+  const canonicalId = "unfiltered-canonical";
+  const accountId = "unfiltered-account";
+  const canonical = {
+    source: "biteScore",
+    ...filterableBiteScoreDocument(canonicalId, {
+      linkedBiteSaverUid: accountId,
+    }),
+  };
+  const account = {
+    source: "biteSaver",
+    ...boundBiteSaverDocument(canonicalId, accountId),
+  };
+  const store = new FakeStore([canonical, account]);
+  const response = await searchAdminLinkRestaurantsPageHandler(
+    request(qrFilterCriteria(false, {
+      sources: ["biteScore", "biteSaver"],
+      searchInstanceId: "unfiltered-reciprocal-pair",
+    })),
+    handler(store, {
+      verifyBiteSaverCatalogBindings: strictBindingVerifier([account]),
+    }),
+  );
+
+  assert.deepEqual(
+    response.items
+      .map((item) => `${item.source}:${item.documentId}`)
+      .sort(),
+    [
+      `biteSaver:${accountId}`,
+      `biteScore:${canonicalId}`,
+    ],
+  );
+  assert.equal(response.filterMetadata.preparationUnavailableEncountered, false);
 });
 
 test("expanded normalized filters fail before geocoding or private writes", async () => {
@@ -765,6 +2248,88 @@ test("delayed retry of an older completed advance never scans again", async () =
   assert.equal(orderedResults.length, 900);
   assert.equal(orderedResults.every((document) =>
     document.data.markerType === undefined), true);
+});
+
+test("filtered handler retry reuses completed advance marker before any hydration", async () => {
+  const candidates = Array.from({length: 1_000}, (_, index) => ({
+    source: "biteScore",
+    ...filterableBiteScoreDocument(
+      `filtered-retry-${String(index + 1).padStart(4, "0")}`,
+    ),
+  }));
+  const store = new FakeStore(candidates);
+  const dependencyCalls = {
+    reciprocal: 0,
+    preparation: 0,
+    invitation: 0,
+  };
+  const context = () => filteredHandler(store, new Map(), {
+    verifyBiteSaverCatalogBindings: async () => {
+      dependencyCalls.reciprocal += 1;
+      return new Set();
+    },
+    loadQrPreparationDocuments: async () => {
+      dependencyCalls.preparation += 1;
+      return new Map();
+    },
+    loadQrPreparationInvitationDocuments: async () => {
+      dependencyCalls.invitation += 1;
+      return new Map();
+    },
+  });
+  const filteredRequest = request(qrFilterCriteria(true, {
+    searchInstanceId: "filtered-handler-idempotency",
+  }), {
+    clientRequestId: "filtered-advance-idempotent",
+  });
+  const first = await searchAdminLinkRestaurantsPageHandler(
+    filteredRequest,
+    context(),
+  );
+  assert.equal(first.preparation.state, "preparing");
+  assert.deepEqual(store.advanceReads, [450]);
+  assert.equal(store.finishAdvanceAttempts, 1);
+  assert.equal(store.queryResultsAttempts, 0);
+  assert.equal(store.getSourceDocumentsAttempts, 0);
+  assert.deepEqual(dependencyCalls, {
+    reciprocal: 0,
+    preparation: 0,
+    invitation: 0,
+  });
+  const markerId = completedAdvanceRequestMarkerId(
+    "filtered-advance-idempotent",
+  );
+  const storedDocuments = store.results.get("admin-link-session");
+  assert.equal(storedDocuments.has(markerId), true);
+  const resultCountBeforeRetry = storedDocuments.size;
+  const candidateQueriesBeforeRetry = store.queryCandidatesAttempts;
+  const materializedWritesBeforeRetry = store.materializedResultWriteAttempts;
+  const sessionBeforeRetry = structuredClone(
+    store.sessions.get("admin-link-session"),
+  );
+
+  const retry = await searchAdminLinkRestaurantsPageHandler(
+    filteredRequest,
+    context(),
+  );
+
+  assert.deepEqual(retry, first);
+  assert.deepEqual(store.advanceReads, [450]);
+  assert.equal(store.finishAdvanceAttempts, 1);
+  assert.equal(store.queryCandidatesAttempts, candidateQueriesBeforeRetry);
+  assert.equal(
+    store.materializedResultWriteAttempts,
+    materializedWritesBeforeRetry,
+  );
+  assert.equal(store.results.get("admin-link-session").size, resultCountBeforeRetry);
+  assert.deepEqual(store.sessions.get("admin-link-session"), sessionBeforeRetry);
+  assert.equal(store.queryResultsAttempts, 0);
+  assert.equal(store.getSourceDocumentsAttempts, 0);
+  assert.deepEqual(dependencyCalls, {
+    reciprocal: 0,
+    preparation: 0,
+    invitation: 0,
+  });
 });
 
 test("dense multi-range search reaches every result through three bounded advances", async () => {

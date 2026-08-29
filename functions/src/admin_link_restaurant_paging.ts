@@ -37,6 +37,8 @@ export type AdminLinkRestaurantPageCriteria = Readonly<{
   resolvedCenter: ResolvedAdminRestaurantSearchCenter | null;
   request: ValidatedAdminRestaurantSearchRequest;
   searchInstanceId: string;
+  filterContract: "legacy" | "v1";
+  needsQrPreparation: boolean;
   fingerprintBase: Readonly<Record<string, unknown>>;
 }>;
 
@@ -231,9 +233,24 @@ export function parseAdminLinkRestaurantCriteria(
     value.schemaVersion !== adminLinkRestaurantPagingSchemaVersion ||
     value.orderingVersion !== adminLinkRestaurantOrderingVersion ||
     value.purpose !== adminLinkRestaurantPagingPurpose ||
-    !isRecord(value.futureFilters) ||
-    Object.keys(value.futureFilters).length !== 0
+    !isRecord(value.futureFilters)
   ) {
+    invalidRequest();
+  }
+  const filterKeys = Object.keys(value.futureFilters);
+  let filterContract: "legacy" | "v1";
+  let needsQrPreparation: boolean;
+  if (filterKeys.length === 0) {
+    filterContract = "legacy";
+    needsQrPreparation = false;
+  } else if (
+    filterKeys.length === 1 &&
+    filterKeys[0] === "needsQrPreparation" &&
+    typeof value.futureFilters.needsQrPreparation === "boolean"
+  ) {
+    filterContract = "v1";
+    needsQrPreparation = value.futureFilters.needsQrPreparation;
+  } else {
     invalidRequest();
   }
   const center = parseCenter(value.center);
@@ -260,6 +277,11 @@ export function parseAdminLinkRestaurantCriteria(
   if (!sources.includes("biteScore") && value.biteScoreStatus !== "active") {
     invalidRequest();
   }
+  if (needsQrPreparation && !sources.includes("biteScore")) {
+    invalidRequest(
+      "Needs QR preparation requires the BiteScore restaurant source.",
+    );
+  }
   const rawSearchRequest: Record<string, unknown> = {
     ...(center.mode === "typed"
       ? { locationQuery: center.locationQuery }
@@ -285,6 +307,8 @@ export function parseAdminLinkRestaurantCriteria(
     resolvedCenter,
     request,
     searchInstanceId,
+    filterContract,
+    needsQrPreparation,
     fingerprintBase: Object.freeze({
       protocolVersion: pageProtocolVersion,
       schemaVersion: adminLinkRestaurantPagingSchemaVersion,
@@ -296,7 +320,7 @@ export function parseAdminLinkRestaurantCriteria(
       sources: request.sources,
       biteScoreStatus: request.biteScoreStatus,
       pageSize: adminLinkRestaurantPageSize,
-      futureFilters: Object.freeze({}),
+      futureFilters: Object.freeze({ ...value.futureFilters }),
       searchInstanceId,
     }),
   });

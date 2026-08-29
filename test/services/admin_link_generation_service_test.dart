@@ -202,7 +202,7 @@ void main() {
         expect(firstCriteria['radiusMicromiles'], 10000000);
         expect(firstCriteria['restaurantName'], 'River Grill');
         expect(firstCriteria['sources'], ['biteScore', 'biteSaver']);
-        expect(firstCriteria['futureFilters'], isEmpty);
+        expect(firstCriteria['futureFilters'], {'needsQrPreparation': false});
         expect(firstCriteria, isNot(contains('resolvedCenter')));
         expect(payloads.last['direction'], 'forward');
         expect(payloads.last['cursor'], _pageCursor('cursor-1'));
@@ -312,6 +312,181 @@ void main() {
       expect(result.consumedBoundary, isNull);
       expect(result.preparationMessage, 'Preparation failed safely.');
     });
+
+    test(
+      'sends and strictly parses the Needs QR preparation contract',
+      () async {
+        Map<String, dynamic>? payload;
+        final service = AdminLinkGenerationService(
+          pagedCallable: (value) async {
+            payload = value;
+            return _pagedResponse(
+              needsQrPreparation: true,
+              preparationUnavailableEncountered: true,
+              records: [
+                _biteScoreData(
+                  documentId: 'needs-preparation',
+                  extra: {
+                    'preparation': {
+                      'canonicalCatalogRestaurantId': 'needs-preparation',
+                      'i': 'unprepared',
+                      'c': 'unprepared',
+                      'sa': 'unprepared',
+                      'sr': 'unprepared',
+                    },
+                  },
+                ),
+              ],
+            );
+          },
+        );
+
+        final result = await service.searchPage(
+          locationQuery: '34428',
+          radiusMiles: 10,
+          sources: AdminRestaurantLinkSource.values.toSet(),
+          searchInstanceId: 'filtered-search',
+          clientRequestId: 'filtered-request',
+          needsQrPreparation: true,
+        );
+
+        expect((payload!['criteria'] as Map)['futureFilters'], {
+          'needsQrPreparation': true,
+        });
+        expect(result.needsQrPreparation, isTrue);
+        expect(result.preparationUnavailableEncountered, isTrue);
+        expect(result.page.items.single.documentId, 'needs-preparation');
+      },
+    );
+
+    test(
+      'filter metadata and canonical filtered identities fail closed',
+      () async {
+        final valid = _pagedResponse(
+          needsQrPreparation: true,
+          records: [
+            _biteScoreData(
+              documentId: 'canonical-filtered',
+              extra: {
+                'preparation': {
+                  'canonicalCatalogRestaurantId': 'canonical-filtered',
+                  'i': 'unprepared',
+                  'c': 'unprepared',
+                  'sa': 'unprepared',
+                  'sr': 'unprepared',
+                },
+              },
+            ),
+          ],
+        );
+        final invalid = <Map<String, dynamic>>[
+          _changedPagedResponse(Map<String, dynamic>.from(valid), (response) {
+            response.remove('filterMetadata');
+          }),
+          _changedPagedResponse(_pagedResponse(needsQrPreparation: true), (
+            response,
+          ) {
+            response['filterMetadata'] = {
+              'schemaVersion': 1,
+              'needsQrPreparation': false,
+              'preparationUnavailableEncountered': false,
+            };
+          }),
+          _pagedResponse(
+            needsQrPreparation: true,
+            records: [_biteSaverData(documentId: 'not-canonical')],
+          ),
+          _pagedResponse(
+            needsQrPreparation: true,
+            records: [
+              _biteScoreData(
+                documentId: 'complete-filtered',
+                extra: {
+                  'preparation': {
+                    'canonicalCatalogRestaurantId': 'complete-filtered',
+                    'i': 'prepared',
+                    'c': 'prepared',
+                    'sa': 'prepared',
+                    'sr': 'prepared',
+                  },
+                },
+              ),
+            ],
+          ),
+        ];
+        for (final response in invalid) {
+          await expectLater(
+            _searchPagedResponse(response, needsQrPreparation: true),
+            throwsA(isA<AdminLinkGenerationException>()),
+          );
+        }
+
+        final legacy = Map<String, dynamic>.from(_pagedResponse())
+          ..remove('filterMetadata');
+        expect(
+          AdminRestaurantLinkPagedResult.fromCallableData(
+            legacy,
+          ).usesFilterContract,
+          isFalse,
+        );
+      },
+    );
+
+    test(
+      'requires filter metadata schemaVersion to be the exact integer one',
+      () async {
+        final accepted = await _searchPagedResponse(
+          _pagedResponse(needsQrPreparation: true),
+          needsQrPreparation: true,
+        );
+        expect(accepted.needsQrPreparation, isTrue);
+
+        final invalidVersions = <MapEntry<String, Object?>>[
+          const MapEntry('double one', 1.0),
+          const MapEntry('string one', '1'),
+          const MapEntry('boolean true', true),
+          const MapEntry('null', null),
+          const MapEntry('zero', 0),
+          const MapEntry('two', 2),
+          const MapEntry('negative integer', -1),
+        ];
+        for (final invalid in invalidVersions) {
+          final response = _pagedResponse(needsQrPreparation: true);
+          _setPagedNestedValue(
+            response,
+            'filterMetadata',
+            'schemaVersion',
+            invalid.value,
+          );
+          await expectLater(
+            _searchPagedResponse(response, needsQrPreparation: true),
+            throwsA(isA<AdminLinkGenerationException>()),
+            reason: invalid.key,
+          );
+        }
+
+        final extraMetadata = _pagedResponse(needsQrPreparation: true);
+        _setPagedNestedValue(
+          extraMetadata,
+          'filterMetadata',
+          'unexpected',
+          true,
+        );
+        await expectLater(
+          _searchPagedResponse(extraMetadata, needsQrPreparation: true),
+          throwsA(isA<AdminLinkGenerationException>()),
+          reason: 'extra filter metadata key',
+        );
+
+        final legacy = Map<String, dynamic>.from(_pagedResponse())
+          ..remove('filterMetadata');
+        final legacyResult = AdminRestaurantLinkPagedResult.fromCallableData(
+          legacy,
+        );
+        expect(legacyResult.usesFilterContract, isFalse);
+        expect(legacyResult.page.items, isEmpty);
+      },
+    );
 
     test(
       'fails closed on invalid protocol, page metadata, capabilities, and cursors',
@@ -922,6 +1097,7 @@ void main() {
           String clientRequestId = 'request-valid',
           String? cursor,
           AdminRestaurantSearchCenter? resolvedSearchCenter,
+          bool needsQrPreparation = false,
         }) async {
           await expectLater(
             service.searchPage(
@@ -934,6 +1110,7 @@ void main() {
               clientRequestId: clientRequestId,
               cursor: cursor,
               resolvedSearchCenter: resolvedSearchCenter,
+              needsQrPreparation: needsQrPreparation,
             ),
             throwsA(isA<AdminLinkGenerationException>()),
           );
@@ -945,6 +1122,10 @@ void main() {
         await expectRejected(
           sources: {AdminRestaurantLinkSource.biteSaver},
           biteScoreStatus: AdminBiteScoreStatus.inactive,
+        );
+        await expectRejected(
+          sources: {AdminRestaurantLinkSource.biteSaver},
+          needsQrPreparation: true,
         );
         await expectRejected(restaurantName: List.filled(101, 'n').join());
         await expectRejected(searchInstanceId: '');
@@ -1085,6 +1266,110 @@ void main() {
         }
       },
     );
+
+    test('requires the exact current preparation projection shape', () async {
+      const validProjection = <String, Object?>{
+        'canonicalCatalogRestaurantId': 'exact-shape',
+        'i': 'prepared',
+        'c': 'unprepared',
+        'sa': 'prepared',
+        'sr': 'unprepared',
+      };
+
+      AdminRestaurantPreparationState parse(Object? projection) {
+        return AdminRestaurantPreparationState.tryFromCallableData(
+          projection,
+          source: AdminRestaurantLinkSource.biteScore,
+          documentId: 'exact-shape',
+          biteSaverCatalogBindingState:
+              AdminBiteSaverCatalogBindingState.unbound,
+          claimState: AdminRestaurantClaimState.available,
+        );
+      }
+
+      void expectUnavailable(Object? projection, {required String reason}) {
+        final state = parse(projection);
+        expect(state.canonicalCatalogRestaurantId, isNull, reason: reason);
+        expect(
+          AdminRestaurantPreparationType.values.map(state.statusFor),
+          everyElement(AdminRestaurantPreparationStatus.unavailable),
+          reason: reason,
+        );
+      }
+
+      final validState = parse(validProjection);
+      expect(validState.canonicalCatalogRestaurantId, 'exact-shape');
+      expect(validState.needsPreparation, isTrue);
+
+      final accepted = await _searchPagedResponse(
+        _pagedResponse(
+          needsQrPreparation: true,
+          records: [
+            _biteScoreData(
+              documentId: 'exact-shape',
+              extra: const {'preparation': validProjection},
+            ),
+          ],
+        ),
+        needsQrPreparation: true,
+      );
+      expect(accepted.page.items.single.preparation.needsPreparation, isTrue);
+
+      final invalidProjections = <MapEntry<String, Map<String, Object?>>>[
+        MapEntry('extra unknown key', {
+          ...validProjection,
+          'futureStatus': 'unprepared',
+        }),
+        MapEntry('extra private-looking key', {
+          ...validProjection,
+          'invitationId': 'private-invitation',
+        }),
+        for (final key in validProjection.keys)
+          MapEntry('missing $key', {...validProjection}..remove(key)),
+        MapEntry('wrong canonical ID type', {
+          ...validProjection,
+          'canonicalCatalogRestaurantId': 1,
+        }),
+        MapEntry('wrong I status type', {...validProjection, 'i': true}),
+        MapEntry('wrong C status type', {...validProjection, 'c': 1}),
+        MapEntry('wrong SA status type', {...validProjection, 'sa': null}),
+        MapEntry('wrong SR status type', {
+          ...validProjection,
+          'sr': <String>['unprepared'],
+        }),
+      ];
+
+      for (final invalid in invalidProjections) {
+        expectUnavailable(invalid.value, reason: invalid.key);
+        final response = _pagedResponse(
+          needsQrPreparation: true,
+          records: [
+            _biteScoreData(
+              documentId: 'exact-shape',
+              extra: {'preparation': invalid.value},
+            ),
+          ],
+        );
+        await expectLater(
+          _searchPagedResponse(response, needsQrPreparation: true),
+          throwsA(isA<AdminLinkGenerationException>()),
+          reason: invalid.key,
+        );
+      }
+
+      final legacyService = AdminLinkGenerationService(
+        callable: (_) async => _response(
+          results: [_biteScoreData(documentId: 'legacy-no-preparation')],
+        ),
+      );
+      final legacyResult = await legacyService.search(
+        locationQuery: '34428',
+        radiusMiles: 10,
+        sources: {AdminRestaurantLinkSource.biteScore},
+      );
+      expect(legacyResult.results.single.documentId, 'legacy-no-preparation');
+      expect(legacyResult.results.single.preparation.isUnavailable, isTrue);
+    });
 
     test('accepts every valid participation matrix', () {
       for (final binding in AdminBiteSaverCatalogBindingState.values) {
@@ -1660,7 +1945,10 @@ void main() {
   });
 }
 
-Future<AdminRestaurantLinkPagedResult> _searchPagedResponse(Object? response) {
+Future<AdminRestaurantLinkPagedResult> _searchPagedResponse(
+  Object? response, {
+  bool needsQrPreparation = false,
+}) {
   final service = AdminLinkGenerationService(
     pagedCallable: (_) async => response,
   );
@@ -1670,6 +1958,7 @@ Future<AdminRestaurantLinkPagedResult> _searchPagedResponse(Object? response) {
     sources: AdminRestaurantLinkSource.values.toSet(),
     searchInstanceId: 'search-contract',
     clientRequestId: 'request-contract',
+    needsQrPreparation: needsQrPreparation,
   );
 }
 
@@ -1789,6 +2078,8 @@ Map<String, dynamic> _pagedResponse({
   bool hasNext = false,
   String? nextCursor,
   String preparationState = 'ready',
+  bool needsQrPreparation = false,
+  bool preparationUnavailableEncountered = false,
 }) {
   final items = records
       .map((rawRecord) {
@@ -1832,6 +2123,11 @@ Map<String, dynamic> _pagedResponse({
     },
     'radiusMiles': 10,
     'queriedSources': ['biteScore', 'biteSaver'],
+    'filterMetadata': {
+      'schemaVersion': 1,
+      'needsQrPreparation': needsQrPreparation,
+      'preparationUnavailableEncountered': preparationUnavailableEncountered,
+    },
     'consumedBoundary': ?consumedBoundary,
   };
 }

@@ -46,6 +46,29 @@ export type AdminRestaurantQrPreparationProjection = Readonly<{
   sr: AdminRestaurantQrPreparationStatus;
 }>;
 
+export type AdminRestaurantQrPreparationClassification =
+  | "needsPreparation"
+  | "complete"
+  | "unavailable";
+
+export function classifyAdminRestaurantQrPreparation(
+  preparation: AdminRestaurantQrPreparationProjection,
+): AdminRestaurantQrPreparationClassification {
+  const statuses = [
+    preparation.i,
+    preparation.c,
+    preparation.sa,
+    preparation.sr,
+  ];
+  if (
+    preparation.canonicalCatalogRestaurantId === null ||
+    statuses.includes("unavailable")
+  ) {
+    return "unavailable";
+  }
+  return statuses.includes("unprepared") ? "needsPreparation" : "complete";
+}
+
 export type AdminRestaurantQrPreparedClaimValidation =
   | Readonly<{ state: "absent"; inviteId: null }>
   | Readonly<{

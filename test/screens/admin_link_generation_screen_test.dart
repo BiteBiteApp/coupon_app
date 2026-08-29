@@ -26,6 +26,7 @@ void main() {
               required sources,
               required searchInstanceId,
               required clientRequestId,
+              required needsQrPreparation,
               cursor,
               resolvedSearchCenter,
             }) async {
@@ -70,6 +71,699 @@ void main() {
     },
   );
 
+  testWidgets('Needs QR filter toggles locally and enforces BiteScore source', (
+    tester,
+  ) async {
+    var calls = 0;
+    await _pumpPagedScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+            required searchInstanceId,
+            required clientRequestId,
+            required needsQrPreparation,
+            cursor,
+            resolvedSearchCenter,
+          }) async {
+            calls += 1;
+            return _pagedResult(
+              records: [_biteScoreRecord(documentId: 'old-result')],
+            );
+          },
+    );
+
+    final biteScore = find.byKey(const ValueKey('admin-link-source-biteScore'));
+    final filter = find.byKey(
+      const ValueKey('admin-link-filter-needs-qr-preparation'),
+    );
+    expect(find.text('Filters'), findsOneWidget);
+    expect(filter, findsOneWidget);
+    await tester.tap(biteScore);
+    await tester.pump();
+    expect(tester.widget<FilterChip>(biteScore).selected, isFalse);
+
+    await tester.tap(filter);
+    await tester.pump();
+    expect(calls, 0);
+    expect(tester.widget<FilterChip>(filter).selected, isTrue);
+    expect(tester.widget<FilterChip>(biteScore).selected, isTrue);
+    expect(tester.widget<FilterChip>(biteScore).onSelected, isNull);
+
+    await tester.tap(filter);
+    await tester.pump();
+    expect(tester.widget<FilterChip>(filter).selected, isFalse);
+    expect(tester.widget<FilterChip>(biteScore).onSelected, isNotNull);
+  });
+
+  testWidgets('explicit searches bind false and true to new generations', (
+    tester,
+  ) async {
+    final filters = <bool>[];
+    final instances = <String>[];
+    await _pumpPagedScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+            required searchInstanceId,
+            required clientRequestId,
+            required needsQrPreparation,
+            cursor,
+            resolvedSearchCenter,
+          }) async {
+            filters.add(needsQrPreparation);
+            instances.add(searchInstanceId);
+            return _pagedResult(
+              needsQrPreparation: needsQrPreparation,
+              records: needsQrPreparation
+                  ? [_filteredRecord('filtered-result')]
+                  : [_biteScoreRecord(documentId: 'ordinary-result')],
+            );
+          },
+    );
+
+    await _submitSearch(tester);
+    expect(filters, [false]);
+    final filter = await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-filter-needs-qr-preparation'),
+      delta: -600,
+    );
+    await tester.tap(filter);
+    await tester.pump();
+    expect(
+      find.byKey(const ValueKey('admin-link-record-biteScore:ordinary-result')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-link-initial-state')),
+      findsOneWidget,
+    );
+
+    await _submitSearch(tester);
+    expect(filters, [false, true]);
+    expect(instances[1], isNot(instances[0]));
+    expect(
+      find.byKey(const ValueKey('admin-link-record-biteScore:filtered-result')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('filtered sparse pages continue checking without false empty', (
+    tester,
+  ) async {
+    var calls = 0;
+    await _pumpPagedScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+            required searchInstanceId,
+            required clientRequestId,
+            required needsQrPreparation,
+            cursor,
+            resolvedSearchCenter,
+          }) async {
+            calls += 1;
+            return calls == 1
+                ? _pagedResult(
+                    needsQrPreparation: true,
+                    hasNext: true,
+                    nextCursor: _pageCursor('continue-checking'),
+                  )
+                : _pagedResult(
+                    needsQrPreparation: true,
+                    records: [_filteredRecord('eventual-match')],
+                  );
+          },
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('admin-link-filter-needs-qr-preparation')),
+    );
+    await _submitSearch(tester);
+
+    expect(find.text('Continue checking'), findsOneWidget);
+    expect(
+      find.text('No restaurants need QR preparation in this search area.'),
+      findsNothing,
+    );
+    await tester.tap(find.text('Continue checking'));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('admin-link-record-biteScore:eventual-match')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('filtered exact terminal 50 displays without a continuation', (
+    tester,
+  ) async {
+    final records = List.generate(
+      50,
+      (index) => _filteredRecord(
+        'terminal-${index.toString().padLeft(2, '0')}',
+        orderDistanceMillimeters: index + 1,
+      ),
+      growable: false,
+    );
+    final terminalPage = _pagedResult(
+      needsQrPreparation: true,
+      records: records,
+    );
+    expect(terminalPage.hasNext, isFalse);
+    expect(terminalPage.nextCursor, isNull);
+    expect(terminalPage.consumedBoundary, records.last.materializedOrder);
+
+    var calls = 0;
+    await _pumpPagedScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+            required searchInstanceId,
+            required clientRequestId,
+            required needsQrPreparation,
+            cursor,
+            resolvedSearchCenter,
+          }) async {
+            calls += 1;
+            expect(cursor, isNull);
+            return terminalPage;
+          },
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('admin-link-filter-needs-qr-preparation')),
+    );
+    await _submitSearch(tester);
+
+    expect(calls, 1);
+    expect(
+      find.text('50 restaurant records near Crystal River, FL'),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-link-record-biteScore:terminal-00')),
+      findsOneWidget,
+    );
+    await _scrollToAdminKey(
+      tester,
+      const ValueKey('admin-link-record-biteScore:terminal-49'),
+    );
+    expect(
+      find.byKey(const ValueKey('admin-link-record-biteScore:terminal-49')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-link-load-more-button')),
+      findsNothing,
+    );
+    expect(find.text('Continue checking'), findsNothing);
+    expect(find.text('Load More'), findsNothing);
+    expect(find.textContaining('invalid continuation'), findsNothing);
+  });
+
+  testWidgets(
+    'filtered warning ORs false true false and resets on Search and criteria',
+    (tester) async {
+      final firstCursor = _pageCursor('warning-first');
+      final secondCursor = _pageCursor('warning-second');
+      var calls = 0;
+      await _pumpPagedScreen(
+        tester,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+              required searchInstanceId,
+              required clientRequestId,
+              required needsQrPreparation,
+              cursor,
+              resolvedSearchCenter,
+            }) async {
+              calls += 1;
+              switch (calls) {
+                case 1:
+                  expect(cursor, isNull);
+                  return _pagedResult(
+                    needsQrPreparation: true,
+                    records: [
+                      _filteredRecord(
+                        'warning-first',
+                        orderDistanceMillimeters: 1,
+                      ),
+                    ],
+                    hasNext: true,
+                    nextCursor: firstCursor,
+                  );
+                case 2:
+                  expect(cursor, firstCursor);
+                  return _pagedResult(
+                    needsQrPreparation: true,
+                    preparationUnavailableEncountered: true,
+                    records: [
+                      _filteredRecord(
+                        'warning-second',
+                        orderDistanceMillimeters: 2,
+                      ),
+                    ],
+                    hasNext: true,
+                    nextCursor: secondCursor,
+                  );
+                case 3:
+                  expect(cursor, secondCursor);
+                  return _pagedResult(
+                    needsQrPreparation: true,
+                    records: [
+                      _filteredRecord(
+                        'warning-third',
+                        orderDistanceMillimeters: 3,
+                      ),
+                    ],
+                  );
+                case 4:
+                  expect(cursor, isNull);
+                  return _pagedResult(
+                    needsQrPreparation: true,
+                    records: [_filteredRecord('fresh-search-no-warning')],
+                  );
+                case 5:
+                  expect(cursor, isNull);
+                  return _pagedResult(
+                    needsQrPreparation: true,
+                    preparationUnavailableEncountered: true,
+                    records: [_filteredRecord('before-source-reset')],
+                  );
+                case 6:
+                  expect(cursor, isNull);
+                  return _pagedResult(
+                    needsQrPreparation: true,
+                    preparationUnavailableEncountered: true,
+                    records: [_filteredRecord('before-filter-reset')],
+                  );
+              }
+              fail('Unexpected warning-test search call $calls.');
+            },
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('admin-link-filter-needs-qr-preparation')),
+      );
+      await _submitSearch(tester);
+
+      expect(
+        find.byKey(
+          const ValueKey('admin-link-preparation-unavailable-warning'),
+        ),
+        findsNothing,
+      );
+      var action = await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-load-more-button'),
+      );
+      expect(find.text('Continue checking'), findsOneWidget);
+      await tester.tap(action);
+      await tester.pumpAndSettle();
+
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-preparation-unavailable-warning'),
+        delta: -600,
+      );
+      action = await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-load-more-button'),
+      );
+      await tester.tap(action);
+      await tester.pumpAndSettle();
+
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-preparation-unavailable-warning'),
+        delta: -600,
+      );
+      expect(
+        find.byKey(const ValueKey('admin-link-load-more-button')),
+        findsNothing,
+      );
+
+      await _submitSearch(tester);
+      expect(calls, 4);
+      expect(
+        find.byKey(
+          const ValueKey('admin-link-preparation-unavailable-warning'),
+        ),
+        findsNothing,
+      );
+
+      await _submitSearch(tester);
+      expect(calls, 5);
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-preparation-unavailable-warning'),
+      );
+      final biteSaverSource = await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-source-biteSaver'),
+        delta: -600,
+      );
+      await tester.tap(biteSaverSource);
+      await tester.pump();
+      expect(
+        find.byKey(
+          const ValueKey('admin-link-preparation-unavailable-warning'),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('admin-link-initial-state')),
+        findsOneWidget,
+      );
+
+      await tester.tap(biteSaverSource);
+      await tester.pump();
+      await _submitSearch(tester);
+      expect(calls, 6);
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-preparation-unavailable-warning'),
+      );
+      final filter = await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-filter-needs-qr-preparation'),
+        delta: -600,
+      );
+      await tester.tap(filter);
+      await tester.pump();
+      expect(
+        find.byKey(
+          const ValueKey('admin-link-preparation-unavailable-warning'),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('admin-link-initial-state')),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('filtered terminal empty wording reflects unavailable records', (
+    tester,
+  ) async {
+    var warning = false;
+    Future<AdminRestaurantLinkPagedResult> search(
+      bool needsQrPreparation,
+    ) async => _pagedResult(
+      needsQrPreparation: true,
+      preparationUnavailableEncountered: warning,
+    );
+    await _pumpPagedScreen(
+      tester,
+      search:
+          ({
+            required locationQuery,
+            required radiusMiles,
+            required restaurantName,
+            required sources,
+            required searchInstanceId,
+            required clientRequestId,
+            required needsQrPreparation,
+            cursor,
+            resolvedSearchCenter,
+          }) => search(needsQrPreparation),
+    );
+    await tester.tap(
+      find.byKey(const ValueKey('admin-link-filter-needs-qr-preparation')),
+    );
+    await _submitSearch(tester);
+    expect(
+      find.text('No restaurants need QR preparation in this search area.'),
+      findsOneWidget,
+    );
+
+    warning = true;
+    await _submitSearch(tester);
+    expect(
+      find.text(
+        'No assessed restaurants need QR preparation. Some records could not be assessed and are not shown.',
+      ),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'filtered final completion preserves scroll cursor boundary and state',
+    (tester) async {
+      const completedId = 'completed-locally';
+      const overrideId = 'manual-override-kept';
+      final continuationCursor = _pageCursor('after-local-completion');
+      final records = List.generate(
+        16,
+        (index) => _filteredRecord(
+          'stable-${index.toString().padLeft(2, '0')}',
+          orderDistanceMillimeters: index + 1,
+        ),
+        growable: false,
+      );
+      records[0] = _filteredRecord(overrideId, orderDistanceMillimeters: 1);
+      records[8] = _biteScoreRecord(
+        documentId: completedId,
+        preparation: _preparationState(
+          completedId,
+          claimInvite: AdminRestaurantPreparationStatus.prepared,
+          biteSaverCustomer: AdminRestaurantPreparationStatus.prepared,
+          biteScoreCustomer: AdminRestaurantPreparationStatus.prepared,
+        ),
+        orderDistanceMillimeters: 9,
+      );
+      final initialBoundary = records.last.materializedOrder!;
+      final cursors = <String?>[];
+      var calls = 0;
+      await _pumpPagedScreen(
+        tester,
+        updatePreparation:
+            ({
+              required catalogRestaurantId,
+              required type,
+              required prepared,
+              required biteSaverCatalogBindingState,
+              required claimState,
+              expectedInviteId,
+            }) async {
+              expect(prepared, isTrue);
+              if (catalogRestaurantId == overrideId) {
+                expect(type, AdminRestaurantPreparationType.biteSaverCustomer);
+                return _preparationState(
+                  catalogRestaurantId,
+                  biteSaverCustomer: AdminRestaurantPreparationStatus.prepared,
+                );
+              }
+              expect(catalogRestaurantId, completedId);
+              expect(type, AdminRestaurantPreparationType.ownerInvite);
+              return _preparationState(
+                catalogRestaurantId,
+                ownerInvite: AdminRestaurantPreparationStatus.prepared,
+                claimInvite: AdminRestaurantPreparationStatus.prepared,
+                biteSaverCustomer: AdminRestaurantPreparationStatus.prepared,
+                biteScoreCustomer: AdminRestaurantPreparationStatus.prepared,
+              );
+            },
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+              required searchInstanceId,
+              required clientRequestId,
+              required needsQrPreparation,
+              cursor,
+              resolvedSearchCenter,
+            }) async {
+              calls += 1;
+              cursors.add(cursor);
+              if (calls == 1) {
+                return _pagedResult(
+                  needsQrPreparation: true,
+                  preparationUnavailableEncountered: true,
+                  records: records,
+                  hasNext: true,
+                  nextCursor: continuationCursor,
+                );
+              }
+              expect(cursor, continuationCursor);
+              if (calls == 2) {
+                return _pagedResult(
+                  needsQrPreparation: true,
+                  consumedBoundary: initialBoundary,
+                  hasNext: true,
+                  nextCursor: _pageCursor('overlap-must-not-apply'),
+                );
+              }
+              return _pagedResult(
+                needsQrPreparation: true,
+                records: [
+                  _filteredRecord(completedId, orderDistanceMillimeters: 17),
+                  _filteredRecord(
+                    'after-local-completion',
+                    orderDistanceMillimeters: 18,
+                  ),
+                ],
+              );
+            },
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('admin-link-filter-needs-qr-preparation')),
+      );
+      await _submitSearch(tester);
+
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-preparation-unavailable-warning'),
+      );
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-load-more-button'),
+      );
+      expect(find.text('Continue checking'), findsOneWidget);
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('biteScore:$overrideId:preparation-SA'),
+        delta: -700,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('biteScore:$overrideId:preparation-SA')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<FilterChip>(
+              find.byKey(
+                const ValueKey('biteScore:$overrideId:preparation-SA'),
+              ),
+            )
+            .selected,
+        isTrue,
+      );
+
+      final listFinder = find.byKey(
+        const ValueKey('admin-link-generation-scroll-view'),
+      );
+      final controller = tester.widget<ListView>(listFinder).controller!;
+      final finalPreparation = await _scrollToAdminKey(
+        tester,
+        const ValueKey('biteScore:$completedId:preparation-I'),
+      );
+      final offsetBeforeRemoval = controller.offset;
+      expect(offsetBeforeRemoval, greaterThan(0));
+
+      await tester.tap(finalPreparation);
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('admin-link-record-biteScore:$completedId')),
+        findsNothing,
+      );
+      expect(controller.offset, greaterThan(0));
+      expect(controller.offset, closeTo(offsetBeforeRemoval, 1));
+      expect(tester.widget<ListView>(listFinder).controller, same(controller));
+
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-preparation-unavailable-warning'),
+        delta: -700,
+      );
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('biteScore:$overrideId:preparation-SA'),
+        delta: -700,
+      );
+      expect(
+        tester
+            .widget<FilterChip>(
+              find.byKey(
+                const ValueKey('biteScore:$overrideId:preparation-SA'),
+              ),
+            )
+            .selected,
+        isTrue,
+      );
+
+      await tester.pump(const Duration(seconds: 4));
+      await tester.pumpAndSettle();
+      var continueChecking = await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-load-more-button'),
+      );
+      expect(find.text('Continue checking'), findsOneWidget);
+      await tester.tap(continueChecking);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('invalid continuation page'), findsOneWidget);
+      expect(find.text('Retry checking'), findsOneWidget);
+
+      continueChecking = await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-load-more-button'),
+      );
+      await tester.tap(continueChecking);
+      await tester.pumpAndSettle();
+
+      expect(calls, 3);
+      expect(cursors, [null, continuationCursor, continuationCursor]);
+      expect(
+        find.byKey(const ValueKey('admin-link-record-biteScore:$completedId')),
+        findsNothing,
+      );
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-record-biteScore:after-local-completion'),
+      );
+      expect(
+        find.byKey(
+          const ValueKey('admin-link-record-biteScore:after-local-completion'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('admin-link-load-more-button')),
+        findsNothing,
+      );
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-preparation-unavailable-warning'),
+        delta: -700,
+      );
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('biteScore:$overrideId:preparation-SA'),
+        delta: -700,
+      );
+      expect(
+        tester
+            .widget<FilterChip>(
+              find.byKey(
+                const ValueKey('biteScore:$overrideId:preparation-SA'),
+              ),
+            )
+            .selected,
+        isTrue,
+      );
+    },
+  );
+
   testWidgets('Load More appends once and preserves manual preparation state', (
     tester,
   ) async {
@@ -102,6 +796,7 @@ void main() {
             required sources,
             required searchInstanceId,
             required clientRequestId,
+            required needsQrPreparation,
             cursor,
             resolvedSearchCenter,
           }) {
@@ -201,6 +896,7 @@ void main() {
             required sources,
             required searchInstanceId,
             required clientRequestId,
+            required needsQrPreparation,
             cursor,
             resolvedSearchCenter,
           }) async {
@@ -248,6 +944,7 @@ void main() {
             required sources,
             required searchInstanceId,
             required clientRequestId,
+            required needsQrPreparation,
             cursor,
             resolvedSearchCenter,
           }) async => _pagedResult(
@@ -284,6 +981,7 @@ void main() {
               required sources,
               required searchInstanceId,
               required clientRequestId,
+              required needsQrPreparation,
               cursor,
               resolvedSearchCenter,
             }) async => _pagedResult(
@@ -328,6 +1026,7 @@ void main() {
             required sources,
             required searchInstanceId,
             required clientRequestId,
+            required needsQrPreparation,
             cursor,
             resolvedSearchCenter,
           }) async {
@@ -427,6 +1126,7 @@ void main() {
               required sources,
               required searchInstanceId,
               required clientRequestId,
+              required needsQrPreparation,
               cursor,
               resolvedSearchCenter,
             }) async {
@@ -550,6 +1250,7 @@ void main() {
             required sources,
             required searchInstanceId,
             required clientRequestId,
+            required needsQrPreparation,
             cursor,
             resolvedSearchCenter,
           }) async {
@@ -624,6 +1325,7 @@ void main() {
             required sources,
             required searchInstanceId,
             required clientRequestId,
+            required needsQrPreparation,
             cursor,
             resolvedSearchCenter,
           }) {
@@ -768,6 +1470,7 @@ void main() {
             required sources,
             required searchInstanceId,
             required clientRequestId,
+            required needsQrPreparation,
             cursor,
             resolvedSearchCenter,
           }) async {
@@ -3061,6 +3764,7 @@ Future<void> _expectAppendPreservesScrollOffset(
           required sources,
           required searchInstanceId,
           required clientRequestId,
+          required needsQrPreparation,
           cursor,
           resolvedSearchCenter,
         }) async {
@@ -3133,6 +3837,8 @@ AdminRestaurantLinkPagedResult _pagedResult({
   String queryFingerprint =
       'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
   AdminRestaurantMaterializedOrder? consumedBoundary,
+  bool? needsQrPreparation,
+  bool preparationUnavailableEncountered = false,
 }) {
   final effectiveBoundary = preparing
       ? null
@@ -3178,6 +3884,8 @@ AdminRestaurantLinkPagedResult _pagedResult({
     radiusMiles: 10,
     queriedSources: AdminRestaurantLinkSource.values,
     consumedBoundary: effectiveBoundary,
+    needsQrPreparation: needsQrPreparation,
+    preparationUnavailableEncountered: preparationUnavailableEncountered,
   );
 }
 
@@ -3284,6 +3992,17 @@ AdminRestaurantLinkRecord _biteScoreRecord({
       sourceDocumentId: documentId,
       source: AdminRestaurantLinkSource.biteScore,
     ),
+  );
+}
+
+AdminRestaurantLinkRecord _filteredRecord(
+  String documentId, {
+  int orderDistanceMillimeters = 2011680,
+}) {
+  return _biteScoreRecord(
+    documentId: documentId,
+    preparation: _availablePreparation(documentId),
+    orderDistanceMillimeters: orderDistanceMillimeters,
   );
 }
 

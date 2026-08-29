@@ -29,9 +29,17 @@ import {
   processAdminRestaurantSearchCandidates,
   type ResolvedAdminRestaurantSearchCenter,
 } from "./admin_restaurant_search_helpers.js";
+import {
+  classifyAdminRestaurantQrPreparation,
+} from "./admin_restaurant_qr_preparation.js";
 import { pageProtocolVersion } from "./pagination_protocol.js";
 import { createQueryFingerprint } from "./query_fingerprint.js";
-import { readBiteScoreCatalogRestaurantId } from "./restaurant_invite_helpers.js";
+import {
+  biteSaverAccountCatalogBindingState,
+  biteScoreCatalogBindingState,
+  readBiteScoreCatalogRestaurantId,
+} from "./restaurant_invite_helpers.js";
+import { biteSaverCatalogBindingAdminState } from "./search_index_builders.js";
 
 export const adminLinkRestaurantSessionCollection =
   "private_admin_link_restaurant_search_sessions";
@@ -48,6 +56,9 @@ export const adminLinkRestaurantMaximumNormalizedNameLength = 200;
 export const adminLinkRestaurantIdleLifetimeMs = 15 * 60 * 1_000;
 export const adminLinkRestaurantAbsoluteLifetimeMs = 60 * 60 * 1_000;
 export const adminLinkRestaurantLeaseLifetimeMs = 30 * 1_000;
+export const adminLinkRestaurantFilterHydrationChunkSize = 50;
+export const adminLinkRestaurantFilterMaximumConsumedIdentities = 100;
+export const adminLinkRestaurantFilterMaximumHydrationIterations = 2;
 
 type SessionRange = Readonly<{
   source: AdminRestaurantSource;
@@ -75,6 +86,8 @@ export type AdminLinkRestaurantSession = Readonly<{
   normalizedRestaurantName: string | null;
   sources: readonly AdminRestaurantSource[];
   biteScoreStatus: "active" | "inactive" | "all";
+  filterContractVersion: 1;
+  needsQrPreparation: boolean;
   ranges: readonly SessionRange[];
   createdAtMs: number;
   lastUsedAtMs: number;
@@ -342,6 +355,19 @@ function parseSession(
     ? null
     : readNormalizedAdminRestaurantNameFilter(data.normalizedRestaurantName);
   const radiusMiles = data.radiusMiles;
+  const hasFilterContractVersion = Object.prototype.hasOwnProperty.call(
+    data,
+    "filterContractVersion",
+  );
+  const hasNeedsQrPreparation = Object.prototype.hasOwnProperty.call(
+    data,
+    "needsQrPreparation",
+  );
+  const legacyFilterFields =
+    !hasFilterContractVersion && !hasNeedsQrPreparation;
+  const validFilterFields = legacyFilterFields ||
+    (data.filterContractVersion === 1 &&
+      typeof data.needsQrPreparation === "boolean");
   if (
     data.schemaVersion !== 1 || data.orderingVersion !== 1 ||
     (data.state !== "preparing" && data.state !== "ready" &&
@@ -359,6 +385,7 @@ function parseSession(
     sources === null ||
     (data.biteScoreStatus !== "active" &&
       data.biteScoreStatus !== "inactive" && data.biteScoreStatus !== "all") ||
+    !validFilterFields ||
     ranges === null || createdAtMs === null || lastUsedAtMs === null ||
     idleExpiresAtMs === null || absoluteExpiresAtMs === null ||
     (data.leaseToken !== null && readString(data.leaseToken, 128) === null) ||
@@ -386,6 +413,10 @@ function parseSession(
     normalizedRestaurantName,
     sources,
     biteScoreStatus: data.biteScoreStatus as AdminLinkRestaurantSession["biteScoreStatus"],
+    filterContractVersion: 1,
+    needsQrPreparation: legacyFilterFields
+      ? false
+      : data.needsQrPreparation as boolean,
     ranges,
     createdAtMs,
     lastUsedAtMs,
@@ -415,6 +446,8 @@ function sessionWrite(session: AdminLinkRestaurantSession): Record<string, unkno
     normalizedRestaurantName: session.normalizedRestaurantName,
     sources: session.sources,
     biteScoreStatus: session.biteScoreStatus,
+    filterContractVersion: session.filterContractVersion ?? 1,
+    needsQrPreparation: session.needsQrPreparation ?? false,
     ranges: session.ranges,
     createdAtMs: session.createdAtMs,
     lastUsedAtMs: session.lastUsedAtMs,
@@ -937,6 +970,24 @@ function responseMetadata(session: AdminLinkRestaurantSession) {
   };
 }
 
+function filterResponseMetadata(
+  parsed: AdminLinkRestaurantParsedContext,
+  preparationUnavailableEncountered: boolean,
+): Readonly<Record<string, unknown>> {
+  if (parsed.criteria.filterContract === "legacy") {
+    return Object.freeze({});
+  }
+  return Object.freeze({
+    filterMetadata: Object.freeze({
+      schemaVersion: 1,
+      needsQrPreparation: parsed.criteria.needsQrPreparation,
+      preparationUnavailableEncountered:
+        parsed.criteria.needsQrPreparation &&
+        preparationUnavailableEncountered,
+    }),
+  });
+}
+
 function preparingResponse(
   session: AdminLinkRestaurantSession,
   parsed: AdminLinkRestaurantParsedContext,
@@ -973,6 +1024,7 @@ function preparingResponse(
         : "Preparing complete nearby results…",
     },
     ...responseMetadata(session),
+    ...filterResponseMetadata(parsed, false),
   });
 }
 
@@ -1138,6 +1190,296 @@ async function readyPage(input: Readonly<{
       totalUnits: input.session.ranges.length,
     },
     ...responseMetadata(input.session),
+    ...filterResponseMetadata(input.parsed, false),
+  });
+}
+
+function filteredBiteSaverBindingIsVerified(
+  candidate: AdminRestaurantSearchCandidate | undefined,
+  canonicalCandidates: ReadonlyMap<string, AdminRestaurantSearchCandidate>,
+  verifiedCanonicalIds: ReadonlySet<string>,
+): boolean {
+  if (candidate === undefined || candidate.source !== "biteSaver") {
+    return false;
+  }
+  const accountBinding = biteSaverAccountCatalogBindingState(candidate.data);
+  if (accountBinding.type !== "bound") {
+    return false;
+  }
+  const canonical = canonicalCandidates.get(
+    accountBinding.biteScoreCatalogRestaurantId,
+  );
+  if (canonical === undefined || canonical.source !== "biteScore") {
+    return false;
+  }
+  const catalogBinding = biteScoreCatalogBindingState(canonical.data);
+  return catalogBinding.type === "bound" &&
+    catalogBinding.biteSaverCatalogBindingId ===
+      accountBinding.biteSaverCatalogBindingId &&
+    biteSaverCatalogBindingAdminState(
+      canonical.documentId,
+      canonical.data,
+      verifiedCanonicalIds.has(canonical.documentId),
+    ) === "bound";
+}
+
+async function strictlyVerifiedFilteredBiteSaverCatalogIds(input: Readonly<{
+  canonicalCandidates: readonly AdminRestaurantSearchCandidate[];
+  verifyBiteSaverCatalogBindings:
+    AdminLinkRestaurantHandlerContext["verifyBiteSaverCatalogBindings"];
+}>): Promise<ReadonlySet<string>> {
+  if (input.verifyBiteSaverCatalogBindings === undefined) {
+    return new Set();
+  }
+  const requests = input.canonicalCandidates.flatMap((canonical) => {
+    if (canonical.source !== "biteScore") {
+      return [];
+    }
+    const binding = biteScoreCatalogBindingState(canonical.data);
+    if (
+      binding.type !== "bound" ||
+      biteSaverCatalogBindingAdminState(
+        canonical.documentId,
+        canonical.data,
+        true,
+      ) !== "bound"
+    ) {
+      return [];
+    }
+    return [Object.freeze({
+      catalogRestaurantId: canonical.documentId,
+      biteSaverCatalogBindingId: binding.biteSaverCatalogBindingId,
+    })];
+  });
+  if (requests.length === 0) {
+    return new Set();
+  }
+  try {
+    return await input.verifyBiteSaverCatalogBindings(requests);
+  } catch (_error) {
+    return new Set();
+  }
+}
+
+async function filteredReadyPage(input: Readonly<{
+  session: AdminLinkRestaurantSession;
+  parsed: AdminLinkRestaurantParsedContext;
+  context: AdminLinkRestaurantHandlerContext;
+  after: readonly [number, string, string, AdminRestaurantSource] | null;
+}>): Promise<Readonly<Record<string, unknown>>> {
+  const visibleItems: Array<Readonly<Record<string, unknown>>> = [];
+  let scanAfter = input.after;
+  let consumedBoundary: AdminLinkRestaurantMaterializedOrder | undefined;
+  let consumedIdentities = 0;
+  let hydrationIterations = 0;
+  let preparationUnavailableEncountered = false;
+  let hasNext = false;
+
+  while (
+    hydrationIterations < adminLinkRestaurantFilterMaximumHydrationIterations &&
+    consumedIdentities <
+      adminLinkRestaurantFilterMaximumConsumedIdentities &&
+    visibleItems.length < adminLinkRestaurantPageSize
+  ) {
+    hydrationIterations += 1;
+    const documents = await input.context.store.queryResults({
+      sessionId: input.session.id,
+      ...(scanAfter === null ? {} : { after: scanAfter }),
+      limit: adminLinkRestaurantFilterHydrationChunkSize + 1,
+    });
+    if (documents.length > adminLinkRestaurantFilterHydrationChunkSize + 1) {
+      invalidSession();
+    }
+    const validatedDocuments = documents.map((document) => Object.freeze({
+      document,
+      order: materializedOrder(document),
+    }));
+    const selectedEntries = validatedDocuments
+      .slice(0, adminLinkRestaurantFilterHydrationChunkSize)
+      .map(({order}) => Object.freeze({
+        identity: Object.freeze({
+          source: order.source,
+          documentId: order.sourceDocumentId,
+        }),
+        order,
+      }));
+    if (selectedEntries.length === 0) {
+      hasNext = false;
+      break;
+    }
+
+    const currentCandidates = await input.context.store.getSourceDocuments(
+      selectedEntries.map((entry) => entry.identity),
+    );
+    const currentCandidatesByKey = new Map(currentCandidates.map((candidate) => [
+      `${candidate.source}:${candidate.documentId}`,
+      candidate,
+    ]));
+    const orderedCandidates = selectedEntries.flatMap((entry) => {
+      const candidate = currentCandidatesByKey.get(
+        `${entry.identity.source}:${entry.identity.documentId}`,
+      );
+      return candidate === undefined ? [] : [candidate];
+    });
+    const response = await rehydrateAdminRestaurantSearchPage({
+      request: input.parsed.criteria.request,
+      searchCenter: input.session.center,
+      candidates: orderedCandidates,
+      dependencies: {
+        verifyBiteSaverCatalogBindings:
+          input.context.verifyBiteSaverCatalogBindings,
+        loadQrPreparationDocuments: input.context.loadQrPreparationDocuments,
+        loadQrPreparationInvitationDocuments:
+          input.context.loadQrPreparationInvitationDocuments,
+      },
+    });
+    const currentResultsByKey = new Map<
+      string,
+      (typeof response.results)[number]
+    >();
+    for (const result of response.results) {
+      const key = `${result.source}:${result.documentId}`;
+      if (currentResultsByKey.has(key) || !currentCandidatesByKey.has(key)) {
+        invalidSession();
+      }
+      currentResultsByKey.set(key, result);
+    }
+
+    const linkedCanonicalIds = [
+      ...new Set(currentCandidates.flatMap((candidate) => {
+        if (candidate.source !== "biteSaver") {
+          return [];
+        }
+        const binding = biteSaverAccountCatalogBindingState(candidate.data);
+        return binding.type === "bound"
+          ? [binding.biteScoreCatalogRestaurantId]
+          : [];
+      })),
+    ];
+    if (linkedCanonicalIds.length > adminLinkRestaurantPageSize) {
+      invalidSession();
+    }
+    const canonicalCandidates = linkedCanonicalIds.length === 0
+      ? []
+      : await input.context.store.getSourceDocuments(
+        linkedCanonicalIds.map((documentId) => Object.freeze({
+          source: "biteScore" as const,
+          documentId,
+        })),
+      );
+    const canonicalCandidatesById = new Map(
+      canonicalCandidates
+        .filter((candidate) => candidate.source === "biteScore")
+        .map((candidate) => [candidate.documentId, candidate]),
+    );
+    const verifiedFilteredBiteSaverCatalogIds =
+      await strictlyVerifiedFilteredBiteSaverCatalogIds({
+        canonicalCandidates,
+        verifyBiteSaverCatalogBindings:
+          input.context.verifyBiteSaverCatalogBindings,
+      });
+
+    let consumedEntriesInChunk = 0;
+    for (const entry of selectedEntries) {
+      consumedEntriesInChunk += 1;
+      consumedIdentities += 1;
+      consumedBoundary = entry.order;
+      scanAfter = [
+        entry.order.distanceMillimeters,
+        entry.order.normalizedName,
+        entry.order.sourceDocumentId,
+        entry.order.source,
+      ];
+      const key = `${entry.identity.source}:${entry.identity.documentId}`;
+      const candidate = currentCandidatesByKey.get(key);
+      if (entry.identity.source === "biteSaver") {
+        if (!filteredBiteSaverBindingIsVerified(
+          candidate,
+          canonicalCandidatesById,
+          verifiedFilteredBiteSaverCatalogIds,
+        )) {
+          preparationUnavailableEncountered = true;
+        }
+      } else {
+        const result = currentResultsByKey.get(key);
+        const classification = result?.preparation === undefined
+          ? "unavailable"
+          : classifyAdminRestaurantQrPreparation(result.preparation);
+        if (classification === "unavailable") {
+          preparationUnavailableEncountered = true;
+        } else if (classification === "needsPreparation" && result !== undefined) {
+          visibleItems.push(Object.freeze({
+            ...result,
+            materializedOrder: entry.order,
+          }));
+        }
+      }
+      if (visibleItems.length === adminLinkRestaurantPageSize) {
+        break;
+      }
+    }
+
+    const hasUnconsumedIdentityInChunk =
+      consumedEntriesInChunk < selectedEntries.length;
+    const hasMaterializedLookahead =
+      validatedDocuments.length > selectedEntries.length;
+    hasNext = hasUnconsumedIdentityInChunk || hasMaterializedLookahead;
+    if (
+      visibleItems.length === adminLinkRestaurantPageSize ||
+      !hasNext ||
+      hydrationIterations ===
+        adminLinkRestaurantFilterMaximumHydrationIterations
+    ) {
+      break;
+    }
+  }
+
+  const nextCursor = hasNext && consumedBoundary !== undefined
+    ? input.parsed.codec.encode({
+        queryFingerprint: input.session.queryFingerprint,
+        source: adminLinkRestaurantCursorSource,
+        searchMode: adminLinkRestaurantSearchMode,
+        pageSize: adminLinkRestaurantPageSize,
+        purpose: "forward",
+        sortTuple: [
+          consumedBoundary.distanceMillimeters,
+          consumedBoundary.normalizedName,
+          consumedBoundary.sourceDocumentId,
+          consumedBoundary.source,
+        ],
+        callerBinding: input.parsed.callerBinding,
+        sessionId: input.session.id,
+        lifetimeMs: adminLinkRestaurantIdleLifetimeMs,
+      })
+    : undefined;
+  return Object.freeze({
+    protocolVersion: pageProtocolVersion,
+    items: Object.freeze(visibleItems),
+    pageSize: adminLinkRestaurantPageSize,
+    hasNext,
+    hasPrevious: false,
+    ...(nextCursor === undefined ? {} : { nextCursor }),
+    ...(consumedBoundary === undefined ? {} : { consumedBoundary }),
+    total: { state: "unknown" as const },
+    queryFingerprint: input.session.queryFingerprint,
+    snapshotTimestampMs: input.parsed.nowMs,
+    capabilities: {
+      first: false,
+      previous: false,
+      numberedVisitedPages: false,
+      next: hasNext,
+      last: false,
+    },
+    preparation: {
+      state: "ready" as const,
+      completedUnits: input.session.ranges.length,
+      totalUnits: input.session.ranges.length,
+    },
+    ...responseMetadata(input.session),
+    ...filterResponseMetadata(
+      input.parsed,
+      preparationUnavailableEncountered,
+    ),
   });
 }
 
@@ -1384,6 +1726,8 @@ export async function searchAdminLinkRestaurantsPageHandler(
         parsed.criteria.request.normalizedRestaurantName,
       sources: Object.freeze([...parsed.criteria.request.sources]),
       biteScoreStatus: parsed.criteria.request.biteScoreStatus,
+      filterContractVersion: 1,
+      needsQrPreparation: parsed.criteria.needsQrPreparation,
       ranges: Object.freeze(plans.map((plan): SessionRange => Object.freeze({
         source: plan.source,
         collectionName: plan.collectionName,
@@ -1419,6 +1763,7 @@ export async function searchAdminLinkRestaurantsPageHandler(
     session === null || session.callerBinding !== parsed.callerBinding ||
     session.queryFingerprint !== queryFingerprint ||
     session.searchInstanceHash !== searchInstanceHash ||
+    session.needsQrPreparation !== parsed.criteria.needsQrPreparation ||
     expired(session, parsed.nowMs)
   ) {
     invalidSession();
@@ -1444,7 +1789,9 @@ export async function searchAdminLinkRestaurantsPageHandler(
       queryFingerprint,
       nowMs: parsed.nowMs,
     });
-    return readyPage({ session, parsed, context, after });
+    return parsed.criteria.needsQrPreparation
+      ? filteredReadyPage({ session, parsed, context, after })
+      : readyPage({ session, parsed, context, after });
   }
   return preparingResponse(session, parsed, busy);
 }

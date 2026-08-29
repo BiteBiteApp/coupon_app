@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/admin_restaurant_link_record.dart';
+import '../models/pagination/paged_models.dart';
 import '../services/admin_link_generation_service.dart';
 import '../services/app_error_text.dart';
 import '../services/restaurant_customer_link_service.dart';
@@ -26,6 +27,7 @@ typedef AdminRestaurantPagedSearchCallback =
       required Set<AdminRestaurantLinkSource> sources,
       required String searchInstanceId,
       required String clientRequestId,
+      required bool needsQrPreparation,
       String? cursor,
       AdminRestaurantSearchCenter? resolvedSearchCenter,
     });
@@ -67,7 +69,7 @@ typedef AdminPreparationUpdateCallback =
       String? expectedInviteId,
     });
 
-enum _AdminLinkPageRequestKind { initial, preparation, loadMore }
+enum _AdminLinkPageRequestKind { initial, preparation, checking, loadMore }
 
 class _PendingAdminLinkPageRequest {
   const _PendingAdminLinkPageRequest({
@@ -124,6 +126,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
   final Map<String, AdminRestaurantPreparationState> _preparationOverrides = {};
   final Set<String> _busyPreparationCatalogIds = <String>{};
   final Map<String, int> _preparationMutationGenerations = <String, int>{};
+  final Set<String> _suppressedCompletedCatalogIds = <String>{};
 
   int _radiusMiles = AdminLinkGenerationService.defaultRadiusMiles;
   int _searchGeneration = 0;
@@ -139,12 +142,16 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
   AdminRestaurantSearchCenter? _resolvedSearchCenter;
   bool _isPreparing = false;
   bool _searchExpired = false;
+  bool _needsQrPreparation = false;
+  bool _preparationUnavailableEncountered = false;
+  bool _continueChecking = false;
   int _requestSequence = 0;
   _PendingAdminLinkPageRequest? _pendingPageRequest;
   String? _activeLocationQuery;
   String? _activeRestaurantName;
   int? _activeRadiusMiles;
   Set<AdminRestaurantLinkSource>? _activeSources;
+  bool? _activeNeedsQrPreparation;
   String? _queryFingerprint;
   AdminRestaurantMaterializedOrder? _consumedBoundary;
 
@@ -181,6 +188,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
     final sources = Set<AdminRestaurantLinkSource>.unmodifiable(
       _selectedSources,
     );
+    final needsQrPreparation = _needsQrPreparation;
     if (_scrollController.hasClients) {
       _scrollController.jumpTo(0);
     }
@@ -196,14 +204,18 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
       _nextCursor = null;
       _isPreparing = false;
       _searchExpired = false;
+      _preparationUnavailableEncountered = false;
+      _continueChecking = false;
       _searchInstanceId = searchInstanceId;
       _resolvedSearchCenter = null;
       _activeLocationQuery = locationQuery;
       _activeRestaurantName = restaurantName;
       _activeRadiusMiles = _radiusMiles;
       _activeSources = sources;
+      _activeNeedsQrPreparation = needsQrPreparation;
       _pendingPageRequest = null;
       _preparationOverrides.clear();
+      _suppressedCompletedCatalogIds.clear();
       _queryFingerprint = null;
       _consumedBoundary = null;
     });
@@ -299,6 +311,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
               sources: _activeSources!,
               searchInstanceId: _searchInstanceId!,
               clientRequestId: pending.clientRequestId,
+              needsQrPreparation: _activeNeedsQrPreparation!,
               cursor: pending.cursor,
               resolvedSearchCenter: pending.cursor == null
                   ? null
@@ -311,6 +324,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
               sources: _activeSources!,
               searchInstanceId: _searchInstanceId!,
               clientRequestId: pending.clientRequestId,
+              needsQrPreparation: _activeNeedsQrPreparation!,
               cursor: pending.cursor,
               resolvedSearchCenter: pending.cursor == null
                   ? null
@@ -361,7 +375,11 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
         _searchResult?.results ?? const <AdminRestaurantLinkRecord>[];
     final queryFingerprint = pageResult.page.queryFingerprint;
     if (pageResult.radiusMiles != _activeRadiusMiles ||
-        !_sameSources(pageResult.queriedSources, _activeSources!)) {
+        !_sameSources(pageResult.queriedSources, _activeSources!) ||
+        (pageResult.needsQrPreparation != null &&
+            pageResult.needsQrPreparation != _activeNeedsQrPreparation) ||
+        (_activeNeedsQrPreparation == true &&
+            pageResult.needsQrPreparation != true)) {
       throw const AdminLinkGenerationException(
         'Restaurant search returned an invalid page.',
       );
@@ -383,16 +401,19 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
         );
       }
     }
-    final loadedKeys = existing.map((record) => record.recordKey).toSet();
-    for (final record in pageResult.page.items) {
-      if (!loadedKeys.add(record.recordKey)) {
-        throw const AdminLinkGenerationException(
-          'Restaurant search returned duplicate records. Refresh the search.',
-        );
+    if (_activeNeedsQrPreparation != true) {
+      final loadedKeys = existing.map((record) => record.recordKey).toSet();
+      for (final record in pageResult.page.items) {
+        if (!loadedKeys.add(record.recordKey)) {
+          throw const AdminLinkGenerationException(
+            'Restaurant search returned duplicate records. Refresh the search.',
+          );
+        }
       }
     }
     final pageBoundary = pageResult.consumedBoundary;
-    if (pending.kind == _AdminLinkPageRequestKind.loadMore) {
+    if (pending.kind == _AdminLinkPageRequestKind.loadMore ||
+        pending.kind == _AdminLinkPageRequestKind.checking) {
       final previousBoundary = _consumedBoundary;
       final firstPageOrder = pageResult.page.items.isEmpty
           ? null
@@ -425,14 +446,57 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
       }
       previousPageOrder = order;
     }
+    final loadedKeys = existing
+        .map(
+          (record) => _activeNeedsQrPreparation == true
+              ? record.documentId
+              : record.recordKey,
+        )
+        .toSet();
+    final acceptedItems = <AdminRestaurantLinkRecord>[];
+    for (final record in pageResult.page.items) {
+      if (_activeNeedsQrPreparation == true) {
+        if (!record.isBiteScore ||
+            record.actionId != record.documentId ||
+            record.preparation.canonicalCatalogRestaurantId !=
+                record.documentId ||
+            !record.preparation.needsPreparation) {
+          throw const AdminLinkGenerationException(
+            'Restaurant search returned an invalid filtered page.',
+          );
+        }
+        final override = _preparationOverrides[record.documentId];
+        if (_suppressedCompletedCatalogIds.contains(record.documentId) ||
+            override?.isComplete == true) {
+          _suppressedCompletedCatalogIds.add(record.documentId);
+          continue;
+        }
+      }
+      final identity = _activeNeedsQrPreparation == true
+          ? record.documentId
+          : record.recordKey;
+      if (!loadedKeys.add(identity)) {
+        throw const AdminLinkGenerationException(
+          'Restaurant search returned duplicate records. Refresh the search.',
+        );
+      }
+      acceptedItems.add(record);
+    }
     final accumulated = <AdminRestaurantLinkRecord>[
       ...existing,
-      ...pageResult.page.items,
+      ...acceptedItems,
     ];
     setState(() {
       _resolvedSearchCenter = pageResult.searchCenter;
       _isPreparing = pageResult.isPreparing;
       _nextCursor = pageResult.nextCursor;
+      _continueChecking =
+          _activeNeedsQrPreparation == true &&
+          pageResult.hasNext &&
+          acceptedItems.length < adminDirectoryDefaultPageSize;
+      _preparationUnavailableEncountered =
+          _preparationUnavailableEncountered ||
+          pageResult.preparationUnavailableEncountered;
       _searchResult = pageResult.asAccumulatedResult(accumulated);
       _searchError = pageResult.isFailed
           ? pageResult.preparationMessage ??
@@ -487,7 +551,9 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
       _newPendingPageRequest(
         generation: _searchGeneration,
         cursor: _nextCursor,
-        kind: _AdminLinkPageRequestKind.loadMore,
+        kind: _continueChecking
+            ? _AdminLinkPageRequestKind.checking
+            : _AdminLinkPageRequestKind.loadMore,
       ),
     );
   }
@@ -508,6 +574,17 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
   }
 
   void _toggleSource(AdminRestaurantLinkSource source, bool selected) {
+    if (_pageBusy) {
+      return;
+    }
+    if (source == AdminRestaurantLinkSource.biteScore &&
+        _needsQrPreparation &&
+        !selected) {
+      _showSnackBar(
+        'BiteScore is required while Needs QR preparation is selected.',
+      );
+      return;
+    }
     if (!selected && _selectedSources.length == 1) {
       _showSnackBar('Select at least one restaurant source.');
       return;
@@ -518,8 +595,46 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
       } else {
         _selectedSources.remove(source);
       }
-      _searchError = null;
+      _invalidateSearchForCriteriaChange();
     });
+  }
+
+  void _toggleNeedsQrPreparation(bool selected) {
+    if (_pageBusy || selected == _needsQrPreparation) {
+      return;
+    }
+    setState(() {
+      _needsQrPreparation = selected;
+      if (selected) {
+        _selectedSources.add(AdminRestaurantLinkSource.biteScore);
+      }
+      _invalidateSearchForCriteriaChange();
+    });
+  }
+
+  void _invalidateSearchForCriteriaChange() {
+    _searchGeneration += 1;
+    _hasSubmitted = false;
+    _searchResult = null;
+    _searchError = null;
+    _appendError = null;
+    _nextCursor = null;
+    _searchInstanceId = null;
+    _resolvedSearchCenter = null;
+    _isPreparing = false;
+    _searchExpired = false;
+    _pendingPageRequest = null;
+    _activeLocationQuery = null;
+    _activeRestaurantName = null;
+    _activeRadiusMiles = null;
+    _activeSources = null;
+    _activeNeedsQrPreparation = null;
+    _queryFingerprint = null;
+    _consumedBoundary = null;
+    _preparationUnavailableEncountered = false;
+    _continueChecking = false;
+    _preparationOverrides.clear();
+    _suppressedCompletedCatalogIds.clear();
   }
 
   String _actionKey(AdminRestaurantLinkRecord record, String action) {
@@ -630,6 +745,26 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
           _preparationMutationGenerations[canonicalId] == mutationGeneration) {
         setState(() {
           _preparationOverrides[canonicalId] = state;
+          if (_activeNeedsQrPreparation == true && state.isComplete) {
+            _suppressedCompletedCatalogIds.add(canonicalId);
+            final currentResult = _searchResult;
+            if (currentResult != null) {
+              final remaining = currentResult.results
+                  .where((item) => item.documentId != canonicalId)
+                  .toList(growable: false);
+              _searchResult = AdminRestaurantLinkSearchResult(
+                searchCenter: currentResult.searchCenter,
+                radiusMiles: currentResult.radiusMiles,
+                results: List.unmodifiable(remaining),
+                resultsMayBeTruncated: currentResult.resultsMayBeTruncated,
+                returnedCount: remaining.length,
+                queriedSources: currentResult.queriedSources,
+              );
+              if (remaining.isEmpty && _nextCursor != null) {
+                _continueChecking = true;
+              }
+            }
+          }
         });
       }
       return state;
@@ -1138,6 +1273,10 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
             ),
           ),
         ],
+        if (_preparationUnavailableEncountered) ...[
+          const SizedBox(height: 12),
+          _buildPreparationUnavailableWarning(),
+        ],
         const SizedBox(height: 12),
       ],
     );
@@ -1160,6 +1299,19 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
         ],
         if (_nextCursor != null) _buildLoadMoreButton(),
       ],
+    );
+  }
+
+  Widget _buildPreparationUnavailableWarning() {
+    return Card(
+      key: const ValueKey('admin-link-preparation-unavailable-warning'),
+      color: Theme.of(context).colorScheme.tertiaryContainer,
+      child: const Padding(
+        padding: EdgeInsets.all(16),
+        child: Text(
+          'Some restaurant records could not be assessed for QR preparation and are not shown.',
+        ),
+      ),
     );
   }
 
@@ -1196,6 +1348,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
                         child: TextFormField(
                           key: const ValueKey('admin-link-location-field'),
                           controller: _locationController,
+                          enabled: !_pageBusy,
                           decoration: const InputDecoration(
                             labelText: 'ZIP code or City, ST',
                             hintText: '34428 or Crystal River, FL',
@@ -1216,6 +1369,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
                             'admin-link-restaurant-name-field',
                           ),
                           controller: _restaurantNameController,
+                          enabled: !_pageBusy,
                           decoration: const InputDecoration(
                             labelText: 'Restaurant name (optional)',
                             border: OutlineInputBorder(),
@@ -1248,7 +1402,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
                                 ),
                               )
                               .toList(growable: false),
-                          onChanged: _isSearching
+                          onChanged: _pageBusy
                               ? null
                               : (value) {
                                   if (value != null) {
@@ -1264,27 +1418,53 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
                 },
               ),
               const SizedBox(height: 16),
-              Text('Sources', style: Theme.of(context).textTheme.titleSmall),
-              const SizedBox(height: 8),
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
-                children: AdminRestaurantLinkSource.values
-                    .map((source) {
-                      return FilterChip(
-                        key: ValueKey(
-                          'admin-link-source-${source.callableValue}',
-                        ),
-                        label: Text(source.label),
-                        selected: _selectedSources.contains(source),
-                        onSelected: _isSearching
-                            ? null
-                            : (selected) => _toggleSource(source, selected),
-                      );
-                    })
-                    .toList(growable: false),
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    'Sources',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  ...AdminRestaurantLinkSource.values.map((source) {
+                    return FilterChip(
+                      key: ValueKey(
+                        'admin-link-source-${source.callableValue}',
+                      ),
+                      label: Text(source.label),
+                      selected: _selectedSources.contains(source),
+                      onSelected:
+                          _pageBusy ||
+                              (_needsQrPreparation &&
+                                  source == AdminRestaurantLinkSource.biteScore)
+                          ? null
+                          : (selected) => _toggleSource(source, selected),
+                    );
+                  }),
+                ],
               ),
               const SizedBox(height: 16),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(
+                    'Filters',
+                    style: Theme.of(context).textTheme.titleSmall,
+                  ),
+                  FilterChip(
+                    key: const ValueKey(
+                      'admin-link-filter-needs-qr-preparation',
+                    ),
+                    label: const Text('Needs QR preparation'),
+                    selected: _needsQrPreparation,
+                    onSelected: _pageBusy ? null : _toggleNeedsQrPreparation,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
               Wrap(
                 crossAxisAlignment: WrapCrossAlignment.center,
                 spacing: 12,
@@ -1429,6 +1609,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
     }
 
     final hasMore = _nextCursor != null;
+    final filterActive = _activeNeedsQrPreparation == true;
     return Card(
       key: ValueKey(
         hasMore
@@ -1441,7 +1622,13 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              hasMore
+              filterActive && hasMore
+                  ? 'Checking which restaurants still need QR preparation…'
+                  : filterActive && _preparationUnavailableEncountered
+                  ? 'No assessed restaurants need QR preparation. Some records could not be assessed and are not shown.'
+                  : filterActive
+                  ? 'No restaurants need QR preparation in this search area.'
+                  : hasMore
                   ? 'Some nearby records changed while this page was loading. Continue for more current results.'
                   : 'No matching restaurants were found within this search area.',
             ),
@@ -1460,6 +1647,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
   }
 
   Widget _buildLoadMoreButton() {
+    final checking = _activeNeedsQrPreparation == true && _continueChecking;
     return Align(
       alignment: Alignment.center,
       child: OutlinedButton.icon(
@@ -1477,9 +1665,15 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
             : const Icon(Icons.expand_more),
         label: Text(
           _isLoadingMore
-              ? 'Loading more...'
+              ? checking
+                    ? 'Checking which restaurants still need QR preparation…'
+                    : 'Loading more...'
               : _appendError == null
-              ? 'Load More'
+              ? checking
+                    ? 'Continue checking'
+                    : 'Load More'
+              : checking
+              ? 'Retry checking'
               : 'Retry Load More',
         ),
       ),

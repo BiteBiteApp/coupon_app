@@ -206,6 +206,7 @@ class AdminLinkGenerationService {
     required String clientRequestId,
     String? cursor,
     AdminRestaurantSearchCenter? resolvedSearchCenter,
+    bool needsQrPreparation = false,
   }) async {
     final normalizedLocation = normalizeLocation(locationQuery);
     if (!radiusOptionsMiles.contains(radiusMiles)) {
@@ -234,6 +235,8 @@ class AdminLinkGenerationService {
     if (normalizedName.length > 100 ||
         (!sources.contains(AdminRestaurantLinkSource.biteScore) &&
             biteScoreStatus != AdminBiteScoreStatus.active) ||
+        (needsQrPreparation &&
+            !sources.contains(AdminRestaurantLinkSource.biteScore)) ||
         searchInstanceId.isEmpty ||
         searchInstanceId.length > 128 ||
         !RegExp(r'^[A-Za-z0-9._:-]+$').hasMatch(searchInstanceId) ||
@@ -270,7 +273,9 @@ class AdminLinkGenerationService {
           .map((source) => source.callableValue)
           .toList(growable: false),
       'biteScoreStatus': biteScoreStatus.callableValue,
-      'futureFilters': <String, Object?>{},
+      'futureFilters': <String, Object?>{
+        'needsQrPreparation': needsQrPreparation,
+      },
       'searchInstanceId': searchInstanceId,
     };
     final request = PagedRequest(
@@ -302,7 +307,10 @@ class AdminLinkGenerationService {
       );
     }
     try {
-      return AdminRestaurantLinkPagedResult.fromCallableData(rawResponse);
+      return AdminRestaurantLinkPagedResult.fromCallableData(
+        rawResponse,
+        expectedNeedsQrPreparation: needsQrPreparation,
+      );
     } on FormatException {
       throw const AdminLinkGenerationException(
         'Restaurant search returned an invalid page. Run the search again.',

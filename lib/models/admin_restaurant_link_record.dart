@@ -242,6 +242,22 @@ class AdminRestaurantPreparationState {
         invitationStatuses.contains(biteScoreCustomer);
   }
 
+  bool get isUnavailable =>
+      canonicalCatalogRestaurantId == null ||
+      ownerInvite == AdminRestaurantPreparationStatus.unavailable ||
+      claimInvite == AdminRestaurantPreparationStatus.unavailable ||
+      biteSaverCustomer == AdminRestaurantPreparationStatus.unavailable ||
+      biteScoreCustomer == AdminRestaurantPreparationStatus.unavailable;
+
+  bool get needsPreparation =>
+      !isUnavailable &&
+      (ownerInvite == AdminRestaurantPreparationStatus.unprepared ||
+          claimInvite == AdminRestaurantPreparationStatus.unprepared ||
+          biteSaverCustomer == AdminRestaurantPreparationStatus.unprepared ||
+          biteScoreCustomer == AdminRestaurantPreparationStatus.unprepared);
+
+  bool get isComplete => !isUnavailable && !needsPreparation;
+
   static AdminRestaurantPreparationState tryFromCallableData(
     Object? value, {
     required AdminRestaurantLinkSource source,
@@ -250,7 +266,10 @@ class AdminRestaurantPreparationState {
     required AdminRestaurantClaimState claimState,
   }) {
     final data = _stringKeyedMap(value);
-    if (data == null) {
+    const keys = <String>{'canonicalCatalogRestaurantId', 'i', 'c', 'sa', 'sr'};
+    if (data == null ||
+        data.keys.length != keys.length ||
+        !data.keys.toSet().containsAll(keys)) {
       return const AdminRestaurantPreparationState.unavailable();
     }
     final canonicalId = exactFirestoreDocumentId(
@@ -697,6 +716,8 @@ class AdminRestaurantLinkPagedResult {
   final double radiusMiles;
   final List<AdminRestaurantLinkSource> queriedSources;
   final AdminRestaurantMaterializedOrder? consumedBoundary;
+  final bool? needsQrPreparation;
+  final bool preparationUnavailableEncountered;
 
   const AdminRestaurantLinkPagedResult({
     required this.page,
@@ -704,6 +725,8 @@ class AdminRestaurantLinkPagedResult {
     required this.radiusMiles,
     required this.queriedSources,
     this.consumedBoundary,
+    this.needsQrPreparation,
+    this.preparationUnavailableEncountered = false,
   });
 
   bool get isPreparing =>
@@ -713,8 +736,12 @@ class AdminRestaurantLinkPagedResult {
   bool get hasNext => page.hasNext;
   String? get nextCursor => page.cursors.next;
   String? get preparationMessage => page.preparation?.message;
+  bool get usesFilterContract => needsQrPreparation != null;
 
-  factory AdminRestaurantLinkPagedResult.fromCallableData(Object? value) {
+  factory AdminRestaurantLinkPagedResult.fromCallableData(
+    Object? value, {
+    bool? expectedNeedsQrPreparation,
+  }) {
     final data = _stringKeyedMap(value);
     const protocolKeys = <String>{
       'protocolVersion',
@@ -736,7 +763,11 @@ class AdminRestaurantLinkPagedResult {
       'radiusMiles',
       'queriedSources',
     };
-    const metadataKeys = <String>{...requiredMetadataKeys, 'consumedBoundary'};
+    const metadataKeys = <String>{
+      ...requiredMetadataKeys,
+      'consumedBoundary',
+      'filterMetadata',
+    };
     if (data == null ||
         data.keys.any(
           (key) => !protocolKeys.contains(key) && !metadataKeys.contains(key),
@@ -754,6 +785,37 @@ class AdminRestaurantLinkPagedResult {
           ...requiredMetadataKeys,
         })) {
       throw const FormatException('Invalid paged restaurant response.');
+    }
+    final rawFilterMetadata = _stringKeyedMap(data['filterMetadata']);
+    bool? needsQrPreparation;
+    var preparationUnavailableEncountered = false;
+    if (expectedNeedsQrPreparation == null) {
+      if (data.containsKey('filterMetadata')) {
+        throw const FormatException('Invalid paged restaurant response.');
+      }
+    } else {
+      const filterKeys = <String>{
+        'schemaVersion',
+        'needsQrPreparation',
+        'preparationUnavailableEncountered',
+      };
+      final schemaVersion = rawFilterMetadata?['schemaVersion'];
+      if (rawFilterMetadata == null ||
+          rawFilterMetadata.keys.length != filterKeys.length ||
+          !rawFilterMetadata.keys.toSet().containsAll(filterKeys) ||
+          schemaVersion is! int ||
+          schemaVersion != 1 ||
+          rawFilterMetadata['needsQrPreparation'] is! bool ||
+          rawFilterMetadata['needsQrPreparation'] !=
+              expectedNeedsQrPreparation ||
+          rawFilterMetadata['preparationUnavailableEncountered'] is! bool ||
+          (!expectedNeedsQrPreparation &&
+              rawFilterMetadata['preparationUnavailableEncountered'] == true)) {
+        throw const FormatException('Invalid paged restaurant response.');
+      }
+      needsQrPreparation = expectedNeedsQrPreparation;
+      preparationUnavailableEncountered =
+          rawFilterMetadata['preparationUnavailableEncountered'] as bool;
     }
     final protocolData = <String, Object?>{
       for (final entry in data.entries)
@@ -820,6 +882,7 @@ class AdminRestaurantLinkPagedResult {
         }
     }
     final keys = <String>{};
+    final canonicalIds = <String>{};
     AdminRestaurantMaterializedOrder? previousOrder;
     for (final record in page.items) {
       final order = record.materializedOrder;
@@ -829,6 +892,15 @@ class AdminRestaurantLinkPagedResult {
           (previousOrder != null && order.compareTo(previousOrder) <= 0) ||
           (consumedBoundary != null && order.compareTo(consumedBoundary) > 0)) {
         throw const FormatException('Invalid paged restaurant identity.');
+      }
+      if (needsQrPreparation == true &&
+          (record.source != AdminRestaurantLinkSource.biteScore ||
+              record.actionId != record.documentId ||
+              record.preparation.canonicalCatalogRestaurantId !=
+                  record.documentId ||
+              !record.preparation.needsPreparation ||
+              !canonicalIds.add(record.documentId))) {
+        throw const FormatException('Invalid filtered restaurant identity.');
       }
       previousOrder = order;
     }
@@ -886,6 +958,8 @@ class AdminRestaurantLinkPagedResult {
       radiusMiles: radiusMiles,
       queriedSources: List.unmodifiable(sources),
       consumedBoundary: consumedBoundary,
+      needsQrPreparation: needsQrPreparation,
+      preparationUnavailableEncountered: preparationUnavailableEncountered,
     );
   }
 

@@ -8,6 +8,7 @@ const test = require("node:test");
 const {
   biteScoreClaimInvitationEpochIsValid,
   biteScoreClaimInvitationIsInCurrentEpoch,
+  classifyAdminRestaurantQrPreparation,
   clearClaimPreparationAfterUnclaim,
   invitationPreparationIdentity,
   isSafeBiteScoreUnclaimTransition,
@@ -26,6 +27,35 @@ const now = new Date("2026-08-17T12:00:00.000Z");
 const future = new Date("2026-09-17T12:00:00.000Z");
 const past = new Date("2026-07-17T12:00:00.000Z");
 const bindingId = "A".repeat(43);
+
+test("authoritative preparation classification is strict and treats N/R as complete", () => {
+  const projection = (overrides = {}) => ({
+    canonicalCatalogRestaurantId: "restaurant-1",
+    i: "prepared",
+    c: "notRequired",
+    sa: "prepared",
+    sr: "prepared",
+    ...overrides,
+  });
+  assert.equal(
+    classifyAdminRestaurantQrPreparation(projection()),
+    "complete",
+  );
+  assert.equal(
+    classifyAdminRestaurantQrPreparation(projection({sa: "unprepared"})),
+    "needsPreparation",
+  );
+  assert.equal(
+    classifyAdminRestaurantQrPreparation(projection({i: "unavailable"})),
+    "unavailable",
+  );
+  assert.equal(
+    classifyAdminRestaurantQrPreparation(projection({
+      canonicalCatalogRestaurantId: null,
+    })),
+    "unavailable",
+  );
+});
 
 class FakePreparationDatabase {
   constructor(initial = {}) {
