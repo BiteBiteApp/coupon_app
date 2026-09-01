@@ -3,16 +3,629 @@ import 'dart:convert';
 import 'dart:ui' as ui;
 
 import 'package:coupon_app/models/admin_restaurant_link_record.dart';
+import 'package:coupon_app/models/admin_restaurant_qr_batch.dart';
 import 'package:coupon_app/models/pagination/paged_models.dart';
 import 'package:coupon_app/screens/admin_link_generation_screen.dart';
 import 'package:coupon_app/services/admin_link_generation_service.dart';
 import 'package:coupon_app/services/restaurant_invite_service.dart';
 import 'package:coupon_app/services/restaurant_qr_export.dart';
 import 'package:coupon_app/services/restaurant_qr_image_service.dart';
+import 'package:coupon_app/services/restaurant_qr_pdf_export.dart';
+import 'package:coupon_app/services/restaurant_qr_pdf_service.dart';
+import 'package:coupon_app/widgets/admin_restaurant_qr_batch_dialog.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'batch selection accepts valid selected rows and ignores valid unselected duplicates',
+    () {
+      final first = _selectableOrderedRecord('first', 0);
+      final second = _selectableOrderedRecord('second', 1);
+      final unselected = _selectableOrderedRecord('not-selected', 2);
+      final selectableChecks = <String>[];
+      final frozen = freezeAdminRestaurantQrBatchSelection(
+        selectedCatalogRestaurantIds: <String>{'second', 'first'},
+        displayedRecords: <AdminRestaurantLinkRecord>[
+          unselected,
+          first,
+          unselected,
+          second,
+        ],
+        isCurrentlySelectable: (record) {
+          selectableChecks.add(record.documentId);
+          return true;
+        },
+      );
+
+      expect(frozen, <String>['first', 'second']);
+      expect(selectableChecks, <String>['first', 'second']);
+      expect(() => frozen.add('later'), throwsUnsupportedError);
+    },
+  );
+
+  test(
+    'batch selection reaches the duplicate-count guard for adjacent and separated rows',
+    () {
+      final duplicate = _selectableOrderedRecord('duplicate', 0);
+      final selected = <String>{'duplicate'};
+      expect(
+        freezeAdminRestaurantQrBatchSelection(
+          selectedCatalogRestaurantIds: selected,
+          displayedRecords: <AdminRestaurantLinkRecord>[duplicate],
+          isCurrentlySelectable: (_) => true,
+        ),
+        <String>['duplicate'],
+      );
+
+      final cases = <List<AdminRestaurantLinkRecord>>[
+        <AdminRestaurantLinkRecord>[duplicate, duplicate],
+        <AdminRestaurantLinkRecord>[
+          duplicate,
+          _selectableOrderedRecord('unselected-between', 1),
+          duplicate,
+        ],
+      ];
+
+      for (final displayedRecords in cases) {
+        var selectableChecks = 0;
+        expect(
+          () => freezeAdminRestaurantQrBatchSelection(
+            selectedCatalogRestaurantIds: selected,
+            displayedRecords: displayedRecords,
+            isCurrentlySelectable: (record) {
+              selectableChecks += 1;
+              expect(record, same(duplicate));
+              return true;
+            },
+          ),
+          throwsA(
+            isA<AdminRestaurantQrBatchSelectionException>().having(
+              (error) => error.message,
+              'message',
+              'The selected restaurants changed unexpectedly. Run a fresh Search.',
+            ),
+          ),
+        );
+        expect(
+          selectableChecks,
+          1,
+          reason:
+              'The first valid row passes before occurrence two is rejected.',
+        );
+        expect(selected, <String>{'duplicate'});
+      }
+    },
+  );
+
+  test(
+    'batch selection rejects conflicting duplicate rows only after each row can pass alone',
+    () {
+      final first = _selectableOrderedRecord(
+        'duplicate',
+        0,
+        name: 'First Display',
+      );
+      final second = _biteScoreRecord(
+        documentId: 'duplicate',
+        name: 'Conflicting Display',
+        preparation: _preparationState(
+          'duplicate',
+          ownerInvite: AdminRestaurantPreparationStatus.prepared,
+        ),
+        orderDistanceMillimeters: 1,
+      );
+      final selected = <String>{'duplicate'};
+
+      for (final row in <AdminRestaurantLinkRecord>[first, second]) {
+        expect(row.isBiteScore, isTrue);
+        expect(row.isActive, isTrue);
+        expect(row.actionId, row.documentId);
+        expect(row.preparation.canonicalCatalogRestaurantId, row.documentId);
+        expect(
+          row.preparation.isValidForParticipation(
+            biteSaverCatalogBindingState: row.biteSaverCatalogBindingState,
+            claimState: row.claimState,
+          ),
+          isTrue,
+        );
+        expect(
+          freezeAdminRestaurantQrBatchSelection(
+            selectedCatalogRestaurantIds: selected,
+            displayedRecords: <AdminRestaurantLinkRecord>[row],
+            isCurrentlySelectable: (candidate) => identical(candidate, row),
+          ),
+          <String>['duplicate'],
+        );
+      }
+
+      var selectableChecks = 0;
+      expect(
+        () => freezeAdminRestaurantQrBatchSelection(
+          selectedCatalogRestaurantIds: selected,
+          displayedRecords: <AdminRestaurantLinkRecord>[first, second],
+          isCurrentlySelectable: (record) {
+            selectableChecks += 1;
+            return true;
+          },
+        ),
+        throwsA(
+          isA<AdminRestaurantQrBatchSelectionException>().having(
+            (error) => error.message,
+            'message',
+            'The selected restaurants changed unexpectedly. Run a fresh Search.',
+          ),
+        ),
+      );
+      expect(selectableChecks, 1);
+      expect(selected, <String>{'duplicate'});
+    },
+  );
+
+  test(
+    'batch selection reaches the zero-occurrence guard for a missing selected row',
+    () {
+      final selected = <String>{'missing'};
+      final selectedRow = _selectableOrderedRecord('missing', 0);
+      final remainingRow = _selectableOrderedRecord('displayed', 1);
+      expect(
+        freezeAdminRestaurantQrBatchSelection(
+          selectedCatalogRestaurantIds: selected,
+          displayedRecords: <AdminRestaurantLinkRecord>[selectedRow],
+          isCurrentlySelectable: (_) => true,
+        ),
+        <String>['missing'],
+      );
+
+      var selectableChecks = 0;
+      expect(
+        () => freezeAdminRestaurantQrBatchSelection(
+          selectedCatalogRestaurantIds: selected,
+          displayedRecords: <AdminRestaurantLinkRecord>[remainingRow],
+          isCurrentlySelectable: (_) {
+            selectableChecks += 1;
+            return true;
+          },
+        ),
+        throwsA(
+          isA<AdminRestaurantQrBatchSelectionException>().having(
+            (error) => error.message,
+            'message',
+            'The selected restaurants changed unexpectedly. Run a fresh Search.',
+          ),
+        ),
+      );
+      expect(selectableChecks, 0);
+      expect(selected, <String>{'missing'});
+    },
+  );
+
+  test(
+    'batch selection reaches selectability after exactly one valid occurrence',
+    () {
+      final selected = <String>{'stale-selection'};
+      final row = _selectableOrderedRecord('stale-selection', 0);
+      expect(
+        freezeAdminRestaurantQrBatchSelection(
+          selectedCatalogRestaurantIds: selected,
+          displayedRecords: <AdminRestaurantLinkRecord>[row],
+          isCurrentlySelectable: (_) => true,
+        ),
+        <String>['stale-selection'],
+      );
+
+      var selectableChecks = 0;
+      expect(
+        () => freezeAdminRestaurantQrBatchSelection(
+          selectedCatalogRestaurantIds: selected,
+          displayedRecords: <AdminRestaurantLinkRecord>[row],
+          isCurrentlySelectable: (candidate) {
+            selectableChecks += 1;
+            expect(candidate, same(row));
+            return false;
+          },
+        ),
+        throwsA(
+          isA<AdminRestaurantQrBatchSelectionException>().having(
+            (error) => error.message,
+            'message',
+            'The selected restaurants are inconsistent. Run a fresh Search.',
+          ),
+        ),
+      );
+      expect(selectableChecks, 1);
+      expect(selected, <String>{'stale-selection'});
+    },
+  );
+
+  testWidgets(
+    'Generate freezes selected canonical IDs in displayed order and double taps once',
+    (tester) async {
+      final pending = Completer<AdminRestaurantQrPreparationRunResult>();
+      var prepareCalls = 0;
+      var frozenIds = const <String>[];
+      final dependencies = AdminRestaurantQrBatchDialogDependencies(
+        prepare: (catalogRestaurantIds, _) {
+          prepareCalls += 1;
+          frozenIds = List<String>.of(catalogRestaurantIds);
+          return pending.future;
+        },
+        retryPreparation: (_, _) async => throw UnimplementedError(),
+        preflight: (_) async => throw UnimplementedError(),
+        buildPdf: (_) async => throw UnimplementedError(),
+        downloadPdf: (_, _) async => throw UnimplementedError(),
+        markPrepared: (_, _) async => throw UnimplementedError(),
+      );
+      await _pumpScreen(
+        tester,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+            }) async => _result(
+              records: <AdminRestaurantLinkRecord>[
+                _selectableOrderedRecord('display-a', 0, name: 'Display A'),
+                _selectableOrderedRecord('display-b', 1, name: 'Display B'),
+                _selectableOrderedRecord('display-c', 2, name: 'Display C'),
+              ],
+            ),
+        qrBatchDependencies: dependencies,
+      );
+      await _submitSearch(tester);
+      for (final id in <String>['display-c', 'display-a']) {
+        final checkbox = await _scrollToAdminKey(
+          tester,
+          ValueKey<String>('biteScore:$id:batch-selection'),
+        );
+        await tester.tap(checkbox);
+        await tester.pump();
+      }
+
+      final generate = await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-generate-qr-label-pdf'),
+        delta: -600,
+      );
+      await tester.tap(generate);
+      await tester.tap(generate, warnIfMissed: false);
+      await tester.pump();
+      await tester.pump();
+
+      expect(prepareCalls, 1);
+      expect(frozenIds, <String>['display-a', 'display-c']);
+      expect(
+        find.byKey(const ValueKey('admin-qr-batch-dialog')),
+        findsOneWidget,
+      );
+
+      pending.complete(
+        AdminRestaurantQrPreparationRunResult(
+          requestedCatalogRestaurantIds: frozenIds,
+          results: <AdminRestaurantQrRestaurantResult>[
+            for (final id in frozenIds)
+              AdminRestaurantQrProblemRestaurant(
+                catalogRestaurantId: id,
+                outcome: AdminRestaurantQrProblemOutcome.unavailable,
+                code: 'restaurant_unavailable',
+                message: 'This restaurant is not currently available.',
+              ),
+          ],
+        ),
+      );
+      const cancelKey = ValueKey('admin-qr-batch-cancel');
+      for (
+        var pump = 0;
+        pump < 100 && find.byKey(cancelKey).evaluate().isEmpty;
+        pump += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(find.byKey(cancelKey), findsOneWidget);
+      await tester.tap(find.byKey(cancelKey));
+      for (
+        var pump = 0;
+        pump < 100 &&
+            find
+                .byKey(const ValueKey('admin-qr-batch-dialog'))
+                .evaluate()
+                .isNotEmpty;
+        pump += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(find.byKey(const ValueKey('admin-qr-batch-dialog')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'exactly one valid selected canonical row reaches the real batch workflow',
+    (tester) async {
+      const catalogId = 'positive-control';
+      final pending = Completer<AdminRestaurantQrPreparationRunResult>();
+      var preparationCalls = 0;
+      var retryPreparationCalls = 0;
+      var preflightCalls = 0;
+      var buildCalls = 0;
+      var downloadCalls = 0;
+      var markingCalls = 0;
+      final dependencies = AdminRestaurantQrBatchDialogDependencies(
+        prepare: (catalogRestaurantIds, _) {
+          preparationCalls += 1;
+          expect(catalogRestaurantIds, <String>[catalogId]);
+          return pending.future;
+        },
+        retryPreparation: (_, _) async {
+          retryPreparationCalls += 1;
+          throw StateError('Positive control must not retry preparation.');
+        },
+        preflight: (_) async {
+          preflightCalls += 1;
+          throw StateError('Preparation remains pending in this assertion.');
+        },
+        buildPdf: (_) async {
+          buildCalls += 1;
+          throw StateError('Preparation remains pending in this assertion.');
+        },
+        downloadPdf: (_, _) async {
+          downloadCalls += 1;
+          throw StateError('Preparation remains pending in this assertion.');
+        },
+        markPrepared: (_, _) async {
+          markingCalls += 1;
+          throw StateError('Preparation remains pending in this assertion.');
+        },
+      );
+      await _pumpScreen(
+        tester,
+        qrBatchDependencies: dependencies,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+            }) async => _result(
+              records: <AdminRestaurantLinkRecord>[
+                _selectableOrderedRecord(catalogId, 0),
+              ],
+            ),
+      );
+      await _submitSearch(tester);
+      final checkbox = find.byKey(
+        const ValueKey('biteScore:positive-control:batch-selection'),
+      );
+      expect(tester.widget<Checkbox>(checkbox).onChanged, isNotNull);
+      await tester.tap(checkbox);
+      await tester.pump();
+      expect(find.text('1 selected'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey('admin-link-generate-qr-label-pdf')),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(preparationCalls, 1);
+      expect(retryPreparationCalls, 0);
+      expect(preflightCalls, 0);
+      expect(buildCalls, 0);
+      expect(downloadCalls, 0);
+      expect(markingCalls, 0);
+      expect(
+        find.byKey(const ValueKey('admin-qr-batch-dialog')),
+        findsOneWidget,
+      );
+
+      pending.complete(
+        AdminRestaurantQrPreparationRunResult(
+          requestedCatalogRestaurantIds: const <String>[catalogId],
+          results: <AdminRestaurantQrRestaurantResult>[
+            AdminRestaurantQrProblemRestaurant(
+              catalogRestaurantId: catalogId,
+              outcome: AdminRestaurantQrProblemOutcome.unavailable,
+              code: 'restaurant_unavailable',
+              message: 'This restaurant is not currently available.',
+            ),
+          ],
+        ),
+      );
+      const cancelKey = ValueKey('admin-qr-batch-cancel');
+      for (
+        var pump = 0;
+        pump < 100 && find.byKey(cancelKey).evaluate().isEmpty;
+        pump += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(find.byKey(cancelKey), findsOneWidget);
+      await tester.tap(find.byKey(cancelKey));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('admin-qr-batch-dialog')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'invalid frozen shapes reach their real guard with zero batch side effects',
+    (tester) async {
+      for (final shape in <String>[
+        'separated-duplicate',
+        'conflicting-duplicate',
+        'missing',
+        'no-longer-selectable',
+      ]) {
+        final catalogId = 'fixture-$shape';
+        final selectedRow = _selectableOrderedRecord(catalogId, 0);
+        final records = <AdminRestaurantLinkRecord>[
+          selectedRow,
+          _selectableOrderedRecord('unselected-$shape', 1),
+        ];
+        var preparationCalls = 0;
+        var retryPreparationCalls = 0;
+        var preflightCalls = 0;
+        var buildCalls = 0;
+        var downloadCalls = 0;
+        var markingCalls = 0;
+        final dependencies = AdminRestaurantQrBatchDialogDependencies(
+          prepare: (_, _) async {
+            preparationCalls += 1;
+            throw StateError('$shape must fail before preparation.');
+          },
+          retryPreparation: (_, _) async {
+            retryPreparationCalls += 1;
+            throw StateError('$shape must fail before a preparation retry.');
+          },
+          preflight: (_) async {
+            preflightCalls += 1;
+            throw StateError('$shape must fail before preflight.');
+          },
+          buildPdf: (_) async {
+            buildCalls += 1;
+            throw StateError('$shape must fail before PDF build.');
+          },
+          downloadPdf: (_, _) async {
+            downloadCalls += 1;
+            throw StateError('$shape must fail before download.');
+          },
+          markPrepared: (_, _) async {
+            markingCalls += 1;
+            throw StateError('$shape must fail before marking.');
+          },
+        );
+        await _pumpScreen(
+          tester,
+          qrBatchDependencies: dependencies,
+          search:
+              ({
+                required locationQuery,
+                required radiusMiles,
+                required restaurantName,
+                required sources,
+              }) async => _result(records: records),
+        );
+        await _submitSearch(tester);
+        final checkbox = find.byKey(
+          ValueKey<String>('biteScore:$catalogId:batch-selection'),
+        );
+        expect(
+          tester.widget<Checkbox>(checkbox).onChanged,
+          isNotNull,
+          reason: '$shape must begin from a selectable row.',
+        );
+        await tester.tap(checkbox);
+        await tester.pump();
+        expect(find.text('1 selected'), findsOneWidget, reason: shape);
+        expect(tester.widget<Checkbox>(checkbox).value, isTrue, reason: shape);
+
+        switch (shape) {
+          case 'separated-duplicate':
+            records.add(
+              _selectableOrderedRecord(catalogId, 2, name: 'Duplicate Display'),
+            );
+            break;
+          case 'conflicting-duplicate':
+            records.add(
+              _biteScoreRecord(
+                documentId: catalogId,
+                name: 'Conflicting Display and Preparation',
+                preparation: _preparationState(
+                  catalogId,
+                  ownerInvite: AdminRestaurantPreparationStatus.prepared,
+                ),
+                orderDistanceMillimeters: 2,
+              ),
+            );
+            break;
+          case 'missing':
+            records.removeWhere((record) => record.documentId == catalogId);
+            break;
+          case 'no-longer-selectable':
+            records[0] = _biteScoreRecord(
+              documentId: catalogId,
+              isActive: false,
+              preparation: _availablePreparation(catalogId),
+              orderDistanceMillimeters: 0,
+            );
+            break;
+        }
+
+        final matchingRows = records
+            .where((record) => record.documentId == catalogId)
+            .toList(growable: false);
+        final expectedOccurrences = switch (shape) {
+          'separated-duplicate' || 'conflicting-duplicate' => 2,
+          'missing' => 0,
+          'no-longer-selectable' => 1,
+          _ => throw StateError('Unexpected test shape.'),
+        };
+        expect(matchingRows, hasLength(expectedOccurrences), reason: shape);
+        if (shape.contains('duplicate')) {
+          for (final row in matchingRows) {
+            expect(row.isBiteScore, isTrue, reason: shape);
+            expect(row.isActive, isTrue, reason: shape);
+            expect(row.actionId, catalogId, reason: shape);
+            expect(
+              row.preparation.canonicalCatalogRestaurantId,
+              catalogId,
+              reason: shape,
+            );
+            expect(
+              row.preparation.isValidForParticipation(
+                biteSaverCatalogBindingState: row.biteSaverCatalogBindingState,
+                claimState: row.claimState,
+              ),
+              isTrue,
+              reason: shape,
+            );
+          }
+        }
+        if (shape == 'no-longer-selectable') {
+          expect(matchingRows.single.isActive, isFalse);
+          expect(
+            matchingRows.single.preparation.canonicalCatalogRestaurantId,
+            catalogId,
+          );
+        }
+
+        final generate = find.byKey(
+          const ValueKey('admin-link-generate-qr-label-pdf'),
+        );
+        expect(tester.widget<FilledButton>(generate).onPressed, isNotNull);
+        await tester.tap(generate);
+        await tester.pump();
+
+        expect(preparationCalls, 0, reason: shape);
+        expect(retryPreparationCalls, 0, reason: shape);
+        expect(preflightCalls, 0, reason: shape);
+        expect(buildCalls, 0, reason: shape);
+        expect(downloadCalls, 0, reason: shape);
+        expect(markingCalls, 0, reason: shape);
+        expect(
+          find.byKey(const ValueKey('admin-qr-batch-dialog')),
+          findsNothing,
+          reason: shape,
+        );
+        final expectedMessage = shape == 'no-longer-selectable'
+            ? 'The selected restaurants are inconsistent. Run a fresh Search.'
+            : 'The selected restaurants changed unexpectedly. Run a fresh Search.';
+        expect(find.text(expectedMessage), findsOneWidget, reason: shape);
+        expect(find.text('1 selected'), findsOneWidget, reason: shape);
+        expect(tester.widget<Checkbox>(checkbox).value, isTrue, reason: shape);
+        expect(
+          tester.widget<FilledButton>(generate).onPressed,
+          isNotNull,
+          reason: '$shape must not leave the batch-active lock set.',
+        );
+        tester
+            .state<ScaffoldMessengerState>(find.byType(ScaffoldMessenger))
+            .clearSnackBars();
+        await tester.pumpAndSettle();
+      }
+    },
+  );
+
   testWidgets(
     'paged search prepares explicitly and returns page one on continue',
     (tester) async {
@@ -76,6 +689,34 @@ void main() {
     'canonical selection is exact deduplicated accessible and excludes unsafe rows',
     (tester) async {
       final semantics = tester.ensureSemantics();
+      var preparationCalls = 0;
+      var preflightCalls = 0;
+      var buildCalls = 0;
+      var downloadCalls = 0;
+      var markingCalls = 0;
+      final qrBatchDependencies = AdminRestaurantQrBatchDialogDependencies(
+        prepare: (_, _) async {
+          preparationCalls += 1;
+          throw StateError('Duplicate selection must fail before preparation.');
+        },
+        retryPreparation: (_, _) async => throw UnimplementedError(),
+        preflight: (_) async {
+          preflightCalls += 1;
+          throw StateError('Duplicate selection must fail before preflight.');
+        },
+        buildPdf: (_) async {
+          buildCalls += 1;
+          throw StateError('Duplicate selection must fail before PDF build.');
+        },
+        downloadPdf: (_, _) async {
+          downloadCalls += 1;
+          throw StateError('Duplicate selection must fail before download.');
+        },
+        markPrepared: (_, _) async {
+          markingCalls += 1;
+          throw StateError('Duplicate selection must fail before marking.');
+        },
+      );
       final canonical = _biteScoreRecord(
         documentId: 'canonical-id',
         name: 'Canonical Cafe',
@@ -94,6 +735,7 @@ void main() {
       );
       await _pumpScreen(
         tester,
+        qrBatchDependencies: qrBatchDependencies,
         search:
             ({
               required locationQuery,
@@ -135,6 +777,14 @@ void main() {
       await _submitSearch(tester);
 
       expect(find.text('0 selected'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const ValueKey('admin-link-generate-qr-label-pdf')),
+            )
+            .onPressed,
+        isNull,
+      );
       expect(find.text('2 selectable of 9 loaded'), findsOneWidget);
       expect(
         find.bySemanticsLabel('Select Canonical Cafe for batch work'),
@@ -192,14 +842,41 @@ void main() {
       expect(find.text('1 selected'), findsOneWidget);
       expect(
         tester
+            .widget<FilledButton>(
+              find.byKey(const ValueKey('admin-link-generate-qr-label-pdf')),
+            )
+            .onPressed,
+        isNotNull,
+      );
+      expect(
+        tester
             .widgetList<Checkbox>(duplicateCheckboxes)
             .map((box) => box.value),
         everyElement(isTrue),
       );
+      await tester.tap(
+        find.byKey(const ValueKey('admin-link-generate-qr-label-pdf')),
+      );
+      await tester.pump();
+      expect(preparationCalls, 0);
+      expect(preflightCalls, 0);
+      expect(buildCalls, 0);
+      expect(downloadCalls, 0);
+      expect(markingCalls, 0);
+      expect(find.byKey(const ValueKey('admin-qr-batch-dialog')), findsNothing);
+      expect(find.textContaining('fresh Search'), findsOneWidget);
 
       await tester.tap(duplicateCheckboxes.last);
       await tester.pump();
       expect(find.text('0 selected'), findsOneWidget);
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const ValueKey('admin-link-generate-qr-label-pdf')),
+            )
+            .onPressed,
+        isNull,
+      );
       expect(
         tester
             .widgetList<Checkbox>(duplicateCheckboxes)
@@ -508,6 +1185,844 @@ void main() {
     },
   );
 
+  testWidgets(
+    'completed frozen marking reconciles selection and filtered rows after all work',
+    (tester) async {
+      var pageCalls = 0;
+      final initialRecords = List<AdminRestaurantLinkRecord>.generate(
+        30,
+        (index) => _selectableOrderedRecord(
+          'reconcile-${index.toString().padLeft(2, '0')}',
+          index,
+          name: 'Reconcile Restaurant $index',
+        ),
+      );
+      final fontBytes = await rootBundle.load(
+        RestaurantQrPdfService.fontAssetPath,
+      );
+      final pdfService = RestaurantQrPdfService(
+        loadAsset: (_) async => fontBytes,
+      );
+      final dependencies = AdminRestaurantQrBatchDialogDependencies(
+        prepare: (ids, onProgress) async => _batchPreparation(ids),
+        retryPreparation: (previous, onProgress) async => previous,
+        preflight: pdfService.preflight,
+        buildPdf: (preflight) async => _batchPdfArtifact(preflight),
+        downloadPdf: (bytes, filename) async =>
+            const RestaurantQrPdfExportResult.initiated(),
+        markPrepared: (worklist, onProgress) async =>
+            _resolvedBatchMarking(worklist),
+      );
+      await _pumpPagedScreen(
+        tester,
+        qrBatchDependencies: dependencies,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+              required searchInstanceId,
+              required clientRequestId,
+              required needsQrPreparation,
+              cursor,
+              resolvedSearchCenter,
+            }) async {
+              pageCalls += 1;
+              expect(needsQrPreparation, isTrue);
+              if (pageCalls == 1) {
+                return _pagedResult(
+                  records: initialRecords,
+                  hasNext: true,
+                  nextCursor: _pageCursor('reconcile-next'),
+                  needsQrPreparation: true,
+                );
+              }
+              return _pagedResult(
+                records: <AdminRestaurantLinkRecord>[
+                  _selectableOrderedRecord(
+                    'reconcile-appended',
+                    30,
+                    name: 'Reconcile Appended',
+                  ),
+                ],
+                needsQrPreparation: true,
+              );
+            },
+      );
+      final filter = await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-filter-needs-qr-preparation'),
+        delta: -600,
+      );
+      await tester.tap(filter);
+      await tester.pump();
+      await _submitSearch(tester);
+
+      for (final id in <String>['reconcile-20', 'reconcile-21']) {
+        final checkbox = await _scrollToAdminKey(
+          tester,
+          ValueKey<String>('biteScore:$id:batch-selection'),
+        );
+        await tester.tap(checkbox);
+        await tester.pump();
+      }
+      final generate = await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-generate-qr-label-pdf'),
+        delta: -700,
+      );
+      final listState = tester.state<ScrollableState>(
+        find
+            .descendant(
+              of: find.byKey(
+                const ValueKey('admin-link-generation-scroll-view'),
+              ),
+              matching: find.byType(Scrollable),
+            )
+            .first,
+      );
+      final offsetBeforeBatch = listState.position.pixels;
+      expect(offsetBeforeBatch, greaterThan(0));
+
+      await tester.tap(generate);
+      for (
+        var pump = 0;
+        pump < 100 && find.text('PDF ready').evaluate().isEmpty;
+        pump += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(find.text('PDF ready'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('admin-qr-batch-download')));
+      for (
+        var pump = 0;
+        pump < 100 && find.text('Completed').evaluate().isEmpty;
+        pump += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(find.text('Completed'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('admin-qr-batch-close')));
+      await tester.pumpAndSettle();
+
+      expect(listState.position.pixels, closeTo(offsetBeforeBatch, 0.1));
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-selected-count'),
+        delta: -700,
+      );
+      expect(find.text('0 selected'), findsOneWidget);
+      expect(find.textContaining('28 restaurant records near'), findsOneWidget);
+
+      final loadMore = await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-load-more-button'),
+      );
+      await tester.tap(loadMore);
+      await tester.pumpAndSettle();
+      expect(pageCalls, 2);
+      expect(find.text('Reconcile Appended'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'complete unresolved projection stays visible and selected until resolved',
+    (tester) async {
+      final preparedIdsByCall = <List<String>>[];
+      final prepared = _batchPreparation(const ['mixed-a', 'mixed-b']);
+      final preparation = AdminRestaurantQrPreparationRunResult(
+        requestedCatalogRestaurantIds: const ['mixed-a', 'mixed-b', 'mixed-c'],
+        results: <AdminRestaurantQrRestaurantResult>[
+          ...prepared.results,
+          AdminRestaurantQrProblemRestaurant(
+            catalogRestaurantId: 'mixed-c',
+            outcome: AdminRestaurantQrProblemOutcome.unavailable,
+            code: 'restaurant_unavailable',
+            message: 'This restaurant is not currently available.',
+          ),
+        ],
+      );
+      final fontBytes = await rootBundle.load(
+        RestaurantQrPdfService.fontAssetPath,
+      );
+      final pdfService = RestaurantQrPdfService(
+        loadAsset: (_) async => fontBytes,
+      );
+      final dependencies = AdminRestaurantQrBatchDialogDependencies(
+        prepare: (ids, onProgress) async {
+          final frozenIds = List<String>.unmodifiable(ids);
+          preparedIdsByCall.add(frozenIds);
+          if (preparedIdsByCall.length == 1) {
+            return preparation;
+          }
+          return AdminRestaurantQrPreparationRunResult(
+            requestedCatalogRestaurantIds: frozenIds,
+            results: <AdminRestaurantQrRestaurantResult>[
+              for (final id in frozenIds)
+                AdminRestaurantQrProblemRestaurant(
+                  catalogRestaurantId: id,
+                  outcome: AdminRestaurantQrProblemOutcome.unavailable,
+                  code: 'restaurant_unavailable',
+                  message: 'This restaurant is not currently available.',
+                ),
+            ],
+          );
+        },
+        retryPreparation: (previous, onProgress) async => previous,
+        preflight: pdfService.preflight,
+        buildPdf: (preflight) async => _batchPdfArtifact(preflight),
+        downloadPdf: (bytes, filename) async =>
+            const RestaurantQrPdfExportResult.initiated(),
+        markPrepared: (worklist, onProgress) async => _resolvedBatchMarking(
+          worklist,
+          failedCatalogRestaurantIds: const {'mixed-a'},
+          completeProjectionForFailedCatalogRestaurantIds: const {'mixed-a'},
+          incompatibleNotRequiredProjectionForFailedCatalogRestaurantIds:
+              const {'mixed-a'},
+        ),
+      );
+      await _pumpScreen(
+        tester,
+        qrBatchDependencies: dependencies,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+            }) async => _result(
+              records: <AdminRestaurantLinkRecord>[
+                _selectableOrderedRecord('mixed-a', 0, name: 'Mixed A'),
+                _selectableOrderedRecord('mixed-b', 1, name: 'Mixed B'),
+                _selectableOrderedRecord('mixed-c', 2, name: 'Mixed C'),
+              ],
+            ),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('admin-link-filter-needs-qr-preparation')),
+      );
+      await tester.pump();
+      await _submitSearch(tester);
+      await tester.tap(
+        find.byKey(const ValueKey('admin-link-select-all-loaded')),
+      );
+      await tester.pump();
+      expect(find.text('3 selected'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey('admin-link-generate-qr-label-pdf')),
+      );
+      for (
+        var pump = 0;
+        pump < 100 &&
+            find
+                .byKey(const ValueKey('admin-qr-batch-export-valid'))
+                .evaluate()
+                .isEmpty;
+        pump += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      await tester.tap(
+        find.byKey(const ValueKey('admin-qr-batch-export-valid')),
+      );
+      for (
+        var pump = 0;
+        pump < 100 && find.text('PDF ready').evaluate().isEmpty;
+        pump += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      await tester.tap(find.byKey(const ValueKey('admin-qr-batch-download')));
+      for (
+        var pump = 0;
+        pump < 100 && find.text('Status saving incomplete').evaluate().isEmpty;
+        pump += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(find.text('Status saving incomplete'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('admin-qr-batch-close')));
+      for (
+        var pump = 0;
+        pump < 100 &&
+            find
+                .byKey(const ValueKey('admin-qr-batch-close-warning'))
+                .evaluate()
+                .isEmpty;
+        pump += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(
+        find.byKey(const ValueKey('admin-qr-batch-close-warning')),
+        findsOneWidget,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('admin-qr-batch-close-anyway')),
+      );
+      for (
+        var pump = 0;
+        pump < 100 &&
+            find
+                .byKey(const ValueKey('admin-qr-batch-dialog'))
+                .evaluate()
+                .isNotEmpty;
+        pump += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(find.byKey(const ValueKey('admin-qr-batch-dialog')), findsNothing);
+
+      expect(find.text('2 selected'), findsOneWidget);
+      expect(find.textContaining('2 restaurant records near'), findsOneWidget);
+      final retainedMixedA = tester.widget<Checkbox>(
+        find.byKey(const ValueKey('biteScore:mixed-a:batch-selection')),
+      );
+      expect(retainedMixedA.value, isTrue);
+      expect(retainedMixedA.onChanged, isNotNull);
+      final retainedMixedACard = find.byKey(
+        const ValueKey('admin-link-record-biteScore:mixed-a'),
+      );
+      expect(
+        find.descendant(
+          of: retainedMixedACard,
+          matching: find.text('I · Unprepared'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: retainedMixedACard,
+          matching: find.text('C · Unprepared'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: retainedMixedACard, matching: find.text('I · N/R')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('biteScore:mixed-b:batch-selection')),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<Checkbox>(
+              find.byKey(const ValueKey('biteScore:mixed-c:batch-selection')),
+            )
+            .value,
+        isTrue,
+      );
+      expect(preparedIdsByCall, <List<String>>[
+        <String>['mixed-a', 'mixed-b', 'mixed-c'],
+      ]);
+
+      final generate = find.byKey(
+        const ValueKey('admin-link-generate-qr-label-pdf'),
+      );
+      expect(tester.widget<FilledButton>(generate).onPressed, isNotNull);
+      await tester.tap(generate);
+      for (
+        var pump = 0;
+        pump < 100 &&
+            find
+                .byKey(const ValueKey('admin-qr-batch-cancel'))
+                .evaluate()
+                .isEmpty;
+        pump += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(preparedIdsByCall, <List<String>>[
+        <String>['mixed-a', 'mixed-b', 'mixed-c'],
+        <String>['mixed-a', 'mixed-c'],
+      ]);
+      expect(
+        tester
+            .widget<Checkbox>(
+              find.byKey(const ValueKey('biteScore:mixed-a:batch-selection')),
+            )
+            .value,
+        isTrue,
+      );
+      expect(
+        tester
+            .widget<Checkbox>(
+              find.byKey(const ValueKey('biteScore:mixed-c:batch-selection')),
+            )
+            .value,
+        isTrue,
+      );
+      await tester.tap(find.byKey(const ValueKey('admin-qr-batch-cancel')));
+      for (
+        var pump = 0;
+        pump < 100 &&
+            find
+                .byKey(const ValueKey('admin-qr-batch-dialog'))
+                .evaluate()
+                .isNotEmpty;
+        pump += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(find.byKey(const ValueKey('admin-qr-batch-dialog')), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'successful status retry suppresses the previously unresolved complete row',
+    (tester) async {
+      var markingCalls = 0;
+      final markingWorklists = <AdminRestaurantQrMarkingWorklist>[];
+      final fontBytes = await rootBundle.load(
+        RestaurantQrPdfService.fontAssetPath,
+      );
+      final pdfService = RestaurantQrPdfService(
+        loadAsset: (_) async => fontBytes,
+      );
+      final dependencies = AdminRestaurantQrBatchDialogDependencies(
+        prepare: (ids, onProgress) async => _batchPreparation(ids),
+        retryPreparation: (previous, onProgress) async => previous,
+        preflight: pdfService.preflight,
+        buildPdf: (preflight) async => _batchPdfArtifact(preflight),
+        downloadPdf: (bytes, filename) async =>
+            const RestaurantQrPdfExportResult.initiated(),
+        markPrepared: (worklist, onProgress) async {
+          markingCalls += 1;
+          markingWorklists.add(worklist);
+          if (markingCalls == 1) {
+            return _resolvedBatchMarking(
+              worklist,
+              failedCatalogRestaurantIds: const {'retry-status-a'},
+              completeProjectionForFailedCatalogRestaurantIds: const {
+                'retry-status-a',
+              },
+              incompatibleNotRequiredProjectionForFailedCatalogRestaurantIds:
+                  const {'retry-status-a'},
+            );
+          }
+          return _resolvedBatchMarking(worklist);
+        },
+      );
+      await _pumpScreen(
+        tester,
+        qrBatchDependencies: dependencies,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+            }) async => _result(
+              records: <AdminRestaurantLinkRecord>[
+                _selectableOrderedRecord(
+                  'retry-status-a',
+                  0,
+                  name: 'Retry Status A',
+                ),
+                _selectableOrderedRecord(
+                  'retry-status-b',
+                  1,
+                  name: 'Retry Status B',
+                ),
+                _selectableOrderedRecord(
+                  'retry-status-peer',
+                  2,
+                  name: 'Retry Status Peer',
+                ),
+              ],
+            ),
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('admin-link-filter-needs-qr-preparation')),
+      );
+      await tester.pump();
+      await _submitSearch(tester);
+      for (final id in const ['retry-status-a', 'retry-status-b']) {
+        await tester.tap(find.byKey(ValueKey('biteScore:$id:batch-selection')));
+        await tester.pump();
+      }
+      expect(find.text('2 selected'), findsOneWidget);
+
+      await tester.tap(
+        find.byKey(const ValueKey('admin-link-generate-qr-label-pdf')),
+      );
+      for (
+        var pump = 0;
+        pump < 100 && find.text('PDF ready').evaluate().isEmpty;
+        pump += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(find.text('PDF ready'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('admin-qr-batch-download')));
+      for (
+        var pump = 0;
+        pump < 100 && find.text('Status saving incomplete').evaluate().isEmpty;
+        pump += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(find.text('Status saving incomplete'), findsOneWidget);
+      expect(markingCalls, 1);
+
+      await tester.tap(
+        find.byKey(const ValueKey('admin-qr-batch-retry-status')),
+      );
+      for (
+        var pump = 0;
+        pump < 100 && find.text('Completed').evaluate().isEmpty;
+        pump += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(find.text('Completed'), findsOneWidget);
+      expect(markingCalls, 2);
+      expect(markingWorklists.last.restaurantCount, 1);
+      expect(
+        markingWorklists.last.restaurants.single.catalogRestaurantId,
+        'retry-status-a',
+      );
+      expect(markingWorklists.last.labelCount, 1);
+
+      await tester.tap(find.byKey(const ValueKey('admin-qr-batch-close')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('0 selected'), findsOneWidget);
+      expect(find.textContaining('1 restaurant record near'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('biteScore:retry-status-a:batch-selection')),
+        findsNothing,
+      );
+      expect(
+        find.byKey(const ValueKey('biteScore:retry-status-b:batch-selection')),
+        findsNothing,
+      );
+      expect(
+        tester
+            .widget<Checkbox>(
+              find.byKey(
+                const ValueKey('biteScore:retry-status-peer:batch-selection'),
+              ),
+            )
+            .value,
+        isFalse,
+      );
+    },
+  );
+
+  testWidgets(
+    'unresolved reconciliation preserves paging warning boundary and scroll',
+    (tester) async {
+      const unresolvedId = 'continuity-20';
+      const resolvedId = 'continuity-21';
+      final continuationCursor = _pageCursor('batch-reconciliation-next');
+      final receivedCursors = <String?>[];
+      final initialRecords = List<AdminRestaurantLinkRecord>.generate(
+        50,
+        (index) => _selectableOrderedRecord(
+          'continuity-${index.toString().padLeft(2, '0')}',
+          index,
+          name: 'Continuity Restaurant $index',
+        ),
+      );
+      final initialBoundary = initialRecords.last.materializedOrder!;
+      final fontBytes = await rootBundle.load(
+        RestaurantQrPdfService.fontAssetPath,
+      );
+      final pdfService = RestaurantQrPdfService(
+        loadAsset: (_) async => fontBytes,
+      );
+      final dependencies = AdminRestaurantQrBatchDialogDependencies(
+        prepare: (ids, onProgress) async => _batchPreparation(ids),
+        retryPreparation: (previous, onProgress) async => previous,
+        preflight: pdfService.preflight,
+        buildPdf: (preflight) async => _batchPdfArtifact(preflight),
+        downloadPdf: (bytes, filename) async =>
+            const RestaurantQrPdfExportResult.initiated(),
+        markPrepared: (worklist, onProgress) async => _resolvedBatchMarking(
+          worklist,
+          failedCatalogRestaurantIds: const {unresolvedId},
+          completeProjectionForFailedCatalogRestaurantIds: const {unresolvedId},
+        ),
+      );
+      await _pumpPagedScreen(
+        tester,
+        qrBatchDependencies: dependencies,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+              required searchInstanceId,
+              required clientRequestId,
+              required needsQrPreparation,
+              cursor,
+              resolvedSearchCenter,
+            }) async {
+              receivedCursors.add(cursor);
+              expect(needsQrPreparation, isTrue);
+              if (receivedCursors.length == 1) {
+                expect(cursor, isNull);
+                expect(resolvedSearchCenter, isNull);
+                return _pagedResult(
+                  records: initialRecords,
+                  hasNext: true,
+                  nextCursor: continuationCursor,
+                  needsQrPreparation: true,
+                  preparationUnavailableEncountered: true,
+                );
+              }
+              expect(cursor, continuationCursor);
+              expect(resolvedSearchCenter?.displayName, 'Crystal River, FL');
+              final appended = _selectableOrderedRecord(
+                'continuity-appended',
+                50,
+                name: 'Continuity Appended',
+              );
+              expect(
+                appended.materializedOrder!.compareTo(initialBoundary),
+                greaterThan(0),
+              );
+              return _pagedResult(
+                records: <AdminRestaurantLinkRecord>[appended],
+                needsQrPreparation: true,
+              );
+            },
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('admin-link-filter-needs-qr-preparation')),
+      );
+      await tester.pump();
+      await _submitSearch(tester);
+      expect(
+        find.byKey(
+          const ValueKey('admin-link-preparation-unavailable-warning'),
+        ),
+        findsOneWidget,
+      );
+
+      for (final id in const [unresolvedId, resolvedId]) {
+        final checkbox = await _scrollToAdminKey(
+          tester,
+          ValueKey<String>('biteScore:$id:batch-selection'),
+        );
+        await tester.tap(checkbox);
+        await tester.pump();
+      }
+      final generate = await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-generate-qr-label-pdf'),
+        delta: -700,
+      );
+      final listFinder = find.byKey(
+        const ValueKey('admin-link-generation-scroll-view'),
+      );
+      final controller = tester.widget<ListView>(listFinder).controller!;
+      final offsetBeforeBatch = controller.offset;
+      expect(offsetBeforeBatch, greaterThan(0));
+
+      await tester.tap(generate);
+      for (
+        var pump = 0;
+        pump < 100 && find.text('PDF ready').evaluate().isEmpty;
+        pump += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(find.text('PDF ready'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('admin-qr-batch-download')));
+      for (
+        var pump = 0;
+        pump < 100 && find.text('Status saving incomplete').evaluate().isEmpty;
+        pump += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(find.text('Status saving incomplete'), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('admin-qr-batch-close')));
+      for (
+        var pump = 0;
+        pump < 100 &&
+            find
+                .byKey(const ValueKey('admin-qr-batch-close-warning'))
+                .evaluate()
+                .isEmpty;
+        pump += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      await tester.tap(
+        find.byKey(const ValueKey('admin-qr-batch-close-anyway')),
+      );
+      for (
+        var pump = 0;
+        pump < 100 &&
+            find
+                .byKey(const ValueKey('admin-qr-batch-dialog'))
+                .evaluate()
+                .isNotEmpty;
+        pump += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(find.byKey(const ValueKey('admin-qr-batch-dialog')), findsNothing);
+
+      expect(tester.widget<ListView>(listFinder).controller, same(controller));
+      expect(controller.offset, closeTo(offsetBeforeBatch, 0.5));
+      expect(find.text('1 selected'), findsOneWidget);
+      expect(
+        find.byKey(
+          const ValueKey('admin-link-preparation-unavailable-warning'),
+        ),
+        findsOneWidget,
+      );
+      final unresolved = await _scrollToAdminKey(
+        tester,
+        const ValueKey('biteScore:continuity-20:batch-selection'),
+      );
+      expect(tester.widget<Checkbox>(unresolved).value, isTrue);
+      expect(
+        find.byKey(const ValueKey('biteScore:continuity-21:batch-selection')),
+        findsNothing,
+      );
+
+      final loadMore = await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-load-more-button'),
+      );
+      expect(find.text('Load More'), findsOneWidget);
+      expect(tester.widget<OutlinedButton>(loadMore).onPressed, isNotNull);
+      await tester.tap(loadMore);
+      await tester.pumpAndSettle();
+
+      expect(receivedCursors, <String?>[null, continuationCursor]);
+      expect(find.textContaining('invalid continuation'), findsNothing);
+      expect(find.text('Continuity Appended'), findsOneWidget);
+      await _scrollToAdminKey(
+        tester,
+        const ValueKey('admin-link-preparation-unavailable-warning'),
+        delta: -700,
+      );
+      expect(find.text('1 selected'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'older batch reconciliation is ignored after a newer search starts',
+    (tester) async {
+      const sharedId = 'generation-shared';
+      final searchedLocations = <String>[];
+      final fontBytes = await rootBundle.load(
+        RestaurantQrPdfService.fontAssetPath,
+      );
+      final pdfService = RestaurantQrPdfService(
+        loadAsset: (_) async => fontBytes,
+      );
+      final dependencies = AdminRestaurantQrBatchDialogDependencies(
+        prepare: (ids, onProgress) async => _batchPreparation(ids),
+        retryPreparation: (previous, onProgress) async => previous,
+        preflight: pdfService.preflight,
+        buildPdf: (preflight) async => _batchPdfArtifact(preflight),
+        downloadPdf: (bytes, filename) async =>
+            const RestaurantQrPdfExportResult.initiated(),
+        markPrepared: (worklist, onProgress) async =>
+            _resolvedBatchMarking(worklist),
+      );
+      await _pumpScreen(
+        tester,
+        qrBatchDependencies: dependencies,
+        search:
+            ({
+              required locationQuery,
+              required radiusMiles,
+              required restaurantName,
+              required sources,
+            }) async {
+              searchedLocations.add(locationQuery);
+              return _result(
+                records: <AdminRestaurantLinkRecord>[
+                  _selectableOrderedRecord(
+                    sharedId,
+                    0,
+                    name: searchedLocations.length == 1
+                        ? 'Old Generation Restaurant'
+                        : 'New Generation Restaurant',
+                  ),
+                ],
+              );
+            },
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('admin-link-filter-needs-qr-preparation')),
+      );
+      await tester.pump();
+      await _submitSearch(tester);
+      await tester.tap(
+        find.byKey(const ValueKey('biteScore:$sharedId:batch-selection')),
+      );
+      await tester.pump();
+      await tester.tap(
+        find.byKey(const ValueKey('admin-link-generate-qr-label-pdf')),
+      );
+      for (
+        var pump = 0;
+        pump < 100 && find.text('PDF ready').evaluate().isEmpty;
+        pump += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      await tester.tap(find.byKey(const ValueKey('admin-qr-batch-download')));
+      for (
+        var pump = 0;
+        pump < 100 && find.text('Completed').evaluate().isEmpty;
+        pump += 1
+      ) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+      expect(find.text('Completed'), findsOneWidget);
+
+      final locationField = tester.widget<TextFormField>(
+        find.byKey(const ValueKey('admin-link-location-field')),
+      );
+      final searchButton = tester.widget<FilledButton>(
+        find.byKey(const ValueKey('admin-link-search-button')),
+      );
+      final closeButton = tester.widget<TextButton>(
+        find.byKey(const ValueKey('admin-qr-batch-close')),
+      );
+      closeButton.onPressed!();
+      locationField.controller!.text = '10001';
+      locationField.onChanged!('10001');
+      searchButton.onPressed!();
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('admin-qr-batch-dialog')), findsNothing);
+      expect(searchedLocations, <String>['34428', '10001']);
+      expect(find.text('Old Generation Restaurant'), findsNothing);
+      expect(find.text('New Generation Restaurant'), findsOneWidget);
+      expect(find.text('0 selected'), findsOneWidget);
+      final freshSelection = find.byKey(
+        const ValueKey('biteScore:generation-shared:batch-selection'),
+      );
+      expect(tester.widget<Checkbox>(freshSelection).value, isFalse);
+      expect(tester.widget<Checkbox>(freshSelection).onChanged, isNotNull);
+      expect(
+        tester
+            .widget<FilterChip>(
+              find.byKey(
+                const ValueKey('biteScore:generation-shared:preparation-I'),
+              ),
+            )
+            .selected,
+        isFalse,
+      );
+    },
+  );
+
   testWidgets('append failure and exact retry preserve existing selection', (
     tester,
   ) async {
@@ -646,6 +2161,14 @@ void main() {
             )
             .onPressed,
         isNull,
+      );
+      expect(
+        tester
+            .widget<FilledButton>(
+              find.byKey(const ValueKey('admin-link-generate-qr-label-pdf')),
+            )
+            .onPressed,
+        isNotNull,
       );
 
       final expiryA = await _scrollToAdminKey(
@@ -4977,6 +6500,7 @@ Future<void> _pumpScreen(
   AdminQrImageRenderCallback? renderQrImage,
   RestaurantQrExporter? qrExporter,
   AdminPreparationUpdateCallback? updatePreparation,
+  AdminRestaurantQrBatchDialogDependencies? qrBatchDependencies,
   double textScale = 1,
   bool configureView = true,
 }) async {
@@ -5003,6 +6527,7 @@ Future<void> _pumpScreen(
           renderQrImage: renderQrImage,
           qrExporter: qrExporter ?? _unsupportedQrExporter(),
           updatePreparation: updatePreparation,
+          qrBatchDependencies: qrBatchDependencies,
         ),
       ),
     ),
@@ -5014,6 +6539,7 @@ Future<void> _pumpPagedScreen(
   WidgetTester tester, {
   required AdminRestaurantPagedSearchCallback search,
   AdminPreparationUpdateCallback? updatePreparation,
+  AdminRestaurantQrBatchDialogDependencies? qrBatchDependencies,
 }) async {
   tester.view.devicePixelRatio = 1;
   tester.view.physicalSize = const Size(900, 900);
@@ -5026,6 +6552,7 @@ Future<void> _pumpPagedScreen(
           searchRestaurantPage: search,
           qrExporter: _unsupportedQrExporter(),
           updatePreparation: updatePreparation,
+          qrBatchDependencies: qrBatchDependencies,
         ),
       ),
     ),
@@ -5382,6 +6909,136 @@ AdminRestaurantLinkRecord _selectableOrderedRecord(
     name: name,
     preparation: _availablePreparation(documentId),
     orderDistanceMillimeters: order,
+  );
+}
+
+AdminRestaurantQrPreparationRunResult _batchPreparation(List<String> ids) {
+  final results = <AdminRestaurantQrRestaurantResult>[
+    for (final id in ids)
+      AdminRestaurantQrReadyRestaurant(
+        catalogRestaurantId: id,
+        restaurantName: 'Batch $id',
+        labels: <AdminRestaurantQrLabelEntry>[
+          AdminRestaurantQrLabelEntry(
+            type: AdminRestaurantQrLabelType.ownerInvite,
+            payloadUrl:
+                'https://go.bitestar.app/invite/coupon/'
+                'synthetic-owner-$id',
+            invitationId: 'owner-invitation-$id',
+            invitationExpiresAtMillis: 1800000000000,
+          ),
+          AdminRestaurantQrLabelEntry(
+            type: AdminRestaurantQrLabelType.claimInvite,
+            payloadUrl:
+                'https://go.bitestar.app/invite/bitescore/'
+                'synthetic-claim-$id',
+            invitationId: 'claim-invitation-$id',
+            invitationExpiresAtMillis: 1800000000000,
+          ),
+          AdminRestaurantQrLabelEntry(
+            type: AdminRestaurantQrLabelType.biteSaverCustomer,
+            payloadUrl: 'https://go.bitestar.app/r/coupons/$id',
+          ),
+          AdminRestaurantQrLabelEntry(
+            type: AdminRestaurantQrLabelType.biteScoreCustomer,
+            payloadUrl: 'https://go.bitestar.app/r/bitescore/$id',
+          ),
+        ],
+      ),
+  ];
+  return AdminRestaurantQrPreparationRunResult(
+    requestedCatalogRestaurantIds: ids,
+    results: results,
+  );
+}
+
+RestaurantQrPdfArtifact _batchPdfArtifact(
+  RestaurantQrPdfPreflightResult preflight,
+) {
+  return RestaurantQrPdfArtifact(
+    bytes: Uint8List.fromList('%PDF-synthetic-admin-screen'.codeUnits),
+    summary: AdminRestaurantQrPdfArtifactSummary(
+      filename: 'bitestar-qr-labels-20260829-205400.pdf',
+      pageCount: preflight.pageCount,
+      includedManifest: preflight.validManifest,
+    ),
+  );
+}
+
+AdminRestaurantQrMarkingRunResult _resolvedBatchMarking(
+  AdminRestaurantQrMarkingWorklist worklist, {
+  Set<String> failedCatalogRestaurantIds = const <String>{},
+  Set<String> completeProjectionForFailedCatalogRestaurantIds =
+      const <String>{},
+  Set<String> incompatibleNotRequiredProjectionForFailedCatalogRestaurantIds =
+      const <String>{},
+}) {
+  final request = AdminRestaurantQrMarkingRequest(worklist.restaurants);
+  final hasFailures = worklist.restaurants.any(
+    (restaurant) =>
+        failedCatalogRestaurantIds.contains(restaurant.catalogRestaurantId),
+  );
+  final chunk = AdminRestaurantQrMarkingChunkResult.fromCallableData(
+    <String, Object?>{
+      'schemaVersion': 1,
+      'outcome': hasFailures ? 'partialFailure' : 'complete',
+      'results': <Object?>[
+        for (final restaurant in worklist.restaurants)
+          <String, Object?>{
+            'catalogRestaurantId': restaurant.catalogRestaurantId,
+            'outcome':
+                failedCatalogRestaurantIds.contains(
+                  restaurant.catalogRestaurantId,
+                )
+                ? 'partialFailure'
+                : 'processed',
+            'labels': <Object?>[
+              for (var index = 0; index < restaurant.labels.length; index += 1)
+                failedCatalogRestaurantIds.contains(
+                          restaurant.catalogRestaurantId,
+                        ) &&
+                        index == 0
+                    ? <String, Object?>{
+                        'type': restaurant.labels[index].type.wireName,
+                        'status': 'failed',
+                        'code': 'status_unavailable',
+                        'message': 'Preparation status could not be confirmed.',
+                      }
+                    : <String, Object?>{
+                        'type': restaurant.labels[index].type.wireName,
+                        'status': 'saved',
+                        'alreadySaved': false,
+                      },
+            ],
+            'preparation': <String, Object?>{
+              'canonicalCatalogRestaurantId': restaurant.catalogRestaurantId,
+              'i':
+                  incompatibleNotRequiredProjectionForFailedCatalogRestaurantIds
+                      .contains(restaurant.catalogRestaurantId)
+                  ? 'notRequired'
+                  : failedCatalogRestaurantIds.contains(
+                          restaurant.catalogRestaurantId,
+                        ) &&
+                        !completeProjectionForFailedCatalogRestaurantIds
+                            .contains(restaurant.catalogRestaurantId)
+                  ? 'unprepared'
+                  : 'prepared',
+              'c':
+                  incompatibleNotRequiredProjectionForFailedCatalogRestaurantIds
+                      .contains(restaurant.catalogRestaurantId)
+                  ? 'notRequired'
+                  : 'prepared',
+              'sa': 'prepared',
+              'sr': 'prepared',
+            },
+          },
+      ],
+    },
+    expectedRequest: request,
+  );
+  return AdminRestaurantQrMarkingRunResult(
+    requestedWorklist: worklist,
+    results: chunk.results,
   );
 }
 

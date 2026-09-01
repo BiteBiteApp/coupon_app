@@ -49,6 +49,7 @@ dependencies:
   audioplayers: ^6.7.1
   qr: ^4.0.0
   web: ^1.1.1
+  pdf: ^3.13.0
 
 dev_dependencies:
   flutter_test:
@@ -62,6 +63,11 @@ dev_dependencies:
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
 
+# pdf's transitive barcode package has not widened its qr constraint for qr 4,
+# whose breaking API is not used by the PDF paths in this application.
+dependency_overrides:
+  qr: ^4.0.0
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
 
@@ -73,6 +79,8 @@ flutter:
   assets:
     - assets/images/
     - assets/sounds/
+    - assets/fonts/NotoSans-Regular.ttf
+    - assets/fonts/NotoSans-OFL.txt
 
 
   # To add assets to your application, add an assets section, like this:

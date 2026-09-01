@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../models/admin_restaurant_link_record.dart';
+import '../models/admin_restaurant_qr_batch.dart';
 import '../models/pagination/paged_models.dart';
 import '../services/admin_link_generation_service.dart';
 import '../services/app_error_text.dart';
@@ -10,6 +11,7 @@ import '../services/restaurant_customer_link_service.dart';
 import '../services/restaurant_invite_service.dart';
 import '../services/restaurant_qr_export.dart';
 import '../services/restaurant_qr_image_service.dart';
+import '../widgets/admin_restaurant_qr_batch_dialog.dart';
 import '../widgets/restaurant_qr_preview_dialog.dart';
 
 typedef AdminRestaurantSearchCallback =
@@ -70,6 +72,72 @@ typedef AdminPreparationUpdateCallback =
       String? expectedInviteId,
     });
 
+class AdminRestaurantQrBatchSelectionException implements Exception {
+  const AdminRestaurantQrBatchSelectionException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
+@visibleForTesting
+List<String> freezeAdminRestaurantQrBatchSelection({
+  required Set<String> selectedCatalogRestaurantIds,
+  required Iterable<AdminRestaurantLinkRecord> displayedRecords,
+  required bool Function(AdminRestaurantLinkRecord record)
+  isCurrentlySelectable,
+}) {
+  if (selectedCatalogRestaurantIds.isEmpty) {
+    throw const AdminRestaurantQrBatchSelectionException(
+      'Select at least one canonical restaurant.',
+    );
+  }
+  final selectedSnapshot = Set<String>.unmodifiable(
+    selectedCatalogRestaurantIds,
+  );
+  if (selectedSnapshot.any((id) => exactFirestoreDocumentId(id) != id)) {
+    throw const AdminRestaurantQrBatchSelectionException(
+      'The selected restaurants are inconsistent. Run a fresh Search.',
+    );
+  }
+
+  final selectedOccurrenceCounts = <String, int>{
+    for (final id in selectedSnapshot) id: 0,
+  };
+  final frozen = <String>[];
+  for (final record in displayedRecords) {
+    final catalogId = record.documentId;
+    if (!selectedSnapshot.contains(catalogId)) {
+      continue;
+    }
+    final occurrenceCount = selectedOccurrenceCounts[catalogId]! + 1;
+    selectedOccurrenceCounts[catalogId] = occurrenceCount;
+    if (occurrenceCount != 1) {
+      throw const AdminRestaurantQrBatchSelectionException(
+        'The selected restaurants changed unexpectedly. Run a fresh Search.',
+      );
+    }
+    if (!record.isBiteScore ||
+        exactFirestoreDocumentId(catalogId) != catalogId ||
+        record.actionId != catalogId ||
+        record.preparation.canonicalCatalogRestaurantId != catalogId ||
+        !isCurrentlySelectable(record)) {
+      throw const AdminRestaurantQrBatchSelectionException(
+        'The selected restaurants are inconsistent. Run a fresh Search.',
+      );
+    }
+    frozen.add(catalogId);
+  }
+  if (selectedOccurrenceCounts.values.any((count) => count != 1) ||
+      frozen.length != selectedSnapshot.length) {
+    throw const AdminRestaurantQrBatchSelectionException(
+      'The selected restaurants changed unexpectedly. Run a fresh Search.',
+    );
+  }
+  return List<String>.unmodifiable(frozen);
+}
+
 enum _AdminLinkPageRequestKind { initial, preparation, checking, loadMore }
 
 class _PendingAdminLinkPageRequest {
@@ -95,6 +163,7 @@ class AdminLinkGenerationScreen extends StatefulWidget {
   final AdminQrImageRenderCallback? renderQrImage;
   final RestaurantQrExporter? qrExporter;
   final AdminPreparationUpdateCallback? updatePreparation;
+  final AdminRestaurantQrBatchDialogDependencies? qrBatchDependencies;
 
   const AdminLinkGenerationScreen({
     super.key,
@@ -106,6 +175,7 @@ class AdminLinkGenerationScreen extends StatefulWidget {
     @visibleForTesting this.renderQrImage,
     @visibleForTesting this.qrExporter,
     @visibleForTesting this.updatePreparation,
+    @visibleForTesting this.qrBatchDependencies,
   });
 
   @override
@@ -147,6 +217,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
   bool _needsQrPreparation = false;
   bool _preparationUnavailableEncountered = false;
   bool _continueChecking = false;
+  bool _isQrBatchActive = false;
   int _requestSequence = 0;
   _PendingAdminLinkPageRequest? _pendingPageRequest;
   String? _activeLocationQuery;
@@ -728,6 +799,199 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
       return;
     }
     setState(_selectedCatalogRestaurantIds.clear);
+  }
+
+  Future<void> _generateQrLabelPdf() async {
+    if (_isQrBatchActive || _selectedCatalogRestaurantIds.isEmpty) {
+      return;
+    }
+    final displayedRecords = _searchResult?.results;
+    if (displayedRecords == null) {
+      _showSnackBar(
+        'The selected restaurants changed unexpectedly. Run a fresh Search.',
+      );
+      return;
+    }
+
+    late final List<String> frozenCatalogRestaurantIds;
+    try {
+      frozenCatalogRestaurantIds = freezeAdminRestaurantQrBatchSelection(
+        selectedCatalogRestaurantIds: Set<String>.of(
+          _selectedCatalogRestaurantIds,
+        ),
+        displayedRecords: displayedRecords,
+        isCurrentlySelectable: (record) =>
+            _selectableCatalogRestaurantId(record, forNewSelection: false) ==
+            record.documentId,
+      );
+    } on AdminRestaurantQrBatchSelectionException catch (error) {
+      _showSnackBar(error.message);
+      return;
+    }
+
+    final searchGeneration = _searchGeneration;
+    setState(() {
+      _isQrBatchActive = true;
+    });
+    AdminRestaurantQrBatchReconciliation? pendingReconciliation;
+    try {
+      await showAdminRestaurantQrBatchDialog(
+        context: context,
+        frozenCatalogRestaurantIds: frozenCatalogRestaurantIds,
+        dependencies: widget.qrBatchDependencies,
+        onReconciled: (reconciliation) {
+          pendingReconciliation = reconciliation;
+        },
+      );
+      final reconciliation = pendingReconciliation;
+      if (reconciliation != null) {
+        _reconcileQrBatch(
+          reconciliation,
+          expectedSearchGeneration: searchGeneration,
+          expectedFrozenCatalogRestaurantIds: frozenCatalogRestaurantIds,
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        _showSnackBar(
+          AppErrorText.friendly(
+            error,
+            fallback: 'Could not start QR label PDF generation.',
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isQrBatchActive = false;
+        });
+      }
+    }
+  }
+
+  void _reconcileQrBatch(
+    AdminRestaurantQrBatchReconciliation reconciliation, {
+    required int expectedSearchGeneration,
+    required Iterable<String> expectedFrozenCatalogRestaurantIds,
+  }) {
+    if (!mounted || _searchGeneration != expectedSearchGeneration) {
+      return;
+    }
+    final frozenIds = expectedFrozenCatalogRestaurantIds.toSet();
+    final preparationStates = <String, AdminRestaurantPreparationState>{
+      for (final entry in reconciliation.preparationProjections.entries)
+        if (frozenIds.contains(entry.key))
+          entry.key: _preparationStateFromBatchProjection(entry.value),
+    };
+    final unresolvedIds = reconciliation.unresolvedCatalogRestaurantIds
+        .intersection(frozenIds);
+    final problemIds = reconciliation.problemCatalogRestaurantIds.intersection(
+      frozenIds,
+    );
+    final retentionCandidates = unresolvedIds.union(problemIds);
+    final recordsByRetentionCandidate =
+        <String, List<AdminRestaurantLinkRecord>>{
+          for (final id in retentionCandidates)
+            id: <AdminRestaurantLinkRecord>[],
+        };
+    for (final record
+        in _searchResult?.results ?? const <AdminRestaurantLinkRecord>[]) {
+      recordsByRetentionCandidate[record.documentId]?.add(record);
+    }
+    final idsToKeepSelected = <String>{
+      for (final entry in recordsByRetentionCandidate.entries)
+        if (entry.value.length == 1 &&
+            _selectableCatalogRestaurantId(
+                  entry.value.single,
+                  forNewSelection: false,
+                ) ==
+                entry.key)
+          entry.key,
+    };
+    final preparationStatesToApply =
+        Map<String, AdminRestaurantPreparationState>.of(preparationStates);
+    for (final id in idsToKeepSelected) {
+      final candidateState = preparationStatesToApply[id];
+      final record = recordsByRetentionCandidate[id]!.single;
+      if (candidateState != null &&
+          (candidateState.isUnavailable ||
+              candidateState.canonicalCatalogRestaurantId !=
+                  record.documentId ||
+              !candidateState.isValidForParticipation(
+                biteSaverCatalogBindingState:
+                    record.biteSaverCatalogBindingState,
+                claimState: record.claimState,
+              ))) {
+        preparationStatesToApply.remove(id);
+      }
+    }
+    final idsToDeselect = reconciliation.resolvedCatalogRestaurantIds
+        .intersection(frozenIds)
+        .difference(unresolvedIds)
+        .difference(problemIds);
+    final completedIds = preparationStates.entries
+        .where(
+          (entry) =>
+              entry.value.isComplete && idsToDeselect.contains(entry.key),
+        )
+        .map((entry) => entry.key)
+        .toSet();
+
+    setState(() {
+      _preparationOverrides.addAll(preparationStatesToApply);
+      _selectedCatalogRestaurantIds
+        ..removeAll(retentionCandidates)
+        ..addAll(idsToKeepSelected);
+      _selectedCatalogRestaurantIds.removeAll(idsToDeselect);
+
+      if (_activeNeedsQrPreparation == true && completedIds.isNotEmpty) {
+        _suppressedCompletedCatalogIds.addAll(completedIds);
+        final currentResult = _searchResult;
+        if (currentResult != null) {
+          final remaining = currentResult.results
+              .where((record) => !completedIds.contains(record.documentId))
+              .toList(growable: false);
+          if (remaining.length != currentResult.results.length) {
+            _searchResult = AdminRestaurantLinkSearchResult(
+              searchCenter: currentResult.searchCenter,
+              radiusMiles: currentResult.radiusMiles,
+              results: List<AdminRestaurantLinkRecord>.unmodifiable(remaining),
+              resultsMayBeTruncated: currentResult.resultsMayBeTruncated,
+              returnedCount: remaining.length,
+              queriedSources: currentResult.queriedSources,
+            );
+            if (remaining.isEmpty && _nextCursor != null) {
+              _continueChecking = true;
+            }
+          }
+        }
+      }
+    });
+  }
+
+  AdminRestaurantPreparationState _preparationStateFromBatchProjection(
+    AdminRestaurantQrPreparationProjection projection,
+  ) {
+    AdminRestaurantPreparationStatus convert(
+      AdminRestaurantQrPreparationStatus status,
+    ) => switch (status) {
+      AdminRestaurantQrPreparationStatus.prepared =>
+        AdminRestaurantPreparationStatus.prepared,
+      AdminRestaurantQrPreparationStatus.unprepared =>
+        AdminRestaurantPreparationStatus.unprepared,
+      AdminRestaurantQrPreparationStatus.notRequired =>
+        AdminRestaurantPreparationStatus.notRequired,
+      AdminRestaurantQrPreparationStatus.unavailable =>
+        AdminRestaurantPreparationStatus.unavailable,
+    };
+
+    return AdminRestaurantPreparationState(
+      canonicalCatalogRestaurantId: projection.canonicalCatalogRestaurantId,
+      ownerInvite: convert(projection.ownerInvite),
+      claimInvite: convert(projection.claimInvite),
+      biteSaverCustomer: convert(projection.biteSaverCustomer),
+      biteScoreCustomer: convert(projection.biteScoreCustomer),
+    );
   }
 
   String _actionKey(AdminRestaurantLinkRecord record, String action) {
@@ -1406,6 +1670,19 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
             key: const ValueKey('admin-link-deselect-all'),
             onPressed: selectedCount == 0 ? null : _deselectAll,
             child: const Text('Deselect All'),
+          ),
+          FilledButton.icon(
+            key: const ValueKey('admin-link-generate-qr-label-pdf'),
+            onPressed: selectedCount == 0 || _isQrBatchActive
+                ? null
+                : _generateQrLabelPdf,
+            icon: _isQrBatchActive
+                ? const SizedBox.square(
+                    dimension: 16,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.picture_as_pdf_outlined),
+            label: const Text('Generate QR Label PDF'),
           ),
           Text(
             '$selectedCount selected',
