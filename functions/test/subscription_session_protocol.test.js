@@ -884,6 +884,7 @@ test("runtime, region, secret bindings, exports, production caller, and webhook 
       "processDishProposalResolutionWork",
       "processRatingDestructiveOperationWork",
       "prepareAdminRestaurantQrBatch",
+      "prepareAdminRestaurantMailingLabelBatch",
       "redeemBiteSaverSubscriptionReturn",
       "rejectRatingAdminDishSuggestionGroup",
       "searchCouponAdminRestaurantsPage",

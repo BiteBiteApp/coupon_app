@@ -42,6 +42,10 @@ import {
   prepareAdminRestaurantQrBatchCallableHandler,
 } from "./admin_restaurant_qr_batch.js";
 import {
+  createFirestoreAdminRestaurantMailingBatchDatabase,
+  prepareAdminRestaurantMailingLabelBatchCallableHandler,
+} from "./admin_restaurant_mailing_batch.js";
+import {
   type AdminCatalogBindingVerificationRequest,
   AdminRestaurantQueryPlan,
   executeAdminRestaurantSearch,
@@ -254,6 +258,8 @@ const adminRestaurantQrPreparationDatabase =
   createFirestoreAdminRestaurantQrPreparationDatabase(db);
 const adminRestaurantQrBatchDatabase =
   createFirestoreAdminRestaurantQrBatchDatabase(db);
+const adminRestaurantMailingBatchDatabase =
+  createFirestoreAdminRestaurantMailingBatchDatabase(db);
 const dishProposalPrivateDatabase =
   createFirestoreDishProposalPrivateDatabase(db);
 const baseDishProposalResolutionDependencies =
@@ -2321,6 +2327,15 @@ export const prepareAdminRestaurantQrBatch = onCall(async (request) => {
     serverTimestamp: () => FieldValue.serverTimestamp(),
   });
 });
+
+export const prepareAdminRestaurantMailingLabelBatch = onCall(
+  async (request) => {
+    return prepareAdminRestaurantMailingLabelBatchCallableHandler(request, {
+      database: adminRestaurantMailingBatchDatabase,
+      requireAdmin: requireAdminInviteAccess,
+    });
+  },
+);
 
 export const markAdminRestaurantQrBatchPrepared = onCall(async (request) => {
   return markAdminRestaurantQrBatchPreparedCallableHandler(request, {

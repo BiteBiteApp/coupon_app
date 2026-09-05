@@ -22,7 +22,8 @@ String? exactFirestoreDocumentId(Object? value) {
 }
 
 bool _isUnsupportedFirestoreIdentityRune(int rune) {
-  return rune <= 0x1f ||
+  return _isExplicitlyRejectedKhmerFormattingRune(rune) ||
+      rune <= 0x1f ||
       (rune >= 0x7f && rune <= 0x9f) ||
       rune == 0xad ||
       (rune >= 0x600 && rune <= 0x605) ||
@@ -31,7 +32,6 @@ bool _isUnsupportedFirestoreIdentityRune(int rune) {
       rune == 0x70f ||
       (rune >= 0x890 && rune <= 0x891) ||
       rune == 0x8e2 ||
-      (rune >= 0x17b4 && rune <= 0x17b5) ||
       rune == 0x180e ||
       (rune >= 0x200b && rune <= 0x200f) ||
       (rune >= 0x202a && rune <= 0x202e) ||
@@ -47,3 +47,6 @@ bool _isUnsupportedFirestoreIdentityRune(int rune) {
       rune == 0xe0001 ||
       (rune >= 0xe0020 && rune <= 0xe007f);
 }
+
+bool _isExplicitlyRejectedKhmerFormattingRune(int rune) =>
+    rune == 0x17b4 || rune == 0x17b5;

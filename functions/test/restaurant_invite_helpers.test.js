@@ -169,6 +169,25 @@ test("catalog document IDs reject unpaired surrogates without changing valid Uni
   assert.equal(readBiteScoreCatalogRestaurantId(overMaximumBytes), null);
 });
 
+test("catalog document IDs explicitly reject U+17B4 and U+17B5 only", () => {
+  for (const rejected of [
+    "\u17b4",
+    "\u17b5",
+    "restaurant-\u17b4-id",
+    "restaurant-\u17b5-id",
+  ]) {
+    assert.equal(readBiteScoreCatalogRestaurantId(rejected), null);
+  }
+
+  for (const accepted of [
+    "restaurant-ascii",
+    "restaurant-\uD83D\uDE00",
+    "restaurant-\u1780-id",
+  ]) {
+    assert.equal(readBiteScoreCatalogRestaurantId(accepted), accepted);
+  }
+});
+
 test("canonical customer routes encode valid Unicode and reject malformed IDs safely", () => {
   assert.equal(
     restaurantCustomerLink("coupons", "restaurant-1"),

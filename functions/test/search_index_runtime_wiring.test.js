@@ -30,6 +30,7 @@ const baselineExports = Object.freeze([
   "markContributionPointLedgerEntriesCelebrated",
   "previewRestaurantInvite",
   "prepareAdminRestaurantQrBatch",
+  "prepareAdminRestaurantMailingLabelBatch",
   "processProximityPushRequest",
   "recalculateLocalExpertBadgesOnReviewWrite",
   "recalculateMyLocalExpertBadges",
@@ -718,6 +719,51 @@ test("exactly two Admin QR batch callables are wired without secrets", async () 
       .sort(),
     [...names].sort(),
   );
+});
+
+test("the Admin mailing batch callable is wired once without secrets", async () => {
+  const runtime = loadCompiledIndexWithRuntimeHarness();
+  const name = "prepareAdminRestaurantMailingLabelBatch";
+  const callable = runtime.exports[name];
+
+  assert.equal(typeof callable, "function");
+  assert.equal(callable.__endpoint.platform, "gcfv2");
+  assert.deepEqual(callable.__endpoint.region, ["us-central1"]);
+  assert.equal(
+    Object.hasOwn(callable.__endpoint, "secretEnvironmentVariables"),
+    false,
+  );
+  await assert.rejects(
+    callable({data: {}, auth: null}),
+    (error) => error.code === "permission-denied",
+  );
+  assert.deepEqual(runtime.state.firestoreQueries, []);
+  assert.deepEqual(runtime.state.firestoreReads, []);
+  assert.deepEqual(runtime.state.firestoreWrites, []);
+  assert.deepEqual(
+    Object.keys(runtime.exports).filter((exportName) => exportName === name),
+    [name],
+  );
+});
+
+test("the Admin mailing adapter uses one exact public-restaurant getAll only", () => {
+  const source = readFileSync(
+    path.resolve(__dirname, "../src/admin_restaurant_mailing_batch.ts"),
+    "utf8",
+  );
+
+  assert.match(
+    source,
+    /const biteScoreRestaurantCollection = "bitescore_restaurants"/u,
+  );
+  assert.equal([...source.matchAll(/database\.getAll\(/ug)].length, 1);
+  assert.match(source, /collection\.doc\(catalogRestaurantId\)/u);
+  assert.doesNotMatch(source, /\.where\(/u);
+  assert.doesNotMatch(source, /restaurant_accounts/u);
+  assert.doesNotMatch(source, /restaurant_invites/u);
+  assert.doesNotMatch(source, /preparation/u);
+  assert.doesNotMatch(source, /search[_-]session/iu);
+  assert.doesNotMatch(source, /\.(?:create|delete|update)\(/u);
 });
 
 test("exactly nine Rating Admin paged v2 callables use least-privilege secrets", () => {

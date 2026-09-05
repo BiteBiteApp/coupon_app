@@ -10,6 +10,7 @@ export const biteSaverCatalogBindingIdField =
 const biteSaverCatalogBindingIdPattern = /^[A-Za-z0-9_-]{43}$/u;
 const maximumFirestoreDocumentIdBytes = 1_500;
 const unsupportedFirestoreDocumentIdCharacterPattern = /[\p{Cc}\p{Cf}]/u;
+const explicitlyRejectedFirestoreDocumentIdCodePointPattern = /[\u17b4\u17b5]/u;
 
 function hasWellFormedUtf16(value: string): boolean {
   for (let index = 0; index < value.length; index += 1) {
@@ -55,6 +56,7 @@ export function readBiteScoreCatalogRestaurantId(
     value === "." ||
     value === ".." ||
     value.includes("/") ||
+    explicitlyRejectedFirestoreDocumentIdCodePointPattern.test(value) ||
     unsupportedFirestoreDocumentIdCharacterPattern.test(value) ||
     !hasWellFormedUtf16(value) ||
     Buffer.byteLength(value, "utf8") > maximumFirestoreDocumentIdBytes
