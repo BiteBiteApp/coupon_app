@@ -80,6 +80,51 @@ void main() {
     expect(find.byType(AdminGateScreen), findsOneWidget);
     expect(find.text('Admin Access Denied'), findsOneWidget);
   });
+
+  testWidgets(
+    'Admin Workspace is a full route and returning restores Account',
+    (tester) async {
+      const customerNavigationKey = ValueKey('customer-bottom-navigation');
+      final admin = _adminUser();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CustomerAccountScreen(
+              userStream: Stream<User?>.value(admin),
+              adminDestinationBuilder: (_) => AdminGateScreen(
+                userStream: Stream<User?>.value(admin),
+                couponAdminBuilder: (_) =>
+                    const SizedBox.expand(key: ValueKey('admin-route-content')),
+                ratingAdminBuilder: (_) => const SizedBox.shrink(),
+                linkGenerationBuilder: (_) => const SizedBox.shrink(),
+              ),
+            ),
+            bottomNavigationBar: const SizedBox(
+              key: customerNavigationKey,
+              height: 67,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(customerNavigationKey), findsOneWidget);
+      await tester.tap(find.text('Admin Workspace'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AdminGateScreen), findsOneWidget);
+      expect(find.byKey(const ValueKey('admin-route-content')), findsOneWidget);
+      expect(find.byKey(customerNavigationKey), findsNothing);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(AdminGateScreen), findsNothing);
+      expect(find.byKey(customerNavigationKey), findsOneWidget);
+      expect(find.text('Admin Workspace'), findsOneWidget);
+    },
+  );
 }
 
 Widget _testApp(

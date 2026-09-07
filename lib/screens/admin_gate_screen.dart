@@ -155,38 +155,51 @@ class AdminGateScreen extends StatelessWidget {
             ),
             body: Padding(
               padding: EdgeInsets.only(
-                bottom: AdminContentInsets.bottomNavigationObstruction(context),
+                bottom: AdminContentInsets.systemBottomObstruction(context),
               ),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade100,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: const TabBar(
-                        isScrollable: true,
-                        tabAlignment: TabAlignment.start,
-                        tabs: [
-                          Tab(text: 'Coupon Side'),
-                          Tab(text: 'Rating Side'),
-                          Tab(text: 'Link Generation'),
-                        ],
-                      ),
-                    ),
+              child: Align(
+                alignment: Alignment.topCenter,
+                child: ConstrainedBox(
+                  key: const ValueKey('admin-workspace'),
+                  constraints: const BoxConstraints(
+                    maxWidth: AdminContentInsets.maxAdminWorkspaceWidth,
                   ),
-                  Expanded(
-                    child: TabBarView(
+                  child: SizedBox(
+                    width: double.infinity,
+                    height: double.infinity,
+                    child: Column(
                       children: [
-                        couponAdminScreen,
-                        ratingAdminScreen,
-                        linkGenerationScreen,
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade100,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const TabBar(
+                              isScrollable: true,
+                              tabAlignment: TabAlignment.start,
+                              tabs: [
+                                Tab(text: 'Coupon Side'),
+                                Tab(text: 'Rating Side'),
+                                Tab(text: 'Link Generation'),
+                              ],
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: TabBarView(
+                            children: [
+                              couponAdminScreen,
+                              ratingAdminScreen,
+                              linkGenerationScreen,
+                            ],
+                          ),
+                        ),
                       ],
                     ),
                   ),
-                ],
+                ),
               ),
             ),
           ),

@@ -4,14 +4,18 @@ class AdminContentInsets {
   static const double bottomNavigationHeight = 48;
   static const double bottomNavigationOuterPadding = 3;
   static const double bottomBreathingRoom = 16;
+  static const double maxAdminWorkspaceWidth = 1120;
 
   const AdminContentInsets._();
 
   static double bottomNavigationObstruction(BuildContext context) {
     return bottomNavigationHeight +
         bottomNavigationOuterPadding +
-        MediaQuery.viewPaddingOf(context).bottom +
-        bottomBreathingRoom;
+        systemBottomObstruction(context);
+  }
+
+  static double systemBottomObstruction(BuildContext context) {
+    return MediaQuery.viewPaddingOf(context).bottom + bottomBreathingRoom;
   }
 
   static EdgeInsets scrollPadding(
@@ -40,7 +44,7 @@ class AdminContentInsets {
       left,
       top,
       right,
-      bottom + MediaQuery.viewPaddingOf(context).bottom + bottomBreathingRoom,
+      bottom + systemBottomObstruction(context),
     );
   }
 }
