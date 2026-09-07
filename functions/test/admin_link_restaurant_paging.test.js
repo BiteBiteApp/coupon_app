@@ -84,6 +84,7 @@ function biteScoreDocument(id, overrides = {}) {
       isActive: true,
       name: "Restaurant " + id,
       address: "1 Main Street",
+      streetAddress: "1 Main Street",
       city: "Crystal River",
       state: "FL",
       zipCode: "34428",

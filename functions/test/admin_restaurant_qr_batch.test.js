@@ -151,6 +151,7 @@ function restaurant(id, overrides = {}) {
     id,
     name: "River Grill",
     address: "1 Main St",
+    streetAddress: "1 Main St",
     city: "Hartford",
     state: "CT",
     zipCode: "06103",
@@ -337,7 +338,12 @@ test("preparation returns all four authoritative participation matrices", async 
 
 test("ready payloads preserve canonical identity, route encoding, and token secrecy", async () => {
   const id = "same name west";
-  const database = withRestaurants([[id, {}]]);
+  const database = withRestaurants([[id, {
+    address: "99 Legacy Avenue",
+    streetAddress: "1 Main St",
+    formattedAddress: "88 Formatted Boulevard, Hartford, CT 06103",
+    fullAddress: "77 Full Road, Hartford, CT 06103",
+  }]]);
   const response = await prepare(database, [id]);
   const result = response.results[0];
   assert.equal(result.catalogRestaurantId, id);
@@ -361,9 +367,20 @@ test("ready payloads preserve canonical identity, route encoding, and token secr
     );
     const token = label.payloadUrl.split("/").at(-1);
     assert.equal(invite.tokenHash, hashInviteToken(token));
+    assert.equal(invite.status, "active");
+    assert.equal(invite.maxUses, 1);
+    assert.equal(invite.useCount, 0);
+    assert.equal(invite.usedAt, null);
+    assert.equal(invite.revokedAt, null);
+    assert.ok(invite.expiresAt.getTime() > now.getTime());
     assert.equal(Object.hasOwn(invite, "token"), false);
     assert.equal(Object.hasOwn(preparation(database, id), "token"), false);
   }
+  const ownerInvite = database.records.get(
+    `restaurant_invites/${labels.I.invitationId}`,
+  );
+  assert.equal(ownerInvite.restaurantName, "River Grill");
+  assert.equal(ownerInvite.couponPrefill.streetAddress, "1 Main St");
   assert.equal(database.records.has("restaurant_accounts/same name west"), false);
 });
 

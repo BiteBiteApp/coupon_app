@@ -129,6 +129,7 @@ function restaurant(overrides = {}) {
     id: "restaurant-1",
     name: "River Grill",
     address: "1 Main St",
+    streetAddress: "1 Main St",
     city: "Hartford",
     state: "CT",
     zipCode: "06103",
@@ -534,7 +535,7 @@ test("I preparation reuses the hardened Admin search eligibility invariant", asy
   const ineligibleRestaurants = [
     ["inactive", restaurant({isActive: false})],
     ["document identity mismatch", restaurant({id: "other"})],
-    ["profile incomplete", restaurant({address: undefined})],
+    ["profile incomplete", restaurant({streetAddress: undefined})],
     ["revision missing", restaurant({restaurantWriteRevision: undefined})],
     ["revision invalid", restaurant({restaurantWriteRevision: Number.MAX_SAFE_INTEGER})],
     ["claim state invalid", restaurant({isClaimed: true, ownerUserId: null})],

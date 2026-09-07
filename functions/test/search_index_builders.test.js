@@ -9,6 +9,7 @@ const {
   biteSaverRestaurantPublicProjectionVersion,
   biteSaverOfferParentFingerprint,
   biteSaverCatalogBindingAdminState,
+  biteScoreBiteSaverCatalogProfile,
   biteScoreDishParentFingerprint,
   biteScoreRestaurantClaimProjection,
   biteScoreRestaurantIsActive,
@@ -139,6 +140,7 @@ function biteSaverRestaurant(overrides = {}) {
 function biteScoreRestaurant(overrides = {}) {
   return {
     name: "The Copper Spoon",
+    streetAddress: "1 Main St",
     city: "Ocala",
     state: "FL",
     zipCode: "34470",
@@ -1041,6 +1043,7 @@ test("Admin BiteSaver eligibility requires exact optional owner identities", () 
     id: "restaurant-1",
     name: "The Copper Spoon",
     address: "1 Main St",
+    streetAddress: "1 Main St",
     city: "Ocala",
     state: "FL",
     zipCode: "34470",
@@ -1091,6 +1094,88 @@ test("Admin BiteSaver eligibility requires exact optional owner identities", () 
       "unavailable",
     );
   }
+});
+
+test("BiteScore BiteSaver catalog profile requires canonical streetAddress", () => {
+  const source = biteScoreRestaurant({
+    name: "Canonical Cafe",
+    restaurantName: "Legacy Cafe",
+    streetAddress: " 10 Canonical Street ",
+    address: "99 Legacy Avenue",
+    formattedAddress: "88 Formatted Boulevard, Ocala, FL 34470",
+    fullAddress: "77 Full Road, Ocala, FL 34470",
+    phone: "555-0100",
+    phoneNumber: "555-9999",
+    website: "https://canonical.example.test",
+    websiteUrl: "https://legacy.example.test",
+  });
+  const profile = biteScoreBiteSaverCatalogProfile(source);
+  assert.deepEqual(profile, {
+    restaurantName: "Canonical Cafe",
+    streetAddress: "10 Canonical Street",
+    city: "Ocala",
+    state: "FL",
+    zipCode: "34470",
+    phone: "555-0100",
+    website: "https://canonical.example.test",
+    latitude: coordinates.latitude,
+    longitude: coordinates.longitude,
+  });
+
+  assert.equal(
+    biteScoreBiteSaverCatalogProfile({
+      ...source,
+      address: "10 Canonical Street",
+    }).streetAddress,
+    "10 Canonical Street",
+  );
+  for (const invalidStreetAddress of [
+    undefined,
+    null,
+    "",
+    "   ",
+    7,
+    {line: "10 Canonical Street"},
+    "unsafe\nline",
+    "x".repeat(201),
+  ]) {
+    assert.equal(
+      biteScoreBiteSaverCatalogProfile({
+        ...source,
+        streetAddress: invalidStreetAddress,
+      }),
+      null,
+      String(invalidStreetAddress),
+    );
+  }
+});
+
+test("BiteScore BiteSaver catalog profile accepts dedicated-only streetAddress", () => {
+  const catalogRestaurantId = "dedicated-only-catalog-restaurant";
+  const source = biteScoreRestaurant({
+    id: catalogRestaurantId,
+    name: "Dedicated Street Cafe",
+    streetAddress: "742 Dedicated-Only Terrace, Suite 9",
+    phone: "555-0742",
+    website: "https://dedicated-street.example.test",
+  });
+  assert.equal(Object.prototype.hasOwnProperty.call(source, "address"), false);
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(source, "formattedAddress"),
+    false,
+  );
+  assert.equal(
+    Object.prototype.hasOwnProperty.call(source, "fullAddress"),
+    false,
+  );
+
+  const profile = biteScoreBiteSaverCatalogProfile(source);
+  assert.notEqual(profile, null);
+  assert.equal(profile.streetAddress, "742 Dedicated-Only Terrace, Suite 9");
+  assert.equal(profile.restaurantName, "Dedicated Street Cafe");
+  assert.equal(profile.phone, "555-0742");
+  assert.equal(profile.website, "https://dedicated-street.example.test");
+  assert.equal(source.id, catalogRestaurantId);
 });
 
 test("BiteScore claim projection fails closed for hidden or malformed activity", () => {

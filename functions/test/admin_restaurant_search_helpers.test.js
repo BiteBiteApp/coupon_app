@@ -91,6 +91,7 @@ function biteScoreDocument(documentId, overrides = {}) {
       id: documentId,
       name: `BiteScore ${documentId}`,
       address: "1 Catalog Way",
+      streetAddress: "1 Catalog Way",
       city: "Crystal River",
       state: "FL",
       zip: "34428",
@@ -1058,7 +1059,7 @@ test("Admin results expose only derived catalog binding state", () => {
     biteScoreDocument("malformed", {biteSaverCatalogBindingId: "short"}),
     biteScoreDocument("null-binding", {biteSaverCatalogBindingId: null}),
     biteScoreDocument("noncanonical", {id: "stale-compatibility-id"}),
-    biteScoreDocument("incomplete-profile", {address: null}),
+    biteScoreDocument("incomplete-profile", {streetAddress: null}),
     biteScoreDocument("."),
     {
       ...biteScoreDocument("catalog"),

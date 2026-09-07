@@ -154,9 +154,8 @@ export function biteScoreBiteSaverCatalogProfile(
     ["name", "restaurantName", "restaurant_name"],
     maximumSearchNameLength,
   );
-  const streetAddress = firstBoundedPublicString(
-    data,
-    ["address", "streetAddress", "formattedAddress", "fullAddress"],
+  const streetAddress = boundedPublicSingleLineString(
+    data.streetAddress,
     maximumPublicStreetAddressLength,
   );
   const city = firstBoundedPublicString(

@@ -415,6 +415,7 @@ function canonicalRestaurant(overrides = {}) {
     id: restaurantId,
     name: "Claimable Cafe",
     address: "1 Main St",
+    streetAddress: "1 Main St",
     city: "Ocala",
     state: "FL",
     zipCode: "34470",
@@ -1704,6 +1705,10 @@ test("pending approval and invite redemption have exactly one owner winner", asy
 test("catalog-backed BiteSaver invite creation exact-reads canonical source data", async () => {
   runtime.reset();
   const originalRestaurant = canonicalRestaurant({
+    address: "99 Legacy Address",
+    streetAddress: "1 Main St",
+    formattedAddress: "88 Formatted Address, Ocala, FL 34470",
+    fullAddress: "77 Full Address, Ocala, FL 34470",
     phoneNumber: "555-0100",
     websiteUrl: "https://catalog.example.test",
     latitude: 28.8517,
@@ -1734,6 +1739,13 @@ test("catalog-backed BiteSaver invite creation exact-reads canonical source data
   );
   assert.equal(invite.data.couponPrefill.latitude, 28.8517);
   assert.equal(invite.data.tokenHash, hashToken(result.token));
+  assert.equal(invite.data.status, "active");
+  assert.equal(invite.data.maxUses, 1);
+  assert.equal(invite.data.useCount, 0);
+  assert.equal(invite.data.usedAt, null);
+  assert.equal(invite.data.usedByUid, null);
+  assert.equal(invite.data.revokedAt, null);
+  assert.ok(invite.data.expiresAt.toMillis() > Date.now());
   assert.equal(Object.hasOwn(invite.data, "token"), false);
   assert.equal(JSON.stringify(invite.data).includes(result.token), false);
   assert.equal(JSON.stringify(runtime.state.logs).includes(result.token), false);
@@ -1895,7 +1907,7 @@ test("catalog-backed BiteSaver invite creation fails closed for ineligible bindi
     missingRevision,
     canonicalRestaurant({restaurantWriteRevision: "4"}),
     canonicalRestaurant({restaurantWriteRevision: Number.MAX_SAFE_INTEGER}),
-    canonicalRestaurant({address: null}),
+    canonicalRestaurant({streetAddress: null}),
     canonicalRestaurant({city: null}),
     canonicalRestaurant({state: null}),
     canonicalRestaurant({zipCode: null}),
@@ -2046,7 +2058,10 @@ test("catalog-backed redemption activates from the current catalog snapshot", as
   runtime.reset();
   runtime.seed(restaurantPath, canonicalRestaurant({
     name: "Current Catalog Name",
-    address: "22 Current Address",
+    address: "99 Stale Address",
+    streetAddress: "22 Current Address",
+    formattedAddress: "88 Formatted Address, Tampa, FL 33602",
+    fullAddress: "77 Full Address, Tampa, FL 33602",
     city: "Tampa",
     zipCode: "33602",
   }));
@@ -2082,7 +2097,7 @@ test("catalog redemption validation failures leave invite and documents unchange
     canonicalRestaurant({restaurantWriteRevision: Number.MAX_SAFE_INTEGER}),
     canonicalRestaurant({biteSaverCatalogBindingId: "short"}),
     canonicalRestaurant({biteSaverCatalogBindingId: "Z".repeat(43)}),
-    canonicalRestaurant({address: null}),
+    canonicalRestaurant({streetAddress: null}),
     canonicalRestaurant({latitude: null}),
   ];
   for (const restaurant of invalidCatalogs) {
