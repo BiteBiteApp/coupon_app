@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../models/admin_restaurant_mailing_batch.dart';
 import '../models/admin_restaurant_mailing_pdf.dart';
@@ -299,6 +300,7 @@ typedef _MarkingLabelIdentity = ({
 class _AdminRestaurantQrBatchDialogState
     extends State<AdminRestaurantQrBatchDialog> {
   late final List<String> _frozenCatalogRestaurantIds;
+  late final FocusNode _dialogFocusAnchor;
   _BatchDialogStage _stage = _BatchDialogStage.preparing;
   int _preparedRestaurantCount = 0;
   int _markProcessedRestaurantCount = 0;
@@ -330,6 +332,7 @@ class _AdminRestaurantQrBatchDialogState
   @override
   void initState() {
     super.initState();
+    _dialogFocusAnchor = FocusNode(debugLabel: 'Batch dialog focus anchor');
     _frozenCatalogRestaurantIds = List<String>.unmodifiable(
       widget.frozenCatalogRestaurantIds,
     );
@@ -344,6 +347,7 @@ class _AdminRestaurantQrBatchDialogState
 
   @override
   void dispose() {
+    _dialogFocusAnchor.dispose();
     _preparation = null;
     _preflight = null;
     _artifact = null;
@@ -461,6 +465,9 @@ class _AdminRestaurantQrBatchDialogState
 
   Future<void> _retryPreparation() async {
     if (_operationLocked || !mounted) return;
+    _retainFocusForAsyncReplacement(const <Key>[
+      ValueKey('admin-qr-batch-retry-preparation'),
+    ]);
     final previous = _preparation;
     if (previous == null || !previous.canRetryPreparation) {
       await _prepare();
@@ -567,6 +574,9 @@ class _AdminRestaurantQrBatchDialogState
 
   Future<void> _retryMailingPreparation() async {
     if (_mailingOperationLocked || !mounted) return;
+    _retainFocusForAsyncReplacement(const <Key>[
+      ValueKey('admin-mailing-batch-retry-preparation'),
+    ]);
     final previous = _mailingPreparation;
     final retryMailing = widget.dependencies.retryMailing;
     if (previous == null || !previous.canRetry || retryMailing == null) {
@@ -629,6 +639,9 @@ class _AdminRestaurantQrBatchDialogState
       });
       return;
     }
+    _retainFocusForAsyncReplacement(const <Key>[
+      ValueKey('admin-mailing-batch-retry-fit'),
+    ]);
 
     final qrValidIds = <String>{
       ...?_preflight?.validManifest.restaurants.map(
@@ -731,6 +744,9 @@ class _AdminRestaurantQrBatchDialogState
     if (_mailingOperationLocked || !mounted) return;
     final preflight = _mailingPreflight;
     if (preflight == null || !preflight.hasValidLabels) return;
+    _retainFocusForAsyncReplacement(const <Key>[
+      ValueKey('admin-mailing-batch-export-valid'),
+    ]);
     _mailingValidOnlyApproved = true;
     await _buildMailingPdf();
   }
@@ -746,6 +762,9 @@ class _AdminRestaurantQrBatchDialogState
         buildMailingPdf == null) {
       return;
     }
+    _retainFocusForAsyncReplacement(const <Key>[
+      ValueKey('admin-mailing-batch-retry-build'),
+    ]);
     setState(() {
       _mailingOperationLocked = true;
       _mailingStage = _MailingDialogStage.building;
@@ -778,6 +797,9 @@ class _AdminRestaurantQrBatchDialogState
     final artifact = _mailingArtifact;
     final downloadMailingPdf = widget.dependencies.downloadMailingPdf;
     if (artifact == null || downloadMailingPdf == null) return;
+    _retainFocusForAsyncReplacement(const <Key>[
+      ValueKey('admin-mailing-batch-download'),
+    ]);
     setState(() {
       _mailingOperationLocked = true;
       _mailingStage = _MailingDialogStage.downloading;
@@ -813,6 +835,9 @@ class _AdminRestaurantQrBatchDialogState
     if (_operationLocked || !mounted) return;
     final preparation = _preparation;
     if (preparation == null) return;
+    _retainFocusForAsyncReplacement(const <Key>[
+      ValueKey('admin-qr-batch-retry-fit'),
+    ]);
     final manifest = preparation.toArtifactManifest();
     if (manifest.isEmpty) {
       setState(() {
@@ -861,6 +886,9 @@ class _AdminRestaurantQrBatchDialogState
     }
     final preflight = _preflight;
     if (preflight == null || !preflight.hasValidLabels) return;
+    _retainFocusForAsyncReplacement(const <Key>[
+      ValueKey('admin-qr-batch-export-valid'),
+    ]);
     setState(() {
       _qrValidSetApproved = true;
     });
@@ -872,6 +900,9 @@ class _AdminRestaurantQrBatchDialogState
     if (_operationLocked || _artifact != null || !mounted) return;
     final preflight = _preflight;
     if (preflight == null || !preflight.hasValidLabels) return;
+    _retainFocusForAsyncReplacement(const <Key>[
+      ValueKey('admin-qr-batch-retry-build'),
+    ]);
     setState(() {
       _operationLocked = true;
       _stage = _BatchDialogStage.building;
@@ -902,6 +933,9 @@ class _AdminRestaurantQrBatchDialogState
     if (_operationLocked || !mounted) return;
     final artifact = _artifact;
     if (artifact == null) return;
+    _retainFocusForAsyncReplacement(const <Key>[
+      ValueKey('admin-qr-batch-download'),
+    ]);
     setState(() {
       _operationLocked = true;
       _stage = _BatchDialogStage.downloading;
@@ -947,7 +981,28 @@ class _AdminRestaurantQrBatchDialogState
     if (_operationLocked) return;
     final unresolved = _unresolvedWorklist;
     if (unresolved == null || unresolved.isEmpty) return;
+    _retainFocusForAsyncReplacement(const <Key>[
+      ValueKey('admin-qr-batch-retry-status'),
+    ]);
     await _mark(unresolved);
+  }
+
+  void _retainFocusForAsyncReplacement(Iterable<Key> actionKeys) {
+    final focusedContext = FocusManager.instance.primaryFocus?.context;
+    if (focusedContext == null) return;
+    var focusedActionWillDisappear = actionKeys.contains(
+      focusedContext.widget.key,
+    );
+    focusedContext.visitAncestorElements((element) {
+      if (actionKeys.contains(element.widget.key)) {
+        focusedActionWillDisappear = true;
+        return false;
+      }
+      return true;
+    });
+    if (focusedActionWillDisappear) {
+      _dialogFocusAnchor.requestFocus();
+    }
   }
 
   Future<void> _mark(AdminRestaurantQrMarkingWorklist worklist) async {
@@ -1141,14 +1196,12 @@ class _AdminRestaurantQrBatchDialogState
         key: const ValueKey('admin-qr-batch-dialog'),
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
         title: const Text('Generate QR & Mailing Label PDFs'),
-        content: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 680),
-          child: SingleChildScrollView(
-            child: Semantics(
-              container: true,
-              liveRegion: true,
-              child: _buildContent(context),
-            ),
+        content: SizedBox(
+          width: 680,
+          child: Focus(
+            focusNode: _dialogFocusAnchor,
+            skipTraversal: true,
+            child: SingleChildScrollView(child: _buildContent(context)),
           ),
         ),
         actions: _buildActions(),
@@ -1167,7 +1220,11 @@ class _AdminRestaurantQrBatchDialogState
         const SizedBox(height: 16),
         Text('QR Labels', style: Theme.of(context).textTheme.titleMedium),
         const SizedBox(height: 4),
-        Text(_stageMessage, key: const ValueKey('admin-qr-batch-stage')),
+        _LiveBatchStatus(
+          workflowLabel: 'QR',
+          message: _stageMessage,
+          textKey: const ValueKey('admin-qr-batch-stage'),
+        ),
         if (_operationLocked) ...[
           const SizedBox(height: 12),
           const LinearProgressIndicator(
@@ -1221,9 +1278,10 @@ class _AdminRestaurantQrBatchDialogState
     return <Widget>[
       Text('Mailing Labels', style: Theme.of(context).textTheme.titleMedium),
       const SizedBox(height: 4),
-      Text(
-        _mailingStageMessage,
-        key: const ValueKey('admin-mailing-batch-stage'),
+      _LiveBatchStatus(
+        workflowLabel: 'Mailing',
+        message: _mailingStageMessage,
+        textKey: const ValueKey('admin-mailing-batch-stage'),
       ),
       if (_mailingOperationLocked) ...[
         const SizedBox(height: 12),
@@ -1233,31 +1291,24 @@ class _AdminRestaurantQrBatchDialogState
       ],
       if (problems.isNotEmpty) ...[
         const SizedBox(height: 12),
-        Container(
+        _BoundedProblemPane(
           key: const ValueKey('admin-mailing-batch-problem-list'),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.errorContainer,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (final problem in problems)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(
-                    '${problem.restaurantName ?? 'Restaurant'} '
-                    '(${problem.catalogRestaurantId}) — ${problem.message}',
-                    key: ValueKey(
-                      'admin-mailing-batch-problem-'
-                      '${problem.catalogRestaurantId}-'
-                      '${problem.code.wireName}',
-                    ),
-                  ),
-                ),
-            ],
-          ),
+          title: 'Mailing problems',
+          itemCount: problems.length,
+          itemBuilder: (context, index) {
+            final problem = problems[index];
+            return Text(
+              '${problem.restaurantName ?? 'Restaurant'} '
+              '(${problem.catalogRestaurantId}) — ${problem.message}',
+              key: ValueKey(
+                'admin-mailing-batch-problem-'
+                '${problem.catalogRestaurantId}-'
+                '${problem.code.wireName}',
+              ),
+            );
+          },
+          scrollKey: const ValueKey('admin-mailing-batch-problem-scroll'),
+          focusKey: const ValueKey('admin-mailing-batch-problem-scroll-focus'),
         ),
       ],
       if (_mailingPreparation?.canRetry == true) ...[
@@ -1442,43 +1493,36 @@ class _AdminRestaurantQrBatchDialogState
     final colorScheme = Theme.of(context).colorScheme;
     return [
       const SizedBox(height: 12),
-      Container(
+      _BoundedProblemPane(
         key: const ValueKey('admin-qr-batch-problem-list'),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: colorScheme.errorContainer,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final problem in _preparationProblems)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  '${problem.catalogRestaurantId} — ${problem.message}',
-                  key: ValueKey(
-                    'admin-qr-batch-preparation-problem-'
-                    '${problem.catalogRestaurantId}',
-                  ),
-                ),
+        title: 'QR problems',
+        itemCount: _problemCount,
+        itemBuilder: (context, index) {
+          if (index < _preparationProblems.length) {
+            final problem = _preparationProblems[index];
+            return Text(
+              '${problem.catalogRestaurantId} — ${problem.message}',
+              key: ValueKey(
+                'admin-qr-batch-preparation-problem-'
+                '${problem.catalogRestaurantId}',
               ),
-            for (final problem in _pdfProblems)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Text(
-                  '${problem.restaurantName} '
-                  '(${problem.catalogRestaurantId}) · '
-                  '${problem.labelType.wireName} — ${problem.message}',
-                  key: ValueKey(
-                    'admin-qr-batch-pdf-problem-'
-                    '${problem.catalogRestaurantId}-'
-                    '${problem.labelType.wireName}',
-                  ),
-                ),
-              ),
-          ],
-        ),
+            );
+          }
+          final problem = _pdfProblems[index - _preparationProblems.length];
+          return Text(
+            '${problem.restaurantName} '
+            '(${problem.catalogRestaurantId}) · '
+            '${problem.labelType.wireName} — ${problem.message}',
+            key: ValueKey(
+              'admin-qr-batch-pdf-problem-'
+              '${problem.catalogRestaurantId}-'
+              '${problem.labelType.wireName}',
+            ),
+          );
+        },
+        scrollKey: const ValueKey('admin-qr-batch-problem-scroll'),
+        focusKey: const ValueKey('admin-qr-batch-problem-scroll-focus'),
+        backgroundColor: colorScheme.errorContainer,
       ),
       if (_preflight?.hasValidLabels != true) ...[
         const SizedBox(height: 12),
@@ -1719,5 +1763,195 @@ class _AdminRestaurantQrBatchDialogState
       );
     }
     return actions;
+  }
+}
+
+class _LiveBatchStatus extends StatelessWidget {
+  const _LiveBatchStatus({
+    required this.workflowLabel,
+    required this.message,
+    required this.textKey,
+  });
+
+  final String workflowLabel;
+  final String message;
+  final Key textKey;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      label: '$workflowLabel status: $message',
+      child: ExcludeSemantics(child: Text(message, key: textKey)),
+    );
+  }
+}
+
+class _BoundedProblemPane extends StatefulWidget {
+  const _BoundedProblemPane({
+    super.key,
+    required this.title,
+    required this.itemCount,
+    required this.itemBuilder,
+    required this.scrollKey,
+    required this.focusKey,
+    this.backgroundColor,
+  });
+
+  final String title;
+  final int itemCount;
+  final IndexedWidgetBuilder itemBuilder;
+  final Key scrollKey;
+  final Key focusKey;
+  final Color? backgroundColor;
+
+  @override
+  State<_BoundedProblemPane> createState() => _BoundedProblemPaneState();
+}
+
+class _BoundedProblemPaneState extends State<_BoundedProblemPane> {
+  static const int _compactItemLimit = 4;
+  static const double _minimumMaximumHeight = 104;
+  static const double _maximumMaximumHeight = 260;
+  static const double _viewportFraction = 0.30;
+
+  late final ScrollController _scrollController;
+  late final FocusNode _focusNode;
+  bool _hasFocus = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _focusNode = FocusNode(debugLabel: '${widget.title} scroll pane');
+  }
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    _focusNode.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final maximumHeight =
+        (MediaQuery.sizeOf(context).height * _viewportFraction)
+            .clamp(_minimumMaximumHeight, _maximumMaximumHeight)
+            .toDouble();
+    final countLabel = widget.itemCount == 1
+        ? '1 problem'
+        : '${widget.itemCount} problems';
+    final isLargeSet = widget.itemCount > _compactItemLimit;
+    final list = ListView.builder(
+      key: widget.scrollKey,
+      controller: _scrollController,
+      primary: false,
+      shrinkWrap: !isLargeSet,
+      padding: EdgeInsets.zero,
+      itemCount: widget.itemCount,
+      itemBuilder: (context, index) => Padding(
+        padding: EdgeInsets.only(bottom: index == widget.itemCount - 1 ? 0 : 8),
+        child: widget.itemBuilder(context, index),
+      ),
+    );
+
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      label: '${widget.title}, $countLabel',
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: widget.backgroundColor ?? colorScheme.errorContainer,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            ExcludeSemantics(
+              child: Text(
+                widget.title,
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            const SizedBox(height: 2),
+            ExcludeSemantics(child: Text(countLabel)),
+            const SizedBox(height: 8),
+            Focus(
+              key: widget.focusKey,
+              focusNode: _focusNode,
+              onFocusChange: (hasFocus) {
+                if (_hasFocus == hasFocus) return;
+                setState(() => _hasFocus = hasFocus);
+              },
+              onKeyEvent: _handleKeyEvent,
+              child: GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _focusNode.requestFocus,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 100),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    border: Border.all(
+                      color: _hasFocus
+                          ? colorScheme.primary
+                          : colorScheme.outlineVariant,
+                      width: _hasFocus ? 2 : 1,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Scrollbar(
+                    controller: _scrollController,
+                    thumbVisibility: isLargeSet,
+                    child: isLargeSet
+                        ? SizedBox(height: maximumHeight, child: list)
+                        : ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxHeight: maximumHeight,
+                            ),
+                            child: list,
+                          ),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  KeyEventResult _handleKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent || !_scrollController.hasClients) {
+      return KeyEventResult.ignored;
+    }
+    final key = event.logicalKey;
+    final position = _scrollController.position;
+    if (key == LogicalKeyboardKey.arrowDown) {
+      _jumpTo(position.pixels + 48);
+    } else if (key == LogicalKeyboardKey.arrowUp) {
+      _jumpTo(position.pixels - 48);
+    } else if (key == LogicalKeyboardKey.pageDown) {
+      _jumpTo(position.pixels + position.viewportDimension * 0.8);
+    } else if (key == LogicalKeyboardKey.pageUp) {
+      _jumpTo(position.pixels - position.viewportDimension * 0.8);
+    } else if (key == LogicalKeyboardKey.home) {
+      _jumpTo(position.minScrollExtent);
+    } else if (key == LogicalKeyboardKey.end) {
+      _jumpTo(position.maxScrollExtent);
+    } else {
+      return KeyEventResult.ignored;
+    }
+    return KeyEventResult.handled;
+  }
+
+  void _jumpTo(double offset) {
+    final position = _scrollController.position;
+    _scrollController.jumpTo(
+      offset.clamp(position.minScrollExtent, position.maxScrollExtent),
+    );
   }
 }

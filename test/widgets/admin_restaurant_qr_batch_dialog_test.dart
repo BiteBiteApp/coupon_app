@@ -12,6 +12,7 @@ import 'package:coupon_app/services/restaurant_qr_pdf_service.dart';
 import 'package:coupon_app/widgets/admin_restaurant_qr_batch_dialog.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -510,6 +511,10 @@ void main() {
       expect(
         find.byKey(ValueKey('admin-qr-batch-pdf-problem-$denseId-SA')),
         findsOneWidget,
+      );
+      await _focusAndEndProblemPane(
+        tester,
+        const ValueKey('admin-qr-batch-problem-scroll-focus'),
       );
       expect(
         find.byKey(ValueKey('admin-qr-batch-pdf-problem-$denseId-SR')),
@@ -1606,6 +1611,1021 @@ void main() {
       findsNothing,
     );
   });
+
+  testWidgets(
+    'dense QR problems are bounded, lazy, ordered, keyboard scrollable, and leave mailing reachable',
+    (tester) async {
+      final problemIds = List<String>.generate(
+        200,
+        (index) => 'qr-problem-${index.toString().padLeft(3, '0')}',
+      );
+      final ids = <String>['restaurant-ready', ...problemIds];
+      final qrPreparation = _preparation(<AdminRestaurantQrRestaurantResult>[
+        _readyRestaurant('restaurant-ready', 'Ready Restaurant'),
+        for (final id in problemIds)
+          AdminRestaurantQrProblemRestaurant(
+            catalogRestaurantId: id,
+            outcome: AdminRestaurantQrProblemOutcome.unavailable,
+            code: 'restaurant_unavailable',
+            message: 'Problem for $id remains fully readable and ordered.',
+          ),
+      ]);
+      var qrBuildCalls = 0;
+      var mailingBuildCalls = 0;
+      final dependencies = _dependenciesWithMailing(
+        qrPreparation: qrPreparation,
+        mailingPreparation: _mailingPreparation(<AdminRestaurantMailingResult>[
+          for (final id in ids) _mailingReady(id, 'Mail $id'),
+        ]),
+        buildPdf: (preflight) async {
+          qrBuildCalls += 1;
+          return _artifact(preflight);
+        },
+        buildMailingPdf: (preflight, approved) async {
+          mailingBuildCalls += 1;
+          return _mailingArtifact(preflight);
+        },
+      );
+
+      await _openDialog(tester, ids: ids, dependencies: dependencies);
+      await tester.pumpAndSettle();
+
+      final pane = find.byKey(const ValueKey('admin-qr-batch-problem-list'));
+      final list = find.byKey(const ValueKey('admin-qr-batch-problem-scroll'));
+      expect(
+        find.descendant(of: pane, matching: find.text('200 problems')),
+        findsOneWidget,
+      );
+      expect(tester.getSize(list).height, lessThanOrEqualTo(260));
+      expect(
+        tester
+            .widget<Scrollbar>(
+              find.descendant(of: pane, matching: find.byType(Scrollbar)),
+            )
+            .thumbVisibility,
+        isTrue,
+      );
+      expect(
+        _builtProblemRowCount(tester, 'admin-qr-batch-preparation-problem-'),
+        lessThan(problemIds.length),
+      );
+      expect(
+        find.byKey(
+          const ValueKey('admin-qr-batch-preparation-problem-qr-problem-000'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const ValueKey('admin-qr-batch-preparation-problem-qr-problem-199'),
+        ),
+        findsNothing,
+      );
+
+      await _focusAndEndProblemPane(
+        tester,
+        const ValueKey('admin-qr-batch-problem-scroll-focus'),
+      );
+      expect(
+        find.byKey(
+          const ValueKey('admin-qr-batch-preparation-problem-qr-problem-199'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.text(
+          'qr-problem-199 — Problem for qr-problem-199 remains fully readable and ordered.',
+        ),
+        findsOneWidget,
+      );
+
+      await tester.ensureVisible(find.text('Mailing Labels'));
+      await tester.pumpAndSettle();
+      expect(find.text('Mailing Labels'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('admin-qr-batch-export-valid')),
+        findsOneWidget,
+      );
+      expect(qrBuildCalls, 0);
+      expect(mailingBuildCalls, 0);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'dense mailing problems are bounded, lazy, ordered, and independently approvable',
+    (tester) async {
+      final problemIds = List<String>.generate(
+        180,
+        (index) => 'mail-problem-${index.toString().padLeft(3, '0')}',
+      );
+      final ids = <String>['restaurant-ready', ...problemIds];
+      final mailingResults = <AdminRestaurantMailingResult>[
+        _mailingReady('restaurant-ready', 'Ready Restaurant'),
+        for (final id in problemIds)
+          AdminRestaurantMailingProblem(
+            catalogRestaurantId: id,
+            outcome: AdminRestaurantMailingProblemOutcome.unavailable,
+            restaurantName: 'Mail $id',
+            code: AdminRestaurantMailingProblemCode.invalidZip,
+            message: 'Mailing problem for $id remains readable.',
+          ),
+      ];
+      var mailingBuildCalls = 0;
+      final dependencies = _dependenciesWithMailing(
+        qrPreparation: _preparation(<AdminRestaurantQrRestaurantResult>[
+          for (final id in ids) _readyRestaurant(id, 'QR $id'),
+        ]),
+        mailingPreparation: _mailingPreparation(mailingResults),
+        buildMailingPdf: (preflight, approved) async {
+          mailingBuildCalls += 1;
+          expect(approved, isTrue);
+          return _mailingArtifact(preflight);
+        },
+      );
+
+      await _openDialog(tester, ids: ids, dependencies: dependencies);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Mailing Labels'));
+      await tester.pumpAndSettle();
+
+      final pane = find.byKey(
+        const ValueKey('admin-mailing-batch-problem-list'),
+      );
+      final list = find.byKey(
+        const ValueKey('admin-mailing-batch-problem-scroll'),
+      );
+      expect(
+        find.descendant(of: pane, matching: find.text('180 problems')),
+        findsOneWidget,
+      );
+      expect(tester.getSize(list).height, lessThanOrEqualTo(260));
+      expect(
+        tester
+            .widget<Scrollbar>(
+              find.descendant(of: pane, matching: find.byType(Scrollbar)),
+            )
+            .thumbVisibility,
+        isTrue,
+      );
+      expect(
+        _builtProblemRowCount(tester, 'admin-mailing-batch-problem-'),
+        lessThan(problemIds.length),
+      );
+      expect(
+        find.byKey(
+          const ValueKey(
+            'admin-mailing-batch-problem-mail-problem-000-authoritative_mailing_data',
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(
+          const ValueKey(
+            'admin-mailing-batch-problem-mail-problem-179-authoritative_mailing_data',
+          ),
+        ),
+        findsNothing,
+      );
+
+      await _focusAndEndProblemPane(
+        tester,
+        const ValueKey('admin-mailing-batch-problem-scroll-focus'),
+      );
+      expect(
+        find.byKey(
+          const ValueKey(
+            'admin-mailing-batch-problem-mail-problem-179-authoritative_mailing_data',
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('admin-mailing-batch-export-valid')),
+        findsOneWidget,
+      );
+
+      await _tapVisible(
+        tester,
+        const ValueKey('admin-mailing-batch-export-valid'),
+      );
+      expect(mailingBuildCalls, 1);
+      expect(
+        find.byKey(const ValueKey('admin-mailing-batch-download')),
+        findsOneWidget,
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'both dense panes stay bounded and approvals remain reachable in sequence',
+    (tester) async {
+      final problemIds = List<String>.generate(
+        80,
+        (index) => 'both-problem-${index.toString().padLeft(3, '0')}',
+      );
+      final ids = <String>['restaurant-ready', ...problemIds];
+      var qrBuildCalls = 0;
+      var mailingBuildCalls = 0;
+      final dependencies = _dependenciesWithMailing(
+        qrPreparation: _preparation(<AdminRestaurantQrRestaurantResult>[
+          _readyRestaurant('restaurant-ready', 'Ready Restaurant'),
+          for (final id in problemIds)
+            AdminRestaurantQrProblemRestaurant(
+              catalogRestaurantId: id,
+              outcome: AdminRestaurantQrProblemOutcome.unavailable,
+              code: 'restaurant_unavailable',
+              message: 'QR problem for $id.',
+            ),
+        ]),
+        mailingPreparation: _mailingPreparation(<AdminRestaurantMailingResult>[
+          _mailingReady('restaurant-ready', 'Ready Restaurant'),
+          for (final id in problemIds)
+            AdminRestaurantMailingProblem(
+              catalogRestaurantId: id,
+              outcome: AdminRestaurantMailingProblemOutcome.unavailable,
+              restaurantName: 'Mail $id',
+              code: AdminRestaurantMailingProblemCode.invalidZip,
+              message: 'Mailing problem for $id.',
+            ),
+        ]),
+        buildPdf: (preflight) async {
+          qrBuildCalls += 1;
+          return _artifact(preflight);
+        },
+        buildMailingPdf: (preflight, approved) async {
+          mailingBuildCalls += 1;
+          return _mailingArtifact(preflight);
+        },
+      );
+
+      await _openDialog(tester, ids: ids, dependencies: dependencies);
+      await tester.pumpAndSettle();
+
+      expect(find.text('QR problems'), findsOneWidget);
+      expect(find.text('Mailing problems'), findsOneWidget);
+      expect(find.text('80 problems'), findsNWidgets(2));
+      expect(
+        tester
+            .getSize(
+              find.byKey(const ValueKey('admin-qr-batch-problem-scroll')),
+            )
+            .height,
+        lessThanOrEqualTo(260),
+      );
+      expect(
+        tester
+            .getSize(
+              find.byKey(const ValueKey('admin-mailing-batch-problem-scroll')),
+            )
+            .height,
+        lessThanOrEqualTo(260),
+      );
+      expect(
+        _builtProblemRowCount(tester, 'admin-qr-batch-preparation-problem-'),
+        lessThan(problemIds.length),
+      );
+      expect(
+        _builtProblemRowCount(tester, 'admin-mailing-batch-problem-'),
+        lessThan(problemIds.length),
+      );
+
+      await tester.tap(
+        find.byKey(const ValueKey('admin-qr-batch-export-valid')),
+      );
+      await tester.pumpAndSettle();
+      expect(qrBuildCalls, 1);
+      expect(
+        find.byKey(const ValueKey('admin-mailing-batch-export-valid')),
+        findsOneWidget,
+      );
+      await _tapVisible(
+        tester,
+        const ValueKey('admin-mailing-batch-export-valid'),
+      );
+      expect(mailingBuildCalls, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'live regions announce only concise workflow status and panes have identities',
+    (tester) async {
+      final ids = const <String>['restaurant-ready', 'restaurant-problem'];
+      final dependencies = _dependenciesWithMailing(
+        qrPreparation: _preparation(<AdminRestaurantQrRestaurantResult>[
+          _readyRestaurant('restaurant-ready', 'Ready Restaurant'),
+          AdminRestaurantQrProblemRestaurant(
+            catalogRestaurantId: 'restaurant-problem',
+            outcome: AdminRestaurantQrProblemOutcome.unavailable,
+            code: 'restaurant_unavailable',
+            message: 'QR problem text.',
+          ),
+        ]),
+        mailingPreparation: _mailingPreparation(<AdminRestaurantMailingResult>[
+          _mailingReady('restaurant-ready', 'Ready Restaurant'),
+          AdminRestaurantMailingProblem(
+            catalogRestaurantId: 'restaurant-problem',
+            outcome: AdminRestaurantMailingProblemOutcome.unavailable,
+            restaurantName: 'Problem Restaurant',
+            code: AdminRestaurantMailingProblemCode.invalidZip,
+            message: 'Mailing problem text.',
+          ),
+        ]),
+      );
+
+      await _openDialog(tester, ids: ids, dependencies: dependencies);
+      await tester.pumpAndSettle();
+
+      final liveRegions = tester
+          .widgetList<Semantics>(find.byType(Semantics))
+          .where((widget) => widget.properties.liveRegion == true)
+          .toList();
+      expect(liveRegions, hasLength(2));
+      expect(
+        liveRegions.map((widget) => widget.properties.label),
+        containsAll(<String>[
+          'QR status: Review all 1 label preparation problem.',
+          'Mailing status: Waiting for the QR-valid restaurant set…',
+        ]),
+      );
+
+      final paneLabels = tester
+          .widgetList<Semantics>(find.byType(Semantics))
+          .map((widget) => widget.properties.label)
+          .whereType<String>();
+      expect(paneLabels, contains('QR problems, 1 problem'));
+      expect(paneLabels, contains('Mailing problems, 1 problem'));
+      expect(
+        tester
+            .getSize(
+              find.byKey(const ValueKey('admin-qr-batch-problem-scroll')),
+            )
+            .height,
+        lessThan(100),
+      );
+      expect(
+        tester
+            .widget<Semantics>(
+              find
+                  .ancestor(
+                    of: find.byKey(const ValueKey('admin-qr-batch-dialog')),
+                    matching: find.byType(Semantics),
+                  )
+                  .first,
+            )
+            .properties
+            .liveRegion,
+        isNot(true),
+      );
+    },
+  );
+
+  testWidgets(
+    'Tab and Shift-Tab traverse both panes and dialog actions without escaping the modal',
+    (tester) async {
+      final problemIds = List<String>.generate(20, (index) => 'focus-$index');
+      final ids = <String>['restaurant-ready', ...problemIds];
+      final dependencies = _dependenciesWithMailing(
+        qrPreparation: _preparation(<AdminRestaurantQrRestaurantResult>[
+          _readyRestaurant('restaurant-ready', 'Ready Restaurant'),
+          for (final id in problemIds)
+            AdminRestaurantQrProblemRestaurant(
+              catalogRestaurantId: id,
+              outcome: AdminRestaurantQrProblemOutcome.unavailable,
+              code: 'restaurant_unavailable',
+              message: 'QR problem for $id.',
+            ),
+        ]),
+        mailingPreparation: _mailingPreparation(<AdminRestaurantMailingResult>[
+          _mailingReady('restaurant-ready', 'Ready Restaurant'),
+          for (final id in problemIds)
+            AdminRestaurantMailingProblem(
+              catalogRestaurantId: id,
+              outcome: AdminRestaurantMailingProblemOutcome.unavailable,
+              restaurantName: 'Mail $id',
+              code: AdminRestaurantMailingProblemCode.invalidZip,
+              message: 'Mailing problem for $id.',
+            ),
+        ]),
+      );
+
+      await _openDialogOverAdminRoute(
+        tester,
+        ids: ids,
+        dependencies: dependencies,
+        observer: _RouteAccountingObserver(),
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      final firstFocus = FocusManager.instance.primaryFocus;
+      expect(firstFocus, isNotNull);
+      expect(_focusIsInsideBatchDialog(), isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(_focusIsInsideBatchDialog(), isTrue);
+      expect(FocusManager.instance.primaryFocus, isNot(same(firstFocus)));
+      await _sendShiftTab(tester);
+      expect(FocusManager.instance.primaryFocus, same(firstFocus));
+
+      final reachedKeys = <Key>{};
+      for (var index = 0; index < 16; index += 1) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(_focusIsInsideBatchDialog(), isTrue, reason: 'Tab $index');
+        reachedKeys.addAll(_focusedAncestorKeys());
+      }
+      expect(
+        reachedKeys,
+        containsAll(<Key>[
+          const ValueKey('admin-qr-batch-problem-scroll-focus'),
+          const ValueKey('admin-mailing-batch-problem-scroll-focus'),
+          const ValueKey('admin-qr-batch-cancel'),
+          const ValueKey('admin-qr-batch-export-valid'),
+        ]),
+      );
+      expect(reachedKeys, isNot(contains(const ValueKey('open-batch-dialog'))));
+
+      final qrPaneFocus = tester.widget<Focus>(
+        find.byKey(const ValueKey('admin-qr-batch-problem-scroll-focus')),
+      );
+      qrPaneFocus.focusNode!.requestFocus();
+      await tester.pump();
+      expect(qrPaneFocus.focusNode!.hasFocus, isTrue);
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(qrPaneFocus.focusNode!.hasFocus, isFalse);
+      expect(_focusIsInsideBatchDialog(), isTrue);
+    },
+  );
+
+  testWidgets(
+    'focused problem pane does not intercept Escape or bypass back safety',
+    (tester) async {
+      final observer = _RouteAccountingObserver();
+      final dependencies = _dependencies(
+        preparation: _allProblems(const <String>[
+          'restaurant-a',
+          'restaurant-b',
+          'restaurant-c',
+          'restaurant-d',
+          'restaurant-e',
+        ]),
+      );
+      await _openDialogOverAdminRoute(
+        tester,
+        ids: const <String>[
+          'restaurant-a',
+          'restaurant-b',
+          'restaurant-c',
+          'restaurant-d',
+          'restaurant-e',
+        ],
+        dependencies: dependencies,
+        observer: observer,
+      );
+      observer.reset();
+
+      final paneFocus = tester.widget<Focus>(
+        find.byKey(const ValueKey('admin-qr-batch-problem-scroll-focus')),
+      );
+      paneFocus.focusNode!.requestFocus();
+      await tester.pump();
+      expect(paneFocus.focusNode!.hasFocus, isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pump();
+      expect(
+        find.byKey(const ValueKey('admin-qr-batch-dialog')),
+        findsOneWidget,
+      );
+      expect(paneFocus.focusNode!.hasFocus, isTrue);
+      expect(observer.popCount, 0);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('admin-qr-batch-dialog')), findsNothing);
+      expect(find.byKey(const ValueKey('admin-route')), findsOneWidget);
+      expect(find.byKey(const ValueKey('navigation-home')), findsNothing);
+      expect(observer.popCount, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'focus remains usable when approval becomes a ready download action',
+    (tester) async {
+      final build = Completer<RestaurantQrPdfArtifact>();
+      final preparation = _preparation(<AdminRestaurantQrRestaurantResult>[
+        _readyRestaurant('restaurant-ready', 'Ready Restaurant'),
+        AdminRestaurantQrProblemRestaurant(
+          catalogRestaurantId: 'restaurant-problem',
+          outcome: AdminRestaurantQrProblemOutcome.unavailable,
+          code: 'restaurant_unavailable',
+          message: 'QR problem.',
+        ),
+      ]);
+      final dependencies = _dependencies(
+        preparation: preparation,
+        buildPdf: (preflight) => build.future,
+      );
+
+      await _openDialogOverAdminRoute(
+        tester,
+        ids: const <String>['restaurant-ready', 'restaurant-problem'],
+        dependencies: dependencies,
+        observer: _RouteAccountingObserver(),
+      );
+      await _tabUntilFocused(
+        tester,
+        const ValueKey('admin-qr-batch-export-valid'),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(find.text('Building PDF…'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('admin-qr-batch-export-valid')),
+        findsNothing,
+      );
+      expect(_focusIsInsideBatchDialog(), isTrue);
+
+      final completedPreflight = await const RestaurantQrPdfService().preflight(
+        preparation.toArtifactManifest(),
+      );
+      build.complete(_artifact(completedPreflight));
+      await tester.pumpAndSettle();
+      expect(find.text('PDF ready'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+      expect(_focusIsInsideBatchDialog(), isTrue);
+      expect(
+        _focusedAncestorKeys(),
+        isNot(contains(const ValueKey('admin-route'))),
+      );
+      expect(
+        _focusedAncestorKeys(),
+        isNot(contains(const ValueKey('open-batch-dialog'))),
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(_focusIsInsideBatchDialog(), isTrue);
+      expect(
+        _focusedAncestorKeys(),
+        isNot(contains(const ValueKey('admin-route'))),
+      );
+      await _sendShiftTab(tester);
+      expect(_focusIsInsideBatchDialog(), isTrue);
+      expect(
+        _focusedAncestorKeys(),
+        isNot(contains(const ValueKey('admin-route'))),
+      );
+      expect(
+        _focusedAncestorKeys(),
+        isNot(contains(const ValueKey('open-batch-dialog'))),
+      );
+
+      final reachedKeys = <Key>{};
+      for (var index = 0; index < 8; index += 1) {
+        reachedKeys.addAll(_focusedAncestorKeys());
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+      }
+      expect(
+        reachedKeys,
+        containsAll(<Key>[
+          const ValueKey('admin-qr-batch-close'),
+          const ValueKey('admin-qr-batch-download'),
+        ]),
+      );
+      expect(_focusIsInsideBatchDialog(), isTrue);
+    },
+  );
+
+  testWidgets(
+    'Tab and Shift-Tab reach and activate Mailing valid-only approval',
+    (tester) async {
+      final observer = _RouteAccountingObserver();
+      var mailingBuildCalls = 0;
+      final dependencies = _dependenciesWithMailing(
+        qrPreparation: _preparation(<AdminRestaurantQrRestaurantResult>[
+          _readyRestaurant('restaurant-ready', 'Ready Restaurant'),
+          _readyRestaurant('restaurant-mail-problem', 'Problem Restaurant'),
+        ]),
+        mailingPreparation: _mailingPreparation(<AdminRestaurantMailingResult>[
+          _mailingReady('restaurant-ready', 'Ready Restaurant'),
+          AdminRestaurantMailingProblem(
+            catalogRestaurantId: 'restaurant-mail-problem',
+            outcome: AdminRestaurantMailingProblemOutcome.unavailable,
+            restaurantName: 'Problem Restaurant',
+            code: AdminRestaurantMailingProblemCode.invalidZip,
+            message: 'A valid mailing ZIP code is unavailable.',
+          ),
+        ]),
+        buildMailingPdf: (preflight, approved) async {
+          mailingBuildCalls += 1;
+          expect(approved, isTrue);
+          return _mailingArtifact(preflight);
+        },
+      );
+
+      await _openDialogOverAdminRoute(
+        tester,
+        ids: const <String>['restaurant-ready', 'restaurant-mail-problem'],
+        dependencies: dependencies,
+        observer: observer,
+      );
+      expect(
+        find.byKey(const ValueKey('admin-mailing-batch-export-valid')),
+        findsOneWidget,
+      );
+      expect(
+        find.text('Review mailing-label problems separately.'),
+        findsOneWidget,
+      );
+
+      var reachedMailingApproval = false;
+      for (var index = 0; index < 12; index += 1) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+        await tester.pump();
+        expect(_focusIsInsideBatchDialog(), isTrue, reason: 'Tab $index');
+        expect(
+          _focusedAncestorKeys(),
+          isNot(contains(const ValueKey('admin-route'))),
+          reason: 'Tab $index',
+        );
+        expect(
+          _focusedAncestorKeys(),
+          isNot(contains(const ValueKey('open-batch-dialog'))),
+          reason: 'Tab $index',
+        );
+        if (_focusedAncestorKeys().contains(
+          const ValueKey('admin-mailing-batch-export-valid'),
+        )) {
+          reachedMailingApproval = true;
+          break;
+        }
+      }
+      expect(reachedMailingApproval, isTrue);
+      final mailingApprovalFocus = FocusManager.instance.primaryFocus;
+
+      await _sendShiftTab(tester);
+      expect(_focusIsInsideBatchDialog(), isTrue);
+      expect(
+        _focusedAncestorKeys(),
+        isNot(contains(const ValueKey('admin-mailing-batch-export-valid'))),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(FocusManager.instance.primaryFocus, same(mailingApprovalFocus));
+      expect(
+        _focusedAncestorKeys(),
+        contains(const ValueKey('admin-mailing-batch-export-valid')),
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(mailingBuildCalls, 1);
+      expect(
+        find.byKey(const ValueKey('admin-mailing-batch-download')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('admin-qr-batch-dialog')),
+        findsOneWidget,
+      );
+      expect(find.byKey(const ValueKey('admin-route')), findsOneWidget);
+      expect(find.byKey(const ValueKey('navigation-home')), findsNothing);
+      expect(_focusIsInsideBatchDialog(), isTrue);
+      expect(tester.takeException(), isNull);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+      await tester.pump();
+      expect(_focusIsInsideBatchDialog(), isTrue);
+    },
+  );
+
+  testWidgets(
+    'keyboard retry retains focus while preparation action is replaced',
+    (tester) async {
+      final retry = Completer<AdminRestaurantQrPreparationRunResult>();
+      final ready = _preparation(<AdminRestaurantQrRestaurantResult>[
+        _readyRestaurant('restaurant-ready', 'Ready Restaurant'),
+      ]);
+      var prepareCalls = 0;
+      final dependencies = _dependencies(
+        preparation: ready,
+        prepare: (ids, progress) {
+          prepareCalls += 1;
+          if (prepareCalls == 1) {
+            throw StateError('Synthetic preparation interruption.');
+          }
+          return retry.future;
+        },
+      );
+
+      await _openDialogOverAdminRoute(
+        tester,
+        ids: const <String>['restaurant-ready'],
+        dependencies: dependencies,
+        observer: _RouteAccountingObserver(),
+      );
+      expect(find.text('Preparation interrupted'), findsOneWidget);
+      await _tabUntilFocused(
+        tester,
+        const ValueKey('admin-qr-batch-retry-preparation'),
+      );
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(find.text('Preparing selected restaurants…'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('admin-qr-batch-retry-preparation')),
+        findsNothing,
+      );
+      expect(_focusIsInsideBatchDialog(), isTrue);
+
+      retry.complete(ready);
+      await tester.pumpAndSettle();
+      expect(find.text('PDF ready'), findsOneWidget);
+      expect(prepareCalls, 2);
+      await _tabUntilFocused(tester, const ValueKey('admin-qr-batch-download'));
+      expect(_focusIsInsideBatchDialog(), isTrue);
+    },
+  );
+
+  testWidgets(
+    'keyboard download retains focus while busy action disappears and returns',
+    (tester) async {
+      final download = Completer<RestaurantQrPdfExportResult>();
+      var markingCalls = 0;
+      final ready = _preparation(<AdminRestaurantQrRestaurantResult>[
+        _readyRestaurant('restaurant-ready', 'Ready Restaurant'),
+      ]);
+      final dependencies = _dependencies(
+        preparation: ready,
+        downloadPdf: (bytes, filename) => download.future,
+        markPrepared: (worklist, progress) async {
+          markingCalls += 1;
+          return _markingResult(worklist);
+        },
+      );
+
+      await _openDialogOverAdminRoute(
+        tester,
+        ids: const <String>['restaurant-ready'],
+        dependencies: dependencies,
+        observer: _RouteAccountingObserver(),
+      );
+      await _tabUntilFocused(tester, const ValueKey('admin-qr-batch-download'));
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+      expect(find.text('Downloading PDF…'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('admin-qr-batch-download')),
+        findsNothing,
+      );
+      expect(_focusIsInsideBatchDialog(), isTrue);
+
+      download.complete(
+        const RestaurantQrPdfExportResult.failed(
+          failure: RestaurantQrPdfExportFailure.initiationFailed,
+          message: 'Synthetic download interruption.',
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Synthetic download interruption.'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('admin-qr-batch-download')),
+        findsOneWidget,
+      );
+      expect(markingCalls, 0);
+      expect(_focusIsInsideBatchDialog(), isTrue);
+      await _tabUntilFocused(tester, const ValueKey('admin-qr-batch-download'));
+    },
+  );
+
+  testWidgets(
+    'dense dialog remains responsive at all required viewport sizes',
+    (tester) async {
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      tester.view.devicePixelRatio = 1;
+      final problemIds = List<String>.generate(40, (index) => 'size-$index');
+      final ids = <String>['restaurant-ready', ...problemIds];
+
+      for (final size in const <Size>[
+        Size(320, 568),
+        Size(568, 320),
+        Size(768, 1024),
+        Size(1024, 768),
+        Size(1440, 900),
+        Size(1920, 1080),
+      ]) {
+        tester.view.physicalSize = size;
+        await _openDialog(
+          tester,
+          ids: ids,
+          dependencies: _denseBothDependencies(problemIds),
+          textScale: size == const Size(320, 568) ? 2 : 1,
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('QR problems'), findsOneWidget, reason: '$size');
+        await tester.ensureVisible(find.text('Mailing problems'));
+        await tester.pumpAndSettle();
+        expect(find.text('Mailing problems'), findsOneWidget, reason: '$size');
+        expect(
+          find.byKey(const ValueKey('admin-qr-batch-export-valid')),
+          findsOneWidget,
+          reason: '$size',
+        );
+        expect(
+          find.byKey(const ValueKey('admin-qr-batch-cancel')),
+          findsOneWidget,
+          reason: '$size',
+        );
+        expect(tester.takeException(), isNull, reason: '$size');
+        await tester.tap(find.byKey(const ValueKey('admin-qr-batch-cancel')));
+        await tester.pumpAndSettle();
+      }
+    },
+  );
+
+  testWidgets('resize rebuilds layout without restarting workflow work', (
+    tester,
+  ) async {
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(1024, 768);
+    final qrPreparation = _preparation(<AdminRestaurantQrRestaurantResult>[
+      _readyRestaurant('restaurant-ready', 'Ready Restaurant'),
+    ]);
+    final mailingPreparation = _mailingPreparation(
+      <AdminRestaurantMailingResult>[
+        _mailingReady('restaurant-ready', 'Ready Restaurant'),
+      ],
+    );
+    var qrPrepareCalls = 0;
+    var mailingPrepareCalls = 0;
+    var qrBuildCalls = 0;
+    var mailingBuildCalls = 0;
+    var qrDownloadCalls = 0;
+    var mailingDownloadCalls = 0;
+    var markingCalls = 0;
+    final dependencies = _dependenciesWithMailing(
+      qrPreparation: qrPreparation,
+      mailingPreparation: mailingPreparation,
+      prepare: (ids, progress) async {
+        qrPrepareCalls += 1;
+        return qrPreparation;
+      },
+      prepareMailing: (ids, progress) async {
+        mailingPrepareCalls += 1;
+        return mailingPreparation;
+      },
+      buildPdf: (preflight) async {
+        qrBuildCalls += 1;
+        return _artifact(preflight);
+      },
+      buildMailingPdf: (preflight, approved) async {
+        mailingBuildCalls += 1;
+        return _mailingArtifact(preflight);
+      },
+      downloadPdf: (bytes, filename) async {
+        qrDownloadCalls += 1;
+        return const RestaurantQrPdfExportResult.initiated();
+      },
+      downloadMailingPdf: (bytes, filename) async {
+        mailingDownloadCalls += 1;
+        return const RestaurantMailingLabelPdfExportResult.initiated();
+      },
+      markPrepared: (worklist, progress) async {
+        markingCalls += 1;
+        return _markingResult(worklist);
+      },
+    );
+
+    await _openDialog(
+      tester,
+      ids: const <String>['restaurant-ready'],
+      dependencies: dependencies,
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('PDF ready'), findsOneWidget);
+    expect(find.text('Mailing-label PDF ready'), findsOneWidget);
+
+    for (final size in const <Size>[
+      Size(320, 568),
+      Size(568, 320),
+      Size(1920, 1080),
+    ]) {
+      tester.view.physicalSize = size;
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: '$size');
+    }
+
+    expect(qrPrepareCalls, 1);
+    expect(mailingPrepareCalls, 1);
+    expect(qrBuildCalls, 1);
+    expect(mailingBuildCalls, 1);
+    expect(qrDownloadCalls, 0);
+    expect(mailingDownloadCalls, 0);
+    expect(markingCalls, 0);
+    expect(
+      find.byKey(const ValueKey('admin-qr-batch-download')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-mailing-batch-download')),
+      findsOneWidget,
+    );
+  });
+}
+
+int _builtProblemRowCount(WidgetTester tester, String keyPrefix) {
+  return tester.widgetList<Text>(find.byType(Text)).where((widget) {
+    final key = widget.key;
+    return key is ValueKey<String> && key.value.startsWith(keyPrefix);
+  }).length;
+}
+
+Future<void> _focusAndEndProblemPane(
+  WidgetTester tester,
+  ValueKey<String> focusKey,
+) async {
+  final focus = tester.widget<Focus>(find.byKey(focusKey));
+  focus.focusNode!.requestFocus();
+  await tester.pump();
+  expect(focus.focusNode!.hasFocus, isTrue);
+  await tester.sendKeyEvent(LogicalKeyboardKey.end);
+  await tester.pumpAndSettle();
+}
+
+Future<void> _sendShiftTab(WidgetTester tester) async {
+  await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+  await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+  await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+  await tester.pump();
+}
+
+Future<void> _tabUntilFocused(WidgetTester tester, Key targetKey) async {
+  for (var index = 0; index < 20; index += 1) {
+    if (_focusedAncestorKeys().contains(targetKey)) return;
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+  }
+  fail('Tab traversal did not reach $targetKey.');
+}
+
+bool _focusIsInsideBatchDialog() {
+  return _focusedAncestorKeys().contains(
+    const ValueKey('admin-qr-batch-dialog'),
+  );
+}
+
+Set<Key> _focusedAncestorKeys() {
+  final context = FocusManager.instance.primaryFocus?.context;
+  if (context == null) return const <Key>{};
+  final keys = <Key>{};
+  final ownKey = context.widget.key;
+  if (ownKey != null) keys.add(ownKey);
+  context.visitAncestorElements((element) {
+    final key = element.widget.key;
+    if (key != null) keys.add(key);
+    return true;
+  });
+  return keys;
+}
+
+AdminRestaurantQrBatchDialogDependencies _denseBothDependencies(
+  List<String> problemIds,
+) {
+  return _dependenciesWithMailing(
+    qrPreparation: _preparation(<AdminRestaurantQrRestaurantResult>[
+      _readyRestaurant('restaurant-ready', 'Ready Restaurant'),
+      for (final id in problemIds)
+        AdminRestaurantQrProblemRestaurant(
+          catalogRestaurantId: id,
+          outcome: AdminRestaurantQrProblemOutcome.unavailable,
+          code: 'restaurant_unavailable',
+          message: 'QR responsive problem for $id with wrapping text.',
+        ),
+    ]),
+    mailingPreparation: _mailingPreparation(<AdminRestaurantMailingResult>[
+      _mailingReady('restaurant-ready', 'Ready Restaurant'),
+      for (final id in problemIds)
+        AdminRestaurantMailingProblem(
+          catalogRestaurantId: id,
+          outcome: AdminRestaurantMailingProblemOutcome.unavailable,
+          restaurantName: 'Mail $id',
+          code: AdminRestaurantMailingProblemCode.invalidZip,
+          message: 'Mailing responsive problem for $id with wrapping text.',
+        ),
+    ]),
+  );
 }
 
 AdminRestaurantQrBatchDialogDependencies _dependencies({
