@@ -289,6 +289,7 @@ void main() {
         const ValueKey('admin-link-generate-qr-label-pdf'),
         delta: -600,
       );
+      expect(find.text('Generate QR & Mailing Label PDFs'), findsOneWidget);
       await tester.tap(generate);
       await tester.tap(generate, warnIfMissed: false);
       await tester.pump();

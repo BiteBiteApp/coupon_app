@@ -4,6 +4,18 @@ import '../models/admin_restaurant_mailing_batch.dart';
 
 typedef AdminRestaurantMailingFunctionsBoundary =
     Future<Object?> Function(String callableName, Map<String, Object?> request);
+typedef AdminRestaurantMailingProgressCallback =
+    void Function(AdminRestaurantMailingProgress progress);
+
+class AdminRestaurantMailingProgress {
+  const AdminRestaurantMailingProgress({
+    required this.confirmedRestaurantCount,
+    required this.totalRestaurantCount,
+  });
+
+  final int confirmedRestaurantCount;
+  final int totalRestaurantCount;
+}
 
 enum AdminRestaurantMailingServiceFailureKind {
   invalidRequest,
@@ -31,8 +43,9 @@ class AdminRestaurantMailingBatchService {
   final AdminRestaurantMailingFunctionsBoundary _functionsBoundary;
 
   Future<AdminRestaurantMailingBatchRunResult> prepareRestaurants(
-    Iterable<String> catalogRestaurantIds,
-  ) async {
+    Iterable<String> catalogRestaurantIds, {
+    AdminRestaurantMailingProgressCallback? onProgress,
+  }) async {
     final List<String> requested;
     try {
       requested = AdminRestaurantMailingSelection(
@@ -59,6 +72,12 @@ class AdminRestaurantMailingBatchService {
           AdminRestaurantMailingChunkRequest(chunkIds),
         );
         confirmed.addAll(chunk.results);
+        onProgress?.call(
+          AdminRestaurantMailingProgress(
+            confirmedRestaurantCount: confirmed.length,
+            totalRestaurantCount: requested.length,
+          ),
+        );
       } on AdminRestaurantMailingServiceException catch (error) {
         final kind =
             error.kind ==
@@ -87,11 +106,13 @@ class AdminRestaurantMailingBatchService {
   }
 
   Future<AdminRestaurantMailingBatchRunResult> retryUnconfirmed(
-    AdminRestaurantMailingBatchRunResult previousAttempt,
-  ) async {
+    AdminRestaurantMailingBatchRunResult previousAttempt, {
+    AdminRestaurantMailingProgressCallback? onProgress,
+  }) async {
     if (!previousAttempt.canRetry) return previousAttempt;
     final retry = await prepareRestaurants(
       previousAttempt.unconfirmedCatalogRestaurantIds,
+      onProgress: onProgress,
     );
     return previousAttempt.mergeExplicitRetry(retry);
   }

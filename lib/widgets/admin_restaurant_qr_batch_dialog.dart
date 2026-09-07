@@ -3,8 +3,13 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
+import '../models/admin_restaurant_mailing_batch.dart';
+import '../models/admin_restaurant_mailing_pdf.dart';
 import '../models/admin_restaurant_qr_batch.dart';
+import '../services/admin_restaurant_mailing_batch_service.dart';
 import '../services/admin_restaurant_qr_batch_service.dart';
+import '../services/restaurant_mailing_label_pdf_export.dart';
+import '../services/restaurant_mailing_label_pdf_service.dart';
 import '../services/restaurant_qr_pdf_export.dart';
 import '../services/restaurant_qr_pdf_service.dart';
 
@@ -38,6 +43,31 @@ typedef AdminRestaurantQrMarkOperation =
     );
 typedef AdminRestaurantQrBatchReconciledCallback =
     void Function(AdminRestaurantQrBatchReconciliation reconciliation);
+typedef AdminRestaurantMailingPrepareOperation =
+    Future<AdminRestaurantMailingBatchRunResult> Function(
+      List<String> catalogRestaurantIds,
+      AdminRestaurantMailingProgressCallback onProgress,
+    );
+typedef AdminRestaurantMailingRetryOperation =
+    Future<AdminRestaurantMailingBatchRunResult> Function(
+      AdminRestaurantMailingBatchRunResult previousAttempt,
+      AdminRestaurantMailingProgressCallback onProgress,
+    );
+typedef AdminRestaurantMailingPdfPreflightOperation =
+    Future<AdminRestaurantMailingPdfPreflightResult> Function(
+      AdminRestaurantMailingManifest manifest,
+      List<AdminRestaurantMailingPdfProblem> existingProblems,
+    );
+typedef AdminRestaurantMailingPdfBuildOperation =
+    Future<AdminRestaurantMailingPdfArtifact> Function(
+      AdminRestaurantMailingPdfPreflightResult preflight,
+      bool approveValidOnly,
+    );
+typedef AdminRestaurantMailingPdfDownloadOperation =
+    Future<RestaurantMailingLabelPdfExportResult> Function(
+      Uint8List bytes,
+      String filename,
+    );
 
 /// Injectable workflow boundaries. The dialog owns orchestration and keeps the
 /// manifest/PDF immutable; these callbacks make each external operation easy
@@ -51,17 +81,43 @@ class AdminRestaurantQrBatchDialogDependencies {
     required this.buildPdf,
     required this.downloadPdf,
     required this.markPrepared,
-  });
+    this.prepareMailing,
+    this.retryMailing,
+    this.preflightMailing,
+    this.buildMailingPdf,
+    this.downloadMailingPdf,
+  }) : assert(
+         (prepareMailing == null &&
+                 retryMailing == null &&
+                 preflightMailing == null &&
+                 buildMailingPdf == null &&
+                 downloadMailingPdf == null) ||
+             (prepareMailing != null &&
+                 retryMailing != null &&
+                 preflightMailing != null &&
+                 buildMailingPdf != null &&
+                 downloadMailingPdf != null),
+         'Mailing workflow dependencies must be supplied together.',
+       );
 
   factory AdminRestaurantQrBatchDialogDependencies.fromServices({
     AdminRestaurantQrBatchService? batchService,
     RestaurantQrPdfService? pdfService,
     RestaurantQrPdfExporter? pdfExporter,
+    AdminRestaurantMailingBatchService? mailingBatchService,
+    RestaurantMailingLabelPdfService? mailingPdfService,
+    RestaurantMailingLabelPdfExporter? mailingPdfExporter,
   }) {
     final resolvedBatchService =
         batchService ?? AdminRestaurantQrBatchService();
     final resolvedPdfService = pdfService ?? const RestaurantQrPdfService();
     final resolvedPdfExporter = pdfExporter ?? RestaurantQrPdfExporter();
+    final resolvedMailingBatchService =
+        mailingBatchService ?? AdminRestaurantMailingBatchService();
+    final resolvedMailingPdfService =
+        mailingPdfService ?? const RestaurantMailingLabelPdfService();
+    final resolvedMailingPdfExporter =
+        mailingPdfExporter ?? RestaurantMailingLabelPdfExporter();
     return AdminRestaurantQrBatchDialogDependencies(
       prepare: (catalogRestaurantIds, onProgress) => resolvedBatchService
           .prepareRestaurants(catalogRestaurantIds, onProgress: onProgress),
@@ -86,6 +142,36 @@ class AdminRestaurantQrBatchDialogDependencies {
       downloadPdf: resolvedPdfExporter.downloadPdf,
       markPrepared: (worklist, onProgress) =>
           resolvedBatchService.markPrepared(worklist, onProgress: onProgress),
+      prepareMailing: (catalogRestaurantIds, onProgress) =>
+          resolvedMailingBatchService.prepareRestaurants(
+            catalogRestaurantIds,
+            onProgress: onProgress,
+          ),
+      retryMailing: (previousAttempt, onProgress) {
+        final alreadyConfirmed = previousAttempt.confirmedResults.length;
+        return resolvedMailingBatchService.retryUnconfirmed(
+          previousAttempt,
+          onProgress: (progress) => onProgress(
+            AdminRestaurantMailingProgress(
+              confirmedRestaurantCount:
+                  alreadyConfirmed + progress.confirmedRestaurantCount,
+              totalRestaurantCount:
+                  previousAttempt.requestedCatalogRestaurantIds.length,
+            ),
+          ),
+        );
+      },
+      preflightMailing: (manifest, existingProblems) =>
+          resolvedMailingPdfService.preflight(
+            manifest,
+            existingProblems: existingProblems,
+          ),
+      buildMailingPdf: (preflight, approveValidOnly) =>
+          resolvedMailingPdfService.build(
+            preflight,
+            approveValidOnly: approveValidOnly,
+          ),
+      downloadMailingPdf: resolvedMailingPdfExporter.downloadPdf,
     );
   }
 
@@ -95,6 +181,18 @@ class AdminRestaurantQrBatchDialogDependencies {
   final AdminRestaurantQrPdfBuildOperation buildPdf;
   final AdminRestaurantQrPdfDownloadOperation downloadPdf;
   final AdminRestaurantQrMarkOperation markPrepared;
+  final AdminRestaurantMailingPrepareOperation? prepareMailing;
+  final AdminRestaurantMailingRetryOperation? retryMailing;
+  final AdminRestaurantMailingPdfPreflightOperation? preflightMailing;
+  final AdminRestaurantMailingPdfBuildOperation? buildMailingPdf;
+  final AdminRestaurantMailingPdfDownloadOperation? downloadMailingPdf;
+
+  bool get hasMailingWorkflow =>
+      prepareMailing != null &&
+      retryMailing != null &&
+      preflightMailing != null &&
+      buildMailingPdf != null &&
+      downloadMailingPdf != null;
 }
 
 /// A safe, token-free projection emitted only after a complete marking
@@ -177,6 +275,21 @@ enum _BatchDialogStage {
   completed,
 }
 
+enum _MailingDialogStage {
+  preparing,
+  preparationInterrupted,
+  awaitingQrApproval,
+  checkingFit,
+  checkingFitFailed,
+  reviewingProblems,
+  building,
+  buildFailed,
+  ready,
+  downloading,
+  downloadFailed,
+  noValidLabels,
+}
+
 typedef _MarkingLabelIdentity = ({
   String catalogRestaurantId,
   AdminRestaurantQrLabelType type,
@@ -193,6 +306,7 @@ class _AdminRestaurantQrBatchDialogState
   int _markProcessedLabelCount = 0;
   int _markTotalLabelCount = 0;
   bool _operationLocked = false;
+  bool _mailingOperationLocked = false;
   bool _closeRequestActive = false;
   String? _errorMessage;
   String? _downloadMessage;
@@ -203,6 +317,15 @@ class _AdminRestaurantQrBatchDialogState
   final Map<_MarkingLabelIdentity, AdminRestaurantQrMarkingLabelResult>
   _latestMarkingResults = {};
   final Map<String, AdminRestaurantQrPreparationProjection> _projections = {};
+  _MailingDialogStage _mailingStage = _MailingDialogStage.preparing;
+  int _mailingPreparedRestaurantCount = 0;
+  String? _mailingErrorMessage;
+  String? _mailingDownloadMessage;
+  AdminRestaurantMailingBatchRunResult? _mailingPreparation;
+  AdminRestaurantMailingPdfPreflightResult? _mailingPreflight;
+  AdminRestaurantMailingPdfArtifact? _mailingArtifact;
+  bool _mailingValidOnlyApproved = false;
+  bool _qrValidSetApproved = false;
 
   @override
   void initState() {
@@ -211,7 +334,11 @@ class _AdminRestaurantQrBatchDialogState
       widget.frozenCatalogRestaurantIds,
     );
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) unawaited(_prepare());
+      if (!mounted) return;
+      unawaited(_prepare());
+      if (widget.dependencies.hasMailingWorkflow) {
+        unawaited(_prepareMailing());
+      }
     });
   }
 
@@ -223,6 +350,11 @@ class _AdminRestaurantQrBatchDialogState
     _unresolvedWorklist = null;
     _latestMarkingResults.clear();
     _projections.clear();
+    _mailingPreparation = null;
+    _mailingPreflight = null;
+    _mailingArtifact = null;
+    _mailingErrorMessage = null;
+    _mailingDownloadMessage = null;
     super.dispose();
   }
 
@@ -232,13 +364,42 @@ class _AdminRestaurantQrBatchDialogState
       _stage == _BatchDialogStage.checkingFit ||
       _stage == _BatchDialogStage.building ||
       _stage == _BatchDialogStage.downloading ||
-      _stage == _BatchDialogStage.marking;
+      _stage == _BatchDialogStage.marking ||
+      _mailingOperationLocked;
 
   List<AdminRestaurantQrProblemItem> get _preparationProblems =>
       _preparation?.problems ?? const <AdminRestaurantQrProblemItem>[];
 
   List<AdminRestaurantQrPdfProblem> get _pdfProblems =>
       _preflight?.problems ?? const <AdminRestaurantQrPdfProblem>[];
+
+  List<AdminRestaurantMailingPdfProblem> get _mailingVisibleProblems {
+    final preflight = _mailingPreflight;
+    if (preflight != null) return preflight.problems;
+    final preparation = _mailingPreparation;
+    if (preparation == null) {
+      return const <AdminRestaurantMailingPdfProblem>[];
+    }
+    return List<AdminRestaurantMailingPdfProblem>.unmodifiable(
+      <AdminRestaurantMailingPdfProblem>[
+        for (final problem in preparation.problems)
+          AdminRestaurantMailingPdfProblem(
+            catalogRestaurantId: problem.catalogRestaurantId,
+            restaurantName: problem.restaurantName,
+            code: AdminRestaurantMailingPdfProblemCode.authoritativeMailingData,
+            message: problem.message,
+          ),
+        if (preparation.interruption case final interruption?)
+          for (final id in interruption.catalogRestaurantIds)
+            AdminRestaurantMailingPdfProblem(
+              catalogRestaurantId: id,
+              restaurantName: null,
+              code: AdminRestaurantMailingPdfProblemCode.unconfirmedTransport,
+              message: interruption.message,
+            ),
+      ],
+    );
+  }
 
   int get _problemCount => _preparationProblems.length + _pdfProblems.length;
 
@@ -267,6 +428,8 @@ class _AdminRestaurantQrBatchDialogState
         _unresolvedWorklist = null;
         _latestMarkingResults.clear();
         _projections.clear();
+        _qrValidSetApproved = false;
+        _resetMailingCorrelation();
       });
     }
     try {
@@ -315,6 +478,8 @@ class _AdminRestaurantQrBatchDialogState
       _unresolvedWorklist = null;
       _latestMarkingResults.clear();
       _projections.clear();
+      _qrValidSetApproved = false;
+      _resetMailingCorrelation();
     });
     try {
       final preparation = await widget.dependencies.retryPreparation(
@@ -347,6 +512,303 @@ class _AdminRestaurantQrBatchDialogState
     });
   }
 
+  void _resetMailingCorrelation() {
+    _mailingPreflight = null;
+    _mailingArtifact = null;
+    _mailingValidOnlyApproved = false;
+    _mailingDownloadMessage = null;
+    if (_mailingPreparation?.isFullyConfirmed == true) {
+      _mailingStage = _MailingDialogStage.awaitingQrApproval;
+    }
+  }
+
+  Future<void> _prepareMailing() async {
+    if (_mailingOperationLocked || !mounted) return;
+    final prepareMailing = widget.dependencies.prepareMailing;
+    if (prepareMailing == null) return;
+    _mailingOperationLocked = true;
+    setState(() {
+      _mailingStage = _MailingDialogStage.preparing;
+      _mailingPreparedRestaurantCount = 0;
+      _mailingErrorMessage = null;
+      _mailingDownloadMessage = null;
+      _mailingPreparation = null;
+      _mailingPreflight = null;
+      _mailingArtifact = null;
+      _mailingValidOnlyApproved = false;
+    });
+    try {
+      final preparation = await prepareMailing(
+        _frozenCatalogRestaurantIds,
+        _onMailingProgress,
+      );
+      if (!mounted) return;
+      setState(() {
+        _mailingOperationLocked = false;
+        _mailingPreparation = preparation;
+        _mailingPreparedRestaurantCount = preparation.confirmedResults.length;
+        _mailingStage = preparation.canRetry
+            ? _MailingDialogStage.preparationInterrupted
+            : _MailingDialogStage.awaitingQrApproval;
+      });
+      if (preparation.isFullyConfirmed) {
+        await _checkMailingFitWhenReady();
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _mailingOperationLocked = false;
+        _mailingStage = _MailingDialogStage.preparationInterrupted;
+        _mailingErrorMessage =
+            'Mailing addresses could not be confirmed. No mailing PDF was created.';
+      });
+    }
+  }
+
+  Future<void> _retryMailingPreparation() async {
+    if (_mailingOperationLocked || !mounted) return;
+    final previous = _mailingPreparation;
+    final retryMailing = widget.dependencies.retryMailing;
+    if (previous == null || !previous.canRetry || retryMailing == null) {
+      await _prepareMailing();
+      return;
+    }
+    _mailingOperationLocked = true;
+    setState(() {
+      _mailingStage = _MailingDialogStage.preparing;
+      _mailingPreparedRestaurantCount = previous.confirmedResults.length;
+      _mailingErrorMessage = null;
+    });
+    try {
+      final preparation = await retryMailing(previous, _onMailingProgress);
+      if (!mounted) return;
+      setState(() {
+        _mailingOperationLocked = false;
+        _mailingPreparation = preparation;
+        _mailingPreparedRestaurantCount = preparation.confirmedResults.length;
+        _mailingStage = preparation.canRetry
+            ? _MailingDialogStage.preparationInterrupted
+            : _MailingDialogStage.awaitingQrApproval;
+      });
+      if (preparation.isFullyConfirmed) {
+        await _checkMailingFitWhenReady();
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _mailingOperationLocked = false;
+        _mailingStage = _MailingDialogStage.preparationInterrupted;
+        _mailingErrorMessage =
+            'The explicit mailing-address retry could not be confirmed.';
+      });
+    }
+  }
+
+  void _onMailingProgress(AdminRestaurantMailingProgress progress) {
+    if (!mounted || _mailingStage != _MailingDialogStage.preparing) return;
+    setState(() {
+      _mailingPreparedRestaurantCount = progress.confirmedRestaurantCount.clamp(
+        0,
+        _frozenCatalogRestaurantIds.length,
+      );
+    });
+  }
+
+  Future<void> _checkMailingFitWhenReady() async {
+    if (_mailingOperationLocked || !mounted) return;
+    final preparation = _mailingPreparation;
+    final preflightMailing = widget.dependencies.preflightMailing;
+    if (preparation == null ||
+        !preparation.isFullyConfirmed ||
+        preflightMailing == null) {
+      return;
+    }
+    if (!_qrValidSetApproved) {
+      setState(() {
+        _mailingStage = _MailingDialogStage.awaitingQrApproval;
+      });
+      return;
+    }
+
+    final qrValidIds = <String>{
+      ...?_preflight?.validManifest.restaurants.map(
+        (restaurant) => restaurant.catalogRestaurantId,
+      ),
+    };
+    final qrNamesById = <String, String>{
+      for (final restaurant
+          in _preparation?.readyRestaurants ??
+              const <AdminRestaurantQrReadyRestaurant>[])
+        restaurant.catalogRestaurantId: restaurant.restaurantName,
+    };
+    final mailingById = <String, AdminRestaurantMailingResult>{
+      for (final result in preparation.confirmedResults)
+        result.catalogRestaurantId: result,
+    };
+    final entries = <AdminRestaurantMailingManifestEntry>[];
+    final problems = <AdminRestaurantMailingPdfProblem>[];
+    for (final id in _frozenCatalogRestaurantIds) {
+      final result = mailingById[id]!;
+      final restaurantName = switch (result) {
+        AdminRestaurantMailingReady() => result.restaurantName,
+        AdminRestaurantMailingProblem() => result.restaurantName,
+      };
+      if (!qrValidIds.contains(id)) {
+        problems.add(
+          AdminRestaurantMailingPdfProblem(
+            catalogRestaurantId: id,
+            restaurantName: restaurantName ?? qrNamesById[id],
+            code:
+                AdminRestaurantMailingPdfProblemCode.excludedNoQrValidArtifact,
+            message:
+                'Excluded because no approved QR-valid artifact remains for this restaurant.',
+          ),
+        );
+      } else if (result is AdminRestaurantMailingReady) {
+        entries.add(AdminRestaurantMailingManifestEntry.fromReady(result));
+      } else {
+        problems.add(
+          AdminRestaurantMailingPdfProblem(
+            catalogRestaurantId: id,
+            restaurantName: restaurantName,
+            code: AdminRestaurantMailingPdfProblemCode.authoritativeMailingData,
+            message: (result as AdminRestaurantMailingProblem).message,
+          ),
+        );
+      }
+    }
+
+    if (entries.isEmpty) {
+      setState(() {
+        _mailingPreflight = AdminRestaurantMailingPdfPreflightResult(
+          validLayouts: const <AdminRestaurantMailingLayoutEntry>[],
+          problems: problems,
+        );
+        _mailingStage = _MailingDialogStage.noValidLabels;
+        _mailingErrorMessage = null;
+      });
+      return;
+    }
+
+    setState(() {
+      _mailingOperationLocked = true;
+      _mailingStage = _MailingDialogStage.checkingFit;
+      _mailingErrorMessage = null;
+      _mailingPreflight = null;
+      _mailingArtifact = null;
+      _mailingValidOnlyApproved = false;
+    });
+    try {
+      final preflight = await preflightMailing(
+        AdminRestaurantMailingManifest(entries),
+        problems,
+      );
+      if (!mounted) return;
+      setState(() {
+        _mailingOperationLocked = false;
+        _mailingPreflight = preflight;
+        _mailingStage = preflight.hasValidLabels
+            ? preflight.hasProblems
+                  ? _MailingDialogStage.reviewingProblems
+                  : _MailingDialogStage.building
+            : _MailingDialogStage.noValidLabels;
+      });
+      if (preflight.hasValidLabels && !preflight.hasProblems) {
+        await _buildMailingPdf();
+      }
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _mailingOperationLocked = false;
+        _mailingStage = _MailingDialogStage.checkingFitFailed;
+        _mailingErrorMessage =
+            'Mailing-label fit could not be checked. No mailing PDF was created.';
+      });
+    }
+  }
+
+  Future<void> _approveValidMailingLabels() async {
+    if (_mailingOperationLocked || !mounted) return;
+    final preflight = _mailingPreflight;
+    if (preflight == null || !preflight.hasValidLabels) return;
+    _mailingValidOnlyApproved = true;
+    await _buildMailingPdf();
+  }
+
+  Future<void> _buildMailingPdf() async {
+    if (_mailingOperationLocked || _mailingArtifact != null || !mounted) {
+      return;
+    }
+    final preflight = _mailingPreflight;
+    final buildMailingPdf = widget.dependencies.buildMailingPdf;
+    if (preflight == null ||
+        !preflight.hasValidLabels ||
+        buildMailingPdf == null) {
+      return;
+    }
+    setState(() {
+      _mailingOperationLocked = true;
+      _mailingStage = _MailingDialogStage.building;
+      _mailingErrorMessage = null;
+    });
+    try {
+      final artifact = await buildMailingPdf(
+        preflight,
+        _mailingValidOnlyApproved,
+      );
+      if (!mounted) return;
+      setState(() {
+        _mailingArtifact = artifact;
+        _mailingOperationLocked = false;
+        _mailingStage = _MailingDialogStage.ready;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _mailingOperationLocked = false;
+        _mailingStage = _MailingDialogStage.buildFailed;
+        _mailingErrorMessage =
+            'The mailing-label PDF could not be built. Try again.';
+      });
+    }
+  }
+
+  Future<void> _downloadMailingPdf() async {
+    if (_mailingOperationLocked || !mounted) return;
+    final artifact = _mailingArtifact;
+    final downloadMailingPdf = widget.dependencies.downloadMailingPdf;
+    if (artifact == null || downloadMailingPdf == null) return;
+    setState(() {
+      _mailingOperationLocked = true;
+      _mailingStage = _MailingDialogStage.downloading;
+      _mailingErrorMessage = null;
+      _mailingDownloadMessage = null;
+    });
+    RestaurantMailingLabelPdfExportResult result;
+    try {
+      result = await downloadMailingPdf(
+        artifact.bytes,
+        artifact.summary.filename,
+      );
+    } catch (_) {
+      result = const RestaurantMailingLabelPdfExportResult.failed(
+        failure: RestaurantMailingLabelPdfExportFailure.initiationFailed,
+        message: 'Could not initiate the mailing-label PDF download.',
+      );
+    }
+    if (!mounted) return;
+    setState(() {
+      _mailingOperationLocked = false;
+      if (result.initiated) {
+        _mailingStage = _MailingDialogStage.ready;
+        _mailingDownloadMessage = result.message;
+      } else {
+        _mailingStage = _MailingDialogStage.downloadFailed;
+        _mailingErrorMessage = result.message;
+      }
+    });
+  }
+
   Future<void> _checkLabelFit() async {
     if (_operationLocked || !mounted) return;
     final preparation = _preparation;
@@ -356,7 +818,9 @@ class _AdminRestaurantQrBatchDialogState
       setState(() {
         _stage = _BatchDialogStage.reviewingProblems;
         _errorMessage = null;
+        _qrValidSetApproved = true;
       });
+      await _checkMailingFitWhenReady();
       return;
     }
     setState(() {
@@ -370,11 +834,17 @@ class _AdminRestaurantQrBatchDialogState
       setState(() {
         _operationLocked = false;
         _preflight = preflight;
+        _qrValidSetApproved = _problemCount == 0 || !preflight.hasValidLabels;
         _stage = _problemCount > 0
             ? _BatchDialogStage.reviewingProblems
             : _BatchDialogStage.building;
       });
-      if (_problemCount == 0) await _buildPdf();
+      if (_qrValidSetApproved) {
+        unawaited(_checkMailingFitWhenReady());
+      }
+      if (_problemCount == 0) {
+        await _buildPdf();
+      }
     } catch (_) {
       if (!mounted) return;
       setState(() {
@@ -391,6 +861,10 @@ class _AdminRestaurantQrBatchDialogState
     }
     final preflight = _preflight;
     if (preflight == null || !preflight.hasValidLabels) return;
+    setState(() {
+      _qrValidSetApproved = true;
+    });
+    unawaited(_checkMailingFitWhenReady());
     await _buildPdf();
   }
 
@@ -666,7 +1140,7 @@ class _AdminRestaurantQrBatchDialogState
       child: AlertDialog(
         key: const ValueKey('admin-qr-batch-dialog'),
         insetPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 24),
-        title: const Text('Generate QR Label PDF'),
+        title: const Text('Generate QR & Mailing Label PDFs'),
         content: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 680),
           child: SingleChildScrollView(
@@ -687,8 +1161,14 @@ class _AdminRestaurantQrBatchDialogState
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        const Text(
+          'Create QR label sheets and mailing-address label sheets from the same frozen restaurant selection.',
+        ),
+        const SizedBox(height: 16),
+        Text('QR Labels', style: Theme.of(context).textTheme.titleMedium),
+        const SizedBox(height: 4),
         Text(_stageMessage, key: const ValueKey('admin-qr-batch-stage')),
-        if (_isBusy) ...[
+        if (_operationLocked) ...[
           const SizedBox(height: 12),
           const LinearProgressIndicator(
             key: ValueKey('admin-qr-batch-progress'),
@@ -726,8 +1206,210 @@ class _AdminRestaurantQrBatchDialogState
             key: ValueKey('admin-qr-batch-preparation-retry-warning'),
           ),
         ],
+        if (widget.dependencies.hasMailingWorkflow) ...[
+          const SizedBox(height: 20),
+          const Divider(),
+          const SizedBox(height: 12),
+          ..._buildMailingContent(context),
+        ],
       ],
     );
+  }
+
+  List<Widget> _buildMailingContent(BuildContext context) {
+    final problems = _mailingVisibleProblems;
+    return <Widget>[
+      Text('Mailing Labels', style: Theme.of(context).textTheme.titleMedium),
+      const SizedBox(height: 4),
+      Text(
+        _mailingStageMessage,
+        key: const ValueKey('admin-mailing-batch-stage'),
+      ),
+      if (_mailingOperationLocked) ...[
+        const SizedBox(height: 12),
+        const LinearProgressIndicator(
+          key: ValueKey('admin-mailing-batch-progress'),
+        ),
+      ],
+      if (problems.isNotEmpty) ...[
+        const SizedBox(height: 12),
+        Container(
+          key: const ValueKey('admin-mailing-batch-problem-list'),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.errorContainer,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (final problem in problems)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: Text(
+                    '${problem.restaurantName ?? 'Restaurant'} '
+                    '(${problem.catalogRestaurantId}) — ${problem.message}',
+                    key: ValueKey(
+                      'admin-mailing-batch-problem-'
+                      '${problem.catalogRestaurantId}-'
+                      '${problem.code.wireName}',
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+      if (_mailingPreparation?.canRetry == true) ...[
+        const SizedBox(height: 12),
+        Text(
+          '${_mailingPreparation!.unconfirmedCatalogRestaurantIds.length} '
+          '${_mailingPreparation!.unconfirmedCatalogRestaurantIds.length == 1 ? 'restaurant remains' : 'restaurants remain'} '
+          'unconfirmed. Retry sends only that exact suffix.',
+          key: const ValueKey('admin-mailing-batch-unconfirmed-suffix'),
+        ),
+      ],
+      if (_mailingArtifact != null) ...[
+        const SizedBox(height: 12),
+        Container(
+          key: const ValueKey('admin-mailing-batch-artifact-summary'),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.secondaryContainer,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Included restaurants: '
+                '${_mailingArtifact!.summary.restaurantCount}',
+              ),
+              Text(
+                'Included mailing labels: '
+                '${_mailingArtifact!.summary.labelCount}',
+              ),
+              Text('Mailing pages: ${_mailingArtifact!.summary.pageCount}'),
+              Text('Mailing problems: ${problems.length}'),
+              const SizedBox(height: 8),
+              const Text(
+                'Print at Actual Size / 100%',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+        ),
+      ],
+      if (_mailingDownloadMessage != null) ...[
+        const SizedBox(height: 12),
+        Text(
+          _mailingDownloadMessage!,
+          key: const ValueKey('admin-mailing-batch-download-status'),
+        ),
+      ],
+      if (_mailingErrorMessage != null) ...[
+        const SizedBox(height: 12),
+        Text(
+          _mailingErrorMessage!,
+          key: const ValueKey('admin-mailing-batch-error'),
+          style: TextStyle(
+            color: Theme.of(context).colorScheme.error,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+      if (_mailingStage == _MailingDialogStage.noValidLabels) ...[
+        const SizedBox(height: 12),
+        const Text(
+          'No valid mailing labels are available, so no empty mailing PDF was created.',
+          key: ValueKey('admin-mailing-batch-no-valid-labels'),
+        ),
+      ],
+      const SizedBox(height: 12),
+      Wrap(spacing: 8, runSpacing: 8, children: _buildMailingActions()),
+    ];
+  }
+
+  String get _mailingStageMessage => switch (_mailingStage) {
+    _MailingDialogStage.preparing =>
+      _mailingPreparedRestaurantCount == 0
+          ? 'Preparing mailing addresses…'
+          : 'Prepared $_mailingPreparedRestaurantCount of '
+                '${_frozenCatalogRestaurantIds.length} mailing addresses',
+    _MailingDialogStage.preparationInterrupted =>
+      'Mailing-address preparation interrupted',
+    _MailingDialogStage.awaitingQrApproval =>
+      'Waiting for the QR-valid restaurant set…',
+    _MailingDialogStage.checkingFit => 'Checking mailing-label fit…',
+    _MailingDialogStage.checkingFitFailed =>
+      'Mailing-label fit check interrupted',
+    _MailingDialogStage.reviewingProblems =>
+      'Review mailing-label problems separately.',
+    _MailingDialogStage.building => 'Building mailing-label PDF…',
+    _MailingDialogStage.buildFailed => 'Mailing-label PDF build interrupted',
+    _MailingDialogStage.ready => 'Mailing-label PDF ready',
+    _MailingDialogStage.downloading => 'Downloading mailing-label PDF…',
+    _MailingDialogStage.downloadFailed => 'Mailing-label download failed',
+    _MailingDialogStage.noValidLabels =>
+      'No valid mailing labels are available.',
+  };
+
+  List<Widget> _buildMailingActions() {
+    final actions = <Widget>[];
+    if (_mailingStage == _MailingDialogStage.preparationInterrupted) {
+      actions.add(
+        OutlinedButton.icon(
+          key: const ValueKey('admin-mailing-batch-retry-preparation'),
+          onPressed: _mailingOperationLocked ? null : _retryMailingPreparation,
+          icon: const Icon(Icons.refresh),
+          label: const Text('Retry mailing addresses'),
+        ),
+      );
+    }
+    if (_mailingStage == _MailingDialogStage.checkingFitFailed) {
+      actions.add(
+        OutlinedButton.icon(
+          key: const ValueKey('admin-mailing-batch-retry-fit'),
+          onPressed: _mailingOperationLocked ? null : _checkMailingFitWhenReady,
+          icon: const Icon(Icons.refresh),
+          label: const Text('Retry mailing-label fit'),
+        ),
+      );
+    }
+    if (_mailingStage == _MailingDialogStage.buildFailed) {
+      actions.add(
+        OutlinedButton.icon(
+          key: const ValueKey('admin-mailing-batch-retry-build'),
+          onPressed: _mailingOperationLocked ? null : _buildMailingPdf,
+          icon: const Icon(Icons.refresh),
+          label: const Text('Retry mailing PDF'),
+        ),
+      );
+    }
+    if (_mailingStage == _MailingDialogStage.reviewingProblems &&
+        _mailingPreflight?.hasValidLabels == true) {
+      actions.add(
+        FilledButton(
+          key: const ValueKey('admin-mailing-batch-export-valid'),
+          onPressed: _mailingOperationLocked
+              ? null
+              : _approveValidMailingLabels,
+          child: const Text('Export valid mailing labels only'),
+        ),
+      );
+    }
+    if (_mailingArtifact != null &&
+        _mailingStage != _MailingDialogStage.downloading) {
+      actions.add(
+        FilledButton.icon(
+          key: const ValueKey('admin-mailing-batch-download'),
+          onPressed: _mailingOperationLocked ? null : _downloadMailingPdf,
+          icon: const Icon(Icons.download),
+          label: const Text('Download Mailing PDF'),
+        ),
+      );
+    }
+    return actions;
   }
 
   String get _stageMessage => switch (_stage) {
@@ -956,7 +1638,7 @@ class _AdminRestaurantQrBatchDialogState
       actions.add(
         TextButton(
           key: const ValueKey('admin-qr-batch-cancel'),
-          onPressed: _operationLocked ? null : _requestClose,
+          onPressed: _isBusy ? null : _requestClose,
           child: const Text('Cancel'),
         ),
       );
@@ -975,7 +1657,7 @@ class _AdminRestaurantQrBatchDialogState
       actions.addAll([
         TextButton(
           key: const ValueKey('admin-qr-batch-cancel'),
-          onPressed: _operationLocked ? null : _requestClose,
+          onPressed: _isBusy ? null : _requestClose,
           child: const Text('Cancel'),
         ),
         FilledButton.icon(

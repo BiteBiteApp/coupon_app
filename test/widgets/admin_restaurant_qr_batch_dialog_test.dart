@@ -1,7 +1,11 @@
 import 'dart:async';
 
+import 'package:coupon_app/models/admin_restaurant_mailing_batch.dart';
+import 'package:coupon_app/models/admin_restaurant_mailing_pdf.dart';
 import 'package:coupon_app/models/admin_restaurant_qr_batch.dart';
+import 'package:coupon_app/services/admin_restaurant_mailing_batch_service.dart';
 import 'package:coupon_app/services/admin_restaurant_qr_batch_service.dart';
+import 'package:coupon_app/services/restaurant_mailing_label_pdf_export.dart';
 import 'package:coupon_app/services/restaurant_qr_pdf_export.dart';
 import 'package:coupon_app/services/restaurant_qr_pdf_export_lifecycle.dart';
 import 'package:coupon_app/services/restaurant_qr_pdf_service.dart';
@@ -438,13 +442,25 @@ void main() {
       await _openDialog(
         tester,
         ids: const ['restaurant-a'],
-        dependencies: _dependencies(preparation: preparation),
+        dependencies: _dependenciesWithMailing(
+          qrPreparation: preparation,
+          mailingPreparation: _mailingPreparation(
+            <AdminRestaurantMailingResult>[
+              _mailingReady('restaurant-a', 'Café Delta'),
+            ],
+          ),
+        ),
         textScale: size.width == 320 ? 2 : 1,
       );
       await tester.pumpAndSettle();
       expect(find.text('PDF ready'), findsOneWidget, reason: '$size');
       expect(
         find.byKey(const ValueKey('admin-qr-batch-download')),
+        findsOneWidget,
+        reason: '$size',
+      );
+      expect(
+        find.byKey(const ValueKey('admin-mailing-batch-download')),
         findsOneWidget,
         reason: '$size',
       );
@@ -993,6 +1009,603 @@ void main() {
     expect(markingCalls, 0);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets(
+    'late mailing download completion after route disposal has no side effects',
+    (tester) async {
+      const ids = <String>['restaurant-a'];
+      final qrPreparation = _preparation(<AdminRestaurantQrRestaurantResult>[
+        _readyRestaurant('restaurant-a', 'Alpha'),
+      ]);
+      final mailingPreparation = _mailingPreparation(
+        <AdminRestaurantMailingResult>[_mailingReady('restaurant-a', 'Alpha')],
+      );
+      final mailingDownload =
+          Completer<RestaurantMailingLabelPdfExportResult>();
+      final downloadedMailingBytes = <Uint8List>[];
+      final observer = _RouteAccountingObserver();
+      AdminRestaurantMailingPdfArtifact? builtMailingArtifact;
+      var qrPreparationCalls = 0;
+      var qrBuildCalls = 0;
+      var mailingPreparationCalls = 0;
+      var mailingRetryCalls = 0;
+      var mailingPreflightCalls = 0;
+      var mailingBuildCalls = 0;
+      var mailingDownloadCalls = 0;
+      var markingCalls = 0;
+      final dependencies = _dependenciesWithMailing(
+        qrPreparation: qrPreparation,
+        mailingPreparation: mailingPreparation,
+        prepare: (value, _) async {
+          qrPreparationCalls += 1;
+          expect(value, ids);
+          return qrPreparation;
+        },
+        buildPdf: (preflight) async {
+          qrBuildCalls += 1;
+          return _artifact(preflight);
+        },
+        markPrepared: (worklist, _) async {
+          markingCalls += 1;
+          return _markingResult(worklist);
+        },
+        prepareMailing: (value, _) async {
+          mailingPreparationCalls += 1;
+          expect(value, ids);
+          return mailingPreparation;
+        },
+        retryMailing: (previous, _) async {
+          mailingRetryCalls += 1;
+          return previous;
+        },
+        preflightMailing: (manifest, problems) async {
+          mailingPreflightCalls += 1;
+          return _mailingPreflight(manifest, problems: problems);
+        },
+        buildMailingPdf: (preflight, approved) async {
+          mailingBuildCalls += 1;
+          expect(approved, isFalse);
+          final artifact = _mailingArtifact(preflight);
+          builtMailingArtifact = artifact;
+          return artifact;
+        },
+        downloadMailingPdf: (bytes, filename) {
+          mailingDownloadCalls += 1;
+          downloadedMailingBytes.add(Uint8List.fromList(bytes));
+          expect(filename, 'bitestar-mailing-labels-20260907-101112.pdf');
+          expect(
+            listEquals(bytes, builtMailingArtifact!.bytes),
+            isTrue,
+            reason: 'The in-flight download must own the built artifact bytes.',
+          );
+          return mailingDownload.future;
+        },
+      );
+
+      await _openDialogOverAdminRoute(
+        tester,
+        ids: ids,
+        dependencies: dependencies,
+        observer: observer,
+      );
+
+      expect(find.text('Mailing-label PDF ready'), findsOneWidget);
+      expect(builtMailingArtifact, isNotNull);
+      expect(qrPreparationCalls, 1);
+      expect(qrBuildCalls, 1);
+      expect(mailingPreparationCalls, 1);
+      expect(mailingPreflightCalls, 1);
+      expect(mailingBuildCalls, 1);
+      expect(mailingRetryCalls, 0);
+      expect(markingCalls, 0);
+
+      final mailingButton = tester.widget<FilledButton>(
+        find.byKey(const ValueKey('admin-mailing-batch-download')),
+      );
+      mailingButton.onPressed!();
+      mailingButton.onPressed!();
+      await tester.pump();
+
+      expect(mailingDownloadCalls, 1);
+      expect(downloadedMailingBytes, hasLength(1));
+      expect(mailingDownload.isCompleted, isFalse);
+      expect(find.text('Downloading mailing-label PDF…'), findsOneWidget);
+
+      observer.reset();
+      final dialogContext = tester.element(
+        find.byKey(const ValueKey('admin-qr-batch-dialog')),
+      );
+      final dialogRoute = ModalRoute.of(dialogContext)!;
+      Navigator.of(dialogContext).removeRoute(dialogRoute);
+      await tester.pumpAndSettle();
+
+      expect(mailingDownload.isCompleted, isFalse);
+      expect(find.byKey(const ValueKey('admin-qr-batch-dialog')), findsNothing);
+      expect(find.byKey(const ValueKey('admin-route')), findsOneWidget);
+      expect(find.byKey(const ValueKey('navigation-home')), findsNothing);
+      expect(observer.pushCount, 0);
+      expect(observer.popCount, 0);
+      expect(observer.removeCount, 1);
+      expect(tester.takeException(), isNull);
+
+      mailingDownload.complete(
+        const RestaurantMailingLabelPdfExportResult.initiated(),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(SnackBar), findsNothing);
+      expect(
+        find.byKey(const ValueKey('admin-qr-batch-close-warning')),
+        findsNothing,
+      );
+      expect(find.byKey(const ValueKey('admin-qr-batch-dialog')), findsNothing);
+      expect(find.byKey(const ValueKey('admin-route')), findsOneWidget);
+      expect(find.byKey(const ValueKey('navigation-home')), findsNothing);
+      expect(observer.pushCount, 0);
+      expect(observer.popCount, 0);
+      expect(observer.removeCount, 1);
+      expect(qrPreparationCalls, 1);
+      expect(qrBuildCalls, 1);
+      expect(mailingPreparationCalls, 1);
+      expect(mailingRetryCalls, 0);
+      expect(mailingPreflightCalls, 1);
+      expect(mailingBuildCalls, 1);
+      expect(mailingDownloadCalls, 1);
+      expect(markingCalls, 0);
+    },
+  );
+
+  testWidgets(
+    'one frozen worklist builds independent artifacts and mailing never marks',
+    (tester) async {
+      final ids = <String>['restaurant-b', 'restaurant-a'];
+      final qrPreparation = _preparation(<AdminRestaurantQrRestaurantResult>[
+        _readyRestaurant('restaurant-b', 'Beta'),
+        _readyRestaurant('restaurant-a', 'Alpha'),
+      ]);
+      final mailingPreparation = _mailingPreparation(
+        <AdminRestaurantMailingResult>[
+          _mailingReady('restaurant-b', 'Beta'),
+          _mailingReady('restaurant-a', 'Alpha'),
+        ],
+      );
+      final download = Completer<RestaurantMailingLabelPdfExportResult>();
+      final mailingRequests = <List<String>>[];
+      final downloadedBytes = <Uint8List>[];
+      var qrPrepareCalls = 0;
+      var mailingBuildCalls = 0;
+      var mailingDownloadCalls = 0;
+      var markingCalls = 0;
+      final dependencies = _dependenciesWithMailing(
+        qrPreparation: qrPreparation,
+        mailingPreparation: mailingPreparation,
+        prepare: (value, _) async {
+          qrPrepareCalls += 1;
+          expect(value, ids);
+          return qrPreparation;
+        },
+        prepareMailing: (value, _) async {
+          mailingRequests.add(List<String>.of(value));
+          return mailingPreparation;
+        },
+        buildMailingPdf: (preflight, approved) async {
+          mailingBuildCalls += 1;
+          expect(approved, isFalse);
+          return _mailingArtifact(preflight);
+        },
+        downloadMailingPdf: (bytes, filename) {
+          mailingDownloadCalls += 1;
+          downloadedBytes.add(Uint8List.fromList(bytes));
+          expect(filename, 'bitestar-mailing-labels-20260907-101112.pdf');
+          return download.future;
+        },
+        markPrepared: (worklist, _) async {
+          markingCalls += 1;
+          return _markingResult(worklist);
+        },
+      );
+
+      await _openDialog(tester, ids: ids, dependencies: dependencies);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Generate QR & Mailing Label PDFs'), findsOneWidget);
+      expect(find.text('QR Labels'), findsOneWidget);
+      expect(find.text('Mailing Labels'), findsOneWidget);
+      expect(find.text('PDF ready'), findsOneWidget);
+      expect(find.text('Mailing-label PDF ready'), findsOneWidget);
+      expect(mailingRequests, <List<String>>[ids]);
+      expect(qrPrepareCalls, 1);
+      expect(mailingBuildCalls, 1);
+
+      final mailingButton = tester.widget<FilledButton>(
+        find.byKey(const ValueKey('admin-mailing-batch-download')),
+      );
+      mailingButton.onPressed!();
+      mailingButton.onPressed!();
+      await tester.pump();
+      expect(mailingDownloadCalls, 1);
+      expect(markingCalls, 0);
+
+      download.complete(
+        const RestaurantMailingLabelPdfExportResult.initiated(),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text('Mailing-label PDF download initiated.'),
+        findsOneWidget,
+      );
+      expect(markingCalls, 0);
+
+      await _tapVisible(tester, const ValueKey('admin-mailing-batch-download'));
+      await tester.pumpAndSettle();
+      expect(mailingDownloadCalls, 2);
+      expect(listEquals(downloadedBytes[0], downloadedBytes[1]), isTrue);
+      expect(mailingBuildCalls, 1);
+      expect(qrPrepareCalls, 1);
+      expect(markingCalls, 0);
+
+      await tester.tap(find.byKey(const ValueKey('admin-qr-batch-download')));
+      await tester.pumpAndSettle();
+      expect(markingCalls, 1);
+      expect(mailingBuildCalls, 1);
+    },
+  );
+
+  testWidgets(
+    'QR-invalid restaurants are excluded and approvals remain separate',
+    (tester) async {
+      final qrPreparation = _preparation(<AdminRestaurantQrRestaurantResult>[
+        _partiallyQrValidRestaurant('restaurant-a', 'Alpha'),
+        AdminRestaurantQrProblemRestaurant(
+          catalogRestaurantId: 'restaurant-b',
+          outcome: AdminRestaurantQrProblemOutcome.unavailable,
+          code: 'restaurant_unavailable',
+          message: 'This restaurant is not currently available.',
+        ),
+      ]);
+      final mailingPreparation = _mailingPreparation(
+        <AdminRestaurantMailingResult>[
+          _mailingReady('restaurant-a', 'Alpha'),
+          _mailingReady('restaurant-b', 'Beta'),
+        ],
+      );
+      List<String>? preflightIds;
+      List<AdminRestaurantMailingPdfProblem>? correlatedProblems;
+      var qrBuildCalls = 0;
+      var mailingBuildCalls = 0;
+      final dependencies = _dependenciesWithMailing(
+        qrPreparation: qrPreparation,
+        mailingPreparation: mailingPreparation,
+        buildPdf: (preflight) async {
+          qrBuildCalls += 1;
+          return _artifact(preflight);
+        },
+        preflightMailing: (manifest, problems) async {
+          preflightIds = manifest.entries
+              .map((entry) => entry.catalogRestaurantId)
+              .toList();
+          correlatedProblems = List<AdminRestaurantMailingPdfProblem>.of(
+            problems,
+          );
+          return _mailingPreflight(manifest, problems: problems);
+        },
+        buildMailingPdf: (preflight, approved) async {
+          mailingBuildCalls += 1;
+          expect(approved, isTrue);
+          return _mailingArtifact(preflight);
+        },
+      );
+
+      await _openDialog(
+        tester,
+        ids: const <String>['restaurant-a', 'restaurant-b'],
+        dependencies: dependencies,
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Waiting for the QR-valid restaurant set…'),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('admin-qr-batch-export-valid')),
+        findsOneWidget,
+      );
+      expect(
+        find.byKey(const ValueKey('admin-mailing-batch-export-valid')),
+        findsNothing,
+      );
+      expect(qrBuildCalls, 0);
+      expect(mailingBuildCalls, 0);
+
+      await tester.tap(
+        find.byKey(const ValueKey('admin-qr-batch-export-valid')),
+      );
+      await tester.pumpAndSettle();
+
+      expect(qrBuildCalls, 1);
+      expect(preflightIds, <String>['restaurant-a']);
+      expect(correlatedProblems, hasLength(1));
+      expect(
+        correlatedProblems!.single.code,
+        AdminRestaurantMailingPdfProblemCode.excludedNoQrValidArtifact,
+      );
+      expect(correlatedProblems!.single.catalogRestaurantId, 'restaurant-b');
+      expect(
+        find.byKey(const ValueKey('admin-mailing-batch-export-valid')),
+        findsOneWidget,
+      );
+      expect(mailingBuildCalls, 0);
+
+      await _tapVisible(
+        tester,
+        const ValueKey('admin-mailing-batch-export-valid'),
+      );
+      await tester.pumpAndSettle();
+      expect(mailingBuildCalls, 1);
+      expect(find.text('Included mailing labels: 1'), findsOneWidget);
+      expect(find.text('Mailing problems: 1'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'mailing-invalid restaurant remains in QR PDF and mailing retry uses suffix',
+    (tester) async {
+      final qrPreparation = _preparation(<AdminRestaurantQrRestaurantResult>[
+        _readyRestaurant('restaurant-a', 'Alpha'),
+        _readyRestaurant('restaurant-b', 'Beta'),
+      ]);
+      final interrupted = AdminRestaurantMailingBatchRunResult(
+        requestedCatalogRestaurantIds: const <String>[
+          'restaurant-a',
+          'restaurant-b',
+        ],
+        confirmedResults: <AdminRestaurantMailingResult>[
+          _mailingReady('restaurant-a', 'Alpha'),
+        ],
+        interruption: AdminRestaurantMailingInterruption(
+          kind: AdminRestaurantMailingInterruptionKind.unavailable,
+          message: 'Restaurant mailing data could not be confirmed.',
+          catalogRestaurantIds: const <String>['restaurant-b'],
+        ),
+      );
+      var retryCalls = 0;
+      var mailingBuildCalls = 0;
+      final dependencies = _dependenciesWithMailing(
+        qrPreparation: qrPreparation,
+        mailingPreparation: interrupted,
+        retryMailing: (previous, progress) async {
+          retryCalls += 1;
+          expect(previous.confirmedResults, hasLength(1));
+          expect(previous.unconfirmedCatalogRestaurantIds, <String>[
+            'restaurant-b',
+          ]);
+          progress(
+            const AdminRestaurantMailingProgress(
+              confirmedRestaurantCount: 2,
+              totalRestaurantCount: 2,
+            ),
+          );
+          return previous.mergeExplicitRetry(
+            _mailingPreparation(<AdminRestaurantMailingResult>[
+              AdminRestaurantMailingProblem(
+                catalogRestaurantId: 'restaurant-b',
+                outcome: AdminRestaurantMailingProblemOutcome.unavailable,
+                restaurantName: 'Beta',
+                code: AdminRestaurantMailingProblemCode.invalidZip,
+                message: 'A valid mailing ZIP code is unavailable.',
+              ),
+            ]),
+          );
+        },
+        buildMailingPdf: (preflight, approved) async {
+          mailingBuildCalls += 1;
+          expect(approved, isTrue);
+          return _mailingArtifact(preflight);
+        },
+      );
+
+      await _openDialog(
+        tester,
+        ids: const <String>['restaurant-a', 'restaurant-b'],
+        dependencies: dependencies,
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('PDF ready'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey('admin-mailing-batch-unconfirmed-suffix')),
+        findsOneWidget,
+      );
+      expect(
+        find.textContaining('1 restaurant remains unconfirmed'),
+        findsOneWidget,
+      );
+      expect(retryCalls, 0);
+
+      await _tapVisible(
+        tester,
+        const ValueKey('admin-mailing-batch-retry-preparation'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(retryCalls, 1);
+      expect(
+        find.byKey(
+          const ValueKey(
+            'admin-mailing-batch-problem-restaurant-b-authoritative_mailing_data',
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Included labels: 8'), findsOneWidget);
+      expect(mailingBuildCalls, 0);
+
+      await _tapVisible(
+        tester,
+        const ValueKey('admin-mailing-batch-export-valid'),
+      );
+      await tester.pumpAndSettle();
+      expect(mailingBuildCalls, 1);
+      expect(find.text('Included mailing labels: 1'), findsOneWidget);
+    },
+  );
+
+  testWidgets('QR and mailing download failures stay independent', (
+    tester,
+  ) async {
+    final qrPreparation = _preparation(<AdminRestaurantQrRestaurantResult>[
+      _readyRestaurant('restaurant-a', 'Alpha'),
+    ]);
+    final mailingPreparation = _mailingPreparation(
+      <AdminRestaurantMailingResult>[_mailingReady('restaurant-a', 'Alpha')],
+    );
+    var qrDownloads = 0;
+    var mailingDownloads = 0;
+    var markingCalls = 0;
+    final dependencies = _dependenciesWithMailing(
+      qrPreparation: qrPreparation,
+      mailingPreparation: mailingPreparation,
+      downloadPdf: (bytes, filename) async {
+        qrDownloads += 1;
+        if (qrDownloads == 1) {
+          return const RestaurantQrPdfExportResult.failed(
+            failure: RestaurantQrPdfExportFailure.initiationFailed,
+            message: 'Could not initiate the PDF download.',
+          );
+        }
+        return const RestaurantQrPdfExportResult.initiated();
+      },
+      downloadMailingPdf: (bytes, filename) async {
+        mailingDownloads += 1;
+        if (mailingDownloads == 1) {
+          return const RestaurantMailingLabelPdfExportResult.failed(
+            failure: RestaurantMailingLabelPdfExportFailure.initiationFailed,
+            message: 'Could not initiate the mailing-label PDF download.',
+          );
+        }
+        return const RestaurantMailingLabelPdfExportResult.initiated();
+      },
+      markPrepared: (worklist, progress) async {
+        markingCalls += 1;
+        return _markingResult(worklist);
+      },
+    );
+
+    await _openDialog(
+      tester,
+      ids: const <String>['restaurant-a'],
+      dependencies: dependencies,
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('admin-qr-batch-download')));
+    await tester.pumpAndSettle();
+    expect(qrDownloads, 1);
+    expect(markingCalls, 0);
+    expect(find.text('Could not initiate the PDF download.'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('admin-mailing-batch-download')),
+      findsOneWidget,
+    );
+
+    await _tapVisible(tester, const ValueKey('admin-mailing-batch-download'));
+    expect(mailingDownloads, 1);
+    expect(markingCalls, 0);
+    expect(
+      find.text('Could not initiate the mailing-label PDF download.'),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-qr-batch-download')),
+      findsOneWidget,
+    );
+
+    await _tapVisible(tester, const ValueKey('admin-mailing-batch-download'));
+    expect(mailingDownloads, 2);
+    expect(markingCalls, 0);
+    expect(find.text('Mailing-label PDF download initiated.'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('admin-qr-batch-download')));
+    await tester.pumpAndSettle();
+    expect(qrDownloads, 2);
+    expect(markingCalls, 1);
+    expect(
+      find.byKey(const ValueKey('admin-mailing-batch-download')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('all QR-invalid produces no empty mailing PDF', (tester) async {
+    final ids = const <String>['restaurant-a', 'restaurant-b'];
+    final dependencies = _dependenciesWithMailing(
+      qrPreparation: _allProblems(ids),
+      mailingPreparation: _mailingPreparation(<AdminRestaurantMailingResult>[
+        _mailingReady('restaurant-a', 'Alpha'),
+        _mailingReady('restaurant-b', 'Beta'),
+      ]),
+    );
+
+    await _openDialog(tester, ids: ids, dependencies: dependencies);
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('admin-mailing-batch-no-valid-labels')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-mailing-batch-download')),
+      findsNothing,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-mailing-batch-export-valid')),
+      findsNothing,
+    );
+  });
+
+  testWidgets('all QR labels too dense excludes the correlated mailing label', (
+    tester,
+  ) async {
+    final denseId = 'dense-${List<String>.filled(600, 'x').join()}';
+    final dependencies = _dependenciesWithMailing(
+      qrPreparation: _preparation(<AdminRestaurantQrRestaurantResult>[
+        _allQrLabelsDense(denseId, 'Dense Restaurant'),
+      ]),
+      mailingPreparation: _mailingPreparation(<AdminRestaurantMailingResult>[
+        _mailingReady(denseId, 'Dense Restaurant'),
+      ]),
+    );
+
+    await _openDialog(
+      tester,
+      ids: <String>[denseId],
+      dependencies: dependencies,
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      find.byKey(const ValueKey('admin-qr-batch-no-valid-labels')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-mailing-batch-no-valid-labels')),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(
+        ValueKey<String>(
+          'admin-mailing-batch-problem-$denseId-'
+          'excluded_no_qr_valid_artifact',
+        ),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.byKey(const ValueKey('admin-mailing-batch-download')),
+      findsNothing,
+    );
+  });
 }
 
 AdminRestaurantQrBatchDialogDependencies _dependencies({
@@ -1028,6 +1641,104 @@ AdminRestaurantQrBatchDialogDependencies _dependencies({
   );
 }
 
+AdminRestaurantQrBatchDialogDependencies _dependenciesWithMailing({
+  required AdminRestaurantQrPreparationRunResult qrPreparation,
+  required AdminRestaurantMailingBatchRunResult mailingPreparation,
+  AdminRestaurantQrPrepareOperation? prepare,
+  AdminRestaurantQrPdfBuildOperation? buildPdf,
+  AdminRestaurantQrPdfDownloadOperation? downloadPdf,
+  AdminRestaurantQrMarkOperation? markPrepared,
+  AdminRestaurantMailingPrepareOperation? prepareMailing,
+  AdminRestaurantMailingRetryOperation? retryMailing,
+  AdminRestaurantMailingPdfPreflightOperation? preflightMailing,
+  AdminRestaurantMailingPdfBuildOperation? buildMailingPdf,
+  AdminRestaurantMailingPdfDownloadOperation? downloadMailingPdf,
+}) {
+  const qrPdfService = RestaurantQrPdfService();
+  return AdminRestaurantQrBatchDialogDependencies(
+    prepare: prepare ?? (ids, progress) async => qrPreparation,
+    retryPreparation: (previous, progress) async => previous,
+    preflight: qrPdfService.preflight,
+    buildPdf: buildPdf ?? ((preflight) async => _artifact(preflight)),
+    downloadPdf:
+        downloadPdf ??
+        (bytes, filename) async =>
+            const RestaurantQrPdfExportResult.initiated(),
+    markPrepared:
+        markPrepared ?? (worklist, progress) async => _markingResult(worklist),
+    prepareMailing:
+        prepareMailing ??
+        (ids, progress) async {
+          expect(ids, mailingPreparation.requestedCatalogRestaurantIds);
+          return mailingPreparation;
+        },
+    retryMailing:
+        retryMailing ??
+        (previous, progress) async {
+          expect(previous.canRetry, isFalse);
+          return previous;
+        },
+    preflightMailing:
+        preflightMailing ??
+        (manifest, problems) async =>
+            _mailingPreflight(manifest, problems: problems),
+    buildMailingPdf:
+        buildMailingPdf ??
+        (preflight, approved) async => _mailingArtifact(preflight),
+    downloadMailingPdf:
+        downloadMailingPdf ??
+        (bytes, filename) async =>
+            const RestaurantMailingLabelPdfExportResult.initiated(),
+  );
+}
+
+AdminRestaurantMailingBatchRunResult _mailingPreparation(
+  List<AdminRestaurantMailingResult> results,
+) => AdminRestaurantMailingBatchRunResult(
+  requestedCatalogRestaurantIds: results.map(
+    (result) => result.catalogRestaurantId,
+  ),
+  confirmedResults: results,
+);
+
+AdminRestaurantMailingReady _mailingReady(String id, String name) =>
+    AdminRestaurantMailingReady(
+      catalogRestaurantId: id,
+      restaurantName: name,
+      streetAddress: '123 Main St Suite 4',
+      city: 'Albany',
+      state: 'NY',
+      zipCode: '12207',
+    );
+
+AdminRestaurantMailingPdfPreflightResult _mailingPreflight(
+  AdminRestaurantMailingManifest manifest, {
+  Iterable<AdminRestaurantMailingPdfProblem> problems = const [],
+}) => AdminRestaurantMailingPdfPreflightResult(
+  validLayouts: manifest.entries.map(
+    (entry) => AdminRestaurantMailingLayoutEntry(
+      entry: entry,
+      fontSizePoints: 9,
+      lineHeightPoints: 11,
+    ),
+  ),
+  problems: problems,
+);
+
+AdminRestaurantMailingPdfArtifact _mailingArtifact(
+  AdminRestaurantMailingPdfPreflightResult preflight,
+) => AdminRestaurantMailingPdfArtifact(
+  bytes: Uint8List.fromList('%PDF-synthetic-mailing-artifact'.codeUnits),
+  summary: AdminRestaurantMailingPdfArtifactSummary(
+    filename: 'bitestar-mailing-labels-20260907-101112.pdf',
+    includedCatalogRestaurantIds: preflight.validLayouts.map(
+      (layout) => layout.entry.catalogRestaurantId,
+    ),
+    pageCount: (preflight.validLayouts.length + 29) ~/ 30,
+    problems: preflight.problems,
+  ),
+);
+
 Future<void> _openDialog(
   WidgetTester tester, {
   required List<String> ids,
@@ -1060,6 +1771,14 @@ Future<void> _openDialog(
   );
   await tester.tap(find.byKey(const ValueKey('open-batch-dialog')));
   await tester.pump();
+}
+
+Future<void> _tapVisible(WidgetTester tester, Key key) async {
+  final finder = find.byKey(key);
+  await tester.ensureVisible(finder);
+  await tester.pumpAndSettle();
+  await tester.tap(finder);
+  await tester.pumpAndSettle();
 }
 
 Future<void> _openDialogOverAdminRoute(
@@ -1118,6 +1837,7 @@ Future<void> _downloadIntoUnresolvedStatus(WidgetTester tester) async {
 class _RouteAccountingObserver extends NavigatorObserver {
   int pushCount = 0;
   int popCount = 0;
+  int removeCount = 0;
 
   @override
   void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
@@ -1131,9 +1851,16 @@ class _RouteAccountingObserver extends NavigatorObserver {
     super.didPop(route, previousRoute);
   }
 
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    removeCount += 1;
+    super.didRemove(route, previousRoute);
+  }
+
   void reset() {
     pushCount = 0;
     popCount = 0;
+    removeCount = 0;
   }
 }
 
@@ -1187,6 +1914,61 @@ AdminRestaurantQrReadyRestaurant _readyRestaurant(
     ),
   ],
 );
+
+AdminRestaurantQrReadyRestaurant _partiallyQrValidRestaurant(
+  String catalogRestaurantId,
+  String restaurantName,
+) {
+  final base = _readyRestaurant(catalogRestaurantId, restaurantName);
+  return AdminRestaurantQrReadyRestaurant(
+    catalogRestaurantId: catalogRestaurantId,
+    restaurantName: restaurantName,
+    labels: <AdminRestaurantQrLabelEntry>[
+      AdminRestaurantQrLabelEntry(
+        type: AdminRestaurantQrLabelType.ownerInvite,
+        payloadUrl:
+            'https://go.bitestar.app/invite/coupon/'
+            '${List<String>.filled(300, 'x').join()}',
+        invitationId: 'synthetic-dense-owner-invitation',
+        invitationExpiresAtMillis: 1800000000000,
+      ),
+      ...base.labels.skip(1),
+    ],
+  );
+}
+
+AdminRestaurantQrReadyRestaurant _allQrLabelsDense(
+  String catalogRestaurantId,
+  String restaurantName,
+) {
+  final token = List<String>.filled(600, 'x').join();
+  return AdminRestaurantQrReadyRestaurant(
+    catalogRestaurantId: catalogRestaurantId,
+    restaurantName: restaurantName,
+    labels: <AdminRestaurantQrLabelEntry>[
+      AdminRestaurantQrLabelEntry(
+        type: AdminRestaurantQrLabelType.ownerInvite,
+        payloadUrl: 'https://go.bitestar.app/invite/coupon/$token',
+        invitationId: 'synthetic-dense-owner-invitation',
+        invitationExpiresAtMillis: 1800000000000,
+      ),
+      AdminRestaurantQrLabelEntry(
+        type: AdminRestaurantQrLabelType.claimInvite,
+        payloadUrl: 'https://go.bitestar.app/invite/bitescore/$token',
+        invitationId: 'synthetic-dense-claim-invitation',
+        invitationExpiresAtMillis: 1800000000000,
+      ),
+      AdminRestaurantQrLabelEntry(
+        type: AdminRestaurantQrLabelType.biteSaverCustomer,
+        payloadUrl: 'https://go.bitestar.app/r/coupons/$catalogRestaurantId',
+      ),
+      AdminRestaurantQrLabelEntry(
+        type: AdminRestaurantQrLabelType.biteScoreCustomer,
+        payloadUrl: 'https://go.bitestar.app/r/bitescore/$catalogRestaurantId',
+      ),
+    ],
+  );
+}
 
 RestaurantQrPdfArtifact _artifact(RestaurantQrPdfPreflightResult preflight) =>
     RestaurantQrPdfArtifact(

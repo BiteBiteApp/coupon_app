@@ -1682,7 +1682,7 @@ class _AdminLinkGenerationScreenState extends State<AdminLinkGenerationScreen> {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.picture_as_pdf_outlined),
-            label: const Text('Generate QR Label PDF'),
+            label: const Text('Generate QR & Mailing Label PDFs'),
           ),
           Text(
             '$selectedCount selected',

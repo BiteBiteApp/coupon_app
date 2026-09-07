@@ -43,8 +43,12 @@ void main() {
             restaurantCount,
             (index) => 'restaurant-${index.toString().padLeft(3, '0')}',
           );
+          final progress = <AdminRestaurantMailingProgress>[];
 
-          final result = await service.prepareRestaurants(ids);
+          final result = await service.prepareRestaurants(
+            ids,
+            onProgress: progress.add,
+          );
 
           expect(maximumActiveCalls, 1);
           expect(calls.length, (restaurantCount + 24) ~/ 25);
@@ -57,6 +61,21 @@ void main() {
           );
           expect(result.isFullyConfirmed, isTrue);
           expect(result.allRestaurantsReady, isTrue);
+          expect(progress.map((value) => value.confirmedRestaurantCount), <int>[
+            for (
+              var confirmed = 25;
+              confirmed < restaurantCount;
+              confirmed += 25
+            )
+              confirmed,
+            restaurantCount,
+          ]);
+          expect(
+            progress.every(
+              (value) => value.totalRestaurantCount == restaurantCount,
+            ),
+            isTrue,
+          );
         },
       );
     }
@@ -207,8 +226,12 @@ void main() {
           },
         );
         final ids = List<String>.generate(50, (index) => 'restaurant-$index');
+        final progress = <int>[];
 
-        final result = await service.prepareRestaurants(ids);
+        final result = await service.prepareRestaurants(
+          ids,
+          onProgress: (value) => progress.add(value.confirmedRestaurantCount),
+        );
 
         expect(calls, 2);
         expect(result.confirmedResults, hasLength(25));
@@ -221,6 +244,7 @@ void main() {
           ids.take(25).toList(),
           ids.skip(25).toList(),
         ]);
+        expect(progress, <int>[25]);
       },
     );
 
