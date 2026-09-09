@@ -1,6 +1,7 @@
 "use strict";
 
 const assert = require("node:assert/strict");
+const {execFileSync} = require("node:child_process");
 const Module = require("node:module");
 const {readFileSync} = require("node:fs");
 const path = require("node:path");
@@ -68,6 +69,20 @@ const expectedTriggers = Object.freeze({
   processPrivateSearchIndexJob:
     "private_search_index_jobs/{jobId}",
 });
+
+const searchIndexRetryEnabledTriggers = Object.freeze([
+  "maintainBiteSaverRestaurantSearchIndex",
+  "maintainBiteScoreRestaurantSearchIndex",
+  "maintainBiteScoreDishSearchIndex",
+  "maintainBiteScoreDishSearchIndexFromAggregate",
+  "maintainBiteSaverCouponOfferSearchIndex",
+  "maintainBiteSaverDailySpecialSearchIndex",
+  "processPrivateSearchIndexJob",
+]);
+
+const preexistingRetryEnabledTriggers = Object.freeze([
+  "maintainAdminRestaurantQrPreparationFromBiteScoreUnclaim",
+]);
 
 const expectedAdminUserDirectoryTriggers = Object.freeze({
   maintainAdminUserDirectoryFromRestaurantAccount:
@@ -155,7 +170,9 @@ const ratingDestructiveCallables = Object.freeze({
 
 const ratingDestructiveScheduler = "processRatingDestructiveOperationWork";
 
-function loadCompiledIndexWithRuntimeHarness() {
+function loadCompiledIndexWithRuntimeHarness({
+  searchIndexMaintenanceOverrides = {},
+} = {}) {
   const state = {
     globalOptions: null,
     firestoreDocuments: new Map(),
@@ -300,6 +317,11 @@ function loadCompiledIndexWithRuntimeHarness() {
         return {setGlobalOptions: (options) => { state.globalOptions = options; }};
       case "firebase-functions/v2/scheduler":
         return {onSchedule: scheduledTrigger};
+      case "./search_index_maintenance.js":
+        return {
+          ...originalLoad.call(this, request, parent, isMain),
+          ...searchIndexMaintenanceOverrides,
+        };
       case "stripe":
         return class FakeStripe {};
       default:
@@ -315,6 +337,23 @@ function loadCompiledIndexWithRuntimeHarness() {
     delete require.cache[indexPath];
     Module._load = originalLoad;
   }
+}
+
+function loadActualCompiledEventTriggerMetadata() {
+  const indexPath = path.resolve(__dirname, "../lib/index.js");
+  const script = `
+    const index = require(${JSON.stringify(indexPath)});
+    const metadata = Object.fromEntries(
+      Object.entries(index)
+        .filter(([, exported]) =>
+          typeof exported === "function" && exported.__endpoint?.eventTrigger)
+        .map(([name, exported]) => [name, exported.__endpoint]),
+    );
+    process.stdout.write(JSON.stringify(metadata));
+  `;
+  return JSON.parse(execFileSync(process.execPath, ["-e", script], {
+    encoding: "utf8",
+  }));
 }
 
 test("all prior exports remain and each search-index trigger is exported once", () => {
@@ -471,15 +510,46 @@ test("compiled trigger metadata uses exact private paths and background event ty
     value !== "processPrivateSearchIndexJob")) {
     assert.equal(runtime.exports[name].__endpoint.eventTrigger.eventType, "document.written");
   }
-  assert.equal(
-    runtime.exports
-      .maintainAdminRestaurantQrPreparationFromBiteScoreUnclaim
-      .__endpoint.eventTrigger.retry,
-    true,
+  for (const name of [
+    ...searchIndexRetryEnabledTriggers,
+    ...preexistingRetryEnabledTriggers,
+  ]) {
+    assert.equal(runtime.exports[name].__endpoint.eventTrigger.retry, true, name);
+  }
+});
+
+test("actual Firebase export metadata enables retry for only the intended triggers", () => {
+  const metadata = loadActualCompiledEventTriggerMetadata();
+  const expectedRetryEnabled = [
+    ...searchIndexRetryEnabledTriggers,
+    ...preexistingRetryEnabledTriggers,
+  ].sort();
+
+  assert.deepEqual(
+    Object.entries(metadata)
+      .filter(([, endpoint]) => endpoint.eventTrigger.retry === true)
+      .map(([name]) => name)
+      .sort(),
+    expectedRetryEnabled,
   );
-  for (const name of Object.keys(expectedTriggers).filter((value) =>
-    value !== "maintainAdminRestaurantQrPreparationFromBiteScoreUnclaim")) {
-    assert.equal(runtime.exports[name].__endpoint.eventTrigger.retry, false, name);
+  for (const name of searchIndexRetryEnabledTriggers) {
+    const endpoint = metadata[name];
+    assert.ok(endpoint, name);
+    assert.equal(endpoint.platform, "gcfv2", name);
+    assert.deepEqual(endpoint.region, ["us-central1"], name);
+    assert.equal(
+      endpoint.eventTrigger.eventFilterPathPatterns.document,
+      expectedTriggers[name],
+      name,
+    );
+    assert.equal(endpoint.eventTrigger.retry, true, name);
+    assert.equal(
+      endpoint.eventTrigger.eventType,
+      name === "processPrivateSearchIndexJob" ?
+        "google.cloud.firestore.document.v1.created" :
+        "google.cloud.firestore.document.v1.written",
+      name,
+    );
   }
 });
 
@@ -510,6 +580,215 @@ test("offer triggers delegate catalog signaling after existing child reconciliat
     assert.doesNotMatch(trigger, /\bupdatedAt\b/u);
     assert.doesNotMatch(trigger, /\.collection\(/u);
   }
+});
+
+test("retry-enabled exports propagate failures and preserve delivery identity", async () => {
+  const calls = [];
+  const failures = new Map();
+  const operationNames = [
+    "handleBiteSaverRestaurantWrite",
+    "handleBiteScoreRestaurantWrite",
+    "reconcileBiteScoreDishIndex",
+    "handleBiteSaverCouponOfferWrite",
+    "handleBiteSaverDailySpecialOfferWrite",
+    "processSearchIndexJob",
+  ];
+  const overrides = Object.fromEntries(operationNames.map((operation) => {
+    const failure = new Error(`transient ${operation}`);
+    failures.set(operation, failure);
+    return [operation, async (...arguments_) => {
+      calls.push({operation, arguments_});
+      throw failure;
+    }];
+  }));
+  const runtime = loadCompiledIndexWithRuntimeHarness({
+    searchIndexMaintenanceOverrides: overrides,
+  });
+  const sourceEventId = "cloud-event-unchanged-0042";
+  const snapshot = (data) => ({exists: true, data: () => data});
+  const before = {revision: "before"};
+  const after = {revision: "after"};
+  const scenarios = [
+    {
+      trigger: "maintainBiteSaverRestaurantSearchIndex",
+      operation: "handleBiteSaverRestaurantWrite",
+      event: {
+        id: sourceEventId,
+        params: {restaurantAccountId: "restaurant-account-1"},
+        data: {before: snapshot(before), after: snapshot(after)},
+      },
+    },
+    {
+      trigger: "maintainBiteScoreRestaurantSearchIndex",
+      operation: "handleBiteScoreRestaurantWrite",
+      event: {
+        id: sourceEventId,
+        params: {restaurantId: "restaurant-1"},
+        data: {before: snapshot(before), after: snapshot(after)},
+      },
+    },
+    {
+      trigger: "maintainBiteScoreDishSearchIndex",
+      operation: "reconcileBiteScoreDishIndex",
+      event: {params: {dishId: "dish-source-1"}},
+    },
+    {
+      trigger: "maintainBiteScoreDishSearchIndexFromAggregate",
+      operation: "reconcileBiteScoreDishIndex",
+      event: {params: {dishId: "dish-aggregate-1"}},
+    },
+    {
+      trigger: "maintainBiteSaverCouponOfferSearchIndex",
+      operation: "handleBiteSaverCouponOfferWrite",
+      event: {
+        params: {
+          restaurantAccountId: "restaurant-account-1",
+          couponId: "coupon-1",
+        },
+      },
+    },
+    {
+      trigger: "maintainBiteSaverDailySpecialSearchIndex",
+      operation: "handleBiteSaverDailySpecialOfferWrite",
+      event: {
+        params: {
+          restaurantAccountId: "restaurant-account-1",
+          dailySpecialId: "daily-special-1",
+        },
+      },
+    },
+    {
+      trigger: "processPrivateSearchIndexJob",
+      operation: "processSearchIndexJob",
+      event: {params: {jobId: "job-identity-1"}},
+    },
+  ];
+
+  for (const scenario of scenarios) {
+    await assert.rejects(
+      runtime.exports[scenario.trigger](scenario.event),
+      (error) => error === failures.get(scenario.operation),
+      scenario.trigger,
+    );
+  }
+  for (const scenario of scenarios.filter(({trigger}) =>
+    trigger === "maintainBiteSaverRestaurantSearchIndex" ||
+    trigger === "maintainBiteScoreRestaurantSearchIndex" ||
+    trigger === "processPrivateSearchIndexJob")) {
+    await assert.rejects(
+      runtime.exports[scenario.trigger](scenario.event),
+      (error) => error === failures.get(scenario.operation),
+      `${scenario.trigger} retry`,
+    );
+  }
+
+  for (const operation of [
+    "handleBiteSaverRestaurantWrite",
+    "handleBiteScoreRestaurantWrite",
+  ]) {
+    const operationCalls = calls.filter((call) => call.operation === operation);
+    assert.equal(operationCalls.length, 2, operation);
+    assert.deepEqual(
+      operationCalls.map((call) => call.arguments_[1].sourceEventId),
+      [sourceEventId, sourceEventId],
+      operation,
+    );
+    for (const call of operationCalls) {
+      assert.strictEqual(call.arguments_[1].before, before, operation);
+      assert.strictEqual(call.arguments_[1].after, after, operation);
+      assert.ok(call.arguments_[1].now instanceof Date, operation);
+    }
+  }
+  const workerCalls = calls.filter(({operation}) =>
+    operation === "processSearchIndexJob");
+  assert.equal(workerCalls.length, 2);
+  assert.deepEqual(
+    workerCalls.map((call) => call.arguments_[1]),
+    ["job-identity-1", "job-identity-1"],
+  );
+  assert.ok(workerCalls.every((call) => call.arguments_[2] instanceof Date));
+});
+
+test("compiled parent wrappers make malformed root events side-effect-free", async () => {
+  const runtime = loadCompiledIndexWithRuntimeHarness();
+  const snapshot = (data) => ({exists: true, data: () => data});
+  const malformedEvents = [
+    {
+      id: undefined,
+      params: {restaurantAccountId: "account-1", restaurantId: "restaurant-1"},
+      data: {before: snapshot({name: "before"}), after: snapshot({name: "after"})},
+    },
+    {
+      id: "",
+      params: {restaurantAccountId: "account-1", restaurantId: "restaurant-1"},
+      data: {before: snapshot({name: "before"}), after: snapshot({name: "after"})},
+    },
+    {
+      id: "x".repeat(4_097),
+      params: {restaurantAccountId: "account-1", restaurantId: "restaurant-1"},
+      data: {before: snapshot({name: "before"}), after: snapshot({name: "after"})},
+    },
+    {
+      id: "missing-event-data",
+      params: {restaurantAccountId: "account-1", restaurantId: "restaurant-1"},
+      data: undefined,
+    },
+    {
+      id: "missing-event-snapshots",
+      params: {restaurantAccountId: "account-1", restaurantId: "restaurant-1"},
+      data: {},
+    },
+    {
+      id: "missing-before-snapshot",
+      params: {restaurantAccountId: "account-1", restaurantId: "restaurant-1"},
+      data: {after: snapshot({name: "after"})},
+    },
+    {
+      id: "undefined-snapshot-data",
+      params: {restaurantAccountId: "account-1", restaurantId: "restaurant-1"},
+      data: {
+        before: snapshot(undefined),
+        after: {exists: false, data: () => undefined},
+      },
+    },
+    {
+      id: "throwing-snapshot-data",
+      params: {restaurantAccountId: "account-1", restaurantId: "restaurant-1"},
+      data: {
+        before: {
+          exists: true,
+          data() {
+            throw new Error("must-not-escape");
+          },
+        },
+        after: snapshot({name: "after"}),
+      },
+    },
+    {
+      id: "non-record-snapshot-data",
+      params: {restaurantAccountId: "account-1", restaurantId: "restaurant-1"},
+      data: {before: snapshot([]), after: snapshot("not-a-record")},
+    },
+    {
+      id: "missing-path-parameter",
+      params: {},
+      data: {before: snapshot({name: "before"}), after: snapshot({name: "after"})},
+    },
+  ];
+  for (const triggerName of [
+    "maintainBiteSaverRestaurantSearchIndex",
+    "maintainBiteScoreRestaurantSearchIndex",
+  ]) {
+    for (const event of malformedEvents) {
+      await runtime.exports[triggerName](event);
+      await runtime.exports[triggerName](event);
+    }
+  }
+  assert.deepEqual(runtime.state.firestoreQueries, []);
+  assert.deepEqual(runtime.state.firestoreReads, []);
+  assert.deepEqual(runtime.state.firestoreWrites, []);
+  assert.deepEqual(runtime.state.recursiveDeletes, []);
+  assert.deepEqual(runtime.state.logs, []);
 });
 
 test("Admin search loads prepared owner and claim invitations through one exact batch", () => {

@@ -10,7 +10,14 @@ String? exactFirestoreDocumentId(Object? value) {
       value == '.' ||
       value == '..' ||
       value.contains('/') ||
-      utf8.encode(value).length > 1500) {
+      _hasMalformedUtf16(value)) {
+    return null;
+  }
+  try {
+    if (utf8.encode(value).length > 1500) {
+      return null;
+    }
+  } on FormatException {
     return null;
   }
   for (final rune in value.runes) {
@@ -46,6 +53,26 @@ bool _isUnsupportedFirestoreIdentityRune(int rune) {
       (rune >= 0x1d173 && rune <= 0x1d17a) ||
       rune == 0xe0001 ||
       (rune >= 0xe0020 && rune <= 0xe007f);
+}
+
+bool _hasMalformedUtf16(String value) {
+  final codeUnits = value.codeUnits;
+  for (var index = 0; index < codeUnits.length; index += 1) {
+    final codeUnit = codeUnits[index];
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      if (index + 1 >= codeUnits.length) {
+        return true;
+      }
+      final next = codeUnits[index + 1];
+      if (next < 0xdc00 || next > 0xdfff) {
+        return true;
+      }
+      index += 1;
+    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      return true;
+    }
+  }
+  return false;
 }
 
 bool _isExplicitlyRejectedKhmerFormattingRune(int rune) =>

@@ -24,6 +24,7 @@ import '../models/restaurant.dart';
 import '../models/restaurant_claim_request.dart';
 import 'customer_auth_service.dart';
 import 'contribution_points_service.dart';
+import 'firestore_document_id.dart';
 import 'restaurant_account_service.dart';
 
 class BiteScoreHomeEntry {
@@ -1178,8 +1179,17 @@ class BiteScoreService {
     final deduped = <BiteScoreHomeEntry>[];
 
     for (final entry in entries) {
-      final dishId = entry.dish.id.trim();
-      if (dishId.isNotEmpty && !seenDishIds.add(dishId)) {
+      final dishId = exactFirestoreDocumentId(entry.dish.id);
+      final restaurantId = exactFirestoreDocumentId(entry.restaurant.id);
+      final dishRestaurantId = exactFirestoreDocumentId(
+        entry.dish.restaurantId,
+      );
+      if (dishId == null ||
+          restaurantId == null ||
+          dishRestaurantId != restaurantId) {
+        continue;
+      }
+      if (!seenDishIds.add(dishId)) {
         continue;
       }
 
@@ -2604,7 +2614,11 @@ class BiteScoreService {
     Iterable<BitescoreRestaurant> restaurants,
   ) {
     return _deduplicateAndSortRestaurantDirectory(
-      restaurants.where((restaurant) => restaurant.isActive),
+      restaurants.where(
+        (restaurant) =>
+            restaurant.isActive &&
+            exactFirestoreDocumentId(restaurant.id) == restaurant.id,
+      ),
     );
   }
 
@@ -2619,8 +2633,7 @@ class BiteScoreService {
   ) {
     final dedupedRestaurants = <String, BitescoreRestaurant>{};
     for (final restaurant in restaurants) {
-      final key = _finderRestaurantKey(restaurant);
-      dedupedRestaurants.putIfAbsent(key, () => restaurant);
+      dedupedRestaurants.putIfAbsent(restaurant.id, () => restaurant);
     }
     return _sortRestaurantDirectory(dedupedRestaurants.values);
   }
@@ -2638,7 +2651,11 @@ class BiteScoreService {
         if (byCity != 0) {
           return byCity;
         }
-        return a.name.compareTo(b.name);
+        final byName = a.name.compareTo(b.name);
+        if (byName != 0) {
+          return byName;
+        }
+        return a.id.compareTo(b.id);
       });
 
     return sortedRestaurants;
@@ -2784,7 +2801,9 @@ class BiteScoreService {
     required Map<String, DishRatingAggregate> aggregates,
   }) {
     final activeRestaurants = restaurants.where(
-      (restaurant) => restaurant.isActive,
+      (restaurant) =>
+          restaurant.isActive &&
+          exactFirestoreDocumentId(restaurant.id) == restaurant.id,
     );
 
     final restaurantsById = <String, BitescoreRestaurant>{
@@ -2794,7 +2813,10 @@ class BiteScoreService {
     final entries = <BiteScoreHomeEntry>[];
 
     for (final dish in dishes) {
-      if (!dish.isActive || dish.isMerged) {
+      if (!dish.isActive ||
+          dish.isMerged ||
+          exactFirestoreDocumentId(dish.id) != dish.id ||
+          exactFirestoreDocumentId(dish.restaurantId) != dish.restaurantId) {
         continue;
       }
       final restaurant = restaurantsById[dish.restaurantId];
@@ -7513,15 +7535,6 @@ class BiteScoreService {
     }
 
     return words.toList();
-  }
-
-  static String _finderRestaurantKey(BitescoreRestaurant restaurant) {
-    return [
-      restaurant.state.trim().toUpperCase(),
-      restaurant.city.trim().toUpperCase(),
-      restaurant.name.trim().toUpperCase(),
-      restaurant.zipCode.trim(),
-    ].join('|');
   }
 
   static List<BitescoreRestaurant> _applyFinderCompatibilityFallbacks(

@@ -1,3 +1,6 @@
+import { createHash } from "node:crypto";
+import { isIP } from "node:net";
+import { domainToASCII, domainToUnicode } from "node:url";
 import { GeoPoint } from "firebase-admin/firestore";
 import {
   canonicalRestaurantGeohash,
@@ -16,10 +19,14 @@ import {
   normalizeZip5,
 } from "./search_normalization.js";
 import {
+  biteScoreDishCustomerPublicProjectionVersion,
+  biteScoreRestaurantCustomerPublicProjectionVersion,
   createSearchIndexDocumentId,
   createSourceFingerprint,
+  maximumSearchIndexDocumentBytes,
   requireSearchIndexDocumentSize,
   searchIndexVersion,
+  serializedSearchIndexDocumentBytes,
 } from "./search_index_contract.js";
 import {
   biteSaverAccountCatalogBindingState,
@@ -132,6 +139,8 @@ export const maximumOfferDescriptionLength = 500;
 export const maximumPublicUrlLength = 2_048;
 export const maximumDishCategorySourceCount = 32;
 export const maximumDishCategoryInputCount = 128;
+export const maximumDishCategoryManualKeywordBytes = 4_096;
+export const maximumDishCategoryCombinedSourceBytes = 8_192;
 export const maximumSearchLocationTextLength = 100;
 export const biteSaverRestaurantPublicProjectionVersion =
   "bitestar.bitesaver-public-restaurant.v1" as const;
@@ -196,7 +205,7 @@ export function biteScoreBiteSaverCatalogProfile(
       ["phone", "phoneNumber"],
       maximumPublicPhoneLength,
     ),
-    website: firstBoundedPublicString(
+    website: firstPublicProfileUrl(
       data,
       ["website", "websiteUrl", "url"],
       maximumPublicWebsiteLength,
@@ -209,9 +218,10 @@ const maximumPublicImageUrlLength = 2_000;
 const maximumPublicFormattedAddressLength = 500;
 const maximumPublicMenuRestaurantIdLength = 1_500;
 const maximumPublicBusinessHoursTimeLength = 40;
-const unsupportedPublicSingleLineCharacterPattern = /[\p{Cc}\p{Cf}]/u;
+const unsupportedPublicSingleLineCharacterPattern =
+  /[\p{Cc}\p{Cf}\p{Zl}\p{Zp}]/u;
 const unsupportedPublicMultilineCharacterPattern =
-  /[\p{Cf}\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/u;
+  /[\p{Cf}\p{Zl}\p{Zp}\u0000-\u0009\u000b\u000c\u000e-\u001f\u007f-\u009f]/u;
 const businessDayNames = Object.freeze([
   "Sunday",
   "Monday",
@@ -231,6 +241,16 @@ const publicBusinessHoursKeys = Object.freeze([
 
 type GeographyProjection = Readonly<Record<string, unknown>>;
 
+type CustomerGeographyProjection = Readonly<{
+  zip5: string;
+  normalizedCity: string;
+  normalizedState: string;
+  cityStateKey: string;
+  latitude: number;
+  longitude: number;
+  geohash: string;
+}>;
+
 function readString(value: unknown): string | null {
   if (typeof value !== "string") {
     return null;
@@ -239,20 +259,32 @@ function readString(value: unknown): string | null {
   return normalized || null;
 }
 
-function firstString(
-  data: SearchIndexSourceData,
-  fields: readonly string[],
-): string | null {
-  for (const field of fields) {
-    const value = readString(data[field]);
-    if (value !== null) {
-      return value;
+function hasWellFormedUtf16(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      if (index + 1 >= value.length) {
+        return false;
+      }
+      const trailingCodeUnit = value.charCodeAt(index + 1);
+      if (trailingCodeUnit < 0xdc00 || trailingCodeUnit > 0xdfff) {
+        return false;
+      }
+      index += 1;
+    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      return false;
     }
   }
-  return null;
+  return true;
 }
 
 function boundedString(value: unknown, maximumLength: number): string | null {
+  if (
+    typeof value !== "string" ||
+    Buffer.byteLength(value, "utf8") > maximumLength * 4
+  ) {
+    return null;
+  }
   const text = readString(value);
   return text !== null && Array.from(text).length <= maximumLength ? text : null;
 }
@@ -263,6 +295,7 @@ function boundedPublicSingleLineString(
 ): string | null {
   if (
     typeof value !== "string" ||
+    !hasWellFormedUtf16(value) ||
     unsupportedPublicSingleLineCharacterPattern.test(value)
   ) {
     return null;
@@ -276,6 +309,8 @@ function boundedPublicMultilineString(
 ): string | null {
   if (
     typeof value !== "string" ||
+    !hasWellFormedUtf16(value) ||
+    Buffer.byteLength(value, "utf8") > maximumLength * 4 ||
     unsupportedPublicMultilineCharacterPattern.test(value)
   ) {
     return null;
@@ -293,8 +328,184 @@ function boundedPublicMultilineString(
 }
 
 function publicProfileUrl(value: unknown, maximumLength: number): string | null {
+  if (typeof value !== "string") {
+    return null;
+  }
   const url = boundedPublicSingleLineString(value, maximumLength);
-  return url !== null && /^https?:\/\//iu.test(url) ? url : null;
+  if (url === null) {
+    return null;
+  }
+  // NFKC can change URL delimiters, path segments, and query semantics.
+  // Validate both forms and require them to resolve to the same absolute URL.
+  const rawHref = strictPublicHttpUrlSourceHref(value);
+  const normalizedHref = strictPublicHttpUrlSourceHref(url);
+  if (
+    publicUrlStructuralCharacters(value) !== publicUrlStructuralCharacters(url) ||
+    rawHref === null ||
+    normalizedHref === null ||
+    rawHref !== normalizedHref
+  ) {
+    return null;
+  }
+  return url;
+}
+
+function publicUrlStructuralCharacters(value: string): string {
+  return value.replace(/[^:/?#@[\]\\%]/gu, "");
+}
+
+type StrictPublicUrlAuthority = Readonly<{
+  rawHostname: string;
+  asciiHostname: string;
+}>;
+
+const idnaMappedHostnameSeparatorPattern = /[\u3002\uff0e\uff61]/u;
+
+function readStrictPublicUrlAuthority(
+  value: string,
+): StrictPublicUrlAuthority | null {
+  if (
+    /\s/u.test(value) ||
+    value.includes("\\") ||
+    !/^https?:\/\//iu.test(value)
+  ) {
+    return null;
+  }
+  const authorityStart = value.indexOf("://") + 3;
+  const authorityEndOffset = value.slice(authorityStart).search(/[/?#]/u);
+  const authority = authorityEndOffset < 0
+    ? value.slice(authorityStart)
+    : value.slice(authorityStart, authorityStart + authorityEndOffset);
+  if (
+    authority.length === 0 ||
+    authority.includes("@") ||
+    authority.includes("%")
+  ) {
+    return null;
+  }
+  let rawHostname = authority;
+  let rawPort: string | null = null;
+  if (authority.startsWith("[")) {
+    const closingBracket = authority.indexOf("]");
+    if (closingBracket < 0) {
+      return null;
+    }
+    rawHostname = authority.slice(0, closingBracket + 1);
+    const remainder = authority.slice(closingBracket + 1);
+    if (remainder.length > 0) {
+      if (!remainder.startsWith(":")) {
+        return null;
+      }
+      rawPort = remainder.slice(1);
+    }
+  } else {
+    const portSeparator = authority.lastIndexOf(":");
+    if (portSeparator >= 0) {
+      rawHostname = authority.slice(0, portSeparator);
+      rawPort = authority.slice(portSeparator + 1);
+    }
+    if (rawHostname.includes(":")) {
+      return null;
+    }
+  }
+  if (
+    rawHostname.length === 0 ||
+    (rawPort !== null &&
+      (!/^[0-9]+$/u.test(rawPort) || Number(rawPort) > 65_535)) ||
+    idnaMappedHostnameSeparatorPattern.test(rawHostname) ||
+    rawHostname.normalize("NFKC") !== rawHostname
+  ) {
+    return null;
+  }
+  const asciiHostname = domainToASCII(rawHostname).toLowerCase();
+  if (
+    asciiHostname.length === 0 ||
+    !publicUnicodeHostnameRoundTrips(rawHostname, asciiHostname)
+  ) {
+    return null;
+  }
+  return Object.freeze({rawHostname, asciiHostname});
+}
+
+function publicUnicodeHostnameRoundTrips(
+  rawHostname: string,
+  asciiHostname: string,
+): boolean {
+  // ASCII and punycode spellings are already checked without an IDNA rewrite.
+  // For each raw Unicode label, require IDNA decoding to preserve every code
+  // point other than the ordinary case-insensitivity of DNS names. Comparing
+  // label-wise preserves a mixed host that intentionally spells one label as
+  // ASCII punycode and another as Unicode, as well as a trailing root dot.
+  if (/^[\x00-\x7f]+$/u.test(rawHostname)) {
+    return true;
+  }
+  const rawLabels = rawHostname.split(".");
+  const asciiLabels = asciiHostname.split(".");
+  return rawLabels.length === asciiLabels.length &&
+    rawLabels.every((rawLabel, index) => {
+      const asciiLabel = asciiLabels[index];
+      if (/^[\x00-\x7f]*$/u.test(rawLabel)) {
+        return rawLabel.toLowerCase() === asciiLabel.toLowerCase();
+      }
+      return domainToUnicode(asciiLabel).toLowerCase().normalize("NFC") ===
+        rawLabel.toLowerCase().normalize("NFC");
+    });
+}
+
+function strictPublicHttpUrlSourceHref(value: string): string | null {
+  const authority = readStrictPublicUrlAuthority(value);
+  if (authority === null) {
+    return null;
+  }
+  try {
+    const parsed = new URL(value);
+    return (parsed.protocol === "http:" || parsed.protocol === "https:") &&
+        parsed.hostname.length > 0 &&
+        parsed.username.length === 0 &&
+        parsed.password.length === 0 &&
+        authority.asciiHostname === parsed.hostname.toLowerCase() &&
+        (isIP(parsed.hostname) !== 4 ||
+          authority.rawHostname === parsed.hostname) &&
+        publicHostnameIsValid(parsed.hostname)
+      ? parsed.href
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function publicHostnameIsValid(hostname: string): boolean {
+  if (
+    hostname.startsWith("[") &&
+    hostname.endsWith("]") &&
+    isIP(hostname.slice(1, -1)) === 6
+  ) {
+    return true;
+  }
+  if (isIP(hostname) === 4) {
+    return true;
+  }
+  const domain = hostname.endsWith(".") ? hostname.slice(0, -1) : hostname;
+  if (domain.length === 0 || Buffer.byteLength(domain, "ascii") > 253) {
+    return false;
+  }
+  return domain.split(".").every((label) =>
+    label.length > 0 &&
+    label.length <= 63 &&
+    /^[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/iu.test(label));
+}
+
+function firstPublicProfileUrl(
+  data: SearchIndexSourceData,
+  fields: readonly string[],
+  maximumLength: number,
+): string | null {
+  for (const field of fields) {
+    if (Object.prototype.hasOwnProperty.call(data, field)) {
+      return publicProfileUrl(data[field], maximumLength);
+    }
+  }
+  return null;
 }
 
 function firstBoundedPublicString(
@@ -304,6 +515,20 @@ function firstBoundedPublicString(
 ): string | null {
   for (const field of fields) {
     const value = boundedPublicSingleLineString(data[field], maximumLength);
+    if (value !== null) {
+      return value;
+    }
+  }
+  return null;
+}
+
+function firstBoundedString(
+  data: SearchIndexSourceData,
+  fields: readonly string[],
+  maximumLength: number,
+): string | null {
+  for (const field of fields) {
+    const value = boundedString(data[field], maximumLength);
     if (value !== null) {
       return value;
     }
@@ -417,15 +642,12 @@ function biteSaverPublicProfileProjection(
     maximumPublicZipCodeLength,
   );
   const phone = boundedPublicSingleLineString(data.phone, maximumPublicPhoneLength);
-  const website = boundedPublicSingleLineString(
+  const website = publicProfileUrl(
     data.website,
     maximumPublicWebsiteLength,
   );
   const bio = boundedPublicMultilineString(data.bio, maximumPublicBioLength);
-  const primaryImageUrl = publicProfileUrl(
-    data.mainImageUrl,
-    maximumPublicImageUrlLength,
-  ) ?? publicProfileUrl(data.imageUrl, maximumPublicImageUrlLength);
+  const primaryImageUrl = biteSaverRestaurantPrimaryImageUrl(data);
   const formattedAddress = boundedPublicSingleLineString(
     data.formattedAddress,
     maximumPublicFormattedAddressLength,
@@ -450,6 +672,17 @@ function biteSaverPublicProfileProjection(
     ...(formattedAddress === null ? {} : { formattedAddress }),
     ...publicMenuRoutingProjection(data),
   });
+}
+
+function biteSaverRestaurantPrimaryImageUrl(
+  data: SearchIndexSourceData,
+): string | null {
+  return publicProfileUrl(
+    Object.prototype.hasOwnProperty.call(data, "mainImageUrl")
+      ? data.mainImageUrl
+      : data.imageUrl,
+    maximumPublicImageUrlLength,
+  );
 }
 
 function biteSaverOfferCatalogProjection(
@@ -487,8 +720,7 @@ export function boundedDescriptionSummary(value: unknown): string | null {
 }
 
 function publicUrl(value: unknown): string | null {
-  const url = boundedString(value, maximumPublicUrlLength);
-  return url !== null && /^https?:\/\//iu.test(url) ? url : null;
+  return publicProfileUrl(value, maximumPublicUrlLength);
 }
 
 function readDate(value: unknown): Date | null {
@@ -498,10 +730,14 @@ function readDate(value: unknown): Date | null {
   if (value !== null && typeof value === "object" && !Array.isArray(value)) {
     const candidate = value as { toDate?: () => unknown };
     if (typeof candidate.toDate === "function") {
-      const converted = candidate.toDate();
-      return converted instanceof Date && Number.isFinite(converted.getTime())
-        ? new Date(converted.getTime())
-        : null;
+      try {
+        const converted = candidate.toDate();
+        return converted instanceof Date && Number.isFinite(converted.getTime())
+          ? new Date(converted.getTime())
+          : null;
+      } catch {
+        return null;
+      }
     }
   }
   return null;
@@ -516,12 +752,16 @@ function sourceTimestamps(data: SearchIndexSourceData): Record<string, unknown> 
   };
 }
 
-function normalizedNameProjection(value: unknown): {
+type NormalizedNameProjection = Readonly<{
   displayName: string;
   normalizedName: string;
   namePrefixTokens: readonly string[];
-} | null {
-  const displayName = readString(value);
+}>;
+
+function normalizedNameProjection(
+  value: unknown,
+): NormalizedNameProjection | null {
+  const displayName = boundedString(value, maximumSearchNameLength);
   if (displayName === null) {
     return null;
   }
@@ -536,6 +776,16 @@ function normalizedNameProjection(value: unknown): {
   }
 }
 
+function biteSaverRestaurantPublicName(
+  data: SearchIndexSourceData,
+): NormalizedNameProjection | null {
+  return normalizedNameProjection(firstBoundedPublicString(
+    data,
+    ["restaurantName", "name"],
+    maximumSearchNameLength,
+  ));
+}
+
 function geographyProjection(
   data: SearchIndexSourceData,
   options: {
@@ -546,7 +796,11 @@ function geographyProjection(
   },
 ): GeographyProjection {
   const result: Record<string, unknown> = {};
-  const zip = firstString(data, options.zipFields);
+  const zip = firstBoundedPublicString(
+    data,
+    options.zipFields,
+    maximumPublicZipCodeLength,
+  );
   if (zip !== null) {
     try {
       result.zip5 = normalizeZip5(zip);
@@ -555,8 +809,12 @@ function geographyProjection(
     }
   }
 
-  const cityValue = firstString(data, options.cityFields);
-  const stateValue = firstString(data, options.stateFields);
+  const cityValue = firstBoundedPublicString(
+    data,
+    options.cityFields,
+    maximumSearchLocationTextLength,
+  );
+  const stateValue = firstBoundedPublicString(data, options.stateFields, 10);
   const city = cityValue !== null &&
     Array.from(cityValue).length <= maximumSearchLocationTextLength
     ? cityValue
@@ -575,7 +833,8 @@ function geographyProjection(
   }
 
   const coordinates = options.extractCoordinates(data);
-  const storedGeohash = readString(data.geohash)?.toLowerCase() ?? null;
+  const storedGeohash = boundedPublicSingleLineString(data.geohash, 12)
+    ?.toLowerCase() ?? null;
   if (coordinates !== null && storedGeohash !== null) {
     const expectedGeohash = canonicalRestaurantGeohash(coordinates);
     if (storedGeohash === expectedGeohash) {
@@ -609,6 +868,227 @@ function biteScoreGeography(data: SearchIndexSourceData): GeographyProjection {
   });
 }
 
+function customerGeography(
+  geography: GeographyProjection,
+): CustomerGeographyProjection | null {
+  if (
+    typeof geography.zip5 !== "string" ||
+    typeof geography.normalizedCity !== "string" ||
+    typeof geography.normalizedState !== "string" ||
+    typeof geography.cityStateKey !== "string" ||
+    typeof geography.latitude !== "number" ||
+    typeof geography.longitude !== "number" ||
+    typeof geography.geohash !== "string"
+  ) {
+    return null;
+  }
+  return Object.freeze({
+    zip5: geography.zip5,
+    normalizedCity: geography.normalizedCity,
+    normalizedState: geography.normalizedState,
+    cityStateKey: geography.cityStateKey,
+    latitude: geography.latitude,
+    longitude: geography.longitude,
+    geohash: geography.geohash,
+  });
+}
+
+type BoundedPublicStringListResult = Readonly<{
+  values: readonly string[];
+  withinLimits: boolean;
+}>;
+
+function boundedPublicStringList(
+  value: unknown,
+  maximumCount: number,
+  maximumItemLength: number,
+): BoundedPublicStringListResult {
+  if (value === undefined || value === null) {
+    return Object.freeze({
+      values: Object.freeze([] as string[]),
+      withinLimits: true,
+    });
+  }
+  if (!Array.isArray(value) || value.length > maximumCount) {
+    return Object.freeze({
+      values: Object.freeze([] as string[]),
+      withinLimits: false,
+    });
+  }
+  // Validate the complete raw list before byte accounting, normalization, or
+  // token work. Buffer.byteLength replaces unpaired surrogates with U+FFFD;
+  // allowing that replacement would make a partial public list appear
+  // authoritative after the malformed entry is later rejected.
+  for (const item of value) {
+    if (typeof item !== "string" || !hasWellFormedUtf16(item)) {
+      return Object.freeze({
+        values: Object.freeze([] as string[]),
+        withinLimits: false,
+      });
+    }
+  }
+  const result: string[] = [];
+  const seen = new Set<string>();
+  for (const item of value) {
+    if (
+      (Buffer.byteLength(item, "utf8") > maximumItemLength * 4 ||
+        Array.from(item).length > maximumItemLength)
+    ) {
+      return Object.freeze({
+        values: Object.freeze([] as string[]),
+        withinLimits: false,
+      });
+    }
+    const text = boundedPublicSingleLineString(item, maximumItemLength);
+    if (text === null || seen.has(text)) {
+      continue;
+    }
+    seen.add(text);
+    result.push(text);
+  }
+  return Object.freeze({
+    values: Object.freeze(result),
+    withinLimits: true,
+  });
+}
+
+function normalizedCategoryTokens(values: readonly string[]): readonly string[] {
+  const tokens = new Set<string>();
+  for (const value of values) {
+    try {
+      tokens.add(normalizeSearchName(value));
+    } catch {
+      // Invalid public category text is omitted.
+    }
+  }
+  return Object.freeze(
+    [...tokens].sort().slice(0, maximumDishCategorySourceCount),
+  );
+}
+
+function authoritativePublicNameProjection(
+  data: SearchIndexSourceData,
+  fields: readonly string[],
+): NormalizedNameProjection | null {
+  for (const field of fields) {
+    if (!Object.prototype.hasOwnProperty.call(data, field)) {
+      continue;
+    }
+    const displayName = boundedPublicSingleLineString(
+      data[field],
+      maximumSearchNameLength,
+    );
+    return displayName === null ? null : normalizedNameProjection(displayName);
+  }
+  return null;
+}
+
+function boundedCustomerPublicProjection(
+  value: Readonly<Record<string, unknown>>,
+): Readonly<Record<string, unknown>> | null {
+  try {
+    return serializedSearchIndexDocumentBytes(value) <=
+        maximumSearchIndexDocumentBytes
+      ? value
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function biteScoreRestaurantCustomerPublicProjection(value: {
+  sourceDocumentId: string;
+  source: SearchIndexSourceData;
+  name: NormalizedNameProjection;
+  geography: CustomerGeographyProjection;
+  publicVisible: boolean;
+  isClaimed: boolean;
+}): Readonly<Record<string, unknown>> | null {
+  const streetAddress = boundedPublicSingleLineString(
+    value.source.streetAddress,
+    maximumPublicStreetAddressLength,
+  );
+  const city = boundedPublicSingleLineString(
+    value.source.city,
+    maximumPublicCityLength,
+  );
+  const state = boundedPublicSingleLineString(
+    value.source.state,
+    maximumPublicStateLength,
+  );
+  const zipCode = boundedPublicSingleLineString(
+    value.source.zipCode,
+    maximumPublicZipCodeLength,
+  );
+  if (
+    streetAddress === null ||
+    city === null ||
+    state === null ||
+    zipCode === null
+  ) {
+    return null;
+  }
+
+  const phone = boundedPublicSingleLineString(
+    value.source.phone,
+    maximumPublicPhoneLength,
+  );
+  const website = publicProfileUrl(
+    value.source.website,
+    maximumPublicWebsiteLength,
+  );
+  const bio = boundedPublicMultilineString(
+    value.source.bio,
+    maximumPublicBioLength,
+  );
+  const primaryImageUrl = publicProfileUrl(
+    Object.prototype.hasOwnProperty.call(value.source, "primaryImageUrl")
+      ? value.source.primaryImageUrl
+      : value.source.mainImageUrl,
+    maximumPublicImageUrlLength,
+  );
+  const businessHours = Object.prototype.hasOwnProperty.call(
+      value.source,
+      "businessHours",
+    )
+    ? publicBusinessHours(value.source.businessHours)
+    : null;
+  const cuisineTagResult = boundedPublicStringList(
+    value.source.cuisineTags,
+    maximumDishCategorySourceCount,
+    maximumSearchNameLength,
+  );
+  if (!cuisineTagResult.withinLimits) {
+    return null;
+  }
+  const cuisineTags = cuisineTagResult.values;
+
+  return boundedCustomerPublicProjection(Object.freeze({
+    customerPublicProjectionVersion:
+      biteScoreRestaurantCustomerPublicProjectionVersion,
+    source: "biteScore",
+    entityType: "restaurant",
+    sourceDocumentId: value.sourceDocumentId,
+    publicVisible: value.publicVisible,
+    displayName: value.name.displayName,
+    normalizedName: value.name.normalizedName,
+    namePrefixTokens: value.name.namePrefixTokens,
+    streetAddress,
+    city,
+    state,
+    zipCode,
+    ...value.geography,
+    isClaimed: value.isClaimed,
+    cuisineTags,
+    categoryTokens: normalizedCategoryTokens(cuisineTags),
+    ...(phone === null ? {} : { phone }),
+    ...(website === null ? {} : { website }),
+    ...(bio === null ? {} : { bio }),
+    ...(primaryImageUrl === null ? {} : { primaryImageUrl }),
+    ...(businessHours === null ? {} : { businessHours }),
+  }));
+}
+
 function finalizeIndexDocument(
   draft: Record<string, unknown>,
   now: Date,
@@ -621,6 +1101,23 @@ function finalizeIndexDocument(
   };
   requireSearchIndexDocumentSize(document);
   return Object.freeze(document);
+}
+
+function finalizeIndexDocumentWithCustomerFallback(
+  draft: Record<string, unknown>,
+  now: Date,
+): SearchIndexDocument {
+  try {
+    return finalizeIndexDocument(draft, now);
+  } catch {
+    if (draft.customerPublicProjection === null) {
+      throw new Error("Search index document is invalid or oversized.");
+    }
+    return finalizeIndexDocument({
+      ...draft,
+      customerPublicProjection: null,
+    }, now);
+  }
 }
 
 function biteSaverApprovalIsApproved(data: SearchIndexSourceData): boolean {
@@ -642,44 +1139,177 @@ function parentSubscriptionAllowsOffers(
     biteSaverAdminHiddenAllowsPublic(data);
 }
 
+type BiteSaverOfferParentDescriptor = Readonly<{
+  restaurantName: NormalizedNameProjection | null;
+  geography: GeographyProjection;
+  restaurantPrimaryImageUrl: string | null;
+  publicOffersAllowed: boolean;
+}>;
+
+/**
+ * The complete bounded BiteSaver-parent input consumed by offer projections.
+ *
+ * Keep the fingerprint and both offer builders on this shared interpretation:
+ * aliases are resolved once, public strings/geography are validated once, and
+ * only effective projection values leave this boundary.
+ */
+function biteSaverOfferParentDescriptor(
+  data: SearchIndexSourceData,
+): BiteSaverOfferParentDescriptor {
+  return Object.freeze({
+    restaurantName: biteSaverRestaurantPublicName(data),
+    geography: biteSaverGeography(data),
+    restaurantPrimaryImageUrl: biteSaverRestaurantPrimaryImageUrl(data),
+    publicOffersAllowed: parentSubscriptionAllowsOffers(data),
+  });
+}
+
 export function biteSaverOfferParentFingerprint(
   data: SearchIndexSourceData | null,
 ): string {
   if (data === null) {
     return createSourceFingerprint(["biteSaverOfferParent", "missing"]);
   }
+  const descriptor = biteSaverOfferParentDescriptor(data);
+  if (descriptor.restaurantName === null) {
+    return createSourceFingerprint([
+      "biteSaverOfferParent",
+      "present",
+      "invalidRestaurantName",
+    ]);
+  }
+  const geography = descriptor.geography;
   return createSourceFingerprint([
     "biteSaverOfferParent",
-    firstString(data, ["restaurantName", "name"]),
-    parentSubscriptionAllowsOffers(data),
-    firstString(data, ["zipCode", "postalCode", "zip"]),
-    firstString(data, ["city"]),
-    firstString(data, ["state"]),
-    data.latitude ?? null,
-    data.longitude ?? null,
-    readString(data.geohash),
-    publicUrl(data.mainImageUrl),
+    "present",
+    [
+      "restaurantName",
+      fingerprintScalar(descriptor.restaurantName.displayName),
+    ],
+    ["publicOffersAllowed", descriptor.publicOffersAllowed],
+    ["zip5", fingerprintScalar(geography.zip5 ?? null)],
+    ["normalizedCity", fingerprintScalar(geography.normalizedCity ?? null)],
+    ["normalizedState", fingerprintScalar(geography.normalizedState ?? null)],
+    ["cityStateKey", fingerprintScalar(geography.cityStateKey ?? null)],
+    ["latitude", fingerprintScalar(geography.latitude ?? null)],
+    ["longitude", fingerprintScalar(geography.longitude ?? null)],
+    ["geohash", fingerprintScalar(geography.geohash ?? null)],
+    [
+      "restaurantPrimaryImageUrl",
+      fingerprintScalar(descriptor.restaurantPrimaryImageUrl),
+    ],
   ]);
 }
 
+function fingerprintScalar(value: unknown): readonly unknown[] {
+  if (value === null) {
+    return Object.freeze(["null"]);
+  }
+  if (typeof value === "string") {
+    // UTF-8 replaces every unpaired surrogate with U+FFFD. Hash the exact
+    // UTF-16 code units instead so malformed public input cannot collide with
+    // a distinct, well-formed string that has different eligibility.
+    const digest = createHash("sha256")
+      .update(Buffer.from(value, "utf16le"))
+      .digest("hex");
+    return Object.freeze([
+      "string",
+      "utf16le",
+      value.length,
+      Buffer.byteLength(value, "utf8"),
+      digest,
+    ]);
+  }
+  if (typeof value === "number") {
+    return Object.freeze([
+      "number",
+      Number.isNaN(value)
+        ? "NaN"
+        : value === Number.POSITIVE_INFINITY
+          ? "+Infinity"
+          : value === Number.NEGATIVE_INFINITY
+            ? "-Infinity"
+            : Object.is(value, -0)
+              ? "-0"
+              : value,
+    ]);
+  }
+  if (typeof value === "boolean") {
+    return Object.freeze(["boolean", value]);
+  }
+  if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+    const candidate = value as Record<string, unknown> & {isEqual?: unknown};
+    // The coordinate extractor accepts only Firestore GeoPoints (and the
+    // compatible server-test shape with an isEqual function). A plain map with
+    // the same numeric members is ineligible, so that distinction belongs in
+    // the parent fingerprint.
+    const coordinateObjectKind = value instanceof GeoPoint ||
+        typeof candidate.isEqual === "function"
+      ? "compatibleGeoPoint"
+      : "plainObject";
+    return Object.freeze([
+      "object",
+      coordinateObjectKind,
+      fingerprintScalar(candidate.latitude),
+      fingerprintScalar(candidate.longitude),
+    ]);
+  }
+  return Object.freeze([Array.isArray(value) ? "array" : typeof value]);
+}
+
+function fingerprintField(
+  data: SearchIndexSourceData,
+  field: string,
+): readonly unknown[] {
+  return Object.prototype.hasOwnProperty.call(data, field)
+    ? Object.freeze(["present", fingerprintScalar(data[field])])
+    : Object.freeze(["absent"]);
+}
+
+const biteScoreDishParentFingerprintFields = Object.freeze([
+  "name",
+  "restaurantName",
+  "restaurant_name",
+  "isActive",
+  "active",
+  "isClaimed",
+  "city",
+  "locality",
+  "municipality",
+  "town",
+  "state",
+  "stateCode",
+  "region",
+  "province",
+  "zipCode",
+  "zip",
+  "postalCode",
+  "postcode",
+  "location",
+  "geoPoint",
+  "latitude",
+  "longitude",
+  "lat",
+  "lng",
+  "geohash",
+]);
+
 export function biteScoreDishParentFingerprint(
   data: SearchIndexSourceData | null,
+  parentSourceDocumentId: string | null = null,
 ): string {
   if (data === null) {
-    return createSourceFingerprint(["biteScoreDishParent", "missing"]);
+    return createSourceFingerprint([
+      "biteScoreDishParent",
+      parentSourceDocumentId,
+      "missing",
+    ]);
   }
-  const coordinates = extractBiteScoreRestaurantCoordinates(data);
   return createSourceFingerprint([
     "biteScoreDishParent",
-    firstString(data, ["name", "restaurantName", "restaurant_name"]),
-    biteScoreRestaurantIsActive(data),
-    data.isClaimed === true,
-    firstString(data, ["zipCode", "zip", "postalCode", "postcode"]),
-    firstString(data, ["city", "locality", "municipality", "town"]),
-    firstString(data, ["state", "stateCode", "region", "province"]),
-    coordinates?.latitude ?? null,
-    coordinates?.longitude ?? null,
-    readString(data.geohash),
+    parentSourceDocumentId,
+    ...biteScoreDishParentFingerprintFields.map((field) =>
+      fingerprintField(data, field)),
   ]);
 }
 
@@ -691,11 +1321,7 @@ export function buildBiteSaverRestaurantIndex(value: {
   if (value.source === null) {
     return null;
   }
-  const name = normalizedNameProjection(firstBoundedPublicString(
-    value.source,
-    ["restaurantName", "name"],
-    maximumSearchNameLength,
-  ));
+  const name = biteSaverRestaurantPublicName(value.source);
   if (name === null) {
     return null;
   }
@@ -730,31 +1356,60 @@ export function buildBiteScoreRestaurantIndex(value: {
   source: SearchIndexSourceData | null;
   now: Date;
 }): SearchIndexDocument | null {
-  if (value.source === null) {
+  if (
+    value.source === null ||
+    readBiteScoreCatalogRestaurantId(value.sourceDocumentId) !==
+      value.sourceDocumentId
+  ) {
     return null;
   }
   const name = normalizedNameProjection(
-    firstString(value.source, ["name", "restaurantName", "restaurant_name"]),
+    firstBoundedString(
+      value.source,
+      ["name", "restaurantName", "restaurant_name"],
+      maximumSearchNameLength,
+    ),
   );
   if (name === null) {
     return null;
   }
   const isActive = biteScoreRestaurantIsActive(value.source);
   const claim = biteScoreRestaurantClaimProjection(value.source);
+  const geography = biteScoreGeography(value.source);
+  const publicGeography = customerGeography(geography);
+  const customerName = authoritativePublicNameProjection(
+    value.source,
+    ["name", "restaurantName", "restaurant_name"],
+  );
+  const customerPublicProjection = !isActive ||
+      publicGeography === null ||
+      customerName === null
+    ? null
+    : biteScoreRestaurantCustomerPublicProjection({
+        sourceDocumentId: value.sourceDocumentId,
+        source: value.source,
+        name: customerName,
+        geography: publicGeography,
+        publicVisible: true,
+        isClaimed: claim.isClaimed,
+      });
   const indexDocumentId = createSearchIndexDocumentId({
     entityKind: "restaurant",
     sourceKind: "biteScoreRestaurant",
     sourceDocumentId: value.sourceDocumentId,
   });
-  return finalizeIndexDocument({
+  return finalizeIndexDocumentWithCustomerFallback({
     searchIndexVersion,
     entityType: "restaurant",
     source: "biteScore",
     sourceDocumentId: value.sourceDocumentId,
     indexDocumentId,
     ...name,
-    ...biteScoreGeography(value.source),
+    ...geography,
     publicVisible: isActive,
+    customerPublicProjectionVersion:
+      biteScoreRestaurantCustomerPublicProjectionVersion,
+    customerPublicProjection,
     adminDirectoryVisible: true,
     isActive,
     ...claim,
@@ -762,35 +1417,361 @@ export function buildBiteScoreRestaurantIndex(value: {
   }, value.now);
 }
 
-function categoryTokens(data: SearchIndexSourceData): readonly string[] {
-  const sources = [data.category, data.subcategory];
-  if (Array.isArray(data.categoryTags)) {
-    sources.push(...data.categoryTags.slice(0, maximumDishCategoryInputCount));
-  }
-  const normalized = new Set<string>();
-  for (const source of sources) {
-    const text = readString(source);
-    if (text === null) {
-      continue;
+type DishCategoryProjection = Readonly<{
+  customerEligible: boolean;
+  tokens: readonly string[];
+  categoryPrefixTokens: readonly string[];
+  normalizedCategory: string | null;
+  category: string | null;
+  subcategory: string | null;
+  categoryManualKeywords: string | null;
+  categoryTags: readonly string[];
+}>;
+
+type RawCommaSeparatedInputAccounting = Readonly<{
+  bytes: number;
+  entryCount: number;
+}>;
+
+function rawCommaSeparatedInputAccounting(
+  value: unknown,
+  maximumCount: number,
+  maximumBytes: number,
+): RawCommaSeparatedInputAccounting | null {
+  if (typeof value === "string") {
+    if (!hasWellFormedUtf16(value)) {
+      return null;
     }
-    try {
-      normalized.add(normalizeSearchName(text));
-    } catch {
-      // Invalid category aliases are omitted rather than copied.
+    const bytes = Buffer.byteLength(value, "utf8");
+    return bytes <= maximumBytes
+      ? Object.freeze({ bytes, entryCount: 1 })
+      : null;
+  }
+  if (!Array.isArray(value) || value.length > maximumCount) {
+    return null;
+  }
+  for (let index = 0; index < value.length; index += 1) {
+    const entry = value[index];
+    if (typeof entry !== "string" || !hasWellFormedUtf16(entry)) {
+      return null;
     }
   }
-  return Object.freeze(
-    [...normalized].sort().slice(0, maximumDishCategorySourceCount),
-  );
+  // Count the exact comma-joined raw representation without allocating it.
+  let bytes = value.length === 0 ? 0 : value.length - 1;
+  if (bytes > maximumBytes) {
+    return null;
+  }
+  for (let index = 0; index < value.length; index += 1) {
+    const entry = value[index] as string;
+    bytes += Buffer.byteLength(entry, "utf8");
+    if (bytes > maximumBytes) {
+      return null;
+    }
+  }
+  return Object.freeze({ bytes, entryCount: value.length });
 }
 
-function optionalScore(value: unknown): number | null {
+function dishCategoryProjection(
+  data: SearchIndexSourceData,
+): DishCategoryProjection {
+  const normalized = new Set<string>();
+  const publicTags: string[] = [];
+  const publicTagSet = new Set<string>();
+  let combinedSourceBytes = 0;
+  let combinedSourceEntries = 0;
+  let withinLimits = true;
+
+  const accountRawSource = (
+    source: unknown,
+    maximumCount: number,
+    maximumBytes = maximumDishCategoryCombinedSourceBytes,
+  ): void => {
+    if (source === undefined || source === null) {
+      return;
+    }
+    const accounting = rawCommaSeparatedInputAccounting(
+      source,
+      maximumCount,
+      maximumBytes,
+    );
+    if (accounting === null) {
+      withinLimits = false;
+      return;
+    }
+    const separatorBytes = combinedSourceEntries > 0 &&
+        accounting.entryCount > 0
+      ? 1
+      : 0;
+    combinedSourceBytes += separatorBytes + accounting.bytes;
+    combinedSourceEntries += accounting.entryCount;
+    if (combinedSourceBytes > maximumDishCategoryCombinedSourceBytes) {
+      withinLimits = false;
+    }
+  };
+
+  accountRawSource(data.category, 1);
+  accountRawSource(data.subcategory, 1);
+  const manualValue = data.categoryManualKeywords;
+  accountRawSource(
+    manualValue,
+    maximumDishCategoryInputCount,
+    maximumDishCategoryManualKeywordBytes,
+  );
+  const categoryTags = data.categoryTags;
+  accountRawSource(categoryTags, maximumDishCategoryInputCount);
+
+  const addSource = (source: unknown, publicTag = false): string | null => {
+    if (source === undefined || source === null) {
+      return null;
+    }
+    if (typeof source !== "string") {
+      withinLimits = false;
+      return null;
+    }
+    if (
+      !hasWellFormedUtf16(source) ||
+      Buffer.byteLength(source, "utf8") > maximumSearchNameLength * 4 ||
+      Array.from(source).length > maximumSearchNameLength ||
+      combinedSourceBytes > maximumDishCategoryCombinedSourceBytes
+    ) {
+      withinLimits = false;
+      return null;
+    }
+    const text = boundedPublicSingleLineString(source, maximumSearchNameLength);
+    if (text === null) {
+      return null;
+    }
+    try {
+      const token = normalizeSearchName(text);
+      if (!normalized.has(token)) {
+        if (normalized.size >= maximumDishCategorySourceCount) {
+          withinLimits = false;
+          return text;
+        }
+        normalized.add(token);
+      }
+      if (publicTag && !publicTagSet.has(text)) {
+        if (publicTags.length >= maximumDishCategorySourceCount) {
+          withinLimits = false;
+          return text;
+        }
+        publicTagSet.add(text);
+        publicTags.push(text);
+      }
+    } catch {
+      // Unsafe or non-searchable optional category text is omitted.
+    }
+    return text;
+  };
+
+  const category = addSource(data.category);
+  const subcategory = addSource(data.subcategory);
+  if (manualValue !== undefined && manualValue !== null) {
+    if (typeof manualValue === "string") {
+      if (!hasWellFormedUtf16(manualValue)) {
+        withinLimits = false;
+      } else {
+        const manualBytes = Buffer.byteLength(manualValue, "utf8");
+        if (manualBytes > maximumDishCategoryManualKeywordBytes) {
+          withinLimits = false;
+        } else {
+          let entryStart = 0;
+          let entryCount = 0;
+          for (let index = 0; index <= manualValue.length; index += 1) {
+            if (index !== manualValue.length && manualValue[index] !== ",") {
+              continue;
+            }
+            entryCount += 1;
+            if (entryCount > maximumDishCategoryInputCount) {
+              withinLimits = false;
+              break;
+            }
+            addSource(manualValue.slice(entryStart, index));
+            entryStart = index + 1;
+          }
+        }
+      }
+    } else if (Array.isArray(manualValue)) {
+      if (
+        manualValue.length > maximumDishCategoryInputCount ||
+        rawCommaSeparatedInputAccounting(
+          manualValue,
+          maximumDishCategoryInputCount,
+          maximumDishCategoryManualKeywordBytes,
+        ) === null
+      ) {
+        withinLimits = false;
+      } else {
+        for (const entry of manualValue) {
+          addSource(entry);
+        }
+      }
+    } else {
+      withinLimits = false;
+    }
+  }
+
+  if (categoryTags !== undefined && categoryTags !== null) {
+    if (
+      !Array.isArray(categoryTags) ||
+      categoryTags.length > maximumDishCategoryInputCount
+    ) {
+      withinLimits = false;
+    } else {
+      for (const tag of categoryTags) {
+        addSource(tag, true);
+      }
+    }
+  }
+
+  let normalizedCategory: string | null = null;
+  if (category !== null) {
+    try {
+      normalizedCategory = normalizeSearchName(category);
+    } catch {
+      normalizedCategory = null;
+    }
+  }
+  const categoryPrefixTokens = normalizedCategory === null
+    ? Object.freeze([] as string[])
+    : buildWordPrefixTokens(normalizedCategory).slice(
+        0,
+        maximumWordPrefixTokenCount,
+      );
+  const categoryManualKeywords = typeof manualValue === "string"
+    ? boundedPublicSingleLineString(manualValue, maximumSearchNameLength)
+    : null;
+
+  return Object.freeze({
+    customerEligible: withinLimits,
+    tokens: withinLimits
+      ? Object.freeze([...normalized].sort())
+      : Object.freeze([] as string[]),
+    categoryPrefixTokens,
+    normalizedCategory,
+    category,
+    subcategory,
+    categoryManualKeywords,
+    categoryTags: Object.freeze(publicTags),
+  });
+}
+
+function optionalComponentScore(value: unknown): number | null {
   return typeof value === "number" &&
     Number.isFinite(value) &&
     value >= 0 &&
     value <= 10
     ? value
     : null;
+}
+
+function optionalOverallBiteScore(value: unknown): number | null {
+  return typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= 0 &&
+    value <= 100
+    ? value
+    : null;
+}
+
+function biteScoreDishCustomerPublicProjection(value: {
+  sourceDocumentId: string;
+  restaurantDocumentId: string;
+  dish: SearchIndexSourceData;
+  restaurant: SearchIndexSourceData;
+  name: NormalizedNameProjection;
+  restaurantName: NormalizedNameProjection;
+  geography: CustomerGeographyProjection;
+  publicVisible: boolean;
+  categoryProjection: DishCategoryProjection;
+  overallBiteScore: number;
+  ratingCount: number;
+  aggregate: SearchIndexSourceData;
+  primaryImageUrl: string | null;
+}): Readonly<Record<string, unknown>> | null {
+  const restaurantCity = boundedPublicSingleLineString(
+    value.restaurant.city,
+    maximumPublicCityLength,
+  );
+  const restaurantState = boundedPublicSingleLineString(
+    value.restaurant.state,
+    maximumPublicStateLength,
+  );
+  const restaurantZipCode = boundedPublicSingleLineString(
+    value.restaurant.zipCode,
+    maximumPublicZipCodeLength,
+  );
+  if (
+    restaurantCity === null ||
+    restaurantState === null ||
+    restaurantZipCode === null
+  ) {
+    return null;
+  }
+  const priceLabel = boundedPublicSingleLineString(
+    value.dish.priceLabel,
+    maximumSearchNameLength,
+  );
+  const overallImpressionAverage = optionalComponentScore(
+    value.aggregate.overallImpressionAverage,
+  );
+  const tastinessScoreAverage = optionalComponentScore(
+    value.aggregate.tastinessScoreAverage,
+  );
+  const qualityScoreAverage = optionalComponentScore(
+    value.aggregate.qualityScoreAverage,
+  );
+  const valueScoreAverage = optionalComponentScore(
+    value.aggregate.valueScoreAverage,
+  );
+
+  return boundedCustomerPublicProjection(Object.freeze({
+    customerPublicProjectionVersion:
+      biteScoreDishCustomerPublicProjectionVersion,
+    source: "biteScore",
+    entityType: "dish",
+    sourceDocumentId: value.sourceDocumentId,
+    restaurantSourceDocumentId: value.restaurantDocumentId,
+    publicVisible: value.publicVisible,
+    displayName: value.name.displayName,
+    normalizedName: value.name.normalizedName,
+    namePrefixTokens: value.name.namePrefixTokens,
+    restaurantDisplayName: value.restaurantName.displayName,
+    restaurantNormalizedName: value.restaurantName.normalizedName,
+    restaurantNamePrefixTokens: value.restaurantName.namePrefixTokens,
+    restaurantCity,
+    restaurantState,
+    restaurantZipCode,
+    ...value.geography,
+    categoryTokens: value.categoryProjection.tokens,
+    categoryPrefixTokens: value.categoryProjection.categoryPrefixTokens,
+    ...(value.categoryProjection.normalizedCategory === null
+      ? {}
+      : { normalizedCategory: value.categoryProjection.normalizedCategory }),
+    ...(value.categoryProjection.category === null
+      ? {}
+      : { category: value.categoryProjection.category }),
+    ...(value.categoryProjection.subcategory === null
+      ? {}
+      : { subcategory: value.categoryProjection.subcategory }),
+    ...(value.categoryProjection.categoryManualKeywords === null
+      ? {}
+      : {
+          categoryManualKeywords:
+            value.categoryProjection.categoryManualKeywords,
+        }),
+    categoryTags: value.categoryProjection.categoryTags,
+    ...(priceLabel === null ? {} : { priceLabel }),
+    overallBiteScore: value.overallBiteScore,
+    ratingCount: value.ratingCount,
+    ...(overallImpressionAverage === null ? {} : { overallImpressionAverage }),
+    ...(tastinessScoreAverage === null ? {} : { tastinessScoreAverage }),
+    ...(qualityScoreAverage === null ? {} : { qualityScoreAverage }),
+    ...(valueScoreAverage === null ? {} : { valueScoreAverage }),
+    ...(value.primaryImageUrl === null
+      ? {}
+      : { primaryImageUrl: value.primaryImageUrl }),
+  }));
 }
 
 export function buildBiteScoreDishIndex(value: {
@@ -805,51 +1786,56 @@ export function buildBiteScoreDishIndex(value: {
     value.dish === null ||
     value.restaurant === null ||
     value.restaurantDocumentId === null ||
-    readString(value.dish.restaurantId) !== value.restaurantDocumentId
+    readBiteScoreCatalogRestaurantId(value.sourceDocumentId) !==
+      value.sourceDocumentId ||
+    readBiteScoreCatalogRestaurantId(value.restaurantDocumentId) !==
+      value.restaurantDocumentId ||
+    readBiteScoreCatalogRestaurantId(value.dish.restaurantId) !==
+      value.restaurantDocumentId
   ) {
     return null;
   }
   const name = normalizedNameProjection(value.dish.name);
   const restaurantName = normalizedNameProjection(
-    firstString(value.restaurant, ["name", "restaurantName", "restaurant_name"]),
+    firstBoundedString(
+      value.restaurant,
+      ["name", "restaurantName", "restaurant_name"],
+      maximumSearchNameLength,
+    ),
   );
   if (name === null || restaurantName === null) {
     return null;
   }
+  const mergedIntoDishId = value.dish.mergedIntoDishId;
   const dishActive = value.dish.isActive !== false &&
-    readString(value.dish.mergedIntoDishId) === null;
+    (mergedIntoDishId === undefined ||
+      mergedIntoDishId === null ||
+      mergedIntoDishId === "");
   const restaurantActive = biteScoreRestaurantIsActive(value.restaurant);
-  const tokens = categoryTokens(value.dish);
-  let normalizedCategory: string | null = null;
-  const category = readString(value.dish.category);
-  if (category !== null) {
-    try {
-      normalizedCategory = normalizeSearchName(category);
-    } catch {
-      normalizedCategory = null;
-    }
-  }
-  const categoryPrefixTokens = normalizedCategory === null
-    ? Object.freeze([] as string[])
-    : buildWordPrefixTokens(normalizedCategory).slice(
-        0,
-        maximumWordPrefixTokenCount,
-      );
+  const categoryProjection = dishCategoryProjection(value.dish);
+  const tokens = categoryProjection.tokens;
+  const normalizedCategory = categoryProjection.normalizedCategory;
+  const categoryPrefixTokens = categoryProjection.categoryPrefixTokens;
   const primaryImageUrl = publicUrl(value.dish.primaryImageUrl);
+  const customerPrimaryImageUrl = publicProfileUrl(
+    value.dish.primaryImageUrl,
+    maximumPublicImageUrlLength,
+  );
   const primaryImageId = boundedString(value.dish.primaryImageId, 1_500);
   const aggregateDishId = value.aggregate === null
     ? null
-    : readString(value.aggregate.dishId);
+    : readBiteScoreCatalogRestaurantId(value.aggregate.dishId);
   const aggregateRestaurantId = value.aggregate === null
     ? null
-    : readString(value.aggregate.restaurantId);
+    : readBiteScoreCatalogRestaurantId(value.aggregate.restaurantId);
   const aggregate = value.aggregate !== null &&
     (aggregateDishId === null || aggregateDishId === value.sourceDocumentId) &&
     (aggregateRestaurantId === null ||
       aggregateRestaurantId === value.restaurantDocumentId)
     ? value.aggregate
     : {};
-  const overallBiteScore = optionalScore(aggregate.overallBiteScore) ?? 0;
+  const overallBiteScore =
+    optionalOverallBiteScore(aggregate.overallBiteScore) ?? 0;
   const ratingCount = typeof aggregate.ratingCount === "number" &&
     Number.isSafeInteger(aggregate.ratingCount) &&
     aggregate.ratingCount >= 0
@@ -860,7 +1846,39 @@ export function buildBiteScoreDishIndex(value: {
     sourceKind: "biteScoreDish",
     sourceDocumentId: value.sourceDocumentId,
   });
-  return finalizeIndexDocument({
+  const geography = biteScoreGeography(value.restaurant);
+  const publicGeography = customerGeography(geography);
+  const publicVisible = dishActive && restaurantActive;
+  const customerName = authoritativePublicNameProjection(
+    value.dish,
+    ["name"],
+  );
+  const customerRestaurantName = authoritativePublicNameProjection(
+    value.restaurant,
+    ["name", "restaurantName", "restaurant_name"],
+  );
+  const customerPublicProjection = !publicVisible ||
+      publicGeography === null ||
+      customerName === null ||
+      customerRestaurantName === null ||
+      !categoryProjection.customerEligible
+    ? null
+    : biteScoreDishCustomerPublicProjection({
+        sourceDocumentId: value.sourceDocumentId,
+        restaurantDocumentId: value.restaurantDocumentId,
+        dish: value.dish,
+        restaurant: value.restaurant,
+        name: customerName,
+        restaurantName: customerRestaurantName,
+        geography: publicGeography,
+        publicVisible: true,
+        categoryProjection,
+        overallBiteScore,
+        ratingCount,
+        aggregate,
+        primaryImageUrl: customerPrimaryImageUrl,
+      });
+  return finalizeIndexDocumentWithCustomerFallback({
     searchIndexVersion,
     entityType: "dish",
     source: "biteScore",
@@ -874,24 +1892,27 @@ export function buildBiteScoreDishIndex(value: {
     restaurantDisplayName: restaurantName.displayName,
     restaurantNormalizedName: restaurantName.normalizedName,
     restaurantNamePrefixTokens: restaurantName.namePrefixTokens,
-    ...biteScoreGeography(value.restaurant),
+    ...geography,
     dishActive,
     restaurantActive,
     restaurantClaimed: value.restaurant.isClaimed === true,
-    publicVisible: dishActive && restaurantActive,
+    publicVisible,
+    customerPublicProjectionVersion:
+      biteScoreDishCustomerPublicProjectionVersion,
+    customerPublicProjection,
     adminVisible: true,
     overallBiteScore,
     ratingCount,
-    ...(optionalScore(aggregate.overallImpressionAverage) === null
+    ...(optionalComponentScore(aggregate.overallImpressionAverage) === null
       ? {}
       : { overallImpressionAverage: aggregate.overallImpressionAverage }),
-    ...(optionalScore(aggregate.tastinessScoreAverage) === null
+    ...(optionalComponentScore(aggregate.tastinessScoreAverage) === null
       ? {}
       : { tastinessScoreAverage: aggregate.tastinessScoreAverage }),
-    ...(optionalScore(aggregate.qualityScoreAverage) === null
+    ...(optionalComponentScore(aggregate.qualityScoreAverage) === null
       ? {}
       : { qualityScoreAverage: aggregate.qualityScoreAverage }),
-    ...(optionalScore(aggregate.valueScoreAverage) === null
+    ...(optionalComponentScore(aggregate.valueScoreAverage) === null
       ? {}
       : { valueScoreAverage: aggregate.valueScoreAverage }),
     ...(primaryImageUrl === null ? {} : { primaryImageUrl }),
@@ -909,18 +1930,15 @@ function offerBase(value: {
   restaurantAccountId: string;
   sourceDocumentId: string;
   offer: SearchIndexSourceData;
-  restaurant: SearchIndexSourceData;
+  parent: BiteSaverOfferParentDescriptor;
 }): Record<string, unknown> | null {
   const title = normalizedNameProjection(value.offer.title);
-  const restaurantName = normalizedNameProjection(
-    firstString(value.restaurant, ["restaurantName", "name"]),
-  );
+  const restaurantName = value.parent.restaurantName;
   if (title === null || restaurantName === null) {
     return null;
   }
   const descriptionSummary = boundedDescriptionSummary(value.offer.details);
   const imageUrl = publicUrl(value.offer.imageUrl);
-  const restaurantImageUrl = publicUrl(value.restaurant.mainImageUrl);
   return {
     searchIndexVersion,
     entityType: "offer",
@@ -940,12 +1958,15 @@ function offerBase(value: {
     restaurantDisplayName: restaurantName.displayName,
     restaurantNormalizedName: restaurantName.normalizedName,
     restaurantNamePrefixTokens: restaurantName.namePrefixTokens,
-    ...biteSaverGeography(value.restaurant),
+    ...value.parent.geography,
     ...(descriptionSummary === null ? {} : { descriptionSummary }),
     ...(imageUrl === null ? {} : { primaryImageUrl: imageUrl }),
-    ...(restaurantImageUrl === null
+    ...(value.parent.restaurantPrimaryImageUrl === null
       ? {}
-      : { restaurantPrimaryImageUrl: restaurantImageUrl }),
+      : {
+          restaurantPrimaryImageUrl:
+            value.parent.restaurantPrimaryImageUrl,
+        }),
     ...sourceTimestamps(value.offer),
   };
 }
@@ -960,13 +1981,14 @@ export function buildBiteSaverCouponOfferIndex(value: {
   if (value.offer === null || value.restaurant === null) {
     return null;
   }
+  const parent = biteSaverOfferParentDescriptor(value.restaurant);
   const base = offerBase({
     offerType: "coupon",
     sourceKind: "biteSaverCoupon",
     restaurantAccountId: value.restaurantAccountId,
     sourceDocumentId: value.sourceDocumentId,
     offer: value.offer,
-    restaurant: value.restaurant,
+    parent,
   });
   if (base === null) {
     return null;
@@ -980,7 +2002,7 @@ export function buildBiteSaverCouponOfferIndex(value: {
   return finalizeIndexDocument({
     ...base,
     publicVisible:
-      parentSubscriptionAllowsOffers(value.restaurant) && offerActive,
+      parent.publicOffersAllowed && offerActive,
     adminVisible: true,
     offerActive,
     ...(startAt === null ? {} : { startAt }),
@@ -1107,6 +2129,7 @@ export function buildBiteSaverDailySpecialOfferIndex(value: {
   if (value.offer === null || value.restaurant === null) {
     return null;
   }
+  const parent = biteSaverOfferParentDescriptor(value.restaurant);
   const storedRestaurantId = readString(value.offer.restaurantId);
   const storedOwnerUid = readString(value.offer.ownerUid);
   if (
@@ -1122,7 +2145,7 @@ export function buildBiteSaverDailySpecialOfferIndex(value: {
     restaurantAccountId: value.restaurantAccountId,
     sourceDocumentId: value.sourceDocumentId,
     offer: value.offer,
-    restaurant: value.restaurant,
+    parent,
   });
   if (base === null) {
     return null;
@@ -1131,7 +2154,7 @@ export function buildBiteSaverDailySpecialOfferIndex(value: {
   return finalizeIndexDocument({
     ...base,
     publicVisible:
-      parentSubscriptionAllowsOffers(value.restaurant) &&
+      parent.publicOffersAllowed &&
       schedule.offerActive,
     adminVisible: true,
     offerActive: schedule.offerActive,

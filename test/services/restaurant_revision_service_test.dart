@@ -552,7 +552,7 @@ void main() {
 
   group('BiteScore hidden-state visibility', () {
     test(
-      'customer Finder dedupes while Admin preserves every restaurant ID',
+      'customer Finder dedupes only exact IDs while Admin preserves every restaurant ID',
       () {
         final activeLegacy = parsedRestaurant(
           id: 'active-legacy',
@@ -604,6 +604,7 @@ void main() {
 
         expect(customer.map((entry) => entry.id), <String>[
           'active-legacy',
+          'duplicate-active',
           'active-canonical',
         ]);
         expect(customer.every((entry) => entry.isActive), isTrue);
@@ -633,6 +634,94 @@ void main() {
             ]..sort(),
           ),
         );
+      },
+    );
+
+    test(
+      'same-name same-location Finder restaurants remain distinct and sort by ID',
+      () {
+        final first = parsedRestaurant(
+          id: 'restaurant-b',
+          name: 'Twin Cafe',
+          activity: const <String, dynamic>{'isActive': true},
+        );
+        final second = parsedRestaurant(
+          id: 'restaurant-a',
+          name: 'Twin Cafe',
+          activity: const <String, dynamic>{'isActive': true},
+        );
+        final repeatedExactId = first.copyWith();
+
+        final customer = BiteScoreService.customerRestaurantDirectoryForTesting(
+          <BitescoreRestaurant>[first, second, repeatedExactId],
+        );
+
+        expect(customer.map((restaurant) => restaurant.id), <String>[
+          'restaurant-a',
+          'restaurant-b',
+        ]);
+        expect(customer.map((restaurant) => restaurant.name).toSet(), {
+          'Twin Cafe',
+        });
+      },
+    );
+
+    test('malformed actual IDs are skipped without collapsing Finder', () {
+      final restaurantDocument = <String, dynamic>{
+        'name': 'Twin Cafe',
+        'normalizedName': 'twin cafe',
+        'address': '1 Main St',
+        'city': 'Orlando',
+        'state': 'FL',
+        'zipCode': '32801',
+        'location': const GeoPoint(28.5, -81.3),
+        'restaurantWriteRevision': 4,
+      };
+      final malformedUnicode = String.fromCharCode(0xd800);
+      final parsed = <BitescoreRestaurant?>[
+        BitescoreRestaurant.tryFromFinderFirestore(
+          restaurantDocument,
+          fallbackId: 'restaurant-b',
+        ),
+        for (final id in <String>[
+          '',
+          ' restaurant-a',
+          'restaurant/a',
+          malformedUnicode,
+        ])
+          BitescoreRestaurant.tryFromFinderFirestore(
+            restaurantDocument,
+            fallbackId: id,
+          ),
+        BitescoreRestaurant.tryFromFinderFirestore(
+          restaurantDocument,
+          fallbackId: 'restaurant-a',
+        ),
+      ].whereType<BitescoreRestaurant>();
+
+      final customer = BiteScoreService.customerRestaurantDirectoryForTesting(
+        parsed,
+      );
+
+      expect(customer.map((restaurant) => restaurant.id), <String>[
+        'restaurant-a',
+        'restaurant-b',
+      ]);
+    });
+
+    test(
+      'customer Finder excludes invalid IDs on constructed active models',
+      () {
+        final customer = BiteScoreService.customerRestaurantDirectoryForTesting(
+          <BitescoreRestaurant>[
+            restaurant(id: ''),
+            restaurant(id: ' restaurant-1'),
+            restaurant(id: 'restaurant/1'),
+            restaurant(id: 'restaurant-1'),
+          ],
+        );
+
+        expect(customer.map((entry) => entry.id), <String>['restaurant-1']);
       },
     );
 
@@ -675,6 +764,25 @@ void main() {
         expect(entries.single.aggregate.dishId, visibleDish.id);
       },
     );
+
+    test('customer home joins require exact dish and parent IDs', () {
+      final entries = BiteScoreService.customerVisibleHomeEntriesForTesting(
+        restaurants: <BitescoreRestaurant>[restaurant()],
+        dishes: <BitescoreDish>[
+          dish(id: 'dish-valid'),
+          dish(id: ' dish-padded'),
+          dish(id: 'dish/slash'),
+          dish(id: 'dish-padded-parent', restaurantId: ' restaurant-1 '),
+          dish(id: 'dish-slash-parent', restaurantId: 'restaurant/1'),
+          dish(id: 'dish-empty-parent', restaurantId: ''),
+        ],
+        aggregates: const <String, DishRatingAggregate>{},
+      );
+
+      expect(entries.map((entry) => entry.dish.id), <String>['dish-valid']);
+      expect(entries.single.dish.restaurantId, 'restaurant-1');
+      expect(entries.single.restaurant.id, 'restaurant-1');
+    });
 
     test(
       'review presentation requires a consistent active dish and parent',

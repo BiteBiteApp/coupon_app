@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:coupon_app/models/bitescore_restaurant.dart';
+import 'package:coupon_app/models/bitescore_dish.dart';
 
 Map<String, dynamic> restaurantData({Object? revision = 4}) =>
     <String, dynamic>{
@@ -17,7 +18,165 @@ Map<String, dynamic> restaurantData({Object? revision = 4}) =>
       'restaurantWriteRevision': revision,
     };
 
+Map<String, dynamic> dishData({Object? restaurantId = 'restaurant-1'}) =>
+    <String, dynamic>{
+      'restaurantId': restaurantId,
+      'restaurantName': 'Root Kitchen',
+      'name': 'House Dish',
+      'normalizedName': 'house dish',
+    };
+
 void main() {
+  test('actual Firestore document IDs override conflicting embedded IDs', () {
+    final data = restaurantData()..['id'] = 'embedded-restaurant-id';
+    final strict = BitescoreRestaurant.tryFromFirestore(
+      data,
+      fallbackId: 'actual-restaurant-id',
+    );
+    final finder = BitescoreRestaurant.tryFromFinderFirestore(
+      data,
+      fallbackId: 'actual-restaurant-id',
+    );
+    final dish = BitescoreDish.tryFromFirestore(<String, dynamic>{
+      'id': 'embedded-dish-id',
+      'restaurantId': 'actual-restaurant-id',
+      'restaurantName': 'Root Kitchen',
+      'name': 'House Dish',
+      'normalizedName': 'house dish',
+    }, fallbackId: 'actual-dish-id');
+
+    expect(strict?.id, 'actual-restaurant-id');
+    expect(finder?.id, 'actual-restaurant-id');
+    expect(dish?.id, 'actual-dish-id');
+    expect(dish?.restaurantId, 'actual-restaurant-id');
+  });
+
+  test('valid exact restaurant and dish source IDs remain authoritative', () {
+    for (final sourceId in <String>[
+      'Ab3dEf7GhJ9kLm2NpQrS',
+      'ChIJN1t_tDeuEmsRUsoyG83frY4',
+      'restaurant-😀-ក',
+    ]) {
+      final data = restaurantData()..['id'] = 'embedded-id';
+      expect(
+        BitescoreRestaurant.tryFromFirestore(data, fallbackId: sourceId)?.id,
+        sourceId,
+      );
+      expect(
+        BitescoreRestaurant.tryFromFinderFirestore(
+          data,
+          fallbackId: sourceId,
+        )?.id,
+        sourceId,
+      );
+      expect(
+        BitescoreDish.tryFromFirestore(
+          dishData()..['id'] = 'embedded-id',
+          fallbackId: sourceId,
+        )?.id,
+        sourceId,
+      );
+    }
+  });
+
+  test('invalid actual restaurant and dish source IDs fail closed', () {
+    final malformedUnicode = String.fromCharCode(0xd800);
+    final invalidSourceIds = <String>[
+      '',
+      ' restaurant-1',
+      'restaurant-1 ',
+      'restaurant/1',
+      '.',
+      '..',
+      'restaurant-\u0001',
+      'restaurant-\u200b',
+      malformedUnicode,
+      'x' * 1501,
+      'restaurant-\u17b4',
+      'restaurant-\u17b5',
+    ];
+
+    for (final sourceId in invalidSourceIds) {
+      final restaurant = restaurantData()..['id'] = 'embedded-valid-id';
+      final dish = dishData()..['id'] = 'embedded-valid-id';
+      expect(
+        BitescoreRestaurant.tryFromFirestore(restaurant, fallbackId: sourceId),
+        isNull,
+        reason: 'strict restaurant: $sourceId',
+      );
+      expect(
+        BitescoreRestaurant.tryFromFinderFirestore(
+          restaurant,
+          fallbackId: sourceId,
+        ),
+        isNull,
+        reason: 'Finder restaurant: $sourceId',
+      );
+      expect(
+        BitescoreDish.tryFromFirestore(dish, fallbackId: sourceId),
+        isNull,
+        reason: 'dish: $sourceId',
+      );
+    }
+  });
+
+  test('dish parent restaurant IDs must be exact and are never redirected', () {
+    final malformedUnicode = String.fromCharCode(0xd800);
+    for (final parentId in <String>[
+      '',
+      ' restaurant-1',
+      'restaurant-1 ',
+      'restaurant/1',
+      '.',
+      '..',
+      'restaurant-\u0001',
+      'restaurant-\u200b',
+      malformedUnicode,
+      'x' * 1501,
+      'restaurant-\u17b4',
+      'restaurant-\u17b5',
+    ]) {
+      expect(
+        BitescoreDish.tryFromFirestore(
+          dishData(restaurantId: parentId),
+          fallbackId: 'dish-1',
+        ),
+        isNull,
+        reason: parentId,
+      );
+    }
+
+    final exact = BitescoreDish.tryFromFirestore(
+      dishData(restaurantId: 'restaurant-1'),
+      fallbackId: 'dish-1',
+    );
+    expect(exact?.restaurantId, 'restaurant-1');
+  });
+
+  test('constructors continue to support intentionally unsaved draft IDs', () {
+    const dish = BitescoreDish(
+      id: '',
+      restaurantId: '',
+      restaurantName: 'Draft Kitchen',
+      name: 'Draft Dish',
+      normalizedName: 'draft dish',
+    );
+    const restaurant = BitescoreRestaurant(
+      id: '',
+      name: 'Draft Kitchen',
+      normalizedName: 'draft kitchen',
+      address: '1 Main St',
+      city: 'Orlando',
+      state: 'FL',
+      zipCode: '32801',
+      location: GeoPoint(28.5, -81.3),
+      restaurantWriteRevision: 0,
+    );
+
+    expect(dish.id, isEmpty);
+    expect(restaurant.id, isEmpty);
+  });
+
   test('strict and finder parsing preserve an exact safe revision', () {
     final strict = BitescoreRestaurant.tryFromFirestore(
       restaurantData(),

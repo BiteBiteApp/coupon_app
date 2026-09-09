@@ -5067,33 +5067,60 @@ export const maintainBiteSaverRestaurantGeohash = onDocumentWritten(
   },
 );
 
+function readSearchIndexEventSnapshotData(
+  snapshot: unknown,
+): Record<string, unknown> | null | undefined {
+  try {
+    if (snapshot === null || typeof snapshot !== "object") {
+      return undefined;
+    }
+    const exists = (snapshot as { exists?: unknown }).exists;
+    if (exists === false) {
+      return null;
+    }
+    if (exists !== true) {
+      return undefined;
+    }
+    const readData = (snapshot as { data?: unknown }).data;
+    if (typeof readData !== "function") {
+      return undefined;
+    }
+    const data = readData.call(snapshot);
+    return data !== null && typeof data === "object" && !Array.isArray(data)
+      ? data as Record<string, unknown>
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export const maintainBiteSaverRestaurantSearchIndex = onDocumentWritten(
-  "restaurant_accounts/{restaurantAccountId}",
+  {
+    document: "restaurant_accounts/{restaurantAccountId}",
+    retry: true,
+  },
   async (event) => {
     await handleBiteSaverRestaurantWrite(searchIndexDatabase, {
-      restaurantAccountId: event.params.restaurantAccountId as string,
-      before: event.data?.before.exists
-        ? event.data.before.data() as Record<string, unknown>
-        : null,
-      after: event.data?.after.exists
-        ? event.data.after.data() as Record<string, unknown>
-        : null,
+      restaurantAccountId: event.params?.restaurantAccountId as string,
+      before: readSearchIndexEventSnapshotData(event.data?.before),
+      after: readSearchIndexEventSnapshotData(event.data?.after),
+      sourceEventId: event.id,
       now: new Date(),
     });
   },
 );
 
 export const maintainBiteScoreRestaurantSearchIndex = onDocumentWritten(
-  "bitescore_restaurants/{restaurantId}",
+  {
+    document: "bitescore_restaurants/{restaurantId}",
+    retry: true,
+  },
   async (event) => {
     await handleBiteScoreRestaurantWrite(searchIndexDatabase, {
-      restaurantId: event.params.restaurantId as string,
-      before: event.data?.before.exists
-        ? event.data.before.data() as Record<string, unknown>
-        : null,
-      after: event.data?.after.exists
-        ? event.data.after.data() as Record<string, unknown>
-        : null,
+      restaurantId: event.params?.restaurantId as string,
+      before: readSearchIndexEventSnapshotData(event.data?.before),
+      after: readSearchIndexEventSnapshotData(event.data?.after),
+      sourceEventId: event.id,
       now: new Date(),
     });
   },
@@ -5123,7 +5150,10 @@ export const maintainAdminRestaurantQrPreparationFromBiteScoreUnclaim =
   );
 
 export const maintainBiteScoreDishSearchIndex = onDocumentWritten(
-  "bitescore_dishes/{dishId}",
+  {
+    document: "bitescore_dishes/{dishId}",
+    retry: true,
+  },
   async (event) => {
     await reconcileBiteScoreDishIndex(
       searchIndexDatabase,
@@ -5134,7 +5164,10 @@ export const maintainBiteScoreDishSearchIndex = onDocumentWritten(
 );
 
 export const maintainBiteScoreDishSearchIndexFromAggregate = onDocumentWritten(
-  "dish_rating_aggregates/{dishId}",
+  {
+    document: "dish_rating_aggregates/{dishId}",
+    retry: true,
+  },
   async (event) => {
     await reconcileBiteScoreDishIndex(
       searchIndexDatabase,
@@ -5145,7 +5178,10 @@ export const maintainBiteScoreDishSearchIndexFromAggregate = onDocumentWritten(
 );
 
 export const maintainBiteSaverCouponOfferSearchIndex = onDocumentWritten(
-  "restaurant_accounts/{restaurantAccountId}/coupons/{couponId}",
+  {
+    document: "restaurant_accounts/{restaurantAccountId}/coupons/{couponId}",
+    retry: true,
+  },
   async (event) => {
     await handleBiteSaverCouponOfferWrite(searchIndexDatabase, {
       restaurantAccountId: event.params.restaurantAccountId as string,
@@ -5156,7 +5192,11 @@ export const maintainBiteSaverCouponOfferSearchIndex = onDocumentWritten(
 );
 
 export const maintainBiteSaverDailySpecialSearchIndex = onDocumentWritten(
-  "restaurant_accounts/{restaurantAccountId}/daily_specials/{dailySpecialId}",
+  {
+    document:
+      "restaurant_accounts/{restaurantAccountId}/daily_specials/{dailySpecialId}",
+    retry: true,
+  },
   async (event) => {
     await handleBiteSaverDailySpecialOfferWrite(searchIndexDatabase, {
       restaurantAccountId: event.params.restaurantAccountId as string,
@@ -5387,7 +5427,10 @@ export const maintainAdminUserDirectoryFromReviewFeedbackVote =
   );
 
 export const processPrivateSearchIndexJob = onDocumentCreated(
-  "private_search_index_jobs/{jobId}",
+  {
+    document: "private_search_index_jobs/{jobId}",
+    retry: true,
+  },
   async (event) => {
     await processSearchIndexJob(
       searchIndexDatabase,

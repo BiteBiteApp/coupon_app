@@ -1015,9 +1015,13 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
         return byScore;
       }
 
-      return a.restaurant.name.toLowerCase().compareTo(
+      final byName = a.restaurant.name.toLowerCase().compareTo(
         b.restaurant.name.toLowerCase(),
       );
+      if (byName != 0) {
+        return byName;
+      }
+      return a.restaurant.id.compareTo(b.restaurant.id);
     });
 
     return scoredMatches
@@ -1298,9 +1302,13 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
               return byScore;
             }
 
-            return a.restaurant.name.toLowerCase().compareTo(
+            final byName = a.restaurant.name.toLowerCase().compareTo(
               b.restaurant.name.toLowerCase(),
             );
+            if (byName != 0) {
+              return byName;
+            }
+            return a.restaurant.id.compareTo(b.restaurant.id);
           });
 
     final suggestions = scoredSuggestions

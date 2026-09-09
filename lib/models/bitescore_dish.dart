@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../services/firestore_document_id.dart';
+
 class BitescoreDish {
   static const String collectionName = 'bitescore_dishes';
 
@@ -85,11 +87,12 @@ class BitescoreDish {
     Map<String, dynamic>? data, {
     required String fallbackId,
   }) {
-    if (data == null) {
+    final sourceId = exactFirestoreDocumentId(fallbackId);
+    if (data == null || sourceId == null) {
       return null;
     }
 
-    final restaurantId = _readString(data['restaurantId']);
+    final restaurantId = exactFirestoreDocumentId(data['restaurantId']);
     final restaurantName = _readString(data['restaurantName']);
     final name = _readString(data['name']);
     final normalizedName =
@@ -103,7 +106,7 @@ class BitescoreDish {
     }
 
     return BitescoreDish(
-      id: _readString(data['id']) ?? fallbackId,
+      id: sourceId,
       restaurantId: restaurantId,
       restaurantName: restaurantName,
       name: name,

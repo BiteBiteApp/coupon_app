@@ -32,6 +32,159 @@ class BiteScoreSearchCenter {
   });
 }
 
+class _BiteScoreLocationOperation {
+  final int generation;
+  final SharedLocationOperationToken sharedToken;
+
+  const _BiteScoreLocationOperation({
+    required this.generation,
+    required this.sharedToken,
+  });
+}
+
+class BiteScoreHomeOrdering {
+  static const String defaultSort = 'Highest BiteScore';
+
+  static List<BiteScoreHomeEntry> sortEntries(
+    List<BiteScoreHomeEntry> entries, {
+    required String? selectedSort,
+    required double? Function(BiteScoreHomeEntry entry) distanceMilesFor,
+  }) {
+    entries.sort(
+      (a, b) => compareEntries(
+        a,
+        b,
+        selectedSort: selectedSort,
+        distanceMilesFor: distanceMilesFor,
+      ),
+    );
+    return entries;
+  }
+
+  static int compareEntries(
+    BiteScoreHomeEntry a,
+    BiteScoreHomeEntry b, {
+    required String? selectedSort,
+    required double? Function(BiteScoreHomeEntry entry) distanceMilesFor,
+  }) {
+    switch (normalizeSortOption(selectedSort)) {
+      case 'Closest':
+        final aDistance = distanceMilesFor(a) ?? double.infinity;
+        final bDistance = distanceMilesFor(b) ?? double.infinity;
+        final byDistance = aDistance.compareTo(bDistance);
+        if (byDistance != 0) {
+          return byDistance;
+        }
+        return _compareByHighestBiteScore(a, b);
+      case 'Most Reviewed':
+        final byCount = b.aggregate.ratingCount.compareTo(
+          a.aggregate.ratingCount,
+        );
+        if (byCount != 0) {
+          return byCount;
+        }
+        return _compareByHighestBiteScore(a, b);
+      case 'Best Value':
+        return _compareByNullableScore(
+          a,
+          b,
+          (entry) => entry.aggregate.valueScoreAverage,
+        );
+      case 'Best Flavor':
+        return _compareByNullableScore(
+          a,
+          b,
+          (entry) => entry.aggregate.tastinessScoreAverage,
+        );
+      case 'Highest Quality':
+        return _compareByNullableScore(
+          a,
+          b,
+          (entry) => entry.aggregate.qualityScoreAverage,
+        );
+      case 'Most Enjoyed':
+        return _compareByNullableScore(
+          a,
+          b,
+          (entry) => entry.aggregate.overallImpressionAverage,
+        );
+      case 'Highest BiteScore':
+      default:
+        return _compareByHighestBiteScore(a, b);
+    }
+  }
+
+  static String normalizeSortOption(String? value) {
+    return switch (value) {
+      'Highest BiteScore' => 'Highest BiteScore',
+      'Top Rated' => 'Highest BiteScore',
+      'Highest Rated' => 'Highest BiteScore',
+      'Most Reviewed' => 'Most Reviewed',
+      'Closest' => 'Closest',
+      'Close By' => 'Closest',
+      'Nearby' => 'Closest',
+      'Best Value' => 'Best Value',
+      'Best Flavor' => 'Best Flavor',
+      'Highest Quality' => 'Highest Quality',
+      'Most Enjoyed' => 'Most Enjoyed',
+      _ => defaultSort,
+    };
+  }
+
+  static int _compareByHighestBiteScore(
+    BiteScoreHomeEntry a,
+    BiteScoreHomeEntry b,
+  ) {
+    final byScore = b.aggregate.overallBiteScore.compareTo(
+      a.aggregate.overallBiteScore,
+    );
+    if (byScore != 0) {
+      return byScore;
+    }
+    final byCount = b.aggregate.ratingCount.compareTo(a.aggregate.ratingCount);
+    if (byCount != 0) {
+      return byCount;
+    }
+    return _compareByDishNameAndId(a, b);
+  }
+
+  static int _compareByNullableScore(
+    BiteScoreHomeEntry a,
+    BiteScoreHomeEntry b,
+    double? Function(BiteScoreHomeEntry entry) readScore,
+  ) {
+    final aScore = readScore(a);
+    final bScore = readScore(b);
+    if (aScore == null && bScore == null) {
+      return _compareByHighestBiteScore(a, b);
+    }
+    if (aScore == null) {
+      return 1;
+    }
+    if (bScore == null) {
+      return -1;
+    }
+    final byScore = bScore.compareTo(aScore);
+    if (byScore != 0) {
+      return byScore;
+    }
+    return _compareByHighestBiteScore(a, b);
+  }
+
+  static int _compareByDishNameAndId(
+    BiteScoreHomeEntry a,
+    BiteScoreHomeEntry b,
+  ) {
+    final byName = a.dish.name.toLowerCase().compareTo(
+      b.dish.name.toLowerCase(),
+    );
+    if (byName != 0) {
+      return byName;
+    }
+    return a.dish.id.compareTo(b.dish.id);
+  }
+}
+
 class _BiteScoreCategoryFilter {
   final String id;
   final String label;
@@ -91,7 +244,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   static const double _expandedHeaderExtent = 190;
   static const double _homeControlPillWidth = 92;
   static const String _selectedRadiusPreferenceKey = 'selected_radius';
-  static const String _defaultSort = 'Highest BiteScore';
+  static const String _defaultSort = BiteScoreHomeOrdering.defaultSort;
   static const String _placeholderImageA =
       'assets/images/bitescore_placeholder_a.png';
   static const String _placeholderImageB =
@@ -117,18 +270,38 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   Object? _loadError;
   bool _showAllCategoryFilterChips = false;
   String? _addingFirstPhotoDishId;
+  int _locationOperationGeneration = 0;
+  bool _suppressLocationSearchListener = false;
+  SharedLocationOperationToken? _ownedSharedLocationOperation;
+  SharedLocationRestoreLease? _activeRestoreLease;
 
   @override
   void initState() {
     super.initState();
-    _loadSelectedRadius();
     _restoreSharedLocationState();
+    locationSearchController.addListener(_handleLocationSearchTextChanged);
     _refreshEntries();
-    _restorePersistedLocationPreference();
+    _initializeLocationState();
   }
 
   @override
   void dispose() {
+    _locationOperationGeneration += 1;
+    final activeRestoreLease = _activeRestoreLease;
+    _activeRestoreLease = null;
+    if (activeRestoreLease != null) {
+      SharedLocationStateService.releaseRestoreLease(
+        activeRestoreLease,
+        cancelIfLastOwner: true,
+      );
+    }
+    final ownedSharedOperation = _ownedSharedLocationOperation;
+    if (ownedSharedOperation != null) {
+      SharedLocationStateService.cancelLocationOperationIfCurrent(
+        ownedSharedOperation,
+      );
+    }
+    locationSearchController.removeListener(_handleLocationSearchTextChanged);
     dishSearchController.dispose();
     locationSearchController.dispose();
     _locationSearchFocusNode.dispose();
@@ -178,16 +351,43 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     ).showSnackBar(SnackBar(content: Text(message)));
   }
 
-  Future<void> _loadSelectedRadius() async {
+  Future<void> _initializeLocationState() async {
+    final initializationGeneration = _locationOperationGeneration;
+    final restoreLease = SharedLocationStateService.acquireRestoreLease();
+    _activeRestoreLease = restoreLease;
+    try {
+      await _loadSelectedRadius(initializationGeneration);
+      if (!mounted ||
+          initializationGeneration != _locationOperationGeneration) {
+        return;
+      }
+      await _restorePersistedLocationPreference();
+    } finally {
+      if (identical(_activeRestoreLease, restoreLease)) {
+        _activeRestoreLease = null;
+      }
+      SharedLocationStateService.releaseRestoreLease(
+        restoreLease,
+        cancelIfLastOwner: false,
+      );
+    }
+  }
+
+  Future<void> _loadSelectedRadius(int initializationGeneration) async {
     final prefs = await SharedPreferences.getInstance();
     final savedRadius = prefs.getString(_selectedRadiusPreferenceKey);
-    if (savedRadius == null || !_isSupportedRadius(savedRadius) || !mounted) {
+    if (savedRadius == null ||
+        !_isSupportedRadius(savedRadius) ||
+        !mounted ||
+        initializationGeneration != _locationOperationGeneration) {
       return;
     }
 
-    setState(() {
-      selectedRadius = savedRadius;
-    });
+    if (savedRadius != selectedRadius) {
+      setState(() {
+        selectedRadius = savedRadius;
+      });
+    }
   }
 
   Future<void> _saveSelectedRadius(String value) async {
@@ -319,11 +519,53 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     return Platform.isAndroid || Platform.isIOS;
   }
 
-  void _restoreSharedLocationState() {
-    final sharedLocation = SharedLocationStateService.state;
-    locationSearchController.text = sharedLocation.usingCurrentLocation
-        ? ''
-        : sharedLocation.searchText;
+  _BiteScoreLocationOperation _beginLocationOperation() {
+    _locationOperationGeneration += 1;
+    final sharedToken = SharedLocationStateService.beginLocationOperation();
+    _ownedSharedLocationOperation = sharedToken;
+    return _BiteScoreLocationOperation(
+      generation: _locationOperationGeneration,
+      sharedToken: sharedToken,
+    );
+  }
+
+  bool _ownsLocationOperation(_BiteScoreLocationOperation operation) {
+    return mounted &&
+        operation.generation == _locationOperationGeneration &&
+        SharedLocationStateService.ownsLocationOperation(operation.sharedToken);
+  }
+
+  void _invalidateLocationOperation() {
+    _beginLocationOperation();
+    isSearchingLocation = false;
+    isGettingLocation = false;
+  }
+
+  void _handleLocationSearchTextChanged() {
+    if (_suppressLocationSearchListener) {
+      return;
+    }
+    final hadPendingOperation = isSearchingLocation || isGettingLocation;
+    _invalidateLocationOperation();
+    if (hadPendingOperation && mounted) {
+      setState(() {});
+    }
+  }
+
+  void _replaceLocationSearchText(String value) {
+    _suppressLocationSearchListener = true;
+    locationSearchController.value = TextEditingValue(
+      text: value,
+      selection: TextSelection.collapsed(offset: value.length),
+    );
+    _suppressLocationSearchListener = false;
+  }
+
+  void _restoreSharedLocationState([SharedLocationState? restoredState]) {
+    final sharedLocation = restoredState ?? SharedLocationStateService.state;
+    _replaceLocationSearchText(
+      sharedLocation.usingCurrentLocation ? '' : sharedLocation.searchText,
+    );
     currentPosition = sharedLocation.usingCurrentLocation
         ? sharedLocation.currentPosition
         : null;
@@ -342,16 +584,17 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   }
 
   Future<void> _restorePersistedLocationPreference() async {
+    final restoreGeneration = ++_locationOperationGeneration;
     final result = await SharedLocationStateService.restoreOnLaunch(
       reverseLookupLocation: _reverseLookupLocation,
     );
 
-    if (!mounted) {
+    if (!mounted || restoreGeneration != _locationOperationGeneration) {
       return;
     }
 
     setState(() {
-      _restoreSharedLocationState();
+      _restoreSharedLocationState(result.state);
       _launchLocationMessage = result.message;
     });
   }
@@ -421,18 +664,22 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
 
   Future<void> _searchLocation() async {
     final query = locationSearchController.text.trim();
+    final operation = _beginLocationOperation();
     if (query.isEmpty) {
       setState(() {
+        isSearchingLocation = false;
+        isGettingLocation = false;
         typedSearchCenter = null;
         currentPosition = null;
         _launchLocationMessage = null;
       });
-      SharedLocationStateService.clear();
+      await SharedLocationStateService.clearForOperation(operation.sharedToken);
       return;
     }
 
     setState(() {
       isSearchingLocation = true;
+      isGettingLocation = false;
     });
 
     try {
@@ -443,7 +690,15 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         throw Exception('No matching location found.');
       }
 
-      if (!mounted) return;
+      if (!_ownsLocationOperation(operation)) return;
+      final persistFuture =
+          SharedLocationStateService.saveTypedLocationForOperation(
+            operation.sharedToken,
+            latitude: locations.first.latitude,
+            longitude: locations.first.longitude,
+            label: query,
+            searchText: query,
+          );
       setState(() {
         typedSearchCenter = BiteScoreSearchCenter(
           latitude: locations.first.latitude,
@@ -453,14 +708,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         currentPosition = null;
         _launchLocationMessage = null;
       });
-      SharedLocationStateService.saveTypedLocation(
-        latitude: locations.first.latitude,
-        longitude: locations.first.longitude,
-        label: query,
-        searchText: query,
-      );
+      await persistFuture;
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || !_ownsLocationOperation(operation)) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -472,7 +722,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         ),
       );
     } finally {
-      if (mounted) {
+      if (_ownsLocationOperation(operation)) {
         setState(() {
           isSearchingLocation = false;
         });
@@ -481,19 +731,24 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   }
 
   Future<void> _useMyLocation() async {
+    final operation = _beginLocationOperation();
     setState(() {
+      isSearchingLocation = false;
       isGettingLocation = true;
     });
 
     try {
       final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!_ownsLocationOperation(operation)) return;
       if (!serviceEnabled) {
         throw Exception('Location services are turned off.');
       }
 
       var permission = await Geolocator.checkPermission();
+      if (!_ownsLocationOperation(operation)) return;
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
+        if (!_ownsLocationOperation(operation)) return;
       }
 
       if (permission == LocationPermission.denied ||
@@ -502,23 +757,27 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
       }
 
       final position = await Geolocator.getCurrentPosition();
+      if (!_ownsLocationOperation(operation)) return;
       final locationDetails = await _reverseLookupLocation(position);
 
-      if (!mounted) return;
+      if (!_ownsLocationOperation(operation)) return;
+      final persistFuture =
+          SharedLocationStateService.saveCurrentLocationForOperation(
+            operation.sharedToken,
+            position: position,
+            searchText: '',
+            detectedCity: locationDetails.city,
+            detectedZip: locationDetails.zip,
+          );
       setState(() {
         currentPosition = position;
         typedSearchCenter = null;
-        locationSearchController.clear();
+        _replaceLocationSearchText('');
         _launchLocationMessage = null;
       });
-      SharedLocationStateService.saveCurrentLocation(
-        position: position,
-        searchText: '',
-        detectedCity: locationDetails.city,
-        detectedZip: locationDetails.zip,
-      );
+      await persistFuture;
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || !_ownsLocationOperation(operation)) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -530,7 +789,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         ),
       );
     } finally {
-      if (mounted) {
+      if (_ownsLocationOperation(operation)) {
         setState(() {
           isGettingLocation = false;
         });
@@ -613,9 +872,11 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
       return true;
     }).toList();
 
-    filtered.sort(_compareEntriesForSelectedSort);
-
-    return filtered;
+    return BiteScoreHomeOrdering.sortEntries(
+      filtered,
+      selectedSort: selectedSort,
+      distanceMilesFor: _distanceMilesFor,
+    );
   }
 
   bool _matchesSelectedCategoryFilters(BiteScoreHomeEntry entry) {
@@ -662,113 +923,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     );
   }
 
-  int _compareEntriesForSelectedSort(
-    BiteScoreHomeEntry a,
-    BiteScoreHomeEntry b,
-  ) {
-    switch (_normalizeSortOption(selectedSort)) {
-      case 'Closest':
-        final aDistance = _distanceMilesFor(a) ?? double.infinity;
-        final bDistance = _distanceMilesFor(b) ?? double.infinity;
-        final byDistance = aDistance.compareTo(bDistance);
-        if (byDistance != 0) {
-          return byDistance;
-        }
-        return _compareByHighestBiteScore(a, b);
-      case 'Most Reviewed':
-        final byCount = b.aggregate.ratingCount.compareTo(
-          a.aggregate.ratingCount,
-        );
-        if (byCount != 0) {
-          return byCount;
-        }
-        return _compareByHighestBiteScore(a, b);
-      case 'Best Value':
-        return _compareByNullableScore(
-          a,
-          b,
-          (entry) => entry.aggregate.valueScoreAverage,
-        );
-      case 'Best Flavor':
-        return _compareByNullableScore(
-          a,
-          b,
-          (entry) => entry.aggregate.tastinessScoreAverage,
-        );
-      case 'Highest Quality':
-        return _compareByNullableScore(
-          a,
-          b,
-          (entry) => entry.aggregate.qualityScoreAverage,
-        );
-      case 'Most Enjoyed':
-        return _compareByNullableScore(
-          a,
-          b,
-          (entry) => entry.aggregate.overallImpressionAverage,
-        );
-      case 'Highest BiteScore':
-      default:
-        return _compareByHighestBiteScore(a, b);
-    }
-  }
-
   String _normalizeSortOption(String? value) {
-    return switch (value) {
-      'Highest BiteScore' => 'Highest BiteScore',
-      'Top Rated' => 'Highest BiteScore',
-      'Highest Rated' => 'Highest BiteScore',
-      'Most Reviewed' => 'Most Reviewed',
-      'Closest' => 'Closest',
-      'Close By' => 'Closest',
-      'Nearby' => 'Closest',
-      'Best Value' => 'Best Value',
-      'Best Flavor' => 'Best Flavor',
-      'Highest Quality' => 'Highest Quality',
-      'Most Enjoyed' => 'Most Enjoyed',
-      _ => _defaultSort,
-    };
-  }
-
-  int _compareByHighestBiteScore(BiteScoreHomeEntry a, BiteScoreHomeEntry b) {
-    final byScore = b.aggregate.overallBiteScore.compareTo(
-      a.aggregate.overallBiteScore,
-    );
-    if (byScore != 0) {
-      return byScore;
-    }
-    final byCount = b.aggregate.ratingCount.compareTo(a.aggregate.ratingCount);
-    if (byCount != 0) {
-      return byCount;
-    }
-    return _compareByDishName(a, b);
-  }
-
-  int _compareByNullableScore(
-    BiteScoreHomeEntry a,
-    BiteScoreHomeEntry b,
-    double? Function(BiteScoreHomeEntry entry) readScore,
-  ) {
-    final aScore = readScore(a);
-    final bScore = readScore(b);
-    if (aScore == null && bScore == null) {
-      return _compareByHighestBiteScore(a, b);
-    }
-    if (aScore == null) {
-      return 1;
-    }
-    if (bScore == null) {
-      return -1;
-    }
-    final byScore = bScore.compareTo(aScore);
-    if (byScore != 0) {
-      return byScore;
-    }
-    return _compareByHighestBiteScore(a, b);
-  }
-
-  int _compareByDishName(BiteScoreHomeEntry a, BiteScoreHomeEntry b) {
-    return a.dish.name.toLowerCase().compareTo(b.dish.name.toLowerCase());
+    return BiteScoreHomeOrdering.normalizeSortOption(value);
   }
 
   InputDecoration _inputDecoration({
@@ -1447,6 +1603,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
                                             onChanged: (value) {
                                               if (value != null) {
                                                 setState(() {
+                                                  _invalidateLocationOperation();
                                                   selectedRadius = value;
                                                 });
                                                 _saveSelectedRadius(value);

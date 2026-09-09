@@ -2,6 +2,29 @@ import 'package:coupon_app/services/firestore_document_id.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  test(
+    'rejects every inexact or unsafe Firestore identity without throwing',
+    () {
+      final malformedUnicode = String.fromCharCode(0xd800);
+      for (final value in <String>[
+        '',
+        ' padded',
+        'padded ',
+        'restaurant/path',
+        '.',
+        '..',
+        'restaurant-\u0000-id',
+        'restaurant-\u202e-id',
+        malformedUnicode,
+        'x' * 1501,
+        '\u17b4',
+        '\u17b5',
+      ]) {
+        expect(exactFirestoreDocumentId(value), isNull, reason: value);
+      }
+    },
+  );
+
   test('explicitly rejects U+17B4 and U+17B5 in exact identities', () {
     for (final value in <String>[
       '\u17b4',

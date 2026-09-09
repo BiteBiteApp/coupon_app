@@ -4,12 +4,19 @@ const assert = require("node:assert/strict");
 const test = require("node:test");
 
 const {
+  biteScoreDishCustomerPublicProjectionVersion,
+  biteScoreRestaurantCustomerPublicProjectionVersion,
   buildSearchIndexJobDocument,
   createSearchIndexDocumentId,
   createSearchIndexJobId,
+  createSearchIndexSourceOccurrenceId,
   maximumSearchIndexDocumentBytes,
   maximumSearchIndexWorkerBatchSize,
+  maximumPrivateSearchIndexCursorDocumentIdBytes,
+  parsePrivateSearchIndexJobCursor,
   privateSearchIndexJobCollection,
+  readCanonicalFirestoreImportedNumericDocumentId,
+  readPrivateSearchIndexCursorDocumentId,
   searchIndexJobVersion,
   searchIndexVersion,
   serializedSearchIndexDocumentBytes,
@@ -18,8 +25,17 @@ const {
 test("search-index and private-job protocol constants are exact", () => {
   assert.equal(searchIndexVersion, "bitestar.search-index.v1");
   assert.equal(searchIndexJobVersion, "bitestar.search-index-job.v1");
+  assert.equal(
+    biteScoreRestaurantCustomerPublicProjectionVersion,
+    "bitestar.bitescore-customer-public-restaurant.v1",
+  );
+  assert.equal(
+    biteScoreDishCustomerPublicProjectionVersion,
+    "bitestar.bitescore-customer-public-dish.v1",
+  );
   assert.equal(privateSearchIndexJobCollection, "private_search_index_jobs");
   assert.equal(maximumSearchIndexWorkerBatchSize, 100);
+  assert.equal(maximumPrivateSearchIndexCursorDocumentIdBytes, 1_500);
   assert.equal(maximumSearchIndexDocumentBytes, 65_536);
 });
 
@@ -77,17 +93,13 @@ test("document IDs reject slash ambiguity and reveal no source canary", () => {
     sourceDocumentId: canary,
   });
   assert.equal(id.includes(canary), false);
-  assert.notEqual(
-    createSearchIndexDocumentId({
-      entityKind: "dish",
-      sourceKind: "biteScoreDish",
-      sourceDocumentId: "X",
-    }),
-    createSearchIndexDocumentId({
+  assert.throws(
+    () => createSearchIndexDocumentId({
       entityKind: "dish",
       sourceKind: "biteScoreDish",
       sourceDocumentId: " X ",
     }),
+    /document-ID segment/,
   );
   assert.notEqual(
     createSearchIndexDocumentId({
@@ -101,6 +113,41 @@ test("document IDs reject slash ambiguity and reveal no source canary", () => {
       sourceDocumentId: "x",
     }),
   );
+
+  for (const invalidId of [
+    "",
+    " padded",
+    "padded ",
+    ".",
+    "..",
+    "control\u0001",
+    "format\u200b",
+    "khmer\u17b4",
+    "khmer\u17b5",
+    "malformed\ud800",
+    "x".repeat(1_501),
+  ]) {
+    assert.throws(
+      () => createSearchIndexDocumentId({
+        entityKind: "dish",
+        sourceKind: "biteScoreDish",
+        sourceDocumentId: invalidId,
+      }),
+      /document-ID segment/,
+    );
+  }
+});
+
+test("source occurrence hashes are stable per event and distinct across recurrences", () => {
+  const first = createSearchIndexSourceOccurrenceId("event-delivery-1");
+  assert.equal(first, createSearchIndexSourceOccurrenceId("event-delivery-1"));
+  assert.notEqual(first, createSearchIndexSourceOccurrenceId("event-delivery-2"));
+  assert.match(first, /^[0-9a-f]{64}$/u);
+  assert.throws(() => createSearchIndexSourceOccurrenceId(""), /occurrence/);
+  assert.throws(
+    () => createSearchIndexSourceOccurrenceId("x".repeat(4_097)),
+    /occurrence/,
+  );
 });
 
 test("job IDs and documents are deterministic, bounded, and payload-free", () => {
@@ -111,6 +158,7 @@ test("job IDs and documents are deterministic, bounded, and payload-free", () =>
     parentSource: "biteSaver",
     parentSourceDocumentId: "restaurant-1",
     requestedSourceFingerprint: fingerprint,
+    sourceOccurrenceId: "b".repeat(64),
     continuationCursor: {phase: "coupons", afterDocumentId: "coupon-100"},
     now,
   });
@@ -123,16 +171,264 @@ test("job IDs and documents are deterministic, bounded, and payload-free", () =>
     "parentSourceDocumentId",
     "requestedSourceFingerprint",
     "searchIndexJobVersion",
+    "sourceOccurrenceId",
     "status",
   ]);
   const first = createSearchIndexJobId(job);
   const second = createSearchIndexJobId(job);
   assert.equal(first, second);
+  assert.notEqual(
+    first,
+    createSearchIndexJobId({
+      ...job,
+      requestedSourceFingerprint: "d".repeat(64),
+    }),
+  );
+  assert.notEqual(
+    first,
+    createSearchIndexJobId({
+      ...job,
+      sourceOccurrenceId: "c".repeat(64),
+    }),
+  );
+  assert.notEqual(
+    first,
+    createSearchIndexJobId({
+      ...job,
+      continuationCursor: {
+        phase: "coupons",
+        afterDocumentId: "coupon-101",
+      },
+    }),
+  );
+  assert.notEqual(
+    first,
+    createSearchIndexJobId({
+      ...job,
+      continuationCursor: undefined,
+    }),
+  );
   assert.match(first, /^sij_[0-9a-f]{64}$/);
   for (const canary of ["email-canary", "stripe-canary", "token-canary"]) {
     assert.equal(JSON.stringify(job).includes(canary), false);
     assert.equal(first.includes(canary), false);
   }
+});
+
+test("private maintenance cursors preserve exact Firestore query identity", () => {
+  const firestoreValidPrivateCursorIds = [
+    "__",
+    "___",
+    "__id-9223372036854775808__",
+    "__id-1__",
+    "__id0__",
+    "__id123__",
+    "__id9223372036854775807__",
+    " padded",
+    "padded ",
+    "\tcontrol\u0000",
+    "format\u200b",
+    "khmer\u17b4\u17b5",
+    "__id123456789__",
+    "x".repeat(1_500),
+    "é".repeat(750),
+    "😀".repeat(375),
+  ];
+  for (const documentId of firestoreValidPrivateCursorIds) {
+    assert.equal(
+      readPrivateSearchIndexCursorDocumentId(documentId),
+      documentId,
+    );
+    const cursor = parsePrivateSearchIndexJobCursor({
+      phase: "dishes",
+      afterDocumentId: documentId,
+    });
+    assert.equal(cursor.afterDocumentId, documentId);
+  }
+
+  const rawCursor = " boundary-id ";
+  const job = buildSearchIndexJobDocument({
+    jobKind: "biteScoreDishes",
+    parentSource: "biteScore",
+    parentSourceDocumentId: "restaurant-1",
+    requestedSourceFingerprint: "a".repeat(64),
+    sourceOccurrenceId: "b".repeat(64),
+    continuationCursor: {phase: "dishes", afterDocumentId: rawCursor},
+    now: new Date("2026-08-08T12:00:00.000Z"),
+  });
+  assert.equal(job.continuationCursor.afterDocumentId, rawCursor);
+  const jobId = createSearchIndexJobId(job);
+  assert.match(jobId, /^sij_[0-9a-f]{64}$/u);
+  assert.equal(jobId.includes(rawCursor), false);
+});
+
+test("imported numeric cursor IDs use one canonical signed-int64 spelling", () => {
+  const accepted = [
+    ["__id-9223372036854775808__", -9223372036854775808n],
+    ["__id-9223372036854775807__", -9223372036854775807n],
+    ["__id-1000000000000000000__", -1000000000000000000n],
+    ["__id-123__", -123n],
+    ["__id-2__", -2n],
+    ["__id-1__", -1n],
+    ["__id0__", 0n],
+    ["__id1__", 1n],
+    ["__id2__", 2n],
+    ["__id10__", 10n],
+    ["__id123__", 123n],
+    ["__id1000000000000000000__", 1000000000000000000n],
+    ["__id9223372036854775806__", 9223372036854775806n],
+    ["__id9223372036854775807__", 9223372036854775807n],
+  ];
+  for (const [documentId, numericId] of accepted) {
+    assert.equal(
+      readCanonicalFirestoreImportedNumericDocumentId(documentId),
+      numericId,
+    );
+    assert.equal(readPrivateSearchIndexCursorDocumentId(documentId), documentId);
+  }
+
+  const rejected = [
+    undefined,
+    null,
+    0,
+    1n,
+    {},
+    "",
+    "__id__",
+    "__id+0__",
+    "__id+1__",
+    "__id-0__",
+    "__id00__",
+    "__id01__",
+    "__id02__",
+    "__id-00__",
+    "__id-01__",
+    "__id9223372036854775808__",
+    "__id-9223372036854775809__",
+    `__id${"9".repeat(1_000)}__`,
+    `__id-${"9".repeat(1_000)}__`,
+    "__id1.0__",
+    "__id1e0__",
+    "__id0x1__",
+    "__id 1__",
+    "__id1 __",
+    "__id\n1__",
+    "__id١__",
+    "__ID1__",
+    "prefix__id1__",
+    "__id1__suffix",
+  ];
+  for (const documentId of rejected) {
+    assert.equal(
+      readCanonicalFirestoreImportedNumericDocumentId(documentId),
+      null,
+    );
+    if (typeof documentId === "string" && /^__[\s\S]*__$/u.test(documentId)) {
+      assert.equal(readPrivateSearchIndexCursorDocumentId(documentId), null);
+    }
+  }
+
+  for (const ordinaryPrivateDocumentId of [
+    "__",
+    "___",
+    "ordinary",
+    " whitespace ",
+    " __id1__ ",
+    "prefix__id1__",
+    "__id1__suffix",
+  ]) {
+    assert.equal(
+      readCanonicalFirestoreImportedNumericDocumentId(
+        ordinaryPrivateDocumentId,
+      ),
+      null,
+    );
+    assert.equal(
+      readPrivateSearchIndexCursorDocumentId(ordinaryPrivateDocumentId),
+      ordinaryPrivateDocumentId,
+    );
+  }
+
+  assert.throws(
+    () => createSearchIndexDocumentId({
+      entityKind: "dish",
+      sourceKind: "biteScoreDish",
+      sourceDocumentId: " private-cursor-only ",
+    }),
+    /document-ID segment/,
+  );
+});
+
+test("private maintenance cursors reject only non-queryable or malformed IDs", () => {
+  for (const documentId of [
+    "",
+    ".",
+    "..",
+    "slash/id",
+    "____",
+    "__x__",
+    "__reserved__",
+    "__reserved\n__",
+    "__id__",
+    "__id+1__",
+    "__id-0__",
+    "__id00__",
+    "__id01__",
+    "__id-01__",
+    "__id9223372036854775808__",
+    "__id-9223372036854775809__",
+    `__id${"9".repeat(1_000)}__`,
+    "__id1.0__",
+    "__id1e0__",
+    "malformed\ud800",
+    "x".repeat(1_501),
+    "é".repeat(751),
+  ]) {
+    assert.equal(readPrivateSearchIndexCursorDocumentId(documentId), null);
+    assert.throws(
+      () => parsePrivateSearchIndexJobCursor({
+        phase: "dishes",
+        afterDocumentId: documentId,
+      }),
+      /continuation cursor is invalid/,
+    );
+    assert.throws(
+      () => createSearchIndexJobId({
+        jobKind: "biteScoreDishes",
+        parentSource: "biteScore",
+        parentSourceDocumentId: "restaurant-1",
+        requestedSourceFingerprint: "a".repeat(64),
+        sourceOccurrenceId: "b".repeat(64),
+        continuationCursor: {phase: "dishes", afterDocumentId: documentId},
+      }),
+      /continuation cursor is invalid/,
+    );
+  }
+  assert.equal(readPrivateSearchIndexCursorDocumentId(null), null);
+  assert.equal(parsePrivateSearchIndexJobCursor(undefined), null);
+  for (const cursor of [
+    null,
+    {phase: "tampered", afterDocumentId: null},
+    {phase: "dishes", afterDocumentId: null, injected: true},
+    {phase: "dishes"},
+    {phase: "dishes", afterDocumentId: undefined},
+  ]) {
+    assert.throws(
+      () => parsePrivateSearchIndexJobCursor(cursor),
+      /continuation cursor is invalid/,
+    );
+  }
+  assert.throws(
+    () => createSearchIndexJobId({
+      jobKind: "biteSaverOffers",
+      parentSource: "biteSaver",
+      parentSourceDocumentId: "restaurant-1",
+      requestedSourceFingerprint: "a".repeat(64),
+      sourceOccurrenceId: "b".repeat(64),
+      continuationCursor: {phase: "dishes", afterDocumentId: "dish-100"},
+    }),
+    /continuation cursor is invalid/,
+  );
 });
 
 test("maximum supported strict projections remain far below Firestore size", () => {

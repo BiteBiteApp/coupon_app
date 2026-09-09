@@ -17,6 +17,7 @@ import '../services/app_mode_state_service.dart';
 import '../services/app_error_text.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
+import '../services/bitesaver_location_search.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/shared_location_state_service.dart';
 import '../widgets/bitesaver_colors.dart';
@@ -38,6 +39,16 @@ class SearchCenter {
   });
 }
 
+class _HomeLocationOperation {
+  final int generation;
+  final SharedLocationOperationToken sharedToken;
+
+  const _HomeLocationOperation({
+    required this.generation,
+    required this.sharedToken,
+  });
+}
+
 @visibleForTesting
 String buildBiteSaverHomeProjectionSignature(
   Iterable<MapEntry<String, Map<String, dynamic>>> documents,
@@ -55,6 +66,9 @@ class HomeScreen extends StatefulWidget {
   @visibleForTesting
   final Stream<String>? approvedAccountsSignatureStream;
   final Future<List<Restaurant>> Function()? restaurantLoader;
+  final Future<List<Location>> Function(String query)? locationGeocoder;
+  final Future<Position> Function()? currentPositionLoader;
+  final Future<SharedLocationRestoreResult> Function()? locationRestoreLoader;
   final bool initializeFirebaseBackedState;
 
   const HomeScreen({
@@ -62,6 +76,9 @@ class HomeScreen extends StatefulWidget {
     this.approvedAccountsStream,
     this.approvedAccountsSignatureStream,
     this.restaurantLoader,
+    this.locationGeocoder,
+    this.currentPositionLoader,
+    this.locationRestoreLoader,
     this.initializeFirebaseBackedState = true,
   });
 
@@ -89,6 +106,7 @@ class _HomeScreenState extends State<HomeScreen> {
   bool usingTypedSearchLocation = false;
   bool isGettingLocation = false;
   bool isSearchingLocation = false;
+  bool _typedGeocodeFailed = false;
 
   String? detectedCity;
   String? detectedZip;
@@ -109,6 +127,10 @@ class _HomeScreenState extends State<HomeScreen> {
   String _approvedAccountsSignature = '';
   late final Stream<String> _approvedAccountsSignatures;
   int _restaurantLoadGeneration = 0;
+  int _locationOperationGeneration = 0;
+  bool _suppressTypedLocationTextListener = false;
+  SharedLocationOperationToken? _ownedSharedLocationOperation;
+  SharedLocationRestoreLease? _activeRestoreLease;
 
   final List<Restaurant> sampleRestaurants = const [
     Restaurant(
@@ -329,27 +351,123 @@ class _HomeScreenState extends State<HomeScreen> {
     if (widget.initializeFirebaseBackedState) {
       DemoRedemptionStore.ensureInitialized();
     }
-    _loadSelectedRadius();
     _restoreSharedLocationState();
+    searchController.addListener(_handleTypedLocationTextChanged);
     _loadRestaurants();
-    _restorePersistedLocationPreference();
+    _initializeLocationState();
   }
 
-  Future<void> _loadSelectedRadius() async {
+  Future<void> _initializeLocationState() async {
+    final initializationGeneration = _locationOperationGeneration;
+    final restoreLease = SharedLocationStateService.acquireRestoreLease();
+    _activeRestoreLease = restoreLease;
+    try {
+      await _loadSelectedRadius(initializationGeneration);
+      if (!mounted ||
+          initializationGeneration != _locationOperationGeneration) {
+        return;
+      }
+      await _restorePersistedLocationPreference();
+    } finally {
+      if (identical(_activeRestoreLease, restoreLease)) {
+        _activeRestoreLease = null;
+      }
+      SharedLocationStateService.releaseRestoreLease(
+        restoreLease,
+        cancelIfLastOwner: false,
+      );
+    }
+  }
+
+  Future<void> _loadSelectedRadius(int initializationGeneration) async {
     final prefs = await SharedPreferences.getInstance();
     final savedRadius = prefs.getString(_selectedRadiusPreferenceKey);
-    if (savedRadius == null || !_isSupportedRadius(savedRadius) || !mounted) {
+    if (savedRadius == null ||
+        !_isSupportedRadius(savedRadius) ||
+        !mounted ||
+        initializationGeneration != _locationOperationGeneration) {
       return;
     }
 
-    setState(() {
-      selectedRadius = savedRadius;
-    });
+    if (savedRadius != selectedRadius) {
+      setState(() {
+        selectedRadius = savedRadius;
+      });
+    }
   }
 
   Future<void> _saveSelectedRadius(String value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_selectedRadiusPreferenceKey, value);
+  }
+
+  void _selectRadius(String value, {bool persist = true}) {
+    if (value == selectedRadius) {
+      return;
+    }
+    setState(() {
+      _invalidateLocationOperation();
+      selectedRadius = value;
+    });
+    if (persist) {
+      _saveSelectedRadius(value);
+    }
+  }
+
+  void _handleTypedLocationTextChanged() {
+    if (_suppressTypedLocationTextListener) {
+      return;
+    }
+
+    final hadPendingOperation = isSearchingLocation || isGettingLocation;
+    _invalidateLocationOperation();
+    if (hadPendingOperation && mounted) {
+      setState(() {});
+    }
+  }
+
+  _HomeLocationOperation _beginLocationOperation() {
+    _locationOperationGeneration += 1;
+    final sharedToken = SharedLocationStateService.beginLocationOperation();
+    _ownedSharedLocationOperation = sharedToken;
+    return _HomeLocationOperation(
+      generation: _locationOperationGeneration,
+      sharedToken: sharedToken,
+    );
+  }
+
+  void _invalidateLocationOperation() {
+    _beginLocationOperation();
+    isSearchingLocation = false;
+    isGettingLocation = false;
+  }
+
+  void _replaceLocationSearchText(String value) {
+    _suppressTypedLocationTextListener = true;
+    searchController.value = TextEditingValue(
+      text: value,
+      selection: TextSelection.collapsed(offset: value.length),
+    );
+    _suppressTypedLocationTextListener = false;
+  }
+
+  String _typedGeocodeFingerprint(String query) {
+    return '${query.trim()}\u0000$selectedRadius';
+  }
+
+  bool _ownsLocationOperation(_HomeLocationOperation operation) {
+    return mounted &&
+        operation.generation == _locationOperationGeneration &&
+        SharedLocationStateService.ownsLocationOperation(operation.sharedToken);
+  }
+
+  bool _isCurrentTypedGeocodeRequest(
+    _HomeLocationOperation operation,
+    String fingerprint,
+  ) {
+    return mounted &&
+        _ownsLocationOperation(operation) &&
+        fingerprint == _typedGeocodeFingerprint(searchController.text);
   }
 
   bool _isSupportedRadius(String value) {
@@ -367,11 +485,11 @@ class _HomeScreenState extends State<HomeScreen> {
     }
   }
 
-  void _restoreSharedLocationState() {
-    final sharedLocation = SharedLocationStateService.state;
-    searchController.text = sharedLocation.usingCurrentLocation
-        ? ''
-        : sharedLocation.searchText;
+  void _restoreSharedLocationState([SharedLocationState? restoredState]) {
+    final sharedLocation = restoredState ?? SharedLocationStateService.state;
+    _replaceLocationSearchText(
+      sharedLocation.usingCurrentLocation ? '' : sharedLocation.searchText,
+    );
     searchQuery = sharedLocation.usingCurrentLocation
         ? ''
         : sharedLocation.searchText;
@@ -395,16 +513,31 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _restorePersistedLocationPreference() async {
-    final result = await SharedLocationStateService.restoreOnLaunch(
-      reverseLookupLocation: reverseLookupLocation,
-    );
+    final restoreGeneration = ++_locationOperationGeneration;
+    late final SharedLocationRestoreResult result;
+    try {
+      result =
+          await (widget.locationRestoreLoader?.call() ??
+              SharedLocationStateService.restoreOnLaunch(
+                reverseLookupLocation: reverseLookupLocation,
+              ));
+    } catch (_) {
+      if (!mounted || restoreGeneration != _locationOperationGeneration) {
+        return;
+      }
+      setState(() {
+        _restoreSharedLocationState(const SharedLocationState());
+        locationStatusMessage = 'Could not refresh your location right now.';
+      });
+      return;
+    }
 
-    if (!mounted) {
+    if (!mounted || restoreGeneration != _locationOperationGeneration) {
       return;
     }
 
     setState(() {
-      _restoreSharedLocationState();
+      _restoreSharedLocationState(result.state);
       locationStatusMessage = result.message;
     });
   }
@@ -459,7 +592,23 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _locationOperationGeneration += 1;
+    final activeRestoreLease = _activeRestoreLease;
+    _activeRestoreLease = null;
+    if (activeRestoreLease != null) {
+      SharedLocationStateService.releaseRestoreLease(
+        activeRestoreLease,
+        cancelIfLastOwner: true,
+      );
+    }
+    final ownedSharedOperation = _ownedSharedLocationOperation;
+    if (ownedSharedOperation != null) {
+      SharedLocationStateService.cancelLocationOperationIfCurrent(
+        ownedSharedOperation,
+      );
+    }
     _positionStreamSubscription?.cancel();
+    searchController.removeListener(_handleTypedLocationTextChanged);
     _listScrollController.dispose();
     generalSearchController.dispose();
     _searchFocusNode.dispose();
@@ -686,30 +835,47 @@ class _HomeScreenState extends State<HomeScreen> {
     required String query,
     required bool showNoResultsSnackBar,
   }) async {
+    final normalizedQuery = query.trim();
+    final operation = _beginLocationOperation();
+    final requestFingerprint = _typedGeocodeFingerprint(normalizedQuery);
     setState(() {
       isSearchingLocation = true;
+      isGettingLocation = false;
+      _typedGeocodeFailed = false;
       locationStatusMessage = null;
     });
 
     try {
-      final locations = await SharedLocationStateService.geocodeSearchQuery(
-        query,
-      );
+      final locations =
+          await (widget.locationGeocoder?.call(normalizedQuery) ??
+              SharedLocationStateService.geocodeSearchQuery(normalizedQuery));
 
-      if (locations.isEmpty) {
-        setState(() {
-          isSearchingLocation = false;
-          usingCurrentLocation = false;
-          usingTypedSearchLocation = false;
-          typedSearchCenter = null;
-          searchQuery = query;
-          locationStatusMessage =
-              'Could not find that city or ZIP for radius search.';
-        });
+      if (!_isCurrentTypedGeocodeRequest(operation, requestFingerprint)) {
+        return;
+      }
+
+      if (locations.isEmpty ||
+          !BiteSaverLocationSearch.hasValidCoordinates(
+            locations.first.latitude,
+            locations.first.longitude,
+          )) {
+        await _acceptTypedGeocodeFailure(
+          operation,
+          requestFingerprint,
+          normalizedQuery,
+        );
         return;
       }
 
       final first = locations.first;
+      final persistFuture =
+          SharedLocationStateService.saveTypedLocationForOperation(
+            operation.sharedToken,
+            latitude: first.latitude,
+            longitude: first.longitude,
+            label: normalizedQuery,
+            searchText: normalizedQuery,
+          );
 
       setState(() {
         isSearchingLocation = false;
@@ -718,23 +884,22 @@ class _HomeScreenState extends State<HomeScreen> {
         currentPosition = null;
         detectedCity = null;
         detectedZip = null;
-        searchQuery = query;
+        searchQuery = normalizedQuery;
         typedSearchCenter = SearchCenter(
           latitude: first.latitude,
           longitude: first.longitude,
-          label: query,
+          label: normalizedQuery,
         );
-        locationStatusMessage = 'Using "$query" as your search center.';
+        locationStatusMessage =
+            'Using "$normalizedQuery" as your search center.';
       });
-      SharedLocationStateService.saveTypedLocation(
-        latitude: first.latitude,
-        longitude: first.longitude,
-        label: query,
-        searchText: query,
-      );
+      await persistFuture;
 
       if (showNoResultsSnackBar) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!_isCurrentTypedGeocodeRequest(operation, requestFingerprint)) {
+            return;
+          }
           final filtered = filterRestaurants(allRestaurants);
           if (filtered.isEmpty && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -746,65 +911,126 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     } catch (_) {
-      setState(() {
-        isSearchingLocation = false;
-        usingCurrentLocation = false;
-        usingTypedSearchLocation = false;
-        typedSearchCenter = null;
-        searchQuery = query;
-        locationStatusMessage =
-            'Could not find that city or ZIP for radius search.';
-      });
+      await _acceptTypedGeocodeFailure(
+        operation,
+        requestFingerprint,
+        normalizedQuery,
+      );
     }
   }
 
-  Future<void> useMyLocation(List<Restaurant> allRestaurants) async {
+  Future<void> _acceptTypedGeocodeFailure(
+    _HomeLocationOperation operation,
+    String requestFingerprint,
+    String normalizedQuery,
+  ) async {
+    if (!_isCurrentTypedGeocodeRequest(operation, requestFingerprint)) {
+      return;
+    }
+
+    final clearFuture =
+        SharedLocationStateService.clearTypedLocationForOperation(
+          operation.sharedToken,
+        );
+    if (!_isCurrentTypedGeocodeRequest(operation, requestFingerprint)) {
+      return;
+    }
+
     setState(() {
+      isSearchingLocation = false;
+      _typedGeocodeFailed = true;
+      usingTypedSearchLocation = false;
+      typedSearchCenter = null;
+      if (!usingCurrentLocation) {
+        currentPosition = null;
+        detectedCity = null;
+        detectedZip = null;
+      }
+      searchQuery = normalizedQuery;
+      locationStatusMessage =
+          'Could not find that city or ZIP for radius search.';
+    });
+    await clearFuture;
+  }
+
+  Future<void> useMyLocation(List<Restaurant> allRestaurants) async {
+    final operation = _beginLocationOperation();
+    setState(() {
+      isSearchingLocation = false;
+      _typedGeocodeFailed = false;
       isGettingLocation = true;
       locationStatusMessage = null;
     });
 
     try {
-      final serviceEnabled = await Geolocator.isLocationServiceEnabled();
-      if (!serviceEnabled) {
-        setState(() {
-          locationStatusMessage =
-              'Location services are turned off on this device.';
-          isGettingLocation = false;
-        });
+      late final Position position;
+      if (widget.currentPositionLoader != null) {
+        position = await widget.currentPositionLoader!();
+      } else {
+        final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+        if (!_ownsLocationOperation(operation)) {
+          return;
+        }
+        if (!serviceEnabled) {
+          setState(() {
+            locationStatusMessage =
+                'Location services are turned off on this device.';
+            isGettingLocation = false;
+          });
+          return;
+        }
+
+        var permission = await Geolocator.checkPermission();
+        if (!_ownsLocationOperation(operation)) {
+          return;
+        }
+
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+          if (!_ownsLocationOperation(operation)) {
+            return;
+          }
+        }
+
+        if (permission == LocationPermission.denied) {
+          setState(() {
+            locationStatusMessage = 'Location permission was denied.';
+            isGettingLocation = false;
+          });
+          return;
+        }
+
+        if (permission == LocationPermission.deniedForever) {
+          setState(() {
+            locationStatusMessage =
+                'Location permission is permanently denied. Please enable it in settings.';
+            isGettingLocation = false;
+          });
+          return;
+        }
+
+        position = await Geolocator.getCurrentPosition();
+      }
+      if (!_ownsLocationOperation(operation)) {
         return;
       }
-
-      var permission = await Geolocator.checkPermission();
-
-      if (permission == LocationPermission.denied) {
-        permission = await Geolocator.requestPermission();
-      }
-
-      if (permission == LocationPermission.denied) {
-        setState(() {
-          locationStatusMessage = 'Location permission was denied.';
-          isGettingLocation = false;
-        });
-        return;
-      }
-
-      if (permission == LocationPermission.deniedForever) {
-        setState(() {
-          locationStatusMessage =
-              'Location permission is permanently denied. Please enable it in settings.';
-          isGettingLocation = false;
-        });
-        return;
-      }
-
-      final position = await Geolocator.getCurrentPosition();
       final locationDetails = await reverseLookupLocation(position);
+      if (!_ownsLocationOperation(operation)) {
+        return;
+      }
 
       final newlyUnlocked = collectNewlyUnlockedCouponsForPosition(
         allRestaurants,
         position,
       );
+      final persistFuture =
+          SharedLocationStateService.saveCurrentLocationForOperation(
+            operation.sharedToken,
+            position: position,
+            searchText: '',
+            detectedCity: locationDetails.city,
+            detectedZip: locationDetails.zip,
+          );
 
       setState(() {
         usingCurrentLocation = true;
@@ -815,17 +1041,12 @@ class _HomeScreenState extends State<HomeScreen> {
         detectedZip = locationDetails.zip;
         currentPosition = position;
         searchQuery = '';
-        searchController.clear();
+        _replaceLocationSearchText('');
         locationStatusMessage = 'Using your current location.';
       });
-      SharedLocationStateService.saveCurrentLocation(
-        position: position,
-        searchText: '',
-        detectedCity: locationDetails.city,
-        detectedZip: locationDetails.zip,
-      );
+      await persistFuture;
 
-      if (newlyUnlocked.isNotEmpty && mounted) {
+      if (newlyUnlocked.isNotEmpty && _ownsLocationOperation(operation)) {
         for (final coupon in newlyUnlocked) {
           _notifiedUnlockedCouponIds.add(coupon.id);
         }
@@ -835,6 +1056,9 @@ class _HomeScreenState extends State<HomeScreen> {
         });
       }
     } catch (error) {
+      if (!_ownsLocationOperation(operation)) {
+        return;
+      }
       setState(() {
         isGettingLocation = false;
         locationStatusMessage = AppErrorText.friendly(
@@ -959,11 +1183,17 @@ class _HomeScreenState extends State<HomeScreen> {
 
   void clearSearch() {
     stopLiveLocationTracking();
-    searchController.clear();
-    SharedLocationStateService.clear();
+    final operation = _beginLocationOperation();
+    _replaceLocationSearchText('');
+    unawaited(
+      SharedLocationStateService.clearForOperation(operation.sharedToken),
+    );
 
     setState(() {
+      isSearchingLocation = false;
+      isGettingLocation = false;
       searchQuery = '';
+      _typedGeocodeFailed = false;
       usingCurrentLocation = false;
       usingTypedSearchLocation = false;
       typedSearchCenter = null;
@@ -973,26 +1203,6 @@ class _HomeScreenState extends State<HomeScreen> {
       locationStatusMessage = null;
       _notifiedUnlockedCouponIds.clear();
     });
-  }
-
-  bool isExactLocationMatch(Restaurant restaurant) {
-    if (!usingTypedSearchLocation) {
-      return false;
-    }
-
-    final trimmedQuery = searchQuery.trim();
-    final normalizedQuery = trimmedQuery.toLowerCase();
-    if (normalizedQuery.isEmpty) {
-      return false;
-    }
-
-    return _normalizeCityForExactMatch(restaurant.city) ==
-            _normalizeCityForExactMatch(trimmedQuery) ||
-        restaurant.zipCode.trim() == trimmedQuery;
-  }
-
-  String _normalizeCityForExactMatch(String value) {
-    return value.split(',').first.trim().toLowerCase();
   }
 
   bool matchesRestaurantSearch(Restaurant restaurant) {
@@ -1130,34 +1340,21 @@ class _HomeScreenState extends State<HomeScreen> {
         continue;
       }
 
-      final exactMatch = isExactLocationMatch(restaurant);
-      final distanceMiles = restaurantDistanceMiles(restaurant);
-
-      if (center != null) {
-        if (!exactMatch &&
-            (restaurant.latitude == null ||
-                restaurant.longitude == null ||
-                distanceMiles > radius)) {
-          continue;
-        }
-      } else {
-        final withinRadius = false;
-
-        if (searchQuery.trim().isEmpty) {
-          if (!withinRadius) {
-            continue;
-          }
-        } else {
-          final query = searchQuery.toLowerCase().trim();
-          final matchesLocation =
-              restaurant.city.toLowerCase().contains(query) ||
-              restaurant.zipCode.contains(query);
-
-          if (!withinRadius || !matchesLocation) {
-            continue;
-          }
-        }
+      if (center == null) {
+        continue;
       }
+      final locationMatch = BiteSaverLocationSearch.eligibleRestaurant(
+        restaurant: restaurant,
+        centerLatitude: center.latitude,
+        centerLongitude: center.longitude,
+        radiusMiles: radius,
+        typedQuery: usingTypedSearchLocation ? searchQuery : '',
+      );
+      if (locationMatch == null) {
+        continue;
+      }
+      final exactMatch = locationMatch.exactLocationPreference;
+      final distanceMiles = locationMatch.distanceMiles;
 
       results.add((
         restaurant: restaurant,
@@ -1174,8 +1371,14 @@ class _HomeScreenState extends State<HomeScreen> {
       }
 
       if (a.exactMatch && b.exactMatch) {
-        return a.restaurant.name.toLowerCase().compareTo(
+        final byName = a.restaurant.name.toLowerCase().compareTo(
           b.restaurant.name.toLowerCase(),
+        );
+        if (byName != 0) {
+          return byName;
+        }
+        return (a.restaurant.accountDocumentId ?? '').compareTo(
+          b.restaurant.accountDocumentId ?? '',
         );
       }
 
@@ -1184,8 +1387,14 @@ class _HomeScreenState extends State<HomeScreen> {
         return distanceComparison;
       }
 
-      return a.restaurant.name.toLowerCase().compareTo(
+      final byName = a.restaurant.name.toLowerCase().compareTo(
         b.restaurant.name.toLowerCase(),
+      );
+      if (byName != 0) {
+        return byName;
+      }
+      return (a.restaurant.accountDocumentId ?? '').compareTo(
+        b.restaurant.accountDocumentId ?? '',
       );
     });
 
@@ -1224,6 +1433,13 @@ class _HomeScreenState extends State<HomeScreen> {
   String compactStatusLine(List<Restaurant> filteredRestaurants) {
     if (!_hasLocationOrZipInput) {
       return locationStatusMessage?.trim() ?? '';
+    }
+    if (isSearchingLocation) {
+      return 'Finding this location\u2026';
+    }
+    if (_typedGeocodeFailed) {
+      return locationStatusMessage?.trim() ??
+          'Could not find that city or ZIP for radius search.';
     }
 
     final restaurantCount = filteredRestaurants.length;
@@ -2092,6 +2308,34 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildLocationSearchPending() {
+    return const SliverToBoxAdapter(
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(24, 28, 24, 24),
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 22,
+                height: 22,
+                child: CircularProgressIndicator(strokeWidth: 2.3),
+              ),
+              SizedBox(width: 12),
+              Text(
+                'Finding this location\u2026',
+                style: TextStyle(
+                  color: BiteSaverColors.secondaryText,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildInlineRestaurantsError() {
     return SliverToBoxAdapter(
       child: Padding(
@@ -2123,6 +2367,39 @@ class _HomeScreenState extends State<HomeScreen> {
                 ElevatedButton(
                   onPressed: _loadRestaurants,
                   child: const Text('Try Again'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocationSearchError() {
+    return SliverToBoxAdapter(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+        child: Card(
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Could not search that location.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  locationStatusMessage ??
+                      'Try another city or ZIP code, or use your current location.',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: BiteSaverColors.secondaryText,
+                    height: 1.35,
+                  ),
                 ),
               ],
             ),
@@ -2200,9 +2477,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           OutlinedButton(
                             onPressed: canIncreaseRadius
                                 ? () {
-                                    setState(() {
-                                      selectedRadius = nextRadius;
-                                    });
+                                    _selectRadius(nextRadius);
                                   }
                                 : null,
                             child: Text(
@@ -2961,8 +3236,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ],
               onChanged: (value) {
                 if (value == null) return;
-                setState(() => selectedRadius = value);
-                _saveSelectedRadius(value);
+                _selectRadius(value);
               },
             );
           },
@@ -3419,6 +3693,10 @@ class _HomeScreenState extends State<HomeScreen> {
                         ),
                         sliver: !_hasLocationOrZipInput
                             ? _buildGetStartedState(allRestaurants)
+                            : isSearchingLocation
+                            ? _buildLocationSearchPending()
+                            : _typedGeocodeFailed
+                            ? _buildLocationSearchError()
                             : _restaurantsError != null && _restaurants.isEmpty
                             ? _buildInlineRestaurantsError()
                             : _isRestaurantsLoading && _restaurants.isEmpty

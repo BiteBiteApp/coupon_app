@@ -1,8 +1,13 @@
 import { createHash } from "node:crypto";
+import { readBiteScoreCatalogRestaurantId } from "./restaurant_invite_helpers.js";
 
 export const searchIndexVersion = "bitestar.search-index.v1" as const;
 export const searchIndexJobVersion =
   "bitestar.search-index-job.v1" as const;
+export const biteScoreRestaurantCustomerPublicProjectionVersion =
+  "bitestar.bitescore-customer-public-restaurant.v1" as const;
+export const biteScoreDishCustomerPublicProjectionVersion =
+  "bitestar.bitescore-customer-public-dish.v1" as const;
 
 export const restaurantSearchIndexCollection =
   "restaurant_search_index" as const;
@@ -14,6 +19,7 @@ export const privateSearchIndexJobCollection =
 
 export const maximumSearchIndexDocumentBytes = 64 * 1024;
 export const maximumSearchIndexWorkerBatchSize = 100;
+export const maximumPrivateSearchIndexCursorDocumentIdBytes = 1_500;
 export const searchIndexJobLifetimeMilliseconds = 24 * 60 * 60 * 1000;
 
 export type SearchIndexEntityKind = "restaurant" | "dish" | "offer";
@@ -43,6 +49,7 @@ export type SearchIndexJobDocument = Readonly<{
   parentSource: SearchIndexJobParentSource;
   parentSourceDocumentId: string;
   requestedSourceFingerprint: string;
+  sourceOccurrenceId: string;
   continuationCursor?: SearchIndexJobCursor;
   status: "pending";
   createdAt: Date;
@@ -50,8 +57,139 @@ export type SearchIndexJobDocument = Readonly<{
 }>;
 
 function requireDocumentId(value: string, label: string): string {
-  if (!value || value.includes("/")) {
+  if (readBiteScoreCatalogRestaurantId(value) !== value) {
     throw new Error(`${label} must be one Firestore document-ID segment.`);
+  }
+  return value;
+}
+
+function hasWellFormedUtf16(value: string): boolean {
+  for (let index = 0; index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      if (index + 1 >= value.length) {
+        return false;
+      }
+      const trailingCodeUnit = value.charCodeAt(index + 1);
+      if (trailingCodeUnit < 0xdc00 || trailingCodeUnit > 0xdfff) {
+        return false;
+      }
+      index += 1;
+    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      return false;
+    }
+  }
+  return true;
+}
+
+const minimumFirestoreImportedNumericDocumentId = BigInt(
+  "-9223372036854775808",
+);
+const maximumFirestoreImportedNumericDocumentId = BigInt(
+  "9223372036854775807",
+);
+
+/**
+ * Reads Firestore's imported numeric resource-path spelling. The SDK compares
+ * these segments numerically, so private cursors accept only the unique
+ * canonical spelling for each signed-int64 value.
+ */
+export function readCanonicalFirestoreImportedNumericDocumentId(
+  value: unknown,
+): bigint | null {
+  if (typeof value !== "string" || value.length > 26) {
+    return null;
+  }
+  const match = /^__id(0|[1-9][0-9]*|-[1-9][0-9]*)__$/u.exec(value);
+  if (match === null) {
+    return null;
+  }
+  const numericId = BigInt(match[1]);
+  if (
+    numericId < minimumFirestoreImportedNumericDocumentId ||
+    numericId > maximumFirestoreImportedNumericDocumentId ||
+    numericId.toString() !== match[1]
+  ) {
+    return null;
+  }
+  return numericId;
+}
+
+/**
+ * Reads private query-continuation identity, not customer/product identity.
+ * Firestore can return document IDs that the public product contract rejects,
+ * so this deliberately preserves every valid raw code unit, including
+ * whitespace and controls.
+ */
+export function readPrivateSearchIndexCursorDocumentId(
+  value: unknown,
+): string | null {
+  if (
+    typeof value !== "string" ||
+    value.length === 0 ||
+    !hasWellFormedUtf16(value) ||
+    Buffer.byteLength(value, "utf8") >
+      maximumPrivateSearchIndexCursorDocumentIdBytes ||
+    value.includes("/") ||
+    value === "." ||
+    value === ".." ||
+    (/^__[\s\S]*__$/u.test(value) &&
+      readCanonicalFirestoreImportedNumericDocumentId(value) === null)
+  ) {
+    return null;
+  }
+  return value;
+}
+
+export function parsePrivateSearchIndexJobCursor(
+  value: unknown,
+): SearchIndexJobCursor | null {
+  if (value === undefined) {
+    return null;
+  }
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Search index job continuation cursor is invalid.");
+  }
+  const cursor = value as Record<string, unknown>;
+  const keys = Reflect.ownKeys(cursor);
+  const phase = cursor.phase;
+  const afterDocumentId = cursor.afterDocumentId;
+  const parsedAfterDocumentId = afterDocumentId === null
+    ? null
+    : readPrivateSearchIndexCursorDocumentId(afterDocumentId);
+  if (
+    keys.length !== 2 ||
+    !keys.includes("afterDocumentId") ||
+    !keys.includes("phase") ||
+    (phase !== "coupons" &&
+      phase !== "dailySpecials" &&
+      phase !== "dishes" &&
+      phase !== "derivedCleanup") ||
+    (afterDocumentId !== null && parsedAfterDocumentId !== afterDocumentId)
+  ) {
+    throw new Error("Search index job continuation cursor is invalid.");
+  }
+  return Object.freeze({ phase, afterDocumentId: parsedAfterDocumentId });
+}
+
+function requireCursorMatchesSearchIndexJobKind(
+  jobKind: SearchIndexJobKind,
+  cursor: SearchIndexJobCursor | null,
+): void {
+  if (
+    cursor !== null &&
+    ((jobKind === "biteSaverOffers" && cursor.phase === "dishes") ||
+      (jobKind === "biteScoreDishes" &&
+        cursor.phase !== "dishes" &&
+        cursor.phase !== "derivedCleanup"))
+  ) {
+    throw new Error("Search index job continuation cursor is invalid.");
+  }
+}
+
+function requireDigest(value: string, label: string): string {
+  if (!/^[0-9a-f]{64}$/u.test(value)) {
+    throw new Error(`${label} is invalid.`);
   }
   return value;
 }
@@ -90,22 +228,50 @@ export function createSearchIndexJobId(value: {
   parentSource: SearchIndexJobParentSource;
   parentSourceDocumentId: string;
   requestedSourceFingerprint: string;
+  sourceOccurrenceId: string;
   continuationCursor?: SearchIndexJobCursor | null;
 }): string {
   const parentSourceDocumentId = requireDocumentId(
     value.parentSourceDocumentId,
     "Parent source document ID",
   );
-  const cursor = value.continuationCursor ?? null;
+  const requestedSourceFingerprint = requireDigest(
+    value.requestedSourceFingerprint,
+    "Search index job source fingerprint",
+  );
+  const sourceOccurrenceId = requireDigest(
+    value.sourceOccurrenceId,
+    "Search index job source occurrence",
+  );
+  const cursor = value.continuationCursor == null
+    ? null
+    : parsePrivateSearchIndexJobCursor(value.continuationCursor);
+  requireCursorMatchesSearchIndexJobKind(value.jobKind, cursor);
   return `sij_${digestTuple([
     searchIndexJobVersion,
     value.jobKind,
     value.parentSource,
     parentSourceDocumentId,
-    value.requestedSourceFingerprint,
+    requestedSourceFingerprint,
+    sourceOccurrenceId,
     cursor?.phase ?? null,
     cursor?.afterDocumentId ?? null,
   ])}`;
+}
+
+export function createSearchIndexSourceOccurrenceId(eventId: unknown): string {
+  if (
+    typeof eventId !== "string" ||
+    eventId.length === 0 ||
+    eventId.length > 4_096 ||
+    Buffer.byteLength(eventId, "utf8") > 4_096
+  ) {
+    throw new Error("Search index source occurrence is invalid.");
+  }
+  return createHash("sha256")
+    .update(`${searchIndexJobVersion}\0sourceOccurrence\0`, "utf8")
+    .update(eventId, "utf16le")
+    .digest("hex");
 }
 
 export function createSourceFingerprint(tuple: readonly unknown[]): string {
@@ -132,6 +298,7 @@ export function buildSearchIndexJobDocument(value: {
   parentSource: SearchIndexJobParentSource;
   parentSourceDocumentId: string;
   requestedSourceFingerprint: string;
+  sourceOccurrenceId: string;
   now: Date;
   continuationCursor?: SearchIndexJobCursor | null;
   expiresAt?: Date;
@@ -147,33 +314,24 @@ export function buildSearchIndexJobDocument(value: {
   if (!Number.isFinite(createdAt.getTime()) || expiresAt <= createdAt) {
     throw new Error("Search index job timestamps are invalid.");
   }
-  if (!/^[0-9a-f]{64}$/u.test(value.requestedSourceFingerprint)) {
-    throw new Error("Search index job source fingerprint is invalid.");
-  }
+  const requestedSourceFingerprint = requireDigest(
+    value.requestedSourceFingerprint,
+    "Search index job source fingerprint",
+  );
+  const sourceOccurrenceId = requireDigest(
+    value.sourceOccurrenceId,
+    "Search index job source occurrence",
+  );
   if (
     (value.jobKind === "biteSaverOffers" && value.parentSource !== "biteSaver") ||
     (value.jobKind === "biteScoreDishes" && value.parentSource !== "biteScore")
   ) {
     throw new Error("Search index job kind and parent source do not match.");
   }
-  const suppliedCursor = value.continuationCursor ?? null;
-  if (
-    suppliedCursor !== null &&
-    ((![
-      "coupons",
-      "dailySpecials",
-      "dishes",
-      "derivedCleanup",
-    ].includes(suppliedCursor.phase)) ||
-      (suppliedCursor.afterDocumentId !== null &&
-      (!suppliedCursor.afterDocumentId || suppliedCursor.afterDocumentId.includes("/"))) ||
-      (value.jobKind === "biteSaverOffers" && suppliedCursor.phase === "dishes") ||
-      (value.jobKind === "biteScoreDishes" &&
-        suppliedCursor.phase !== "dishes" &&
-        suppliedCursor.phase !== "derivedCleanup"))
-  ) {
-    throw new Error("Search index job continuation cursor is invalid.");
-  }
+  const suppliedCursor = value.continuationCursor == null
+    ? null
+    : parsePrivateSearchIndexJobCursor(value.continuationCursor);
+  requireCursorMatchesSearchIndexJobKind(value.jobKind, suppliedCursor);
   const continuationCursor = suppliedCursor === null
     ? null
     : Object.freeze({
@@ -185,7 +343,8 @@ export function buildSearchIndexJobDocument(value: {
     jobKind: value.jobKind,
     parentSource: value.parentSource,
     parentSourceDocumentId,
-    requestedSourceFingerprint: value.requestedSourceFingerprint,
+    requestedSourceFingerprint,
+    sourceOccurrenceId,
     ...(continuationCursor === null ? {} : { continuationCursor }),
     status: "pending" as const,
     createdAt,
