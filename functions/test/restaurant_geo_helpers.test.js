@@ -1,20 +1,35 @@
 const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
 const test = require("node:test");
 const { GeoPoint } = require("firebase-admin/firestore");
 
 const {
   canonicalRestaurantGeohash,
+  CUSTOMER_BITESAVER_EARTH_RADIUS_METERS,
   decideRestaurantGeohashWrite,
+  exactCustomerBiteSaverDistanceMeters,
+  exactCustomerBiteSaverDistanceMiles,
   exactRestaurantDistanceKilometers,
   extractBiteSaverRestaurantCoordinates,
   extractBiteScoreRestaurantCoordinates,
   KILOMETERS_PER_MILE,
   MAX_RESTAURANT_SEARCH_RADIUS_KM,
+  mergedRestaurantGeographicQueryBounds,
+  METERS_PER_MILE,
   restaurantGeographicQueryBounds,
   restaurantGeohashPrecision,
   restaurantSourceDocumentKey,
   validRestaurantCoordinates,
 } = require("../lib/restaurant_geo_helpers.js");
+
+const compatibilityFixtures = JSON.parse(fs.readFileSync(
+  path.resolve(
+    __dirname,
+    "../../test/fixtures/customer_bitesaver_search_compatibility_v1.json",
+  ),
+  "utf8",
+));
 
 const canonicalFixtures = [
   {
@@ -299,6 +314,96 @@ test("exact distance returns a reasonable known Haversine distance", () => {
     { latitude: 1, longitude: 1 },
   );
   assert.ok(kilometers > 110 && kilometers < 112);
+});
+
+test("customer Haversine constants and exact distances match shared goldens", () => {
+  const contract = compatibilityFixtures.distanceContract;
+  assert.equal(
+    CUSTOMER_BITESAVER_EARTH_RADIUS_METERS,
+    contract.earthRadiusMeters,
+  );
+  assert.equal(METERS_PER_MILE, contract.metersPerMile);
+
+  for (const fixture of contract.cases) {
+    const center = {
+      latitude: fixture.centerLatitude,
+      longitude: fixture.centerLongitude,
+    };
+    const candidate = {
+      latitude: fixture.candidateLatitude,
+      longitude: fixture.candidateLongitude,
+    };
+    const miles = exactCustomerBiteSaverDistanceMiles(center, candidate);
+    assert.ok(
+      Math.abs(miles - fixture.expectedDistanceMiles) <=
+        contract.toleranceMiles,
+      `${fixture.id}: ${miles}`,
+    );
+    assert.ok(
+      Math.abs(
+        exactCustomerBiteSaverDistanceMeters(center, candidate) -
+          miles * METERS_PER_MILE,
+      ) < 1e-9,
+      fixture.id,
+    );
+    assert.equal(miles <= fixture.radiusMiles, fixture.expectedEligible, fixture.id);
+    assert.equal(
+      exactCustomerBiteSaverDistanceMiles(candidate, center),
+      miles,
+      fixture.id,
+    );
+  }
+});
+
+test("customer coordinate validity consumes every shared fail-closed case", () => {
+  for (const fixture of compatibilityFixtures.coordinateValidityCases) {
+    const coordinates = validRestaurantCoordinates(
+      fixture.latitude,
+      fixture.longitude,
+    );
+    assert.equal(coordinates !== null, fixture.expectedValid, fixture.id);
+  }
+  for (const invalid of [
+    {latitude: 0, longitude: 0},
+    {latitude: Number.NaN, longitude: 10},
+    {latitude: 10, longitude: Number.POSITIVE_INFINITY},
+  ]) {
+    assert.throws(
+      () => exactCustomerBiteSaverDistanceMiles(
+        {latitude: 28, longitude: -81},
+        invalid,
+      ),
+      /Valid restaurant coordinates/,
+    );
+  }
+});
+
+test("customer geographic bounds merge deterministically without overlap", () => {
+  const center = {latitude: 28.5383, longitude: -81.3792};
+  for (const radiusMiles of compatibilityFixtures.supportedRadiiMiles) {
+    const first = mergedRestaurantGeographicQueryBounds(center, radiusMiles);
+    const second = mergedRestaurantGeographicQueryBounds(center, radiusMiles);
+    assert.deepEqual(first, second, String(radiusMiles));
+    assert.equal(Object.isFrozen(first), true);
+    assert.ok(first.length > 0 && first.length <= 9, String(radiusMiles));
+    for (let index = 0; index < first.length; index += 1) {
+      const [start, end] = first[index];
+      assert.ok(start <= end, `${radiusMiles}:${index}`);
+      if (index > 0) {
+        assert.ok(first[index - 1][1] < start, `${radiusMiles}:${index}`);
+      }
+    }
+  }
+  for (const radiusMiles of [0, -1, 31, Number.NaN, Number.POSITIVE_INFINITY]) {
+    assert.throws(
+      () => mergedRestaurantGeographicQueryBounds(center, radiusMiles),
+      /Customer radius is invalid/,
+    );
+  }
+  assert.throws(
+    () => mergedRestaurantGeographicQueryBounds({latitude: 0, longitude: 0}, 1),
+    /Valid restaurant search coordinates/,
+  );
 });
 
 test("geographic query bounds are deterministic and bounded", () => {

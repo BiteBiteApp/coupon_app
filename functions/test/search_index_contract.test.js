@@ -6,7 +6,14 @@ const test = require("node:test");
 const {
   biteScoreDishCustomerPublicProjectionVersion,
   biteScoreRestaurantCustomerPublicProjectionVersion,
+  buildCustomerBiteSaverCatalogGenerationShardDocument,
   buildSearchIndexJobDocument,
+  customerBiteSaverCatalogGenerationContributionField,
+  customerBiteSaverCatalogGenerationProtocolVersion,
+  customerBiteSaverCatalogGenerationShard,
+  customerBiteSaverCatalogGenerationShardIds,
+  createCustomerBiteSaverCatalogGenerationContribution,
+  createCustomerBiteSaverCatalogIdentity,
   createSearchIndexDocumentId,
   createSearchIndexJobId,
   createSearchIndexSourceOccurrenceId,
@@ -16,6 +23,7 @@ const {
   parsePrivateSearchIndexJobCursor,
   privateSearchIndexJobCollection,
   readCanonicalFirestoreImportedNumericDocumentId,
+  readCustomerBiteSaverCatalogGeneration,
   readPrivateSearchIndexCursorDocumentId,
   searchIndexJobVersion,
   searchIndexVersion,
@@ -37,6 +45,136 @@ test("search-index and private-job protocol constants are exact", () => {
   assert.equal(maximumSearchIndexWorkerBatchSize, 100);
   assert.equal(maximumPrivateSearchIndexCursorDocumentIdBytes, 1_500);
   assert.equal(maximumSearchIndexDocumentBytes, 65_536);
+  assert.equal(
+    customerBiteSaverCatalogGenerationContributionField,
+    "catalogGenerationContribution",
+  );
+  assert.equal(
+    customerBiteSaverCatalogGenerationProtocolVersion,
+    "bitestar.customer-bitesaver-search.v1",
+  );
+});
+
+test("customer BiteSaver generation shards are one exact deterministic 16-shard set", () => {
+  assert.deepEqual(
+    customerBiteSaverCatalogGenerationShardIds,
+    Array.from({length: 16}, (_, index) =>
+      `shard_${index.toString(16).padStart(2, "0")}`),
+  );
+  assert.equal(Object.isFrozen(customerBiteSaverCatalogGenerationShardIds), true);
+  assert.equal(new Set(customerBiteSaverCatalogGenerationShardIds).size, 16);
+
+  const restaurantIdentity = {
+    entityType: "restaurant",
+    restaurantAccountId: "account-1",
+  };
+  const couponIdentity = {
+    entityType: "offer",
+    offerType: "coupon",
+    restaurantAccountId: "account-1",
+    sourceDocumentId: "offer-1",
+  };
+  const dailyIdentity = {...couponIdentity, offerType: "dailySpecial"};
+  const restaurant = customerBiteSaverCatalogGenerationShard({
+    identity: restaurantIdentity,
+  });
+  assert.deepEqual(
+    customerBiteSaverCatalogGenerationShard({identity: restaurantIdentity}),
+    restaurant,
+  );
+  assert.ok(restaurant.index >= 0 && restaurant.index < 16);
+  assert.equal(
+    restaurant.documentId,
+    customerBiteSaverCatalogGenerationShardIds[restaurant.index],
+  );
+  assert.notEqual(
+    createCustomerBiteSaverCatalogIdentity(couponIdentity),
+    createCustomerBiteSaverCatalogIdentity(dailyIdentity),
+  );
+  assert.throws(
+    () => createCustomerBiteSaverCatalogIdentity({
+      ...couponIdentity,
+      sourceDocumentId: "parent/child",
+    }),
+    /document-ID segment/u,
+  );
+});
+
+test("customer BiteSaver generation contribution and shard documents are strict", () => {
+  const first = createCustomerBiteSaverCatalogGenerationContribution({
+    customerDiscoverable: true,
+    title: "First",
+  });
+  assert.match(first, /^[0-9a-f]{64}$/u);
+  assert.equal(
+    first,
+    createCustomerBiteSaverCatalogGenerationContribution({
+      customerDiscoverable: true,
+      title: "First",
+    }),
+  );
+  assert.notEqual(
+    first,
+    createCustomerBiteSaverCatalogGenerationContribution({
+      customerDiscoverable: true,
+      title: "Second",
+    }),
+  );
+
+  const updatedAt = new Date("2026-09-09T12:00:00.000Z");
+  const document = buildCustomerBiteSaverCatalogGenerationShardDocument({
+    shardIndex: 15,
+    generation: 7,
+    updatedAt,
+  });
+  updatedAt.setUTCFullYear(2000);
+  assert.deepEqual(Object.keys(document).sort(), [
+    "generation",
+    "protocolVersion",
+    "shardIndex",
+    "updatedAt",
+  ]);
+  assert.equal(document.updatedAt.toISOString(), "2026-09-09T12:00:00.000Z");
+  assert.equal(readCustomerBiteSaverCatalogGeneration(document, 15), 7);
+  assert.equal(readCustomerBiteSaverCatalogGeneration(null, 0), 0);
+  assert.equal(
+    readCustomerBiteSaverCatalogGeneration({
+      ...document,
+      updatedAt: {toDate: () => new Date("2026-09-09T12:00:00.000Z")},
+    }, 15),
+    7,
+  );
+  for (const malformed of [
+    {...document, shardIndex: 14},
+    {...document, generation: -1},
+    {...document, generation: -0},
+    {...document, generation: Number.MAX_SAFE_INTEGER + 1},
+    {...document, protocolVersion: "wrong"},
+    {...document, updatedAt: "not-a-date"},
+    {...document, extra: true},
+    Object.assign({...document}, {[Symbol("extra")]: true}),
+  ]) {
+    assert.throws(
+      () => readCustomerBiteSaverCatalogGeneration(malformed, 15),
+      /generation document is invalid/u,
+    );
+  }
+  assert.throws(
+    () => buildCustomerBiteSaverCatalogGenerationShardDocument({
+      shardIndex: 16,
+      generation: 0,
+      updatedAt: new Date(),
+    }),
+    /generation document is invalid/u,
+  );
+  assert.throws(
+    () => buildCustomerBiteSaverCatalogGenerationShardDocument({
+      shardIndex: 0,
+      generation: 0,
+      updatedAt: null,
+    }),
+    /generation document is invalid/u,
+  );
 });
 
 test("hardcoded deterministic index-ID fixtures distinguish every source tuple", () => {

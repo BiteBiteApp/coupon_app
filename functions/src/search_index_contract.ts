@@ -1,4 +1,10 @@
 import { createHash } from "node:crypto";
+import {
+  customerBiteSaverCatalogGenerationShardCount,
+  customerBiteSaverGenerationShardForIdentity,
+  customerBiteSaverGenerationShardId,
+  customerBiteSaverSearchProtocolVersion,
+} from "./customer_bitesaver_search_contract.js";
 import { readBiteScoreCatalogRestaurantId } from "./restaurant_invite_helpers.js";
 
 export const searchIndexVersion = "bitestar.search-index.v1" as const;
@@ -16,11 +22,22 @@ export const biteSaverOfferIndexCollection =
   "bitesaver_offer_index" as const;
 export const privateSearchIndexJobCollection =
   "private_search_index_jobs" as const;
+export const customerBiteSaverCatalogGenerationContributionField =
+  "catalogGenerationContribution" as const;
+export const customerBiteSaverCatalogGenerationProtocolVersion =
+  customerBiteSaverSearchProtocolVersion;
 
 export const maximumSearchIndexDocumentBytes = 64 * 1024;
 export const maximumSearchIndexWorkerBatchSize = 100;
 export const maximumPrivateSearchIndexCursorDocumentIdBytes = 1_500;
 export const searchIndexJobLifetimeMilliseconds = 24 * 60 * 60 * 1000;
+
+export const customerBiteSaverCatalogGenerationShardIds = Object.freeze(
+  Array.from(
+    {length: customerBiteSaverCatalogGenerationShardCount},
+    (_, index) => customerBiteSaverGenerationShardId(index),
+  ),
+);
 
 export type SearchIndexEntityKind = "restaurant" | "dish" | "offer";
 export type SearchIndexSourceKind =
@@ -56,11 +73,167 @@ export type SearchIndexJobDocument = Readonly<{
   expiresAt: Date;
 }>;
 
+export type CustomerBiteSaverCatalogIdentity =
+  | Readonly<{
+      entityType: "restaurant";
+      restaurantAccountId: string;
+    }>
+  | Readonly<{
+      entityType: "offer";
+      offerType: "coupon" | "dailySpecial";
+      restaurantAccountId: string;
+      sourceDocumentId: string;
+    }>;
+
+export type CustomerBiteSaverCatalogGenerationShardDocument = Readonly<{
+  protocolVersion: typeof customerBiteSaverCatalogGenerationProtocolVersion;
+  shardIndex: number;
+  generation: number;
+  updatedAt: Date;
+}>;
+
 function requireDocumentId(value: string, label: string): string {
   if (readBiteScoreCatalogRestaurantId(value) !== value) {
     throw new Error(`${label} must be one Firestore document-ID segment.`);
   }
   return value;
+}
+
+export function createCustomerBiteSaverCatalogIdentity(
+  value: CustomerBiteSaverCatalogIdentity,
+): string {
+  const restaurantAccountId = requireDocumentId(
+    value.restaurantAccountId,
+    "BiteSaver catalog restaurant account ID",
+  );
+  if (value.entityType === "restaurant") {
+    return JSON.stringify([
+      customerBiteSaverCatalogGenerationProtocolVersion,
+      "restaurant",
+      restaurantAccountId,
+    ]);
+  }
+  const sourceDocumentId = requireDocumentId(
+    value.sourceDocumentId,
+    "BiteSaver catalog offer source document ID",
+  );
+  return JSON.stringify([
+    customerBiteSaverCatalogGenerationProtocolVersion,
+    "offer",
+    value.offerType,
+    restaurantAccountId,
+    sourceDocumentId,
+  ]);
+}
+
+export function customerBiteSaverCatalogGenerationShard(value: {
+  identity: CustomerBiteSaverCatalogIdentity;
+}): Readonly<{index: number; documentId: string}> {
+  const canonicalIdentity = createCustomerBiteSaverCatalogIdentity(value.identity);
+  const index = customerBiteSaverGenerationShardForIdentity(canonicalIdentity);
+  return Object.freeze({
+    index,
+    documentId: customerBiteSaverGenerationShardId(index),
+  });
+}
+
+export function createCustomerBiteSaverCatalogGenerationContribution(
+  customerProjection: Readonly<Record<string, unknown>> | null,
+): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify([
+        customerBiteSaverCatalogGenerationProtocolVersion,
+        "projectionContribution",
+        customerProjection,
+      ]),
+      "utf8",
+    )
+    .digest("hex");
+}
+
+function generationTimestampIsValid(value: unknown): boolean {
+  if (value instanceof Date) {
+    return Number.isFinite(value.getTime());
+  }
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return false;
+  }
+  const candidate = value as {toDate?: () => unknown};
+  if (typeof candidate.toDate !== "function") {
+    return false;
+  }
+  try {
+    const converted = candidate.toDate();
+    return converted instanceof Date && Number.isFinite(converted.getTime());
+  } catch {
+    return false;
+  }
+}
+
+export function readCustomerBiteSaverCatalogGeneration(
+  value: unknown,
+  expectedShardIndex: number,
+): number {
+  if (
+    !Number.isInteger(expectedShardIndex) ||
+    Object.is(expectedShardIndex, -0) ||
+    expectedShardIndex < 0 ||
+    expectedShardIndex >= customerBiteSaverCatalogGenerationShardCount
+  ) {
+    throw new Error("BiteSaver catalog generation shard is invalid.");
+  }
+  if (value === null || value === undefined) {
+    return 0;
+  }
+  if (typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("BiteSaver catalog generation document is invalid.");
+  }
+  const document = value as Record<string, unknown>;
+  const keys = Reflect.ownKeys(document);
+  if (
+    keys.length !== 4 ||
+    !keys.includes("generation") ||
+    !keys.includes("protocolVersion") ||
+    !keys.includes("shardIndex") ||
+    !keys.includes("updatedAt") ||
+    document.protocolVersion !==
+      customerBiteSaverCatalogGenerationProtocolVersion ||
+    document.shardIndex !== expectedShardIndex ||
+    !Number.isSafeInteger(document.generation) ||
+    Object.is(document.generation, -0) ||
+    (document.generation as number) < 0 ||
+    !generationTimestampIsValid(document.updatedAt)
+  ) {
+    throw new Error("BiteSaver catalog generation document is invalid.");
+  }
+  return document.generation as number;
+}
+
+export function buildCustomerBiteSaverCatalogGenerationShardDocument(value: {
+  shardIndex: number;
+  generation: number;
+  updatedAt: Date;
+}): CustomerBiteSaverCatalogGenerationShardDocument {
+  if (
+    !Number.isInteger(value.shardIndex) ||
+    Object.is(value.shardIndex, -0) ||
+    value.shardIndex < 0 ||
+    value.shardIndex >= customerBiteSaverCatalogGenerationShardCount ||
+    !Number.isSafeInteger(value.generation) ||
+    Object.is(value.generation, -0) ||
+    value.generation < 0 ||
+    !(value.updatedAt instanceof Date) ||
+    !Number.isFinite(value.updatedAt.getTime())
+  ) {
+    throw new Error("BiteSaver catalog generation document is invalid.");
+  }
+  return Object.freeze({
+    protocolVersion: customerBiteSaverCatalogGenerationProtocolVersion,
+    shardIndex: value.shardIndex,
+    generation: value.generation,
+    updatedAt: new Date(value.updatedAt.getTime()),
+  });
 }
 
 function hasWellFormedUtf16(value: string): boolean {

@@ -12,6 +12,8 @@ export const restaurantGeohashField = "geohash";
 // explicit prevents Functions and future import tools from silently drifting.
 export const restaurantGeohashPrecision = 10;
 export const KILOMETERS_PER_MILE = 1.609344;
+export const CUSTOMER_BITESAVER_EARTH_RADIUS_METERS = 6_378_137;
+export const METERS_PER_MILE = 1_609.344;
 export const MAX_RESTAURANT_SEARCH_RADIUS_KM =
   50 * KILOMETERS_PER_MILE;
 
@@ -160,6 +162,86 @@ export function restaurantGeographicQueryBounds(
     [validCenter.latitude, validCenter.longitude],
     radiusKilometers * 1000,
   );
+}
+
+export function mergedRestaurantGeographicQueryBounds(
+  center: RestaurantCoordinates,
+  radiusMiles: number,
+): readonly GeohashRange[] {
+  if (
+    !Number.isFinite(radiusMiles) ||
+    radiusMiles <= 0 ||
+    radiusMiles > 30
+  ) {
+    throw new RangeError("Customer radius is invalid.");
+  }
+  const sorted = restaurantGeographicQueryBounds(
+    center,
+    radiusMiles * KILOMETERS_PER_MILE,
+  )
+    .map(([start, end]): GeohashRange => [start, end])
+    .sort((left, right) =>
+      left[0].localeCompare(right[0]) || left[1].localeCompare(right[1]));
+  const merged: GeohashRange[] = [];
+  for (const range of sorted) {
+    const previous = merged[merged.length - 1];
+    if (previous === undefined || range[0] > previous[1]) {
+      merged.push(range);
+      continue;
+    }
+    if (range[1] > previous[1]) {
+      merged[merged.length - 1] = [previous[0], range[1]];
+    }
+  }
+  if (merged.length > 9) {
+    throw new Error("Customer geographic range count exceeds its bound.");
+  }
+  return Object.freeze(merged);
+}
+
+function degreesToRadians(value: number): number {
+  return value * (Math.PI / 180);
+}
+
+export function exactCustomerBiteSaverDistanceMeters(
+  first: RestaurantCoordinates,
+  second: RestaurantCoordinates,
+): number {
+  const validFirst = validRestaurantCoordinates(
+    first.latitude,
+    first.longitude,
+  );
+  const validSecond = validRestaurantCoordinates(
+    second.latitude,
+    second.longitude,
+  );
+  if (!validFirst || !validSecond) {
+    throw new RangeError("Valid restaurant coordinates are required.");
+  }
+
+  const firstLatitude = degreesToRadians(validFirst.latitude);
+  const secondLatitude = degreesToRadians(validSecond.latitude);
+  const latitudeDelta = secondLatitude - firstLatitude;
+  const longitudeDelta = degreesToRadians(
+    validSecond.longitude - validFirst.longitude,
+  );
+  const latitudeSine = Math.sin(latitudeDelta / 2);
+  const longitudeSine = Math.sin(longitudeDelta / 2);
+  const haversine = latitudeSine * latitudeSine +
+    Math.cos(firstLatitude) * Math.cos(secondLatitude) *
+      longitudeSine * longitudeSine;
+  const centralAngle = 2 * Math.atan2(
+    Math.sqrt(Math.max(0, Math.min(1, haversine))),
+    Math.sqrt(Math.max(0, 1 - haversine)),
+  );
+  return CUSTOMER_BITESAVER_EARTH_RADIUS_METERS * centralAngle;
+}
+
+export function exactCustomerBiteSaverDistanceMiles(
+  first: RestaurantCoordinates,
+  second: RestaurantCoordinates,
+): number {
+  return exactCustomerBiteSaverDistanceMeters(first, second) / METERS_PER_MILE;
 }
 
 export function exactRestaurantDistanceKilometers(

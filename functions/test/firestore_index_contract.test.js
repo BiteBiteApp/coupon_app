@@ -7,6 +7,7 @@ const test = require("node:test");
 
 const repositoryRoot = path.resolve(__dirname, "../..");
 const indexPath = path.join(repositoryRoot, "firestore.indexes.json");
+const firebasePath = path.join(repositoryRoot, "firebase.json");
 
 const ascending = (...fieldPaths) =>
   fieldPaths.map((fieldPath) => ({ fieldPath, order: "ASCENDING" }));
@@ -122,6 +123,39 @@ const REQUIRED_INDEX_CONTRACT = [
       ...ascending("includedInUserPointsDirectory"),
       ...descending("lastContributionAt", "contributionPoints"),
       ...ascending("normalizedUserPointsDisplayName"),
+    ],
+  ),
+
+  // BiteSaver Discovery Stage 1: bounded offer candidate preparation/paging.
+  requiredIndex(
+    "bitesaver-discovery.offer-geographic-preparation",
+    "BITESAVER_STAGE_1",
+    ["functions/src/customer_bitesaver_search_worker.ts"],
+    "bitesaver_offer_index",
+    [
+      ...ascending(
+        "source",
+        "customerOfferProjectionVersion",
+        "customerDiscoverable",
+        "geohash",
+        "indexDocumentId",
+      ),
+    ],
+  ),
+  requiredIndex(
+    "bitesaver-discovery.parent-offer-page",
+    "BITESAVER_STAGE_1",
+    ["functions/src/customer_bitesaver_search_session.ts"],
+    "bitesaver_offer_index",
+    [
+      ...ascending(
+        "source",
+        "customerOfferProjectionVersion",
+        "customerDiscoverable",
+        "restaurantAccountId",
+        "presentationTypeRank",
+      ),
+      ...descending("sourceCreatedAtOrderKey", "sourceDocumentId"),
     ],
   ),
 
@@ -304,6 +338,23 @@ const REQUIRED_INDEX_CONTRACT = [
     ["functions/src/admin_user_directory_maintenance.ts"],
     "duplicate_restaurant_reports",
     [...ascending("reportingUserId"), ...descending("createdAt")],
+  ),
+  requiredIndex(
+    "bitesaver-discovery.ordered-result-page",
+    "BITESAVER_STAGE_1",
+    ["functions/src/customer_bitesaver_search_session.ts"],
+    "private_bitesaver_search_results",
+    [
+      ...ascending(
+        "sessionId",
+        "attemptGeneration",
+        "eligibleAtPreparation",
+        "exactPreferenceRank",
+        "distanceSortMiles",
+        "lowercaseDisplayNameOrderKey",
+        "authoritativeAccountIdOrderKey",
+      ),
+    ],
   ),
   requiredIndex(
     "dish-workflow.active-application-jobs",
@@ -553,6 +604,21 @@ const REQUIRED_INDEX_CONTRACT = [
     ],
   ),
   requiredIndex(
+    "bitesaver-discovery.restaurant-geographic-preparation",
+    "BITESAVER_STAGE_1",
+    ["functions/src/customer_bitesaver_search_worker.ts"],
+    "restaurant_search_index",
+    [
+      ...ascending(
+        "source",
+        "publicProjectionVersion",
+        "publicVisible",
+        "geohash",
+        "sourceDocumentId",
+      ),
+    ],
+  ),
+  requiredIndex(
     "user-directory.feedback-vote-updated",
     "P2",
     ["functions/src/admin_user_directory_maintenance.ts"],
@@ -655,6 +721,28 @@ const AUTOMATIC_INDEX_CONTRACT = [
   },
 ];
 
+const REQUIRED_FIELD_OVERRIDE_CONTRACT = [
+  {
+    collectionGroup: "bitesaver_offer_index",
+    fieldPath: "searchMatchValues",
+    indexes: [],
+  },
+  ...[
+    "private_search_index_jobs",
+    "private_bitesaver_search_active_sessions",
+    "private_bitesaver_guest_offer_checks",
+    "private_bitesaver_search_candidates",
+    "private_bitesaver_search_jobs",
+    "private_bitesaver_search_results",
+    "private_bitesaver_search_sessions",
+  ].map((collectionGroup) => ({
+    collectionGroup,
+    fieldPath: "expiresAt",
+    ttl: true,
+    indexes: [],
+  })),
+];
+
 const loadIndexConfiguration = () =>
   JSON.parse(fs.readFileSync(indexPath, "utf8"));
 
@@ -680,7 +768,10 @@ test("Firestore composite indexes exactly match the current production query con
     "fieldOverrides",
     "indexes",
   ]);
-  assert.deepEqual(configuration.fieldOverrides, []);
+  assert.deepEqual(
+    configuration.fieldOverrides,
+    REQUIRED_FIELD_OVERRIDE_CONTRACT,
+  );
   assert.deepEqual(configuration.indexes, expectedIndexes);
 });
 
@@ -691,7 +782,7 @@ test("Firestore composite index contract is unique, scoped, and structurally val
 
   assert.equal(new Set(signatures).size, signatures.length);
   assert.equal(new Set(contractIds).size, contractIds.length);
-  assert.equal(configuration.indexes.length, 68);
+  assert.equal(configuration.indexes.length, 72);
   assert.equal(
     REQUIRED_INDEX_CONTRACT.filter(({ phase }) => phase === "LEGACY").length,
     2,
@@ -703,6 +794,12 @@ test("Firestore composite index contract is unique, scoped, and structurally val
   assert.equal(
     REQUIRED_INDEX_CONTRACT.filter(({ phase }) => phase === "LATER").length,
     5,
+  );
+  assert.equal(
+    REQUIRED_INDEX_CONTRACT.filter(
+      ({ phase }) => phase === "BITESAVER_STAGE_1",
+    ).length,
+    4,
   );
 
   for (const index of configuration.indexes) {
@@ -732,7 +829,11 @@ test("Firestore composite index contract is unique, scoped, and structurally val
 
 test("every explicit and automatic query contract points to current source", () => {
   for (const contract of REQUIRED_INDEX_CONTRACT) {
-    assert.ok(["LEGACY", "P2", "LATER"].includes(contract.phase));
+    assert.ok(
+      ["LEGACY", "P2", "LATER", "BITESAVER_STAGE_1"].includes(
+        contract.phase,
+      ),
+    );
     if (contract.phase !== "LEGACY") {
       assert.ok(contract.sources.length > 0);
     }
@@ -752,19 +853,63 @@ test("every explicit and automatic query contract points to current source", () 
   }
 });
 
-test("public restaurant projection remains an automatic-index query", () => {
-  const configuration = loadIndexConfiguration();
-  const explicitFieldPaths = new Set(
-    configuration.indexes.flatMap(({ fields }) =>
-      fields.map(({ fieldPath }) => fieldPath),
-    ),
+test("Firestore TTL and single-field exemptions exactly match the BiteSaver contract", () => {
+  const { fieldOverrides } = loadIndexConfiguration();
+  const firebaseConfiguration = JSON.parse(
+    fs.readFileSync(firebasePath, "utf8"),
+  );
+  const signatures = fieldOverrides.map(
+    ({ collectionGroup, fieldPath }) => `${collectionGroup}|${fieldPath}`,
   );
 
-  for (const fieldPath of [
-    "entityType",
-    "publicProjectionVersion",
-    "publicVisible",
-  ]) {
-    assert.equal(explicitFieldPaths.has(fieldPath), false);
+  assert.equal(firebaseConfiguration.firestore.indexes, "firestore.indexes.json");
+  assert.equal(firebaseConfiguration.firestore.rules, "firestore.rules");
+  assert.equal(fieldOverrides.length, 8);
+  assert.equal(new Set(signatures).size, fieldOverrides.length);
+  assert.equal(fieldOverrides.filter(({ ttl }) => ttl === true).length, 7);
+
+  for (const override of fieldOverrides) {
+    assert.deepEqual(override.indexes, []);
+    if (override.fieldPath === "expiresAt") {
+      assert.deepEqual(Object.keys(override).sort(), [
+        "collectionGroup",
+        "fieldPath",
+        "indexes",
+        "ttl",
+      ]);
+      assert.equal(override.ttl, true);
+      assert.ok([
+        "private_search_index_jobs",
+        "private_bitesaver_search_active_sessions",
+        "private_bitesaver_guest_offer_checks",
+        "private_bitesaver_search_candidates",
+        "private_bitesaver_search_jobs",
+        "private_bitesaver_search_results",
+        "private_bitesaver_search_sessions",
+      ].includes(override.collectionGroup));
+    } else {
+      assert.deepEqual(Object.keys(override).sort(), [
+        "collectionGroup",
+        "fieldPath",
+        "indexes",
+      ]);
+      assert.equal(override.collectionGroup, "bitesaver_offer_index");
+      assert.equal(override.fieldPath, "searchMatchValues");
+      assert.equal(Object.hasOwn(override, "ttl"), false);
+    }
+  }
+});
+
+test("legacy public restaurant projection remains an automatic-index query", () => {
+  const configuration = loadIndexConfiguration();
+  const restaurantIndexes = configuration.indexes.filter(
+    ({ collectionGroup }) => collectionGroup === "restaurant_search_index",
+  );
+
+  for (const index of restaurantIndexes) {
+    assert.equal(
+      index.fields.some(({ fieldPath }) => fieldPath === "entityType"),
+      false,
+    );
   }
 });

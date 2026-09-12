@@ -1205,11 +1205,24 @@ test("public restaurant projection lists must constrain all four contract gates"
 
 test("search indexes remain server-written and non-restaurant artifacts stay private", async () => {
   const publicPath = "restaurant_search_index/public-current";
+  const biteSaverPrivateCollections = [
+    "private_bitesaver_search_sessions",
+    "private_bitesaver_search_active_sessions",
+    "private_bitesaver_guest_offer_checks",
+    "private_bitesaver_search_candidates",
+    "private_bitesaver_search_results",
+    "private_bitesaver_search_jobs",
+    "private_bitesaver_catalog_generation_shards",
+  ];
   const privatePaths = [
     "dish_search_index/private-dish",
     "bitesaver_offer_index/private-offer",
     "private_search_index_jobs/private-job",
     "private_search_index_jobs/private-job/steps/private-step",
+    ...biteSaverPrivateCollections.flatMap((collectionName) => [
+      `${collectionName}/private-document`,
+      `${collectionName}/private-document/unknown/private-subpath`,
+    ]),
   ];
   await seedRuleTestDocuments([
     {
@@ -1239,6 +1252,13 @@ test("search indexes remain server-written and non-restaurant artifacts stay pri
     );
     await assertFails(db.doc(publicPath).update({restaurantName: "Forged"}));
     await assertFails(db.doc(publicPath).delete());
+    for (const collectionName of biteSaverPrivateCollections) {
+      await assertFails(
+        db.doc(`${collectionName}/client-created-${actorName}`).set({
+          state: "forged",
+        }),
+      );
+    }
     for (const privatePath of privatePaths) {
       await assertFails(db.doc(privatePath).get());
       await assertFails(db.doc(privatePath).update({state: "forged"}));
@@ -1251,6 +1271,9 @@ test("search indexes remain server-written and non-restaurant artifacts stay pri
     await assertFails(db.collection("dish_search_index").get());
     await assertFails(db.collection("bitesaver_offer_index").get());
     await assertFails(db.collection("private_search_index_jobs").get());
+    for (const collectionName of biteSaverPrivateCollections) {
+      await assertFails(db.collection(collectionName).get());
+    }
   }
 });
 

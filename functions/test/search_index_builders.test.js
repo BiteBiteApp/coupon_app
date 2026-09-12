@@ -2,10 +2,20 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
-const {GeoPoint} = require("firebase-admin/firestore");
+const {GeoPoint, Timestamp} = require("firebase-admin/firestore");
 
 const {
+  customerBiteSaverMatcherVersion,
+  customerBiteSaverNormalizerVersion,
+  dartUtf16FirestoreBytesOrderKey,
+  decodeDartUtf16FirestoreBytesOrderKey,
+} = require("../lib/customer_bitesaver_search_matcher.js");
+const {
+  customerBiteSaverOfferProjectionVersion,
+} = require("../lib/customer_bitesaver_search_contract.js");
+const {
   biteSaverOfferCatalogUpdatedAtField,
+  biteSaverOfferCatalogUpdatedAtOrderKeyField,
   biteSaverRestaurantPublicProjectionVersion,
   biteSaverOfferParentFingerprint,
   biteSaverCatalogBindingAdminState,
@@ -19,11 +29,14 @@ const {
   buildBiteSaverRestaurantIndex,
   buildBiteScoreDishIndex,
   buildBiteScoreRestaurantIndex,
+  customerBiteSaverTimestampOrderKey,
   maximumDishCategoryCombinedSourceBytes,
   maximumDishCategoryInputCount,
   maximumDishCategoryManualKeywordBytes,
   maximumDishCategorySourceCount,
   maximumOfferDescriptionLength,
+  maximumCustomerOfferMultilineLength,
+  maximumCustomerOfferSingleLineLength,
   maximumSearchLocationTextLength,
 } = require("../lib/search_index_builders.js");
 const {
@@ -308,6 +321,9 @@ function dailySpecial(overrides = {}) {
 const offerParentProjectionKeys = Object.freeze([
   "publicVisible",
   "restaurantDisplayName",
+  "city",
+  "zipCode",
+  "restaurantBio",
   "restaurantNormalizedName",
   "restaurantNamePrefixTokens",
   "zip5",
@@ -318,6 +334,11 @@ const offerParentProjectionKeys = Object.freeze([
   "longitude",
   "geohash",
   "restaurantPrimaryImageUrl",
+  "customerDiscoverable",
+  "customerParentEligibilityFingerprint",
+  "searchMatchValues",
+  "searchMatchComplete",
+  "catalogGenerationContribution",
 ]);
 
 function biteSaverOffersForParent(restaurant) {
@@ -499,6 +520,11 @@ test("BiteSaver restaurant projection derives exact visibility and canonical sea
   assert.equal(approved.geohash, geohash);
   assert.equal(approved.publicVisible, true);
   assert.equal(approved.adminDirectoryVisible, true);
+  assert.equal(
+    approved.customerParentEligibilityFingerprint,
+    biteSaverOfferParentFingerprint(biteSaverRestaurant()),
+  );
+  assert.match(approved.catalogGenerationContribution, /^[0-9a-f]{64}$/u);
   assert.equal(approved.streetAddress, "123 Citrus Avenue");
   assert.equal(approved.city, "Crystal River");
   assert.equal(approved.state, "fl");
@@ -530,8 +556,10 @@ test("BiteSaver restaurant projection derives exact visibility and canonical sea
       "adminDirectoryVisible",
       "bio",
       "businessHours",
+      "catalogGenerationContribution",
       "city",
       "cityStateKey",
+      "customerParentEligibilityFingerprint",
       "displayName",
       "entityType",
       "formattedAddress",
@@ -548,6 +576,7 @@ test("BiteSaver restaurant projection derives exact visibility and canonical sea
       "normalizedName",
       "normalizedState",
       "offerCatalogUpdatedAt",
+      "offerCatalogUpdatedAtOrderKey",
       "phone",
       "primaryImageUrl",
       "publicProjectionVersion",
@@ -587,6 +616,11 @@ test("BiteSaver restaurant projection derives exact visibility and canonical sea
     });
     assert.equal(hidden.publicVisible, false, approvalStatus);
     assert.equal(hidden.adminDirectoryVisible, false, approvalStatus);
+    assert.equal(
+      Object.hasOwn(hidden, "customerParentEligibilityFingerprint"),
+      false,
+      approvalStatus,
+    );
   }
 });
 
@@ -1287,6 +1321,12 @@ test("BiteSaver offer catalog signal is a sanitized public-only projection input
     advanced[biteSaverOfferCatalogUpdatedAtField].toISOString(),
     "2026-08-08T15:31:00.000Z",
   );
+  assert.equal(
+    advanced[biteSaverOfferCatalogUpdatedAtOrderKeyField],
+    customerBiteSaverTimestampOrderKey(
+      new Date("2026-08-08T15:31:00.000Z"),
+    ),
+  );
   assert.notEqual(advanced.sourceFingerprint, original.sourceFingerprint);
   assert.equal(rebuilt.sourceFingerprint, advanced.sourceFingerprint);
   assert.equal(
@@ -1312,7 +1352,113 @@ test("BiteSaver offer catalog signal is a sanitized public-only projection input
       Object.hasOwn(malformed, biteSaverOfferCatalogUpdatedAtField),
       false,
     );
+    assert.equal(
+      Object.hasOwn(
+        malformed,
+        biteSaverOfferCatalogUpdatedAtOrderKeyField,
+      ),
+      false,
+    );
     assertCanariesAbsent(malformed);
+  }
+});
+
+test("BiteSaver restaurant catalog keys preserve same-millisecond Timestamp nanos", () => {
+  const seconds = Math.floor(
+    Date.parse("2026-08-08T15:31:00.123Z") / 1_000,
+  );
+  const firstTimestamp = new Timestamp(seconds, 123_000_001);
+  const secondTimestamp = new Timestamp(seconds, 123_000_002);
+  const first = buildBiteSaverRestaurantIndex({
+    sourceDocumentId: "account-offer-nanos",
+    source: biteSaverRestaurant({offerCatalogUpdatedAt: firstTimestamp}),
+    now,
+  });
+  const second = buildBiteSaverRestaurantIndex({
+    sourceDocumentId: "account-offer-nanos",
+    source: biteSaverRestaurant({offerCatalogUpdatedAt: secondTimestamp}),
+    now,
+  });
+
+  assert.equal(
+    first[biteSaverOfferCatalogUpdatedAtField].getTime(),
+    second[biteSaverOfferCatalogUpdatedAtField].getTime(),
+  );
+  assert.equal(
+    first[biteSaverOfferCatalogUpdatedAtOrderKeyField],
+    customerBiteSaverTimestampOrderKey(firstTimestamp),
+  );
+  assert.equal(
+    second[biteSaverOfferCatalogUpdatedAtOrderKeyField],
+    customerBiteSaverTimestampOrderKey(secondTimestamp),
+  );
+  assert.ok(
+    first[biteSaverOfferCatalogUpdatedAtOrderKeyField] <
+      second[biteSaverOfferCatalogUpdatedAtOrderKeyField],
+  );
+  assert.notEqual(first.sourceFingerprint, second.sourceFingerprint);
+});
+
+test("customer offer order keys preserve same-millisecond Timestamp nanos", () => {
+  const seconds = Math.floor(now.getTime() / 1_000);
+  const build = (sourceDocumentId, nanoseconds) =>
+    buildBiteSaverCouponOfferIndex({
+      restaurantAccountId: "account-nanos-order",
+      sourceDocumentId,
+      offer: coupon({
+        createdAt: new Timestamp(seconds, nanoseconds),
+      }),
+      restaurant: biteSaverRestaurant(),
+      now,
+    });
+  const earlier = build("offer-earlier-nanos", 123_456_001);
+  const later = build("offer-later-nanos", 123_456_999);
+
+  assert.equal(earlier.sourceCreatedAt.getTime(), later.sourceCreatedAt.getTime());
+  assert.equal(
+    earlier.sourceCreatedAtOrderKey,
+    customerBiteSaverTimestampOrderKey(
+      new Timestamp(seconds, 123_456_001),
+    ),
+  );
+  assert.ok(earlier.sourceCreatedAtOrderKey < later.sourceCreatedAtOrderKey);
+  assert.notEqual(
+    earlier.catalogGenerationContribution,
+    later.catalogGenerationContribution,
+  );
+});
+
+test("offer parent identity remains reversible and queryable at 1,500 bytes", () => {
+  const accountIds = [
+    "a".repeat(1_500),
+    "\"\\".repeat(750),
+    "\u{1f4be}".repeat(374) + "\u00e9\u00e9",
+  ];
+  for (const [index, accountId] of accountIds.entries()) {
+    assert.equal(Buffer.byteLength(accountId, "utf8"), 1_500);
+    const projection = buildBiteSaverCouponOfferIndex({
+      restaurantAccountId: accountId,
+      sourceDocumentId: `maximum-parent-offer-${index}`,
+      offer: coupon({id: `maximum-parent-offer-${index}`}),
+      restaurant: biteSaverRestaurant(),
+      now,
+    });
+    assert.notEqual(projection, null);
+    assert.equal(projection.restaurantAccountId instanceof Uint8Array, true);
+    assert.equal(projection.restaurantAccountId.byteLength, 1_500);
+    assert.equal(
+      Buffer.from(projection.restaurantAccountId).equals(
+        dartUtf16FirestoreBytesOrderKey(accountId),
+      ),
+      true,
+    );
+    assert.equal(
+      decodeDartUtf16FirestoreBytesOrderKey(
+        projection.restaurantAccountId,
+        1_500,
+      ),
+      accountId,
+    );
   }
 });
 
@@ -3021,6 +3167,40 @@ test("daily-special projection follows active, day, time, and parent visibility"
   assert.equal(showOutsideHours.publicVisible, true);
 });
 
+test("daily-special projection normalizes Dart-compatible legacy weekday names", () => {
+  const legacyNames = [
+    [1, "monday", "mon"],
+    [2, "tuesday", "tue"],
+    [3, "wednesday", "wed"],
+    [4, "thursday", "thu"],
+    [5, "friday", "fri"],
+    [6, "saturday", "sat"],
+    [7, "sunday", "sun"],
+  ];
+  for (const [day, fullName, shortName] of legacyNames) {
+    for (const name of [fullName, shortName]) {
+      const projection = buildBiteSaverDailySpecialOfferIndex({
+        restaurantAccountId: "account-1",
+        sourceDocumentId: `special-legacy-${name}`,
+        offer: dailySpecial({daysOfWeek: [`  ${name.toUpperCase()}  `]}),
+        restaurant: biteSaverRestaurant(),
+        now,
+      });
+      assert.deepEqual(projection.daysOfWeek, [day]);
+      assert.equal(projection.customerDiscoverable, true);
+    }
+  }
+
+  const deduplicated = buildBiteSaverDailySpecialOfferIndex({
+    restaurantAccountId: "account-1",
+    sourceDocumentId: "special-legacy-weekday-deduplication",
+    offer: dailySpecial({daysOfWeek: ["Monday", "mon", " 1 "]}),
+    restaurant: biteSaverRestaurant(),
+    now,
+  });
+  assert.deepEqual(deduplicated.daysOfWeek, [1]);
+});
+
 test("daily-special parent propagation and identity validation are exact", () => {
   const moved = buildBiteSaverDailySpecialOfferIndex({
     restaurantAccountId: "account-1",
@@ -3045,6 +3225,510 @@ test("daily-special parent propagation and identity validation are exact", () =>
     restaurant: biteSaverRestaurant(),
     now,
   }), null);
+});
+
+test("customer offer v2 projections have exact closed coupon and daily fields", () => {
+  const projectedRestaurant = buildBiteSaverRestaurantIndex({
+    sourceDocumentId: "account-1",
+    source: biteSaverRestaurant(),
+    now,
+  });
+  const projectedCoupon = buildBiteSaverCouponOfferIndex({
+    restaurantAccountId: "account-1",
+    sourceDocumentId: "coupon-1",
+    offer: coupon({
+      restaurant: "Stored Restaurant Alias",
+      usageRule: "Once per day",
+      couponCode: "SAVE-20",
+      couponNumber: 47,
+      proximityRadiusMiles: "3",
+    }),
+    restaurant: biteSaverRestaurant(),
+    now,
+  });
+  const projectedDaily = buildBiteSaverDailySpecialOfferIndex({
+    restaurantAccountId: "account-1",
+    sourceDocumentId: "special-1",
+    offer: dailySpecial(),
+    restaurant: biteSaverRestaurant(),
+    now,
+  });
+  assert.notEqual(projectedRestaurant, null);
+
+  assert.equal(projectedCoupon.customerOfferProjectionVersion, customerBiteSaverOfferProjectionVersion);
+  assert.equal(projectedCoupon.customerDiscoverable, true);
+  assert.equal(projectedCoupon.presentationTypeRank, 1);
+  assert.equal(projectedCoupon.customerSearchNormalizerVersion, customerBiteSaverNormalizerVersion);
+  assert.equal(projectedCoupon.customerSearchMatcherVersion, customerBiteSaverMatcherVersion);
+  assert.equal(projectedCoupon.searchMatchComplete, true);
+  assert.deepEqual(projectedCoupon.searchMatchValues, [
+    "bitestar caf",
+    "crystal river",
+    "34428 1234",
+    "family owned fresh every day",
+    "half price entr e",
+    "stored restaurant alias",
+    "once per day",
+    "save 20",
+  ]);
+  assert.equal(projectedCoupon.details, "One entrée per table.");
+  assert.equal(projectedCoupon.couponRestaurantName, "Stored Restaurant Alias");
+  assert.equal(projectedCoupon.usageRule, "Once per day");
+  assert.equal(projectedCoupon.couponCode, "SAVE-20");
+  assert.equal(projectedCoupon.couponNumber, "0047");
+  assert.equal(projectedCoupon.proximityRadiusMiles, 3);
+  assert.equal(projectedCoupon.city, "Crystal River");
+  assert.equal(projectedCoupon.zipCode, "34428-1234");
+  assert.equal(projectedCoupon.restaurantBio, "Family owned.\nFresh every day.");
+  assert.deepEqual(projectedCoupon.createdAt, projectedCoupon.sourceCreatedAt);
+  assert.deepEqual(projectedCoupon.startTime, projectedCoupon.startAt);
+  assert.deepEqual(projectedCoupon.endTime, projectedCoupon.endAt);
+  assert.match(projectedCoupon.customerParentEligibilityFingerprint, /^[0-9a-f]{64}$/u);
+  assert.equal(
+    projectedCoupon.customerParentEligibilityFingerprint,
+    projectedRestaurant.customerParentEligibilityFingerprint,
+  );
+  assert.match(projectedCoupon.catalogGenerationContribution, /^[0-9a-f]{64}$/u);
+  assert.deepEqual(Object.keys(projectedCoupon).sort(), [
+    "adminVisible",
+    "catalogGenerationContribution",
+    "city",
+    "cityStateKey",
+    "couponCode",
+    "couponNumber",
+    "couponRestaurantName",
+    "createdAt",
+    "customerDiscoverable",
+    "customerOfferProjectionVersion",
+    "customerParentEligibilityFingerprint",
+    "customerSearchMatcherVersion",
+    "customerSearchNormalizerVersion",
+    "descriptionSummary",
+    "details",
+    "displayTitle",
+    "endAt",
+    "endTime",
+    "entityType",
+    "explicitActive",
+    "geohash",
+    "indexDocumentId",
+    "indexedAt",
+    "isProximityOnly",
+    "latitude",
+    "location",
+    "longitude",
+    "normalizedCity",
+    "normalizedState",
+    "normalizedTitle",
+    "offerActive",
+    "offerType",
+    "presentationTypeRank",
+    "primaryImageUrl",
+    "proximityRadiusMiles",
+    "publicVisible",
+    "restaurantAccountId",
+    "restaurantBio",
+    "restaurantDisplayName",
+    "restaurantNamePrefixTokens",
+    "restaurantNormalizedName",
+    "restaurantPrimaryImageUrl",
+    "searchIndexVersion",
+    "searchMatchComplete",
+    "searchMatchValues",
+    "source",
+    "sourceCreatedAt",
+    "sourceCreatedAtOrderKey",
+    "sourceDocumentId",
+    "sourceFingerprint",
+    "sourceUpdatedAt",
+    "startAt",
+    "startTime",
+    "titlePrefixTokens",
+    "usageRule",
+    "zip5",
+    "zipCode",
+  ]);
+
+  assert.equal(projectedDaily.customerOfferProjectionVersion, customerBiteSaverOfferProjectionVersion);
+  assert.equal(projectedDaily.customerDiscoverable, true);
+  assert.equal(projectedDaily.presentationTypeRank, 0);
+  assert.equal(projectedDaily.searchMatchComplete, true);
+  assert.deepEqual(projectedDaily.searchMatchValues, [
+    "bitestar caf",
+    "crystal river",
+    "34428 1234",
+    "family owned fresh every day",
+    "chefs daily plate",
+    "available while supplies last",
+  ]);
+  assert.equal(projectedDaily.details, "Available while supplies last.");
+  assert.equal(projectedDaily.availabilityMode, "specificDays");
+  assert.deepEqual(projectedDaily.daysOfWeek, [6]);
+  assert.equal(projectedDaily.allDay, true);
+  assert.equal(projectedDaily.hideWhenUnavailable, true);
+  assert.match(projectedDaily.catalogGenerationContribution, /^[0-9a-f]{64}$/u);
+  assert.equal(
+    projectedDaily.customerParentEligibilityFingerprint,
+    projectedRestaurant.customerParentEligibilityFingerprint,
+  );
+  assert.deepEqual(projectedDaily.createdAt, projectedDaily.sourceCreatedAt);
+  assert.deepEqual(Object.keys(projectedDaily).sort(), [
+    "adminVisible",
+    "allDay",
+    "availabilityMode",
+    "catalogGenerationContribution",
+    "city",
+    "cityStateKey",
+    "createdAt",
+    "customerDiscoverable",
+    "customerOfferProjectionVersion",
+    "customerParentEligibilityFingerprint",
+    "customerSearchMatcherVersion",
+    "customerSearchNormalizerVersion",
+    "daysOfWeek",
+    "descriptionSummary",
+    "details",
+    "displayTitle",
+    "entityType",
+    "explicitActive",
+    "geohash",
+    "hideWhenUnavailable",
+    "indexDocumentId",
+    "indexedAt",
+    "latitude",
+    "location",
+    "longitude",
+    "normalizedCity",
+    "normalizedState",
+    "normalizedTitle",
+    "offerActive",
+    "offerType",
+    "presentationTypeRank",
+    "publicVisible",
+    "restaurantAccountId",
+    "restaurantBio",
+    "restaurantDisplayName",
+    "restaurantNamePrefixTokens",
+    "restaurantNormalizedName",
+    "restaurantPrimaryImageUrl",
+    "searchIndexVersion",
+    "searchMatchComplete",
+    "searchMatchValues",
+    "source",
+    "sourceCreatedAt",
+    "sourceCreatedAtOrderKey",
+    "sourceDocumentId",
+    "sourceFingerprint",
+    "sourceUpdatedAt",
+    "titlePrefixTokens",
+    "zip5",
+    "zipCode",
+  ]);
+});
+
+test("customerDiscoverable is durable, requires createdAt, and fails closed on binding", () => {
+  const customerDiscoverable = (offerOverrides = {}, restaurantOverrides = {}) =>
+    buildBiteSaverCouponOfferIndex({
+      restaurantAccountId: "account-1",
+      sourceDocumentId: "coupon-v2",
+      offer: coupon(offerOverrides),
+      restaurant: biteSaverRestaurant(restaurantOverrides),
+      now,
+    });
+
+  for (const inactive of [
+    customerDiscoverable({isActive: false}),
+    customerDiscoverable({active: false}),
+  ]) {
+    assert.equal(inactive.publicVisible, false);
+    assert.equal(inactive.customerDiscoverable, false);
+    assert.equal(Object.hasOwn(inactive, "presentationTypeRank"), false);
+    assert.equal(Object.hasOwn(inactive, "searchMatchValues"), false);
+    assert.equal(Object.hasOwn(inactive, "catalogGenerationContribution"), false);
+  }
+
+  const missingActiveFields = customerDiscoverable({
+    startTime: new Date(now.getTime() + 60_000),
+  });
+  assert.equal(missingActiveFields.publicVisible, false);
+  assert.equal(missingActiveFields.customerDiscoverable, true);
+
+  const missingCreatedAt = customerDiscoverable({createdAt: null});
+  assert.equal(missingCreatedAt.customerDiscoverable, false);
+
+  const invalidBinding = customerDiscoverable({}, {
+    biteScoreCatalogRestaurantId: "catalog-1",
+  });
+  assert.equal(invalidBinding.customerDiscoverable, false);
+  assert.equal(invalidBinding.publicVisible, true);
+
+  const invalidGeography = customerDiscoverable({}, {geohash: "wrong"});
+  assert.equal(invalidGeography.customerDiscoverable, false);
+  const pendingParent = customerDiscoverable({}, {approvalStatus: "pending"});
+  assert.equal(pendingParent.customerDiscoverable, false);
+});
+
+test("customer offer v2 canonicalizes compatible schedule and card scalars", () => {
+  const timestampWithMicros = (secondIso, nanoseconds) => ({
+    seconds: Date.parse(secondIso) / 1_000,
+    nanoseconds,
+    toDate: () => new Date(Date.parse(secondIso) + Math.floor(nanoseconds / 1e6)),
+  });
+  const startTime = "2026-08-08T15:00:00.000Z";
+  const endTime = Date.parse("2026-08-08T17:00:00.000Z");
+  const projectedCoupon = buildBiteSaverCouponOfferIndex({
+    restaurantAccountId: "account-1",
+    sourceDocumentId: "coupon-compatible-scalars",
+    offer: coupon({
+      startTime,
+      endTime,
+      couponNumber: "00007",
+      isProximityOnly: " TRUE ",
+      proximityRadiusMiles: "1e1",
+    }),
+    restaurant: biteSaverRestaurant(),
+    now,
+  });
+  assert.equal(projectedCoupon.startTime.toISOString(), startTime);
+  assert.equal(projectedCoupon.endTime.getTime(), endTime);
+  assert.equal(projectedCoupon.couponNumber, "0007");
+  assert.equal(projectedCoupon.isProximityOnly, true);
+  assert.equal(projectedCoupon.proximityRadiusMiles, 10);
+
+  const projectedTimestampCoupon = buildBiteSaverCouponOfferIndex({
+    restaurantAccountId: "account-1",
+    sourceDocumentId: "coupon-compatible-timestamp-micros",
+    offer: coupon({
+      startTime: timestampWithMicros(
+        "2026-08-08T15:00:00.000Z",
+        123_999_000,
+      ),
+      endTime: timestampWithMicros(
+        "2026-08-08T17:00:00.000Z",
+        123_999_000,
+      ),
+    }),
+    restaurant: biteSaverRestaurant(),
+    now,
+  });
+  assert.equal(
+    projectedTimestampCoupon.startTime.getTime(),
+    Date.parse("2026-08-08T15:00:00.124Z"),
+  );
+  assert.equal(
+    projectedTimestampCoupon.endTime.getTime(),
+    Date.parse("2026-08-08T17:00:00.123Z"),
+  );
+
+  const legacyExpires = new Date("2026-08-08T18:00:00.000Z");
+  const projectedLegacyCoupon = buildBiteSaverCouponOfferIndex({
+    restaurantAccountId: "account-1",
+    sourceDocumentId: "coupon-compatible-legacy-expiry",
+    offer: coupon({endTime: "not-a-date", expires: legacyExpires}),
+    restaurant: biteSaverRestaurant(),
+    now,
+  });
+  assert.equal(projectedLegacyCoupon.endTime.getTime(), legacyExpires.getTime());
+
+  const expiresAt = "2026-08-08T17:30:00.000Z";
+  const projectedDaily = buildBiteSaverDailySpecialOfferIndex({
+    restaurantAccountId: "account-1",
+    sourceDocumentId: "daily-compatible-scalars",
+    offer: dailySpecial({availabilityMode: "todayOnly", expiresAt}),
+    restaurant: biteSaverRestaurant(),
+    now,
+  });
+  assert.equal(projectedDaily.expiresAt.toISOString(), expiresAt);
+
+  const projectedLegacyDailyBooleans = buildBiteSaverDailySpecialOfferIndex({
+    restaurantAccountId: "account-1",
+    sourceDocumentId: "daily-compatible-booleans",
+    offer: dailySpecial({
+      isActive: " TRUE ",
+      availabilityMode: " specificDays ",
+      daysOfWeek: [6.9, "+6", "06"],
+      allDay: 0,
+      startTime: "23:00",
+      endTime: "23:30",
+      hideWhenUnavailable: 0,
+    }),
+    restaurant: biteSaverRestaurant(),
+    now,
+  });
+  assert.equal(projectedLegacyDailyBooleans.availabilityMode, "specificDays");
+  assert.deepEqual(projectedLegacyDailyBooleans.daysOfWeek, [6]);
+  assert.equal(projectedLegacyDailyBooleans.allDay, false);
+  assert.equal(projectedLegacyDailyBooleans.hideWhenUnavailable, false);
+  assert.equal(projectedLegacyDailyBooleans.customerDiscoverable, true);
+  assert.equal(projectedLegacyDailyBooleans.publicVisible, true);
+
+  const projectedInactiveLegacyDaily = buildBiteSaverDailySpecialOfferIndex({
+    restaurantAccountId: "account-1",
+    sourceDocumentId: "daily-compatible-inactive",
+    offer: dailySpecial({isActive: " FALSE "}),
+    restaurant: biteSaverRestaurant(),
+    now,
+  });
+  assert.equal(projectedInactiveLegacyDaily.customerDiscoverable, false);
+  assert.equal(projectedInactiveLegacyDaily.publicVisible, false);
+
+  const projectedLegacyDaily = buildBiteSaverDailySpecialOfferIndex({
+    restaurantAccountId: "account-1",
+    sourceDocumentId: "daily-compatible-created-at-fallback",
+    offer: dailySpecial({availabilityMode: "todayOnly", expiresAt: null}),
+    restaurant: biteSaverRestaurant(),
+    now,
+  });
+  assert.equal(Object.hasOwn(projectedLegacyDaily, "expiresAt"), false);
+  assert.deepEqual(
+    projectedLegacyDaily.createdAt,
+    projectedLegacyDaily.sourceCreatedAt,
+  );
+
+  const projectedDartCompactCoupon = buildBiteSaverCouponOfferIndex({
+    restaurantAccountId: "account-1",
+    sourceDocumentId: "coupon-dart-compact-local",
+    offer: coupon({startTime: "20260809T120000"}),
+    restaurant: biteSaverRestaurant(),
+    now,
+  });
+  assert.equal(projectedDartCompactCoupon.customerDiscoverable, true);
+  assert.equal(projectedDartCompactCoupon.offerActive, false);
+  assert.equal(projectedDartCompactCoupon.publicVisible, false);
+  assert.equal(Object.hasOwn(projectedDartCompactCoupon, "startAt"), false);
+  assert.equal(projectedDartCompactCoupon.startTime, "20260809T120000");
+
+  const projectedJavascriptOnlyCoupon = buildBiteSaverCouponOfferIndex({
+    restaurantAccountId: "account-1",
+    sourceDocumentId: "coupon-javascript-only-date",
+    offer: coupon({endTime: "12/31/2025", expires: "Expires soon"}),
+    restaurant: biteSaverRestaurant(),
+    now,
+  });
+  assert.equal(projectedJavascriptOnlyCoupon.customerDiscoverable, true);
+  assert.equal(projectedJavascriptOnlyCoupon.offerActive, true);
+  assert.equal(Object.hasOwn(projectedJavascriptOnlyCoupon, "endAt"), false);
+
+  const projectedLocalDaily = buildBiteSaverDailySpecialOfferIndex({
+    restaurantAccountId: "account-1",
+    sourceDocumentId: "daily-dart-local-expiry",
+    offer: dailySpecial({
+      availabilityMode: "todayOnly",
+      expiresAt: "20260808T170000",
+    }),
+    restaurant: biteSaverRestaurant(),
+    now,
+  });
+  assert.equal(projectedLocalDaily.customerDiscoverable, true);
+  assert.equal(projectedLocalDaily.offerActive, false);
+  assert.equal(projectedLocalDaily.publicVisible, false);
+  assert.equal(projectedLocalDaily.expiresAt, "20260808T170000");
+});
+
+test("daily customer discovery is time-independent but explicit inactive remains hidden", () => {
+  const differentWeekday = now.getUTCDay() === 6 ? 5 : 6;
+  for (const offer of [
+    dailySpecial({daysOfWeek: [differentWeekday]}),
+    dailySpecial({allDay: false, startTime: "23:00", endTime: "23:30"}),
+    dailySpecial({availabilityMode: "todayOnly", expiresAt: new Date(now)}),
+  ]) {
+    const projection = buildBiteSaverDailySpecialOfferIndex({
+      restaurantAccountId: "account-1",
+      sourceDocumentId: "special-v2",
+      offer,
+      restaurant: biteSaverRestaurant(),
+      now,
+    });
+    assert.equal(projection.publicVisible, false);
+    assert.equal(projection.customerDiscoverable, true);
+  }
+  const inactive = buildBiteSaverDailySpecialOfferIndex({
+    restaurantAccountId: "account-1",
+    sourceDocumentId: "special-v2",
+    offer: dailySpecial({isActive: false}),
+    restaurant: biteSaverRestaurant(),
+    now,
+  });
+  assert.equal(inactive.customerDiscoverable, false);
+});
+
+test("offer v2 accepts full state names and canonicalizes geography", () => {
+  const southCarolina = {latitude: 32.7765, longitude: -79.9311};
+  const projection = buildBiteSaverCouponOfferIndex({
+    restaurantAccountId: "account-1",
+    sourceDocumentId: "coupon-state",
+    offer: coupon(),
+    restaurant: biteSaverRestaurant({
+      city: "Charleston",
+      state: "South Carolina",
+      zipCode: "29401",
+      ...southCarolina,
+      geohash: canonicalRestaurantGeohash(southCarolina),
+    }),
+    now,
+  });
+  assert.equal(projection.customerDiscoverable, true);
+  assert.equal(projection.normalizedState, "SC");
+  assert.equal(projection.cityStateKey, "SC|charleston");
+});
+
+test("complete matching corpus falls back without truncation above the safe ceiling", () => {
+  const firstDetails = `needle ${"a".repeat(maximumCustomerOfferMultilineLength + 1)}`;
+  const secondDetails = `needle ${"b".repeat(maximumCustomerOfferMultilineLength + 1)}`;
+  const build = (details) => buildBiteSaverDailySpecialOfferIndex({
+    restaurantAccountId: "account-1",
+    sourceDocumentId: "special-large",
+    offer: dailySpecial({details}),
+    restaurant: biteSaverRestaurant(),
+    now,
+  });
+  const first = build(firstDetails);
+  const second = build(secondDetails);
+  assert.equal(first.customerDiscoverable, true);
+  assert.equal(first.searchMatchComplete, false);
+  assert.deepEqual(first.searchMatchValues, []);
+  assert.equal(Object.hasOwn(first, "details"), false);
+  assert.ok(serializedSearchIndexDocumentBytes(first) <= maximumSearchIndexDocumentBytes);
+  assert.notEqual(first.catalogGenerationContribution, second.catalogGenerationContribution);
+
+  const malformed = buildBiteSaverDailySpecialOfferIndex({
+    restaurantAccountId: "account-1",
+    sourceDocumentId: "special-malformed",
+    offer: dailySpecial({details: "bad\ud800details"}),
+    restaurant: biteSaverRestaurant(),
+    now,
+  });
+  assert.equal(malformed.customerDiscoverable, false);
+  assert.equal(Object.hasOwn(malformed, "searchMatchValues"), false);
+});
+
+test("catalog contribution ignores unrelated raw fields and changes for customer inputs", () => {
+  const build = (offerOverrides = {}, restaurantOverrides = {}) =>
+    buildBiteSaverCouponOfferIndex({
+      restaurantAccountId: "account-1",
+      sourceDocumentId: "coupon-generation",
+      offer: coupon(offerOverrides),
+      restaurant: biteSaverRestaurant(restaurantOverrides),
+      now,
+    });
+  const baseline = build();
+  assert.equal(
+    build({moderationNotes: "private unrelated"}).catalogGenerationContribution,
+    baseline.catalogGenerationContribution,
+  );
+  assert.equal(
+    build({}, {offerCatalogUpdatedAt: new Date(now.getTime() + 10_000)})
+      .catalogGenerationContribution,
+    baseline.catalogGenerationContribution,
+  );
+  assert.notEqual(
+    build({title: "Changed title"}).catalogGenerationContribution,
+    baseline.catalogGenerationContribution,
+  );
+  assert.notEqual(
+    build({}, {bio: "Changed searchable bio"}).catalogGenerationContribution,
+    baseline.catalogGenerationContribution,
+  );
 });
 
 test("description truncation is explicit, deterministic, and Unicode-safe", () => {
@@ -3085,9 +3769,10 @@ test("strict builders exclude every sensitive canary from fields and serialized 
   for (const document of documents) {
     assert.notEqual(document, null);
     assertCanariesAbsent(document);
-    assert.equal(JSON.stringify(document).includes("PRIVATE-COUPON-CODE"), false);
     assert.ok(serializedSearchIndexDocumentBytes(document) < maximumSearchIndexDocumentBytes);
   }
+  assert.equal(documents[3].couponCode, "PRIVATE-COUPON-CODE");
+  assert.equal(documents[3].searchMatchValues.includes("private coupon code"), true);
 });
 
 test("BiteSaver restaurant and offer parents share strict display-name selection", () => {
@@ -3515,15 +4200,15 @@ test("BiteSaver offer-parent ZIP fingerprint follows validated alias fallback an
     ).zip5,
     "03440",
   );
-  assertOfferParentTransitionEquivalent(
+  assertOfferParentTransitionChanges(
     leadingZeroZip,
     leadingZeroZipPlus4,
-    "ZIP+4 extension does not change effective zip5",
+    "ZIP+4 extension changes the current Home matching value",
   );
-  assertOfferParentTransitionEquivalent(
+  assertOfferParentTransitionChanges(
     leadingZeroZipPlus4,
     biteSaverRestaurant({zipCode: "03440-9876"}),
-    "ZIP+4-only change does not change effective zip5",
+    "ZIP+4-only change changes the current Home matching value",
   );
 });
 

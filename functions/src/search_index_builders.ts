@@ -3,6 +3,27 @@ import { isIP } from "node:net";
 import { domainToASCII, domainToUnicode } from "node:url";
 import { GeoPoint } from "firebase-admin/firestore";
 import {
+  canonicalCustomerBiteSaverState,
+  customerBiteSaverMaximumIndexedOrderKeyBytes,
+  customerBiteSaverOfferProjectionVersion,
+} from "./customer_bitesaver_search_contract.js";
+import {
+  customerBiteSaverMatcherVersion,
+  customerBiteSaverNormalizerVersion,
+  customerBiteSaverSearchMatchValues,
+  dartUtf16FirestoreBytesOrderKey,
+  hasWellFormedCustomerBiteSaverUtf16,
+} from "./customer_bitesaver_search_matcher.js";
+import {
+  customerBiteSaverDailySpecialAvailabilityMode,
+  normalizeCustomerBiteSaverDailySpecialDays,
+  parseCustomerBiteSaverLegacyDateTimeString,
+  readCustomerBiteSaverCouponBoolean,
+  readCustomerBiteSaverDailySpecialBoolean,
+  readCustomerBiteSaverFiniteDouble,
+  type CustomerBiteSaverLegacyDateTimeStringResult,
+} from "./customer_bitesaver_offer_availability.js";
+import {
   canonicalRestaurantGeohash,
   extractBiteSaverRestaurantCoordinates,
   extractBiteScoreRestaurantCoordinates,
@@ -15,12 +36,13 @@ import {
   maximumWordPrefixTokenCount,
   normalizeCityName,
   normalizeSearchName,
-  normalizeStateCode,
   normalizeZip5,
 } from "./search_normalization.js";
 import {
   biteScoreDishCustomerPublicProjectionVersion,
   biteScoreRestaurantCustomerPublicProjectionVersion,
+  customerBiteSaverCatalogGenerationContributionField,
+  createCustomerBiteSaverCatalogGenerationContribution,
   createSearchIndexDocumentId,
   createSourceFingerprint,
   maximumSearchIndexDocumentBytes,
@@ -136,6 +158,9 @@ export function biteSaverCatalogBindingAdminState(
 }
 
 export const maximumOfferDescriptionLength = 500;
+export const maximumCustomerOfferSingleLineLength = 2_000;
+export const maximumCustomerOfferMultilineLength =
+  maximumSearchIndexDocumentBytes;
 export const maximumPublicUrlLength = 2_048;
 export const maximumDishCategorySourceCount = 32;
 export const maximumDishCategoryInputCount = 128;
@@ -146,10 +171,23 @@ export const biteSaverRestaurantPublicProjectionVersion =
   "bitestar.bitesaver-public-restaurant.v1" as const;
 export const biteSaverOfferCatalogUpdatedAtField =
   "offerCatalogUpdatedAt" as const;
+export const biteSaverOfferCatalogUpdatedAtOrderKeyField =
+  "offerCatalogUpdatedAtOrderKey" as const;
+export const customerBiteSaverOfferSourceCreatedAtOrderKeyField =
+  "sourceCreatedAtOrderKey" as const;
+
+const firestoreTimestampMinimumSeconds = -62_135_596_800;
+const firestoreTimestampMaximumSeconds = 253_402_300_799;
+const firestoreTimestampEpochOffsetSeconds =
+  -firestoreTimestampMinimumSeconds;
+const firestoreTimestampShiftedSecondsWidth = 12;
+const firestoreTimestampNanosecondsWidth = 9;
+const customerBiteSaverTimestampOrderKeyPattern =
+  /^v1:(\d{12}):(\d{9})$/u;
 
 const maximumPublicStreetAddressLength = 200;
 const maximumPublicCityLength = 100;
-const maximumPublicStateLength = 10;
+const maximumPublicStateLength = maximumSearchLocationTextLength;
 const maximumPublicZipCodeLength = 20;
 const maximumPublicPhoneLength = 50;
 const maximumPublicWebsiteLength = 500;
@@ -688,14 +726,20 @@ function biteSaverRestaurantPrimaryImageUrl(
 function biteSaverOfferCatalogProjection(
   data: SearchIndexSourceData,
 ): Readonly<Record<string, unknown>> {
-  const offerCatalogUpdatedAt = readDate(
-    data[biteSaverOfferCatalogUpdatedAtField],
-  );
-  return Object.freeze(
-    offerCatalogUpdatedAt === null
+  const rawMarker = data[biteSaverOfferCatalogUpdatedAtField];
+  const offerCatalogUpdatedAtOrderKey =
+    customerBiteSaverTimestampOrderKey(rawMarker);
+  if (offerCatalogUpdatedAtOrderKey === null) {
+    return Object.freeze({});
+  }
+  const offerCatalogUpdatedAt = readDate(rawMarker);
+  return Object.freeze({
+    ...(offerCatalogUpdatedAt === null
       ? {}
-      : { [biteSaverOfferCatalogUpdatedAtField]: offerCatalogUpdatedAt },
-  );
+      : { [biteSaverOfferCatalogUpdatedAtField]: offerCatalogUpdatedAt }),
+    [biteSaverOfferCatalogUpdatedAtOrderKeyField]:
+      offerCatalogUpdatedAtOrderKey,
+  });
 }
 
 function biteSaverCatalogBindingProjection(
@@ -741,6 +785,199 @@ function readDate(value: unknown): Date | null {
     }
   }
   return null;
+}
+
+function customerBiteSaverTimestampParts(
+  value: unknown,
+): Readonly<{seconds: number; nanoseconds: number}> | null {
+  if (value instanceof Date) {
+    const milliseconds = value.getTime();
+    if (!Number.isFinite(milliseconds)) {
+      return null;
+    }
+    const seconds = Math.floor(milliseconds / 1_000);
+    const nanoseconds = (milliseconds - seconds * 1_000) * 1_000_000;
+    return seconds < firestoreTimestampMinimumSeconds ||
+        seconds > firestoreTimestampMaximumSeconds
+      ? null
+      : Object.freeze({seconds, nanoseconds});
+  }
+  if (value === null || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+  try {
+    const candidate = value as {
+      seconds?: unknown;
+      nanoseconds?: unknown;
+      _seconds?: unknown;
+      _nanoseconds?: unknown;
+      toDate?: () => unknown;
+    };
+    const hasSeconds = candidate.seconds !== undefined;
+    const hasNanoseconds = candidate.nanoseconds !== undefined;
+    if (hasSeconds || hasNanoseconds) {
+      return typeof candidate.seconds === "number" &&
+          Number.isSafeInteger(candidate.seconds) &&
+          candidate.seconds >= firestoreTimestampMinimumSeconds &&
+          candidate.seconds <= firestoreTimestampMaximumSeconds &&
+          typeof candidate.nanoseconds === "number" &&
+          Number.isSafeInteger(candidate.nanoseconds) &&
+          candidate.nanoseconds >= 0 &&
+          candidate.nanoseconds < 1_000_000_000
+        ? Object.freeze({
+            seconds: candidate.seconds,
+            nanoseconds: candidate.nanoseconds,
+          })
+        : null;
+    }
+    const hasPrivateSeconds = candidate._seconds !== undefined;
+    const hasPrivateNanoseconds = candidate._nanoseconds !== undefined;
+    if (hasPrivateSeconds || hasPrivateNanoseconds) {
+      return typeof candidate._seconds === "number" &&
+          Number.isSafeInteger(candidate._seconds) &&
+          candidate._seconds >= firestoreTimestampMinimumSeconds &&
+          candidate._seconds <= firestoreTimestampMaximumSeconds &&
+          typeof candidate._nanoseconds === "number" &&
+          Number.isSafeInteger(candidate._nanoseconds) &&
+          candidate._nanoseconds >= 0 &&
+          candidate._nanoseconds < 1_000_000_000
+        ? Object.freeze({
+            seconds: candidate._seconds,
+            nanoseconds: candidate._nanoseconds,
+          })
+        : null;
+    }
+    if (typeof candidate.toDate !== "function") {
+      return null;
+    }
+    const converted = candidate.toDate();
+    return converted instanceof Date
+      ? customerBiteSaverTimestampParts(converted)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Produces one fixed-width, byte-safe key whose lexical order is the exact
+ * Firestore Timestamp order. Dates retain millisecond precision while native
+ * Firestore Timestamps retain their full nanosecond component.
+ */
+export function customerBiteSaverTimestampOrderKey(
+  value: unknown,
+): string | null {
+  const timestamp = customerBiteSaverTimestampParts(value);
+  if (timestamp === null) {
+    return null;
+  }
+  const shiftedSeconds =
+    timestamp.seconds + firestoreTimestampEpochOffsetSeconds;
+  return "v1:" +
+    shiftedSeconds.toString().padStart(
+      firestoreTimestampShiftedSecondsWidth,
+      "0",
+    ) +
+    ":" +
+    timestamp.nanoseconds.toString().padStart(
+      firestoreTimestampNanosecondsWidth,
+      "0",
+    );
+}
+
+export function isCustomerBiteSaverTimestampOrderKey(
+  value: unknown,
+): value is string {
+  if (typeof value !== "string") {
+    return false;
+  }
+  const match = customerBiteSaverTimestampOrderKeyPattern.exec(value);
+  if (match === null) {
+    return false;
+  }
+  const shiftedSeconds = Number(match[1]);
+  const nanoseconds = Number(match[2]);
+  return shiftedSeconds <=
+      firestoreTimestampMaximumSeconds + firestoreTimestampEpochOffsetSeconds &&
+    nanoseconds < 1_000_000_000;
+}
+
+function readCustomerOfferDate(
+  value: unknown,
+  submillisecondRounding: "floor" | "ceil" = "floor",
+): CustomerBiteSaverLegacyDateTimeStringResult {
+  if (
+    value !== null &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    typeof (value as {toDate?: unknown}).toDate === "function"
+  ) {
+    const parts = customerBiteSaverTimestampParts(value);
+    if (parts !== null) {
+      const microseconds = Math.floor(parts.nanoseconds / 1_000);
+      const millis = parts.seconds * 1_000 +
+        Math.floor(microseconds / 1_000) +
+        (submillisecondRounding === "ceil" && microseconds % 1_000 !== 0
+          ? 1
+          : 0);
+      const rounded = new Date(millis);
+      if (Number.isFinite(rounded.getTime())) {
+        return Object.freeze({kind: "parsed", date: rounded});
+      }
+    }
+  }
+  const timestamp = readDate(value);
+  if (timestamp !== null) {
+    return Object.freeze({kind: "parsed", date: timestamp});
+  }
+  if (typeof value === "number" && Number.isSafeInteger(value)) {
+    const result = new Date(value);
+    return Number.isFinite(result.getTime())
+      ? Object.freeze({kind: "parsed", date: result})
+      : Object.freeze({kind: "invalid", date: null});
+  }
+  if (
+    typeof value === "string" &&
+    value.length <= 100 &&
+    hasWellFormedCustomerBiteSaverUtf16(value)
+  ) {
+    return parseCustomerBiteSaverLegacyDateTimeString(
+      value,
+      undefined,
+      submillisecondRounding,
+    );
+  }
+  if (value !== null && typeof value === "object" && !Array.isArray(value)) {
+    const candidate = value as {toDate?: () => unknown; toMillis?: () => unknown};
+    if (
+      typeof candidate.toDate !== "function" &&
+      typeof candidate.toMillis !== "function"
+    ) {
+      return Object.freeze({kind: "invalid", date: null});
+    }
+    try {
+      const converted = typeof candidate.toDate === "function"
+        ? candidate.toDate()
+        : candidate.toMillis?.();
+      return converted instanceof Date ||
+          typeof converted === "number" ||
+          typeof converted === "string"
+        ? readCustomerOfferDate(converted, submillisecondRounding)
+        : Object.freeze({kind: "invalid", date: null});
+    } catch {
+      return Object.freeze({kind: "invalid", date: null});
+    }
+  }
+  return Object.freeze({kind: "invalid", date: null});
+}
+
+function unresolvedCustomerOfferLocalDateString(
+  value: unknown,
+  parsed: CustomerBiteSaverLegacyDateTimeStringResult,
+): string | null {
+  return parsed.kind === "timeZoneRequired" && typeof value === "string"
+    ? value.trim()
+    : null;
 }
 
 function sourceTimestamps(data: SearchIndexSourceData): Record<string, unknown> {
@@ -814,21 +1051,29 @@ function geographyProjection(
     options.cityFields,
     maximumSearchLocationTextLength,
   );
-  const stateValue = firstBoundedPublicString(data, options.stateFields, 10);
+  const stateValue = firstBoundedPublicString(
+    data,
+    options.stateFields,
+    maximumSearchLocationTextLength,
+  );
   const city = cityValue !== null &&
     Array.from(cityValue).length <= maximumSearchLocationTextLength
     ? cityValue
     : null;
-  const state = stateValue !== null && Array.from(stateValue).length <= 10
+  const state = stateValue !== null &&
+      Array.from(stateValue).length <= maximumSearchLocationTextLength
     ? stateValue
     : null;
   if (city !== null && state !== null) {
-    try {
-      result.normalizedCity = normalizeCityName(city);
-      result.normalizedState = normalizeStateCode(state);
-      result.cityStateKey = buildCityStateKey(city, state);
-    } catch {
-      // City/state search requires both fields to be canonical.
+    const canonicalState = canonicalCustomerBiteSaverState(state);
+    if (canonicalState !== null) {
+      try {
+        result.normalizedCity = normalizeCityName(city);
+        result.normalizedState = canonicalState;
+        result.cityStateKey = buildCityStateKey(city, canonicalState);
+      } catch {
+        // City/state search requires both fields to be canonical.
+      }
     }
   }
 
@@ -1139,11 +1384,74 @@ function parentSubscriptionAllowsOffers(
     biteSaverAdminHiddenAllowsPublic(data);
 }
 
+type CustomerBiteSaverSearchMatchProjection = Readonly<{
+  values: readonly string[];
+  complete: boolean;
+}>;
+
+function customerBiteSaverSearchMatchProjection(
+  values: readonly unknown[],
+): CustomerBiteSaverSearchMatchProjection {
+  for (const value of values) {
+    if (
+      typeof value === "string" &&
+      !hasWellFormedCustomerBiteSaverUtf16(value)
+    ) {
+      return Object.freeze({
+        values: Object.freeze([] as string[]),
+        complete: false,
+      });
+    }
+  }
+  return Object.freeze({
+    // Use the compatibility matcher helper itself so missing optional fields
+    // retain the same empty-string behavior as the current Flutter models.
+    values: customerBiteSaverSearchMatchValues(values),
+    complete: true,
+  });
+}
+
+function customerOfferSingleLine(value: unknown): string | null {
+  return boundedPublicSingleLineString(
+    value,
+    maximumCustomerOfferSingleLineLength,
+  );
+}
+
+function customerOfferDetails(value: unknown): string | null {
+  return boundedPublicMultilineString(
+    value,
+    maximumCustomerOfferMultilineLength,
+  );
+}
+
+function couponNumber(value: unknown): string | null {
+  const text = typeof value === "number" && Number.isSafeInteger(value)
+    ? value.toString()
+    : typeof value === "string"
+      ? value.trim()
+      : "";
+  if (!/^\d+$/u.test(text)) {
+    return null;
+  }
+  const significantDigits = text.replace(/^0+(?=\d)/u, "");
+  if (significantDigits.length > 4) {
+    return null;
+  }
+  const number = Number(significantDigits);
+  return number <= 9_999 ? number.toString().padStart(4, "0") : null;
+}
+
 type BiteSaverOfferParentDescriptor = Readonly<{
   restaurantName: NormalizedNameProjection | null;
+  restaurantCity: string | null;
+  restaurantZipCode: string | null;
   geography: GeographyProjection;
   restaurantPrimaryImageUrl: string | null;
+  restaurantBio: string | null;
+  catalogBindingType: "unbound" | "bound" | "invalid";
   publicOffersAllowed: boolean;
+  customerOffersAllowed: boolean;
 }>;
 
 /**
@@ -1156,11 +1464,26 @@ type BiteSaverOfferParentDescriptor = Readonly<{
 function biteSaverOfferParentDescriptor(
   data: SearchIndexSourceData,
 ): BiteSaverOfferParentDescriptor {
+  const geography = biteSaverGeography(data);
+  const catalogBinding = biteSaverAccountCatalogBindingState(data);
   return Object.freeze({
     restaurantName: biteSaverRestaurantPublicName(data),
-    geography: biteSaverGeography(data),
+    restaurantCity: boundedPublicSingleLineString(
+      data.city,
+      maximumPublicCityLength,
+    ),
+    restaurantZipCode: firstBoundedPublicString(
+      data,
+      ["zipCode", "postalCode", "zip"],
+      maximumPublicZipCodeLength,
+    ),
+    geography,
     restaurantPrimaryImageUrl: biteSaverRestaurantPrimaryImageUrl(data),
+    restaurantBio: boundedPublicMultilineString(data.bio, maximumPublicBioLength),
+    catalogBindingType: catalogBinding.type,
     publicOffersAllowed: parentSubscriptionAllowsOffers(data),
+    customerOffersAllowed:
+      parentSubscriptionAllowsOffers(data) && catalogBinding.type !== "invalid",
   });
 }
 
@@ -1179,6 +1502,12 @@ export function biteSaverOfferParentFingerprint(
     ]);
   }
   const geography = descriptor.geography;
+  const parentSearchMatch = customerBiteSaverSearchMatchProjection([
+    descriptor.restaurantName.displayName,
+    descriptor.restaurantCity,
+    descriptor.restaurantZipCode,
+    descriptor.restaurantBio,
+  ]);
   return createSourceFingerprint([
     "biteSaverOfferParent",
     "present",
@@ -1187,6 +1516,8 @@ export function biteSaverOfferParentFingerprint(
       fingerprintScalar(descriptor.restaurantName.displayName),
     ],
     ["publicOffersAllowed", descriptor.publicOffersAllowed],
+    ["customerOffersAllowed", descriptor.customerOffersAllowed],
+    ["catalogBindingType", descriptor.catalogBindingType],
     ["zip5", fingerprintScalar(geography.zip5 ?? null)],
     ["normalizedCity", fingerprintScalar(geography.normalizedCity ?? null)],
     ["normalizedState", fingerprintScalar(geography.normalizedState ?? null)],
@@ -1198,6 +1529,9 @@ export function biteSaverOfferParentFingerprint(
       "restaurantPrimaryImageUrl",
       fingerprintScalar(descriptor.restaurantPrimaryImageUrl),
     ],
+    ["restaurantBio", fingerprintScalar(descriptor.restaurantBio)],
+    ["searchMatchComplete", parentSearchMatch.complete],
+    ["searchMatchValues", parentSearchMatch.values],
   ]);
 }
 
@@ -1313,6 +1647,80 @@ export function biteScoreDishParentFingerprint(
   ]);
 }
 
+function customerBiteSaverRadiusGeographyIsValid(
+  projection: Readonly<Record<string, unknown>>,
+): boolean {
+  return typeof projection.latitude === "number" &&
+    Number.isFinite(projection.latitude) &&
+    typeof projection.longitude === "number" &&
+    Number.isFinite(projection.longitude) &&
+    typeof projection.geohash === "string" &&
+    projection.geohash.length > 0;
+}
+
+const biteSaverRestaurantCatalogContributionFields = Object.freeze([
+  "publicProjectionVersion",
+  "source",
+  "entityType",
+  "sourceDocumentId",
+  "indexDocumentId",
+  "displayName",
+  "normalizedName",
+  "namePrefixTokens",
+  "zip5",
+  "normalizedCity",
+  "normalizedState",
+  "cityStateKey",
+  "latitude",
+  "longitude",
+  "geohash",
+  "publicVisible",
+  "customerParentEligibilityFingerprint",
+  "streetAddress",
+  "city",
+  "state",
+  "zipCode",
+  "phone",
+  "website",
+  "bio",
+  "primaryImageUrl",
+  "businessHours",
+  "formattedAddress",
+  "menuSourceSide",
+  "linkedBiteScoreRestaurantId",
+  "biteScoreCatalogRestaurantId",
+  "biteSaverCatalogBindingId",
+] as const);
+
+function selectedProjectionFields(
+  source: Readonly<Record<string, unknown>>,
+  keys: readonly string[],
+): Readonly<Record<string, unknown>> {
+  const projection: Record<string, unknown> = {};
+  for (const key of keys) {
+    if (Object.prototype.hasOwnProperty.call(source, key)) {
+      projection[key] = source[key];
+    }
+  }
+  return Object.freeze(projection);
+}
+
+function biteSaverRestaurantCatalogGenerationContribution(
+  draft: Readonly<Record<string, unknown>>,
+): string | null {
+  const discoverable = draft.publicVisible === true &&
+    customerBiteSaverRadiusGeographyIsValid(draft);
+  return discoverable
+    ? createCustomerBiteSaverCatalogGenerationContribution(Object.freeze({
+        customerDiscoverable: true,
+        ...selectedProjectionFields(
+          draft,
+          biteSaverRestaurantCatalogContributionFields,
+        ),
+      }))
+    : null;
+}
+
 export function buildBiteSaverRestaurantIndex(value: {
   sourceDocumentId: string;
   source: SearchIndexSourceData | null;
@@ -1332,7 +1740,7 @@ export function buildBiteSaverRestaurantIndex(value: {
     sourceKind: "biteSaverRestaurant",
     sourceDocumentId: value.sourceDocumentId,
   });
-  return finalizeIndexDocument({
+  const draft = {
     publicProjectionVersion: biteSaverRestaurantPublicProjectionVersion,
     searchIndexVersion,
     entityType: "restaurant",
@@ -1348,6 +1756,28 @@ export function buildBiteSaverRestaurantIndex(value: {
     ...biteSaverPublicProfileProjection(value.source),
     ...biteSaverOfferCatalogProjection(value.source),
     ...biteSaverCatalogBindingProjection(value.source),
+  };
+  const customerParentEligibilityFingerprint =
+    draft.publicVisible === true &&
+      customerBiteSaverRadiusGeographyIsValid(draft)
+      ? biteSaverOfferParentFingerprint(value.source)
+      : null;
+  const customerDraft = {
+    ...draft,
+    ...(customerParentEligibilityFingerprint === null
+      ? {}
+      : {customerParentEligibilityFingerprint}),
+  };
+  const catalogGenerationContribution =
+    biteSaverRestaurantCatalogGenerationContribution(customerDraft);
+  return finalizeIndexDocument({
+    ...customerDraft,
+    ...(catalogGenerationContribution === null
+      ? {}
+      : {
+          [customerBiteSaverCatalogGenerationContributionField]:
+            catalogGenerationContribution,
+        }),
   }, value.now);
 }
 
@@ -1924,6 +2354,124 @@ export function buildBiteScoreDishIndex(value: {
   }, value.now);
 }
 
+const customerBiteSaverOfferContributionFields = Object.freeze([
+  "customerOfferProjectionVersion",
+  "source",
+  "entityType",
+  "offerType",
+  "restaurantAccountId",
+  "sourceDocumentId",
+  "indexDocumentId",
+  "displayTitle",
+  "restaurantDisplayName",
+  "city",
+  "zipCode",
+  "restaurantBio",
+  "zip5",
+  "normalizedCity",
+  "normalizedState",
+  "cityStateKey",
+  "latitude",
+  "longitude",
+  "geohash",
+  "primaryImageUrl",
+  "restaurantPrimaryImageUrl",
+  "sourceCreatedAt",
+  "sourceCreatedAtOrderKey",
+  "createdAt",
+  "customerDiscoverable",
+  "presentationTypeRank",
+  "customerParentEligibilityFingerprint",
+  "customerSearchNormalizerVersion",
+  "customerSearchMatcherVersion",
+  "searchMatchValues",
+  "searchMatchComplete",
+  "details",
+  "couponRestaurantName",
+  "usageRule",
+  "couponCode",
+  "couponNumber",
+  "explicitActive",
+  "startAt",
+  "endAt",
+  "startTime",
+  "endTime",
+  "expiresText",
+  "isProximityOnly",
+  "proximityRadiusMiles",
+  "availabilityMode",
+  "daysOfWeek",
+  "allDay",
+  "hideWhenUnavailable",
+  "expiresAt",
+] as const);
+
+function customerBiteSaverOfferCatalogContribution(value: {
+  mergedProjection: Readonly<Record<string, unknown>>;
+  rawDisplayInputs: readonly unknown[];
+}): string | null {
+  const discoverable = value.mergedProjection.customerDiscoverable === true;
+  return discoverable
+    ? createCustomerBiteSaverCatalogGenerationContribution(Object.freeze({
+        ...selectedProjectionFields(
+          value.mergedProjection,
+          customerBiteSaverOfferContributionFields,
+        ),
+        rawDisplayInputFingerprints: Object.freeze(
+          value.rawDisplayInputs.map(fingerprintScalar),
+        ),
+      }))
+    : null;
+}
+
+function finalizeBiteSaverOfferIndex(value: {
+  base: Readonly<Record<string, unknown>>;
+  customerProjection: Readonly<Record<string, unknown>>;
+  rawDisplayInputs: readonly unknown[];
+  now: Date;
+}): SearchIndexDocument {
+  const mergedProjection = {
+    ...value.base,
+    ...value.customerProjection,
+  };
+  const catalogGenerationContribution =
+    customerBiteSaverOfferCatalogContribution({
+      mergedProjection,
+      rawDisplayInputs: value.rawDisplayInputs,
+    });
+  const completeDraft: Record<string, unknown> = {
+    ...mergedProjection,
+    ...(catalogGenerationContribution === null
+      ? {}
+      : {
+          [customerBiteSaverCatalogGenerationContributionField]:
+            catalogGenerationContribution,
+        }),
+  };
+  try {
+    return finalizeIndexDocument(completeDraft, value.now);
+  } catch {
+    if (mergedProjection.customerDiscoverable !== true) {
+      throw new Error("BiteSaver offer index document is invalid or oversized.");
+    }
+  }
+
+  const withoutLargeDisplay = {...completeDraft};
+  delete withoutLargeDisplay.details;
+  try {
+    return finalizeIndexDocument(withoutLargeDisplay, value.now);
+  } catch {
+    // The exhaustive normalized corpus can itself exceed the private ceiling.
+  }
+
+  const boundedFallback = {
+    ...withoutLargeDisplay,
+    searchMatchValues: Object.freeze([] as string[]),
+    searchMatchComplete: false,
+  };
+  return finalizeIndexDocument(boundedFallback, value.now);
+}
+
 function offerBase(value: {
   offerType: "coupon" | "dailySpecial";
   sourceKind: "biteSaverCoupon" | "biteSaverDailySpecial";
@@ -1939,12 +2487,23 @@ function offerBase(value: {
   }
   const descriptionSummary = boundedDescriptionSummary(value.offer.details);
   const imageUrl = publicUrl(value.offer.imageUrl);
+  const restaurantAccountIdOrderKey =
+    dartUtf16FirestoreBytesOrderKey(value.restaurantAccountId);
+  if (
+    restaurantAccountIdOrderKey.byteLength >
+      customerBiteSaverMaximumIndexedOrderKeyBytes
+  ) {
+    throw new Error("BiteSaver restaurant account ID is too large.");
+  }
   return {
     searchIndexVersion,
     entityType: "offer",
     offerType: value.offerType,
     source: "biteSaver",
-    restaurantAccountId: value.restaurantAccountId,
+    // Firestore rejects a 1,500-byte string as an equality-filter value. The
+    // reversible same-length Bytes key remains queryable at the source-ID
+    // ceiling and preserves the authoritative account identity exactly.
+    restaurantAccountId: restaurantAccountIdOrderKey,
     sourceDocumentId: value.sourceDocumentId,
     indexDocumentId: createSearchIndexDocumentId({
       entityKind: "offer",
@@ -1971,6 +2530,74 @@ function offerBase(value: {
   };
 }
 
+function customerBiteSaverOfferCore(value: {
+  parent: BiteSaverOfferParentDescriptor;
+  parentSource: SearchIndexSourceData;
+  offer: SearchIndexSourceData;
+  presentationTypeRank: 0 | 1;
+  explicitActive: boolean;
+  structurallyValid: boolean;
+  offerSearchValues: readonly unknown[];
+  customerFields: Readonly<Record<string, unknown>>;
+}): Readonly<Record<string, unknown>> {
+  const parentSearchValues = [
+    value.parent.restaurantName?.displayName,
+    value.parent.restaurantCity,
+    value.parent.restaurantZipCode,
+    value.parent.restaurantBio,
+  ];
+  const searchMatch = customerBiteSaverSearchMatchProjection([
+    ...parentSearchValues,
+    ...value.offerSearchValues,
+  ]);
+  const sourceCreatedAt = readDate(value.offer.createdAt);
+  const sourceCreatedAtOrderKey = customerBiteSaverTimestampOrderKey(
+    value.offer.createdAt,
+  );
+  const customerDiscoverable = value.parent.customerOffersAllowed &&
+    customerBiteSaverRadiusGeographyIsValid(value.parent.geography) &&
+    sourceCreatedAt !== null &&
+    sourceCreatedAtOrderKey !== null &&
+    value.explicitActive &&
+    value.structurallyValid &&
+    searchMatch.complete;
+  if (!customerDiscoverable) {
+    return Object.freeze({
+      customerOfferProjectionVersion: customerBiteSaverOfferProjectionVersion,
+      customerDiscoverable: false,
+    });
+  }
+  return Object.freeze({
+    customerOfferProjectionVersion: customerBiteSaverOfferProjectionVersion,
+    customerDiscoverable: true,
+    presentationTypeRank: value.presentationTypeRank,
+    customerParentEligibilityFingerprint:
+      biteSaverOfferParentFingerprint(value.parentSource),
+    customerSearchNormalizerVersion: customerBiteSaverNormalizerVersion,
+    customerSearchMatcherVersion: customerBiteSaverMatcherVersion,
+    searchMatchValues: searchMatch.values,
+    searchMatchComplete: true,
+    sourceCreatedAt,
+    [customerBiteSaverOfferSourceCreatedAtOrderKeyField]:
+      sourceCreatedAtOrderKey,
+    // The centralized availability evaluator also consumes raw-source-shaped
+    // records. Preserve this safe alias for its today-only fallback while the
+    // explicit sourceCreatedAt field remains authoritative for ordering.
+    createdAt: sourceCreatedAt,
+    explicitActive: true,
+    ...(value.parent.restaurantCity === null
+      ? {}
+      : {city: value.parent.restaurantCity}),
+    ...(value.parent.restaurantZipCode === null
+      ? {}
+      : {zipCode: value.parent.restaurantZipCode}),
+    ...(value.parent.restaurantBio === null
+      ? {}
+      : {restaurantBio: value.parent.restaurantBio}),
+    ...value.customerFields,
+  });
+}
+
 export function buildBiteSaverCouponOfferIndex(value: {
   restaurantAccountId: string;
   sourceDocumentId: string;
@@ -1993,13 +2620,55 @@ export function buildBiteSaverCouponOfferIndex(value: {
   if (base === null) {
     return null;
   }
-  const startAt = readDate(value.offer.startTime);
-  const endAt = readDate(value.offer.endTime ?? value.offer.expires);
+  const parsedStartAt = readCustomerOfferDate(value.offer.startTime, "ceil");
+  const parsedStructuredEndAt = readCustomerOfferDate(value.offer.endTime);
+  // Match Coupon.tryFromFirestore: only an invalid structured end falls back to
+  // the legacy expires value. A valid local date still owns the field even
+  // though projection has no customer IANA zone with which to resolve it.
+  const parsedEndAt = parsedStructuredEndAt.kind === "invalid"
+    ? readCustomerOfferDate(value.offer.expires)
+    : parsedStructuredEndAt;
+  const endSource = parsedStructuredEndAt.kind === "invalid"
+    ? value.offer.expires
+    : value.offer.endTime;
+  const startAt = parsedStartAt.kind === "parsed" ? parsedStartAt.date : null;
+  const endAt = parsedEndAt.kind === "parsed" ? parsedEndAt.date : null;
+  const projectedStartTime = startAt ??
+    unresolvedCustomerOfferLocalDateString(
+      value.offer.startTime,
+      parsedStartAt,
+    );
+  const projectedEndTime = endAt ??
+    unresolvedCustomerOfferLocalDateString(endSource, parsedEndAt);
+  const scheduleNeedsTimeZone =
+    parsedStartAt.kind === "timeZoneRequired" ||
+    parsedEndAt.kind === "timeZoneRequired";
   const explicitActive = value.offer.isActive !== false && value.offer.active !== false;
-  const scheduleActive = (startAt === null || value.now >= startAt) &&
+  // Projection cannot safely interpret a Dart local timestamp without the
+  // request's IANA zone. Keep it discoverable for live evaluation but do not
+  // mark it public-visible using the Functions host timezone.
+  const scheduleActive = !scheduleNeedsTimeZone &&
+    (startAt === null || value.now >= startAt) &&
     (endAt === null || value.now <= endAt);
   const offerActive = explicitActive && scheduleActive;
-  return finalizeIndexDocument({
+  const rawUsageRule = typeof value.offer.usageRule === "string" &&
+      value.offer.usageRule.trim().length > 0
+    ? value.offer.usageRule
+    : "Once per customer";
+  const usageRule = customerOfferSingleLine(rawUsageRule);
+  const details = customerOfferDetails(value.offer.details);
+  const couponRestaurantName = customerOfferSingleLine(value.offer.restaurant);
+  const safeCouponCode = customerOfferSingleLine(value.offer.couponCode);
+  const safeCouponNumber = couponNumber(value.offer.couponNumber);
+  const expiresText = typeof value.offer.expires === "string"
+    ? customerOfferSingleLine(value.offer.expires)
+    : null;
+  const proximityRadiusMiles = readCustomerBiteSaverFiniteDouble(
+    value.offer.proximityRadiusMiles,
+  );
+  const isProximityOnly =
+    readCustomerBiteSaverCouponBoolean(value.offer.isProximityOnly) ?? false;
+  const baseDocument = {
     ...base,
     publicVisible:
       parent.publicOffersAllowed && offerActive,
@@ -2007,29 +2676,60 @@ export function buildBiteSaverCouponOfferIndex(value: {
     offerActive,
     ...(startAt === null ? {} : { startAt }),
     ...(endAt === null ? {} : { endAt }),
-    isProximityOnly: value.offer.isProximityOnly === true,
-  }, value.now);
+    isProximityOnly,
+  };
+  const customerProjection = customerBiteSaverOfferCore({
+    parent,
+    parentSource: value.restaurant,
+    offer: value.offer,
+    presentationTypeRank: 1,
+    explicitActive,
+    structurallyValid: usageRule !== null,
+    offerSearchValues: [
+      value.offer.title,
+      value.offer.restaurant,
+      rawUsageRule,
+      value.offer.couponCode,
+    ],
+    customerFields: Object.freeze({
+      ...(details === null ? {} : {details}),
+      ...(couponRestaurantName === null ? {} : {couponRestaurantName}),
+      ...(usageRule === null ? {} : {usageRule}),
+      ...(safeCouponCode === null ? {} : {couponCode: safeCouponCode}),
+      ...(safeCouponNumber === null ? {} : {couponNumber: safeCouponNumber}),
+      ...(startAt === null ? {} : {startAt}),
+      ...(endAt === null ? {} : {endAt}),
+      // Keep the v1 aliases above and expose the raw-source-shaped names used
+      // by the shared current-offer evaluator.
+      ...(projectedStartTime === null
+        ? {}
+        : {startTime: projectedStartTime}),
+      ...(projectedEndTime === null ? {} : {endTime: projectedEndTime}),
+      ...(expiresText === null ? {} : {expiresText}),
+      isProximityOnly,
+      ...(proximityRadiusMiles === null ? {} : {proximityRadiusMiles}),
+    }),
+  });
+  return finalizeBiteSaverOfferIndex({
+    base: baseDocument,
+    customerProjection,
+    rawDisplayInputs: [
+      value.offer.title,
+      value.offer.restaurant,
+      rawUsageRule,
+      value.offer.couponCode,
+      value.offer.couponNumber,
+      value.offer.details,
+      value.offer.expires,
+      value.offer.isProximityOnly,
+      value.offer.proximityRadiusMiles,
+    ],
+    now: value.now,
+  });
 }
 
 function normalizedDays(value: unknown): readonly number[] {
-  if (!Array.isArray(value)) {
-    return Object.freeze([]);
-  }
-  const days = new Set<number>();
-  for (const entry of value) {
-    const day = typeof entry === "number"
-      ? entry
-      : typeof entry === "string"
-        ? Number(entry.trim())
-        : Number.NaN;
-    if (Number.isInteger(day) && day >= 1 && day <= 7) {
-      days.add(day);
-      if (days.size === 7) {
-        break;
-      }
-    }
-  }
-  return Object.freeze([...days].sort((first, second) => first - second));
+  return normalizeCustomerBiteSaverDailySpecialDays(value);
 }
 
 function normalizedTime(value: unknown): string | null {
@@ -2066,32 +2766,51 @@ function dailySpecialSchedule(value: {
   startTime: string | null;
   endTime: string | null;
   hideWhenUnavailable: boolean;
-  expiresAt: Date | null;
+  expiresAt: Date | string | null;
   offerActive: boolean;
 } {
-  const availabilityMode = value.offer.availabilityMode === "specificDays"
-    ? "specificDays"
-    : "todayOnly";
+  const availabilityMode = customerBiteSaverDailySpecialAvailabilityMode(
+    value.offer.availabilityMode,
+  );
   const daysOfWeek = normalizedDays(value.offer.daysOfWeek);
-  const allDay = value.offer.allDay !== false;
+  const allDay =
+    readCustomerBiteSaverDailySpecialBoolean(value.offer.allDay) ?? true;
   const startTime = allDay ? null : normalizedTime(value.offer.startTime);
   const endTime = allDay ? null : normalizedTime(value.offer.endTime);
-  const hideWhenUnavailable = value.offer.hideWhenUnavailable !== false;
-  let expiresAt = readDate(value.offer.expiresAt);
-  if (availabilityMode === "todayOnly" && expiresAt === null) {
+  const hideWhenUnavailable =
+    readCustomerBiteSaverDailySpecialBoolean(
+      value.offer.hideWhenUnavailable,
+    ) ?? true;
+  const parsedExpiresAt = readCustomerOfferDate(value.offer.expiresAt, "ceil");
+  const expiresAt = parsedExpiresAt.kind === "parsed"
+    ? parsedExpiresAt.date
+    : null;
+  const projectedExpiresAt = expiresAt ??
+    unresolvedCustomerOfferLocalDateString(
+      value.offer.expiresAt,
+      parsedExpiresAt,
+    );
+  let effectiveExpiresAt = expiresAt;
+  if (
+    availabilityMode === "todayOnly" &&
+    effectiveExpiresAt === null &&
+    parsedExpiresAt.kind === "invalid"
+  ) {
     const basis = readDate(value.offer.createdAt) ?? readDate(value.offer.updatedAt);
     if (basis !== null) {
-      expiresAt = new Date(
+      effectiveExpiresAt = new Date(
         basis.getFullYear(),
         basis.getMonth(),
         basis.getDate() + 1,
       );
     }
   }
-  const active = value.offer.isActive !== false;
-  const notExpired = availabilityMode !== "todayOnly" ||
-    expiresAt === null ||
-    value.now < expiresAt;
+  const active =
+    readCustomerBiteSaverDailySpecialBoolean(value.offer.isActive) ?? true;
+  const notExpired = parsedExpiresAt.kind !== "timeZoneRequired" &&
+    (availabilityMode !== "todayOnly" ||
+    effectiveExpiresAt === null ||
+    value.now < effectiveExpiresAt);
   const weekday = value.now.getDay() === 0 ? 7 : value.now.getDay();
   const scheduledToday = availabilityMode === "todayOnly" ||
     daysOfWeek.includes(weekday);
@@ -2114,7 +2833,7 @@ function dailySpecialSchedule(value: {
     startTime,
     endTime,
     hideWhenUnavailable,
-    expiresAt,
+    expiresAt: projectedExpiresAt,
     offerActive,
   };
 }
@@ -2151,7 +2870,10 @@ export function buildBiteSaverDailySpecialOfferIndex(value: {
     return null;
   }
   const schedule = dailySpecialSchedule({ offer: value.offer, now: value.now });
-  return finalizeIndexDocument({
+  const explicitActive =
+    readCustomerBiteSaverDailySpecialBoolean(value.offer.isActive) ?? true;
+  const details = customerOfferDetails(value.offer.details);
+  const baseDocument = {
     ...base,
     publicVisible:
       parent.publicOffersAllowed &&
@@ -2165,5 +2887,40 @@ export function buildBiteSaverDailySpecialOfferIndex(value: {
     ...(schedule.endTime === null ? {} : { endTime: schedule.endTime }),
     hideWhenUnavailable: schedule.hideWhenUnavailable,
     ...(schedule.expiresAt === null ? {} : { expiresAt: schedule.expiresAt }),
-  }, value.now);
+  };
+  const customerProjection = customerBiteSaverOfferCore({
+    parent,
+    parentSource: value.restaurant,
+    offer: value.offer,
+    presentationTypeRank: 0,
+    explicitActive,
+    structurallyValid: true,
+    offerSearchValues: [value.offer.title, value.offer.details],
+    customerFields: Object.freeze({
+      ...(details === null ? {} : {details}),
+      availabilityMode: schedule.availabilityMode,
+      daysOfWeek: schedule.daysOfWeek,
+      allDay: schedule.allDay,
+      ...(schedule.startTime === null ? {} : {startTime: schedule.startTime}),
+      ...(schedule.endTime === null ? {} : {endTime: schedule.endTime}),
+      hideWhenUnavailable: schedule.hideWhenUnavailable,
+      ...(schedule.expiresAt === null ? {} : {expiresAt: schedule.expiresAt}),
+    }),
+  });
+  return finalizeBiteSaverOfferIndex({
+    base: baseDocument,
+    customerProjection,
+    rawDisplayInputs: [
+      value.offer.title,
+      value.offer.details,
+      value.offer.availabilityMode,
+      value.offer.daysOfWeek,
+      value.offer.allDay,
+      value.offer.startTime,
+      value.offer.endTime,
+      value.offer.hideWhenUnavailable,
+      value.offer.expiresAt,
+    ],
+    now: value.now,
+  });
 }

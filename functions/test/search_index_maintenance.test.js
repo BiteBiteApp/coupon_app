@@ -28,7 +28,11 @@ const {
   buildBiteSaverDailySpecialOfferIndex,
 } = require("../lib/search_index_builders.js");
 const {
+  privateCustomerBiteSaverCatalogGenerationCollection,
+} = require("../lib/customer_bitesaver_search_contract.js");
+const {
   buildSearchIndexJobDocument,
+  customerBiteSaverCatalogGenerationShard,
   createSearchIndexDocumentId,
   createSearchIndexJobId,
   createSearchIndexSourceOccurrenceId,
@@ -41,15 +45,34 @@ const {
 const {
   canonicalRestaurantGeohash,
 } = require("../lib/restaurant_geo_helpers.js");
+const {
+  dartUtf16FirestoreBytesOrderKey,
+  decodeDartUtf16FirestoreBytesOrderKey,
+} = require("../lib/customer_bitesaver_search_matcher.js");
 
 const now = new Date("2026-08-08T16:00:00.000Z");
 const coordinates = {latitude: 28.8517, longitude: -82.487};
 const geohash = canonicalRestaurantGeohash(coordinates);
 
+function catalogGenerationPath(identity) {
+  const shard = customerBiteSaverCatalogGenerationShard({identity});
+  return {
+    ...shard,
+    path: `${privateCustomerBiteSaverCatalogGenerationCollection}/${shard.documentId}`,
+  };
+}
+
 function compareFirestoreDocumentIds(first, second) {
   return new ResourcePath("fake-query", first).compareTo(
     new ResourcePath("fake-query", second),
   );
+}
+
+function sameFirestoreQueryValue(first, second) {
+  if (first instanceof Uint8Array && second instanceof Uint8Array) {
+    return Buffer.from(first).equals(Buffer.from(second));
+  }
+  return first === second;
 }
 
 class FakeSearchIndexDatabase {
@@ -100,20 +123,6 @@ class FakeSearchIndexDatabase {
     this.records.set(path, {...(this.records.get(path) ?? {}), ...data});
   }
 
-  async updateExistingDocumentServerTimestamp(path, field) {
-    this.operations.push({operation: "serverTimestamp", path, field});
-    if (!this.records.has(path)) {
-      const error = new Error("missing-document");
-      error.code = 5;
-      throw error;
-    }
-    this.nextServerTimestampMilliseconds += 1;
-    this.records.set(path, {
-      ...this.records.get(path),
-      [field]: new Date(this.nextServerTimestampMilliseconds),
-    });
-  }
-
   async queryDocuments(query) {
     this.operations.push({operation: "query", query});
     const prefix = `${query.collectionPath}/`;
@@ -122,7 +131,10 @@ class FakeSearchIndexDatabase {
       .filter(([path]) => path.startsWith(prefix) && path.split("/").length === expectedSegments)
       .map(([path, data]) => ({id: path.slice(prefix.length), data}))
       .filter((document) => query.where === undefined ||
-        document.data[query.where.field] === query.where.value)
+        sameFirestoreQueryValue(
+          document.data[query.where.field],
+          query.where.value,
+        ))
       .sort((first, second) =>
         compareFirestoreDocumentIds(first.id, second.id));
     if (query.afterDocumentId !== undefined && query.afterDocumentId !== null) {
@@ -153,12 +165,16 @@ class FakeSearchIndexDatabase {
         deleteDocument: (path) => {
           writes.push({operation: "delete", path});
         },
+        updateExistingDocumentServerTimestamp: (path, field) => {
+          writes.push({operation: "serverTimestamp", path, field});
+        },
       };
       const result = await operation(transaction);
       this.transactionAttempts.push({
         attempt,
         readPaths: [...reads.keys()],
         writeCount: writes.length,
+        writes: writes.map((write) => ({...write})),
       });
       if (this.beforeTransactionCommitHook !== null) {
         await this.beforeTransactionCommitHook({attempt, reads, writes}, this);
@@ -169,8 +185,20 @@ class FakeSearchIndexDatabase {
       for (const write of writes) {
         if (write.operation === "set") {
           await this.setDocument(write.path, write.data);
-        } else {
+        } else if (write.operation === "delete") {
           await this.deleteDocument(write.path);
+        } else {
+          this.operations.push({...write});
+          if (!this.records.has(write.path)) {
+            const error = new Error("missing-document");
+            error.code = 5;
+            throw error;
+          }
+          this.nextServerTimestampMilliseconds += 1;
+          this.records.set(write.path, {
+            ...this.records.get(write.path),
+            [write.field]: new Date(this.nextServerTimestampMilliseconds),
+          });
         }
       }
       return result;
@@ -328,7 +356,14 @@ test("direct create and duplicate delivery produce one identical restaurant inde
   const sets = database.operations.filter((entry) =>
     entry.operation === "set" && entry.path.startsWith("restaurant_search_index/"));
   assert.equal(sets.length, 1);
-  assert.equal(database.records.size, 2);
+  assert.equal(database.records.size, 3);
+  const generation = catalogGenerationPath({
+    entityType: "restaurant",
+    restaurantAccountId: "account-1",
+  });
+  assert.equal(database.records.get(generation.path).generation, 1);
+  assert.ok(database.transactionAttempts.some((attempt) =>
+    attempt.readPaths.includes(generation.path) && attempt.writeCount === 2));
 });
 
 test("update overwrites the same deterministic restaurant index", async () => {
@@ -892,6 +927,466 @@ test("offer direct write and source delete reconcile one deterministic index", a
   assert.equal(database.records.has(path), false);
 });
 
+test("maximum-byte offer parent identity survives indexing and cleanup queries", async () => {
+  const restaurantAccountId = "\u{1f4be}".repeat(374) + "\u00e9\u00e9";
+  const couponId = "maximum-parent-coupon";
+  const parentPath = `restaurant_accounts/${restaurantAccountId}`;
+  const childPath = `${parentPath}/coupons/${couponId}`;
+  assert.equal(Buffer.byteLength(restaurantAccountId, "utf8"), 1_500);
+  const parent = biteSaverRestaurant({restaurantName: "Maximum Parent"});
+  const database = new FakeSearchIndexDatabase({
+    [parentPath]: parent,
+    [childPath]: coupon(couponId),
+  });
+  await reconcileBiteSaverCouponOfferIndex(
+    database,
+    restaurantAccountId,
+    couponId,
+    now,
+  );
+  const indexId = createSearchIndexDocumentId({
+    entityKind: "offer",
+    sourceKind: "biteSaverCoupon",
+    parentSourceDocumentId: restaurantAccountId,
+    sourceDocumentId: couponId,
+  });
+  const indexPath = `bitesaver_offer_index/${indexId}`;
+  const indexed = database.records.get(indexPath);
+  assert.equal(indexed.restaurantAccountId instanceof Uint8Array, true);
+  assert.equal(indexed.restaurantAccountId.byteLength, 1_500);
+  assert.equal(
+    decodeDartUtf16FirestoreBytesOrderKey(
+      indexed.restaurantAccountId,
+      1_500,
+    ),
+    restaurantAccountId,
+  );
+
+  database.records.delete(parentPath);
+  const sourceEventId = "maximum-parent-delete-event";
+  await handleBiteSaverRestaurantWrite(database, {
+    restaurantAccountId,
+    before: parent,
+    after: null,
+    sourceEventId,
+    now,
+  });
+  const jobId = createSearchIndexJobId({
+    jobKind: "biteSaverOffers",
+    parentSource: "biteSaver",
+    parentSourceDocumentId: restaurantAccountId,
+    requestedSourceFingerprint: biteSaverOfferParentFingerprint(null),
+    sourceOccurrenceId: createSearchIndexSourceOccurrenceId(sourceEventId),
+    continuationCursor: null,
+  });
+  assert.deepEqual(
+    await processSearchIndexJob(database, jobId, now),
+    {processedCount: 1, continuationCursor: null},
+  );
+  assert.equal(database.records.has(indexPath), false);
+});
+
+test("offer trigger commits projection, generation, and parent catalog marker together", async () => {
+  const restaurantAccountId = "account-atomic";
+  const couponId = "coupon-atomic";
+  const parentPath = `restaurant_accounts/${restaurantAccountId}`;
+  const childPath = `${parentPath}/coupons/${couponId}`;
+  const indexPath = `bitesaver_offer_index/${createSearchIndexDocumentId({
+    entityKind: "offer",
+    sourceKind: "biteSaverCoupon",
+    parentSourceDocumentId: restaurantAccountId,
+    sourceDocumentId: couponId,
+  })}`;
+  const generation = catalogGenerationPath({
+    entityType: "offer",
+    offerType: "coupon",
+    restaurantAccountId,
+    sourceDocumentId: couponId,
+  });
+  const database = new FakeSearchIndexDatabase({
+    [parentPath]: biteSaverRestaurant(),
+    [childPath]: coupon(couponId, {
+      createdAt: new Date("2026-08-01T00:00:00.000Z"),
+    }),
+  });
+
+  await handleBiteSaverCouponOfferWrite(database, {
+    restaurantAccountId,
+    couponId,
+    now,
+  });
+
+  assert.equal(database.transactionAttempts.length, 1);
+  assert.deepEqual(
+    database.transactionAttempts[0].writes.map((write) => ({
+      operation: write.operation,
+      path: write.path,
+      ...(write.field === undefined ? {} : {field: write.field}),
+    })),
+    [
+      {operation: "set", path: indexPath},
+      {operation: "set", path: generation.path},
+      {
+        operation: "serverTimestamp",
+        path: parentPath,
+        field: biteSaverOfferCatalogUpdatedAtField,
+      },
+    ],
+  );
+  assert.equal(database.transactionAttempts[0].writeCount, 3);
+  assert.equal(database.records.has(indexPath), true);
+  assert.equal(database.records.get(generation.path).generation, 1);
+  assert.ok(
+    database.records.get(parentPath)[biteSaverOfferCatalogUpdatedAtField] instanceof Date,
+  );
+  assert.equal(
+    database.operations.filter((entry) => entry.operation === "serverTimestamp").length,
+    1,
+  );
+});
+
+test("unrelated private offer writes do not advance generation or parent marker", async () => {
+  const restaurantAccountId = "account-unrelated-offer";
+  const couponId = "coupon-unrelated-offer";
+  const parentPath = `restaurant_accounts/${restaurantAccountId}`;
+  const childPath = `${parentPath}/coupons/${couponId}`;
+  const generation = catalogGenerationPath({
+    entityType: "offer",
+    offerType: "coupon",
+    restaurantAccountId,
+    sourceDocumentId: couponId,
+  });
+  const initialCoupon = coupon(couponId, {
+    createdAt: new Date("2026-08-01T00:00:00.000Z"),
+  });
+  const database = new FakeSearchIndexDatabase({
+    [parentPath]: biteSaverRestaurant(),
+    [childPath]: initialCoupon,
+  });
+
+  await handleBiteSaverCouponOfferWrite(database, {
+    restaurantAccountId,
+    couponId,
+    now,
+  });
+  const initialMarker =
+    database.records.get(parentPath)[biteSaverOfferCatalogUpdatedAtField];
+  assert.ok(initialMarker instanceof Date);
+  assert.equal(database.records.get(generation.path).generation, 1);
+
+  database.records.set(childPath, {
+    ...initialCoupon,
+    moderationNotes: "unrelated private canary",
+  });
+  database.operations.length = 0;
+  await handleBiteSaverCouponOfferWrite(database, {
+    restaurantAccountId,
+    couponId,
+    now: new Date(now.getTime() + 1_000),
+  });
+
+  assert.equal(
+    database.records.get(parentPath)[biteSaverOfferCatalogUpdatedAtField]
+      .getTime(),
+    initialMarker.getTime(),
+  );
+  assert.equal(database.records.get(generation.path).generation, 1);
+  assert.equal(
+    database.operations.some((entry) => entry.operation === "serverTimestamp"),
+    false,
+  );
+
+  database.records.set(childPath, {
+    ...initialCoupon,
+    title: "Customer-visible title change",
+  });
+  database.operations.length = 0;
+  await handleBiteSaverCouponOfferWrite(database, {
+    restaurantAccountId,
+    couponId,
+    now: new Date(now.getTime() + 2_000),
+  });
+  assert.equal(database.records.get(generation.path).generation, 2);
+  assert.ok(
+    database.records.get(parentPath)[biteSaverOfferCatalogUpdatedAtField] >
+      initialMarker,
+  );
+  assert.equal(
+    database.operations.filter((entry) => entry.operation === "serverTimestamp")
+      .length,
+    1,
+  );
+});
+
+test("eligible offer projection mutations bump one deterministic shard exactly once", async () => {
+  const identity = {
+    entityType: "offer",
+    offerType: "coupon",
+    restaurantAccountId: "account-1",
+    sourceDocumentId: "coupon-generation",
+  };
+  const generation = catalogGenerationPath(identity);
+  const sourcePath =
+    "restaurant_accounts/account-1/coupons/coupon-generation";
+  const database = new FakeSearchIndexDatabase({
+    "restaurant_accounts/account-1": biteSaverRestaurant(),
+    [sourcePath]: coupon("coupon-generation", {
+      createdAt: new Date("2026-08-01T00:00:00.000Z"),
+    }),
+  });
+
+  await reconcileBiteSaverCouponOfferIndex(
+    database,
+    "account-1",
+    "coupon-generation",
+    now,
+  );
+  assert.deepEqual(database.records.get(generation.path), {
+    protocolVersion: "bitestar.customer-bitesaver-search.v1",
+    shardIndex: generation.index,
+    generation: 1,
+    updatedAt: now,
+  });
+
+  await reconcileBiteSaverCouponOfferIndex(
+    database,
+    "account-1",
+    "coupon-generation",
+    now,
+  );
+  assert.equal(database.records.get(generation.path).generation, 1);
+
+  database.records.set(sourcePath, coupon("coupon-generation", {
+    createdAt: new Date("2026-08-01T00:00:00.000Z"),
+    moderationNotes: "unrelated private edit",
+  }));
+  await reconcileBiteSaverCouponOfferIndex(
+    database,
+    "account-1",
+    "coupon-generation",
+    now,
+  );
+  assert.equal(database.records.get(generation.path).generation, 1);
+
+  database.records.set(sourcePath, coupon("coupon-generation", {
+    createdAt: new Date("2026-08-01T00:00:00.000Z"),
+    title: "Customer-visible change",
+  }));
+  await reconcileBiteSaverCouponOfferIndex(
+    database,
+    "account-1",
+    "coupon-generation",
+    now,
+  );
+  assert.equal(database.records.get(generation.path).generation, 2);
+
+  database.records.delete(sourcePath);
+  await reconcileBiteSaverCouponOfferIndex(
+    database,
+    "account-1",
+    "coupon-generation",
+    now,
+  );
+  assert.equal(database.records.get(generation.path).generation, 3);
+});
+
+test("time changes do not bump generation and repaired v2 sources re-enter it", async () => {
+  const identity = {
+    entityType: "offer",
+    offerType: "coupon",
+    restaurantAccountId: "account-1",
+    sourceDocumentId: "coupon-time",
+  };
+  const generation = catalogGenerationPath(identity);
+  const sourcePath = "restaurant_accounts/account-1/coupons/coupon-time";
+  const source = coupon("coupon-time", {
+    createdAt: new Date("2026-08-01T00:00:00.000Z"),
+    endTime: new Date(now.getTime() + 1),
+  });
+  const database = new FakeSearchIndexDatabase({
+    "restaurant_accounts/account-1": biteSaverRestaurant(),
+    [sourcePath]: source,
+  });
+  await reconcileBiteSaverCouponOfferIndex(
+    database,
+    "account-1",
+    "coupon-time",
+    now,
+  );
+  assert.equal(database.records.get(generation.path).generation, 1);
+  await reconcileBiteSaverCouponOfferIndex(
+    database,
+    "account-1",
+    "coupon-time",
+    new Date(now.getTime() + 2),
+  );
+  assert.equal(database.records.get(generation.path).generation, 1);
+
+  const ineligibleIdentity = {...identity, sourceDocumentId: "coupon-ineligible"};
+  const ineligibleGeneration = catalogGenerationPath(ineligibleIdentity);
+  const ineligibleSourcePath =
+    "restaurant_accounts/account-1/coupons/coupon-ineligible";
+  const ineligibleIndexPath = `bitesaver_offer_index/${createSearchIndexDocumentId({
+    entityKind: "offer",
+    sourceKind: "biteSaverCoupon",
+    parentSourceDocumentId: "account-1",
+    sourceDocumentId: "coupon-ineligible",
+  })}`;
+  database.records.set(
+    ineligibleSourcePath,
+    coupon("coupon-ineligible", {createdAt: null}),
+  );
+  await reconcileBiteSaverCouponOfferIndex(
+    database,
+    "account-1",
+    "coupon-ineligible",
+    now,
+  );
+  assert.equal(database.records.has(ineligibleGeneration.path), false);
+  assert.equal(
+    database.records.get(ineligibleIndexPath).customerDiscoverable,
+    false,
+  );
+  assert.equal(
+    Object.hasOwn(
+      database.records.get(ineligibleIndexPath),
+      "catalogGenerationContribution",
+    ),
+    false,
+  );
+
+  database.records.set(ineligibleSourcePath, coupon("coupon-ineligible", {
+    createdAt: new Date("2026-08-01T00:00:00.000Z"),
+  }));
+  await reconcileBiteSaverCouponOfferIndex(
+    database,
+    "account-1",
+    "coupon-ineligible",
+    now,
+  );
+  assert.equal(database.records.get(ineligibleGeneration.path).generation, 1);
+  assert.equal(
+    database.records.get(ineligibleIndexPath).customerDiscoverable,
+    true,
+  );
+
+  database.records.set(ineligibleSourcePath, coupon("coupon-ineligible", {
+    createdAt: new Date("2026-08-01T00:00:00.000Z"),
+    isActive: false,
+  }));
+  await reconcileBiteSaverCouponOfferIndex(
+    database,
+    "account-1",
+    "coupon-ineligible",
+    now,
+  );
+  assert.equal(database.records.get(ineligibleGeneration.path).generation, 2);
+  assert.equal(
+    database.records.get(ineligibleIndexPath).customerDiscoverable,
+    false,
+  );
+
+  database.records.set(ineligibleSourcePath, coupon("coupon-ineligible", {
+    createdAt: new Date("2026-08-01T00:00:00.000Z"),
+  }));
+  await reconcileBiteSaverCouponOfferIndex(
+    database,
+    "account-1",
+    "coupon-ineligible",
+    now,
+  );
+  assert.equal(database.records.get(ineligibleGeneration.path).generation, 3);
+  assert.equal(
+    database.records.get(ineligibleIndexPath).customerDiscoverable,
+    true,
+  );
+});
+
+test("restaurant customer projection changes bump but catalog timestamps do not", async () => {
+  const identity = {
+    entityType: "restaurant",
+    restaurantAccountId: "account-1",
+  };
+  const generation = catalogGenerationPath(identity);
+  const parentPath = "restaurant_accounts/account-1";
+  const database = new FakeSearchIndexDatabase({
+    [parentPath]: biteSaverRestaurant({bio: "Original bio"}),
+  });
+  await reconcileBiteSaverRestaurantIndex(database, "account-1", now);
+  assert.equal(database.records.get(generation.path).generation, 1);
+
+  database.records.set(parentPath, biteSaverRestaurant({
+    bio: "Original bio",
+    offerCatalogUpdatedAt: new Date(now.getTime() + 1),
+  }));
+  await reconcileBiteSaverRestaurantIndex(database, "account-1", now);
+  assert.equal(database.records.get(generation.path).generation, 1);
+
+  database.records.set(parentPath, biteSaverRestaurant({bio: "Changed bio"}));
+  await reconcileBiteSaverRestaurantIndex(database, "account-1", now);
+  assert.equal(database.records.get(generation.path).generation, 2);
+
+  database.records.set(parentPath, biteSaverRestaurant({
+    bio: "Changed bio",
+    approvalStatus: "pending",
+  }));
+  await reconcileBiteSaverRestaurantIndex(database, "account-1", now);
+  assert.equal(database.records.get(generation.path).generation, 3);
+  database.records.set(parentPath, biteSaverRestaurant({
+    bio: "Invisible edit",
+    approvalStatus: "pending",
+  }));
+  await reconcileBiteSaverRestaurantIndex(database, "account-1", now);
+  assert.equal(database.records.get(generation.path).generation, 3);
+});
+
+test("concurrent eligible mutations sharing one generation shard cannot lose a bump", async () => {
+  const firstId = "coupon-concurrent-0";
+  const firstIdentity = {
+    entityType: "offer",
+    offerType: "coupon",
+    restaurantAccountId: "account-1",
+    sourceDocumentId: firstId,
+  };
+  const firstShard = catalogGenerationPath(firstIdentity);
+  let secondId = null;
+  for (let index = 1; index < 1_000; index += 1) {
+    const candidate = `coupon-concurrent-${index}`;
+    if (catalogGenerationPath({...firstIdentity, sourceDocumentId: candidate}).index === firstShard.index) {
+      secondId = candidate;
+      break;
+    }
+  }
+  assert.notEqual(secondId, null);
+  const createdAt = new Date("2026-08-01T00:00:00.000Z");
+  const database = new FakeSearchIndexDatabase({
+    "restaurant_accounts/account-1": biteSaverRestaurant(),
+    [`restaurant_accounts/account-1/coupons/${firstId}`]: coupon(firstId, {createdAt}),
+    [`restaurant_accounts/account-1/coupons/${secondId}`]: coupon(secondId, {createdAt}),
+  });
+  const barrier = pauseFirstTransactionCommit(database);
+  const firstWrite = reconcileBiteSaverCouponOfferIndex(
+    database,
+    "account-1",
+    firstId,
+    now,
+  );
+  await barrier.ready;
+  const secondWrite = reconcileBiteSaverCouponOfferIndex(
+    database,
+    "account-1",
+    secondId,
+    now,
+  );
+  await secondWrite;
+  barrier.release();
+  await firstWrite;
+
+  assert.equal(database.records.get(firstShard.path).generation, 2);
+  assert.ok(database.transactionAttempts.some((attempt) =>
+    attempt.readPaths.includes(firstShard.path) && attempt.writeCount === 2));
+});
+
 test("invalid BiteSaver child identities cannot redirect catalog updates", async () => {
   const accountPath = "restaurant_accounts/account-1";
   const database = new FakeSearchIndexDatabase({
@@ -920,7 +1415,10 @@ test("coupon and daily-special create, update, and delete advance the public cat
       childCollection: "coupons",
       sourceKind: "biteSaverCoupon",
       sourceDocumentId: "coupon-1",
-      source: (title) => coupon("coupon-1", {title}),
+      source: (title) => coupon("coupon-1", {
+        title,
+        createdAt: new Date("2026-08-01T00:00:00.000Z"),
+      }),
       handle: (database) => handleBiteSaverCouponOfferWrite(database, {
         restaurantAccountId: "account-1",
         couponId: "coupon-1",
@@ -931,7 +1429,10 @@ test("coupon and daily-special create, update, and delete advance the public cat
       childCollection: "daily_specials",
       sourceKind: "biteSaverDailySpecial",
       sourceDocumentId: "special-1",
-      source: (title) => dailySpecial("special-1", {title}),
+      source: (title) => dailySpecial("special-1", {
+        title,
+        createdAt: new Date("2026-08-01T00:00:00.000Z"),
+      }),
       handle: (database) => handleBiteSaverDailySpecialOfferWrite(database, {
         restaurantAccountId: "account-1",
         dailySpecialId: "special-1",
@@ -1011,11 +1512,13 @@ test("coupon and daily-special create, update, and delete advance the public cat
   }
 });
 
-test("offer catalog retries advance monotonically without loops or parent recreation", async () => {
+test("duplicate offer trigger delivery leaves the catalog marker unchanged", async () => {
   const accountPath = "restaurant_accounts/account-1";
   const database = new FakeSearchIndexDatabase({
     [accountPath]: biteSaverRestaurant(),
-    [`${accountPath}/coupons/coupon-1`]: coupon("coupon-1"),
+    [`${accountPath}/coupons/coupon-1`]: coupon("coupon-1", {
+      createdAt: new Date("2026-08-01T00:00:00.000Z"),
+    }),
   });
 
   await handleBiteSaverCouponOfferWrite(database, {
@@ -1033,10 +1536,10 @@ test("offer catalog retries advance monotonically without loops or parent recrea
 
   assert.ok(first instanceof Date);
   assert.ok(second instanceof Date);
-  assert.ok(second > first);
+  assert.equal(second.getTime(), first.getTime());
   assert.equal(
     database.operations.filter((entry) => entry.operation === "serverTimestamp").length,
-    2,
+    1,
   );
   assert.equal(
     database.operations.some((entry) => entry.operation === "query"),
@@ -1377,7 +1880,8 @@ test("every effective BiteSaver parent transition reconciles both offer kinds en
       ]) {
         database.records.set(indexPath, {
           ...(database.records.get(indexPath) ?? {}),
-          restaurantAccountId: accountId,
+          restaurantAccountId:
+            dartUtf16FirestoreBytesOrderKey(accountId),
           sourceDocumentId,
           sourceKind,
           restaurantDisplayName: "stale-name-canary",
@@ -1460,7 +1964,10 @@ test("every effective BiteSaver parent transition reconciles both offer kinds en
           operation.operation === "query" &&
           operation.query.collectionPath === "bitesaver_offer_index" &&
           operation.query.where?.field === "restaurantAccountId" &&
-          operation.query.where.value === accountId);
+          sameFirestoreQueryValue(
+            operation.query.where.value,
+            dartUtf16FirestoreBytesOrderKey(accountId),
+          ));
         assert.equal(cleanupQueries.length, 1);
       } else {
         for (const collectionPath of [
@@ -1866,7 +2373,7 @@ test("equivalent and unrelated BiteSaver parent changes do not enqueue fanout", 
     biteSaverRestaurant({
       restaurantName: "Same Bistro",
       name: "ignored lower name",
-      postalCode: "03440",
+      zip: "03440-1234",
       city: "Crystal River",
       state: "FL",
       mainImageUrl: canonicalImage,
@@ -1875,11 +2382,6 @@ test("equivalent and unrelated BiteSaver parent changes do not enqueue fanout", 
     "zipCode",
   );
   const cases = [
-    {
-      name: "ZIP+4 extension only",
-      before: biteSaverRestaurant({zipCode: "03440-1234"}),
-      after: biteSaverRestaurant({zipCode: "03440-9876"}),
-    },
     {
       name: "unsupported city state and coordinate aliases",
       before: biteSaverRestaurant({
@@ -1925,18 +2427,16 @@ test("equivalent and unrelated BiteSaver parent changes do not enqueue fanout", 
       after: aliasEquivalentAfter,
     },
     {
-      name: "existing nondependent public profile fields",
+      name: "non-searchable public profile fields",
       before: biteSaverRestaurant({
         streetAddress: "1 Before Street",
         phone: "555-0100",
         website: "https://before.example.test",
-        bio: "Before bio",
       }),
       after: biteSaverRestaurant({
         streetAddress: "2 After Street",
         phone: "555-0200",
         website: "https://after.example.test",
-        bio: "After bio",
       }),
     },
   ];
@@ -2051,6 +2551,46 @@ test("equivalent and unrelated BiteSaver parent changes do not enqueue fanout", 
             (operation.path === couponIndexPath ||
               operation.path === specialIndexPath))),
         false,
+      );
+    });
+  }
+});
+
+test("current Home matcher parent changes enqueue offer projection repair", async (t) => {
+  const cases = [
+    {
+      name: "searchable bio",
+      before: biteSaverRestaurant({bio: "Before bio"}),
+      after: biteSaverRestaurant({bio: "After bio"}),
+    },
+    {
+      name: "ZIP+4 matching suffix",
+      before: biteSaverRestaurant({zipCode: "03440-1234"}),
+      after: biteSaverRestaurant({zipCode: "03440-9876"}),
+    },
+  ];
+  for (const [index, scenario] of cases.entries()) {
+    await t.test(scenario.name, async () => {
+      assert.notEqual(
+        biteSaverOfferParentFingerprint(scenario.before),
+        biteSaverOfferParentFingerprint(scenario.after),
+      );
+      const accountId = `account-matcher-fanout-${index}`;
+      const accountPath = `restaurant_accounts/${accountId}`;
+      const database = new FakeSearchIndexDatabase({
+        [accountPath]: scenario.after,
+      });
+      await handleBiteSaverRestaurantWrite(database, {
+        restaurantAccountId: accountId,
+        before: scenario.before,
+        after: scenario.after,
+        sourceEventId: `matcher-fanout-${index}`,
+        now,
+      });
+      assert.equal(
+        [...database.records.keys()].some((path) =>
+          path.startsWith("private_search_index_jobs/")),
+        true,
       );
     });
   }
@@ -4906,7 +5446,8 @@ test("parent recreation between cleanup check and delete converges for both job 
       }),
       indexCollection: "bitesaver_offer_index",
       oldIndex: {
-        restaurantAccountId: "account-1",
+        restaurantAccountId:
+          dartUtf16FirestoreBytesOrderKey("account-1"),
         sourceDocumentId: "coupon-race",
         displayTitle: "Stale Deleted Coupon",
       },

@@ -18,8 +18,19 @@ import {
   type SearchIndexSourceData,
 } from "./search_index_builders.js";
 import {
+  customerBiteSaverMaximumIndexedOrderKeyBytes,
+  privateCustomerBiteSaverCatalogGenerationCollection,
+} from "./customer_bitesaver_search_contract.js";
+import {
+  dartUtf16FirestoreBytesOrderKey,
+  decodeDartUtf16FirestoreBytesOrderKey,
+} from "./customer_bitesaver_search_matcher.js";
+import {
   biteSaverOfferIndexCollection,
+  buildCustomerBiteSaverCatalogGenerationShardDocument,
   buildSearchIndexJobDocument,
+  customerBiteSaverCatalogGenerationContributionField,
+  customerBiteSaverCatalogGenerationShard,
   createSearchIndexDocumentId,
   createSearchIndexJobId,
   createSearchIndexSourceOccurrenceId,
@@ -30,6 +41,8 @@ import {
   readPrivateSearchIndexCursorDocumentId,
   restaurantSearchIndexCollection,
   searchIndexJobVersion,
+  readCustomerBiteSaverCatalogGeneration,
+  type CustomerBiteSaverCatalogIdentity,
   type SearchIndexJobCursor,
   type SearchIndexJobDocument,
   type SearchIndexJobKind,
@@ -46,7 +59,7 @@ export type SearchIndexQuery = Readonly<{
   collectionPath: string;
   where?: Readonly<{
     field: string;
-    value: string;
+    value: string | Uint8Array;
   }>;
   afterDocumentId?: string | null;
   limit: number;
@@ -61,10 +74,6 @@ export interface SearchIndexDatabase {
     data: SearchIndexJobDocument,
   ): Promise<boolean>;
   updateDocument(path: string, data: Readonly<Record<string, unknown>>): Promise<void>;
-  updateExistingDocumentServerTimestamp(
-    path: string,
-    field: string,
-  ): Promise<void>;
   queryDocuments(query: SearchIndexQuery): Promise<readonly SearchIndexStoredDocument[]>;
   runTransaction<T>(
     operation: (transaction: SearchIndexTransaction) => Promise<T>,
@@ -75,6 +84,7 @@ export interface SearchIndexTransaction {
   getDocument(path: string): Promise<SearchIndexSourceData | null>;
   setDocument(path: string, data: SearchIndexDocument): void;
   deleteDocument(path: string): void;
+  updateExistingDocumentServerTimestamp(path: string, field: string): void;
 }
 
 function recordData(value: DocumentData | undefined): SearchIndexSourceData | null {
@@ -109,9 +119,6 @@ export function createFirestoreSearchIndexDatabase(
     async updateDocument(path, data) {
       await database.doc(path).set(data, { merge: true });
     },
-    async updateExistingDocumentServerTimestamp(path, field) {
-      await database.doc(path).update({ [field]: FieldValue.serverTimestamp() });
-    },
     async queryDocuments(options) {
       let query: Query<DocumentData, DocumentData> = database.collection(
         options.collectionPath,
@@ -145,6 +152,11 @@ export function createFirestoreSearchIndexDatabase(
           },
           deleteDocument(path) {
             transaction.delete(database.doc(path));
+          },
+          updateExistingDocumentServerTimestamp(path, field) {
+            transaction.update(database.doc(path), {
+              [field]: FieldValue.serverTimestamp(),
+            });
           },
         }));
     },
@@ -184,14 +196,15 @@ async function applyCurrentIndex(
   collection: string,
   indexDocumentId: string,
   document: SearchIndexDocument | null,
-): Promise<void> {
+  customerCatalogMutation?: Readonly<{
+    identity: CustomerBiteSaverCatalogIdentity;
+    now: Date;
+  }>,
+): Promise<boolean> {
   const path = documentPath(collection, indexDocumentId);
-  if (document === null) {
-    transaction.deleteDocument(path);
-    return;
-  }
   const existing = await transaction.getDocument(path);
   if (
+    document !== null &&
     existing !== null &&
     existing.searchIndexVersion === document.searchIndexVersion &&
     existing.sourceFingerprint === document.sourceFingerprint &&
@@ -200,9 +213,69 @@ async function applyCurrentIndex(
       document.customerPublicProjection ?? null,
     )
   ) {
-    return;
+    return false;
   }
-  transaction.setDocument(path, document);
+
+  let generationWrite: Readonly<{
+    path: string;
+    document: SearchIndexDocument;
+  }> | null = null;
+  if (customerCatalogMutation !== undefined) {
+    const existingHasContribution = existing !== null &&
+      Object.prototype.hasOwnProperty.call(
+        existing,
+        customerBiteSaverCatalogGenerationContributionField,
+      );
+    const nextHasContribution = document !== null &&
+      Object.prototype.hasOwnProperty.call(
+        document,
+        customerBiteSaverCatalogGenerationContributionField,
+      );
+    const existingContribution = existingHasContribution
+      ? existing?.[customerBiteSaverCatalogGenerationContributionField]
+      : null;
+    const nextContribution = nextHasContribution
+      ? document?.[customerBiteSaverCatalogGenerationContributionField]
+      : null;
+    if (
+      (existingHasContribution || nextHasContribution) &&
+      !Object.is(existingContribution, nextContribution)
+    ) {
+      const shard = customerBiteSaverCatalogGenerationShard({
+        identity: customerCatalogMutation.identity,
+      });
+      const shardPath = documentPath(
+        privateCustomerBiteSaverCatalogGenerationCollection,
+        shard.documentId,
+      );
+      const shardSource = await transaction.getDocument(shardPath);
+      const generation = readCustomerBiteSaverCatalogGeneration(
+        shardSource,
+        shard.index,
+      );
+      if (generation === Number.MAX_SAFE_INTEGER) {
+        throw new Error("BiteSaver catalog generation counter is exhausted.");
+      }
+      generationWrite = Object.freeze({
+        path: shardPath,
+        document: buildCustomerBiteSaverCatalogGenerationShardDocument({
+          shardIndex: shard.index,
+          generation: generation + 1,
+          updatedAt: customerCatalogMutation.now,
+        }),
+      });
+    }
+  }
+
+  if (document === null) {
+    transaction.deleteDocument(path);
+  } else {
+    transaction.setDocument(path, document);
+  }
+  if (generationWrite !== null) {
+    transaction.setDocument(generationWrite.path, generationWrite.document);
+  }
+  return generationWrite !== null;
 }
 
 export async function reconcileBiteSaverRestaurantIndex(
@@ -231,6 +304,13 @@ export async function reconcileBiteSaverRestaurantIndex(
         source,
         now,
       }),
+      {
+        identity: {
+          entityType: "restaurant",
+          restaurantAccountId,
+        },
+        now,
+      },
     );
     return source;
   });
@@ -326,6 +406,7 @@ export async function reconcileBiteSaverCouponOfferIndex(
   restaurantAccountId: string,
   couponId: string,
   now: Date,
+  recordCatalogChange = false,
 ): Promise<void> {
   if (
     readBiteScoreCatalogRestaurantId(restaurantAccountId) !==
@@ -347,6 +428,7 @@ export async function reconcileBiteSaverCouponOfferIndex(
       couponId,
       indexDocumentId,
       now,
+      recordCatalogChange,
     );
   });
 }
@@ -357,6 +439,7 @@ async function reconcileBiteSaverCouponOfferIndexInTransaction(
   couponId: string,
   indexDocumentId: string,
   now: Date,
+  recordCatalogChange = false,
 ): Promise<void> {
   const [offer, restaurant] = await Promise.all([
     transaction.getDocument(
@@ -364,7 +447,7 @@ async function reconcileBiteSaverCouponOfferIndexInTransaction(
     ),
     transaction.getDocument(`restaurant_accounts/${restaurantAccountId}`),
   ]);
-  await applyCurrentIndex(
+  const customerCatalogChanged = await applyCurrentIndex(
     transaction,
     biteSaverOfferIndexCollection,
     indexDocumentId,
@@ -375,7 +458,26 @@ async function reconcileBiteSaverCouponOfferIndexInTransaction(
       restaurant,
       now,
     }),
+    {
+      identity: {
+        entityType: "offer",
+        offerType: "coupon",
+        restaurantAccountId,
+        sourceDocumentId: couponId,
+      },
+      now,
+    },
   );
+  if (
+    recordCatalogChange &&
+    customerCatalogChanged &&
+    restaurant !== null
+  ) {
+    transaction.updateExistingDocumentServerTimestamp(
+      `restaurant_accounts/${restaurantAccountId}`,
+      biteSaverOfferCatalogUpdatedAtField,
+    );
+  }
 }
 
 export async function reconcileBiteSaverDailySpecialOfferIndex(
@@ -383,6 +485,7 @@ export async function reconcileBiteSaverDailySpecialOfferIndex(
   restaurantAccountId: string,
   dailySpecialId: string,
   now: Date,
+  recordCatalogChange = false,
 ): Promise<void> {
   if (
     readBiteScoreCatalogRestaurantId(restaurantAccountId) !==
@@ -404,6 +507,7 @@ export async function reconcileBiteSaverDailySpecialOfferIndex(
       dailySpecialId,
       indexDocumentId,
       now,
+      recordCatalogChange,
     );
   });
 }
@@ -414,6 +518,7 @@ async function reconcileBiteSaverDailySpecialOfferIndexInTransaction(
   dailySpecialId: string,
   indexDocumentId: string,
   now: Date,
+  recordCatalogChange = false,
 ): Promise<void> {
   const [offer, restaurant] = await Promise.all([
     transaction.getDocument(
@@ -421,7 +526,7 @@ async function reconcileBiteSaverDailySpecialOfferIndexInTransaction(
     ),
     transaction.getDocument(`restaurant_accounts/${restaurantAccountId}`),
   ]);
-  await applyCurrentIndex(
+  const customerCatalogChanged = await applyCurrentIndex(
     transaction,
     biteSaverOfferIndexCollection,
     indexDocumentId,
@@ -432,35 +537,25 @@ async function reconcileBiteSaverDailySpecialOfferIndexInTransaction(
       restaurant,
       now,
     }),
+    {
+      identity: {
+        entityType: "offer",
+        offerType: "dailySpecial",
+        restaurantAccountId,
+        sourceDocumentId: dailySpecialId,
+      },
+      now,
+    },
   );
-}
-
-function isMissingDocumentError(error: unknown): boolean {
-  if (error === null || typeof error !== "object") {
-    return false;
-  }
-  const code = (error as { code?: unknown }).code;
-  return code === 5 || code === "not-found";
-}
-
-export async function recordBiteSaverOfferCatalogChange(
-  database: SearchIndexDatabase,
-  restaurantAccountId: string,
-): Promise<boolean> {
-  if (readBiteScoreCatalogRestaurantId(restaurantAccountId) !== restaurantAccountId) {
-    return false;
-  }
-  try {
-    await database.updateExistingDocumentServerTimestamp(
+  if (
+    recordCatalogChange &&
+    customerCatalogChanged &&
+    restaurant !== null
+  ) {
+    transaction.updateExistingDocumentServerTimestamp(
       `restaurant_accounts/${restaurantAccountId}`,
       biteSaverOfferCatalogUpdatedAtField,
     );
-    return true;
-  } catch (error) {
-    if (isMissingDocumentError(error)) {
-      return false;
-    }
-    throw error;
   }
 }
 
@@ -484,10 +579,7 @@ export async function handleBiteSaverCouponOfferWrite(
     value.restaurantAccountId,
     value.couponId,
     value.now,
-  );
-  await recordBiteSaverOfferCatalogChange(
-    database,
-    value.restaurantAccountId,
+    true,
   );
 }
 
@@ -511,10 +603,7 @@ export async function handleBiteSaverDailySpecialOfferWrite(
     value.restaurantAccountId,
     value.dailySpecialId,
     value.now,
-  );
-  await recordBiteSaverOfferCatalogChange(
-    database,
-    value.restaurantAccountId,
+    true,
   );
 }
 
@@ -943,7 +1032,12 @@ async function reconcileSelectedBiteSaverCleanupCandidate(
   currentIndex: SearchIndexSourceData,
   now: Date,
 ): Promise<void> {
-  if (currentIndex.restaurantAccountId !== job.parentSourceDocumentId) {
+  if (
+    decodeDartUtf16FirestoreBytesOrderKey(
+      currentIndex.restaurantAccountId,
+      customerBiteSaverMaximumIndexedOrderKeyBytes,
+    ) !== job.parentSourceDocumentId
+  ) {
     return;
   }
   const offerId = readBiteScoreCatalogRestaurantId(
@@ -1006,9 +1100,12 @@ async function processDerivedCleanup(
   const parentPath = isBiteSaver
     ? `restaurant_accounts/${job.parentSourceDocumentId}`
     : `bitescore_restaurants/${job.parentSourceDocumentId}`;
+  const parentQueryValue = isBiteSaver
+    ? dartUtf16FirestoreBytesOrderKey(job.parentSourceDocumentId)
+    : job.parentSourceDocumentId;
   const documents = await database.queryDocuments({
     collectionPath,
-    where: { field: parentField, value: job.parentSourceDocumentId },
+    where: {field: parentField, value: parentQueryValue},
     afterDocumentId:
       job.continuationCursor?.phase === "derivedCleanup"
         ? job.continuationCursor.afterDocumentId

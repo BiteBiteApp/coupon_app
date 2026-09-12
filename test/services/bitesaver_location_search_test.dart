@@ -152,6 +152,61 @@ void main() {
     },
   );
 
+  test('full state names and abbreviations produce the same preference', () {
+    for (final query in <String>[
+      'Orlando, FL',
+      'Orlando, Florida',
+      '  orlando  ,  fLoRiDa  ',
+    ]) {
+      expect(
+        match(
+          restaurant: restaurant(city: 'ORLANDO', state: ' fl '),
+          radius: 30,
+          calculatedDistance: 2,
+          query: query,
+        )?.exactLocationPreference,
+        isTrue,
+        reason: query,
+      );
+    }
+  });
+
+  test('unknown states and territories are not guessed', () {
+    for (final query in <String>[
+      'Orlando, Floridaa',
+      'Orlando, ZZ',
+      'San Juan, Puerto Rico',
+      'San Juan, PR',
+    ]) {
+      expect(
+        match(
+          restaurant: restaurant(
+            city: query.startsWith('San Juan') ? 'San Juan' : 'Orlando',
+            state: query.startsWith('San Juan') ? 'PR' : 'FL',
+          ),
+          radius: 30,
+          calculatedDistance: 2,
+          query: query,
+        )?.exactLocationPreference,
+        isFalse,
+        reason: query,
+      );
+    }
+  });
+
+  test('Texarkana Texas never prefers an Arkansas restaurant', () {
+    for (final query in <String>['Texarkana, TX', 'Texarkana, Texas']) {
+      final result = match(
+        restaurant: restaurant(city: 'Texarkana', state: 'AR'),
+        radius: 3,
+        calculatedDistance: 1,
+        query: query,
+      );
+      expect(result, isNotNull, reason: query);
+      expect(result?.exactLocationPreference, isFalse, reason: query);
+    }
+  });
+
   test(
     'leading-zero ZIP and ZIP+4 remain strings with exact preference only',
     () {
@@ -203,5 +258,50 @@ void main() {
       ),
       isNull,
     );
+  });
+
+  test('invalid radii and invalid calculated distances fail closed', () {
+    for (final radius in <double>[0, -1, double.nan, double.infinity]) {
+      expect(
+        match(restaurant: restaurant(), radius: radius, calculatedDistance: 0),
+        isNull,
+      );
+    }
+
+    for (final distance in <double>[
+      -1,
+      double.nan,
+      double.infinity,
+      double.negativeInfinity,
+    ]) {
+      expect(
+        match(
+          restaurant: restaurant(),
+          radius: 30,
+          calculatedDistance: distance,
+        ),
+        isNull,
+      );
+    }
+  });
+
+  test('exact distance helper fails closed for invalid endpoints', () {
+    for (final endpoints in <(double, double, double, double)>[
+      (0, 0, 28, -81),
+      (28, -81, 0, 0),
+      (double.nan, -81, 28, -81),
+      (28, -81, 91, -81),
+      (28, -181, 28, -81),
+    ]) {
+      expect(
+        BiteSaverLocationSearch.exactDistanceMiles(
+          centerLatitude: endpoints.$1,
+          centerLongitude: endpoints.$2,
+          candidateLatitude: endpoints.$3,
+          candidateLongitude: endpoints.$4,
+        ),
+        isNull,
+      );
+    }
   });
 }

@@ -84,6 +84,10 @@ const preexistingRetryEnabledTriggers = Object.freeze([
   "maintainAdminRestaurantQrPreparationFromBiteScoreUnclaim",
 ]);
 
+const customerBiteSaverRetryEnabledTriggers = Object.freeze([
+  "processPrivateCustomerBiteSaverSearchJob",
+]);
+
 const expectedAdminUserDirectoryTriggers = Object.freeze({
   maintainAdminUserDirectoryFromRestaurantAccount:
     "restaurant_accounts/{restaurantAccountId}",
@@ -513,6 +517,7 @@ test("compiled trigger metadata uses exact private paths and background event ty
   for (const name of [
     ...searchIndexRetryEnabledTriggers,
     ...preexistingRetryEnabledTriggers,
+    ...customerBiteSaverRetryEnabledTriggers,
   ]) {
     assert.equal(runtime.exports[name].__endpoint.eventTrigger.retry, true, name);
   }
@@ -523,6 +528,7 @@ test("actual Firebase export metadata enables retry for only the intended trigge
   const expectedRetryEnabled = [
     ...searchIndexRetryEnabledTriggers,
     ...preexistingRetryEnabledTriggers,
+    ...customerBiteSaverRetryEnabledTriggers,
   ].sort();
 
   assert.deepEqual(
@@ -1348,15 +1354,35 @@ test("existing geohash triggers retain their original exact paths", () => {
   );
 });
 
-test("Firestore rules expose only current BiteSaver restaurant projections", () => {
+test("Firestore rules expose only current BiteSaver projections and deny private state", () => {
   const rules = readFileSync(path.resolve(__dirname, "../../firestore.rules"), "utf8");
-  for (const collection of [
-    "restaurant_search_index",
+  const explicitlyPrivateSearchCollections = [
     "dish_search_index",
     "bitesaver_offer_index",
     "private_search_index_jobs",
+    "private_bitesaver_search_sessions",
+    "private_bitesaver_search_active_sessions",
+    "private_bitesaver_search_candidates",
+    "private_bitesaver_search_results",
+    "private_bitesaver_search_jobs",
+    "private_bitesaver_catalog_generation_shards",
+  ];
+  for (const collection of [
+    "restaurant_search_index",
+    ...explicitlyPrivateSearchCollections,
   ]) {
     assert.equal(rules.includes(`match /${collection}/`), true, collection);
+  }
+  for (const collection of explicitlyPrivateSearchCollections) {
+    assert.match(
+      rules,
+      new RegExp(
+        `match /${collection}/\\{document=\\*\\*\\} \\{\\s*` +
+          "allow read, write: if false;\\s*\\}",
+        "u",
+      ),
+      collection,
+    );
   }
   for (const collection of [
     "private_admin_restaurant_search_sessions",

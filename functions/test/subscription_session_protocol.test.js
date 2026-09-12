@@ -845,6 +845,11 @@ test("runtime, region, secret bindings, exports, production caller, and webhook 
     [
       ...exportedConstants(baseSource),
       "claimBiteSaverSubscriptionReturnEvent",
+      "continueCustomerBiteSaverGuestOfferCheck",
+      "getCustomerBiteSaverFavoriteStates",
+      "getCustomerBiteSaverOfferPage",
+      "getCustomerBiteSaverSearchPage",
+      "getCustomerBiteSaverSearchStatus",
       "updateAdminRestaurantQrPreparation",
       "maintainAdminRestaurantQrPreparationFromBiteScoreUnclaim",
       "applyRatingAdminDishSuggestionGroup",
@@ -881,6 +886,7 @@ test("runtime, region, secret bindings, exports, production caller, and webhook 
       "maintainBiteScoreRestaurantSearchIndex",
       "maintainDishEditProposalPrivateState",
       "processPrivateSearchIndexJob",
+      "processPrivateCustomerBiteSaverSearchJob",
       "processDishProposalResolutionWork",
       "processRatingDestructiveOperationWork",
       "prepareAdminRestaurantQrBatch",
@@ -895,6 +901,8 @@ test("runtime, region, secret bindings, exports, production caller, and webhook 
       "startRatingDishMerge",
       "startRatingRestaurantDelete",
       "startRatingRestaurantMerge",
+      "startCustomerBiteSaverSearch",
+      "validateCustomerBiteSaverOfferRedemptionStart",
     ].sort(),
   );
   for (const exportName of [

@@ -17,6 +17,7 @@ import {
   onDocumentWritten,
 } from "firebase-functions/v2/firestore";
 import {
+  type CallableRequest,
   HttpsError,
   onCall,
   onRequest,
@@ -156,6 +157,31 @@ import {
 } from "./subscription_return_ledger.js";
 import { stripeLogMetadata } from "./stripe_log_safety.js";
 import {
+  customerBiteSaverSecretName,
+  CustomerBiteSaverContractError,
+} from "./customer_bitesaver_search_contract.js";
+import {
+  decodeCustomerBiteSaverSecret,
+} from "./customer_bitesaver_search_cursor.js";
+import {
+  continueCustomerBiteSaverGuestOfferCheckHandler,
+  customerBiteSaverCallableTimeoutSeconds,
+  getCustomerBiteSaverFavoriteStatesHandler,
+  getCustomerBiteSaverOfferPageHandler,
+  getCustomerBiteSaverSearchPageHandler,
+  getCustomerBiteSaverSearchStatusHandler,
+  startCustomerBiteSaverSearchHandler,
+  type CustomerBiteSaverCallableIdentity,
+  type CustomerBiteSaverSessionContext,
+  validateCustomerBiteSaverOfferRedemptionStartHandler,
+} from "./customer_bitesaver_search_session.js";
+import {
+  createFirestoreCustomerBiteSaverSearchDatabase,
+} from "./customer_bitesaver_search_store.js";
+import {
+  processCustomerBiteSaverSearchJob,
+} from "./customer_bitesaver_search_worker.js";
+import {
   createFirestoreSearchIndexDatabase,
   handleBiteSaverCouponOfferWrite,
   handleBiteSaverDailySpecialOfferWrite,
@@ -253,6 +279,8 @@ setGlobalOptions({
 
 const db: Firestore = getFirestore();
 const searchIndexDatabase = createFirestoreSearchIndexDatabase(db);
+const customerBiteSaverSearchDatabase =
+  createFirestoreCustomerBiteSaverSearchDatabase(db);
 const adminUserDirectoryDatabase = createFirestoreAdminUserDirectoryDatabase(db);
 const adminRestaurantQrPreparationDatabase =
   createFirestoreAdminRestaurantQrPreparationDatabase(db);
@@ -277,6 +305,9 @@ const stripeSecretKey = defineSecret("STRIPE_SECRET_KEY");
 const stripeWebhookSecret = defineSecret("STRIPE_WEBHOOK_SECRET");
 const googleMapsApiKey = defineSecret("GOOGLE_MAPS_API_KEY");
 const searchPaginationCursorKey = defineSecret(couponAdminCursorSecretName);
+const biteSaverCustomerDiscoveryKey = defineSecret(
+  customerBiteSaverSecretName,
+);
 const couponAdminPagingDatabase = createFirestoreCouponAdminPagingDatabase(db);
 const couponAdminRadiusStore = createFirestoreCouponAdminRadiusStore(db);
 const ratingAdminPagingDatabase = createFirestoreRatingAdminPagingDatabase(db);
@@ -311,6 +342,48 @@ const restaurantInviteCollection = "restaurant_invites";
 const ratingDestructiveRestaurantOperationLockCollection =
   "private_rating_restaurant_operation_locks";
 const restaurantInviteExpirationDays = 90;
+
+type CustomerBiteSaverCallableHandler<Response> = (
+  rawRequest: unknown,
+  context: CustomerBiteSaverSessionContext,
+) => Promise<Response>;
+
+function customerBiteSaverCallableIdentity(
+  request: CallableRequest<unknown>,
+): CustomerBiteSaverCallableIdentity {
+  return Object.freeze({
+    authUid: request.auth?.uid ?? null,
+    authIsAnonymous:
+      request.auth?.token.firebase?.sign_in_provider === "anonymous",
+  });
+}
+
+function customerBiteSaverHttpsError(error: unknown): HttpsError {
+  if (error instanceof CustomerBiteSaverContractError) {
+    return new HttpsError(error.code, error.message);
+  }
+  return new HttpsError(
+    "internal",
+    "BiteSaver search is temporarily unavailable.",
+  );
+}
+
+async function invokeCustomerBiteSaverCallable<Response>(
+  request: CallableRequest<unknown>,
+  handler: CustomerBiteSaverCallableHandler<Response>,
+): Promise<Response> {
+  try {
+    return await handler(request.data, Object.freeze({
+      database: customerBiteSaverSearchDatabase,
+      secretKey: decodeCustomerBiteSaverSecret(
+        biteSaverCustomerDiscoveryKey.value(),
+      ),
+      identity: customerBiteSaverCallableIdentity(request),
+    }));
+  } catch (error) {
+    throw customerBiteSaverHttpsError(error);
+  }
+}
 
 function adminRestaurantQrPreparationRef(catalogRestaurantId: string) {
   return db
@@ -5436,6 +5509,116 @@ export const processPrivateSearchIndexJob = onDocumentCreated(
       searchIndexDatabase,
       event.params.jobId as string,
       new Date(),
+    );
+  },
+);
+
+export const startCustomerBiteSaverSearch = onCall(
+  {
+    secrets: [biteSaverCustomerDiscoveryKey],
+    timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
+  },
+  async (request) => {
+    return invokeCustomerBiteSaverCallable(
+      request,
+      startCustomerBiteSaverSearchHandler,
+    );
+  },
+);
+
+export const getCustomerBiteSaverSearchStatus = onCall(
+  {
+    secrets: [biteSaverCustomerDiscoveryKey],
+    timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
+  },
+  async (request) => {
+    return invokeCustomerBiteSaverCallable(
+      request,
+      getCustomerBiteSaverSearchStatusHandler,
+    );
+  },
+);
+
+export const getCustomerBiteSaverSearchPage = onCall(
+  {
+    secrets: [biteSaverCustomerDiscoveryKey],
+    timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
+  },
+  async (request) => {
+    return invokeCustomerBiteSaverCallable(
+      request,
+      getCustomerBiteSaverSearchPageHandler,
+    );
+  },
+);
+
+export const getCustomerBiteSaverOfferPage = onCall(
+  {
+    secrets: [biteSaverCustomerDiscoveryKey],
+    timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
+  },
+  async (request) => {
+    return invokeCustomerBiteSaverCallable(
+      request,
+      getCustomerBiteSaverOfferPageHandler,
+    );
+  },
+);
+
+export const continueCustomerBiteSaverGuestOfferCheck = onCall(
+  {
+    secrets: [biteSaverCustomerDiscoveryKey],
+    timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
+  },
+  async (request) => {
+    return invokeCustomerBiteSaverCallable(
+      request,
+      continueCustomerBiteSaverGuestOfferCheckHandler,
+    );
+  },
+);
+
+export const getCustomerBiteSaverFavoriteStates = onCall(
+  {
+    secrets: [biteSaverCustomerDiscoveryKey],
+    timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
+  },
+  async (request) => {
+    return invokeCustomerBiteSaverCallable(
+      request,
+      getCustomerBiteSaverFavoriteStatesHandler,
+    );
+  },
+);
+
+export const validateCustomerBiteSaverOfferRedemptionStart = onCall(
+  {
+    secrets: [biteSaverCustomerDiscoveryKey],
+    timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
+  },
+  async (request) => {
+    return invokeCustomerBiteSaverCallable(
+      request,
+      validateCustomerBiteSaverOfferRedemptionStartHandler,
+    );
+  },
+);
+
+export const processPrivateCustomerBiteSaverSearchJob = onDocumentCreated(
+  {
+    document: "private_bitesaver_search_jobs/{jobId}",
+    retry: true,
+    secrets: [biteSaverCustomerDiscoveryKey],
+  },
+  async (event) => {
+    await processCustomerBiteSaverSearchJob(
+      event.params.jobId as string,
+      {
+        database: customerBiteSaverSearchDatabase,
+        secretKey: decodeCustomerBiteSaverSecret(
+          biteSaverCustomerDiscoveryKey.value(),
+        ),
+      },
     );
   },
 );

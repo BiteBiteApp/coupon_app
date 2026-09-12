@@ -1,0 +1,447 @@
+{
+  "contractVersion": "bitestar.customer-bitesaver-search-compatibility.v1",
+  "normalizerVersion": "bitestar.bitesaver-home-search-normalizer.v1",
+  "matcherVersion": "bitestar.bitesaver-home-search-matcher.v1",
+  "supportedRadiiMiles": [1, 3, 5, 10, 15, 20, 30],
+  "supportedStates": [
+    {"name": "Alabama", "code": "AL"},
+    {"name": "Alaska", "code": "AK"},
+    {"name": "Arizona", "code": "AZ"},
+    {"name": "Arkansas", "code": "AR"},
+    {"name": "California", "code": "CA"},
+    {"name": "Colorado", "code": "CO"},
+    {"name": "Connecticut", "code": "CT"},
+    {"name": "Delaware", "code": "DE"},
+    {"name": "Florida", "code": "FL"},
+    {"name": "Georgia", "code": "GA"},
+    {"name": "Hawaii", "code": "HI"},
+    {"name": "Idaho", "code": "ID"},
+    {"name": "Illinois", "code": "IL"},
+    {"name": "Indiana", "code": "IN"},
+    {"name": "Iowa", "code": "IA"},
+    {"name": "Kansas", "code": "KS"},
+    {"name": "Kentucky", "code": "KY"},
+    {"name": "Louisiana", "code": "LA"},
+    {"name": "Maine", "code": "ME"},
+    {"name": "Maryland", "code": "MD"},
+    {"name": "Massachusetts", "code": "MA"},
+    {"name": "Michigan", "code": "MI"},
+    {"name": "Minnesota", "code": "MN"},
+    {"name": "Mississippi", "code": "MS"},
+    {"name": "Missouri", "code": "MO"},
+    {"name": "Montana", "code": "MT"},
+    {"name": "Nebraska", "code": "NE"},
+    {"name": "Nevada", "code": "NV"},
+    {"name": "New Hampshire", "code": "NH"},
+    {"name": "New Jersey", "code": "NJ"},
+    {"name": "New Mexico", "code": "NM"},
+    {"name": "New York", "code": "NY"},
+    {"name": "North Carolina", "code": "NC"},
+    {"name": "North Dakota", "code": "ND"},
+    {"name": "Ohio", "code": "OH"},
+    {"name": "Oklahoma", "code": "OK"},
+    {"name": "Oregon", "code": "OR"},
+    {"name": "Pennsylvania", "code": "PA"},
+    {"name": "Rhode Island", "code": "RI"},
+    {"name": "South Carolina", "code": "SC"},
+    {"name": "South Dakota", "code": "SD"},
+    {"name": "Tennessee", "code": "TN"},
+    {"name": "Texas", "code": "TX"},
+    {"name": "Utah", "code": "UT"},
+    {"name": "Vermont", "code": "VT"},
+    {"name": "Virginia", "code": "VA"},
+    {"name": "Washington", "code": "WA"},
+    {"name": "West Virginia", "code": "WV"},
+    {"name": "Wisconsin", "code": "WI"},
+    {"name": "Wyoming", "code": "WY"},
+    {"name": "District of Columbia", "code": "DC"}
+  ],
+  "unknownStates": [
+    "",
+    "ZZ",
+    "Floridaa",
+    "Puerto Rico",
+    "PR",
+    "Guam",
+    "GU",
+    "American Samoa",
+    "AS",
+    "Northern Mariana Islands",
+    "MP",
+    "U.S. Virgin Islands",
+    "VI"
+  ],
+  "locationPreferenceCases": [
+    {
+      "id": "orlando_abbreviation",
+      "restaurantCity": "Orlando",
+      "restaurantState": "FL",
+      "restaurantZipCode": "32801",
+      "typedQuery": "Orlando, FL",
+      "expectedPreference": true
+    },
+    {
+      "id": "orlando_full_state",
+      "restaurantCity": "Orlando",
+      "restaurantState": "FL",
+      "restaurantZipCode": "32801",
+      "typedQuery": "Orlando, Florida",
+      "expectedPreference": true
+    },
+    {
+      "id": "orlando_full_state_case_and_whitespace",
+      "restaurantCity": "  ORLANDO ",
+      "restaurantState": " florida ",
+      "restaurantZipCode": "32801",
+      "typedQuery": " orlando  ,  fLoRiDa ",
+      "expectedPreference": true
+    },
+    {
+      "id": "texarkana_texas_does_not_prefer_arkansas_abbreviation",
+      "restaurantCity": "Texarkana",
+      "restaurantState": "AR",
+      "restaurantZipCode": "71854",
+      "typedQuery": "Texarkana, TX",
+      "expectedPreference": false
+    },
+    {
+      "id": "texarkana_texas_does_not_prefer_arkansas_full_state",
+      "restaurantCity": "Texarkana",
+      "restaurantState": "Arkansas",
+      "restaurantZipCode": "71854",
+      "typedQuery": "Texarkana, Texas",
+      "expectedPreference": false
+    },
+    {
+      "id": "restaurant_full_state_matches_abbreviation",
+      "restaurantCity": "Portland",
+      "restaurantState": "Oregon",
+      "restaurantZipCode": "97205",
+      "typedQuery": "Portland, OR",
+      "expectedPreference": true
+    },
+    {
+      "id": "district_of_columbia_full_name",
+      "restaurantCity": "Washington",
+      "restaurantState": "DC",
+      "restaurantZipCode": "20001",
+      "typedQuery": "Washington, District   of Columbia",
+      "expectedPreference": true
+    },
+    {
+      "id": "unknown_state_is_not_guessed",
+      "restaurantCity": "Orlando",
+      "restaurantState": "FL",
+      "restaurantZipCode": "32801",
+      "typedQuery": "Orlando, Floridaa",
+      "expectedPreference": false
+    },
+    {
+      "id": "unknown_two_letter_state_is_not_accepted",
+      "restaurantCity": "Orlando",
+      "restaurantState": "ZZ",
+      "restaurantZipCode": "32801",
+      "typedQuery": "Orlando, ZZ",
+      "expectedPreference": false
+    },
+    {
+      "id": "territory_is_not_a_supported_state",
+      "restaurantCity": "San Juan",
+      "restaurantState": "PR",
+      "restaurantZipCode": "00901",
+      "typedQuery": "San Juan, Puerto Rico",
+      "expectedPreference": false
+    },
+    {
+      "id": "city_without_state_retains_current_preference",
+      "restaurantCity": "Springfield",
+      "restaurantState": "MA",
+      "restaurantZipCode": "01103",
+      "typedQuery": " springfield ",
+      "expectedPreference": true
+    },
+    {
+      "id": "different_city_is_not_preferred",
+      "restaurantCity": "Springfield",
+      "restaurantState": "MA",
+      "restaurantZipCode": "01103",
+      "typedQuery": "Boston, MA",
+      "expectedPreference": false
+    },
+    {
+      "id": "leading_zero_zip",
+      "restaurantCity": "Springfield",
+      "restaurantState": "MA",
+      "restaurantZipCode": "01234",
+      "typedQuery": "01234",
+      "expectedPreference": true
+    },
+    {
+      "id": "zip_plus_four",
+      "restaurantCity": "Springfield",
+      "restaurantState": "MA",
+      "restaurantZipCode": "01234-5678",
+      "typedQuery": "01234-5678",
+      "expectedPreference": true
+    },
+    {
+      "id": "zip_base_does_not_guess_zip_plus_four",
+      "restaurantCity": "Springfield",
+      "restaurantState": "MA",
+      "restaurantZipCode": "01234-5678",
+      "typedQuery": "01234",
+      "expectedPreference": false
+    }
+  ],
+  "normalizationCases": [
+    {"id": "case_and_whitespace", "input": "  MIXED   Case  ", "expected": "mixed case"},
+    {"id": "supported_apostrophes_are_deleted", "input": "A'B\u2018C\u2019D\u201bE\u2032F", "expected": "abcdef"},
+    {"id": "punctuation_becomes_spaces", "input": "Root---Beer & Fries", "expected": "root beer fries"},
+    {"id": "accented_text_is_not_nfkd_folded", "input": "L'\u00e9t\u00e9 Caf\u00e9", "expected": "l t caf"},
+    {"id": "modifier_apostrophe_is_unsupported", "input": "O\u02bcMalley", "expected": "o malley"},
+    {"id": "fullwidth_apostrophe_is_unsupported", "input": "Paige\uff07s", "expected": "paige s"},
+    {"id": "mixed_non_latin_text", "input": "\u5bff\u53f8 Wave", "expected": "wave"},
+    {"id": "non_latin_only", "input": "\u5bff\u53f8", "expected": ""},
+    {"id": "empty", "input": " \t\n ", "expected": ""}
+  ],
+  "matchingCases": [
+    {
+      "id": "empty_query_matches",
+      "query": " ",
+      "searchableFields": [],
+      "expectedMatch": true
+    },
+    {
+      "id": "restaurant_name_apostrophe",
+      "query": "joes",
+      "searchableFields": ["Joe's Pizza", "Orlando", "32801", "Family pizza"],
+      "expectedMatch": true
+    },
+    {
+      "id": "contiguous_middle_substring",
+      "query": "ubscrip",
+      "searchableFields": ["Subscription Cafe"],
+      "expectedMatch": true
+    },
+    {
+      "id": "punctuation_and_repeated_whitespace",
+      "query": "root   beer",
+      "searchableFields": ["Paige\u2019s Root-Beer"],
+      "expectedMatch": true
+    },
+    {
+      "id": "accented_query_preserves_current_ascii_only_behavior",
+      "query": "caf\u00e9",
+      "searchableFields": ["Cafe Central"],
+      "expectedMatch": true
+    },
+    {
+      "id": "non_latin_query_normalizes_empty_and_matches",
+      "query": "\u5bff\u53f8",
+      "searchableFields": ["Ordinary Cafe"],
+      "expectedMatch": true
+    },
+    {
+      "id": "mixed_non_latin_query_matches_ascii_suffix",
+      "query": "\u5bff\u53f8 wave",
+      "searchableFields": ["Sushi Wave"],
+      "expectedMatch": true
+    },
+    {
+      "id": "restaurant_city",
+      "query": "verness",
+      "searchableFields": ["Sushi Wave", "Inverness", "34450", "Fresh rolls"],
+      "expectedMatch": true
+    },
+    {
+      "id": "restaurant_zip",
+      "query": "34450",
+      "searchableFields": ["Sushi Wave", "Inverness", "34450", "Fresh rolls"],
+      "expectedMatch": true
+    },
+    {
+      "id": "restaurant_bio",
+      "query": "fresh rolls",
+      "searchableFields": ["Sushi Wave", "Inverness", "34450", "Fresh rolls"],
+      "expectedMatch": true
+    },
+    {
+      "id": "coupon_title",
+      "query": "garlic knots",
+      "searchableFields": ["Joe's Pizza", "Lecanto", "34461", "Pizza", "Free Garlic Knots", "Joe's Pizza", "Once per day", "KNOTS"],
+      "expectedMatch": true
+    },
+    {
+      "id": "coupon_stored_restaurant",
+      "query": "legacy name",
+      "searchableFields": ["Current Name", "Lecanto", "34461", "Pizza", "Lunch", "Legacy Name", "Unlimited", ""],
+      "expectedMatch": true
+    },
+    {
+      "id": "coupon_usage_rule",
+      "query": "once per customer",
+      "searchableFields": ["Cafe", "Lecanto", "34461", "", "Lunch", "Cafe", "Once per customer", ""],
+      "expectedMatch": true
+    },
+    {
+      "id": "coupon_code",
+      "query": "save 20",
+      "searchableFields": ["Cafe", "Lecanto", "34461", "", "Lunch", "Cafe", "Unlimited", "SAVE-20"],
+      "expectedMatch": true
+    },
+    {
+      "id": "coupon_details_are_not_in_current_corpus",
+      "query": "coupon details canary",
+      "searchableFields": ["Cafe", "Lecanto", "34461", "", "Lunch", "Cafe", "Unlimited", ""],
+      "expectedMatch": false
+    },
+    {
+      "id": "daily_special_title",
+      "query": "fish fry",
+      "searchableFields": ["Cafe", "Lecanto", "34461", "", "Friday Fish Fry", "Served with slaw"],
+      "expectedMatch": true
+    },
+    {
+      "id": "daily_special_details",
+      "query": "served with slaw",
+      "searchableFields": ["Cafe", "Lecanto", "34461", "", "Friday Fish Fry", "Served with slaw"],
+      "expectedMatch": true
+    },
+    {
+      "id": "unsupported_cuisine_is_not_added",
+      "query": "mediterranean",
+      "searchableFields": ["Cafe", "Lecanto", "34461", "", "Lunch", "Cafe", "Unlimited", ""],
+      "expectedMatch": false
+    }
+  ],
+  "requestLengthCases": [
+    {"id": "maximum_length", "character": "a", "length": 200, "expectedValid": true},
+    {"id": "over_maximum_length", "character": "a", "length": 201, "expectedValid": false}
+  ],
+  "requestValidationCases": [
+    {"id": "well_formed_supplementary_scalar", "input": "\ud83d\ude00", "expectedValid": true},
+    {"id": "unpaired_high_surrogate", "input": "\ud800", "expectedValid": false},
+    {"id": "unpaired_low_surrogate", "input": "\udc00", "expectedValid": false},
+    {"id": "misordered_surrogates", "input": "\udc00\ud800", "expectedValid": false}
+  ],
+  "distanceContract": {
+    "earthRadiusMeters": 6378137,
+    "metersPerMile": 1609.344,
+    "toleranceMiles": 1e-10,
+    "eligibilityCases": [
+      {"id": "radius_1_inside_comparison", "distanceMiles": 0.999999, "radiusMiles": 1, "expectedEligible": true},
+      {"id": "radius_1_exact_boundary_comparison", "distanceMiles": 1, "radiusMiles": 1, "expectedEligible": true},
+      {"id": "radius_1_outside_comparison", "distanceMiles": 1.000001, "radiusMiles": 1, "expectedEligible": false},
+      {"id": "radius_3_inside_comparison", "distanceMiles": 2.999999, "radiusMiles": 3, "expectedEligible": true},
+      {"id": "radius_3_exact_boundary_comparison", "distanceMiles": 3, "radiusMiles": 3, "expectedEligible": true},
+      {"id": "radius_3_outside_comparison", "distanceMiles": 3.000001, "radiusMiles": 3, "expectedEligible": false},
+      {"id": "radius_5_inside_comparison", "distanceMiles": 4.999999, "radiusMiles": 5, "expectedEligible": true},
+      {"id": "radius_5_exact_boundary_comparison", "distanceMiles": 5, "radiusMiles": 5, "expectedEligible": true},
+      {"id": "radius_5_outside_comparison", "distanceMiles": 5.000001, "radiusMiles": 5, "expectedEligible": false},
+      {"id": "radius_10_inside_comparison", "distanceMiles": 9.999999, "radiusMiles": 10, "expectedEligible": true},
+      {"id": "radius_10_exact_boundary_comparison", "distanceMiles": 10, "radiusMiles": 10, "expectedEligible": true},
+      {"id": "radius_10_outside_comparison", "distanceMiles": 10.000001, "radiusMiles": 10, "expectedEligible": false},
+      {"id": "radius_15_inside_comparison", "distanceMiles": 14.999999, "radiusMiles": 15, "expectedEligible": true},
+      {"id": "radius_15_exact_boundary_comparison", "distanceMiles": 15, "radiusMiles": 15, "expectedEligible": true},
+      {"id": "radius_15_outside_comparison", "distanceMiles": 15.000001, "radiusMiles": 15, "expectedEligible": false},
+      {"id": "radius_20_inside_comparison", "distanceMiles": 19.999999, "radiusMiles": 20, "expectedEligible": true},
+      {"id": "radius_20_exact_boundary_comparison", "distanceMiles": 20, "radiusMiles": 20, "expectedEligible": true},
+      {"id": "radius_20_outside_comparison", "distanceMiles": 20.000001, "radiusMiles": 20, "expectedEligible": false},
+      {"id": "radius_30_inside_comparison", "distanceMiles": 29.999999, "radiusMiles": 30, "expectedEligible": true},
+      {"id": "radius_30_exact_boundary_comparison", "distanceMiles": 30, "radiusMiles": 30, "expectedEligible": true},
+      {"id": "radius_30_outside_comparison", "distanceMiles": 30.000001, "radiusMiles": 30, "expectedEligible": false}
+    ],
+    "cases": [
+      {"id": "radius_1_inside", "centerLatitude": 0, "centerLongitude": 10, "candidateLatitude": 0.014456968669077344, "candidateLongitude": 10, "radiusMiles": 1, "expectedDistanceMiles": 0.9999989999999999, "expectedEligible": true},
+      {"id": "radius_1_boundary", "centerLatitude": 0, "centerLongitude": 10, "candidateLatitude": 0.014456983126060466, "candidateLongitude": 10, "radiusMiles": 1, "expectedDistanceMiles": 0.9999999999999996, "expectedEligible": true},
+      {"id": "radius_1_outside", "centerLatitude": 0, "centerLongitude": 10, "candidateLatitude": 0.014456997583043597, "candidateLongitude": 10, "radiusMiles": 1, "expectedDistanceMiles": 1.000001, "expectedEligible": false},
+      {"id": "radius_3_inside", "centerLatitude": 0, "centerLongitude": 10, "candidateLatitude": 0.04337093492119829, "candidateLongitude": 10, "radiusMiles": 3, "expectedDistanceMiles": 2.9999990000000007, "expectedEligible": true},
+      {"id": "radius_3_boundary", "centerLatitude": 0, "centerLongitude": 10, "candidateLatitude": 0.043370949378181388, "candidateLongitude": 10, "radiusMiles": 3, "expectedDistanceMiles": 2.9999999999999982, "expectedEligible": true},
+      {"id": "radius_3_outside", "centerLatitude": 0, "centerLongitude": 10, "candidateLatitude": 0.04337096383516454, "candidateLongitude": 10, "radiusMiles": 3, "expectedDistanceMiles": 3.000001, "expectedEligible": false},
+      {"id": "radius_5_inside", "centerLatitude": 0, "centerLongitude": 10, "candidateLatitude": 0.07228490117331923, "candidateLongitude": 10, "radiusMiles": 5, "expectedDistanceMiles": 4.999999000000001, "expectedEligible": true},
+      {"id": "radius_5_boundary", "centerLatitude": 0, "centerLongitude": 10, "candidateLatitude": 0.072284915630302302, "candidateLongitude": 10, "radiusMiles": 5, "expectedDistanceMiles": 4.9999999999999964, "expectedEligible": true},
+      {"id": "radius_5_outside", "centerLatitude": 0, "centerLongitude": 10, "candidateLatitude": 0.07228493008728548, "candidateLongitude": 10, "radiusMiles": 5, "expectedDistanceMiles": 5.000001, "expectedEligible": false},
+      {"id": "radius_10_inside", "centerLatitude": 0, "centerLongitude": 10, "candidateLatitude": 0.1445698168036216, "candidateLongitude": 10, "radiusMiles": 10, "expectedDistanceMiles": 9.999999, "expectedEligible": true},
+      {"id": "radius_10_boundary", "centerLatitude": 0, "centerLongitude": 10, "candidateLatitude": 0.1445698312606046, "candidateLongitude": 10, "radiusMiles": 10, "expectedDistanceMiles": 9.999999999999993, "expectedEligible": true},
+      {"id": "radius_10_outside", "centerLatitude": 0, "centerLongitude": 10, "candidateLatitude": 0.14456984571758785, "candidateLongitude": 10, "radiusMiles": 10, "expectedDistanceMiles": 10.000000999999997, "expectedEligible": false},
+      {"id": "radius_15_inside", "centerLatitude": 0, "centerLongitude": 10, "candidateLatitude": 0.21685473243392395, "candidateLongitude": 10, "radiusMiles": 15, "expectedDistanceMiles": 14.999998999999997, "expectedEligible": true},
+      {"id": "radius_15_boundary", "centerLatitude": 0, "centerLongitude": 10, "candidateLatitude": 0.21685474689090697, "candidateLongitude": 10, "radiusMiles": 15, "expectedDistanceMiles": 14.999999999999993, "expectedEligible": true},
+      {"id": "radius_15_outside", "centerLatitude": 0, "centerLongitude": 10, "candidateLatitude": 0.21685476134789017, "candidateLongitude": 10, "radiusMiles": 15, "expectedDistanceMiles": 15.000001, "expectedEligible": false},
+      {"id": "radius_20_inside", "centerLatitude": 0, "centerLongitude": 10, "candidateLatitude": 0.2891396480642263, "candidateLongitude": 10, "radiusMiles": 20, "expectedDistanceMiles": 19.999999000000003, "expectedEligible": true},
+      {"id": "radius_20_boundary", "centerLatitude": 0, "centerLongitude": 10, "candidateLatitude": 0.28913966252120921, "candidateLongitude": 10, "radiusMiles": 20, "expectedDistanceMiles": 19.999999999999986, "expectedEligible": true},
+      {"id": "radius_20_outside", "centerLatitude": 0, "centerLongitude": 10, "candidateLatitude": 0.2891396769781926, "candidateLongitude": 10, "radiusMiles": 20, "expectedDistanceMiles": 20.000001, "expectedEligible": false},
+      {"id": "radius_30_inside", "centerLatitude": 0, "centerLongitude": 10, "candidateLatitude": 0.433709479324831, "candidateLongitude": 10, "radiusMiles": 30, "expectedDistanceMiles": 29.999998999999995, "expectedEligible": true},
+      {"id": "radius_30_boundary", "centerLatitude": 0, "centerLongitude": 10, "candidateLatitude": 0.43370949378181395, "candidateLongitude": 10, "radiusMiles": 30, "expectedDistanceMiles": 29.999999999999986, "expectedEligible": true},
+      {"id": "radius_30_outside", "centerLatitude": 0, "centerLongitude": 10, "candidateLatitude": 0.43370950823879734, "candidateLongitude": 10, "radiusMiles": 30, "expectedDistanceMiles": 30.000001000000008, "expectedEligible": false},
+      {"id": "cross_state_near_texarkana", "centerLatitude": 33.431, "centerLongitude": -94.047, "candidateLatitude": 33.435, "candidateLongitude": -94.03, "radiusMiles": 3, "expectedDistanceMiles": 1.0195858104355378, "expectedEligible": true},
+      {"id": "antimeridian", "centerLatitude": 10, "centerLongitude": 179.9, "candidateLatitude": 10, "candidateLongitude": -179.9, "radiusMiles": 15, "expectedDistanceMiles": 13.623972987291385, "expectedEligible": true},
+      {"id": "high_latitude", "centerLatitude": 89, "centerLongitude": 0, "candidateLatitude": 89, "candidateLongitude": 10, "radiusMiles": 15, "expectedDistanceMiles": 12.056644294627167, "expectedEligible": true},
+      {"id": "same_valid_point", "centerLatitude": 28.5383, "centerLongitude": -81.3792, "candidateLatitude": 28.5383, "candidateLongitude": -81.3792, "radiusMiles": 1, "expectedDistanceMiles": 0, "expectedEligible": true}
+    ]
+  },
+  "legacyDateTimeStringCases": [
+    {"id": "extended_iso_utc", "input": "2026-09-10T12:34:56.789Z", "expectedValid": true, "expectedZoneKind": "explicit"},
+    {"id": "trimmed_iso_utc", "input": "  2026-09-10T12:34:56.789Z  ", "expectedValid": true, "expectedZoneKind": "explicit"},
+    {"id": "compact_local_date", "input": "20260910", "expectedValid": true, "expectedZoneKind": "local"},
+    {"id": "overflow_day", "input": "2026-01-42", "expectedValid": true, "expectedZoneKind": "local"},
+    {"id": "hour_only_local", "input": "2026-09-10 12", "expectedValid": true, "expectedZoneKind": "local"},
+    {"id": "comma_fraction_and_offset", "input": "2026-09-10T12:34:56,123456+0130", "expectedValid": true, "expectedZoneKind": "explicit"},
+    {"id": "six_digit_signed_year", "input": "+0020260910T123456Z", "expectedValid": true, "expectedZoneKind": "explicit"},
+    {"id": "javascript_us_date_rejected", "input": "12/31/2026", "expectedValid": false, "expectedZoneKind": "invalid"},
+    {"id": "javascript_partial_us_date_rejected", "input": "09/10", "expectedValid": false, "expectedZoneKind": "invalid"},
+    {"id": "javascript_rfc_2822_rejected", "input": "Thu, 10 Sep 2026 12:00:00 GMT", "expectedValid": false, "expectedZoneKind": "invalid"},
+    {"id": "single_digit_month_rejected", "input": "2026-9-10", "expectedValid": false, "expectedZoneKind": "invalid"},
+    {"id": "display_copy_rejected", "input": "Expires tomorrow", "expectedValid": false, "expectedZoneKind": "invalid"}
+  ],
+  "coordinateValidityCases": [
+    {"id": "ordinary_valid", "latitude": 28.5383, "longitude": -81.3792, "expectedValid": true},
+    {"id": "north_east_edges_valid", "latitude": 90, "longitude": 180, "expectedValid": true},
+    {"id": "south_west_edges_valid", "latitude": -90, "longitude": -180, "expectedValid": true},
+    {"id": "zero_zero_fails_closed", "latitude": 0, "longitude": 0, "expectedValid": false},
+    {"id": "latitude_too_high", "latitude": 90.000001, "longitude": 10, "expectedValid": false},
+    {"id": "latitude_too_low", "latitude": -90.000001, "longitude": 10, "expectedValid": false},
+    {"id": "longitude_too_high", "latitude": 10, "longitude": 180.000001, "expectedValid": false},
+    {"id": "longitude_too_low", "latitude": 10, "longitude": -180.000001, "expectedValid": false},
+    {"id": "missing_latitude", "latitude": null, "longitude": 10, "expectedValid": false},
+    {"id": "missing_longitude", "latitude": 10, "longitude": null, "expectedValid": false},
+    {"id": "numeric_strings_are_invalid", "latitude": "28.5383", "longitude": "-81.3792", "expectedValid": false}
+  ],
+  "orderingCases": [
+    {
+      "id": "exact_then_distance_then_name_then_stable_id",
+      "candidates": [
+        {"id": "ordinary-far", "name": "Alpha", "exactLocationPreference": false, "distanceMiles": 2},
+        {"id": "exact-zeta", "name": "Zeta", "exactLocationPreference": true, "distanceMiles": 0.1},
+        {"id": "ordinary-beta-b", "name": "Beta", "exactLocationPreference": false, "distanceMiles": 1},
+        {"id": "exact-alpha-b", "name": "Alpha", "exactLocationPreference": true, "distanceMiles": 2},
+        {"id": "ordinary-alpha", "name": "Alpha", "exactLocationPreference": false, "distanceMiles": 1},
+        {"id": "exact-alpha-a", "name": "alpha", "exactLocationPreference": true, "distanceMiles": 3},
+        {"id": "ordinary-beta-a", "name": "Beta", "exactLocationPreference": false, "distanceMiles": 1}
+      ],
+      "expectedOrder": [
+        "exact-alpha-a",
+        "exact-alpha-b",
+        "exact-zeta",
+        "ordinary-alpha",
+        "ordinary-beta-a",
+        "ordinary-beta-b",
+        "ordinary-far"
+      ]
+    },
+    {
+      "id": "supplementary_and_bmp_utf16_ties",
+      "candidates": [
+        {"id": "id-", "name": "Tie", "exactLocationPreference": true, "distanceMiles": 30},
+        {"id": "ordinary-bmp", "name": " Cafe", "exactLocationPreference": false, "distanceMiles": 1},
+        {"id": "id-😀", "name": "tie", "exactLocationPreference": true, "distanceMiles": 1},
+        {"id": "ordinary-supplementary", "name": "😀 Cafe", "exactLocationPreference": false, "distanceMiles": 1}
+      ],
+      "expectedOrder": [
+        "id-😀",
+        "id-",
+        "ordinary-supplementary",
+        "ordinary-bmp"
+      ]
+    }
+  ]
+}

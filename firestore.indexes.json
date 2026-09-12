@@ -86,6 +86,30 @@
       ]
     },
     {
+      "collectionGroup": "bitesaver_offer_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "customerOfferProjectionVersion", "order": "ASCENDING" },
+        { "fieldPath": "customerDiscoverable", "order": "ASCENDING" },
+        { "fieldPath": "geohash", "order": "ASCENDING" },
+        { "fieldPath": "indexDocumentId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bitesaver_offer_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "customerOfferProjectionVersion", "order": "ASCENDING" },
+        { "fieldPath": "customerDiscoverable", "order": "ASCENDING" },
+        { "fieldPath": "restaurantAccountId", "order": "ASCENDING" },
+        { "fieldPath": "presentationTypeRank", "order": "ASCENDING" },
+        { "fieldPath": "sourceCreatedAtOrderKey", "order": "DESCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "DESCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "bitesaver_reports",
       "queryScope": "COLLECTION",
       "fields": [
@@ -267,6 +291,19 @@
       "fields": [
         { "fieldPath": "reportingUserId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "private_bitesaver_search_results",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sessionId", "order": "ASCENDING" },
+        { "fieldPath": "attemptGeneration", "order": "ASCENDING" },
+        { "fieldPath": "eligibleAtPreparation", "order": "ASCENDING" },
+        { "fieldPath": "exactPreferenceRank", "order": "ASCENDING" },
+        { "fieldPath": "distanceSortMiles", "order": "ASCENDING" },
+        { "fieldPath": "lowercaseDisplayNameOrderKey", "order": "ASCENDING" },
+        { "fieldPath": "authoritativeAccountIdOrderKey", "order": "ASCENDING" }
       ]
     },
     {
@@ -573,6 +610,17 @@
       ]
     },
     {
+      "collectionGroup": "restaurant_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "publicProjectionVersion", "order": "ASCENDING" },
+        { "fieldPath": "publicVisible", "order": "ASCENDING" },
+        { "fieldPath": "geohash", "order": "ASCENDING" },
+        { "fieldPath": "sourceDocumentId", "order": "ASCENDING" }
+      ]
+    },
+    {
       "collectionGroup": "review_feedback_votes",
       "queryScope": "COLLECTION",
       "fields": [
@@ -632,5 +680,53 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "bitesaver_offer_index",
+      "fieldPath": "searchMatchValues",
+      "indexes": []
+    },
+    {
+      "collectionGroup": "private_search_index_jobs",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "private_bitesaver_search_active_sessions",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "private_bitesaver_guest_offer_checks",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "private_bitesaver_search_candidates",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "private_bitesaver_search_jobs",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "private_bitesaver_search_results",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "private_bitesaver_search_sessions",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    }
+  ]
 }

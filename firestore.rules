@@ -1161,6 +1161,34 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /private_bitesaver_search_sessions/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /private_bitesaver_search_active_sessions/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /private_bitesaver_guest_offer_checks/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /private_bitesaver_search_candidates/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /private_bitesaver_search_results/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /private_bitesaver_search_jobs/{document=**} {
+      allow read, write: if false;
+    }
+
+    match /private_bitesaver_catalog_generation_shards/{document=**} {
+      allow read, write: if false;
+    }
+
     match /restaurant_name_change_requests/{requestId} {
       allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
       allow create: if canCreateOwnRestaurantNameChangeRequest();
