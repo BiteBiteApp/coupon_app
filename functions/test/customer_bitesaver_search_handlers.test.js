@@ -17,6 +17,7 @@ const {
   customerBiteSaverSearchProtocolVersion,
   customerBiteSaverSearchSchemaVersion,
   privateCustomerBiteSaverActiveSessionCollection,
+  privateCustomerBiteSaverCandidateCollection,
   privateCustomerBiteSaverGuestOfferCheckCollection,
   privateCustomerBiteSaverJobCollection,
   privateCustomerBiteSaverResultCollection,
@@ -26,9 +27,11 @@ const {
   customerBiteSaverCallerCapabilityBinding,
   CustomerBiteSaverCursorCodec,
   CustomerBiteSaverOfferOccurrenceCodec,
+} = require("../lib/customer_bitesaver_search_cursor.js");
+const {
   customerBiteSaverOpaqueOfferId,
   customerBiteSaverOpaqueRestaurantId,
-} = require("../lib/customer_bitesaver_search_cursor.js");
+} = require("../lib/customer_bitesaver_public_identity.js");
 const {
   CustomerBiteSaverGuestOfferCheckCodec,
   customerBiteSaverGuestOfferCheckTokenMaximumBytes,
@@ -51,6 +54,7 @@ const {
   getCustomerBiteSaverSearchPageHandler,
   getCustomerBiteSaverSearchStatusHandler,
   startCustomerBiteSaverSearchHandler,
+  startCustomerBiteSaverOfferRedemptionHandler,
   validateCustomerBiteSaverOfferRedemptionStartHandler,
 } = require("../lib/customer_bitesaver_search_session.js");
 const {
@@ -72,7 +76,8 @@ const {
 } = require("../lib/restaurant_geo_helpers.js");
 
 const nowMs = Date.parse("2026-09-09T12:00:00.000Z");
-const secretKey = Buffer.alloc(32, 17);
+const discoveryKey = Buffer.alloc(32, 17);
+const identityKeyV1 = Buffer.alloc(32, 23);
 const defaultSignedUid = "handler-test-customer";
 
 function compareValues(left, right) {
@@ -109,6 +114,7 @@ class InMemoryCustomerBiteSaverSearchDatabase {
     this.failTransactionWritesWhen = null;
     this.transactionWriteFailure = null;
     this.onTransactionGetDocument = null;
+    this.onTransactionGetDocuments = null;
   }
 
   stored(path) {
@@ -215,7 +221,9 @@ class InMemoryCustomerBiteSaverSearchDatabase {
           this.failGetDocuments ||
           this.failGetDocumentsWhen?.(paths) === true
         ) throw new Error("private read canary");
-        return paths.map((path) => this.stored(path));
+        const stored = paths.map((path) => this.stored(path));
+        this.onTransactionGetDocuments?.(paths, stored);
+        return stored;
       },
       createDocument: (path, data) => writes.push({type: "create", path, data}),
       setDocument: (path, data) => writes.push({type: "set", path, data}),
@@ -262,7 +270,8 @@ function createContext(database, overrides = {}) {
   let entropy = 1;
   return {
     database,
-    secretKey,
+    discoveryKey,
+    identityKeyV1,
     identity: {authUid: defaultSignedUid, authIsAnonymous: false},
     now: () => nowMs,
     randomSource: (size) => Buffer.alloc(size, entropy++),
@@ -429,6 +438,62 @@ function rawDailySpecial(accountId, index, overrides = {}) {
   };
 }
 
+function canonicalRestaurantFavorite(userId, restaurantId, overrides = {}) {
+  return {
+    schemaVersion: customerBiteSaverSearchSchemaVersion,
+    favoriteKind: "bitesaverRestaurant",
+    userId,
+    restaurantId,
+    createdAt: new Date(nowMs),
+    updatedAt: new Date(nowMs),
+    ...overrides,
+  };
+}
+
+function canonicalCouponFavorite(
+  userId,
+  restaurantId,
+  offerId,
+  overrides = {},
+) {
+  return {
+    schemaVersion: customerBiteSaverSearchSchemaVersion,
+    favoriteKind: "bitesaverCoupon",
+    userId,
+    restaurantId,
+    offerId,
+    offerType: "coupon",
+    createdAt: new Date(nowMs),
+    updatedAt: new Date(nowMs),
+    ...overrides,
+  };
+}
+
+function canonicalCouponUsage(
+  userId,
+  restaurantId,
+  offerId,
+  options = {},
+) {
+  const {
+    timerStartedAt = new Date(nowMs - 5 * 60_000),
+    ...overrides
+  } = options;
+  return {
+    schemaVersion: customerBiteSaverSearchSchemaVersion,
+    userId,
+    restaurantId,
+    offerId,
+    offerType: "coupon",
+    redemptionId: `bsrd_${Buffer.alloc(32, 31).toString("base64url")}`,
+    timerStartedAt,
+    timerExpiresAt: new Date(timerStartedAt.getTime() + 5 * 60_000),
+    createdAt: new Date(timerStartedAt.getTime()),
+    updatedAt: new Date(timerStartedAt.getTime()),
+    ...overrides,
+  };
+}
+
 function previewCandidate(projection) {
   return Object.freeze({
     offerType: projection.offerType,
@@ -470,7 +535,7 @@ function addReadyRestaurant(database, session, index, options = {}) {
   });
   assert.notEqual(restaurantProjection, null);
   const publicRestaurantId = customerBiteSaverOpaqueRestaurantId(
-    secretKey,
+    identityKeyV1,
     accountId,
   );
   const daily = [];
@@ -568,7 +633,7 @@ function addReadyRestaurant(database, session, index, options = {}) {
     expiresAt: session.absoluteExpiresAt,
   };
   const resultId = customerBiteSaverResultDocumentId(
-    secretKey,
+    discoveryKey,
     session.sessionId,
     session.attemptGeneration,
     publicRestaurantId,
@@ -629,7 +694,7 @@ function addUnavailableResult(database, session, index) {
   const suffix = String(index).padStart(4, "0");
   const accountId = `unavailable-account-${suffix}`;
   const publicRestaurantId = customerBiteSaverOpaqueRestaurantId(
-    secretKey,
+    identityKeyV1,
     accountId,
   );
   const data = {
@@ -669,7 +734,7 @@ function addUnavailableResult(database, session, index) {
   };
   database.documents.set(`${privateCustomerBiteSaverResultCollection}/${
     customerBiteSaverResultDocumentId(
-      secretKey,
+      discoveryKey,
       session.sessionId,
       session.attemptGeneration,
       publicRestaurantId,
@@ -714,6 +779,15 @@ function redemptionRequest(started, restaurantId, offerId, overrides = {}) {
     redemptionRequestId: "redemption-occurrence-0001",
     currentCoordinates: null,
     guestStateRevision: null,
+    ...overrides,
+  };
+}
+
+function redemptionStartRequest(request, validation, overrides = {}) {
+  return {
+    ...request,
+    clientRequestId: "redemption-start-request-0001",
+    validationId: validation.validationId,
     ...overrides,
   };
 }
@@ -779,7 +853,7 @@ function guestIdentity() {
 
 function opaqueOfferId(seeded, candidate) {
   return customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     seeded.accountId,
     candidate.offerType,
     candidate.sourceDocumentId,
@@ -878,7 +952,7 @@ function fixtureOfferOccurrence(
     `${privateCustomerBiteSaverSearchSessionCollection}/${started.sessionId}`,
   );
   const callerCapabilityBinding = customerBiteSaverCallerCapabilityBinding(
-    secretKey,
+    discoveryKey,
     session.callerBindingHash,
     session.capabilityHash,
   );
@@ -913,13 +987,13 @@ function fixtureOfferOccurrence(
     matchingMode,
   });
   const offerId = customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     seeded.accountId,
     candidate.offerType,
     candidate.sourceDocumentId,
   );
   return new CustomerBiteSaverOfferOccurrenceCodec({
-    key: secretKey,
+    key: discoveryKey,
     now: () => nowMs,
   }).encode({
     pagePurpose: "offerPage",
@@ -1511,7 +1585,7 @@ test("one live gate serializes status and page continuations per session", async
   const session = markSessionReady(database, started);
   const seeded = addReadyRestaurant(database, session, 0);
   const gateId = customerBiteSaverSessionInternals.requestGateDocumentId(
-    secretKey,
+    discoveryKey,
     session,
   );
   const absoluteExpiresAt = new Date(session.absoluteExpiresAt.getTime());
@@ -1524,7 +1598,7 @@ test("one live gate serializes status and page continuations per session", async
     sessionId: session.sessionId,
     attemptGeneration: session.attemptGeneration,
     callerCapabilityBinding: customerBiteSaverCallerCapabilityBinding(
-      secretKey,
+      discoveryKey,
       session.callerBindingHash,
       session.capabilityHash,
     ),
@@ -1983,7 +2057,7 @@ test("signed identical page replay expires with returned timed offers", async (t
         assert.equal(original.hasMore, false);
       }
       const occurrence = new CustomerBiteSaverOfferOccurrenceCodec({
-        key: secretKey,
+        key: discoveryKey,
         now: () => evaluationAtMs,
       }).open(originalOffers[0].offerOccurrence);
       assert.equal(occurrence.availabilityAtMs, evaluationAtMs);
@@ -2235,7 +2309,7 @@ test("signed page replay deadline matrix retains its anchor and rejects stale is
         assert.equal(originalOffers[0].available, true);
         assert.equal(originalOffers[0].availabilityReason, "available");
         const occurrence = new CustomerBiteSaverOfferOccurrenceCodec({
-          key: secretKey,
+          key: discoveryKey,
           now: () => scenario.evaluationAtMs,
         }).open(originalOffers[0].offerOccurrence);
         assert.equal(occurrence.availabilityAtMs, scenario.evaluationAtMs);
@@ -2458,7 +2532,7 @@ test("cursor request bindings fail before any database access", async () => {
     (restaurantPage.nextCursor.endsWith("A") ? "B" : "A");
   const wrongSessionId = `bss_${Buffer.alloc(32, 41).toString("base64url")}`;
   const wrongRestaurantId = customerBiteSaverOpaqueRestaurantId(
-    secretKey,
+    identityKeyV1,
     "cursor-wrong-restaurant",
   );
   const cases = [
@@ -2687,17 +2761,23 @@ test("restaurant preview backfills past signed usage", async () => {
     offerOverrides: {usageRule: "Once per customer"},
   });
   for (const candidate of seeded.coupons.slice(0, 2)) {
+    const offerId = customerBiteSaverOpaqueOfferId(
+      identityKeyV1,
+      seeded.accountId,
+      "coupon",
+      candidate.sourceDocumentId,
+    );
     database.documents.set(
-      `customer_redemptions/${defaultSignedUid}/coupon_redemptions/${candidate.sourceDocumentId}`,
-      {
-        restaurantAccountId: seeded.accountId,
-        couponId: candidate.sourceDocumentId,
-        lastRedeemedAt: new Date(nowMs - 1_000),
-      },
+      `customer_redemptions/${defaultSignedUid}/coupon_redemptions/${offerId}`,
+      canonicalCouponUsage(
+        defaultSignedUid,
+        seeded.publicRestaurantId,
+        offerId,
+      ),
     );
   }
   const expectedOfferId = customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     seeded.accountId,
     "coupon",
     seeded.coupons[2].sourceDocumentId,
@@ -2841,7 +2921,7 @@ test("restaurant preview live fallback reaches beyond retained candidates", asyn
     );
   }
   const expectedOfferId = customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     seeded.accountId,
     "coupon",
     seeded.coupons[50].sourceDocumentId,
@@ -2935,7 +3015,7 @@ test("restaurant preview work shares one 100-candidate page budget", async () =>
   assert.equal(partial.hasMore, true);
   assert.match(partial.nextCursor, /^bsc1\./u);
   const openedContinuation = new CustomerBiteSaverCursorCodec({
-    key: secretKey,
+    key: discoveryKey,
     now: () => nowMs,
   }).open(partial.nextCursor);
   assert.equal(openedContinuation.sortTuple.length, 5);
@@ -2996,7 +3076,7 @@ test("restaurant preview continuation resumes an unresolved first row", async ()
     );
   }
   const expectedOfferId = customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     seeded.accountId,
     "coupon",
     seeded.coupons[100].sourceDocumentId,
@@ -3010,7 +3090,7 @@ test("restaurant preview continuation resumes an unresolved first row", async ()
   assert.equal(partial.partial, true);
   assert.equal(partial.hasMore, true);
   const opened = new CustomerBiteSaverCursorCodec({
-    key: secretKey,
+    key: discoveryKey,
     now: () => nowMs,
   }).open(partial.nextCursor);
   assert.equal(opened.sortTuple.length, 5);
@@ -3568,7 +3648,7 @@ test("offer pages preserve nanosecond timestamps and Firestore UTF-8 ID ties", a
   );
   const expectedPublicIds = expected.map((candidate) =>
     customerBiteSaverOpaqueOfferId(
-      secretKey,
+      identityKeyV1,
       seeded.accountId,
       "coupon",
       candidate.sourceDocumentId,
@@ -3645,18 +3725,18 @@ test("offer page honors signed usage suppression with backfill", async () => {
     offerOverrides: {usageRule: "Once per customer"},
   });
   const suppressed = customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     seeded.accountId,
     "coupon",
     seeded.coupons[0].sourceDocumentId,
   );
   database.documents.set(
-    `customer_redemptions/${defaultSignedUid}/coupon_redemptions/${seeded.coupons[0].sourceDocumentId}`,
-    {
-      restaurantAccountId: seeded.accountId,
-      couponId: seeded.coupons[0].sourceDocumentId,
-      lastRedeemedAt: new Date(nowMs - 1_000),
-    },
+    `customer_redemptions/${defaultSignedUid}/coupon_redemptions/${suppressed}`,
+    canonicalCouponUsage(
+      defaultSignedUid,
+      seeded.publicRestaurantId,
+      suppressed,
+    ),
   );
   const response = await getCustomerBiteSaverOfferPageHandler(
     offerPageRequest(started, seeded.publicRestaurantId),
@@ -3689,18 +3769,23 @@ test("multi-snapshot offer backfill fences signed usage before delivery", async 
     );
   }
   const firstCandidate = seeded.coupons[0];
+  const firstOfferId = customerBiteSaverOpaqueOfferId(
+    identityKeyV1,
+    seeded.accountId,
+    "coupon",
+    firstCandidate.sourceDocumentId,
+  );
   const usagePath =
-    `customer_redemptions/${uid}/coupon_redemptions/${firstCandidate.sourceDocumentId}`;
+    `customer_redemptions/${uid}/coupon_redemptions/${firstOfferId}`;
   let targetUsageReads = 0;
   database.failGetDocumentsWhen = (paths) => {
     if (paths.includes(usagePath)) {
       targetUsageReads += 1;
       if (targetUsageReads === 2) {
-        database.documents.set(usagePath, {
-          restaurantAccountId: seeded.accountId,
-          couponId: firstCandidate.sourceDocumentId,
-          lastRedeemedAt: new Date(nowMs),
-        });
+        database.documents.set(
+          usagePath,
+          canonicalCouponUsage(uid, seeded.publicRestaurantId, firstOfferId),
+        );
       }
     }
     return false;
@@ -3856,22 +3941,15 @@ test("favorite handler enforces signed strict 0/25/50/75 request bounds", async 
   );
   const session = markSessionReady(database, started);
   const seeded = Array.from({length: 25}, (_, index) =>
-    addReadyRestaurant(database, session, index));
+    addReadyRestaurant(database, session, index, {onlyCoupons: true}));
   const restaurantIds = seeded.map((entry) => entry.publicRestaurantId);
-  const offerIds = seeded.flatMap((entry) => [
+  const offerIds = seeded.flatMap((entry) => entry.coupons.map((candidate) =>
     customerBiteSaverOpaqueOfferId(
-      secretKey,
-      entry.accountId,
-      "dailySpecial",
-      entry.daily[0].sourceDocumentId,
-    ),
-    customerBiteSaverOpaqueOfferId(
-      secretKey,
+      identityKeyV1,
       entry.accountId,
       "coupon",
-      entry.coupons[0].sourceDocumentId,
-    ),
-  ]);
+      candidate.sourceDocumentId,
+    )));
   const issued = await getCustomerBiteSaverSearchPageHandler(
     pageRequest(started, {clientRequestId: "favorite-bounds-page-0001"}),
     context,
@@ -3912,11 +3990,11 @@ test("favorite handler enforces signed strict 0/25/50/75 request bounds", async 
   }
 
   const extraRestaurant = customerBiteSaverOpaqueRestaurantId(
-    secretKey,
+    identityKeyV1,
     "extra-account",
   );
   const extraOffer = customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     "extra-account",
     "coupon",
     "extra-offer",
@@ -3981,6 +4059,9 @@ test("restaurant-page delivery evidence is exact, bounded, and replay-safe", asy
   );
   const returnedOfferIds = page.restaurants.flatMap((restaurant) =>
     restaurant.offers.map((offer) => offer.offerId));
+  const returnedCouponId = page.restaurants[0].offers.find(
+    (offer) => offer.offerType === "coupon",
+  ).offerId;
   assert.equal(returnedOfferIds.length, 50);
 
   const deliveryDocuments = () => [...database.documents.entries()]
@@ -4018,13 +4099,13 @@ test("restaurant-page delivery evidence is exact, bounded, and replay-safe", asy
     favoriteRequest(started, {
       clientRequestId: "favorite-evidence-authorized-0001",
       restaurantIds: [returnedRestaurantIds[0]],
-      offerIds: [returnedOfferIds[0]],
+      offerIds: [returnedCouponId],
     }),
     context,
   );
   assert.deepEqual(authorized.states, [
     {id: returnedRestaurantIds[0], state: "notFavorite"},
-    {id: returnedOfferIds[0], state: "notFavorite"},
+    {id: returnedCouponId, state: "notFavorite"},
   ]);
 
   let readsBefore = database.calls.getDocuments.length;
@@ -4260,7 +4341,7 @@ test("a failed delivery-evidence commit does not authorize favorites", async () 
   );
   const session = markSessionReady(database, started);
   const seeded = addReadyRestaurant(database, session, 0);
-  const offerId = opaqueOfferId(seeded, seeded.daily[0]);
+  const offerId = opaqueOfferId(seeded, seeded.coupons[0]);
   const request = pageRequest(started, {
     clientRequestId: "favorite-failed-commit-page-0001",
   });
@@ -4457,18 +4538,18 @@ test("favorite states are batched, distinguish outcomes, and fail unknown", asyn
   const first = addReadyRestaurant(database, session, 0);
   const second = addReadyRestaurant(database, session, 1);
   const firstOfferId = customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     first.accountId,
     "coupon",
     first.coupons[0].sourceDocumentId,
   );
   const secondOfferId = customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     second.accountId,
     "coupon",
     second.coupons[0].sourceDocumentId,
   );
-  const unknownId = customerBiteSaverOpaqueRestaurantId(secretKey, "unknown-account");
+  const unknownId = customerBiteSaverOpaqueRestaurantId(identityKeyV1, "unknown-account");
   const issued = await getCustomerBiteSaverSearchPageHandler(
     pageRequest(started, {clientRequestId: "favorite-states-page-0001"}),
     context,
@@ -4478,20 +4559,12 @@ test("favorite states are batched, distinguish outcomes, and fail unknown", asyn
     [first.publicRestaurantId, second.publicRestaurantId],
   );
   database.documents.set(
-    `user_profiles/${uid}/favorite_restaurants/bitesaver_account_${first.accountId}`,
-    {restaurantAccountId: first.accountId},
+    `user_profiles/${uid}/favorite_restaurants/${first.publicRestaurantId}`,
+    canonicalRestaurantFavorite(uid, first.publicRestaurantId),
   );
   database.documents.set(
-    `user_profiles/${uid}/favorite_coupons/${first.coupons[0].sourceDocumentId}`,
-    {
-      restaurantAccountId: first.accountId,
-      couponId: first.coupons[0].sourceDocumentId,
-      privateNote: "admin-private-canary",
-    },
-  );
-  database.documents.set(
-    `user_profiles/${uid}/favorite_coupons/${second.coupons[0].sourceDocumentId}`,
-    {couponId: second.coupons[0].sourceDocumentId},
+    `user_profiles/${uid}/favorite_coupons/${firstOfferId}`,
+    canonicalCouponFavorite(uid, first.publicRestaurantId, firstOfferId),
   );
   database.calls.getDocuments = [];
   const response = await getCustomerBiteSaverFavoriteStatesHandler(
@@ -4505,14 +4578,36 @@ test("favorite states are batched, distinguish outcomes, and fail unknown", asyn
     {id: first.publicRestaurantId, state: "favorite"},
     {id: second.publicRestaurantId, state: "notFavorite"},
     {id: firstOfferId, state: "favorite"},
-    {id: secondOfferId, state: "unknown"},
+    {id: secondOfferId, state: "notFavorite"},
   ]);
-  assert.equal(database.calls.getDocuments.length, 4);
+  assert.equal(database.calls.getDocuments.length, 3);
   assert.deepEqual(
     database.calls.getDocuments.map((paths) => paths.length),
-    [4, 2, 4, 1],
+    [4, 2, 4],
   );
   assertNoPrivateCanaries(response);
+
+  database.documents.set(
+    `user_profiles/${uid}/favorite_coupons/${secondOfferId}`,
+    canonicalCouponFavorite(uid, second.publicRestaurantId, secondOfferId, {
+      privateNote: "admin-private-canary",
+    }),
+  );
+  const corruptFavorite = await getCustomerBiteSaverFavoriteStatesHandler(
+    favoriteRequest(started, {
+      clientRequestId: "favorite-corrupt-batch-0001",
+      restaurantIds: [first.publicRestaurantId, second.publicRestaurantId],
+      offerIds: [firstOfferId, secondOfferId],
+    }),
+    context,
+  );
+  assert.deepEqual(corruptFavorite.states, [
+    {id: first.publicRestaurantId, state: "unknown"},
+    {id: second.publicRestaurantId, state: "unknown"},
+    {id: firstOfferId, state: "unknown"},
+    {id: secondOfferId, state: "unknown"},
+  ]);
+  assertNoPrivateCanaries(corruptFavorite);
 
   const mixedReadsBefore = database.calls.getDocuments.length;
   const mixed = await getCustomerBiteSaverFavoriteStatesHandler(
@@ -4568,7 +4663,71 @@ test("favorite states are batched, distinguish outcomes, and fail unknown", asyn
     {id: firstOfferId, state: "unknown"},
   ]);
   assertNoPrivateCanaries(resolutionFailure);
+
+  database.failGetDocumentsWhen = (paths) => {
+    if (paths.some((path) => path.startsWith(
+      `${privateCustomerBiteSaverResultCollection}/`,
+    ))) {
+      throw new CustomerBiteSaverContractError(
+        "failed-precondition",
+        "private backing contract-error canary",
+      );
+    }
+    return false;
+  };
+  const contractClassResolutionFailure =
+    await getCustomerBiteSaverFavoriteStatesHandler(
+      favoriteRequest(started, {
+        clientRequestId: "favorite-request-0004",
+        restaurantIds: [first.publicRestaurantId],
+        offerIds: [firstOfferId],
+      }),
+      context,
+    );
+  assert.deepEqual(contractClassResolutionFailure.states, [
+    {id: first.publicRestaurantId, state: "unknown"},
+    {id: firstOfferId, state: "unknown"},
+  ]);
+  assertNoPrivateCanaries(contractClassResolutionFailure);
+
+  const evidenceReadsBefore = database.calls.getDocuments.length;
+  database.failGetDocumentsWhen = (paths) => paths.some((path) =>
+    path.startsWith(`${privateCustomerBiteSaverCandidateCollection}/`));
+  const evidenceReadFailure = await getCustomerBiteSaverFavoriteStatesHandler(
+    favoriteRequest(started, {
+      clientRequestId: "favorite-request-0005",
+      restaurantIds: [first.publicRestaurantId],
+      offerIds: [firstOfferId],
+    }),
+    context,
+  );
+  assert.deepEqual(evidenceReadFailure.states, [
+    {id: first.publicRestaurantId, state: "unknown"},
+    {id: firstOfferId, state: "unknown"},
+  ]);
+  const evidenceReads = database.calls.getDocuments.slice(evidenceReadsBefore);
+  assert.equal(evidenceReads.length, 1);
+  assert.equal(
+    evidenceReads.flat().some((path) => path.startsWith("user_profiles/")),
+    false,
+  );
+  assertNoPrivateCanaries(evidenceReadFailure);
   database.failGetDocumentsWhen = null;
+
+  const capabilityReadsBefore = database.calls.getDocuments.length;
+  await assert.rejects(
+    getCustomerBiteSaverFavoriteStatesHandler(
+      favoriteRequest(started, {
+        clientRequestId: "favorite-invalid-capability-0006",
+        capability: Buffer.alloc(32, 97).toString("base64url"),
+        restaurantIds: [first.publicRestaurantId],
+        offerIds: [firstOfferId],
+      }),
+      context,
+    ),
+    (error) => assertContractError(error, "permission-denied"),
+  );
+  assert.equal(database.calls.getDocuments.length, capabilityReadsBefore);
 
   for (const contextOverride of [
     createContext(database, {
@@ -4614,11 +4773,12 @@ test("favorite state resolves a delivered live-fallback offer mapping", async ()
   const delivered = page.restaurants[0].offers[0];
   const liveCandidate = seeded.coupons[50];
   database.documents.set(
-    `user_profiles/${uid}/favorite_coupons/${liveCandidate.sourceDocumentId}`,
-    {
-      restaurantAccountId: seeded.accountId,
-      couponId: liveCandidate.sourceDocumentId,
-    },
+    `user_profiles/${uid}/favorite_coupons/${delivered.offerId}`,
+    canonicalCouponFavorite(
+      uid,
+      seeded.publicRestaurantId,
+      delivered.offerId,
+    ),
   );
 
   const response = await getCustomerBiteSaverFavoriteStatesHandler(
@@ -4661,13 +4821,13 @@ test("same child offer ID under two restaurants cannot collide in favorites", as
     sharedOfferId: "shared-child-id",
   });
   const firstOfferId = customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     first.accountId,
     "coupon",
     "shared-child-id",
   );
   const secondOfferId = customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     second.accountId,
     "coupon",
     "shared-child-id",
@@ -4685,8 +4845,8 @@ test("same child offer ID under two restaurants cannot collide in favorites", as
     [firstOfferId, secondOfferId],
   );
   database.documents.set(
-    `user_profiles/${uid}/favorite_coupons/shared-child-id`,
-    {restaurantAccountId: first.accountId, couponId: "shared-child-id"},
+    `user_profiles/${uid}/favorite_coupons/${firstOfferId}`,
+    canonicalCouponFavorite(uid, first.publicRestaurantId, firstOfferId),
   );
   const response = await getCustomerBiteSaverFavoriteStatesHandler(
     favoriteRequest(started, {
@@ -4697,14 +4857,14 @@ test("same child offer ID under two restaurants cannot collide in favorites", as
   );
   assert.deepEqual(response.states.slice(2), [
     {id: firstOfferId, state: "favorite"},
-    {id: secondOfferId, state: "unknown"},
+    {id: secondOfferId, state: "notFavorite"},
   ]);
 
   database.documents.set(
-    `user_profiles/${uid}/favorite_coupons/shared-child-id`,
-    {couponId: "shared-child-id"},
+    `user_profiles/${uid}/favorite_coupons/${secondOfferId}`,
+    canonicalCouponFavorite(uid, first.publicRestaurantId, secondOfferId),
   );
-  const ambiguousLegacy = await getCustomerBiteSaverFavoriteStatesHandler(
+  const mismatchedParent = await getCustomerBiteSaverFavoriteStatesHandler(
     favoriteRequest(started, {
       clientRequestId: "favorite-request-0002",
       restaurantIds: [first.publicRestaurantId, second.publicRestaurantId],
@@ -4712,7 +4872,9 @@ test("same child offer ID under two restaurants cannot collide in favorites", as
     }),
     context,
   );
-  assert.deepEqual(ambiguousLegacy.states.slice(2), [
+  assert.deepEqual(mismatchedParent.states, [
+    {id: first.publicRestaurantId, state: "unknown"},
+    {id: second.publicRestaurantId, state: "unknown"},
     {id: firstOfferId, state: "unknown"},
     {id: secondOfferId, state: "unknown"},
   ]);
@@ -4729,11 +4891,14 @@ test("same child offer ID under two restaurants cannot collide in favorites", as
       }),
       context,
     );
-    assert.equal(singleton.states[1].state, "unknown");
+    assert.equal(
+      singleton.states[1].state,
+      publicOfferId === firstOfferId ? "favorite" : "unknown",
+    );
   }
 });
 
-test("restaurant favorites use only bounded parent-verified legacy fallback", async () => {
+test("canonical favorite tri-state never falls back to legacy IDs", async () => {
   const database = new InMemoryCustomerBiteSaverSearchDatabase();
   const uid = "favorite-legacy-owner";
   const context = createContext(database, {
@@ -4745,9 +4910,10 @@ test("restaurant favorites use only bounded parent-verified legacy fallback", as
   );
   const session = markSessionReady(database, started);
   const seeded = addReadyRestaurant(database, session, 0);
-  const legacyPath = `user_profiles/${uid}/favorite_restaurants/` +
-    customerBiteSaverSessionInternals
-      .legacyFavoriteSaverRestaurantDocumentId(seeded.result);
+  const legacyPath =
+    `user_profiles/${uid}/favorite_restaurants/bitesaver_account_${seeded.accountId}`;
+  const canonicalPath =
+    `user_profiles/${uid}/favorite_restaurants/${seeded.publicRestaurantId}`;
   const issued = await getCustomerBiteSaverSearchPageHandler(
     pageRequest(started, {clientRequestId: "favorite-legacy-page-0001"}),
     context,
@@ -4760,8 +4926,27 @@ test("restaurant favorites use only bounded parent-verified legacy fallback", as
     restaurantAccountId: seeded.accountId,
   });
 
+  const legacyOnly = await getCustomerBiteSaverFavoriteStatesHandler(
+    favoriteRequest(started, {
+      restaurantIds: [seeded.publicRestaurantId],
+    }),
+    context,
+  );
+  assert.deepEqual(legacyOnly.states, [
+    {id: seeded.publicRestaurantId, state: "notFavorite"},
+  ]);
+  assert.equal(
+    database.calls.getDocuments.flat().includes(legacyPath),
+    false,
+  );
+
+  database.documents.set(
+    canonicalPath,
+    canonicalRestaurantFavorite(uid, seeded.publicRestaurantId),
+  );
   const favorite = await getCustomerBiteSaverFavoriteStatesHandler(
     favoriteRequest(started, {
+      clientRequestId: "favorite-canonical-req-0002",
       restaurantIds: [seeded.publicRestaurantId],
     }),
     context,
@@ -4769,19 +4954,22 @@ test("restaurant favorites use only bounded parent-verified legacy fallback", as
   assert.deepEqual(favorite.states, [
     {id: seeded.publicRestaurantId, state: "favorite"},
   ]);
-  assert.ok(database.calls.getDocuments.at(-1).length <= 25);
 
-  database.documents.set(legacyPath, {});
-  const unbound = await getCustomerBiteSaverFavoriteStatesHandler(
+  database.documents.set(canonicalPath, {
+    ...canonicalRestaurantFavorite(uid, seeded.publicRestaurantId),
+    privateStateCanary: "admin-private-canary",
+  });
+  const malformed = await getCustomerBiteSaverFavoriteStatesHandler(
     favoriteRequest(started, {
-      clientRequestId: "favorite-legacy-req-0002",
+      clientRequestId: "favorite-canonical-req-0003",
       restaurantIds: [seeded.publicRestaurantId],
     }),
     context,
   );
-  assert.deepEqual(unbound.states, [
+  assert.deepEqual(malformed.states, [
     {id: seeded.publicRestaurantId, state: "unknown"},
   ]);
+  assertNoPrivateCanaries(malformed);
 });
 
 test("signed usage never crosses same child IDs between restaurants", async () => {
@@ -4808,13 +4996,13 @@ test("signed usage never crosses same child IDs between restaurants", async () =
     offerOverrides: {usageRule: "Once per customer"},
   });
   const firstOfferId = customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     first.accountId,
     "coupon",
     "shared-usage-child",
   );
   const secondOfferId = customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     second.accountId,
     "coupon",
     "shared-usage-child",
@@ -4836,12 +5024,8 @@ test("signed usage never crosses same child IDs between restaurants", async () =
     },
   );
   database.documents.set(
-    `customer_redemptions/${uid}/coupon_redemptions/shared-usage-child`,
-    {
-      restaurantAccountId: first.accountId,
-      couponId: "shared-usage-child",
-      lastRedeemedAt: new Date(nowMs - 1_000),
-    },
+    `customer_redemptions/${uid}/coupon_redemptions/${firstOfferId}`,
+    canonicalCouponUsage(uid, first.publicRestaurantId, firstOfferId),
   );
 
   const firstState = await validateCustomerBiteSaverOfferRedemptionStartHandler(
@@ -4853,7 +5037,7 @@ test("signed usage never crosses same child IDs between restaurants", async () =
     context,
   );
   assert.equal(firstState.reason, "used");
-  assert.equal(secondState.reason, "usageUnknown");
+  assert.equal(secondState.reason, "available");
 });
 
 test("redemption validation is strict, bounded, idempotent, and DTO-safe", async () => {
@@ -4868,7 +5052,7 @@ test("redemption validation is strict, bounded, idempotent, and DTO-safe", async
     onlyCoupons: true,
   });
   const offerId = customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     seeded.accountId,
     "coupon",
     seeded.coupons[0].sourceDocumentId,
@@ -5213,6 +5397,1390 @@ test("concurrent signed transports share one logical redemption reservation", as
   );
 });
 
+test("redemption validation cannot return allowed after its clock fence crosses", async () => {
+  let clock = nowMs;
+  const uid = "redemption-validation-boundary-owner";
+  const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  const context = createContext(database, {
+    identity: {authUid: uid, authIsAnonymous: false},
+    now: () => clock,
+  });
+  const started = await startCustomerBiteSaverSearchHandler(
+    startRequest({
+      clientRequestId: "validation-boundary-search-0001",
+      searchText: "",
+    }),
+    context,
+  );
+  const session = markSessionReady(database, started);
+  const seeded = addReadyRestaurant(database, session, 0, {
+    offerCount: 1,
+    onlyCoupons: true,
+    offerOverrides: {usageRule: "Once per customer"},
+  });
+  const request = await deliveredRedemptionRequest(
+    started,
+    seeded.publicRestaurantId,
+    opaqueOfferId(seeded, seeded.coupons[0]),
+    context,
+    {
+      clientRequestId: "validation-boundary-request-0001",
+      redemptionRequestId: "validation-boundary-logical-0001",
+    },
+  );
+  const rawCouponPath =
+    `restaurant_accounts/${seeded.accountId}/coupons/${
+      seeded.coupons[0].sourceDocumentId}`;
+  let crossed = false;
+  database.onTransactionGetDocuments = (paths) => {
+    if (!crossed && paths.includes(rawCouponPath)) {
+      crossed = true;
+      clock = nowMs + 60_000;
+    }
+  };
+  await assert.rejects(
+    validateCustomerBiteSaverOfferRedemptionStartHandler(request, context),
+    (error) => assertContractError(error, "failed-precondition"),
+  );
+  assert.equal(crossed, true);
+  assert.equal(
+    [...database.documents.values()].filter((document) =>
+      document.role === "redemptionValidationReceipt").length,
+    0,
+  );
+});
+
+test("same-session re-delivery preserves original redemption authorization", async () => {
+  let clock = nowMs;
+  const uid = "redelivery-redemption-owner";
+  const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  const context = createContext(database, {
+    identity: {authUid: uid, authIsAnonymous: false},
+    now: () => clock,
+  });
+  const started = await startCustomerBiteSaverSearchHandler(
+    startRequest({
+      clientRequestId: "redelivery-search-start-0001",
+      searchText: "",
+    }),
+    context,
+  );
+  const session = markSessionReady(database, started);
+  const seeded = addReadyRestaurant(database, session, 0, {
+    offerCount: 1,
+    onlyCoupons: true,
+    offerOverrides: {usageRule: "Once per customer"},
+  });
+  const previewPage = await getCustomerBiteSaverSearchPageHandler(
+    pageRequest(started, {
+      clientRequestId: "redelivery-preview-page-0001",
+    }),
+    context,
+  );
+  const originalOffer = previewPage.restaurants[0].offers[0];
+  const originalRequest = redemptionRequest(
+    started,
+    seeded.publicRestaurantId,
+    originalOffer.offerId,
+    {
+      clientRequestId: "redelivery-validation-0001",
+      redemptionRequestId: "redelivery-logical-0001",
+      offerOccurrence: originalOffer.offerOccurrence,
+    },
+  );
+  const validation =
+    await validateCustomerBiteSaverOfferRedemptionStartHandler(
+      originalRequest,
+      context,
+    );
+  assert.equal(validation.allowed, true);
+
+  const markerEntry = () => [...database.documents.entries()].find(
+    ([, document]) =>
+      document.role === "deliveredOfferIdentity" &&
+      document.publicOfferId === originalOffer.offerId,
+  );
+  const originalMarker = structuredClone(markerEntry()[1]);
+  clock += 1;
+  const offerPage = await getCustomerBiteSaverOfferPageHandler(
+    offerPageRequest(started, seeded.publicRestaurantId, {
+      clientRequestId: "redelivery-offer-page-0002",
+    }),
+    context,
+  );
+  assert.equal(offerPage.offers[0].offerId, originalOffer.offerId);
+  clock += 1;
+  const refreshed = await getCustomerBiteSaverOfferPageHandler(
+    offerPageRequest(started, seeded.publicRestaurantId, {
+      clientRequestId: "redelivery-offer-refresh-0003",
+    }),
+    context,
+  );
+  assert.equal(refreshed.offers[0].offerId, originalOffer.offerId);
+  const latestMarkerEntry = markerEntry();
+  assert.notEqual(latestMarkerEntry, undefined);
+  const [markerPath, latestMarker] = latestMarkerEntry;
+  assert.equal(latestMarker.sessionId, originalMarker.sessionId);
+  assert.equal(latestMarker.attemptGeneration, originalMarker.attemptGeneration);
+  assert.equal(latestMarker.callerCapabilityBinding,
+    originalMarker.callerCapabilityBinding);
+  assert.equal(latestMarker.publicRestaurantId,
+    originalMarker.publicRestaurantId);
+  assert.equal(latestMarker.publicOfferId, originalMarker.publicOfferId);
+  assert.equal(latestMarker.authoritativeAccountId,
+    originalMarker.authoritativeAccountId);
+  assert.equal(latestMarker.offerType, originalMarker.offerType);
+  assert.equal(latestMarker.sourceDocumentId, originalMarker.sourceDocumentId);
+  assert.notEqual(latestMarker.pageGenerationFingerprint,
+    originalMarker.pageGenerationFingerprint);
+  assert.notEqual(latestMarker.availabilityAt.getTime(),
+    originalMarker.availabilityAt.getTime());
+
+  const preStartEntries = clonedDatabaseEntries(database);
+  for (const [label, mutate] of [
+    ["missing", (caseDatabase) => caseDatabase.documents.delete(markerPath)],
+    ["malformed", (caseDatabase) => caseDatabase.documents.set(markerPath, {
+      ...caseDatabase.documents.get(markerPath),
+      unexpected: "closed-schema-canary",
+    })],
+    ...[
+      ["session", {sessionId: "different-marker-session"}],
+      ["attempt", {
+        attemptGeneration: originalMarker.attemptGeneration + 1,
+      }],
+      ["query", {
+        queryFingerprint: originalMarker.queryFingerprint === "f".repeat(64)
+          ? "e".repeat(64)
+          : "f".repeat(64),
+      }],
+      ["caller", {
+        callerCapabilityBinding:
+          originalMarker.callerCapabilityBinding === "e".repeat(64)
+            ? "d".repeat(64)
+            : "e".repeat(64),
+      }],
+      ["parent", {
+        publicRestaurantId: customerBiteSaverOpaqueRestaurantId(
+          identityKeyV1,
+          "different-marker-account",
+        ),
+      }],
+      ["offer", {
+        publicOfferId: customerBiteSaverOpaqueOfferId(
+          identityKeyV1,
+          seeded.accountId,
+          "coupon",
+          "different-marker-offer",
+        ),
+      }],
+      ["account", {authoritativeAccountId: "different-marker-account"}],
+      ["type", {offerType: "dailySpecial"}],
+      ["source", {sourceDocumentId: "different-stable-source"}],
+    ].map(([label, replacement]) => [
+      `stable-${label}-mismatch`,
+      (caseDatabase) => caseDatabase.documents.set(markerPath, {
+        ...caseDatabase.documents.get(markerPath),
+        ...replacement,
+      }),
+    ]),
+  ]) {
+    const caseDatabase = new InMemoryCustomerBiteSaverSearchDatabase(
+      preStartEntries.map(([path, data]) => [path, structuredClone(data)]),
+    );
+    mutate(caseDatabase);
+    await assert.rejects(
+      startCustomerBiteSaverOfferRedemptionHandler(
+        redemptionStartRequest(originalRequest, validation, {
+          clientRequestId: `redelivery-${label}-start-0001`,
+        }),
+        {...context, database: caseDatabase},
+      ),
+      (error) => assertContractError(error, "failed-precondition"),
+    );
+    assert.equal(
+      [...caseDatabase.documents.values()].some((document) =>
+        document.role === "redemptionStartReceipt"),
+      false,
+    );
+    assert.equal(
+      [...caseDatabase.documents.keys()].some((path) =>
+        path.startsWith(`customer_redemptions/${uid}/coupon_redemptions/`)),
+      false,
+    );
+    assert.equal(caseDatabase.calls.transactionWrites.length, 0);
+  }
+
+  const startRequestValue = redemptionStartRequest(originalRequest, validation, {
+    clientRequestId: "redelivery-original-start-0004",
+  });
+  const first = await startCustomerBiteSaverOfferRedemptionHandler(
+    startRequestValue,
+    context,
+  );
+  assert.equal(first.status, "started");
+  assert.equal(first.timerStartedAtMillis, clock);
+  const writesBeforeRecovery = database.calls.transactionWrites.length;
+  const stateBeforeRecovery = databaseDocumentState(database);
+  const recovered = await startCustomerBiteSaverOfferRedemptionHandler(
+    {...startRequestValue, clientRequestId: "redelivery-recovery-0005"},
+    context,
+  );
+  assert.deepEqual(recovered, first);
+  assert.equal(database.calls.transactionWrites.length, writesBeforeRecovery);
+  assert.equal(databaseDocumentState(database), stateBeforeRecovery);
+});
+
+test("signed redemption start commits one canonical timer and recovers retries", async () => {
+  let clock = nowMs;
+  const uid = "redemption-start-owner";
+  const database = new SerializedTransactionCustomerBiteSaverSearchDatabase();
+  const context = createContext(database, {
+    identity: {authUid: uid, authIsAnonymous: false},
+    now: () => clock,
+  });
+  const started = await startCustomerBiteSaverSearchHandler(
+    startRequest({
+      clientRequestId: "redemption-start-search-0001",
+      searchText: "",
+    }),
+    context,
+  );
+  const session = markSessionReady(database, started);
+  const seeded = addReadyRestaurant(database, session, 0, {
+    offerCount: 1,
+    onlyCoupons: true,
+    offerOverrides: {usageRule: "Once per customer"},
+  });
+  const offerId = opaqueOfferId(seeded, seeded.coupons[0]);
+  const request = await deliveredRedemptionRequest(
+    started,
+    seeded.publicRestaurantId,
+    offerId,
+    context,
+    {
+      clientRequestId: "redemption-start-validation-0001",
+      redemptionRequestId: "redemption-start-logical-0001",
+    },
+  );
+  const validation =
+    await validateCustomerBiteSaverOfferRedemptionStartHandler(
+      request,
+      context,
+    );
+  assert.equal(validation.allowed, true);
+  assert.equal(validation.reason, "available");
+  assert.equal(
+    [...database.documents.keys()].some((path) =>
+      path.startsWith(`customer_redemptions/${uid}/coupon_redemptions/`)),
+    false,
+  );
+
+  const startRequestValue = redemptionStartRequest(request, validation);
+  const [first, concurrent] = await Promise.all([
+    startCustomerBiteSaverOfferRedemptionHandler(
+      startRequestValue,
+      context,
+    ),
+    startCustomerBiteSaverOfferRedemptionHandler(
+      {
+        ...startRequestValue,
+        clientRequestId: "redemption-start-concurrent-0002",
+      },
+      context,
+    ),
+  ]);
+  assert.deepEqual(concurrent, first);
+  assertExactKeys(first, [
+    "schemaVersion",
+    "restaurantId",
+    "offerId",
+    "redemptionId",
+    "status",
+    "timerStartedAtMillis",
+    "timerExpiresAtMillis",
+  ]);
+  assert.equal(first.restaurantId, seeded.publicRestaurantId);
+  assert.equal(first.offerId, offerId);
+  assert.equal(first.status, "started");
+  assert.match(first.redemptionId, /^bsrd_[A-Za-z0-9_-]{43}$/u);
+  assert.equal(first.timerStartedAtMillis, nowMs);
+  assert.equal(first.timerExpiresAtMillis, nowMs + 5 * 60_000);
+  assertNoPrivateCanaries(first);
+
+  const usagePath =
+    `customer_redemptions/${uid}/coupon_redemptions/${offerId}`;
+  const usage = database.documents.get(usagePath);
+  assert.notEqual(usage, undefined);
+  assertExactKeys(usage, [
+    "schemaVersion",
+    "userId",
+    "restaurantId",
+    "offerId",
+    "offerType",
+    "redemptionId",
+    "timerStartedAt",
+    "timerExpiresAt",
+    "createdAt",
+    "updatedAt",
+  ]);
+  assert.equal(usage.userId, uid);
+  assert.equal(usage.restaurantId, seeded.publicRestaurantId);
+  assert.equal(usage.offerId, offerId);
+  assert.equal(usage.offerType, "coupon");
+  assert.equal(usage.redemptionId, first.redemptionId);
+  assert.equal(usage.timerStartedAt.getTime(), first.timerStartedAtMillis);
+  assert.equal(usage.timerExpiresAt.getTime(), first.timerExpiresAtMillis);
+  assert.equal(usage.createdAt.getTime(), first.timerStartedAtMillis);
+  assert.equal(usage.updatedAt.getTime(), first.timerStartedAtMillis);
+  assert.equal(
+    database.documents.has(
+      `customer_redemptions/${uid}/coupon_redemptions/${
+        seeded.coupons[0].sourceDocumentId}`,
+    ),
+    false,
+  );
+  assert.equal(
+    [...database.documents.values()].filter((document) =>
+      document.role === "redemptionStartReceipt").length,
+    1,
+  );
+  assert.equal(
+    database.calls.transactionWrites.flat().filter((write) =>
+      write.path === usagePath).length,
+    1,
+  );
+
+  // Simulate a response being lost. A changed transport ID after the
+  // validation deadline recovers the committed anchors from the start receipt.
+  clock = validation.validationExpiresAtMillis;
+  const recovered = await startCustomerBiteSaverOfferRedemptionHandler(
+    {
+      ...startRequestValue,
+      clientRequestId: "redemption-start-lost-response-0003",
+    },
+    context,
+  );
+  assert.deepEqual(recovered, first);
+  assert.equal(
+    database.calls.transactionWrites.flat().filter((write) =>
+      write.path === usagePath).length,
+    1,
+  );
+
+  const activeRequest = {
+    ...request,
+    clientRequestId: "redemption-active-validation-0004",
+    redemptionRequestId: "redemption-active-logical-0002",
+  };
+  const activeValidation =
+    await validateCustomerBiteSaverOfferRedemptionStartHandler(
+      activeRequest,
+      context,
+    );
+  assert.equal(activeValidation.allowed, true);
+  assert.equal(activeValidation.reason, "available");
+  assert.equal(
+    activeValidation.activeTimerExpiresAtMillis,
+    first.timerExpiresAtMillis,
+  );
+  const active = await startCustomerBiteSaverOfferRedemptionHandler(
+    redemptionStartRequest(activeRequest, activeValidation, {
+      clientRequestId: "redemption-active-start-0005",
+    }),
+    context,
+  );
+  assert.deepEqual(active, {
+    ...first,
+    status: "active",
+  });
+  assert.equal(
+    database.calls.transactionWrites.flat().filter((write) =>
+      write.path === usagePath).length,
+    1,
+  );
+
+  clock = first.timerExpiresAtMillis;
+  const completed =
+    await validateCustomerBiteSaverOfferRedemptionStartHandler(
+      {
+        ...request,
+        clientRequestId: "redemption-completed-validation-0006",
+        redemptionRequestId: "redemption-completed-logical-0003",
+      },
+      context,
+    );
+  assert.equal(completed.allowed, false);
+  assert.equal(completed.reason, "used");
+  assert.equal(completed.activeTimerExpiresAtMillis, null);
+  assert.equal(completed.validationId, null);
+});
+
+test("committed start recovery rechecks the absolute deadline after reads", async () => {
+  let clock = nowMs;
+  const uid = "receipt-recovery-boundary-owner";
+  const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  const context = createContext(database, {
+    identity: {authUid: uid, authIsAnonymous: false},
+    now: () => clock,
+  });
+  const started = await startCustomerBiteSaverSearchHandler(
+    startRequest({
+      clientRequestId: "receipt-boundary-search-0001",
+      searchText: "",
+    }),
+    context,
+  );
+  const session = markSessionReady(database, started);
+  const seeded = addReadyRestaurant(database, session, 0, {
+    offerCount: 1,
+    onlyCoupons: true,
+    offerOverrides: {usageRule: "Once per customer"},
+  });
+  const request = await deliveredRedemptionRequest(
+    started,
+    seeded.publicRestaurantId,
+    opaqueOfferId(seeded, seeded.coupons[0]),
+    context,
+    {
+      clientRequestId: "receipt-boundary-validation-0001",
+      redemptionRequestId: "receipt-boundary-logical-0001",
+    },
+  );
+  const validation =
+    await validateCustomerBiteSaverOfferRedemptionStartHandler(request, context);
+  assert.equal(validation.allowed, true);
+  const committedRequest = redemptionStartRequest(request, validation, {
+    clientRequestId: "receipt-boundary-start-0001",
+  });
+  const committed = await startCustomerBiteSaverOfferRedemptionHandler(
+    committedRequest,
+    context,
+  );
+  const receiptEntry = [...database.documents.entries()].find(
+    ([, document]) => document.role === "redemptionStartReceipt",
+  );
+  assert.notEqual(receiptEntry, undefined);
+  const receiptPath = receiptEntry[0];
+  const absoluteDeadline = session.absoluteExpiresAt.getTime();
+  const baselineEntries = clonedDatabaseEntries(database);
+
+  async function runRecoveryCase({label, entryAt, crossTo, concurrent}) {
+    let caseClock = entryAt;
+    const caseDatabase = new InMemoryCustomerBiteSaverSearchDatabase(
+      baselineEntries.map(([path, data]) => [path, structuredClone(data)]),
+    );
+    if (concurrent) {
+      const currentSessionPath =
+        `${privateCustomerBiteSaverSearchSessionCollection}/${started.sessionId}`;
+      const currentSession = caseDatabase.documents.get(currentSessionPath);
+      caseDatabase.documents.set(currentSessionPath, {
+        ...currentSession,
+        lastAccessAt: new Date(entryAt),
+        logicalExpiresAt: new Date(absoluteDeadline),
+      });
+    }
+    const originalGetDocument = caseDatabase.getDocument.bind(caseDatabase);
+    caseDatabase.getDocument = async (documentPath) => {
+      const document = await originalGetDocument(documentPath);
+      if (documentPath === receiptPath) {
+        if (concurrent) return null;
+        if (crossTo !== null) caseClock = crossTo;
+      }
+      return document;
+    };
+    if (concurrent && crossTo !== null) {
+      caseDatabase.onTransactionGetDocuments = (paths) => {
+        if (paths.includes(receiptPath)) caseClock = crossTo;
+      };
+    }
+    const caseContext = {
+      ...context,
+      database: caseDatabase,
+      now: () => caseClock,
+    };
+    const beforeState = databaseDocumentState(caseDatabase);
+    let result = null;
+    let error = null;
+    try {
+      result = await startCustomerBiteSaverOfferRedemptionHandler(
+        {
+          ...committedRequest,
+          clientRequestId: `receipt-boundary-${label}-recovery`,
+        },
+        caseContext,
+      );
+    } catch (caught) {
+      error = caught;
+    }
+    assert.equal(databaseDocumentState(caseDatabase), beforeState, label);
+    assert.equal(caseDatabase.calls.transactionWrites.flat().length, 0, label);
+    assert.equal(caseDatabase.calls.commits.length, 0, label);
+    return {result, error};
+  }
+
+  const before = await runRecoveryCase({
+    label: "before",
+    entryAt: absoluteDeadline - 1,
+    crossTo: null,
+    concurrent: false,
+  });
+  assert.equal(before.error, null);
+  assert.deepEqual(before.result, committed);
+
+  for (const [label, entryAt] of [
+    ["at", absoluteDeadline],
+    ["after", absoluteDeadline + 1],
+  ]) {
+    const boundary = await runRecoveryCase({
+      label,
+      entryAt,
+      crossTo: null,
+      concurrent: false,
+    });
+    assert.equal(assertContractError(boundary.error, "failed-precondition"), true);
+    assert.equal(boundary.result, null);
+  }
+
+  for (const [label, crossTo] of [
+    ["cross-at", absoluteDeadline],
+    ["cross-after", absoluteDeadline + 1],
+  ]) {
+    const crossed = await runRecoveryCase({
+      label,
+      entryAt: absoluteDeadline - 1,
+      crossTo,
+      concurrent: false,
+    });
+    assert.equal(assertContractError(crossed.error, "failed-precondition"), true);
+    assert.equal(crossed.result, null);
+  }
+
+  const concurrentBefore = await runRecoveryCase({
+    label: "concurrent-before",
+    entryAt: absoluteDeadline - 1,
+    crossTo: null,
+    concurrent: true,
+  });
+  assert.equal(concurrentBefore.error, null);
+  assert.deepEqual(concurrentBefore.result, committed);
+  const concurrentAt = await runRecoveryCase({
+    label: "concurrent-cross-at",
+    entryAt: absoluteDeadline - 1,
+    crossTo: absoluteDeadline,
+    concurrent: true,
+  });
+  assert.equal(assertContractError(concurrentAt.error, "failed-precondition"), true);
+  assert.equal(concurrentAt.result, null);
+
+  const repeatedExpired = await runRecoveryCase({
+    label: "repeat-expired",
+    entryAt: absoluteDeadline + 1,
+    crossTo: null,
+    concurrent: false,
+  });
+  assert.equal(
+    assertContractError(repeatedExpired.error, "failed-precondition"),
+    true,
+  );
+});
+
+test("unlimited redemption start has no timer or durable usage", async () => {
+  let clock = nowMs;
+  const uid = "unlimited-redemption-owner";
+  const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  const context = createContext(database, {
+    identity: {authUid: uid, authIsAnonymous: false},
+    now: () => clock,
+  });
+  const started = await startCustomerBiteSaverSearchHandler(
+    startRequest({
+      clientRequestId: "unlimited-start-search-0001",
+      searchText: "",
+    }),
+    context,
+  );
+  const session = markSessionReady(database, started);
+  const seeded = addReadyRestaurant(database, session, 0, {
+    offerCount: 1,
+    onlyCoupons: true,
+    offerOverrides: {usageRule: "Unlimited"},
+  });
+  const request = await deliveredRedemptionRequest(
+    started,
+    seeded.publicRestaurantId,
+    opaqueOfferId(seeded, seeded.coupons[0]),
+    context,
+    {
+      clientRequestId: "unlimited-validation-0001",
+      redemptionRequestId: "unlimited-redemption-logical-0001",
+    },
+  );
+  const validation =
+    await validateCustomerBiteSaverOfferRedemptionStartHandler(
+      request,
+      context,
+    );
+  assert.equal(validation.allowed, true);
+  const start = redemptionStartRequest(request, validation, {
+    clientRequestId: "unlimited-redemption-start-0001",
+  });
+  const response = await startCustomerBiteSaverOfferRedemptionHandler(
+    start,
+    context,
+  );
+  assert.deepEqual(response, {
+    schemaVersion: customerBiteSaverSearchSchemaVersion,
+    restaurantId: seeded.publicRestaurantId,
+    offerId: request.offerId,
+    redemptionId: null,
+    status: "unlimited",
+    timerStartedAtMillis: null,
+    timerExpiresAtMillis: null,
+  });
+  assert.equal(
+    [...database.documents.keys()].some((path) =>
+      path.startsWith(`customer_redemptions/${uid}/coupon_redemptions/`)),
+    false,
+  );
+
+  clock = validation.validationExpiresAtMillis;
+  assert.deepEqual(
+    await startCustomerBiteSaverOfferRedemptionHandler(
+      {...start, clientRequestId: "unlimited-recovery-0002"},
+      context,
+    ),
+    response,
+  );
+  assert.equal(
+    [...database.documents.keys()].some((path) =>
+      path.startsWith(`customer_redemptions/${uid}/coupon_redemptions/`)),
+    false,
+  );
+});
+
+test("once-per-day start becomes used and retains the established reset", async () => {
+  let clock = nowMs;
+  const uid = "daily-redemption-owner";
+  const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  const context = createContext(database, {
+    identity: {authUid: uid, authIsAnonymous: false},
+    now: () => clock,
+  });
+  const started = await startCustomerBiteSaverSearchHandler(
+    startRequest({
+      clientRequestId: "daily-start-search-0001",
+      searchText: "",
+    }),
+    context,
+  );
+  const session = markSessionReady(database, started);
+  const seeded = addReadyRestaurant(database, session, 0, {
+    offerCount: 1,
+    onlyCoupons: true,
+    offerOverrides: {usageRule: "Once per day"},
+  });
+  const request = await deliveredRedemptionRequest(
+    started,
+    seeded.publicRestaurantId,
+    opaqueOfferId(seeded, seeded.coupons[0]),
+    context,
+    {
+      clientRequestId: "daily-start-validation-0001",
+      redemptionRequestId: "daily-start-logical-0001",
+    },
+  );
+  const validation =
+    await validateCustomerBiteSaverOfferRedemptionStartHandler(
+      request,
+      context,
+    );
+  assert.equal(validation.allowed, true);
+  const first = await startCustomerBiteSaverOfferRedemptionHandler(
+    redemptionStartRequest(request, validation, {
+      clientRequestId: "daily-redemption-start-0001",
+    }),
+    context,
+  );
+  assert.equal(first.status, "started");
+  assert.equal(first.timerStartedAtMillis, nowMs);
+  assert.equal(first.timerExpiresAtMillis, nowMs + 5 * 60_000);
+
+  clock = first.timerExpiresAtMillis;
+  const used = await validateCustomerBiteSaverOfferRedemptionStartHandler(
+    {
+      ...request,
+      clientRequestId: "daily-used-validation-0002",
+      redemptionRequestId: "daily-used-logical-0002",
+    },
+    context,
+  );
+  assert.equal(used.allowed, false);
+  assert.equal(used.reason, "used");
+  assert.equal(
+    used.nextAvailableAtMillis,
+    Date.parse("2026-09-10T04:01:00.000Z"),
+  );
+  assert.equal(used.validationId, null);
+
+  const resetDatabase = new InMemoryCustomerBiteSaverSearchDatabase();
+  const resetContext = createContext(resetDatabase, {
+    identity: {authUid: uid, authIsAnonymous: false},
+  });
+  const resetSessionStart = await startCustomerBiteSaverSearchHandler(
+    startRequest({
+      clientRequestId: "daily-reset-search-0003",
+      searchText: "",
+    }),
+    resetContext,
+  );
+  const resetSession = markSessionReady(resetDatabase, resetSessionStart);
+  const resetSeeded = addReadyRestaurant(resetDatabase, resetSession, 0, {
+    offerCount: 1,
+    onlyCoupons: true,
+    offerOverrides: {usageRule: "Once per day"},
+  });
+  const resetOfferId = opaqueOfferId(resetSeeded, resetSeeded.coupons[0]);
+  const previousTimerStartedAt = new Date(nowMs - 24 * 60 * 60_000);
+  const previousUsage = canonicalCouponUsage(
+    uid,
+    resetSeeded.publicRestaurantId,
+    resetOfferId,
+    {timerStartedAt: previousTimerStartedAt},
+  );
+  resetDatabase.documents.set(
+    `customer_redemptions/${uid}/coupon_redemptions/${resetOfferId}`,
+    previousUsage,
+  );
+  const resetRequest = await deliveredRedemptionRequest(
+    resetSessionStart,
+    resetSeeded.publicRestaurantId,
+    resetOfferId,
+    resetContext,
+    {
+      clientRequestId: "daily-reset-validation-0003",
+      redemptionRequestId: "daily-reset-logical-0003",
+    },
+  );
+  const resetValidation =
+    await validateCustomerBiteSaverOfferRedemptionStartHandler(
+      resetRequest,
+      resetContext,
+    );
+  assert.equal(resetValidation.allowed, true);
+  assert.equal(resetValidation.reason, "available");
+  const reset = await startCustomerBiteSaverOfferRedemptionHandler(
+    redemptionStartRequest(resetRequest, resetValidation, {
+      clientRequestId: "daily-reset-start-0003",
+    }),
+    resetContext,
+  );
+  assert.equal(reset.status, "started");
+  assert.notEqual(reset.redemptionId, previousUsage.redemptionId);
+  assert.equal(reset.timerStartedAtMillis, nowMs);
+  assert.equal(reset.timerExpiresAtMillis, nowMs + 5 * 60_000);
+  const usage = resetDatabase.documents.get(
+    `customer_redemptions/${uid}/coupon_redemptions/${reset.offerId}`,
+  );
+  assert.equal(usage.createdAt.getTime(), previousTimerStartedAt.getTime());
+  assert.equal(usage.updatedAt.getTime(), nowMs);
+});
+
+test("redemption start rejects invalid evidence, caller, and source races", async () => {
+  let clock = nowMs;
+  const uid = "redemption-start-rejection-owner";
+  const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  const context = createContext(database, {
+    identity: {authUid: uid, authIsAnonymous: false},
+    now: () => clock,
+  });
+  const started = await startCustomerBiteSaverSearchHandler(
+    startRequest({
+      clientRequestId: "rejected-start-search-0001",
+      searchText: "",
+    }),
+    context,
+  );
+  const session = markSessionReady(database, started);
+  const seeded = addReadyRestaurant(database, session, 0, {
+    offerCount: 2,
+    onlyCoupons: true,
+    offerOverrides: {
+      usageRule: "Once per customer",
+      endTime: new Date(nowMs + 10_000),
+    },
+  });
+  const firstRequest = await deliveredRedemptionRequest(
+    started,
+    seeded.publicRestaurantId,
+    opaqueOfferId(seeded, seeded.coupons[0]),
+    context,
+    {
+      clientRequestId: "rejected-validation-0001",
+      redemptionRequestId: "rejected-redemption-logical-0001",
+    },
+  );
+  const secondRequest = await deliveredRedemptionRequest(
+    started,
+    seeded.publicRestaurantId,
+    opaqueOfferId(seeded, seeded.coupons[1]),
+    context,
+    {
+      clientRequestId: "wrong-target-validation-0002",
+      redemptionRequestId: "wrong-target-redemption-logical-0002",
+    },
+  );
+  const validation =
+    await validateCustomerBiteSaverOfferRedemptionStartHandler(
+      firstRequest,
+      context,
+    );
+  assert.equal(validation.allowed, true);
+  const start = redemptionStartRequest(firstRequest, validation, {
+    clientRequestId: "rejected-redemption-start-0001",
+  });
+  const usagePath =
+    `customer_redemptions/${uid}/coupon_redemptions/${firstRequest.offerId}`;
+
+  for (const invalid of [
+    {...start, unexpected: true},
+    {...start, timerStartedAtMillis: nowMs},
+    {...start, validationId: "short"},
+  ]) {
+    await assert.rejects(
+      startCustomerBiteSaverOfferRedemptionHandler(invalid, context),
+      (error) => assertContractError(error, "invalid-argument"),
+    );
+  }
+
+  await assert.rejects(
+    startCustomerBiteSaverOfferRedemptionHandler(
+      {
+        ...start,
+        clientRequestId: "wrong-validation-start-0002",
+        validationId: `bsv_${Buffer.alloc(32, 91).toString("base64url")}`,
+      },
+      context,
+    ),
+    (error) => assertContractError(error, "failed-precondition"),
+  );
+  await assert.rejects(
+    startCustomerBiteSaverOfferRedemptionHandler(
+      redemptionStartRequest(secondRequest, validation, {
+        clientRequestId: "wrong-target-start-0003",
+      }),
+      context,
+    ),
+    (error) => assertContractError(error, "failed-precondition"),
+  );
+  await assert.rejects(
+    startCustomerBiteSaverOfferRedemptionHandler(start, {
+      ...context,
+      identity: {authUid: "another-redemption-owner", authIsAnonymous: false},
+    }),
+    (error) => assertContractError(error, "permission-denied"),
+  );
+  await assert.rejects(
+    startCustomerBiteSaverOfferRedemptionHandler(start, {
+      ...context,
+      identity: {authUid: uid, authIsAnonymous: true},
+    }),
+    (error) => assertContractError(error, "permission-denied"),
+  );
+
+  const rawCouponPath =
+    `restaurant_accounts/${seeded.accountId}/coupons/${
+      seeded.coupons[0].sourceDocumentId}`;
+  const authorizedBaselineEntries = clonedDatabaseEntries(database);
+
+  const changedUsageDatabase = new InMemoryCustomerBiteSaverSearchDatabase(
+    authorizedBaselineEntries.map(([path, data]) => [
+      path,
+      structuredClone(data),
+    ]),
+  );
+  changedUsageDatabase.documents.set(
+    usagePath,
+    canonicalCouponUsage(uid, seeded.publicRestaurantId, firstRequest.offerId, {
+      timerStartedAt: new Date(nowMs - 10 * 60_000),
+    }),
+  );
+  const changedUsageState = databaseDocumentState(changedUsageDatabase);
+  await assert.rejects(
+    startCustomerBiteSaverOfferRedemptionHandler(
+      {...start, clientRequestId: "changed-usage-start-0004"},
+      {...context, database: changedUsageDatabase},
+    ),
+    (error) => assertContractError(error, "failed-precondition"),
+  );
+  assert.equal(databaseDocumentState(changedUsageDatabase), changedUsageState);
+  assert.equal(changedUsageDatabase.calls.transactionWrites.length, 0);
+  assert.equal(
+    [...changedUsageDatabase.documents.values()].filter((document) =>
+      document.role === "redemptionStartReceipt").length,
+    0,
+  );
+
+  const expiredOfferDatabase = new InMemoryCustomerBiteSaverSearchDatabase(
+    authorizedBaselineEntries.map(([path, data]) => [
+      path,
+      structuredClone(data),
+    ]),
+  );
+  const expiredOfferState = databaseDocumentState(expiredOfferDatabase);
+  await assert.rejects(
+    startCustomerBiteSaverOfferRedemptionHandler(
+      {...start, clientRequestId: "expired-offer-start-0005"},
+      {
+        ...context,
+        database: expiredOfferDatabase,
+        now: () => nowMs + 10_001,
+      },
+    ),
+    (error) => assertContractError(error, "failed-precondition"),
+  );
+  assert.equal(databaseDocumentState(expiredOfferDatabase), expiredOfferState);
+  assert.equal(expiredOfferDatabase.calls.transactionWrites.length, 0);
+  assert.equal(
+    [...expiredOfferDatabase.documents.values()].filter((document) =>
+      document.role === "redemptionStartReceipt").length,
+    0,
+  );
+
+  database.documents.delete(rawCouponPath);
+  await assert.rejects(
+    startCustomerBiteSaverOfferRedemptionHandler(
+      {...start, clientRequestId: "withdrawn-source-start-0006"},
+      context,
+    ),
+    (error) => assertContractError(error, "failed-precondition"),
+  );
+  assert.equal(database.documents.has(usagePath), false);
+  assert.equal(
+    [...database.documents.values()].filter((document) =>
+      document.role === "redemptionStartReceipt").length,
+    0,
+  );
+});
+
+test("redemption start rechecks validation time after transactional reads", async () => {
+  let clock = nowMs;
+  const uid = "redemption-start-boundary-owner";
+  const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  const context = createContext(database, {
+    identity: {authUid: uid, authIsAnonymous: false},
+    now: () => clock,
+  });
+  const started = await startCustomerBiteSaverSearchHandler(
+    startRequest({
+      clientRequestId: "boundary-start-search-0001",
+      searchText: "",
+    }),
+    context,
+  );
+  const session = markSessionReady(database, started);
+  const seeded = addReadyRestaurant(database, session, 0, {
+    offerCount: 1,
+    onlyCoupons: true,
+    offerOverrides: {usageRule: "Once per customer"},
+  });
+  const request = await deliveredRedemptionRequest(
+    started,
+    seeded.publicRestaurantId,
+    opaqueOfferId(seeded, seeded.coupons[0]),
+    context,
+    {
+      clientRequestId: "boundary-start-validation-0001",
+      redemptionRequestId: "boundary-start-logical-0001",
+    },
+  );
+  const validation =
+    await validateCustomerBiteSaverOfferRedemptionStartHandler(
+      request,
+      context,
+    );
+  assert.equal(validation.allowed, true);
+  database.onTransactionGetDocuments = (paths) => {
+    if (paths.includes(
+      `${privateCustomerBiteSaverActiveSessionCollection}/${
+        validation.validationId}`,
+    )) {
+      clock = validation.validationExpiresAtMillis;
+    }
+  };
+  await assert.rejects(
+    startCustomerBiteSaverOfferRedemptionHandler(
+      redemptionStartRequest(request, validation, {
+        clientRequestId: "boundary-crossed-start-0001",
+      }),
+      context,
+    ),
+    (error) => assertContractError(error, "failed-precondition"),
+  );
+  assert.equal(
+    database.documents.has(
+      `customer_redemptions/${uid}/coupon_redemptions/${request.offerId}`,
+    ),
+    false,
+  );
+  assert.equal(
+    [...database.documents.values()].filter((document) =>
+      document.role === "redemptionStartReceipt").length,
+    0,
+  );
+});
+
+test("proximity proof cannot become stale between validation and start", async () => {
+  let clock = nowMs;
+  const uid = "proximity-start-boundary-owner";
+  const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  const context = createContext(database, {
+    identity: {authUid: uid, authIsAnonymous: false},
+    now: () => clock,
+  });
+  const started = await startCustomerBiteSaverSearchHandler(
+    startRequest({
+      clientRequestId: "proximity-start-search-0001",
+      searchText: "",
+    }),
+    context,
+  );
+  const session = markSessionReady(database, started);
+  const seeded = addReadyRestaurant(database, session, 0, {
+    offerCount: 1,
+    onlyCoupons: true,
+    offerOverrides: {
+      usageRule: "Once per customer",
+      isProximityOnly: true,
+      proximityRadiusMiles: 10,
+    },
+  });
+  const request = await deliveredRedemptionRequest(
+    started,
+    seeded.publicRestaurantId,
+    opaqueOfferId(seeded, seeded.coupons[0]),
+    context,
+    {
+      clientRequestId: "proximity-start-validation-0001",
+      redemptionRequestId: "proximity-start-logical-0001",
+      currentCoordinates: {
+        latitude: 28.5383,
+        longitude: -81.3792,
+        capturedAtMillis:
+          nowMs - customerBiteSaverFreshLocationMaximumAgeMilliseconds + 1_000,
+      },
+    },
+  );
+  const validation =
+    await validateCustomerBiteSaverOfferRedemptionStartHandler(
+      request,
+      context,
+    );
+  assert.equal(validation.allowed, true);
+  assert.equal(validation.reason, "available");
+  assert.equal(validation.validationExpiresAtMillis, nowMs + 1_001);
+
+  const rawCouponPath =
+    `restaurant_accounts/${seeded.accountId}/coupons/${
+      seeded.coupons[0].sourceDocumentId}`;
+  let crossed = false;
+  database.onTransactionGetDocuments = (paths) => {
+    if (!crossed && paths.includes(rawCouponPath)) {
+      crossed = true;
+      clock = validation.validationExpiresAtMillis;
+    }
+  };
+  await assert.rejects(
+    startCustomerBiteSaverOfferRedemptionHandler(
+      redemptionStartRequest(request, validation, {
+        clientRequestId: "proximity-proof-stale-start-0001",
+      }),
+      context,
+    ),
+    (error) => assertContractError(error, "failed-precondition"),
+  );
+  assert.equal(crossed, true);
+  assert.equal(
+    database.documents.has(
+      `customer_redemptions/${uid}/coupon_redemptions/${request.offerId}`,
+    ),
+    false,
+  );
+  assert.equal(
+    [...database.documents.values()].filter((document) =>
+      document.role === "redemptionStartReceipt").length,
+    0,
+  );
+});
+
+test("signed start rejects a validated daily special without mutation", async () => {
+  const uid = "daily-special-start-owner";
+  const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  const context = createContext(database, {
+    identity: {authUid: uid, authIsAnonymous: false},
+  });
+  const started = await startCustomerBiteSaverSearchHandler(
+    startRequest({
+      clientRequestId: "daily-special-start-search-0001",
+      searchText: "",
+    }),
+    context,
+  );
+  const session = markSessionReady(database, started);
+  const seeded = addReadyRestaurant(database, session, 0, {offerCount: 1});
+  assert.equal(seeded.daily.length, 1);
+  const request = await deliveredRedemptionRequest(
+    started,
+    seeded.publicRestaurantId,
+    opaqueOfferId(seeded, seeded.daily[0]),
+    context,
+    {
+      clientRequestId: "daily-special-validation-0001",
+      redemptionRequestId: "daily-special-start-logical-0001",
+    },
+  );
+  const validation =
+    await validateCustomerBiteSaverOfferRedemptionStartHandler(
+      request,
+      context,
+    );
+  assert.equal(validation.allowed, true);
+  const transactionWritesBefore = database.calls.transactionWrites.length;
+  await assert.rejects(
+    startCustomerBiteSaverOfferRedemptionHandler(
+      redemptionStartRequest(request, validation, {
+        clientRequestId: "daily-special-start-attempt-0001",
+      }),
+      context,
+    ),
+    (error) => assertContractError(error, "failed-precondition"),
+  );
+  assert.equal(
+    database.calls.transactionWrites.length,
+    transactionWritesBefore,
+  );
+  assert.equal(
+    [...database.documents.keys()].some((path) =>
+      path.startsWith(`customer_redemptions/${uid}/coupon_redemptions/`)),
+    false,
+  );
+  assert.equal(
+    [...database.documents.values()].filter((document) =>
+      document.role === "redemptionStartReceipt").length,
+    0,
+  );
+});
+
+test("start rejects missing capability and wrong attempt or query evidence", async () => {
+  const uid = "start-binding-rejection-owner";
+  const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  const context = createContext(database, {
+    identity: {authUid: uid, authIsAnonymous: false},
+  });
+  const started = await startCustomerBiteSaverSearchHandler(
+    startRequest({
+      clientRequestId: "start-binding-search-0001",
+      searchText: "",
+    }),
+    context,
+  );
+  const session = markSessionReady(database, started);
+  const seeded = addReadyRestaurant(database, session, 0, {
+    offerCount: 1,
+    onlyCoupons: true,
+    offerOverrides: {usageRule: "Once per customer"},
+  });
+  const request = await deliveredRedemptionRequest(
+    started,
+    seeded.publicRestaurantId,
+    opaqueOfferId(seeded, seeded.coupons[0]),
+    context,
+    {
+      clientRequestId: "start-binding-validation-0001",
+      redemptionRequestId: "start-binding-logical-0001",
+    },
+  );
+  const validation =
+    await validateCustomerBiteSaverOfferRedemptionStartHandler(
+      request,
+      context,
+    );
+  assert.equal(validation.allowed, true);
+  const start = redemptionStartRequest(request, validation, {
+    clientRequestId: "start-binding-attempt-0001",
+  });
+  const missingCapability = {...start};
+  delete missingCapability.capability;
+  await assert.rejects(
+    startCustomerBiteSaverOfferRedemptionHandler(missingCapability, context),
+    (error) => assertContractError(error, "invalid-argument"),
+  );
+  await assert.rejects(
+    startCustomerBiteSaverOfferRedemptionHandler(
+      {...start, criteriaFingerprint: "0".repeat(64)},
+      context,
+    ),
+    (error) => assertContractError(error, "permission-denied"),
+  );
+
+  const receiptPath =
+    `${privateCustomerBiteSaverActiveSessionCollection}/${
+      validation.validationId}`;
+  const baselineEntries = clonedDatabaseEntries(database);
+  for (const [label, mutate] of [
+    ["attempt", (receipt) => ({
+      ...receipt,
+      attemptGeneration: receipt.attemptGeneration + 1,
+    })],
+    ["query", (receipt) => ({
+      ...receipt,
+      queryFingerprint: receipt.queryFingerprint === "f".repeat(64)
+        ? "e".repeat(64)
+        : "f".repeat(64),
+    })],
+  ]) {
+    const caseDatabase = new InMemoryCustomerBiteSaverSearchDatabase(
+      baselineEntries.map(([path, data]) => [path, structuredClone(data)]),
+    );
+    const receipt = caseDatabase.documents.get(receiptPath);
+    assert.notEqual(receipt, undefined);
+    caseDatabase.documents.set(receiptPath, mutate(receipt));
+    await assert.rejects(
+      startCustomerBiteSaverOfferRedemptionHandler(
+        {...start, clientRequestId: `start-wrong-${label}-0001`},
+        {...context, database: caseDatabase},
+      ),
+      (error) => assertContractError(error, "failed-precondition"),
+    );
+    assert.equal(
+      [...caseDatabase.documents.values()].filter((document) =>
+        document.role === "redemptionStartReceipt").length,
+      0,
+    );
+    assert.equal(
+      [...caseDatabase.documents.keys()].some((path) =>
+        path.startsWith(`customer_redemptions/${uid}/coupon_redemptions/`)),
+      false,
+    );
+  }
+});
+
+test("old daily retry cannot overwrite a later canonical redemption", async () => {
+  let clock = Date.parse("2026-09-10T03:50:00.000Z");
+  const firstStartAt = clock;
+  const resetAt = Date.parse("2026-09-10T04:01:00.000Z");
+  const uid = "old-daily-retry-owner";
+  const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  const context = createContext(database, {
+    identity: {authUid: uid, authIsAnonymous: false},
+    now: () => clock,
+  });
+  const firstSessionStart = await startCustomerBiteSaverSearchHandler(
+    startRequest({
+      clientRequestId: "old-daily-search-0001",
+      searchText: "",
+    }),
+    context,
+  );
+  const firstSession = markSessionReady(database, firstSessionStart);
+  const firstSeeded = addReadyRestaurant(database, firstSession, 0, {
+    resultCreatedAtMs: firstStartAt,
+    offerProjectionNowMs: firstStartAt,
+    offerCount: 1,
+    onlyCoupons: true,
+    offerOverrides: {usageRule: "Once per day"},
+  });
+  const firstRequest = await deliveredRedemptionRequest(
+    firstSessionStart,
+    firstSeeded.publicRestaurantId,
+    opaqueOfferId(firstSeeded, firstSeeded.coupons[0]),
+    context,
+    {
+      clientRequestId: "old-daily-validation-0001",
+      redemptionRequestId: "old-daily-logical-0001",
+    },
+  );
+  const firstValidation =
+    await validateCustomerBiteSaverOfferRedemptionStartHandler(
+      firstRequest,
+      context,
+    );
+  assert.equal(firstValidation.allowed, true);
+  const firstStartRequest = redemptionStartRequest(
+    firstRequest,
+    firstValidation,
+    {clientRequestId: "old-daily-start-0001"},
+  );
+  const first = await startCustomerBiteSaverOfferRedemptionHandler(
+    firstStartRequest,
+    context,
+  );
+  assert.equal(first.status, "started");
+  assert.equal(first.timerStartedAtMillis, firstStartAt);
+  assert.equal(first.timerExpiresAtMillis, firstStartAt + 5 * 60_000);
+
+  clock = resetAt;
+  const laterSessionStart = await startCustomerBiteSaverSearchHandler(
+    startRequest({
+      clientRequestId: "later-daily-search-0002",
+      searchText: "",
+    }),
+    context,
+  );
+  assert.notEqual(laterSessionStart.sessionId, firstSessionStart.sessionId);
+  const laterSession = markSessionReady(database, laterSessionStart);
+  const laterSeeded = addReadyRestaurant(database, laterSession, 0, {
+    accountId: firstSeeded.accountId,
+    sharedOfferId: firstSeeded.coupons[0].sourceDocumentId,
+    resultCreatedAtMs: resetAt,
+    offerProjectionNowMs: resetAt,
+    offerCount: 1,
+    onlyCoupons: true,
+    offerOverrides: {usageRule: "Once per day"},
+  });
+  const laterRequest = await deliveredRedemptionRequest(
+    laterSessionStart,
+    laterSeeded.publicRestaurantId,
+    opaqueOfferId(laterSeeded, laterSeeded.coupons[0]),
+    context,
+    {
+      clientRequestId: "later-daily-validation-0002",
+      redemptionRequestId: "later-daily-logical-0002",
+    },
+  );
+  const laterValidation =
+    await validateCustomerBiteSaverOfferRedemptionStartHandler(
+      laterRequest,
+      context,
+    );
+  assert.equal(laterValidation.allowed, true);
+  const later = await startCustomerBiteSaverOfferRedemptionHandler(
+    redemptionStartRequest(laterRequest, laterValidation, {
+      clientRequestId: "later-daily-start-0002",
+    }),
+    context,
+  );
+  assert.equal(later.status, "started");
+  assert.notEqual(later.redemptionId, first.redemptionId);
+  assert.equal(later.timerStartedAtMillis, resetAt);
+  const usagePath =
+    `customer_redemptions/${uid}/coupon_redemptions/${later.offerId}`;
+  const laterUsage = structuredClone(database.documents.get(usagePath));
+  const usageWritesBeforeRetry = database.calls.transactionWrites.flat()
+    .filter((write) => write.path === usagePath).length;
+
+  const recovered = await startCustomerBiteSaverOfferRedemptionHandler(
+    {...firstStartRequest, clientRequestId: "old-daily-retry-0003"},
+    context,
+  );
+  assert.deepEqual(recovered, first);
+  assert.deepEqual(database.documents.get(usagePath), laterUsage);
+  assert.equal(
+    database.calls.transactionWrites.flat()
+      .filter((write) => write.path === usagePath).length,
+    usageWritesBeforeRetry,
+  );
+});
+
 test("offer occurrence request bindings fail before any database access", async () => {
   const {database, context, response: started} = await startSession(undefined, {
     request: {searchText: ""},
@@ -5223,7 +6791,7 @@ test("offer occurrence request bindings fail before any database access", async 
     onlyCoupons: true,
   });
   const offerId = customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     seeded.accountId,
     "coupon",
     seeded.coupons[0].sourceDocumentId,
@@ -5247,7 +6815,7 @@ test("offer occurrence request bindings fail before any database access", async 
       ...request,
       clientRequestId: "occurrence-preflight-parent-001",
       restaurantId: customerBiteSaverOpaqueRestaurantId(
-        secretKey,
+        identityKeyV1,
         "wrong-occurrence-parent",
       ),
     },
@@ -5255,7 +6823,7 @@ test("offer occurrence request bindings fail before any database access", async 
       ...request,
       clientRequestId: "occurrence-preflight-offer-0001",
       offerId: customerBiteSaverOpaqueOfferId(
-        secretKey,
+        identityKeyV1,
         seeded.accountId,
         "coupon",
         "wrong-occurrence-offer",
@@ -5398,7 +6966,7 @@ test("proximity redemption requires exact fresh current coordinates", async () =
     },
   });
   const offerId = customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     seeded.accountId,
     "coupon",
     seeded.coupons[0].sourceDocumentId,
@@ -5465,7 +7033,7 @@ test("typed-location sessions cannot redeem proximity-only offers", async () => 
     },
   });
   const offerId = customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     seeded.accountId,
     "coupon",
     seeded.coupons[0].sourceDocumentId,
@@ -5507,7 +7075,7 @@ test("redemption honors signed usage failures without leakage", async () => {
     offerOverrides: {usageRule: "Once per customer"},
   });
   const signedOfferId = customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     signedSeed.accountId,
     "coupon",
     signedSeed.coupons[0].sourceDocumentId,
@@ -5519,13 +7087,8 @@ test("redemption honors signed usage failures without leakage", async () => {
     signedContext,
   );
   database.documents.set(
-    `customer_redemptions/${uid}/coupon_redemptions/${signedSeed.coupons[0].sourceDocumentId}`,
-    {
-      restaurantAccountId: signedSeed.accountId,
-      couponId: signedSeed.coupons[0].sourceDocumentId,
-      lastRedeemedAt: new Date(nowMs - 1_000),
-      otherCustomerCanary: "admin-private-canary",
-    },
+    `customer_redemptions/${uid}/coupon_redemptions/${signedOfferId}`,
+    canonicalCouponUsage(uid, signedSeed.publicRestaurantId, signedOfferId),
   );
   const used = await validateCustomerBiteSaverOfferRedemptionStartHandler(
     signedRequest,
@@ -5551,12 +7114,13 @@ test("redemption honors signed usage failures without leakage", async () => {
   database.failGetDocumentsWhen = null;
 
   database.documents.set(
-    `customer_redemptions/${uid}/coupon_redemptions/${signedSeed.coupons[0].sourceDocumentId}`,
-    {
-      restaurantAccountId: "another-customer-restaurant",
-      couponId: signedSeed.coupons[0].sourceDocumentId,
-      lastRedeemedAt: new Date(nowMs - 1_000),
-    },
+    `customer_redemptions/${uid}/coupon_redemptions/${signedOfferId}`,
+    canonicalCouponUsage(uid, signedSeed.publicRestaurantId, signedOfferId, {
+      restaurantId: customerBiteSaverOpaqueRestaurantId(
+        identityKeyV1,
+        "another-customer-restaurant",
+      ),
+    }),
   );
   const identityMismatch = await validateCustomerBiteSaverOfferRedemptionStartHandler(
     {
@@ -5568,7 +7132,27 @@ test("redemption honors signed usage failures without leakage", async () => {
   );
   assert.equal(identityMismatch.allowed, false);
   assert.equal(identityMismatch.reason, "usageUnknown");
+  assert.equal(identityMismatch.validationId, null);
   assertNoPrivateCanaries(identityMismatch);
+
+  database.documents.set(
+    `customer_redemptions/${uid}/coupon_redemptions/${signedOfferId}`,
+    canonicalCouponUsage(uid, signedSeed.publicRestaurantId, signedOfferId, {
+      unexpected: "closed-schema-canary",
+    }),
+  );
+  const malformed = await validateCustomerBiteSaverOfferRedemptionStartHandler(
+    {
+      ...signedRequest,
+      clientRequestId: "redeem-usage-malformed-0004",
+      redemptionRequestId: "redemption-occurrence-0004",
+    },
+    signedContext,
+  );
+  assert.equal(malformed.allowed, false);
+  assert.equal(malformed.reason, "usageUnknown");
+  assert.equal(malformed.validationId, null);
+  assertNoPrivateCanaries(malformed);
 });
 
 test("distinct page continuations re-evaluate current schedule time", async (t) => {
@@ -5677,11 +7261,12 @@ test("delivered offer identity and occurrence remain usable after sixteen minute
   assert.equal(mapping.expiresAt.getTime(), session.absoluteExpiresAt.getTime());
 
   database.documents.set(
-    `user_profiles/${uid}/favorite_coupons/${seeded.coupons[0].sourceDocumentId}`,
-    {
-      restaurantAccountId: seeded.accountId,
-      couponId: seeded.coupons[0].sourceDocumentId,
-    },
+    `user_profiles/${uid}/favorite_coupons/${delivered.offerId}`,
+    canonicalCouponFavorite(
+      uid,
+      seeded.publicRestaurantId,
+      delivered.offerId,
+    ),
   );
   clock = nowMs + 10 * 60_000;
   await getCustomerBiteSaverSearchStatusHandler(boundRequest(started, {
@@ -5726,7 +7311,7 @@ test("redemption replay preserves its anchor while rechecking current time", asy
     offerOverrides: {usageRule: "Unlimited", endTime},
   });
   const offerId = customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     seeded.accountId,
     "coupon",
     seeded.coupons[0].sourceDocumentId,
@@ -5759,41 +7344,101 @@ test("redemption replay preserves its anchor while rechecking current time", asy
   assert.equal(retry.validationId, null);
 });
 
-test("favorite resolution rejects a corrupt result identity binding", async () => {
+test("favorite resolution closes the whole batch on uncertain result state", async () => {
   const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  const uid = "corrupt-result-owner";
   const context = createContext(database, {
-    identity: {authUid: "corrupt-result-owner", authIsAnonymous: false},
+    identity: {authUid: uid, authIsAnonymous: false},
   });
   const started = await startCustomerBiteSaverSearchHandler(
     startRequest({searchText: ""}),
-    context,
+  context,
   );
   const session = markSessionReady(database, started);
-  const seeded = addReadyRestaurant(database, session, 0);
+  const first = addReadyRestaurant(database, session, 0);
+  const second = addReadyRestaurant(database, session, 1);
   const issued = await getCustomerBiteSaverSearchPageHandler(
     pageRequest(started, {clientRequestId: "corrupt-favorite-page-0001"}),
     context,
   );
   assert.deepEqual(
     issued.restaurants.map((entry) => entry.restaurantId),
-    [seeded.publicRestaurantId],
+    [first.publicRestaurantId, second.publicRestaurantId],
   );
-  database.documents.set(seeded.resultPath, {
-    ...database.documents.get(seeded.resultPath),
-    publicRestaurantId: customerBiteSaverOpaqueRestaurantId(
-      secretKey,
-      "forged-result-account",
-    ),
-  });
-  await assert.rejects(
-    getCustomerBiteSaverFavoriteStatesHandler(
-      favoriteRequest(started, {
-        restaurantIds: [seeded.publicRestaurantId],
+  for (const seeded of [first, second]) {
+    database.documents.set(
+      `user_profiles/${uid}/favorite_restaurants/${seeded.publicRestaurantId}`,
+      canonicalRestaurantFavorite(uid, seeded.publicRestaurantId),
+    );
+  }
+  const baselineEntries = clonedDatabaseEntries(database);
+  const orderedIds = [first.publicRestaurantId, second.publicRestaurantId];
+  const cases = [];
+  for (const [position, seeded] of [first, second].entries()) {
+    cases.push({
+      label: `malformed-${position}`,
+      seeded,
+      mutate: (result) => ({...result, unexpected: "closed-schema-canary"}),
+    });
+    cases.push({
+      label: `identity-mismatch-${position}`,
+      seeded,
+      mutate: (result) => ({
+        ...result,
+        authoritativeAccountId: `mismatched-result-account-${position}`,
+        authoritativeAccountIdOrderKey: dartUtf16FirestoreBytesOrderKey(
+          `mismatched-result-account-${position}`,
+        ),
       }),
-      context,
-    ),
-    (error) => assertContractError(error, "failed-precondition"),
+    });
+    cases.push({label: `missing-${position}`, seeded, mutate: () => null});
+  }
+  for (const {label, seeded, mutate} of cases) {
+    const caseDatabase = new InMemoryCustomerBiteSaverSearchDatabase(
+      baselineEntries.map(([path, data]) => [path, structuredClone(data)]),
+    );
+    const current = caseDatabase.documents.get(seeded.resultPath);
+    const replacement = mutate(current);
+    if (replacement === null) {
+      caseDatabase.documents.delete(seeded.resultPath);
+    } else {
+      caseDatabase.documents.set(seeded.resultPath, replacement);
+    }
+    const response = await getCustomerBiteSaverFavoriteStatesHandler(
+      favoriteRequest(started, {
+        clientRequestId: `corrupt-favorite-${label}`,
+        restaurantIds: orderedIds,
+      }),
+      {...context, database: caseDatabase},
+    );
+    assert.deepEqual(response.states, orderedIds.map((id) => ({
+      id,
+      state: "unknown",
+    })), label);
+    assert.equal(response.states.length, orderedIds.length, label);
+    assert.equal(
+      caseDatabase.calls.getDocuments.flat().some((path) =>
+        path.startsWith("user_profiles/")),
+      false,
+      label,
+    );
+    assertNoPrivateCanaries(response);
+  }
+
+  const cleanDatabase = new InMemoryCustomerBiteSaverSearchDatabase(
+    baselineEntries.map(([path, data]) => [path, structuredClone(data)]),
   );
+  const clean = await getCustomerBiteSaverFavoriteStatesHandler(
+    favoriteRequest(started, {
+      clientRequestId: "corrupt-favorite-clean-control-0001",
+      restaurantIds: orderedIds,
+    }),
+    {...context, database: cleanDatabase},
+  );
+  assert.deepEqual(clean.states, orderedIds.map((id) => ({
+    id,
+    state: "favorite",
+  })));
 });
 
 test("guest restaurant and offer pages complete only after explicit checks", async () => {
@@ -5927,7 +7572,7 @@ test("guest offer paging intersects large local history and reaches offer 101", 
     opaqueOfferId(seeded, candidate));
   const irrelevant = Array.from({length: 9_900}, (_, index) =>
     customerBiteSaverOpaqueOfferId(
-      secretKey,
+      identityKeyV1,
       `irrelevant-history-account-${index}`,
       "coupon",
       `irrelevant-history-offer-${index}`,
@@ -8074,7 +9719,7 @@ test("guest checks retain 75 maximum-domain source IDs within state and token bo
   assert.ok(maximumPersistedBytes > 96 * 1_024);
 
   const maximumCandidateToken = new CustomerBiteSaverGuestOfferCheckCodec({
-    key: secretKey,
+    key: discoveryKey,
     now: () => nowMs,
     nonceSource: (size) => Buffer.alloc(size, 23),
   }).encode({
@@ -8105,7 +9750,7 @@ test("guest checks retain 75 maximum-domain source IDs within state and token bo
   );
   assert.equal(
     new CustomerBiteSaverGuestOfferCheckCodec({
-      key: secretKey,
+      key: discoveryKey,
       now: () => nowMs,
     }).open(maximumCandidateToken).candidateOfferIds.length,
     customerBiteSaverGuestCheckMaximumCandidateIds,
@@ -8184,14 +9829,14 @@ test("guest answers reject incomplete or nonmember input before mutation", async
   const missingCompletion = {...base};
   delete missingCompletion.entireBatchEvaluated;
   const unchallenged = customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     seeded.accountId,
     "coupon",
     "not-in-this-challenge",
   );
   const oversized = Array.from({length: 76}, (_, index) =>
     customerBiteSaverOpaqueOfferId(
-      secretKey,
+      identityKeyV1,
       "oversized-answer-account",
       "coupon",
       `oversized-answer-offer-${index}`,
@@ -8914,7 +10559,7 @@ test("persisted accepted-answer metadata is exact and batch-bound", async (t) =>
   const orderedCandidateIds = [...candidateIds].sort((left, right) =>
     Buffer.compare(Buffer.from(left, "utf8"), Buffer.from(right, "utf8")));
   const nonmemberId = customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     seeded.accountId,
     "coupon",
     "not-a-challenged-source-offer",
@@ -9213,7 +10858,7 @@ test("persisted guest redemption progress is identity-bound and exact", async (t
   assertNoPrivateCanaries(validResponse);
 
   const otherOfferId = customerBiteSaverOpaqueOfferId(
-    secretKey,
+    identityKeyV1,
     seeded.accountId,
     "coupon",
     "not-the-redemption-target",
@@ -9269,7 +10914,7 @@ module.exports = {
   boundRequest,
   createContext,
   nowMs,
-  secretKey,
+  discoveryKey,
   startRequest,
   startSession,
 };

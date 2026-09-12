@@ -73,7 +73,7 @@ if (!emulatorGate) {
   const {
     customerBiteSaverOpaqueOfferId,
     customerBiteSaverOpaqueRestaurantId,
-  } = require("../lib/customer_bitesaver_search_cursor.js");
+  } = require("../lib/customer_bitesaver_public_identity.js");
   const {
     customerBiteSaverCandidatePrefix,
     customerBiteSaverOrderedResultQuery,
@@ -84,6 +84,7 @@ if (!emulatorGate) {
     getCustomerBiteSaverSearchPageHandler,
     getCustomerBiteSaverSearchStatusHandler,
     startCustomerBiteSaverSearchHandler,
+    startCustomerBiteSaverOfferRedemptionHandler,
     validateCustomerBiteSaverOfferRedemptionStartHandler,
     customerBiteSaverSessionInternals,
   } = require("../lib/customer_bitesaver_search_session.js");
@@ -117,7 +118,8 @@ if (!emulatorGate) {
   } = require("../lib/restaurant_geo_helpers.js");
 
   const fixedNowMs = Date.parse("2026-09-10T16:00:00.000Z");
-  const secretKey = Buffer.alloc(32, 61);
+  const discoveryKey = Buffer.alloc(32, 61);
+  const identityKeyV1 = Buffer.alloc(32, 67);
   const runNamespace = `bs_adapter_${Date.now().toString(36)}_${
     randomBytes(6).toString("hex")}`;
   const app = initializeApp(
@@ -128,6 +130,7 @@ if (!emulatorGate) {
   const realDatabase = createFirestoreCustomerBiteSaverSearchDatabase(firestore);
   const ownedPaths = new Set();
   const hooks = {
+    afterGetDocument: null,
     beforeQuery: null,
     afterTransactionCommit: null,
   };
@@ -191,6 +194,9 @@ if (!emulatorGate) {
       }
       const result = await realDatabase.getDocument(path);
       metrics.pointReadResults += result === null ? 0 : 1;
+      if (hooks.afterGetDocument !== null) {
+        await hooks.afterGetDocument(path, result);
+      }
       return result;
     },
     async getDocuments(paths) {
@@ -410,6 +416,30 @@ if (!emulatorGate) {
     };
   }
 
+  function canonicalRestaurantFavorite(userId, restaurantId) {
+    return {
+      schemaVersion: customerBiteSaverSearchSchemaVersion,
+      favoriteKind: "bitesaverRestaurant",
+      userId,
+      restaurantId,
+      createdAt: new Date(fixedNowMs),
+      updatedAt: new Date(fixedNowMs),
+    };
+  }
+
+  function canonicalCouponFavorite(userId, restaurantId, offerId) {
+    return {
+      schemaVersion: customerBiteSaverSearchSchemaVersion,
+      favoriteKind: "bitesaverCoupon",
+      userId,
+      restaurantId,
+      offerId,
+      offerType: "coupon",
+      createdAt: new Date(fixedNowMs),
+      updatedAt: new Date(fixedNowMs),
+    };
+  }
+
   function previewCandidate(projection) {
     return Object.freeze({
       offerType: projection.offerType,
@@ -458,13 +488,14 @@ if (!emulatorGate) {
     };
   }
 
-  async function startSession({guest = false, clock, request = {}} = {}) {
+  async function startSession({guest = false, clock, request = {}, uid} = {}) {
     const clientInstanceId = requestId("client");
-    const uid = guest ? null : requestId("uid");
+    const authenticatedUid = guest ? null : uid ?? requestId("uid");
     const context = {
       database,
-      secretKey,
-      identity: {authUid: uid, authIsAnonymous: false},
+      discoveryKey,
+      identityKeyV1,
+      identity: {authUid: authenticatedUid, authIsAnonymous: false},
       now: () => clock.value,
       randomSource: (size) => randomBytes(size),
     };
@@ -472,7 +503,7 @@ if (!emulatorGate) {
       startRequest(clientInstanceId, request),
       context,
     );
-    return {clientInstanceId, context, response, uid};
+    return {clientInstanceId, context, response, uid: authenticatedUid};
   }
 
   function boundRequest(bundle, overrides = {}) {
@@ -517,6 +548,15 @@ if (!emulatorGate) {
       guestStateRevision: null,
       ...overrides,
     });
+  }
+
+  function redemptionStartRequest(request, validation, overrides = {}) {
+    return {
+      ...request,
+      clientRequestId: requestId("redemption-start"),
+      validationId: validation.validationId,
+      ...overrides,
+    };
   }
 
   function guestAnswerRequest(bundle, challenge, unavailableOfferIds, overrides = {}) {
@@ -568,7 +608,7 @@ if (!emulatorGate) {
     });
     assert.notEqual(parentProjection, null);
     const publicRestaurantId = customerBiteSaverOpaqueRestaurantId(
-      secretKey,
+      identityKeyV1,
       accountId,
     );
     const daily = [];
@@ -684,7 +724,7 @@ if (!emulatorGate) {
       expiresAt: session.absoluteExpiresAt,
     });
     const resultId = customerBiteSaverResultDocumentId(
-      secretKey,
+      discoveryKey,
       session.sessionId,
       session.attemptGeneration,
       publicRestaurantId,
@@ -708,7 +748,7 @@ if (!emulatorGate) {
     const suffix = String(index).padStart(4, "0");
     const accountId = `${runNamespace}_unavailable_${suffix}`;
     const publicRestaurantId = customerBiteSaverOpaqueRestaurantId(
-      secretKey,
+      identityKeyV1,
       accountId,
     );
     const data = Object.freeze({
@@ -749,7 +789,7 @@ if (!emulatorGate) {
     });
     const path = `${privateCustomerBiteSaverResultCollection}/${
       customerBiteSaverResultDocumentId(
-        secretKey,
+        discoveryKey,
         session.sessionId,
         session.attemptGeneration,
         publicRestaurantId,
@@ -801,6 +841,7 @@ if (!emulatorGate) {
   }
 
   test.after(async () => {
+    hooks.afterGetDocument = null;
     hooks.beforeQuery = null;
     hooks.afterTransactionCommit = null;
     // This set contains only writes that successfully committed through this
@@ -994,7 +1035,8 @@ if (!emulatorGate) {
         session.data.currentJobId,
         {
           database,
-          secretKey,
+          discoveryKey,
+          identityKeyV1,
           now: () => clock.value,
           randomSource: (size) => randomBytes(size),
           counters,
@@ -1123,7 +1165,7 @@ if (!emulatorGate) {
 
     const firstRestaurant = seeded[0];
     const firstPreparedOfferId = customerBiteSaverOpaqueOfferId(
-      secretKey,
+      identityKeyV1,
       firstRestaurant.accountId,
       "coupon",
       firstRestaurant.coupons[0].sourceDocumentId,
@@ -1150,6 +1192,24 @@ if (!emulatorGate) {
     assert.notEqual(first.nextCursor, null);
     assert.equal(first.restaurants.some(({restaurantId}) =>
       restaurantId === witness.publicRestaurantId), false);
+    await commitAll([
+      {
+        type: "set",
+        path: `user_profiles/${bundle.uid}/favorite_restaurants/` +
+          `bitesaver_account_${firstRestaurant.accountId}`,
+        data: {restaurantAccountId: firstRestaurant.accountId},
+      },
+      {
+        type: "set",
+        path: `user_profiles/${bundle.uid}/favorite_coupons/${
+          firstRestaurant.coupons[0].sourceDocumentId}`,
+        data: {
+          restaurantAccountId: firstRestaurant.accountId,
+          couponId: firstRestaurant.coupons[0].sourceDocumentId,
+          offerType: "coupon",
+        },
+      },
+    ]);
     const mixedFavoriteReadsBefore = metrics.favoritePointReadRequests;
     const mixed = await getCustomerBiteSaverFavoriteStatesHandler(
       favoriteRequest(bundle, {
@@ -1178,22 +1238,42 @@ if (!emulatorGate) {
     assert.equal(second.hasMore, false);
     assert.equal(second.nextCursor, null);
 
+    const legacyOnlyReadsBefore = metrics.favoritePointReadRequests;
+    const legacyOnly = await getCustomerBiteSaverFavoriteStatesHandler(
+      favoriteRequest(bundle, {
+        restaurantIds: [firstRestaurant.publicRestaurantId],
+        offerIds: [firstPreparedOfferId],
+      }),
+      bundle.context,
+    );
+    assert.deepEqual(
+      legacyOnly.states.map(({state}) => state),
+      ["notFavorite", "notFavorite"],
+    );
+    assert.equal(
+      metrics.favoritePointReadRequests,
+      legacyOnlyReadsBefore + 2,
+    );
+
     await commitAll([
       {
         type: "set",
         path: `user_profiles/${bundle.uid}/favorite_restaurants/` +
-          `bitesaver_account_${firstRestaurant.accountId}`,
-        data: {restaurantAccountId: firstRestaurant.accountId},
+          firstRestaurant.publicRestaurantId,
+        data: canonicalRestaurantFavorite(
+          bundle.uid,
+          firstRestaurant.publicRestaurantId,
+        ),
       },
       {
         type: "set",
         path: `user_profiles/${bundle.uid}/favorite_coupons/${
-          firstRestaurant.coupons[0].sourceDocumentId}`,
-        data: {
-          restaurantAccountId: firstRestaurant.accountId,
-          couponId: firstRestaurant.coupons[0].sourceDocumentId,
-          offerType: "coupon",
-        },
+          firstPreparedOfferId}`,
+        data: canonicalCouponFavorite(
+          bundle.uid,
+          firstRestaurant.publicRestaurantId,
+          firstPreparedOfferId,
+        ),
       },
     ]);
     const authorized = await getCustomerBiteSaverFavoriteStatesHandler(
@@ -1231,6 +1311,83 @@ if (!emulatorGate) {
     assert.equal(exhausted.partial, false);
   });
 
+  test("favorite states fail closed in order for corrupt persisted result backing",
+    {timeout: 120_000}, async () => {
+    const clock = {value: fixedNowMs};
+    const bundle = await startSession({clock});
+    const session = await markReady(bundle);
+    const first = readyRestaurantWrites(session, 901, {
+      offerCount: 1,
+      onlyCoupons: true,
+    });
+    const second = readyRestaurantWrites(session, 902, {
+      offerCount: 1,
+      onlyCoupons: true,
+    });
+    await commitAll([...first.writes, ...second.writes]);
+    const issued = await getCustomerBiteSaverSearchPageHandler(
+      pageRequest(bundle),
+      bundle.context,
+    );
+    const issuedByRestaurantId = new Map(issued.restaurants.map((restaurant) =>
+      [restaurant.restaurantId, restaurant]));
+    const firstOfferId = issuedByRestaurantId.get(first.publicRestaurantId)
+      ?.offers[0]?.offerId;
+    const secondOfferId = issuedByRestaurantId.get(second.publicRestaurantId)
+      ?.offers[0]?.offerId;
+    assert.equal(typeof firstOfferId, "string");
+    assert.equal(typeof secondOfferId, "string");
+    const restaurantIds = [second.publicRestaurantId, first.publicRestaurantId];
+    const offerIds = [firstOfferId, secondOfferId];
+    const orderedIds = [...restaurantIds, ...offerIds];
+
+    // A valid authorization chain plus absent canonical favorite documents is
+    // the positive control: absence alone is a definitive notFavorite state.
+    const missing = await getCustomerBiteSaverFavoriteStatesHandler(
+      favoriteRequest(bundle, {restaurantIds, offerIds}),
+      bundle.context,
+    );
+    assert.deepEqual(missing.states, orderedIds.map((id) => ({
+      id,
+      state: "notFavorite",
+    })));
+
+    const malformedBackings = [
+      {
+        label: "extra-field",
+        data: {...first.result, unexpectedPrivateField: true},
+      },
+      {
+        label: "identity-mismatch",
+        data: {...first.result, authoritativeAccountId: second.accountId},
+      },
+    ];
+    for (const backing of malformedBackings) {
+      await seed(first.resultPath, backing.data);
+      const favoriteReadsBefore = metrics.favoritePointReadRequests;
+      const failedClosed = await getCustomerBiteSaverFavoriteStatesHandler(
+        favoriteRequest(bundle, {
+          clientRequestId: requestId(`favorite-${backing.label}`),
+          restaurantIds,
+          offerIds,
+        }),
+        bundle.context,
+      );
+      assert.deepEqual(failedClosed.states, orderedIds.map((id) => ({
+        id,
+        state: "unknown",
+      })));
+      assert.equal(metrics.favoritePointReadRequests, favoriteReadsBefore);
+    }
+    await seed(first.resultPath, first.result);
+    metrics.scenarioMeasurements.favoriteBackingFailClosed = {
+      requestedStates: orderedIds.length,
+      missingCanonicalStates: missing.states.length,
+      malformedBackingCases: malformedBackings.length,
+      favoriteReadsAfterInvalidBacking: 0,
+    };
+  });
+
   test("signed offer pages preserve the usable 27th witness and prove final exhaustion",
     {timeout: 120_000}, async () => {
     const clock = {value: fixedNowMs};
@@ -1247,7 +1404,7 @@ if (!emulatorGate) {
         parent.coupons[25].sourceDocumentId}`,
     }]);
     const witnessOfferId = customerBiteSaverOpaqueOfferId(
-      secretKey,
+      identityKeyV1,
       parent.accountId,
       "coupon",
       parent.coupons[26].sourceDocumentId,
@@ -1387,7 +1544,7 @@ if (!emulatorGate) {
       offerBundle.context,
     );
     const finalOfferId = customerBiteSaverOpaqueOfferId(
-      secretKey,
+      identityKeyV1,
       offerParent.accountId,
       "coupon",
       offerParent.coupons[100].sourceDocumentId,
@@ -1493,6 +1650,528 @@ if (!emulatorGate) {
     };
   });
 
+  test("same-session redelivery preserves original validated start evidence and recovery",
+    {timeout: 120_000}, async () => {
+    const clock = {value: fixedNowMs};
+    const bundle = await startSession({clock});
+    const session = await markReady(bundle);
+    const parent = readyRestaurantWrites(session, 903, {
+      offerCount: 1,
+      onlyCoupons: true,
+      offerOverrides: {usageRule: "Once per customer"},
+    });
+    await commitAll(parent.writes);
+    const originalPage = await getCustomerBiteSaverSearchPageHandler(
+      pageRequest(bundle, {clientRequestId: requestId("original-page")}),
+      bundle.context,
+    );
+    const originalRestaurant = originalPage.restaurants[0];
+    const originalOffer = originalRestaurant.offers[0];
+    const originalRequest = redemptionRequest(
+      bundle,
+      originalRestaurant.restaurantId,
+      originalOffer,
+      {redemptionRequestId: requestId("original-evidence-logical")},
+    );
+    const validation =
+      await validateCustomerBiteSaverOfferRedemptionStartHandler(
+        originalRequest,
+        bundle.context,
+      );
+    assert.equal(validation.allowed, true);
+    const originalMarkers = (await documentsWithRole("deliveredOfferIdentity"))
+      .filter(({data}) =>
+        data.sessionId === bundle.response.sessionId &&
+        data.publicOfferId === originalOffer.offerId);
+    assert.equal(originalMarkers.length, 1);
+    const originalMarkerGeneration =
+      originalMarkers[0].data.pageGenerationFingerprint;
+    const originalMarkerAvailabilityAt = millis(
+      originalMarkers[0].data.availabilityAt,
+    );
+
+    clock.value = fixedNowMs + 1_000;
+    const redeliveredPage = await getCustomerBiteSaverSearchPageHandler(
+      pageRequest(bundle, {clientRequestId: requestId("redelivered-page")}),
+      bundle.context,
+    );
+    const redeliveredOffer = redeliveredPage.restaurants[0].offers[0];
+    assert.equal(redeliveredOffer.offerId, originalOffer.offerId);
+    assert.notEqual(redeliveredOffer.offerOccurrence, originalOffer.offerOccurrence);
+    const redeliveredMarkers =
+      (await documentsWithRole("deliveredOfferIdentity"))
+        .filter(({data}) =>
+          data.sessionId === bundle.response.sessionId &&
+          data.publicOfferId === originalOffer.offerId);
+    assert.equal(redeliveredMarkers.length, 1);
+    assert.notEqual(
+      redeliveredMarkers[0].data.pageGenerationFingerprint,
+      originalMarkerGeneration,
+    );
+    assert.equal(
+      millis(redeliveredMarkers[0].data.availabilityAt),
+      clock.value,
+    );
+    assert.notEqual(
+      millis(redeliveredMarkers[0].data.availabilityAt),
+      originalMarkerAvailabilityAt,
+    );
+
+    const startRequestValue = redemptionStartRequest(
+      originalRequest,
+      validation,
+      {clientRequestId: requestId("original-evidence-start")},
+    );
+    const started = await startCustomerBiteSaverOfferRedemptionHandler(
+      startRequestValue,
+      bundle.context,
+    );
+    assert.equal(started.status, "started");
+    assert.equal(started.timerStartedAtMillis, clock.value);
+    assert.equal(started.timerExpiresAtMillis, clock.value + 5 * 60_000);
+    const usagePath =
+      `customer_redemptions/${bundle.uid}/coupon_redemptions/${originalOffer.offerId}`;
+    const usage = await database.getDocument(usagePath);
+    assert.notEqual(usage, null);
+    assert.equal(usage.data.redemptionId, started.redemptionId);
+    assert.equal(millis(usage.data.timerStartedAt), started.timerStartedAtMillis);
+    assert.equal(millis(usage.data.timerExpiresAt), started.timerExpiresAtMillis);
+    const receipts = (await documentsWithRole("redemptionStartReceipt"))
+      .filter(({data}) => data.sessionId === bundle.response.sessionId);
+    assert.equal(receipts.length, 1);
+    assert.equal(receipts[0].data.redemptionId, started.redemptionId);
+    assert.equal(
+      millis(receipts[0].data.timerStartedAt),
+      started.timerStartedAtMillis,
+    );
+    assert.equal(
+      millis(receipts[0].data.timerExpiresAt),
+      started.timerExpiresAtMillis,
+    );
+
+    const committedWritesBeforeRecovery = metrics.transactionWritesCommitted;
+    const transactionsBeforeRecovery = metrics.transactionInvocations;
+    clock.value = validation.validationExpiresAtMillis;
+    const recovered = await startCustomerBiteSaverOfferRedemptionHandler(
+      {...startRequestValue, clientRequestId: requestId("committed-recovery")},
+      bundle.context,
+    );
+    assert.deepEqual(recovered, started);
+    assert.equal(
+      metrics.transactionWritesCommitted,
+      committedWritesBeforeRecovery,
+    );
+    assert.equal(metrics.transactionInvocations, transactionsBeforeRecovery);
+    metrics.scenarioMeasurements.sameSessionRedelivery = {
+      markerGenerationChanged: true,
+      committedRecoveryWrites:
+        metrics.transactionWritesCommitted - committedWritesBeforeRecovery,
+      recoveredTimerStartedAtMillis: recovered.timerStartedAtMillis,
+      recoveredTimerExpiresAtMillis: recovered.timerExpiresAtMillis,
+    };
+  });
+
+  test("real adapter atomically starts canonical usage across signed sessions",
+    {timeout: 120_000}, async () => {
+    const clock = {value: fixedNowMs};
+    const uid = requestId("shared-redemption-owner");
+    const firstBundle = await startSession({clock, uid});
+    const secondBundle = await startSession({clock, uid});
+    const firstSession = await markReady(firstBundle);
+    const secondSession = await markReady(secondBundle);
+    const accountId = requestId("shared-redemption-account");
+    const firstParent = readyRestaurantWrites(firstSession, 301, {
+      accountId,
+      offerCount: 1,
+      onlyCoupons: true,
+      offerOverrides: {usageRule: "Once per customer"},
+    });
+    const secondParent = readyRestaurantWrites(secondSession, 301, {
+      accountId,
+      offerCount: 1,
+      onlyCoupons: true,
+      offerOverrides: {usageRule: "Once per customer"},
+    });
+    await commitAll(firstParent.writes);
+    await commitAll(secondParent.writes);
+    const [firstPage, secondPage] = await bounded(Promise.all([
+      getCustomerBiteSaverSearchPageHandler(
+        pageRequest(firstBundle),
+        firstBundle.context,
+      ),
+      getCustomerBiteSaverSearchPageHandler(
+        pageRequest(secondBundle),
+        secondBundle.context,
+      ),
+    ]), "shared redemption page issuance");
+    const firstRestaurant = firstPage.restaurants[0];
+    const secondRestaurant = secondPage.restaurants[0];
+    assert.equal(firstRestaurant.restaurantId, firstParent.publicRestaurantId);
+    assert.equal(secondRestaurant.restaurantId, firstParent.publicRestaurantId);
+    const firstOffer = firstRestaurant.offers[0];
+    const secondOffer = secondRestaurant.offers[0];
+    assert.equal(secondOffer.offerId, firstOffer.offerId);
+    const firstRequest = redemptionRequest(
+      firstBundle,
+      firstRestaurant.restaurantId,
+      firstOffer,
+      {redemptionRequestId: requestId("first-start-logical")},
+    );
+    const secondRequest = redemptionRequest(
+      secondBundle,
+      secondRestaurant.restaurantId,
+      secondOffer,
+      {redemptionRequestId: requestId("second-start-logical")},
+    );
+    const [firstValidation, secondValidation] = await bounded(Promise.all([
+      validateCustomerBiteSaverOfferRedemptionStartHandler(
+        firstRequest,
+        firstBundle.context,
+      ),
+      validateCustomerBiteSaverOfferRedemptionStartHandler(
+        secondRequest,
+        secondBundle.context,
+      ),
+    ]), "shared redemption validation");
+    assert.equal(firstValidation.allowed, true);
+    assert.equal(secondValidation.allowed, true);
+    const firstStartRequest = redemptionStartRequest(
+      firstRequest,
+      firstValidation,
+    );
+    const secondStartRequest = redemptionStartRequest(
+      secondRequest,
+      secondValidation,
+    );
+    const transactionInvocationsBefore = metrics.transactionInvocations;
+    const transactionAttemptsBefore = metrics.transactionAttempts;
+    const [firstStart, secondStart] = await bounded(Promise.all([
+      startCustomerBiteSaverOfferRedemptionHandler(
+        firstStartRequest,
+        firstBundle.context,
+      ),
+      startCustomerBiteSaverOfferRedemptionHandler(
+        secondStartRequest,
+        secondBundle.context,
+      ),
+    ]), "concurrent canonical redemption starts");
+    const concurrentTransactionInvocations =
+      metrics.transactionInvocations - transactionInvocationsBefore;
+    const concurrentTransactionAttempts =
+      metrics.transactionAttempts - transactionAttemptsBefore;
+    assert.deepEqual(
+      [firstStart.status, secondStart.status].sort(),
+      ["active", "started"],
+    );
+    assert.match(firstStart.redemptionId, /^bsrd_[A-Za-z0-9_-]{43}$/u);
+    assert.equal(secondStart.redemptionId, firstStart.redemptionId);
+    assert.equal(secondStart.timerStartedAtMillis, firstStart.timerStartedAtMillis);
+    assert.equal(secondStart.timerExpiresAtMillis, firstStart.timerExpiresAtMillis);
+    assert.equal(firstStart.timerStartedAtMillis, fixedNowMs);
+    assert.equal(firstStart.timerExpiresAtMillis, fixedNowMs + 5 * 60_000);
+
+    const usagePath =
+      `customer_redemptions/${uid}/coupon_redemptions/${firstOffer.offerId}`;
+    const usage = await database.getDocument(usagePath);
+    assert.notEqual(usage, null);
+    assert.deepEqual(Object.keys(usage.data).sort(), [
+      "createdAt",
+      "offerId",
+      "offerType",
+      "redemptionId",
+      "restaurantId",
+      "schemaVersion",
+      "timerExpiresAt",
+      "timerStartedAt",
+      "updatedAt",
+      "userId",
+    ]);
+    assert.equal(usage.data.schemaVersion, customerBiteSaverSearchSchemaVersion);
+    assert.equal(usage.data.userId, uid);
+    assert.equal(usage.data.restaurantId, firstRestaurant.restaurantId);
+    assert.equal(usage.data.offerId, firstOffer.offerId);
+    assert.equal(usage.data.offerType, "coupon");
+    assert.equal(usage.data.redemptionId, firstStart.redemptionId);
+    assert.equal(millis(usage.data.timerStartedAt), firstStart.timerStartedAtMillis);
+    assert.equal(millis(usage.data.timerExpiresAt), firstStart.timerExpiresAtMillis);
+    assert.equal(millis(usage.data.createdAt), firstStart.timerStartedAtMillis);
+    assert.equal(millis(usage.data.updatedAt), firstStart.timerStartedAtMillis);
+    assert.equal(
+      await database.getDocument(
+        `customer_redemptions/${uid}/coupon_redemptions/${
+          firstParent.coupons[0].sourceDocumentId}`,
+      ),
+      null,
+    );
+    const sessionIds = new Set([
+      firstBundle.response.sessionId,
+      secondBundle.response.sessionId,
+    ]);
+    const receipts = (await documentsWithRole("redemptionStartReceipt"))
+      .filter(({data}) => sessionIds.has(data.sessionId));
+    assert.equal(receipts.length, 2);
+
+    // A caller retry after losing either response recovers that session's
+    // original status and the shared authoritative timer anchors.
+    clock.value = firstValidation.validationExpiresAtMillis;
+    assert.deepEqual(
+      await startCustomerBiteSaverOfferRedemptionHandler(
+        {
+          ...firstStartRequest,
+          clientRequestId: requestId("lost-start-response"),
+        },
+        firstBundle.context,
+      ),
+      firstStart,
+    );
+    const unchangedUsage = await database.getDocument(usagePath);
+    assert.equal(unchangedUsage.data.redemptionId, usage.data.redemptionId);
+    assert.equal(
+      millis(unchangedUsage.data.timerStartedAt),
+      millis(usage.data.timerStartedAt),
+    );
+
+    clock.value = firstStart.timerExpiresAtMillis;
+    const completed =
+      await validateCustomerBiteSaverOfferRedemptionStartHandler(
+        redemptionRequest(
+          firstBundle,
+          firstRestaurant.restaurantId,
+          firstOffer,
+          {redemptionRequestId: requestId("completed-start-logical")},
+        ),
+        firstBundle.context,
+      );
+    assert.equal(completed.allowed, false);
+    assert.equal(completed.reason, "used");
+    assert.equal(completed.validationId, null);
+
+    const raceBundle = await startSession({clock, uid});
+    const raceSession = await markReady(raceBundle);
+    const raceParent = readyRestaurantWrites(raceSession, 302, {
+      preparationNowMs: clock.value,
+      offerCount: 1,
+      onlyCoupons: true,
+      offerOverrides: {usageRule: "Once per customer"},
+    });
+    await commitAll(raceParent.writes);
+    const racePage = await getCustomerBiteSaverSearchPageHandler(
+      pageRequest(raceBundle),
+      raceBundle.context,
+    );
+    const raceRestaurant = racePage.restaurants[0];
+    const raceOffer = raceRestaurant.offers[0];
+    const raceRequest = redemptionRequest(
+      raceBundle,
+      raceRestaurant.restaurantId,
+      raceOffer,
+      {redemptionRequestId: requestId("withdrawn-start-logical")},
+    );
+    const raceValidation =
+      await validateCustomerBiteSaverOfferRedemptionStartHandler(
+        raceRequest,
+        raceBundle.context,
+      );
+    assert.equal(raceValidation.allowed, true);
+    await database.commitWrites([{
+      type: "delete",
+      path: `restaurant_accounts/${raceParent.accountId}/coupons/${
+        raceParent.coupons[0].sourceDocumentId}`,
+    }]);
+    await assert.rejects(
+      startCustomerBiteSaverOfferRedemptionHandler(
+        redemptionStartRequest(raceRequest, raceValidation),
+        raceBundle.context,
+      ),
+      contractError("failed-precondition"),
+    );
+    assert.equal(
+      await database.getDocument(
+        `customer_redemptions/${uid}/coupon_redemptions/${raceOffer.offerId}`,
+      ),
+      null,
+    );
+    metrics.scenarioMeasurements.redemptionStart = {
+      concurrentTransactionInvocations,
+      concurrentTransactionAttempts,
+      authoritativeStartReceipts: receipts.length,
+      canonicalUsageDocuments: 1,
+      timerDurationMillis:
+        firstStart.timerExpiresAtMillis - firstStart.timerStartedAtMillis,
+    };
+  });
+
+  test("stored start receipt recovery fences absolute expiry at minus one exact and plus one",
+    {timeout: 120_000}, async () => {
+    const clock = {value: fixedNowMs};
+    const bundle = await startSession({clock});
+    const session = await markReady(bundle);
+    const parent = readyRestaurantWrites(session, 904, {
+      offerCount: 1,
+      onlyCoupons: true,
+      offerOverrides: {usageRule: "Once per customer"},
+    });
+    await commitAll(parent.writes);
+    const page = await getCustomerBiteSaverSearchPageHandler(
+      pageRequest(bundle),
+      bundle.context,
+    );
+    const restaurant = page.restaurants[0];
+    const offer = restaurant.offers[0];
+    const request = redemptionRequest(
+      bundle,
+      restaurant.restaurantId,
+      offer,
+      {redemptionRequestId: requestId("receipt-boundary-logical")},
+    );
+    const validation =
+      await validateCustomerBiteSaverOfferRedemptionStartHandler(
+        request,
+        bundle.context,
+      );
+    assert.equal(validation.allowed, true);
+    const startRequestValue = redemptionStartRequest(request, validation);
+    const started = await startCustomerBiteSaverOfferRedemptionHandler(
+      startRequestValue,
+      bundle.context,
+    );
+    const absoluteExpiresAtMs = millis(session.absoluteExpiresAt);
+    assert.equal(absoluteExpiresAtMs, fixedNowMs + 60 * 60_000);
+    const committedWritesBeforeBoundaries = metrics.transactionWritesCommitted;
+    const transactionsBeforeBoundaries = metrics.transactionInvocations;
+
+    clock.value = absoluteExpiresAtMs - 1;
+    assert.deepEqual(
+      await startCustomerBiteSaverOfferRedemptionHandler(
+        {
+          ...startRequestValue,
+          clientRequestId: requestId("receipt-boundary-minus-one"),
+        },
+        bundle.context,
+      ),
+      started,
+    );
+    assert.equal(
+      metrics.transactionWritesCommitted,
+      committedWritesBeforeBoundaries,
+    );
+    assert.equal(metrics.transactionInvocations, transactionsBeforeBoundaries);
+
+    for (const [label, atMs] of [
+      ["exact", absoluteExpiresAtMs],
+      ["plus-one", absoluteExpiresAtMs + 1],
+    ]) {
+      clock.value = atMs;
+      await assert.rejects(
+        startCustomerBiteSaverOfferRedemptionHandler(
+          {
+            ...startRequestValue,
+            clientRequestId: requestId(`receipt-boundary-${label}`),
+          },
+          bundle.context,
+        ),
+        contractError("failed-precondition"),
+      );
+      assert.equal(
+        metrics.transactionWritesCommitted,
+        committedWritesBeforeBoundaries,
+      );
+      assert.equal(metrics.transactionInvocations, transactionsBeforeBoundaries);
+    }
+    metrics.scenarioMeasurements.startReceiptBoundaries = {
+      absoluteExpiresAtMs,
+      recoveredOffsets: [-1],
+      rejectedOffsets: [0, 1],
+      committedWrites: 0,
+    };
+  });
+
+  test("actual SDK receipt read cannot recover after crossing absolute expiry",
+    {timeout: 120_000}, async () => {
+    const clock = {value: fixedNowMs};
+    const bundle = await startSession({clock});
+    const session = await markReady(bundle);
+    const parent = readyRestaurantWrites(session, 905, {
+      offerCount: 1,
+      onlyCoupons: true,
+      offerOverrides: {usageRule: "Once per customer"},
+    });
+    await commitAll(parent.writes);
+    const page = await getCustomerBiteSaverSearchPageHandler(
+      pageRequest(bundle),
+      bundle.context,
+    );
+    const restaurant = page.restaurants[0];
+    const offer = restaurant.offers[0];
+    const request = redemptionRequest(
+      bundle,
+      restaurant.restaurantId,
+      offer,
+      {redemptionRequestId: requestId("delayed-receipt-logical")},
+    );
+    const validation =
+      await validateCustomerBiteSaverOfferRedemptionStartHandler(
+        request,
+        bundle.context,
+      );
+    assert.equal(validation.allowed, true);
+    const startRequestValue = redemptionStartRequest(request, validation);
+    await startCustomerBiteSaverOfferRedemptionHandler(
+      startRequestValue,
+      bundle.context,
+    );
+    const absoluteExpiresAtMs = millis(session.absoluteExpiresAt);
+    clock.value = absoluteExpiresAtMs - 1;
+    const receiptRead = deferred();
+    const releaseReceiptRead = deferred();
+    let interceptedReceiptPath = null;
+    hooks.afterGetDocument = async (documentPath, document) => {
+      if (
+        interceptedReceiptPath === null &&
+        document?.data.role === "redemptionStartReceipt" &&
+        document.data.sessionId === bundle.response.sessionId
+      ) {
+        interceptedReceiptPath = documentPath;
+        receiptRead.resolve();
+        await releaseReceiptRead.promise;
+      }
+    };
+    const committedWritesBeforeRecovery = metrics.transactionWritesCommitted;
+    const transactionsBeforeRecovery = metrics.transactionInvocations;
+    const recoveryPromise = startCustomerBiteSaverOfferRedemptionHandler(
+      {
+        ...startRequestValue,
+        clientRequestId: requestId("delayed-receipt-recovery"),
+      },
+      bundle.context,
+    );
+    void recoveryPromise.catch(() => {});
+    try {
+      await bounded(receiptRead.promise, "actual start receipt read");
+      clock.value = absoluteExpiresAtMs;
+      releaseReceiptRead.resolve();
+      await assert.rejects(
+        bounded(recoveryPromise, "delayed start receipt recovery"),
+        contractError("failed-precondition"),
+      );
+    } finally {
+      hooks.afterGetDocument = null;
+      releaseReceiptRead.resolve();
+      await recoveryPromise.catch(() => {});
+    }
+    assert.equal(typeof interceptedReceiptPath, "string");
+    assert.equal(
+      metrics.transactionWritesCommitted,
+      committedWritesBeforeRecovery,
+    );
+    assert.equal(metrics.transactionInvocations, transactionsBeforeRecovery);
+    metrics.scenarioMeasurements.delayedReceiptRecovery = {
+      receiptReadCompletedBeforeClockCrossing: true,
+      crossedToMillis: absoluteExpiresAtMs,
+      committedWrites: 0,
+    };
+  });
+
   test("guest offer page keeps its scheduled-start evaluation anchor across refresh",
     {timeout: 120_000}, async () => {
     const originalEvaluationAt = fixedNowMs;
@@ -1516,7 +2195,7 @@ if (!emulatorGate) {
     await commitAll(parent.writes);
     const offerIds = parent.coupons.map(({sourceDocumentId}) =>
       customerBiteSaverOpaqueOfferId(
-        secretKey,
+        identityKeyV1,
         parent.accountId,
         "coupon",
         sourceDocumentId,
@@ -1766,7 +2445,7 @@ if (!emulatorGate) {
     await commitAll(parent.writes);
     const offerIds = parent.coupons.map(({sourceDocumentId}) =>
       customerBiteSaverOpaqueOfferId(
-        secretKey,
+        identityKeyV1,
         parent.accountId,
         "coupon",
         sourceDocumentId,
@@ -2126,13 +2805,13 @@ if (!emulatorGate) {
         ...(witness?.writes ?? []),
       ]);
       const expiringDailyOfferId = customerBiteSaverOpaqueOfferId(
-        secretKey,
+        identityKeyV1,
         expiring.accountId,
         "dailySpecial",
         expiring.daily[0].sourceDocumentId,
       );
       const checkedCouponOfferId = customerBiteSaverOpaqueOfferId(
-        secretKey,
+        identityKeyV1,
         expiring.accountId,
         "coupon",
         expiring.coupons[0].sourceDocumentId,
@@ -2140,7 +2819,7 @@ if (!emulatorGate) {
       const witnessCouponOfferId = witness === null
         ? null
         : customerBiteSaverOpaqueOfferId(
-            secretKey,
+            identityKeyV1,
             witness.accountId,
             "coupon",
             witness.coupons[0].sourceDocumentId,
@@ -2836,13 +3515,13 @@ if (!emulatorGate) {
       );
       await commitAll(parent.writes);
       const dailyOfferId = customerBiteSaverOpaqueOfferId(
-        secretKey,
+        identityKeyV1,
         parent.accountId,
         "dailySpecial",
         parent.daily[0].sourceDocumentId,
       );
       const couponOfferId = customerBiteSaverOpaqueOfferId(
-        secretKey,
+        identityKeyV1,
         parent.accountId,
         "coupon",
         parent.coupons[0].sourceDocumentId,
@@ -3559,7 +4238,8 @@ if (!emulatorGate) {
     const jobId = session.data.currentJobId;
     const workerContext = () => ({
       database,
-      secretKey,
+      discoveryKey,
+      identityKeyV1,
       now: () => clock.value,
       randomSource: (size) => randomBytes(size),
       counters: createCustomerBiteSaverWorkerCounters(),

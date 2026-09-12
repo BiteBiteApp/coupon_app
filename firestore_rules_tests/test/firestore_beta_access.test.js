@@ -14,9 +14,73 @@ const {
 
 const projectId = "demo-coupon-app-rules";
 const rulesPath = path.resolve(__dirname, "../../firestore.rules");
+const customerBiteSaverFavoriteFixture = JSON.parse(fs.readFileSync(
+  path.resolve(
+    __dirname,
+    "../../test/fixtures/customer_bitesaver_favorite_contract_v1.json",
+  ),
+  "utf8",
+));
 const serverTimestamp = firebase.firestore.FieldValue.serverTimestamp;
 const biteSaverRestaurantPublicProjectionVersion =
   "bitestar.bitesaver-public-restaurant.v1";
+const canonicalBiteSaverRestaurantId = `bsr_${"r".repeat(43)}`;
+const secondCanonicalBiteSaverRestaurantId = `bsr_${"s".repeat(43)}`;
+const canonicalBiteSaverOfferId = `bso_${"o".repeat(43)}`;
+const secondCanonicalBiteSaverOfferId = `bso_${"p".repeat(43)}`;
+const canonicalBiteSaverRedemptionId = `bsrd_${"d".repeat(43)}`;
+
+function canonicalBiteSaverRestaurantFavoriteData(overrides = {}) {
+  return {
+    schemaVersion: 1,
+    favoriteKind: "bitesaverRestaurant",
+    userId: "customer-a",
+    restaurantId: canonicalBiteSaverRestaurantId,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    ...overrides,
+  };
+}
+
+function canonicalBiteSaverCouponFavoriteData(overrides = {}) {
+  return {
+    schemaVersion: 1,
+    favoriteKind: "bitesaverCoupon",
+    userId: "customer-a",
+    restaurantId: canonicalBiteSaverRestaurantId,
+    offerId: canonicalBiteSaverOfferId,
+    offerType: "coupon",
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+    ...overrides,
+  };
+}
+
+function canonicalBiteSaverUsageData(overrides = {}) {
+  const timerStartedAt = new Date("2026-09-11T22:00:00.000Z");
+  return {
+    schemaVersion: 1,
+    userId: "customer-a",
+    restaurantId: canonicalBiteSaverRestaurantId,
+    offerId: canonicalBiteSaverOfferId,
+    offerType: "coupon",
+    redemptionId: canonicalBiteSaverRedemptionId,
+    timerStartedAt,
+    timerExpiresAt: new Date(timerStartedAt.getTime() + 5 * 60_000),
+    createdAt: timerStartedAt,
+    updatedAt: timerStartedAt,
+    ...overrides,
+  };
+}
+
+function materializeCustomerBiteSaverFavoriteFixture(document) {
+  return Object.fromEntries(Object.entries(document).map(([key, value]) => [
+    key,
+    value === customerBiteSaverFavoriteFixture.serverTimestampMarker
+      ? serverTimestamp()
+      : value,
+  ]));
+}
 
 let testEnv;
 let actors;
@@ -35,9 +99,19 @@ test.before(async () => {
       email: "customer-a@example.com",
       email_verified: true,
     }),
+    fixtureCustomer: testEnv.authenticatedContext(
+      customerBiteSaverFavoriteFixture.userId,
+      {
+        email: "favorite-fixture@example.com",
+        email_verified: true,
+      },
+    ),
     wrongCustomer: testEnv.authenticatedContext("customer-b", {
       email: "customer-b@example.com",
       email_verified: true,
+    }),
+    anonymousCustomer: testEnv.authenticatedContext("customer-a", {
+      firebase: {sign_in_provider: "anonymous"},
     }),
     restaurantOwner: testEnv.authenticatedContext("owner-1", {
       email: "owner-1@example.com",
@@ -1654,6 +1728,425 @@ test("customers can manage their own favorites and redemptions", async () => {
       { merge: true },
     ),
   );
+});
+
+test("the exact shared Dart favorite fixture is accepted by canonical Rules", async () => {
+  assert.equal(
+    customerBiteSaverFavoriteFixture.contractVersion,
+    "bitestar.customer-bitesaver-favorite.v1",
+  );
+  const db = dbFor("fixtureCustomer");
+  const restaurantRef = db.doc(
+    `user_profiles/${customerBiteSaverFavoriteFixture.userId}` +
+      `/favorite_restaurants/${customerBiteSaverFavoriteFixture.restaurantId}`,
+  );
+  const couponRef = db.doc(
+    `user_profiles/${customerBiteSaverFavoriteFixture.userId}` +
+      `/favorite_coupons/${customerBiteSaverFavoriteFixture.offerId}`,
+  );
+  await assertSucceeds(restaurantRef.set(
+    materializeCustomerBiteSaverFavoriteFixture(
+      customerBiteSaverFavoriteFixture.restaurantCreate,
+    ),
+  ));
+  await assertSucceeds(couponRef.set(
+    materializeCustomerBiteSaverFavoriteFixture(
+      customerBiteSaverFavoriteFixture.couponCreate,
+    ),
+  ));
+  assert.deepEqual(
+    Object.keys((await restaurantRef.get()).data()).sort(),
+    Object.keys(customerBiteSaverFavoriteFixture.restaurantCreate).sort(),
+  );
+  assert.deepEqual(
+    Object.keys((await couponRef.get()).data()).sort(),
+    Object.keys(customerBiteSaverFavoriteFixture.couponCreate).sort(),
+  );
+});
+
+test("canonical BiteSaver favorites allow only exact owner CRUD and listing", async () => {
+  const db = dbFor("customer");
+  const restaurantRef = db.doc(
+    `user_profiles/customer-a/favorite_restaurants/${canonicalBiteSaverRestaurantId}`,
+  );
+  const couponRef = db.doc(
+    `user_profiles/customer-a/favorite_coupons/${canonicalBiteSaverOfferId}`,
+  );
+
+  await assertSucceeds(
+    restaurantRef.set(canonicalBiteSaverRestaurantFavoriteData()),
+  );
+  await assertSucceeds(
+    couponRef.set(canonicalBiteSaverCouponFavoriteData()),
+  );
+  const restaurantBefore = await restaurantRef.get();
+  const couponBefore = await couponRef.get();
+  await assertSucceeds(
+    restaurantRef.update({updatedAt: serverTimestamp()}),
+  );
+  await assertSucceeds(
+    couponRef.update({updatedAt: serverTimestamp()}),
+  );
+  await assertSucceeds(
+    restaurantRef.update({updatedAt: serverTimestamp()}),
+  );
+  await assertSucceeds(
+    couponRef.update({updatedAt: serverTimestamp()}),
+  );
+  const restaurantAfter = await restaurantRef.get();
+  const couponAfter = await couponRef.get();
+  assert.equal(
+    restaurantAfter.data().createdAt.isEqual(restaurantBefore.data().createdAt),
+    true,
+  );
+  assert.equal(
+    couponAfter.data().createdAt.isEqual(couponBefore.data().createdAt),
+    true,
+  );
+  await assertSucceeds(
+    db.collection("user_profiles/customer-a/favorite_restaurants").get(),
+  );
+  await assertSucceeds(
+    db.collection("user_profiles/customer-a/favorite_coupons").get(),
+  );
+  await assertSucceeds(restaurantRef.delete());
+  await assertSucceeds(couponRef.delete());
+});
+
+test("canonical BiteSaver favorite reserved paths reject schema and auth bypasses", async () => {
+  const customer = dbFor("customer");
+  const restaurantPath =
+    `user_profiles/customer-a/favorite_restaurants/${secondCanonicalBiteSaverRestaurantId}`;
+  const couponPath =
+    `user_profiles/customer-a/favorite_coupons/${secondCanonicalBiteSaverOfferId}`;
+  const restaurantRef = customer.doc(restaurantPath);
+  const couponRef = customer.doc(couponPath);
+  const missingRestaurantField = canonicalBiteSaverRestaurantFavoriteData({
+    restaurantId: secondCanonicalBiteSaverRestaurantId,
+  });
+  delete missingRestaurantField.favoriteKind;
+  const missingCouponField = canonicalBiteSaverCouponFavoriteData({
+    offerId: secondCanonicalBiteSaverOfferId,
+  });
+  delete missingCouponField.offerType;
+
+  for (const data of [
+    canonicalBiteSaverRestaurantFavoriteData({
+      restaurantId: secondCanonicalBiteSaverRestaurantId,
+      schemaVersion: "1",
+    }),
+    canonicalBiteSaverRestaurantFavoriteData({
+      restaurantId: secondCanonicalBiteSaverRestaurantId,
+      favoriteKind: "restaurant",
+    }),
+    canonicalBiteSaverRestaurantFavoriteData({
+      restaurantId: secondCanonicalBiteSaverRestaurantId,
+      userId: "customer-b",
+    }),
+    canonicalBiteSaverRestaurantFavoriteData(),
+    canonicalBiteSaverRestaurantFavoriteData({
+      restaurantId: secondCanonicalBiteSaverRestaurantId,
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+    }),
+    canonicalBiteSaverRestaurantFavoriteData({
+      restaurantId: secondCanonicalBiteSaverRestaurantId,
+      privateAccountId: "owner-private",
+    }),
+    missingRestaurantField,
+  ]) {
+    await assertFails(restaurantRef.set(data));
+  }
+
+  for (const data of [
+    canonicalBiteSaverCouponFavoriteData({
+      offerId: secondCanonicalBiteSaverOfferId,
+      schemaVersion: 2,
+    }),
+    canonicalBiteSaverCouponFavoriteData({
+      offerId: secondCanonicalBiteSaverOfferId,
+      favoriteKind: "coupon",
+    }),
+    canonicalBiteSaverCouponFavoriteData({
+      offerId: secondCanonicalBiteSaverOfferId,
+      userId: "customer-b",
+    }),
+    canonicalBiteSaverCouponFavoriteData({
+      offerId: secondCanonicalBiteSaverOfferId,
+      restaurantId: "raw-parent-id",
+    }),
+    canonicalBiteSaverCouponFavoriteData(),
+    canonicalBiteSaverCouponFavoriteData({
+      offerId: secondCanonicalBiteSaverOfferId,
+      offerType: "dailySpecial",
+    }),
+    canonicalBiteSaverCouponFavoriteData({
+      offerId: secondCanonicalBiteSaverOfferId,
+      createdAt: new Date("2026-01-01T00:00:00.000Z"),
+      updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+    }),
+    canonicalBiteSaverCouponFavoriteData({
+      offerId: secondCanonicalBiteSaverOfferId,
+      occurrence: "private-token",
+    }),
+    missingCouponField,
+  ]) {
+    await assertFails(couponRef.set(data));
+  }
+
+  const validRestaurant = canonicalBiteSaverRestaurantFavoriteData({
+    restaurantId: secondCanonicalBiteSaverRestaurantId,
+  });
+  const validCoupon = canonicalBiteSaverCouponFavoriteData({
+    offerId: secondCanonicalBiteSaverOfferId,
+  });
+  for (const actor of ["anonymousCustomer", "wrongCustomer", "admin"]) {
+    await assertFails(dbFor(actor).doc(restaurantPath).set(validRestaurant));
+    await assertFails(dbFor(actor).doc(couponPath).set(validCoupon));
+  }
+});
+
+test("canonical BiteSaver favorite identities and creation time are immutable", async () => {
+  const customer = dbFor("customer");
+  const restaurantPath =
+    `user_profiles/customer-a/favorite_restaurants/${canonicalBiteSaverRestaurantId}`;
+  const couponPath =
+    `user_profiles/customer-a/favorite_coupons/${canonicalBiteSaverOfferId}`;
+  const restaurantRef = customer.doc(restaurantPath);
+  const couponRef = customer.doc(couponPath);
+  await assertSucceeds(
+    restaurantRef.set(canonicalBiteSaverRestaurantFavoriteData()),
+  );
+  await assertSucceeds(
+    couponRef.set(canonicalBiteSaverCouponFavoriteData()),
+  );
+
+  for (const update of [
+    {restaurantId: secondCanonicalBiteSaverRestaurantId},
+    {userId: "customer-b"},
+    {favoriteKind: "restaurant"},
+    {schemaVersion: 2},
+    {createdAt: serverTimestamp()},
+    {privateAccountId: "owner-private"},
+  ]) {
+    await assertFails(
+      restaurantRef.update({...update, updatedAt: serverTimestamp()}),
+    );
+  }
+  await assertFails(restaurantRef.update({
+    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+  }));
+  for (const update of [
+    {restaurantId: secondCanonicalBiteSaverRestaurantId},
+    {offerId: secondCanonicalBiteSaverOfferId},
+    {offerType: "dailySpecial"},
+    {userId: "customer-b"},
+    {favoriteKind: "coupon"},
+    {schemaVersion: 2},
+    {createdAt: serverTimestamp()},
+    {privateAccountId: "owner-private"},
+  ]) {
+    await assertFails(couponRef.update({...update, updatedAt: serverTimestamp()}));
+  }
+  await assertFails(couponRef.update({
+    updatedAt: new Date("2026-01-01T00:00:00.000Z"),
+  }));
+
+  for (const actor of ["anonymousCustomer", "wrongCustomer", "admin"]) {
+    await assertFails(dbFor(actor).doc(restaurantPath).get());
+    await assertFails(dbFor(actor).doc(couponPath).get());
+    await assertFails(
+      dbFor(actor)
+        .collection("user_profiles/customer-a/favorite_restaurants")
+        .get(),
+    );
+    await assertFails(
+      dbFor(actor)
+        .collection("user_profiles/customer-a/favorite_coupons")
+        .get(),
+    );
+    await assertFails(dbFor(actor).doc(restaurantPath).delete());
+    await assertFails(dbFor(actor).doc(couponPath).delete());
+  }
+  await assertSucceeds(restaurantRef.delete());
+  await assertSucceeds(couponRef.delete());
+});
+
+test("canonical BiteSaver usage is strict owner point-read-only server state", async () => {
+  const usagePath =
+    `customer_redemptions/customer-a/coupon_redemptions/${canonicalBiteSaverOfferId}`;
+  const secondUsagePath =
+    `customer_redemptions/customer-a/coupon_redemptions/${secondCanonicalBiteSaverOfferId}`;
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await context.firestore().doc(usagePath).set(canonicalBiteSaverUsageData());
+  });
+
+  await assertSucceeds(dbFor("customer").doc(usagePath).get());
+  await assertFails(
+    dbFor("customer")
+      .collection("customer_redemptions/customer-a/coupon_redemptions")
+      .get(),
+  );
+  for (const actor of [
+    "anonymousCustomer",
+    "wrongCustomer",
+    "admin",
+    "unauthenticated",
+  ]) {
+    await assertFails(dbFor(actor).doc(usagePath).get());
+  }
+  for (const actor of ["customer", "anonymousCustomer", "admin"]) {
+    const db = dbFor(actor);
+    await assertFails(db.doc(secondUsagePath).set(canonicalBiteSaverUsageData({
+      offerId: secondCanonicalBiteSaverOfferId,
+    })));
+    await assertFails(db.doc(usagePath).update({updatedAt: serverTimestamp()}));
+    await assertFails(db.doc(usagePath).delete());
+  }
+});
+
+test("absent canonical BiteSaver usage is denied without legacy fallback", async () => {
+  const owner = dbFor("customer");
+  const collectionPath =
+    "customer_redemptions/customer-a/coupon_redemptions";
+  const existingUsagePath =
+    `${collectionPath}/${canonicalBiteSaverOfferId}`;
+  const absentUsagePath =
+    `${collectionPath}/${secondCanonicalBiteSaverOfferId}`;
+  const legacyUsagePath = `${collectionPath}/legacy-usage-fallback-probe`;
+
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    await db.doc(existingUsagePath).set(canonicalBiteSaverUsageData());
+    await db.doc(legacyUsagePath).set({
+      couponId: secondCanonicalBiteSaverOfferId,
+      redeemedCount: 1,
+      lastRedeemedAt: new Date("2026-09-11T22:05:00.000Z"),
+      updatedAt: new Date("2026-09-11T22:05:00.000Z"),
+    });
+    const absent = await db.doc(absentUsagePath).get();
+    assert.equal(absent.exists, false);
+  });
+
+  await assertFails(owner.doc(absentUsagePath).get());
+  const existing = await assertSucceeds(owner.doc(existingUsagePath).get());
+  assert.equal(existing.exists, true);
+  assert.equal(existing.data().userId, "customer-a");
+  assert.equal(existing.data().offerId, canonicalBiteSaverOfferId);
+  const legacy = await assertSucceeds(owner.doc(legacyUsagePath).get());
+  assert.equal(legacy.exists, true);
+  assert.equal(legacy.data().couponId, secondCanonicalBiteSaverOfferId);
+
+  for (const actor of ["wrongCustomer", "anonymousCustomer"]) {
+    await assertFails(dbFor(actor).doc(existingUsagePath).get());
+  }
+  await assertFails(owner.doc(absentUsagePath).set(
+    canonicalBiteSaverUsageData({
+      offerId: secondCanonicalBiteSaverOfferId,
+    }),
+  ));
+  await assertFails(
+    owner.doc(existingUsagePath).update({updatedAt: serverTimestamp()}),
+  );
+  await assertFails(owner.doc(existingUsagePath).delete());
+  await assertFails(owner.collection(collectionPath).get());
+  await assertFails(
+    owner.collection(collectionPath)
+      .where("offerId", "==", secondCanonicalBiteSaverOfferId)
+      .get(),
+  );
+
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    assert.equal((await db.doc(absentUsagePath).get()).exists, false);
+    assert.equal((await db.doc(existingUsagePath).get()).exists, true);
+    assert.equal((await db.doc(legacyUsagePath).get()).exists, true);
+  });
+});
+
+test("malformed canonical BiteSaver usage cannot bypass the owner get contract", async () => {
+  const invalidCases = [
+    {extraField: true},
+    {schemaVersion: 2},
+    {userId: "customer-b"},
+    {restaurantId: "raw-parent-id"},
+    {offerId: canonicalBiteSaverOfferId},
+    {offerType: "dailySpecial"},
+    {redemptionId: "client-chosen"},
+    {redemptionId: `bsrd_${"d".repeat(42)}`},
+    {redemptionId: `bsrd_${"d".repeat(44)}`},
+    {redemptionId: `bsrd_${"d".repeat(42)}!`},
+    {timerExpiresAt: new Date("2026-09-11T22:04:59.999Z")},
+    {createdAt: new Date("2026-09-11T22:00:01.000Z")},
+    {updatedAt: new Date("2026-09-11T22:00:00.001Z")},
+  ];
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    const db = context.firestore();
+    for (const [index, overrides] of invalidCases.entries()) {
+      const offerId = `bso_${String(index).padStart(43, "0")}`;
+      await db.doc(
+        `customer_redemptions/customer-a/coupon_redemptions/${offerId}`,
+      ).set(canonicalBiteSaverUsageData({offerId, ...overrides}));
+    }
+    const missingFieldOfferId = `bso_${"m".repeat(43)}`;
+    const missingField = canonicalBiteSaverUsageData({
+      offerId: missingFieldOfferId,
+    });
+    delete missingField.updatedAt;
+    await db.doc(
+      `customer_redemptions/customer-a/coupon_redemptions/${missingFieldOfferId}`,
+    ).set(missingField);
+  });
+
+  for (const index of invalidCases.keys()) {
+    const offerId = `bso_${String(index).padStart(43, "0")}`;
+    await assertFails(dbFor("customer").doc(
+      `customer_redemptions/customer-a/coupon_redemptions/${offerId}`,
+    ).get());
+  }
+  await assertFails(dbFor("customer").doc(
+    `customer_redemptions/customer-a/coupon_redemptions/bso_${"m".repeat(43)}`,
+  ).get());
+});
+
+test("nonreserved favorite and usage document IDs retain legacy access", async () => {
+  const customer = dbFor("customer");
+  const anonymous = dbFor("anonymousCustomer");
+  const admin = dbFor("admin");
+  const legacyRestaurantPath =
+    "user_profiles/customer-a/favorite_restaurants/legacy-restaurant";
+  const legacyCouponPath =
+    "user_profiles/customer-a/favorite_coupons/legacy-coupon";
+  const legacyUsagePath =
+    "customer_redemptions/customer-a/coupon_redemptions/legacy-coupon";
+
+  await assertSucceeds(customer.doc(legacyRestaurantPath).set({
+    userId: "customer-a",
+    restaurantId: "legacy-restaurant",
+    arbitraryLegacyField: true,
+  }));
+  await assertSucceeds(anonymous.doc(legacyCouponPath).set({
+    userId: "customer-a",
+    couponId: "legacy-coupon",
+    arbitraryLegacyField: true,
+  }));
+  await assertSucceeds(customer.doc(legacyUsagePath).set({
+    couponId: "legacy-coupon",
+    arbitraryLegacyField: true,
+  }));
+  await assertSucceeds(customer.doc(legacyRestaurantPath).update({
+    arbitraryLegacyField: false,
+  }));
+  await assertSucceeds(customer.doc(legacyUsagePath).update({
+    couponId: "legacy-coupon",
+    arbitraryLegacyField: false,
+  }));
+  await assertSucceeds(admin.doc(legacyRestaurantPath).get());
+  await assertSucceeds(admin.doc(legacyCouponPath).get());
+  await assertSucceeds(admin.doc(legacyUsagePath).get());
+  await assertSucceeds(admin.doc(legacyRestaurantPath).delete());
+  await assertSucceeds(admin.doc(legacyCouponPath).delete());
+  await assertSucceeds(admin.doc(legacyUsagePath).delete());
 });
 
 test("customers cannot manage another user's favorites", async () => {

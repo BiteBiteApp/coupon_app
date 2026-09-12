@@ -1,0 +1,26 @@
+{
+  "contractVersion": "bitestar.customer-bitesaver-favorite.v1",
+  "schemaVersion": 1,
+  "userId": "customer-favorite-fixture",
+  "restaurantId": "bsr_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+  "offerId": "bso_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+  "serverTimestampMarker": "<serverTimestamp>",
+  "restaurantCreate": {
+    "schemaVersion": 1,
+    "favoriteKind": "bitesaverRestaurant",
+    "userId": "customer-favorite-fixture",
+    "restaurantId": "bsr_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "createdAt": "<serverTimestamp>",
+    "updatedAt": "<serverTimestamp>"
+  },
+  "couponCreate": {
+    "schemaVersion": 1,
+    "favoriteKind": "bitesaverCoupon",
+    "userId": "customer-favorite-fixture",
+    "restaurantId": "bsr_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "offerId": "bso_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "offerType": "coupon",
+    "createdAt": "<serverTimestamp>",
+    "updatedAt": "<serverTimestamp>"
+  }
+}

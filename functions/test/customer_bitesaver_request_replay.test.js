@@ -207,6 +207,7 @@ test("request replay document IDs bind every replay identity dimension", () => {
     {...base, attemptGeneration: base.attemptGeneration + 1},
     {...base, callerCapabilityBinding: "e".repeat(64)},
     {...base, purpose: "offerPage"},
+    {...base, purpose: "redemptionValidation"},
     {...base, purpose: "redemptionStart"},
     {...base, purpose: "guestOfferCheckAnswer"},
     {...base, clientRequestId: "page-request-00002"},

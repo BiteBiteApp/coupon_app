@@ -20,6 +20,7 @@ export const customerBiteSaverLogicalRedemptionReplayRole =
 export type CustomerBiteSaverRequestReplayPurpose =
   | "restaurantPage"
   | "offerPage"
+  | "redemptionValidation"
   | "redemptionStart"
   | "guestOfferCheckAnswer";
 
@@ -173,7 +174,8 @@ function requireSecretKey(value: Uint8Array): void {
 
 function isPurpose(value: unknown): value is CustomerBiteSaverRequestReplayPurpose {
   return value === "restaurantPage" || value === "offerPage" ||
-    value === "redemptionStart" || value === "guestOfferCheckAnswer";
+    value === "redemptionValidation" || value === "redemptionStart" ||
+    value === "guestOfferCheckAnswer";
 }
 
 function dateValue(value: unknown): Date | null {

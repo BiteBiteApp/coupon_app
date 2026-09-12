@@ -164,12 +164,17 @@ import {
   decodeCustomerBiteSaverSecret,
 } from "./customer_bitesaver_search_cursor.js";
 import {
+  customerBiteSaverIdentitySecretNameV1,
+  decodeCustomerBiteSaverIdentityKeyV1,
+} from "./customer_bitesaver_public_identity.js";
+import {
   continueCustomerBiteSaverGuestOfferCheckHandler,
   customerBiteSaverCallableTimeoutSeconds,
   getCustomerBiteSaverFavoriteStatesHandler,
   getCustomerBiteSaverOfferPageHandler,
   getCustomerBiteSaverSearchPageHandler,
   getCustomerBiteSaverSearchStatusHandler,
+  startCustomerBiteSaverOfferRedemptionHandler,
   startCustomerBiteSaverSearchHandler,
   type CustomerBiteSaverCallableIdentity,
   type CustomerBiteSaverSessionContext,
@@ -308,6 +313,9 @@ const searchPaginationCursorKey = defineSecret(couponAdminCursorSecretName);
 const biteSaverCustomerDiscoveryKey = defineSecret(
   customerBiteSaverSecretName,
 );
+const biteSaverCustomerIdentityKeyV1 = defineSecret(
+  customerBiteSaverIdentitySecretNameV1,
+);
 const couponAdminPagingDatabase = createFirestoreCouponAdminPagingDatabase(db);
 const couponAdminRadiusStore = createFirestoreCouponAdminRadiusStore(db);
 const ratingAdminPagingDatabase = createFirestoreRatingAdminPagingDatabase(db);
@@ -371,15 +379,26 @@ function customerBiteSaverHttpsError(error: unknown): HttpsError {
 async function invokeCustomerBiteSaverCallable<Response>(
   request: CallableRequest<unknown>,
   handler: CustomerBiteSaverCallableHandler<Response>,
+  keyScope: "discovery" | "discoveryAndIdentityV1",
 ): Promise<Response> {
   try {
-    return await handler(request.data, Object.freeze({
+    const baseContext = Object.freeze({
       database: customerBiteSaverSearchDatabase,
-      secretKey: decodeCustomerBiteSaverSecret(
+      discoveryKey: decodeCustomerBiteSaverSecret(
         biteSaverCustomerDiscoveryKey.value(),
       ),
       identity: customerBiteSaverCallableIdentity(request),
-    }));
+    });
+    const context: CustomerBiteSaverSessionContext = keyScope ===
+        "discoveryAndIdentityV1"
+      ? Object.freeze({
+          ...baseContext,
+          identityKeyV1: decodeCustomerBiteSaverIdentityKeyV1(
+            biteSaverCustomerIdentityKeyV1.value(),
+          ),
+        })
+      : baseContext;
+    return await handler(request.data, context);
   } catch (error) {
     throw customerBiteSaverHttpsError(error);
   }
@@ -5522,6 +5541,7 @@ export const startCustomerBiteSaverSearch = onCall(
     return invokeCustomerBiteSaverCallable(
       request,
       startCustomerBiteSaverSearchHandler,
+      "discovery",
     );
   },
 );
@@ -5535,71 +5555,109 @@ export const getCustomerBiteSaverSearchStatus = onCall(
     return invokeCustomerBiteSaverCallable(
       request,
       getCustomerBiteSaverSearchStatusHandler,
+      "discovery",
     );
   },
 );
 
 export const getCustomerBiteSaverSearchPage = onCall(
   {
-    secrets: [biteSaverCustomerDiscoveryKey],
+    secrets: [
+      biteSaverCustomerDiscoveryKey,
+      biteSaverCustomerIdentityKeyV1,
+    ],
     timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
   },
   async (request) => {
     return invokeCustomerBiteSaverCallable(
       request,
       getCustomerBiteSaverSearchPageHandler,
+      "discoveryAndIdentityV1",
     );
   },
 );
 
 export const getCustomerBiteSaverOfferPage = onCall(
   {
-    secrets: [biteSaverCustomerDiscoveryKey],
+    secrets: [
+      biteSaverCustomerDiscoveryKey,
+      biteSaverCustomerIdentityKeyV1,
+    ],
     timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
   },
   async (request) => {
     return invokeCustomerBiteSaverCallable(
       request,
       getCustomerBiteSaverOfferPageHandler,
+      "discoveryAndIdentityV1",
     );
   },
 );
 
 export const continueCustomerBiteSaverGuestOfferCheck = onCall(
   {
-    secrets: [biteSaverCustomerDiscoveryKey],
+    secrets: [
+      biteSaverCustomerDiscoveryKey,
+      biteSaverCustomerIdentityKeyV1,
+    ],
     timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
   },
   async (request) => {
     return invokeCustomerBiteSaverCallable(
       request,
       continueCustomerBiteSaverGuestOfferCheckHandler,
+      "discoveryAndIdentityV1",
     );
   },
 );
 
 export const getCustomerBiteSaverFavoriteStates = onCall(
   {
-    secrets: [biteSaverCustomerDiscoveryKey],
+    secrets: [
+      biteSaverCustomerDiscoveryKey,
+      biteSaverCustomerIdentityKeyV1,
+    ],
     timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
   },
   async (request) => {
     return invokeCustomerBiteSaverCallable(
       request,
       getCustomerBiteSaverFavoriteStatesHandler,
+      "discoveryAndIdentityV1",
     );
   },
 );
 
 export const validateCustomerBiteSaverOfferRedemptionStart = onCall(
   {
-    secrets: [biteSaverCustomerDiscoveryKey],
+    secrets: [
+      biteSaverCustomerDiscoveryKey,
+      biteSaverCustomerIdentityKeyV1,
+    ],
     timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
   },
   async (request) => {
     return invokeCustomerBiteSaverCallable(
       request,
       validateCustomerBiteSaverOfferRedemptionStartHandler,
+      "discoveryAndIdentityV1",
+    );
+  },
+);
+
+export const startCustomerBiteSaverOfferRedemption = onCall(
+  {
+    secrets: [
+      biteSaverCustomerDiscoveryKey,
+      biteSaverCustomerIdentityKeyV1,
+    ],
+    timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
+  },
+  async (request) => {
+    return invokeCustomerBiteSaverCallable(
+      request,
+      startCustomerBiteSaverOfferRedemptionHandler,
+      "discoveryAndIdentityV1",
     );
   },
 );
@@ -5608,15 +5666,21 @@ export const processPrivateCustomerBiteSaverSearchJob = onDocumentCreated(
   {
     document: "private_bitesaver_search_jobs/{jobId}",
     retry: true,
-    secrets: [biteSaverCustomerDiscoveryKey],
+    secrets: [
+      biteSaverCustomerDiscoveryKey,
+      biteSaverCustomerIdentityKeyV1,
+    ],
   },
   async (event) => {
     await processCustomerBiteSaverSearchJob(
       event.params.jobId as string,
       {
         database: customerBiteSaverSearchDatabase,
-        secretKey: decodeCustomerBiteSaverSecret(
+        discoveryKey: decodeCustomerBiteSaverSecret(
           biteSaverCustomerDiscoveryKey.value(),
+        ),
+        identityKeyV1: decodeCustomerBiteSaverIdentityKeyV1(
+          biteSaverCustomerIdentityKeyV1.value(),
         ),
       },
     );

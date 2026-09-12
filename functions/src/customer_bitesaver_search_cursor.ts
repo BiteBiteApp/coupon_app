@@ -277,28 +277,6 @@ function domainHmac(
   return hmac.digest();
 }
 
-export function customerBiteSaverOpaqueRestaurantId(
-  key: Uint8Array,
-  authoritativeAccountId: string,
-): string {
-  return `bsr_${domainHmac(key, "restaurantPublicId", [
-    authoritativeAccountId,
-  ]).toString("base64url")}`;
-}
-
-export function customerBiteSaverOpaqueOfferId(
-  key: Uint8Array,
-  authoritativeAccountId: string,
-  offerType: "coupon" | "dailySpecial",
-  sourceOfferId: string,
-): string {
-  return `bso_${domainHmac(key, "offerPublicId", [
-    authoritativeAccountId,
-    offerType,
-    sourceOfferId,
-  ]).toString("base64url")}`;
-}
-
 export function customerBiteSaverCallerBinding(
   key: Uint8Array,
   value: {

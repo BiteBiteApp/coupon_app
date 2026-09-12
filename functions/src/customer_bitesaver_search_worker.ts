@@ -36,8 +36,11 @@ import {
 } from "./search_index_builders.js";
 import {
   customerBiteSaverDeterministicId,
-  customerBiteSaverOpaqueRestaurantId,
 } from "./customer_bitesaver_search_cursor.js";
+import {
+  customerBiteSaverOpaqueRestaurantId,
+  type CustomerBiteSaverIdentityKeyV1,
+} from "./customer_bitesaver_public_identity.js";
 import {
   evaluateCustomerBiteSaverOfferAvailability,
   type CustomerBiteSaverOfferType,
@@ -86,7 +89,8 @@ export type CustomerBiteSaverWorkerCounters = {
 
 export type CustomerBiteSaverWorkerContext = Readonly<{
   database: CustomerBiteSaverSearchDatabase;
-  secretKey: Uint8Array;
+  discoveryKey: Uint8Array;
+  identityKeyV1: CustomerBiteSaverIdentityKeyV1;
   now?: () => number;
   randomSource?: (size: number) => Uint8Array;
   counters?: CustomerBiteSaverWorkerCounters;
@@ -797,7 +801,7 @@ function buildRestaurantCandidate(
     return null;
   }
   const id = candidateId(
-    context.secretKey,
+    context.discoveryKey,
     session,
     authoritativeAccountId,
   );
@@ -967,7 +971,7 @@ async function commitIteration(value: {
         nextSession,
       );
       const nextJobId = customerBiteSaverJobId(
-        value.context.secretKey,
+        value.context.discoveryKey,
         nextSession.sessionId,
         nextSession.attemptGeneration,
         nextSession.phase,
@@ -1504,7 +1508,7 @@ async function processOfferRanges(
       (value): value is string => value !== null,
     ))];
   const candidatePaths = parentIds.map((id) =>
-    candidatePath(context.secretKey, lease.session, id));
+    candidatePath(context.discoveryKey, lease.session, id));
   updateMaximum(context.counters, "firestoreOperationsInFlightMaximum", Math.min(
     candidatePaths.length,
     10,
@@ -1741,11 +1745,11 @@ function resultFromCandidate(
     return null;
   }
   const publicRestaurantId = customerBiteSaverOpaqueRestaurantId(
-    context.secretKey,
+    context.identityKeyV1,
     candidate.authoritativeAccountId,
   );
   const id = customerBiteSaverResultDocumentId(
-    context.secretKey,
+    context.discoveryKey,
     session.sessionId,
     session.attemptGeneration,
     publicRestaurantId,

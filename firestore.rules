@@ -36,6 +36,126 @@ service cloud.firestore {
       return signedIn() && request.auth.uid == userId;
     }
 
+    function isSignedInNonAnonymousSelf(userId) {
+      return isSelf(userId) &&
+        request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    function isCanonicalBiteSaverRestaurantId(value) {
+      return value is string &&
+        value.matches('^bsr_[A-Za-z0-9_-]{43}$');
+    }
+
+    function isCanonicalBiteSaverOfferId(value) {
+      return value is string &&
+        value.matches('^bso_[A-Za-z0-9_-]{43}$');
+    }
+
+    function canonicalBiteSaverRestaurantFavoriteData(userId, favoriteId, data) {
+      return data.keys().hasAll([
+          'schemaVersion',
+          'favoriteKind',
+          'userId',
+          'restaurantId',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'schemaVersion',
+          'favoriteKind',
+          'userId',
+          'restaurantId',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.schemaVersion is int &&
+        data.schemaVersion == 1 &&
+        data.favoriteKind == 'bitesaverRestaurant' &&
+        data.userId == userId &&
+        data.restaurantId == favoriteId &&
+        isCanonicalBiteSaverRestaurantId(data.restaurantId) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        data.updatedAt >= data.createdAt;
+    }
+
+    function canonicalBiteSaverCouponFavoriteData(userId, favoriteId, data) {
+      return data.keys().hasAll([
+          'schemaVersion',
+          'favoriteKind',
+          'userId',
+          'restaurantId',
+          'offerId',
+          'offerType',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'schemaVersion',
+          'favoriteKind',
+          'userId',
+          'restaurantId',
+          'offerId',
+          'offerType',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.schemaVersion is int &&
+        data.schemaVersion == 1 &&
+        data.favoriteKind == 'bitesaverCoupon' &&
+        data.userId == userId &&
+        isCanonicalBiteSaverRestaurantId(data.restaurantId) &&
+        data.offerId == favoriteId &&
+        isCanonicalBiteSaverOfferId(data.offerId) &&
+        data.offerType == 'coupon' &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        data.updatedAt >= data.createdAt;
+    }
+
+    function canonicalBiteSaverUsageData(userId, offerId, data) {
+      return data.keys().hasAll([
+          'schemaVersion',
+          'userId',
+          'restaurantId',
+          'offerId',
+          'offerType',
+          'redemptionId',
+          'timerStartedAt',
+          'timerExpiresAt',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.keys().hasOnly([
+          'schemaVersion',
+          'userId',
+          'restaurantId',
+          'offerId',
+          'offerType',
+          'redemptionId',
+          'timerStartedAt',
+          'timerExpiresAt',
+          'createdAt',
+          'updatedAt'
+        ]) &&
+        data.schemaVersion is int &&
+        data.schemaVersion == 1 &&
+        data.userId == userId &&
+        isCanonicalBiteSaverRestaurantId(data.restaurantId) &&
+        data.offerId == offerId &&
+        isCanonicalBiteSaverOfferId(data.offerId) &&
+        data.offerType == 'coupon' &&
+        data.redemptionId is string &&
+        data.redemptionId.matches('^bsrd_[A-Za-z0-9_-]{43}$') &&
+        data.timerStartedAt is timestamp &&
+        data.timerExpiresAt is timestamp &&
+        data.timerExpiresAt == data.timerStartedAt + duration.value(5, 'm') &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        data.createdAt <= data.timerStartedAt &&
+        data.updatedAt == data.timerStartedAt;
+    }
+
     function changedKeys() {
       return request.resource.data.diff(resource.data).affectedKeys();
     }
@@ -1202,10 +1322,67 @@ service cloud.firestore {
       allow delete: if isAdmin();
 
       match /favorite_restaurants/{favoriteId} {
-        allow read: if isAdmin() || isSelf(userId);
-        allow create: if userOwnedCreate(userId);
-        allow update: if userOwnedUpdate(userId);
-        allow delete: if isAdmin() || isSelf(userId);
+        allow get: if
+          (
+            isCanonicalBiteSaverRestaurantId(favoriteId) &&
+            isSignedInNonAnonymousSelf(userId)
+          ) ||
+          (
+            !isCanonicalBiteSaverRestaurantId(favoriteId) &&
+            (isAdmin() || isSelf(userId))
+          );
+        allow list: if isSignedInNonAnonymousSelf(userId);
+        allow create: if
+          (
+            isCanonicalBiteSaverRestaurantId(favoriteId) &&
+            isSignedInNonAnonymousSelf(userId) &&
+            canonicalBiteSaverRestaurantFavoriteData(
+              userId,
+              favoriteId,
+              request.resource.data
+            ) &&
+            request.resource.data.createdAt == request.time &&
+            request.resource.data.updatedAt == request.time
+          ) ||
+          (
+            !isCanonicalBiteSaverRestaurantId(favoriteId) &&
+            userOwnedCreate(userId)
+          );
+        allow update: if
+          (
+            isCanonicalBiteSaverRestaurantId(favoriteId) &&
+            isSignedInNonAnonymousSelf(userId) &&
+            canonicalBiteSaverRestaurantFavoriteData(
+              userId,
+              favoriteId,
+              resource.data
+            ) &&
+            canonicalBiteSaverRestaurantFavoriteData(
+              userId,
+              favoriteId,
+              request.resource.data
+            ) &&
+            request.resource.data.schemaVersion == resource.data.schemaVersion &&
+            request.resource.data.favoriteKind == resource.data.favoriteKind &&
+            request.resource.data.userId == resource.data.userId &&
+            request.resource.data.restaurantId == resource.data.restaurantId &&
+            request.resource.data.createdAt == resource.data.createdAt &&
+            request.resource.data.updatedAt == request.time &&
+            changedKeys().hasOnly(['updatedAt'])
+          ) ||
+          (
+            !isCanonicalBiteSaverRestaurantId(favoriteId) &&
+            userOwnedUpdate(userId)
+          );
+        allow delete: if
+          (
+            isCanonicalBiteSaverRestaurantId(favoriteId) &&
+            isSignedInNonAnonymousSelf(userId)
+          ) ||
+          (
+            !isCanonicalBiteSaverRestaurantId(favoriteId) &&
+            (isAdmin() || isSelf(userId))
+          );
       }
 
       match /favorite_dishes/{favoriteId} {
@@ -1216,10 +1393,69 @@ service cloud.firestore {
       }
 
       match /favorite_coupons/{favoriteId} {
-        allow read: if isAdmin() || isSelf(userId);
-        allow create: if userOwnedCreate(userId);
-        allow update: if userOwnedUpdate(userId);
-        allow delete: if isAdmin() || isSelf(userId);
+        allow get: if
+          (
+            isCanonicalBiteSaverOfferId(favoriteId) &&
+            isSignedInNonAnonymousSelf(userId)
+          ) ||
+          (
+            !isCanonicalBiteSaverOfferId(favoriteId) &&
+            (isAdmin() || isSelf(userId))
+          );
+        allow list: if isSignedInNonAnonymousSelf(userId);
+        allow create: if
+          (
+            isCanonicalBiteSaverOfferId(favoriteId) &&
+            isSignedInNonAnonymousSelf(userId) &&
+            canonicalBiteSaverCouponFavoriteData(
+              userId,
+              favoriteId,
+              request.resource.data
+            ) &&
+            request.resource.data.createdAt == request.time &&
+            request.resource.data.updatedAt == request.time
+          ) ||
+          (
+            !isCanonicalBiteSaverOfferId(favoriteId) &&
+            userOwnedCreate(userId)
+          );
+        allow update: if
+          (
+            isCanonicalBiteSaverOfferId(favoriteId) &&
+            isSignedInNonAnonymousSelf(userId) &&
+            canonicalBiteSaverCouponFavoriteData(
+              userId,
+              favoriteId,
+              resource.data
+            ) &&
+            canonicalBiteSaverCouponFavoriteData(
+              userId,
+              favoriteId,
+              request.resource.data
+            ) &&
+            request.resource.data.schemaVersion == resource.data.schemaVersion &&
+            request.resource.data.favoriteKind == resource.data.favoriteKind &&
+            request.resource.data.userId == resource.data.userId &&
+            request.resource.data.restaurantId == resource.data.restaurantId &&
+            request.resource.data.offerId == resource.data.offerId &&
+            request.resource.data.offerType == resource.data.offerType &&
+            request.resource.data.createdAt == resource.data.createdAt &&
+            request.resource.data.updatedAt == request.time &&
+            changedKeys().hasOnly(['updatedAt'])
+          ) ||
+          (
+            !isCanonicalBiteSaverOfferId(favoriteId) &&
+            userOwnedUpdate(userId)
+          );
+        allow delete: if
+          (
+            isCanonicalBiteSaverOfferId(favoriteId) &&
+            isSignedInNonAnonymousSelf(userId)
+          ) ||
+          (
+            !isCanonicalBiteSaverOfferId(favoriteId) &&
+            (isAdmin() || isSelf(userId))
+          );
       }
 
       match /local_expert_badges/{badgeId} {
@@ -1240,10 +1476,23 @@ service cloud.firestore {
     }
 
     match /customer_redemptions/{userId}/coupon_redemptions/{couponId} {
-      allow read: if isAdmin() || isSelf(userId);
-      allow create, update: if isSelf(userId) &&
+      allow get: if
+        (
+          isCanonicalBiteSaverOfferId(couponId) &&
+          isSignedInNonAnonymousSelf(userId) &&
+          canonicalBiteSaverUsageData(userId, couponId, resource.data)
+        ) ||
+        (
+          !isCanonicalBiteSaverOfferId(couponId) &&
+          (isAdmin() || isSelf(userId))
+        );
+      allow list: if !isCanonicalBiteSaverOfferId(couponId) &&
+        (isAdmin() || isSelf(userId));
+      allow create, update: if !isCanonicalBiteSaverOfferId(couponId) &&
+        isSelf(userId) &&
         request.resource.data.couponId == couponId;
-      allow delete: if isAdmin() || isSelf(userId);
+      allow delete: if !isCanonicalBiteSaverOfferId(couponId) &&
+        (isAdmin() || isSelf(userId));
     }
 
     match /public_reviewer_profiles/{userId} {

@@ -901,6 +901,7 @@ test("runtime, region, secret bindings, exports, production caller, and webhook 
       "startRatingDishMerge",
       "startRatingRestaurantDelete",
       "startRatingRestaurantMerge",
+      "startCustomerBiteSaverOfferRedemption",
       "startCustomerBiteSaverSearch",
       "validateCustomerBiteSaverOfferRedemptionStart",
     ].sort(),

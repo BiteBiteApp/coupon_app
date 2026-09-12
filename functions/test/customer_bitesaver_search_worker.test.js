@@ -47,6 +47,10 @@ const {
   exactCustomerBiteSaverDistanceMiles,
 } = require("../lib/restaurant_geo_helpers.js");
 const {
+  customerBiteSaverOpaqueRestaurantId,
+  decodeCustomerBiteSaverIdentityKeyV1,
+} = require("../lib/customer_bitesaver_public_identity.js");
+const {
   createCustomerBiteSaverWorkerCounters,
   customerBiteSaverMaximumCandidateDocumentBytes,
   customerBiteSaverMaximumIndexedOrderKeyBytes,
@@ -58,7 +62,10 @@ const {
 } = require("../lib/customer_bitesaver_search_worker.js");
 
 const nowMs = Date.parse("2026-09-09T12:00:00.000Z");
-const secretKey = Buffer.alloc(32, 29);
+const discoveryKey = Buffer.alloc(32, 29);
+const identityKeyV1 = decodeCustomerBiteSaverIdentityKeyV1(
+  Buffer.alloc(32, 31).toString("base64url"),
+);
 
 function compareValues(left, right) {
   const leftValue = left instanceof Date ? left.getTime() : left;
@@ -312,7 +319,8 @@ async function seedSearch(database, requestOverrides = {}) {
     startRequest(requestOverrides),
     {
       database,
-      secretKey,
+      discoveryKey,
+      identityKeyV1,
       identity: {authUid: null, authIsAnonymous: true},
       now: () => nowMs,
       randomSource: (size) => Buffer.alloc(size, entropy++),
@@ -326,7 +334,7 @@ function forcePhase(database, sessionId, phase, overrides = {}) {
   const current = currentSession(database, sessionId);
   phaseOccurrence += 1;
   const jobId = customerBiteSaverJobId(
-    secretKey,
+    discoveryKey,
     sessionId,
     overrides.attemptGeneration ?? current.attemptGeneration,
     phase,
@@ -354,7 +362,8 @@ function forcePhase(database, sessionId, phase, overrides = {}) {
 function workerContext(database, counters = createCustomerBiteSaverWorkerCounters()) {
   return {
     database,
-    secretKey,
+    discoveryKey,
+    identityKeyV1,
     now: () => nowMs,
     randomSource: (size) => {
       database.workerEntropy = (database.workerEntropy ?? 40) + 1;
@@ -749,6 +758,19 @@ test("worker continues through every phase and persists exact safe order inputs"
     );
     assert.match(result.data.parentOfferCatalogFingerprint, /^[0-9a-f]{64}$/u);
     assert.match(result.data.offerCatalogFingerprint, /^[0-9a-f]{64}$/u);
+    assert.equal(
+      result.data.publicRestaurantId,
+      customerBiteSaverOpaqueRestaurantId(identityKeyV1, fixture.accountId),
+    );
+    assert.notEqual(
+      result.data.publicRestaurantId,
+      customerBiteSaverOpaqueRestaurantId(
+        decodeCustomerBiteSaverIdentityKeyV1(
+          discoveryKey.toString("base64url"),
+        ),
+        fixture.accountId,
+      ),
+    );
   }
   const exactResult = results.find((entry) =>
     entry.data.authoritativeAccountId === "account-exact");
@@ -1721,7 +1743,8 @@ test("catalog restarts preserve exact start-request replay before fixed failure"
       startRequest(),
       {
         database,
-        secretKey,
+        discoveryKey,
+        identityKeyV1,
         identity: {authUid: null, authIsAnonymous: true},
         now: () => nowMs,
         randomSource: (size) => Buffer.alloc(size, 97),

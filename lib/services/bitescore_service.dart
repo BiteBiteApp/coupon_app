@@ -12,6 +12,7 @@ import '../models/bitescore_dish_image.dart';
 import '../models/bitescore_dish_image_vote.dart';
 import '../models/bitescore_restaurant.dart';
 import '../models/coupon.dart';
+import '../models/customer_bitesaver_favorite.dart';
 import '../models/dish_report.dart';
 import '../models/duplicate_restaurant_report.dart';
 import '../models/dish_edit_proposal.dart';
@@ -23,6 +24,7 @@ import '../models/review_report.dart';
 import '../models/restaurant.dart';
 import '../models/restaurant_claim_request.dart';
 import 'customer_auth_service.dart';
+import 'customer_bitesaver_favorite_service.dart';
 import 'contribution_points_service.dart';
 import 'firestore_document_id.dart';
 import 'restaurant_account_service.dart';
@@ -680,6 +682,9 @@ class BiteScoreCreateRequest {
 
 class BiteScoreService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static final CustomerBiteSaverFavoriteService
+  _customerBiteSaverFavoriteService =
+      CustomerBiteSaverFavoriteService.firebase();
   static List<DishCatalogSuggestion>? _dishCatalogCache;
   static Future<List<DishCatalogSuggestion>>? _dishCatalogCacheFuture;
 
@@ -3428,6 +3433,32 @@ class BiteScoreService {
     } catch (_) {
       return false;
     }
+  }
+
+  static Future<void> upsertCustomerBiteSaverRestaurantFavorite(
+    CustomerBiteSaverRestaurantFavoriteIdentity identity,
+  ) {
+    return _customerBiteSaverFavoriteService.upsertRestaurantFavorite(identity);
+  }
+
+  static Future<void> removeCustomerBiteSaverRestaurantFavorite(
+    CustomerBiteSaverRestaurantId restaurantId,
+  ) {
+    return _customerBiteSaverFavoriteService.removeRestaurantFavorite(
+      restaurantId,
+    );
+  }
+
+  static Future<void> upsertCustomerBiteSaverCouponFavorite(
+    CustomerBiteSaverCouponFavoriteIdentity identity,
+  ) {
+    return _customerBiteSaverFavoriteService.upsertCouponFavorite(identity);
+  }
+
+  static Future<void> removeCustomerBiteSaverCouponFavorite(
+    CustomerBiteSaverOfferId offerId,
+  ) {
+    return _customerBiteSaverFavoriteService.removeCouponFavorite(offerId);
   }
 
   static Future<void> setRestaurantFavorite({

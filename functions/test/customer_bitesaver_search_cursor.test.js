@@ -25,9 +25,7 @@ const {
   customerBiteSaverConstantTimeHexEqual,
   customerBiteSaverCursorPrefix,
   customerBiteSaverDeterministicId,
-  customerBiteSaverOpaqueOfferId,
   customerBiteSaverOfferOccurrencePrefix,
-  customerBiteSaverOpaqueRestaurantId,
   customerBiteSaverRandomSessionId,
   decodeCustomerBiteSaverSecret,
 } = require("../lib/customer_bitesaver_search_cursor.js");
@@ -226,59 +224,6 @@ function cursorNonce(token) {
   );
   return packed.subarray(0, 12);
 }
-
-test("opaque restaurant and offer IDs are stable, separated, and non-leaking", () => {
-  const accountId = "private-account-id-canary";
-  const sourceOfferId = "private-offer-id-canary";
-  const restaurant = customerBiteSaverOpaqueRestaurantId(key, accountId);
-  const restaurantRetry = customerBiteSaverOpaqueRestaurantId(key, accountId);
-  const coupon = customerBiteSaverOpaqueOfferId(
-    key,
-    accountId,
-    "coupon",
-    sourceOfferId,
-  );
-  const special = customerBiteSaverOpaqueOfferId(
-    key,
-    accountId,
-    "dailySpecial",
-    sourceOfferId,
-  );
-
-  assert.equal(restaurant, restaurantRetry);
-  assert.match(restaurant, /^bsr_[A-Za-z0-9_-]{43}$/u);
-  assert.match(coupon, /^bso_[A-Za-z0-9_-]{43}$/u);
-  assert.match(special, /^bso_[A-Za-z0-9_-]{43}$/u);
-  assert.notEqual(coupon, special);
-  assert.notEqual(
-    coupon,
-    customerBiteSaverOpaqueOfferId(
-      key,
-      `${accountId}-other`,
-      "coupon",
-      sourceOfferId,
-    ),
-  );
-  assert.notEqual(
-    coupon,
-    customerBiteSaverOpaqueOfferId(
-      key,
-      accountId,
-      "coupon",
-      `${sourceOfferId}-other`,
-    ),
-  );
-  assert.notEqual(
-    restaurant,
-    customerBiteSaverOpaqueRestaurantId(otherKey, accountId),
-  );
-  for (const publicId of [restaurant, coupon, special]) {
-    assert.equal(publicId.includes(accountId), false);
-    assert.equal(publicId.includes(sourceOfferId), false);
-  }
-  assert.equal(requireCustomerBiteSaverPublicId(restaurant, "bsr"), restaurant);
-  assert.equal(requireCustomerBiteSaverPublicId(coupon, "bso"), coupon);
-});
 
 test("caller, capability, and deterministic IDs use distinct bound domains", () => {
   const guest = customerBiteSaverCallerBinding(key, {

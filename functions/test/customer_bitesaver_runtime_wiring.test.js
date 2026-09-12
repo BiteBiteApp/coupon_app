@@ -21,12 +21,25 @@ const callableHandlers = Object.freeze({
     "continueCustomerBiteSaverGuestOfferCheckHandler",
   getCustomerBiteSaverFavoriteStates:
     "getCustomerBiteSaverFavoriteStatesHandler",
+  startCustomerBiteSaverOfferRedemption:
+    "startCustomerBiteSaverOfferRedemptionHandler",
   validateCustomerBiteSaverOfferRedemptionStart:
     "validateCustomerBiteSaverOfferRedemptionStartHandler",
 });
+const discoveryOnlyCallableExports = new Set([
+  "startCustomerBiteSaverSearch",
+  "getCustomerBiteSaverSearchStatus",
+]);
 const workerExport = "processPrivateCustomerBiteSaverSearchJob";
 const workerHandler = "processCustomerBiteSaverSearchJob";
-const secretName = "BITESAVER_CUSTOMER_DISCOVERY_KEY";
+const discoverySecretName = "BITESAVER_CUSTOMER_DISCOVERY_KEY";
+const identitySecretNameV1 = "BITESAVER_CUSTOMER_IDENTITY_KEY_V1";
+
+function expectedSecrets(exportName) {
+  return discoveryOnlyCallableExports.has(exportName)
+    ? [discoverySecretName]
+    : [discoverySecretName, identitySecretNameV1];
+}
 
 function loadActualCompiledCustomerBiteSaverMetadata() {
   const indexPath = path.resolve(__dirname, "../lib/index.js");
@@ -53,9 +66,11 @@ function loadCompiledIndexWithCustomerBiteSaverHarness() {
     adapterInputs: [],
     callableCalls: [],
     callableError: null,
+    discoverySecretValue: Buffer.alloc(32, 0x5a).toString("base64url"),
     globalOptions: null,
+    identitySecretValueV1: Buffer.alloc(32, 0x6b).toString("base64url"),
     logs: [],
-    secretValue: Buffer.alloc(32, 0x5a).toString("base64url"),
+    secretResolutions: [],
     workerCalls: [],
     workerError: null,
   };
@@ -179,7 +194,16 @@ function loadCompiledIndexWithCustomerBiteSaverHarness() {
         return {
           defineSecret: (name) => ({
             name,
-            value: () => name === secretName ? state.secretValue : "unused",
+            value: () => {
+              state.secretResolutions.push(name);
+              if (name === discoverySecretName) {
+                return state.discoverySecretValue;
+              }
+              if (name === identitySecretNameV1) {
+                return state.identitySecretValueV1;
+              }
+              return "unused";
+            },
           }),
           defineString: (name) => ({name, value: () => "unused"}),
         };
@@ -245,7 +269,11 @@ test("customer BiteSaver exports have exact v2 runtime metadata", () => {
     assert.equal(endpoint.platform, "gcfv2", name);
     assert.deepEqual(endpoint.region, ["us-central1"], name);
     assert.ok(endpoint.callableTrigger, name);
-    assert.deepEqual(endpoint.secretEnvironmentVariables, [secretName], name);
+    assert.deepEqual(
+      endpoint.secretEnvironmentVariables,
+      expectedSecrets(name),
+      name,
+    );
     assert.equal(endpoint.timeoutSeconds, 120, name);
     assert.equal(Object.hasOwn(endpoint, "eventTrigger"), false, name);
     assert.equal(Object.hasOwn(endpoint, "httpsTrigger"), false, name);
@@ -260,7 +288,10 @@ test("customer BiteSaver exports have exact v2 runtime metadata", () => {
     "private_bitesaver_search_jobs/{jobId}",
   );
   assert.equal(worker.eventTrigger.retry, true);
-  assert.deepEqual(worker.secretEnvironmentVariables, [secretName]);
+  assert.deepEqual(
+    worker.secretEnvironmentVariables,
+    [discoverySecretName, identitySecretNameV1],
+  );
   assert.equal(Object.hasOwn(worker, "callableTrigger"), false);
   assert.equal(Object.hasOwn(worker, "httpsTrigger"), false);
   assert.equal(Object.hasOwn(worker, "scheduleTrigger"), false);
@@ -280,7 +311,7 @@ test("actual Firebase metadata retains exact secrets and retry policy", () => {
     assert.ok(endpoint.callableTrigger, name);
     assert.deepEqual(
       endpoint.secretEnvironmentVariables.map((secret) => secret.key),
-      [secretName],
+      expectedSecrets(name),
       name,
     );
     assert.equal(endpoint.timeoutSeconds, 120, name);
@@ -296,11 +327,11 @@ test("actual Firebase metadata retains exact secrets and retry policy", () => {
   assert.equal(worker.eventTrigger.retry, true);
   assert.deepEqual(
     worker.secretEnvironmentVariables.map((secret) => secret.key),
-    [secretName],
+    [discoverySecretName, identitySecretNameV1],
   );
 });
 
-test("callables route data, exact auth identity, database, and decoded secret", async () => {
+test("callables route exact identity and only their required decoded keys", async () => {
   const runtime = loadCompiledIndexWithCustomerBiteSaverHarness();
   const requests = [
     {data: {request: 0}},
@@ -331,9 +362,17 @@ test("callables route data, exact auth identity, database, and decoded secret", 
     assert.equal(call.data, request.data);
     assert.equal(call.context.database, runtime.customerDatabase);
     assert.equal(
-      Buffer.from(call.context.secretKey).toString("base64url"),
-      runtime.state.secretValue,
+      Buffer.from(call.context.discoveryKey).toString("base64url"),
+      runtime.state.discoverySecretValue,
     );
+    if (discoveryOnlyCallableExports.has(exportName)) {
+      assert.equal(Object.hasOwn(call.context, "identityKeyV1"), false);
+    } else {
+      assert.equal(
+        Buffer.from(call.context.identityKeyV1).toString("base64url"),
+        runtime.state.identitySecretValueV1,
+      );
+    }
     assert.deepEqual(call.context.identity, index % requests.length === 0 ? {
       authUid: null,
       authIsAnonymous: false,
@@ -346,6 +385,10 @@ test("callables route data, exact auth identity, database, and decoded secret", 
     });
     index += 1;
   }
+  assert.deepEqual(
+    runtime.state.secretResolutions,
+    Object.keys(callableHandlers).flatMap(expectedSecrets),
+  );
   assert.equal(runtime.state.adapterInputs.length, 1);
 });
 
@@ -376,12 +419,31 @@ test("callables expose only contract failures and fix unexpected failures", asyn
   assert.equal(JSON.stringify(runtime.state.logs).includes(canary), false);
 
   runtime.state.callableError = null;
-  runtime.state.secretValue = "not-a-secret";
+  runtime.state.discoverySecretValue = "not-a-secret";
   await assert.rejects(callable({data: {}}), (error) => {
     assert.equal(error.code, "failed-precondition");
     assert.equal(error.message, "BiteSaver discovery is not configured.");
     return true;
   });
+
+  runtime.state.discoverySecretValue =
+    Buffer.alloc(32, 0x5a).toString("base64url");
+  runtime.state.identitySecretValueV1 = "not-an-identity-secret";
+  assert.deepEqual(
+    await callable({data: {discoveryOnly: true}}),
+    {handler: "startCustomerBiteSaverSearchHandler"},
+  );
+  await assert.rejects(
+    runtime.exports.getCustomerBiteSaverSearchPage({data: {}}),
+    (error) => {
+      assert.equal(error.code, "failed-precondition");
+      assert.equal(
+        error.message,
+        "BiteSaver customer identity is not configured.",
+      );
+      return true;
+    },
+  );
 });
 
 test("private worker routes the job and propagates failures for retry", async () => {
@@ -396,9 +458,14 @@ test("private worker routes the job and propagates failures for retry", async ()
     runtime.customerDatabase,
   );
   assert.equal(
-    Buffer.from(runtime.state.workerCalls[0].context.secretKey)
+    Buffer.from(runtime.state.workerCalls[0].context.discoveryKey)
       .toString("base64url"),
-    runtime.state.secretValue,
+    runtime.state.discoverySecretValue,
+  );
+  assert.equal(
+    Buffer.from(runtime.state.workerCalls[0].context.identityKeyV1)
+      .toString("base64url"),
+    runtime.state.identitySecretValueV1,
   );
 
   const retriable = new Error("transient worker failure");
