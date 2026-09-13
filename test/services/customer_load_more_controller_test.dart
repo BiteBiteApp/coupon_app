@@ -30,7 +30,40 @@ PagedResponse<String> _page(
   ),
 );
 
+CustomerLoadMorePageEnvelope<T> _envelope<T>(
+  List<T> items, {
+  String? nextCursor,
+  bool partial = false,
+  void Function()? onAccepted,
+}) => CustomerLoadMorePageEnvelope<T>(
+  items: items,
+  nextCursor: nextCursor,
+  hasMore: nextCursor != null,
+  partial: partial,
+  onAccepted: onAccepted,
+);
+
+final class _SubclassedCustomerLoadMoreController
+    extends CustomerLoadMoreController<String> {
+  _SubclassedCustomerLoadMoreController({required super.pageLoader})
+    : super(
+        criteria: const <String, Object?>{'subclass': true},
+        stableId: (item) => item,
+      );
+}
+
 void main() {
+  test('legacy public constructor remains subclassable', () async {
+    final controller = _SubclassedCustomerLoadMoreController(
+      pageLoader: (_) async => _page(1, <String>['subclassed']),
+    );
+    addTearDown(controller.dispose);
+
+    await controller.loadInitial();
+
+    expect(controller.items, <String>['subclassed']);
+  });
+
   test(
     'first server page and each Load More use real opaque next cursor',
     () async {
@@ -225,5 +258,335 @@ void main() {
     expect(controller.items, isEmpty);
     expect(controller.isDisposed, isTrue);
     expect(calls, 1);
+  });
+
+  test(
+    'customer envelope preserves empty partial progress and opaque cursors',
+    () async {
+      final requests = <CustomerLoadMoreRequest>[];
+      final controller = CustomerLoadMoreController<String>.envelope(
+        criteria: const <String, Object?>{'session': 'opaque'},
+        stableId: (item) => item,
+        pageLoader: (request) async {
+          requests.add(request);
+          return switch (request.cursor) {
+            null => _envelope(<String>['one'], nextCursor: 'cursor-a'),
+            'cursor-a' => _envelope(
+              const <String>[],
+              nextCursor: 'cursor-b',
+              partial: true,
+            ),
+            'cursor-b' => _envelope(<String>['two']),
+            _ => throw StateError('unexpected cursor'),
+          };
+        },
+      );
+      addTearDown(controller.dispose);
+
+      await controller.loadInitial();
+      await controller.loadMore();
+      expect(controller.items, <String>['one']);
+      expect(controller.partial, isTrue);
+      expect(controller.hasNext, isTrue);
+      expect(controller.pageEnvelope?.nextCursor, 'cursor-b');
+      expect(controller.lastPage, isNull);
+
+      await controller.loadMore();
+      expect(controller.items, <String>['one', 'two']);
+      expect(controller.partial, isFalse);
+      expect(requests.map((request) => request.cursor), <String?>[
+        null,
+        'cursor-a',
+        'cursor-b',
+      ]);
+    },
+  );
+
+  test('uncertain append re-tap replays the exact immutable request', () async {
+    final requests = <CustomerLoadMoreRequest>[];
+    var generatedIds = 0;
+    var appendAttempts = 0;
+    final controller = CustomerLoadMoreController<String>.envelope(
+      criteria: const <String, Object?>{},
+      stableId: (item) => item,
+      requestIdGenerator: () => 'request-${++generatedIds}-00000000',
+      pageLoader: (request) async {
+        requests.add(request);
+        if (request.isInitial) {
+          return _envelope(<String>['one'], nextCursor: 'next');
+        }
+        appendAttempts += 1;
+        if (appendAttempts == 1) {
+          throw StateError('uncertain transport failure');
+        }
+        return _envelope(<String>['two']);
+      },
+    );
+    addTearDown(controller.dispose);
+
+    await controller.loadInitial();
+    await controller.loadMore();
+    expect(controller.items, <String>['one']);
+    expect(controller.hasRetry, isTrue);
+    expect(controller.canRetry, isTrue);
+
+    await controller.loadMore();
+    expect(identical(requests[1], requests[2]), isTrue);
+    expect(requests[1].clientRequestId, requests[2].clientRequestId);
+    expect(generatedIds, 2);
+    expect(controller.items, <String>['one', 'two']);
+  });
+
+  test(
+    'uncertain initial re-tap replays the exact immutable request',
+    () async {
+      final requests = <CustomerLoadMoreRequest>[];
+      var generatedIds = 0;
+      final controller = CustomerLoadMoreController<String>.envelope(
+        criteria: const <String, Object?>{},
+        stableId: (item) => item,
+        requestIdGenerator: () => 'request-${++generatedIds}-00000000',
+        pageLoader: (request) async {
+          requests.add(request);
+          if (requests.length == 1) {
+            throw StateError('uncertain transport failure');
+          }
+          return _envelope(<String>['one']);
+        },
+      );
+      addTearDown(controller.dispose);
+
+      await controller.loadInitial();
+      expect(controller.hasRetry, isTrue);
+      await controller.loadInitial();
+
+      expect(identical(requests[0], requests[1]), isTrue);
+      expect(generatedIds, 1);
+      expect(controller.items, <String>['one']);
+    },
+  );
+
+  test('legacy uncertain retry preserves every request wire field', () async {
+    final requests = <PagedRequest>[];
+    var appendAttempts = 0;
+    final controller = CustomerLoadMoreController<String>(
+      criteria: const <String, Object?>{
+        'nested': <String, Object?>{
+          'values': <Object?>[1, 'two'],
+        },
+      },
+      stableId: (item) => item,
+      pageLoader: (request) async {
+        requests.add(request);
+        if (request.direction == PageDirection.first) {
+          return _page(1, <String>['one'], hasNext: true);
+        }
+        appendAttempts += 1;
+        if (appendAttempts == 1) {
+          throw StateError('uncertain legacy transport failure');
+        }
+        return _page(2, <String>['two']);
+      },
+    );
+    addTearDown(controller.dispose);
+
+    await controller.loadInitial();
+    await controller.loadMore();
+    final uncertainWireRequest = requests.last.toJson();
+
+    await controller.retry();
+
+    expect(requests, hasLength(3));
+    expect(requests.last.toJson(), uncertainWireRequest);
+    expect(controller.items, <String>['one', 'two']);
+  });
+
+  test(
+    'non-progress is paced and explicit retry starts a new transport request',
+    () async {
+      var now = DateTime.utc(2026, 9, 12, 12);
+      var generatedIds = 0;
+      final requests = <CustomerLoadMoreRequest>[];
+      final controller = CustomerLoadMoreController<String>.envelope(
+        criteria: const <String, Object?>{},
+        stableId: (item) => item,
+        clock: () => now,
+        nonProgressRetryDelay: const Duration(seconds: 2),
+        requestIdGenerator: () => 'request-${++generatedIds}-00000000',
+        pageLoader: (request) async {
+          requests.add(request);
+          if (request.isInitial) {
+            return _envelope(<String>['one'], nextCursor: 'cursor-a');
+          }
+          if (requests.length == 2) {
+            return _envelope(
+              <String>['must-not-append'],
+              nextCursor: 'cursor-a',
+              partial: true,
+            );
+          }
+          return _envelope(<String>['two']);
+        },
+      );
+      addTearDown(controller.dispose);
+
+      await controller.loadInitial();
+      await controller.loadMore();
+      expect(controller.error, isA<CustomerLoadMoreNonProgressException>());
+      expect(controller.items, <String>['one']);
+      expect(controller.hasRetry, isTrue);
+      expect(controller.canRetry, isFalse);
+      expect(controller.retryDelayRemaining, const Duration(seconds: 2));
+
+      await controller.loadMore();
+      await controller.retry();
+      expect(requests, hasLength(2));
+
+      now = now.add(const Duration(seconds: 2));
+      await controller.retry();
+      expect(requests, hasLength(3));
+      expect(requests[2].cursor, 'cursor-a');
+      expect(requests[2].clientRequestId, isNot(requests[1].clientRequestId));
+      expect(controller.items, <String>['one', 'two']);
+      expect(controller.error, isNull);
+    },
+  );
+
+  test(
+    'opt-in unbounded retention keeps more than 120 ordered items',
+    () async {
+      var page = 0;
+      final controller = CustomerLoadMoreController<int>.envelope(
+        criteria: const <String, Object?>{},
+        stableId: (item) => item,
+        retainAllItems: true,
+        pageLoader: (request) async {
+          final currentPage = page++;
+          final first = currentPage * 25;
+          return _envelope(
+            List<int>.generate(25, (index) => first + index),
+            nextCursor: currentPage < 5 ? 'cursor-$currentPage' : null,
+          );
+        },
+      );
+      addTearDown(controller.dispose);
+
+      await controller.loadInitial();
+      while (controller.hasNext) {
+        await controller.loadMore();
+      }
+
+      expect(controller.items, List<int>.generate(150, (index) => index));
+      expect(controller.trimmedBeforeCount, 0);
+      expect(controller.maximumRetainedItems, 120);
+    },
+  );
+
+  test(
+    'acceptance disposal cannot install the accepted page afterward',
+    () async {
+      late final CustomerLoadMoreController<String> controller;
+      var accepted = 0;
+      var notifications = 0;
+      controller = CustomerLoadMoreController<String>.envelope(
+        criteria: const <String, Object?>{},
+        stableId: (item) => item,
+        pageLoader: (_) async => _envelope(
+          <String>['stale'],
+          nextCursor: 'stale-cursor',
+          onAccepted: () {
+            accepted += 1;
+            controller.dispose();
+          },
+        ),
+      );
+      controller.addListener(() => notifications += 1);
+
+      await controller.loadInitial();
+
+      expect(accepted, 1);
+      expect(notifications, 1);
+      expect(controller.isDisposed, isTrue);
+      expect(controller.items, isEmpty);
+      expect(controller.pageEnvelope, isNull);
+      expect(controller.lastPage, isNull);
+      expect(controller.hasNext, isFalse);
+      expect(controller.error, isNull);
+    },
+  );
+
+  test(
+    'acceptance refresh fences the old page and preserves the newer request',
+    () async {
+      final replacement = Completer<CustomerLoadMorePageEnvelope<String>>();
+      late final CustomerLoadMoreController<String> controller;
+      var calls = 0;
+      var accepted = 0;
+      var notifications = 0;
+      controller = CustomerLoadMoreController<String>.envelope(
+        criteria: const <String, Object?>{},
+        stableId: (item) => item,
+        pageLoader: (_) {
+          calls += 1;
+          if (calls == 1) {
+            return Future.value(
+              _envelope(
+                <String>['stale'],
+                nextCursor: 'stale-cursor',
+                onAccepted: () {
+                  accepted += 1;
+                  unawaited(controller.refresh());
+                },
+              ),
+            );
+          }
+          return replacement.future;
+        },
+      );
+      addTearDown(controller.dispose);
+      controller.addListener(() => notifications += 1);
+
+      await controller.loadInitial();
+
+      expect(accepted, 1);
+      expect(calls, 2);
+      expect(controller.items, isEmpty);
+      expect(controller.pageEnvelope, isNull);
+      expect(controller.hasNext, isFalse);
+      expect(controller.error, isNull);
+      expect(controller.isLoading, isTrue);
+      expect(notifications, 3);
+
+      replacement.complete(_envelope(<String>['replacement']));
+      await pumpEventQueue();
+
+      expect(controller.items, <String>['replacement']);
+      expect(controller.pageEnvelope, isNotNull);
+      expect(controller.isLoading, isFalse);
+      expect(controller.error, isNull);
+      expect(notifications, 4);
+    },
+  );
+
+  test('normal acceptance hook runs once and commits the page', () async {
+    var accepted = 0;
+    final controller = CustomerLoadMoreController<String>.envelope(
+      criteria: const <String, Object?>{},
+      stableId: (item) => item,
+      pageLoader: (_) async => _envelope(
+        <String>['accepted'],
+        nextCursor: 'next',
+        onAccepted: () => accepted += 1,
+      ),
+    );
+    addTearDown(controller.dispose);
+
+    await controller.loadInitial();
+
+    expect(accepted, 1);
+    expect(controller.items, <String>['accepted']);
+    expect(controller.pageEnvelope, isNotNull);
+    expect(controller.hasNext, isTrue);
+    expect(controller.error, isNull);
   });
 }

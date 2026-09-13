@@ -577,6 +577,55 @@ if (!emulatorGate) {
     };
   }
 
+  function assertEvaluationContext(context, bundle, evaluationAtMillis) {
+    assert.deepEqual(Object.keys(context).sort(), [
+      "attemptGeneration",
+      "availabilityGeneration",
+      "evaluationAtMillis",
+      "oncePerDayUnavailableWindows",
+      "queryFingerprint",
+      "schemaVersion",
+      "sessionId",
+      "timeZone",
+      "utcOffsetMinutes",
+      "validUntilExclusiveMillis",
+    ]);
+    assert.equal(context.schemaVersion, 1);
+    assert.equal(context.sessionId, bundle.response.sessionId);
+    assert.equal(context.attemptGeneration, bundle.response.attemptGeneration);
+    assert.equal(context.queryFingerprint, bundle.response.queryFingerprint);
+    assert.equal(context.evaluationAtMillis, evaluationAtMillis);
+    assert.match(context.availabilityGeneration, /^[a-f0-9]{64}$/u);
+    assert.equal(context.validUntilExclusiveMillis > evaluationAtMillis, true);
+    assert.equal(context.oncePerDayUnavailableWindows.length >= 1, true);
+    assert.equal(context.oncePerDayUnavailableWindows.length <= 2, true);
+    let previousEnd = null;
+    let evaluationMemberships = 0;
+    for (const window of context.oncePerDayUnavailableWindows) {
+      assert.deepEqual(Object.keys(window).sort(), [
+        "endAtMillisExclusive",
+        "startAtMillisInclusive",
+      ]);
+      assert.equal(Number.isSafeInteger(window.startAtMillisInclusive), true);
+      assert.equal(Number.isSafeInteger(window.endAtMillisExclusive), true);
+      assert.equal(
+        window.startAtMillisInclusive < window.endAtMillisExclusive,
+        true,
+      );
+      if (previousEnd !== null) {
+        assert.equal(previousEnd < window.startAtMillisInclusive, true);
+      }
+      if (
+        window.startAtMillisInclusive <= evaluationAtMillis &&
+        evaluationAtMillis < window.endAtMillisExclusive
+      ) {
+        evaluationMemberships += 1;
+      }
+      previousEnd = window.endAtMillisExclusive;
+    }
+    assert.equal(evaluationMemberships, 1);
+  }
+
   async function currentSession(bundle) {
     return database.getDocument(
       `${privateCustomerBiteSaverSearchSessionCollection}/${
@@ -1187,6 +1236,10 @@ if (!emulatorGate) {
       pageRequest(bundle),
       bundle.context,
     );
+    assertEvaluationContext(first.evaluationContext, bundle, fixedNowMs);
+    assert.equal(first.evaluationContext.timeZone, "America/New_York");
+    assert.equal(first.evaluationContext.utcOffsetMinutes, -240);
+    assert.equal(first.restaurants[0].offers[0].usagePolicy, "unlimited");
     assert.equal(first.restaurants.length, customerBiteSaverPageSize);
     assert.equal(first.hasMore, true);
     assert.notEqual(first.nextCursor, null);
@@ -1231,6 +1284,8 @@ if (!emulatorGate) {
       pageRequest(bundle, {cursor: first.nextCursor}),
       bundle.context,
     );
+    assertEvaluationContext(second.evaluationContext, bundle, fixedNowMs);
+    assert.equal(second.restaurants[0].offers[0].usagePolicy, "unlimited");
     assert.deepEqual(
       second.restaurants.map(({restaurantId}) => restaurantId),
       [witness.publicRestaurantId],
@@ -1526,6 +1581,12 @@ if (!emulatorGate) {
       offerRequest,
       offerBundle.context,
     );
+    assertEvaluationContext(
+      offerPartial.evaluationContext,
+      offerBundle,
+      fixedNowMs,
+    );
+    assert.equal(offerPartial.offers[0].usagePolicy, "unlimited");
     assert.equal(offerPartial.offers.length, 25);
     assert.equal(offerPartial.partial, true);
     assert.equal(offerPartial.hasMore, true);
@@ -1542,6 +1603,11 @@ if (!emulatorGate) {
         cursor: offerPartial.nextCursor,
       }),
       offerBundle.context,
+    );
+    assertEvaluationContext(
+      offerContinued.evaluationContext,
+      offerBundle,
+      fixedNowMs,
     );
     const finalOfferId = customerBiteSaverOpaqueOfferId(
       identityKeyV1,
@@ -1574,6 +1640,9 @@ if (!emulatorGate) {
       bundle.context,
     );
     const [firstOffer, secondOffer] = page.restaurants[0].offers;
+    assertEvaluationContext(page.evaluationContext, bundle, fixedNowMs);
+    assert.equal(firstOffer.usagePolicy, "unlimited");
+    assert.equal(secondOffer.usagePolicy, "unlimited");
     const logicalId = requestId("shared-redemption-logical");
     const request = redemptionRequest(
       bundle,
@@ -1604,8 +1673,23 @@ if (!emulatorGate) {
     );
     assert.equal(concurrent[0].evaluatedAtMillis, fixedNowMs);
     assert.equal(concurrent[1].evaluatedAtMillis, fixedNowMs);
+    assert.equal(concurrent[0].usagePolicy, "unlimited");
+    assert.equal(concurrent[1].usagePolicy, "unlimited");
+    assertEvaluationContext(
+      concurrent[0].evaluationContext,
+      bundle,
+      fixedNowMs,
+    );
+    assert.deepEqual(
+      concurrent[1].evaluationContext,
+      concurrent[0].evaluationContext,
+    );
     const originalDeadline = concurrent[0].validationExpiresAtMillis;
     assert.equal(originalDeadline, fixedNowMs + 60_000);
+    assert.equal(
+      concurrent[0].evaluationContext.validUntilExclusiveMillis,
+      originalDeadline,
+    );
 
     clock.value = fixedNowMs + 59_999;
     const replay = await validateCustomerBiteSaverOfferRedemptionStartHandler(
@@ -1615,6 +1699,7 @@ if (!emulatorGate) {
     assert.equal(replay.allowed, true);
     assert.equal(replay.evaluatedAtMillis, fixedNowMs);
     assert.equal(replay.validationExpiresAtMillis, originalDeadline);
+    assert.deepEqual(replay.evaluationContext, concurrent[0].evaluationContext);
     await assert.rejects(
       validateCustomerBiteSaverOfferRedemptionStartHandler(
         redemptionRequest(bundle, parent.publicRestaurantId, secondOffer, {
@@ -1647,6 +1732,267 @@ if (!emulatorGate) {
       authoritativeLogicalReservations: reservationsForSession.length,
       fixedEvaluationAtMillis: concurrent[0].evaluatedAtMillis,
       fixedDeadlineMillis: originalDeadline,
+    };
+  });
+
+  test("real adapter carries the exact New York daily-use context through signed and guest replay",
+    {timeout: 120_000}, async () => {
+    const completionAtMs = Date.parse("2026-03-08T04:30:00.000Z");
+    const evaluationAtMs = Date.parse("2026-03-08T07:30:00.000Z");
+    const expectedUnavailableWindows = [{
+      startAtMillisInclusive: Date.parse("2026-03-08T05:00:00.000Z"),
+      endAtMillisExclusive: evaluationAtMs + 1,
+    }];
+    const isUnavailableCompletion = (context, completedAtMs) =>
+      context.oncePerDayUnavailableWindows.some((window) =>
+        window.startAtMillisInclusive <= completedAtMs &&
+        completedAtMs < window.endAtMillisExclusive);
+
+    const signedClock = {value: evaluationAtMs};
+    const signedBundle = await startSession({
+      clock: signedClock,
+      uid: requestId("ny-daily-signed-user"),
+    });
+    const signedSession = await markReady(signedBundle);
+    const signedParent = readyRestaurantWrites(signedSession, 904, {
+      preparationNowMs: evaluationAtMs,
+      offerCount: 1,
+      onlyCoupons: true,
+      offerOverrides: {usageRule: "Once per day"},
+    });
+    await commitAll(signedParent.writes);
+    const signedOfferId = customerBiteSaverOpaqueOfferId(
+      identityKeyV1,
+      signedParent.accountId,
+      "coupon",
+      signedParent.coupons[0].sourceDocumentId,
+    );
+    const timerStartedAt = new Date(completionAtMs - 5 * 60_000);
+    await seed(
+      `customer_redemptions/${signedBundle.uid}/coupon_redemptions/${
+        signedOfferId}`,
+      {
+        schemaVersion: customerBiteSaverSearchSchemaVersion,
+        userId: signedBundle.uid,
+        restaurantId: signedParent.publicRestaurantId,
+        offerId: signedOfferId,
+        offerType: "coupon",
+        redemptionId: `bsrd_${Buffer.alloc(32, 89).toString("base64url")}`,
+        timerStartedAt,
+        timerExpiresAt: new Date(completionAtMs),
+        createdAt: new Date(timerStartedAt.getTime()),
+        updatedAt: new Date(timerStartedAt.getTime()),
+      },
+    );
+
+    const signedRequest = pageRequest(signedBundle, {
+      clientRequestId: requestId("ny-daily-signed-page"),
+    });
+    const signedPage = await getCustomerBiteSaverSearchPageHandler(
+      signedRequest,
+      signedBundle.context,
+    );
+    assertEvaluationContext(
+      signedPage.evaluationContext,
+      signedBundle,
+      evaluationAtMs,
+    );
+    assert.equal(signedPage.evaluationContext.timeZone, "America/New_York");
+    assert.equal(signedPage.evaluationContext.utcOffsetMinutes, -240);
+    assert.deepEqual(
+      signedPage.evaluationContext.oncePerDayUnavailableWindows,
+      expectedUnavailableWindows,
+    );
+    assert.equal(
+      isUnavailableCompletion(signedPage.evaluationContext, completionAtMs),
+      false,
+    );
+    assert.equal(signedPage.restaurants.length, 1);
+    const signedOffer = signedPage.restaurants[0].offers[0];
+    assert.equal(signedOffer.offerId, signedOfferId);
+    assert.equal(signedOffer.usagePolicy, "oncePerDay");
+    assert.equal(signedOffer.available, true);
+    assert.deepEqual(
+      await getCustomerBiteSaverSearchPageHandler(
+        signedRequest,
+        signedBundle.context,
+      ),
+      signedPage,
+    );
+    const signedPageReplays = (await documentsWithRole("requestReplay"))
+      .filter(({data}) =>
+        data.sessionId === signedBundle.response.sessionId &&
+        data.purpose === "restaurantPage");
+    assert.equal(signedPageReplays.length, 1);
+    assert.equal(
+      millis(signedPageReplays[0].data.evaluationAt),
+      evaluationAtMs,
+    );
+    assert.equal(
+      millis(signedPageReplays[0].data.logicalExpiresAt),
+      signedPage.evaluationContext.validUntilExclusiveMillis,
+    );
+
+    const validationRequest = redemptionRequest(
+      signedBundle,
+      signedParent.publicRestaurantId,
+      signedOffer,
+      {redemptionRequestId: requestId("ny-daily-validation")},
+    );
+    const validation =
+      await validateCustomerBiteSaverOfferRedemptionStartHandler(
+        validationRequest,
+        signedBundle.context,
+      );
+    assert.equal(validation.allowed, true);
+    assert.equal(validation.usagePolicy, "oncePerDay");
+    assert.equal(validation.evaluatedAtMillis, evaluationAtMs);
+    assertEvaluationContext(
+      validation.evaluationContext,
+      signedBundle,
+      evaluationAtMs,
+    );
+    assert.deepEqual(
+      validation.evaluationContext.oncePerDayUnavailableWindows,
+      expectedUnavailableWindows,
+    );
+    assert.equal(
+      isUnavailableCompletion(validation.evaluationContext, completionAtMs),
+      false,
+    );
+    assert.equal(
+      validation.evaluationContext.validUntilExclusiveMillis,
+      validation.validationExpiresAtMillis,
+    );
+    const logicalReplays = (await documentsWithRole("logicalRedemptionReplay"))
+      .filter(({data}) =>
+        data.sessionId === signedBundle.response.sessionId);
+    assert.equal(logicalReplays.length, 1);
+    assert.equal(millis(logicalReplays[0].data.evaluationAt), evaluationAtMs);
+    assert.equal(
+      millis(logicalReplays[0].data.logicalExpiresAt),
+      validation.validationExpiresAtMillis,
+    );
+    signedClock.value = validation.validationExpiresAtMillis - 1;
+    const validationReplay =
+      await validateCustomerBiteSaverOfferRedemptionStartHandler(
+        {
+          ...validationRequest,
+          clientRequestId: requestId("ny-daily-validation-replay"),
+        },
+        signedBundle.context,
+      );
+    assert.deepEqual(validationReplay, validation);
+    signedClock.value = validation.validationExpiresAtMillis;
+    await assert.rejects(
+      validateCustomerBiteSaverOfferRedemptionStartHandler(
+        {
+          ...validationRequest,
+          clientRequestId: requestId("ny-daily-validation-expired"),
+        },
+        signedBundle.context,
+      ),
+      contractError("failed-precondition"),
+    );
+    signedClock.value =
+      signedPage.evaluationContext.validUntilExclusiveMillis;
+    await assert.rejects(
+      getCustomerBiteSaverSearchPageHandler(
+        signedRequest,
+        signedBundle.context,
+      ),
+      contractError("failed-precondition"),
+    );
+
+    const guestClock = {value: evaluationAtMs};
+    const guestBundle = await startSession({guest: true, clock: guestClock});
+    const guestSession = await markReady(guestBundle);
+    const guestParent = readyRestaurantWrites(guestSession, 905, {
+      preparationNowMs: evaluationAtMs,
+      offerCount: 1,
+      onlyCoupons: true,
+      offerOverrides: {usageRule: "Once per day"},
+    });
+    await commitAll(guestParent.writes);
+    const guestOfferId = customerBiteSaverOpaqueOfferId(
+      identityKeyV1,
+      guestParent.accountId,
+      "coupon",
+      guestParent.coupons[0].sourceDocumentId,
+    );
+    const guestRequest = pageRequest(guestBundle, {
+      clientRequestId: requestId("ny-daily-guest-page"),
+      guestStateRevision: 1,
+    });
+    const challenge = await getCustomerBiteSaverSearchPageHandler(
+      guestRequest,
+      guestBundle.context,
+    );
+    assert.equal(challenge.outcome, "guestCheckRequired");
+    assert.deepEqual(challenge.candidates, [{
+      offerId: guestOfferId,
+      usagePolicy: "oncePerDay",
+    }]);
+    assertEvaluationContext(
+      challenge.evaluationContext,
+      guestBundle,
+      evaluationAtMs,
+    );
+    assert.equal(challenge.evaluationContext.utcOffsetMinutes, -240);
+    assert.deepEqual(
+      challenge.evaluationContext.oncePerDayUnavailableWindows,
+      expectedUnavailableWindows,
+    );
+    assert.equal(
+      isUnavailableCompletion(challenge.evaluationContext, completionAtMs),
+      false,
+    );
+    assert.equal(
+      challenge.evaluationContext.validUntilExclusiveMillis,
+      challenge.logicalExpiresAtMillis,
+    );
+    assert.deepEqual(
+      await getCustomerBiteSaverSearchPageHandler(
+        guestRequest,
+        guestBundle.context,
+      ),
+      challenge,
+    );
+    const guestDocument = await database.getDocument(
+      `${privateCustomerBiteSaverGuestOfferCheckCollection}/${
+        challenge.operationRef}`,
+    );
+    assert.notEqual(guestDocument, null);
+    assert.equal(millis(guestDocument.data.evaluationAt), evaluationAtMs);
+    assert.equal(guestDocument.data.utcOffsetMinutes, -240);
+    assert.equal(
+      guestDocument.data.activeBatch.expiresAtMillis,
+      challenge.evaluationContext.validUntilExclusiveMillis,
+    );
+    assert.equal(
+      guestDocument.data.activeBatch.availabilityGeneration,
+      challenge.evaluationContext.availabilityGeneration,
+    );
+    guestClock.value = challenge.logicalExpiresAtMillis;
+    const expiredChallenge =
+      await continueCustomerBiteSaverGuestOfferCheckHandler(
+        guestAnswerRequest(guestBundle, challenge, []),
+        guestBundle.context,
+      );
+    assert.equal(expiredChallenge.outcome, "retryRequired");
+    assert.equal(expiredChallenge.reason, "checkExpired");
+    assert.equal(expiredChallenge.restartFrom, "originalOperation");
+
+    metrics.scenarioMeasurements.newYorkDailyUsageContext = {
+      completionAtMillis: completionAtMs,
+      evaluationAtMillis: evaluationAtMs,
+      unavailableWindows: expectedUnavailableWindows,
+      signedPageValidUntilExclusiveMillis:
+        signedPage.evaluationContext.validUntilExclusiveMillis,
+      validationValidUntilExclusiveMillis:
+        validation.evaluationContext.validUntilExclusiveMillis,
+      guestChallengeValidUntilExclusiveMillis:
+        challenge.evaluationContext.validUntilExclusiveMillis,
     };
   });
 
@@ -2224,18 +2570,15 @@ if (!emulatorGate) {
         usagePolicy: "oncePerCustomer",
       })),
     );
-    assert.deepEqual(initial.evaluationContext, {
-      evaluationAtMillis: originalEvaluationAt,
-      timeZone: "America/New_York",
-      utcOffsetMinutes: -240,
-      availabilityGeneration:
-        initial.evaluationContext.availabilityGeneration,
-    });
-    assert.match(
-      initial.evaluationContext.availabilityGeneration,
-      /^[a-f0-9]{64}$/u,
-    );
+    assertEvaluationContext(initial.evaluationContext, bundle,
+      originalEvaluationAt);
+    assert.equal(initial.evaluationContext.timeZone, "America/New_York");
+    assert.equal(initial.evaluationContext.utcOffsetMinutes, -240);
     assert.equal(initial.logicalExpiresAtMillis, refreshAt);
+    assert.equal(
+      initial.evaluationContext.validUntilExclusiveMillis,
+      initial.logicalExpiresAtMillis,
+    );
 
     const checkPath = privateCustomerBiteSaverGuestOfferCheckCollection +
       "/" + initial.operationRef;
@@ -2284,8 +2627,23 @@ if (!emulatorGate) {
     assert.equal(refreshed.batchSequence, initial.batchSequence + 1);
     assert.notEqual(refreshed.checkToken, initial.checkToken);
     assert.deepEqual(refreshed.candidates, initial.candidates);
-    assert.deepEqual(refreshed.evaluationContext, initial.evaluationContext);
+    assert.equal(
+      refreshed.evaluationContext.evaluationAtMillis,
+      initial.evaluationContext.evaluationAtMillis,
+    );
+    assert.deepEqual(
+      refreshed.evaluationContext.oncePerDayUnavailableWindows,
+      initial.evaluationContext.oncePerDayUnavailableWindows,
+    );
+    assert.notEqual(
+      refreshed.evaluationContext.availabilityGeneration,
+      initial.evaluationContext.availabilityGeneration,
+    );
     assert.equal(refreshed.logicalExpiresAtMillis, refreshAt + 300_000);
+    assert.equal(
+      refreshed.evaluationContext.validUntilExclusiveMillis,
+      refreshed.logicalExpiresAtMillis,
+    );
 
     const afterRefresh = await database.getDocument(checkPath);
     assert.notEqual(afterRefresh, null);
@@ -2474,18 +2832,15 @@ if (!emulatorGate) {
         usagePolicy: "oncePerCustomer",
       })),
     );
-    assert.deepEqual(initial.evaluationContext, {
-      evaluationAtMillis: originalEvaluationAt,
-      timeZone: "America/New_York",
-      utcOffsetMinutes: -240,
-      availabilityGeneration:
-        initial.evaluationContext.availabilityGeneration,
-    });
-    assert.match(
-      initial.evaluationContext.availabilityGeneration,
-      /^[a-f0-9]{64}$/u,
-    );
+    assertEvaluationContext(initial.evaluationContext, bundle,
+      originalEvaluationAt);
+    assert.equal(initial.evaluationContext.timeZone, "America/New_York");
+    assert.equal(initial.evaluationContext.utcOffsetMinutes, -240);
     assert.equal(initial.logicalExpiresAtMillis, refreshAt);
+    assert.equal(
+      initial.evaluationContext.validUntilExclusiveMillis,
+      initial.logicalExpiresAtMillis,
+    );
 
     const checkPath = privateCustomerBiteSaverGuestOfferCheckCollection +
       "/" + initial.operationRef;
@@ -2553,8 +2908,23 @@ if (!emulatorGate) {
     assert.equal(refreshed.batchSequence, initial.batchSequence + 1);
     assert.notEqual(refreshed.checkToken, initial.checkToken);
     assert.deepEqual(refreshed.candidates, initial.candidates);
-    assert.deepEqual(refreshed.evaluationContext, initial.evaluationContext);
+    assert.equal(
+      refreshed.evaluationContext.evaluationAtMillis,
+      initial.evaluationContext.evaluationAtMillis,
+    );
+    assert.deepEqual(
+      refreshed.evaluationContext.oncePerDayUnavailableWindows,
+      initial.evaluationContext.oncePerDayUnavailableWindows,
+    );
+    assert.notEqual(
+      refreshed.evaluationContext.availabilityGeneration,
+      initial.evaluationContext.availabilityGeneration,
+    );
     assert.equal(refreshed.logicalExpiresAtMillis, refreshAt + 300_000);
+    assert.equal(
+      refreshed.evaluationContext.validUntilExclusiveMillis,
+      refreshed.logicalExpiresAtMillis,
+    );
 
     const afterRefresh = await database.getDocument(checkPath);
     assert.notEqual(afterRefresh, null);
@@ -2849,26 +3219,25 @@ if (!emulatorGate) {
         offerId: checkedCouponOfferId,
         usagePolicy: "oncePerCustomer",
       }]);
-      assert.deepEqual(
-        Object.keys(initial.evaluationContext).sort(),
-        [
-          "availabilityGeneration",
-          "evaluationAtMillis",
-          "timeZone",
-          "utcOffsetMinutes",
-        ],
-      );
-      assert.equal(
-        initial.evaluationContext.evaluationAtMillis,
+      assertEvaluationContext(
+        initial.evaluationContext,
+        bundle,
         deadlineCase.evaluationAtMs,
       );
       assert.equal(initial.evaluationContext.timeZone, "America/New_York");
-      assert.equal(initial.evaluationContext.utcOffsetMinutes, -240);
+      assert.equal(
+        initial.evaluationContext.utcOffsetMinutes,
+        deadlineCase.label === "fall-back-second-occurrence" ? -300 : -240,
+      );
       assert.match(
         initial.evaluationContext.availabilityGeneration,
         /^[a-f0-9]{64}$/u,
       );
       assert.equal(initial.logicalExpiresAtMillis, deadlineCase.cutoffAtMs);
+      assert.equal(
+        initial.evaluationContext.validUntilExclusiveMillis,
+        initial.logicalExpiresAtMillis,
+      );
 
       const checkPath = privateCustomerBiteSaverGuestOfferCheckCollection +
         "/" + initial.operationRef;
@@ -3103,7 +3472,10 @@ if (!emulatorGate) {
         freshAtMs,
       );
       assert.equal(fresh.evaluationContext.timeZone, "America/New_York");
-      assert.equal(fresh.evaluationContext.utcOffsetMinutes, -240);
+      assert.equal(
+        fresh.evaluationContext.utcOffsetMinutes,
+        scenario.deadlineCase.label === "fall-back-below-start" ? -300 : -240,
+      );
       assert.deepEqual(fresh.candidates, [{
         offerId: scenario.checkedCouponOfferId,
         usagePolicy: "oncePerCustomer",

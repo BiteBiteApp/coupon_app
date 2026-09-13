@@ -73,8 +73,13 @@ import {
 import {
   customerBiteSaverFreshLocationMaximumAgeMilliseconds,
   customerBiteSaverRedemptionTimerMilliseconds,
+  customerBiteSaverUsageEvaluationCalendar,
+  customerBiteSaverUsageEvaluationSchemaVersion,
   evaluateCustomerBiteSaverOfferAvailability,
+  normalizeCustomerBiteSaverUsagePolicy,
   type CustomerBiteSaverAvailabilityDecision,
+  type CustomerBiteSaverNormalizedUsagePolicy,
+  type CustomerBiteSaverOncePerDayUnavailableWindow,
   type CustomerBiteSaverUsageState,
 } from "./customer_bitesaver_offer_availability.js";
 import {
@@ -1868,6 +1873,7 @@ export type CustomerBiteSaverPublicOfferDto = Readonly<{
   couponCode: string | null;
   couponNumber: string | null;
   usageRule: string | null;
+  usagePolicy: CustomerBiteSaverNormalizedUsagePolicy | null;
   availabilityMode: string | null;
   daysOfWeek: readonly number[];
   allDay: boolean | null;
@@ -1888,6 +1894,24 @@ export type CustomerBiteSaverPublicOfferDto = Readonly<{
   nextAvailableAtMillis: number | null;
   usageState: "available" | "unavailable" | "unknown";
 }>;
+
+export type CustomerBiteSaverEvaluationContext = Readonly<{
+  schemaVersion: typeof customerBiteSaverUsageEvaluationSchemaVersion;
+  sessionId: string;
+  attemptGeneration: number;
+  queryFingerprint: string;
+  evaluationAtMillis: number;
+  timeZone: string;
+  utcOffsetMinutes: number;
+  availabilityGeneration: string;
+  validUntilExclusiveMillis: number;
+  oncePerDayUnavailableWindows:
+    readonly CustomerBiteSaverOncePerDayUnavailableWindow[];
+}>;
+
+export type CustomerBiteSaverSignedResponse<Result> = Readonly<{
+  evaluationContext: CustomerBiteSaverEvaluationContext;
+}> & Result;
 
 export type CustomerBiteSaverPublicRestaurantDto = Readonly<{
   restaurantId: string;
@@ -2765,15 +2789,97 @@ type CurrentOffer = Readonly<{
   usageGeneration: string;
 }>;
 
+type BoundedUsageEvaluationCalendar = ReturnType<
+  typeof customerBiteSaverUsageEvaluationCalendar
+>;
+type UsageEvaluationSessionBinding = Pick<
+  CustomerBiteSaverSessionDocument,
+  "sessionId" | "attemptGeneration" | "queryFingerprint"
+>;
+
+function boundedUsageEvaluationCalendar(value: {
+  evaluationAtMs: number;
+  timeZone: string;
+  operationValidUntilExclusiveMs: number;
+  oncePerDayRelevant: boolean;
+}): BoundedUsageEvaluationCalendar {
+  const calendar = customerBiteSaverUsageEvaluationCalendar({
+    evaluationAtMillis: value.evaluationAtMs,
+    timeZone: value.timeZone,
+  });
+  const validUntilExclusiveMillis = value.oncePerDayRelevant
+    ? Math.min(
+        value.operationValidUntilExclusiveMs,
+        calendar.validUntilExclusiveMillis,
+      )
+    : value.operationValidUntilExclusiveMs;
+  if (
+    !Number.isSafeInteger(validUntilExclusiveMillis) ||
+    validUntilExclusiveMillis <= value.evaluationAtMs
+  ) {
+    throw new CustomerBiteSaverContractError(
+      "failed-precondition",
+      "The BiteSaver usage-evaluation context has expired.",
+    );
+  }
+  return Object.freeze({...calendar, validUntilExclusiveMillis});
+}
+
+function usageEvaluationAvailabilityGeneration(value: {
+  session: UsageEvaluationSessionBinding;
+  calendar: BoundedUsageEvaluationCalendar;
+  seed: unknown;
+}): string {
+  return createQueryFingerprint({
+    purpose: "usageEvaluationAvailabilityGeneration",
+    schemaVersion: value.calendar.schemaVersion,
+    sessionId: value.session.sessionId,
+    attemptGeneration: value.session.attemptGeneration,
+    queryFingerprint: value.session.queryFingerprint,
+    evaluationAtMillis: value.calendar.evaluationAtMillis,
+    timeZone: value.calendar.timeZone,
+    utcOffsetMinutes: value.calendar.utcOffsetMinutes,
+    validUntilExclusiveMillis: value.calendar.validUntilExclusiveMillis,
+    oncePerDayUnavailableWindows:
+      value.calendar.oncePerDayUnavailableWindows,
+    seed: value.seed,
+  });
+}
+
+function evaluationContext(value: {
+  session: UsageEvaluationSessionBinding;
+  calendar: BoundedUsageEvaluationCalendar;
+  availabilityGeneration: string;
+}): CustomerBiteSaverEvaluationContext {
+  if (!/^[0-9a-f]{64}$/u.test(value.availabilityGeneration)) {
+    throw new CustomerBiteSaverContractError("failed-precondition");
+  }
+  return Object.freeze({
+    schemaVersion: value.calendar.schemaVersion,
+    sessionId: value.session.sessionId,
+    attemptGeneration: value.session.attemptGeneration,
+    queryFingerprint: value.session.queryFingerprint,
+    evaluationAtMillis: value.calendar.evaluationAtMillis,
+    timeZone: value.calendar.timeZone,
+    utcOffsetMinutes: value.calendar.utcOffsetMinutes,
+    availabilityGeneration: value.availabilityGeneration,
+    validUntilExclusiveMillis: value.calendar.validUntilExclusiveMillis,
+    oncePerDayUnavailableWindows:
+      value.calendar.oncePerDayUnavailableWindows,
+  });
+}
+
 function signedPageLogicalExpiresAtMs(value: {
   session: CustomerBiteSaverSessionDocument;
   evaluationAtMs: number;
   supportingOffers: readonly CurrentOffer[];
+  usageEvaluationValidUntilExclusiveMs?: number;
 }): number {
   let logicalExpiresAtMs = Math.min(
     value.evaluationAtMs + customerBiteSaverCursorLifetimeMilliseconds,
     value.session.logicalExpiresAt.getTime(),
     value.session.absoluteExpiresAt.getTime(),
+    value.usageEvaluationValidUntilExclusiveMs ?? Number.MAX_SAFE_INTEGER,
   );
   if (
     !Number.isSafeInteger(logicalExpiresAtMs) ||
@@ -3647,6 +3753,10 @@ function publicOfferDto(
     couponCode: boundedString(projection.couponCode, 500),
     couponNumber: boundedString(projection.couponNumber, 500),
     usageRule: boundedString(projection.usageRule, 200),
+    usagePolicy: normalizeCustomerBiteSaverUsagePolicy(
+      offer.offerType,
+      projection.usageRule,
+    ),
     availabilityMode: boundedString(projection.availabilityMode, 50),
     daysOfWeek: safeDays(projection.daysOfWeek),
     allDay: booleanOrNull(projection.allDay),
@@ -5010,12 +5120,7 @@ export type CustomerBiteSaverGuestCheckRequiredResponse = Readonly<{
   checkToken: string;
   batchSequence: number;
   guestStateRevision: number;
-  evaluationContext: Readonly<{
-    evaluationAtMillis: number;
-    timeZone: string;
-    utcOffsetMinutes: number;
-    availabilityGeneration: string;
-  }>;
+  evaluationContext: CustomerBiteSaverEvaluationContext;
   logicalExpiresAtMillis: number;
   candidates: readonly CustomerBiteSaverGuestCheckCandidateDto[];
 }>;
@@ -5044,12 +5149,7 @@ export type CustomerBiteSaverGuestCompleteResponse<Result> = Readonly<{
   guestStateRevision: number | null;
   attemptGeneration: number;
   queryFingerprint: string;
-  evaluationContext: Readonly<{
-    evaluationAtMillis: number;
-    timeZone: string;
-    utcOffsetMinutes: number;
-    availabilityGeneration: string;
-  }>;
+  evaluationContext: CustomerBiteSaverEvaluationContext;
   result: Result;
 }>;
 
@@ -5072,7 +5172,9 @@ export type CustomerBiteSaverGuestOperationResponse =
 async function getCustomerBiteSaverSearchPageCompletedHandler(
   rawRequest: unknown,
   context: CustomerBiteSaverSessionContext,
-): Promise<CustomerBiteSaverRestaurantPageResult> {
+): Promise<CustomerBiteSaverSignedResponse<
+  CustomerBiteSaverRestaurantPageResult
+>> {
   const request = parsePageRequest(rawRequest, false) as
     CustomerBiteSaverPageRequest;
   requireGuestStateRevisionForCaller(request.guestStateRevision, context);
@@ -5567,7 +5669,7 @@ async function getCustomerBiteSaverSearchPageCompletedHandler(
     attemptGeneration: session.attemptGeneration,
     parts: usageGenerationParts.sort(),
   });
-  const responseLogicalExpiresAtMs = signedPageLogicalExpiresAtMs({
+  const pageOperationExpiresAtMs = signedPageLogicalExpiresAtMs({
     session,
     evaluationAtMs: cursorState.availabilityAtMs,
     supportingOffers: [
@@ -5580,6 +5682,18 @@ async function getCustomerBiteSaverSearchPageCompletedHandler(
       ...metadataWitnesses,
     ]).concat(pendingPreview?.unresolved.currentOffers ?? []),
   });
+  const pageCalendar = boundedUsageEvaluationCalendar({
+    evaluationAtMs: cursorState.availabilityAtMs,
+    timeZone: session.criteria.timeZone,
+    operationValidUntilExclusiveMs: pageOperationExpiresAtMs,
+    oncePerDayRelevant: deliveredRestaurants.some(({offers}) =>
+      offers.some((offer) =>
+        normalizeCustomerBiteSaverUsagePolicy(
+          offer.offerType,
+          offer.projection.usageRule,
+        ) === "oncePerDay")),
+  });
+  const responseLogicalExpiresAtMs = pageCalendar.validUntilExclusiveMillis;
   let continuationId: string | null = null;
   let continuationWrite: CustomerBiteSaverWrite | null = null;
   if (pendingPreview !== null) {
@@ -5682,6 +5796,22 @@ async function getCustomerBiteSaverSearchPageCompletedHandler(
       availabilityAtMs: cursorState.availabilityAtMs,
     }),
   ];
+  const availabilityGeneration = usageEvaluationAvailabilityGeneration({
+    session,
+    calendar: pageCalendar,
+    seed: {
+      purpose: "signedRestaurantPage",
+      pageGenerationFingerprint: deliveryPageGeneration,
+      restaurants: restaurants.map((restaurant) => ({
+        restaurantId: restaurant.restaurantId,
+        offers: restaurant.offers.map((offer) => ({
+          offerId: offer.offerId,
+          offerOccurrence: offer.offerOccurrence,
+          usagePolicy: offer.usagePolicy,
+        })),
+      })),
+    },
+  });
   const response = Object.freeze({
         schemaVersion: customerBiteSaverSearchSchemaVersion,
         state: "ready",
@@ -5695,6 +5825,11 @@ async function getCustomerBiteSaverSearchPageCompletedHandler(
           pendingPreview !== null ||
           deliveredRestaurants.length < customerBiteSaverPageSize
         ),
+        evaluationContext: evaluationContext({
+          session,
+          calendar: pageCalendar,
+          availabilityGeneration,
+        }),
       });
   await commitSignedPageResponse({
     context,
@@ -5842,7 +5977,7 @@ export type CustomerBiteSaverOfferPageResult = Readonly<{
 async function getCustomerBiteSaverOfferPageCompletedHandler(
   rawRequest: unknown,
   context: CustomerBiteSaverSessionContext,
-): Promise<CustomerBiteSaverOfferPageResult> {
+): Promise<CustomerBiteSaverSignedResponse<CustomerBiteSaverOfferPageResult>> {
   const request = parsePageRequest(rawRequest, true) as
     CustomerBiteSaverOfferPageRequest;
   requireGuestStateRevisionForCaller(request.guestStateRevision, context);
@@ -6191,7 +6326,7 @@ async function getCustomerBiteSaverOfferPageCompletedHandler(
       guestUnavailableOfferIds: suppression,
     });
   }
-  const responseLogicalExpiresAtMs = signedPageLogicalExpiresAtMs({
+  const pageOperationExpiresAtMs = signedPageLogicalExpiresAtMs({
     session,
     evaluationAtMs: cursorState.availabilityAtMs,
     supportingOffers: [
@@ -6199,12 +6334,37 @@ async function getCustomerBiteSaverOfferPageCompletedHandler(
       ...(usableOfferWitness === null ? [] : [usableOfferWitness]),
     ],
   });
+  const pageCalendar = boundedUsageEvaluationCalendar({
+    evaluationAtMs: cursorState.availabilityAtMs,
+    timeZone: session.criteria.timeZone,
+    operationValidUntilExclusiveMs: pageOperationExpiresAtMs,
+    oncePerDayRelevant: deliveredOffers.some((offer) =>
+      normalizeCustomerBiteSaverUsagePolicy(
+        offer.offerType,
+        offer.projection.usageRule,
+      ) === "oncePerDay"),
+  });
+  const responseLogicalExpiresAtMs = pageCalendar.validUntilExclusiveMillis;
   const deliveredOfferWrites = deliveredOfferIdentityWrites({
     context,
     session,
     offers: deliveredOffers,
     pageGenerationFingerprint: deliveryPageGeneration,
     availabilityAtMs: cursorState.availabilityAtMs,
+  });
+  const availabilityGeneration = usageEvaluationAvailabilityGeneration({
+    session,
+    calendar: pageCalendar,
+    seed: {
+      purpose: "signedOfferPage",
+      pageGenerationFingerprint: deliveryPageGeneration,
+      restaurantId: request.restaurantId,
+      offers: offers.map((offer) => ({
+        offerId: offer.offerId,
+        offerOccurrence: offer.offerOccurrence,
+        usagePolicy: offer.usagePolicy,
+      })),
+    },
   });
   const response = Object.freeze({
         schemaVersion: customerBiteSaverSearchSchemaVersion,
@@ -6216,6 +6376,11 @@ async function getCustomerBiteSaverOfferPageCompletedHandler(
           continuationUnresolved ||
           deliveredOffers.length < customerBiteSaverPageSize
         ),
+        evaluationContext: evaluationContext({
+          session,
+          calendar: pageCalendar,
+          availabilityGeneration,
+        }),
       });
   await commitSignedPageResponse({
     context,
@@ -7094,6 +7259,7 @@ export type CustomerBiteSaverRedemptionValidationResult = Readonly<{
   allowed: boolean;
   reason: string;
   evaluatedAtMillis: number;
+  usagePolicy: CustomerBiteSaverNormalizedUsagePolicy | null;
   activeTimerExpiresAtMillis: number | null;
   nextAvailableAtMillis: number | null;
   validationId: string | null;
@@ -7105,6 +7271,7 @@ function unavailableRedemptionResponse(value: {
   nowMs: number;
   reason: string;
   decision?: CustomerBiteSaverAvailabilityDecision;
+  usagePolicy?: CustomerBiteSaverNormalizedUsagePolicy | null;
 }): CustomerBiteSaverRedemptionValidationResult {
   return Object.freeze({
     schemaVersion: customerBiteSaverSearchSchemaVersion,
@@ -7113,6 +7280,7 @@ function unavailableRedemptionResponse(value: {
     allowed: false,
     reason: value.reason,
     evaluatedAtMillis: value.nowMs,
+    usagePolicy: value.usagePolicy ?? null,
     activeTimerExpiresAtMillis:
       value.decision?.activeTimerExpiresAtMs ?? null,
     nextAvailableAtMillis: value.decision?.nextAvailableAtMs ?? null,
@@ -7136,7 +7304,9 @@ function assertLogicalRedemptionFenceLive(
 async function validateCustomerBiteSaverOfferRedemptionStartCompletedHandler(
   rawRequest: unknown,
   context: CustomerBiteSaverSessionContext,
-): Promise<CustomerBiteSaverRedemptionValidationResult> {
+): Promise<CustomerBiteSaverSignedResponse<
+  CustomerBiteSaverRedemptionValidationResult
+>> {
   const request = parseRedemptionRequest(rawRequest);
   requireGuestStateRevisionForCaller(request.guestStateRevision, context);
   const nowMs = context.now?.() ?? Date.now();
@@ -7234,6 +7404,36 @@ async function validateCustomerBiteSaverOfferRedemptionStartCompletedHandler(
   // The logical request fixes the public evaluation/result anchor. Current
   // authorization is evaluated separately below before an allow is returned.
   const evaluationAtMs = logicalReplay.evaluationAtMs;
+  const withEvaluationContext = (
+    result: CustomerBiteSaverRedemptionValidationResult,
+    preparedCalendar?: BoundedUsageEvaluationCalendar,
+  ): CustomerBiteSaverSignedResponse<
+    CustomerBiteSaverRedemptionValidationResult
+  > => {
+    const calendar = preparedCalendar ?? boundedUsageEvaluationCalendar({
+      evaluationAtMs,
+      timeZone: session.criteria.timeZone,
+      operationValidUntilExclusiveMs: replayExpiresAtMs,
+      oncePerDayRelevant: result.usagePolicy === "oncePerDay",
+    });
+    const availabilityGeneration = usageEvaluationAvailabilityGeneration({
+      session,
+      calendar,
+      seed: {
+        purpose: "signedRedemptionValidation",
+        requestFingerprint,
+        result,
+      },
+    });
+    return Object.freeze({
+      ...result,
+      evaluationContext: evaluationContext({
+        session,
+        calendar,
+        availabilityGeneration,
+      }),
+    });
+  };
   const resultId = customerBiteSaverResultDocumentId(
     context.discoveryKey,
     session.sessionId,
@@ -7253,11 +7453,11 @@ async function validateCustomerBiteSaverOfferRedemptionStartCompletedHandler(
     result.publicRestaurantId !== request.restaurantId
   ) {
     assertLogicalRedemptionFenceLive(context, replayExpiresAtMs);
-    return unavailableRedemptionResponse({
+    return withEvaluationContext(unavailableRedemptionResponse({
       request,
       nowMs: evaluationAtMs,
       reason: "restaurantUnavailable",
-    });
+    }));
   }
   const expectedMatchingMode: "parent" | "offer" = result.parentMatches
     ? "parent"
@@ -7287,11 +7487,11 @@ async function validateCustomerBiteSaverOfferRedemptionStartCompletedHandler(
     ) !== request.offerId
   ) {
     assertLogicalRedemptionFenceLive(context, replayExpiresAtMs);
-    return unavailableRedemptionResponse({
+    return withEvaluationContext(unavailableRedemptionResponse({
       request,
       nowMs: evaluationAtMs,
       reason: "offerUnavailable",
-    });
+    }));
   }
   const freshCoordinates = request.currentCoordinates === null
     ? null
@@ -7339,11 +7539,11 @@ async function validateCustomerBiteSaverOfferRedemptionStartCompletedHandler(
   );
   if (evaluatedSnapshot.anchored === null) {
     assertLogicalRedemptionFenceLive(context, replayExpiresAtMs);
-    return unavailableRedemptionResponse({
+    return withEvaluationContext(unavailableRedemptionResponse({
       request,
       nowMs: evaluationAtMs,
       reason: "restaurantUnavailable",
-    });
+    }));
   }
   const {parent, evaluated} = evaluatedSnapshot.anchored;
   const identity = offerIdentityKey({
@@ -7354,20 +7554,24 @@ async function validateCustomerBiteSaverOfferRedemptionStartCompletedHandler(
   const current = evaluated.offers.get(identity);
   if (current === undefined) {
     assertLogicalRedemptionFenceLive(context, replayExpiresAtMs);
-    return unavailableRedemptionResponse({
+    return withEvaluationContext(unavailableRedemptionResponse({
       request,
       nowMs: evaluationAtMs,
       reason: "offerUnavailable",
-    });
+    }));
   }
   if (!current.decision.visible || !current.decision.redeemable) {
     assertLogicalRedemptionFenceLive(context, replayExpiresAtMs);
-    return unavailableRedemptionResponse({
+    return withEvaluationContext(unavailableRedemptionResponse({
       request,
       nowMs: evaluationAtMs,
       reason: current.decision.reason,
       decision: current.decision,
-    });
+      usagePolicy: normalizeCustomerBiteSaverUsagePolicy(
+        current.offerType,
+        current.projection.usageRule,
+      ),
+    }));
   }
   const currentlyAuthorized = evaluatedSnapshot.current?.evaluated.offers.get(
     identity,
@@ -7378,21 +7582,38 @@ async function validateCustomerBiteSaverOfferRedemptionStartCompletedHandler(
     !currentlyAuthorized.decision.redeemable
   ) {
     assertLogicalRedemptionFenceLive(context, replayExpiresAtMs);
-    return unavailableRedemptionResponse({
+    return withEvaluationContext(unavailableRedemptionResponse({
       request,
       nowMs: evaluationAtMs,
       reason: currentlyAuthorized?.decision.reason ?? "offerUnavailable",
       ...(currentlyAuthorized === undefined
         ? {}
-        : {decision: currentlyAuthorized.decision}),
-    });
+        : {
+            decision: currentlyAuthorized.decision,
+            usagePolicy: normalizeCustomerBiteSaverUsagePolicy(
+              currentlyAuthorized.offerType,
+              currentlyAuthorized.projection.usageRule,
+            ),
+          }),
+    }));
   }
-  const validationExpiresAtMillis = Math.min(
+  const usagePolicy = normalizeCustomerBiteSaverUsagePolicy(
+    current.offerType,
+    current.projection.usageRule,
+  );
+  const validationCalendar = boundedUsageEvaluationCalendar({
+    evaluationAtMs,
+    timeZone: session.criteria.timeZone,
+    operationValidUntilExclusiveMs: Math.min(
     evaluationAtMs + 60_000,
     replayExpiresAtMs,
     session.absoluteExpiresAt.getTime(),
     current.decision.eligibilityExpiresAtMs ?? Number.MAX_SAFE_INTEGER,
-  );
+    ),
+    oncePerDayRelevant: usagePolicy === "oncePerDay",
+  });
+  const validationExpiresAtMillis =
+    validationCalendar.validUntilExclusiveMillis;
   const usageGeneration = createQueryFingerprint({
     purpose: "redemptionStartUsageGeneration",
     parts: evaluated.usageGenerationParts,
@@ -7438,19 +7659,20 @@ async function validateCustomerBiteSaverOfferRedemptionStartCompletedHandler(
     validationExpiresAtMs: validationExpiresAtMillis,
   });
   assertLogicalRedemptionFenceLive(context, validationExpiresAtMillis);
-  return Object.freeze({
+  return withEvaluationContext(Object.freeze({
     schemaVersion: customerBiteSaverSearchSchemaVersion,
     restaurantId: request.restaurantId,
     offerId: request.offerId,
     allowed: true,
     reason: "available",
     evaluatedAtMillis: evaluationAtMs,
+    usagePolicy,
     activeTimerExpiresAtMillis:
       current.decision.activeTimerExpiresAtMs,
     nextAvailableAtMillis: current.decision.nextAvailableAtMs,
     validationId,
     validationExpiresAtMillis,
-  });
+  }), validationCalendar);
 }
 
 export type CustomerBiteSaverRedemptionStartResult = Readonly<{
@@ -8408,16 +8630,13 @@ function guestCheckPath(operationRef: string): string {
 function guestUsagePolicy(
   offer: CurrentOffer,
 ): CustomerBiteSaverGuestUsagePolicy | null {
-  if (offer.offerType !== "coupon") {
-    return null;
-  }
-  const normalized = typeof offer.projection.usageRule === "string"
-    ? offer.projection.usageRule.trim().toLowerCase()
-    : "";
-  if (normalized.length === 0 || normalized === "once per customer") {
-    return "oncePerCustomer";
-  }
-  return normalized === "once per day" ? "oncePerDay" : null;
+  const policy = normalizeCustomerBiteSaverUsagePolicy(
+    offer.offerType,
+    offer.projection.usageRule,
+  );
+  return policy === "oncePerCustomer" || policy === "oncePerDay"
+    ? policy
+    : null;
 }
 
 function guestStoredOffer(
@@ -9368,6 +9587,7 @@ function parseGuestCheckBatch(value: {
     value.raw.availabilityGeneration !== guestCheckAvailabilityGeneration({
       session: value.session,
       evaluationAtMs: value.document.evaluationAt.getTime(),
+      operationValidUntilExclusiveMs: value.raw.expiresAtMillis as number,
       candidates,
     }) ||
     value.raw.consumedBoundaryFingerprint !==
@@ -9517,14 +9737,23 @@ function parseGuestCheckDocument(
   const absoluteExpiresAt = dateValue(data.absoluteExpiresAt);
   const expiresAt = dateValue(data.expiresAt);
   let timeZoneValid = false;
+  let evaluationUtcOffsetMinutes: number | null = null;
   if (typeof data.timeZone === "string") {
     try {
       new Intl.DateTimeFormat("en-US", {timeZone: data.timeZone}).format(
         new Date(0),
       );
       timeZoneValid = true;
+      if (evaluationAt !== null) {
+        evaluationUtcOffsetMinutes =
+          customerBiteSaverUsageEvaluationCalendar({
+            evaluationAtMillis: evaluationAt.getTime(),
+            timeZone: data.timeZone,
+          }).utcOffsetMinutes;
+      }
     } catch {
       timeZoneValid = false;
+      evaluationUtcOffsetMinutes = null;
     }
   }
   if (
@@ -9582,7 +9811,7 @@ function parseGuestCheckDocument(
     data.criteriaFingerprint !== session.criteriaFingerprint ||
     data.queryFingerprint !== session.queryFingerprint ||
     data.timeZone !== session.criteria.timeZone ||
-    data.utcOffsetMinutes !== session.criteria.utcOffsetMinutes ||
+    data.utcOffsetMinutes !== evaluationUtcOffsetMinutes ||
     absoluteExpiresAt.getTime() !== session.absoluteExpiresAt.getTime()
   ) {
     return invalidGuestCheckDocumentState();
@@ -9805,22 +10034,28 @@ function guestCheckBoundaryFingerprint(
 function guestCheckAvailabilityGeneration(value: {
   session: CustomerBiteSaverSessionDocument;
   evaluationAtMs: number;
+  operationValidUntilExclusiveMs: number;
   candidates: readonly CustomerBiteSaverGuestStoredOffer[];
 }): string {
-  return createQueryFingerprint({
-    purpose: "guestOfferCheckAvailabilityGeneration",
-    sessionId: value.session.sessionId,
-    attemptGeneration: value.session.attemptGeneration,
-    queryFingerprint: value.session.queryFingerprint,
-    evaluationAtMillis: value.evaluationAtMs,
+  const calendar = boundedUsageEvaluationCalendar({
+    evaluationAtMs: value.evaluationAtMs,
     timeZone: value.session.criteria.timeZone,
-    utcOffsetMinutes: value.session.criteria.utcOffsetMinutes,
-    candidates: value.candidates.map((candidate) => ({
-      offerId: candidate.offerId,
-      usagePolicy: candidate.usagePolicy,
-      sourceFingerprint: candidate.sourceFingerprint,
-      eligibilityExpiresAtMs: candidate.eligibilityExpiresAtMs,
-    })),
+    operationValidUntilExclusiveMs: value.operationValidUntilExclusiveMs,
+    oncePerDayRelevant: value.candidates.some((candidate) =>
+      candidate.usagePolicy === "oncePerDay"),
+  });
+  return usageEvaluationAvailabilityGeneration({
+    session: value.session,
+    calendar,
+    seed: {
+      purpose: "guestOfferCheck",
+      candidates: value.candidates.map((candidate) => ({
+        offerId: candidate.offerId,
+        usagePolicy: candidate.usagePolicy,
+        sourceFingerprint: candidate.sourceFingerprint,
+        eligibilityExpiresAtMs: candidate.eligibilityExpiresAtMs,
+      })),
+    },
   });
 }
 
@@ -9829,17 +10064,21 @@ function capGuestDocumentToStoredOfferBoundaries(
   offers: readonly CustomerBiteSaverGuestStoredOffer[],
 ): CustomerBiteSaverGuestCheckDocument {
   let expiresAtMs = document.logicalExpiresAt.getTime();
+  const dailyCalendar = offers.some((offer) =>
+    offer.usagePolicy === "oncePerDay")
+    ? customerBiteSaverUsageEvaluationCalendar({
+        evaluationAtMillis: document.evaluationAt.getTime(),
+        timeZone: document.timeZone,
+      })
+    : null;
   for (const offer of offers) {
     if (offer.eligibilityExpiresAtMs !== null) {
       expiresAtMs = Math.min(expiresAtMs, offer.eligibilityExpiresAtMs);
     }
-    if (offer.usagePolicy === "oncePerDay") {
+    if (offer.usagePolicy === "oncePerDay" && dailyCalendar !== null) {
       expiresAtMs = Math.min(
         expiresAtMs,
-        nextGuestDailyResetBoundary(
-          document.evaluationAt.getTime(),
-          document.timeZone,
-        ),
+        dailyCalendar.validUntilExclusiveMillis,
       );
     }
   }
@@ -9863,6 +10102,13 @@ function guestCheckResponse(
       "The BiteSaver guest offer check is not awaiting an answer.",
     );
   }
+  const calendar = boundedUsageEvaluationCalendar({
+    evaluationAtMs: document.evaluationAt.getTime(),
+    timeZone: document.timeZone,
+    operationValidUntilExclusiveMs: batch.expiresAtMillis,
+    oncePerDayRelevant: batch.candidates.some((candidate) =>
+      candidate.usagePolicy === "oncePerDay"),
+  });
   return Object.freeze({
     protocolVersion: customerBiteSaverSearchProtocolVersion,
     schemaVersion: customerBiteSaverSearchSchemaVersion,
@@ -9872,10 +10118,9 @@ function guestCheckResponse(
     checkToken: batch.token,
     batchSequence: batch.sequence,
     guestStateRevision: document.guestStateRevision,
-    evaluationContext: Object.freeze({
-      evaluationAtMillis: document.evaluationAt.getTime(),
-      timeZone: document.timeZone,
-      utcOffsetMinutes: document.utcOffsetMinutes,
+    evaluationContext: evaluationContext({
+      session: document,
+      calendar,
       availabilityGeneration: batch.availabilityGeneration,
     }),
     logicalExpiresAtMillis: batch.expiresAtMillis,
@@ -9926,31 +10171,6 @@ function guestOperationLogicalExpiry(value: {
   return expiresAtMs;
 }
 
-function nextGuestDailyResetBoundary(
-  fromMs: number,
-  timeZone: string,
-): number {
-  const formatter = new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    calendar: "gregory",
-    numberingSystem: "latn",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  });
-  let candidate = Math.floor(fromMs / 60_000) * 60_000 + 60_000;
-  const maximum = candidate + 27 * 60 * 60_000;
-  for (; candidate <= maximum; candidate += 60_000) {
-    const parts = new Map(formatter.formatToParts(new Date(candidate))
-      .filter((part) => part.type !== "literal")
-      .map((part) => [part.type, part.value]));
-    if (parts.get("hour") === "00" && parts.get("minute") === "01") {
-      return candidate;
-    }
-  }
-  return fromMs + customerBiteSaverGuestCheckLifetimeMilliseconds;
-}
-
 function guestBatchExpiry(value: {
   document: CustomerBiteSaverGuestCheckDocument;
   session: CustomerBiteSaverSessionDocument;
@@ -9963,6 +10183,13 @@ function guestBatchExpiry(value: {
     value.session.absoluteExpiresAt.getTime(),
     value.document.logicalExpiresAt.getTime(),
   );
+  const dailyCalendar = value.candidates.some((candidate) =>
+    guestUsagePolicy(candidate) === "oncePerDay")
+    ? customerBiteSaverUsageEvaluationCalendar({
+        evaluationAtMillis: value.document.evaluationAt.getTime(),
+        timeZone: value.document.timeZone,
+      })
+    : null;
   for (const candidate of value.candidates) {
     const boundary = candidate.decision.eligibilityExpiresAtMs;
     if (
@@ -9971,13 +10198,10 @@ function guestBatchExpiry(value: {
     ) {
       expiresAtMs = Math.min(expiresAtMs, boundary);
     }
-    if (guestUsagePolicy(candidate) === "oncePerDay") {
+    if (guestUsagePolicy(candidate) === "oncePerDay" && dailyCalendar !== null) {
       expiresAtMs = Math.min(
         expiresAtMs,
-        nextGuestDailyResetBoundary(
-          value.nowMs,
-          value.document.timeZone,
-        ),
+        dailyCalendar.validUntilExclusiveMillis,
       );
     }
   }
@@ -10016,14 +10240,6 @@ function createGuestCheckBatch(value: {
   }
   const candidateDigest =
     createCustomerBiteSaverGuestOfferCheckCandidateDigest(candidateOfferIds);
-  const availabilityGeneration = guestCheckAvailabilityGeneration({
-    session: value.session,
-    evaluationAtMs: boundedDocument.evaluationAt.getTime(),
-    candidates,
-  });
-  const consumedBoundaryFingerprint = guestCheckBoundaryFingerprint(
-    boundedDocument.progress,
-  );
   const expiresAtMillis = guestBatchExpiry({
     document: boundedDocument,
     session: value.session,
@@ -10040,6 +10256,15 @@ function createGuestCheckBatch(value: {
       expiresAt: new Date(value.document.absoluteExpiresAt.getTime()),
     }));
   }
+  const availabilityGeneration = guestCheckAvailabilityGeneration({
+    session: value.session,
+    evaluationAtMs: boundedDocument.evaluationAt.getTime(),
+    operationValidUntilExclusiveMs: expiresAtMillis,
+    candidates,
+  });
+  const consumedBoundaryFingerprint = guestCheckBoundaryFingerprint(
+    boundedDocument.progress,
+  );
   const token = new CustomerBiteSaverGuestOfferCheckCodec({
     key: value.context.discoveryKey,
     now: () => value.nowMs,
@@ -10234,6 +10459,26 @@ function guestCompleteResponse<Result>(value: {
   availabilityGeneration: string;
   result: Result;
 }): CustomerBiteSaverGuestCompleteResponse<Result> {
+  const result = value.result as unknown as Readonly<Record<string, unknown>>;
+  const directOffers = Array.isArray(result.offers)
+    ? result.offers
+    : [];
+  const restaurantOffers = Array.isArray(result.restaurants)
+    ? result.restaurants.flatMap((restaurant) =>
+        isPlainRecord(restaurant) && Array.isArray(restaurant.offers)
+          ? restaurant.offers
+          : [])
+    : [];
+  const oncePerDayRelevant = result.usagePolicy === "oncePerDay" ||
+    [...directOffers, ...restaurantOffers].some((offer) =>
+      isPlainRecord(offer) && offer.usagePolicy === "oncePerDay");
+  const calendar = boundedUsageEvaluationCalendar({
+    evaluationAtMs: value.document.evaluationAt.getTime(),
+    timeZone: value.document.timeZone,
+    operationValidUntilExclusiveMs:
+      value.document.logicalExpiresAt.getTime(),
+    oncePerDayRelevant,
+  });
   return Object.freeze({
     protocolVersion: customerBiteSaverSearchProtocolVersion,
     schemaVersion: customerBiteSaverSearchSchemaVersion,
@@ -10242,10 +10487,9 @@ function guestCompleteResponse<Result>(value: {
     guestStateRevision: value.document.guestStateRevision,
     attemptGeneration: value.document.attemptGeneration,
     queryFingerprint: value.document.queryFingerprint,
-    evaluationContext: Object.freeze({
-      evaluationAtMillis: value.document.evaluationAt.getTime(),
-      timeZone: value.document.timeZone,
-      utcOffsetMinutes: value.document.utcOffsetMinutes,
+    evaluationContext: evaluationContext({
+      session: value.document,
+      calendar,
       availabilityGeneration: value.availabilityGeneration,
     }),
     result: value.result,
@@ -10317,6 +10561,10 @@ function guestDocumentForOperation(value: {
     : value.session.absoluteExpiresAt.getTime();
   const evaluationAt = new Date(value.evaluationAtMs);
   const logicalExpiresAt = new Date(logicalExpiresAtMs);
+  const evaluationCalendar = customerBiteSaverUsageEvaluationCalendar({
+    evaluationAtMillis: value.evaluationAtMs,
+    timeZone: value.session.criteria.timeZone,
+  });
   return sealGuestCheckDocument(value.context, Object.freeze({
     protocolVersion: customerBiteSaverSearchProtocolVersion,
     schemaVersion: customerBiteSaverSearchSchemaVersion,
@@ -10336,7 +10584,7 @@ function guestDocumentForOperation(value: {
     guestStateRevision: value.guestStateRevision,
     evaluationAt,
     timeZone: value.session.criteria.timeZone,
-    utcOffsetMinutes: value.session.criteria.utcOffsetMinutes,
+    utcOffsetMinutes: evaluationCalendar.utcOffsetMinutes,
     batchSequence: 0,
     activeBatch: null,
     acceptedAnswer: null,
@@ -10504,25 +10752,34 @@ function guestAvailabilityGenerationForCurrentOffers(value: {
   document: CustomerBiteSaverGuestCheckDocument;
   offers: readonly CurrentOffer[];
 }): string {
-  return createQueryFingerprint({
-    purpose: "guestOperationCompletedAvailability",
-    operationRef: value.document.operationRef,
-    guestStateRevision: value.document.guestStateRevision,
-    evaluationAtMillis: value.document.evaluationAt.getTime(),
+  const calendar = boundedUsageEvaluationCalendar({
+    evaluationAtMs: value.document.evaluationAt.getTime(),
     timeZone: value.document.timeZone,
-    utcOffsetMinutes: value.document.utcOffsetMinutes,
-    offers: value.offers.map((offer) => ({
-      offerId: offer.publicOfferId,
-      sourceFingerprint: offer.projection.catalogGenerationContribution,
-      usagePolicy: guestUsagePolicy(offer),
-      usageGeneration: offer.usageGeneration,
-      decision: {
-        ...offer.decision,
-        proximityDistanceMiles: offer.decision.proximityDistanceMiles === null
-          ? null
-          : String(offer.decision.proximityDistanceMiles),
-      },
-    })),
+    operationValidUntilExclusiveMs:
+      value.document.logicalExpiresAt.getTime(),
+    oncePerDayRelevant: value.offers.some((offer) =>
+      guestUsagePolicy(offer) === "oncePerDay"),
+  });
+  return usageEvaluationAvailabilityGeneration({
+    session: value.document,
+    calendar,
+    seed: {
+      purpose: "guestOperationCompletedAvailability",
+      operationRef: value.document.operationRef,
+      guestStateRevision: value.document.guestStateRevision,
+      offers: value.offers.map((offer) => ({
+        offerId: offer.publicOfferId,
+        sourceFingerprint: offer.projection.catalogGenerationContribution,
+        usagePolicy: guestUsagePolicy(offer),
+        usageGeneration: offer.usageGeneration,
+        decision: {
+          ...offer.decision,
+          proximityDistanceMiles: offer.decision.proximityDistanceMiles === null
+            ? null
+            : String(offer.decision.proximityDistanceMiles),
+        },
+      })),
+    },
   });
 }
 
@@ -11838,6 +12095,10 @@ async function resolveGuestRedemptionTarget(value: {
         nowMs: value.nowMs,
         reason: current.decision.reason,
         decision: current.decision,
+        usagePolicy: normalizeCustomerBiteSaverUsagePolicy(
+          current.offerType,
+          current.projection.usageRule,
+        ),
       }),
     });
   }
@@ -11895,6 +12156,10 @@ function allowedGuestRedemptionResult(value: {
     allowed: true,
     reason: "available",
     evaluatedAtMillis: evaluationAtMs,
+    usagePolicy: normalizeCustomerBiteSaverUsagePolicy(
+      value.resolution.offer.offerType,
+      value.resolution.offer.projection.usageRule,
+    ),
     activeTimerExpiresAtMillis:
       value.resolution.offer.decision.activeTimerExpiresAtMs,
     nextAvailableAtMillis: value.resolution.offer.decision.nextAvailableAtMs,
@@ -11944,17 +12209,30 @@ async function processGuestRedemptionStart(value: {
       request,
       nowMs: document.evaluationAt.getTime(),
       reason: "used",
+      usagePolicy: progress.offer.usagePolicy,
+    });
+    const calendar = boundedUsageEvaluationCalendar({
+      evaluationAtMs: document.evaluationAt.getTime(),
+      timeZone: document.timeZone,
+      operationValidUntilExclusiveMs: document.logicalExpiresAt.getTime(),
+      oncePerDayRelevant: result.usagePolicy === "oncePerDay",
+    });
+    const availabilityGeneration = usageEvaluationAvailabilityGeneration({
+      session: document,
+      calendar,
+      seed: {
+        purpose: "guestRedemptionUnavailable",
+        operationRef: document.operationRef,
+        guestStateRevision: document.guestStateRevision,
+        result,
+      },
     });
     document = guestCompletedDocument(document, progress);
     return Object.freeze({
       document,
       response: guestCompleteResponse({
         document,
-        availabilityGeneration: createQueryFingerprint({
-          operationRef: document.operationRef,
-          guestStateRevision: document.guestStateRevision,
-          result,
-        }),
+        availabilityGeneration,
         result,
       }) as CustomerBiteSaverGuestOperationResponse,
     });
@@ -11984,10 +12262,20 @@ async function processGuestRedemptionStart(value: {
         document,
         offers: [resolution.offer],
       })
-    : createQueryFingerprint({
-        operationRef: document.operationRef,
-        guestStateRevision: document.guestStateRevision,
-        result,
+    : usageEvaluationAvailabilityGeneration({
+        session: document,
+        calendar: boundedUsageEvaluationCalendar({
+          evaluationAtMs: document.evaluationAt.getTime(),
+          timeZone: document.timeZone,
+          operationValidUntilExclusiveMs: document.logicalExpiresAt.getTime(),
+          oncePerDayRelevant: result.usagePolicy === "oncePerDay",
+        }),
+        seed: {
+          purpose: "guestRedemptionUnavailable",
+          operationRef: document.operationRef,
+          guestStateRevision: document.guestStateRevision,
+          result,
+        },
       });
   document = guestCompletedDocument(document, progress);
   return Object.freeze({
@@ -12005,9 +12293,22 @@ function directGuestComplete<Result>(value: {
   session: CustomerBiteSaverSessionDocument;
   guestStateRevision: number | null;
   evaluationAtMs: number;
-  availabilityGeneration: string;
+  operationValidUntilExclusiveMs: number;
+  availabilityGenerationSeed: unknown;
   result: Result;
 }): CustomerBiteSaverGuestCompleteResponse<Result> {
+  const result = value.result as unknown as Readonly<Record<string, unknown>>;
+  const calendar = boundedUsageEvaluationCalendar({
+    evaluationAtMs: value.evaluationAtMs,
+    timeZone: value.session.criteria.timeZone,
+    operationValidUntilExclusiveMs: value.operationValidUntilExclusiveMs,
+    oncePerDayRelevant: result.usagePolicy === "oncePerDay",
+  });
+  const availabilityGeneration = usageEvaluationAvailabilityGeneration({
+    session: value.session,
+    calendar,
+    seed: value.availabilityGenerationSeed,
+  });
   return Object.freeze({
     protocolVersion: customerBiteSaverSearchProtocolVersion,
     schemaVersion: customerBiteSaverSearchSchemaVersion,
@@ -12016,11 +12317,10 @@ function directGuestComplete<Result>(value: {
     guestStateRevision: value.guestStateRevision,
     attemptGeneration: value.session.attemptGeneration,
     queryFingerprint: value.session.queryFingerprint,
-    evaluationContext: Object.freeze({
-      evaluationAtMillis: value.evaluationAtMs,
-      timeZone: value.session.criteria.timeZone,
-      utcOffsetMinutes: value.session.criteria.utcOffsetMinutes,
-      availabilityGeneration: value.availabilityGeneration,
+    evaluationContext: evaluationContext({
+      session: value.session,
+      calendar,
+      availabilityGeneration,
     }),
     result: value.result,
   });
@@ -12766,7 +13066,8 @@ async function startGuestRedemption(value: {
           session,
           guestStateRevision: value.request.guestStateRevision,
           evaluationAtMs: logicalReplay.evaluationAtMs,
-          availabilityGeneration: createQueryFingerprint({
+          operationValidUntilExclusiveMs: replayExpiresAtMs,
+          availabilityGenerationSeed: createQueryFingerprint({
             purpose: "guestRedemptionUnavailable",
             requestFingerprint,
             result,
@@ -12794,7 +13095,8 @@ async function startGuestRedemption(value: {
           session,
           guestStateRevision: value.request.guestStateRevision,
           evaluationAtMs: logicalReplay.evaluationAtMs,
-          availabilityGeneration: createQueryFingerprint({
+          operationValidUntilExclusiveMs: replayExpiresAtMs,
+          availabilityGenerationSeed: createQueryFingerprint({
             purpose: "guestRedemptionCurrentlyUnavailable",
             requestFingerprint,
             result,
@@ -12833,7 +13135,8 @@ async function startGuestRedemption(value: {
           session,
           guestStateRevision: value.request.guestStateRevision,
           evaluationAtMs: logicalReplay.evaluationAtMs,
-          availabilityGeneration: createQueryFingerprint({
+          operationValidUntilExclusiveMs: replayExpiresAtMs,
+          availabilityGenerationSeed: createQueryFingerprint({
             purpose: "guestRedemptionSourceChanged",
             requestFingerprint,
             result,
@@ -12924,7 +13227,9 @@ async function startGuestRedemption(value: {
           session,
           guestStateRevision: value.request.guestStateRevision,
           evaluationAtMs: logicalReplay.evaluationAtMs,
-          availabilityGeneration: guestAvailabilityGenerationForCurrentOffers({
+          operationValidUntilExclusiveMs: base.logicalExpiresAt.getTime(),
+          availabilityGenerationSeed:
+            guestAvailabilityGenerationForCurrentOffers({
             document: base,
             offers: [resolution.offer],
           }),
@@ -12990,6 +13295,7 @@ export async function getCustomerBiteSaverSearchPageHandler(
   rawRequest: unknown,
   context: CustomerBiteSaverSessionContext,
 ): Promise<CustomerBiteSaverRestaurantPageResult |
+  CustomerBiteSaverSignedResponse<CustomerBiteSaverRestaurantPageResult> |
   CustomerBiteSaverGuestOperationResponse> {
   const request = parsePageRequest(rawRequest, false) as
     CustomerBiteSaverPageRequest;
@@ -13037,6 +13343,7 @@ export async function getCustomerBiteSaverOfferPageHandler(
   rawRequest: unknown,
   context: CustomerBiteSaverSessionContext,
 ): Promise<CustomerBiteSaverOfferPageResult |
+  CustomerBiteSaverSignedResponse<CustomerBiteSaverOfferPageResult> |
   CustomerBiteSaverGuestOperationResponse> {
   const request = parsePageRequest(rawRequest, true) as
     CustomerBiteSaverOfferPageRequest;
@@ -13084,6 +13391,7 @@ export async function validateCustomerBiteSaverOfferRedemptionStartHandler(
   rawRequest: unknown,
   context: CustomerBiteSaverSessionContext,
 ): Promise<CustomerBiteSaverRedemptionValidationResult |
+  CustomerBiteSaverSignedResponse<CustomerBiteSaverRedemptionValidationResult> |
   CustomerBiteSaverGuestOperationResponse> {
   const request = parseRedemptionRequest(rawRequest);
   requireGuestStateRevisionForCaller(request.guestStateRevision, context);
@@ -13180,7 +13488,6 @@ export async function continueCustomerBiteSaverGuestOfferCheckHandler(
     document.criteriaFingerprint !== session.criteriaFingerprint ||
     document.queryFingerprint !== session.queryFingerprint ||
     document.timeZone !== session.criteria.timeZone ||
-    document.utcOffsetMinutes !== session.criteria.utcOffsetMinutes ||
     session.state !== "ready" || session.phase !== "ready" ||
     nowMs >= session.logicalExpiresAt.getTime() ||
     nowMs >= session.absoluteExpiresAt.getTime()

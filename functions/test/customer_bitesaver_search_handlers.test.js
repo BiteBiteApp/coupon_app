@@ -326,6 +326,7 @@ const publicOfferKeys = Object.freeze([
   "couponCode",
   "couponNumber",
   "usageRule",
+  "usagePolicy",
   "availabilityMode",
   "daysOfWeek",
   "allDay",
@@ -346,6 +347,54 @@ const publicOfferKeys = Object.freeze([
   "nextAvailableAtMillis",
   "usageState",
 ]);
+
+const evaluationContextKeys = Object.freeze([
+  "schemaVersion",
+  "sessionId",
+  "attemptGeneration",
+  "queryFingerprint",
+  "evaluationAtMillis",
+  "timeZone",
+  "utcOffsetMinutes",
+  "availabilityGeneration",
+  "validUntilExclusiveMillis",
+  "oncePerDayUnavailableWindows",
+]);
+
+function assertEvaluationContext(context, started, evaluationAtMillis) {
+  assertExactKeys(context, evaluationContextKeys);
+  assert.equal(context.schemaVersion, 1);
+  assert.equal(context.sessionId, started.sessionId);
+  assert.equal(context.attemptGeneration, started.attemptGeneration);
+  assert.equal(context.queryFingerprint, started.queryFingerprint);
+  assert.equal(context.evaluationAtMillis, evaluationAtMillis);
+  assert.match(context.availabilityGeneration, /^[0-9a-f]{64}$/u);
+  assert.equal(context.validUntilExclusiveMillis > evaluationAtMillis, true);
+  assert.equal(
+    context.oncePerDayUnavailableWindows.length >= 1 &&
+      context.oncePerDayUnavailableWindows.length <= 2,
+    true,
+  );
+  let previousEnd = null;
+  let evaluationMemberships = 0;
+  for (const window of context.oncePerDayUnavailableWindows) {
+    assertExactKeys(window, [
+      "startAtMillisInclusive",
+      "endAtMillisExclusive",
+    ]);
+    assert.equal(window.startAtMillisInclusive < window.endAtMillisExclusive,
+      true);
+    if (previousEnd !== null) {
+      assert.equal(previousEnd < window.startAtMillisInclusive, true);
+    }
+    if (window.startAtMillisInclusive <= evaluationAtMillis &&
+        evaluationAtMillis < window.endAtMillisExclusive) {
+      evaluationMemberships += 1;
+    }
+    previousEnd = window.endAtMillisExclusive;
+  }
+  assert.equal(evaluationMemberships, 1);
+}
 
 function assertNoPrivateCanaries(value) {
   const serialized = JSON.stringify(value);
@@ -1863,7 +1912,9 @@ test("restaurant page returns exactly 25 safe DTOs from a 26-row lookahead", asy
     "nextCursor",
     "hasMore",
     "partial",
+    "evaluationContext",
   ]);
+  assertEvaluationContext(response.evaluationContext, started, nowMs);
   assert.equal(response.restaurants.length, 25);
   assert.equal(response.hasMore, true);
   assert.equal(response.partial, false);
@@ -1900,6 +1951,10 @@ test("restaurant page returns exactly 25 safe DTOs from a 26-row lookahead", asy
     ]);
     for (const offer of restaurant.offers) {
       assertExactKeys(offer, publicOfferKeys);
+      assert.equal(
+        offer.usagePolicy,
+        offer.offerType === "dailySpecial" ? null : "unlimited",
+      );
       assert.match(offer.offerId, /^bso_[A-Za-z0-9_-]{43}$/u);
       assert.match(offer.offerOccurrence, /^bsoc1\.[A-Za-z0-9_-]+$/u);
       assert.equal(Object.hasOwn(offer, "sourceDocumentId"), false);
@@ -3348,7 +3403,9 @@ test("offer page is strict, parent-bound, ordered, safe, and exactly 25", async 
     "nextCursor",
     "hasMore",
     "partial",
+    "evaluationContext",
   ]);
+  assertEvaluationContext(response.evaluationContext, started, nowMs);
   assert.equal(response.restaurantId, seeded.publicRestaurantId);
   assert.equal(response.offers.length, 25);
   assert.deepEqual(
@@ -3366,6 +3423,10 @@ test("offer page is strict, parent-bound, ordered, safe, and exactly 25", async 
   assertNoPrivateCanaries(response);
   for (const offer of response.offers) {
     assertExactKeys(offer, publicOfferKeys);
+    assert.equal(
+      offer.usagePolicy,
+      offer.offerType === "dailySpecial" ? null : "unlimited",
+    );
     assert.match(offer.offerId, /^bso_[A-Za-z0-9_-]{43}$/u);
     assert.match(offer.offerOccurrence, /^bsoc1\.[A-Za-z0-9_-]+$/u);
     assert.equal(Object.hasOwn(offer, "sourceDocumentId"), false);
@@ -5097,15 +5158,23 @@ test("redemption validation is strict, bounded, idempotent, and DTO-safe", async
     "allowed",
     "reason",
     "evaluatedAtMillis",
+    "usagePolicy",
     "activeTimerExpiresAtMillis",
     "nextAvailableAtMillis",
     "validationId",
     "validationExpiresAtMillis",
+    "evaluationContext",
   ]);
+  assertEvaluationContext(response.evaluationContext, started, nowMs);
+  assert.equal(response.usagePolicy, "unlimited");
   assert.equal(response.allowed, true);
   assert.equal(response.reason, "available");
   assert.match(response.validationId, /^bsv_[A-Za-z0-9_-]{43}$/u);
   assert.equal(response.validationExpiresAtMillis, nowMs + 60_000);
+  assert.equal(
+    response.evaluationContext.validUntilExclusiveMillis,
+    response.validationExpiresAtMillis,
+  );
   assertNoPrivateCanaries(response);
   const changedTransport =
     await validateCustomerBiteSaverOfferRedemptionStartHandler(
@@ -7463,6 +7532,15 @@ test("guest restaurant and offer pages complete only after explicit checks", asy
   );
   assert.equal(restaurantChallenge.outcome, "guestCheckRequired");
   assert.equal(restaurantChallenge.operation, "restaurantPage");
+  assertEvaluationContext(
+    restaurantChallenge.evaluationContext,
+    started,
+    nowMs,
+  );
+  assert.equal(
+    restaurantChallenge.evaluationContext.validUntilExclusiveMillis,
+    restaurantChallenge.logicalExpiresAtMillis,
+  );
   assert.equal("result" in restaurantChallenge, false);
   assert.ok(restaurantChallenge.candidates.length > 0);
   assert.ok(restaurantChallenge.candidates.every((candidate) =>
@@ -7481,6 +7559,15 @@ test("guest restaurant and offer pages complete only after explicit checks", asy
     );
   assert.equal(restaurantComplete.outcome, "complete");
   assert.equal(restaurantComplete.operation, "restaurantPage");
+  assertEvaluationContext(
+    restaurantComplete.evaluationContext,
+    started,
+    nowMs,
+  );
+  assert.equal(
+    Object.hasOwn(restaurantComplete.result, "evaluationContext"),
+    false,
+  );
   assert.equal(restaurantComplete.result.restaurants.length, 1);
   assert.equal(
     restaurantComplete.result.restaurants[0].restaurantId,
@@ -7496,6 +7583,11 @@ test("guest restaurant and offer pages complete only after explicit checks", asy
     context,
   );
   assert.equal(offerChallenge.outcome, "guestCheckRequired");
+  assertEvaluationContext(offerChallenge.evaluationContext, started, nowMs);
+  assert.equal(
+    offerChallenge.evaluationContext.validUntilExclusiveMillis,
+    offerChallenge.logicalExpiresAtMillis,
+  );
   assert.equal(offerChallenge.operation, "offerPage");
   assert.equal("result" in offerChallenge, false);
   assertNoPrivateCanaries(offerChallenge);
@@ -7518,6 +7610,56 @@ test("guest restaurant and offer pages complete only after explicit checks", asy
       context,
     ),
     offerComplete,
+  );
+});
+
+test("guest evaluation context stores the offset at its frozen instant", async () => {
+  const {database, context, response: started} = await startSession(undefined, {
+    context: {identity: guestIdentity()},
+    request: {
+      clientRequestId: "guest-evaluation-offset-start-0001",
+      searchText: "",
+      // This is a valid New York seasonal offset, but not the offset at the
+      // September evaluation instant. It remains query input, not authority
+      // for the server-generated evaluation descriptor.
+      utcOffsetMinutes: -300,
+    },
+  });
+  const session = markSessionReady(database, started);
+  addReadyRestaurant(database, session, 0, {
+    offerCount: 1,
+    onlyCoupons: true,
+    offerOverrides: {usageRule: "Once per day"},
+  });
+  const challenge = await getCustomerBiteSaverSearchPageHandler(
+    pageRequest(started, {
+      clientRequestId: "guest-evaluation-offset-page-0001",
+      guestStateRevision: 7,
+    }),
+    context,
+  );
+  assert.equal(challenge.outcome, "guestCheckRequired");
+  assert.equal(challenge.evaluationContext.utcOffsetMinutes, -240);
+  assertEvaluationContext(challenge.evaluationContext, started, nowMs);
+  const stored = database.documents.get(
+    `${privateCustomerBiteSaverGuestOfferCheckCollection}/${
+      challenge.operationRef}`,
+  );
+  assert.equal(stored.utcOffsetMinutes, -240);
+  const completed = await continueCustomerBiteSaverGuestOfferCheckHandler(
+    guestAnswerRequest(started, challenge, []),
+    context,
+  );
+  assert.equal(completed.outcome, "complete");
+  assert.equal(completed.evaluationContext.utcOffsetMinutes, -240);
+  assert.equal(
+    challenge.evaluationContext.validUntilExclusiveMillis,
+    challenge.logicalExpiresAtMillis,
+  );
+  assert.equal(
+    completed.evaluationContext.validUntilExclusiveMillis >
+      challenge.evaluationContext.validUntilExclusiveMillis,
+    true,
   );
 });
 
@@ -7736,9 +7878,13 @@ test("guest offer-page refresh preserves its original scheduled-start anchor", a
     refreshed.evaluationContext.evaluationAtMillis,
     originalEvaluationAt,
   );
-  assert.equal(
+  assert.notEqual(
     refreshed.evaluationContext.availabilityGeneration,
     initial.evaluationContext.availabilityGeneration,
+  );
+  assert.equal(
+    refreshed.evaluationContext.validUntilExclusiveMillis,
+    refreshed.logicalExpiresAtMillis,
   );
   assert.equal(
     refreshed.logicalExpiresAtMillis,
@@ -8931,9 +9077,13 @@ test("guest offer checkpoints cross five minutes and refresh in place", async ()
         refreshed.evaluationContext.evaluationAtMillis,
         originalEvaluationAt,
       );
-      assert.equal(
+      assert.notEqual(
         refreshed.evaluationContext.availabilityGeneration,
         expiredChallenge.evaluationContext.availabilityGeneration,
+      );
+      assert.equal(
+        refreshed.evaluationContext.validUntilExclusiveMillis,
+        refreshed.logicalExpiresAtMillis,
       );
       assert.ok(refreshed.logicalExpiresAtMillis > expiredAuthorizationAt);
       assert.equal(

@@ -1,0 +1,1014 @@
+{
+  "fixtureVersion": "bitestar.customer-bitesaver-client-boundary.v1",
+  "contract": {
+    "protocolVersion": "bitestar.customer-bitesaver-search.v1",
+    "schemaVersion": 1,
+    "region": "us-central1",
+    "pageSize": 25,
+    "pageConsumeLimit": 100,
+    "guestCandidateLimit": 75,
+    "supportedRadiiMiles": [
+      1,
+      3,
+      5,
+      10,
+      15,
+      20,
+      30
+    ]
+  },
+  "signed": {
+    "requests": {
+      "start": {
+        "schemaVersion": 1,
+        "clientRequestId": "fixture-start-request-0001",
+        "clientInstanceId": "fixture-client-instance-0001",
+        "latitude": 28.5383,
+        "longitude": -81.3792,
+        "radiusMiles": 10,
+        "locationMode": "current",
+        "typedLocation": null,
+        "searchText": "",
+        "timeZone": "America/New_York",
+        "utcOffsetMinutes": -240,
+        "freshSearch": true
+      },
+      "status": {
+        "schemaVersion": 1,
+        "clientRequestId": "fixture-status-preparing-0001",
+        "clientInstanceId": "fixture-client-instance-0001",
+        "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+        "capability": "B828Nh_bComvbtDOlujjuMV41hfX084IbqeX3sErKCo",
+        "criteriaFingerprint": "a675f325da0eeb78a3bf05738db4cf4cd20b98e4ee5f59eabc2571d252c1fe96"
+      },
+      "restaurantPage": {
+        "schemaVersion": 1,
+        "clientRequestId": "fixture-restaurant-page-0001",
+        "clientInstanceId": "fixture-client-instance-0001",
+        "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+        "capability": "B828Nh_bComvbtDOlujjuMV41hfX084IbqeX3sErKCo",
+        "criteriaFingerprint": "a675f325da0eeb78a3bf05738db4cf4cd20b98e4ee5f59eabc2571d252c1fe96",
+        "cursor": null,
+        "guestStateRevision": null
+      },
+      "offerPage": {
+        "schemaVersion": 1,
+        "clientRequestId": "fixture-offer-page-0001",
+        "clientInstanceId": "fixture-client-instance-0001",
+        "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+        "capability": "B828Nh_bComvbtDOlujjuMV41hfX084IbqeX3sErKCo",
+        "criteriaFingerprint": "a675f325da0eeb78a3bf05738db4cf4cd20b98e4ee5f59eabc2571d252c1fe96",
+        "cursor": null,
+        "guestStateRevision": null,
+        "restaurantId": "bsr_uHmCmP5ojJpTSe_T7W7GPTQi4ADANEHCRPNHIOH7PW0"
+      },
+      "favoriteStates": {
+        "schemaVersion": 1,
+        "clientRequestId": "fixture-favorites-request-0001",
+        "clientInstanceId": "fixture-client-instance-0001",
+        "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+        "capability": "B828Nh_bComvbtDOlujjuMV41hfX084IbqeX3sErKCo",
+        "criteriaFingerprint": "a675f325da0eeb78a3bf05738db4cf4cd20b98e4ee5f59eabc2571d252c1fe96",
+        "restaurantIds": [
+          "bsr_uHmCmP5ojJpTSe_T7W7GPTQi4ADANEHCRPNHIOH7PW0"
+        ],
+        "offerIds": [
+          "bso_bV5Q2p9Frju8Sd44KKWYxlvX2EcHgmTltkCwF8HHI08"
+        ]
+      },
+      "redemptionValidation": {
+        "schemaVersion": 1,
+        "clientRequestId": "fixture-validation-request-0001",
+        "clientInstanceId": "fixture-client-instance-0001",
+        "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+        "capability": "B828Nh_bComvbtDOlujjuMV41hfX084IbqeX3sErKCo",
+        "criteriaFingerprint": "a675f325da0eeb78a3bf05738db4cf4cd20b98e4ee5f59eabc2571d252c1fe96",
+        "restaurantId": "bsr_uHmCmP5ojJpTSe_T7W7GPTQi4ADANEHCRPNHIOH7PW0",
+        "offerId": "bso_bV5Q2p9Frju8Sd44KKWYxlvX2EcHgmTltkCwF8HHI08",
+        "offerOccurrence": "bsoc1.pIokO06gCJGpZlYypib3ow58JtcwsGVI_FQGrpuqz4j9hlOjbvYmai4xhQ_mHDhNkVrj03MQ3y-yRIA6KzB1Yzx9-WOpY4RunDNn41lHZFlqYU3pT7N0u-4uhrcNi_vF41AEFkKoZojSb_ZJ6dCDxe_C017qhJOuC6KZ6bZ6sIu6QDG8RQANNafoRckt1vHJ4WLQWgz_6syz36IqE-aBJiCZ1V9Odp_HioDnR0ELJcqt--bv7uF0pfleerpizcrk8T4ZHZAQgTtI-XqdbFfT1UnlGwqm0zjZRBIBOHOSf-3t6ns88fxAF9gLGwcfNW06YLt0Ui7khBtW-ek_nhWwYF2q5yNbQGkwpaYtDG1GrW_eHXx9DSs-dhU66KN5v7x35pCl4sTgQbq5jHyhYxcGtuwoAwCQTMz42_MQvDjJsSj5VJN3WEU8muym2yLV6NhWIGsICICIuXzG_hT78X5uZKSxkkgya_STD5hU8dktZ6l-ks78IY3r4EXze_QhhaWy_MunxK032ySYzHeozxEnNN5sCxmxqAcjYDOyM8n5-keoWdnQMd-BSAJq8XNQJdPkpr-KGsgzFHcdZDkp2c9R42Z9l8u2bH_EQIi2kFNU7UC8u9b5Y-tGhz9OVC_mfc9xMgGEKzpeaSd15OBwylpxeanVKUryyTm1fbYiXVVRn_e-MF6Eqv_h3MzmumWtAWJrOkYYu1fnAcipMdbgzaVww5UH4HpntQzQYiynAsOqOXGfchRTjXF6rI59uUJbTPnclWfZ6ED5-JBSRg0EICGsv3F3463MBBEorir9yfkUeB5eF057pr0LjRy2z9n1SdQG070_wTpDlIjNqVmnrR3-jcOI4eIKoMmBLLEWD5k8wW-qJusYF82Nc_Sfy5ueemhikcVjF46Nft-L5lTEu8iFlYASEcNU8nWOeAJ81oU66n8AJ37Iack0PIswb1A3r4f9xlczxNpDBZDzeW3osIe1A3_MXpWDA3jQ5XtCCLWAZ0spDmzCFdlyi9G8S4IJt2vCqy4VVPh89J04LZOKr-pr-cKtQWvZQSwSZIXw4Z2upEXfpOElX6JSqpJQnKFauzPI00DjXz6c2Zbe_0lkl5NGSQW4WlN6YmJChFi06yxAF3cFxD8HoPB-6PR5a789Y3FcsTb9IaLYOfScBjXTVq7WNh-QqHRC8p-uyGLAQ5EvY67eg55a_PlFrMZNoQFcEv0pUVzhNXM326GzyUp7gX0yOcRU4BZMhrt2xjl2FB4keaahCrug0Qp6N6oCQI8_ZHck8bqNVtfD_YCy6tqZx3Pmt0rzHgth8f7yTqU5GIw7RqiGHYEbD-4szSTqsM4_cnb4jkv9ufVW-VnSf65f847eDluN7lP2zAviw_-oZumTq2zFpYHPT10JJfe7bRYY2o1_fgXpnQSEsXNIhQ0Lnjj7FQL68shW_xH62GrZdQlGDgerOMdryERJmastpjlSaXRMxKLVWKpAe751MkDLtWIBZdIRGJOyoYhtrMq8utPH5JW3oxob2c-fiSj9rLaXzeH-v6Wye2xINpVZy1lKdpDxDHU1JGEIB0R8Msro67wcJ1fZNbL6AnB2MD9Dns92EJdTwhPV83V5T_oYjgQQKnuEnO6UBmu8i119spPbxsAjoWC4kdiTHh8lt6K0ds1W3xylqsKK0OGA7IUNqMFfXP0nepnQhkVJJHjY5LYdlk3ZrJYTh6YILW-LsOin9jegGK4LZdOdgiXf_ZrZUXdmJzVDClaE5Y9wjz5jZ_591U48ToOLiDiYvYiHWG6_gmyBPkgVd-aDwLjYqJMEuVO6TCOW1E6H1_Dv-pBYyOfQ1hSXo21qHPoVn-IXXnT99zLMtA9C_8eqgjD59-8prDUQTtA",
+        "redemptionRequestId": "fixture-redemption-operation-0001",
+        "currentCoordinates": null,
+        "guestStateRevision": null
+      },
+      "redemptionStart": {
+        "schemaVersion": 1,
+        "clientRequestId": "fixture-redemption-start-0001",
+        "clientInstanceId": "fixture-client-instance-0001",
+        "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+        "capability": "B828Nh_bComvbtDOlujjuMV41hfX084IbqeX3sErKCo",
+        "criteriaFingerprint": "a675f325da0eeb78a3bf05738db4cf4cd20b98e4ee5f59eabc2571d252c1fe96",
+        "restaurantId": "bsr_uHmCmP5ojJpTSe_T7W7GPTQi4ADANEHCRPNHIOH7PW0",
+        "offerId": "bso_bV5Q2p9Frju8Sd44KKWYxlvX2EcHgmTltkCwF8HHI08",
+        "offerOccurrence": "bsoc1.pIokO06gCJGpZlYypib3ow58JtcwsGVI_FQGrpuqz4j9hlOjbvYmai4xhQ_mHDhNkVrj03MQ3y-yRIA6KzB1Yzx9-WOpY4RunDNn41lHZFlqYU3pT7N0u-4uhrcNi_vF41AEFkKoZojSb_ZJ6dCDxe_C017qhJOuC6KZ6bZ6sIu6QDG8RQANNafoRckt1vHJ4WLQWgz_6syz36IqE-aBJiCZ1V9Odp_HioDnR0ELJcqt--bv7uF0pfleerpizcrk8T4ZHZAQgTtI-XqdbFfT1UnlGwqm0zjZRBIBOHOSf-3t6ns88fxAF9gLGwcfNW06YLt0Ui7khBtW-ek_nhWwYF2q5yNbQGkwpaYtDG1GrW_eHXx9DSs-dhU66KN5v7x35pCl4sTgQbq5jHyhYxcGtuwoAwCQTMz42_MQvDjJsSj5VJN3WEU8muym2yLV6NhWIGsICICIuXzG_hT78X5uZKSxkkgya_STD5hU8dktZ6l-ks78IY3r4EXze_QhhaWy_MunxK032ySYzHeozxEnNN5sCxmxqAcjYDOyM8n5-keoWdnQMd-BSAJq8XNQJdPkpr-KGsgzFHcdZDkp2c9R42Z9l8u2bH_EQIi2kFNU7UC8u9b5Y-tGhz9OVC_mfc9xMgGEKzpeaSd15OBwylpxeanVKUryyTm1fbYiXVVRn_e-MF6Eqv_h3MzmumWtAWJrOkYYu1fnAcipMdbgzaVww5UH4HpntQzQYiynAsOqOXGfchRTjXF6rI59uUJbTPnclWfZ6ED5-JBSRg0EICGsv3F3463MBBEorir9yfkUeB5eF057pr0LjRy2z9n1SdQG070_wTpDlIjNqVmnrR3-jcOI4eIKoMmBLLEWD5k8wW-qJusYF82Nc_Sfy5ueemhikcVjF46Nft-L5lTEu8iFlYASEcNU8nWOeAJ81oU66n8AJ37Iack0PIswb1A3r4f9xlczxNpDBZDzeW3osIe1A3_MXpWDA3jQ5XtCCLWAZ0spDmzCFdlyi9G8S4IJt2vCqy4VVPh89J04LZOKr-pr-cKtQWvZQSwSZIXw4Z2upEXfpOElX6JSqpJQnKFauzPI00DjXz6c2Zbe_0lkl5NGSQW4WlN6YmJChFi06yxAF3cFxD8HoPB-6PR5a789Y3FcsTb9IaLYOfScBjXTVq7WNh-QqHRC8p-uyGLAQ5EvY67eg55a_PlFrMZNoQFcEv0pUVzhNXM326GzyUp7gX0yOcRU4BZMhrt2xjl2FB4keaahCrug0Qp6N6oCQI8_ZHck8bqNVtfD_YCy6tqZx3Pmt0rzHgth8f7yTqU5GIw7RqiGHYEbD-4szSTqsM4_cnb4jkv9ufVW-VnSf65f847eDluN7lP2zAviw_-oZumTq2zFpYHPT10JJfe7bRYY2o1_fgXpnQSEsXNIhQ0Lnjj7FQL68shW_xH62GrZdQlGDgerOMdryERJmastpjlSaXRMxKLVWKpAe751MkDLtWIBZdIRGJOyoYhtrMq8utPH5JW3oxob2c-fiSj9rLaXzeH-v6Wye2xINpVZy1lKdpDxDHU1JGEIB0R8Msro67wcJ1fZNbL6AnB2MD9Dns92EJdTwhPV83V5T_oYjgQQKnuEnO6UBmu8i119spPbxsAjoWC4kdiTHh8lt6K0ds1W3xylqsKK0OGA7IUNqMFfXP0nepnQhkVJJHjY5LYdlk3ZrJYTh6YILW-LsOin9jegGK4LZdOdgiXf_ZrZUXdmJzVDClaE5Y9wjz5jZ_591U48ToOLiDiYvYiHWG6_gmyBPkgVd-aDwLjYqJMEuVO6TCOW1E6H1_Dv-pBYyOfQ1hSXo21qHPoVn-IXXnT99zLMtA9C_8eqgjD59-8prDUQTtA",
+        "redemptionRequestId": "fixture-redemption-operation-0001",
+        "currentCoordinates": null,
+        "guestStateRevision": null,
+        "validationId": "bsv_0i9k1YxLI_2AZsSfMHQOSW3Xg4TiRESsJMK6TAFLbZI"
+      }
+    },
+    "responses": {
+      "start": {
+        "schemaVersion": 1,
+        "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+        "capability": "B828Nh_bComvbtDOlujjuMV41hfX084IbqeX3sErKCo",
+        "state": "preparing",
+        "attemptGeneration": 0,
+        "criteriaFingerprint": "a675f325da0eeb78a3bf05738db4cf4cd20b98e4ee5f59eabc2571d252c1fe96",
+        "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+        "logicalExpiresAtMillis": 1789226100000
+      },
+      "status": {
+        "preparing": {
+          "schemaVersion": 1,
+          "state": "preparing",
+          "progress": {
+            "phase": "restaurantRanges",
+            "completedRanges": 0,
+            "totalRanges": 4
+          },
+          "failureCode": null,
+          "retriable": false,
+          "attemptGeneration": 0,
+          "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+          "logicalExpiresAtMillis": 1789226100000
+        },
+        "ready": {
+          "schemaVersion": 1,
+          "state": "ready",
+          "progress": {
+            "phase": "ready",
+            "completedRanges": 4,
+            "totalRanges": 4
+          },
+          "failureCode": null,
+          "retriable": false,
+          "attemptGeneration": 0,
+          "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+          "logicalExpiresAtMillis": 1789226100000
+        },
+        "failed": {
+          "schemaVersion": 1,
+          "state": "failed",
+          "progress": {
+            "phase": "restaurantRanges",
+            "completedRanges": 0,
+            "totalRanges": 4
+          },
+          "failureCode": "preparation_failed",
+          "retriable": true,
+          "attemptGeneration": 0,
+          "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+          "logicalExpiresAtMillis": 1789226100000
+        },
+        "expired": {
+          "schemaVersion": 1,
+          "state": "expired",
+          "progress": {
+            "phase": "ready",
+            "completedRanges": 4,
+            "totalRanges": 4
+          },
+          "failureCode": null,
+          "retriable": false,
+          "attemptGeneration": 0,
+          "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+          "logicalExpiresAtMillis": 1789226100000
+        },
+        "expiredAfterFailure": {
+          "schemaVersion": 1,
+          "state": "expired",
+          "progress": {
+            "phase": "restaurantRanges",
+            "completedRanges": 0,
+            "totalRanges": 4
+          },
+          "failureCode": "preparation_failed",
+          "retriable": true,
+          "attemptGeneration": 0,
+          "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+          "logicalExpiresAtMillis": 1789226100000
+        }
+      },
+      "restaurantPage": {
+        "schemaVersion": 1,
+        "state": "ready",
+        "attemptGeneration": 0,
+        "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+        "restaurants": [
+          {
+            "restaurantId": "bsr_uHmCmP5ojJpTSe_T7W7GPTQi4ADANEHCRPNHIOH7PW0",
+            "displayName": "Fixture Café 😀",
+            "streetAddress": "1 Public Avenue",
+            "city": "Orlando",
+            "state": "FL",
+            "zipCode": "32801",
+            "formattedAddress": "1 Public Avenue, Orlando, FL 32801",
+            "imageUrl": "https://images.example.test/restaurant.jpg",
+            "phone": "+1 407-555-0100",
+            "website": "https://restaurant.example.test",
+            "businessHours": [],
+            "bio": "Synthetic public fixture",
+            "distanceMiles": 0,
+            "isLocal": false,
+            "catalogBindingAvailable": false,
+            "offers": [
+              {
+                "offerId": "bso_bV5Q2p9Frju8Sd44KKWYxlvX2EcHgmTltkCwF8HHI08",
+                "offerOccurrence": "bsoc1.P9QlX1eKahDJsvb1ifp-mFtS73xH1Y2JIxa80PE_B8Wc9JMU3n5GqqiGaiqHYxIpMBTiyfJcoY152UxFvQNihEyaxZJOtz1u73MTRmwxp0UC-RPgS0xprZEekPUSPCiA6OYgOnpnKwlPCsxVAulG4LDjRpPnZjj5dK8RbaHhdm226U3K9Q59QRCX-8rMNIL1kxhX9ZlT2KxBDoQ2ng9XlgJ-trq51WvG5e3-WgbZrvhXAPGL86WKb8I_-utEY4kp61KyzFkY853woCxXMwxikTNUjQaBs93RW2oPKfkWq3UPBrlRIOk-2HhvaOYdCoWUmv461MSYWcxYRfNfMhNftIBZ_XKXQL7HoYVDDfU9dWhtlUBqLdclFk3xulOzD4p2SWOpr9lDOpU4e1gkQDIfV3Qarkrp8ua79wrWd6zQvd9fso2w2r-j9L0lUq9VTEKxFyqw-u7VOcl-QsiiQcfb9Yog_xtwUwZBaBKhNHvYFAxzRdJ7cX8JVBzTmM64CqZeXnNW-OmDE4dfK-P59j00sTuX-XluRUpTfHgW5aVXo796vFm4d-ZRBBmLf-Blu7WWQ-fy41MJF1qDAv3bmwSgN7HHKD6NkDOnxUHOunGHYSz-hXZ4VydgVoM66c6c24r9OuX-dlapT5bZvDqRqvrselORNx9_MrA2M9W2m0paGUiRaBz0HXA8sGMQ9FF9Ryhn9UMojhEAmH6E2FbubY8lI9fZmF4YpUF3EcXeXVWT_I17giEDFZn9VMQryI1DCtynSEI4tPEcxp2AV3xc49xv3gDqHJHr9_vQXzatVANssC94DFnITrY6OsXHC1q-OxcZZfseoJ1VBGF6xqHVFxLZIa-vbINEL91PYBBZMv2bw4uHiIDZC0nD1jZC3sG-vc1QAHIdyenrIPcQBkNKhFfSd1Y1ZR15vBWS2Qq6sboyF2-Mdfp0q2zygIfrMhHSiIII0DFujpmzNvzcSrGVG19mXZc4LXmRtA_NrlqmE4N9q056EhUYsNmvgs3yP99TkwrWyQKczQwg_rQtmZLuNsGU68-P5V2hUD_-Kmo7K9PJUGnv8AXJXIHA9bn_s9T7I8t5dh0cKvvcxvic55N813e3P_pKCEeGVCpRAGAEXKsNvSG5tmirHXAPc-jQZJf18Yl5Omrg8ng8FjAkHn7AspgxdccPgh7RGXBZpgtR-VKvHM8RNGgwiZIuybiuScD0A_GbpyvQymDB4sy8w1pBiQoXfd9P29whD9DL4ayowjmGDDhmjziHaTbb5a7WNp46-3_jwhuCP6ESxer1hmzbF6NipjGPR2Vz3u1V2gUgWeI9E3OlV9oXRF747O2egZpRma5M3OQNixHiNIw3XkTKAVWo7oBqwjacENppAMSfk0ugwV1gm--pvvqA9o2SRZzMJ59w2Xqbeh8CXPrDlz3u2AuydossBJhZqFijkevcMrzmrOJ9_71SNufRUE-uXGAxOeNl9LT1pA3_aL5BHpl3VOJuZW0HHU-F4pRGPubC1tA0IxpMhzvyHLC9wkq2OhnP8tBQ7jGlmsfRDOMfNVXDXLBUyUDFbi8TehaMEuyUS5L61bkJ3xqmAjsVUFANUGyz3AM8LPa-zSbBdbeQCNb2qBr7J-uK5h0lwDwFHbIOyoU8R6GBTKgiezv1FtdtE22qLyNDtvK48gik-atvXyUWgf-F0KU4RfX-1UkGWKLrWmC5rARAhDgPD9pY4_v5unp8z6Gfewod_9vB-x0bDAgzKkJ9cY5bgt7JcPgyuJTPYgql_qFfU_tkjEA8TAZfp9GvlekdzQ",
+                "offerType": "coupon",
+                "title": "Fixture Coupon 1",
+                "details": "Synthetic coupon details",
+                "couponCode": "FIXTURE1",
+                "couponNumber": "0001",
+                "usageRule": "Once per customer",
+                "usagePolicy": "oncePerCustomer",
+                "availabilityMode": null,
+                "daysOfWeek": [],
+                "allDay": null,
+                "startTime": null,
+                "endTime": null,
+                "startAtMillis": null,
+                "endAtMillis": null,
+                "expiresAtMillis": null,
+                "expiresText": null,
+                "isProximityOnly": false,
+                "proximityRadiusMiles": null,
+                "imageUrl": null,
+                "sourceCreatedAtMillis": 1789225199000,
+                "available": true,
+                "availabilityReason": "available",
+                "redemptionPolicyLabel": "Once per customer",
+                "activeTimerExpiresAtMillis": null,
+                "nextAvailableAtMillis": null,
+                "usageState": "available"
+              },
+              {
+                "offerId": "bso_zD1CP6VkKwdeG51udW0HxiorKNi1d5NuF-MkxH6IPkM",
+                "offerOccurrence": "bsoc1.z-W66YsQNKCqChpLeonP2SGm6kuswmAluuMi9FltbMWlEE7qw1TD4Ype3qWvPyQDAPqNkphrQG5pziurQXpBosGL6gtXDHnbZ4q_sG8NWLk0P8eKMrXZA4nRSsWF19GFBi7gA8RuwD3Bszv_RfGzOiUd1iFK5nfONLh3-5T092DcQrAdhXESPeLa-lFMTMvFpW4Nxfq5_hc__ag1UlYnvdOU0bVtWUT6HvZ3nG9Cf4ikwatRLjjU4Mrc22poFaN93BsiyOhauwGhRm_7brAnWYCRDADcF5XSCkr6gGRr-HvIbE-7a-jrGjNi0YIad_CjTzrNUWP_IYnAxdvFmpcLCjG586rk0CbY2zIUM05sEQbwxR906QDCMPLais9-3fCkt5voJP96jRQ38B9ecaD1zBYM2vn2wunIxcn8m2nIketB44LzztIg_PPW2nKmuPs1_KZx8RZhmHNMikUTwPE_f44ifNGFoQXfpzMP1Kj1-C2Fv1aBuy8QgbAOkShwGozFTLIIyQBwFFiVQ70TyJfGAPQfamhwcE1xqM9sPFixhd3hBdFm01tyfatIKsw99dvQdt71TQym-1Ots4sJn6NtCnRfib-80gF89fsOMEgGiljPbkccZb3Rw0etNLfe3WhdpeRJRGuc26oefxB3ej4QiYloJsAoiWfpz2Usr9N8PPocwL3VeylAOkePEbkSNt-wyCrdCVStu1uOVfAP44Rb02tQrpdGsPU24lh5Xhc7hU7Mtvr23m5cwPX2HXM46EBlwRRY6tsvylrCuQ1uZLwlrlva9aadlhsltbE0UDo3of-mbcSRqfqF18d4F-nNcvAQ06ioEuuGAx7s_0jfXOKUpk_GVlDWXxwEuNJT6-v4_df--IXxB3eUFZSQAlt2Me8HllZk9ZCmy1FNOV4MSgYZaDfq18oX1OscwZzQWwUL0Ajpv4VcEjpeueDdWQmbQG0H9BMw9zEfB2jysPM4eGNMFpE1E9s-U0Aww7BzJEcfcbaWBVFWa535hJPTmLubnFXqCw26RUHj_Q6r_IB-TwSQZcx6AH3PH_z0cJpE6D9RVcSVFfrhHLjLw8OxfDKeDECkC9G4L9LCIbjKxd5c1abtd9JeonLYrh4l7qQZAJBEzCyCKPg05Xoc3WS7ItkUwwlWYWoSTVT7hA8wkydCD_njHfOP55enPy3bk-gqisIyh8_jiw_WBEQSJFX1SO2wm2j3BnFbNuxOZQxvuqkbIAM0i9-7Aj4bq9Hm1ORj1XD2RAdeyz8iZ598Pmm_XOkEGT53SiF-3F6wdRvTpHX89c-rjbACON1YzfIoXPPxqk4otsX6fdGIqPMmAbZ22ZbBsvOjhBk4C2NYdNQERbXbE2T_BSR5d3wfn7GnfqFOqaOTHP2dMlo4QD6bgDxMiytYZnrD1y83hqruO1DZe9NWuz1p6LGyRdhNxxaILpaEBNcAblwYirQFbCtUpcyhzZY7Mg8UeB4w9V0BDTbn8Z2xWOk_mQi4MIxIdamtCY0xl6DRKg1uaf3_WNp74t-5rZ15CytDdn5Hjb-bPr-QxVwPasiMlMkSI7-iTyOblrTL4mRJM1VxhQNHzizHsjlZyMzZfhbk6yXc3iPgd5A31Dr3Ado2W6ISjDrB_9O1pETsL2TMfdCATC4agdPYSmX7d9SxWY2I2AqDlgdpQdNNUZPE6XlbJsJLAAQNDs25NbhyYuAcLaUIXIR8R_AZERfot3GNSj-XcUDB3PxO7NozXgsFOofK0F08vjAHh6IHtashD7xffTcjuGnj7hIzFFnMMxKH6AUwww",
+                "offerType": "coupon",
+                "title": "Fixture Coupon 2",
+                "details": "Synthetic coupon details",
+                "couponCode": "FIXTURE2",
+                "couponNumber": "0002",
+                "usageRule": "Once per customer",
+                "usagePolicy": "oncePerCustomer",
+                "availabilityMode": null,
+                "daysOfWeek": [],
+                "allDay": null,
+                "startTime": null,
+                "endTime": null,
+                "startAtMillis": null,
+                "endAtMillis": null,
+                "expiresAtMillis": null,
+                "expiresText": null,
+                "isProximityOnly": false,
+                "proximityRadiusMiles": null,
+                "imageUrl": null,
+                "sourceCreatedAtMillis": 1789225198000,
+                "available": true,
+                "availabilityReason": "available",
+                "redemptionPolicyLabel": "Once per customer",
+                "activeTimerExpiresAtMillis": null,
+                "nextAvailableAtMillis": null,
+                "usageState": "available"
+              }
+            ],
+            "hasMoreOffers": false,
+            "usableOfferCount": 2,
+            "offerCountState": "current",
+            "favoriteState": "unknown"
+          }
+        ],
+        "nextCursor": null,
+        "hasMore": false,
+        "partial": false,
+        "evaluationContext": {
+          "schemaVersion": 1,
+          "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+          "attemptGeneration": 0,
+          "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+          "evaluationAtMillis": 1789225200000,
+          "timeZone": "America/New_York",
+          "utcOffsetMinutes": -240,
+          "availabilityGeneration": "a58cf1e89d4046c1bd06a166196150b8a59be24579d83730797429adfccd7f42",
+          "validUntilExclusiveMillis": 1789226100000,
+          "oncePerDayUnavailableWindows": [
+            {
+              "startAtMillisInclusive": 1789185600000,
+              "endAtMillisExclusive": 1789225200001
+            }
+          ]
+        }
+      },
+      "offerPage": {
+        "schemaVersion": 1,
+        "restaurantId": "bsr_uHmCmP5ojJpTSe_T7W7GPTQi4ADANEHCRPNHIOH7PW0",
+        "offers": [
+          {
+            "offerId": "bso_bV5Q2p9Frju8Sd44KKWYxlvX2EcHgmTltkCwF8HHI08",
+            "offerOccurrence": "bsoc1.pIokO06gCJGpZlYypib3ow58JtcwsGVI_FQGrpuqz4j9hlOjbvYmai4xhQ_mHDhNkVrj03MQ3y-yRIA6KzB1Yzx9-WOpY4RunDNn41lHZFlqYU3pT7N0u-4uhrcNi_vF41AEFkKoZojSb_ZJ6dCDxe_C017qhJOuC6KZ6bZ6sIu6QDG8RQANNafoRckt1vHJ4WLQWgz_6syz36IqE-aBJiCZ1V9Odp_HioDnR0ELJcqt--bv7uF0pfleerpizcrk8T4ZHZAQgTtI-XqdbFfT1UnlGwqm0zjZRBIBOHOSf-3t6ns88fxAF9gLGwcfNW06YLt0Ui7khBtW-ek_nhWwYF2q5yNbQGkwpaYtDG1GrW_eHXx9DSs-dhU66KN5v7x35pCl4sTgQbq5jHyhYxcGtuwoAwCQTMz42_MQvDjJsSj5VJN3WEU8muym2yLV6NhWIGsICICIuXzG_hT78X5uZKSxkkgya_STD5hU8dktZ6l-ks78IY3r4EXze_QhhaWy_MunxK032ySYzHeozxEnNN5sCxmxqAcjYDOyM8n5-keoWdnQMd-BSAJq8XNQJdPkpr-KGsgzFHcdZDkp2c9R42Z9l8u2bH_EQIi2kFNU7UC8u9b5Y-tGhz9OVC_mfc9xMgGEKzpeaSd15OBwylpxeanVKUryyTm1fbYiXVVRn_e-MF6Eqv_h3MzmumWtAWJrOkYYu1fnAcipMdbgzaVww5UH4HpntQzQYiynAsOqOXGfchRTjXF6rI59uUJbTPnclWfZ6ED5-JBSRg0EICGsv3F3463MBBEorir9yfkUeB5eF057pr0LjRy2z9n1SdQG070_wTpDlIjNqVmnrR3-jcOI4eIKoMmBLLEWD5k8wW-qJusYF82Nc_Sfy5ueemhikcVjF46Nft-L5lTEu8iFlYASEcNU8nWOeAJ81oU66n8AJ37Iack0PIswb1A3r4f9xlczxNpDBZDzeW3osIe1A3_MXpWDA3jQ5XtCCLWAZ0spDmzCFdlyi9G8S4IJt2vCqy4VVPh89J04LZOKr-pr-cKtQWvZQSwSZIXw4Z2upEXfpOElX6JSqpJQnKFauzPI00DjXz6c2Zbe_0lkl5NGSQW4WlN6YmJChFi06yxAF3cFxD8HoPB-6PR5a789Y3FcsTb9IaLYOfScBjXTVq7WNh-QqHRC8p-uyGLAQ5EvY67eg55a_PlFrMZNoQFcEv0pUVzhNXM326GzyUp7gX0yOcRU4BZMhrt2xjl2FB4keaahCrug0Qp6N6oCQI8_ZHck8bqNVtfD_YCy6tqZx3Pmt0rzHgth8f7yTqU5GIw7RqiGHYEbD-4szSTqsM4_cnb4jkv9ufVW-VnSf65f847eDluN7lP2zAviw_-oZumTq2zFpYHPT10JJfe7bRYY2o1_fgXpnQSEsXNIhQ0Lnjj7FQL68shW_xH62GrZdQlGDgerOMdryERJmastpjlSaXRMxKLVWKpAe751MkDLtWIBZdIRGJOyoYhtrMq8utPH5JW3oxob2c-fiSj9rLaXzeH-v6Wye2xINpVZy1lKdpDxDHU1JGEIB0R8Msro67wcJ1fZNbL6AnB2MD9Dns92EJdTwhPV83V5T_oYjgQQKnuEnO6UBmu8i119spPbxsAjoWC4kdiTHh8lt6K0ds1W3xylqsKK0OGA7IUNqMFfXP0nepnQhkVJJHjY5LYdlk3ZrJYTh6YILW-LsOin9jegGK4LZdOdgiXf_ZrZUXdmJzVDClaE5Y9wjz5jZ_591U48ToOLiDiYvYiHWG6_gmyBPkgVd-aDwLjYqJMEuVO6TCOW1E6H1_Dv-pBYyOfQ1hSXo21qHPoVn-IXXnT99zLMtA9C_8eqgjD59-8prDUQTtA",
+            "offerType": "coupon",
+            "title": "Fixture Coupon 1",
+            "details": "Synthetic coupon details",
+            "couponCode": "FIXTURE1",
+            "couponNumber": "0001",
+            "usageRule": "Once per customer",
+            "usagePolicy": "oncePerCustomer",
+            "availabilityMode": null,
+            "daysOfWeek": [],
+            "allDay": null,
+            "startTime": null,
+            "endTime": null,
+            "startAtMillis": null,
+            "endAtMillis": null,
+            "expiresAtMillis": null,
+            "expiresText": null,
+            "isProximityOnly": false,
+            "proximityRadiusMiles": null,
+            "imageUrl": null,
+            "sourceCreatedAtMillis": 1789225199000,
+            "available": true,
+            "availabilityReason": "available",
+            "redemptionPolicyLabel": "Once per customer",
+            "activeTimerExpiresAtMillis": null,
+            "nextAvailableAtMillis": null,
+            "usageState": "available"
+          },
+          {
+            "offerId": "bso_zD1CP6VkKwdeG51udW0HxiorKNi1d5NuF-MkxH6IPkM",
+            "offerOccurrence": "bsoc1.661JpSoUS1LAKf-_zGawc2kbDJTRJdI6NL5JSkI4u0bM5EBFG3rVhQanZqXiIgS7rXI2nnpQcZbrmzEDXhJf9arDq-Z1SiM4XOu4AVjLLT_KCZ8SwJCy2n4UlA6l_qcVEDrBDkfhE3WSl3Bx3gHfozC3MkwnV7Qi0udlffzJMPVqFMWo79jWAj0jHdVtdfRqNrToq1BBN-dcEWztOwKOFnZdFgSdxwsOfh1OWjHoOH8xYTEDj178RVCQvK4-2Jd8H8qhjkcqSQca7EUcgnTHFpAb09NzdcXvYBNE2RDO4y2kTzDPwqp6Y4H8dQhl5tV35gGzpQFYPZtOfQJktP0pyA6reQnJw37Bx29ZS4ha-eCJNRKug-FnCoYIVcw-R-kSRbiWiDkERMYScZHuC_1zebb7aihIkWpdFjVHgo5xTGYpnAixvuD6MC4UwDO_ck-zY-_WrbQLZefe8Lfc4Mkx95NEkWZkvueHLibYCoEeLlpaZiBJCDjQamiKuwmZU37hEJnh7ToAm6QBYCrwU4uvy1AJZihWC1hlc5VW3gugFlm3rKvnCHDVYJ6HE2GgUmZ3yy8HCX61SbS3lEWphwzBcKV4vSazraVNeGQj0ixnfrhvGCMaIqWetNXcotlC68hSKAhtKvWvnTzuyOzcb2COZyP-cOXxhGavv3NNQulYYDYOz51yRZqCW72Buo7nAowG1m221Cbp7s65s4KGJ-euPtNCS6P6pFwJu0yL8gbFOBJZz-Z4K-4B9lt4LPHPUiRRLBMn5BcDfgPH8ITIM2fTCJB8_Uy4AWL__Qx5deBsYlmRyqKS8-4QbccBduhgLlW48QQpWnv6_-m2e3cxpaHZ34cJ0IGEqaPIGMlscJirDoSoBhgNqMghs6PjzdJVt3VjzEeL7KNw0h0H1b-bZDsmzT2lYLTK3CkNgKqK0urKNIXCuqE5BuheSx2_YTddcQCDXpmWv42OOjNORlXVf-k9riB7CNZHKMm2neb4jBJWWEo8XifzNwvD-tiOhJcHkM4toSR-4eYQuCOdeYmHllemfB_8gqReV5whWOd7KIcQIYJ5sFtp1KYkfbA9SeRRaPtpYcvoh-B1BiEOtYwKvUwha5J_67I1CKAKABdoxag9P1dr5_rB6e9pLBuSpw1uLzExKLu-aDeC7hcgA-Y9LyavkCZ8Hrj988jCEJE_upGFwaM45mZf8ZvpMe5rRbTHEep6CXziyvNZ7zQ_Yx4oQlen4ChCZG7SbyEWl0K5ihhk9KAFLSHMuqPD83hrRWut3LXQpsxlH-A2i2IrgYkDnVpkqT-fhazQSKEEFW8rCkAZdpqLKdsI2J2mTcf_PvinZlM3RCbQYmtaQznRk5hkdva1sf4hG7MreAPaJ00xHw82alAsnFAFhTFYFZSq0m4_Ub8W-PLah8ybjoURT6lNsvD0N0CUE8Q8OttY54dUBhFgtGC4hbdrd31tllRsBzGiJgq-1bTdz-sUvmmSAcosIYZcUXUCpf_tDY_jJgI0ABE_EVU8ihde4x81T5THaNyLcEQxVir1oMqR3kGxiECmckuRs2z48UkmOyrWVKwEjzFbz7MAt81b4zoSPv2eAZUXaHBpV7vMY5QcfUe429BKDbW3xu_1eNTPkKJVVQIFNRUjszpC7BZQxgK5Pg2Pllp0G_PIVqKGNKMM9OTQ1cwaGBcWMETpUh1GGakGLmLHhpbc-K9nwKK5MCanNpMrV61Km52VLZpYKYyOWF8_1-2OEh98mSTmNqS0h36E-o5195OgTrY33B1GD-huf8qq-HQUDgFWRdpgbbAXRBjO2YX_0mnFlC38X0M-nG2UJ_dIDWNrs7FerKEsF1zRenAddd5MIe4obOldE0iUS7ztz_5mB5Y",
+            "offerType": "coupon",
+            "title": "Fixture Coupon 2",
+            "details": "Synthetic coupon details",
+            "couponCode": "FIXTURE2",
+            "couponNumber": "0002",
+            "usageRule": "Once per customer",
+            "usagePolicy": "oncePerCustomer",
+            "availabilityMode": null,
+            "daysOfWeek": [],
+            "allDay": null,
+            "startTime": null,
+            "endTime": null,
+            "startAtMillis": null,
+            "endAtMillis": null,
+            "expiresAtMillis": null,
+            "expiresText": null,
+            "isProximityOnly": false,
+            "proximityRadiusMiles": null,
+            "imageUrl": null,
+            "sourceCreatedAtMillis": 1789225198000,
+            "available": true,
+            "availabilityReason": "available",
+            "redemptionPolicyLabel": "Once per customer",
+            "activeTimerExpiresAtMillis": null,
+            "nextAvailableAtMillis": null,
+            "usageState": "available"
+          }
+        ],
+        "nextCursor": null,
+        "hasMore": false,
+        "partial": false,
+        "evaluationContext": {
+          "schemaVersion": 1,
+          "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+          "attemptGeneration": 0,
+          "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+          "evaluationAtMillis": 1789225200000,
+          "timeZone": "America/New_York",
+          "utcOffsetMinutes": -240,
+          "availabilityGeneration": "a1373a48eecca4365003a49b78a32bf6ce418ca61e579716dd78225bd2f9eb36",
+          "validUntilExclusiveMillis": 1789226100000,
+          "oncePerDayUnavailableWindows": [
+            {
+              "startAtMillisInclusive": 1789185600000,
+              "endAtMillisExclusive": 1789225200001
+            }
+          ]
+        }
+      },
+      "favoriteStates": {
+        "schemaVersion": 1,
+        "states": [
+          {
+            "id": "bsr_uHmCmP5ojJpTSe_T7W7GPTQi4ADANEHCRPNHIOH7PW0",
+            "state": "notFavorite"
+          },
+          {
+            "id": "bso_bV5Q2p9Frju8Sd44KKWYxlvX2EcHgmTltkCwF8HHI08",
+            "state": "notFavorite"
+          }
+        ]
+      },
+      "redemptionValidation": {
+        "schemaVersion": 1,
+        "restaurantId": "bsr_uHmCmP5ojJpTSe_T7W7GPTQi4ADANEHCRPNHIOH7PW0",
+        "offerId": "bso_bV5Q2p9Frju8Sd44KKWYxlvX2EcHgmTltkCwF8HHI08",
+        "allowed": true,
+        "reason": "available",
+        "evaluatedAtMillis": 1789225200000,
+        "usagePolicy": "oncePerCustomer",
+        "activeTimerExpiresAtMillis": null,
+        "nextAvailableAtMillis": null,
+        "validationId": "bsv_0i9k1YxLI_2AZsSfMHQOSW3Xg4TiRESsJMK6TAFLbZI",
+        "validationExpiresAtMillis": 1789225260000,
+        "evaluationContext": {
+          "schemaVersion": 1,
+          "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+          "attemptGeneration": 0,
+          "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+          "evaluationAtMillis": 1789225200000,
+          "timeZone": "America/New_York",
+          "utcOffsetMinutes": -240,
+          "availabilityGeneration": "d7100063bf7416f48bc9a5b65912f99b20b45689a0fa0093a203c21c07544584",
+          "validUntilExclusiveMillis": 1789225260000,
+          "oncePerDayUnavailableWindows": [
+            {
+              "startAtMillisInclusive": 1789185600000,
+              "endAtMillisExclusive": 1789225200001
+            }
+          ]
+        }
+      },
+      "redemptionStart": {
+        "schemaVersion": 1,
+        "restaurantId": "bsr_uHmCmP5ojJpTSe_T7W7GPTQi4ADANEHCRPNHIOH7PW0",
+        "offerId": "bso_bV5Q2p9Frju8Sd44KKWYxlvX2EcHgmTltkCwF8HHI08",
+        "redemptionId": "bsrd_BwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwcHBwc",
+        "status": "started",
+        "timerStartedAtMillis": 1789225200000,
+        "timerExpiresAtMillis": 1789225500000
+      }
+    }
+  },
+  "guest": {
+    "requests": {
+      "restaurantPage": {
+        "schemaVersion": 1,
+        "clientRequestId": "fixture-guest-restaurant-0001",
+        "clientInstanceId": "fixture-client-instance-0001",
+        "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+        "capability": "WF7wURWMDY7DoLM3xuQHKuj4JNdDWvxU5-cLXaTW0Ec",
+        "criteriaFingerprint": "a675f325da0eeb78a3bf05738db4cf4cd20b98e4ee5f59eabc2571d252c1fe96",
+        "cursor": null,
+        "guestStateRevision": 3
+      },
+      "restaurantContinuation": {
+        "schemaVersion": 1,
+        "clientRequestId": "fixture-guest-answer-restaurant-0001",
+        "clientInstanceId": "fixture-client-instance-0001",
+        "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+        "capability": "WF7wURWMDY7DoLM3xuQHKuj4JNdDWvxU5-cLXaTW0Ec",
+        "criteriaFingerprint": "a675f325da0eeb78a3bf05738db4cf4cd20b98e4ee5f59eabc2571d252c1fe96",
+        "operationRef": "bsgc_r18EciLNQ5ZhJI1wXsjEtk19OofAT-341Rydu97ISFQ",
+        "checkToken": "bsgc1.AwMDAwMDAwMDAwMDgFOoGH1KQMV9g3VQlGXL50bGUK2ciBAxuC5-KxIebohzaBg85NoMfkwp3qR0CpKT7V-sfF3obLhwwCIqauRKDJ3I29LVdjex-QFIVwmJ8KAOtfhyRCBez9ks7f3-nZbYE66MqHWgjOhJ2CT1txMTVD5ihGhYDdzcoRQLhS_wlZH3UCPu91ZEJCRYHjTvIzrcuBjJZa1AOgBMdncLRnOC5XsuB91mFHWRvnW_945weAE6lndJnuG5A7zLWdPsanFLqkDMW2bZIrrs7su6LnFmP5mV6Z_vA8Wrwq6Bo6e5WRL8cX7BDaet0Miob9olkRqDB00vagzVZnuY9R93ERfrair615c3iWTHjeWDFofy6ljWJz7GaFj5YLaEL-tgqowjP6t1OW6ohckg_Lkz7Pf_eiTjDcJ6B3wiPnb16hKJd68R8Y2JnpWgEBNKvNQEFL1bBwf57t2M8fvELPyGPVCCTXfznCEohqofwj6gsRfogimoB_Sn1yAI2OW2XfhGgdlAIPlB8CjmHr0_-OMCXG1rkvRx8Snh5jPZ_dzOQMhwuHizH9OxLWaAnbiozuRS9Ryy-QBeVzrMJTfGvmZPJWLk5aPZbYS3m0ZQF9O6lhg6V14QJ-vxOurqZ6V3C93WQnfRvMt7si6zteTbnfugxF-Xy6NLz3OE-GqyxKcPScmhsdQLXZAbM8YWBOPzEgeaLW8cBZX254PDvvPykVwIw_7_P5-7hLEdzEb05md7h1-8DIVyjIub6ITQKf7Pqvx7TON5pZawv6xP9hsZOQNb4zez_zvFLr5753GtWWr4Nhz39ecsi-uL_l7AKB8ZBzKeKAdNjKmJbo_nK-0x0rJLC-cviHbEN6X4pSTt3kwY1ZkRLWuAjrXTJ9UFpDOk3nW7J2C0rnD4T4VwfbXFkav3mE1K4ipW8W-GhPwrynQf3ptqyujyLmZJtS8qGYeQHegjJOrxadJ7ONC5TLZMHb6mAh5v7R_jiEuMzU5SdF5ih-he-szXW1BroqeRCg9oWoDoY7UzBBYzgT0iFdYnIV_gM7SGqDDSdmgy3zCRNJD-3cFufNzY5xNOVpPQWqgl7Q3j-OWMAiBbYCfMPm1nMNZ6I3pCce83vvf-xPJA5eROgkUq8KBJ9vFTagPbJgsAQ0Z-vfi70Ag24s5h5YMwmOpn7kdmnFyozA0ayDfdALpRvoxcjjxwGBYLd7eossKc7hCW5hUqRCHDRgUX1yM9ntQwpUKh_AI9r46ammH9tLwEHeq6C8spNbJhy1ZbHXB5GykVc4CynC_itZQ3YKOCQiJ8Xm2z0paOhSRQaQB9RaeRR7L4smFCAP5-lt7Vwk3V75-ZwHwaJHtApAXL8VC4SlmRNKddC5J-w3U0U2CFvs91QxqJtDqx2Swa8hiPUGD1EKudC155OCNKg1RJTpAy4YiW_V9ZOTBNLJUFe2tPm4tGNI3mriLWDCHlX_G2BolBi8cdqFxEMrJ0t4dUo37yLA0m_tIQhRj9XUqnlAGMDLLTRmpAU835m06pzdXSVRtNcnyNj2qGpktIzcXG2uSxt7w9LQZtcBintXd_LIJ-eu-egLxYTBGZ88SFYu3mbsyaUJcCzsKNpDjk3uzwYhDVoiy8tFPrX3B4EErlPz1B1277dn04m_AFgoYX1655_XNGcllCnK7-4BIn-KHiYq06FEbrc-c",
+        "batchSequence": 0,
+        "guestStateRevision": 3,
+        "entireBatchEvaluated": true,
+        "unavailableOfferIds": []
+      },
+      "offerPage": {
+        "schemaVersion": 1,
+        "clientRequestId": "fixture-guest-offer-page-0001",
+        "clientInstanceId": "fixture-client-instance-0001",
+        "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+        "capability": "WF7wURWMDY7DoLM3xuQHKuj4JNdDWvxU5-cLXaTW0Ec",
+        "criteriaFingerprint": "a675f325da0eeb78a3bf05738db4cf4cd20b98e4ee5f59eabc2571d252c1fe96",
+        "cursor": null,
+        "guestStateRevision": 3,
+        "restaurantId": "bsr_9a6PKkPN0KcUcvnsgSjYD_V_55cvKhg5Aw027XUED8o"
+      },
+      "offerContinuation": {
+        "schemaVersion": 1,
+        "clientRequestId": "fixture-guest-answer-offer-0001",
+        "clientInstanceId": "fixture-client-instance-0001",
+        "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+        "capability": "WF7wURWMDY7DoLM3xuQHKuj4JNdDWvxU5-cLXaTW0Ec",
+        "criteriaFingerprint": "a675f325da0eeb78a3bf05738db4cf4cd20b98e4ee5f59eabc2571d252c1fe96",
+        "operationRef": "bsgc_yqjIXPRWUmcQtJPbMfp6QnjJvuug16GyV7AyBKma2Ic",
+        "checkToken": "bsgc1.BgYGBgYGBgYGBgYGT35JQFqN3qNOLTe9JSfao6GHRsPkDH6LLl-WyPhcrWEOtdkuSUrTbiOckvMkAMW1-zyh1uUA-VfgNkStnVIj6zA_PDxJCqe4YrqQBxnL-5e4sSu8Pm3YL-jC8Vd4qQPW1BZBicjHXLb6kWd_KolfHf_a0KyzdSo8WqVdMObxo1HXBZ-_O_XMHxzKN4Rdep1pfqqdAs9W1g7bhbsVATJec1ZuWnSA_3PJsvH4S8U2A9szHWw5b7ordSEoDERFxQSl-BEYvvyA8G7FqhfkAOkPrTEYJ5uHjvMVqHS-UsUwazi--wuXA7ida31saaWOzb29e55NipmYI1fo0_K1G7W1zn40g8bJ6QTzNNp9uJss_8p00d-fyBmamlmMcBuL4GnXPEkK8QBxLvFTuM6urRUOfzBlKnEYW40R2xPEvnrNj0MeS_2FJSqrYEVXV8rnENuGAAaob0HAgeIDFSAgHsOuPKZz0nWnUcJKcW4tSo1tNmvUQuZk928-2uzytzfANELuxzpIVamGB9mNl1NMGkJrMGLKxPZ9ju7AnrcC5_oMPZtaAhgLr3rRv5yzzp5LeS_RjHfn36e2OCQ5lfxx9cWeZKq_58tnGdsOVF_f6WGLUtxqYcms4MsDp_aY049czer763aBNkMrW_V1XAvnqWdUAyUpCDhVu4xm4ZNAqGi0AjyXK1cr9zC_KUh0j1TsmYCUcZ5kgouxINfmxM3GdGR0W9gQJrvgede2aHy2Y20hkZgrlN4jI_F2KOJ13gX6LYOzCArVXXed45gbnqKqRzZJdJCmknIurv2YfNLzBgCyLH7qdHJSjQ2ilNtJVPZwun2VYEMRska2RbT_ArMfeQzrj28G8Woc9QvEhemlMtOEfikkp0hgNWUEjmnx9V4JUOz3jlGZe-6oeSgM6kgtG0R4FLfVjBGQjxCe0EyRxY5Zx3fYqgCQhc7oLOBLylsvjflh5H0hKs4DjXMKd0K1X65zmjK7myTZzTeTbBcBrPFjJWcIvA6NKtcasxEYh9K-nVYWUn9ZODdcj4rrQ9opKMex3awxqX4bkdBGJmlF03GCuTRDTlV1WqBCYGOmYb4ewaZuIbxhwx2sEigA_UtINCTDGh728JCLnTLRnIB0-gZdXu-UrpyDw8nFpTlGN01R3TuOseoH9t0daHzxNHLmKXw0-uVwpwumzqktWc0q2yDqk4yPCTNzF0JOfEf05xaC7UHfAjMRNOT3vU6cmU1N3Nvt6v0brwCeeqUCl4ezHFTqt-9Ny8EuBVqVpQx-kVmP0KifBb6RpAJI98ZK954dUVOTi8I24qeBCxxPkf1Mm3K4oTp9RwzMzOWKxaWQKZQomAUUa2y76p4ejttltgNQDRuyaDa9xFUd_UkssSbQ_fms_nG2BJ541uFc-6QBqc1LqEA0Rjq1SUaNwVmJd2keVB5GdrEi2n_ckbujXFfRMe0_lgC4OfHkSoe_FW23_XKZ0TXUK449YQVrLYdcDcGo8Jz0p3KKVGcvbVlfaJB3Xhv9xzQhGUky85IHeNoCDOsUU7U3FpPm1mpc9y1UoJ0-pRRRHQjZp5uURADmdl-hVbDfKItY2oD0hYo_hwH4VMrP8bZn7oyYsY9Y759yy3JsZcR1kwd7p1Iy2ehoabNhw31XJ_DIKAjgWvh50Pknpi6CHIZuNp3f_XcustKM50a77dCNYfHToAgOmqkY11M6vMICI8tUhwosNQtVCo-dMc70g59ZmAB71Yq5",
+        "batchSequence": 0,
+        "guestStateRevision": 3,
+        "entireBatchEvaluated": true,
+        "unavailableOfferIds": []
+      },
+      "redemptionValidation": {
+        "schemaVersion": 1,
+        "clientRequestId": "fixture-guest-validation-0001",
+        "clientInstanceId": "fixture-client-instance-0001",
+        "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+        "capability": "WF7wURWMDY7DoLM3xuQHKuj4JNdDWvxU5-cLXaTW0Ec",
+        "criteriaFingerprint": "a675f325da0eeb78a3bf05738db4cf4cd20b98e4ee5f59eabc2571d252c1fe96",
+        "restaurantId": "bsr_9a6PKkPN0KcUcvnsgSjYD_V_55cvKhg5Aw027XUED8o",
+        "offerId": "bso_Wf7ffweOSJttNltBeP8ds1c06VZmNkn9RyVgXbPRH20",
+        "offerOccurrence": "bsoc1.O3jnbaovRExu53OwWso8NDf34spdIagduIuHzmuM0caLSU76nM0k2x0yM4Jw51D7Z4uc_HSYnuAaqndkujeSlFZ_5WNDg16V7zc-n2Z-aqC3UvWjMJiGdAsNSETXg-0-p7nT2ZzrpBmI8owGFM8uLtzVVKBLVzOM91PUYFvqKqquOPTxvDfyHb2ror44suL49su9MWfZqXqHZUq-LH4OmvwDO0pS5C-MtxA1FHSmTf8Ogp8dlIPqw-tNgdJMjhDSAFfFE6dRjRE8Vbpbzsq8d4WPBVO48obHOKh2LYRCHV2-Nh6wq0cmyl87X_Zfd7i4a8rdzmshkd6R1bzdPRyQ0MO9mX4FO5qA_8m_flrP42kU9nOQ5TphPH_JXZEBf02nt0etE2uV87dkbaaxApkwZP8FDxmSnRvRDgyrqKzOwO4hwMwX_mBt0uFuXcPCgQJ3ap9PWSaHsAdope2tt2n7cIwIDr7rPudsOwoUHgirJrai2Pp8GZgaIkX2oIserFtLSUfkix76Sn1jnfG749771DE7a0w2CHZ7PSP9qnTipC-ZQuaqzHFTonE-EVeJTniG6tLoFUmH9WGKFeEvBRXBr2Reoy5UclDW0t30P9buqHDIl61nHzCwiwEHkjakSH_xO5QqSt1pUCAPWSbZqgoOBreb8Tfox6C0qHL6_LWttFCYsQvlQ5AByBvc5EUP_2VJ0p0Jan-DIPrwgZ8XZej35BMKsLPIZbWNwwsQEDpA6h69ASXU6qfDOiWn3melj95o3c783ZqJxSCvrHDMp96G1YLImOLApHdHt49zBoT0swI72QLOjkx6FjeEZFzgfvi9xxEbrlsGObw75nthyiHAh6e7blM9S5qe8sEatABILwCq94lxba4vT4upabew9nwD1V2nqLq7KNjbTFfW4Da2LNj8tkvcQqOAwqztnv99N4voOgseRkW3dmh7Xe1HQ7XqvuO7XY9XTfj1FeL4v_eHMVP9IaOQuY6-XzfN2yCoQ7dEEAhqo02qoyx0jklLyQOprKz2RCSbrilnaBU9ttpeUfDYEEI4kRYWf-SbjCpJlsaOcPPJ_kMarVGbjP1pHEWCy7rwUy0j0NGCCxHiR_7bgVTyiZGpqB1uu4VFTX_lPK6CR-9lzanTAaH3ECLn1CdEoDXtjx5NaeqAsznOYYIKgMCmbjzeSm5XmrN-eAuu5jyq4pKBRqLVICPYxvci4ctYEGVBlWn4ZvXquNbqiDcKH7M0iXsoS4v8kATCGxaVD4jjG18JgG3NmFgQw29odbF03r7sxCpCL6USSE-sDrHxtjkIInmp1F193JQM8Tf-ISB-R8rhPiojDnxe00rFeL39Qmp6QeuXT4F6KIj82QctZhacI9P6nYYjjABkd8kyGlGorV9LGKX80fRIMtUxo_3SjR5Dt7m868GhPFU_ZyeF6188w4LUQjbqFSRm1VCKwfhdw6IDnB11veJPWJmbrobE84taP4VOjVUcunVoRG-Nv5UJ9DeCGVwL_KlEp8Gcf9hcbk539waS_YTyCIaUMkHrTreOmJ77IvhoqON7dphStvmT_zacbJT0h_gz49dawsSfCBPJZ_UjchVES13Tdoshwddvi3coeNbYyNpjdZ_jpC1RH6hKKQy7T83gNP_hBtuIEUmc99X49wNSjLicgq1s-mEV81QPZOUI2vlpgOVsloc8A-2NKU8IaVOA0Qp4SUiXIa6DwXMM5XbQZZP3gDeXewaPYuLgRypSSlQ7UJz1hTTa_NfUVkoUdorzEu4W7i_Y65anKG72be6WwnevrD7buz98hM8ZMjyVsUdsgT7EfTnnO2xDLw1k3eWgWrafrvMLHa648WKcsh7uFpphlQooYIKUOWEpuqSojFJs",
+        "redemptionRequestId": "fixture-guest-redemption-0001",
+        "currentCoordinates": null,
+        "guestStateRevision": 3
+      },
+      "validationContinuation": {
+        "schemaVersion": 1,
+        "clientRequestId": "fixture-guest-answer-validation-0001",
+        "clientInstanceId": "fixture-client-instance-0001",
+        "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+        "capability": "WF7wURWMDY7DoLM3xuQHKuj4JNdDWvxU5-cLXaTW0Ec",
+        "criteriaFingerprint": "a675f325da0eeb78a3bf05738db4cf4cd20b98e4ee5f59eabc2571d252c1fe96",
+        "operationRef": "bsgc_JCs0X94TBxNt-2nd9IIsQd6ROyCD9VsbPqNcpHah7Ko",
+        "checkToken": "bsgc1.CQkJCQkJCQkJCQkJzh3W8ktSW9SNsdyKgzHu1rY4JIb4zzbm8Pt1xUBogIekLiwar84Dl7klnWCJHVQWzLF2lwXkk9fuJQAJLoVX3_EF6Fs7mG87n1CzO7NnMVQvg3uL7jyjD0GjD1pFW1gW0MYre9tQdSGM3GKkHK3bHiwRJNSisAeREycbHwT1Nabl_vwCiVlzZ-22jdFpTUqr8Ykp4rjyp8fGCdpQYgMIRnvwTCDtCn1_OuALj9smReawngPdNm6h0bJzbXBtR-1PHlQpsEGarUMKci1TWJIIR9Dt8qVPq953jmCG6jdyR7P2CKLsnh9qo4iNt7FyM_cxhPnoVJb5qVvCeB2tIm36pmqwIRfhS-xMaQYiA_QWrfw6bMvtJgnsLgWsJylBaIFKHXu5YfUoEIqR4cmSS_HUYpUcD1YJ-3zaQDbE4pDmn1VgBSFrn2u0nIbvU1kNoNsmg--CEI8XBB_bQlbweI7HqfCyqXxD2vaFP9uhj0y3qL90kE-_uuSXpyWTjZMS7CvuhFKTN_kneXJj5_TY_wPWO5SA0hRWOyMz0rrjmtCpPek7E5Z0pyXYfCAleJThQNJVVHHmNAzw5P9Z4h9rmBx0Q0p3yEgdxRDd3lX5JlNw3oKhNuRiytR8ekk4N-naaFwaLVH38pWbH1zVOtJ3zv2Y5L-VqoU7n03IbUDwvURv0DZlALOp2ZkJL2NoSn8-f99AvlocQO96BfubnxP5s3Ij2I5C9NOrkPn-vvqVsNm-Aib5JwFKJqLXs81mE_FMuuQLG1kkGBMqReD9fD9iFomw8Fuh2HTQGArlLs_kU8rYG67SMQ-VF8kIK2AjXZiIy1uO69k7NqNNZWD0wJ6UurhSWQLOK9bIb3qGC24_zMqKXmysO7sz5galfjn0_wUZClGGVnzmTv95__0GkZ6EpUQZFZ1a7fmE0U8395asxYNLGouNt1-SA3wxnYl3pm1CHFX0S9V1J4fhnsvPypn4PyHjXSrCRezuCv__dj188JeXRVv-mVkgiRVM2FIdBSaESnNhNWx7VDHYcRXuc1Whl0LewVjDW-Jbh_lqznyXY5STJQc1DquoogFzE8Nk8jxRRG8_I8DdCsG2ZpIW5jaxCNmsVEOO3hv5yJV4F8bsjf0r_9xPaRQ3KnrVO21NvFU9IXvQAqPWl23m6F9Z5i0ylfFO9zOphR-yRtdsUjnqyfldSPk4aYG4n-DXaXm29ARIKZbCD2mC1zjTboQR5P0yHwW9oxH5s-NVKRwBBAIY7s-y-JNxnIy_pRGM-YHC6bABHcPmQg-cOYiXOZGhU1Zo5W0cAv7cbSsFkEZqwigSsn1s3uSqt8aRxFmWVM87nKRV7gvgdzK4Wdkc8_s4ySWG0SfUTFgFdLOyQEjzFyPfpGDYEW0mgmKNdcRi8EAOYsDq_kKG9KEOZ2pZ6VP7LySgtbS3MehGmwbsXMrsTMXEb5lFLYTpp-bwg7d8_YwCaf2dNQ7NNad2ZZJ265g-jUAoQpCNyJqYYbfI8btU4nK3XWTmf0GIU_5XiyNG8IbTW6G-ql3-aZw9FfzvxHafqFr3GgmlElKu2oX0MMQJmWb_4DKJfQADV2loMaiM6_M5h2WQfk6pCg1bo9XWU2m3VFwsSCXMOzhXrUFDOXuD-VW2Hj3liVeSV8MdixFQeoJVSLcOlWHxGvAO3gAr1JrDPw",
+        "batchSequence": 0,
+        "guestStateRevision": 3,
+        "entireBatchEvaluated": true,
+        "unavailableOfferIds": []
+      }
+    },
+    "responses": {
+      "restaurantChallenge": {
+        "protocolVersion": "bitestar.customer-bitesaver-search.v1",
+        "schemaVersion": 1,
+        "outcome": "guestCheckRequired",
+        "operation": "restaurantPage",
+        "operationRef": "bsgc_r18EciLNQ5ZhJI1wXsjEtk19OofAT-341Rydu97ISFQ",
+        "checkToken": "bsgc1.AwMDAwMDAwMDAwMDgFOoGH1KQMV9g3VQlGXL50bGUK2ciBAxuC5-KxIebohzaBg85NoMfkwp3qR0CpKT7V-sfF3obLhwwCIqauRKDJ3I29LVdjex-QFIVwmJ8KAOtfhyRCBez9ks7f3-nZbYE66MqHWgjOhJ2CT1txMTVD5ihGhYDdzcoRQLhS_wlZH3UCPu91ZEJCRYHjTvIzrcuBjJZa1AOgBMdncLRnOC5XsuB91mFHWRvnW_945weAE6lndJnuG5A7zLWdPsanFLqkDMW2bZIrrs7su6LnFmP5mV6Z_vA8Wrwq6Bo6e5WRL8cX7BDaet0Miob9olkRqDB00vagzVZnuY9R93ERfrair615c3iWTHjeWDFofy6ljWJz7GaFj5YLaEL-tgqowjP6t1OW6ohckg_Lkz7Pf_eiTjDcJ6B3wiPnb16hKJd68R8Y2JnpWgEBNKvNQEFL1bBwf57t2M8fvELPyGPVCCTXfznCEohqofwj6gsRfogimoB_Sn1yAI2OW2XfhGgdlAIPlB8CjmHr0_-OMCXG1rkvRx8Snh5jPZ_dzOQMhwuHizH9OxLWaAnbiozuRS9Ryy-QBeVzrMJTfGvmZPJWLk5aPZbYS3m0ZQF9O6lhg6V14QJ-vxOurqZ6V3C93WQnfRvMt7si6zteTbnfugxF-Xy6NLz3OE-GqyxKcPScmhsdQLXZAbM8YWBOPzEgeaLW8cBZX254PDvvPykVwIw_7_P5-7hLEdzEb05md7h1-8DIVyjIub6ITQKf7Pqvx7TON5pZawv6xP9hsZOQNb4zez_zvFLr5753GtWWr4Nhz39ecsi-uL_l7AKB8ZBzKeKAdNjKmJbo_nK-0x0rJLC-cviHbEN6X4pSTt3kwY1ZkRLWuAjrXTJ9UFpDOk3nW7J2C0rnD4T4VwfbXFkav3mE1K4ipW8W-GhPwrynQf3ptqyujyLmZJtS8qGYeQHegjJOrxadJ7ONC5TLZMHb6mAh5v7R_jiEuMzU5SdF5ih-he-szXW1BroqeRCg9oWoDoY7UzBBYzgT0iFdYnIV_gM7SGqDDSdmgy3zCRNJD-3cFufNzY5xNOVpPQWqgl7Q3j-OWMAiBbYCfMPm1nMNZ6I3pCce83vvf-xPJA5eROgkUq8KBJ9vFTagPbJgsAQ0Z-vfi70Ag24s5h5YMwmOpn7kdmnFyozA0ayDfdALpRvoxcjjxwGBYLd7eossKc7hCW5hUqRCHDRgUX1yM9ntQwpUKh_AI9r46ammH9tLwEHeq6C8spNbJhy1ZbHXB5GykVc4CynC_itZQ3YKOCQiJ8Xm2z0paOhSRQaQB9RaeRR7L4smFCAP5-lt7Vwk3V75-ZwHwaJHtApAXL8VC4SlmRNKddC5J-w3U0U2CFvs91QxqJtDqx2Swa8hiPUGD1EKudC155OCNKg1RJTpAy4YiW_V9ZOTBNLJUFe2tPm4tGNI3mriLWDCHlX_G2BolBi8cdqFxEMrJ0t4dUo37yLA0m_tIQhRj9XUqnlAGMDLLTRmpAU835m06pzdXSVRtNcnyNj2qGpktIzcXG2uSxt7w9LQZtcBintXd_LIJ-eu-egLxYTBGZ88SFYu3mbsyaUJcCzsKNpDjk3uzwYhDVoiy8tFPrX3B4EErlPz1B1277dn04m_AFgoYX1655_XNGcllCnK7-4BIn-KHiYq06FEbrc-c",
+        "batchSequence": 0,
+        "guestStateRevision": 3,
+        "evaluationContext": {
+          "schemaVersion": 1,
+          "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+          "attemptGeneration": 0,
+          "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+          "evaluationAtMillis": 1789225200000,
+          "timeZone": "America/New_York",
+          "utcOffsetMinutes": -240,
+          "availabilityGeneration": "982429a15680fcc8229aa6dd5eb0f83ffdb64276a993aadfb2a5ab5cb269b8b1",
+          "validUntilExclusiveMillis": 1789225500000,
+          "oncePerDayUnavailableWindows": [
+            {
+              "startAtMillisInclusive": 1789185600000,
+              "endAtMillisExclusive": 1789225200001
+            }
+          ]
+        },
+        "logicalExpiresAtMillis": 1789225500000,
+        "candidates": [
+          {
+            "offerId": "bso_Wf7ffweOSJttNltBeP8ds1c06VZmNkn9RyVgXbPRH20",
+            "usagePolicy": "oncePerCustomer"
+          },
+          {
+            "offerId": "bso_S8NL00zeG6d_vut89gSPc9cpiScUzBTYeQ7vzIM-osM",
+            "usagePolicy": "oncePerCustomer"
+          }
+        ]
+      },
+      "restaurantComplete": {
+        "protocolVersion": "bitestar.customer-bitesaver-search.v1",
+        "schemaVersion": 1,
+        "outcome": "complete",
+        "operation": "restaurantPage",
+        "guestStateRevision": 3,
+        "attemptGeneration": 0,
+        "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+        "evaluationContext": {
+          "schemaVersion": 1,
+          "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+          "attemptGeneration": 0,
+          "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+          "evaluationAtMillis": 1789225200000,
+          "timeZone": "America/New_York",
+          "utcOffsetMinutes": -240,
+          "availabilityGeneration": "d37afc4b4c9f1a819bc24597a4a1b665e8bd28675354a3d0285483be9324fee0",
+          "validUntilExclusiveMillis": 1789228800000,
+          "oncePerDayUnavailableWindows": [
+            {
+              "startAtMillisInclusive": 1789185600000,
+              "endAtMillisExclusive": 1789225200001
+            }
+          ]
+        },
+        "result": {
+          "schemaVersion": 1,
+          "state": "ready",
+          "attemptGeneration": 0,
+          "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+          "restaurants": [
+            {
+              "restaurantId": "bsr_9a6PKkPN0KcUcvnsgSjYD_V_55cvKhg5Aw027XUED8o",
+              "displayName": "Fixture Café 😀",
+              "streetAddress": "1 Public Avenue",
+              "city": "Orlando",
+              "state": "FL",
+              "zipCode": "32801",
+              "formattedAddress": "1 Public Avenue, Orlando, FL 32801",
+              "imageUrl": "https://images.example.test/restaurant.jpg",
+              "phone": "+1 407-555-0100",
+              "website": "https://restaurant.example.test",
+              "businessHours": [],
+              "bio": "Synthetic public fixture",
+              "distanceMiles": 0,
+              "isLocal": false,
+              "catalogBindingAvailable": false,
+              "offers": [
+                {
+                  "offerId": "bso_Wf7ffweOSJttNltBeP8ds1c06VZmNkn9RyVgXbPRH20",
+                  "offerOccurrence": "bsoc1.YQHTrRzS_WwXePh9aDiYOUgh5CnsAam5pU7LxI0MU1isHGXSF9jPlG7q98gmhRBbtmjSZGUHgAaG1y1zgM5VpPW_ckeZO3CS8hrIgw0XC-OjubDRYkQdOOnyAc3US1k-OU0kYFnPJu2cmF_EU9H9aO9uIxnL42mhDfn3HxRfU2DfVgzMtjGeZT7ZPzBvdew9Lk7M5yhg2IOOeJFUpVyu6RNTa3TwksC8WSiZUTmxh0k1wA-1_etF5eLoAg-z3DMEoTORfXu_F06-xnK1qEUNV2iTsq43ByynMZFT8AzRURLp6_1pRqjaEfM2yq19DZXNCm8ABvXDt0XNNWOxfYEXglh_RDW4dLYJ2nTuamRR9rquoBfiEJ7LoRQZyIoIXo3zVC2ZIfPzO2nWrtQ4_Q4qIBDIw_a7ag2CtFu4aE9mqAgJ5-plltYVLCK5ekHqQhve9buvOgFRma-9G4D6oxqtVRyXf3hcBQCPofOO8VI-cj3qSbAn5V7CpWqhFSpAF9qBvIHcKsecH9YRnkqVXSPXJ3QJf4SbAPsI7ovWQPsDqn-lCqcxLt_4cJDgKhIrJLpOZIAF_Ys2LMyGFQbEfn0RYsQehTiTSYjlYSA-U3qD-kapmdafaaDgILXkooJdct6VJERBKgKSFj1nw-uy3bW-yQyFBj-rHz_gauYqsRZKZZdexJSxgdSCavrZSz-75B2rX1XhrKThZ2N8dLCfUw8BUw58IUKppLr516dx_xsp8pKtdZ_-34t9E3qCSI3nPkSFfLM9RctxEgoZ6TWh6RPObUa5vpvP8pKk76gmUUUBvRkytUrwv6-NSm9tv4eVvtJVpC_q5JppFgzCfM0w8gfjnGZwPVHASqhMrUepyvejE6ksCPbVbzSIt-XZC5ghXdWj9lfwkZT4x4W1CO_E0KKM8avkoktnL_vQKSgd0ZtbinbheROxpY_7jG_xsFUldRlmUb5S6w6tCMcE7vZv-9OivKtauxivvo5AAEbpgcWKKG-sW2EvadCRDwdpwVEAYt2P_w6bpRlNaDD0MnKoljslIsDXnn4r3bcCGSIIRUy8OZtZ5ddOzYLXh2O9Nn7xKtML2XmgyAIMyo7Fr-fM1qw5RSX2jlzgcUtT1u8rwwK_hzLt7FA69u6xDwPOqXXKGarzUk-Pr0YGMAcqaPoY-lqzNLDFVWq5wYKWi411yXCxdZqQPbAfP8FfbmyV3nwza5k5CW7gQIfopG_9aY4aF6an30XPnG00L-gMHxWsBsG1ZmeVn2VNm0L5A8td25VFSsvdltA0gAcgewsc_i4HYk0bEtFCuNOz7ty-xBP7pHs0Oe-lU7vKsYD-auLf111gQmmBvqtTSEVA0Z5IHxkoLxjrAS6Ikpptv_NIko102BrsmcBOzUUFJ3CmSk4GlqytTlO6eddyoPlEWMJ3WGrSsVhhsQWlQIIvqUYtnzSQWeLK40o7WTmuatDcUu1TF1UPFoo3-QMpyXj-aCMfzVCYJtKkeglI4WRvLRDZ3AzaYRckpl3dfLL9C5FuPNGkTJ0-N__teMzZPmahyHPPQ_zM5fy36MNJU59lcVldpTyhWXrjn8-q3-PILr_X5sTsbftUEaE4ndJidLHiOI7n-G95_udCy2zdBbVT3otCCGCS8FykoJq3KMFr8zUCrC-s5iQc4-GCan_Fhkkw-wABlmTmM6RYNfHhYfljuViuFtwGI-z5fkMGmZFvZBzV9JglhuH1vzvrnY06selMCXPpnYrN1esMFPGwJ_iQ8MJuYltYa5zy8LKB681h2zvdXxgXmnf7YVI",
+                  "offerType": "coupon",
+                  "title": "Fixture Coupon 1",
+                  "details": "Synthetic coupon details",
+                  "couponCode": "FIXTURE1",
+                  "couponNumber": "0001",
+                  "usageRule": "Once per customer",
+                  "usagePolicy": "oncePerCustomer",
+                  "availabilityMode": null,
+                  "daysOfWeek": [],
+                  "allDay": null,
+                  "startTime": null,
+                  "endTime": null,
+                  "startAtMillis": null,
+                  "endAtMillis": null,
+                  "expiresAtMillis": null,
+                  "expiresText": null,
+                  "isProximityOnly": false,
+                  "proximityRadiusMiles": null,
+                  "imageUrl": null,
+                  "sourceCreatedAtMillis": 1789225199000,
+                  "available": true,
+                  "availabilityReason": "available",
+                  "redemptionPolicyLabel": "Once per customer",
+                  "activeTimerExpiresAtMillis": null,
+                  "nextAvailableAtMillis": null,
+                  "usageState": "available"
+                },
+                {
+                  "offerId": "bso_S8NL00zeG6d_vut89gSPc9cpiScUzBTYeQ7vzIM-osM",
+                  "offerOccurrence": "bsoc1.utz93EqbduMDcAmIRb4XnkOx8B5vh78C-dojB5DQQzIC1itS_I8F84JGaSk5bUUbu979kuSj7FJnojtLwG6OqSAAtBRtbOawEGDO_QJwucPRFRfuMMQ5GJFvZBO0NVP6PbmbiaN37NyvtT2BttaudQwcQxQSOPlW1mHJGLNdI_Xu7W11qFh_szhb7l0QEkI67jENetMIae-Vo_Kp9nN-P5IT_XeN4LYxVIRbaaCc4Sqij6D6rY-wQ3lIXTwI6b3wEs62uB2NTk6fFlTaq3IQP12QgF5gzlKyMnc8dgaZExud7uy_LJkXbehFYDn97xccfVN_ir8E8c_9cvIPOxCT5F1l66kEkr1HSSzJJUPpS1bTeJCkLApOTFAbBvWnLZw7QE971bJJqJ89eCqflPDj47TJGxzLbLenDJ7zirUm5EzGo1ugs2IQPCqDvP8hg0TvF19Y6u49NHKpron3KbUnEtQSSGMyzL3js148ZU9xKqkXYAJgTU4eK1LCRKFqryQLSImGUGFvx_Gboc4V_HjopASdERibUwzdJaBoFWAcOHclrF0Xx2VyVIGua6R9YimNnEmBWmpn2DpcwjjlKnOy6SbcwEMAEqOiHsRjcvfj66fXBfWk5ACxsOZBxa3KaRfP5rCSE1HdXBsdyusEXodpVi2r6DfLyxQ7h5tPT-tiPcqZe3TIIm-Z-wqnYeNkzV5SpF158rIBICdM_mppKne1vOCnZFyE3kjbczb-dD6w4tOo6UgYR1k16sltZzvLInpPHRG9FCsXtrhC856T--fCmeiTCNyvCfUCicIydUrkyXAABWemk7z8XhuYCZ0mVb2jHhUlx_obJK9Bqip1dDfjrTfrtu_fl7bHZPsm2WYpHQQ3Ob_M0ujnHF8_PV6EUH4qRKHR8Hh9Fx5ndA-V230rsefqz7wgY0nG-MDCf0MGK968Slgddg_3rq7G2Et_NWEGawiok20P3UpJJ4bhajyE9C4dfjwnT4HgxuuOjehSwlJ60AZ0Ld7_XBTaPxAO-t_QSBWaCx4tXkmnMyyqqOgfBEnpOdLwWK933EcPAc7UsQbFmQ5r4jBDq-jafxpLXs7zh5kHrtDyzMt1-OSlxBsVLbWloeZ3mLJ10H6whRufgZQNQ1Bx5HQNZD7dKA2OaW9pK4otJPkk1JSbHiYwN55qmRL_3b-6YXZT3_kRkIKh6jDkytG2ziI4UCt1Ld1BzqsKwv7HZkVmLusRVCO2yuPoqFlIEA8QA7RRvM7-GWKp0yb1Z0eFGtBE1-BFi9NZsmBy2c0xDhXhvxffB9FW5dQ4GVrc1637D2STHHjCPUsbZr434NTZqeO5voahKFwiaEV4AoHKhFMsM4eXcJcNVHcjtWGOER55lXHpLUALnXpMvy3ZEbY8iLBwJu-WSiZIPSvK4Hh0lPqpItNlc1O42BmaxE4cK85DJqbgAz0irPI10w5AR2iGHNNJGt8HwITd68np6y4VFs_RRO_lyQjJf8IcO3T-R65MEP_fBR9Py3tRrY0s0ZX1luXJoGe21FpDJxRcmGNO5Mtv08lkwKOjywMWyV0wI713fbwR92loVah44NZzO90uDnGvzrhIIIHnTizNSAQEib7LVMgpwg5E3kVBrj2WXz_WIXtjJmQVJBEF04qUxC9DUbqmgOjS24uqDg4WBG6lft_4qxZt6fU3y0XgSKuHPucuj4aV8ohFvz176EQC53QJXeR3npmCxB-hhjEfPIRENu_VjsDAUx5WwikXuBBrDXbznFkTAURP7W0rJEp90KjyyKay23TQoCAIpLo",
+                  "offerType": "coupon",
+                  "title": "Fixture Coupon 2",
+                  "details": "Synthetic coupon details",
+                  "couponCode": "FIXTURE2",
+                  "couponNumber": "0002",
+                  "usageRule": "Once per customer",
+                  "usagePolicy": "oncePerCustomer",
+                  "availabilityMode": null,
+                  "daysOfWeek": [],
+                  "allDay": null,
+                  "startTime": null,
+                  "endTime": null,
+                  "startAtMillis": null,
+                  "endAtMillis": null,
+                  "expiresAtMillis": null,
+                  "expiresText": null,
+                  "isProximityOnly": false,
+                  "proximityRadiusMiles": null,
+                  "imageUrl": null,
+                  "sourceCreatedAtMillis": 1789225198000,
+                  "available": true,
+                  "availabilityReason": "available",
+                  "redemptionPolicyLabel": "Once per customer",
+                  "activeTimerExpiresAtMillis": null,
+                  "nextAvailableAtMillis": null,
+                  "usageState": "available"
+                }
+              ],
+              "hasMoreOffers": false,
+              "usableOfferCount": 2,
+              "offerCountState": "current",
+              "favoriteState": "unknown"
+            }
+          ],
+          "nextCursor": null,
+          "hasMore": false,
+          "partial": false
+        }
+      },
+      "offerChallenge": {
+        "protocolVersion": "bitestar.customer-bitesaver-search.v1",
+        "schemaVersion": 1,
+        "outcome": "guestCheckRequired",
+        "operation": "offerPage",
+        "operationRef": "bsgc_yqjIXPRWUmcQtJPbMfp6QnjJvuug16GyV7AyBKma2Ic",
+        "checkToken": "bsgc1.BgYGBgYGBgYGBgYGT35JQFqN3qNOLTe9JSfao6GHRsPkDH6LLl-WyPhcrWEOtdkuSUrTbiOckvMkAMW1-zyh1uUA-VfgNkStnVIj6zA_PDxJCqe4YrqQBxnL-5e4sSu8Pm3YL-jC8Vd4qQPW1BZBicjHXLb6kWd_KolfHf_a0KyzdSo8WqVdMObxo1HXBZ-_O_XMHxzKN4Rdep1pfqqdAs9W1g7bhbsVATJec1ZuWnSA_3PJsvH4S8U2A9szHWw5b7ordSEoDERFxQSl-BEYvvyA8G7FqhfkAOkPrTEYJ5uHjvMVqHS-UsUwazi--wuXA7ida31saaWOzb29e55NipmYI1fo0_K1G7W1zn40g8bJ6QTzNNp9uJss_8p00d-fyBmamlmMcBuL4GnXPEkK8QBxLvFTuM6urRUOfzBlKnEYW40R2xPEvnrNj0MeS_2FJSqrYEVXV8rnENuGAAaob0HAgeIDFSAgHsOuPKZz0nWnUcJKcW4tSo1tNmvUQuZk928-2uzytzfANELuxzpIVamGB9mNl1NMGkJrMGLKxPZ9ju7AnrcC5_oMPZtaAhgLr3rRv5yzzp5LeS_RjHfn36e2OCQ5lfxx9cWeZKq_58tnGdsOVF_f6WGLUtxqYcms4MsDp_aY049czer763aBNkMrW_V1XAvnqWdUAyUpCDhVu4xm4ZNAqGi0AjyXK1cr9zC_KUh0j1TsmYCUcZ5kgouxINfmxM3GdGR0W9gQJrvgede2aHy2Y20hkZgrlN4jI_F2KOJ13gX6LYOzCArVXXed45gbnqKqRzZJdJCmknIurv2YfNLzBgCyLH7qdHJSjQ2ilNtJVPZwun2VYEMRska2RbT_ArMfeQzrj28G8Woc9QvEhemlMtOEfikkp0hgNWUEjmnx9V4JUOz3jlGZe-6oeSgM6kgtG0R4FLfVjBGQjxCe0EyRxY5Zx3fYqgCQhc7oLOBLylsvjflh5H0hKs4DjXMKd0K1X65zmjK7myTZzTeTbBcBrPFjJWcIvA6NKtcasxEYh9K-nVYWUn9ZODdcj4rrQ9opKMex3awxqX4bkdBGJmlF03GCuTRDTlV1WqBCYGOmYb4ewaZuIbxhwx2sEigA_UtINCTDGh728JCLnTLRnIB0-gZdXu-UrpyDw8nFpTlGN01R3TuOseoH9t0daHzxNHLmKXw0-uVwpwumzqktWc0q2yDqk4yPCTNzF0JOfEf05xaC7UHfAjMRNOT3vU6cmU1N3Nvt6v0brwCeeqUCl4ezHFTqt-9Ny8EuBVqVpQx-kVmP0KifBb6RpAJI98ZK954dUVOTi8I24qeBCxxPkf1Mm3K4oTp9RwzMzOWKxaWQKZQomAUUa2y76p4ejttltgNQDRuyaDa9xFUd_UkssSbQ_fms_nG2BJ541uFc-6QBqc1LqEA0Rjq1SUaNwVmJd2keVB5GdrEi2n_ckbujXFfRMe0_lgC4OfHkSoe_FW23_XKZ0TXUK449YQVrLYdcDcGo8Jz0p3KKVGcvbVlfaJB3Xhv9xzQhGUky85IHeNoCDOsUU7U3FpPm1mpc9y1UoJ0-pRRRHQjZp5uURADmdl-hVbDfKItY2oD0hYo_hwH4VMrP8bZn7oyYsY9Y759yy3JsZcR1kwd7p1Iy2ehoabNhw31XJ_DIKAjgWvh50Pknpi6CHIZuNp3f_XcustKM50a77dCNYfHToAgOmqkY11M6vMICI8tUhwosNQtVCo-dMc70g59ZmAB71Yq5",
+        "batchSequence": 0,
+        "guestStateRevision": 3,
+        "evaluationContext": {
+          "schemaVersion": 1,
+          "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+          "attemptGeneration": 0,
+          "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+          "evaluationAtMillis": 1789225200000,
+          "timeZone": "America/New_York",
+          "utcOffsetMinutes": -240,
+          "availabilityGeneration": "982429a15680fcc8229aa6dd5eb0f83ffdb64276a993aadfb2a5ab5cb269b8b1",
+          "validUntilExclusiveMillis": 1789225500000,
+          "oncePerDayUnavailableWindows": [
+            {
+              "startAtMillisInclusive": 1789185600000,
+              "endAtMillisExclusive": 1789225200001
+            }
+          ]
+        },
+        "logicalExpiresAtMillis": 1789225500000,
+        "candidates": [
+          {
+            "offerId": "bso_Wf7ffweOSJttNltBeP8ds1c06VZmNkn9RyVgXbPRH20",
+            "usagePolicy": "oncePerCustomer"
+          },
+          {
+            "offerId": "bso_S8NL00zeG6d_vut89gSPc9cpiScUzBTYeQ7vzIM-osM",
+            "usagePolicy": "oncePerCustomer"
+          }
+        ]
+      },
+      "offerComplete": {
+        "protocolVersion": "bitestar.customer-bitesaver-search.v1",
+        "schemaVersion": 1,
+        "outcome": "complete",
+        "operation": "offerPage",
+        "guestStateRevision": 3,
+        "attemptGeneration": 0,
+        "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+        "evaluationContext": {
+          "schemaVersion": 1,
+          "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+          "attemptGeneration": 0,
+          "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+          "evaluationAtMillis": 1789225200000,
+          "timeZone": "America/New_York",
+          "utcOffsetMinutes": -240,
+          "availabilityGeneration": "7e51d56e32e4aba4f8a4a4b44d0628cc7ccac82fb94945b2255ba894f8d0ee6d",
+          "validUntilExclusiveMillis": 1789228800000,
+          "oncePerDayUnavailableWindows": [
+            {
+              "startAtMillisInclusive": 1789185600000,
+              "endAtMillisExclusive": 1789225200001
+            }
+          ]
+        },
+        "result": {
+          "schemaVersion": 1,
+          "restaurantId": "bsr_9a6PKkPN0KcUcvnsgSjYD_V_55cvKhg5Aw027XUED8o",
+          "offers": [
+            {
+              "offerId": "bso_Wf7ffweOSJttNltBeP8ds1c06VZmNkn9RyVgXbPRH20",
+              "offerOccurrence": "bsoc1.O3jnbaovRExu53OwWso8NDf34spdIagduIuHzmuM0caLSU76nM0k2x0yM4Jw51D7Z4uc_HSYnuAaqndkujeSlFZ_5WNDg16V7zc-n2Z-aqC3UvWjMJiGdAsNSETXg-0-p7nT2ZzrpBmI8owGFM8uLtzVVKBLVzOM91PUYFvqKqquOPTxvDfyHb2ror44suL49su9MWfZqXqHZUq-LH4OmvwDO0pS5C-MtxA1FHSmTf8Ogp8dlIPqw-tNgdJMjhDSAFfFE6dRjRE8Vbpbzsq8d4WPBVO48obHOKh2LYRCHV2-Nh6wq0cmyl87X_Zfd7i4a8rdzmshkd6R1bzdPRyQ0MO9mX4FO5qA_8m_flrP42kU9nOQ5TphPH_JXZEBf02nt0etE2uV87dkbaaxApkwZP8FDxmSnRvRDgyrqKzOwO4hwMwX_mBt0uFuXcPCgQJ3ap9PWSaHsAdope2tt2n7cIwIDr7rPudsOwoUHgirJrai2Pp8GZgaIkX2oIserFtLSUfkix76Sn1jnfG749771DE7a0w2CHZ7PSP9qnTipC-ZQuaqzHFTonE-EVeJTniG6tLoFUmH9WGKFeEvBRXBr2Reoy5UclDW0t30P9buqHDIl61nHzCwiwEHkjakSH_xO5QqSt1pUCAPWSbZqgoOBreb8Tfox6C0qHL6_LWttFCYsQvlQ5AByBvc5EUP_2VJ0p0Jan-DIPrwgZ8XZej35BMKsLPIZbWNwwsQEDpA6h69ASXU6qfDOiWn3melj95o3c783ZqJxSCvrHDMp96G1YLImOLApHdHt49zBoT0swI72QLOjkx6FjeEZFzgfvi9xxEbrlsGObw75nthyiHAh6e7blM9S5qe8sEatABILwCq94lxba4vT4upabew9nwD1V2nqLq7KNjbTFfW4Da2LNj8tkvcQqOAwqztnv99N4voOgseRkW3dmh7Xe1HQ7XqvuO7XY9XTfj1FeL4v_eHMVP9IaOQuY6-XzfN2yCoQ7dEEAhqo02qoyx0jklLyQOprKz2RCSbrilnaBU9ttpeUfDYEEI4kRYWf-SbjCpJlsaOcPPJ_kMarVGbjP1pHEWCy7rwUy0j0NGCCxHiR_7bgVTyiZGpqB1uu4VFTX_lPK6CR-9lzanTAaH3ECLn1CdEoDXtjx5NaeqAsznOYYIKgMCmbjzeSm5XmrN-eAuu5jyq4pKBRqLVICPYxvci4ctYEGVBlWn4ZvXquNbqiDcKH7M0iXsoS4v8kATCGxaVD4jjG18JgG3NmFgQw29odbF03r7sxCpCL6USSE-sDrHxtjkIInmp1F193JQM8Tf-ISB-R8rhPiojDnxe00rFeL39Qmp6QeuXT4F6KIj82QctZhacI9P6nYYjjABkd8kyGlGorV9LGKX80fRIMtUxo_3SjR5Dt7m868GhPFU_ZyeF6188w4LUQjbqFSRm1VCKwfhdw6IDnB11veJPWJmbrobE84taP4VOjVUcunVoRG-Nv5UJ9DeCGVwL_KlEp8Gcf9hcbk539waS_YTyCIaUMkHrTreOmJ77IvhoqON7dphStvmT_zacbJT0h_gz49dawsSfCBPJZ_UjchVES13Tdoshwddvi3coeNbYyNpjdZ_jpC1RH6hKKQy7T83gNP_hBtuIEUmc99X49wNSjLicgq1s-mEV81QPZOUI2vlpgOVsloc8A-2NKU8IaVOA0Qp4SUiXIa6DwXMM5XbQZZP3gDeXewaPYuLgRypSSlQ7UJz1hTTa_NfUVkoUdorzEu4W7i_Y65anKG72be6WwnevrD7buz98hM8ZMjyVsUdsgT7EfTnnO2xDLw1k3eWgWrafrvMLHa648WKcsh7uFpphlQooYIKUOWEpuqSojFJs",
+              "offerType": "coupon",
+              "title": "Fixture Coupon 1",
+              "details": "Synthetic coupon details",
+              "couponCode": "FIXTURE1",
+              "couponNumber": "0001",
+              "usageRule": "Once per customer",
+              "usagePolicy": "oncePerCustomer",
+              "availabilityMode": null,
+              "daysOfWeek": [],
+              "allDay": null,
+              "startTime": null,
+              "endTime": null,
+              "startAtMillis": null,
+              "endAtMillis": null,
+              "expiresAtMillis": null,
+              "expiresText": null,
+              "isProximityOnly": false,
+              "proximityRadiusMiles": null,
+              "imageUrl": null,
+              "sourceCreatedAtMillis": 1789225199000,
+              "available": true,
+              "availabilityReason": "available",
+              "redemptionPolicyLabel": "Once per customer",
+              "activeTimerExpiresAtMillis": null,
+              "nextAvailableAtMillis": null,
+              "usageState": "available"
+            },
+            {
+              "offerId": "bso_S8NL00zeG6d_vut89gSPc9cpiScUzBTYeQ7vzIM-osM",
+              "offerOccurrence": "bsoc1.GbdPsW95ujwaOuFRTvltYHEZrwNx5De1lTtDP79sLRe2GXWLUWm3tJw3L9Ff2DbxsWZEu6iXHIAZdsHKYEP84mPE0j_6O73csp_Grpoz3sYfnyHMU0_RM6Sklrg-giRNVi66HLtpNBa4AKcyzERFW5dItxPeNVG4N_nu4zXjam_MZHvl2TA9XAu0lVhDBoNE3ur6j_3BIqh4w5jDI73KpyPAyp83hDKuVxL7tLTufgMCCG-IUOif9JIsqVmi5u0KKR7BYkh9LnEOCTeGakUY3LQzeMp_qOjqXTYELrsUYYyVymDXgDnNqDD-_u9yzy8bAjph0PAV5c3j7aiZvqh2fbjyjWDT4mAvwIfwwvg84R-DM1nNhtNX_EX8pY2wEfQpx3lplt4GtlrncQzBnZFzLRy8Ihro8f3n7-UQW-5DQTnVe_y7nAeao1rvqsDUy_6qe58hBA9yJgk6nmea3zI8glroAiIID5lNdfuIuceg2PqB6Xrkm5cXr0RKdTPkMakXa2xe5OwGC42iCpE0VINsw9X2Xie1bzcCzhjz9oQofTLwol5o-aM-ahyzD7CQTD06amppPEMaVahPYF2igfagyaScn1j38elZ6GGMA2bXzFeztt1-cAJSsxbeQ23wp0kQ3KFVMi4X2AL8CNEovM_37qaGw_4llG5_rRuEDrb0l6xyLYRpNaCJyBSD00yNiLe0EtfRnHw2atyIpMcUfXniyrwq-LE7qki8NCeSgEONCOFhYn0eKi8LWRu_LGWD6OFXUJ_IziJmsWYao0hKZjIEYFCWbHyvHWRUVZQW8l92DH78TtwPnNFYs6qvunoeKjlDYxP-23kTmSomc6HtsGUk8dO7CdqwBjZ0KduG7mSMRY-wAONufPLN4sBlW_yBpdhEgYN9r18iBLlSgx0RoBAQC6o2BrZ-vXJ7O8Q6HDgkXlYb0qcME_JVGaooTNIAGna9QwWxXfTMjto5zaPHf3-uL_Ti8PGnZR8TTvZ9ycLwCbu-qkaD-hr_J520C3c5YjC85QISRGdXks8Z-clSTgfO3Etu2l1hCE9_JpdqTQgZ3jO6p5y7Cw1LfNLsTBkZMLV_vtwGypj7I-KeUcLF8zAozNUGYT5P1mYGyOU-UygVl3Ak9m7gFV2MhuItt7SxHDC1IXIep-yFPSkbcUUHwwF9KmpUsKyB-ex5dLhzGwBS3jf1R4pS1p_OEHhnMwUbvsn0olME7PJGdjXfwdSaK7vJ2gW21sOVipnFWKEBGhauRnIC7Ejv7u0tuk1lJgHfAQHkE2b2d05XgFKmB0Y3LeCzsCqaYTbzvH79NFXNKbUQtkBXCnR5RFZYPdsGDXiz7dPbh6T7ROhLp1IYQei8kGcGwgf6kUYQsFlEHUsVj-uzIf0BA7NPQZqAi2gnrkQP3b0LRsry3xgLukD6NyvikuWsdEJmIEytZ0bOwOcl8sv_ELkDt_swYRVMp3mvdmGzmff4uWZVq3YTJ3t76iW84c-ZktfMHxb7K6LKhj2dI_q74iEOpcV4_7tY8GbUJdzN-YoN1VgJ8oS0NHqbRGImifNWl3n3w2heu8v9y3ed8gTcYeOxMwhUgtERigzii0Ard39Iu9WXxrFS41fhSoHYm6nzRieboZGrIRQU3tIYR4VbAZboLtpG9z97vHcQCrUgVzq-STxA9s4A5aBIGI2VRCdlA0fYf768rYiB3_3aRalSchwRxiBeTh65ZNITK3j_qVku6qEZryQHhLGdw6vgZ9AaXcWRitCcYeDH5XhiGQ1xVzGYQ6K7KuL2JFfVJr2THxBVfIodmSptupRd2-SWSfvEWoZlFqZSvPFnSqBJiyBShNgB7lm4tSYLdDeT9Qt07V5TNUcAu8IQJTgMfcye",
+              "offerType": "coupon",
+              "title": "Fixture Coupon 2",
+              "details": "Synthetic coupon details",
+              "couponCode": "FIXTURE2",
+              "couponNumber": "0002",
+              "usageRule": "Once per customer",
+              "usagePolicy": "oncePerCustomer",
+              "availabilityMode": null,
+              "daysOfWeek": [],
+              "allDay": null,
+              "startTime": null,
+              "endTime": null,
+              "startAtMillis": null,
+              "endAtMillis": null,
+              "expiresAtMillis": null,
+              "expiresText": null,
+              "isProximityOnly": false,
+              "proximityRadiusMiles": null,
+              "imageUrl": null,
+              "sourceCreatedAtMillis": 1789225198000,
+              "available": true,
+              "availabilityReason": "available",
+              "redemptionPolicyLabel": "Once per customer",
+              "activeTimerExpiresAtMillis": null,
+              "nextAvailableAtMillis": null,
+              "usageState": "available"
+            }
+          ],
+          "nextCursor": null,
+          "hasMore": false,
+          "partial": false
+        }
+      },
+      "validationChallenge": {
+        "protocolVersion": "bitestar.customer-bitesaver-search.v1",
+        "schemaVersion": 1,
+        "outcome": "guestCheckRequired",
+        "operation": "redemptionStart",
+        "operationRef": "bsgc_JCs0X94TBxNt-2nd9IIsQd6ROyCD9VsbPqNcpHah7Ko",
+        "checkToken": "bsgc1.CQkJCQkJCQkJCQkJzh3W8ktSW9SNsdyKgzHu1rY4JIb4zzbm8Pt1xUBogIekLiwar84Dl7klnWCJHVQWzLF2lwXkk9fuJQAJLoVX3_EF6Fs7mG87n1CzO7NnMVQvg3uL7jyjD0GjD1pFW1gW0MYre9tQdSGM3GKkHK3bHiwRJNSisAeREycbHwT1Nabl_vwCiVlzZ-22jdFpTUqr8Ykp4rjyp8fGCdpQYgMIRnvwTCDtCn1_OuALj9smReawngPdNm6h0bJzbXBtR-1PHlQpsEGarUMKci1TWJIIR9Dt8qVPq953jmCG6jdyR7P2CKLsnh9qo4iNt7FyM_cxhPnoVJb5qVvCeB2tIm36pmqwIRfhS-xMaQYiA_QWrfw6bMvtJgnsLgWsJylBaIFKHXu5YfUoEIqR4cmSS_HUYpUcD1YJ-3zaQDbE4pDmn1VgBSFrn2u0nIbvU1kNoNsmg--CEI8XBB_bQlbweI7HqfCyqXxD2vaFP9uhj0y3qL90kE-_uuSXpyWTjZMS7CvuhFKTN_kneXJj5_TY_wPWO5SA0hRWOyMz0rrjmtCpPek7E5Z0pyXYfCAleJThQNJVVHHmNAzw5P9Z4h9rmBx0Q0p3yEgdxRDd3lX5JlNw3oKhNuRiytR8ekk4N-naaFwaLVH38pWbH1zVOtJ3zv2Y5L-VqoU7n03IbUDwvURv0DZlALOp2ZkJL2NoSn8-f99AvlocQO96BfubnxP5s3Ij2I5C9NOrkPn-vvqVsNm-Aib5JwFKJqLXs81mE_FMuuQLG1kkGBMqReD9fD9iFomw8Fuh2HTQGArlLs_kU8rYG67SMQ-VF8kIK2AjXZiIy1uO69k7NqNNZWD0wJ6UurhSWQLOK9bIb3qGC24_zMqKXmysO7sz5galfjn0_wUZClGGVnzmTv95__0GkZ6EpUQZFZ1a7fmE0U8395asxYNLGouNt1-SA3wxnYl3pm1CHFX0S9V1J4fhnsvPypn4PyHjXSrCRezuCv__dj188JeXRVv-mVkgiRVM2FIdBSaESnNhNWx7VDHYcRXuc1Whl0LewVjDW-Jbh_lqznyXY5STJQc1DquoogFzE8Nk8jxRRG8_I8DdCsG2ZpIW5jaxCNmsVEOO3hv5yJV4F8bsjf0r_9xPaRQ3KnrVO21NvFU9IXvQAqPWl23m6F9Z5i0ylfFO9zOphR-yRtdsUjnqyfldSPk4aYG4n-DXaXm29ARIKZbCD2mC1zjTboQR5P0yHwW9oxH5s-NVKRwBBAIY7s-y-JNxnIy_pRGM-YHC6bABHcPmQg-cOYiXOZGhU1Zo5W0cAv7cbSsFkEZqwigSsn1s3uSqt8aRxFmWVM87nKRV7gvgdzK4Wdkc8_s4ySWG0SfUTFgFdLOyQEjzFyPfpGDYEW0mgmKNdcRi8EAOYsDq_kKG9KEOZ2pZ6VP7LySgtbS3MehGmwbsXMrsTMXEb5lFLYTpp-bwg7d8_YwCaf2dNQ7NNad2ZZJ265g-jUAoQpCNyJqYYbfI8btU4nK3XWTmf0GIU_5XiyNG8IbTW6G-ql3-aZw9FfzvxHafqFr3GgmlElKu2oX0MMQJmWb_4DKJfQADV2loMaiM6_M5h2WQfk6pCg1bo9XWU2m3VFwsSCXMOzhXrUFDOXuD-VW2Hj3liVeSV8MdixFQeoJVSLcOlWHxGvAO3gAr1JrDPw",
+        "batchSequence": 0,
+        "guestStateRevision": 3,
+        "evaluationContext": {
+          "schemaVersion": 1,
+          "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+          "attemptGeneration": 0,
+          "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+          "evaluationAtMillis": 1789225200000,
+          "timeZone": "America/New_York",
+          "utcOffsetMinutes": -240,
+          "availabilityGeneration": "94183fd563c4a9bb6192f3e913c5fedea2a7fa9c8e728e37639725fdecae6f05",
+          "validUntilExclusiveMillis": 1789225260000,
+          "oncePerDayUnavailableWindows": [
+            {
+              "startAtMillisInclusive": 1789185600000,
+              "endAtMillisExclusive": 1789225200001
+            }
+          ]
+        },
+        "logicalExpiresAtMillis": 1789225260000,
+        "candidates": [
+          {
+            "offerId": "bso_Wf7ffweOSJttNltBeP8ds1c06VZmNkn9RyVgXbPRH20",
+            "usagePolicy": "oncePerCustomer"
+          }
+        ]
+      },
+      "validationComplete": {
+        "protocolVersion": "bitestar.customer-bitesaver-search.v1",
+        "schemaVersion": 1,
+        "outcome": "complete",
+        "operation": "redemptionStart",
+        "guestStateRevision": 3,
+        "attemptGeneration": 0,
+        "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+        "evaluationContext": {
+          "schemaVersion": 1,
+          "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+          "attemptGeneration": 0,
+          "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+          "evaluationAtMillis": 1789225200000,
+          "timeZone": "America/New_York",
+          "utcOffsetMinutes": -240,
+          "availabilityGeneration": "7c16d7be368f8e9ca081783ef678dc9805c0fa6bab951799550c4e4589267f74",
+          "validUntilExclusiveMillis": 1789225260000,
+          "oncePerDayUnavailableWindows": [
+            {
+              "startAtMillisInclusive": 1789185600000,
+              "endAtMillisExclusive": 1789225200001
+            }
+          ]
+        },
+        "result": {
+          "schemaVersion": 1,
+          "restaurantId": "bsr_9a6PKkPN0KcUcvnsgSjYD_V_55cvKhg5Aw027XUED8o",
+          "offerId": "bso_Wf7ffweOSJttNltBeP8ds1c06VZmNkn9RyVgXbPRH20",
+          "allowed": true,
+          "reason": "available",
+          "evaluatedAtMillis": 1789225200000,
+          "usagePolicy": "oncePerCustomer",
+          "activeTimerExpiresAtMillis": null,
+          "nextAvailableAtMillis": null,
+          "validationId": "bsv_jtfsuRA4Mt7F18kuupsQbdJsK4Fd8LvbCMrIK_NKZQ8",
+          "validationExpiresAtMillis": 1789225260000
+        }
+      },
+      "retryRequired": {
+        "protocolVersion": "bitestar.customer-bitesaver-search.v1",
+        "schemaVersion": 1,
+        "outcome": "retryRequired",
+        "operation": "restaurantPage",
+        "guestStateRevision": 7,
+        "reason": "checkExpired",
+        "restartFrom": "originalOperation",
+        "logicalExpiresAtMillis": 1789228800000
+      }
+    }
+  },
+  "dailyUsageParity": {
+    "completionAtMillis": 1772944200000,
+    "response": {
+      "schemaVersion": 1,
+      "state": "ready",
+      "attemptGeneration": 0,
+      "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+      "restaurants": [
+        {
+          "restaurantId": "bsr_tSqcaHP0OMVivO45qb91QYX2N5r_1rX_BhIZ78Ffmf8",
+          "displayName": "Fixture Café 😀",
+          "streetAddress": "1 Public Avenue",
+          "city": "Orlando",
+          "state": "FL",
+          "zipCode": "32801",
+          "formattedAddress": "1 Public Avenue, Orlando, FL 32801",
+          "imageUrl": "https://images.example.test/restaurant.jpg",
+          "phone": "+1 407-555-0100",
+          "website": "https://restaurant.example.test",
+          "businessHours": [],
+          "bio": "Synthetic public fixture",
+          "distanceMiles": 0,
+          "isLocal": false,
+          "catalogBindingAvailable": false,
+          "offers": [
+            {
+              "offerId": "bso_SfwxiKRwYcRJq4_b8CnkSFVQoinHYIwmITVecoyH-gM",
+              "offerOccurrence": "bsoc1.UcAPfEcZWGTkeCb9qquIGN_uBdZ9Q5Y7SFJscaM9A-xrfTuGWLyh3R9k1mH78ma88EQAb-sFdJ4axqkbdRZa7IGKpKliMnj21IylLGDcp5_PtLHbxv3R6L5Bd4XtQrm8xAHBNdmfpLwPSPcT7zPADZ9a05AwtrVoB_8sBPctnvszLMiZl8aiHW3Pa1W5CTrBTU6L-xQClCnkahBr4qZYsZP9l6UsVYAXcsqUYEwcbWoRKE22flkhJLg9Y461w1jbslW8Epddqu9E9aJlIdmzZzMQ_aSWmoU38svNQywNI1vb3jDL47m6pu5WkLAcRbgNysTEaZ0GXYUzYaIgSJ0oJ1WyyusgcYjbZPhjjcGkIlk7qWhk4KYsIX15-pyVh19gultoYIaMckUX5qruat3DqHqm2_EB6g2Z1d9MHY_l5P2oVeLcT7yW7FKtzLpUCaPHq__kBAoM1wK96V8dmHYBssTBVyGQvdMl3t5LMPv38x7nbWXkgholCd8hV5DIq3PXwESRvSVJaLu9UUHrnVSVh6zDVCCyoRCykc1y8u1egq1d00GtZF9rmbKOMM91bvJ48CLBlBa2nfnjfg3oRGb6JyOkkmNtNt9uHNMweSPZSWckgCiTRmUuwM0Iy96NjlORBmhiuT9VJBiRE8tHNukW6BSWff4Kd_C8hZ5VXsk5Wr8zQoTxplVwF-KpR_R1Fl_ueNleP6fCO31ccsdI9SU6Ad5WpcW_92_w_C1QadWcQ8VfpebDF9Y5WO94MUiynl71rOahWB_8_GDE7tHLfH4Qbw4efIwS8Qk2pPo05VZvkQiyIT6Co9Snp_nOFaj4NOuDdSxmmK_xXPReF-s7Ps5-9_g3TXcxTo8FI7Wmap3fezvr_3L968kSx99gnlOcbVms_iXTIzpSm8G4ey2giC3nb5kHjJuUCUNUl7-YdAHLBT3z_tX2075tlQNF1FCqn_4YQmloE49xZuyDCTeIAbduuWYCWUdJfZbKOLpfeoissnVbXSsgA5mlwcnUWuW6n5_i7bdRKdxkTmG4FxXOWsHnJA52qTanFIRz6eb_qmwpf8buQemoxiQKmlugvhEr0VjcoOmBhTu0SVi45iVJGhjwAz743JFpaP0UbW7O0Pq8wDo5RXvFpgaEYF5nY1E1NqdwWrguF3Cduwu_D9OIQc9Ut0O1DLd9_LnElUY_EO7F6XEJrSTDJKVsoGSJuzE2UaMxsYkWrs36dYgXfknG5l0FSwDdL_pDQQUlZcaXl_ujGUB3-SqEzRlBNoqGaIycFwQ3QKEIx6EXncbkjUrVGqZkoLissonQwpCqEooUN3cWCcLNAK9sLZRvUMgZtetxM1igWguS1jbHjTA98ESIdWPL7--IJp9fgyWNSO8TNZKnrjcfCIkEHHBS1xTAO1Cb6yXGDd3A4XmwD5VgH8gMNOCEpfwN1iRL4JztRpdxJcvyJTTHsWDsxsW3qkDjWLQB1y3jB10Ynu27w5dSVjK3xQCF1cr9Y5j5ljBw1QI_4SUN5G4YXkNBgO7yktCh6H4FsK1rNQsiednVe45LwMsPCHEN6RM-SsrnJnwDjlEMlm4z7Ht5ML4LSL76et5PaiYzI7xKbNDxnEMZ0IBrU-RsHxsMIAyxk9Ea5Ov9C7iVx0lD5jJsYh_AnB2raCRbXkyfQxEcB1m8jwYfFuXV-xDtbrQJAc2JwmmKty_kJtsRS6jPTJni3PnwfXPSTC9a_n9FARA-mLtW1xSyav9xcK9ozxFnJp16lWhlH-f_FFmjeI0DmctCPdmASwodhpahnlfbWzo",
+              "offerType": "coupon",
+              "title": "Fixture Coupon 1",
+              "details": "Synthetic coupon details",
+              "couponCode": "FIXTURE1",
+              "couponNumber": "0001",
+              "usageRule": "Once per day",
+              "usagePolicy": "oncePerDay",
+              "availabilityMode": null,
+              "daysOfWeek": [],
+              "allDay": null,
+              "startTime": null,
+              "endTime": null,
+              "startAtMillis": null,
+              "endAtMillis": null,
+              "expiresAtMillis": null,
+              "expiresText": null,
+              "isProximityOnly": false,
+              "proximityRadiusMiles": null,
+              "imageUrl": null,
+              "sourceCreatedAtMillis": 1772954999000,
+              "available": true,
+              "availabilityReason": "available",
+              "redemptionPolicyLabel": "Once per day",
+              "activeTimerExpiresAtMillis": null,
+              "nextAvailableAtMillis": null,
+              "usageState": "available"
+            },
+            {
+              "offerId": "bso_F-KyktevTMSuLq65icxC5JdkxsF45B5XFnwN9riNcsg",
+              "offerOccurrence": "bsoc1.y0b7aSmnChvhXQqvL7acpvlaaUTLk-fl3OkUJhuRD4rOaS4yhpkz3y-jcRexIEVTqzWMNEknxAr1hRP2A1ndsZD2npHDsmjULQF9V9O7Mv68luj0oConrI0XjgJjfPTWZMVc-Ezj3-z40TFtXrAQhMzSuiiOd6a7wXdjkkx2I7ZCPG-UzMGhkyZWs7WP5tQu3Y2rQslVkMVzleyAntLiw_ZHnjBNJ-XCwBdyqazlSdlt9sc7OpMqmJOTVuhyT7hHwC9Anyuv9erW9V-qNbgZbWlnaaNPJ4wM3ROzdxJEvttm9fBjH8rXFOUnnUnKPggt84bWnf8xidtT1SpRz7w9ReWbIJh0xIKhkGb28d8iDRM-xeCChEf8dv7JJDFcIfg6qV0OVdOsGQiv80fkyaQ8C_Bp8oKDBED-uQwRceBYimjc0NTzj_woFANivJrhZUI2YtaAq556uzd48zl9bzflFlROO8k0VNTN1FpC2Ahm0vm66tbLqSMv4JwHTctdSbZgCiYwYAYKgmRKsiSKKn55doI26jssl12C13R2kt02REBP7Q5Ia6w7sSf5d_3sKI4Iy1hVpbLM4bHJ7_UalXq1PRpTjFMHastAsn3_YnwwnaW-0rqLrM-_UscqxDuOT8PckF79aC3UXOaTuxMwjqQkjMxS-SNCTrrLlxZ7JBmeEzx4inEJyFoK-RW0X1jN6jQQEcOM9xfVsWynkIGTenpw4_7zEDDnuZpQ_Pcv9PYEzk9fcrq_bVfgzeZSImZAqsDTdsNOuQ6kYbO0tJLL1-Fu6i2Afj1jy9PsosIvLi1ww9QtDl3EijX2jHUEZM_AmDe5LjP5NAHKXaVX4FMJhT_HExIUPT9s5aRc1C3xW-uKkXBfp1t0rqDMoOaKN02WDAPRJ2__7L_KjkLNan1ewThht4uU5tJiFarOtW-BsnYT5H3vNrdGhjcDbj8suPK-YxJVny5Lm27q69J7fururfD5OqdhCGa0NNctm42q1hpRkVsrBiGpXam3sXacMTsawGoc20Db8baPgquJEUTb0aZcWLFppCzLqFU5hhamSiFAylP5_r-59inkpxwYfDdX2fTmGHjyf9U9wFsSkt7t_TK9hGRkMOEAqhGnvUsj5aRbc11yXxr8RJzaou7SFpaNA_i9v5vZkjPX3HowziIweV7h1ZViULVrGS318BmV1iPcR7YybZaqzgL0lcLTVuomd0lBYoGVYw6_OTOkTvevIPZ4QhNsvl12U_ARaZJnVTIx2NDZf9MjXlPfy1n3DVdds8Te6QllbYmkm3AGZml2_WkLCBQnfNaL4S1ejE7earYY_rg1xnsJw3AmeFP2dd2kK-hKbdyqlpyj91FFq3N1MLilU9k899ZSdjM2B0lzc6nOGkXfoJk1mHfoPLMXJKkiVl-W3ZXZ3nkdsEH-OHBhgmNjucbfsJgBdD2jKEGtH0J55xP2787V102XfNZrxpfeQVd9yY0cVy2g7J8zPrDjLu6NnCEwMnNXsSMgRmr10kE7GXcykAr5FlAsKL73bLboZNf4Eb2W8lAPM7fKkf72VUFwNX_g8OsoEV2ReNs0F12-AeiDWb-z3notHGRT2e1yHzDfSEJDVc-INl64K1xEn9PEKGKyWHLquebK0v6TsPxGUxjXvii71_Q7Kr7yYMJ3NV4wuh_X6IRByZqTUJiQ1kJIJx3btr0BrCh1j8hX9Vb7Unkrd-rKZ2evo7301RRWRISKuktchH1b9lEl-Wpk1UyREC-h0Y3p7vmPBPtIPqThL5sK2K3dJgXPXlL0eUNzrdE",
+              "offerType": "coupon",
+              "title": "Fixture Coupon 2",
+              "details": "Synthetic coupon details",
+              "couponCode": "FIXTURE2",
+              "couponNumber": "0002",
+              "usageRule": "Once per day",
+              "usagePolicy": "oncePerDay",
+              "availabilityMode": null,
+              "daysOfWeek": [],
+              "allDay": null,
+              "startTime": null,
+              "endTime": null,
+              "startAtMillis": null,
+              "endAtMillis": null,
+              "expiresAtMillis": null,
+              "expiresText": null,
+              "isProximityOnly": false,
+              "proximityRadiusMiles": null,
+              "imageUrl": null,
+              "sourceCreatedAtMillis": 1772954998000,
+              "available": true,
+              "availabilityReason": "available",
+              "redemptionPolicyLabel": "Once per day",
+              "activeTimerExpiresAtMillis": null,
+              "nextAvailableAtMillis": null,
+              "usageState": "available"
+            }
+          ],
+          "hasMoreOffers": false,
+          "usableOfferCount": 2,
+          "offerCountState": "current",
+          "favoriteState": "unknown"
+        }
+      ],
+      "nextCursor": null,
+      "hasMore": false,
+      "partial": false,
+      "evaluationContext": {
+        "schemaVersion": 1,
+        "sessionId": "bss_AQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQE",
+        "attemptGeneration": 0,
+        "queryFingerprint": "e2ce177ed89954a3caf5d1837cdf8147375c314741a3edecf5a01e790ddf9d78",
+        "evaluationAtMillis": 1772955000000,
+        "timeZone": "America/New_York",
+        "utcOffsetMinutes": -240,
+        "availabilityGeneration": "3275dcb3e941452f5680591ad59294da003d4a16a6a18cf14ffbc54e983e1b77",
+        "validUntilExclusiveMillis": 1772955900000,
+        "oncePerDayUnavailableWindows": [
+          {
+            "startAtMillisInclusive": 1772946000000,
+            "endAtMillisExclusive": 1772955000001
+          }
+        ]
+      }
+    }
+  }
+}

@@ -6,8 +6,57 @@ import {
 
 export const customerBiteSaverAvailabilityVersion =
   "bitestar.bitesaver-offer-availability.v1" as const;
+export const customerBiteSaverUsageEvaluationSchemaVersion = 1 as const;
 export const customerBiteSaverRedemptionTimerMilliseconds = 5 * 60_000;
 export const customerBiteSaverFreshLocationMaximumAgeMilliseconds = 2 * 60_000;
+
+export type CustomerBiteSaverNormalizedUsagePolicy =
+  | "oncePerCustomer"
+  | "oncePerDay"
+  | "unlimited"
+  | "reusableAfterTimer";
+
+export type CustomerBiteSaverOncePerDayUnavailableWindow = Readonly<{
+  startAtMillisInclusive: number;
+  endAtMillisExclusive: number;
+}>;
+
+export type CustomerBiteSaverUsageEvaluationCalendar = Readonly<{
+  schemaVersion: typeof customerBiteSaverUsageEvaluationSchemaVersion;
+  evaluationAtMillis: number;
+  timeZone: string;
+  utcOffsetMinutes: number;
+  validUntilExclusiveMillis: number;
+  oncePerDayUnavailableWindows:
+    readonly CustomerBiteSaverOncePerDayUnavailableWindow[];
+}>;
+
+/**
+ * Normalizes the persisted coupon label through the same compatibility rule
+ * used by the availability evaluator. Daily specials do not have a coupon
+ * usage policy.
+ */
+export function normalizeCustomerBiteSaverUsagePolicy(
+  offerType: CustomerBiteSaverOfferType,
+  value: unknown,
+): CustomerBiteSaverNormalizedUsagePolicy | null {
+  if (offerType !== "coupon") {
+    return null;
+  }
+  const normalized = typeof value === "string"
+    ? value.trim().toLowerCase()
+    : "";
+  if (normalized.length === 0 || normalized === "once per customer") {
+    return "oncePerCustomer";
+  }
+  if (normalized === "once per day") {
+    return "oncePerDay";
+  }
+  if (normalized === "unlimited") {
+    return "unlimited";
+  }
+  return "reusableAfterTimer";
+}
 
 /** Mirrors Coupon._readBool: malformed and missing values remain nullable. */
 export function readCustomerBiteSaverCouponBoolean(
@@ -301,7 +350,7 @@ const maximumLocalBoundarySearchMilliseconds = 27 * 60 * 60_000;
 // at most one offset transition and offset equality is monotone for bisection.
 const minimumAuditedIanaTransitionSeparationMilliseconds =
   166 * 60 * 60_000;
-const maximumLocalOffsetTransitionRefinements = 27;
+const maximumLocalOffsetTransitionRefinements = 29;
 
 function localOffsetMillisecondsAt(
   instantMs: number,
@@ -318,8 +367,8 @@ function localOffsetMillisecondsAt(
 
 /**
  * Finds the exact first millisecond carrying a new UTC offset. Callers keep
- * the bracket inside the 27-hour local-boundary horizon, so 27 bisections are
- * sufficient independently of the configured IANA transition size.
+ * the bracket inside the bounded local-boundary/usage-window horizons, so 29
+ * bisections are sufficient independently of the configured transition size.
  */
 function firstLocalOffsetChangeMillis(value: {
   unchangedAtMs: number;
@@ -712,6 +761,230 @@ function nextLocalDailyResetMillis(
     : null;
 }
 
+const maximumUsageEvaluationOffsetMilliseconds = 14 * 60 * 60_000;
+const maximumUsageEvaluationWindowMilliseconds =
+  52 * 60 * 60_000 + 60_000 + 1;
+
+/**
+ * Produces the absolute-time form of the committed once-per-day predicate.
+ *
+ * For a completed anchor C and evaluation E, the evaluator keeps the offer
+ * unavailable exactly when C <= E and localDate(C) is at least the threshold
+ * date. The threshold is E's prior local date only during local 00:00, and is
+ * E's current local date at every other minute. An IANA rollback can make that
+ * absolute set discontinuous, so a scalar cutoff is not sufficient.
+ *
+ * With the validated +/-14 hour offset bound, the complete preimage starts no
+ * earlier than threshold-midnight minus 14 hours and ends at E+1ms. That span
+ * is less than 52h01m01ms. The runtime's audited 166-hour minimum transition
+ * separation therefore permits at most one offset transition and at most two
+ * disjoint windows.
+ */
+export function customerBiteSaverUsageEvaluationCalendar(value: {
+  evaluationAtMillis: number;
+  timeZone: string;
+}): CustomerBiteSaverUsageEvaluationCalendar {
+  const evaluationAtMillis = value.evaluationAtMillis;
+  if (
+    !Number.isSafeInteger(evaluationAtMillis) ||
+    evaluationAtMillis < 0 ||
+    !Number.isSafeInteger(evaluationAtMillis + 1) ||
+    typeof value.timeZone !== "string" ||
+    value.timeZone.length === 0 ||
+    value.timeZone.length > 100 ||
+    value.timeZone !== value.timeZone.trim()
+  ) {
+    throw new Error("Invalid BiteSaver usage-evaluation context.");
+  }
+  const evaluationLocal = localCivilDateTimeAt(
+    evaluationAtMillis,
+    value.timeZone,
+  );
+  if (evaluationLocal === null) {
+    throw new Error("Invalid BiteSaver usage-evaluation time zone.");
+  }
+  const currentDateStartCivilMillis = civilUtcMillis(Object.freeze({
+    year: evaluationLocal.year,
+    month: evaluationLocal.month,
+    day: evaluationLocal.day,
+    hour: 0,
+    minute: 0,
+    second: 0,
+    millisecond: 0,
+  }));
+  if (currentDateStartCivilMillis === null) {
+    throw new Error("Invalid BiteSaver usage-evaluation date.");
+  }
+  const inMidnightMinute = evaluationLocal.hour === 0 &&
+    evaluationLocal.minute === 0;
+  const thresholdCivilMillis = currentDateStartCivilMillis -
+    (inMidnightMinute ? 86_400_000 : 0);
+  const windowStart = Math.max(
+    0,
+    thresholdCivilMillis - maximumUsageEvaluationOffsetMilliseconds,
+  );
+  const windowEnd = evaluationAtMillis + 1;
+  if (
+    !Number.isSafeInteger(thresholdCivilMillis) ||
+    !Number.isSafeInteger(windowStart) ||
+    windowStart >= windowEnd ||
+    windowEnd - windowStart > maximumUsageEvaluationWindowMilliseconds ||
+    maximumUsageEvaluationWindowMilliseconds >=
+      minimumAuditedIanaTransitionSeparationMilliseconds
+  ) {
+    throw new Error("Invalid BiteSaver usage-evaluation window.");
+  }
+
+  const startOffset = localOffsetMillisecondsAt(windowStart, value.timeZone);
+  const endOffset = localOffsetMillisecondsAt(
+    windowEnd - 1,
+    value.timeZone,
+  );
+  const evaluationOffset = localOffsetMillisecondsAt(
+    evaluationAtMillis,
+    value.timeZone,
+  );
+  if (
+    startOffset === null ||
+    endOffset === null ||
+    evaluationOffset === null ||
+    !Number.isSafeInteger(evaluationOffset / 60_000) ||
+    evaluationOffset / 60_000 < -840 ||
+    evaluationOffset / 60_000 > 840
+  ) {
+    throw new Error("Invalid BiteSaver usage-evaluation offset.");
+  }
+
+  const transitionAtMillis = startOffset === endOffset
+    ? null
+    : firstLocalOffsetChangeMillis({
+        unchangedAtMs: windowStart,
+        changedAtMs: windowEnd - 1,
+        unchangedOffsetMs: startOffset,
+        timeZone: value.timeZone,
+      });
+  if (startOffset !== endOffset && transitionAtMillis === null) {
+    throw new Error("Invalid BiteSaver usage-evaluation transition.");
+  }
+  const segments: ReadonlyArray<Readonly<{
+    start: number;
+    end: number;
+    offset: number;
+  }>> = transitionAtMillis === null
+    ? [Object.freeze({start: windowStart, end: windowEnd, offset: startOffset})]
+    : [
+        Object.freeze({
+          start: windowStart,
+          end: transitionAtMillis,
+          offset: startOffset,
+        }),
+        Object.freeze({
+          start: transitionAtMillis,
+          end: windowEnd,
+          offset: endOffset,
+        }),
+      ];
+  const windows: CustomerBiteSaverOncePerDayUnavailableWindow[] = [];
+  for (const segment of segments) {
+    const startAtMillisInclusive = Math.max(
+      segment.start,
+      thresholdCivilMillis - segment.offset,
+    );
+    const endAtMillisExclusive = segment.end;
+    if (startAtMillisInclusive >= endAtMillisExclusive) {
+      continue;
+    }
+    const previous = windows.length === 0
+      ? undefined
+      : windows[windows.length - 1];
+    if (
+      previous !== undefined &&
+      startAtMillisInclusive <= previous.endAtMillisExclusive
+    ) {
+      windows[windows.length - 1] = Object.freeze({
+        startAtMillisInclusive: previous.startAtMillisInclusive,
+        endAtMillisExclusive: Math.max(
+          previous.endAtMillisExclusive,
+          endAtMillisExclusive,
+        ),
+      });
+    } else {
+      windows.push(Object.freeze({
+        startAtMillisInclusive,
+        endAtMillisExclusive,
+      }));
+    }
+  }
+  if (
+    windows.length < 1 ||
+    windows.length > 2 ||
+    windows.filter((window) =>
+      window.startAtMillisInclusive <= evaluationAtMillis &&
+      evaluationAtMillis < window.endAtMillisExclusive).length !== 1
+  ) {
+    throw new Error("Invalid BiteSaver usage-evaluation window set.");
+  }
+
+  const targetDate = normalizedCivilDateTime(Object.freeze({
+    year: evaluationLocal.year,
+    month: evaluationLocal.month,
+    day: evaluationLocal.day + (inMidnightMinute ? 0 : 1),
+    hour: 0,
+    minute: 1,
+    second: 0,
+    millisecond: 0,
+  }));
+  const dailyBoundary = targetDate === null
+    ? null
+    : localCivilMinuteBoundaryAfter(
+        targetDate,
+        value.timeZone,
+        evaluationAtMillis,
+      );
+  if (
+    dailyBoundary === null ||
+    dailyBoundary <= evaluationAtMillis ||
+    dailyBoundary - evaluationAtMillis >
+      maximumUsageEvaluationWindowMilliseconds
+  ) {
+    throw new Error("Invalid BiteSaver usage-evaluation boundary.");
+  }
+  const boundaryOffset = localOffsetMillisecondsAt(
+    dailyBoundary,
+    value.timeZone,
+  );
+  if (boundaryOffset === null) {
+    throw new Error("Invalid BiteSaver usage-evaluation boundary offset.");
+  }
+  const nextOffsetTransition = evaluationOffset === boundaryOffset
+    ? null
+    : firstLocalOffsetChangeMillis({
+        unchangedAtMs: evaluationAtMillis,
+        changedAtMs: dailyBoundary,
+        unchangedOffsetMs: evaluationOffset,
+        timeZone: value.timeZone,
+      });
+  if (evaluationOffset !== boundaryOffset && nextOffsetTransition === null) {
+    throw new Error("Invalid BiteSaver usage-evaluation boundary transition.");
+  }
+  const validUntilExclusiveMillis = Math.min(
+    dailyBoundary,
+    nextOffsetTransition ?? Number.MAX_SAFE_INTEGER,
+  );
+  if (validUntilExclusiveMillis <= evaluationAtMillis) {
+    throw new Error("Invalid BiteSaver usage-evaluation lifetime.");
+  }
+
+  return Object.freeze({
+    schemaVersion: customerBiteSaverUsageEvaluationSchemaVersion,
+    evaluationAtMillis,
+    timeZone: value.timeZone,
+    utcOffsetMinutes: evaluationOffset / 60_000,
+    validUntilExclusiveMillis,
+    oncePerDayUnavailableWindows: Object.freeze(windows),
+  });
+}
+
 export function normalizeCustomerBiteSaverDailySpecialDays(
   value: unknown,
 ): readonly number[] {
@@ -807,15 +1080,10 @@ function usageDecision(value: {
   CustomerBiteSaverAvailabilityDecision,
   "usageState" | "reason" | "activeTimerExpiresAtMs" | "nextAvailableAtMs"
 > {
-  const normalizedUsageRule = typeof value.usageRule === "string"
-    ? value.usageRule.trim().toLowerCase()
-    : "";
-  // Coupon.tryFromFirestore treats a missing or blank usage label as the
-  // canonical once-per-customer default. Only non-empty, unrecognized labels
-  // retain the legacy reusable behavior below.
-  const usageRule = normalizedUsageRule.length === 0
-    ? "once per customer"
-    : normalizedUsageRule;
+  const usagePolicy = normalizeCustomerBiteSaverUsagePolicy(
+    "coupon",
+    value.usageRule,
+  );
   const timerStartedAt = value.usage?.timerStartedAt ?? null;
   const timerStartedAtMs = timerStartedAt?.getTime() ?? Number.NaN;
   const timerCompletedAtMs = Number.isFinite(timerStartedAtMs)
@@ -825,7 +1093,7 @@ function usageDecision(value: {
       timerCompletedAtMs > value.now.getTime()
     ? timerCompletedAtMs
     : null;
-  if (usageRule === "unlimited") {
+  if (usagePolicy === "unlimited") {
     return {
       usageState: "available",
       reason: "available",
@@ -833,7 +1101,7 @@ function usageDecision(value: {
       nextAvailableAtMs: null,
     };
   }
-  if (usageRule !== "once per customer" && usageRule !== "once per day") {
+  if (usagePolicy === "reusableAfterTimer") {
     // Preserve the current client compatibility contract: legacy/unknown
     // labels are reusable and do not become unavailable when a usage read is
     // absent or transiently unknown.
@@ -873,7 +1141,7 @@ function usageDecision(value: {
       nextAvailableAtMs: null,
     };
   }
-  if (usageRule === "once per customer") {
+  if (usagePolicy === "oncePerCustomer") {
     return {
       usageState: "unavailable",
       reason: "used",
@@ -881,7 +1149,7 @@ function usageDecision(value: {
       nextAvailableAtMs: null,
     };
   }
-  if (usageRule === "once per day") {
+  if (usagePolicy === "oncePerDay") {
     const redeemed = localParts(lastRedeemedAt, value.timeZone);
     const now = localParts(value.now, value.timeZone);
     const dayComparison = compareLocalDates(now, redeemed);

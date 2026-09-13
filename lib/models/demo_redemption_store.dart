@@ -9,6 +9,18 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/coupon.dart';
 import '../services/customer_session_service.dart';
 
+typedef DemoRedemptionAuthSnapshot = ({String uid, bool isAnonymous});
+typedef DemoRedemptionSignedStateLoader =
+    Future<Map<String, DemoRedemptionStoredState>> Function(String uid);
+
+@immutable
+final class DemoRedemptionStoredState {
+  final DateTime? lastRedeemedAt;
+  final DateTime? timerStartedAt;
+
+  const DemoRedemptionStoredState({this.lastRedeemedAt, this.timerStartedAt});
+}
+
 class DemoRedemptionStore {
   static final ValueNotifier<int> changes = ValueNotifier<int>(0);
 
@@ -23,11 +35,18 @@ class DemoRedemptionStore {
 
   static bool _initialized = false;
   static Future<void>? _initializingFuture;
-  static StreamSubscription<User?>? _authSubscription;
+  static StreamSubscription<DemoRedemptionAuthSnapshot?>? _authSubscription;
   static String? _loadedUid;
   static bool _loadedAsGuest = false;
   static String? _loadedGuestDeviceId;
   static int _loadGeneration = 0;
+
+  static Future<void> Function()? _ensureAuthReadyForTesting;
+  static DemoRedemptionAuthSnapshot? Function()? _currentAuthSnapshotForTesting;
+  static Stream<DemoRedemptionAuthSnapshot?>? _authChangesForTesting;
+  static Future<String?> Function()? _existingGuestDeviceIdForTesting;
+  static Future<String> Function()? _guestDeviceIdForTesting;
+  static DemoRedemptionSignedStateLoader? _signedStateLoaderForTesting;
 
   static CollectionReference<Map<String, dynamic>> _redemptionsCollection(
     String uid,
@@ -43,24 +62,21 @@ class DemoRedemptionStore {
   }
 
   static Future<void> ensureInitialized() {
-    if (_authSubscription == null) {
-      _authSubscription = FirebaseAuth.instance.authStateChanges().listen((
-        user,
-      ) async {
-        final nextUid = user?.uid;
-        final nextIsGuest = user?.isAnonymous ?? false;
+    _authSubscription ??= _authChanges().listen((snapshot) async {
+      final nextUid = snapshot?.uid;
+      final nextIsGuest = snapshot?.isAnonymous ?? false;
 
-        if (_loadedUid != nextUid || _loadedAsGuest != nextIsGuest) {
-          _loadGeneration++;
-          _loadedUid = nextUid;
-          _loadedAsGuest = nextIsGuest;
-          _loadedGuestDeviceId = null;
-          _initialized = false;
-          _initializingFuture = null;
-          await ensureInitialized();
-        }
-      });
-    }
+      if (_loadedUid != nextUid || _loadedAsGuest != nextIsGuest) {
+        _loadGeneration++;
+        _clearMemory();
+        _loadedUid = nextUid;
+        _loadedAsGuest = nextIsGuest;
+        _loadedGuestDeviceId = null;
+        _initialized = false;
+        _initializingFuture = null;
+        await ensureInitialized();
+      }
+    });
 
     if (_initialized) {
       return Future.value();
@@ -75,11 +91,11 @@ class DemoRedemptionStore {
   }
 
   static Future<void> _loadCurrentUserRedemptions() async {
-    await CustomerSessionService.ensureAuthReady();
-    final user = FirebaseAuth.instance.currentUser;
+    await _ensureAuthReady();
+    final authSnapshot = _currentAuthSnapshot();
     final loadGeneration = _loadGeneration;
-    final activeUid = user?.uid;
-    final activeIsGuest = user?.isAnonymous ?? false;
+    final activeUid = authSnapshot?.uid;
+    final activeIsGuest = authSnapshot?.isAnonymous ?? false;
 
     if (!_matchesCurrentAuthUser(activeUid, activeIsGuest)) {
       return;
@@ -87,48 +103,52 @@ class DemoRedemptionStore {
 
     _loadedUid = activeUid;
     _loadedAsGuest = activeIsGuest;
-    _loadedGuestDeviceId =
-        await CustomerSessionService.getExistingGuestDeviceId();
+    _loadedGuestDeviceId = null;
+    _clearMemory();
+    final existingGuestDeviceId = await _getExistingGuestDeviceId();
 
-    if (user == null) {
+    if (authSnapshot == null) {
       if (!_isCurrentLoad(loadGeneration, activeUid, activeIsGuest)) {
         return;
       }
 
+      _loadedGuestDeviceId = existingGuestDeviceId;
       _initialized = true;
       changes.value++;
       return;
     }
 
-    _loadedGuestDeviceId = null;
-    _clearMemory();
+    final guestDeviceId = await _getOrCreateGuestDeviceId();
 
-    final guestDeviceId =
-        await CustomerSessionService.getOrCreateGuestDeviceId();
+    if (!_isCurrentLoad(loadGeneration, activeUid, activeIsGuest)) {
+      return;
+    }
+
+    late final Map<String, _StoredCouponRedemption> loadedRedemptions;
+    if (activeIsGuest) {
+      loadedRedemptions = await _readGuestRedemptionsFromDevice(guestDeviceId);
+    } else {
+      final signedRedemptions = await _readSignedInRedemptionsFromFirestore(
+        activeUid!,
+      );
+      if (!_isCurrentLoad(loadGeneration, activeUid, activeIsGuest)) {
+        return;
+      }
+      final guestRedemptions = await _readGuestRedemptionsFromDevice(
+        guestDeviceId,
+      );
+      loadedRedemptions = _mergeRedemptionsKeepingMostRecent(
+        signedRedemptions,
+        guestRedemptions,
+      );
+    }
 
     if (!_isCurrentLoad(loadGeneration, activeUid, activeIsGuest)) {
       return;
     }
 
     _loadedGuestDeviceId = guestDeviceId;
-
-    if (activeIsGuest) {
-      await _loadGuestRedemptionsFromDevice(guestDeviceId);
-    } else {
-      if (activeUid != null) {
-  await _loadSignedInRedemptionsFromFirestore(activeUid);
-}
-
-      final guestRedemptions = await _readGuestRedemptionsFromDevice(
-        guestDeviceId,
-      );
-      _mergeIntoMemoryKeepingMostRecent(guestRedemptions);
-    }
-
-    if (!_isCurrentLoad(loadGeneration, activeUid, activeIsGuest)) {
-      return;
-    }
-
+    _replaceMemory(loadedRedemptions);
     await _finalizeExpiredTimersIfNeeded();
     _scheduleAllExpiryTimers();
 
@@ -150,28 +170,40 @@ class DemoRedemptionStore {
     _expiryTimersByCoupon.clear();
   }
 
-  static Future<void> _loadSignedInRedemptionsFromFirestore(String uid) async {
+  static Future<Map<String, _StoredCouponRedemption>>
+  _readSignedInRedemptionsFromFirestore(String uid) async {
+    final testingLoader = _signedStateLoaderForTesting;
+    if (testingLoader != null) {
+      final loaded = await testingLoader(uid);
+      return loaded.map(
+        (couponId, state) => MapEntry(
+          couponId,
+          _StoredCouponRedemption(
+            lastRedeemedAt: state.lastRedeemedAt,
+            timerStartedAt: state.timerStartedAt,
+          ),
+        ),
+      );
+    }
     final snapshot = await _redemptionsCollection(uid).get();
+    final result = <String, _StoredCouponRedemption>{};
 
     for (final doc in snapshot.docs) {
       final data = doc.data();
       final lastRedeemedAt = _coerceDateTime(data['lastRedeemedAt']);
       final timerStartedAt = _coerceDateTime(data['timerStartedAt']);
-
-      if (lastRedeemedAt != null) {
-        _lastRedeemedAtByCoupon[doc.id] = lastRedeemedAt;
-      }
-
-      if (timerStartedAt != null) {
-        _timerStartedAtByCoupon[doc.id] = timerStartedAt;
+      if (lastRedeemedAt != null || timerStartedAt != null) {
+        result[doc.id] = _StoredCouponRedemption(
+          lastRedeemedAt: lastRedeemedAt,
+          timerStartedAt: timerStartedAt,
+        );
       }
     }
+    return result;
   }
 
   static Future<Map<String, _StoredCouponRedemption>>
-  _readGuestRedemptionsFromDevice(
-    String guestDeviceId,
-  ) async {
+  _readGuestRedemptionsFromDevice(String guestDeviceId) async {
     final prefs = await SharedPreferences.getInstance();
     final rawJson = prefs.getString(_guestStorageKeyFor(guestDeviceId));
 
@@ -193,9 +225,7 @@ class DemoRedemptionStore {
       if (value is String) {
         final parsed = DateTime.tryParse(value)?.toLocal();
         if (parsed != null) {
-          result[entry.key] = _StoredCouponRedemption(
-            lastRedeemedAt: parsed,
-          );
+          result[entry.key] = _StoredCouponRedemption(lastRedeemedAt: parsed);
         }
         continue;
       }
@@ -211,34 +241,54 @@ class DemoRedemptionStore {
     return result;
   }
 
-  static Future<void> _loadGuestRedemptionsFromDevice(
-    String guestDeviceId,
-  ) async {
-    final stored = await _readGuestRedemptionsFromDevice(guestDeviceId);
-
-    _clearMemory();
-    _mergeIntoMemoryKeepingMostRecent(stored);
+  static Map<String, _StoredCouponRedemption>
+  _mergeRedemptionsKeepingMostRecent(
+    Map<String, _StoredCouponRedemption> first,
+    Map<String, _StoredCouponRedemption> second,
+  ) {
+    final result = <String, _StoredCouponRedemption>{};
+    _mergeRedemptionsInto(result, first);
+    _mergeRedemptionsInto(result, second);
+    return result;
   }
 
-  static void _mergeIntoMemoryKeepingMostRecent(
+  static void _mergeRedemptionsInto(
+    Map<String, _StoredCouponRedemption> target,
     Map<String, _StoredCouponRedemption> incoming,
   ) {
     for (final entry in incoming.entries) {
-      final existingLastRedeemedAt = _lastRedeemedAtByCoupon[entry.key];
-      final existingTimerStartedAt = _timerStartedAtByCoupon[entry.key];
+      final existing = target[entry.key];
+      final existingLastRedeemedAt = existing?.lastRedeemedAt;
+      final existingTimerStartedAt = existing?.timerStartedAt;
       final incomingLastRedeemedAt = entry.value.lastRedeemedAt;
       final incomingTimerStartedAt = entry.value.timerStartedAt;
+      target[entry.key] = _StoredCouponRedemption(
+        lastRedeemedAt:
+            incomingLastRedeemedAt != null &&
+                (existingLastRedeemedAt == null ||
+                    incomingLastRedeemedAt.isAfter(existingLastRedeemedAt))
+            ? incomingLastRedeemedAt
+            : existingLastRedeemedAt,
+        timerStartedAt:
+            incomingTimerStartedAt != null &&
+                (existingTimerStartedAt == null ||
+                    incomingTimerStartedAt.isAfter(existingTimerStartedAt))
+            ? incomingTimerStartedAt
+            : existingTimerStartedAt,
+      );
+    }
+  }
 
-      if (incomingLastRedeemedAt != null &&
-          (existingLastRedeemedAt == null ||
-              incomingLastRedeemedAt.isAfter(existingLastRedeemedAt))) {
-        _lastRedeemedAtByCoupon[entry.key] = incomingLastRedeemedAt;
+  static void _replaceMemory(Map<String, _StoredCouponRedemption> redemptions) {
+    _clearMemory();
+    for (final entry in redemptions.entries) {
+      final lastRedeemedAt = entry.value.lastRedeemedAt;
+      final timerStartedAt = entry.value.timerStartedAt;
+      if (lastRedeemedAt != null) {
+        _lastRedeemedAtByCoupon[entry.key] = lastRedeemedAt;
       }
-
-      if (incomingTimerStartedAt != null &&
-          (existingTimerStartedAt == null ||
-              incomingTimerStartedAt.isAfter(existingTimerStartedAt))) {
-        _timerStartedAtByCoupon[entry.key] = incomingTimerStartedAt;
+      if (timerStartedAt != null) {
+        _timerStartedAtByCoupon[entry.key] = timerStartedAt;
       }
     }
   }
@@ -274,10 +324,7 @@ class DemoRedemptionStore {
       }
     }
 
-    await prefs.setString(
-      _guestStorageKeyFor(guestDeviceId),
-      jsonEncode(data),
-    );
+    await prefs.setString(_guestStorageKeyFor(guestDeviceId), jsonEncode(data));
   }
 
   static bool supportsRedeemTimer(String usageRule) {
@@ -303,7 +350,9 @@ class DemoRedemptionStore {
       return null;
     }
 
-    final remaining = timerStartedAt.add(redeemWindow).difference(DateTime.now());
+    final remaining = timerStartedAt
+        .add(redeemWindow)
+        .difference(DateTime.now());
     if (remaining <= Duration.zero) {
       return null;
     }
@@ -356,10 +405,7 @@ class DemoRedemptionStore {
     _timerStartedAtByCoupon[coupon.id] = now;
     _scheduleExpiryTimer(coupon.id);
 
-    await _persistRedemptionState(
-      couponId: coupon.id,
-      coupon: coupon,
-    );
+    await _persistRedemptionState(couponId: coupon.id, coupon: coupon);
 
     changes.value++;
   }
@@ -373,8 +419,8 @@ class DemoRedemptionStore {
     Coupon? coupon,
     bool incrementRedeemedCount = false,
   }) async {
-    await CustomerSessionService.ensureAuthReady();
-    final user = FirebaseAuth.instance.currentUser;
+    await _ensureAuthReady();
+    final user = _currentAuthSnapshot();
 
     if (user == null) {
       throw StateError(
@@ -408,10 +454,9 @@ class DemoRedemptionStore {
       data['redeemedCount'] = FieldValue.increment(1);
     }
 
-    await _redemptionsCollection(user.uid).doc(couponId).set(
-      data,
-      SetOptions(merge: true),
-    );
+    await _redemptionsCollection(
+      user.uid,
+    ).doc(couponId).set(data, SetOptions(merge: true));
   }
 
   static void _scheduleAllExpiryTimers() {
@@ -428,7 +473,9 @@ class DemoRedemptionStore {
       return;
     }
 
-    final remaining = timerStartedAt.add(redeemWindow).difference(DateTime.now());
+    final remaining = timerStartedAt
+        .add(redeemWindow)
+        .difference(DateTime.now());
     if (remaining <= Duration.zero) {
       unawaited(_finalizeExpiredTimerIfNeeded(couponId));
       return;
@@ -449,9 +496,9 @@ class DemoRedemptionStore {
     if (DateTime.now().isBefore(completedAt)) {
       return;
     }
-
     final existingLastRedeemedAt = _lastRedeemedAtByCoupon[couponId];
-    final shouldUpdate = existingLastRedeemedAt == null ||
+    final shouldUpdate =
+        existingLastRedeemedAt == null ||
         completedAt.isAfter(existingLastRedeemedAt);
 
     _timerStartedAtByCoupon.remove(couponId);
@@ -489,7 +536,8 @@ class DemoRedemptionStore {
     }
 
     final existingLastRedeemedAt = _lastRedeemedAtByCoupon[couponId];
-    final shouldUpdate = existingLastRedeemedAt == null ||
+    final shouldUpdate =
+        existingLastRedeemedAt == null ||
         completedAt.isAfter(existingLastRedeemedAt);
 
     _timerStartedAtByCoupon.remove(couponId);
@@ -520,7 +568,8 @@ class DemoRedemptionStore {
   static Future<void> syncGuestDeviceRedemptionsToSignedInUser(
     String targetUid,
   ) async {
-    final guestDeviceId = await CustomerSessionService.getExistingGuestDeviceId();
+    final guestDeviceId =
+        await CustomerSessionService.getExistingGuestDeviceId();
 
     if (guestDeviceId == null || guestDeviceId.trim().isEmpty) {
       return;
@@ -544,12 +593,16 @@ class DemoRedemptionStore {
       };
 
       if (entry.value.lastRedeemedAt != null) {
-        data['lastRedeemedAt'] = Timestamp.fromDate(entry.value.lastRedeemedAt!);
+        data['lastRedeemedAt'] = Timestamp.fromDate(
+          entry.value.lastRedeemedAt!,
+        );
         data['redeemedCount'] = 1;
       }
 
       if (entry.value.timerStartedAt != null) {
-        data['timerStartedAt'] = Timestamp.fromDate(entry.value.timerStartedAt!);
+        data['timerStartedAt'] = Timestamp.fromDate(
+          entry.value.timerStartedAt!,
+        );
       }
 
       batch.set(targetCollection.doc(entry.key), data, SetOptions(merge: true));
@@ -565,8 +618,47 @@ class DemoRedemptionStore {
     await ensureInitialized();
   }
 
+  static Future<void> _ensureAuthReady() async {
+    final testingLoader = _ensureAuthReadyForTesting;
+    if (testingLoader != null) {
+      await testingLoader();
+      return;
+    }
+    await CustomerSessionService.ensureAuthReady();
+  }
+
+  static DemoRedemptionAuthSnapshot? _currentAuthSnapshot() {
+    final testingLoader = _currentAuthSnapshotForTesting;
+    if (testingLoader != null) {
+      return testingLoader();
+    }
+    final user = FirebaseAuth.instance.currentUser;
+    return user == null ? null : (uid: user.uid, isAnonymous: user.isAnonymous);
+  }
+
+  static Stream<DemoRedemptionAuthSnapshot?> _authChanges() {
+    final testingStream = _authChangesForTesting;
+    if (testingStream != null) {
+      return testingStream;
+    }
+    return FirebaseAuth.instance.authStateChanges().map(
+      (user) =>
+          user == null ? null : (uid: user.uid, isAnonymous: user.isAnonymous),
+    );
+  }
+
+  static Future<String?> _getExistingGuestDeviceId() {
+    return _existingGuestDeviceIdForTesting?.call() ??
+        CustomerSessionService.getExistingGuestDeviceId();
+  }
+
+  static Future<String> _getOrCreateGuestDeviceId() {
+    return _guestDeviceIdForTesting?.call() ??
+        CustomerSessionService.getOrCreateGuestDeviceId();
+  }
+
   static bool _matchesCurrentAuthUser(String? uid, bool isGuest) {
-    final currentUser = FirebaseAuth.instance.currentUser;
+    final currentUser = _currentAuthSnapshot();
     if (currentUser == null) {
       return uid == null && !isGuest;
     }
@@ -575,7 +667,81 @@ class DemoRedemptionStore {
   }
 
   static bool _isCurrentLoad(int generation, String? uid, bool isGuest) {
-    return generation == _loadGeneration && _matchesCurrentAuthUser(uid, isGuest);
+    return generation == _loadGeneration &&
+        _matchesCurrentAuthUser(uid, isGuest);
+  }
+
+  @visibleForTesting
+  static void configureForTesting({
+    required DemoRedemptionAuthSnapshot? Function() currentAuthSnapshot,
+    Future<void> Function()? ensureAuthReady,
+    Stream<DemoRedemptionAuthSnapshot?>? authChanges,
+    Future<String?> Function()? existingGuestDeviceId,
+    Future<String> Function()? guestDeviceId,
+    DemoRedemptionSignedStateLoader? signedStateLoader,
+  }) {
+    if (_authSubscription != null || _initializingFuture != null) {
+      throw StateError('Reset DemoRedemptionStore before configuring it.');
+    }
+    _currentAuthSnapshotForTesting = currentAuthSnapshot;
+    _ensureAuthReadyForTesting = ensureAuthReady ?? () async {};
+    _authChangesForTesting =
+        authChanges ?? const Stream<DemoRedemptionAuthSnapshot?>.empty();
+    _existingGuestDeviceIdForTesting =
+        existingGuestDeviceId ?? () async => null;
+    _guestDeviceIdForTesting = guestDeviceId ?? () async => 'guest-test-device';
+    _signedStateLoaderForTesting =
+        signedStateLoader ??
+        (_) async => const <String, DemoRedemptionStoredState>{};
+  }
+
+  @visibleForTesting
+  static void seedMemoryForTesting({
+    required String loadedUid,
+    Map<String, DateTime> lastRedeemedAtByCoupon = const <String, DateTime>{},
+    Map<String, DateTime> timerStartedAtByCoupon = const <String, DateTime>{},
+  }) {
+    _clearMemory();
+    _lastRedeemedAtByCoupon.addAll(lastRedeemedAtByCoupon);
+    _timerStartedAtByCoupon.addAll(timerStartedAtByCoupon);
+    _loadedUid = loadedUid;
+    _loadedAsGuest = false;
+    _initialized = true;
+  }
+
+  @visibleForTesting
+  static DemoRedemptionStoredState? memoryStateForTesting(String couponId) {
+    final lastRedeemedAt = _lastRedeemedAtByCoupon[couponId];
+    final timerStartedAt = _timerStartedAtByCoupon[couponId];
+    if (lastRedeemedAt == null && timerStartedAt == null) {
+      return null;
+    }
+    return DemoRedemptionStoredState(
+      lastRedeemedAt: lastRedeemedAt,
+      timerStartedAt: timerStartedAt,
+    );
+  }
+
+  @visibleForTesting
+  static Future<void> resetForTesting() async {
+    _loadGeneration++;
+    final subscription = _authSubscription;
+    _authSubscription = null;
+    if (subscription != null) {
+      await subscription.cancel();
+    }
+    _clearMemory();
+    _initialized = false;
+    _initializingFuture = null;
+    _loadedUid = null;
+    _loadedAsGuest = false;
+    _loadedGuestDeviceId = null;
+    _ensureAuthReadyForTesting = null;
+    _currentAuthSnapshotForTesting = null;
+    _authChangesForTesting = null;
+    _existingGuestDeviceIdForTesting = null;
+    _guestDeviceIdForTesting = null;
+    _signedStateLoaderForTesting = null;
   }
 
   static DateTime? _coerceDateTime(dynamic value) {
@@ -599,8 +765,5 @@ class _StoredCouponRedemption {
   final DateTime? lastRedeemedAt;
   final DateTime? timerStartedAt;
 
-  const _StoredCouponRedemption({
-    this.lastRedeemedAt,
-    this.timerStartedAt,
-  });
+  const _StoredCouponRedemption({this.lastRedeemedAt, this.timerStartedAt});
 }

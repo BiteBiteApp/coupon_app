@@ -7,7 +7,9 @@ const {
   customerBiteSaverAvailabilityLocalPartsForTesting,
   customerBiteSaverFreshLocationMaximumAgeMilliseconds,
   customerBiteSaverRedemptionTimerMilliseconds,
+  customerBiteSaverUsageEvaluationCalendar,
   evaluateCustomerBiteSaverOfferAvailability,
+  normalizeCustomerBiteSaverUsagePolicy,
 } = require("../lib/customer_bitesaver_offer_availability.js");
 const {
   exactCustomerBiteSaverDistanceMiles,
@@ -1217,6 +1219,129 @@ test("once-per-day calendar comparisons remain exact across month and year bound
       expectedReason === "available" ? "available" : "unavailable",
     );
   }
+});
+
+function windowContains(calendar, instant) {
+  const instantMs = typeof instant === "number" ? instant : Date.parse(instant);
+  return calendar.oncePerDayUnavailableWindows.some((window) =>
+    window.startAtMillisInclusive <= instantMs &&
+    instantMs < window.endAtMillisExclusive);
+}
+
+test("usage evaluation windows reproduce the New York spring-forward example", () => {
+  const evaluationAtMillis = Date.parse("2026-03-08T07:30:00.000Z");
+  const calendar = customerBiteSaverUsageEvaluationCalendar({
+    evaluationAtMillis,
+    timeZone: newYork,
+  });
+  assert.deepEqual(calendar, {
+    schemaVersion: 1,
+    evaluationAtMillis,
+    timeZone: newYork,
+    utcOffsetMinutes: -240,
+    validUntilExclusiveMillis: Date.parse("2026-03-09T04:01:00.000Z"),
+    oncePerDayUnavailableWindows: [{
+      startAtMillisInclusive: Date.parse("2026-03-08T05:00:00.000Z"),
+      endAtMillisExclusive: evaluationAtMillis + 1,
+    }],
+  });
+  assert.equal(
+    windowContains(calendar, "2026-03-08T04:30:00.000Z"),
+    false,
+  );
+  assert.equal(
+    windowContains(calendar, "2026-03-08T05:00:00.000Z"),
+    true,
+  );
+  assert.equal(windowContains(calendar, evaluationAtMillis), true);
+  assert.equal(windowContains(calendar, evaluationAtMillis + 1), false);
+});
+
+test("usage evaluation threshold changes exactly at local 00:01", () => {
+  const beforeReset = customerBiteSaverUsageEvaluationCalendar({
+    evaluationAtMillis: Date.parse("2026-03-09T04:00:59.999Z"),
+    timeZone: newYork,
+  });
+  const atReset = customerBiteSaverUsageEvaluationCalendar({
+    evaluationAtMillis: Date.parse("2026-03-09T04:01:00.000Z"),
+    timeZone: newYork,
+  });
+  assert.equal(
+    beforeReset.validUntilExclusiveMillis,
+    Date.parse("2026-03-09T04:01:00.000Z"),
+  );
+  assert.equal(
+    windowContains(beforeReset, "2026-03-08T12:00:00.000Z"),
+    true,
+  );
+  assert.equal(
+    windowContains(atReset, "2026-03-08T12:00:00.000Z"),
+    false,
+  );
+  assert.equal(
+    windowContains(atReset, "2026-03-09T04:00:00.000Z"),
+    true,
+  );
+  assert.equal(
+    windowContains(atReset, "2026-03-09T03:59:59.999Z"),
+    false,
+  );
+});
+
+test("usage evaluation emits two exact windows for a civil-date rollback", () => {
+  const evaluationAtMillis = Date.parse("2000-10-29T03:31:00.000Z");
+  const calendar = customerBiteSaverUsageEvaluationCalendar({
+    evaluationAtMillis,
+    timeZone: "America/St_Johns",
+  });
+  assert.deepEqual(calendar.oncePerDayUnavailableWindows, [
+    {
+      startAtMillisInclusive: Date.parse("2000-10-29T02:30:00.000Z"),
+      endAtMillisExclusive: Date.parse("2000-10-29T02:31:00.000Z"),
+    },
+    {
+      startAtMillisInclusive: Date.parse("2000-10-29T03:30:00.000Z"),
+      endAtMillisExclusive: evaluationAtMillis + 1,
+    },
+  ]);
+  assert.equal(windowContains(calendar, "2000-10-29T02:30:30.000Z"), true);
+  assert.equal(windowContains(calendar, "2000-10-29T03:00:00.000Z"), false);
+  assert.equal(windowContains(calendar, "2000-10-29T03:30:30.000Z"), true);
+});
+
+test("usage evaluation resolves a non-hour transition without a 24-hour guess", () => {
+  const evaluationAtMillis = Date.parse("2026-10-04T12:00:00.000Z");
+  const calendar = customerBiteSaverUsageEvaluationCalendar({
+    evaluationAtMillis,
+    timeZone: "Australia/Lord_Howe",
+  });
+  assert.equal(calendar.utcOffsetMinutes, 660);
+  assert.equal(
+    calendar.oncePerDayUnavailableWindows[0].startAtMillisInclusive,
+    Date.parse("2026-10-03T13:30:00.000Z"),
+  );
+  assert.equal(
+    calendar.validUntilExclusiveMillis,
+    Date.parse("2026-10-04T13:01:00.000Z"),
+  );
+  assert.throws(() => customerBiteSaverUsageEvaluationCalendar({
+    evaluationAtMillis,
+    timeZone: "Not/A_Zone",
+  }));
+});
+
+test("public usage-policy normalization is identical to evaluator compatibility", () => {
+  assert.equal(normalizeCustomerBiteSaverUsagePolicy("dailySpecial", "x"), null);
+  assert.equal(normalizeCustomerBiteSaverUsagePolicy("coupon", null),
+    "oncePerCustomer");
+  assert.equal(normalizeCustomerBiteSaverUsagePolicy("coupon", "  "),
+    "oncePerCustomer");
+  assert.equal(normalizeCustomerBiteSaverUsagePolicy("coupon", "Once Per Day"),
+    "oncePerDay");
+  assert.equal(normalizeCustomerBiteSaverUsagePolicy("coupon", "UNLIMITED"),
+    "unlimited");
+  assert.equal(normalizeCustomerBiteSaverUsagePolicy("coupon", "legacy"),
+    "reusableAfterTimer");
 });
 
 test("unlimited and unknown legacy usage strings retain reusable compatibility", () => {
