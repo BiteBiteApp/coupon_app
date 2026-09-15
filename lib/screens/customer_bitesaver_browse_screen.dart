@@ -48,17 +48,33 @@ final class CustomerBiteSaverBrowseSelection {
     required this.restaurant,
     required this.offer,
     required this.session,
+    required this.access,
   });
 
   factory CustomerBiteSaverBrowseSelection.restaurantProfile({
     required CustomerBiteSaverRestaurant restaurant,
     required CustomerBiteSaverSearchCoordinator session,
-  }) => CustomerBiteSaverBrowseSelection._(
-    action: CustomerBiteSaverBrowseAction.restaurantProfile,
-    restaurant: restaurant,
-    offer: null,
-    session: session,
-  );
+    CustomerBiteSaverBrowseAccess? access,
+  }) {
+    final selectedAccess =
+        access ?? session.captureBrowseAccess(restaurant: restaurant);
+    if (!identical(
+      session.currentAcceptedRestaurantForAccess(
+        selectedAccess,
+        restaurant.restaurantId,
+      ),
+      restaurant,
+    )) {
+      throw const CustomerBiteSaverFreshSearchRequiredException();
+    }
+    return CustomerBiteSaverBrowseSelection._(
+      action: CustomerBiteSaverBrowseAction.restaurantProfile,
+      restaurant: restaurant,
+      offer: null,
+      session: session,
+      access: selectedAccess,
+    );
+  }
 
   factory CustomerBiteSaverBrowseSelection.menu({
     required CustomerBiteSaverRestaurant restaurant,
@@ -68,18 +84,36 @@ final class CustomerBiteSaverBrowseSelection {
     restaurant: restaurant,
     offer: null,
     session: session,
+    access: session.captureBrowseAccess(restaurant: restaurant),
   );
 
   factory CustomerBiteSaverBrowseSelection.offer({
     required CustomerBiteSaverRestaurant restaurant,
     required CustomerBiteSaverOffer offer,
     required CustomerBiteSaverSearchCoordinator session,
-  }) => CustomerBiteSaverBrowseSelection._(
-    action: CustomerBiteSaverBrowseAction.offer,
-    restaurant: restaurant,
-    offer: offer,
-    session: session,
-  );
+    CustomerBiteSaverBrowseAccess? access,
+  }) {
+    final selectedAccess =
+        access ??
+        session.captureBrowseAccess(restaurant: restaurant, offer: offer);
+    final current = session.currentAcceptedOfferSelectionForAccess(
+      selectedAccess,
+      restaurant.restaurantId,
+      offer.offerId,
+    );
+    if (!identical(current?.restaurant, restaurant) ||
+        !identical(current?.offer, offer) ||
+        current?.offer.offerOccurrence != offer.offerOccurrence) {
+      throw const CustomerBiteSaverFreshSearchRequiredException();
+    }
+    return CustomerBiteSaverBrowseSelection._(
+      action: CustomerBiteSaverBrowseAction.offer,
+      restaurant: restaurant,
+      offer: offer,
+      session: session,
+      access: selectedAccess,
+    );
+  }
 
   final CustomerBiteSaverBrowseAction action;
   final CustomerBiteSaverRestaurant restaurant;
@@ -88,6 +122,24 @@ final class CustomerBiteSaverBrowseSelection {
   /// The already-fenced session capability. Raw restaurant/coupon IDs are not
   /// reconstructed or sent to legacy screens by this presentation layer.
   final CustomerBiteSaverSearchCoordinator session;
+  final CustomerBiteSaverBrowseAccess access;
+
+  bool get isCurrent {
+    final currentRestaurant = session.currentAcceptedRestaurantForAccess(
+      access,
+      restaurant.restaurantId,
+    );
+    if (currentRestaurant == null) return false;
+    final selectedOffer = offer;
+    if (selectedOffer == null) return true;
+    final current = session.currentAcceptedOfferSelectionForAccess(
+      access,
+      restaurant.restaurantId,
+      selectedOffer.offerId,
+    );
+    return current != null &&
+        current.offer.offerOccurrence == selectedOffer.offerOccurrence;
+  }
 }
 
 @immutable

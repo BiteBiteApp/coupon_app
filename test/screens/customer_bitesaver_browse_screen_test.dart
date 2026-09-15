@@ -2,11 +2,16 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:coupon_app/models/coupon.dart';
 import 'package:coupon_app/models/customer_bitesaver_favorite.dart';
 import 'package:coupon_app/models/customer_bitesaver_search.dart';
+import 'package:coupon_app/screens/coupon_detail_screen.dart';
+import 'package:coupon_app/screens/customer_bitesaver_browse_destinations.dart';
 import 'package:coupon_app/screens/customer_bitesaver_browse_screen.dart';
 import 'package:coupon_app/screens/home_screen.dart';
 import 'package:coupon_app/screens/main_navigation_screen.dart';
+import 'package:coupon_app/screens/restaurant_menu_screen.dart';
+import 'package:coupon_app/screens/restaurant_profile_screen.dart';
 import 'package:coupon_app/services/app_mode_state_service.dart';
 import 'package:coupon_app/services/customer_bitesaver_guest_usage_store.dart';
 import 'package:coupon_app/services/customer_bitesaver_search_coordinator.dart';
@@ -34,6 +39,749 @@ void main() {
   test('default navigation entry has no bounded browse activation', () {
     const screen = MainNavigationScreen(initializePlatformServices: false);
     expect(screen.biteSaverBrowseHomeBuilder, isNull);
+  });
+
+  testWidgets(
+    'production handler opens exact restaurant DTO and Back retains browse',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1000);
+      addTearDown(tester.view.reset);
+      final harness = _BrowseHarness();
+      const handler = CustomerBiteSaverBrowseDestinationHandler();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: rootNavigatorKey,
+          home: MainNavigationScreen(
+            initializePlatformServices: false,
+            biteSaverBrowseHomeBuilder:
+                (context, navigationRefreshGeneration, authRealm) =>
+                    harness.screen(
+                      navigationRefreshGeneration: navigationRefreshGeneration,
+                      onAction: handler.call,
+                    ),
+            testPagesBuilder: (mode) => const <Widget>[
+              SizedBox.shrink(),
+              SizedBox.shrink(),
+              SizedBox.shrink(),
+            ],
+          ),
+        ),
+      );
+      await _pumpBrowseReady(tester, harness.transport);
+      final browseState = tester.state(
+        find.byType(CustomerBiteSaverBrowseScreen),
+      );
+      final scroll = tester.widget<CustomScrollView>(
+        find.byType(CustomScrollView).last,
+      );
+      scroll.controller!.jumpTo(80);
+      await tester.pump();
+      final retainedOffset = scroll.controller!.offset;
+      final expected = harness.coordinator.currentAcceptedRestaurantFor(
+        _restaurantId(harness.transport),
+      );
+
+      await tester.tap(find.text('Fixture Café 😀'));
+      await tester.pumpAndSettle();
+
+      final destination = tester.widget<RestaurantProfileScreen>(
+        find.byType(RestaurantProfileScreen),
+      );
+      expect(destination.boundedRestaurant, same(expected));
+      expect(destination.boundedSession, same(harness.coordinator));
+      expect(destination.boundedAccess, isNotNull);
+      expect(
+        harness.coordinator.isBrowseAccessCurrent(destination.boundedAccess!),
+        isTrue,
+      );
+      expect(destination.restaurant.accountDocumentId, isNull);
+      expect(destination.restaurant.name, 'Fixture Café 😀');
+      expect(find.byTooltip('Save restaurant'), findsNothing);
+      expect(find.text('Report'), findsNothing);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.state(find.byType(CustomerBiteSaverBrowseScreen)),
+        same(browseState),
+      );
+      expect(
+        tester
+            .widget<CustomScrollView>(find.byType(CustomScrollView).last)
+            .controller!
+            .offset,
+        closeTo(retainedOffset, 0.01),
+      );
+      expect(harness.transport.startCalls, 1);
+      expect(harness.transport.restaurantPageCalls, 1);
+      expect(harness.transport.redemptionCalls, 0);
+
+      for (var cycle = 0; cycle < 2; cycle += 1) {
+        await tester.tap(find.text('Fixture Café 😀'));
+        await tester.pumpAndSettle();
+        expect(find.byType(RestaurantProfileScreen), findsOneWidget);
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+      }
+      expect(
+        tester.state(find.byType(CustomerBiteSaverBrowseScreen)),
+        same(browseState),
+      );
+      expect(harness.transport.startCalls, 1);
+      expect(harness.transport.restaurantPageCalls, 1);
+      expect(tester.takeException(), isNull);
+
+      await tester.tap(find.text('Fixture Café 😀'));
+      await tester.pumpAndSettle();
+      final replacedAccess = tester
+          .widget<RestaurantProfileScreen>(find.byType(RestaurantProfileScreen))
+          .boundedAccess!;
+      await harness.coordinator.freshSearch(harness.coordinator.criteria!);
+      await _pumpUntil(
+        tester,
+        () => find.byType(RestaurantProfileScreen).evaluate().isEmpty,
+      );
+      expect(
+        harness.coordinator.isBrowseAccessCurrent(replacedAccess),
+        isFalse,
+      );
+      expect(harness.transport.startCalls, 2);
+      expect(harness.transport.restaurantPageCalls, 2);
+    },
+  );
+
+  testWidgets(
+    'production handler opens preview and expanded offers without redemption',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1100);
+      addTearDown(tester.view.reset);
+      final harness = _BrowseHarness();
+      const handler = CustomerBiteSaverBrowseDestinationHandler();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: rootNavigatorKey,
+          home: MainNavigationScreen(
+            initializePlatformServices: false,
+            biteSaverBrowseHomeBuilder:
+                (context, navigationRefreshGeneration, authRealm) =>
+                    harness.screen(
+                      navigationRefreshGeneration: navigationRefreshGeneration,
+                      onAction: handler.call,
+                    ),
+            testPagesBuilder: (mode) => const <Widget>[
+              SizedBox.shrink(),
+              SizedBox.shrink(),
+              SizedBox.shrink(),
+            ],
+          ),
+        ),
+      );
+      await _pumpBrowseReady(tester, harness.transport);
+      final browseState = tester.state(
+        find.byType(CustomerBiteSaverBrowseScreen),
+      );
+      var expected = harness.coordinator.currentAcceptedOfferSelectionFor(
+        _restaurantId(harness.transport),
+        CustomerBiteSaverOfferId(harness.transport.firstOfferId),
+      )!;
+
+      await tester.tap(find.text('Fixture Coupon 1'));
+      await tester.pumpAndSettle();
+
+      var detail = tester.widget<CouponDetailScreen>(
+        find.byType(CouponDetailScreen),
+      );
+      expect(detail.boundedRestaurant, same(expected.restaurant));
+      expect(detail.boundedOffer, same(expected.offer));
+      expect(detail.boundedSession, same(harness.coordinator));
+      expect(
+        detail.boundedOffer!.offerOccurrence,
+        expected.offer.offerOccurrence,
+      );
+      expect(detail.coupon.id, harness.transport.firstOfferId);
+      expect(detail.restaurant!.accountDocumentId, isNull);
+      expect(detail.useBoundedCoupon, isNull);
+      expect(find.text('Use Coupon Unavailable'), findsOneWidget);
+      expect(find.byTooltip('Save coupon'), findsNothing);
+      expect(harness.transport.redemptionCalls, 0);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(
+        tester.state(find.byType(CustomerBiteSaverBrowseScreen)),
+        same(browseState),
+      );
+
+      await tester.tap(find.text('More deals'));
+      await _pumpUntil(tester, () => harness.transport.offerPageCalls == 1);
+      expected = harness.coordinator.currentAcceptedOfferSelectionFor(
+        _restaurantId(harness.transport),
+        CustomerBiteSaverOfferId(harness.transport.thirdOfferId),
+      )!;
+      await tester.tap(find.text('Additional Deal 3'));
+      await tester.pumpAndSettle();
+
+      detail = tester.widget<CouponDetailScreen>(
+        find.byType(CouponDetailScreen),
+      );
+      expect(detail.boundedRestaurant, same(expected.restaurant));
+      expect(detail.boundedOffer, same(expected.offer));
+      expect(
+        detail.boundedOffer!.offerId.value,
+        harness.transport.thirdOfferId,
+      );
+      expect(
+        detail.boundedOffer!.offerOccurrence,
+        expected.offer.offerOccurrence,
+      );
+      expect(harness.transport.redemptionCalls, 0);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(
+        tester.state(find.byType(CustomerBiteSaverBrowseScreen)),
+        same(browseState),
+      );
+      expect(harness.transport.startCalls, 1);
+    },
+  );
+
+  testWidgets('bounded detail preserves structured offer presentation', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1100);
+    addTearDown(tester.view.reset);
+    final transport = _BrowseFixtureTransport(
+      firstOfferOverrides: const <String, Object?>{
+        'usageRule': 'Limit 2 per customer',
+        'redemptionPolicyLabel': 'Limit 2 per customer',
+        'availabilityMode': 'specificDays',
+        'daysOfWeek': <int>[1, 3, 5],
+        'allDay': false,
+        'startTime': '09:15',
+        'endTime': '14:45',
+        'expiresText': null,
+      },
+    );
+    final harness = _BrowseHarness(transport: transport);
+    const handler = CustomerBiteSaverBrowseDestinationHandler();
+
+    await tester.pumpWidget(_productionBrowseApp(harness, handler));
+    await _pumpBrowseReady(tester, transport);
+    await tester.tap(find.text('Fixture Coupon 1'));
+    await tester.pumpAndSettle();
+
+    expect(
+      _richTextAtKey(tester, CouponDetailScreen.boundedOfferTypeKey),
+      'Offer type: Coupon',
+    );
+    expect(
+      _richTextAtKey(tester, CouponDetailScreen.boundedScheduleKey),
+      'Schedule: Mon, Wed, Fri · 09:15–14:45',
+    );
+    expect(
+      _richTextAtKey(tester, BiteSaverCouponDetailInfoSection.usageKey),
+      'Usage: Limit 2 per customer',
+    );
+    expect(find.textContaining('Limited time'), findsNothing);
+    expect(find.textContaining('See offer details'), findsNothing);
+  });
+
+  testWidgets('transient inactive and resumed preserves open bounded detail', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1000);
+    addTearDown(tester.view.reset);
+    final harness = _BrowseHarness();
+    const handler = CustomerBiteSaverBrowseDestinationHandler();
+
+    await tester.pumpWidget(_productionBrowseApp(harness, handler));
+    await _pumpBrowseReady(tester, harness.transport);
+    await tester.tap(find.text('Fixture Coupon 1'));
+    await tester.pumpAndSettle();
+    final detail = tester.state(find.byType(CouponDetailScreen));
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CouponDetailScreen), findsOneWidget);
+    expect(tester.state(find.byType(CouponDetailScreen)), same(detail));
+    expect(harness.transport.startCalls, 1);
+  });
+
+  testWidgets(
+    'bounded profile and detail preserve daily-special presentation',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1100);
+      addTearDown(tester.view.reset);
+      final transport = _BrowseFixtureTransport(
+        firstOfferIsDailySpecial: true,
+        firstOfferOverrides: const <String, Object?>{
+          'availabilityMode': 'specificDays',
+          'daysOfWeek': <int>[2, 4],
+          'allDay': false,
+          'startTime': '11:00 AM',
+          'endTime': '2:00 PM',
+        },
+      );
+      final harness = _BrowseHarness(transport: transport);
+      const handler = CustomerBiteSaverBrowseDestinationHandler();
+
+      await tester.pumpWidget(_productionBrowseApp(harness, handler));
+      await _pumpBrowseReady(tester, transport);
+      await tester.tap(find.text('Fixture Café 😀'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Available Offers'), findsOneWidget);
+      expect(find.text('Fixture Daily Special'), findsOneWidget);
+      expect(find.text('Daily Special'), findsOneWidget);
+      expect(
+        find.textContaining('Tue, Thu · 11:00 AM–2:00 PM'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Fixture Daily Special'));
+      await tester.pumpAndSettle();
+
+      expect(
+        _richTextAtKey(tester, CouponDetailScreen.boundedOfferTypeKey),
+        'Offer type: Daily special',
+      );
+      expect(
+        _richTextAtKey(tester, CouponDetailScreen.boundedScheduleKey),
+        'Schedule: Tue, Thu · 11:00 AM–2:00 PM',
+      );
+      expect(find.textContaining('Use Coupon'), findsNothing);
+      expect(
+        find.byKey(BiteSaverCouponDetailInfoSection.usageKey),
+        findsNothing,
+      );
+      expect(transport.redemptionCalls, 0);
+    },
+  );
+
+  testWidgets('retained profile revalidates offer action after resume', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1100);
+    addTearDown(tester.view.reset);
+    final harness = _BrowseHarness();
+    const handler = CustomerBiteSaverBrowseDestinationHandler();
+
+    await tester.pumpWidget(_productionBrowseApp(harness, handler));
+    await _pumpBrowseReady(tester, harness.transport);
+    await tester.tap(find.text('Fixture Café 😀'));
+    await tester.pumpAndSettle();
+    final profile = tester.widget<RestaurantProfileScreen>(
+      find.byType(RestaurantProfileScreen),
+    );
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Fixture Coupon 1'));
+    await tester.pumpAndSettle();
+
+    final detail = tester.widget<CouponDetailScreen>(
+      find.byType(CouponDetailScreen),
+    );
+    expect(detail.boundedAccess, same(profile.boundedAccess));
+    expect(detail.boundedRestaurant, same(profile.boundedRestaurant));
+    expect(detail.boundedOffer?.title, 'Fixture Coupon 1');
+    expect(harness.transport.startCalls, 1);
+    expect(harness.transport.redemptionCalls, 0);
+  });
+
+  testWidgets('bounded all-day schedule does not invent clock times', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1100);
+    addTearDown(tester.view.reset);
+    final transport = _BrowseFixtureTransport(
+      firstOfferOverrides: const <String, Object?>{
+        'availabilityMode': 'specificDays',
+        'daysOfWeek': <int>[6, 7],
+        'allDay': true,
+        'startTime': null,
+        'endTime': null,
+      },
+    );
+    final harness = _BrowseHarness(transport: transport);
+    const handler = CustomerBiteSaverBrowseDestinationHandler();
+
+    await tester.pumpWidget(_productionBrowseApp(harness, handler));
+    await _pumpBrowseReady(tester, transport);
+    await tester.tap(find.text('Fixture Coupon 1'));
+    await tester.pumpAndSettle();
+
+    expect(
+      _richTextAtKey(tester, CouponDetailScreen.boundedScheduleKey),
+      'Schedule: Sat, Sun · All day',
+    );
+    expect(find.byKey(CouponDetailScreen.boundedStartsKey), findsNothing);
+    expect(find.byKey(CouponDetailScreen.boundedEndsKey), findsNothing);
+  });
+
+  testWidgets('bounded absolute schedule retains source instants', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1100);
+    addTearDown(tester.view.reset);
+    const startAtMillis = 1789221600000;
+    const endAtMillis = 1789228800000;
+    final transport = _BrowseFixtureTransport(
+      firstOfferOverrides: const <String, Object?>{
+        'startAtMillis': startAtMillis,
+        'endAtMillis': endAtMillis,
+        'expiresAtMillis': endAtMillis,
+        'expiresText': null,
+      },
+    );
+    final harness = _BrowseHarness(transport: transport);
+    const handler = CustomerBiteSaverBrowseDestinationHandler();
+
+    await tester.pumpWidget(_productionBrowseApp(harness, handler));
+    await _pumpBrowseReady(tester, transport);
+    await tester.tap(find.text('Fixture Coupon 1'));
+    await tester.pumpAndSettle();
+
+    expect(
+      _richTextAtKey(tester, CouponDetailScreen.boundedStartsKey),
+      'Starts: ${Coupon.formatDateTime(DateTime.fromMillisecondsSinceEpoch(startAtMillis, isUtc: true))}',
+    );
+    expect(
+      _richTextAtKey(tester, CouponDetailScreen.boundedEndsKey),
+      'Ends: ${Coupon.formatDateTime(DateTime.fromMillisecondsSinceEpoch(endAtMillis, isUtc: true))}',
+    );
+    expect(
+      _richTextAtKey(tester, BiteSaverCouponDetailInfoSection.expiresKey),
+      'Expires: ${Coupon.formatMonthDayTime(DateTime.fromMillisecondsSinceEpoch(endAtMillis, isUtc: true))}',
+    );
+  });
+
+  testWidgets('bounded missing optional labels stay neutral', (tester) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1100);
+    addTearDown(tester.view.reset);
+    final transport = _BrowseFixtureTransport(
+      firstOfferIsDailySpecial: true,
+      firstOfferOverrides: const <String, Object?>{
+        'availabilityMode': null,
+        'daysOfWeek': <int>[],
+        'allDay': null,
+        'startTime': null,
+        'endTime': null,
+        'expiresAtMillis': null,
+        'expiresText': null,
+        'usageRule': null,
+        'redemptionPolicyLabel': null,
+      },
+    );
+    final harness = _BrowseHarness(transport: transport);
+    const handler = CustomerBiteSaverBrowseDestinationHandler();
+
+    await tester.pumpWidget(_productionBrowseApp(harness, handler));
+    await _pumpBrowseReady(tester, transport);
+    await tester.tap(find.text('Fixture Daily Special'));
+    await tester.pumpAndSettle();
+
+    expect(
+      _richTextAtKey(tester, CouponDetailScreen.boundedOfferTypeKey),
+      'Offer type: Daily special',
+    );
+    expect(find.byKey(BiteSaverCouponDetailInfoSection.usageKey), findsNothing);
+    expect(
+      find.byKey(BiteSaverCouponDetailInfoSection.expiresKey),
+      findsNothing,
+    );
+    expect(find.byKey(CouponDetailScreen.boundedScheduleKey), findsNothing);
+    expect(find.textContaining('Limited time'), findsNothing);
+    expect(find.textContaining('See offer details'), findsNothing);
+    expect(find.textContaining('Unlimited'), findsNothing);
+  });
+
+  testWidgets(
+    'paused hidden and repeated external handoffs retain one detail route',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1000);
+      addTearDown(tester.view.reset);
+      final harness = _BrowseHarness();
+      const handler = CustomerBiteSaverBrowseDestinationHandler();
+
+      await tester.pumpWidget(_productionBrowseApp(harness, handler));
+      await _pumpBrowseReady(tester, harness.transport);
+      await tester.tap(find.text('Fixture Coupon 1'));
+      await tester.pumpAndSettle();
+      final detail = tester.state(find.byType(CouponDetailScreen));
+
+      for (var cycle = 0; cycle < 3; cycle += 1) {
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        await tester.pump();
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+        await tester.pump();
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.paused);
+        await tester.pump();
+        tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+        await tester.pump();
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        await tester.pump();
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.byType(CouponDetailScreen), findsOneWidget);
+        expect(tester.state(find.byType(CouponDetailScreen)), same(detail));
+        expect(
+          find.byType(MainNavigationScreen, skipOffstage: false),
+          findsOneWidget,
+        );
+      }
+      expect(harness.transport.startCalls, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('auth invalidation wins during transient lifecycle state', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1000);
+    addTearDown(tester.view.reset);
+    final harness = _BrowseHarness();
+    const handler = CustomerBiteSaverBrowseDestinationHandler();
+
+    await tester.pumpWidget(_productionBrowseApp(harness, handler));
+    await _pumpBrowseReady(tester, harness.transport);
+    await tester.tap(find.text('Fixture Coupon 1'));
+    await tester.pumpAndSettle();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    expect(find.byType(CouponDetailScreen), findsOneWidget);
+
+    await harness.coordinator.updateAuth(
+      const CustomerBiteSaverAuthSnapshot.signed('signed-b'),
+    );
+    await _pumpUntil(
+      tester,
+      () => find.byType(CouponDetailScreen).evaluate().isEmpty,
+    );
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 10));
+
+    expect(find.byType(CouponDetailScreen), findsNothing);
+    expect(harness.transport.startCalls, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('accepted evidence expiry retires retained public detail', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1000);
+    addTearDown(tester.view.reset);
+    final transport = _BrowseFixtureTransport();
+    var nowMillis = transport.evaluationAtMillis;
+    final harness = _BrowseHarness(
+      transport: transport,
+      clock: () => DateTime.fromMillisecondsSinceEpoch(nowMillis, isUtc: true),
+    );
+    const handler = CustomerBiteSaverBrowseDestinationHandler();
+
+    await tester.pumpWidget(_productionBrowseApp(harness, handler));
+    await _pumpBrowseReady(tester, transport);
+    await tester.tap(find.text('Fixture Coupon 1'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CouponDetailScreen), findsOneWidget);
+
+    nowMillis = transport.logicalExpiresAtMillis;
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await _pumpUntil(
+      tester,
+      () => find.byType(CouponDetailScreen).evaluate().isEmpty,
+    );
+
+    expect(find.byType(CustomerBiteSaverBrowseScreen), findsOneWidget);
+    expect(harness.transport.startCalls, 1);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+  });
+
+  testWidgets('root disposal releases retained destination listeners', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1000);
+    addTearDown(tester.view.reset);
+    final harness = _BrowseHarness();
+    const handler = CustomerBiteSaverBrowseDestinationHandler();
+
+    await tester.pumpWidget(_productionBrowseApp(harness, handler));
+    await _pumpBrowseReady(tester, harness.transport);
+    await tester.tap(find.text('Fixture Coupon 1'));
+    await tester.pumpAndSettle();
+    expect(find.byType(CouponDetailScreen), findsOneWidget);
+
+    await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+    await tester.pumpAndSettle();
+
+    expect(harness.coordinator.isDisposed, isTrue);
+    expect(find.byType(CouponDetailScreen), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'menu stays blocked without raw identity and does not open a consumer',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1000);
+      addTearDown(tester.view.reset);
+      final harness = _BrowseHarness();
+      const handler = CustomerBiteSaverBrowseDestinationHandler();
+
+      await tester.pumpWidget(
+        MaterialApp(home: harness.screen(onAction: handler.call)),
+      );
+      await _pumpBrowseReady(tester, harness.transport);
+      expect(
+        harness.coordinator
+            .currentAcceptedRestaurantFor(_restaurantId(harness.transport))!
+            .catalogBindingAvailable,
+        isTrue,
+      );
+
+      await tester.tap(find.text('View Menu'));
+      await tester.pump();
+
+      expect(
+        find.text('Menu is not available from this search yet.'),
+        findsOneWidget,
+      );
+      expect(find.byType(RestaurantMenuScreen), findsNothing);
+      expect(harness.transport.startCalls, 1);
+      expect(harness.transport.redemptionCalls, 0);
+    },
+  );
+
+  testWidgets('daily-special selections use the bounded offer destination', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1000);
+    addTearDown(tester.view.reset);
+    final transport = _BrowseFixtureTransport(firstOfferIsDailySpecial: true);
+    final harness = _BrowseHarness(transport: transport);
+    const handler = CustomerBiteSaverBrowseDestinationHandler();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: rootNavigatorKey,
+        home: MainNavigationScreen(
+          initializePlatformServices: false,
+          biteSaverBrowseHomeBuilder:
+              (context, navigationRefreshGeneration, authRealm) =>
+                  harness.screen(
+                    navigationRefreshGeneration: navigationRefreshGeneration,
+                    onAction: handler.call,
+                  ),
+          testPagesBuilder: (mode) => const <Widget>[
+            SizedBox.shrink(),
+            SizedBox.shrink(),
+            SizedBox.shrink(),
+          ],
+        ),
+      ),
+    );
+    await _pumpBrowseReady(tester, transport);
+
+    await tester.tap(find.text('Fixture Daily Special'));
+    await tester.pumpAndSettle();
+
+    final detail = tester.widget<CouponDetailScreen>(
+      find.byType(CouponDetailScreen),
+    );
+    expect(
+      detail.boundedOffer?.offerType,
+      CustomerBiteSaverOfferType.dailySpecial,
+    );
+    expect(find.text('Offer Details'), findsOneWidget);
+    expect(find.text('Use Coupon Unavailable'), findsNothing);
+    expect(transport.redemptionCalls, 0);
+  });
+
+  testWidgets('auth replacement retires bounded destinations and leases', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1000);
+    addTearDown(tester.view.reset);
+    final harness = _BrowseHarness();
+    const handler = CustomerBiteSaverBrowseDestinationHandler();
+    CustomerBiteSaverBrowseSelection? pendingSelection;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        navigatorKey: rootNavigatorKey,
+        home: MainNavigationScreen(
+          initializePlatformServices: false,
+          biteSaverBrowseHomeBuilder:
+              (context, navigationRefreshGeneration, authRealm) =>
+                  harness.screen(
+                    navigationRefreshGeneration: navigationRefreshGeneration,
+                    onAction: (context, selection) {
+                      pendingSelection = selection;
+                      return handler.call(context, selection);
+                    },
+                  ),
+          testPagesBuilder: (mode) => const <Widget>[
+            SizedBox.shrink(),
+            SizedBox.shrink(),
+            SizedBox.shrink(),
+          ],
+        ),
+      ),
+    );
+    await _pumpBrowseReady(tester, harness.transport);
+    await tester.tap(find.text('Fixture Coupon 1'));
+    final access = pendingSelection!.access;
+    expect(harness.coordinator.isBrowseAccessCurrent(access), isTrue);
+
+    await harness.coordinator.updateAuth(
+      const CustomerBiteSaverAuthSnapshot.signed('signed-b'),
+    );
+    await _pumpUntil(
+      tester,
+      () =>
+          find.byType(CouponDetailScreen).evaluate().isEmpty &&
+          find.byType(CustomerBiteSaverBrowseScreen).evaluate().isNotEmpty,
+    );
+
+    expect(harness.coordinator.isBrowseAccessCurrent(access), isFalse);
+    expect(find.byType(CouponDetailScreen), findsNothing);
+    expect(find.byType(CustomerBiteSaverBrowseScreen), findsOneWidget);
+    expect(harness.transport.startCalls, 1);
+    expect(harness.transport.redemptionCalls, 0);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(
@@ -1140,6 +1888,26 @@ Future<CustomerBiteSaverBrowseActionResult> _ignoreAction(
   CustomerBiteSaverBrowseSelection selection,
 ) async => const CustomerBiteSaverBrowseActionResult();
 
+Widget _productionBrowseApp(
+  _BrowseHarness harness,
+  CustomerBiteSaverBrowseDestinationHandler handler,
+) => MaterialApp(
+  navigatorKey: rootNavigatorKey,
+  home: MainNavigationScreen(
+    initializePlatformServices: false,
+    biteSaverBrowseHomeBuilder:
+        (context, navigationRefreshGeneration, authRealm) => harness.screen(
+          navigationRefreshGeneration: navigationRefreshGeneration,
+          onAction: handler.call,
+        ),
+    testPagesBuilder: (mode) => const <Widget>[
+      SizedBox.shrink(),
+      SizedBox.shrink(),
+      SizedBox.shrink(),
+    ],
+  ),
+);
+
 CustomerBiteSaverRestaurantId _restaurantId(
   _BrowseFixtureTransport transport,
 ) => CustomerBiteSaverRestaurantId(transport.firstRestaurantId);
@@ -1161,6 +1929,16 @@ Future<void> _pumpUntil(WidgetTester tester, bool Function() condition) async {
   }
   fail('Timed out waiting for the bounded browse fixture.');
 }
+
+String _richTextAtKey(WidgetTester tester, Key key) => tester
+    .widget<RichText>(
+      find.descendant(
+        of: find.byKey(key, skipOffstage: false),
+        matching: find.byType(RichText, skipOffstage: false),
+      ),
+    )
+    .text
+    .toPlainText();
 
 Position _position() => Position(
   longitude: -81.3792,
@@ -1187,19 +1965,23 @@ final class _BrowseHarness {
     this.signed = true,
     this.failRestaurantFavoriteWrite = false,
     _BrowseFixtureTransport? transport,
+    DateTime Function()? clock,
   }) {
     final selectedTransport = transport ?? _BrowseFixtureTransport();
     this.transport = selectedTransport;
+    final selectedClock =
+        clock ??
+        () => DateTime.fromMillisecondsSinceEpoch(
+          selectedTransport.evaluationAtMillis,
+          isUtc: true,
+        );
     var requestSequence = 0;
     coordinator = CustomerBiteSaverSearchCoordinator(
       api: CustomerBiteSaverService(transport: selectedTransport.call),
       guestUsageStore: CustomerBiteSaverGuestUsageStore(
         guestDeviceId: 'bounded-browse-test-device',
         preferences: _MemoryGuestPreferences(),
-        clock: () => DateTime.fromMillisecondsSinceEpoch(
-          selectedTransport.evaluationAtMillis,
-          isUtc: true,
-        ),
+        clock: selectedClock,
       ),
       clientInstanceId: 'bounded-browse-client-0001',
       initialAuth: signed
@@ -1218,10 +2000,7 @@ final class _BrowseHarness {
       ),
       requestIdGenerator: () =>
           'bounded-request-${(++requestSequence).toString().padLeft(6, '0')}',
-      clock: () => DateTime.fromMillisecondsSinceEpoch(
-        selectedTransport.evaluationAtMillis,
-        isUtc: true,
-      ),
+      clock: selectedClock,
     );
   }
 
@@ -1265,6 +2044,8 @@ final class _BrowseFixtureTransport {
     this.failFirstOfferPage = false,
     this.repeatPreviewOnSecondOfferPage = false,
     this.nonProgressSecondOfferPage = false,
+    this.firstOfferIsDailySpecial = false,
+    this.firstOfferOverrides = const <String, Object?>{},
     this.restaurantPageCount = 1,
   }) : fixture = _map(
          jsonDecode(
@@ -1283,6 +2064,8 @@ final class _BrowseFixtureTransport {
   final bool failFirstOfferPage;
   final bool repeatPreviewOnSecondOfferPage;
   final bool nonProgressSecondOfferPage;
+  final bool firstOfferIsDailySpecial;
+  final Map<String, Object?> firstOfferOverrides;
   final int restaurantPageCount;
   final List<bool> freshSearchFlags = <bool>[];
   final List<Map<String, Object?>> startRequests = <Map<String, Object?>>[];
@@ -1331,6 +2114,9 @@ final class _BrowseFixtureTransport {
             _map(_responses['restaurantPage'])['evaluationContext'],
           )['evaluationAtMillis']!
           as int;
+
+  int get logicalExpiresAtMillis =>
+      _map(_responses['start'])['logicalExpiresAtMillis']! as int;
 
   Future<Object?> call(
     String callableName,
@@ -1442,6 +2228,23 @@ final class _BrowseFixtureTransport {
         : 'Lazy Fixture Restaurant ${index + 1}';
     restaurant['catalogBindingAvailable'] = index == 0;
     if (index == 0) {
+      if (firstOfferIsDailySpecial || firstOfferOverrides.isNotEmpty) {
+        final offers = (restaurant['offers']! as List)
+            .map(_copyMap)
+            .toList(growable: false);
+        if (firstOfferIsDailySpecial) {
+          offers[0]
+            ..['offerType'] = 'dailySpecial'
+            ..['title'] = 'Fixture Daily Special'
+            ..['usageRule'] = null
+            ..['usagePolicy'] = null
+            ..['availabilityMode'] = 'todayOnly'
+            ..['allDay'] = true
+            ..['redemptionPolicyLabel'] = null;
+        }
+        offers[0].addAll(firstOfferOverrides);
+        restaurant['offers'] = offers;
+      }
       restaurant['hasMoreOffers'] = true;
       restaurant['usableOfferCount'] = null;
       restaurant['offerCountState'] = 'unknown';

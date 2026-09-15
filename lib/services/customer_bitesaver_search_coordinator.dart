@@ -111,6 +111,51 @@ final class CustomerBiteSaverFreshSearchRequiredException implements Exception {
   String toString() => 'A fresh BiteSaver search is required.';
 }
 
+/// An opaque lease over one accepted public browse snapshot.
+///
+/// Consumers can retain this object while presenting a destination without
+/// learning the private session capability or any legacy source identifiers.
+/// A new search, auth-realm replacement, superseded/expired evidence, or
+/// disposal invalidates it. Lifecycle pausing only retires in-flight work; it
+/// does not invalidate this immutable, display-only snapshot.
+@immutable
+final class CustomerBiteSaverBrowseAccess {
+  const CustomerBiteSaverBrowseAccess._({
+    required CustomerBiteSaverSearchCoordinator owner,
+    required int accessGeneration,
+    required String realmKey,
+    required String? criteriaKey,
+    required String sessionId,
+    required int attemptGeneration,
+    required String queryFingerprint,
+    required int logicalExpiresAtMillis,
+    required CustomerBiteSaverRestaurant restaurant,
+    required CustomerBiteSaverOffer? offer,
+  }) : _owner = owner,
+       _accessGeneration = accessGeneration,
+       _realmKey = realmKey,
+       _criteriaKey = criteriaKey,
+       _sessionId = sessionId,
+       _attemptGeneration = attemptGeneration,
+       _queryFingerprint = queryFingerprint,
+       _logicalExpiresAtMillis = logicalExpiresAtMillis,
+       _restaurant = restaurant,
+       _offer = offer;
+
+  final CustomerBiteSaverSearchCoordinator _owner;
+  final int _accessGeneration;
+  final String _realmKey;
+  final String? _criteriaKey;
+  final String _sessionId;
+  final int _attemptGeneration;
+  final String _queryFingerprint;
+  final int _logicalExpiresAtMillis;
+  final CustomerBiteSaverRestaurant _restaurant;
+  final CustomerBiteSaverOffer? _offer;
+
+  String get authRealmKey => _realmKey;
+}
+
 final class CustomerBiteSaverProtocolBudgetException implements Exception {
   const CustomerBiteSaverProtocolBudgetException();
 
@@ -294,6 +339,7 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
   Object? _redemptionError;
   bool _disposed = false;
   int _generation = 0;
+  int _browseAccessGeneration = 0;
   int _statusPollCount = 0;
   int _statusAutomaticRetryCount = 0;
   Future<void>? _statusPollInFlight;
@@ -421,6 +467,95 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
       return null;
     }
     final offer = _offers[offerId.value];
+    return offer == null ? null : (restaurant: restaurant, offer: offer);
+  }
+
+  CustomerBiteSaverBrowseAccess captureBrowseAccess({
+    required CustomerBiteSaverRestaurant restaurant,
+    CustomerBiteSaverOffer? offer,
+  }) {
+    _ensureAlive();
+    if (!_hasCurrentAcceptedBrowseState) {
+      throw const CustomerBiteSaverFreshSearchRequiredException();
+    }
+    final currentRestaurant = currentAcceptedRestaurantFor(
+      restaurant.restaurantId,
+    );
+    if (!identical(currentRestaurant, restaurant)) {
+      throw const CustomerBiteSaverFreshSearchRequiredException();
+    }
+    if (offer != null) {
+      final currentOffer = currentAcceptedOfferSelectionFor(
+        restaurant.restaurantId,
+        offer.offerId,
+      );
+      if (!identical(currentOffer?.offer, offer) ||
+          currentOffer?.offer.offerOccurrence != offer.offerOccurrence) {
+        throw const CustomerBiteSaverFreshSearchRequiredException();
+      }
+    }
+    final binding = _binding!;
+    final attemptGeneration = _attemptGeneration;
+    final queryFingerprint = _queryFingerprint;
+    final logicalExpiresAtMillis = _logicalExpiresAtMillis;
+    if (attemptGeneration == null ||
+        queryFingerprint == null ||
+        logicalExpiresAtMillis == null) {
+      throw const CustomerBiteSaverFreshSearchRequiredException();
+    }
+    return CustomerBiteSaverBrowseAccess._(
+      owner: this,
+      accessGeneration: _browseAccessGeneration,
+      realmKey: _auth.realmKey,
+      criteriaKey: _criteriaKey,
+      sessionId: binding.sessionId,
+      attemptGeneration: attemptGeneration,
+      queryFingerprint: queryFingerprint,
+      logicalExpiresAtMillis: logicalExpiresAtMillis,
+      restaurant: restaurant,
+      offer: offer,
+    );
+  }
+
+  bool isBrowseAccessCurrent(CustomerBiteSaverBrowseAccess access) =>
+      identical(access._owner, this) &&
+      !_disposed &&
+      access._accessGeneration == _browseAccessGeneration &&
+      access._realmKey == _auth.realmKey &&
+      access._criteriaKey == _criteriaKey &&
+      access._sessionId == _binding?.sessionId &&
+      access._attemptGeneration == _attemptGeneration &&
+      access._queryFingerprint == _queryFingerprint &&
+      _clock().millisecondsSinceEpoch < access._logicalExpiresAtMillis;
+
+  CustomerBiteSaverRestaurant? currentAcceptedRestaurantForAccess(
+    CustomerBiteSaverBrowseAccess access,
+    CustomerBiteSaverRestaurantId restaurantId,
+  ) {
+    if (!isBrowseAccessCurrent(access) ||
+        access._restaurant.restaurantId != restaurantId) {
+      return null;
+    }
+    return access._restaurant;
+  }
+
+  ({CustomerBiteSaverRestaurant restaurant, CustomerBiteSaverOffer offer})?
+  currentAcceptedOfferSelectionForAccess(
+    CustomerBiteSaverBrowseAccess access,
+    CustomerBiteSaverRestaurantId restaurantId,
+    CustomerBiteSaverOfferId offerId,
+  ) {
+    final restaurant = currentAcceptedRestaurantForAccess(access, restaurantId);
+    if (restaurant == null) return null;
+    final selectedOffer = access._offer;
+    if (selectedOffer != null) {
+      return selectedOffer.offerId == offerId
+          ? (restaurant: restaurant, offer: selectedOffer)
+          : null;
+    }
+    final offer = restaurant.offers
+        .where((candidate) => candidate.offerId == offerId)
+        .firstOrNull;
     return offer == null ? null : (restaurant: restaurant, offer: offer);
   }
 
@@ -807,6 +942,7 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
 
   void _discardReadySessionWork() {
     final preserveRedemptionStart = _hasPendingRedemptionStart;
+    _invalidateBrowseAccess();
     _generation += 1;
     _cancelScheduledWork();
     _disposePagers(clearDelivered: true);
@@ -2479,6 +2615,9 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     final previousRevision = _guestStateRevision;
     final preserveRedemptionStart =
         previous.realmKey == next.realmKey && _hasPendingRedemptionStart;
+    if (previous.realmKey != next.realmKey) {
+      _invalidateBrowseAccess();
+    }
     _generation += 1;
     _cancelScheduledWork();
     _disposePagers(clearDelivered: true);
@@ -2558,7 +2697,9 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     final preserveRedemptionStart = _hasPendingRedemptionStart;
     _generation += 1;
     _cancelScheduledWork();
-    _disposePagers(clearDelivered: true);
+    // In-flight page ownership is retired, but accepted public evidence stays
+    // available to an already-open display-only destination.
+    _disposePagers(clearDelivered: false);
     _pendingOriginalCalls.clear();
     _pendingGuestContinuations.clear();
     _guestProtocolProgress.clear();
@@ -2693,6 +2834,7 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
 
   void _markFreshSearchRequired({bool clearRedemption = true}) {
     final preserveRedemptionStart = _hasPendingRedemptionStart;
+    _invalidateBrowseAccess();
     _generation += 1;
     _cancelScheduledWork();
     _disposePagers(clearDelivered: true);
@@ -2718,6 +2860,7 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     required bool clearSessionData,
     required bool clearFavorites,
   }) {
+    _invalidateBrowseAccess();
     _generation += 1;
     _cancelScheduledWork();
     _disposePagers(clearDelivered: true);
@@ -2911,12 +3054,17 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     }
   }
 
+  void _invalidateBrowseAccess() {
+    _browseAccessGeneration += 1;
+  }
+
   @override
   void dispose() {
     if (_disposed) {
       return;
     }
     _disposed = true;
+    _invalidateBrowseAccess();
     _generation += 1;
     _cancelScheduledWork();
     _disposePagers(clearDelivered: true);

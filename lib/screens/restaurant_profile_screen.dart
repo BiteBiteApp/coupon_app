@@ -4,6 +4,7 @@ import 'package:url_launcher/url_launcher.dart';
 
 import '../models/demo_redemption_store.dart';
 import '../models/coupon.dart';
+import '../models/customer_bitesaver_search.dart';
 import '../models/daily_special.dart';
 import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
@@ -11,6 +12,7 @@ import '../services/app_mode_state_service.dart';
 import '../services/bitesaver_report_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
+import '../services/customer_bitesaver_search_coordinator.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_menu_service.dart';
 import '../widgets/bitesaver_colors.dart';
@@ -30,6 +32,10 @@ typedef PublicRestaurantProjectionLoader =
     Future<Map<String, dynamic>?> Function(String accountDocumentId);
 typedef PublicRestaurantMenuResolver =
     Future<RestaurantMenuSource?> Function(String accountDocumentId);
+typedef CustomerBiteSaverProfileOfferOpener =
+    Future<void> Function(BuildContext context, CustomerBiteSaverOffer offer);
+typedef CustomerBiteSaverProfileMenuOpener =
+    Future<void> Function(BuildContext context);
 typedef PublicRestaurantReportPrompt =
     Future<BiteSaverReportResult?> Function(BuildContext context);
 typedef PublicRestaurantReportSubmitter =
@@ -49,6 +55,11 @@ class RestaurantProfileScreen extends StatefulWidget {
   final PublicRestaurantMenuResolver? resolvePublicMenu;
   final PublicRestaurantReportPrompt? promptForReport;
   final PublicRestaurantReportSubmitter? submitReport;
+  final CustomerBiteSaverRestaurant? boundedRestaurant;
+  final CustomerBiteSaverSearchCoordinator? boundedSession;
+  final CustomerBiteSaverBrowseAccess? boundedAccess;
+  final CustomerBiteSaverProfileOfferOpener? openBoundedOffer;
+  final CustomerBiteSaverProfileMenuOpener? openBoundedMenu;
 
   const RestaurantProfileScreen({
     super.key,
@@ -59,7 +70,37 @@ class RestaurantProfileScreen extends StatefulWidget {
     @visibleForTesting this.resolvePublicMenu,
     @visibleForTesting this.promptForReport,
     @visibleForTesting this.submitReport,
-  });
+  }) : boundedRestaurant = null,
+       boundedSession = null,
+       boundedAccess = null,
+       openBoundedOffer = null,
+       openBoundedMenu = null;
+
+  RestaurantProfileScreen.fromCustomerBiteSaver({
+    super.key,
+    required CustomerBiteSaverRestaurant restaurant,
+    required CustomerBiteSaverSearchCoordinator session,
+    required CustomerBiteSaverBrowseAccess access,
+    required this.openBoundedOffer,
+    required this.openBoundedMenu,
+  }) : restaurant = _customerBiteSaverRestaurantView(restaurant),
+       boundedRestaurant = restaurant,
+       boundedSession = session,
+       boundedAccess = access,
+       loadFavorite = null,
+       refreshRestaurant = null,
+       loadProjectionData = null,
+       resolvePublicMenu = null,
+       promptForReport = null,
+       submitReport = null {
+    final current = session.currentAcceptedRestaurantForAccess(
+      access,
+      restaurant.restaurantId,
+    );
+    if (!identical(current, restaurant)) {
+      throw const CustomerBiteSaverFreshSearchRequiredException();
+    }
+  }
 
   @override
   State<RestaurantProfileScreen> createState() =>
@@ -88,6 +129,17 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   void initState() {
     super.initState();
     _restaurant = widget.restaurant;
+    final boundedRestaurant = widget.boundedRestaurant;
+    if (boundedRestaurant != null) {
+      _isCustomerRestaurantAvailabilityResolved = true;
+      _isCustomerRestaurantAvailable = true;
+      _isFavoriteRestaurant =
+          widget.boundedSession?.restaurantFavoriteState(
+            boundedRestaurant.restaurantId,
+          ) ==
+          CustomerBiteSaverFavoriteState.favorite;
+      return;
+    }
     final hasCanonicalRestaurantId =
         widget.restaurant.accountDocumentId != null;
     _isCustomerRestaurantAvailabilityResolved =
@@ -196,6 +248,19 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     return parts.isEmpty ? 'Coupon details unavailable' : parts.join(' - ');
   }
 
+  String _boundedOfferSubtitle(CustomerBiteSaverOffer offer) {
+    final presentation = CustomerBiteSaverOfferPresentation.fromOffer(offer);
+    final parts = <String>[
+      if (presentation.availabilityLabel != null)
+        presentation.availabilityLabel!,
+      if (presentation.scheduleLabel != null) presentation.scheduleLabel!,
+      if (presentation.expiresLabel != null)
+        'Expires ${presentation.expiresLabel!}',
+      if (presentation.usageLabel != null) presentation.usageLabel!,
+    ];
+    return parts.isEmpty ? presentation.offerTypeLabel : parts.join(' · ');
+  }
+
   Restaurant _withSafeDistanceLabel(Restaurant freshRestaurant) {
     if (!_isFallbackDistanceLabel(freshRestaurant.distance) ||
         _isFallbackDistanceLabel(restaurant.distance)) {
@@ -258,6 +323,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   }
 
   Future<void> _refreshRestaurantDetails() async {
+    if (widget.boundedRestaurant != null) return;
     try {
       Restaurant? freshRestaurant;
 
@@ -396,6 +462,18 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   }
 
   Future<void> _openMenu(BuildContext context) async {
+    if (widget.boundedRestaurant != null) {
+      final opener = widget.openBoundedMenu;
+      if (opener == null) {
+        await _showLaunchError(
+          context,
+          'Menu is not available from this search yet.',
+        );
+        return;
+      }
+      await opener(context);
+      return;
+    }
     final accountDocumentId = restaurant.accountDocumentId;
     final resolver = widget.resolvePublicMenu;
     final source = accountDocumentId == null
@@ -427,6 +505,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   }
 
   void _openSpecials(BuildContext context) {
+    if (widget.boundedRestaurant != null) return;
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => RestaurantSpecialsScreen(restaurant: restaurant),
@@ -451,6 +530,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   }
 
   Future<void> _toggleRestaurantFavorite() async {
+    if (widget.boundedRestaurant != null) return;
     final canSave = await BiteScoreSignInGate.ensureSignedInForFavorites(
       context,
       returnToOriginAfterSignIn: true,
@@ -504,7 +584,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   }
 
   Future<void> _reportRestaurant() async {
-    if (_isSubmittingReport) {
+    if (widget.boundedRestaurant != null || _isSubmittingReport) {
       return;
     }
 
@@ -1336,17 +1416,22 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
         ),
       );
     }
-    return ValueListenableBuilder<int>(
-      valueListenable: DemoRedemptionStore.changes,
-      builder: (context, changes, child) {
+    return ListenableBuilder(
+      listenable: widget.boundedSession ?? DemoRedemptionStore.changes,
+      builder: (context, child) {
         final now = DateTime.now();
-        final activeCoupons = restaurant.coupons
-            .where(
-              (coupon) =>
-                  coupon.isActiveAt(now) &&
-                  DemoRedemptionStore.isAvailable(coupon.id, coupon.usageRule),
-            )
-            .toList();
+        final activeCoupons = widget.boundedRestaurant != null
+            ? restaurant.coupons
+            : restaurant.coupons
+                  .where(
+                    (coupon) =>
+                        coupon.isActiveAt(now) &&
+                        DemoRedemptionStore.isAvailable(
+                          coupon.id,
+                          coupon.usageRule,
+                        ),
+                  )
+                  .toList();
 
         return Scaffold(
           backgroundColor: BiteSaverColors.pageBackground,
@@ -1416,22 +1501,23 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            IconButton(
-                              tooltip: _isFavoriteRestaurant
-                                  ? 'Unsave restaurant'
-                                  : 'Save restaurant',
-                              onPressed: _isSavingFavoriteRestaurant
-                                  ? null
-                                  : _toggleRestaurantFavorite,
-                              icon: Icon(
-                                _isFavoriteRestaurant
-                                    ? Icons.favorite
-                                    : Icons.favorite_border,
-                                color: _isFavoriteRestaurant
-                                    ? Colors.red.shade400
-                                    : BiteSaverColors.orangeDark,
+                            if (widget.boundedRestaurant == null)
+                              IconButton(
+                                tooltip: _isFavoriteRestaurant
+                                    ? 'Unsave restaurant'
+                                    : 'Save restaurant',
+                                onPressed: _isSavingFavoriteRestaurant
+                                    ? null
+                                    : _toggleRestaurantFavorite,
+                                icon: Icon(
+                                  _isFavoriteRestaurant
+                                      ? Icons.favorite
+                                      : Icons.favorite_border,
+                                  color: _isFavoriteRestaurant
+                                      ? Colors.red.shade400
+                                      : BiteSaverColors.orangeDark,
+                                ),
                               ),
-                            ),
                           ],
                         ),
                         const SizedBox(height: 14),
@@ -1449,26 +1535,31 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                             ),
                           ],
                         ),
-                        Align(
-                          alignment: Alignment.centerLeft,
-                          child: TextButton.icon(
-                            onPressed: _isSubmittingReport
-                                ? null
-                                : _reportRestaurant,
-                            style: TextButton.styleFrom(
-                              foregroundColor: BiteSaverColors.mutedInk,
-                              padding: EdgeInsets.zero,
-                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        if (widget.boundedRestaurant == null)
+                          Align(
+                            alignment: Alignment.centerLeft,
+                            child: TextButton.icon(
+                              onPressed: _isSubmittingReport
+                                  ? null
+                                  : _reportRestaurant,
+                              style: TextButton.styleFrom(
+                                foregroundColor: BiteSaverColors.mutedInk,
+                                padding: EdgeInsets.zero,
+                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                              icon: const Icon(Icons.flag_outlined, size: 16),
+                              label: const Text('Report'),
                             ),
-                            icon: const Icon(Icons.flag_outlined, size: 16),
-                            label: const Text('Report'),
                           ),
-                        ),
                         const SizedBox(height: 20),
-                        _buildSpecialsCallout(),
-                        const SizedBox(height: 18),
-                        const Text(
-                          'Available Coupons',
+                        if (widget.boundedRestaurant == null) ...[
+                          _buildSpecialsCallout(),
+                          const SizedBox(height: 18),
+                        ],
+                        Text(
+                          widget.boundedRestaurant == null
+                              ? 'Available Coupons'
+                              : 'Available Offers',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
@@ -1482,8 +1573,10 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                             child: Container(
                               width: double.infinity,
                               padding: const EdgeInsets.all(14),
-                              child: const Text(
-                                'No available coupons right now.',
+                              child: Text(
+                                widget.boundedRestaurant == null
+                                    ? 'No available coupons right now.'
+                                    : 'No available offers right now.',
                                 style: TextStyle(
                                   color: BiteSaverColors.secondaryText,
                                 ),
@@ -1494,6 +1587,16 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                           Column(
                             children: activeCoupons.map((coupon) {
                               final isProximity = coupon.isProximityOnly;
+                              final boundedOffer = widget
+                                  .boundedRestaurant
+                                  ?.offers
+                                  .where(
+                                    (offer) => offer.offerId.value == coupon.id,
+                                  )
+                                  .firstOrNull;
+                              final isDailySpecial =
+                                  boundedOffer?.offerType ==
+                                  CustomerBiteSaverOfferType.dailySpecial;
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 10),
                                 child: _biteSaverRaisedSurface(
@@ -1536,6 +1639,35 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
+                                          if (boundedOffer != null)
+                                            Container(
+                                              margin: const EdgeInsets.only(
+                                                bottom: 6,
+                                              ),
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 8,
+                                                    vertical: 4,
+                                                  ),
+                                              decoration: BoxDecoration(
+                                                color: isDailySpecial
+                                                    ? BiteSaverColors.blue
+                                                    : BiteSaverColors
+                                                          .orangeDark,
+                                                borderRadius:
+                                                    BorderRadius.circular(999),
+                                              ),
+                                              child: Text(
+                                                isDailySpecial
+                                                    ? 'Daily Special'
+                                                    : 'Coupon',
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold,
+                                                ),
+                                              ),
+                                            ),
                                           if (isProximity)
                                             Container(
                                               margin: const EdgeInsets.only(
@@ -1573,7 +1705,11 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                         ],
                                       ),
                                       subtitle: Text(
-                                        isProximity
+                                        boundedOffer != null
+                                            ? _boundedOfferSubtitle(
+                                                boundedOffer,
+                                              )
+                                            : isProximity
                                             ? '${_couponSubtitle(coupon)} - Unlocked nearby'
                                             : (coupon.couponCode == null
                                                   ? _couponSubtitle(coupon)
@@ -1587,10 +1723,24 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                                         Icons.chevron_right,
                                         color: BiteSaverColors.orangeDark,
                                       ),
-                                      onTap: () {
-                                        Navigator.push(
+                                      onTap: () async {
+                                        final bounded =
+                                            widget.boundedRestaurant;
+                                        final boundedOpener =
+                                            widget.openBoundedOffer;
+                                        if (bounded != null &&
+                                            boundedOpener != null) {
+                                          if (boundedOffer != null) {
+                                            await boundedOpener(
+                                              context,
+                                              boundedOffer,
+                                            );
+                                          }
+                                          return;
+                                        }
+                                        await Navigator.push(
                                           context,
-                                          MaterialPageRoute(
+                                          MaterialPageRoute<void>(
                                             builder: (context) =>
                                                 CouponDetailScreen(
                                                   coupon: coupon,
@@ -1617,6 +1767,59 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     );
   }
 }
+
+Restaurant _customerBiteSaverRestaurantView(
+  CustomerBiteSaverRestaurant restaurant,
+) {
+  final distance =
+      restaurant.distanceMiles == restaurant.distanceMiles.roundToDouble()
+      ? restaurant.distanceMiles.toStringAsFixed(0)
+      : restaurant.distanceMiles.toStringAsFixed(1);
+  return Restaurant(
+    name: restaurant.displayName,
+    distance: '$distance miles',
+    city: restaurant.city,
+    state: restaurant.state,
+    zipCode: restaurant.zipCode,
+    coupons: restaurant.offers
+        .map((offer) => _customerBiteSaverCouponView(restaurant, offer))
+        .toList(growable: false),
+    phone: restaurant.phone,
+    streetAddress: restaurant.streetAddress,
+    website: restaurant.website,
+    bio: restaurant.bio,
+    mainImageUrl: restaurant.imageUrl,
+    businessHours: restaurant.businessHours
+        .map(
+          (hours) => RestaurantBusinessHours(
+            day: hours.day,
+            opensAt: hours.opensAt,
+            closesAt: hours.closesAt,
+            closed: hours.closed,
+          ),
+        )
+        .toList(growable: false),
+    formattedAddress: restaurant.formattedAddress,
+  );
+}
+
+Coupon _customerBiteSaverCouponView(
+  CustomerBiteSaverRestaurant restaurant,
+  CustomerBiteSaverOffer offer,
+) => Coupon(
+  id: offer.offerId.value,
+  restaurant: restaurant.displayName,
+  title: offer.title,
+  distance: '${restaurant.distanceMiles} miles',
+  expires: offer.expiresText,
+  usageRule: offer.redemptionPolicyLabel ?? offer.usageRule ?? '',
+  couponCode: offer.couponCode,
+  couponNumber: offer.couponNumber,
+  isProximityOnly: offer.isProximityOnly,
+  proximityRadiusMiles: offer.proximityRadiusMiles,
+  details: offer.details,
+  imageUrl: offer.imageUrl,
+);
 
 class _GroupedRestaurantHours {
   final String startDay;

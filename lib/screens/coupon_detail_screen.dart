@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/coupon.dart';
+import '../models/customer_bitesaver_search.dart';
 import '../models/demo_redemption_store.dart';
 import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
@@ -11,6 +12,7 @@ import '../services/app_mode_state_service.dart';
 import '../services/bitesaver_report_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
+import '../services/customer_bitesaver_search_coordinator.dart';
 import '../services/restaurant_account_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/bitesaver_colors.dart';
@@ -23,13 +25,136 @@ typedef CouponFavoriteStateLoader = Future<bool> Function(String couponId);
 typedef CouponCustomerVisibilityLoader =
     Future<bool> Function(Coupon coupon, Restaurant? restaurant);
 typedef CouponRedemptionStoreInitializer = Future<void> Function();
+typedef CustomerBiteSaverDetailAction =
+    Future<void> Function(BuildContext context);
+
+@immutable
+final class CustomerBiteSaverOfferPresentation {
+  const CustomerBiteSaverOfferPresentation._({
+    required this.offerTypeLabel,
+    required this.availabilityLabel,
+    required this.scheduleLabel,
+    required this.startsLabel,
+    required this.endsLabel,
+    required this.expiresLabel,
+    required this.usageLabel,
+  });
+
+  factory CustomerBiteSaverOfferPresentation.fromOffer(
+    CustomerBiteSaverOffer offer,
+  ) {
+    final availabilityMode = offer.availabilityMode?.trim();
+    final availabilityLabel = switch (availabilityMode) {
+      'todayOnly' => 'Today only',
+      'specificDays' => 'Specific days',
+      final String value when value.isNotEmpty => value,
+      _ => null,
+    };
+    final scheduleParts = <String>[
+      if (offer.daysOfWeek.isNotEmpty)
+        offer.daysOfWeek.map(_weekdayLabel).join(', '),
+      if (offer.allDay == true)
+        'All day'
+      else if (offer.allDay == false &&
+          offer.startTime?.trim().isNotEmpty == true &&
+          offer.endTime?.trim().isNotEmpty == true)
+        '${offer.startTime!.trim()}–${offer.endTime!.trim()}'
+      else if (offer.allDay == false &&
+          offer.startTime?.trim().isNotEmpty == true)
+        'Starts ${offer.startTime!.trim()}'
+      else if (offer.allDay == false &&
+          offer.endTime?.trim().isNotEmpty == true)
+        'Ends ${offer.endTime!.trim()}',
+    ];
+    return CustomerBiteSaverOfferPresentation._(
+      offerTypeLabel: offer.offerType == CustomerBiteSaverOfferType.dailySpecial
+          ? 'Daily special'
+          : 'Coupon',
+      availabilityLabel: availabilityLabel,
+      scheduleLabel: scheduleParts.isEmpty ? null : scheduleParts.join(' · '),
+      startsLabel: _absoluteLabel(offer.startAtMillis),
+      endsLabel: _absoluteLabel(offer.endAtMillis),
+      expiresLabel:
+          _nonEmpty(offer.expiresText) ??
+          _absoluteLabel(offer.expiresAtMillis, monthDayOnly: true),
+      usageLabel:
+          _nonEmpty(offer.redemptionPolicyLabel) ??
+          _nonEmpty(offer.usageRule) ??
+          _usagePolicyLabel(offer.usagePolicy),
+    );
+  }
+
+  final String offerTypeLabel;
+  final String? availabilityLabel;
+  final String? scheduleLabel;
+  final String? startsLabel;
+  final String? endsLabel;
+  final String? expiresLabel;
+  final String? usageLabel;
+
+  static String? _nonEmpty(String? value) {
+    final trimmed = value?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
+  }
+
+  static String? _usagePolicyLabel(CustomerBiteSaverUsagePolicy? policy) =>
+      switch (policy) {
+        CustomerBiteSaverUsagePolicy.oncePerCustomer => 'Once per customer',
+        CustomerBiteSaverUsagePolicy.oncePerDay => 'Once per day',
+        CustomerBiteSaverUsagePolicy.unlimited => 'Unlimited',
+        CustomerBiteSaverUsagePolicy.reusableAfterTimer =>
+          'Reusable after timer',
+        null => null,
+      };
+
+  static String? _absoluteLabel(int? millis, {bool monthDayOnly = false}) {
+    if (millis == null) return null;
+    final instant = DateTime.fromMillisecondsSinceEpoch(millis, isUtc: true);
+    return monthDayOnly
+        ? Coupon.formatMonthDayTime(instant)
+        : Coupon.formatDateTime(instant);
+  }
+
+  static String _weekdayLabel(int weekday) => switch (weekday) {
+    DateTime.monday => 'Mon',
+    DateTime.tuesday => 'Tue',
+    DateTime.wednesday => 'Wed',
+    DateTime.thursday => 'Thu',
+    DateTime.friday => 'Fri',
+    DateTime.saturday => 'Sat',
+    DateTime.sunday => 'Sun',
+    _ => weekday.toString(),
+  };
+}
 
 class CouponDetailScreen extends StatefulWidget {
+  static const ValueKey<String> boundedOfferTypeKey = ValueKey(
+    'bitesaver_bounded_offer_type',
+  );
+  static const ValueKey<String> boundedAvailabilityKey = ValueKey(
+    'bitesaver_bounded_offer_availability',
+  );
+  static const ValueKey<String> boundedScheduleKey = ValueKey(
+    'bitesaver_bounded_offer_schedule',
+  );
+  static const ValueKey<String> boundedStartsKey = ValueKey(
+    'bitesaver_bounded_offer_starts',
+  );
+  static const ValueKey<String> boundedEndsKey = ValueKey(
+    'bitesaver_bounded_offer_ends',
+  );
+
   final Coupon coupon;
   final Restaurant? restaurant;
   final CouponFavoriteStateLoader? loadFavoriteState;
   final CouponCustomerVisibilityLoader? loadCustomerVisibility;
   final CouponRedemptionStoreInitializer? initializeRedemptionStore;
+  final CustomerBiteSaverRestaurant? boundedRestaurant;
+  final CustomerBiteSaverOffer? boundedOffer;
+  final CustomerBiteSaverSearchCoordinator? boundedSession;
+  final CustomerBiteSaverBrowseAccess? boundedAccess;
+  final CustomerBiteSaverDetailAction? openBoundedRestaurant;
+  final CustomerBiteSaverDetailAction? useBoundedCoupon;
 
   const CouponDetailScreen({
     super.key,
@@ -38,7 +163,41 @@ class CouponDetailScreen extends StatefulWidget {
     @visibleForTesting this.loadFavoriteState,
     @visibleForTesting this.loadCustomerVisibility,
     @visibleForTesting this.initializeRedemptionStore,
-  });
+  }) : boundedRestaurant = null,
+       boundedOffer = null,
+       boundedSession = null,
+       boundedAccess = null,
+       openBoundedRestaurant = null,
+       useBoundedCoupon = null;
+
+  CouponDetailScreen.fromCustomerBiteSaver({
+    super.key,
+    required CustomerBiteSaverRestaurant restaurant,
+    required CustomerBiteSaverOffer offer,
+    required CustomerBiteSaverSearchCoordinator session,
+    required CustomerBiteSaverBrowseAccess access,
+    required this.openBoundedRestaurant,
+    this.useBoundedCoupon,
+  }) : coupon = _customerBiteSaverCouponDetailView(restaurant, offer),
+       restaurant = _customerBiteSaverRestaurantDetailView(restaurant),
+       boundedRestaurant = restaurant,
+       boundedOffer = offer,
+       boundedSession = session,
+       boundedAccess = access,
+       loadFavoriteState = null,
+       loadCustomerVisibility = null,
+       initializeRedemptionStore = null {
+    final current = session.currentAcceptedOfferSelectionForAccess(
+      access,
+      restaurant.restaurantId,
+      offer.offerId,
+    );
+    if (!identical(current?.restaurant, restaurant) ||
+        !identical(current?.offer, offer) ||
+        current?.offer.offerOccurrence != offer.offerOccurrence) {
+      throw const CustomerBiteSaverFreshSearchRequiredException();
+    }
+  }
 
   @override
   State<CouponDetailScreen> createState() => _CouponDetailScreenState();
@@ -72,6 +231,7 @@ class BiteSaverCouponDetailInfoSection extends StatefulWidget {
   final String expiresLabel;
   final String restaurantName;
   final String usageRule;
+  final bool showUnlimitedUsage;
   final String? unavailableStatus;
   final bool isOpeningRestaurant;
   final VoidCallback? onOpenRestaurant;
@@ -84,6 +244,7 @@ class BiteSaverCouponDetailInfoSection extends StatefulWidget {
     required this.expiresLabel,
     required this.restaurantName,
     required this.usageRule,
+    this.showUnlimitedUsage = false,
     required this.unavailableStatus,
     required this.isOpeningRestaurant,
     required this.onOpenRestaurant,
@@ -117,9 +278,13 @@ class _BiteSaverCouponDetailInfoSectionState
     final detailsText = details?.trim() ?? '';
     final trimmedRestaurantName = widget.restaurantName.trim();
     final showRestaurantPill = trimmedRestaurantName.isNotEmpty;
-    final showUsage = !BiteSaverCouponDetailInfoSection.isUnlimitedUsage(
-      widget.usageRule,
-    );
+    final showExpires = widget.expiresLabel.trim().isNotEmpty;
+    final showUsage =
+        widget.usageRule.trim().isNotEmpty &&
+        (widget.showUnlimitedUsage ||
+            !BiteSaverCouponDetailInfoSection.isUnlimitedUsage(
+              widget.usageRule,
+            ));
     final status = widget.unavailableStatus?.trim();
     final showDetailsToggle =
         showDetails && detailsText.length > _longDetailsCharacterHint;
@@ -205,11 +370,12 @@ class _BiteSaverCouponDetailInfoSectionState
           runSpacing: 3,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            _InlineCouponDetail(
-              key: BiteSaverCouponDetailInfoSection.expiresKey,
-              label: 'Expires',
-              value: widget.expiresLabel,
-            ),
+            if (showExpires)
+              _InlineCouponDetail(
+                key: BiteSaverCouponDetailInfoSection.expiresKey,
+                label: 'Expires',
+                value: widget.expiresLabel,
+              ),
             if (showUsage)
               _InlineCouponDetail(
                 key: BiteSaverCouponDetailInfoSection.usageKey,
@@ -481,7 +647,29 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   Timer? _countdownTicker;
 
   bool get _supportsRedeemTimer =>
-      DemoRedemptionStore.supportsRedeemTimer(widget.coupon.usageRule);
+      widget.boundedOffer?.offerType == CustomerBiteSaverOfferType.coupon ||
+      (widget.boundedOffer == null &&
+          DemoRedemptionStore.supportsRedeemTimer(widget.coupon.usageRule));
+
+  bool get _boundedSelectionCurrent {
+    final boundedRestaurant = widget.boundedRestaurant;
+    final boundedOffer = widget.boundedOffer;
+    final session = widget.boundedSession;
+    final access = widget.boundedAccess;
+    if (boundedRestaurant == null ||
+        boundedOffer == null ||
+        session == null ||
+        access == null) {
+      return false;
+    }
+    final current = session.currentAcceptedOfferSelectionForAccess(
+      access,
+      boundedRestaurant.restaurantId,
+      boundedOffer.offerId,
+    );
+    return current != null &&
+        current.offer.offerOccurrence == boundedOffer.offerOccurrence;
+  }
 
   String _displayText(String value, String fallback) {
     final trimmed = value.trim();
@@ -491,13 +679,21 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.boundedOffer != null) {
+      _isCustomerVisibleOffer =
+          _boundedSelectionCurrent && widget.boundedOffer!.available;
+      isLoading = false;
+      return;
+    }
     DemoRedemptionStore.changes.addListener(_handleRedemptionStoreChange);
     _initializeRedemptionState();
   }
 
   @override
   void dispose() {
-    DemoRedemptionStore.changes.removeListener(_handleRedemptionStoreChange);
+    if (widget.boundedOffer == null) {
+      DemoRedemptionStore.changes.removeListener(_handleRedemptionStoreChange);
+    }
     _countdownTicker?.cancel();
     super.dispose();
   }
@@ -538,6 +734,14 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   }
 
   Future<bool> _refreshCustomerVisibleOffer() async {
+    final boundedOffer = widget.boundedOffer;
+    if (boundedOffer != null) {
+      final available = _boundedSelectionCurrent && boundedOffer.available;
+      if (mounted) {
+        setState(() => _isCustomerVisibleOffer = available);
+      }
+      return available;
+    }
     try {
       final visibilityLoader = widget.loadCustomerVisibility;
       final isCustomerVisibleOffer = visibilityLoader == null
@@ -603,6 +807,18 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
       return;
     }
 
+    final boundedAction = widget.useBoundedCoupon;
+    if (widget.boundedOffer != null) {
+      if (boundedAction == null || !_boundedSelectionCurrent) return;
+      setState(() => isRedeeming = true);
+      try {
+        await boundedAction(context);
+      } finally {
+        if (mounted) setState(() => isRedeeming = false);
+      }
+      return;
+    }
+
     if (FirebaseAuth.instance.currentUser == null) {
       await Navigator.of(context).push(
         MaterialPageRoute(
@@ -654,6 +870,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   }
 
   Future<void> _toggleCouponFavorite() async {
+    if (widget.boundedOffer != null) return;
     final canSave = await BiteScoreSignInGate.ensureSignedInForFavorites(
       context,
       returnToOriginAfterSignIn: true,
@@ -706,7 +923,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   }
 
   Future<void> _reportCoupon() async {
-    if (_isSubmittingReport) {
+    if (widget.boundedOffer != null || _isSubmittingReport) {
       return;
     }
 
@@ -763,6 +980,13 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     });
 
     try {
+      final boundedOpener = widget.openBoundedRestaurant;
+      if (widget.boundedOffer != null) {
+        if (boundedOpener != null && _boundedSelectionCurrent) {
+          await boundedOpener(context);
+        }
+        return;
+      }
       final restaurant =
           widget.restaurant ?? await _findRestaurantForCoupon(widget.coupon);
       if (!mounted) {
@@ -840,6 +1064,12 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     required bool isAvailableByUsage,
     required bool hasActiveTimer,
   }) {
+    final boundedOffer = widget.boundedOffer;
+    if (boundedOffer != null) {
+      return boundedOffer.available && _boundedSelectionCurrent
+          ? null
+          : 'This offer is no longer available.';
+    }
     if (!_isCustomerVisibleOffer) {
       return 'This offer is no longer available.';
     }
@@ -925,13 +1155,14 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     );
   }
 
-  Widget _detailLine(String label, String value) {
+  Widget _detailLine(String label, String value, {Key? key}) {
     final trimmed = value.trim();
     if (trimmed.isEmpty) {
       return const SizedBox.shrink();
     }
 
     return Padding(
+      key: key,
       padding: const EdgeInsets.only(top: 7),
       child: RichText(
         text: TextSpan(
@@ -1004,6 +1235,10 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final coupon = widget.coupon;
+    final boundedOffer = widget.boundedOffer;
+    final boundedPresentation = boundedOffer == null
+        ? null
+        : CustomerBiteSaverOfferPresentation.fromOffer(boundedOffer);
 
     if (isLoading) {
       return Scaffold(
@@ -1017,7 +1252,9 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
             constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
             icon: const BackButtonIcon(),
           ),
-          title: const Text('Coupon Details'),
+          title: Text(
+            boundedOffer == null ? 'Coupon Details' : 'Offer Details',
+          ),
           centerTitle: true,
           backgroundColor: _pageBackground,
           surfaceTintColor: _pageBackground,
@@ -1031,36 +1268,44 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     }
 
     final now = DateTime.now();
-    final isWithinSchedule = coupon.isActiveAt(now);
+    final isWithinSchedule = boundedOffer?.available ?? coupon.isActiveAt(now);
     final hasActiveTimer =
+        boundedOffer == null &&
         _supportsRedeemTimer &&
         DemoRedemptionStore.hasActiveRedeemTimer(coupon.id);
     final isAvailableByUsage =
-        !_supportsRedeemTimer ||
-        DemoRedemptionStore.isAvailable(coupon.id, coupon.usageRule);
+        boundedOffer?.available ??
+        (!_supportsRedeemTimer ||
+            DemoRedemptionStore.isAvailable(coupon.id, coupon.usageRule));
     final canStartRedeemTimer =
         _supportsRedeemTimer &&
         _isCustomerVisibleOffer &&
         isWithinSchedule &&
         isAvailableByUsage &&
-        !hasActiveTimer;
+        !hasActiveTimer &&
+        (boundedOffer == null || widget.useBoundedCoupon != null);
     final showExpiredMessage =
+        boundedOffer == null &&
         _supportsRedeemTimer &&
         isWithinSchedule &&
         !hasActiveTimer &&
         !isAvailableByUsage;
-    final remaining = hasActiveTimer
+    final remaining = boundedOffer == null && hasActiveTimer
         ? DemoRedemptionStore.activeTimerRemaining(coupon.id)
         : null;
-    final titleLabel = _displayText(coupon.title, 'Untitled coupon');
+    final titleLabel = _displayText(
+      coupon.title,
+      boundedOffer == null ? 'Untitled coupon' : 'Untitled offer',
+    );
     final restaurantLabel = _displayText(
       coupon.restaurant,
       widget.restaurant?.name ?? '',
     );
-    final usageRuleLabel = _displayText(
-      coupon.usageRule,
-      Coupon.defaultUsageRule,
-    );
+    final usageRuleLabel =
+        boundedPresentation?.usageLabel ??
+        (boundedOffer == null
+            ? _displayText(coupon.usageRule, Coupon.defaultUsageRule)
+            : '');
     final unavailableStatus = _unavailableStatusText(
       now: now,
       isWithinSchedule: isWithinSchedule,
@@ -1088,7 +1333,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
           constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
           icon: const BackButtonIcon(),
         ),
-        title: const Text('Coupon Details'),
+        title: Text(boundedOffer == null ? 'Coupon Details' : 'Offer Details'),
         centerTitle: true,
         backgroundColor: _pageBackground,
         surfaceTintColor: _pageBackground,
@@ -1155,16 +1400,53 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                             BiteSaverCouponDetailInfoSection(
                               title: titleLabel,
                               details: coupon.details,
-                              expiresLabel: coupon.shortExpiresLabel,
+                              expiresLabel: boundedPresentation == null
+                                  ? coupon.shortExpiresLabel
+                                  : boundedPresentation.expiresLabel ?? '',
                               restaurantName: restaurantLabel,
                               usageRule: usageRuleLabel,
+                              showUnlimitedUsage: boundedOffer != null,
                               unavailableStatus: unavailableStatus,
                               isOpeningRestaurant: _isOpeningRestaurant,
                               onOpenRestaurant: restaurantLabel.trim().isEmpty
                                   ? null
                                   : _openRestaurantProfile,
-                              trailingTitleAction: _buildFavoriteAction(),
+                              trailingTitleAction: boundedOffer == null
+                                  ? _buildFavoriteAction()
+                                  : null,
                             ),
+                            if (boundedPresentation != null) ...[
+                              _detailLine(
+                                'Offer type',
+                                boundedPresentation.offerTypeLabel,
+                                key: CouponDetailScreen.boundedOfferTypeKey,
+                              ),
+                              if (boundedPresentation.availabilityLabel != null)
+                                _detailLine(
+                                  'Availability',
+                                  boundedPresentation.availabilityLabel!,
+                                  key:
+                                      CouponDetailScreen.boundedAvailabilityKey,
+                                ),
+                              if (boundedPresentation.scheduleLabel != null)
+                                _detailLine(
+                                  'Schedule',
+                                  boundedPresentation.scheduleLabel!,
+                                  key: CouponDetailScreen.boundedScheduleKey,
+                                ),
+                              if (boundedPresentation.startsLabel != null)
+                                _detailLine(
+                                  'Starts',
+                                  boundedPresentation.startsLabel!,
+                                  key: CouponDetailScreen.boundedStartsKey,
+                                ),
+                              if (boundedPresentation.endsLabel != null)
+                                _detailLine(
+                                  'Ends',
+                                  boundedPresentation.endsLabel!,
+                                  key: CouponDetailScreen.boundedEndsKey,
+                                ),
+                            ],
                             if (coupon.couponCode != null &&
                                 coupon.couponCode!.trim().isNotEmpty) ...[
                               _detailLine('Code', coupon.couponCode!),
@@ -1193,11 +1475,12 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                               ),
                             ],
                             const SizedBox(height: 4),
-                            BiteSaverCouponReportRow(
-                              isSubmittingReport: _isSubmittingReport,
-                              onReport: _reportCoupon,
-                              couponNumberLabel: visibleCouponNumberLabel,
-                            ),
+                            if (boundedOffer == null)
+                              BiteSaverCouponReportRow(
+                                isSubmittingReport: _isSubmittingReport,
+                                onReport: _reportCoupon,
+                                couponNumberLabel: visibleCouponNumberLabel,
+                              ),
                           ],
                         ),
                       ),
@@ -1231,8 +1514,13 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                             child: Text(
                               isRedeeming
                                   ? 'Starting Timer...'
+                                  : boundedOffer != null &&
+                                        widget.useBoundedCoupon == null
+                                  ? 'Use Coupon Unavailable'
                                   : hasActiveTimer
                                   ? 'Redeem Timer Active'
+                                  : boundedOffer != null
+                                  ? 'Use Coupon'
                                   : canStartRedeemTimer
                                   ? 'Redeem Coupon'
                                   : 'Not Available',
@@ -1265,6 +1553,12 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                             fontWeight: FontWeight.w600,
                           ),
                         )
+                      else if (boundedOffer != null &&
+                          widget.useBoundedCoupon == null)
+                        const Text(
+                          'Coupon use will be connected in the redemption checkpoint.',
+                          style: TextStyle(color: _detailMutedInk),
+                        )
                       else if (canStartRedeemTimer)
                         const Text(
                           'Tapping redeem starts a 5-minute timer. Tap when ready to pay.',
@@ -1281,3 +1575,60 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     );
   }
 }
+
+Coupon _customerBiteSaverCouponDetailView(
+  CustomerBiteSaverRestaurant restaurant,
+  CustomerBiteSaverOffer offer,
+) => Coupon(
+  id: offer.offerId.value,
+  restaurant: restaurant.displayName,
+  title: offer.title,
+  distance: '${restaurant.distanceMiles} miles',
+  expires: offer.expiresText,
+  startTime: offer.startAtMillis == null
+      ? null
+      : DateTime.fromMillisecondsSinceEpoch(
+          offer.startAtMillis!,
+          isUtc: true,
+        ).toLocal(),
+  endTime: offer.endAtMillis == null
+      ? null
+      : DateTime.fromMillisecondsSinceEpoch(
+          offer.endAtMillis!,
+          isUtc: true,
+        ).toLocal(),
+  usageRule: offer.redemptionPolicyLabel ?? offer.usageRule ?? '',
+  couponCode: offer.couponCode,
+  couponNumber: offer.couponNumber,
+  isProximityOnly: offer.isProximityOnly,
+  proximityRadiusMiles: offer.proximityRadiusMiles,
+  details: offer.details,
+  imageUrl: offer.imageUrl,
+);
+
+Restaurant _customerBiteSaverRestaurantDetailView(
+  CustomerBiteSaverRestaurant restaurant,
+) => Restaurant(
+  name: restaurant.displayName,
+  distance: '${restaurant.distanceMiles} miles',
+  city: restaurant.city,
+  state: restaurant.state,
+  zipCode: restaurant.zipCode,
+  coupons: const <Coupon>[],
+  phone: restaurant.phone,
+  streetAddress: restaurant.streetAddress,
+  website: restaurant.website,
+  bio: restaurant.bio,
+  mainImageUrl: restaurant.imageUrl,
+  businessHours: restaurant.businessHours
+      .map(
+        (hours) => RestaurantBusinessHours(
+          day: hours.day,
+          opensAt: hours.opensAt,
+          closesAt: hours.closesAt,
+          closed: hours.closed,
+        ),
+      )
+      .toList(growable: false),
+  formattedAddress: restaurant.formattedAddress,
+);
