@@ -399,6 +399,36 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
         const <CustomerBiteSaverOffer>[],
   );
 
+  CustomerBiteSaverRestaurant? currentAcceptedRestaurantFor(
+    CustomerBiteSaverRestaurantId restaurantId,
+  ) {
+    if (!_hasCurrentAcceptedBrowseState ||
+        !_deliveredRestaurantIds.contains(restaurantId.value)) {
+      return null;
+    }
+    return _restaurants[restaurantId.value];
+  }
+
+  ({CustomerBiteSaverRestaurant restaurant, CustomerBiteSaverOffer offer})?
+  currentAcceptedOfferSelectionFor(
+    CustomerBiteSaverRestaurantId restaurantId,
+    CustomerBiteSaverOfferId offerId,
+  ) {
+    final restaurant = currentAcceptedRestaurantFor(restaurantId);
+    if (restaurant == null ||
+        !_deliveredOfferIds.contains(offerId.value) ||
+        _offerRestaurantIds[offerId.value] != restaurantId.value) {
+      return null;
+    }
+    final offer = _offers[offerId.value];
+    return offer == null ? null : (restaurant: restaurant, offer: offer);
+  }
+
+  bool get _hasCurrentAcceptedBrowseState =>
+      !_disposed &&
+      _status == CustomerBiteSaverCoordinatorStatus.ready &&
+      _binding != null;
+
   CustomerLoadMoreController<CustomerBiteSaverOffer>? offerPagerFor(
     CustomerBiteSaverRestaurantId restaurantId,
   ) => _offerPagers[restaurantId.value];
@@ -1045,6 +1075,7 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
                 restaurantId,
                 result.offers,
               );
+              _replaceAcceptedPreviewOccurrences(restaurantId, result.offers);
               final invalidatesAtMillis = signedUsageOverlay != null
                   ? _commitSignedUsageOverlay(signedUsageOverlay)
                   : min(
@@ -1081,6 +1112,36 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     _offerPagers[restaurantId.value] = controller;
     await controller.loadInitial();
     return controller;
+  }
+
+  void _replaceAcceptedPreviewOccurrences(
+    CustomerBiteSaverRestaurantId restaurantId,
+    List<CustomerBiteSaverOffer> acceptedOffers,
+  ) {
+    final restaurant = _restaurants[restaurantId.value];
+    if (restaurant == null || restaurant.offers.isEmpty) return;
+    final acceptedById = <String, CustomerBiteSaverOffer>{
+      for (final offer in acceptedOffers) offer.offerId.value: offer,
+    };
+    var changed = false;
+    final currentPreviews = restaurant.offers
+        .map((preview) {
+          final accepted = acceptedById[preview.offerId.value];
+          if (accepted == null) return preview;
+          changed =
+              changed || accepted.offerOccurrence != preview.offerOccurrence;
+          _offers[accepted.offerId.value] = accepted;
+          return accepted;
+        })
+        .toList(growable: false);
+    if (!changed) return;
+    _restaurants[restaurantId.value] =
+        CustomerBiteSaverRestaurant.fromJson(<String, Object?>{
+          ...restaurant.toJson(),
+          'offers': currentPreviews
+              .map((offer) => offer.toJson())
+              .toList(growable: false),
+        });
   }
 
   Future<_GuestAwareResult<T>>

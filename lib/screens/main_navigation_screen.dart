@@ -67,6 +67,12 @@ String mainNavigationAuthRealmForUser(User? user) {
 typedef MainNavigationAuthRealmReplaced =
     void Function(String previousRealm, String nextRealm);
 typedef MainNavigationSameAuthRealmNotified = void Function();
+typedef BiteSaverBrowseHomeBuilder =
+    Widget Function(
+      BuildContext context,
+      int navigationRefreshGeneration,
+      String authRealm,
+    );
 
 class MainNavigationController {
   final List<_MainNavigationRegistration> _registrations =
@@ -1383,6 +1389,10 @@ class MainNavigationScreen extends StatefulWidget {
   final String Function()? testCustomerAuthRealmProvider;
   final Stream<String>? testCustomerAuthRealmChanges;
 
+  /// The explicit opt-in composition point for the bounded BiteSaver browse
+  /// entry. Leaving this null preserves the current production Home path.
+  final BiteSaverBrowseHomeBuilder? biteSaverBrowseHomeBuilder;
+
   const MainNavigationScreen({
     super.key,
     this.initialMode = AppMode.biteSaver,
@@ -1407,6 +1417,7 @@ class MainNavigationScreen extends StatefulWidget {
     this.navigationController,
     @visibleForTesting this.testCustomerAuthRealmProvider,
     @visibleForTesting this.testCustomerAuthRealmChanges,
+    this.biteSaverBrowseHomeBuilder,
   });
 
   @override
@@ -2228,6 +2239,14 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     if (testBuilder != null) {
       return testBuilder(mode, navigationRefreshGeneration);
     }
+    final boundedBuilder = widget.biteSaverBrowseHomeBuilder;
+    if (mode == AppMode.biteSaver && boundedBuilder != null) {
+      return boundedBuilder(
+        context,
+        navigationRefreshGeneration,
+        _customerAuthRealm,
+      );
+    }
     return mode == AppMode.biteSaver
         ? HomeScreen(
             key: const ValueKey('bitesaver-home'),
@@ -2240,7 +2259,10 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   }
 
   Widget _buildPage(AppMode mode, int index) {
-    if (index == 0 && widget.testModeHomeBuilder != null) {
+    if (index == 0 &&
+        (widget.testModeHomeBuilder != null ||
+            (mode == AppMode.biteSaver &&
+                widget.biteSaverBrowseHomeBuilder != null))) {
       return _buildModeHomePage(mode);
     }
     final testPages = widget.testPagesBuilder?.call(mode);
