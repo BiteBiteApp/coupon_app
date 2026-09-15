@@ -70,6 +70,7 @@ class HomeScreen extends StatefulWidget {
   final Future<Position> Function()? currentPositionLoader;
   final Future<SharedLocationRestoreResult> Function()? locationRestoreLoader;
   final bool initializeFirebaseBackedState;
+  final int navigationRefreshGeneration;
 
   const HomeScreen({
     super.key,
@@ -80,6 +81,7 @@ class HomeScreen extends StatefulWidget {
     this.currentPositionLoader,
     this.locationRestoreLoader,
     this.initializeFirebaseBackedState = true,
+    this.navigationRefreshGeneration = 0,
   });
 
   @override
@@ -355,6 +357,15 @@ class _HomeScreenState extends State<HomeScreen> {
     searchController.addListener(_handleTypedLocationTextChanged);
     _loadRestaurants();
     _initializeLocationState();
+  }
+
+  @override
+  void didUpdateWidget(covariant HomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.navigationRefreshGeneration !=
+        widget.navigationRefreshGeneration) {
+      unawaited(_loadRestaurants());
+    }
   }
 
   Future<void> _initializeLocationState() async {
@@ -1907,7 +1918,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     builder: (context) => CouponDetailScreen(coupon: coupon),
                   ),
                 );
-                setState(() {});
+                if (mounted) {
+                  setState(() {});
+                }
               },
             ),
           ),
@@ -2961,7 +2974,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 CouponDetailScreen(coupon: coupon, restaurant: restaurant),
           ),
         );
-        setState(() {});
+        if (mounted) {
+          setState(() {});
+        }
       },
       backgroundColor: const Color(0xFFF8FCF2),
       borderColor: const Color(0xFFB9D99E),

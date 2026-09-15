@@ -7,8 +7,9 @@ import '../widgets/admin_content_insets.dart';
 import 'admin_link_generation_screen.dart';
 import 'admin_review_screen.dart';
 import 'bitescore_admin_screen.dart';
+import 'main_navigation_screen.dart';
 
-class AdminGateScreen extends StatelessWidget {
+class AdminGateScreen extends StatefulWidget {
   final Stream<User?>? userStream;
   final WidgetBuilder? couponAdminBuilder;
   final WidgetBuilder? ratingAdminBuilder;
@@ -23,9 +24,68 @@ class AdminGateScreen extends StatelessWidget {
   });
 
   @override
+  State<AdminGateScreen> createState() => _AdminGateScreenState();
+}
+
+class _AdminGateScreenState extends State<AdminGateScreen> {
+  MainNavigationAuthRouteBinding? _authBoundRouteBinding;
+  String? _authorizedUserId;
+  int _authorizationGeneration = 0;
+
+  void _ensureAuthorizedBinding(User user) {
+    final existing = _authBoundRouteBinding;
+    if (_authorizedUserId == user.uid &&
+        existing != null &&
+        existing.isCurrent) {
+      return;
+    }
+    _retireAuthorizedBinding();
+    final navigator = Navigator.maybeOf(context, rootNavigator: true);
+    final route = ModalRoute.of(context);
+    if (navigator == null || route == null) {
+      return;
+    }
+    _authorizedUserId = user.uid;
+    _authBoundRouteBinding = mainNavigationController.bindAuthBoundRoute(
+      navigator: navigator,
+      route: route,
+      originatingAuthRealm: mainNavigationAuthRealmForUser(user),
+    );
+  }
+
+  void _retireAuthorizedBinding() {
+    final binding = _authBoundRouteBinding;
+    if (binding == null) {
+      _authorizedUserId = null;
+      return;
+    }
+    _authBoundRouteBinding = null;
+    _authorizedUserId = null;
+    final generation = ++_authorizationGeneration;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (generation != _authorizationGeneration) {
+        return;
+      }
+      binding.retirePrivateOverlays();
+      mainNavigationController.unbindAuthBoundRoute(binding);
+    });
+  }
+
+  @override
+  void dispose() {
+    _authorizationGeneration += 1;
+    final binding = _authBoundRouteBinding;
+    if (binding != null) {
+      binding.retirePrivateOverlays();
+      mainNavigationController.unbindAuthBoundRoute(binding);
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
-      stream: userStream ?? FirebaseAuth.instance.userChanges(),
+      stream: widget.userStream ?? FirebaseAuth.instance.userChanges(),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Scaffold(
@@ -38,6 +98,7 @@ class AdminGateScreen extends StatelessWidget {
         final isAdmin = AdminAccessService.isAdminUser(user);
 
         if (user == null || user.isAnonymous) {
+          _retireAuthorizedBinding();
           return Scaffold(
             appBar: AppBar(title: const Text('Admin'), centerTitle: true),
             body: Center(
@@ -82,6 +143,7 @@ class AdminGateScreen extends StatelessWidget {
         }
 
         if (!isAdmin) {
+          _retireAuthorizedBinding();
           return Scaffold(
             appBar: AppBar(title: const Text('Admin'), centerTitle: true),
             body: Center(
@@ -130,15 +192,18 @@ class AdminGateScreen extends StatelessWidget {
           );
         }
 
+        _ensureAuthorizedBinding(user);
         final couponAdminScreen =
-            couponAdminBuilder?.call(context) ?? const AdminReviewScreen();
+            widget.couponAdminBuilder?.call(context) ??
+            const AdminReviewScreen();
         final ratingAdminScreen =
-            ratingAdminBuilder?.call(context) ?? const BiteScoreAdminScreen();
+            widget.ratingAdminBuilder?.call(context) ??
+            const BiteScoreAdminScreen();
         final linkGenerationScreen =
-            linkGenerationBuilder?.call(context) ??
+            widget.linkGenerationBuilder?.call(context) ??
             const AdminLinkGenerationScreen();
 
-        return DefaultTabController(
+        final content = DefaultTabController(
           length: 3,
           child: Scaffold(
             appBar: AppBar(
@@ -203,6 +268,14 @@ class AdminGateScreen extends StatelessWidget {
               ),
             ),
           ),
+        );
+        final binding = _authBoundRouteBinding;
+        if (binding == null) {
+          return content;
+        }
+        return MainNavigationAuthBoundOverlayScope(
+          binding: binding,
+          child: content,
         );
       },
     );

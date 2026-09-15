@@ -154,12 +154,7 @@ class _RestaurantCustomerDeepLinkScreenState
 
   void _openSafeHome() {
     final mode = _isBiteScore ? AppMode.biteScore : AppMode.biteSaver;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (_) => MainNavigationScreen(initialMode: mode),
-      ),
-      (route) => false,
-    );
+    openMainNavigationDestination(context, mode: mode, index: 0);
   }
 
   Widget _buildSafeState(String message) {

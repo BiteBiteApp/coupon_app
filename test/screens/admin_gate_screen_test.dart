@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:coupon_app/screens/admin_gate_screen.dart';
 import 'package:coupon_app/screens/admin_link_generation_screen.dart';
+import 'package:coupon_app/screens/main_navigation_screen.dart';
 import 'package:coupon_app/widgets/admin_content_insets.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -208,6 +211,159 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets(
+    'same-UID permission loss removes a standard sensitive admin dialog',
+    (tester) async {
+      final gateUsers = StreamController<User?>.broadcast(sync: true);
+      addTearDown(gateUsers.close);
+      final admin = _user(
+        email: 'schuyler.cole@gmail.com',
+        uid: 'permission-test-user',
+      );
+
+      await _pumpGateOnRegisteredRoot(
+        tester,
+        gateUsers: gateUsers,
+        initialUser: admin,
+      );
+      await tester.tap(
+        find.byKey(const ValueKey('open-sensitive-admin-dialog')),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey('sensitive-admin-dialog')),
+        findsOneWidget,
+      );
+
+      gateUsers.add(
+        _user(email: 'person@example.com', uid: 'permission-test-user'),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.byKey(const ValueKey('sensitive-admin-dialog')),
+        findsNothing,
+      );
+      expect(find.text('Admin Access Denied'), findsOneWidget);
+    },
+  );
+
+  testWidgets('sign-out removes a standard sensitive admin dialog', (
+    tester,
+  ) async {
+    final gateUsers = StreamController<User?>.broadcast(sync: true);
+    final authRealms = StreamController<String>.broadcast(sync: true);
+    addTearDown(gateUsers.close);
+    addTearDown(authRealms.close);
+    final admin = _user(
+      email: 'schuyler.cole@gmail.com',
+      uid: 'sign-out-test-user',
+    );
+
+    await _pumpGateOnRegisteredRoot(
+      tester,
+      gateUsers: gateUsers,
+      initialUser: admin,
+      authRealms: authRealms,
+    );
+    await tester.tap(find.byKey(const ValueKey('open-sensitive-admin-dialog')));
+    await tester.pumpAndSettle();
+    expect(
+      find.byKey(const ValueKey('sensitive-admin-dialog')),
+      findsOneWidget,
+    );
+
+    gateUsers.add(null);
+    authRealms.add('guest');
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const ValueKey('sensitive-admin-dialog')), findsNothing);
+    expect(
+      find.byKey(const ValueKey('registered-navigation-shell')),
+      findsOneWidget,
+    );
+  });
+}
+
+Future<void> _pumpGateOnRegisteredRoot(
+  WidgetTester tester, {
+  required StreamController<User?> gateUsers,
+  required User initialUser,
+  StreamController<String>? authRealms,
+}) async {
+  final realmChanges =
+      authRealms ?? StreamController<String>.broadcast(sync: true);
+  if (authRealms == null) {
+    addTearDown(realmChanges.close);
+  }
+  var currentRealm = 'signed:${initialUser.uid}';
+  final realmSubscription = realmChanges.stream.listen((realm) {
+    currentRealm = realm;
+  });
+  addTearDown(realmSubscription.cancel);
+
+  await tester.pumpWidget(
+    MaterialApp(
+      navigatorKey: rootNavigatorKey,
+      scaffoldMessengerKey: rootScaffoldMessengerKey,
+      home: MainNavigationScreen(
+        initializePlatformServices: false,
+        testCustomerAuthRealmProvider: () => currentRealm,
+        testCustomerAuthRealmChanges: realmChanges.stream,
+        testPagesBuilder: (_) => const <Widget>[
+          SizedBox(key: ValueKey('registered-navigation-shell')),
+          SizedBox.shrink(),
+          SizedBox.shrink(),
+        ],
+      ),
+    ),
+  );
+  await tester.pumpAndSettle();
+
+  unawaited(
+    rootNavigatorKey.currentState!.push<void>(
+      MaterialPageRoute<void>(
+        builder: (_) => AdminGateScreen(
+          userStream: gateUsers.stream,
+          couponAdminBuilder: (_) => const _SensitiveAdminDialogLauncher(),
+          ratingAdminBuilder: (_) => const SizedBox.shrink(),
+          linkGenerationBuilder: (_) => const SizedBox.shrink(),
+        ),
+      ),
+    ),
+  );
+  await tester.pump();
+  gateUsers.add(initialUser);
+  await tester.pumpAndSettle();
+}
+
+class _SensitiveAdminDialogLauncher extends StatelessWidget {
+  const _SensitiveAdminDialogLauncher();
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: FilledButton(
+        key: const ValueKey('open-sensitive-admin-dialog'),
+        onPressed: () async {
+          await showDialog<void>(
+            context: context,
+            barrierDismissible: false,
+            builder: (_) => const PopScope(
+              canPop: false,
+              child: AlertDialog(
+                key: ValueKey('sensitive-admin-dialog'),
+                title: Text('Generated admin invitation'),
+                content: SelectableText('private-admin-invite-token'),
+              ),
+            ),
+          );
+        },
+        child: const Text('Open sensitive admin dialog'),
+      ),
+    );
+  }
 }
 
 Future<void> _pumpGate(
@@ -282,17 +438,18 @@ void _expectDestinationMatchesWorkspace(WidgetTester tester, String key) {
   expect(destination.right, closeTo(workspace.right, 0.01));
 }
 
-User _user({required String email}) => _TestUser(email: email);
+User _user({required String email, String uid = 'test-user'}) =>
+    _TestUser(email: email, uid: uid);
 
 class _TestUser extends Fake implements User {
   @override
   final String email;
 
-  _TestUser({required this.email});
+  @override
+  final String uid;
+
+  _TestUser({required this.email, required this.uid});
 
   @override
   bool get isAnonymous => false;
-
-  @override
-  String get uid => 'test-user';
 }

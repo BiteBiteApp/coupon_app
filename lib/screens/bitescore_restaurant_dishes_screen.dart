@@ -21,16 +21,44 @@ import '../widgets/persistent_bottom_navigation.dart';
 import 'bitescore_create_rate_screen.dart';
 import 'bitescore_dish_detail_screen.dart';
 import 'bitescore_owner_screen.dart';
+import 'main_navigation_screen.dart';
 import 'restaurant_menu_screen.dart';
+
+typedef BiteScoreRestaurantDishesInitialData = ({
+  BitescoreRestaurant restaurant,
+  List<BiteScoreHomeEntry> entries,
+  bool isFavorite,
+});
+typedef BiteScoreRestaurantDishesInitialDataLoader =
+    Future<BiteScoreRestaurantDishesInitialData> Function();
+typedef BiteScoreRestaurantFavoriteSaver =
+    Future<void> Function(BitescoreRestaurant restaurant, bool isFavorite);
+typedef BiteScoreRestaurantDishCategorySaver =
+    Future<void> Function(
+      BitescoreDish dish,
+      BitescoreCategorySelection selection,
+    );
+typedef BiteScoreRestaurantDishesWriteGate =
+    Future<bool> Function(BuildContext context);
 
 class BiteScoreRestaurantDishesScreen extends StatefulWidget {
   final BitescoreRestaurant restaurant;
   final List<BiteScoreHomeEntry> entries;
+  final BiteScoreRestaurantDishesInitialDataLoader? testInitialDataLoader;
+  final BiteScoreRestaurantFavoriteSaver? testFavoriteSaver;
+  final BiteScoreRestaurantDishCategorySaver? testDishCategorySaver;
+  final BiteScoreRestaurantDishesWriteGate? testWriteGate;
+  final User? Function()? testCurrentUserProvider;
 
   const BiteScoreRestaurantDishesScreen({
     super.key,
     required this.restaurant,
     required this.entries,
+    @visibleForTesting this.testInitialDataLoader,
+    @visibleForTesting this.testFavoriteSaver,
+    @visibleForTesting this.testDishCategorySaver,
+    @visibleForTesting this.testWriteGate,
+    @visibleForTesting this.testCurrentUserProvider,
   });
 
   @override
@@ -48,6 +76,13 @@ class _BiteScoreRestaurantDishesScreenState
   bool _isFavoriteRestaurant = false;
   bool _isSavingFavoriteRestaurant = false;
   bool _hasDishChanges = false;
+  late bool _hadManagementAccess;
+  final Object _homeRefreshIntentOwner = Object();
+  MainNavigationAuthRouteBinding? _authBoundRouteBinding;
+  NavigatorState? _authBoundNavigator;
+  ModalRoute<dynamic>? _authBoundRoute;
+  int _refreshGeneration = 0;
+  BuildContext? _privateOverlayContext;
 
   bool get _hasPhone =>
       _restaurant.phone != null && _restaurant.phone!.trim().isNotEmpty;
@@ -65,13 +100,29 @@ class _BiteScoreRestaurantDishesScreenState
     return hasAddress || hasCoordinates;
   }
 
-  User? get _currentUser => FirebaseAuth.instance.currentUser;
+  User? get _currentUser {
+    final testProvider = widget.testCurrentUserProvider;
+    if (testProvider != null) {
+      return testProvider();
+    }
+    try {
+      return FirebaseAuth.instance.currentUser;
+    } catch (_) {
+      return null;
+    }
+  }
+
   bool get _isOwner =>
       _currentUser != null &&
       !_currentUser!.isAnonymous &&
       _restaurant.ownerUserId?.trim() == _currentUser!.uid;
   bool get _isAdmin => AdminAccessService.isAdminUser(_currentUser);
   bool get _canManageRestaurant => _isOwner || _isAdmin;
+
+  bool _isPrivateLeaseCurrent(MainNavigationAuthLease? lease) {
+    return lease == null ||
+        lease.matchesUser(_currentUser, allowGuestToSignedUpgrade: true);
+  }
 
   ButtonStyle _bitescoreActionButtonStyle() {
     return BiteRaterTheme.filledButtonStyle();
@@ -173,12 +224,106 @@ class _BiteScoreRestaurantDishesScreenState
     Navigator.of(context).pop(_hasDishChanges);
   }
 
+  void _recordHomeChange() {
+    _hasDishChanges = true;
+    final navigator = Navigator.maybeOf(context, rootNavigator: true);
+    if (navigator != null) {
+      mainNavigationController.markHomeRefreshNeeded(
+        owner: _homeRefreshIntentOwner,
+        navigator: navigator,
+        mode: AppMode.biteScore,
+      );
+    }
+  }
+
+  void _openModeHome(AppMode mode) {
+    openMainNavigationDestination(
+      context,
+      mode: mode,
+      index: 0,
+      refreshHomeMode: _hasDishChanges ? AppMode.biteScore : null,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
     _restaurant = widget.restaurant;
     _entries = _sortedEntries(widget.entries);
+    _hadManagementAccess = _canManageRestaurant;
     _refreshRestaurantData();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final navigator = Navigator.maybeOf(context, rootNavigator: true);
+    final route = ModalRoute.of(context);
+    if (navigator == null || route == null) {
+      return;
+    }
+    if (identical(navigator, _authBoundNavigator) &&
+        identical(route, _authBoundRoute)) {
+      return;
+    }
+    _unbindAuthBoundRoute();
+    _authBoundNavigator = navigator;
+    _authBoundRoute = route;
+    _authBoundRouteBinding = mainNavigationController.bindAuthBoundRoute(
+      navigator: navigator,
+      route: route,
+      originatingAuthRealm: mainNavigationAuthRealmForUser(_currentUser),
+      preserveRouteOnAuthChange: true,
+      allowGuestToSignedUpgrade: true,
+      onAuthRealmReplaced: _handleAuthRealmReplaced,
+      onSameAuthRealmNotified: _handleSameAuthRealmNotified,
+    );
+  }
+
+  @override
+  void dispose() {
+    _refreshGeneration += 1;
+    _unbindAuthBoundRoute();
+    super.dispose();
+  }
+
+  void _unbindAuthBoundRoute() {
+    final binding = _authBoundRouteBinding;
+    if (binding != null) {
+      mainNavigationController.unbindAuthBoundRoute(binding);
+    }
+    _authBoundRouteBinding = null;
+    _authBoundNavigator = null;
+    _authBoundRoute = null;
+    _privateOverlayContext = null;
+  }
+
+  void _handleAuthRealmReplaced(String previousRealm, String nextRealm) {
+    if (!mounted) {
+      return;
+    }
+    _hadManagementAccess = _canManageRestaurant;
+    setState(() {
+      _isFavoriteRestaurant = false;
+      _isSavingFavoriteRestaurant = false;
+      _hasDishChanges = false;
+    });
+    _refreshRestaurantData();
+  }
+
+  void _handleSameAuthRealmNotified() {
+    if (!mounted) {
+      return;
+    }
+    final hadManagementAccess = _hadManagementAccess;
+    final hasManagementAccess = _canManageRestaurant;
+    _hadManagementAccess = hasManagementAccess;
+    if (hadManagementAccess && !hasManagementAccess) {
+      _authBoundRouteBinding?.retirePrivateOverlays();
+    }
+    if (hadManagementAccess != hasManagementAccess) {
+      setState(() {});
+    }
   }
 
   List<BiteScoreHomeEntry> _sortedEntries(List<BiteScoreHomeEntry> entries) {
@@ -192,69 +337,97 @@ class _BiteScoreRestaurantDishesScreenState
   }
 
   Future<void> _openAddDish() async {
+    final authLease = _authBoundRouteBinding?.captureLease();
     final canWrite = await BiteScoreSignInGate.ensureSignedInForWrite(context);
-    if (!canWrite || !mounted) {
+    if (!canWrite || !mounted || !_isPrivateLeaseCurrent(authLease)) {
       return;
     }
 
-    final created = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) =>
-            BiteScoreCreateRateScreen(existingRestaurant: _restaurant),
-      ),
+    final created = await pushMainNavigationPrivateRoute<bool>(
+      context,
+      parentBinding: _authBoundRouteBinding,
+      builder: (_) =>
+          BiteScoreCreateRateScreen(existingRestaurant: _restaurant),
     );
 
-    if (created == true && mounted) {
-      _hasDishChanges = true;
+    if (created == true && mounted && _isPrivateLeaseCurrent(authLease)) {
+      _recordHomeChange();
       await _refreshRestaurantData();
     }
   }
 
   Future<void> _openExistingDishReview(BiteScoreHomeEntry entry) async {
+    await _openDishDetail(entry, scrollToReviewSection: true);
+  }
+
+  Future<void> _openDishDetail(
+    BiteScoreHomeEntry entry, {
+    bool scrollToReviewSection = false,
+  }) async {
     final created = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
+      MaterialPageRoute<bool>(
         builder: (_) => BiteScoreDishDetailScreen(
           entry: entry,
-          scrollToReviewSection: true,
+          scrollToReviewSection: scrollToReviewSection,
         ),
       ),
     );
 
     if (created == true && mounted) {
-      _hasDishChanges = true;
+      _recordHomeChange();
       await _refreshRestaurantData();
     }
   }
 
   Future<void> _refreshRestaurantData() async {
+    final generation = ++_refreshGeneration;
     setState(() {
       _isRefreshing = true;
     });
 
     try {
-      final refreshedRestaurant = await BiteScoreService.loadRestaurantById(
-        _restaurant.id,
-      );
-      final favoriteRestaurant =
-          await BiteScoreService.isRestaurantFavoritedByCurrentUser(
-            _restaurant.id,
-          );
-      final allEntries = await BiteScoreService.loadEntriesForRestaurant(
-        refreshedRestaurant ?? _restaurant,
-      );
-      if (!mounted) {
+      final testLoader = widget.testInitialDataLoader;
+      final BiteScoreRestaurantDishesInitialData data;
+      if (testLoader != null) {
+        data = await testLoader();
+      } else {
+        final refreshedRestaurant = await BiteScoreService.loadRestaurantById(
+          _restaurant.id,
+        );
+        final favoriteRestaurant =
+            await BiteScoreService.isRestaurantFavoritedByCurrentUser(
+              _restaurant.id,
+            );
+        final resolvedRestaurant = refreshedRestaurant ?? _restaurant;
+        final allEntries = await BiteScoreService.loadEntriesForRestaurant(
+          resolvedRestaurant,
+        );
+        data = (
+          restaurant: resolvedRestaurant,
+          entries: allEntries,
+          isFavorite: favoriteRestaurant,
+        );
+      }
+      if (!mounted || generation != _refreshGeneration) {
         return;
       }
 
       setState(() {
-        if (refreshedRestaurant != null) {
-          _restaurant = refreshedRestaurant;
-        }
-        _entries = _sortedEntries(allEntries);
-        _isFavoriteRestaurant = favoriteRestaurant;
+        _restaurant = data.restaurant;
+        _entries = _sortedEntries(data.entries);
+        _isFavoriteRestaurant = data.isFavorite;
       });
+    } catch (error) {
+      if (mounted && generation == _refreshGeneration) {
+        _showSnackBar(
+          AppErrorText.friendly(
+            error,
+            fallback: 'Could not refresh this restaurant right now.',
+          ),
+        );
+      }
     } finally {
-      if (mounted) {
+      if (mounted && generation == _refreshGeneration) {
         setState(() {
           _isRefreshing = false;
         });
@@ -263,14 +436,27 @@ class _BiteScoreRestaurantDishesScreenState
   }
 
   Future<void> _toggleRestaurantFavorite() async {
-    final canSave = await BiteScoreSignInGate.ensureSignedInForFavorites(
-      context,
-    );
-    if (!canSave || !mounted || _isSavingFavoriteRestaurant) {
+    final authLease = _authBoundRouteBinding?.captureLease();
+    final testWriteGate = widget.testWriteGate;
+    final canSave = testWriteGate != null
+        ? await testWriteGate(context)
+        : await BiteScoreSignInGate.ensureSignedInForFavorites(context);
+    if (!canSave ||
+        !mounted ||
+        _isSavingFavoriteRestaurant ||
+        !_isPrivateLeaseCurrent(authLease)) {
       return;
     }
 
     final nextIsFavorite = !_isFavoriteRestaurant;
+    final refreshDelivery = mainNavigationController.captureHomeRefreshDelivery(
+      context,
+      mode: AppMode.biteScore,
+      owner: _homeRefreshIntentOwner,
+    );
+    if (!_isPrivateLeaseCurrent(authLease)) {
+      return;
+    }
 
     setState(() {
       _isSavingFavoriteRestaurant = true;
@@ -278,20 +464,27 @@ class _BiteScoreRestaurantDishesScreenState
     });
 
     try {
-      await BiteScoreService.setRestaurantFavorite(
-        restaurant: _restaurant,
-        isFavorite: nextIsFavorite,
-      );
-      if (!mounted) {
+      final testSaver = widget.testFavoriteSaver;
+      if (testSaver != null) {
+        await testSaver(_restaurant, nextIsFavorite);
+      } else {
+        await BiteScoreService.setRestaurantFavorite(
+          restaurant: _restaurant,
+          isFavorite: nextIsFavorite,
+        );
+      }
+      refreshDelivery.confirm();
+      if (!mounted || !_isPrivateLeaseCurrent(authLease)) {
         return;
       }
+      _recordHomeChange();
       _showSnackBar(
         nextIsFavorite
             ? 'Saved restaurant to your profile.'
             : 'Removed restaurant from your saved list.',
       );
     } catch (error) {
-      if (!mounted) {
+      if (!mounted || !_isPrivateLeaseCurrent(authLease)) {
         return;
       }
       setState(() {
@@ -304,7 +497,7 @@ class _BiteScoreRestaurantDishesScreenState
         ),
       );
     } finally {
-      if (mounted) {
+      if (mounted && _isPrivateLeaseCurrent(authLease)) {
         setState(() {
           _isSavingFavoriteRestaurant = false;
         });
@@ -313,17 +506,18 @@ class _BiteScoreRestaurantDishesScreenState
   }
 
   Future<void> _openClaimDialog() async {
+    final authLease = _authBoundRouteBinding?.captureLease();
     final canWrite = await BiteScoreSignInGate.ensureSignedInForWrite(context);
-    if (!canWrite || !mounted) {
+    if (!canWrite || !mounted || !_isPrivateLeaseCurrent(authLease)) {
       return;
     }
-    final user = FirebaseAuth.instance.currentUser;
+    final user = _currentUser;
     if (user == null || user.isAnonymous) {
       return;
     }
 
     final submitted = await showDialog<bool>(
-      context: context,
+      context: _privateOverlayContext ?? context,
       builder: (context) {
         return _RestaurantClaimDialog(
           restaurant: _restaurant,
@@ -332,66 +526,85 @@ class _BiteScoreRestaurantDishesScreenState
       },
     );
 
-    if (submitted == true && mounted) {
+    if (submitted == true && mounted && _isPrivateLeaseCurrent(authLease)) {
       _showSnackBar('Claim request submitted for admin review.');
     }
   }
 
   Future<void> _openOwnerRestaurantEditor() async {
+    final authLease = _authBoundRouteBinding?.captureLease();
     final saved = await showDialog<bool>(
-      context: context,
+      context: _privateOverlayContext ?? context,
       builder: (context) {
         return _OwnerRestaurantEditDialog(restaurant: _restaurant);
       },
     );
 
-    if (saved == true && mounted) {
+    if (saved == true && mounted && _isPrivateLeaseCurrent(authLease)) {
+      _recordHomeChange();
       await _refreshRestaurantData();
+      if (!mounted || !_isPrivateLeaseCurrent(authLease)) {
+        return;
+      }
       _showSnackBar('Restaurant information updated.');
     }
   }
 
   Future<void> _openOwnerControls() async {
+    final authLease = _authBoundRouteBinding?.captureLease();
     final user = _currentUser;
-    if (user == null || user.isAnonymous) {
+    if (user == null ||
+        user.isAnonymous ||
+        !_isPrivateLeaseCurrent(authLease)) {
       _showSnackBar('Sign in with your restaurant owner account first.');
       return;
     }
 
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => BiteScoreOwnerScreen(currentUser: user),
+    await pushMainNavigationPrivateRoute<void>(
+      context,
+      parentBinding: _authBoundRouteBinding,
+      builder: (_) => BiteScoreOwnerScreen(
+        currentUser: user,
+        onHomeDataChanged: _recordHomeChange,
       ),
     );
 
-    if (mounted) {
+    if (mounted && _isPrivateLeaseCurrent(authLease)) {
       await _refreshRestaurantData();
     }
   }
 
   Future<void> _openOwnerDishEditor(BiteScoreHomeEntry entry) async {
+    final authLease = _authBoundRouteBinding?.captureLease();
     final saved = await showDialog<bool>(
-      context: context,
+      context: _privateOverlayContext ?? context,
       builder: (context) {
         return _OwnerDishEditDialog(dish: entry.dish);
       },
     );
 
-    if (saved == true && mounted) {
-      _hasDishChanges = true;
+    if (saved == true && mounted && _isPrivateLeaseCurrent(authLease)) {
+      _recordHomeChange();
       await _refreshRestaurantData();
+      if (!mounted || !_isPrivateLeaseCurrent(authLease)) {
+        return;
+      }
       _showSnackBar('Dish updated.');
     }
   }
 
   Future<void> _openDishCategoryEditor(BiteScoreHomeEntry entry) async {
-    final canWrite = await BiteScoreSignInGate.ensureSignedInForWrite(context);
-    if (!canWrite || !mounted) {
+    final authLease = _authBoundRouteBinding?.captureLease();
+    final testWriteGate = widget.testWriteGate;
+    final canWrite = testWriteGate != null
+        ? await testWriteGate(context)
+        : await BiteScoreSignInGate.ensureSignedInForWrite(context);
+    if (!canWrite || !mounted || !_isPrivateLeaseCurrent(authLease)) {
       return;
     }
 
     final selection = await showDialog<BitescoreCategorySelection>(
-      context: context,
+      context: _privateOverlayContext ?? context,
       builder: (context) {
         return _DishCategoryDialog(
           initialSelection: BitescoreCategorySelection.fromDish(entry.dish),
@@ -403,24 +616,41 @@ class _BiteScoreRestaurantDishesScreenState
       return;
     }
 
+    final refreshDelivery = mainNavigationController.captureHomeRefreshDelivery(
+      context,
+      mode: AppMode.biteScore,
+      owner: _homeRefreshIntentOwner,
+    );
+    if (!_isPrivateLeaseCurrent(authLease)) {
+      return;
+    }
     try {
-      await BiteScoreService.updateDishAsOwner(
-        dish: entry.dish,
-        name: entry.dish.name,
-        category: selection.categoryForSave ?? '',
-        subcategory: selection.subcategoryForSave,
-        categoryManualKeywords: selection.manualKeywordsForSave,
-        priceLabel: entry.dish.priceLabel ?? '',
-        isActive: entry.dish.isActive,
-      );
-      if (!mounted) {
+      final testSaver = widget.testDishCategorySaver;
+      if (testSaver != null) {
+        await testSaver(entry.dish, selection);
+      } else {
+        await BiteScoreService.updateDishAsOwner(
+          dish: entry.dish,
+          name: entry.dish.name,
+          category: selection.categoryForSave ?? '',
+          subcategory: selection.subcategoryForSave,
+          categoryManualKeywords: selection.manualKeywordsForSave,
+          priceLabel: entry.dish.priceLabel ?? '',
+          isActive: entry.dish.isActive,
+        );
+      }
+      refreshDelivery.confirm();
+      if (!mounted || !_isPrivateLeaseCurrent(authLease)) {
         return;
       }
-      _hasDishChanges = true;
+      _recordHomeChange();
       await _refreshRestaurantData();
+      if (!mounted || !_isPrivateLeaseCurrent(authLease)) {
+        return;
+      }
       _showSnackBar('Category updated.');
     } catch (error) {
-      if (!mounted) {
+      if (!mounted || !_isPrivateLeaseCurrent(authLease)) {
         return;
       }
       _showSnackBar(
@@ -639,17 +869,20 @@ class _BiteScoreRestaurantDishesScreenState
   }
 
   Future<void> _reportIssue() async {
+    final authLease = _authBoundRouteBinding?.captureLease();
     final canWrite = await BiteScoreSignInGate.ensureSignedInForWrite(context);
-    if (!canWrite || !mounted) {
+    if (!canWrite || !mounted || !_isPrivateLeaseCurrent(authLease)) {
       return;
     }
 
     final reportSelection = await showDialog<_RestaurantIssueReportSelection?>(
-      context: context,
+      context: _privateOverlayContext ?? context,
       builder: (context) => const _RestaurantIssueReportDialog(),
     );
 
-    if (reportSelection == null || !mounted) {
+    if (reportSelection == null ||
+        !mounted ||
+        !_isPrivateLeaseCurrent(authLease)) {
       return;
     }
 
@@ -663,7 +896,7 @@ class _BiteScoreRestaurantDishesScreenState
               restaurant: _restaurant,
               reason: reportSelection.reason,
             );
-      if (!mounted) {
+      if (!mounted || !_isPrivateLeaseCurrent(authLease)) {
         return;
       }
       _showSnackBar(
@@ -672,6 +905,9 @@ class _BiteScoreRestaurantDishesScreenState
             : 'You already reported this restaurant issue.',
       );
     } catch (error) {
+      if (!mounted || !_isPrivateLeaseCurrent(authLease)) {
+        return;
+      }
       _showSnackBar(
         AppErrorText.friendly(
           error,
@@ -1006,7 +1242,7 @@ class _BiteScoreRestaurantDishesScreenState
 
   @override
   Widget build(BuildContext context) {
-    return PopScope<bool>(
+    final content = PopScope<bool>(
       canPop: false,
       onPopInvokedWithResult: (didPop, result) {
         if (didPop) {
@@ -1026,12 +1262,16 @@ class _BiteScoreRestaurantDishesScreenState
             icon: const BackButtonIcon(),
           ),
         ),
-        bottomNavigationBar: const PersistentBottomNavigation(
+        bottomNavigationBar: PersistentBottomNavigation(
           mode: AppMode.biteScore,
+          requestRootRefresh: _hasDishChanges,
         ),
         body: Column(
           children: [
-            buildPersistentAppModeSwitcher(context),
+            buildPersistentAppModeSwitcher(
+              context,
+              onModeNavigationRequested: _openModeHome,
+            ),
             Expanded(
               child: ScrollConfiguration(
                 behavior: ScrollConfiguration.of(
@@ -1170,16 +1410,7 @@ class _BiteScoreRestaurantDishesScreenState
                           borderColor: BiteRaterTheme.grape.withOpacity(0.16),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(20),
-                            onTap: () {
-                              Navigator.of(context).push(
-                                MaterialPageRoute(
-                                  builder: (_) => BiteScoreDishDetailScreen(
-                                    entry: entry,
-                                    distanceLabel: null,
-                                  ),
-                                ),
-                              );
-                            },
+                            onTap: () => _openDishDetail(entry),
                             child: Padding(
                               padding: const EdgeInsets.all(16),
                               child: Column(
@@ -1306,6 +1537,19 @@ class _BiteScoreRestaurantDishesScreenState
         ),
       ),
     );
+    final binding = _authBoundRouteBinding;
+    if (binding == null) {
+      return content;
+    }
+    return MainNavigationAuthBoundOverlayScope(
+      binding: binding,
+      child: Builder(
+        builder: (scopeContext) {
+          _privateOverlayContext = scopeContext;
+          return content;
+        },
+      ),
+    );
   }
 }
 
@@ -1426,11 +1670,7 @@ class _RestaurantClaimDialogState extends State<_RestaurantClaimDialog> {
   late final TextEditingController _messageController;
   bool _isSaving = false;
 
-  String get _authEmail =>
-      (FirebaseAuth.instance.currentUser?.email ??
-              widget.currentUser.email ??
-              '')
-          .trim();
+  String get _authEmail => (widget.currentUser.email ?? '').trim();
 
   @override
   void initState() {

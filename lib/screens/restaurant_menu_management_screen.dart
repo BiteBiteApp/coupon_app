@@ -2,19 +2,51 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../services/app_error_text.dart';
+import '../services/app_mode_state_service.dart';
 import '../services/bitesaver_image_upload_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_menu_service.dart';
+import 'main_navigation_screen.dart';
 import 'restaurant_custom_menu_section_editor_screen.dart';
+
+typedef RestaurantMenuManagementInitialData = ({
+  bool hasPostingAccess,
+  List<RestaurantMenuImage> images,
+  List<RestaurantMenuItem> items,
+  List<RestaurantMenuSection> sections,
+});
+typedef RestaurantMenuManagementInitialDataLoader =
+    Future<RestaurantMenuManagementInitialData> Function(
+      User user,
+      RestaurantMenuSource source,
+    );
+typedef RestaurantMenuManagementItemSaver =
+    Future<RestaurantMenuItem> Function(
+      RestaurantMenuSource source,
+      String name,
+      String description,
+      String price,
+      String category,
+    );
 
 class RestaurantMenuManagementScreen extends StatefulWidget {
   final RestaurantMenuSource? source;
   final String? restaurantName;
+  final VoidCallback? onMenuChanged;
+  final User? testCurrentUser;
+  final User? Function()? testCurrentUserProvider;
+  final RestaurantMenuManagementInitialDataLoader? testInitialDataLoader;
+  final RestaurantMenuManagementItemSaver? testItemSaver;
 
   const RestaurantMenuManagementScreen({
     super.key,
     this.source,
     this.restaurantName,
+    this.onMenuChanged,
+    @visibleForTesting this.testCurrentUser,
+    @visibleForTesting this.testCurrentUserProvider,
+    @visibleForTesting this.testInitialDataLoader,
+    @visibleForTesting this.testItemSaver,
   });
 
   @override
@@ -64,8 +96,25 @@ class _RestaurantMenuManagementScreenState
   List<RestaurantMenuImage> _images = const [];
   List<RestaurantMenuItem> _items = const [];
   List<RestaurantMenuSection> _sections = const [];
+  MainNavigationAuthRouteBinding? _authBoundRouteBinding;
+  NavigatorState? _authBoundNavigator;
+  ModalRoute<dynamic>? _authBoundRoute;
+  BuildContext? _privateOverlayContext;
 
-  User? get _currentUser => FirebaseAuth.instance.currentUser;
+  User? get _currentUser {
+    final testProvider = widget.testCurrentUserProvider;
+    if (testProvider != null) {
+      return testProvider();
+    }
+    if (widget.testCurrentUser != null) {
+      return widget.testCurrentUser;
+    }
+    try {
+      return FirebaseAuth.instance.currentUser;
+    } catch (_) {
+      return null;
+    }
+  }
 
   List<String> get _categories =>
       _sourceForUser(_currentUser)?.isSharedMenu == true
@@ -87,6 +136,15 @@ class _RestaurantMenuManagementScreenState
     return RestaurantMenuSource.legacyBiteSaver(user.uid);
   }
 
+  MainNavigationHomeRefreshDelivery _captureHomeRefreshDelivery(
+    RestaurantMenuSource source,
+  ) {
+    return mainNavigationController.captureHomeRefreshDelivery(
+      context,
+      mode: source.isSharedMenu ? AppMode.biteScore : AppMode.biteSaver,
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -94,11 +152,49 @@ class _RestaurantMenuManagementScreenState
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final navigator = Navigator.maybeOf(context, rootNavigator: true);
+    final route = ModalRoute.of(context);
+    final user = _currentUser;
+    if (navigator == null ||
+        route == null ||
+        user == null ||
+        user.isAnonymous) {
+      return;
+    }
+    if (identical(navigator, _authBoundNavigator) &&
+        identical(route, _authBoundRoute)) {
+      return;
+    }
+    _unbindAuthBoundRoute();
+    _authBoundNavigator = navigator;
+    _authBoundRoute = route;
+    _authBoundRouteBinding = mainNavigationController.bindAuthBoundRoute(
+      navigator: navigator,
+      route: route,
+      originatingAuthRealm: mainNavigationAuthRealmForUser(user),
+    );
+  }
+
+  @override
   void dispose() {
+    _unbindAuthBoundRoute();
     _nameController.dispose();
     _descriptionController.dispose();
     _priceController.dispose();
     super.dispose();
+  }
+
+  void _unbindAuthBoundRoute() {
+    final binding = _authBoundRouteBinding;
+    if (binding != null) {
+      mainNavigationController.unbindAuthBoundRoute(binding);
+    }
+    _authBoundRouteBinding = null;
+    _authBoundNavigator = null;
+    _authBoundRoute = null;
+    _privateOverlayContext = null;
   }
 
   Future<void> _loadMenu() async {
@@ -117,28 +213,40 @@ class _RestaurantMenuManagementScreenState
         throw StateError('Menu source is unavailable.');
       }
 
-      var hasAccess = true;
-      if (source.isLegacyBiteSaver) {
-        final accountData = await RestaurantAccountService.getAccountData(
-          user.uid,
-        );
-        hasAccess = RestaurantAccountService.hasCouponPostingAccess(
-          accountData,
+      late final RestaurantMenuManagementInitialData data;
+      final testLoader = widget.testInitialDataLoader;
+      if (testLoader != null) {
+        data = await testLoader(user, source);
+      } else {
+        var hasAccess = true;
+        if (source.isLegacyBiteSaver) {
+          final accountData = await RestaurantAccountService.getAccountData(
+            user.uid,
+          );
+          hasAccess = RestaurantAccountService.hasCouponPostingAccess(
+            accountData,
+          );
+        }
+        final results = await Future.wait([
+          RestaurantMenuService.loadMenuImages(source),
+          RestaurantMenuService.loadMenuItems(source),
+          RestaurantMenuService.loadMenuSections(source),
+        ]);
+        data = (
+          hasPostingAccess: hasAccess,
+          images: results[0] as List<RestaurantMenuImage>,
+          items: results[1] as List<RestaurantMenuItem>,
+          sections: results[2] as List<RestaurantMenuSection>,
         );
       }
-      final results = await Future.wait([
-        RestaurantMenuService.loadMenuImages(source),
-        RestaurantMenuService.loadMenuItems(source),
-        RestaurantMenuService.loadMenuSections(source),
-      ]);
 
       if (!mounted) return;
       setState(() {
         _activeSource = source;
-        _hasPostingAccess = hasAccess;
-        _images = results[0] as List<RestaurantMenuImage>;
-        _items = results[1] as List<RestaurantMenuItem>;
-        _sections = results[2] as List<RestaurantMenuSection>;
+        _hasPostingAccess = data.hasPostingAccess;
+        _images = data.images;
+        _items = data.items;
+        _sections = data.sections;
         _isLoading = false;
       });
     } catch (error) {
@@ -172,12 +280,18 @@ class _RestaurantMenuManagementScreenState
       _isUploadingImage = true;
     });
 
+    final initialSource = _sourceForUser(user);
+    if (initialSource == null || initialSource.id.isEmpty) {
+      _showSnackBar('Please sign in to manage your menu.');
+      setState(() {
+        _isUploadingImage = false;
+      });
+      return;
+    }
+    final refreshDelivery = _captureHomeRefreshDelivery(initialSource);
+
     try {
-      final source = _sourceForUser(user);
-      if (source == null || source.id.isEmpty) {
-        _showSnackBar('Please sign in to manage your menu.');
-        return;
-      }
+      final source = initialSource;
 
       String? imageUrl;
       String? storagePath;
@@ -202,6 +316,8 @@ class _RestaurantMenuManagementScreenState
         imageUrl: imageUrl,
         storagePath: storagePath,
       );
+      refreshDelivery.confirm();
+      widget.onMenuChanged?.call();
       if (!mounted) return;
       setState(() {
         _images = [..._images, savedImage]
@@ -242,19 +358,35 @@ class _RestaurantMenuManagementScreenState
       _isSavingItem = true;
     });
 
+    final source = _sourceForUser(user);
+    if (source == null || source.id.isEmpty) {
+      _showSnackBar('Please sign in to manage your menu.');
+      setState(() {
+        _isSavingItem = false;
+      });
+      return;
+    }
+    final refreshDelivery = _captureHomeRefreshDelivery(source);
+
     try {
-      final source = _sourceForUser(user);
-      if (source == null || source.id.isEmpty) {
-        _showSnackBar('Please sign in to manage your menu.');
-        return;
-      }
-      final savedItem = await RestaurantMenuService.saveMenuItem(
-        source: source,
-        name: name,
-        description: _descriptionController.text,
-        price: _priceController.text,
-        category: _selectedCategory,
-      );
+      final testSaver = widget.testItemSaver;
+      final savedItem = testSaver != null
+          ? await testSaver(
+              source,
+              name,
+              _descriptionController.text,
+              _priceController.text,
+              _selectedCategory,
+            )
+          : await RestaurantMenuService.saveMenuItem(
+              source: source,
+              name: name,
+              description: _descriptionController.text,
+              price: _priceController.text,
+              category: _selectedCategory,
+            );
+      refreshDelivery.confirm();
+      widget.onMenuChanged?.call();
       if (!mounted) return;
       setState(() {
         _items = [..._items, savedItem];
@@ -285,12 +417,15 @@ class _RestaurantMenuManagementScreenState
     if (user == null) return;
     final source = _sourceForUser(user);
     if (source == null || source.id.isEmpty) return;
+    final refreshDelivery = _captureHomeRefreshDelivery(source);
 
     try {
       await RestaurantMenuService.deleteMenuImage(
         source: source,
         imageId: image.id,
       );
+      refreshDelivery.confirm();
+      widget.onMenuChanged?.call();
       if (!mounted) return;
       setState(() {
         _images = _images.where((entry) => entry.id != image.id).toList();
@@ -311,12 +446,15 @@ class _RestaurantMenuManagementScreenState
     if (user == null) return;
     final source = _sourceForUser(user);
     if (source == null || source.id.isEmpty) return;
+    final refreshDelivery = _captureHomeRefreshDelivery(source);
 
     try {
       await RestaurantMenuService.deleteMenuItem(
         source: source,
         itemId: item.id,
       );
+      refreshDelivery.confirm();
+      widget.onMenuChanged?.call();
       if (!mounted) return;
       setState(() {
         _items = _items.where((entry) => entry.id != item.id).toList();
@@ -343,15 +481,20 @@ class _RestaurantMenuManagementScreenState
       _showSnackBar('Please sign in to manage your menu.');
       return;
     }
+    final refreshDelivery = _captureHomeRefreshDelivery(source);
 
-    final saved = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => RestaurantCustomMenuSectionEditorScreen(
-          source: source,
-          section: section,
-        ),
+    final saved = await pushMainNavigationPrivateRoute<bool>(
+      context,
+      parentBinding: _authBoundRouteBinding,
+      builder: (_) => RestaurantCustomMenuSectionEditorScreen(
+        source: source,
+        section: section,
       ),
     );
+    if (saved == true) {
+      refreshDelivery.confirm();
+      widget.onMenuChanged?.call();
+    }
     if (saved == true && mounted) {
       setState(() {
         _isLoading = true;
@@ -372,7 +515,7 @@ class _RestaurantMenuManagementScreenState
     if (source == null || source.id.isEmpty) return;
 
     final confirmed = await showDialog<bool>(
-      context: context,
+      context: _privateOverlayContext ?? context,
       builder: (context) => AlertDialog(
         title: const Text('Delete custom section?'),
         content: Text('Delete "${section.title}" from this menu?'),
@@ -391,12 +534,15 @@ class _RestaurantMenuManagementScreenState
     if (confirmed != true) {
       return;
     }
+    final refreshDelivery = _captureHomeRefreshDelivery(source);
 
     try {
       await RestaurantMenuService.deleteMenuSection(
         source: source,
         sectionId: section.id,
       );
+      refreshDelivery.confirm();
+      widget.onMenuChanged?.call();
       if (!mounted) return;
       setState(() {
         _sections = _sections.where((entry) => entry.id != section.id).toList();
@@ -593,7 +739,16 @@ class _RestaurantMenuManagementScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final user = _currentUser;
+    final binding = _authBoundRouteBinding;
+    if (user == null ||
+        user.isAnonymous ||
+        (binding != null && !binding.isCurrent)) {
+      return const Scaffold(
+        body: Center(child: Text('Menu management session changed.')),
+      );
+    }
+    final content = Scaffold(
       appBar: AppBar(
         title: Text(
           widget.restaurantName?.trim().isNotEmpty == true
@@ -725,6 +880,18 @@ class _RestaurantMenuManagementScreenState
                 _buildItemList(),
               ],
             ),
+    );
+    if (binding == null) {
+      return content;
+    }
+    return MainNavigationAuthBoundOverlayScope(
+      binding: binding,
+      child: Builder(
+        builder: (scopeContext) {
+          _privateOverlayContext = scopeContext;
+          return content;
+        },
+      ),
     );
   }
 }

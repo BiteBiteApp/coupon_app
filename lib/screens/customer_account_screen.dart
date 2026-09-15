@@ -9,17 +9,23 @@ import '../services/customer_auth_service.dart';
 import '../widgets/phone_auth_sheet.dart';
 import 'admin_gate_screen.dart';
 import 'customer_profile_screen.dart';
+import 'main_navigation_screen.dart';
+
+typedef CustomerProfileDestinationBuilder =
+    Widget Function(BuildContext context, User user);
 
 class CustomerAccountScreen extends StatefulWidget {
   final bool showAppBar;
   final Stream<User?>? userStream;
   final WidgetBuilder? adminDestinationBuilder;
+  final CustomerProfileDestinationBuilder? profileDestinationBuilder;
 
   const CustomerAccountScreen({
     super.key,
     this.showAppBar = false,
     @visibleForTesting this.userStream,
     @visibleForTesting this.adminDestinationBuilder,
+    @visibleForTesting this.profileDestinationBuilder,
   });
 
   @override
@@ -725,11 +731,19 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
               child: FilledButton.icon(
                 onPressed: isSubmitting
                     ? null
-                    : () {
-                        Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (_) => const CustomerProfileScreen(),
+                    : () async {
+                        await pushMainNavigationPrivateRoute<void>(
+                          context,
+                          parentBinding: null,
+                          originatingAuthRealm: mainNavigationAuthRealmForUser(
+                            user,
                           ),
+                          builder: (routeContext) =>
+                              widget.profileDestinationBuilder?.call(
+                                routeContext,
+                                user,
+                              ) ??
+                              CustomerProfileScreen(currentUser: user),
                         );
                       },
                 icon: const Icon(

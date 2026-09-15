@@ -25,16 +25,30 @@ import 'bitescore_dish_detail_screen.dart';
 import 'main_navigation_screen.dart';
 import 'restaurant_menu_management_screen.dart';
 
+typedef BiteScoreOwnerInitialData = ({
+  List<BitescoreRestaurant> restaurants,
+  BitescoreRestaurant? selectedRestaurant,
+  List<BiteScoreHomeEntry> entries,
+});
+typedef BiteScoreOwnerInitialDataLoader =
+    Future<BiteScoreOwnerInitialData> Function(User user);
+
 class BiteScoreOwnerScreen extends StatefulWidget {
   final User currentUser;
   final String? initialRestaurantId;
   final RatingDestructiveOperationsService? ratingDestructiveOperationsService;
+  final VoidCallback? onHomeDataChanged;
+  final BiteScoreOwnerInitialDataLoader? testInitialDataLoader;
+  final User? Function()? testCurrentUserProvider;
 
   const BiteScoreOwnerScreen({
     super.key,
     required this.currentUser,
     this.initialRestaurantId,
     this.ratingDestructiveOperationsService,
+    this.onHomeDataChanged,
+    @visibleForTesting this.testInitialDataLoader,
+    @visibleForTesting this.testCurrentUserProvider,
   });
 
   @override
@@ -49,6 +63,28 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
   String? _selectedRestaurantId;
   bool _bioExpanded = false;
   bool _hoursExpanded = false;
+  bool _hasHomeChanges = false;
+  final Object _homeRefreshIntentOwner = Object();
+  MainNavigationAuthRouteBinding? _authBoundRouteBinding;
+  NavigatorState? _authBoundNavigator;
+  ModalRoute<dynamic>? _authBoundRoute;
+  BuildContext? _privateOverlayContext;
+
+  User? get _currentUser {
+    final testProvider = widget.testCurrentUserProvider;
+    if (testProvider != null) {
+      return testProvider();
+    }
+    try {
+      return FirebaseAuth.instance.currentUser;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _isPrivateLeaseCurrent(MainNavigationAuthLease? lease) {
+    return lease == null || lease.matchesUser(_currentUser);
+  }
 
   @override
   void initState() {
@@ -57,11 +93,88 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
     _refresh();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final navigator = Navigator.maybeOf(context, rootNavigator: true);
+    final route = ModalRoute.of(context);
+    if (navigator == null || route == null) {
+      return;
+    }
+    if (identical(navigator, _authBoundNavigator) &&
+        identical(route, _authBoundRoute)) {
+      return;
+    }
+    _unbindAuthBoundRoute();
+    _authBoundNavigator = navigator;
+    _authBoundRoute = route;
+    _authBoundRouteBinding = mainNavigationController.bindAuthBoundRoute(
+      navigator: navigator,
+      route: route,
+      originatingAuthRealm: mainNavigationAuthRealmForUser(widget.currentUser),
+    );
+  }
+
+  @override
+  void dispose() {
+    _unbindAuthBoundRoute();
+    super.dispose();
+  }
+
+  void _unbindAuthBoundRoute() {
+    final binding = _authBoundRouteBinding;
+    if (binding != null) {
+      mainNavigationController.unbindAuthBoundRoute(binding);
+    }
+    _authBoundRouteBinding = null;
+    _authBoundNavigator = null;
+    _authBoundRoute = null;
+    _privateOverlayContext = null;
+  }
+
   void _refresh() {
     _dataFuture = _loadData();
   }
 
+  void _recordHomeChange() {
+    if (!mounted) {
+      return;
+    }
+    _hasHomeChanges = true;
+    final onHomeDataChanged = widget.onHomeDataChanged;
+    if (onHomeDataChanged != null) {
+      onHomeDataChanged();
+      return;
+    }
+    final navigator = Navigator.maybeOf(context, rootNavigator: true);
+    if (navigator != null) {
+      mainNavigationController.markHomeRefreshNeeded(
+        owner: _homeRefreshIntentOwner,
+        navigator: navigator,
+        mode: AppMode.biteScore,
+      );
+    }
+  }
+
   Future<_OwnerRatingData> _loadData() async {
+    final testInitialDataLoader = widget.testInitialDataLoader;
+    if (testInitialDataLoader != null) {
+      final data = await testInitialDataLoader(widget.currentUser);
+      final entries = data.entries.toList()
+        ..sort(
+          (a, b) => b.aggregate.overallBiteScore.compareTo(
+            a.aggregate.overallBiteScore,
+          ),
+        );
+      _selectedRestaurantId = data.selectedRestaurant?.id;
+      return _OwnerRatingData(
+        restaurants: data.restaurants,
+        selectedRestaurant: data.selectedRestaurant,
+        entries: entries,
+        reviewEntries: const <_OwnerReviewEntry>[],
+      );
+    }
+
     final restaurants = await BiteScoreService.loadOwnedRestaurantsForUser(
       widget.currentUser.uid,
     );
@@ -147,11 +260,12 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
 
   Future<void> _openRestaurantEditor(BitescoreRestaurant restaurant) async {
     final saved = await showDialog<bool>(
-      context: context,
+      context: _privateOverlayContext ?? context,
       builder: (context) => _OwnerRestaurantEditDialog(restaurant: restaurant),
     );
 
     if (saved == true && mounted) {
+      _recordHomeChange();
       setState(_refresh);
       _showSnackBar('Restaurant information updated.');
     }
@@ -159,37 +273,62 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
 
   Future<void> _openDishEditor(BiteScoreHomeEntry entry) async {
     final saved = await showDialog<bool>(
-      context: context,
+      context: _privateOverlayContext ?? context,
       builder: (context) => _OwnerDishEditDialog(dish: entry.dish),
     );
 
     if (saved == true && mounted) {
+      _recordHomeChange();
       setState(_refresh);
       _showSnackBar('Dish updated.');
     }
   }
 
-  Future<void> _openAddDish(BitescoreRestaurant restaurant) async {
-    final created = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
+  Future<void> _openDishDetail(BiteScoreHomeEntry entry) async {
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
         builder: (_) =>
-            BiteScoreCreateRateScreen(existingRestaurant: restaurant),
+            BiteScoreDishDetailScreen(entry: entry, distanceLabel: null),
       ),
     );
+    if (changed == true && mounted) {
+      _recordHomeChange();
+      setState(_refresh);
+    }
+  }
 
-    if (created == true && mounted) {
+  Future<void> _openAddDish(BitescoreRestaurant restaurant) async {
+    final authLease = _authBoundRouteBinding?.captureLease();
+    if (!_isPrivateLeaseCurrent(authLease)) {
+      return;
+    }
+    final created = await pushMainNavigationPrivateRoute<bool>(
+      context,
+      parentBinding: _authBoundRouteBinding,
+      builder: (_) => BiteScoreCreateRateScreen(existingRestaurant: restaurant),
+    );
+
+    if (created == true && mounted && _isPrivateLeaseCurrent(authLease)) {
+      _recordHomeChange();
       setState(_refresh);
       _showSnackBar('Dish created.');
     }
   }
 
   Future<void> _openManageMenu(BitescoreRestaurant restaurant) async {
+    final authLease = _authBoundRouteBinding?.captureLease();
+    if (!_isPrivateLeaseCurrent(authLease)) {
+      return;
+    }
     try {
       final access =
           await RestaurantMenuService.resolveBiteScoreManageMenuAccess(
             restaurant: restaurant,
             ownerUserId: widget.currentUser.uid,
           );
+      if (!mounted || !_isPrivateLeaseCurrent(authLease)) {
+        return;
+      }
       if (access.isBlocked) {
         _showSnackBar(access.message ?? 'Menu is managed elsewhere.');
         return;
@@ -199,22 +338,22 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
         _showSnackBar('Could not open menu tools right now.');
         return;
       }
-      if (!mounted) {
-        return;
-      }
-
-      await Navigator.of(context).push(
-        MaterialPageRoute(
-          builder: (_) => RestaurantMenuManagementScreen(
-            source: source,
-            restaurantName: restaurant.name,
-          ),
+      await pushMainNavigationPrivateRoute<void>(
+        context,
+        parentBinding: _authBoundRouteBinding,
+        builder: (_) => RestaurantMenuManagementScreen(
+          source: source,
+          restaurantName: restaurant.name,
+          onMenuChanged: _recordHomeChange,
         ),
       );
-      if (mounted) {
+      if (mounted && _isPrivateLeaseCurrent(authLease)) {
         setState(_refresh);
       }
     } catch (error) {
+      if (!mounted || !_isPrivateLeaseCurrent(authLease)) {
+        return;
+      }
       _showSnackBar(
         AppErrorText.friendly(
           error,
@@ -239,7 +378,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
         widget.ratingDestructiveOperationsService ??
         RatingDestructiveOperationsService();
     final summary = await showDialog<RatingDestructiveOperationSummary>(
-      context: context,
+      context: _privateOverlayContext ?? context,
       builder: (context) => OwnerDishMergeDialog(
         dishes: activeDishes,
         operationsService: operationsService,
@@ -248,14 +387,16 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
 
     if (summary == null || !mounted) return;
     if (summary.complete && _selectedRestaurantId == originatingRestaurantId) {
+      _recordHomeChange();
       setState(_refresh);
     }
     showRatingDestructiveOperationFeedback(
-      context,
+      _privateOverlayContext ?? context,
       service: operationsService,
       summary: summary,
       onComplete: () async {
         if (mounted && _selectedRestaurantId == originatingRestaurantId) {
+          _recordHomeChange();
           setState(_refresh);
         }
       },
@@ -320,6 +461,10 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
     required bool enabled,
     required String? matchedBiteSaverUid,
   }) async {
+    final authLease = _authBoundRouteBinding?.captureLease();
+    if (!_isPrivateLeaseCurrent(authLease)) {
+      return;
+    }
     try {
       if (enabled) {
         final uid = matchedBiteSaverUid?.trim();
@@ -327,7 +472,12 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
           _showSnackBar('Matching BiteSaver restaurant is required.');
           return;
         }
-        if (await RestaurantMenuService.biteSaverUsesBiteScoreMenu(uid)) {
+        final alreadyUsed =
+            await RestaurantMenuService.biteSaverUsesBiteScoreMenu(uid);
+        if (!_isPrivateLeaseCurrent(authLease)) {
+          return;
+        }
+        if (alreadyUsed) {
           _showSnackBar('This menu is already being used by the other side.');
           return;
         }
@@ -336,18 +486,28 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
           biteSaverUid: uid,
           updatedBy: widget.currentUser.uid,
         );
+        if (!_isPrivateLeaseCurrent(authLease)) {
+          return;
+        }
         _showSnackBar('Menu is managed on BiteSaver.');
       } else {
         await RestaurantMenuService.clearBiteScoreMenuSourceRouting(
           restaurantId: restaurant.id,
           updatedBy: widget.currentUser.uid,
         );
+        if (!_isPrivateLeaseCurrent(authLease)) {
+          return;
+        }
         _showSnackBar('BiteScore menu management restored.');
       }
       if (mounted) {
+        _recordHomeChange();
         setState(_refresh);
       }
     } catch (error) {
+      if (!_isPrivateLeaseCurrent(authLease)) {
+        return;
+      }
       _showSnackBar(
         AppErrorText.friendly(
           error,
@@ -582,15 +742,12 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
     return value.round().toString();
   }
 
-  Future<void> _openBiteScoreBrowse() async {
-    await Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (_) => const MainNavigationScreen(
-          initialMode: AppMode.biteScore,
-          initialIndex: 0,
-        ),
-      ),
-      (route) => false,
+  void _openBiteScoreBrowse() {
+    openMainNavigationDestination(
+      context,
+      mode: AppMode.biteScore,
+      index: 0,
+      refreshHomeMode: _hasHomeChanges ? AppMode.biteScore : null,
     );
   }
 
@@ -1581,16 +1738,7 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
           radius: 20,
           borderColor: BiteRaterTheme.grape.withValues(alpha: 0.14),
           child: ListTile(
-            onTap: () {
-              Navigator.of(context).push(
-                MaterialPageRoute(
-                  builder: (_) => BiteScoreDishDetailScreen(
-                    entry: entry,
-                    distanceLabel: null,
-                  ),
-                ),
-              );
-            },
+            onTap: () => _openDishDetail(entry),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 18,
               vertical: 12,
@@ -1839,75 +1987,72 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final refreshedUser = FirebaseAuth.instance.currentUser;
-    final currentUser =
-        refreshedUser != null && refreshedUser.uid == widget.currentUser.uid
-        ? refreshedUser
-        : widget.currentUser;
+    final refreshedUser = _currentUser;
+    final binding = _authBoundRouteBinding;
+    if (refreshedUser == null ||
+        refreshedUser.isAnonymous ||
+        refreshedUser.uid != widget.currentUser.uid ||
+        (binding != null && !binding.isCurrent)) {
+      return const Scaffold(
+        backgroundColor: BiteRaterTheme.pageBackground,
+        body: Center(child: Text('Owner session changed.')),
+      );
+    }
+    final currentUser = refreshedUser;
     if (RestaurantAuthService.requiresEmailVerification(currentUser)) {
-      return Scaffold(
+      return _bindPrivateOverlays(
+        Scaffold(
+          backgroundColor: BiteRaterTheme.pageBackground,
+          appBar: AppBar(
+            title: const Text('Rating Side Owner'),
+            centerTitle: true,
+          ),
+          body: _buildEmailVerificationRequiredState(),
+        ),
+      );
+    }
+
+    return _bindPrivateOverlays(
+      Scaffold(
         backgroundColor: BiteRaterTheme.pageBackground,
         appBar: AppBar(
           title: const Text('Rating Side Owner'),
           centerTitle: true,
         ),
-        body: _buildEmailVerificationRequiredState(),
-      );
-    }
+        body: FutureBuilder<_OwnerRatingData>(
+          future: _dataFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-    return Scaffold(
-      backgroundColor: BiteRaterTheme.pageBackground,
-      appBar: AppBar(title: const Text('Rating Side Owner'), centerTitle: true),
-      body: FutureBuilder<_OwnerRatingData>(
-        future: _dataFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
+            if (snapshot.hasError) {
+              return _buildLoadErrorState();
+            }
 
-          if (snapshot.hasError) {
-            return _buildLoadErrorState();
-          }
+            final data = snapshot.data ?? const _OwnerRatingData.empty();
+            if (data.selectedRestaurant == null) {
+              return _buildNoBiteScoreAccountState();
+            }
 
-          final data = snapshot.data ?? const _OwnerRatingData.empty();
-          if (data.selectedRestaurant == null) {
-            return _buildNoBiteScoreAccountState();
-          }
+            final activeEntries = data.entries
+                .where((entry) => entry.dish.isActive && !entry.dish.isMerged)
+                .toList(growable: false);
+            final unavailableEntries = data.entries
+                .where((entry) => !entry.dish.isActive && !entry.dish.isMerged)
+                .toList(growable: false);
 
-          final activeEntries = data.entries
-              .where((entry) => entry.dish.isActive && !entry.dish.isMerged)
-              .toList(growable: false);
-          final unavailableEntries = data.entries
-              .where((entry) => !entry.dish.isActive && !entry.dish.isMerged)
-              .toList(growable: false);
-
-          return SingleChildScrollView(
-            padding: AdminContentInsets.systemScrollPadding(context),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                _buildRestaurantCard(data),
-                const SizedBox(height: 16),
-                _buildInsightsSection(data),
-                const SizedBox(height: 16),
-                const Text(
-                  'Active Dishes',
-                  style: TextStyle(
-                    color: BiteRaterTheme.ink,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                _buildDishList(
-                  activeEntries,
-                  emptyMessage:
-                      'No available dishes found for this restaurant yet.',
-                ),
-                if (unavailableEntries.isNotEmpty) ...[
-                  const SizedBox(height: 24),
+            return SingleChildScrollView(
+              padding: AdminContentInsets.systemScrollPadding(context),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildRestaurantCard(data),
+                  const SizedBox(height: 16),
+                  _buildInsightsSection(data),
+                  const SizedBox(height: 16),
                   const Text(
-                    'Unavailable Dishes',
+                    'Active Dishes',
                     style: TextStyle(
                       color: BiteRaterTheme.ink,
                       fontSize: 18,
@@ -1916,14 +2061,48 @@ class _BiteScoreOwnerScreenState extends State<BiteScoreOwnerScreen> {
                   ),
                   const SizedBox(height: 12),
                   _buildDishList(
-                    unavailableEntries,
+                    activeEntries,
                     emptyMessage:
-                        'No unavailable dishes found for this restaurant yet.',
+                        'No available dishes found for this restaurant yet.',
                   ),
+                  if (unavailableEntries.isNotEmpty) ...[
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Unavailable Dishes',
+                      style: TextStyle(
+                        color: BiteRaterTheme.ink,
+                        fontSize: 18,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    _buildDishList(
+                      unavailableEntries,
+                      emptyMessage:
+                          'No unavailable dishes found for this restaurant yet.',
+                    ),
+                  ],
                 ],
-              ],
-            ),
-          );
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _bindPrivateOverlays(Widget child) {
+    final binding = _authBoundRouteBinding;
+    if (binding == null) {
+      return child;
+    }
+    return MainNavigationAuthBoundOverlayScope(
+      binding: binding,
+      child: Builder(
+        key: const ValueKey('bitescore-owner-private-overlay-scope'),
+        builder: (scopeContext) {
+          _privateOverlayContext = scopeContext;
+          return child;
         },
       ),
     );

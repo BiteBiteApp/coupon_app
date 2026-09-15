@@ -16,12 +16,32 @@ import '../widgets/reviewer_activity_pill.dart';
 import 'bitescore_dish_detail_screen.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
 import 'coupon_detail_screen.dart';
+import 'main_navigation_screen.dart';
 import 'restaurant_profile_screen.dart';
 
 enum _SavedSection { restaurants, dishes, coupons }
 
+typedef CustomerProfileDataLoader =
+    Future<BiteScoreUserProfileData> Function(User user);
+typedef CustomerProfileBadgeLoader =
+    Future<List<LocalExpertBadge>> Function(String userId);
+typedef CustomerProfileUsernameSaver = Future<void> Function(String username);
+
 class CustomerProfileScreen extends StatefulWidget {
-  const CustomerProfileScreen({super.key});
+  final User currentUser;
+  final User? Function()? testCurrentUserProvider;
+  final CustomerProfileDataLoader? testProfileLoader;
+  final CustomerProfileBadgeLoader? testLocalExpertBadgesLoader;
+  final CustomerProfileUsernameSaver? testUsernameSaver;
+
+  const CustomerProfileScreen({
+    super.key,
+    required this.currentUser,
+    @visibleForTesting this.testCurrentUserProvider,
+    @visibleForTesting this.testProfileLoader,
+    @visibleForTesting this.testLocalExpertBadgesLoader,
+    @visibleForTesting this.testUsernameSaver,
+  });
 
   @override
   State<CustomerProfileScreen> createState() => _CustomerProfileScreenState();
@@ -40,6 +60,10 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   String? _usernameStatusMessage;
   bool? _isUsernameAvailable;
   _SavedSection _savedSection = _SavedSection.restaurants;
+  MainNavigationAuthRouteBinding? _authBoundRouteBinding;
+  NavigatorState? _authBoundNavigator;
+  ModalRoute<dynamic>? _authBoundRoute;
+  BuildContext? _privateOverlayContext;
 
   @override
   void initState() {
@@ -48,17 +72,63 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   }
 
   void _refresh() {
-    _profileFuture = BiteScoreService.loadCurrentUserProfileData();
-    _localExpertBadgesFuture = _localExpertBadgeRefreshBridge
-        .loadBadgesAfterSessionRecalculation(
-          userId: FirebaseAuth.instance.currentUser?.uid,
-          recalculate: LocalExpertBadgeRecalculationService
-              .recalculateMyLocalExpertBadges,
-          loadBadges: LocalExpertBadgeService.loadBadgesForUser,
-          onRecalculationError: (error, stackTrace) {
-            debugPrint('Local Expert badge recalculation failed: $error');
-          },
-        );
+    _profileFuture =
+        widget.testProfileLoader?.call(widget.currentUser) ??
+        BiteScoreService.loadCurrentUserProfileData();
+    final testBadgeLoader = widget.testLocalExpertBadgesLoader;
+    _localExpertBadgesFuture = testBadgeLoader != null
+        ? testBadgeLoader(widget.currentUser.uid)
+        : _localExpertBadgeRefreshBridge.loadBadgesAfterSessionRecalculation(
+            userId: widget.currentUser.uid,
+            recalculate: LocalExpertBadgeRecalculationService
+                .recalculateMyLocalExpertBadges,
+            loadBadges: LocalExpertBadgeService.loadBadgesForUser,
+            onRecalculationError: (error, stackTrace) {
+              debugPrint('Local Expert badge recalculation failed: $error');
+            },
+          );
+  }
+
+  User? get _currentUser {
+    final testProvider = widget.testCurrentUserProvider;
+    if (testProvider != null) {
+      return testProvider();
+    }
+    try {
+      return FirebaseAuth.instance.currentUser;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool _isOpeningUserCurrent([MainNavigationAuthLease? lease]) {
+    final currentUser = _currentUser;
+    return (lease == null || lease.isCurrent) &&
+        currentUser != null &&
+        !currentUser.isAnonymous &&
+        currentUser.uid == widget.currentUser.uid;
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final navigator = Navigator.maybeOf(context, rootNavigator: true);
+    final route = ModalRoute.of(context);
+    if (navigator == null || route == null) {
+      return;
+    }
+    if (identical(navigator, _authBoundNavigator) &&
+        identical(route, _authBoundRoute)) {
+      return;
+    }
+    _unbindAuthBoundRoute();
+    _authBoundNavigator = navigator;
+    _authBoundRoute = route;
+    _authBoundRouteBinding = mainNavigationController.bindAuthBoundRoute(
+      navigator: navigator,
+      route: route,
+      originatingAuthRealm: mainNavigationAuthRealmForUser(widget.currentUser),
+    );
   }
 
   String _displayText(String value, String fallback) {
@@ -76,8 +146,20 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
   @override
   void dispose() {
+    _unbindAuthBoundRoute();
     _usernameController.dispose();
     super.dispose();
+  }
+
+  void _unbindAuthBoundRoute() {
+    final binding = _authBoundRouteBinding;
+    if (binding != null) {
+      mainNavigationController.unbindAuthBoundRoute(binding);
+    }
+    _authBoundRouteBinding = null;
+    _authBoundNavigator = null;
+    _authBoundRoute = null;
+    _privateOverlayContext = null;
   }
 
   void _showSnackBar(String message) {
@@ -141,6 +223,11 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       return;
     }
 
+    final authLease = _authBoundRouteBinding?.captureLease();
+    if (!_isOpeningUserCurrent(authLease)) {
+      return;
+    }
+
     setState(() {
       _isSavingUsername = true;
       _usernameStatusMessage = null;
@@ -148,10 +235,14 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     });
 
     try {
-      await BiteScoreService.saveCurrentUserPublicUsername(
-        _usernameController.text,
-      );
-      if (!mounted) {
+      final username = _usernameController.text;
+      final testSaver = widget.testUsernameSaver;
+      if (testSaver != null) {
+        await testSaver(username);
+      } else {
+        await BiteScoreService.saveCurrentUserPublicUsername(username);
+      }
+      if (!mounted || !_isOpeningUserCurrent(authLease)) {
         return;
       }
       _showSnackBar('Your username was updated.');
@@ -226,7 +317,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   }
 
   bool _canEditReview(BiteScoreUserReviewEntry entry) {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = _currentUser;
     return user != null &&
         !user.isAnonymous &&
         entry.review.userId.trim() == user.uid;
@@ -812,10 +903,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                         InkWell(
                           borderRadius: BorderRadius.circular(18),
                           onTap: () => showLocalExpertBadgeDetails(
-                            context,
+                            _privateOverlayContext ?? context,
                             badge,
-                            reviewerUserId:
-                                FirebaseAuth.instance.currentUser?.uid,
+                            reviewerUserId: widget.currentUser.uid,
                             reviewerDisplayName: profileData.publicDisplayName,
                           ),
                           child: LocalExpertBadgeWidget(badge: badge),
@@ -1108,7 +1198,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    if (!_isOpeningUserCurrent()) {
+      return const Scaffold(
+        body: Center(child: Text('Profile session changed.')),
+      );
+    }
+    final content = Scaffold(
       appBar: AppBar(title: const Text('My Profile'), centerTitle: true),
       body: FutureBuilder<BiteScoreUserProfileData>(
         future: _profileFuture,
@@ -1166,6 +1261,19 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
                   contributionPoints: 0,
                 ),
           );
+        },
+      ),
+    );
+    final binding = _authBoundRouteBinding;
+    if (binding == null) {
+      return content;
+    }
+    return MainNavigationAuthBoundOverlayScope(
+      binding: binding,
+      child: Builder(
+        builder: (scopeContext) {
+          _privateOverlayContext = scopeContext;
+          return content;
         },
       ),
     );

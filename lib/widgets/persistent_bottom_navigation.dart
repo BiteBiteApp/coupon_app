@@ -9,22 +9,29 @@ class PersistentBottomNavigation extends StatelessWidget {
   final AppMode mode;
   final int selectedIndex;
   final Widget Function(AppMode mode, int index)? destinationBuilder;
+  final MainNavigationController? navigationController;
+
+  /// Requests one refresh of an already-mounted Home after a confirmed
+  /// mutation while returning to the root shell.
+  final bool requestRootRefresh;
 
   const PersistentBottomNavigation({
     super.key,
     required this.mode,
     this.selectedIndex = 0,
     this.destinationBuilder,
+    this.navigationController,
+    this.requestRootRefresh = false,
   });
 
   void _openDestination(BuildContext context, int index) {
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (_) =>
-            destinationBuilder?.call(mode, index) ??
-            MainNavigationScreen(initialMode: mode, initialIndex: index),
-      ),
-      (route) => false,
+    openMainNavigationDestination(
+      context,
+      mode: mode,
+      index: index,
+      controller: navigationController,
+      fallbackBuilder: destinationBuilder,
+      refreshHomeMode: requestRootRefresh ? mode : null,
     );
   }
 

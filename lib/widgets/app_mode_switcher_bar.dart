@@ -315,7 +315,10 @@ class _AppModeSwitcherBarState extends State<AppModeSwitcherBar> {
   }
 }
 
-Widget buildPersistentAppModeSwitcher(BuildContext context) {
+Widget buildPersistentAppModeSwitcher(
+  BuildContext context, {
+  ValueChanged<AppMode>? onModeNavigationRequested,
+}) {
   return ValueListenableBuilder<AppMode>(
     valueListenable: AppModeStateService.selectedMode,
     builder: (context, selectedMode, _) {
@@ -323,6 +326,10 @@ Widget buildPersistentAppModeSwitcher(BuildContext context) {
         selectedMode: selectedMode,
         onModeSelected: (mode) {
           if (mode == selectedMode) {
+            return;
+          }
+          if (onModeNavigationRequested != null) {
+            onModeNavigationRequested(mode);
             return;
           }
           Navigator.of(context).popUntil((route) => route.isFirst);

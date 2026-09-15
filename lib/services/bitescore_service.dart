@@ -687,6 +687,15 @@ class BiteScoreService {
       CustomerBiteSaverFavoriteService.firebase();
   static List<DishCatalogSuggestion>? _dishCatalogCache;
   static Future<List<DishCatalogSuggestion>>? _dishCatalogCacheFuture;
+  static User? Function()? _accountContinuityCurrentUserForTesting;
+  static Future<void> Function(User user)?
+  _accountContinuityReloadUserForTesting;
+  static Future<void> Function(User user)?
+  _accountContinuityRefreshIdTokenForTesting;
+  static Future<void> Function(String operation)?
+  _accountContinuityBeforeMutationForTesting;
+  static Future<Object?> Function(String operation, String pinnedUserId)?
+  _accountContinuityWriteForTesting;
 
   static const double _overallImpressionWeight = 0.50;
   static const double _tastinessWeight = 0.20;
@@ -694,12 +703,47 @@ class BiteScoreService {
   static const double _valueWeight = 0.10;
   static const int _maxSafeAggregateWriteGeneration = 9007199254740991;
   static const String loginRequiredMessage = 'Please sign in to continue';
+  static const String accountChangedMessage =
+      'Your account changed. Please try again.';
   static const String emailVerificationRequiredMessage =
       'Please verify your email first';
   static const String restaurantClaimUnavailableMessage =
       'Restaurant is unavailable for claiming.';
   static const String restaurantClaimTemporarilyUnavailableMessage =
       'Restaurant claim is temporarily unavailable.';
+
+  @visibleForTesting
+  static Future<T> runWithAccountContinuityTestSeams<T>({
+    required User? Function() currentUserProvider,
+    required Future<void> Function(User user) reloadUser,
+    required Future<void> Function(User user) refreshIdToken,
+    Future<void> Function(String operation)? beforeMutation,
+    required Future<Object?> Function(String operation, String pinnedUserId)
+    write,
+    required Future<T> Function() body,
+  }) async {
+    if (_accountContinuityCurrentUserForTesting != null ||
+        _accountContinuityReloadUserForTesting != null ||
+        _accountContinuityRefreshIdTokenForTesting != null ||
+        _accountContinuityBeforeMutationForTesting != null ||
+        _accountContinuityWriteForTesting != null) {
+      throw StateError('BiteScore account-continuity test seams are busy.');
+    }
+    _accountContinuityCurrentUserForTesting = currentUserProvider;
+    _accountContinuityReloadUserForTesting = reloadUser;
+    _accountContinuityRefreshIdTokenForTesting = refreshIdToken;
+    _accountContinuityBeforeMutationForTesting = beforeMutation;
+    _accountContinuityWriteForTesting = write;
+    try {
+      return await body();
+    } finally {
+      _accountContinuityCurrentUserForTesting = null;
+      _accountContinuityReloadUserForTesting = null;
+      _accountContinuityRefreshIdTokenForTesting = null;
+      _accountContinuityBeforeMutationForTesting = null;
+      _accountContinuityWriteForTesting = null;
+    }
+  }
 
   static int _requiredRestaurantWriteRevision(Map<String, dynamic>? data) {
     final revision = BitescoreRestaurant.readRestaurantWriteRevision(data);
@@ -3170,16 +3214,25 @@ class BiteScoreService {
   static Future<BiteScoreDishImageVoteResult> toggleDishImageVote({
     required BiteScoreDishImage image,
     required String voteType,
+    required String expectedUserId,
   }) async {
-    final user = await _requireFreshSignedInBiteScoreUser();
+    final pinnedUserId = await _prepareExpectedBiteScoreMutation(
+      operation: 'toggleDishImageVote',
+      expectedUserId: expectedUserId,
+    );
     if (voteType != BiteScoreDishImageVote.voteHelpful &&
         voteType != BiteScoreDishImageVote.voteNotHelpful) {
       throw ArgumentError('Unknown image vote type.');
     }
+    final testWrite = _accountContinuityWriteForTesting;
+    if (testWrite != null) {
+      return await testWrite('toggleDishImageVote', pinnedUserId)
+          as BiteScoreDishImageVoteResult;
+    }
 
     final imageRef = dishImagesCollection().doc(image.id);
     final voteRef = dishImageVotesCollection().doc(
-      _dishImageVoteDocumentId(image.id, user.uid),
+      _dishImageVoteDocumentId(image.id, pinnedUserId),
     );
 
     final result = await _firestore.runTransaction((transaction) async {
@@ -3227,7 +3280,7 @@ class BiteScoreService {
           'imageId': image.id,
           'dishId': image.dishId,
           'restaurantId': image.restaurantId,
-          'userId': user.uid,
+          'userId': pinnedUserId,
           'voteType': voteType,
           'updatedAt': FieldValue.serverTimestamp(),
         };
@@ -4158,7 +4211,7 @@ class BiteScoreService {
     required String phone,
     required String message,
   }) async {
-    final user = await _requireFreshSignedInBiteScoreUser();
+    final user = await _requireFreshSignedInBiteScoreUserForCurrentOperation();
     final authEmail = user.email?.trim();
     if (claimantName.trim().isEmpty) {
       throw ArgumentError('Claimant name is required.');
@@ -4322,25 +4375,35 @@ class BiteScoreService {
   }
 
   static Future<BiteScoreReviewSaveResult> createAndRate(
-    BiteScoreCreateRequest request,
-  ) async {
+    BiteScoreCreateRequest request, {
+    required String expectedUserId,
+  }) async {
     final validationError = request.validate();
     if (validationError != null) {
       throw ArgumentError(validationError);
     }
 
-    final user = await _requireFreshSignedInBiteScoreUser();
+    final creatorUserId = await _prepareExpectedBiteScoreMutation(
+      operation: 'createAndRate',
+      expectedUserId: expectedUserId,
+    );
+    final testWrite = _accountContinuityWriteForTesting;
+    if (testWrite != null) {
+      return await testWrite('createAndRate', creatorUserId)
+          as BiteScoreReviewSaveResult;
+    }
 
-    final creatorUserId = user.uid.trim();
     final restaurantResolution = await _findOrCreateRestaurant(
       request,
       creatorUserId: creatorUserId,
+      expectedUserId: creatorUserId,
     );
     var restaurant = restaurantResolution.restaurant;
     final dishResolution = await _findOrCreateDish(
       request,
       restaurant,
       creatorUserId: creatorUserId,
+      expectedUserId: creatorUserId,
     );
     final dish = dishResolution.dish;
     if (restaurantResolution.wasCreated && dishResolution.wasCreated) {
@@ -4348,6 +4411,7 @@ class BiteScoreService {
         restaurant: restaurant,
         dishId: dish.id,
         creatorUserId: creatorUserId,
+        expectedUserId: creatorUserId,
       );
     }
     final reviewResult = await _createReviewAndRebuildAggregate(
@@ -4360,6 +4424,7 @@ class BiteScoreService {
       valueScore: request.valueScore,
       headline: request.headline,
       notes: request.notes,
+      expectedUserId: creatorUserId,
     );
     final dishAward = dishResolution.wasCreated
         ? await ContributionPointsService.awardCreatedDishContributionPoints(
@@ -4386,6 +4451,7 @@ class BiteScoreService {
     required double overallImpression,
     required String headline,
     required String notes,
+    required String expectedUserId,
     double? tastinessScore,
     double? qualityScore,
     double? valueScore,
@@ -4400,10 +4466,18 @@ class BiteScoreService {
       throw ArgumentError(validationError);
     }
 
-    final user = await _requireFreshSignedInBiteScoreUser();
+    final pinnedUserId = await _prepareExpectedBiteScoreMutation(
+      operation: 'addReviewForDish',
+      expectedUserId: expectedUserId,
+    );
+    final testWrite = _accountContinuityWriteForTesting;
+    if (testWrite != null) {
+      return await testWrite('addReviewForDish', pinnedUserId)
+          as BiteScoreReviewSaveResult;
+    }
 
     final reviewResult = await _createReviewAndRebuildAggregate(
-      userId: user.uid,
+      userId: pinnedUserId,
       dish: dish,
       restaurant: restaurant,
       overallImpression: overallImpression,
@@ -4412,6 +4486,7 @@ class BiteScoreService {
       valueScore: valueScore,
       headline: headline,
       notes: notes,
+      expectedUserId: pinnedUserId,
     );
 
     return BiteScoreReviewSaveResult(
@@ -4426,7 +4501,7 @@ class BiteScoreService {
     required DishReview review,
     String? reason,
   }) async {
-    final user = await _requireFreshSignedInBiteScoreUser();
+    final user = await _requireFreshSignedInBiteScoreUserForCurrentOperation();
     final pendingSnapshot = await reviewReportsCollection()
         .where('reportingUserId', isEqualTo: user.uid)
         .get();
@@ -4469,7 +4544,7 @@ class BiteScoreService {
     required BitescoreRestaurant restaurant,
     String? reason,
   }) async {
-    final user = await _requireFreshSignedInBiteScoreUser();
+    final user = await _requireFreshSignedInBiteScoreUserForCurrentOperation();
     final pendingSnapshot = await restaurantReportsCollection()
         .where('reportingUserId', isEqualTo: user.uid)
         .get();
@@ -4511,7 +4586,7 @@ class BiteScoreService {
     required BitescoreDish dish,
     String? reason,
   }) async {
-    final user = await _requireFreshSignedInBiteScoreUser();
+    final user = await _requireFreshSignedInBiteScoreUserForCurrentOperation();
     final pendingSnapshot = await dishReportsCollection()
         .where('reportingUserId', isEqualTo: user.uid)
         .get();
@@ -4554,7 +4629,7 @@ class BiteScoreService {
     required BitescoreRestaurant restaurant,
     String? reason,
   }) async {
-    final user = await _requireFreshSignedInBiteScoreUser();
+    final user = await _requireFreshSignedInBiteScoreUserForCurrentOperation();
     final pendingSnapshot = await duplicateRestaurantReportsCollection()
         .where('reportingUserId', isEqualTo: user.uid)
         .get();
@@ -4595,15 +4670,24 @@ class BiteScoreService {
   static Future<void> toggleReviewFeedbackVote({
     required DishReview review,
     required String voteType,
+    required String expectedUserId,
   }) async {
-    final user = await _requireFreshSignedInBiteScoreUser();
+    final pinnedUserId = await _prepareExpectedBiteScoreMutation(
+      operation: 'toggleReviewFeedbackVote',
+      expectedUserId: expectedUserId,
+    );
     if (voteType != ReviewFeedbackVote.voteHelpful &&
         voteType != ReviewFeedbackVote.voteNotHelpful) {
       throw ArgumentError('Unknown review vote type.');
     }
+    final testWrite = _accountContinuityWriteForTesting;
+    if (testWrite != null) {
+      await testWrite('toggleReviewFeedbackVote', pinnedUserId);
+      return;
+    }
 
     final voteRef = reviewFeedbackVotesCollection().doc(
-      _reviewVoteDocumentId(review.id, user.uid),
+      _reviewVoteDocumentId(review.id, pinnedUserId),
     );
 
     await _firestore.runTransaction((transaction) async {
@@ -4623,7 +4707,7 @@ class BiteScoreService {
         'reviewId': review.id,
         'dishId': review.dishId,
         'restaurantId': review.restaurantId,
-        'userId': user.uid,
+        'userId': pinnedUserId,
         'voteType': voteType,
         'updatedAt': FieldValue.serverTimestamp(),
       };
@@ -4649,6 +4733,7 @@ class BiteScoreService {
     required String headline,
     required String notes,
     required double overallImpression,
+    required String expectedUserId,
     double? tastinessScore,
     double? qualityScore,
     double? valueScore,
@@ -4675,7 +4760,15 @@ class BiteScoreService {
       throw ArgumentError(validationError);
     }
 
-    final user = await _requireFreshSignedInBiteScoreUser();
+    final creatorUserId = await _prepareExpectedBiteScoreMutation(
+      operation: 'createDishAndRateForRestaurant',
+      expectedUserId: expectedUserId,
+    );
+    final testWrite = _accountContinuityWriteForTesting;
+    if (testWrite != null) {
+      return await testWrite('createDishAndRateForRestaurant', creatorUserId)
+          as BiteScoreReviewSaveResult;
+    }
 
     final request = BiteScoreCreateRequest(
       restaurantName: restaurant.name,
@@ -4696,11 +4789,11 @@ class BiteScoreService {
       valueScore: valueScore,
     );
 
-    final creatorUserId = user.uid.trim();
     final dishResolution = await _findOrCreateDish(
       request,
       restaurant,
       creatorUserId: creatorUserId,
+      expectedUserId: creatorUserId,
       allowExistingMatch: !forceCreateNewDish,
     );
     final dish = dishResolution.dish;
@@ -4714,6 +4807,7 @@ class BiteScoreService {
       valueScore: valueScore,
       headline: headline,
       notes: notes,
+      expectedUserId: creatorUserId,
     );
     final dishAward = dishResolution.wasCreated
         ? await ContributionPointsService.awardCreatedDishContributionPoints(
@@ -5855,6 +5949,7 @@ class BiteScoreService {
   static Future<_BiteScoreRestaurantResolution> _findOrCreateRestaurant(
     BiteScoreCreateRequest request, {
     required String creatorUserId,
+    required String expectedUserId,
   }) async {
     final normalizedRestaurantName = _normalize(request.restaurantName);
     final zipCode = request.zipCode.trim();
@@ -5897,6 +5992,7 @@ class BiteScoreService {
       createdFromCreateFlow: provenance['createdFromCreateFlow'] == true,
     );
 
+    _requireExpectedSignedInBiteScoreUser(expectedUserId);
     await restaurantRef.set({
       ...restaurant.toFirestoreMap(),
       'createdAt': FieldValue.serverTimestamp(),
@@ -5913,6 +6009,7 @@ class BiteScoreService {
     required BitescoreRestaurant restaurant,
     required String dishId,
     required String creatorUserId,
+    required String expectedUserId,
   }) async {
     final provenance = _restaurantCreationProvenanceFields(
       createdByUserId: creatorUserId,
@@ -5925,6 +6022,7 @@ class BiteScoreService {
 
     final restaurantRef = restaurantsCollection().doc(restaurant.id);
     late int nextRevision;
+    _requireExpectedSignedInBiteScoreUser(expectedUserId);
     await _runExpectedRestaurantRevisionTransaction<void>(
       restaurantRef: restaurantRef,
       expectedRevision: restaurant.restaurantWriteRevision,
@@ -5957,6 +6055,7 @@ class BiteScoreService {
     BiteScoreCreateRequest request,
     BitescoreRestaurant restaurant, {
     required String creatorUserId,
+    required String expectedUserId,
     bool allowExistingMatch = true,
   }) async {
     if (restaurant.latitude == null || restaurant.longitude == null) {
@@ -6018,6 +6117,7 @@ class BiteScoreService {
                 (existingDish.categoryManualKeywords?.trim() ?? '') !=
                     trimmedManualKeywords ||
                 !_stringListsEqual(existingDish.categoryTags, categoryTags))) {
+          _requireExpectedSignedInBiteScoreUser(expectedUserId);
           await doc.reference.set({
             'category': trimmedCategory,
             'subcategory': trimmedSubcategory.isEmpty
@@ -6100,6 +6200,7 @@ class BiteScoreService {
       createdFromCreateFlow: provenance['createdFromCreateFlow'] == true,
     );
 
+    _requireExpectedSignedInBiteScoreUser(expectedUserId);
     await dishRef.set({
       ...dish.toFirestoreMap(),
       'createdAt': FieldValue.serverTimestamp(),
@@ -6311,7 +6412,7 @@ class BiteScoreService {
   }
 
   static Future<User> _requireFreshSignedInSuggestionUser() async {
-    return _requireFreshSignedInBiteScoreUser();
+    return _requireFreshSignedInBiteScoreUserForCurrentOperation();
   }
 
   static User _requireSignedInAppUser() {
@@ -6324,7 +6425,7 @@ class BiteScoreService {
   }
 
   static User _requireSignedInBiteScoreUser() {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = _currentBiteScoreUser();
     if (user == null || user.isAnonymous) {
       throw ArgumentError(loginRequiredMessage);
     }
@@ -6336,21 +6437,82 @@ class BiteScoreService {
     return user;
   }
 
-  static Future<User> _requireFreshSignedInBiteScoreUser() async {
-    final user = FirebaseAuth.instance.currentUser;
+  static User? _currentBiteScoreUser() {
+    final testCurrentUserProvider = _accountContinuityCurrentUserForTesting;
+    return testCurrentUserProvider != null
+        ? testCurrentUserProvider()
+        : FirebaseAuth.instance.currentUser;
+  }
+
+  static User _requireExpectedSignedInBiteScoreUser(String expectedUserId) {
+    final normalizedExpectedUserId = expectedUserId.trim();
+    if (normalizedExpectedUserId.isEmpty) {
+      throw ArgumentError(accountChangedMessage);
+    }
+
+    final user = _currentBiteScoreUser();
     if (user == null || user.isAnonymous) {
       throw ArgumentError(loginRequiredMessage);
     }
-
-    try {
-      await user.reload();
-      final refreshedUser = FirebaseAuth.instance.currentUser;
-      await refreshedUser?.getIdToken(true);
-    } catch (_) {
-      // Fall back to the current user object if Firebase refresh is unavailable.
+    if (user.uid.trim() != normalizedExpectedUserId) {
+      throw ArgumentError(accountChangedMessage);
+    }
+    if (CustomerAuthService.requiresEmailVerification(user)) {
+      throw ArgumentError(emailVerificationRequiredMessage);
     }
 
-    return _requireSignedInBiteScoreUser();
+    return user;
+  }
+
+  static Future<User> _requireFreshSignedInBiteScoreUser({
+    required String expectedUserId,
+  }) async {
+    var user = _requireExpectedSignedInBiteScoreUser(expectedUserId);
+
+    try {
+      final testReload = _accountContinuityReloadUserForTesting;
+      if (testReload != null) {
+        await testReload(user);
+      } else {
+        await user.reload();
+      }
+    } catch (_) {
+      // Preserve the same-user fallback when Firebase refresh is unavailable.
+      return _requireExpectedSignedInBiteScoreUser(expectedUserId);
+    }
+
+    user = _requireExpectedSignedInBiteScoreUser(expectedUserId);
+    try {
+      final testRefreshIdToken = _accountContinuityRefreshIdTokenForTesting;
+      if (testRefreshIdToken != null) {
+        await testRefreshIdToken(user);
+      } else {
+        await user.getIdToken(true);
+      }
+    } catch (_) {
+      // Preserve the same-user fallback when token refresh is unavailable.
+      return _requireExpectedSignedInBiteScoreUser(expectedUserId);
+    }
+
+    return _requireExpectedSignedInBiteScoreUser(expectedUserId);
+  }
+
+  static Future<User> _requireFreshSignedInBiteScoreUserForCurrentOperation() {
+    final expectedUserId = _requireSignedInBiteScoreUser().uid;
+    return _requireFreshSignedInBiteScoreUser(expectedUserId: expectedUserId);
+  }
+
+  static Future<String> _prepareExpectedBiteScoreMutation({
+    required String operation,
+    required String expectedUserId,
+  }) async {
+    await _requireFreshSignedInBiteScoreUser(expectedUserId: expectedUserId);
+    final beforeMutation = _accountContinuityBeforeMutationForTesting;
+    if (beforeMutation != null) {
+      await beforeMutation(operation);
+    }
+    _requireExpectedSignedInBiteScoreUser(expectedUserId);
+    return expectedUserId.trim();
   }
 
   static String? _readString(dynamic value) {
@@ -7281,6 +7443,7 @@ class BiteScoreService {
 
   static Future<_BiteScoreReviewWriteResult> _createReviewAndRebuildAggregate({
     required String userId,
+    required String expectedUserId,
     required BitescoreDish dish,
     required BitescoreRestaurant restaurant,
     required double overallImpression,
@@ -7300,12 +7463,12 @@ class BiteScoreService {
       throw ArgumentError(validationError);
     }
 
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser != null &&
-        !currentUser.isAnonymous &&
-        currentUser.uid == userId.trim()) {
-      await _ensureCurrentUserPublicReviewerIdentity(currentUser);
+    final trimmedUserId = userId.trim();
+    if (trimmedUserId != expectedUserId.trim()) {
+      throw ArgumentError(accountChangedMessage);
     }
+    final currentUser = _requireExpectedSignedInBiteScoreUser(expectedUserId);
+    await _ensureCurrentUserPublicReviewerIdentity(currentUser);
 
     final overallBiteScore = computeOverallBiteScore(
       overallImpression: overallImpression,
@@ -7314,7 +7477,6 @@ class BiteScoreService {
       valueScore: valueScore,
     );
 
-    final trimmedUserId = userId.trim();
     final existingReview = await _loadExistingReviewForUserDish(
       dishId: dish.id,
       userId: trimmedUserId,
@@ -7338,6 +7500,7 @@ class BiteScoreService {
     );
     final reviewData = review.toFirestoreMap()..remove('createdAt');
 
+    _requireExpectedSignedInBiteScoreUser(expectedUserId);
     await reviewRef.set({
       ...reviewData,
       if (existingReview == null) 'createdAt': FieldValue.serverTimestamp(),

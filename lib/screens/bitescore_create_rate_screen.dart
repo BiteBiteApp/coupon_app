@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -9,11 +10,37 @@ import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../services/contribution_points_celebration_service.dart';
 import '../services/contribution_points_service.dart';
+import '../services/app_mode_state_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/bitescore_category_picker.dart';
 import '../widgets/biterater_theme.dart';
 import '../widgets/clickable_phone_text.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
+import 'main_navigation_screen.dart';
+
+typedef BiteScoreRestaurantFinderLoader =
+    Future<List<BitescoreRestaurant>> Function();
+typedef BiteScoreRestaurantEntriesLoader =
+    Future<List<BiteScoreHomeEntry>> Function(BitescoreRestaurant restaurant);
+typedef BiteScoreRestaurantDishesBuilder =
+    Widget Function(
+      BuildContext context,
+      BitescoreRestaurant restaurant,
+      List<BiteScoreHomeEntry> entries,
+    );
+typedef BiteScoreCreateRateWriteGate =
+    Future<bool> Function(BuildContext context);
+typedef BiteScoreCreateRateReviewSaver =
+    Future<BiteScoreReviewSaveResult> Function({
+      required BitescoreDish dish,
+      required BitescoreRestaurant restaurant,
+      required double overallImpression,
+      required String headline,
+      required String notes,
+      required double tastinessScore,
+      required double qualityScore,
+      required double valueScore,
+    });
 
 enum _RestaurantEntryStage {
   chooseRestaurant,
@@ -39,11 +66,23 @@ class _DuplicateDishSaveChoice {
 class BiteScoreCreateRateScreen extends StatefulWidget {
   final BiteScoreHomeEntry? existingEntry;
   final BitescoreRestaurant? existingRestaurant;
+  final BiteScoreRestaurantFinderLoader? testRestaurantFinderLoader;
+  final BiteScoreRestaurantEntriesLoader? testRestaurantEntriesLoader;
+  final BiteScoreRestaurantDishesBuilder? testRestaurantDishesBuilder;
+  final BiteScoreCreateRateWriteGate? testWriteGate;
+  final BiteScoreCreateRateReviewSaver? testReviewSaver;
+  final User? Function()? testCurrentUserProvider;
 
   const BiteScoreCreateRateScreen({
     super.key,
     this.existingEntry,
     this.existingRestaurant,
+    @visibleForTesting this.testRestaurantFinderLoader,
+    @visibleForTesting this.testRestaurantEntriesLoader,
+    @visibleForTesting this.testRestaurantDishesBuilder,
+    @visibleForTesting this.testWriteGate,
+    @visibleForTesting this.testReviewSaver,
+    @visibleForTesting this.testCurrentUserProvider,
   });
 
   @override
@@ -554,6 +593,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
   bool _saveSucceeded = false;
   bool _isContinuingRestaurant = false;
   Future<List<BitescoreRestaurant>>? _restaurantsFuture;
+  bool _hasHomeChanges = false;
   List<DishCatalogSuggestion> _dishSuggestions =
       const <DishCatalogSuggestion>[];
   bool _isLoadingDishSuggestions = false;
@@ -569,6 +609,13 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       const BitescoreCategorySelection();
   bool _showCategoryValidation = false;
   bool _showStateRequiredError = false;
+  late final User? _openingUser;
+  late final String _openingAuthRealm;
+  MainNavigationAuthRouteBinding? _authBoundRouteBinding;
+  NavigatorState? _authBoundNavigator;
+  ModalRoute<dynamic>? _authBoundRoute;
+  String? _guestDraftAdoptedUserId;
+  BuildContext? _privateOverlayContext;
 
   bool get isExistingDishMode => widget.existingEntry != null;
   bool get isExistingRestaurantMode =>
@@ -600,11 +647,51 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
   @override
   void initState() {
     super.initState();
+    _openingUser = _currentUser;
+    _openingAuthRealm = mainNavigationAuthRealmForUser(_openingUser);
     _seedExistingDishValues();
     _seedExistingRestaurantValues();
     if (isRestaurantSelectionMode) {
-      _restaurantsFuture = BiteScoreService.loadRestaurantsForFinder();
+      _restaurantsFuture = _loadRestaurantsForFinder();
     }
+  }
+
+  User? get _currentUser {
+    final testProvider = widget.testCurrentUserProvider;
+    if (testProvider != null) {
+      return testProvider();
+    }
+    try {
+      return FirebaseAuth.instance.currentUser;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  bool get _enforceOpeningIdentity =>
+      widget.testCurrentUserProvider != null || widget.testWriteGate == null;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final navigator = Navigator.maybeOf(context, rootNavigator: true);
+    final route = ModalRoute.of(context);
+    if (navigator == null || route == null) {
+      return;
+    }
+    if (identical(navigator, _authBoundNavigator) &&
+        identical(route, _authBoundRoute)) {
+      return;
+    }
+    _unbindAuthBoundRoute();
+    _authBoundNavigator = navigator;
+    _authBoundRoute = route;
+    _authBoundRouteBinding = mainNavigationController.bindAuthBoundRoute(
+      navigator: navigator,
+      route: route,
+      originatingAuthRealm: _openingAuthRealm,
+      allowGuestToSignedUpgrade: _openingAuthRealm == 'guest',
+    );
   }
 
   void _seedExistingDishValues() {
@@ -638,6 +725,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
 
   @override
   void dispose() {
+    _unbindAuthBoundRoute();
     restaurantNameController.dispose();
     cityController.dispose();
     stateController.dispose();
@@ -652,12 +740,73 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     super.dispose();
   }
 
+  void _unbindAuthBoundRoute() {
+    final binding = _authBoundRouteBinding;
+    if (binding != null) {
+      mainNavigationController.unbindAuthBoundRoute(binding);
+    }
+    _authBoundRouteBinding = null;
+    _authBoundNavigator = null;
+    _authBoundRoute = null;
+    _privateOverlayContext = null;
+  }
+
+  bool _canUseOpeningIdentity(MainNavigationAuthLease? lease) {
+    if (lease != null && !lease.isCurrent) {
+      return false;
+    }
+    if (!_enforceOpeningIdentity) {
+      return true;
+    }
+    final currentUser = _currentUser;
+    final openingUser = _openingUser;
+    if (openingUser != null && !openingUser.isAnonymous) {
+      return currentUser != null &&
+          !currentUser.isAnonymous &&
+          currentUser.uid == openingUser.uid;
+    }
+    if (currentUser == null || currentUser.isAnonymous) {
+      return false;
+    }
+    final adoptedUserId = _guestDraftAdoptedUserId;
+    if (adoptedUserId == null) {
+      _guestDraftAdoptedUserId = currentUser.uid;
+      return true;
+    }
+    return adoptedUserId == currentUser.uid;
+  }
+
+  String? _expectedMutationUserId(MainNavigationAuthLease? lease) {
+    if (!_canUseOpeningIdentity(lease)) {
+      return null;
+    }
+    final currentUser = _currentUser;
+    if (currentUser == null || currentUser.isAnonymous) {
+      return null;
+    }
+    final openingUser = _openingUser;
+    final expectedUserId = openingUser != null && !openingUser.isAnonymous
+        ? openingUser.uid.trim()
+        : _guestDraftAdoptedUserId?.trim();
+    if (expectedUserId == null ||
+        expectedUserId.isEmpty ||
+        currentUser.uid.trim() != expectedUserId) {
+      return null;
+    }
+    return expectedUserId;
+  }
+
   Future<List<BitescoreRestaurant>> _loadFinderRestaurants() async {
     if (_restaurantsFuture == null) {
-      _restaurantsFuture = BiteScoreService.loadRestaurantsForFinder();
+      _restaurantsFuture = _loadRestaurantsForFinder();
     }
 
     return _restaurantsFuture!;
+  }
+
+  Future<List<BitescoreRestaurant>> _loadRestaurantsForFinder() {
+    return widget.testRestaurantFinderLoader?.call() ??
+        BiteScoreService.loadRestaurantsForFinder();
   }
 
   Future<void> _handleDishNameChanged(String value) async {
@@ -794,25 +943,32 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
   }
 
   Future<void> _openSelectedRestaurant(BitescoreRestaurant restaurant) async {
-    final restaurantEntries = await BiteScoreService.loadEntriesForRestaurant(
-      restaurant,
-    );
+    final restaurantEntries =
+        await widget.testRestaurantEntriesLoader?.call(restaurant) ??
+        await BiteScoreService.loadEntriesForRestaurant(restaurant);
     if (!mounted) {
       return;
     }
 
     final refreshed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
-        builder: (_) => BiteScoreRestaurantDishesScreen(
-          restaurant: restaurant,
-          entries: restaurantEntries,
-        ),
+        builder: (context) =>
+            widget.testRestaurantDishesBuilder?.call(
+              context,
+              restaurant,
+              restaurantEntries,
+            ) ??
+            BiteScoreRestaurantDishesScreen(
+              restaurant: restaurant,
+              entries: restaurantEntries,
+            ),
       ),
     );
 
     if (refreshed == true && mounted) {
+      _hasHomeChanges = true;
       setState(() {
-        _restaurantsFuture = BiteScoreService.loadRestaurantsForFinder();
+        _restaurantsFuture = _loadRestaurantsForFinder();
       });
     }
   }
@@ -892,14 +1048,14 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
         return;
       }
 
-      final didYouMeanSelection = await Navigator.of(context).push<Object?>(
-        MaterialPageRoute(
-          builder: (_) => _DidYouMeanRestaurantScreen(
-            restaurants: closeMatches,
-            enteredRestaurantName: manualName,
-            enteredCity: manualCity,
-            enteredState: manualState,
-          ),
+      final didYouMeanSelection = await pushMainNavigationPrivateRoute<Object?>(
+        context,
+        parentBinding: _authBoundRouteBinding,
+        builder: (_) => _DidYouMeanRestaurantScreen(
+          restaurants: closeMatches,
+          enteredRestaurantName: manualName,
+          enteredCity: manualCity,
+          enteredState: manualState,
         ),
       );
 
@@ -1757,7 +1913,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     List<BitescoreDish> dishes,
   ) {
     return showModalBottomSheet<_DuplicateDishSaveChoice>(
-      context: context,
+      context: _privateOverlayContext ?? context,
       showDragHandle: true,
       builder: (sheetContext) {
         var isResolvingChoice = false;
@@ -2525,6 +2681,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
 
   Future<ContributionPointAwardResult> _uploadSelectedDishImage(
     BiteScoreReviewSaveResult saveResult,
+    MainNavigationAuthLease? authLease,
   ) async {
     final selectedImage = _selectedDishImage;
     if (selectedImage == null) {
@@ -2536,6 +2693,9 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
         dishId: saveResult.dish.id,
         pickedImage: selectedImage,
       );
+      if (!mounted || !_canUseOpeningIdentity(authLease)) {
+        return const ContributionPointAwardResult();
+      }
       final imageResult = await BiteScoreService.addDishImageRecord(
         dish: saveResult.dish,
         restaurant: saveResult.restaurant,
@@ -2546,7 +2706,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       );
       return imageResult.contributionPointAward;
     } catch (error) {
-      if (!mounted) {
+      if (!mounted || !_canUseOpeningIdentity(authLease)) {
         return const ContributionPointAwardResult();
       }
       _showSnackBar(
@@ -2562,7 +2722,11 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
   Future<void> _showContributionAwardAfterSuccessfulSave({
     required BiteScoreReviewSaveResult saveResult,
     required ContributionPointAwardResult award,
+    required MainNavigationAuthLease? authLease,
   }) async {
+    if (!mounted || !_canUseOpeningIdentity(authLease)) {
+      return;
+    }
     try {
       await ContributionPointsCelebrationService.showAwardResult(
         context,
@@ -2603,9 +2767,15 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     final selectedTastinessScore = tastinessScore!;
     final selectedQualityScore = qualityScore!;
     final selectedValueScore = valueScore!;
+    final authLease = _authBoundRouteBinding?.captureLease();
 
-    final canWrite = await BiteScoreSignInGate.ensureSignedInForWrite(context);
-    if (!canWrite || !mounted) {
+    final testWriteGate = widget.testWriteGate;
+    final canWrite = testWriteGate != null
+        ? await testWriteGate(context)
+        : await BiteScoreSignInGate.ensureSignedInForWrite(
+            _privateOverlayContext ?? context,
+          );
+    if (!canWrite || !mounted || !_canUseOpeningIdentity(authLease)) {
       return;
     }
 
@@ -2626,14 +2796,14 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
             restaurantId: restaurant.id,
             dishName: dishName,
           );
-      if (!mounted) {
+      if (!mounted || !_canUseOpeningIdentity(authLease)) {
         return;
       }
 
       if (matchingDishes.isNotEmpty) {
         FocusScope.of(context).unfocus();
         final selection = await _showDidYouMeanDishDialog(matchingDishes);
-        if (!mounted) {
+        if (!mounted || !_canUseOpeningIdentity(authLease)) {
           return;
         }
 
@@ -2662,23 +2832,63 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       _anchorCreateAnywaySaveAction();
     }
 
+    if (!_canUseOpeningIdentity(authLease)) {
+      if (mounted) {
+        setState(() {
+          isSaving = false;
+        });
+      }
+      return;
+    }
+
+    final usesProductionReviewService =
+        !isExistingDishMode || widget.testReviewSaver == null;
+    final expectedUserId = usesProductionReviewService
+        ? _expectedMutationUserId(authLease)
+        : null;
+    if (usesProductionReviewService && expectedUserId == null) {
+      if (mounted) {
+        setState(() {
+          isSaving = false;
+        });
+      }
+      return;
+    }
+
     late final BiteScoreReviewSaveResult saveResult;
     late final ContributionPointAwardResult combinedAward;
     var coreSaveSucceeded = false;
+    final refreshDelivery = mainNavigationController.captureHomeRefreshDelivery(
+      context,
+      mode: AppMode.biteScore,
+    );
 
     try {
       if (isExistingDishMode) {
         final entry = widget.existingEntry!;
-        saveResult = await BiteScoreService.addReviewForDish(
-          dish: entry.dish,
-          restaurant: entry.restaurant,
-          overallImpression: selectedOverallImpression,
-          headline: headlineController.text,
-          notes: notesController.text,
-          tastinessScore: selectedTastinessScore,
-          qualityScore: selectedQualityScore,
-          valueScore: selectedValueScore,
-        );
+        final testReviewSaver = widget.testReviewSaver;
+        saveResult = testReviewSaver != null
+            ? await testReviewSaver(
+                dish: entry.dish,
+                restaurant: entry.restaurant,
+                overallImpression: selectedOverallImpression,
+                headline: headlineController.text,
+                notes: notesController.text,
+                tastinessScore: selectedTastinessScore,
+                qualityScore: selectedQualityScore,
+                valueScore: selectedValueScore,
+              )
+            : await BiteScoreService.addReviewForDish(
+                dish: entry.dish,
+                restaurant: entry.restaurant,
+                expectedUserId: expectedUserId!,
+                overallImpression: selectedOverallImpression,
+                headline: headlineController.text,
+                notes: notesController.text,
+                tastinessScore: selectedTastinessScore,
+                qualityScore: selectedQualityScore,
+                valueScore: selectedValueScore,
+              );
       } else if (isExistingRestaurantMode) {
         final restaurant = widget.existingRestaurant!;
 
@@ -2686,6 +2896,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
           saveResult = await BiteScoreService.addReviewForDish(
             dish: selectedExistingDish,
             restaurant: restaurant,
+            expectedUserId: expectedUserId!,
             overallImpression: selectedOverallImpression,
             headline: headlineController.text,
             notes: notesController.text,
@@ -2696,6 +2907,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
         } else {
           saveResult = await BiteScoreService.createDishAndRateForRestaurant(
             restaurant: restaurant,
+            expectedUserId: expectedUserId!,
             dishName: dishNameController.text,
             category: _categorySelection.categoryForSave ?? '',
             subcategory: _categorySelection.subcategoryForSave,
@@ -2741,16 +2953,21 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
           return;
         }
 
-        saveResult = await BiteScoreService.createAndRate(request);
+        saveResult = await BiteScoreService.createAndRate(
+          request,
+          expectedUserId: expectedUserId!,
+        );
       }
 
-      if (!mounted) {
+      coreSaveSucceeded = true;
+      refreshDelivery.confirm();
+      if (!mounted || !_canUseOpeningIdentity(authLease)) {
         return;
       }
 
-      final imageAward = await _uploadSelectedDishImage(saveResult);
+      final imageAward = await _uploadSelectedDishImage(saveResult, authLease);
 
-      if (!mounted) {
+      if (!mounted || !_canUseOpeningIdentity(authLease)) {
         return;
       }
 
@@ -2761,9 +2978,9 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
         ],
         actionGroupId: 'bite_score_save:${saveResult.review.id}',
       );
-      coreSaveSucceeded = true;
+      _hasHomeChanges = true;
     } catch (error) {
-      if (!mounted) {
+      if (!mounted || !_canUseOpeningIdentity(authLease)) {
         return;
       }
 
@@ -2775,14 +2992,14 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       );
       return;
     } finally {
-      if (mounted && !coreSaveSucceeded) {
+      if (mounted && !coreSaveSucceeded && _canUseOpeningIdentity(authLease)) {
         setState(() {
           isSaving = false;
         });
       }
     }
 
-    if (!mounted) {
+    if (!mounted || !_canUseOpeningIdentity(authLease)) {
       return;
     }
 
@@ -2794,9 +3011,10 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     await _showContributionAwardAfterSuccessfulSave(
       saveResult: saveResult,
       award: combinedAward,
+      authLease: authLease,
     );
 
-    if (!mounted) {
+    if (!mounted || !_canUseOpeningIdentity(authLease)) {
       return;
     }
 
@@ -2824,155 +3042,176 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
         : 'Create and Rate';
     final keyboardBottomInset = MediaQuery.viewInsetsOf(context).bottom;
 
-    return Scaffold(
-      backgroundColor: BiteRaterTheme.pageBackground,
-      appBar: AppBar(
-        leadingWidth: 64,
-        leading: IconButton(
-          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-          onPressed: () => Navigator.of(context).maybePop(),
-          padding: const EdgeInsets.all(16),
-          constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
-          icon: const BackButtonIcon(),
-        ),
-        title: Text(title),
-        centerTitle: true,
-      ),
-      body: Column(
-        children: [
-          Focus(
-            focusNode: _createAnywaySaveTransitionFocusNode,
-            skipTraversal: true,
-            child: const SizedBox.shrink(),
+    final content = PopScope<bool>(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, result) {
+        if (!didPop) {
+          Navigator.of(context).pop(_hasHomeChanges);
+        }
+      },
+      child: Scaffold(
+        backgroundColor: BiteRaterTheme.pageBackground,
+        appBar: AppBar(
+          leadingWidth: 64,
+          leading: IconButton(
+            tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+            onPressed: () => Navigator.of(context).maybePop(),
+            padding: const EdgeInsets.all(16),
+            constraints: const BoxConstraints(minWidth: 56, minHeight: 56),
+            icon: const BackButtonIcon(),
           ),
-          buildPersistentAppModeSwitcher(context),
-          Expanded(
-            child: SafeArea(
-              top: false,
-              child: ScrollConfiguration(
-                behavior: ScrollConfiguration.of(
-                  context,
-                ).copyWith(overscroll: false),
-                child: SingleChildScrollView(
-                  controller: _scrollController,
-                  physics: const ClampingScrollPhysics(),
-                  padding: EdgeInsets.fromLTRB(
-                    16,
-                    16,
-                    16,
-                    24 + keyboardBottomInset,
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      if (isExistingDishMode) ...[
-                        _buildSectionTitle(
-                          'Dish',
-                          'You are reviewing an existing BiteScore dish.',
-                        ),
-                        const SizedBox(height: 16),
-                        _buildExistingDishHeader(),
-                        const SizedBox(height: 28),
-                        _buildRatingSection(),
-                      ] else if (isExistingRestaurantMode) ...[
-                        _buildSectionTitle('Restaurant'),
-                        const SizedBox(height: 16),
-                        _buildExistingRestaurantHeader(),
-                        const SizedBox(height: 28),
-                        _buildDishCreationSection(
-                          title: 'Dish',
-                          subtitle:
-                              'Create a new dish for this restaurant and add the first rating.',
-                        ),
-                        const SizedBox(height: 28),
-                        _buildRatingSection(),
-                      ] else ...[
-                        if (_restaurantEntryStage ==
-                            _RestaurantEntryStage.chooseRestaurant) ...[
-                          _buildManualRestaurantChooser(),
-                        ],
-                        if (_restaurantEntryStage ==
-                            _RestaurantEntryStage.confirmCloseMatch)
-                          _buildCloseMatchConfirmation(),
-                        if (_restaurantEntryStage ==
-                            _RestaurantEntryStage.createNewRestaurant) ...[
-                          _buildManualRestaurantHeader(),
-                          const SizedBox(height: 20),
-                          _buildCreateRestaurantCityField(),
-                          _buildField(
-                            controller: streetAddressController,
-                            label: 'Street Address',
-                            hint: 'Required street address',
+          title: Text(title),
+          centerTitle: true,
+        ),
+        body: Column(
+          children: [
+            Focus(
+              focusNode: _createAnywaySaveTransitionFocusNode,
+              skipTraversal: true,
+              child: const SizedBox.shrink(),
+            ),
+            buildPersistentAppModeSwitcher(context),
+            Expanded(
+              child: SafeArea(
+                top: false,
+                child: ScrollConfiguration(
+                  behavior: ScrollConfiguration.of(
+                    context,
+                  ).copyWith(overscroll: false),
+                  child: SingleChildScrollView(
+                    controller: _scrollController,
+                    physics: const ClampingScrollPhysics(),
+                    padding: EdgeInsets.fromLTRB(
+                      16,
+                      16,
+                      16,
+                      24 + keyboardBottomInset,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        if (isExistingDishMode) ...[
+                          _buildSectionTitle(
+                            'Dish',
+                            'You are reviewing an existing BiteScore dish.',
                           ),
                           const SizedBox(height: 16),
-                          _buildField(
-                            controller: zipCodeController,
-                            label: 'ZIP Code',
-                            hint: '34461',
-                            keyboardType: TextInputType.number,
-                          ),
-                          const SizedBox(height: 28),
-                          _buildDishCreationSection(title: 'Add a Dish'),
+                          _buildExistingDishHeader(),
                           const SizedBox(height: 28),
                           _buildRatingSection(),
+                        ] else if (isExistingRestaurantMode) ...[
+                          _buildSectionTitle('Restaurant'),
                           const SizedBox(height: 16),
-                          TextButton(
-                            onPressed: _backToRestaurantSelection,
-                            child: const Text('Back to restaurant selection'),
+                          _buildExistingRestaurantHeader(),
+                          const SizedBox(height: 28),
+                          _buildDishCreationSection(
+                            title: 'Dish',
+                            subtitle:
+                                'Create a new dish for this restaurant and add the first rating.',
                           ),
+                          const SizedBox(height: 28),
+                          _buildRatingSection(),
+                        ] else ...[
+                          if (_restaurantEntryStage ==
+                              _RestaurantEntryStage.chooseRestaurant) ...[
+                            _buildManualRestaurantChooser(),
+                          ],
+                          if (_restaurantEntryStage ==
+                              _RestaurantEntryStage.confirmCloseMatch)
+                            _buildCloseMatchConfirmation(),
+                          if (_restaurantEntryStage ==
+                              _RestaurantEntryStage.createNewRestaurant) ...[
+                            _buildManualRestaurantHeader(),
+                            const SizedBox(height: 20),
+                            _buildCreateRestaurantCityField(),
+                            _buildField(
+                              controller: streetAddressController,
+                              label: 'Street Address',
+                              hint: 'Required street address',
+                            ),
+                            const SizedBox(height: 16),
+                            _buildField(
+                              controller: zipCodeController,
+                              label: 'ZIP Code',
+                              hint: '34461',
+                              keyboardType: TextInputType.number,
+                            ),
+                            const SizedBox(height: 28),
+                            _buildDishCreationSection(title: 'Add a Dish'),
+                            const SizedBox(height: 28),
+                            _buildRatingSection(),
+                            const SizedBox(height: 16),
+                            TextButton(
+                              onPressed: _backToRestaurantSelection,
+                              child: const Text('Back to restaurant selection'),
+                            ),
+                          ],
                         ],
-                      ],
-                      const SizedBox(height: 24),
-                      if (!isRestaurantSelectionMode ||
-                          showDishCreationForManualRestaurant)
-                        SizedBox(
-                          key: _saveActionKey,
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: isSaving || _saveSucceeded
-                                ? null
-                                : _hasRequiredScores
-                                ? _save
-                                : () => _showSnackBar(
-                                    'Please rate each category before submitting.',
-                                  ),
-                            style: ElevatedButton.styleFrom(
-                              foregroundColor: Colors.white,
-                              backgroundColor: _saveSucceeded
-                                  ? BiteRaterTheme.ocean
+                        const SizedBox(height: 24),
+                        if (!isRestaurantSelectionMode ||
+                            showDishCreationForManualRestaurant)
+                          SizedBox(
+                            key: _saveActionKey,
+                            width: double.infinity,
+                            child: ElevatedButton(
+                              onPressed: isSaving || _saveSucceeded
+                                  ? null
                                   : _hasRequiredScores
-                                  ? BiteRaterTheme.coral
-                                  : BiteRaterTheme.mutedInk,
-                              minimumSize: const Size.fromHeight(50),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(16),
+                                  ? _save
+                                  : () => _showSnackBar(
+                                      'Please rate each category before submitting.',
+                                    ),
+                              style: ElevatedButton.styleFrom(
+                                foregroundColor: Colors.white,
+                                backgroundColor: _saveSucceeded
+                                    ? BiteRaterTheme.ocean
+                                    : _hasRequiredScores
+                                    ? BiteRaterTheme.coral
+                                    : BiteRaterTheme.mutedInk,
+                                minimumSize: const Size.fromHeight(50),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                ),
+                                textStyle: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w800,
+                                ),
                               ),
-                              textStyle: const TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w800,
+                              child: Text(
+                                _saveSucceeded
+                                    ? 'Saved'
+                                    : isSaving
+                                    ? 'Saving...'
+                                    : isExistingDishMode
+                                    ? 'Save Review'
+                                    : isExistingRestaurantMode ||
+                                          showDishCreationForManualRestaurant
+                                    ? 'Save Dish & Rating'
+                                    : 'Save Rating',
                               ),
-                            ),
-                            child: Text(
-                              _saveSucceeded
-                                  ? 'Saved'
-                                  : isSaving
-                                  ? 'Saving...'
-                                  : isExistingDishMode
-                                  ? 'Save Review'
-                                  : isExistingRestaurantMode ||
-                                        showDishCreationForManualRestaurant
-                                  ? 'Save Dish & Rating'
-                                  : 'Save Rating',
                             ),
                           ),
-                        ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
+      ),
+    );
+    final binding = _authBoundRouteBinding;
+    if (binding == null) {
+      return content;
+    }
+    return MainNavigationAuthBoundOverlayScope(
+      binding: binding,
+      child: Builder(
+        builder: (scopeContext) {
+          _privateOverlayContext = scopeContext;
+          return content;
+        },
       ),
     );
   }

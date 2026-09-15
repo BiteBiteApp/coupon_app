@@ -870,13 +870,10 @@ class _RestaurantAuthScreenState extends State<RestaurantAuthScreen>
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) => MainNavigationScreen(
-                        initialMode: AppMode.biteScore,
-                        initialIndex: 0,
-                      ),
-                    ),
+                  openMainNavigationDestination(
+                    context,
+                    mode: AppMode.biteScore,
+                    index: 0,
                   );
                 },
                 style: _restaurantHubActionButtonStyle(),

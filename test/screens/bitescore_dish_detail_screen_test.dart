@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:coupon_app/models/bitescore_dish.dart';
 import 'package:coupon_app/models/bitescore_dish_image.dart';
@@ -6,7 +8,10 @@ import 'package:coupon_app/models/bitescore_restaurant.dart';
 import 'package:coupon_app/models/dish_rating_aggregate.dart';
 import 'package:coupon_app/models/dish_review.dart';
 import 'package:coupon_app/screens/bitescore_dish_detail_screen.dart';
+import 'package:coupon_app/screens/main_navigation_screen.dart';
+import 'package:coupon_app/services/app_mode_state_service.dart';
 import 'package:coupon_app/services/bitescore_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -579,6 +584,225 @@ void main() {
     );
   });
 
+  for (final succeeds in <bool>[true, false]) {
+    testWidgets(
+      'gallery add ${succeeds ? 'success' : 'failure'} after ordinary Back '
+      '${succeeds ? 'refreshes' : 'does not refresh'} the retained Home',
+      (tester) async {
+        tester.view.physicalSize = const Size(900, 1400);
+        tester.view.devicePixelRatio = 1;
+        addTearDown(tester.view.reset);
+        addTearDown(() => AppModeStateService.setMode(AppMode.biteSaver));
+        final write = Completer<BiteScoreDishImage?>();
+        var writerCalls = 0;
+
+        await tester.pumpWidget(_galleryRefreshDeliveryTestApp());
+        final home = tester.state<_GalleryRefreshProbeHomeState>(
+          find.byKey(const ValueKey('biteScore-gallery-refresh-home')),
+        );
+        final routeResult = rootNavigatorKey.currentState!.push<bool>(
+          MaterialPageRoute<bool>(
+            builder: (_) => BiteScoreDishImageGalleryScreen(
+              dish: _dish(),
+              restaurant: _restaurant(),
+              images: const <BiteScoreDishImage>[],
+              imageUrls: const <String>[],
+              initialIndex: 0,
+              loadCurrentVotes: (_) async => const <String, String>{},
+              onAddImage: (context, dish, restaurant) {
+                writerCalls += 1;
+                return write.future;
+              },
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(
+          find.byKey(const ValueKey('bitescore-gallery-add-image-button')),
+        );
+        await tester.pump();
+        expect(writerCalls, 1);
+
+        await tester.pageBack();
+        await tester.pumpAndSettle();
+        expect(await routeResult, isFalse);
+        expect(find.byType(BiteScoreDishImageGalleryScreen), findsNothing);
+
+        if (succeeds) {
+          write.complete(
+            _dishImage(
+              id: 'late-gallery-image',
+              imageUrl: 'https://example.com/late-gallery.jpg',
+            ),
+          );
+        } else {
+          write.completeError(StateError('synthetic gallery upload failure'));
+        }
+        await tester.pump();
+        await tester.pump();
+
+        expect(writerCalls, 1);
+        expect(home.refreshes, succeeds ? 1 : 0);
+        expect(tester.takeException(), isNull);
+
+        await tester.tap(find.text('Account').last);
+        await tester.pump();
+        expect(home.refreshes, succeeds ? 1 : 0);
+      },
+    );
+  }
+
+  testWidgets(
+    'gallery vote gate from signed A cannot dispatch after replacement by B',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      addTearDown(() => AppModeStateService.setMode(AppMode.biteSaver));
+      final authChanges = StreamController<String>.broadcast(sync: true);
+      final voteGate = Completer<bool>();
+      var authRealm = 'signed:A';
+      User? currentUser = _GalleryTestUser(uid: 'A');
+      var writerCalls = 0;
+      addTearDown(authChanges.close);
+
+      await tester.pumpWidget(
+        _galleryRefreshDeliveryTestApp(
+          authRealmProvider: () => authRealm,
+          authRealmChanges: authChanges.stream,
+        ),
+      );
+      final image = _dishImage(id: 'auth-vote-image');
+      final routeResult = rootNavigatorKey.currentState!.push<bool>(
+        MaterialPageRoute<bool>(
+          builder: (_) => BiteScoreDishImageGalleryScreen(
+            dish: _dish(),
+            restaurant: _restaurant(),
+            images: <BiteScoreDishImage>[image],
+            imageUrls: <String>[image.imageUrl],
+            initialIndex: 0,
+            testCurrentUserProvider: () => currentUser,
+            canVote: (_) => voteGate.future,
+            loadCurrentVotes: (_) async => const <String, String>{},
+            onToggleVote: ({required image, required voteType}) async {
+              writerCalls += 1;
+              return BiteScoreDishImageVoteResult(
+                image: image.copyWith(helpfulCount: 1),
+                currentUserVoteType: voteType,
+              );
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const ValueKey('bitescore-gallery-thumbs-up-button')),
+      );
+      await tester.pump();
+      expect(writerCalls, 0);
+
+      currentUser = _GalleryTestUser(uid: 'B');
+      authRealm = 'signed:B';
+      authChanges.add(authRealm);
+      await tester.pump();
+      voteGate.complete(true);
+      await tester.pump();
+      await tester.pump();
+
+      expect(writerCalls, 0);
+      expect(find.byIcon(Icons.thumb_up_alt_outlined), findsOneWidget);
+      expect(find.byIcon(Icons.thumb_up_alt), findsNothing);
+      expect(tester.takeException(), isNull);
+
+      expect(await tester.binding.handlePopRoute(), isTrue);
+      await tester.pumpAndSettle();
+      expect(await routeResult, isFalse);
+    },
+  );
+
+  testWidgets(
+    'guest gallery add in flight upgrades to signed A and applies once',
+    (tester) async {
+      tester.view.physicalSize = const Size(900, 1400);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      addTearDown(() => AppModeStateService.setMode(AppMode.biteSaver));
+      final authChanges = StreamController<String>.broadcast(sync: true);
+      final write = Completer<BiteScoreDishImage?>();
+      var authRealm = 'guest';
+      User? currentUser;
+      var writerCalls = 0;
+      addTearDown(authChanges.close);
+
+      await tester.pumpWidget(
+        _galleryRefreshDeliveryTestApp(
+          authRealmProvider: () => authRealm,
+          authRealmChanges: authChanges.stream,
+        ),
+      );
+      final routeResult = rootNavigatorKey.currentState!.push<bool>(
+        MaterialPageRoute<bool>(
+          builder: (_) => BiteScoreDishImageGalleryScreen(
+            dish: _dish(),
+            restaurant: _restaurant(),
+            images: const <BiteScoreDishImage>[],
+            imageUrls: const <String>[],
+            initialIndex: 0,
+            testCurrentUserProvider: () => currentUser,
+            loadCurrentVotes: (_) async => const <String, String>{},
+            onAddImage: (context, dish, restaurant) {
+              writerCalls += 1;
+              return write.future;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(
+        find.byKey(const ValueKey('bitescore-gallery-add-image-button')),
+      );
+      await tester.pump();
+      expect(writerCalls, 1);
+      expect(find.text('Uploading'), findsWidgets);
+
+      currentUser = _GalleryTestUser(uid: 'A');
+      authRealm = 'signed:A';
+      authChanges.add(authRealm);
+      await tester.pump();
+      expect(writerCalls, 1);
+      expect(find.text('Uploading'), findsWidgets);
+
+      write.complete(
+        _dishImage(
+          id: 'guest-upgrade-image',
+          imageUrl: 'https://example.com/guest-upgrade.jpg',
+        ),
+      );
+      await tester.pump();
+      await tester.pump();
+
+      expect(writerCalls, 1);
+      expect(
+        find.byKey(
+          const ValueKey(
+            'bitescore-gallery-main-image-https://example.com/guest-upgrade.jpg',
+          ),
+        ),
+        findsOneWidget,
+      );
+      expect(find.text('Add Image'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+
+      expect(await tester.binding.handlePopRoute(), isTrue);
+      await tester.pumpAndSettle();
+      expect(await routeResult, isTrue);
+      expect(writerCalls, 1);
+    },
+  );
+
   testWidgets('gallery thumbs-up toggles the current image vote', (
     tester,
   ) async {
@@ -616,6 +840,73 @@ void main() {
     expect(find.text('1'), findsOneWidget);
     expect(find.byIcon(Icons.thumb_up_alt), findsOneWidget);
   });
+}
+
+Widget _galleryRefreshDeliveryTestApp({
+  String Function()? authRealmProvider,
+  Stream<String>? authRealmChanges,
+}) {
+  return MaterialApp(
+    navigatorKey: rootNavigatorKey,
+    scaffoldMessengerKey: rootScaffoldMessengerKey,
+    home: MainNavigationScreen(
+      initialMode: AppMode.biteScore,
+      initializePlatformServices: false,
+      testCustomerAuthRealmProvider: authRealmProvider,
+      testCustomerAuthRealmChanges: authRealmChanges,
+      testModeHomeBuilder: (mode, navigationRefreshGeneration) =>
+          _GalleryRefreshProbeHome(
+            key: ValueKey('${mode.name}-gallery-refresh-home'),
+            navigationRefreshGeneration: navigationRefreshGeneration,
+          ),
+      testPagesBuilder: (mode) => <Widget>[
+        const SizedBox.shrink(),
+        const Center(child: Text('Gallery refresh Hub')),
+        const Center(child: Text('Account')),
+      ],
+    ),
+  );
+}
+
+class _GalleryRefreshProbeHome extends StatefulWidget {
+  final int navigationRefreshGeneration;
+
+  const _GalleryRefreshProbeHome({
+    super.key,
+    required this.navigationRefreshGeneration,
+  });
+
+  @override
+  State<_GalleryRefreshProbeHome> createState() =>
+      _GalleryRefreshProbeHomeState();
+}
+
+class _GalleryRefreshProbeHomeState extends State<_GalleryRefreshProbeHome> {
+  int refreshes = 0;
+
+  @override
+  void didUpdateWidget(covariant _GalleryRefreshProbeHome oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.navigationRefreshGeneration !=
+        widget.navigationRefreshGeneration) {
+      refreshes += 1;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(child: Text('gallery refreshes $refreshes'));
+  }
+}
+
+class _GalleryTestUser extends Fake implements User {
+  @override
+  final String uid;
+
+  _GalleryTestUser({required this.uid});
+
+  @override
+  bool get isAnonymous => false;
 }
 
 BitescoreDish _dish({

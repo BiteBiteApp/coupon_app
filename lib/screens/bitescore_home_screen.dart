@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io' show Platform;
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -11,6 +12,7 @@ import '../models/bitescore_category.dart';
 import '../models/bitescore_food_search.dart';
 import '../models/bitescore_restaurant.dart';
 import '../services/app_error_text.dart';
+import '../services/app_mode_state_service.dart';
 import '../services/bitescore_image_upload_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
@@ -19,6 +21,16 @@ import '../widgets/biterater_theme.dart';
 import 'bitescore_create_rate_screen.dart';
 import 'bitescore_dish_detail_screen.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
+import 'main_navigation_screen.dart';
+
+typedef BiteScoreHomeEntriesLoader =
+    Future<List<BiteScoreHomeEntry>> Function();
+typedef BiteScoreHomeDishDetailBuilder =
+    Widget Function(
+      BuildContext context,
+      BiteScoreHomeEntry entry,
+      String distanceLabel,
+    );
 
 class BiteScoreSearchCenter {
   final double latitude;
@@ -233,7 +245,16 @@ class _BiteScoreCategoryFilter {
 }
 
 class BiteScoreHomeScreen extends StatefulWidget {
-  const BiteScoreHomeScreen({super.key});
+  final int navigationRefreshGeneration;
+  final BiteScoreHomeEntriesLoader? testHomeEntriesLoader;
+  final BiteScoreHomeDishDetailBuilder? testDishDetailBuilder;
+
+  const BiteScoreHomeScreen({
+    super.key,
+    this.navigationRefreshGeneration = 0,
+    @visibleForTesting this.testHomeEntriesLoader,
+    @visibleForTesting this.testDishDetailBuilder,
+  });
 
   @override
   State<BiteScoreHomeScreen> createState() => _BiteScoreHomeScreenState();
@@ -271,6 +292,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   bool _showAllCategoryFilterChips = false;
   String? _addingFirstPhotoDishId;
   int _locationOperationGeneration = 0;
+  int _entriesRequestGeneration = 0;
   bool _suppressLocationSearchListener = false;
   SharedLocationOperationToken? _ownedSharedLocationOperation;
   SharedLocationRestoreLease? _activeRestoreLease;
@@ -285,8 +307,18 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   }
 
   @override
+  void didUpdateWidget(covariant BiteScoreHomeScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.navigationRefreshGeneration !=
+        widget.navigationRefreshGeneration) {
+      unawaited(_refreshEntries());
+    }
+  }
+
+  @override
   void dispose() {
     _locationOperationGeneration += 1;
+    _entriesRequestGeneration += 1;
     final activeRestoreLease = _activeRestoreLease;
     _activeRestoreLease = null;
     if (activeRestoreLease != null) {
@@ -411,6 +443,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   }
 
   Future<void> _refreshEntries() async {
+    final requestGeneration = ++_entriesRequestGeneration;
     final showLoading = _entries.isEmpty;
     if (mounted) {
       setState(() {
@@ -422,15 +455,21 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     }
 
     try {
-      final loaded = await BiteScoreService.loadHomeEntries();
-      if (!mounted) return;
+      final loaded =
+          await (widget.testHomeEntriesLoader ??
+              BiteScoreService.loadHomeEntries)();
+      if (!mounted || requestGeneration != _entriesRequestGeneration) {
+        return;
+      }
       setState(() {
         _entries = loaded;
         _isLoading = false;
         _loadError = null;
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || requestGeneration != _entriesRequestGeneration) {
+        return;
+      }
       setState(() {
         _isLoading = false;
         _loadError = error;
@@ -1654,18 +1693,17 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
 
   Future<void> _openDishDetail(BiteScoreHomeEntry entry) async {
     final distanceLabel = _distanceLabel(entry);
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => BiteScoreDishDetailScreen(
-          entry: entry,
-          distanceLabel: distanceLabel,
-        ),
+    final refreshed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (context) =>
+            widget.testDishDetailBuilder?.call(context, entry, distanceLabel) ??
+            BiteScoreDishDetailScreen(
+              entry: entry,
+              distanceLabel: distanceLabel,
+            ),
       ),
     );
-
-    if (mounted) {
-      _refreshEntries();
-    }
+    await _refreshAfterRouteResult(refreshed);
   }
 
   Future<void> _openRestaurantPage({
@@ -1681,9 +1719,39 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
       ),
     );
 
-    if (refreshed == true && mounted) {
-      _refreshEntries();
+    await _refreshAfterRouteResult(refreshed);
+  }
+
+  Future<void> _refreshAfterRouteResult(bool? result) async {
+    if (!mounted) {
+      return;
     }
+    final navigator = Navigator.maybeOf(context, rootNavigator: true);
+    final pendingBatch = navigator == null
+        ? null
+        : mainNavigationController.capturePendingHomeRefreshes(
+            navigator,
+            mode: AppMode.biteScore,
+          );
+    if (result != true && (pendingBatch == null || pendingBatch.isEmpty)) {
+      return;
+    }
+
+    final refreshGenerationWhenRouteCompleted =
+        widget.navigationRefreshGeneration;
+    // Root navigation updates a retained Home in the frame after the source
+    // route completes. Only the exact pending-intent snapshot associated with
+    // this return may be consumed; a later mutation remains pending.
+    await WidgetsBinding.instance.endOfFrame;
+    if (!mounted ||
+        widget.navigationRefreshGeneration !=
+            refreshGenerationWhenRouteCompleted) {
+      return;
+    }
+    if (pendingBatch != null) {
+      mainNavigationController.consumePendingHomeRefreshes(pendingBatch);
+    }
+    unawaited(_refreshEntries());
   }
 
   Widget _buildDishThumbnail(
@@ -2119,9 +2187,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
       MaterialPageRoute(builder: (_) => const BiteScoreCreateRateScreen()),
     );
 
-    if (created == true && mounted) {
-      _refreshEntries();
-    }
+    await _refreshAfterRouteResult(created);
   }
 
   Widget _buildGetStartedState() {
