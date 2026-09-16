@@ -18,7 +18,7 @@ export type CustomerBiteSaverStoredDocument = Readonly<{
 
 export type CustomerBiteSaverQueryFilter = Readonly<{
   field: string;
-  operation: "==" | ">=" | "<=" | ">" | "<";
+  operation: "==" | ">=" | "<=" | ">" | "<" | "in";
   value: unknown;
 }>;
 

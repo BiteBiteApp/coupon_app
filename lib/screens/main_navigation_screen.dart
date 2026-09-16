@@ -73,6 +73,8 @@ typedef BiteSaverBrowseHomeBuilder =
       int navigationRefreshGeneration,
       String authRealm,
     );
+typedef BiteSaverSavedAccountBuilder =
+    Widget Function(BuildContext context, String authRealm);
 
 class MainNavigationController {
   final List<_MainNavigationRegistration> _registrations =
@@ -1393,6 +1395,10 @@ class MainNavigationScreen extends StatefulWidget {
   /// entry. Leaving this null preserves the current production Home path.
   final BiteSaverBrowseHomeBuilder? biteSaverBrowseHomeBuilder;
 
+  /// Paired with [biteSaverBrowseHomeBuilder] so the opt-in bounded browse
+  /// path never exposes a legacy-only Saved reader.
+  final BiteSaverSavedAccountBuilder? biteSaverSavedAccountBuilder;
+
   const MainNavigationScreen({
     super.key,
     this.initialMode = AppMode.biteSaver,
@@ -1418,7 +1424,13 @@ class MainNavigationScreen extends StatefulWidget {
     @visibleForTesting this.testCustomerAuthRealmProvider,
     @visibleForTesting this.testCustomerAuthRealmChanges,
     this.biteSaverBrowseHomeBuilder,
-  });
+    this.biteSaverSavedAccountBuilder,
+  }) : assert(
+         testPagesBuilder != null ||
+             (biteSaverBrowseHomeBuilder == null) ==
+                 (biteSaverSavedAccountBuilder == null),
+         'Bounded BiteSaver Home and Saved/Account must be selected together.',
+       );
 
   @override
   State<MainNavigationScreen> createState() => _MainNavigationScreenState();
@@ -2269,6 +2281,18 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     if (testPages != null) {
       assert(testPages.length == mainNavigationItems.length);
       return testPages[index];
+    }
+
+    if (index == 2 &&
+        mode == AppMode.biteSaver &&
+        widget.biteSaverBrowseHomeBuilder != null) {
+      final accountBuilder = widget.biteSaverSavedAccountBuilder;
+      if (accountBuilder == null) {
+        throw StateError(
+          'Bounded BiteSaver Home requires its canonical Saved/Account builder.',
+        );
+      }
+      return accountBuilder(context, _customerAuthRealm);
     }
 
     return switch (index) {

@@ -1,13 +1,17 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 import '../models/bitescore_restaurant.dart';
 import '../models/coupon.dart';
+import '../models/customer_bitesaver_saved.dart';
 import '../models/dish_rating_aggregate.dart';
 import '../models/local_expert_badge.dart';
 import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/bitescore_service.dart';
+import '../services/customer_bitesaver_saved_coordinator.dart';
 import '../services/local_expert_badge_recalculation_service.dart';
 import '../services/local_expert_badge_service.dart';
 import '../widgets/contribution_points_card.dart';
@@ -16,6 +20,7 @@ import '../widgets/reviewer_activity_pill.dart';
 import 'bitescore_dish_detail_screen.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
 import 'coupon_detail_screen.dart';
+import 'customer_bitesaver_saved_destinations.dart';
 import 'main_navigation_screen.dart';
 import 'restaurant_profile_screen.dart';
 
@@ -33,6 +38,7 @@ class CustomerProfileScreen extends StatefulWidget {
   final CustomerProfileDataLoader? testProfileLoader;
   final CustomerProfileBadgeLoader? testLocalExpertBadgesLoader;
   final CustomerProfileUsernameSaver? testUsernameSaver;
+  final CustomerBiteSaverSavedCoordinator? boundedSavedCoordinator;
 
   const CustomerProfileScreen({
     super.key,
@@ -41,7 +47,17 @@ class CustomerProfileScreen extends StatefulWidget {
     @visibleForTesting this.testProfileLoader,
     @visibleForTesting this.testLocalExpertBadgesLoader,
     @visibleForTesting this.testUsernameSaver,
-  });
+  }) : boundedSavedCoordinator = null;
+
+  const CustomerProfileScreen.fromCustomerBiteSaver({
+    super.key,
+    required this.currentUser,
+    required CustomerBiteSaverSavedCoordinator savedCoordinator,
+    @visibleForTesting this.testCurrentUserProvider,
+    @visibleForTesting this.testProfileLoader,
+    @visibleForTesting this.testLocalExpertBadgesLoader,
+    @visibleForTesting this.testUsernameSaver,
+  }) : boundedSavedCoordinator = savedCoordinator;
 
   @override
   State<CustomerProfileScreen> createState() => _CustomerProfileScreenState();
@@ -68,13 +84,24 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   @override
   void initState() {
     super.initState();
+    widget.boundedSavedCoordinator?.addListener(_handleSavedChanged);
     _refresh();
+  }
+
+  void _handleSavedChanged() {
+    if (mounted) setState(() {});
   }
 
   void _refresh() {
     _profileFuture =
         widget.testProfileLoader?.call(widget.currentUser) ??
-        BiteScoreService.loadCurrentUserProfileData();
+        BiteScoreService.loadCurrentUserProfileData(
+          includeLegacyBiteSaverSaved: widget.boundedSavedCoordinator == null,
+        );
+    final savedCoordinator = widget.boundedSavedCoordinator;
+    if (savedCoordinator != null) {
+      unawaited(savedCoordinator.refreshAll().catchError((_) {}));
+    }
     final testBadgeLoader = widget.testLocalExpertBadgesLoader;
     _localExpertBadgesFuture = testBadgeLoader != null
         ? testBadgeLoader(widget.currentUser.uid)
@@ -147,6 +174,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   @override
   void dispose() {
     _unbindAuthBoundRoute();
+    widget.boundedSavedCoordinator?.removeListener(_handleSavedChanged);
     _usernameController.dispose();
     super.dispose();
   }
@@ -382,6 +410,30 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     }
   }
 
+  Future<void> _openSavedBiteSaverEntry(
+    CustomerBiteSaverSavedEntry entry,
+  ) async {
+    final coordinator = widget.boundedSavedCoordinator;
+    if (coordinator == null || !entry.isAvailable) {
+      _showSnackBar('This saved item is no longer available.');
+      return;
+    }
+    try {
+      await const CustomerBiteSaverSavedDestinationHandler().call(
+        context,
+        coordinator: coordinator,
+        entry: entry,
+      );
+    } catch (error) {
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not open that saved item right now.',
+        ),
+      );
+    }
+  }
+
   Future<void> _openCoupon(Coupon coupon) async {
     await Navigator.of(context).push(
       MaterialPageRoute(builder: (_) => CouponDetailScreen(coupon: coupon)),
@@ -432,6 +484,36 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
         AppErrorText.friendly(
           error,
           fallback: 'Could not update your saved restaurants right now.',
+        ),
+      );
+    }
+  }
+
+  Future<void> _removeSavedBiteSaverEntry(
+    CustomerBiteSaverSavedEntry entry,
+  ) async {
+    final coordinator = widget.boundedSavedCoordinator;
+    if (coordinator == null) return;
+    try {
+      switch (entry.favoriteKind) {
+        case 'bitesaverRestaurant':
+          await coordinator.removeRestaurantFavorite(entry.restaurantId!);
+        case 'bitesaverCoupon':
+          await coordinator.removeCouponFavorite(entry.offerId!);
+        default:
+          throw StateError('Unknown BiteSaver favorite kind.');
+      }
+      if (!mounted) return;
+      _showSnackBar(
+        entry.offerId == null
+            ? 'Removed restaurant from Saved.'
+            : 'Removed coupon from Saved.',
+      );
+    } catch (error) {
+      _showSnackBar(
+        AppErrorText.friendly(
+          error,
+          fallback: 'Could not update Saved right now.',
         ),
       );
     }
@@ -623,6 +705,109 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     );
   }
 
+  Widget _buildSavedBiteSaverCard(CustomerBiteSaverSavedEntry entry) {
+    final restaurant = entry.restaurant;
+    final offer = entry.offer;
+    final unavailable = !entry.isAvailable;
+    final title =
+        offer?.title ??
+        restaurant?.displayName ??
+        (entry.offerId == null
+            ? 'Saved restaurant unavailable'
+            : 'Saved coupon unavailable');
+    final subtitle = unavailable
+        ? 'This item is no longer publicly available. You can remove it.'
+        : offer == null
+        ? _locationLabel(restaurant!.city, restaurant.zipCode)
+        : '${restaurant!.displayName} · Saved coupon';
+    final pending =
+        widget.boundedSavedCoordinator?.isPending(entry.favoriteId) ?? false;
+    return Card(
+      margin: const EdgeInsets.only(top: 12),
+      child: ListTile(
+        dense: true,
+        contentPadding: const EdgeInsets.fromLTRB(14, 6, 6, 6),
+        leading: Icon(
+          unavailable ? Icons.bookmark_outline : Icons.favorite,
+          color: unavailable ? Colors.black45 : Colors.red.shade400,
+          size: 22,
+        ),
+        title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text(subtitle),
+        trailing: Wrap(
+          children: [
+            IconButton(
+              tooltip: 'Remove from Saved',
+              onPressed: pending
+                  ? null
+                  : () => _removeSavedBiteSaverEntry(entry),
+              icon: pending
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(Icons.favorite, color: Colors.red.shade400, size: 20),
+            ),
+            if (!unavailable) const Icon(Icons.chevron_right),
+          ],
+        ),
+        onTap: unavailable ? null : () => _openSavedBiteSaverEntry(entry),
+      ),
+    );
+  }
+
+  List<Widget> _boundedSavedStatusCards(CustomerBiteSaverSavedSection section) {
+    final coordinator = widget.boundedSavedCoordinator;
+    if (coordinator == null) return const <Widget>[];
+    final widgets = <Widget>[];
+    final error = coordinator.errorFor(section);
+    if (error != null) {
+      widgets.add(
+        Card(
+          margin: const EdgeInsets.only(top: 12),
+          child: ListTile(
+            title: const Text('Could not refresh these Saved items.'),
+            subtitle: const Text('Your existing items were kept. Try again.'),
+            trailing: TextButton(
+              onPressed: coordinator.isLoading(section)
+                  ? null
+                  : () => coordinator.refresh(section).catchError((_) {}),
+              child: const Text('Try Again'),
+            ),
+          ),
+        ),
+      );
+    }
+    if (coordinator.isLoading(section) && !coordinator.isLoaded(section)) {
+      widgets.add(
+        const Padding(
+          padding: EdgeInsets.only(top: 16),
+          child: Center(child: CircularProgressIndicator()),
+        ),
+      );
+    } else if (coordinator.hasMore(section)) {
+      widgets.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 12),
+          child: Center(
+            child: OutlinedButton(
+              onPressed: coordinator.isLoading(section)
+                  ? null
+                  : () => coordinator.loadMore(section).catchError((_) {}),
+              child: coordinator.isLoading(section)
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Load more'),
+            ),
+          ),
+        ),
+      );
+    }
+    return widgets;
+  }
+
   Widget _buildSavedDishCard(BiteScoreHomeEntry entry) {
     final ratingCount = entry.aggregate.ratingCount;
     final scoreLabel = _scoreLabel(entry.aggregate.overallBiteScore);
@@ -705,21 +890,42 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   }
 
   List<Widget> _buildSavedSectionCards(BiteScoreUserProfileData profileData) {
+    final boundedSaved = widget.boundedSavedCoordinator;
     switch (_savedSection) {
       case _SavedSection.restaurants:
+        final boundedEntries =
+            boundedSaved?.entries(CustomerBiteSaverSavedSection.restaurants) ??
+            const <CustomerBiteSaverSavedEntry>[];
         if (profileData.favoriteRestaurants.isEmpty &&
-            profileData.favoriteSaverRestaurants.isEmpty) {
+            profileData.favoriteSaverRestaurants.isEmpty &&
+            boundedEntries.isEmpty &&
+            (boundedSaved == null ||
+                (boundedSaved.isLoaded(
+                      CustomerBiteSaverSavedSection.restaurants,
+                    ) &&
+                    boundedSaved.errorFor(
+                          CustomerBiteSaverSavedSection.restaurants,
+                        ) ==
+                        null))) {
           return <Widget>[
             _buildEmptyCard(
               'No saved restaurants yet. Tap a heart on a restaurant page to save one.',
             ),
+            ..._boundedSavedStatusCards(
+              CustomerBiteSaverSavedSection.restaurants,
+            ),
           ];
         }
         return <Widget>[
-          ...profileData.favoriteSaverRestaurants.map(
-            _buildSavedSaverRestaurantCard,
-          ),
+          ...boundedEntries.map(_buildSavedBiteSaverCard),
+          if (boundedSaved == null)
+            ...profileData.favoriteSaverRestaurants.map(
+              _buildSavedSaverRestaurantCard,
+            ),
           ...profileData.favoriteRestaurants.map(_buildSavedRestaurantCard),
+          ..._boundedSavedStatusCards(
+            CustomerBiteSaverSavedSection.restaurants,
+          ),
         ];
       case _SavedSection.dishes:
         if (profileData.favoriteDishEntries.isEmpty) {
@@ -733,14 +939,30 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             .map(_buildSavedDishCard)
             .toList();
       case _SavedSection.coupons:
-        if (profileData.favoriteCoupons.isEmpty) {
+        final boundedEntries =
+            boundedSaved?.entries(CustomerBiteSaverSavedSection.coupons) ??
+            const <CustomerBiteSaverSavedEntry>[];
+        if (profileData.favoriteCoupons.isEmpty &&
+            boundedEntries.isEmpty &&
+            (boundedSaved == null ||
+                (boundedSaved.isLoaded(CustomerBiteSaverSavedSection.coupons) &&
+                    boundedSaved.errorFor(
+                          CustomerBiteSaverSavedSection.coupons,
+                        ) ==
+                        null))) {
           return <Widget>[
             _buildEmptyCard(
               'No saved coupons yet. Tap a heart on a coupon page to save one.',
             ),
+            ..._boundedSavedStatusCards(CustomerBiteSaverSavedSection.coupons),
           ];
         }
-        return profileData.favoriteCoupons.map(_buildSavedCouponTile).toList();
+        return <Widget>[
+          ...boundedEntries.map(_buildSavedBiteSaverCard),
+          if (boundedSaved == null)
+            ...profileData.favoriteCoupons.map(_buildSavedCouponTile),
+          ..._boundedSavedStatusCards(CustomerBiteSaverSavedSection.coupons),
+        ];
     }
   }
 

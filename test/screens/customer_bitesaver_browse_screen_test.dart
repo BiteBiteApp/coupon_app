@@ -98,7 +98,7 @@ void main() {
       );
       expect(destination.restaurant.accountDocumentId, isNull);
       expect(destination.restaurant.name, 'Fixture Café 😀');
-      expect(find.byTooltip('Save restaurant'), findsNothing);
+      expect(find.byTooltip('Save restaurant'), findsOneWidget);
       expect(find.text('Report'), findsNothing);
 
       await tester.binding.handlePopRoute();
@@ -207,7 +207,7 @@ void main() {
       expect(detail.restaurant!.accountDocumentId, isNull);
       expect(detail.useBoundedCoupon, isNull);
       expect(find.text('Use Coupon Unavailable'), findsOneWidget);
-      expect(find.byTooltip('Save coupon'), findsNothing);
+      expect(find.byTooltip('Save coupon'), findsOneWidget);
       expect(harness.transport.redemptionCalls, 0);
 
       await tester.binding.handlePopRoute();
@@ -2383,6 +2383,42 @@ void main() {
     },
   );
 
+  testWidgets(
+    'detail removal updates the shared Saved owner and retained browse heart',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1000);
+      addTearDown(tester.view.reset);
+      final owner = _SharedFavoriteOwner('signed:signed-a');
+      final harness = _BrowseHarness(favoriteStateOwner: owner);
+      const handler = CustomerBiteSaverBrowseDestinationHandler();
+
+      await tester.pumpWidget(_productionBrowseApp(harness, handler));
+      await _pumpBrowseReady(tester, harness.transport);
+      await _pumpUntil(tester, () => harness.transport.favoriteReadCalls > 0);
+      expect(find.byTooltip('Save restaurant'), findsWidgets);
+
+      await tester.tap(find.byTooltip('Save restaurant').first);
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Unsave restaurant'), findsWidgets);
+      expect(owner.restaurantWrites, 1);
+
+      await tester.tap(find.text('Fixture Café 😀'));
+      await tester.pumpAndSettle();
+      expect(find.byType(RestaurantProfileScreen), findsOneWidget);
+      await tester.tap(find.byTooltip('Unsave restaurant'));
+      await tester.pumpAndSettle();
+      expect(owner.restaurantWrites, 2);
+
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.byType(CustomerBiteSaverBrowseScreen), findsOneWidget);
+      expect(find.byTooltip('Save restaurant'), findsWidgets);
+      expect(harness.transport.startCalls, 1);
+      expect(harness.transport.restaurantPageCalls, 1);
+    },
+  );
+
   testWidgets('guest browse does not read or expose favorite actions', (
     tester,
   ) async {
@@ -2626,6 +2662,7 @@ final class _BrowseHarness {
   _BrowseHarness({
     this.signed = true,
     this.failRestaurantFavoriteWrite = false,
+    CustomerBiteSaverFavoriteStateOwner? favoriteStateOwner,
     _BrowseFixtureTransport? transport,
     DateTime Function()? clock,
   }) {
@@ -2660,6 +2697,7 @@ final class _BrowseHarness {
         upsertCoupon: (_) async => offerFavoriteWrites += 1,
         removeCoupon: (_) async => offerFavoriteWrites += 1,
       ),
+      favoriteStateOwner: favoriteStateOwner,
       requestIdGenerator: () =>
           'bounded-request-${(++requestSequence).toString().padLeft(6, '0')}',
       clock: selectedClock,
@@ -2694,6 +2732,73 @@ final class _BrowseHarness {
     ),
     navigationRefreshGeneration: navigationRefreshGeneration,
   );
+}
+
+final class _SharedFavoriteOwner extends ChangeNotifier
+    implements CustomerBiteSaverFavoriteStateOwner {
+  _SharedFavoriteOwner(this.authRealmKey);
+
+  @override
+  final String authRealmKey;
+  final Map<String, CustomerBiteSaverFavoriteState> _states =
+      <String, CustomerBiteSaverFavoriteState>{};
+  final Map<String, int> _revisions = <String, int>{};
+  int restaurantWrites = 0;
+
+  @override
+  CustomerBiteSaverFavoriteState restaurantFavoriteState(
+    CustomerBiteSaverRestaurantId restaurantId,
+  ) => _states[restaurantId.value] ?? CustomerBiteSaverFavoriteState.unknown;
+
+  @override
+  CustomerBiteSaverFavoriteState offerFavoriteState(
+    CustomerBiteSaverOfferId offerId,
+  ) => _states[offerId.value] ?? CustomerBiteSaverFavoriteState.unknown;
+
+  @override
+  int operationRevision(String id) => _revisions[id] ?? 0;
+
+  @override
+  void mergeResolvedStates(
+    List<CustomerBiteSaverFavoriteStateEntry> states,
+    Map<String, int> expectedRevisions,
+  ) {
+    for (final entry in states) {
+      if (operationRevision(entry.idValue) ==
+          expectedRevisions[entry.idValue]) {
+        _states[entry.idValue] = entry.state;
+      }
+    }
+    notifyListeners();
+  }
+
+  @override
+  Future<void> setRestaurantFavorite(
+    CustomerBiteSaverRestaurant restaurant,
+    bool favorite,
+  ) async {
+    restaurantWrites += 1;
+    final id = restaurant.restaurantId.value;
+    _revisions[id] = operationRevision(id) + 1;
+    _states[id] = favorite
+        ? CustomerBiteSaverFavoriteState.favorite
+        : CustomerBiteSaverFavoriteState.notFavorite;
+    notifyListeners();
+  }
+
+  @override
+  Future<void> setOfferFavorite(
+    CustomerBiteSaverRestaurant restaurant,
+    CustomerBiteSaverOffer offer,
+    bool favorite,
+  ) async {
+    final id = offer.offerId.value;
+    _revisions[id] = operationRevision(id) + 1;
+    _states[id] = favorite
+        ? CustomerBiteSaverFavoriteState.favorite
+        : CustomerBiteSaverFavoriteState.notFavorite;
+    notifyListeners();
+  }
 }
 
 typedef _BrowseStartResponder =

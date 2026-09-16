@@ -196,6 +196,39 @@ final class CustomerBiteSaverFavoriteActions {
   final CustomerBiteSaverCouponFavoriteRemove removeCoupon;
 }
 
+/// Account-scoped favorite state shared by bounded browse, Saved, and detail
+/// routes. Implementations must fence stale reads/writes by per-target revision.
+abstract interface class CustomerBiteSaverFavoriteStateOwner
+    implements Listenable {
+  String get authRealmKey;
+
+  CustomerBiteSaverFavoriteState restaurantFavoriteState(
+    CustomerBiteSaverRestaurantId restaurantId,
+  );
+
+  CustomerBiteSaverFavoriteState offerFavoriteState(
+    CustomerBiteSaverOfferId offerId,
+  );
+
+  int operationRevision(String id);
+
+  void mergeResolvedStates(
+    List<CustomerBiteSaverFavoriteStateEntry> states,
+    Map<String, int> expectedRevisions,
+  );
+
+  Future<void> setRestaurantFavorite(
+    CustomerBiteSaverRestaurant restaurant,
+    bool favorite,
+  );
+
+  Future<void> setOfferFavorite(
+    CustomerBiteSaverRestaurant restaurant,
+    CustomerBiteSaverOffer offer,
+    bool favorite,
+  );
+}
+
 /// A presentation-safe validation view. Authorization tokens stay private.
 @immutable
 final class CustomerBiteSaverRedemptionDecision {
@@ -272,6 +305,7 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     required String clientInstanceId,
     required CustomerBiteSaverAuthSnapshot initialAuth,
     CustomerBiteSaverFavoriteActions? favoriteActions,
+    CustomerBiteSaverFavoriteStateOwner? favoriteStateOwner,
     CustomerBiteSaverRequestIdGenerator? requestIdGenerator,
     DateTime Function()? clock,
     CustomerBiteSaverScheduler? scheduler,
@@ -285,6 +319,7 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
        _clientInstanceId = clientInstanceId,
        _auth = initialAuth,
        _favoriteActions = favoriteActions,
+       _favoriteStateOwner = favoriteStateOwner,
        _requestIdGenerator = requestIdGenerator ?? _secureRequestId,
        _clock = clock ?? DateTime.now,
        _scheduler = scheduler ?? _timerScheduler,
@@ -296,6 +331,11 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
       throw ArgumentError('Coordinator delays cannot be negative.');
     }
     _validateAuthSnapshot(_auth);
+    if (favoriteStateOwner != null &&
+        favoriteStateOwner.authRealmKey != _auth.realmKey) {
+      throw ArgumentError('The favorite owner does not match this account.');
+    }
+    favoriteStateOwner?.addListener(_handleFavoriteOwnerChanged);
     if (!RegExp(r'^[A-Za-z0-9_-]{16,128}$').hasMatch(_clientInstanceId)) {
       throw ArgumentError.value(
         _clientInstanceId,
@@ -309,6 +349,7 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
   final CustomerBiteSaverGuestUsageStore _guestUsageStore;
   final String _clientInstanceId;
   final CustomerBiteSaverFavoriteActions? _favoriteActions;
+  final CustomerBiteSaverFavoriteStateOwner? _favoriteStateOwner;
   final CustomerBiteSaverRequestIdGenerator _requestIdGenerator;
   final DateTime Function() _clock;
   final CustomerBiteSaverScheduler _scheduler;
@@ -414,13 +455,29 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
 
   CustomerBiteSaverFavoriteState restaurantFavoriteState(
     CustomerBiteSaverRestaurantId restaurantId,
-  ) =>
-      _restaurantFavorites[restaurantId.value] ??
-      CustomerBiteSaverFavoriteState.unknown;
+  ) {
+    final owner = _currentFavoriteStateOwner;
+    return owner?.restaurantFavoriteState(restaurantId) ??
+        _restaurantFavorites[restaurantId.value] ??
+        CustomerBiteSaverFavoriteState.unknown;
+  }
 
   CustomerBiteSaverFavoriteState offerFavoriteState(
     CustomerBiteSaverOfferId offerId,
-  ) => _offerFavorites[offerId.value] ?? CustomerBiteSaverFavoriteState.unknown;
+  ) =>
+      _currentFavoriteStateOwner?.offerFavoriteState(offerId) ??
+      _offerFavorites[offerId.value] ??
+      CustomerBiteSaverFavoriteState.unknown;
+
+  CustomerBiteSaverFavoriteStateOwner? get favoriteStateOwner =>
+      _currentFavoriteStateOwner;
+
+  CustomerBiteSaverFavoriteStateOwner? get _currentFavoriteStateOwner {
+    final owner = _favoriteStateOwner;
+    return owner != null && owner.authRealmKey == _auth.realmKey ? owner : null;
+  }
+
+  void _handleFavoriteOwnerChanged() => _notify();
 
   CustomerBiteSaverEffectiveOfferAvailability effectiveOfferAvailability(
     CustomerBiteSaverOfferId offerId,
@@ -1976,12 +2033,17 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     }
     final fence = _captureFence();
     final versions = <String, int>{};
+    final ownerRevisions = <String, int>{};
+    final favoriteOwner = _currentFavoriteStateOwner;
     for (final id in <String>[
       ...restaurantIds.map((value) => value.value),
       ...offerIds.map((value) => value.value),
     ]) {
       versions[id] = (_favoriteOperationVersions[id] ?? 0) + 1;
       _favoriteOperationVersions[id] = versions[id]!;
+      if (favoriteOwner != null) {
+        ownerRevisions[id] = favoriteOwner.operationRevision(id);
+      }
     }
     try {
       final response = await _api.getCustomerBiteSaverFavoriteStates(
@@ -2007,6 +2069,7 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
             _offerFavorites[entry.idValue] = entry.state;
         }
       }
+      favoriteOwner?.mergeResolvedStates(response.states, ownerRevisions);
       _favoriteError = null;
       _notify();
     } catch (caught) {
@@ -2022,18 +2085,22 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     bool favorite,
   ) async {
     final actions = _requireFavoriteWrite(restaurantId.value);
+    final favoriteOwner = _currentFavoriteStateOwner;
+    final restaurant = _restaurants[restaurantId.value];
     final fence = _captureFence();
     final version = (_favoriteOperationVersions[restaurantId.value] ?? 0) + 1;
     _favoriteOperationVersions[restaurantId.value] = version;
     try {
-      if (favorite) {
-        await actions.upsertRestaurant(
+      if (favoriteOwner != null && restaurant != null) {
+        await favoriteOwner.setRestaurantFavorite(restaurant, favorite);
+      } else if (favorite) {
+        await actions!.upsertRestaurant(
           CustomerBiteSaverRestaurantFavoriteIdentity(
             restaurantId: restaurantId,
           ),
         );
       } else {
-        await actions.removeRestaurant(restaurantId);
+        await actions!.removeRestaurant(restaurantId);
       }
       if (_isCurrent(fence, includeGuest: false) &&
           _favoriteOperationVersions[restaurantId.value] == version) {
@@ -2067,18 +2134,23 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
       throw StateError('Only delivered offers can be saved.');
     }
     final fence = _captureFence();
+    final favoriteOwner = _currentFavoriteStateOwner;
+    final restaurant = _restaurants[restaurantIdValue];
+    final offer = _offers[offerId.value];
     final version = (_favoriteOperationVersions[offerId.value] ?? 0) + 1;
     _favoriteOperationVersions[offerId.value] = version;
     try {
-      if (favorite) {
-        await actions.upsertCoupon(
+      if (favoriteOwner != null && restaurant != null && offer != null) {
+        await favoriteOwner.setOfferFavorite(restaurant, offer, favorite);
+      } else if (favorite) {
+        await actions!.upsertCoupon(
           CustomerBiteSaverCouponFavoriteIdentity(
             restaurantId: CustomerBiteSaverRestaurantId(restaurantIdValue),
             offerId: offerId,
           ),
         );
       } else {
-        await actions.removeCoupon(offerId);
+        await actions!.removeCoupon(offerId);
       }
       if (_isCurrent(fence, includeGuest: false) &&
           _favoriteOperationVersions[offerId.value] == version) {
@@ -2098,7 +2170,7 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     }
   }
 
-  CustomerBiteSaverFavoriteActions _requireFavoriteWrite(String id) {
+  CustomerBiteSaverFavoriteActions? _requireFavoriteWrite(String id) {
     if (!_auth.isSigned) {
       throw ArgumentError(
         CustomerBiteSaverFavoriteService.loginRequiredMessage,
@@ -2109,6 +2181,9 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
       throw StateError('Only delivered BiteSaver identities can be saved.');
     }
     final actions = _favoriteActions;
+    if (_currentFavoriteStateOwner != null) {
+      return actions;
+    }
     if (actions == null) {
       throw StateError('Favorite writes are not configured.');
     }
@@ -3116,6 +3191,7 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
       return;
     }
     _disposed = true;
+    _favoriteStateOwner?.removeListener(_handleFavoriteOwnerChanged);
     _invalidateBrowseAccess();
     _generation += 1;
     _cancelScheduledWork();

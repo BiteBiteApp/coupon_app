@@ -59,6 +59,11 @@ import {
   maximumRestaurantWriteRevision,
   readRestaurantWriteRevision,
 } from "./restaurant_write_revision.js";
+import {
+  customerBiteSaverOpaqueOfferId,
+  customerBiteSaverOpaqueRestaurantId,
+  type CustomerBiteSaverIdentityKeyV1,
+} from "./customer_bitesaver_public_identity.js";
 
 export type SearchIndexSourceData = Readonly<Record<string, unknown>>;
 export type SearchIndexDocument = Readonly<Record<string, unknown>>;
@@ -1730,6 +1735,7 @@ export function buildBiteSaverRestaurantIndex(value: {
   sourceDocumentId: string;
   source: SearchIndexSourceData | null;
   now: Date;
+  identityKeyV1?: CustomerBiteSaverIdentityKeyV1;
 }): SearchIndexDocument | null {
   if (value.source === null) {
     return null;
@@ -1775,7 +1781,7 @@ export function buildBiteSaverRestaurantIndex(value: {
   };
   const catalogGenerationContribution =
     biteSaverRestaurantCatalogGenerationContribution(customerDraft);
-  return finalizeIndexDocument({
+  const finalized = finalizeIndexDocument({
     ...customerDraft,
     ...(catalogGenerationContribution === null
       ? {}
@@ -1784,6 +1790,16 @@ export function buildBiteSaverRestaurantIndex(value: {
             catalogGenerationContribution,
         }),
   }, value.now);
+  if (value.identityKeyV1 === undefined) return finalized;
+  const withPublicIdentity = {
+    ...finalized,
+    publicRestaurantId: customerBiteSaverOpaqueRestaurantId(
+      value.identityKeyV1,
+      value.sourceDocumentId,
+    ),
+  };
+  requireSearchIndexDocumentSize(withPublicIdentity);
+  return Object.freeze(withPublicIdentity);
 }
 
 export function buildBiteScoreRestaurantIndex(value: {
@@ -2609,6 +2625,7 @@ export function buildBiteSaverCouponOfferIndex(value: {
   offer: SearchIndexSourceData | null;
   restaurant: SearchIndexSourceData | null;
   now: Date;
+  identityKeyV1?: CustomerBiteSaverIdentityKeyV1;
 }): SearchIndexDocument | null {
   if (value.offer === null || value.restaurant === null) {
     return null;
@@ -2715,7 +2732,7 @@ export function buildBiteSaverCouponOfferIndex(value: {
       ...(proximityRadiusMiles === null ? {} : {proximityRadiusMiles}),
     }),
   });
-  return finalizeBiteSaverOfferIndex({
+  const finalized = finalizeBiteSaverOfferIndex({
     base: baseDocument,
     customerProjection,
     rawDisplayInputs: [
@@ -2731,6 +2748,22 @@ export function buildBiteSaverCouponOfferIndex(value: {
     ],
     now: value.now,
   });
+  if (value.identityKeyV1 === undefined) return finalized;
+  const withPublicIdentity = {
+    ...finalized,
+    publicRestaurantId: customerBiteSaverOpaqueRestaurantId(
+      value.identityKeyV1,
+      value.restaurantAccountId,
+    ),
+    publicOfferId: customerBiteSaverOpaqueOfferId(
+      value.identityKeyV1,
+      value.restaurantAccountId,
+      "coupon",
+      value.sourceDocumentId,
+    ),
+  };
+  requireSearchIndexDocumentSize(withPublicIdentity);
+  return Object.freeze(withPublicIdentity);
 }
 
 function normalizedDays(value: unknown): readonly number[] {

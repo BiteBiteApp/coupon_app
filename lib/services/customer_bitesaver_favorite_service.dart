@@ -174,9 +174,10 @@ final class CustomerBiteSaverFavoriteService {
   }
 
   Future<void> upsertRestaurantFavorite(
-    CustomerBiteSaverRestaurantFavoriteIdentity identity,
-  ) async {
-    final userId = _requireCurrentUserId();
+    CustomerBiteSaverRestaurantFavoriteIdentity identity, {
+    String? expectedUserId,
+  }) async {
+    final userId = _requireCurrentUserId(expectedUserId);
     final path = _restaurantPath(userId, identity.restaurantId);
     await _store.runTransaction<void>((transaction) async {
       final existing = await transaction.getDocument(path);
@@ -200,16 +201,18 @@ final class CustomerBiteSaverFavoriteService {
   }
 
   Future<void> removeRestaurantFavorite(
-    CustomerBiteSaverRestaurantId restaurantId,
-  ) async {
-    final userId = _requireCurrentUserId();
+    CustomerBiteSaverRestaurantId restaurantId, {
+    String? expectedUserId,
+  }) async {
+    final userId = _requireCurrentUserId(expectedUserId);
     await _store.deleteDocument(_restaurantPath(userId, restaurantId));
   }
 
   Future<void> upsertCouponFavorite(
-    CustomerBiteSaverCouponFavoriteIdentity identity,
-  ) async {
-    final userId = _requireCurrentUserId();
+    CustomerBiteSaverCouponFavoriteIdentity identity, {
+    String? expectedUserId,
+  }) async {
+    final userId = _requireCurrentUserId(expectedUserId);
     final path = _couponPath(userId, identity.offerId);
     await _store.runTransaction<void>((transaction) async {
       final existing = await transaction.getDocument(path);
@@ -232,8 +235,11 @@ final class CustomerBiteSaverFavoriteService {
     });
   }
 
-  Future<void> removeCouponFavorite(CustomerBiteSaverOfferId offerId) async {
-    final userId = _requireCurrentUserId();
+  Future<void> removeCouponFavorite(
+    CustomerBiteSaverOfferId offerId, {
+    String? expectedUserId,
+  }) async {
+    final userId = _requireCurrentUserId(expectedUserId);
     await _store.deleteDocument(_couponPath(userId, offerId));
   }
 
@@ -281,12 +287,17 @@ final class CustomerBiteSaverFavoriteService {
     return existing.data['createdAt'];
   }
 
-  String _requireCurrentUserId() {
+  String _requireCurrentUserId([String? expectedUserId]) {
     final user = _auth.currentUser;
     if (user == null || user.isAnonymous) {
       throw ArgumentError(loginRequiredMessage);
     }
     final userId = user.uid;
+    if (expectedUserId != null && userId != expectedUserId) {
+      throw const CustomerBiteSaverFavoriteStateException(
+        'The signed-in customer changed before the favorite operation.',
+      );
+    }
     if (userId.isEmpty ||
         userId == '.' ||
         userId == '..' ||

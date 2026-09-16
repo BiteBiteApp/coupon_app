@@ -1,0 +1,27 @@
+{
+  "fixtureVersion": "bitestar.customer-bitesaver-saved-page.v1",
+  "request": {
+    "schemaVersion": 1,
+    "clientRequestId": "saved-fixture-request-0001",
+    "section": "restaurants",
+    "cursor": null
+  },
+  "response": {
+    "schemaVersion": 1,
+    "section": "restaurants",
+    "entries": [
+      {
+        "favoriteKind": "bitesaverRestaurant",
+        "restaurantId": "bsr_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+        "offerId": null,
+        "availability": "unavailable",
+        "restaurant": null,
+        "offer": null,
+        "accessToken": null
+      }
+    ],
+    "nextCursor": null,
+    "hasMore": false,
+    "partial": false
+  }
+}

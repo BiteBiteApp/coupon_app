@@ -3098,6 +3098,7 @@ function currentParentFromRaw(value: {
     sourceDocumentId: value.result.authoritativeAccountId,
     source: value.rawDocument.data,
     now: value.now,
+    identityKeyV1: value.identityKeyV1,
   });
   if (
     projection === null ||
@@ -3213,6 +3214,7 @@ function freshOfferProjection(value: {
   candidate: ParsedPreviewCandidate;
   raw: Readonly<Record<string, unknown>>;
   now: Date;
+  identityKeyV1: CustomerBiteSaverIdentityKeyV1;
 }): Readonly<Record<string, unknown>> | null {
   const projection = value.candidate.offerType === "coupon"
     ? buildBiteSaverCouponOfferIndex({
@@ -3221,6 +3223,7 @@ function freshOfferProjection(value: {
         offer: value.raw,
         restaurant: value.parent.raw,
         now: value.now,
+        identityKeyV1: value.identityKeyV1,
       })
     : buildBiteSaverDailySpecialOfferIndex({
         restaurantAccountId: value.parent.result.authoritativeAccountId,
@@ -3445,6 +3448,7 @@ async function evaluateOfferSeeds(value: {
       candidate: seed.candidate,
       raw: document.data,
       now: value.now,
+      identityKeyV1: requireCustomerBiteSaverIdentityKey(value.context),
     });
     if (
       projection === null ||
@@ -6441,8 +6445,8 @@ type CustomerBiteSaverMenuRequest = BoundSessionRequest & Readonly<{
   cursor: string | null;
 }>;
 
-type CustomerBiteSaverMenuStyle = "biteSaver" | "biteScore";
-type CustomerBiteSaverMenuEntry =
+export type CustomerBiteSaverMenuStyle = "biteSaver" | "biteScore";
+export type CustomerBiteSaverMenuEntry =
   | Readonly<{
       kind: "image";
       key: string;
@@ -6478,7 +6482,7 @@ export type CustomerBiteSaverMenuPageResult = Readonly<{
   hasMore: boolean;
 }>;
 
-type ResolvedCustomerBiteSaverMenuSource = Readonly<{
+export type ResolvedCustomerBiteSaverMenuSource = Readonly<{
   state: "available" | "absent";
   style: CustomerBiteSaverMenuStyle;
   collectionRoot: string | null;
@@ -6489,7 +6493,7 @@ type ResolvedCustomerBiteSaverMenuSource = Readonly<{
 export const customerBiteSaverMenuPageSize = 25;
 export const customerBiteSaverMenuCandidateBudget = 75;
 export const customerBiteSaverMenuCandidateByteBudget = 1_048_576;
-const customerBiteSaverMenuKinds = Object.freeze([
+export const customerBiteSaverMenuKinds = Object.freeze([
   "menu_images",
   "menu_items",
   "menu_sections",
@@ -6580,7 +6584,9 @@ function menuSortOrder(value: unknown): number | null {
   return parsed !== null && Number.isSafeInteger(parsed) ? parsed : null;
 }
 
-function menuCandidateBytes(document: CustomerBiteSaverStoredDocument): number {
+export function customerBiteSaverMenuCandidateBytes(
+  document: CustomerBiteSaverStoredDocument,
+): number {
   try {
     return Buffer.byteLength(JSON.stringify(document.data), "utf8");
   } catch {
@@ -6642,7 +6648,7 @@ function publicMenuImageUrl(
   return imageUrl;
 }
 
-function publicMenuEntry(value: {
+export function customerBiteSaverPublicMenuEntry(value: {
   context: CustomerBiteSaverSessionContext;
   relationshipFingerprint: string;
   privateSourceIdentities: readonly string[];
@@ -6693,6 +6699,138 @@ function publicMenuEntry(value: {
   return title === null || body === null
     ? null
     : Object.freeze({kind: "section", key, title, body, sortOrder});
+}
+
+/**
+ * Resolves only the currently public menu relationship for one exact opaque
+ * restaurant identity. Unlike browse access, this does not grant discovery;
+ * callers must independently prove a favorite-derived Saved access token.
+ */
+export async function resolveCustomerBiteSaverSavedMenuSource(value: {
+  context: CustomerBiteSaverSessionContext;
+  authoritativeAccountId: string;
+  publicRestaurantId: string;
+  now: Date;
+}): Promise<ResolvedCustomerBiteSaverMenuSource> {
+  const accountDocument = await value.context.database.getDocument(
+    `restaurant_accounts/${value.authoritativeAccountId}`,
+  );
+  if (accountDocument === null) return menuRelationshipChanged();
+  const parent = buildBiteSaverRestaurantIndex({
+    sourceDocumentId: value.authoritativeAccountId,
+    source: accountDocument.data,
+    now: value.now,
+    identityKeyV1: requireCustomerBiteSaverIdentityKey(value.context),
+  });
+  if (
+    parent === null ||
+    parent.publicVisible !== true ||
+    parent.publicProjectionVersion !==
+      customerBiteSaverRestaurantProjectionVersion ||
+    parent.sourceDocumentId !== value.authoritativeAccountId ||
+    parent.publicRestaurantId !== value.publicRestaurantId ||
+    projectionSafeRestaurantSnapshot(parent) === null
+  ) {
+    return menuRelationshipChanged();
+  }
+
+  const raw = accountDocument.data;
+  const sourceSide = menuText(raw.menuSourceSide, 50);
+  if (sourceSide !== "biteScore") {
+    return Object.freeze({
+      state: "available",
+      style: "biteSaver",
+      collectionRoot: `restaurant_accounts/${value.authoritativeAccountId}`,
+      relationshipFingerprint: createQueryFingerprint({
+        purpose: "customerBiteSaverMenuRelationship",
+        source: "biteSaver",
+        authoritativeAccountId: value.authoritativeAccountId,
+      }),
+      privateSourceIdentities: Object.freeze([value.authoritativeAccountId]),
+    });
+  }
+
+  const scoreId = menuDocumentId(raw.linkedBiteScoreRestaurantId);
+  if (scoreId === null) return menuRelationshipChanged();
+  const scoreDocument = await value.context.database.getDocument(
+    `bitescore_restaurants/${scoreId}`,
+  );
+  const score = scoreDocument?.data;
+  if (
+    score === undefined ||
+    !biteScoreRestaurantIsActive(score) ||
+    score.menuSourceSide === "biteSaver" ||
+    (score.menuSourceSide !== undefined && score.menuSourceSide !== "biteScore") ||
+    (!validCatalogMenuRelationship({account: raw, score, scoreId}) &&
+      !validLegacyMenuOwnerRelationship({
+        accountId: value.authoritativeAccountId,
+        score,
+      }))
+  ) {
+    return menuRelationshipChanged();
+  }
+  const ownerUserId = exactInternalId(score.ownerUserId);
+  if (score.isClaimed !== true || ownerUserId === null) {
+    return menuRelationshipChanged();
+  }
+  const sharedMenuId = menuDocumentId(score.sharedMenuId);
+  const baseFingerprint = {
+    purpose: "customerBiteSaverMenuRelationship",
+    source: "biteScore",
+    authoritativeAccountId: value.authoritativeAccountId,
+    linkedBiteScoreRestaurantId: scoreId,
+    scoreMenuSourceSide: score.menuSourceSide ?? "biteScore",
+    scoreOwnerUserId: ownerUserId,
+    scoreRestaurantWriteRevision: score.restaurantWriteRevision ?? null,
+    scoreBinding: score.biteSaverCatalogBindingId ?? null,
+    accountBinding: raw.biteSaverCatalogBindingId ?? null,
+  };
+  if (sharedMenuId === null) {
+    if (score.sharedMenuId !== undefined && score.sharedMenuId !== null) {
+      return menuRelationshipChanged();
+    }
+    return Object.freeze({
+      state: "absent",
+      style: "biteScore",
+      collectionRoot: null,
+      relationshipFingerprint: createQueryFingerprint({
+        ...baseFingerprint,
+        sharedMenuId: null,
+      }),
+      privateSourceIdentities: Object.freeze([
+        value.authoritativeAccountId,
+        scoreId,
+        ownerUserId,
+      ]),
+    });
+  }
+  const menuDocument = await value.context.database.getDocument(
+    `restaurant_menus/${sharedMenuId}`,
+  );
+  if (
+    menuDocument === null ||
+    menuDocumentId(menuDocument.data.bitescoreRestaurantId) !== scoreId ||
+    exactInternalId(menuDocument.data.createdByUserId) !== ownerUserId
+  ) {
+    return menuRelationshipChanged();
+  }
+  return Object.freeze({
+    state: "available",
+    style: "biteScore",
+    collectionRoot: `restaurant_menus/${sharedMenuId}`,
+    relationshipFingerprint: createQueryFingerprint({
+      ...baseFingerprint,
+      sharedMenuId,
+      sharedMenuRestaurantId: scoreId,
+      sharedMenuOwnerUserId: ownerUserId,
+    }),
+    privateSourceIdentities: Object.freeze([
+      value.authoritativeAccountId,
+      scoreId,
+      sharedMenuId,
+      ownerUserId,
+    ]),
+  });
 }
 
 function validLegacyMenuOwnerRelationship(value: {
@@ -7114,8 +7252,10 @@ export async function getCustomerBiteSaverMenuPageHandler(
         break;
       }
       candidatesConsumed += 1;
-      candidateSourceBytesConsumed += menuCandidateBytes(document);
-      const entry = publicMenuEntry({
+      candidateSourceBytesConsumed += customerBiteSaverMenuCandidateBytes(
+        document,
+      );
+      const entry = customerBiteSaverPublicMenuEntry({
         context,
         relationshipFingerprint: source.relationshipFingerprint,
         privateSourceIdentities: source.privateSourceIdentities,
@@ -9112,6 +9252,7 @@ export async function startCustomerBiteSaverOfferRedemptionHandler(
       candidate,
       raw: rawCoupon.data,
       now,
+      identityKeyV1: requireCustomerBiteSaverIdentityKey(context),
     });
     if (
       projection === null ||

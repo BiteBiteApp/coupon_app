@@ -192,6 +192,10 @@ import {
   processCustomerBiteSaverSearchJob,
 } from "./customer_bitesaver_search_worker.js";
 import {
+  getCustomerBiteSaverSavedMenuPageHandler,
+  getCustomerBiteSaverSavedPageHandler,
+} from "./customer_bitesaver_saved.js";
+import {
   createFirestoreSearchIndexDatabase,
   handleBiteSaverCouponOfferWrite,
   handleBiteSaverDailySpecialOfferWrite,
@@ -5203,6 +5207,7 @@ export const maintainBiteSaverRestaurantSearchIndex = onDocumentWritten(
   {
     document: "restaurant_accounts/{restaurantAccountId}",
     retry: true,
+    secrets: [biteSaverCustomerIdentityKeyV1],
   },
   async (event) => {
     await handleBiteSaverRestaurantWrite(searchIndexDatabase, {
@@ -5211,6 +5216,9 @@ export const maintainBiteSaverRestaurantSearchIndex = onDocumentWritten(
       after: readSearchIndexEventSnapshotData(event.data?.after),
       sourceEventId: event.id,
       now: new Date(),
+      identityKeyV1: decodeCustomerBiteSaverIdentityKeyV1(
+        biteSaverCustomerIdentityKeyV1.value(),
+      ),
     });
   },
 );
@@ -5286,12 +5294,16 @@ export const maintainBiteSaverCouponOfferSearchIndex = onDocumentWritten(
   {
     document: "restaurant_accounts/{restaurantAccountId}/coupons/{couponId}",
     retry: true,
+    secrets: [biteSaverCustomerIdentityKeyV1],
   },
   async (event) => {
     await handleBiteSaverCouponOfferWrite(searchIndexDatabase, {
       restaurantAccountId: event.params.restaurantAccountId as string,
       couponId: event.params.couponId as string,
       now: new Date(),
+      identityKeyV1: decodeCustomerBiteSaverIdentityKeyV1(
+        biteSaverCustomerIdentityKeyV1.value(),
+      ),
     });
   },
 );
@@ -5535,12 +5547,16 @@ export const processPrivateSearchIndexJob = onDocumentCreated(
   {
     document: "private_search_index_jobs/{jobId}",
     retry: true,
+    secrets: [biteSaverCustomerIdentityKeyV1],
   },
   async (event) => {
     await processSearchIndexJob(
       searchIndexDatabase,
       event.params.jobId as string,
       new Date(),
+      decodeCustomerBiteSaverIdentityKeyV1(
+        biteSaverCustomerIdentityKeyV1.value(),
+      ),
     );
   },
 );
@@ -5653,6 +5669,40 @@ export const getCustomerBiteSaverFavoriteStates = onCall(
     return invokeCustomerBiteSaverCallable(
       request,
       getCustomerBiteSaverFavoriteStatesHandler,
+      "discoveryAndIdentityV1",
+    );
+  },
+);
+
+export const getCustomerBiteSaverSavedPage = onCall(
+  {
+    secrets: [
+      biteSaverCustomerDiscoveryKey,
+      biteSaverCustomerIdentityKeyV1,
+    ],
+    timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
+  },
+  async (request) => {
+    return invokeCustomerBiteSaverCallable(
+      request,
+      getCustomerBiteSaverSavedPageHandler,
+      "discoveryAndIdentityV1",
+    );
+  },
+);
+
+export const getCustomerBiteSaverSavedMenuPage = onCall(
+  {
+    secrets: [
+      biteSaverCustomerDiscoveryKey,
+      biteSaverCustomerIdentityKeyV1,
+    ],
+    timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
+  },
+  async (request) => {
+    return invokeCustomerBiteSaverCallable(
+      request,
+      getCustomerBiteSaverSavedMenuPageHandler,
       "discoveryAndIdentityV1",
     );
   },

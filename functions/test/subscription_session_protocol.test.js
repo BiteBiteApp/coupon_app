@@ -849,6 +849,8 @@ test("runtime, region, secret bindings, exports, production caller, and webhook 
       "getCustomerBiteSaverFavoriteStates",
       "getCustomerBiteSaverMenuPage",
       "getCustomerBiteSaverOfferPage",
+      "getCustomerBiteSaverSavedMenuPage",
+      "getCustomerBiteSaverSavedPage",
       "getCustomerBiteSaverSearchPage",
       "getCustomerBiteSaverSearchStatus",
       "issueMenuImageUploadAuthorization",

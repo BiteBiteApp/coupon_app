@@ -70,6 +70,13 @@ const expectedTriggers = Object.freeze({
     "private_search_index_jobs/{jobId}",
 });
 
+const biteSaverIdentityTriggerExports = new Set([
+  "maintainBiteSaverRestaurantSearchIndex",
+  "maintainBiteSaverCouponOfferSearchIndex",
+  "processPrivateSearchIndexJob",
+]);
+const biteSaverIdentitySecretName = "BITESAVER_CUSTOMER_IDENTITY_KEY_V1";
+
 const searchIndexRetryEnabledTriggers = Object.freeze([
   "maintainBiteSaverRestaurantSearchIndex",
   "maintainBiteScoreRestaurantSearchIndex",
@@ -248,6 +255,9 @@ function loadCompiledIndexWithRuntimeHarness({
           eventFilterPathPatterns: {document: options.document},
           retry: options.retry ?? false,
         },
+        ...(Array.isArray(options.secrets)
+          ? {secretEnvironmentVariables: options.secrets.map((secret) => secret.name)}
+          : {}),
       };
       return handler;
     };
@@ -302,7 +312,12 @@ function loadCompiledIndexWithRuntimeHarness({
         };
       case "firebase-functions/params":
         return {
-          defineSecret: (name) => ({name, value: () => "unused"}),
+          defineSecret: (name) => ({
+            name,
+            value: () => name === biteSaverIdentitySecretName
+              ? Buffer.alloc(32, 17).toString("base64url")
+              : "unused",
+          }),
           defineString: (name) => ({name, value: () => "unused"}),
         };
       case "firebase-functions/v2/firestore":
@@ -486,7 +501,19 @@ test("Admin user directory triggers use exact private paths and background-only 
     assert.equal(endpoint.eventTrigger.eventFilterPathPatterns.document, documentPath, name);
     assert.equal(Object.hasOwn(endpoint, "callableTrigger"), false, name);
     assert.equal(Object.hasOwn(endpoint, "httpsTrigger"), false, name);
-    assert.equal(Object.hasOwn(endpoint, "secretEnvironmentVariables"), false, name);
+    if (biteSaverIdentityTriggerExports.has(name)) {
+      assert.deepEqual(
+        endpoint.secretEnvironmentVariables,
+        [biteSaverIdentitySecretName],
+        name,
+      );
+    } else {
+      assert.equal(
+        Object.hasOwn(endpoint, "secretEnvironmentVariables"),
+        false,
+        name,
+      );
+    }
   }
   assert.equal(
     Object.keys(runtime.exports).filter((name) =>
@@ -504,7 +531,19 @@ test("compiled trigger metadata uses exact private paths and background event ty
     assert.deepEqual(endpoint.region, ["us-central1"], name);
     assert.equal(Object.hasOwn(endpoint, "callableTrigger"), false, name);
     assert.equal(Object.hasOwn(endpoint, "httpsTrigger"), false, name);
-    assert.equal(Object.hasOwn(endpoint, "secretEnvironmentVariables"), false, name);
+    if (biteSaverIdentityTriggerExports.has(name)) {
+      assert.deepEqual(
+        endpoint.secretEnvironmentVariables,
+        [biteSaverIdentitySecretName],
+        name,
+      );
+    } else {
+      assert.equal(
+        Object.hasOwn(endpoint, "secretEnvironmentVariables"),
+        false,
+        name,
+      );
+    }
   }
   assert.equal(
     runtime.exports.processPrivateSearchIndexJob.__endpoint.eventTrigger.eventType,
@@ -554,6 +593,15 @@ test("actual Firebase export metadata enables retry for only the intended trigge
       name === "processPrivateSearchIndexJob" ?
         "google.cloud.firestore.document.v1.created" :
         "google.cloud.firestore.document.v1.written",
+      name,
+    );
+    const secretNames = (endpoint.secretEnvironmentVariables ?? [])
+      .map((secret) => secret.key);
+    assert.deepEqual(
+      secretNames,
+      biteSaverIdentityTriggerExports.has(name)
+        ? [biteSaverIdentitySecretName]
+        : [],
       name,
     );
   }
@@ -713,6 +761,15 @@ test("retry-enabled exports propagate failures and preserve delivery identity", 
     ["job-identity-1", "job-identity-1"],
   );
   assert.ok(workerCalls.every((call) => call.arguments_[2] instanceof Date));
+  assert.ok(workerCalls.every((call) =>
+    Buffer.from(call.arguments_[3]).equals(Buffer.alloc(32, 17))));
+  for (const operation of [
+    "handleBiteSaverRestaurantWrite",
+    "handleBiteSaverCouponOfferWrite",
+  ]) {
+    assert.ok(calls.filter((call) => call.operation === operation).every((call) =>
+      Buffer.from(call.arguments_[1].identityKeyV1).equals(Buffer.alloc(32, 17))));
+  }
 });
 
 test("compiled parent wrappers make malformed root events side-effect-free", async () => {

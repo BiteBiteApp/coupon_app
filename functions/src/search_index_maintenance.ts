@@ -49,6 +49,9 @@ import {
   type SearchIndexJobParentSource,
 } from "./search_index_contract.js";
 import { readBiteScoreCatalogRestaurantId } from "./restaurant_invite_helpers.js";
+import type {
+  CustomerBiteSaverIdentityKeyV1,
+} from "./customer_bitesaver_public_identity.js";
 
 export type SearchIndexStoredDocument = Readonly<{
   id: string;
@@ -191,6 +194,20 @@ function hasExactNestedShape(left: unknown, right: unknown): boolean {
       ));
 }
 
+const customerPublicLookupFields = Object.freeze([
+  "publicRestaurantId",
+  "publicOfferId",
+] as const);
+
+function hasExpectedCustomerPublicLookupFields(
+  existing: SearchIndexSourceData,
+  document: SearchIndexDocument,
+): boolean {
+  return customerPublicLookupFields.every((field) =>
+    !Object.prototype.hasOwnProperty.call(document, field) ||
+    Object.is(existing[field], document[field]));
+}
+
 async function applyCurrentIndex(
   transaction: SearchIndexTransaction,
   collection: string,
@@ -208,6 +225,7 @@ async function applyCurrentIndex(
     existing !== null &&
     existing.searchIndexVersion === document.searchIndexVersion &&
     existing.sourceFingerprint === document.sourceFingerprint &&
+    hasExpectedCustomerPublicLookupFields(existing, document) &&
     hasExactNestedShape(
       existing.customerPublicProjection ?? null,
       document.customerPublicProjection ?? null,
@@ -282,6 +300,7 @@ export async function reconcileBiteSaverRestaurantIndex(
   database: SearchIndexDatabase,
   restaurantAccountId: string,
   now: Date,
+  identityKeyV1?: CustomerBiteSaverIdentityKeyV1,
 ): Promise<SearchIndexSourceData | null> {
   if (readBiteScoreCatalogRestaurantId(restaurantAccountId) !== restaurantAccountId) {
     return null;
@@ -303,6 +322,7 @@ export async function reconcileBiteSaverRestaurantIndex(
         sourceDocumentId: restaurantAccountId,
         source,
         now,
+        identityKeyV1,
       }),
       {
         identity: {
@@ -407,6 +427,7 @@ export async function reconcileBiteSaverCouponOfferIndex(
   couponId: string,
   now: Date,
   recordCatalogChange = false,
+  identityKeyV1?: CustomerBiteSaverIdentityKeyV1,
 ): Promise<void> {
   if (
     readBiteScoreCatalogRestaurantId(restaurantAccountId) !==
@@ -429,6 +450,7 @@ export async function reconcileBiteSaverCouponOfferIndex(
       indexDocumentId,
       now,
       recordCatalogChange,
+      identityKeyV1,
     );
   });
 }
@@ -440,6 +462,7 @@ async function reconcileBiteSaverCouponOfferIndexInTransaction(
   indexDocumentId: string,
   now: Date,
   recordCatalogChange = false,
+  identityKeyV1?: CustomerBiteSaverIdentityKeyV1,
 ): Promise<void> {
   const [offer, restaurant] = await Promise.all([
     transaction.getDocument(
@@ -457,6 +480,7 @@ async function reconcileBiteSaverCouponOfferIndexInTransaction(
       offer,
       restaurant,
       now,
+      identityKeyV1,
     }),
     {
       identity: {
@@ -565,6 +589,7 @@ export async function handleBiteSaverCouponOfferWrite(
     restaurantAccountId: string;
     couponId: string;
     now: Date;
+    identityKeyV1?: CustomerBiteSaverIdentityKeyV1;
   },
 ): Promise<void> {
   if (
@@ -580,6 +605,7 @@ export async function handleBiteSaverCouponOfferWrite(
     value.couponId,
     value.now,
     true,
+    value.identityKeyV1,
   );
 }
 
@@ -697,6 +723,7 @@ export async function handleBiteSaverRestaurantWrite(
     after: unknown;
     sourceEventId: unknown;
     now: Date;
+    identityKeyV1?: CustomerBiteSaverIdentityKeyV1;
   },
 ): Promise<void> {
   const restaurantAccountId = readBiteScoreCatalogRestaurantId(
@@ -716,6 +743,7 @@ export async function handleBiteSaverRestaurantWrite(
     database,
     restaurantAccountId,
     value.now,
+    value.identityKeyV1,
   );
   if (event.beforeFingerprint === event.afterFingerprint) {
     return;
@@ -906,6 +934,7 @@ async function processBiteSaverSources(
   database: SearchIndexDatabase,
   job: ParsedJob,
   now: Date,
+  identityKeyV1?: CustomerBiteSaverIdentityKeyV1,
 ): Promise<WorkerResult> {
   const phases = ["coupons", "dailySpecials"] as const;
   const initialPhase = job.continuationCursor?.phase === "dailySpecials"
@@ -966,6 +995,8 @@ async function processBiteSaverSources(
           job.parentSourceDocumentId,
           document.id,
           now,
+          false,
+          identityKeyV1,
         );
       } else {
         await reconcileBiteSaverDailySpecialOfferIndex(
@@ -1031,6 +1062,7 @@ async function reconcileSelectedBiteSaverCleanupCandidate(
   indexDocumentId: string,
   currentIndex: SearchIndexSourceData,
   now: Date,
+  identityKeyV1?: CustomerBiteSaverIdentityKeyV1,
 ): Promise<void> {
   if (
     decodeDartUtf16FirestoreBytesOrderKey(
@@ -1073,6 +1105,8 @@ async function reconcileSelectedBiteSaverCleanupCandidate(
       offerId,
       expectedIndexDocumentId,
       now,
+      false,
+      identityKeyV1,
     );
     return;
   }
@@ -1089,6 +1123,7 @@ async function processDerivedCleanup(
   database: SearchIndexDatabase,
   job: ParsedJob,
   now: Date,
+  identityKeyV1?: CustomerBiteSaverIdentityKeyV1,
 ): Promise<WorkerResult> {
   const isBiteSaver = job.jobKind === "biteSaverOffers";
   const collectionPath = isBiteSaver
@@ -1132,6 +1167,7 @@ async function processDerivedCleanup(
           document.id,
           candidateIndex,
           now,
+          identityKeyV1,
         );
         return;
       }
@@ -1170,9 +1206,10 @@ async function runWorker(
   database: SearchIndexDatabase,
   job: ParsedJob,
   now: Date,
+  identityKeyV1?: CustomerBiteSaverIdentityKeyV1,
 ): Promise<WorkerResult> {
   if (job.continuationCursor?.phase === "derivedCleanup") {
-    return processDerivedCleanup(database, job, now);
+    return processDerivedCleanup(database, job, now, identityKeyV1);
   }
   const requestedMissingParentFingerprint = job.jobKind === "biteSaverOffers"
     ? biteSaverOfferParentFingerprint(null)
@@ -1184,17 +1221,17 @@ async function runWorker(
     // A root deletion job can be delivered after the parent has already been
     // recreated. It still must consume the old-parent candidate set before a
     // child-source continuation scans the recreated parent.
-    return processDerivedCleanup(database, job, now);
+    return processDerivedCleanup(database, job, now, identityKeyV1);
   }
   const parentPath = job.jobKind === "biteSaverOffers"
     ? `restaurant_accounts/${job.parentSourceDocumentId}`
     : `bitescore_restaurants/${job.parentSourceDocumentId}`;
   const currentParent = await database.getDocument(parentPath);
   if (currentParent === null) {
-    return processDerivedCleanup(database, job, now);
+    return processDerivedCleanup(database, job, now, identityKeyV1);
   }
   return job.jobKind === "biteSaverOffers"
-    ? processBiteSaverSources(database, job, now)
+    ? processBiteSaverSources(database, job, now, identityKeyV1)
     : processBiteScoreSources(database, job, now);
 }
 
@@ -1202,6 +1239,7 @@ export async function processSearchIndexJob(
   database: SearchIndexDatabase,
   jobId: string,
   now: Date,
+  identityKeyV1?: CustomerBiteSaverIdentityKeyV1,
 ): Promise<WorkerResult> {
   const path = documentPath(privateSearchIndexJobCollection, jobId);
   const source = await database.getDocument(path);
@@ -1254,7 +1292,7 @@ export async function processSearchIndexJob(
 
   let result: WorkerResult;
   try {
-    result = await runWorker(database, job, now);
+    result = await runWorker(database, job, now, identityKeyV1);
   } catch (error) {
     if (!(error instanceof InvalidSearchIndexQueryDocumentIdError)) {
       throw error;

@@ -22,6 +22,9 @@ const callableHandlers = Object.freeze({
     "continueCustomerBiteSaverGuestOfferCheckHandler",
   getCustomerBiteSaverFavoriteStates:
     "getCustomerBiteSaverFavoriteStatesHandler",
+  getCustomerBiteSaverSavedPage: "getCustomerBiteSaverSavedPageHandler",
+  getCustomerBiteSaverSavedMenuPage:
+    "getCustomerBiteSaverSavedMenuPageHandler",
   startCustomerBiteSaverOfferRedemption:
     "startCustomerBiteSaverOfferRedemptionHandler",
   validateCustomerBiteSaverOfferRedemptionStart:
@@ -166,6 +169,12 @@ function loadCompiledIndexWithCustomerBiteSaverHarness() {
     }]),
   );
   mockedSession.customerBiteSaverCallableTimeoutSeconds = 120;
+  const mockedSaved = Object.fromEntries(
+    [
+      "getCustomerBiteSaverSavedPageHandler",
+      "getCustomerBiteSaverSavedMenuPageHandler",
+    ].map((name) => [name, mockedSession[name]]),
+  );
   const mockedWorker = async (jobId, context) => {
     state.workerCalls.push({name: workerHandler, jobId, context});
     if (state.workerError !== null) {
@@ -226,6 +235,8 @@ function loadCompiledIndexWithCustomerBiteSaverHarness() {
         return {onSchedule: scheduledTrigger};
       case "./customer_bitesaver_search_session.js":
         return mockedSession;
+      case "./customer_bitesaver_saved.js":
+        return mockedSaved;
       case "./customer_bitesaver_search_store.js":
         return {
           createFirestoreCustomerBiteSaverSearchDatabase: (database) => {

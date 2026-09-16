@@ -3632,7 +3632,9 @@ class BiteScoreService {
     });
   }
 
-  static Future<BiteScoreUserProfileData> loadCurrentUserProfileData() async {
+  static Future<BiteScoreUserProfileData> loadCurrentUserProfileData({
+    bool includeLegacyBiteSaverSaved = true,
+  }) async {
     final user = _requireSignedInAppUser();
     final publicIdentity = await _ensureCurrentUserPublicReviewerIdentity(user);
 
@@ -3640,9 +3642,9 @@ class BiteScoreService {
       user.uid,
     ).get();
     final favoriteDishSnapshot = await favoriteDishesCollection(user.uid).get();
-    final favoriteCouponSnapshot = await favoriteCouponsCollection(
-      user.uid,
-    ).get();
+    final favoriteCouponDocs = includeLegacyBiteSaverSaved
+        ? (await favoriteCouponsCollection(user.uid).get()).docs
+        : const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
     final reviewSnapshot = await reviewsCollection()
         .where('userId', isEqualTo: user.uid)
         .get();
@@ -3650,17 +3652,33 @@ class BiteScoreService {
     final favoriteRestaurants = <BitescoreRestaurant>[];
     final favoriteSaverRestaurantsByAccount =
         <String, SavedBiteSaverRestaurantEntry>{};
-    final saverFavoriteDocs = favoriteRestaurantSnapshot.docs
-        .where(
-          (doc) => _readString(doc.data()['restaurantType']) == 'bitesaver',
-        )
-        .toList();
+    final saverFavoriteDocs = includeLegacyBiteSaverSaved
+        ? favoriteRestaurantSnapshot.docs
+              .where(
+                (doc) =>
+                    _readString(doc.data()['restaurantType']) == 'bitesaver',
+              )
+              .toList()
+        : const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
+    final legacyFavoriteCouponDocs = includeLegacyBiteSaverSaved
+        ? favoriteCouponDocs
+              .where(
+                (doc) =>
+                    _readString(doc.data()['favoriteKind']) !=
+                    CustomerBiteSaverFavoriteContract.couponKind,
+              )
+              .toList(growable: false)
+        : const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
     final customerVisibleSaverRestaurants =
-        saverFavoriteDocs.isEmpty && favoriteCouponSnapshot.docs.isEmpty
+        saverFavoriteDocs.isEmpty && legacyFavoriteCouponDocs.isEmpty
         ? const <Restaurant>[]
         : await RestaurantAccountService.loadApprovedRestaurantsWithCoupons();
     for (final doc in favoriteRestaurantSnapshot.docs) {
       final data = doc.data();
+      if (_readString(data['favoriteKind']) ==
+          CustomerBiteSaverFavoriteContract.restaurantKind) {
+        continue;
+      }
       final restaurantType = _readString(data['restaurantType']);
       if (restaurantType == 'bitesaver') {
         final freshRestaurant = _visibleSaverRestaurantForFavoriteData(
@@ -3723,7 +3741,7 @@ class BiteScoreService {
     });
 
     final favoriteCoupons = _visibleFavoriteCoupons(
-      favoriteCouponSnapshot.docs
+      legacyFavoriteCouponDocs
           .map(
             (doc) => <String, dynamic>{
               ...doc.data(),

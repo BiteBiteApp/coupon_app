@@ -94,6 +94,10 @@ if (!emulatorGate) {
     createFirestoreCustomerBiteSaverSearchDatabase,
   } = require("../lib/customer_bitesaver_search_store.js");
   const {
+    getCustomerBiteSaverSavedMenuPageHandler,
+    getCustomerBiteSaverSavedPageHandler,
+  } = require("../lib/customer_bitesaver_saved.js");
+  const {
     createCustomerBiteSaverWorkerCounters,
     customerBiteSaverMaximumCandidateDocumentBytes,
     customerBiteSaverMaximumIndexedOrderKeyBytes,
@@ -346,6 +350,16 @@ if (!emulatorGate) {
         offset + customerBiteSaverMaximumWritesPerCommit,
       ));
     }
+  }
+
+  function snapshotMetrics() {
+    return Object.freeze({
+      pointReads: metrics.pointReadRequests +
+        metrics.transactionPointReadRequests,
+      queries: metrics.queryCalls,
+      queryReads: metrics.queryReadResults,
+      writes: metrics.transactionWritesCommitted + metrics.commitWrites,
+    });
   }
 
   async function seed(path, data) {
@@ -955,6 +969,165 @@ if (!emulatorGate) {
       limit: 2,
     });
     assert.deepEqual(after.map(({id}) => id), ["b", "c"]);
+  });
+
+  test("real adapter pages canonical Saved and resolves exact public identities",
+    {timeout: 30_000}, async () => {
+    const uid = `${runNamespace}_saved_owner`;
+    const seeded = [];
+    const writes = [];
+    for (let index = 0; index < 26; index += 1) {
+      const accountId = `${runNamespace}_saved_account_${index}`;
+      const savedLatitude = 40.7128;
+      const savedLongitude = -74.0060;
+      const restaurant = rawRestaurant(8_000 + index, {
+        city: "New York",
+        state: "NY",
+        zipCode: "10007",
+        latitude: savedLatitude,
+        longitude: savedLongitude,
+        geohash: canonicalRestaurantGeohash({
+          latitude: savedLatitude,
+          longitude: savedLongitude,
+        }),
+      });
+      const projection = buildBiteSaverRestaurantIndex({
+        sourceDocumentId: accountId,
+        source: restaurant,
+        now: new Date(fixedNowMs),
+        identityKeyV1,
+      });
+      assert.notEqual(projection, null);
+      const restaurantId = customerBiteSaverOpaqueRestaurantId(
+        identityKeyV1,
+        accountId,
+      );
+      seeded.push(restaurantId);
+      writes.push(
+        {
+          type: "set",
+          path: `restaurant_accounts/${accountId}`,
+          data: restaurant,
+        },
+        {
+          type: "set",
+          path: `${restaurantSearchIndexCollection}/${projection.indexDocumentId}`,
+          data: projection,
+        },
+        {
+          type: "set",
+          path: `user_profiles/${uid}/favorite_restaurants/${restaurantId}`,
+          data: {
+            ...canonicalRestaurantFavorite(uid, restaurantId),
+            createdAt: new Date(fixedNowMs - index * 1_000),
+            updatedAt: new Date(fixedNowMs - index * 1_000),
+          },
+        },
+      );
+    }
+    await commitAll(writes);
+    const savedContext = {
+      database,
+      discoveryKey,
+      identityKeyV1,
+      identity: {authUid: uid, authIsAnonymous: false},
+      now: () => fixedNowMs,
+      randomSource: (size) => Buffer.alloc(size, 13),
+    };
+    const savedRequest = (cursor, suffix) => ({
+      schemaVersion: customerBiteSaverSearchSchemaVersion,
+      clientRequestId: requestId(`saved_${suffix}`),
+      section: "restaurants",
+      cursor,
+    });
+    const before = snapshotMetrics();
+    const first = await getCustomerBiteSaverSavedPageHandler(
+      savedRequest(null, "first"),
+      savedContext,
+    );
+    const second = await getCustomerBiteSaverSavedPageHandler(
+      savedRequest(first.nextCursor, "second"),
+      savedContext,
+    );
+    const after = snapshotMetrics();
+    assert.equal(first.entries.length, 25);
+    assert.equal(first.hasMore, true);
+    assert.equal(second.entries.length, 1);
+    assert.equal(second.hasMore, false);
+    assert.deepEqual(
+      [...first.entries, ...second.entries].map(({restaurantId}) => restaurantId),
+      seeded,
+    );
+    assert.equal(first.entries.every(({availability}) =>
+      availability === "available"), true);
+    assert.deepEqual({
+      queries: after.queries - before.queries,
+      queryReads: after.queryReads - before.queryReads,
+      pointReads: after.pointReads - before.pointReads,
+      writes: after.writes - before.writes,
+    }, {queries: 4, queryReads: 53, pointReads: 26, writes: 0});
+
+    const menuAccountId = `${runNamespace}_saved_account_0`;
+    const menuWrites = Array.from({length: 75}, (_, index) => ({
+      type: "set",
+      path: `restaurant_accounts/${menuAccountId}/menu_images/` +
+        `filtered_${String(index).padStart(3, "0")}`,
+      data: {privateCanary: `filtered-${index}`},
+    }));
+    menuWrites.push({
+      type: "set",
+      path: `restaurant_accounts/${menuAccountId}/menu_images/valid_075`,
+      data: {
+        imageUrl: "https://images.example.test/saved-adapter-76.webp",
+        sortOrder: 76,
+      },
+    });
+    await commitAll(menuWrites);
+    const menuBefore = snapshotMetrics();
+    const menuFirst = await getCustomerBiteSaverSavedMenuPageHandler({
+      schemaVersion: customerBiteSaverSearchSchemaVersion,
+      clientRequestId: requestId("saved_menu_first"),
+      accessToken: first.entries[0].accessToken,
+      cursor: null,
+    }, savedContext);
+    const menuSecond = await getCustomerBiteSaverSavedMenuPageHandler({
+      schemaVersion: customerBiteSaverSearchSchemaVersion,
+      clientRequestId: requestId("saved_menu_second"),
+      accessToken: first.entries[0].accessToken,
+      cursor: menuFirst.nextCursor,
+    }, savedContext);
+    const menuAfter = snapshotMetrics();
+    assert.deepEqual(menuFirst.entries, []);
+    assert.equal(menuFirst.hasMore, true);
+    assert.notEqual(menuFirst.nextCursor, null);
+    assert.deepEqual(menuSecond.entries.map(({imageUrl}) => imageUrl), [
+      "https://images.example.test/saved-adapter-76.webp",
+    ]);
+    assert.equal(menuSecond.hasMore, false);
+    assert.equal(menuSecond.nextCursor, null);
+    assert.equal(JSON.stringify([menuFirst, menuSecond]).includes("privateCanary"), false);
+    assert.equal(menuAfter.writes - menuBefore.writes, 0);
+
+    await assert.rejects(
+      getCustomerBiteSaverSavedPageHandler(savedRequest(null, "anonymous"), {
+        ...savedContext,
+        identity: {authUid: uid, authIsAnonymous: true},
+      }),
+      contractError("permission-denied"),
+    );
+    metrics.scenarioMeasurements.saved = {
+      pages: 2,
+      visibleEntries: first.entries.length + second.entries.length,
+      maximumFavoriteQueryLimit: 26,
+      maximumProjectionInValues: 25,
+      queryReads: after.queryReads - before.queryReads,
+      pointReads: after.pointReads - before.pointReads,
+      writes: 0,
+      menuPages: 2,
+      menuVisibleEntries: 1,
+      menuQueryReads: menuAfter.queryReads - menuBefore.queryReads,
+      menuWrites: 0,
+    };
   });
 
   test("installed SDK retries genuinely conflicting real adapter transactions",

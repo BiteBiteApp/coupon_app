@@ -1,6 +1,7 @@
 import 'package:cloud_functions/cloud_functions.dart';
 
 import '../models/customer_bitesaver_search.dart';
+import '../models/customer_bitesaver_saved.dart';
 
 typedef CustomerBiteSaverCallableTransport =
     Future<Object?> Function(String callableName, Map<String, Object?> request);
@@ -96,8 +97,21 @@ abstract interface class CustomerBiteSaverMenuApi {
   );
 }
 
+abstract interface class CustomerBiteSaverSavedApi {
+  Future<CustomerBiteSaverSavedPageResult> getCustomerBiteSaverSavedPage(
+    CustomerBiteSaverSavedPageRequest request,
+  );
+
+  Future<CustomerBiteSaverMenuPageResult> getCustomerBiteSaverSavedMenuPage(
+    CustomerBiteSaverSavedMenuPageRequest request,
+  );
+}
+
 final class CustomerBiteSaverService
-    implements CustomerBiteSaverApi, CustomerBiteSaverMenuApi {
+    implements
+        CustomerBiteSaverApi,
+        CustomerBiteSaverMenuApi,
+        CustomerBiteSaverSavedApi {
   CustomerBiteSaverService({CustomerBiteSaverCallableTransport? transport})
     : _transport = transport ?? _firebaseTransport;
 
@@ -112,6 +126,9 @@ final class CustomerBiteSaverService
       'continueCustomerBiteSaverGuestOfferCheck';
   static const String favoriteStatesCallableName =
       'getCustomerBiteSaverFavoriteStates';
+  static const String savedPageCallableName = 'getCustomerBiteSaverSavedPage';
+  static const String savedMenuPageCallableName =
+      'getCustomerBiteSaverSavedMenuPage';
   static const String redemptionValidationCallableName =
       'validateCustomerBiteSaverOfferRedemptionStart';
   static const String redemptionStartCallableName =
@@ -265,6 +282,37 @@ final class CustomerBiteSaverService
       if (response.states[index].idValue != expectedIds[index]) {
         _invalidResponse();
       }
+    }
+    return response;
+  }
+
+  @override
+  Future<CustomerBiteSaverSavedPageResult> getCustomerBiteSaverSavedPage(
+    CustomerBiteSaverSavedPageRequest request,
+  ) async {
+    final response = await _invoke(
+      savedPageCallableName,
+      request.toJson(),
+      CustomerBiteSaverSavedPageResult.fromJson,
+    );
+    if (response.section != request.section ||
+        (request.cursor != null && response.nextCursor == request.cursor)) {
+      _invalidResponse();
+    }
+    return response;
+  }
+
+  @override
+  Future<CustomerBiteSaverMenuPageResult> getCustomerBiteSaverSavedMenuPage(
+    CustomerBiteSaverSavedMenuPageRequest request,
+  ) async {
+    final response = await _invoke(
+      savedMenuPageCallableName,
+      request.toJson(),
+      CustomerBiteSaverMenuPageResult.fromJson,
+    );
+    if (request.cursor != null && response.nextCursor == request.cursor) {
+      _invalidResponse();
     }
     return response;
   }

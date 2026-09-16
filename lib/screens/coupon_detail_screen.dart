@@ -13,6 +13,7 @@ import '../services/bitesaver_report_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../services/customer_bitesaver_search_coordinator.dart';
+import '../services/customer_bitesaver_saved_coordinator.dart';
 import '../services/restaurant_account_service.dart';
 import '../widgets/app_mode_switcher_bar.dart';
 import '../widgets/bitesaver_colors.dart';
@@ -152,6 +153,8 @@ class CouponDetailScreen extends StatefulWidget {
   final CustomerBiteSaverRestaurant? boundedRestaurant;
   final CustomerBiteSaverOffer? boundedOffer;
   final CustomerBiteSaverSearchCoordinator? boundedSession;
+  final CustomerBiteSaverSavedCoordinator? boundedSavedCoordinator;
+  final CustomerBiteSaverSavedAccess? boundedSavedAccess;
   final CustomerBiteSaverBrowseAccess? boundedAccess;
   final CustomerBiteSaverDetailAction? openBoundedRestaurant;
   final CustomerBiteSaverDetailAction? useBoundedCoupon;
@@ -166,6 +169,8 @@ class CouponDetailScreen extends StatefulWidget {
   }) : boundedRestaurant = null,
        boundedOffer = null,
        boundedSession = null,
+       boundedSavedCoordinator = null,
+       boundedSavedAccess = null,
        boundedAccess = null,
        openBoundedRestaurant = null,
        useBoundedCoupon = null;
@@ -183,6 +188,8 @@ class CouponDetailScreen extends StatefulWidget {
        boundedRestaurant = restaurant,
        boundedOffer = offer,
        boundedSession = session,
+       boundedSavedCoordinator = null,
+       boundedSavedAccess = null,
        boundedAccess = access,
        loadFavoriteState = null,
        loadCustomerVisibility = null,
@@ -198,6 +205,26 @@ class CouponDetailScreen extends StatefulWidget {
       throw const CustomerBiteSaverFreshSearchRequiredException();
     }
   }
+
+  CouponDetailScreen.fromCustomerBiteSaverSaved({
+    super.key,
+    required CustomerBiteSaverRestaurant restaurant,
+    required CustomerBiteSaverOffer offer,
+    required CustomerBiteSaverSavedCoordinator savedCoordinator,
+    required CustomerBiteSaverSavedAccess savedAccess,
+    required this.openBoundedRestaurant,
+  }) : coupon = _customerBiteSaverCouponDetailView(restaurant, offer),
+       restaurant = _customerBiteSaverRestaurantDetailView(restaurant),
+       boundedRestaurant = restaurant,
+       boundedOffer = offer,
+       boundedSession = null,
+       boundedSavedCoordinator = savedCoordinator,
+       boundedSavedAccess = savedAccess,
+       boundedAccess = null,
+       useBoundedCoupon = null,
+       loadFavoriteState = null,
+       loadCustomerVisibility = null,
+       initializeRedemptionStore = null;
 
   @override
   State<CouponDetailScreen> createState() => _CouponDetailScreenState();
@@ -654,12 +681,22 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   bool get _boundedSelectionCurrent {
     final boundedRestaurant = widget.boundedRestaurant;
     final boundedOffer = widget.boundedOffer;
+    final savedAccess = widget.boundedSavedAccess;
+    if (boundedRestaurant == null || boundedOffer == null) {
+      return false;
+    }
+    if (savedAccess != null) {
+      return savedAccess.isCurrent &&
+          identical(savedAccess.restaurant, boundedRestaurant) &&
+          identical(savedAccess.offer, boundedOffer) &&
+          savedAccess.restaurant.restaurantId ==
+              boundedRestaurant.restaurantId &&
+          savedAccess.offer?.offerId == boundedOffer.offerId &&
+          savedAccess.offer?.offerOccurrence == boundedOffer.offerOccurrence;
+    }
     final session = widget.boundedSession;
     final access = widget.boundedAccess;
-    if (boundedRestaurant == null ||
-        boundedOffer == null ||
-        session == null ||
-        access == null) {
+    if (session == null || access == null) {
       return false;
     }
     final current = session.currentAcceptedOfferSelectionForAccess(
@@ -680,6 +717,8 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   void initState() {
     super.initState();
     if (widget.boundedOffer != null) {
+      widget.boundedSession?.addListener(_handleBoundedFavoriteChange);
+      widget.boundedSavedCoordinator?.addListener(_handleBoundedFavoriteChange);
       _isCustomerVisibleOffer =
           _boundedSelectionCurrent && widget.boundedOffer!.available;
       isLoading = false;
@@ -691,11 +730,31 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
 
   @override
   void dispose() {
+    widget.boundedSession?.removeListener(_handleBoundedFavoriteChange);
+    widget.boundedSavedCoordinator?.removeListener(
+      _handleBoundedFavoriteChange,
+    );
     if (widget.boundedOffer == null) {
       DemoRedemptionStore.changes.removeListener(_handleRedemptionStoreChange);
     }
     _countdownTicker?.cancel();
     super.dispose();
+  }
+
+  void _handleBoundedFavoriteChange() {
+    if (mounted) setState(() {});
+  }
+
+  CustomerBiteSaverFavoriteState get _boundedFavoriteState {
+    final offer = widget.boundedOffer;
+    if (offer == null) {
+      return _isFavoriteCoupon
+          ? CustomerBiteSaverFavoriteState.favorite
+          : CustomerBiteSaverFavoriteState.notFavorite;
+    }
+    return widget.boundedSession?.offerFavoriteState(offer.offerId) ??
+        widget.boundedSavedCoordinator?.offerFavoriteState(offer.offerId) ??
+        CustomerBiteSaverFavoriteState.unknown;
   }
 
   Future<void> _initializeRedemptionState() async {
@@ -870,7 +929,47 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   }
 
   Future<void> _toggleCouponFavorite() async {
-    if (widget.boundedOffer != null) return;
+    final boundedOffer = widget.boundedOffer;
+    final boundedRestaurant = widget.boundedRestaurant;
+    if (boundedOffer != null && boundedRestaurant != null) {
+      if (boundedOffer.offerType != CustomerBiteSaverOfferType.coupon ||
+          _isSavingFavoriteCoupon ||
+          _boundedFavoriteState == CustomerBiteSaverFavoriteState.unknown) {
+        return;
+      }
+      final nextIsFavorite =
+          _boundedFavoriteState != CustomerBiteSaverFavoriteState.favorite;
+      setState(() => _isSavingFavoriteCoupon = true);
+      try {
+        final session = widget.boundedSession;
+        if (session != null) {
+          await session.setOfferFavorite(boundedOffer.offerId, nextIsFavorite);
+        } else {
+          await widget.boundedSavedCoordinator!.setOfferFavorite(
+            boundedRestaurant,
+            boundedOffer,
+            nextIsFavorite,
+          );
+        }
+        if (!mounted) return;
+        _showSnackBar(
+          nextIsFavorite
+              ? 'Saved coupon to your profile.'
+              : 'Removed coupon from your saved list.',
+        );
+      } catch (error) {
+        if (!mounted) return;
+        _showSnackBar(
+          AppErrorText.friendly(
+            error,
+            fallback: 'Could not update this saved coupon right now.',
+          ),
+        );
+      } finally {
+        if (mounted) setState(() => _isSavingFavoriteCoupon = false);
+      }
+      return;
+    }
     final canSave = await BiteScoreSignInGate.ensureSignedInForFavorites(
       context,
       returnToOriginAfterSignIn: true,
@@ -1101,12 +1200,25 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   }
 
   Widget _buildFavoriteAction() {
+    final state = _boundedFavoriteState;
+    final known = state != CustomerBiteSaverFavoriteState.unknown;
+    final favorite = state == CustomerBiteSaverFavoriteState.favorite;
     return IconButton(
-      tooltip: _isFavoriteCoupon ? 'Unsave coupon' : 'Save coupon',
-      onPressed: _isSavingFavoriteCoupon ? null : _toggleCouponFavorite,
+      tooltip: known
+          ? favorite
+                ? 'Unsave coupon'
+                : 'Save coupon'
+          : 'Saved status unavailable',
+      onPressed: _isSavingFavoriteCoupon || !known
+          ? null
+          : _toggleCouponFavorite,
       icon: Icon(
-        _isFavoriteCoupon ? Icons.favorite : Icons.favorite_border,
-        color: _isFavoriteCoupon ? Colors.red.shade400 : _detailAccent,
+        known
+            ? favorite
+                  ? Icons.favorite
+                  : Icons.favorite_border
+            : Icons.help_outline,
+        color: favorite ? Colors.red.shade400 : _detailAccent,
       ),
     );
   }
@@ -1411,7 +1523,10 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                               onOpenRestaurant: restaurantLabel.trim().isEmpty
                                   ? null
                                   : _openRestaurantProfile,
-                              trailingTitleAction: boundedOffer == null
+                              trailingTitleAction:
+                                  boundedOffer == null ||
+                                      boundedOffer.offerType ==
+                                          CustomerBiteSaverOfferType.coupon
                                   ? _buildFavoriteAction()
                                   : null,
                             ),

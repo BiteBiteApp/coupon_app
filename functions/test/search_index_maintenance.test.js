@@ -46,6 +46,10 @@ const {
   canonicalRestaurantGeohash,
 } = require("../lib/restaurant_geo_helpers.js");
 const {
+  customerBiteSaverOpaqueOfferId,
+  customerBiteSaverOpaqueRestaurantId,
+} = require("../lib/customer_bitesaver_public_identity.js");
+const {
   dartUtf16FirestoreBytesOrderKey,
   decodeDartUtf16FirestoreBytesOrderKey,
 } = require("../lib/customer_bitesaver_search_matcher.js");
@@ -364,6 +368,174 @@ test("direct create and duplicate delivery produce one identical restaurant inde
   assert.equal(database.records.get(generation.path).generation, 1);
   assert.ok(database.transactionAttempts.some((attempt) =>
     attempt.readPaths.includes(generation.path) && attempt.writeCount === 2));
+});
+
+test("restaurant reconciliation repairs trusted public lookup identity and converges", async () => {
+  const identityKeyV1 = Buffer.alloc(32, 71);
+  const database = new FakeSearchIndexDatabase({
+    "restaurant_accounts/account-1": biteSaverRestaurant(),
+  });
+  const indexId = createSearchIndexDocumentId({
+    entityKind: "restaurant",
+    sourceKind: "biteSaverRestaurant",
+    sourceDocumentId: "account-1",
+  });
+  const indexPath = `restaurant_search_index/${indexId}`;
+  const expectedRestaurantId = customerBiteSaverOpaqueRestaurantId(
+    identityKeyV1,
+    "account-1",
+  );
+
+  await reconcileBiteSaverRestaurantIndex(
+    database,
+    "account-1",
+    now,
+    identityKeyV1,
+  );
+  const correct = database.records.get(indexPath);
+  const sourceFingerprint = correct.sourceFingerprint;
+  assert.equal(correct.publicVisible, true);
+  assert.equal(correct.publicRestaurantId, expectedRestaurantId);
+
+  database.records.set(indexPath, withoutProperties(correct, "publicRestaurantId"));
+  database.operations.length = 0;
+  await reconcileBiteSaverRestaurantIndex(
+    database,
+    "account-1",
+    now,
+    identityKeyV1,
+  );
+  assert.equal(database.records.get(indexPath).publicRestaurantId, expectedRestaurantId);
+  assert.equal(database.records.get(indexPath).sourceFingerprint, sourceFingerprint);
+  assert.equal(database.operations.filter(({operation, path}) =>
+    operation === "set" && path === indexPath).length, 1);
+
+  database.operations.length = 0;
+  await reconcileBiteSaverRestaurantIndex(
+    database,
+    "account-1",
+    now,
+    identityKeyV1,
+  );
+  assert.equal(database.operations.filter(({operation, path}) =>
+    operation === "set" && path === indexPath).length, 0);
+
+  database.records.set(indexPath, {
+    ...database.records.get(indexPath),
+    publicRestaurantId: "bsr_wrong",
+  });
+  database.operations.length = 0;
+  await reconcileBiteSaverRestaurantIndex(
+    database,
+    "account-1",
+    now,
+    identityKeyV1,
+  );
+  assert.equal(database.records.get(indexPath).publicRestaurantId, expectedRestaurantId);
+  assert.equal(database.records.get(indexPath).publicVisible, true);
+  assert.equal(database.operations.filter(({operation, path}) =>
+    operation === "set" && path === indexPath).length, 1);
+
+  database.operations.length = 0;
+  await reconcileBiteSaverRestaurantIndex(
+    database,
+    "account-1",
+    now,
+    identityKeyV1,
+  );
+  assert.equal(database.operations.filter(({operation, path}) =>
+    operation === "set" && path === indexPath).length, 0);
+});
+
+test("coupon reconciliation repairs both trusted public lookup identities and converges", async () => {
+  const identityKeyV1 = Buffer.alloc(32, 73);
+  const database = new FakeSearchIndexDatabase({
+    "restaurant_accounts/account-1": biteSaverRestaurant(),
+    "restaurant_accounts/account-1/coupons/coupon-1": coupon("coupon-1", {
+      createdAt: new Date("2026-08-01T00:00:00.000Z"),
+    }),
+  });
+  const indexId = createSearchIndexDocumentId({
+    entityKind: "offer",
+    sourceKind: "biteSaverCoupon",
+    parentSourceDocumentId: "account-1",
+    sourceDocumentId: "coupon-1",
+  });
+  const indexPath = `bitesaver_offer_index/${indexId}`;
+  const expectedRestaurantId = customerBiteSaverOpaqueRestaurantId(
+    identityKeyV1,
+    "account-1",
+  );
+  const expectedOfferId = customerBiteSaverOpaqueOfferId(
+    identityKeyV1,
+    "account-1",
+    "coupon",
+    "coupon-1",
+  );
+
+  await reconcileBiteSaverCouponOfferIndex(
+    database,
+    "account-1",
+    "coupon-1",
+    now,
+    false,
+    identityKeyV1,
+  );
+  const correct = database.records.get(indexPath);
+  const sourceFingerprint = correct.sourceFingerprint;
+  assert.equal(correct.publicVisible, true);
+  assert.equal(correct.customerDiscoverable, true);
+  assert.equal(correct.publicRestaurantId, expectedRestaurantId);
+  assert.equal(correct.publicOfferId, expectedOfferId);
+
+  database.records.set(indexPath, withoutProperties(correct, "publicOfferId"));
+  database.operations.length = 0;
+  await reconcileBiteSaverCouponOfferIndex(
+    database,
+    "account-1",
+    "coupon-1",
+    now,
+    false,
+    identityKeyV1,
+  );
+  assert.equal(database.records.get(indexPath).publicOfferId, expectedOfferId);
+  assert.equal(database.records.get(indexPath).sourceFingerprint, sourceFingerprint);
+  assert.equal(database.operations.filter(({operation, path}) =>
+    operation === "set" && path === indexPath).length, 1);
+
+  database.records.set(indexPath, {
+    ...database.records.get(indexPath),
+    publicRestaurantId: "bsr_wrong",
+    publicOfferId: "bso_wrong",
+  });
+  database.operations.length = 0;
+  await reconcileBiteSaverCouponOfferIndex(
+    database,
+    "account-1",
+    "coupon-1",
+    now,
+    false,
+    identityKeyV1,
+  );
+  const repaired = database.records.get(indexPath);
+  assert.equal(repaired.publicRestaurantId, expectedRestaurantId);
+  assert.equal(repaired.publicOfferId, expectedOfferId);
+  assert.equal(repaired.publicVisible, true);
+  assert.equal(repaired.customerDiscoverable, true);
+  assert.equal(database.operations.filter(({operation, path}) =>
+    operation === "set" && path === indexPath).length, 1);
+
+  database.operations.length = 0;
+  await reconcileBiteSaverCouponOfferIndex(
+    database,
+    "account-1",
+    "coupon-1",
+    now,
+    false,
+    identityKeyV1,
+  );
+  assert.equal(database.operations.filter(({operation, path}) =>
+    operation === "set" && path === indexPath).length, 0);
 });
 
 test("update overwrites the same deterministic restaurant index", async () => {

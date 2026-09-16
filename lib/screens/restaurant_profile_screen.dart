@@ -13,6 +13,7 @@ import '../services/bitesaver_report_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../services/customer_bitesaver_search_coordinator.dart';
+import '../services/customer_bitesaver_saved_coordinator.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_menu_service.dart';
 import '../widgets/bitesaver_colors.dart';
@@ -57,6 +58,7 @@ class RestaurantProfileScreen extends StatefulWidget {
   final PublicRestaurantReportSubmitter? submitReport;
   final CustomerBiteSaverRestaurant? boundedRestaurant;
   final CustomerBiteSaverSearchCoordinator? boundedSession;
+  final CustomerBiteSaverSavedCoordinator? boundedSavedCoordinator;
   final CustomerBiteSaverBrowseAccess? boundedAccess;
   final CustomerBiteSaverProfileOfferOpener? openBoundedOffer;
   final CustomerBiteSaverProfileMenuOpener? openBoundedMenu;
@@ -72,6 +74,7 @@ class RestaurantProfileScreen extends StatefulWidget {
     @visibleForTesting this.submitReport,
   }) : boundedRestaurant = null,
        boundedSession = null,
+       boundedSavedCoordinator = null,
        boundedAccess = null,
        openBoundedOffer = null,
        openBoundedMenu = null;
@@ -86,6 +89,7 @@ class RestaurantProfileScreen extends StatefulWidget {
   }) : restaurant = _customerBiteSaverRestaurantView(restaurant),
        boundedRestaurant = restaurant,
        boundedSession = session,
+       boundedSavedCoordinator = null,
        boundedAccess = access,
        loadFavorite = null,
        refreshRestaurant = null,
@@ -101,6 +105,24 @@ class RestaurantProfileScreen extends StatefulWidget {
       throw const CustomerBiteSaverFreshSearchRequiredException();
     }
   }
+
+  RestaurantProfileScreen.fromCustomerBiteSaverSaved({
+    super.key,
+    required CustomerBiteSaverRestaurant restaurant,
+    required CustomerBiteSaverSavedCoordinator savedCoordinator,
+    required this.openBoundedMenu,
+    this.openBoundedOffer,
+  }) : restaurant = _customerBiteSaverRestaurantView(restaurant),
+       boundedRestaurant = restaurant,
+       boundedSession = null,
+       boundedSavedCoordinator = savedCoordinator,
+       boundedAccess = null,
+       loadFavorite = null,
+       refreshRestaurant = null,
+       loadProjectionData = null,
+       resolvePublicMenu = null,
+       promptForReport = null,
+       submitReport = null;
 
   @override
   State<RestaurantProfileScreen> createState() =>
@@ -135,10 +157,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
       _isCustomerRestaurantAvailabilityResolved = true;
       _isCustomerRestaurantAvailable = true;
       _isFavoriteRestaurant =
-          widget.boundedSession?.restaurantFavoriteState(
-            boundedRestaurant.restaurantId,
-          ) ==
-          CustomerBiteSaverFavoriteState.favorite;
+          _boundedFavoriteState == CustomerBiteSaverFavoriteState.favorite;
       return;
     }
     final hasCanonicalRestaurantId =
@@ -149,6 +168,22 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
         widget.refreshRestaurant != null || hasCanonicalRestaurantId;
     _loadFavoriteState();
     _refreshRestaurantDetails();
+  }
+
+  CustomerBiteSaverFavoriteState get _boundedFavoriteState {
+    final boundedRestaurant = widget.boundedRestaurant;
+    if (boundedRestaurant == null) {
+      return _isFavoriteRestaurant
+          ? CustomerBiteSaverFavoriteState.favorite
+          : CustomerBiteSaverFavoriteState.notFavorite;
+    }
+    return widget.boundedSession?.restaurantFavoriteState(
+          boundedRestaurant.restaurantId,
+        ) ??
+        widget.boundedSavedCoordinator?.restaurantFavoriteState(
+          boundedRestaurant.restaurantId,
+        ) ??
+        CustomerBiteSaverFavoriteState.unknown;
   }
 
   Future<void> _loadFavoriteState() async {
@@ -537,7 +572,49 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   }
 
   Future<void> _toggleRestaurantFavorite() async {
-    if (widget.boundedRestaurant != null) return;
+    final boundedRestaurant = widget.boundedRestaurant;
+    if (boundedRestaurant != null) {
+      if (_isSavingFavoriteRestaurant ||
+          _boundedFavoriteState == CustomerBiteSaverFavoriteState.unknown) {
+        return;
+      }
+      final nextIsFavorite =
+          _boundedFavoriteState != CustomerBiteSaverFavoriteState.favorite;
+      setState(() => _isSavingFavoriteRestaurant = true);
+      try {
+        final session = widget.boundedSession;
+        if (session != null) {
+          await session.setRestaurantFavorite(
+            boundedRestaurant.restaurantId,
+            nextIsFavorite,
+          );
+        } else {
+          await widget.boundedSavedCoordinator!.setRestaurantFavorite(
+            boundedRestaurant,
+            nextIsFavorite,
+          );
+        }
+        if (!mounted) return;
+        await _showLaunchError(
+          context,
+          nextIsFavorite
+              ? 'Saved restaurant to your profile.'
+              : 'Removed restaurant from your saved list.',
+        );
+      } catch (error) {
+        if (!mounted) return;
+        await _showLaunchError(
+          context,
+          AppErrorText.friendly(
+            error,
+            fallback: 'Could not update this saved restaurant right now.',
+          ),
+        );
+      } finally {
+        if (mounted) setState(() => _isSavingFavoriteRestaurant = false);
+      }
+      return;
+    }
     final canSave = await BiteScoreSignInGate.ensureSignedInForFavorites(
       context,
       returnToOriginAfterSignIn: true,
@@ -1424,7 +1501,10 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
       );
     }
     return ListenableBuilder(
-      listenable: widget.boundedSession ?? DemoRedemptionStore.changes,
+      listenable:
+          widget.boundedSession ??
+          widget.boundedSavedCoordinator ??
+          DemoRedemptionStore.changes,
       builder: (context, child) {
         final now = DateTime.now();
         final activeCoupons = widget.boundedRestaurant != null
@@ -1508,23 +1588,38 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                               ),
                             ),
                             const SizedBox(width: 8),
-                            if (widget.boundedRestaurant == null)
-                              IconButton(
-                                tooltip: _isFavoriteRestaurant
-                                    ? 'Unsave restaurant'
-                                    : 'Save restaurant',
-                                onPressed: _isSavingFavoriteRestaurant
-                                    ? null
-                                    : _toggleRestaurantFavorite,
-                                icon: Icon(
-                                  _isFavoriteRestaurant
-                                      ? Icons.favorite
-                                      : Icons.favorite_border,
-                                  color: _isFavoriteRestaurant
-                                      ? Colors.red.shade400
-                                      : BiteSaverColors.orangeDark,
-                                ),
-                              ),
+                            Builder(
+                              builder: (context) {
+                                final state = _boundedFavoriteState;
+                                final favorite =
+                                    state ==
+                                    CustomerBiteSaverFavoriteState.favorite;
+                                final known =
+                                    state !=
+                                    CustomerBiteSaverFavoriteState.unknown;
+                                return IconButton(
+                                  tooltip: known
+                                      ? favorite
+                                            ? 'Unsave restaurant'
+                                            : 'Save restaurant'
+                                      : 'Saved status unavailable',
+                                  onPressed:
+                                      _isSavingFavoriteRestaurant || !known
+                                      ? null
+                                      : _toggleRestaurantFavorite,
+                                  icon: Icon(
+                                    known
+                                        ? favorite
+                                              ? Icons.favorite
+                                              : Icons.favorite_border
+                                        : Icons.help_outline,
+                                    color: favorite
+                                        ? Colors.red.shade400
+                                        : BiteSaverColors.orangeDark,
+                                  ),
+                                );
+                              },
+                            ),
                           ],
                         ),
                         const SizedBox(height: 14),

@@ -43,6 +43,10 @@ const {
   canonicalRestaurantGeohash,
 } = require("../lib/restaurant_geo_helpers.js");
 const {
+  customerBiteSaverOpaqueOfferId,
+  customerBiteSaverOpaqueRestaurantId,
+} = require("../lib/customer_bitesaver_public_identity.js");
+const {
   biteScoreDishCustomerPublicProjectionVersion,
   biteScoreRestaurantCustomerPublicProjectionVersion,
   maximumSearchIndexDocumentBytes,
@@ -53,6 +57,7 @@ const {
 const now = new Date("2026-08-08T16:00:00.000Z");
 const coordinates = Object.freeze({latitude: 28.8517, longitude: -82.487});
 const geohash = canonicalRestaurantGeohash(coordinates);
+const identityKeyV1 = Buffer.alloc(32, 29);
 const canaries = Object.freeze([
   "private-email-canary@example.test",
   "private-auth-phone-canary",
@@ -378,6 +383,64 @@ function biteSaverRestaurantForParent(restaurant) {
     now,
   });
 }
+
+test("BiteSaver writers add exact opaque lookup fields without changing source fingerprints", () => {
+  const accountId = "public-lookup-account";
+  const couponId = "same-child-id";
+  const restaurant = biteSaverRestaurant();
+  const withoutRestaurantIdentity = buildBiteSaverRestaurantIndex({
+    sourceDocumentId: accountId,
+    source: restaurant,
+    now,
+  });
+  const withRestaurantIdentity = buildBiteSaverRestaurantIndex({
+    sourceDocumentId: accountId,
+    source: restaurant,
+    now,
+    identityKeyV1,
+  });
+  assert.equal(
+    withRestaurantIdentity.publicRestaurantId,
+    customerBiteSaverOpaqueRestaurantId(identityKeyV1, accountId),
+  );
+  assert.equal(
+    withRestaurantIdentity.sourceFingerprint,
+    withoutRestaurantIdentity.sourceFingerprint,
+  );
+
+  const withoutCouponIdentity = buildBiteSaverCouponOfferIndex({
+    restaurantAccountId: accountId,
+    sourceDocumentId: couponId,
+    offer: coupon(),
+    restaurant,
+    now,
+  });
+  const withCouponIdentity = buildBiteSaverCouponOfferIndex({
+    restaurantAccountId: accountId,
+    sourceDocumentId: couponId,
+    offer: coupon(),
+    restaurant,
+    now,
+    identityKeyV1,
+  });
+  assert.equal(
+    withCouponIdentity.publicRestaurantId,
+    customerBiteSaverOpaqueRestaurantId(identityKeyV1, accountId),
+  );
+  assert.equal(
+    withCouponIdentity.publicOfferId,
+    customerBiteSaverOpaqueOfferId(
+      identityKeyV1,
+      accountId,
+      "coupon",
+      couponId,
+    ),
+  );
+  assert.equal(
+    withCouponIdentity.sourceFingerprint,
+    withoutCouponIdentity.sourceFingerprint,
+  );
+});
 
 function assertBiteSaverParentNameSelection(restaurant, expectedName, label) {
   const restaurantIndex = biteSaverRestaurantForParent(restaurant);

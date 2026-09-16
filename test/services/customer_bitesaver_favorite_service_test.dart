@@ -261,6 +261,38 @@ void main() {
       throwsA(isA<StateError>()),
     );
   });
+
+  test('captured account prevents delayed writes from retargeting', () async {
+    final restaurantId = CustomerBiteSaverRestaurantId(
+      fixture['restaurantId']! as String,
+    );
+    final identity = CustomerBiteSaverRestaurantFavoriteIdentity(
+      restaurantId: restaurantId,
+    );
+    final initiatingUserId = fixture['userId']! as String;
+    auth.current = const CustomerBiteSaverFavoriteUser(
+      uid: 'replacement-user',
+      isAnonymous: false,
+    );
+
+    await expectLater(
+      service.upsertRestaurantFavorite(
+        identity,
+        expectedUserId: initiatingUserId,
+      ),
+      throwsA(isA<CustomerBiteSaverFavoriteStateException>()),
+    );
+    await expectLater(
+      service.removeRestaurantFavorite(
+        restaurantId,
+        expectedUserId: initiatingUserId,
+      ),
+      throwsA(isA<CustomerBiteSaverFavoriteStateException>()),
+    );
+    expect(store.readPaths, isEmpty);
+    expect(store.setWrites, isEmpty);
+    expect(store.deletedPaths, isEmpty);
+  });
 }
 
 Map<String, dynamic> _record(Object? value) {
