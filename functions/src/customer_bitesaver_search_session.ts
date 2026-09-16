@@ -101,10 +101,17 @@ import {
   buildBiteSaverCouponOfferIndex,
   buildBiteSaverDailySpecialOfferIndex,
   buildBiteSaverRestaurantIndex,
+  biteScoreRestaurantIsActive,
+  customerBiteSaverPublicImageUrl,
   customerBiteSaverOfferSourceCreatedAtOrderKeyField,
   customerBiteSaverTimestampOrderKey,
   isCustomerBiteSaverTimestampOrderKey,
 } from "./search_index_builders.js";
+import {
+  biteSaverAccountCatalogBindingState,
+  biteScoreCatalogBindingState,
+  readBiteScoreCatalogRestaurantId,
+} from "./restaurant_invite_helpers.js";
 import {
   exactCustomerBiteSaverDistanceMiles,
   mergedRestaurantGeographicQueryBounds,
@@ -2415,7 +2422,7 @@ function preflightPageCursorForRequest(value: {
   payload: CustomerBiteSaverCursorPayload;
   request: BoundSessionRequest;
   context: CustomerBiteSaverSessionContext;
-  purpose: "restaurantPage" | "offerPage";
+  purpose: CustomerBiteSaverCursorPayload["purpose"];
   restaurantPublicId: string | null;
   guestStateFingerprint: string;
 }): void {
@@ -6426,6 +6433,776 @@ async function getCustomerBiteSaverOfferPageCompletedHandler(
   });
       return response;
     },
+  });
+}
+
+type CustomerBiteSaverMenuRequest = BoundSessionRequest & Readonly<{
+  restaurantId: string;
+  cursor: string | null;
+}>;
+
+type CustomerBiteSaverMenuStyle = "biteSaver" | "biteScore";
+type CustomerBiteSaverMenuEntry =
+  | Readonly<{
+      kind: "image";
+      key: string;
+      imageUrl: string;
+      sortOrder: number;
+    }>
+  | Readonly<{
+      kind: "item";
+      key: string;
+      name: string;
+      description: string;
+      price: string;
+      category: string;
+      sortOrder: number;
+    }>
+  | Readonly<{
+      kind: "section";
+      key: string;
+      title: string;
+      body: string;
+      sortOrder: number;
+    }>;
+
+export type CustomerBiteSaverMenuPageResult = Readonly<{
+  schemaVersion: typeof customerBiteSaverSearchSchemaVersion;
+  state: "available" | "absent";
+  attemptGeneration: number;
+  queryFingerprint: string;
+  restaurantId: string;
+  menuStyle: CustomerBiteSaverMenuStyle;
+  entries: readonly CustomerBiteSaverMenuEntry[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}>;
+
+type ResolvedCustomerBiteSaverMenuSource = Readonly<{
+  state: "available" | "absent";
+  style: CustomerBiteSaverMenuStyle;
+  collectionRoot: string | null;
+  relationshipFingerprint: string;
+  privateSourceIdentities: readonly string[];
+}>;
+
+export const customerBiteSaverMenuPageSize = 25;
+export const customerBiteSaverMenuCandidateBudget = 75;
+export const customerBiteSaverMenuCandidateByteBudget = 1_048_576;
+const customerBiteSaverMenuKinds = Object.freeze([
+  "menu_images",
+  "menu_items",
+  "menu_sections",
+] as const);
+const customerBiteSaverMenuCursorFingerprint = createQueryFingerprint({
+  purpose: "customerBiteSaverMenuCursor",
+  schemaVersion: customerBiteSaverSearchSchemaVersion,
+});
+
+export function parseCustomerBiteSaverMenuPageRequest(
+  value: unknown,
+): CustomerBiteSaverMenuRequest {
+  if (!isPlainRecord(value)) {
+    throw new CustomerBiteSaverContractError("invalid-argument");
+  }
+  const expected = [
+    "schemaVersion",
+    "clientRequestId",
+    "clientInstanceId",
+    "sessionId",
+    "capability",
+    "criteriaFingerprint",
+    "restaurantId",
+    "cursor",
+  ].sort();
+  const keys = Object.keys(value).sort();
+  if (
+    keys.length !== expected.length ||
+    keys.some((key, index) => key !== expected[index]) ||
+    (value.cursor !== null &&
+      (typeof value.cursor !== "string" || value.cursor.length > 32_768))
+  ) {
+    throw new CustomerBiteSaverContractError("invalid-argument");
+  }
+  const base = parseBoundSessionRequest({
+    schemaVersion: value.schemaVersion,
+    clientRequestId: value.clientRequestId,
+    clientInstanceId: value.clientInstanceId,
+    sessionId: value.sessionId,
+    capability: value.capability,
+    criteriaFingerprint: value.criteriaFingerprint,
+  });
+  return Object.freeze({
+    ...base,
+    restaurantId: requireCustomerBiteSaverPublicId(
+      value.restaurantId,
+      "bsr",
+    ),
+    cursor: value.cursor as string | null,
+  });
+}
+
+function menuRelationshipChanged(): never {
+  throw new CustomerBiteSaverContractError(
+    "failed-precondition",
+    "The restaurant menu source changed. Return to search and try again.",
+  );
+}
+
+function menuDocumentId(value: unknown): string | null {
+  return readBiteScoreCatalogRestaurantId(value);
+}
+
+function menuText(
+  value: unknown,
+  maximumLength: number,
+  allowEmpty = false,
+): string | null {
+  if (
+    typeof value !== "string" ||
+    value.length > maximumLength ||
+    !hasWellFormedCustomerBiteSaverUtf16(value)
+  ) {
+    return null;
+  }
+  const trimmed = value.trim();
+  return trimmed.length > 0 || allowEmpty ? trimmed : null;
+}
+
+function menuSortOrder(value: unknown): number | null {
+  const parsed = typeof value === "number" && Number.isFinite(value)
+    ? Math.trunc(value)
+    : typeof value === "string" && /^-?[0-9]+$/u.test(value.trim())
+      ? Number(value.trim())
+      : value === undefined || value === null
+        ? 0
+        : null;
+  return parsed !== null && Number.isSafeInteger(parsed) ? parsed : null;
+}
+
+function menuCandidateBytes(document: CustomerBiteSaverStoredDocument): number {
+  try {
+    return Buffer.byteLength(JSON.stringify(document.data), "utf8");
+  } catch {
+    return customerBiteSaverMenuCandidateByteBudget;
+  }
+}
+
+function menuEntryKey(value: {
+  context: CustomerBiteSaverSessionContext;
+  relationshipFingerprint: string;
+  kind: string;
+  documentId: string;
+}): string {
+  return customerBiteSaverDeterministicId(
+    value.context.discoveryKey,
+    "bsme",
+    "customerMenuPresentationEntry",
+    [value.relationshipFingerprint, value.kind, value.documentId],
+  );
+}
+
+function menuWriterPathSegment(value: string): string | null {
+  const segment = value.trim().replace(/[^A-Za-z0-9_-]+/gu, "_");
+  return segment.length >= 8 ? segment : null;
+}
+
+function publicMenuImageUrl(
+  value: unknown,
+  privateSourceIdentities: readonly string[],
+): string | null {
+  const imageUrl = customerBiteSaverPublicImageUrl(value);
+  if (imageUrl === null) return null;
+  let pathname: string;
+  try {
+    pathname = new URL(imageUrl).pathname;
+  } catch {
+    return null;
+  }
+  const blockedSegments = new Set(privateSourceIdentities.flatMap((identity) => {
+    const writerSegment = menuWriterPathSegment(identity);
+    return writerSegment === null || writerSegment === identity
+      ? [identity]
+      : [identity, writerSegment];
+  }));
+  let candidate = pathname;
+  for (let pass = 0; pass <= 3; pass += 1) {
+    const segments = candidate.split("/").filter((segment) => segment.length > 0);
+    if (segments.some((segment) => blockedSegments.has(segment))) return null;
+    if (pass === 3) break;
+    let decoded: string;
+    try {
+      decoded = decodeURIComponent(candidate);
+    } catch {
+      return null;
+    }
+    if (decoded === candidate) break;
+    candidate = decoded;
+  }
+  return imageUrl;
+}
+
+function publicMenuEntry(value: {
+  context: CustomerBiteSaverSessionContext;
+  relationshipFingerprint: string;
+  privateSourceIdentities: readonly string[];
+  kind: typeof customerBiteSaverMenuKinds[number];
+  document: CustomerBiteSaverStoredDocument;
+}): CustomerBiteSaverMenuEntry | null {
+  const key = menuEntryKey({
+    context: value.context,
+    relationshipFingerprint: value.relationshipFingerprint,
+    kind: value.kind,
+    documentId: value.document.id,
+  });
+  const sortOrder = menuSortOrder(value.document.data.sortOrder);
+  if (sortOrder === null) return null;
+  if (value.kind === "menu_images") {
+    const imageUrl = publicMenuImageUrl(
+      value.document.data.imageUrl,
+      value.privateSourceIdentities,
+    );
+    return imageUrl === null
+      ? null
+      : Object.freeze({kind: "image", key, imageUrl, sortOrder});
+  }
+  if (value.kind === "menu_items") {
+    const name = menuText(value.document.data.name, 500);
+    const category = menuText(value.document.data.category, 200);
+    const description = menuText(
+      value.document.data.description ?? "",
+      8_000,
+      true,
+    );
+    const price = menuText(value.document.data.price ?? "", 200, true);
+    return name === null || category === null ||
+        description === null || price === null
+      ? null
+      : Object.freeze({
+          kind: "item",
+          key,
+          name,
+          description,
+          price,
+          category,
+          sortOrder,
+        });
+  }
+  const title = menuText(value.document.data.title, 500);
+  const body = menuText(value.document.data.body, 20_000);
+  return title === null || body === null
+    ? null
+    : Object.freeze({kind: "section", key, title, body, sortOrder});
+}
+
+function validLegacyMenuOwnerRelationship(value: {
+  accountId: string;
+  score: Readonly<Record<string, unknown>>;
+}): boolean {
+  return value.score.isClaimed === true &&
+    exactInternalId(value.score.ownerUserId) === value.accountId;
+}
+
+function validCatalogMenuRelationship(value: {
+  account: Readonly<Record<string, unknown>>;
+  score: Readonly<Record<string, unknown>>;
+  scoreId: string;
+}): boolean {
+  const accountBinding = biteSaverAccountCatalogBindingState(value.account);
+  const scoreBinding = biteScoreCatalogBindingState(value.score);
+  return accountBinding.type === "bound" &&
+    accountBinding.biteScoreCatalogRestaurantId === value.scoreId &&
+    scoreBinding.type === "bound" &&
+    scoreBinding.biteSaverCatalogBindingId ===
+      accountBinding.biteSaverCatalogBindingId;
+}
+
+async function resolveCustomerBiteSaverMenuSource(value: {
+  context: CustomerBiteSaverSessionContext;
+  session: CustomerBiteSaverSessionDocument;
+  result: CustomerBiteSaverResultDocument;
+  nowMs: number;
+}): Promise<ResolvedCustomerBiteSaverMenuSource> {
+  const accountDocument = await value.context.database.getDocument(
+    `restaurant_accounts/${value.result.authoritativeAccountId}`,
+  );
+  const parent = currentParentFromRaw({
+    result: value.result,
+    rawDocument: accountDocument,
+    session: value.session,
+    identityKeyV1: requireCustomerBiteSaverIdentityKey(value.context),
+    now: new Date(value.nowMs),
+  });
+  if (parent === null) return menuRelationshipChanged();
+
+  const sourceSide = menuText(parent.raw.menuSourceSide, 50);
+  if (sourceSide !== "biteScore") {
+    return Object.freeze({
+      state: "available",
+      style: "biteSaver",
+      collectionRoot:
+        `restaurant_accounts/${value.result.authoritativeAccountId}`,
+      relationshipFingerprint: createQueryFingerprint({
+        purpose: "customerBiteSaverMenuRelationship",
+        source: "biteSaver",
+        authoritativeAccountId: value.result.authoritativeAccountId,
+      }),
+      privateSourceIdentities: Object.freeze([
+        value.result.authoritativeAccountId,
+      ]),
+    });
+  }
+
+  const scoreId = menuDocumentId(parent.raw.linkedBiteScoreRestaurantId);
+  if (scoreId === null) return menuRelationshipChanged();
+  const scoreDocument = await value.context.database.getDocument(
+    `bitescore_restaurants/${scoreId}`,
+  );
+  const score = scoreDocument?.data;
+  if (
+    score === undefined ||
+    !biteScoreRestaurantIsActive(score) ||
+    score.menuSourceSide === "biteSaver" ||
+    (score.menuSourceSide !== undefined &&
+      score.menuSourceSide !== "biteScore") ||
+    (!validCatalogMenuRelationship({
+      account: parent.raw,
+      score,
+      scoreId,
+    }) && !validLegacyMenuOwnerRelationship({
+      accountId: value.result.authoritativeAccountId,
+      score,
+    }))
+  ) {
+    return menuRelationshipChanged();
+  }
+  const ownerUserId = exactInternalId(score.ownerUserId);
+  if (score.isClaimed !== true || ownerUserId === null) {
+    return menuRelationshipChanged();
+  }
+  const sharedMenuId = menuDocumentId(score.sharedMenuId);
+  const baseFingerprint = {
+    purpose: "customerBiteSaverMenuRelationship",
+    source: "biteScore",
+    authoritativeAccountId: value.result.authoritativeAccountId,
+    linkedBiteScoreRestaurantId: scoreId,
+    scoreMenuSourceSide: score.menuSourceSide ?? "biteScore",
+    scoreOwnerUserId: ownerUserId,
+    scoreRestaurantWriteRevision: score.restaurantWriteRevision ?? null,
+    scoreBinding: score.biteSaverCatalogBindingId ?? null,
+    accountBinding: parent.raw.biteSaverCatalogBindingId ?? null,
+  };
+  if (sharedMenuId === null) {
+    if (score.sharedMenuId !== undefined && score.sharedMenuId !== null) {
+      return menuRelationshipChanged();
+    }
+    return Object.freeze({
+      state: "absent",
+      style: "biteScore",
+      collectionRoot: null,
+      relationshipFingerprint: createQueryFingerprint({
+        ...baseFingerprint,
+        sharedMenuId: null,
+      }),
+      privateSourceIdentities: Object.freeze([
+        value.result.authoritativeAccountId,
+        scoreId,
+        ownerUserId,
+      ]),
+    });
+  }
+  const menuDocument = await value.context.database.getDocument(
+    `restaurant_menus/${sharedMenuId}`,
+  );
+  if (
+    menuDocument === null ||
+    menuDocumentId(menuDocument.data.bitescoreRestaurantId) !== scoreId ||
+    exactInternalId(menuDocument.data.createdByUserId) !== ownerUserId
+  ) {
+    return menuRelationshipChanged();
+  }
+  return Object.freeze({
+    state: "available",
+    style: "biteScore",
+    collectionRoot: `restaurant_menus/${sharedMenuId}`,
+    relationshipFingerprint: createQueryFingerprint({
+      ...baseFingerprint,
+      sharedMenuId,
+      sharedMenuRestaurantId: scoreId,
+      sharedMenuOwnerUserId: ownerUserId,
+    }),
+    privateSourceIdentities: Object.freeze([
+      value.result.authoritativeAccountId,
+      scoreId,
+      sharedMenuId,
+      ownerUserId,
+    ]),
+  });
+}
+
+function menuSessionAuthorityChanged(value: {
+  initial: CustomerBiteSaverSessionDocument;
+  current: CustomerBiteSaverSessionDocument;
+}): never | void {
+  if (
+    value.current.sessionId !== value.initial.sessionId ||
+    value.current.attemptGeneration !== value.initial.attemptGeneration ||
+    value.current.criteriaFingerprint !== value.initial.criteriaFingerprint ||
+    value.current.queryFingerprint !== value.initial.queryFingerprint ||
+    value.current.callerBindingHash !== value.initial.callerBindingHash ||
+    value.current.capabilityHash !== value.initial.capabilityHash ||
+    value.current.state !== value.initial.state ||
+    value.current.phase !== value.initial.phase ||
+    value.current.logicalExpiresAt.getTime() !==
+      value.initial.logicalExpiresAt.getTime() ||
+    value.current.absoluteExpiresAt.getTime() !==
+      value.initial.absoluteExpiresAt.getTime()
+  ) {
+    throw new CustomerBiteSaverContractError(
+      "failed-precondition",
+      "The BiteSaver search changed. Start a fresh search.",
+    );
+  }
+}
+
+function menuAuthorizationExpired(): never {
+  throw new CustomerBiteSaverContractError(
+    "failed-precondition",
+    "The BiteSaver search expired. Start a fresh search.",
+  );
+}
+
+async function revalidateCustomerBiteSaverMenuCompletion(value: {
+  context: CustomerBiteSaverSessionContext;
+  request: CustomerBiteSaverMenuRequest;
+  initialSession: CustomerBiteSaverSessionDocument;
+  result: CustomerBiteSaverResultDocument;
+  initialSource: ResolvedCustomerBiteSaverMenuSource;
+  authorizationDeadlineMs: number;
+}): Promise<number> {
+  const finalSource = await resolveCustomerBiteSaverMenuSource({
+    context: value.context,
+    session: value.initialSession,
+    result: value.result,
+    nowMs: contextNow(value.context),
+  });
+  const sessionReadAtMs = contextNow(value.context);
+  const currentSession = await readAuthorizedSession(
+    value.request,
+    value.context,
+    sessionReadAtMs,
+  );
+  menuSessionAuthorityChanged({
+    initial: value.initialSession,
+    current: currentSession,
+  });
+  const completedAtMs = contextNow(value.context);
+  if (completedAtMs >= value.authorizationDeadlineMs) {
+    return menuAuthorizationExpired();
+  }
+  if (
+    finalSource.state !== value.initialSource.state ||
+    finalSource.collectionRoot !== value.initialSource.collectionRoot ||
+    finalSource.relationshipFingerprint !==
+      value.initialSource.relationshipFingerprint
+  ) {
+    return menuRelationshipChanged();
+  }
+  return completedAtMs;
+}
+
+function menuCursorBoundary(
+  payload: CustomerBiteSaverCursorPayload | null,
+): Readonly<{phase: number; afterId: string | null}> {
+  if (payload === null) return Object.freeze({phase: 0, afterId: null});
+  if (
+    payload.sortTuple.length !== 2 ||
+    typeof payload.sortTuple[0] !== "number" ||
+    !Number.isInteger(payload.sortTuple[0]) ||
+    payload.sortTuple[0] < 0 ||
+    payload.sortTuple[0] >= customerBiteSaverMenuKinds.length ||
+    (payload.sortTuple[1] !== null &&
+      menuDocumentId(payload.sortTuple[1]) === null)
+  ) {
+    throw new CustomerBiteSaverContractError(
+      "invalid-argument",
+      "The BiteSaver menu cursor is invalid or expired.",
+    );
+  }
+  return Object.freeze({
+    phase: payload.sortTuple[0],
+    afterId: payload.sortTuple[1] as string | null,
+  });
+}
+
+export async function getCustomerBiteSaverMenuPageHandler(
+  rawRequest: unknown,
+  context: CustomerBiteSaverSessionContext,
+): Promise<CustomerBiteSaverMenuPageResult> {
+  const request = parseCustomerBiteSaverMenuPageRequest(rawRequest);
+  const nowMs = context.now?.() ?? Date.now();
+  const cursorCodec = new CustomerBiteSaverCursorCodec({
+    key: context.discoveryKey,
+    now: context.now,
+  });
+  const openedCursor = request.cursor === null
+    ? null
+    : cursorCodec.open(request.cursor);
+  if (openedCursor !== null) {
+    preflightPageCursorForRequest({
+      payload: openedCursor,
+      request,
+      context,
+      purpose: "menuPage",
+      restaurantPublicId: request.restaurantId,
+      guestStateFingerprint: customerBiteSaverMenuCursorFingerprint,
+    });
+  }
+  const session = await readAuthorizedSession(request, context, nowMs);
+  if (session.state !== "ready" || session.phase !== "ready") {
+    throw new CustomerBiteSaverContractError(
+      "failed-precondition",
+      "The BiteSaver search is not ready.",
+    );
+  }
+  const deliveryDocumentId = deliveredRestaurantIdentityDocumentId({
+    context,
+    session,
+    publicRestaurantId: request.restaurantId,
+  });
+  const resultDocumentId = customerBiteSaverResultDocumentId(
+    context.discoveryKey,
+    session.sessionId,
+    session.attemptGeneration,
+    request.restaurantId,
+  );
+  const [deliveryDocument, resultDocument] =
+    await context.database.getDocuments([
+      path(privateCustomerBiteSaverCandidateCollection, deliveryDocumentId),
+      path(privateCustomerBiteSaverResultCollection, resultDocumentId),
+    ]);
+  const delivered = parseDeliveredRestaurantIdentity({
+    document: deliveryDocument ?? null,
+    context,
+    session,
+    publicRestaurantId: request.restaurantId,
+    nowMs,
+  });
+  const result = parseResultDocument(
+    resultDocument ?? null,
+    session,
+    context.discoveryKey,
+    requireCustomerBiteSaverIdentityKey(context),
+  );
+  if (
+    delivered === null ||
+    result === null ||
+    delivered.authoritativeAccountId !== result.authoritativeAccountId ||
+    result.publicRestaurantId !== request.restaurantId
+  ) {
+    throw new CustomerBiteSaverContractError(
+      "permission-denied",
+      "This restaurant was not delivered by the current search.",
+    );
+  }
+
+  const authorizationDeadlineMs = Math.min(
+    session.logicalExpiresAt.getTime(),
+    session.absoluteExpiresAt.getTime(),
+    openedCursor?.expiresAtMs ?? Number.MAX_SAFE_INTEGER,
+  );
+  if (nowMs >= authorizationDeadlineMs) return menuAuthorizationExpired();
+
+  const source = await resolveCustomerBiteSaverMenuSource({
+    context,
+    session,
+    result,
+    nowMs,
+  });
+  if (openedCursor !== null &&
+      openedCursor.offerCatalogFingerprint !==
+        source.relationshipFingerprint) {
+    return menuRelationshipChanged();
+  }
+  if (source.state === "absent") {
+    if (openedCursor !== null) return menuRelationshipChanged();
+    await revalidateCustomerBiteSaverMenuCompletion({
+      context,
+      request,
+      initialSession: session,
+      result,
+      initialSource: source,
+      authorizationDeadlineMs,
+    });
+    return Object.freeze({
+      schemaVersion: customerBiteSaverSearchSchemaVersion,
+      state: "absent",
+      attemptGeneration: session.attemptGeneration,
+      queryFingerprint: session.queryFingerprint,
+      restaurantId: request.restaurantId,
+      menuStyle: source.style,
+      entries: Object.freeze([]),
+      nextCursor: null,
+      hasMore: false,
+    });
+  }
+  if (source.collectionRoot === null) return menuRelationshipChanged();
+  const pageGenerationFingerprint = createQueryFingerprint({
+    purpose: "customerBiteSaverMenuPageGeneration",
+    sessionId: session.sessionId,
+    attemptGeneration: session.attemptGeneration,
+    queryFingerprint: session.queryFingerprint,
+    restaurantId: request.restaurantId,
+    relationshipFingerprint: source.relationshipFingerprint,
+  });
+  const availabilityAtMs = openedCursor?.availabilityAtMs ?? nowMs;
+  const decodedCursor = openedCursor === null
+    ? null
+    : cursorCodec.decode(request.cursor, {
+        purpose: "menuPage",
+        sessionId: session.sessionId,
+        attemptGeneration: session.attemptGeneration,
+        queryFingerprint: session.queryFingerprint,
+        pageGenerationFingerprint,
+        callerCapabilityBinding: callerCapabilityBindingFor(context, session),
+        restaurantPublicId: request.restaurantId,
+        matchingMode: null,
+        availabilityAtMs,
+        timeZone: session.criteria.timeZone,
+        utcOffsetMinutes: session.criteria.utcOffsetMinutes,
+        guestStateFingerprint: customerBiteSaverMenuCursorFingerprint,
+        usageGeneration: source.relationshipFingerprint,
+        offerCatalogFingerprint: source.relationshipFingerprint,
+      });
+  const boundary = menuCursorBoundary(decodedCursor);
+  let phase = boundary.phase;
+  let afterId = boundary.afterId;
+  let candidatesConsumed = 0;
+  let candidateSourceBytesConsumed = 0;
+  const entries: CustomerBiteSaverMenuEntry[] = [];
+  let hasMore = false;
+
+  while (
+    phase < customerBiteSaverMenuKinds.length &&
+    candidatesConsumed < customerBiteSaverMenuCandidateBudget &&
+    candidateSourceBytesConsumed < customerBiteSaverMenuCandidateByteBudget
+  ) {
+    const queryLimit = Math.min(
+      customerBiteSaverMenuPageSize + 1,
+      customerBiteSaverMenuCandidateBudget - candidatesConsumed,
+    );
+    const documents = await context.database.queryDocuments({
+      collectionPath:
+        `${source.collectionRoot}/${customerBiteSaverMenuKinds[phase]}`,
+      filters: Object.freeze([]),
+      orders: Object.freeze([{field: "__name__", direction: "asc"}]),
+      ...(afterId === null ? {} : {startAfter: Object.freeze([afterId])}),
+      limit: queryLimit,
+    });
+    if (documents.length === 0) {
+      phase += 1;
+      afterId = null;
+      continue;
+    }
+    for (const document of documents) {
+      if (
+        candidatesConsumed >= customerBiteSaverMenuCandidateBudget ||
+        candidateSourceBytesConsumed >=
+          customerBiteSaverMenuCandidateByteBudget
+      ) {
+        hasMore = true;
+        break;
+      }
+      candidatesConsumed += 1;
+      candidateSourceBytesConsumed += menuCandidateBytes(document);
+      const entry = publicMenuEntry({
+        context,
+        relationshipFingerprint: source.relationshipFingerprint,
+        privateSourceIdentities: source.privateSourceIdentities,
+        kind: customerBiteSaverMenuKinds[phase],
+        document,
+      });
+      if (
+        candidateSourceBytesConsumed >=
+          customerBiteSaverMenuCandidateByteBudget
+      ) {
+        if (entry === null) {
+          afterId = document.id;
+        } else if (entries.length < customerBiteSaverMenuPageSize) {
+          entries.push(entry);
+          afterId = document.id;
+        }
+        hasMore = true;
+        break;
+      }
+      if (entries.length >= customerBiteSaverMenuPageSize) {
+        if (entry !== null) {
+          hasMore = true;
+          break;
+        }
+        afterId = document.id;
+        continue;
+      }
+      afterId = document.id;
+      if (entry !== null) entries.push(entry);
+    }
+    if (hasMore) break;
+    if (
+      candidatesConsumed >= customerBiteSaverMenuCandidateBudget ||
+      candidateSourceBytesConsumed >=
+        customerBiteSaverMenuCandidateByteBudget
+    ) {
+      hasMore = true;
+      break;
+    }
+    if (documents.length < queryLimit) {
+      phase += 1;
+      afterId = null;
+    }
+  }
+
+  const completedAtMs = await revalidateCustomerBiteSaverMenuCompletion({
+    context,
+    request,
+    initialSession: session,
+    result,
+    initialSource: source,
+    authorizationDeadlineMs,
+  });
+  const responseCursorCodec = new CustomerBiteSaverCursorCodec({
+    key: context.discoveryKey,
+    now: () => completedAtMs,
+  });
+  const nextCursor = hasMore
+    ? responseCursorCodec.encode({
+        purpose: "menuPage",
+        sessionId: session.sessionId,
+        attemptGeneration: session.attemptGeneration,
+        queryFingerprint: session.queryFingerprint,
+        pageGenerationFingerprint,
+        callerCapabilityBinding: callerCapabilityBindingFor(context, session),
+        sortTuple: Object.freeze([phase, afterId]),
+        restaurantPublicId: request.restaurantId,
+        matchingMode: null,
+        availabilityAtMs,
+        timeZone: session.criteria.timeZone,
+        utcOffsetMinutes: session.criteria.utcOffsetMinutes,
+        guestStateFingerprint: customerBiteSaverMenuCursorFingerprint,
+        usageGeneration: source.relationshipFingerprint,
+        offerCatalogFingerprint: source.relationshipFingerprint,
+        lifetimeMilliseconds: authorizationDeadlineMs - completedAtMs,
+      })
+    : null;
+  return Object.freeze({
+    schemaVersion: customerBiteSaverSearchSchemaVersion,
+    state: "available",
+    attemptGeneration: session.attemptGeneration,
+    queryFingerprint: session.queryFingerprint,
+    restaurantId: request.restaurantId,
+    menuStyle: source.style,
+    entries: Object.freeze(entries),
+    nextCursor,
+    hasMore: nextCursor !== null,
   });
 }
 

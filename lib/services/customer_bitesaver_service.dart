@@ -90,7 +90,14 @@ abstract interface class CustomerBiteSaverApi {
   );
 }
 
-final class CustomerBiteSaverService implements CustomerBiteSaverApi {
+abstract interface class CustomerBiteSaverMenuApi {
+  Future<CustomerBiteSaverMenuPageResult> getCustomerBiteSaverMenuPage(
+    CustomerBiteSaverMenuPageRequest request,
+  );
+}
+
+final class CustomerBiteSaverService
+    implements CustomerBiteSaverApi, CustomerBiteSaverMenuApi {
   CustomerBiteSaverService({CustomerBiteSaverCallableTransport? transport})
     : _transport = transport ?? _firebaseTransport;
 
@@ -100,6 +107,7 @@ final class CustomerBiteSaverService implements CustomerBiteSaverApi {
   static const String restaurantPageCallableName =
       'getCustomerBiteSaverSearchPage';
   static const String offerPageCallableName = 'getCustomerBiteSaverOfferPage';
+  static const String menuPageCallableName = 'getCustomerBiteSaverMenuPage';
   static const String guestContinuationCallableName =
       'continueCustomerBiteSaverGuestOfferCheck';
   static const String favoriteStatesCallableName =
@@ -181,6 +189,26 @@ final class CustomerBiteSaverService implements CustomerBiteSaverApi {
       _invalidResponse();
     }
     return response;
+  }
+
+  @override
+  Future<CustomerBiteSaverMenuPageResult> getCustomerBiteSaverMenuPage(
+    CustomerBiteSaverMenuPageRequest request,
+  ) async {
+    final result = await _invoke(
+      menuPageCallableName,
+      request.toJson(),
+      CustomerBiteSaverMenuPageResult.fromJson,
+    );
+    if (result.restaurantId != request.restaurantId ||
+        (request.binding.attemptGeneration != null &&
+            result.attemptGeneration != request.binding.attemptGeneration) ||
+        (request.binding.queryFingerprint != null &&
+            result.queryFingerprint != request.binding.queryFingerprint) ||
+        (request.cursor != null && result.nextCursor == request.cursor)) {
+      _invalidResponse();
+    }
+    return result;
   }
 
   @override

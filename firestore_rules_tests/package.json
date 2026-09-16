@@ -3,7 +3,7 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "test": "firebase --config ../firebase.json emulators:exec --only firestore --project demo-coupon-app-rules \"node --test test/*.test.js\""
+    "test": "firebase --config ../firebase.json emulators:exec --only firestore,storage --project demo-coupon-app-rules \"node --test --test-concurrency=1 test/*.test.js\""
   },
   "devDependencies": {
     "@firebase/rules-unit-testing": "^5.0.1",

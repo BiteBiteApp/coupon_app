@@ -599,6 +599,221 @@ void main() {
       expect(ownerARetrievalCalls, 0);
     });
   });
+
+  group('authorized menu image upload', () {
+    for (final fixture in <({String sourceType, String sourceId, bool shared})>[
+      (
+        sourceType: 'biteSaver',
+        sourceId: 'private-owner-canary',
+        shared: false,
+      ),
+      (
+        sourceType: 'sharedMenu',
+        sourceId: 'private-shared-menu-canary',
+        shared: true,
+      ),
+    ]) {
+      test(
+        '${fixture.sourceType} uses only the server-issued safe path',
+        () async {
+          final authorizationId = 'bsmia_${List.filled(43, 'A').join()}';
+          final expectedPath = 'public_menu_images/$authorizationId/image.webp';
+          String? issuedSourceType;
+          String? issuedSourceId;
+          String? issuedExtension;
+          String? uploadedPath;
+          Uint8List? uploadedBytes;
+          String? uploadedContentType;
+          final dependencies = BiteSaverMenuImageUploadDependencies(
+            pickImage: () async =>
+                BiteSaverPickedImage(fileName: 'picked.webp', bytes: _bytes),
+            issueAuthorization:
+                ({
+                  required sourceType,
+                  required sourceId,
+                  required fileExtension,
+                }) async {
+                  issuedSourceType = sourceType;
+                  issuedSourceId = sourceId;
+                  issuedExtension = fileExtension;
+                  return <String, Object?>{
+                    'schemaVersion': 1,
+                    'objectPath': expectedPath,
+                  };
+                },
+            writeStorageObject:
+                ({
+                  required objectPath,
+                  required bytes,
+                  required contentType,
+                }) async {
+                  uploadedPath = objectPath;
+                  uploadedBytes = bytes;
+                  uploadedContentType = contentType;
+                  return BiteSaverImageUploadResult(
+                    imageUrl:
+                        'https://firebasestorage.googleapis.com/v0/b/app/o/'
+                        '${Uri.encodeComponent(objectPath)}?alt=media&token=safe',
+                    storagePath: objectPath,
+                  );
+                },
+          );
+
+          final result = fixture.shared
+              ? await BiteSaverImageUploadService.pickAndUploadSharedMenuImage(
+                  menuId: fixture.sourceId,
+                  dependencies: dependencies,
+                )
+              : await BiteSaverImageUploadService.pickAndUploadMenuImage(
+                  uid: fixture.sourceId,
+                  dependencies: dependencies,
+                );
+
+          expect(issuedSourceType, fixture.sourceType);
+          expect(issuedSourceId, fixture.sourceId);
+          expect(issuedExtension, 'webp');
+          expect(uploadedPath, expectedPath);
+          expect(uploadedPath, isNot(contains(fixture.sourceId)));
+          expect(uploadedBytes, same(_bytes));
+          expect(uploadedContentType, 'image/webp');
+          expect(result?.storagePath, expectedPath);
+          expect(result?.imageUrl, isNot(contains(fixture.sourceId)));
+        },
+      );
+    }
+
+    test(
+      'picker cancellation does not issue authorization or upload',
+      () async {
+        var issueCalls = 0;
+        var uploadCalls = 0;
+        final result = await BiteSaverImageUploadService.pickAndUploadMenuImage(
+          uid: 'owner-a',
+          dependencies: BiteSaverMenuImageUploadDependencies(
+            pickImage: () async => null,
+            issueAuthorization:
+                ({
+                  required sourceType,
+                  required sourceId,
+                  required fileExtension,
+                }) async {
+                  issueCalls += 1;
+                  return null;
+                },
+            writeStorageObject:
+                ({
+                  required objectPath,
+                  required bytes,
+                  required contentType,
+                }) async {
+                  uploadCalls += 1;
+                  return BiteSaverImageUploadResult(
+                    imageUrl: _urlA,
+                    storagePath: objectPath,
+                  );
+                },
+          ),
+        );
+
+        expect(result, isNull);
+        expect(issueCalls, 0);
+        expect(uploadCalls, 0);
+      },
+    );
+
+    test(
+      'malformed or source-shaped issued paths fail before upload',
+      () async {
+        final safeId = 'bsmia_${List.filled(43, 'B').join()}';
+        final invalidAuthorizations = <Object?>[
+          null,
+          <String, Object?>{
+            'schemaVersion': 1,
+            'objectPath': 'public_menu_images/$safeId/image.png',
+            'extra': true,
+          },
+          <String, Object?>{
+            'schemaVersion': 1,
+            'objectPath':
+                'bitesaver_restaurants/private-owner/menu_images/menu.jpg',
+          },
+          <String, Object?>{
+            'schemaVersion': 1,
+            'objectPath': 'public_menu_images/bsmia_short/image.jpg',
+          },
+          <String, Object?>{
+            'schemaVersion': 1,
+            'objectPath': 'public_menu_images/$safeId/image.webp',
+          },
+        ];
+
+        for (final authorization in invalidAuthorizations) {
+          var uploadCalls = 0;
+          await expectLater(
+            BiteSaverImageUploadService.pickAndUploadMenuImage(
+              uid: 'private-owner',
+              dependencies: BiteSaverMenuImageUploadDependencies(
+                pickImage: () async =>
+                    BiteSaverPickedImage(fileName: 'picked.jpg', bytes: _bytes),
+                issueAuthorization:
+                    ({
+                      required sourceType,
+                      required sourceId,
+                      required fileExtension,
+                    }) async => authorization,
+                writeStorageObject:
+                    ({
+                      required objectPath,
+                      required bytes,
+                      required contentType,
+                    }) async {
+                      uploadCalls += 1;
+                      return BiteSaverImageUploadResult(
+                        imageUrl: _urlA,
+                        storagePath: objectPath,
+                      );
+                    },
+              ),
+            ),
+            throwsFormatException,
+          );
+          expect(uploadCalls, 0);
+        }
+      },
+    );
+
+    test('upload receipt must retain the exact authorized path', () async {
+      final safeId = 'bsmia_${List.filled(43, 'C').join()}';
+      await expectLater(
+        BiteSaverImageUploadService.pickAndUploadSharedMenuImage(
+          menuId: 'private-menu',
+          dependencies: BiteSaverMenuImageUploadDependencies(
+            pickImage: () async =>
+                BiteSaverPickedImage(fileName: 'picked.png', bytes: _bytes),
+            issueAuthorization:
+                ({
+                  required sourceType,
+                  required sourceId,
+                  required fileExtension,
+                }) async => <String, Object?>{
+                  'schemaVersion': 1,
+                  'objectPath': 'public_menu_images/$safeId/image.png',
+                },
+            writeStorageObject:
+                ({
+                  required objectPath,
+                  required bytes,
+                  required contentType,
+                }) async => BiteSaverImageUploadResult(
+                  imageUrl: _urlA,
+                  storagePath: '$objectPath-tampered',
+                ),
+          ),
+        ),
+        throwsFormatException,
+      );
+    });
+  });
 }
 
 final Uint8List _bytes = Uint8List.fromList(<int>[1, 3, 5, 7]);

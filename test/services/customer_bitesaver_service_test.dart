@@ -111,6 +111,42 @@ void main() {
     );
   }
 
+  CustomerBiteSaverMenuPageRequest menuPageRequest() {
+    final restaurantId =
+        _map(signedRequests['offerPage'])['restaurantId']! as String;
+    return CustomerBiteSaverMenuPageRequest(
+      clientRequestId: 'menu-page-request-00001',
+      binding: signedBinding,
+      restaurantId: CustomerBiteSaverRestaurantId(restaurantId),
+      cursor: null,
+    );
+  }
+
+  Map<String, Object?> menuPageResponse() {
+    final request = menuPageRequest();
+    return <String, Object?>{
+      'schemaVersion': 1,
+      'state': 'available',
+      'attemptGeneration': signedBinding.attemptGeneration,
+      'queryFingerprint': signedBinding.queryFingerprint,
+      'restaurantId': request.restaurantId.value,
+      'menuStyle': 'biteSaver',
+      'entries': <Map<String, Object?>>[
+        <String, Object?>{
+          'kind': 'item',
+          'key': 'bsme_${'m' * 43}',
+          'name': 'Fixture item',
+          'description': 'Fixture description',
+          'price': 'Market price',
+          'category': 'Dinner',
+          'sortOrder': 4,
+        },
+      ],
+      'nextCursor': null,
+      'hasMore': false,
+    };
+  }
+
   CustomerBiteSaverGuestContinuationRequest continuationRequest() {
     final json = _map(guestRequests['restaurantContinuation']);
     return CustomerBiteSaverGuestContinuationRequest(
@@ -170,7 +206,7 @@ void main() {
   }
 
   test(
-    'all eight methods use exact callable names and request payloads',
+    'all nine methods use exact callable names and request payloads',
     () async {
       final calls = <_Invocation>[];
       final responses = <String, Object?>{
@@ -182,6 +218,7 @@ void main() {
             signedResponses['restaurantPage'],
         CustomerBiteSaverService.offerPageCallableName:
             signedResponses['offerPage'],
+        CustomerBiteSaverService.menuPageCallableName: menuPageResponse(),
         CustomerBiteSaverService.guestContinuationCallableName:
             guestResponses['restaurantComplete'],
         CustomerBiteSaverService.favoriteStatesCallableName:
@@ -219,6 +256,10 @@ void main() {
         >(),
       );
       expect(
+        await service.getCustomerBiteSaverMenuPage(menuPageRequest()),
+        isA<CustomerBiteSaverMenuPageResult>(),
+      );
+      expect(
         await service.continueCustomerBiteSaverGuestOfferCheck(
           continuationRequest(),
         ),
@@ -251,6 +292,7 @@ void main() {
         CustomerBiteSaverService.statusCallableName,
         CustomerBiteSaverService.restaurantPageCallableName,
         CustomerBiteSaverService.offerPageCallableName,
+        CustomerBiteSaverService.menuPageCallableName,
         CustomerBiteSaverService.guestContinuationCallableName,
         CustomerBiteSaverService.favoriteStatesCallableName,
         CustomerBiteSaverService.redemptionValidationCallableName,
@@ -260,10 +302,11 @@ void main() {
       expect(calls[1].request, signedRequests['status']);
       expect(calls[2].request, signedRequests['restaurantPage']);
       expect(calls[3].request, signedRequests['offerPage']);
-      expect(calls[4].request, guestRequests['restaurantContinuation']);
-      expect(calls[5].request, signedRequests['favoriteStates']);
-      expect(calls[6].request, signedRequests['redemptionValidation']);
-      expect(calls[7].request, signedRequests['redemptionStart']);
+      expect(calls[4].request, menuPageRequest().toJson());
+      expect(calls[5].request, guestRequests['restaurantContinuation']);
+      expect(calls[6].request, signedRequests['favoriteStates']);
+      expect(calls[7].request, signedRequests['redemptionValidation']);
+      expect(calls[8].request, signedRequests['redemptionStart']);
     },
   );
 
@@ -452,6 +495,34 @@ void main() {
       );
     },
   );
+
+  test('menu continuation must advance its protected cursor', () async {
+    const cursor = 'bsc1.fixture_menu_input';
+    final base = menuPageRequest();
+    final request = CustomerBiteSaverMenuPageRequest(
+      clientRequestId: 'menu-page-request-00002',
+      binding: signedBinding,
+      restaurantId: base.restaurantId,
+      cursor: cursor,
+    );
+    final response = menuPageResponse()
+      ..['nextCursor'] = cursor
+      ..['hasMore'] = true;
+    final service = CustomerBiteSaverService(
+      transport: (_, _) async => response,
+    );
+
+    await expectLater(
+      service.getCustomerBiteSaverMenuPage(request),
+      throwsA(
+        isA<CustomerBiteSaverServiceException>().having(
+          (error) => error.kind,
+          'kind',
+          CustomerBiteSaverServiceFailureKind.invalidResponse,
+        ),
+      ),
+    );
+  });
 
   test(
     'offer, validation, and redemption identities match their requests',

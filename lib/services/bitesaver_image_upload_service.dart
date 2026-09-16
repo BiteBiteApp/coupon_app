@@ -1,5 +1,6 @@
 import 'dart:ui' as ui;
 
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:flutter/foundation.dart';
 import 'package:image_picker/image_picker.dart';
@@ -45,6 +46,31 @@ typedef BiteSaverRestaurantImageStorageWriter =
       required Uint8List bytes,
       required String contentType,
     });
+
+typedef BiteSaverMenuImagePicker = Future<BiteSaverPickedImage?> Function();
+
+typedef BiteSaverMenuImageAuthorizationIssuer =
+    Future<Object?> Function({
+      required String sourceType,
+      required String sourceId,
+      required String fileExtension,
+    });
+
+typedef BiteSaverMenuImageStorageObjectDeleter =
+    Future<void> Function(String objectPath);
+
+@visibleForTesting
+final class BiteSaverMenuImageUploadDependencies {
+  final BiteSaverMenuImagePicker pickImage;
+  final BiteSaverMenuImageAuthorizationIssuer issueAuthorization;
+  final BiteSaverRestaurantImageStorageWriter writeStorageObject;
+
+  const BiteSaverMenuImageUploadDependencies({
+    required this.pickImage,
+    required this.issueAuthorization,
+    required this.writeStorageObject,
+  });
+}
 
 sealed class BiteSaverCouponImageUploadResult {
   const BiteSaverCouponImageUploadResult();
@@ -142,6 +168,9 @@ final class BiteSaverCouponImageUploadDependencies {
 class BiteSaverImageUploadService {
   static final ImagePicker _picker = ImagePicker();
   static final FirebaseStorage _storage = FirebaseStorage.instance;
+  static final RegExp _authorizedMenuImageObjectPathPattern = RegExp(
+    r'^public_menu_images/bsmia_[A-Za-z0-9_-]{43}/image\.(jpg|png|webp)$',
+  );
 
   static Future<BiteSaverPickedImage?> pickRestaurantImage({
     bool Function()? isCurrent,
@@ -425,47 +454,93 @@ class BiteSaverImageUploadService {
     return BiteSaverCouponImageUploadResult.completed(imageUrl);
   }
 
-  static Future<String?> pickAndUploadMenuImage({required String uid}) async {
-    return _pickAndUpload(
-      storagePath: 'bitesaver_restaurants/${_safePathSegment(uid)}/menu_images',
-      filePrefix: 'menu',
+  static Future<BiteSaverImageUploadResult?> pickAndUploadMenuImage({
+    required String uid,
+    BiteSaverMenuImageUploadDependencies? dependencies,
+  }) async {
+    return _pickAndUploadAuthorizedMenuImage(
+      sourceType: 'biteSaver',
+      sourceId: uid,
+      dependencies: dependencies,
     );
   }
 
   static Future<BiteSaverImageUploadResult?> pickAndUploadSharedMenuImage({
     required String menuId,
+    BiteSaverMenuImageUploadDependencies? dependencies,
   }) async {
-    return _pickAndUploadResult(
-      storagePath: 'restaurant_menus/${_safePathSegment(menuId)}/menu_images',
-      filePrefix: 'menu',
+    return _pickAndUploadAuthorizedMenuImage(
+      sourceType: 'sharedMenu',
+      sourceId: menuId,
+      dependencies: dependencies,
     );
   }
 
-  static Future<String?> _pickAndUpload({
-    required String storagePath,
-    required String filePrefix,
-  }) async {
-    final result = await _pickAndUploadResult(
-      storagePath: storagePath,
-      filePrefix: filePrefix,
-    );
-    return result?.imageUrl;
+  static bool isAuthorizedMenuImageStoragePath(String? objectPath) {
+    final canonicalPath = objectPath?.trim();
+    return canonicalPath != null &&
+        canonicalPath == objectPath &&
+        _authorizedMenuImageObjectPathPattern.hasMatch(canonicalPath);
   }
 
-  static Future<BiteSaverImageUploadResult?> _pickAndUploadResult({
-    required String storagePath,
-    required String filePrefix,
+  static Future<void> deleteAuthorizedMenuImageStorageObject({
+    required String objectPath,
+    BiteSaverMenuImageStorageObjectDeleter? storageObjectDeleter,
   }) async {
-    final pickedImage = await _pickImage();
+    if (!isAuthorizedMenuImageStoragePath(objectPath)) {
+      throw const FormatException(
+        'Menu image deletion path was not an authorized safe path.',
+      );
+    }
+    try {
+      if (storageObjectDeleter != null) {
+        await storageObjectDeleter(objectPath);
+      } else {
+        await _storage.ref().child(objectPath).delete();
+      }
+    } on FirebaseException catch (error) {
+      if (error.code == 'object-not-found' ||
+          error.code == 'storage/object-not-found') {
+        return;
+      }
+      rethrow;
+    }
+  }
+
+  static Future<BiteSaverImageUploadResult?> _pickAndUploadAuthorizedMenuImage({
+    required String sourceType,
+    required String sourceId,
+    BiteSaverMenuImageUploadDependencies? dependencies,
+  }) async {
+    final pickedImage = await (dependencies?.pickImage ?? _pickImage)();
     if (pickedImage == null) {
       return null;
     }
 
-    return _uploadPickedImage(
-      storagePath: storagePath,
-      filePrefix: filePrefix,
-      pickedImage: pickedImage,
+    final extension = _extensionFor(pickedImage.fileName);
+    final rawAuthorization =
+        await (dependencies?.issueAuthorization ??
+            _issueMenuImageAuthorization)(
+          sourceType: sourceType,
+          sourceId: sourceId,
+          fileExtension: extension,
+        );
+    final objectPath = _authorizedMenuImageObjectPath(
+      rawAuthorization,
+      expectedExtension: extension,
     );
+    final result =
+        await (dependencies?.writeStorageObject ?? _writeStorageObject)(
+          objectPath: objectPath,
+          bytes: pickedImage.bytes,
+          contentType: _contentTypeFor(pickedImage.fileName),
+        );
+    if (result.storagePath != objectPath) {
+      throw const FormatException(
+        'Menu image upload returned an unexpected storage path.',
+      );
+    }
+    return result;
   }
 
   static Future<BiteSaverPickedImage?> _pickImage({
@@ -487,21 +562,49 @@ class BiteSaverImageUploadService {
     return BiteSaverPickedImage(fileName: image.name, bytes: bytes);
   }
 
-  static Future<BiteSaverImageUploadResult> _uploadPickedImage({
-    required String storagePath,
-    required String filePrefix,
-    required BiteSaverPickedImage pickedImage,
+  static Future<Object?> _issueMenuImageAuthorization({
+    required String sourceType,
+    required String sourceId,
+    required String fileExtension,
   }) async {
-    final contentType = _contentTypeFor(pickedImage.fileName);
-    final extension = _extensionFor(pickedImage.fileName);
-    final timestamp = DateTime.now().microsecondsSinceEpoch;
-    final fullPath =
-        '$storagePath/${_safePathSegment(filePrefix)}_$timestamp.$extension';
-    return _writeStorageObject(
-      objectPath: fullPath,
-      bytes: pickedImage.bytes,
-      contentType: contentType,
+    final callable = FirebaseFunctions.instanceFor(
+      region: 'us-central1',
+    ).httpsCallable('issueMenuImageUploadAuthorization');
+    final result = await callable.call(<String, Object?>{
+      'schemaVersion': 1,
+      'sourceType': sourceType,
+      'sourceId': sourceId,
+      'fileExtension': fileExtension,
+    });
+    return result.data;
+  }
+
+  static String _authorizedMenuImageObjectPath(
+    Object? value, {
+    required String expectedExtension,
+  }) {
+    if (value is! Map ||
+        value.length != 2 ||
+        value['schemaVersion'] != 1 ||
+        value['objectPath'] is! String ||
+        !value.keys.every(
+          (key) => key == 'schemaVersion' || key == 'objectPath',
+        )) {
+      throw const FormatException(
+        'Menu image upload authorization was invalid.',
+      );
+    }
+    final objectPath = value['objectPath'] as String;
+    final pattern = RegExp(
+      '^public_menu_images/bsmia_[A-Za-z0-9_-]{43}/'
+      'image\\.${RegExp.escape(expectedExtension)}\$',
     );
+    if (!pattern.hasMatch(objectPath)) {
+      throw const FormatException(
+        'Menu image upload authorization path was invalid.',
+      );
+    }
+    return objectPath;
   }
 
   static Future<BiteSaverImageUploadResult> _writeStorageObject({

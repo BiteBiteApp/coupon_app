@@ -207,6 +207,62 @@ void main() {
     );
   }
 
+  testWidgets('menu image control sends the exact loaded record to deletion', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(900, 1200);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    const image = RestaurantMenuImage(
+      id: 'control-image',
+      imageUrl: 'https://synthetic.invalid/control-image.jpg',
+      storagePath:
+          'public_menu_images/bsmia_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA/image.jpg',
+      sortOrder: 1,
+    );
+    RestaurantMenuSource? deletedSource;
+    String? deletedImageId;
+    RestaurantMenuImage? deletedExpectedImage;
+    var homeChangeCalls = 0;
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: RestaurantMenuManagementScreen(
+          source: RestaurantMenuSource.sharedMenu('control-menu'),
+          testCurrentUser: _NavigationTestUser(email: 'owner@example.com'),
+          testInitialDataLoader: (user, source) async => (
+            hasPostingAccess: true,
+            images: const <RestaurantMenuImage>[image],
+            items: const <RestaurantMenuItem>[],
+            sections: const <RestaurantMenuSection>[],
+          ),
+          testImageDeleter:
+              ({
+                required source,
+                required imageId,
+                required expectedImage,
+              }) async {
+                deletedSource = source;
+                deletedImageId = imageId;
+                deletedExpectedImage = expectedImage;
+              },
+          onMenuChanged: () => homeChangeCalls += 1,
+        ),
+      ),
+    );
+    await _settleAsync(tester);
+
+    await tester.tap(find.byIcon(Icons.close));
+    await _settleAsync(tester);
+
+    expect(deletedSource?.isSharedMenu, isTrue);
+    expect(deletedSource?.id, 'control-menu');
+    expect(deletedImageId, image.id);
+    expect(deletedExpectedImage, same(image));
+    expect(homeChangeCalls, 1);
+    expect(find.byIcon(Icons.close), findsNothing);
+  });
+
   for (final nextRealm in <String>['signed:owner-b', 'guest']) {
     testWidgets(
       'leaving signed A for $nextRealm retires a real above-shell auth-bound route and private dialog',

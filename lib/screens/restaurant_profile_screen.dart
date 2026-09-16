@@ -112,6 +112,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   bool _isSavingFavoriteRestaurant = false;
   bool _showRestaurantInfo = false;
   bool _isSubmittingReport = false;
+  bool _isOpeningBoundedMenu = false;
   bool _isCustomerRestaurantAvailabilityResolved = false;
   bool _isCustomerRestaurantAvailable = true;
   double _modeDragProgress = 0;
@@ -463,6 +464,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
 
   Future<void> _openMenu(BuildContext context) async {
     if (widget.boundedRestaurant != null) {
+      if (_isOpeningBoundedMenu) return;
       final opener = widget.openBoundedMenu;
       if (opener == null) {
         await _showLaunchError(
@@ -471,7 +473,12 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
         );
         return;
       }
-      await opener(context);
+      setState(() => _isOpeningBoundedMenu = true);
+      try {
+        await opener(context);
+      } finally {
+        if (mounted) setState(() => _isOpeningBoundedMenu = false);
+      }
       return;
     }
     final accountDocumentId = restaurant.accountDocumentId;

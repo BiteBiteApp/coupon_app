@@ -9,6 +9,7 @@ import '../models/bitescore_restaurant.dart';
 import '../models/coupon.dart';
 import '../models/daily_special.dart';
 import '../models/restaurant.dart';
+import 'bitesaver_image_upload_service.dart';
 
 class ResolvedRestaurantAccount {
   final String documentId;
@@ -101,6 +102,86 @@ class RestaurantAccountAdminVisibilityException implements Exception {
 
   @override
   String toString() => message;
+}
+
+String _menuImageDeletionDocumentId(String value, String label) {
+  final documentId = value.trim();
+  if (documentId.isEmpty || documentId.contains('/')) {
+    throw ArgumentError('$label must be one exact document ID.');
+  }
+  return documentId;
+}
+
+final class RestaurantMenuImageDeletionLocation {
+  final String recordPath;
+  final String parentPath;
+
+  const RestaurantMenuImageDeletionLocation._({
+    required this.recordPath,
+    required this.parentPath,
+  });
+
+  factory RestaurantMenuImageDeletionLocation.legacyBiteSaver({
+    required String uid,
+    required String imageId,
+  }) {
+    final accountId = _menuImageDeletionDocumentId(uid, 'Account ID');
+    final recordId = _menuImageDeletionDocumentId(imageId, 'Image ID');
+    final parentPath = 'restaurant_accounts/$accountId';
+    return RestaurantMenuImageDeletionLocation._(
+      recordPath: '$parentPath/menu_images/$recordId',
+      parentPath: parentPath,
+    );
+  }
+
+  factory RestaurantMenuImageDeletionLocation.sharedMenu({
+    required String menuId,
+    required String imageId,
+  }) {
+    final sourceId = _menuImageDeletionDocumentId(menuId, 'Menu ID');
+    final recordId = _menuImageDeletionDocumentId(imageId, 'Image ID');
+    final parentPath = 'restaurant_menus/$sourceId';
+    return RestaurantMenuImageDeletionLocation._(
+      recordPath: '$parentPath/menu_images/$recordId',
+      parentPath: parentPath,
+    );
+  }
+}
+
+enum RestaurantMenuImageRecordDeletionResult { deleted, missing, changed }
+
+class RestaurantMenuImageChangedException implements Exception {
+  const RestaurantMenuImageChangedException();
+
+  @override
+  String toString() =>
+      'The menu image changed before deletion completed. Refresh and retry.';
+}
+
+typedef RestaurantMenuImageDeletionAuthorizer =
+    Future<void> Function(RestaurantMenuImageDeletionLocation location);
+typedef RestaurantMenuImageDeletionRecordLoader =
+    Future<RestaurantMenuImage?> Function(
+      RestaurantMenuImageDeletionLocation location,
+    );
+typedef RestaurantMenuImageConditionalRecordDeleter =
+    Future<RestaurantMenuImageRecordDeletionResult> Function(
+      RestaurantMenuImageDeletionLocation location,
+      RestaurantMenuImage expectedImage,
+    );
+
+final class RestaurantMenuImageDeletionDependencies {
+  final RestaurantMenuImageDeletionAuthorizer authorize;
+  final RestaurantMenuImageDeletionRecordLoader loadRecord;
+  final BiteSaverMenuImageStorageObjectDeleter? deleteStorageObject;
+  final RestaurantMenuImageConditionalRecordDeleter deleteRecordIfUnchanged;
+
+  const RestaurantMenuImageDeletionDependencies({
+    required this.authorize,
+    required this.loadRecord,
+    this.deleteStorageObject,
+    required this.deleteRecordIfUnchanged,
+  });
 }
 
 class RestaurantAccountService {
@@ -1960,6 +2041,7 @@ class RestaurantAccountService {
   static Future<RestaurantMenuImage> saveMenuImage({
     required String uid,
     required String imageUrl,
+    String? storagePath,
   }) async {
     await _ensureCanPostCoupons(uid);
 
@@ -1973,6 +2055,7 @@ class RestaurantAccountService {
     await doc.set({
       RestaurantMenuImage.fieldId: doc.id,
       RestaurantMenuImage.fieldImageUrl: trimmedUrl,
+      RestaurantMenuImage.fieldStoragePath: storagePath?.trim(),
       RestaurantMenuImage.fieldSortOrder: sortOrder,
       RestaurantMenuImage.fieldCreatedAt: FieldValue.serverTimestamp(),
       RestaurantMenuImage.fieldUpdatedAt: FieldValue.serverTimestamp(),
@@ -1985,6 +2068,7 @@ class RestaurantAccountService {
     return RestaurantMenuImage(
       id: doc.id,
       imageUrl: trimmedUrl,
+      storagePath: storagePath?.trim(),
       sortOrder: sortOrder,
     );
   }
@@ -2095,12 +2179,141 @@ class RestaurantAccountService {
   static Future<void> deleteMenuImage({
     required String uid,
     required String imageId,
+    RestaurantMenuImage? expectedImage,
+    RestaurantMenuImageDeletionDependencies? dependencies,
   }) async {
-    await _ensureCanPostCoupons(uid);
-    await menuImagesCollection(uid).doc(imageId.trim()).delete();
-    await docForUser(
-      uid,
-    ).update({Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp()});
+    final location = RestaurantMenuImageDeletionLocation.legacyBiteSaver(
+      uid: uid,
+      imageId: imageId,
+    );
+    await completeMenuImageDeletion(
+      location: location,
+      expectedImage: expectedImage,
+      defaultAuthorize: () => _ensureCanPostCoupons(uid.trim()),
+      dependencies: dependencies,
+    );
+  }
+
+  static Future<void> completeMenuImageDeletion({
+    required RestaurantMenuImageDeletionLocation location,
+    required RestaurantMenuImage? expectedImage,
+    required Future<void> Function() defaultAuthorize,
+    RestaurantMenuImageDeletionDependencies? dependencies,
+  }) async {
+    final effectiveDependencies =
+        dependencies ??
+        RestaurantMenuImageDeletionDependencies(
+          authorize: (_) => defaultAuthorize(),
+          loadRecord: _loadMenuImageDeletionRecord,
+          deleteRecordIfUnchanged: _deleteMenuImageRecordIfUnchanged,
+        );
+    await effectiveDependencies.authorize(location);
+    final storedImage = await effectiveDependencies.loadRecord(location);
+    if (storedImage == null) {
+      return;
+    }
+    if (expectedImage != null &&
+        !_sameMenuImageDeletionTarget(storedImage, expectedImage)) {
+      throw const RestaurantMenuImageChangedException();
+    }
+
+    final storagePath = storedImage.storagePath;
+    if (storagePath != null && storagePath.isNotEmpty) {
+      final isSafePath =
+          BiteSaverImageUploadService.isAuthorizedMenuImageStoragePath(
+            storagePath,
+          );
+      if (!isSafePath && storagePath.trim().startsWith('public_menu_images/')) {
+        throw const FormatException(
+          'The stored menu image path is not a valid safe-format path.',
+        );
+      }
+      if (isSafePath) {
+        await BiteSaverImageUploadService.deleteAuthorizedMenuImageStorageObject(
+          objectPath: storagePath,
+          storageObjectDeleter: effectiveDependencies.deleteStorageObject,
+        );
+      }
+    }
+
+    final result = await effectiveDependencies.deleteRecordIfUnchanged(
+      location,
+      storedImage,
+    );
+    if (result == RestaurantMenuImageRecordDeletionResult.changed) {
+      throw const RestaurantMenuImageChangedException();
+    }
+  }
+
+  static Future<RestaurantMenuImage?> _loadMenuImageDeletionRecord(
+    RestaurantMenuImageDeletionLocation location,
+  ) async {
+    final snapshot = await _firestore.doc(location.recordPath).get();
+    return _menuImageDeletionTargetFromFirestore(
+      snapshot.data(),
+      fallbackId: snapshot.id,
+    );
+  }
+
+  static Future<RestaurantMenuImageRecordDeletionResult>
+  _deleteMenuImageRecordIfUnchanged(
+    RestaurantMenuImageDeletionLocation location,
+    RestaurantMenuImage expectedImage,
+  ) {
+    final recordReference = _firestore.doc(location.recordPath);
+    final parentReference = _firestore.doc(location.parentPath);
+    return _firestore.runTransaction((transaction) async {
+      final snapshot = await transaction.get(recordReference);
+      if (!snapshot.exists) {
+        return RestaurantMenuImageRecordDeletionResult.missing;
+      }
+      final currentImage = _menuImageDeletionTargetFromFirestore(
+        snapshot.data(),
+        fallbackId: snapshot.id,
+      );
+      if (currentImage == null ||
+          !_sameMenuImageDeletionTarget(currentImage, expectedImage)) {
+        return RestaurantMenuImageRecordDeletionResult.changed;
+      }
+      transaction.delete(recordReference);
+      transaction.update(parentReference, {
+        Restaurant.fieldUpdatedAt: FieldValue.serverTimestamp(),
+      });
+      return RestaurantMenuImageRecordDeletionResult.deleted;
+    });
+  }
+
+  static bool _sameMenuImageDeletionTarget(
+    RestaurantMenuImage first,
+    RestaurantMenuImage second,
+  ) {
+    return first.id == second.id &&
+        first.imageUrl == second.imageUrl &&
+        first.storagePath == second.storagePath &&
+        first.sortOrder == second.sortOrder;
+  }
+
+  static RestaurantMenuImage? _menuImageDeletionTargetFromFirestore(
+    Map<String, dynamic>? data, {
+    required String fallbackId,
+  }) {
+    final image = RestaurantMenuImage.tryFromFirestore(
+      data,
+      fallbackId: fallbackId,
+    );
+    if (image == null) {
+      return null;
+    }
+    final exactStoragePath = data?[RestaurantMenuImage.fieldStoragePath];
+    if (exactStoragePath is! String || exactStoragePath == image.storagePath) {
+      return image;
+    }
+    return RestaurantMenuImage(
+      id: image.id,
+      imageUrl: image.imageUrl,
+      storagePath: exactStoragePath,
+      sortOrder: image.sortOrder,
+    );
   }
 
   static Future<void> deleteMenuItem({

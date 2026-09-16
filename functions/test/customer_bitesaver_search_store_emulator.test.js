@@ -76,10 +76,12 @@ if (!emulatorGate) {
   } = require("../lib/customer_bitesaver_public_identity.js");
   const {
     customerBiteSaverCandidatePrefix,
+    customerBiteSaverMenuPageSize,
     customerBiteSaverOrderedResultQuery,
     customerBiteSaverResultDocumentId,
     continueCustomerBiteSaverGuestOfferCheckHandler,
     getCustomerBiteSaverFavoriteStatesHandler,
+    getCustomerBiteSaverMenuPageHandler,
     getCustomerBiteSaverOfferPageHandler,
     getCustomerBiteSaverSearchPageHandler,
     getCustomerBiteSaverSearchStatusHandler,
@@ -528,6 +530,10 @@ if (!emulatorGate) {
 
   function offerPageRequest(bundle, restaurantId, overrides = {}) {
     return pageRequest(bundle, {restaurantId, ...overrides});
+  }
+
+  function menuPageRequest(bundle, restaurantId, overrides = {}) {
+    return boundRequest(bundle, {restaurantId, cursor: null, ...overrides});
   }
 
   function favoriteRequest(bundle, overrides = {}) {
@@ -1188,6 +1194,295 @@ if (!emulatorGate) {
     };
   });
 
+  test("real menu adapter resolves own and reciprocal shared sources with bounded continuation",
+    {timeout: 120_000}, async () => {
+    const clock = {value: fixedNowMs};
+    const ownBundle = await startSession({clock});
+    const ownSession = await markReady(ownBundle);
+    const ownParent = readyRestaurantWrites(ownSession, 790, {
+      offerCount: 1,
+      onlyCoupons: true,
+      restaurant: {menuSourceSide: "biteSaver"},
+    });
+    const ownMenuWrites = [
+      {
+        type: "set",
+        path: `restaurant_accounts/${ownParent.accountId}/menu_images/a_image`,
+        data: {
+          imageUrl: "https://images.example.test/menu-a.webp",
+          sortOrder: 10,
+          privateCanary: "own-image-private",
+        },
+      },
+      {
+        type: "set",
+        path: `restaurant_accounts/${ownParent.accountId}/menu_images/b_image`,
+        data: {
+          imageUrl: "https://images.example.test/menu-b.webp",
+          sortOrder: -1,
+        },
+      },
+    ];
+    for (let index = 0; index < 27; index += 1) {
+      const suffix = String(index).padStart(2, "0");
+      ownMenuWrites.push({
+        type: "set",
+        path: `restaurant_accounts/${ownParent.accountId}/menu_items/own_item_${suffix}`,
+        data: {
+          name: `Own item ${suffix}`,
+          description: `Description ${suffix}`,
+          price: index % 2 === 0 ? `$${index}.00` : "",
+          category: index % 2 === 0 ? "Lunch" : "Dinner",
+          sortOrder: 27 - index,
+          ownerUserId: "own-private-canary",
+        },
+      });
+    }
+    ownMenuWrites.push({
+      type: "set",
+      path: `restaurant_accounts/${ownParent.accountId}/menu_sections/z_section`,
+      data: {
+        title: "Own section",
+        body: "Own section body",
+        sortOrder: 2,
+        privateNotes: "own-section-private",
+      },
+    });
+    await commitAll([...ownParent.writes, ...ownMenuWrites]);
+    const ownDelivery = await getCustomerBiteSaverSearchPageHandler(
+      pageRequest(ownBundle),
+      ownBundle.context,
+    );
+    assert.equal(
+      ownDelivery.restaurants.some(({restaurantId}) =>
+        restaurantId === ownParent.publicRestaurantId),
+      true,
+    );
+
+    const ownMenuQueries = [];
+    hooks.beforeQuery = async (query) => {
+      if (query.collectionPath.startsWith(
+        `restaurant_accounts/${ownParent.accountId}/menu_`,
+      )) ownMenuQueries.push(query);
+    };
+    const writesBeforeOwnMenu = metrics.transactionWritesCommitted +
+      metrics.commitWrites;
+    const ownFirstBefore = {
+      pointReads: metrics.pointReadRequests,
+      queries: metrics.queryCalls,
+      queryReads: metrics.queryReadResults,
+    };
+    let ownFirstAfter;
+    let ownSecondAfter;
+    let ownFirst;
+    let ownSecond;
+    try {
+      ownFirst = await getCustomerBiteSaverMenuPageHandler(
+        menuPageRequest(ownBundle, ownParent.publicRestaurantId),
+        ownBundle.context,
+      );
+      ownFirstAfter = {
+        pointReads: metrics.pointReadRequests,
+        queries: metrics.queryCalls,
+        queryReads: metrics.queryReadResults,
+      };
+      ownSecond = await getCustomerBiteSaverMenuPageHandler(
+        menuPageRequest(ownBundle, ownParent.publicRestaurantId, {
+          cursor: ownFirst.nextCursor,
+        }),
+        ownBundle.context,
+      );
+      ownSecondAfter = {
+        pointReads: metrics.pointReadRequests,
+        queries: metrics.queryCalls,
+        queryReads: metrics.queryReadResults,
+      };
+    } finally {
+      hooks.beforeQuery = null;
+    }
+    assert.equal(ownFirst.entries.length, customerBiteSaverMenuPageSize);
+    assert.deepEqual(
+      ownFirst.entries.slice(0, 2).map(({kind}) => kind),
+      ["image", "image"],
+    );
+    assert.deepEqual(
+      ownFirst.entries.slice(2).map(({name}) => name),
+      Array.from({length: 23}, (_, index) =>
+        `Own item ${String(index).padStart(2, "0")}`),
+    );
+    assert.equal(ownFirst.hasMore, true);
+    assert.notEqual(ownFirst.nextCursor, null);
+    assert.equal(ownSecond.entries.length, 5);
+    assert.deepEqual(
+      ownSecond.entries.slice(0, 4).map(({name}) => name),
+      ["Own item 23", "Own item 24", "Own item 25", "Own item 26"],
+    );
+    assert.equal(ownSecond.entries[4].kind, "section");
+    assert.equal(ownSecond.hasMore, false);
+    assert.equal(ownSecond.nextCursor, null);
+    assert.equal(
+      new Set([...ownFirst.entries, ...ownSecond.entries]
+        .map(({key}) => key)).size,
+      30,
+    );
+    const ownWire = JSON.stringify([ownFirst, ownSecond]);
+    assert.equal(ownWire.includes("private-canary"), false);
+    assert.equal(ownWire.includes("ownerUserId"), false);
+    assert.equal(ownWire.includes(ownParent.accountId), false);
+    assert.equal(
+      metrics.transactionWritesCommitted + metrics.commitWrites,
+      writesBeforeOwnMenu,
+    );
+    assert.deepEqual({
+      pointReads: ownFirstAfter.pointReads - ownFirstBefore.pointReads,
+      queries: ownFirstAfter.queries - ownFirstBefore.queries,
+      queryReads: ownFirstAfter.queryReads - ownFirstBefore.queryReads,
+      writes: 0,
+    }, {pointReads: 6, queries: 2, queryReads: 28, writes: 0});
+    assert.deepEqual({
+      pointReads: ownSecondAfter.pointReads - ownFirstAfter.pointReads,
+      queries: ownSecondAfter.queries - ownFirstAfter.queries,
+      queryReads: ownSecondAfter.queryReads - ownFirstAfter.queryReads,
+      writes: 0,
+    }, {pointReads: 6, queries: 2, queryReads: 5, writes: 0});
+    assert.equal(ownMenuQueries.length, 4);
+    assert.ok(ownMenuQueries.every((query) =>
+      query.filters.length === 0 &&
+      query.orders.length === 1 &&
+      query.orders[0].field === "__name__" &&
+      query.orders[0].direction === "asc" &&
+      query.limit > 0 && query.limit <= 26));
+    assert.deepEqual(
+      ownMenuQueries.map(({collectionPath}) => collectionPath),
+      [
+        `restaurant_accounts/${ownParent.accountId}/menu_images`,
+        `restaurant_accounts/${ownParent.accountId}/menu_items`,
+        `restaurant_accounts/${ownParent.accountId}/menu_items`,
+        `restaurant_accounts/${ownParent.accountId}/menu_sections`,
+      ],
+    );
+    assert.deepEqual(ownMenuQueries[2].startAfter, ["own_item_22"]);
+
+    const sharedBundle = await startSession({clock});
+    const sharedSession = await markReady(sharedBundle);
+    const scoreId = `${runNamespace}_score_menu`;
+    const sharedMenuId = `${runNamespace}_shared_menu`;
+    const sharedOwnerId = `${runNamespace}_different_owner`;
+    const bindingId = Buffer.alloc(32, 29).toString("base64url");
+    const sharedParent = readyRestaurantWrites(sharedSession, 791, {
+      offerCount: 1,
+      onlyCoupons: true,
+      restaurant: {
+        menuSourceSide: "biteScore",
+        linkedBiteScoreRestaurantId: scoreId,
+        biteScoreCatalogRestaurantId: scoreId,
+        biteSaverCatalogBindingId: bindingId,
+      },
+    });
+    await commitAll([
+      ...sharedParent.writes,
+      {
+        type: "set",
+        path: `bitescore_restaurants/${scoreId}`,
+        data: {
+          isActive: true,
+          active: true,
+          isClaimed: true,
+          ownerUserId: sharedOwnerId,
+          menuSourceSide: "biteScore",
+          sharedMenuId,
+          restaurantWriteRevision: 9,
+          biteSaverCatalogBindingId: bindingId,
+        },
+      },
+      {
+        type: "set",
+        path: `restaurant_menus/${sharedMenuId}`,
+        data: {
+          bitescoreRestaurantId: scoreId,
+          createdByUserId: sharedOwnerId,
+          privateCanary: "shared-parent-private",
+        },
+      },
+      {
+        type: "set",
+        path: `restaurant_menus/${sharedMenuId}/menu_sections/shared_section`,
+        data: {
+          title: "Shared section",
+          body: "Shared body",
+          sortOrder: 1,
+          createdByUserId: sharedOwnerId,
+        },
+      },
+    ]);
+    await getCustomerBiteSaverSearchPageHandler(
+      pageRequest(sharedBundle),
+      sharedBundle.context,
+    );
+    const sharedMenuQueries = [];
+    hooks.beforeQuery = async (query) => {
+      if (query.collectionPath.startsWith(
+        `restaurant_menus/${sharedMenuId}/menu_`,
+      )) sharedMenuQueries.push(query);
+    };
+    const sharedBefore = {
+      pointReads: metrics.pointReadRequests,
+      queries: metrics.queryCalls,
+      queryReads: metrics.queryReadResults,
+      writes: metrics.transactionWritesCommitted + metrics.commitWrites,
+    };
+    let shared;
+    try {
+      shared = await getCustomerBiteSaverMenuPageHandler(
+        menuPageRequest(sharedBundle, sharedParent.publicRestaurantId),
+        sharedBundle.context,
+      );
+    } finally {
+      hooks.beforeQuery = null;
+    }
+    const sharedAfter = {
+      pointReads: metrics.pointReadRequests,
+      queries: metrics.queryCalls,
+      queryReads: metrics.queryReadResults,
+      writes: metrics.transactionWritesCommitted + metrics.commitWrites,
+    };
+    assert.equal(shared.menuStyle, "biteScore");
+    assert.deepEqual(shared.entries.map(({kind}) => kind), ["section"]);
+    assert.equal(shared.hasMore, false);
+    assert.deepEqual(
+      sharedMenuQueries.map(({collectionPath}) => collectionPath),
+      [
+        `restaurant_menus/${sharedMenuId}/menu_images`,
+        `restaurant_menus/${sharedMenuId}/menu_items`,
+        `restaurant_menus/${sharedMenuId}/menu_sections`,
+      ],
+    );
+    const sharedWire = JSON.stringify(shared);
+    assert.equal(sharedWire.includes(sharedMenuId), false);
+    assert.equal(sharedWire.includes(sharedOwnerId), false);
+    assert.equal(sharedWire.includes("createdByUserId"), false);
+    assert.deepEqual({
+      pointReads: sharedAfter.pointReads - sharedBefore.pointReads,
+      queries: sharedAfter.queries - sharedBefore.queries,
+      queryReads: sharedAfter.queryReads - sharedBefore.queryReads,
+      writes: sharedAfter.writes - sharedBefore.writes,
+    }, {pointReads: 10, queries: 3, queryReads: 1, writes: 0});
+    metrics.scenarioMeasurements.menu = {
+      ownVisibleEntries: ownFirst.entries.length + ownSecond.entries.length,
+      ownQueries: ownMenuQueries.length,
+      ownInitialPointReads: 6,
+      ownInitialQueryReads: 28,
+      ownContinuationPointReads: 6,
+      ownContinuationQueryReads: 5,
+      sharedQueries: sharedMenuQueries.length,
+      sharedPointReads: 10,
+      sharedQueryReads: 1,
+      menuWrites: 0,
+      maximumVisibleEntriesPerPage: customerBiteSaverMenuPageSize,
+      maximumQueryLimit: Math.max(...ownMenuQueries.map(({limit}) => limit)),
+    };
+  });
+
   test("signed pages reject unusable lookahead, preserve witnesses, and issue favorite evidence",
     {timeout: 120_000}, async () => {
     const clock = {value: fixedNowMs};
@@ -1340,8 +1635,11 @@ if (!emulatorGate) {
     );
     assert.deepEqual(authorized.states.map(({state}) => state), ["favorite", "favorite"]);
     assert.ok(metrics.favoritePointReadRequests > favoriteDocumentReadsBefore);
-    const restaurantEvidence = await documentsWithRole("deliveredRestaurantIdentity");
-    const offerEvidence = await documentsWithRole("deliveredOfferIdentity");
+    const restaurantEvidence =
+      (await documentsWithRole("deliveredRestaurantIdentity"))
+        .filter(({data}) => data.sessionId === bundle.response.sessionId);
+    const offerEvidence = (await documentsWithRole("deliveredOfferIdentity"))
+      .filter(({data}) => data.sessionId === bundle.response.sessionId);
     assert.equal(restaurantEvidence.length, 26);
     assert.equal(offerEvidence.length, 26);
 

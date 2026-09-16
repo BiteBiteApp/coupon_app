@@ -10,16 +10,78 @@ service firebase.storage {
       return signedIn() && request.auth.uid == uid;
     }
 
+    function isAdmin() {
+      return signedIn() &&
+        (
+          (request.auth.token.keys().hasAny(['admin']) &&
+            request.auth.token.admin == true) ||
+          (request.auth.token.keys().hasAny(['email']) &&
+            request.auth.token.email == 'schuyler.cole@gmail.com')
+        );
+    }
+
     function isAllowedImage() {
       return request.resource != null
         && request.resource.size <= 5 * 1024 * 1024
         && request.resource.contentType.matches('image/(jpeg|png|webp)');
     }
 
+    function hasNoCustomMetadata() {
+      return request.resource != null &&
+        request.resource.metadata.keys().hasOnly([]);
+    }
+
     function isSharedMenuOwner(menuId) {
       return signedIn()
         && firestore.exists(/databases/(default)/documents/restaurant_menus/$(menuId))
         && firestore.get(/databases/(default)/documents/restaurant_menus/$(menuId)).data.createdByUserId == request.auth.uid;
+    }
+
+    function ownsAuthorizedMenuImageSource(grant) {
+      return signedIn() &&
+        request.auth.token.firebase.sign_in_provider != 'anonymous' &&
+        grant.ownerUserId == request.auth.uid &&
+        (
+          (
+            grant.sourceType == 'biteSaver' &&
+            grant.sourceId == request.auth.uid &&
+            firestore.exists(/databases/(default)/documents/restaurant_accounts/$(grant.sourceId)) &&
+            firestore.get(/databases/(default)/documents/restaurant_accounts/$(grant.sourceId)).data.approvalStatus == 'approved' &&
+            firestore.get(/databases/(default)/documents/restaurant_accounts/$(grant.sourceId)).data.couponPostingEnabled == true
+          ) ||
+          (
+            grant.sourceType == 'sharedMenu' &&
+            firestore.exists(/databases/(default)/documents/restaurant_menus/$(grant.sourceId)) &&
+            firestore.get(/databases/(default)/documents/restaurant_menus/$(grant.sourceId)).data.createdByUserId == request.auth.uid
+          )
+        );
+    }
+
+    function canManageAuthorizedMenuImage(authorizationId, fileName) {
+      let authorizationPath = /databases/(default)/documents/private_menu_image_upload_authorizations/$(authorizationId);
+      let grant = firestore.get(authorizationPath).data;
+      return authorizationId.matches('bsmia_[A-Za-z0-9_-]{43}') &&
+        firestore.exists(authorizationPath) &&
+        grant.keys().hasOnly([
+          'schemaVersion',
+          'state',
+          'ownerUserId',
+          'sourceType',
+          'sourceId',
+          'fileName',
+          'createdAt'
+        ]) &&
+        grant.schemaVersion == 1 &&
+        grant.state == 'active' &&
+        grant.ownerUserId is string &&
+        grant.sourceId is string &&
+        grant.sourceId.size() > 0 &&
+        grant.sourceId.size() <= 512 &&
+        (grant.sourceType == 'biteSaver' || grant.sourceType == 'sharedMenu') &&
+        grant.fileName == fileName &&
+        (fileName == 'image.jpg' || fileName == 'image.png' || fileName == 'image.webp') &&
+        grant.createdAt is timestamp &&
+        (isAdmin() || ownsAuthorizedMenuImageSource(grant));
     }
 
     function dishExists(dishId) {
@@ -52,6 +114,15 @@ service firebase.storage {
       allow create: if isSharedMenuOwner(menuId) && isAllowedImage();
       allow update: if isSharedMenuOwner(menuId) && isAllowedImage();
       allow delete: if isSharedMenuOwner(menuId);
+    }
+
+    match /public_menu_images/{authorizationId}/{fileName} {
+      allow read: if true;
+      allow create: if canManageAuthorizedMenuImage(authorizationId, fileName) &&
+        isAllowedImage() && hasNoCustomMetadata();
+      allow update: if canManageAuthorizedMenuImage(authorizationId, fileName) &&
+        isAllowedImage() && hasNoCustomMetadata();
+      allow delete: if canManageAuthorizedMenuImage(authorizationId, fileName);
     }
 
     match /bitescore_dishes/{dishId}/images/{fileName} {

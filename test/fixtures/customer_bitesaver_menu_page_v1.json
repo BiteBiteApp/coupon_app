@@ -1,0 +1,46 @@
+{
+  "request": {
+    "schemaVersion": 1,
+    "clientRequestId": "client_request_fixture_0001",
+    "clientInstanceId": "client_instance_fixture_0001",
+    "sessionId": "bss_BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+    "capability": "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+    "criteriaFingerprint": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+    "restaurantId": "bsr_CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "cursor": null
+  },
+  "response": {
+    "schemaVersion": 1,
+    "state": "available",
+    "attemptGeneration": 3,
+    "queryFingerprint": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd",
+    "restaurantId": "bsr_CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC",
+    "menuStyle": "biteScore",
+    "entries": [
+      {
+        "kind": "image",
+        "key": "bsme_DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+        "imageUrl": "https://example.test/menu/front.webp",
+        "sortOrder": -2
+      },
+      {
+        "kind": "item",
+        "key": "bsme_EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE",
+        "name": "Soup & sandwich",
+        "description": "Seasonal soup with a grilled sandwich.",
+        "price": "$12 market special",
+        "category": "Lunch",
+        "sortOrder": 4
+      },
+      {
+        "kind": "section",
+        "key": "bsme_FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF",
+        "title": "Allergen note",
+        "body": "Ask the restaurant about current ingredients.",
+        "sortOrder": 8
+      }
+    ],
+    "nextCursor": "bsc1.fixture_menu_page_2",
+    "hasMore": true
+  }
+}

@@ -24,7 +24,12 @@ export const customerBiteSaverCursorPrefix = "bsc1." as const;
 export const customerBiteSaverOfferOccurrencePrefix = "bsoc1." as const;
 export type CustomerBiteSaverCursorPurpose =
   | "restaurantPage"
-  | "offerPage";
+  | "offerPage"
+  | "menuPage";
+type CustomerBiteSaverOfferPagePurpose = Exclude<
+  CustomerBiteSaverCursorPurpose,
+  "menuPage"
+>;
 export type CustomerBiteSaverCursorSortValue = string | number | boolean | null;
 
 export type CustomerBiteSaverCursorPayload = Readonly<{
@@ -194,7 +199,9 @@ function parsePayload(value: unknown): CustomerBiteSaverCursorPayload {
   }
   if (
     value.protocolVersion !== customerBiteSaverSearchProtocolVersion ||
-    (value.purpose !== "restaurantPage" && value.purpose !== "offerPage") ||
+    (value.purpose !== "restaurantPage" &&
+      value.purpose !== "offerPage" &&
+      value.purpose !== "menuPage") ||
     value.pageSize !== customerBiteSaverPageSize ||
     (value.matchingMode !== null &&
       value.matchingMode !== "parent" &&
@@ -546,7 +553,7 @@ export class CustomerBiteSaverCursorCodec {
 export type CustomerBiteSaverOfferOccurrencePayload = Readonly<{
   protocolVersion: typeof customerBiteSaverSearchProtocolVersion;
   purpose: "redemptionOfferOccurrence";
-  pagePurpose: CustomerBiteSaverCursorPurpose;
+  pagePurpose: CustomerBiteSaverOfferPagePurpose;
   sessionId: string;
   attemptGeneration: number;
   queryFingerprint: string;
@@ -576,7 +583,7 @@ export type CustomerBiteSaverOfferOccurrenceInput = Omit<
 >;
 
 export type CustomerBiteSaverOfferOccurrenceBinding = Readonly<{
-  pagePurpose: CustomerBiteSaverCursorPurpose;
+  pagePurpose: CustomerBiteSaverOfferPagePurpose;
   sessionId: string;
   attemptGeneration: number;
   queryFingerprint: string;

@@ -169,6 +169,7 @@ final RegExp _operationRefPattern = RegExp(r'^bsgc_[A-Za-z0-9_-]{43}$');
 final RegExp _cursorPattern = RegExp(r'^bsc1\.[A-Za-z0-9_-]+$');
 final RegExp _occurrencePattern = RegExp(r'^bsoc1\.[A-Za-z0-9_-]+$');
 final RegExp _checkTokenPattern = RegExp(r'^bsgc1\.[A-Za-z0-9_-]+$');
+final RegExp _menuEntryKeyPattern = RegExp(r'^bsme_[A-Za-z0-9_-]{43}$');
 
 String _requestId(Object? value) =>
     _string(value, maximumLength: 128, pattern: _requestIdPattern);
@@ -569,6 +570,26 @@ final class CustomerBiteSaverOfferPageRequest
     'cursor': cursor,
     'guestStateRevision': guestStateRevision,
     'restaurantId': restaurantId.value,
+  };
+}
+
+final class CustomerBiteSaverMenuPageRequest
+    extends CustomerBiteSaverBoundRequest {
+  CustomerBiteSaverMenuPageRequest({
+    required super.clientRequestId,
+    required super.binding,
+    required this.restaurantId,
+    required String? cursor,
+  }) : cursor = _cursor(cursor);
+
+  final CustomerBiteSaverRestaurantId restaurantId;
+  final String? cursor;
+
+  @override
+  Map<String, Object?> toJson() => <String, Object?>{
+    ...boundJson(),
+    'restaurantId': restaurantId.value,
+    'cursor': cursor,
   };
 }
 
@@ -1579,6 +1600,266 @@ final class CustomerBiteSaverOfferPageResult
     'nextCursor': nextCursor,
     'hasMore': hasMore,
     'partial': partial,
+  };
+}
+
+enum CustomerBiteSaverMenuAvailability { available, absent }
+
+enum CustomerBiteSaverMenuStyle { biteSaver, biteScore }
+
+sealed class CustomerBiteSaverMenuEntry {
+  const CustomerBiteSaverMenuEntry({
+    required this.key,
+    required this.sortOrder,
+  });
+
+  factory CustomerBiteSaverMenuEntry.fromJson(Object? value) {
+    final data = _record(value);
+    final kind = _string(data['kind'], maximumLength: 20);
+    final key = _string(
+      data['key'],
+      maximumLength: 48,
+      pattern: _menuEntryKeyPattern,
+    );
+    final sortOrder = _safeInteger(
+      data['sortOrder'],
+      minimum: -_maximumSafeJsonInteger,
+    );
+    switch (kind) {
+      case 'image':
+        _exactKeys(data, const <String>{
+          'kind',
+          'key',
+          'imageUrl',
+          'sortOrder',
+        });
+        return CustomerBiteSaverMenuImageEntry(
+          key: key,
+          imageUrl: _boundedScalarText(
+            data['imageUrl'],
+            maximumScalars: 2000,
+            allowEmpty: false,
+          ),
+          sortOrder: sortOrder,
+        );
+      case 'item':
+        _exactKeys(data, const <String>{
+          'kind',
+          'key',
+          'name',
+          'description',
+          'price',
+          'category',
+          'sortOrder',
+        });
+        return CustomerBiteSaverMenuItemEntry(
+          key: key,
+          name: _boundedScalarText(
+            data['name'],
+            maximumScalars: 500,
+            allowEmpty: false,
+          ),
+          description: _boundedScalarText(
+            data['description'],
+            maximumScalars: 8000,
+          ),
+          price: _boundedScalarText(data['price'], maximumScalars: 200),
+          category: _boundedScalarText(
+            data['category'],
+            maximumScalars: 200,
+            allowEmpty: false,
+          ),
+          sortOrder: sortOrder,
+        );
+      case 'section':
+        _exactKeys(data, const <String>{
+          'kind',
+          'key',
+          'title',
+          'body',
+          'sortOrder',
+        });
+        return CustomerBiteSaverMenuSectionEntry(
+          key: key,
+          title: _boundedScalarText(
+            data['title'],
+            maximumScalars: 500,
+            allowEmpty: false,
+          ),
+          body: _boundedScalarText(
+            data['body'],
+            maximumScalars: 20000,
+            allowEmpty: false,
+          ),
+          sortOrder: sortOrder,
+        );
+      default:
+        throw const CustomerBiteSaverProtocolException();
+    }
+  }
+
+  final String key;
+  final int sortOrder;
+
+  Map<String, Object?> toJson();
+}
+
+final class CustomerBiteSaverMenuImageEntry extends CustomerBiteSaverMenuEntry {
+  const CustomerBiteSaverMenuImageEntry({
+    required super.key,
+    required this.imageUrl,
+    required super.sortOrder,
+  });
+
+  final String imageUrl;
+
+  @override
+  Map<String, Object?> toJson() => <String, Object?>{
+    'kind': 'image',
+    'key': key,
+    'imageUrl': imageUrl,
+    'sortOrder': sortOrder,
+  };
+}
+
+final class CustomerBiteSaverMenuItemEntry extends CustomerBiteSaverMenuEntry {
+  const CustomerBiteSaverMenuItemEntry({
+    required super.key,
+    required this.name,
+    required this.description,
+    required this.price,
+    required this.category,
+    required super.sortOrder,
+  });
+
+  final String name;
+  final String description;
+  final String price;
+  final String category;
+
+  @override
+  Map<String, Object?> toJson() => <String, Object?>{
+    'kind': 'item',
+    'key': key,
+    'name': name,
+    'description': description,
+    'price': price,
+    'category': category,
+    'sortOrder': sortOrder,
+  };
+}
+
+final class CustomerBiteSaverMenuSectionEntry
+    extends CustomerBiteSaverMenuEntry {
+  const CustomerBiteSaverMenuSectionEntry({
+    required super.key,
+    required this.title,
+    required this.body,
+    required super.sortOrder,
+  });
+
+  final String title;
+  final String body;
+
+  @override
+  Map<String, Object?> toJson() => <String, Object?>{
+    'kind': 'section',
+    'key': key,
+    'title': title,
+    'body': body,
+    'sortOrder': sortOrder,
+  };
+}
+
+final class CustomerBiteSaverMenuPageResult {
+  const CustomerBiteSaverMenuPageResult._({
+    required this.availability,
+    required this.attemptGeneration,
+    required this.queryFingerprint,
+    required this.restaurantId,
+    required this.menuStyle,
+    required this.entries,
+    required this.nextCursor,
+    required this.hasMore,
+  });
+
+  factory CustomerBiteSaverMenuPageResult.fromJson(Object? value) {
+    final data = _record(value);
+    _exactKeys(data, const <String>{
+      'schemaVersion',
+      'state',
+      'attemptGeneration',
+      'queryFingerprint',
+      'restaurantId',
+      'menuStyle',
+      'entries',
+      'nextCursor',
+      'hasMore',
+    });
+    if (data['schemaVersion'] !=
+        CustomerBiteSaverSearchContract.schemaVersion) {
+      throw const CustomerBiteSaverProtocolException();
+    }
+    final availability = _enumValue(
+      data['state'],
+      const <String, CustomerBiteSaverMenuAvailability>{
+        'available': CustomerBiteSaverMenuAvailability.available,
+        'absent': CustomerBiteSaverMenuAvailability.absent,
+      },
+    );
+    final entries = _list(
+      data['entries'],
+      maximumLength: CustomerBiteSaverSearchContract.pageSize,
+    ).map(CustomerBiteSaverMenuEntry.fromJson).toList(growable: false);
+    if (entries.map((entry) => entry.key).toSet().length != entries.length) {
+      throw const CustomerBiteSaverProtocolException();
+    }
+    final nextCursor = _cursor(data['nextCursor']);
+    final hasMore = _boolean(data['hasMore']);
+    if (hasMore != (nextCursor != null) ||
+        (availability == CustomerBiteSaverMenuAvailability.absent &&
+            (entries.isNotEmpty || hasMore))) {
+      throw const CustomerBiteSaverProtocolException();
+    }
+    return CustomerBiteSaverMenuPageResult._(
+      availability: availability,
+      attemptGeneration: _safeInteger(data['attemptGeneration']),
+      queryFingerprint: _fingerprint(data['queryFingerprint']),
+      restaurantId: CustomerBiteSaverRestaurantId(
+        _string(data['restaurantId'], maximumLength: 47),
+      ),
+      menuStyle: _enumValue(
+        data['menuStyle'],
+        const <String, CustomerBiteSaverMenuStyle>{
+          'biteSaver': CustomerBiteSaverMenuStyle.biteSaver,
+          'biteScore': CustomerBiteSaverMenuStyle.biteScore,
+        },
+      ),
+      entries: List<CustomerBiteSaverMenuEntry>.unmodifiable(entries),
+      nextCursor: nextCursor,
+      hasMore: hasMore,
+    );
+  }
+
+  final CustomerBiteSaverMenuAvailability availability;
+  final int attemptGeneration;
+  final String queryFingerprint;
+  final CustomerBiteSaverRestaurantId restaurantId;
+  final CustomerBiteSaverMenuStyle menuStyle;
+  final List<CustomerBiteSaverMenuEntry> entries;
+  final String? nextCursor;
+  final bool hasMore;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'schemaVersion': CustomerBiteSaverSearchContract.schemaVersion,
+    'state': availability.name,
+    'attemptGeneration': attemptGeneration,
+    'queryFingerprint': queryFingerprint,
+    'restaurantId': restaurantId.value,
+    'menuStyle': menuStyle.name,
+    'entries': entries.map((entry) => entry.toJson()).toList(growable: false),
+    'nextCursor': nextCursor,
+    'hasMore': hasMore,
   };
 }
 

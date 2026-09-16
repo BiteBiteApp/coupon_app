@@ -49,6 +49,7 @@ const {
   customerBiteSaverPerParentOfferQuery,
   customerBiteSaverResultDocumentId,
   continueCustomerBiteSaverGuestOfferCheckHandler,
+  getCustomerBiteSaverMenuPageHandler,
   getCustomerBiteSaverOfferPageHandler,
   getCustomerBiteSaverFavoriteStatesHandler,
   getCustomerBiteSaverSearchPageHandler,
@@ -807,6 +808,15 @@ function offerPageRequest(started, restaurantId, overrides = {}) {
       ...overrides,
     }),
     restaurantId,
+  };
+}
+
+function menuPageRequest(started, restaurantId, overrides = {}) {
+  return {
+    ...boundRequest(started, {clientRequestId: "menu-page-request-00001"}),
+    restaurantId,
+    cursor: null,
+    ...overrides,
   };
 }
 
@@ -3989,6 +3999,1161 @@ test("signed usage transport failures stay explicit and retriable on pages", asy
   assert.equal(offerPage.offers[0].availabilityReason, "usageUnknown");
   assert.equal(offerPage.offers[0].usageState, "unknown");
   assertNoPrivateCanaries({restaurantPage, offerPage});
+});
+
+test("bounded menu pages expose only allowlisted own-menu presentation", async () => {
+  const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  const context = createContext(database);
+  const started = await startCustomerBiteSaverSearchHandler(
+    startRequest({searchText: ""}),
+    context,
+  );
+  const session = markSessionReady(database, started);
+  const seeded = addReadyRestaurant(database, session, 0, {
+    onlyCoupons: true,
+    offerCount: 1,
+    restaurant: {menuSourceSide: "biteSaver"},
+  });
+  for (let index = 0; index < 27; index += 1) {
+    const suffix = String(index).padStart(3, "0");
+    database.documents.set(
+      `restaurant_accounts/${seeded.accountId}/menu_items/item-${suffix}`,
+      index === 1
+        ? {name: "Malformed", privateCanary: "never-return"}
+        : {
+            id: `private-item-${suffix}`,
+            name: `Item ${suffix}`,
+            description: `Description ${suffix}`,
+            price: index === 2 ? "Market price" : `$${index}.50`,
+            category: index % 2 === 0 ? "Dinner" : "Breakfast",
+            sortOrder: index,
+            ownerUid: "private-owner-canary",
+            privateCanary: "never-return",
+          },
+    );
+  }
+  database.documents.set(
+    `restaurant_accounts/${seeded.accountId}/menu_images/image-001`,
+    {
+      imageUrl: "https://example.com/menu.webp",
+      storagePath: "private/storage/path",
+      sortOrder: 1,
+      privateCanary: "never-return",
+    },
+  );
+  database.documents.set(
+    `restaurant_accounts/${seeded.accountId}/menu_sections/section-001`,
+    {
+      title: "Chef notes",
+      body: "Authored section body",
+      sortOrder: 1,
+      privateCanary: "never-return",
+    },
+  );
+  await getCustomerBiteSaverSearchPageHandler(
+    pageRequest(started, {clientRequestId: "menu-delivery-page-0001"}),
+    context,
+  );
+
+  const writesBefore = database.calls.transactionWrites.length +
+    database.calls.commits.length;
+  const first = await getCustomerBiteSaverMenuPageHandler(
+    menuPageRequest(started, seeded.publicRestaurantId),
+    context,
+  );
+  assertExactKeys(first, [
+    "schemaVersion",
+    "state",
+    "attemptGeneration",
+    "queryFingerprint",
+    "restaurantId",
+    "menuStyle",
+    "entries",
+    "nextCursor",
+    "hasMore",
+  ]);
+  assert.equal(first.state, "available");
+  assert.equal(first.menuStyle, "biteSaver");
+  assert.equal(first.entries.length, 25);
+  assert.equal(first.entries[0].kind, "image");
+  assert.equal(first.entries.some((entry) => entry.price === "Market price"), true);
+  assert.equal(first.hasMore, true);
+  assert.match(first.nextCursor, /^bsc1\./u);
+  const serializedFirst = JSON.stringify(first);
+  assert.equal(serializedFirst.includes(seeded.accountId), false);
+  assert.equal(serializedFirst.includes("private-item"), false);
+  assert.equal(serializedFirst.includes("private-owner-canary"), false);
+  assert.equal(serializedFirst.includes("private/storage/path"), false);
+  assert.equal(serializedFirst.includes("never-return"), false);
+  assert.equal(first.nextCursor.includes(seeded.accountId), false);
+
+  const second = await getCustomerBiteSaverMenuPageHandler(
+    menuPageRequest(started, seeded.publicRestaurantId, {
+      clientRequestId: "menu-page-request-00002",
+      cursor: first.nextCursor,
+    }),
+    context,
+  );
+  assert.equal(second.entries.length, 3);
+  assert.deepEqual(
+    second.entries.map((entry) => entry.kind),
+    ["item", "item", "section"],
+  );
+  assert.equal(second.hasMore, false);
+  assert.equal(second.nextCursor, null);
+  assert.equal(
+    new Set([...first.entries, ...second.entries].map((entry) => entry.key)).size,
+    28,
+  );
+  assert.equal(
+    database.calls.transactionWrites.length + database.calls.commits.length,
+    writesBefore,
+  );
+  const menuQueries = database.calls.queryDocuments.filter((query) =>
+    /\/menu_(?:images|items|sections)$/u.test(query.collectionPath));
+  assert.ok(menuQueries.length >= 3);
+  assert.ok(menuQueries.every((query) =>
+    query.orders.length === 1 &&
+    query.orders[0].field === "__name__" &&
+    query.limit <= 26));
+});
+
+test("menu empty, retry, and rejected-request operation budgets stay read-only", async () => {
+  const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  const context = createContext(database);
+  const started = await startCustomerBiteSaverSearchHandler(
+    startRequest({searchText: ""}),
+    context,
+  );
+  const session = markSessionReady(database, started);
+  const seeded = addReadyRestaurant(database, session, 0, {
+    onlyCoupons: true,
+    offerCount: 1,
+    restaurant: {menuSourceSide: "biteSaver"},
+  });
+  await getCustomerBiteSaverSearchPageHandler(
+    pageRequest(started, {clientRequestId: "empty-menu-delivery-0001"}),
+    context,
+  );
+  const snapshot = () => ({
+    pointReads: database.calls.getDocument.length,
+    batchReads: database.calls.getDocuments.length,
+    queries: database.calls.queryDocuments.length,
+    transactions: database.calls.transactions,
+    transactionWrites: database.calls.transactionWrites.length,
+    commits: database.calls.commits.length,
+  });
+  const delta = (after, before) => Object.fromEntries(
+    Object.keys(after).map((key) => [key, after[key] - before[key]]),
+  );
+
+  const beforeInitial = snapshot();
+  const empty = await getCustomerBiteSaverMenuPageHandler(
+    menuPageRequest(started, seeded.publicRestaurantId, {
+      clientRequestId: "empty-menu-page-0001",
+    }),
+    context,
+  );
+  const afterInitial = snapshot();
+  assert.deepEqual(empty.entries, []);
+  assert.equal(empty.hasMore, false);
+  assert.equal(empty.nextCursor, null);
+  assert.deepEqual(delta(afterInitial, beforeInitial), {
+    pointReads: 4,
+    batchReads: 1,
+    queries: 3,
+    transactions: 0,
+    transactionWrites: 0,
+    commits: 0,
+  });
+
+  const retry = await getCustomerBiteSaverMenuPageHandler(
+    menuPageRequest(started, seeded.publicRestaurantId, {
+      clientRequestId: "empty-menu-page-retry-0001",
+    }),
+    context,
+  );
+  const afterRetry = snapshot();
+  assert.deepEqual(retry, empty);
+  assert.deepEqual(delta(afterRetry, afterInitial), {
+    pointReads: 4,
+    batchReads: 1,
+    queries: 3,
+    transactions: 0,
+    transactionWrites: 0,
+    commits: 0,
+  });
+
+  const invalidRequest = {
+    ...menuPageRequest(started, seeded.publicRestaurantId, {
+      clientRequestId: "rejected-menu-page-0001",
+    }),
+    sourcePath: `restaurant_accounts/${seeded.accountId}`,
+  };
+  await assert.rejects(
+    getCustomerBiteSaverMenuPageHandler(invalidRequest, context),
+    (error) => assertContractError(error, "invalid-argument"),
+  );
+  assert.deepEqual(delta(snapshot(), afterRetry), {
+    pointReads: 0,
+    batchReads: 0,
+    queries: 0,
+    transactions: 0,
+    transactionWrites: 0,
+    commits: 0,
+  });
+});
+
+test("menu capability and expired cursors fail before source reads", async () => {
+  const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  let clock = nowMs;
+  const context = createContext(database, {now: () => clock});
+  const started = await startCustomerBiteSaverSearchHandler(
+    startRequest({searchText: ""}),
+    context,
+  );
+  const session = markSessionReady(database, started);
+  const seeded = addReadyRestaurant(database, session, 0, {
+    onlyCoupons: true,
+    offerCount: 1,
+    restaurant: {menuSourceSide: "biteSaver"},
+  });
+  for (let index = 0; index < 26; index += 1) {
+    const id = `item-${String(index).padStart(3, "0")}`;
+    database.documents.set(
+      `restaurant_accounts/${seeded.accountId}/menu_items/${id}`,
+      {name: id, category: "Anytime", sortOrder: index},
+    );
+  }
+  await getCustomerBiteSaverSearchPageHandler(
+    pageRequest(started, {clientRequestId: "menu-bound-delivery-0001"}),
+    context,
+  );
+
+  await assert.rejects(
+    getCustomerBiteSaverMenuPageHandler(
+      menuPageRequest(started, seeded.publicRestaurantId, {
+        clientRequestId: "menu-wrong-capability-0001",
+        capability: Buffer.alloc(32, 99).toString("base64url"),
+      }),
+      context,
+    ),
+    (error) => assertContractError(error, "permission-denied"),
+  );
+  const first = await getCustomerBiteSaverMenuPageHandler(
+    menuPageRequest(started, seeded.publicRestaurantId, {
+      clientRequestId: "menu-expiry-first-0001",
+    }),
+    context,
+  );
+  assert.notEqual(first.nextCursor, null);
+  const readsBeforeExpiry = database.calls.getDocument.length +
+    database.calls.getDocuments.length + database.calls.queryDocuments.length;
+  clock = nowMs + customerBiteSaverCursorLifetimeMilliseconds;
+  await assert.rejects(
+    getCustomerBiteSaverMenuPageHandler(
+      menuPageRequest(started, seeded.publicRestaurantId, {
+        clientRequestId: "menu-expiry-second-0001",
+        cursor: first.nextCursor,
+      }),
+      context,
+    ),
+    (error) => assertContractError(error, "invalid-argument"),
+  );
+  assert.equal(
+    database.calls.getDocument.length + database.calls.getDocuments.length +
+      database.calls.queryDocuments.length,
+    readsBeforeExpiry,
+  );
+});
+
+test("menu completion authority cannot cross or renew the original deadline", async (t) => {
+  async function readyMenu({
+    guest = false,
+    itemCount = 26,
+    shared = false,
+    absent = false,
+  } = {}) {
+    const database = new InMemoryCustomerBiteSaverSearchDatabase();
+    let clock = nowMs;
+    const context = createContext(database, {
+      ...(guest ? {identity: guestIdentity()} : {}),
+      now: () => clock,
+    });
+    const started = await startCustomerBiteSaverSearchHandler(
+      startRequest({searchText: ""}),
+      context,
+    );
+    const session = markSessionReady(database, started);
+    const scoreId = "deadline-shared-score";
+    const sharedMenuId = "deadline-shared-menu";
+    const sharedOwnerId = "deadline-shared-owner";
+    const bindingId = Buffer.alloc(32, 63).toString("base64url");
+    const seeded = addReadyRestaurant(database, session, 0, {
+      onlyCoupons: true,
+      offerCount: 1,
+      restaurant: shared
+        ? {
+            menuSourceSide: "biteScore",
+            linkedBiteScoreRestaurantId: scoreId,
+            biteScoreCatalogRestaurantId: scoreId,
+            biteSaverCatalogBindingId: bindingId,
+          }
+        : {menuSourceSide: "biteSaver"},
+    });
+    if (shared) {
+      database.documents.set(`bitescore_restaurants/${scoreId}`, {
+        id: scoreId,
+        isActive: true,
+        active: true,
+        isClaimed: true,
+        ownerUserId: sharedOwnerId,
+        menuSourceSide: "biteScore",
+        sharedMenuId: absent ? null : sharedMenuId,
+        biteSaverCatalogBindingId: bindingId,
+        restaurantWriteRevision: 1,
+      });
+      if (!absent) {
+        database.documents.set(`restaurant_menus/${sharedMenuId}`, {
+          bitescoreRestaurantId: scoreId,
+          createdByUserId: sharedOwnerId,
+        });
+      }
+    }
+    for (let index = 0; index < itemCount; index += 1) {
+      const id = `item-${String(index).padStart(3, "0")}`;
+      database.documents.set(
+        shared
+          ? `restaurant_menus/${sharedMenuId}/menu_items/${id}`
+          : `restaurant_accounts/${seeded.accountId}/menu_items/${id}`,
+        {name: id, category: "Anytime", sortOrder: index},
+      );
+    }
+    await getCustomerBiteSaverSearchPageHandler(
+      pageRequest(started, {
+        clientRequestId: `deadline-delivery-${guest}`,
+        guestStateRevision: guest ? 0 : null,
+      }),
+      context,
+    );
+    return {
+      database,
+      context,
+      started,
+      session,
+      seeded,
+      scoreId,
+      sharedMenuId,
+      get clock() {
+        return clock;
+      },
+      set clock(value) {
+        clock = value;
+      },
+    };
+  }
+
+  for (const guest of [false, true]) {
+    await t.test(`${guest ? "guest" : "signed"} delayed content rejects at expiry`, async () => {
+      const fixture = await readyMenu({guest});
+      const originalQuery = fixture.database.queryDocuments.bind(
+        fixture.database,
+      );
+      fixture.database.queryDocuments = async (query) => {
+        const documents = await originalQuery(query);
+        if (query.collectionPath.endsWith("/menu_items")) {
+          fixture.clock = fixture.session.logicalExpiresAt.getTime();
+        }
+        return documents;
+      };
+      await assert.rejects(
+        getCustomerBiteSaverMenuPageHandler(
+          menuPageRequest(fixture.started, fixture.seeded.publicRestaurantId),
+          fixture.context,
+        ),
+        (error) => assertContractError(error, "failed-precondition"),
+      );
+    });
+  }
+
+  await t.test("delayed shared content rejects at expiry", async () => {
+    const fixture = await readyMenu({shared: true, itemCount: 1});
+    const originalQuery = fixture.database.queryDocuments.bind(fixture.database);
+    fixture.database.queryDocuments = async (query) => {
+      const documents = await originalQuery(query);
+      if (query.collectionPath.endsWith("/menu_items")) {
+        fixture.clock = fixture.session.logicalExpiresAt.getTime();
+      }
+      return documents;
+    };
+    await assert.rejects(
+      getCustomerBiteSaverMenuPageHandler(
+        menuPageRequest(fixture.started, fixture.seeded.publicRestaurantId),
+        fixture.context,
+      ),
+      (error) => assertContractError(error, "failed-precondition"),
+    );
+  });
+
+  await t.test("delayed empty response rejects at expiry", async () => {
+    const fixture = await readyMenu({itemCount: 0});
+    const originalQuery = fixture.database.queryDocuments.bind(fixture.database);
+    fixture.database.queryDocuments = async (query) => {
+      const documents = await originalQuery(query);
+      if (query.collectionPath.endsWith("/menu_sections")) {
+        fixture.clock = fixture.session.logicalExpiresAt.getTime();
+      }
+      return documents;
+    };
+    await assert.rejects(
+      getCustomerBiteSaverMenuPageHandler(
+        menuPageRequest(fixture.started, fixture.seeded.publicRestaurantId),
+        fixture.context,
+      ),
+      (error) => assertContractError(error, "failed-precondition"),
+    );
+  });
+
+  await t.test("delayed absent shared response rejects at expiry", async () => {
+    const fixture = await readyMenu({shared: true, absent: true, itemCount: 0});
+    const originalGet = fixture.database.getDocument.bind(fixture.database);
+    let scoreReads = 0;
+    fixture.database.getDocument = async (documentPath) => {
+      const document = await originalGet(documentPath);
+      if (documentPath === `bitescore_restaurants/${fixture.scoreId}` &&
+          ++scoreReads === 1) {
+        fixture.clock = fixture.session.logicalExpiresAt.getTime();
+      }
+      return document;
+    };
+    await assert.rejects(
+      getCustomerBiteSaverMenuPageHandler(
+        menuPageRequest(fixture.started, fixture.seeded.publicRestaurantId),
+        fixture.context,
+      ),
+      (error) => assertContractError(error, "failed-precondition"),
+    );
+  });
+
+  await t.test("deadline is valid just before and invalid at or after expiry", async () => {
+    for (const offset of [-1, 0, 1]) {
+      const fixture = await readyMenu({itemCount: 0});
+      fixture.clock = fixture.session.logicalExpiresAt.getTime() + offset;
+      const operation = getCustomerBiteSaverMenuPageHandler(
+        menuPageRequest(fixture.started, fixture.seeded.publicRestaurantId, {
+          clientRequestId: `deadline-boundary-${offset}`,
+        }),
+        fixture.context,
+      );
+      if (offset < 0) {
+        const response = await operation;
+        assert.deepEqual(response.entries, []);
+        assert.equal(response.nextCursor, null);
+      } else {
+        await assert.rejects(
+          operation,
+          (error) => assertContractError(error, "failed-precondition"),
+        );
+      }
+    }
+  });
+
+  await t.test("still-valid delayed cursor keeps the original deadline", async () => {
+    const fixture = await readyMenu();
+    const originalQuery = fixture.database.queryDocuments.bind(fixture.database);
+    fixture.database.queryDocuments = async (query) => {
+      const documents = await originalQuery(query);
+      if (query.collectionPath.endsWith("/menu_items")) {
+        fixture.clock = fixture.session.logicalExpiresAt.getTime() - 1_000;
+      }
+      return documents;
+    };
+    const page = await getCustomerBiteSaverMenuPageHandler(
+      menuPageRequest(fixture.started, fixture.seeded.publicRestaurantId),
+      fixture.context,
+    );
+    const payload = new CustomerBiteSaverCursorCodec({
+      key: discoveryKey,
+      now: () => fixture.clock,
+    }).open(page.nextCursor, {allowExpired: true});
+    assert.equal(payload.expiresAtMs, fixture.session.logicalExpiresAt.getTime());
+    assert.equal(payload.issuedAtMs, fixture.clock);
+  });
+
+  await t.test("a shorter inbound cursor cannot be renewed", async () => {
+    const fixture = await readyMenu({itemCount: 52});
+    const codec = new CustomerBiteSaverCursorCodec({
+      key: discoveryKey,
+      now: () => fixture.clock,
+    });
+    const first = await getCustomerBiteSaverMenuPageHandler(
+      menuPageRequest(fixture.started, fixture.seeded.publicRestaurantId),
+      fixture.context,
+    );
+    const opened = codec.open(first.nextCursor);
+    const shortCursor = codec.encode({
+      purpose: opened.purpose,
+      sessionId: opened.sessionId,
+      attemptGeneration: opened.attemptGeneration,
+      queryFingerprint: opened.queryFingerprint,
+      pageGenerationFingerprint: opened.pageGenerationFingerprint,
+      callerCapabilityBinding: opened.callerCapabilityBinding,
+      sortTuple: opened.sortTuple,
+      restaurantPublicId: opened.restaurantPublicId,
+      matchingMode: opened.matchingMode,
+      availabilityAtMs: opened.availabilityAtMs,
+      timeZone: opened.timeZone,
+      utcOffsetMinutes: opened.utcOffsetMinutes,
+      guestStateFingerprint: opened.guestStateFingerprint,
+      usageGeneration: opened.usageGeneration,
+      offerCatalogFingerprint: opened.offerCatalogFingerprint,
+      lifetimeMilliseconds: 60_000,
+    });
+    const inbound = codec.open(shortCursor);
+    fixture.clock = nowMs + 30_000;
+    const continued = await getCustomerBiteSaverMenuPageHandler(
+      menuPageRequest(fixture.started, fixture.seeded.publicRestaurantId, {
+        clientRequestId: "short-menu-cursor-continuation",
+        cursor: shortCursor,
+      }),
+      fixture.context,
+    );
+    const outgoing = codec.open(continued.nextCursor, {allowExpired: true});
+    assert.equal(outgoing.expiresAtMs, inbound.expiresAtMs);
+    assert.ok(outgoing.issuedAtMs < outgoing.expiresAtMs);
+  });
+
+  await t.test("attempt replacement during a content read rejects", async () => {
+    const fixture = await readyMenu();
+    const sessionPath = `${privateCustomerBiteSaverSearchSessionCollection}/${
+      fixture.started.sessionId}`;
+    const originalQuery = fixture.database.queryDocuments.bind(fixture.database);
+    fixture.database.queryDocuments = async (query) => {
+      const documents = await originalQuery(query);
+      if (query.collectionPath.endsWith("/menu_items")) {
+        fixture.database.documents.set(sessionPath, {
+          ...fixture.database.documents.get(sessionPath),
+          attemptGeneration: fixture.session.attemptGeneration + 1,
+        });
+      }
+      return documents;
+    };
+    await assert.rejects(
+      getCustomerBiteSaverMenuPageHandler(
+        menuPageRequest(fixture.started, fixture.seeded.publicRestaurantId),
+        fixture.context,
+      ),
+      (error) => assertContractError(error, "failed-precondition"),
+    );
+  });
+
+  for (const testCase of [
+    {
+      name: "signed own full response",
+      options: {itemCount: 26},
+      targetPath: (fixture) =>
+        `restaurant_accounts/${fixture.seeded.accountId}`,
+    },
+    {
+      name: "guest own empty response",
+      options: {guest: true, itemCount: 0},
+      targetPath: (fixture) =>
+        `restaurant_accounts/${fixture.seeded.accountId}`,
+    },
+    {
+      name: "signed shared short response",
+      options: {shared: true, itemCount: 1},
+      targetPath: (fixture) =>
+        `restaurant_menus/${fixture.sharedMenuId}`,
+    },
+    {
+      name: "guest shared absent response",
+      options: {guest: true, shared: true, absent: true, itemCount: 0},
+      targetPath: (fixture) =>
+        `bitescore_restaurants/${fixture.scoreId}`,
+    },
+  ]) {
+    await t.test(
+      `attempt replacement during the final source read rejects the ${testCase.name}`,
+      async () => {
+        const fixture = await readyMenu(testCase.options);
+        const sessionPath =
+          `${privateCustomerBiteSaverSearchSessionCollection}/${
+            fixture.started.sessionId}`;
+        const targetPath = testCase.targetPath(fixture);
+        const originalGet = fixture.database.getDocument.bind(fixture.database);
+        let targetReads = 0;
+        fixture.database.getDocument = async (documentPath) => {
+          const document = await originalGet(documentPath);
+          if (documentPath === targetPath && ++targetReads === 2) {
+            fixture.database.documents.set(sessionPath, {
+              ...fixture.database.documents.get(sessionPath),
+              attemptGeneration: fixture.session.attemptGeneration + 1,
+            });
+          }
+          return document;
+        };
+        await assert.rejects(
+          getCustomerBiteSaverMenuPageHandler(
+            menuPageRequest(
+              fixture.started,
+              fixture.seeded.publicRestaurantId,
+              {
+                clientRequestId:
+                  `final-source-${testCase.name.replaceAll(" ", "-")}`,
+              },
+            ),
+            fixture.context,
+          ),
+          (error) => assertContractError(error, "failed-precondition"),
+        );
+        assert.equal(targetReads, 2);
+      },
+    );
+  }
+});
+
+test("menu continuation requires a bounded legitimate-entry lookahead", async (t) => {
+  async function fixtureWithMenuDocuments(documents) {
+    const database = new InMemoryCustomerBiteSaverSearchDatabase();
+    const context = createContext(database);
+    const started = await startCustomerBiteSaverSearchHandler(
+      startRequest({searchText: ""}),
+      context,
+    );
+    const session = markSessionReady(database, started);
+    const seeded = addReadyRestaurant(database, session, 0, {
+      onlyCoupons: true,
+      offerCount: 1,
+      restaurant: {menuSourceSide: "biteSaver"},
+    });
+    const root = `restaurant_accounts/${seeded.accountId}`;
+    for (const document of documents) {
+      database.documents.set(
+        `${root}/${document.kind}/${document.id}`,
+        document.data,
+      );
+    }
+    await getCustomerBiteSaverSearchPageHandler(
+      pageRequest(started, {clientRequestId: "lookahead-delivery-0001"}),
+      context,
+    );
+    return {database, context, started, seeded};
+  }
+
+  function validItems(count, {idPrefix = "a-item", start = 0} = {}) {
+    return Array.from({length: count}, (_, offset) => {
+      const index = start + offset;
+      const id = `${idPrefix}-${String(index).padStart(3, "0")}`;
+      return {
+        kind: "menu_items",
+        id,
+        data: {name: id, category: "Anytime", sortOrder: index},
+      };
+    });
+  }
+
+  async function readAllPages(fixture) {
+    const pages = [];
+    let cursor = null;
+    do {
+      const page = await getCustomerBiteSaverMenuPageHandler(
+        menuPageRequest(fixture.started, fixture.seeded.publicRestaurantId, {
+          clientRequestId:
+            `lookahead-menu-page-${String(pages.length).padStart(4, "0")}`,
+          cursor,
+        }),
+        fixture.context,
+      );
+      pages.push(page);
+      cursor = page.nextCursor;
+    } while (cursor !== null);
+    return pages;
+  }
+
+  for (const count of [24, 25, 26]) {
+    await t.test(`${count} legitimate rows reports exact continuation`, async () => {
+      const fixture = await fixtureWithMenuDocuments(validItems(count));
+      const pages = await readAllPages(fixture);
+      assert.deepEqual(pages.map((page) => page.entries.length),
+        count <= 25 ? [count] : [25, 1]);
+      assert.deepEqual(pages.map((page) => page.hasMore),
+        count <= 25 ? [false] : [true, false]);
+    });
+  }
+
+  await t.test("multiple pages retain every legitimate row exactly once", async () => {
+    const fixture = await fixtureWithMenuDocuments(validItems(76));
+    const pages = await readAllPages(fixture);
+    assert.deepEqual(pages.map((page) => page.entries.length), [25, 25, 25, 1]);
+    assert.deepEqual(pages.map((page) => page.hasMore), [true, true, true, false]);
+    const names = pages.flatMap((page) => page.entries.map((entry) => entry.name));
+    assert.equal(new Set(names).size, 76);
+  });
+
+  await t.test("rejected rows after the visible boundary prove exhaustion", async () => {
+    const invalidSections = Array.from({length: 20}, (_, index) => ({
+      kind: "menu_sections",
+      id: `m-invalid-${String(index).padStart(3, "0")}`,
+      data: {title: "", body: "Malformed", sortOrder: index},
+    }));
+    const fixture = await fixtureWithMenuDocuments([
+      ...validItems(25),
+      ...invalidSections,
+    ]);
+    const pages = await readAllPages(fixture);
+    assert.deepEqual(pages.map((page) => page.entries.length), [25]);
+    assert.equal(pages[0].hasMore, false);
+    assert.equal(pages[0].nextCursor, null);
+  });
+
+  await t.test("a later legitimate row survives rejected lookahead rows", async () => {
+    const invalidSections = Array.from({length: 10}, (_, index) => ({
+      kind: "menu_sections",
+      id: `m-invalid-${String(index).padStart(3, "0")}`,
+      data: {title: "Malformed", body: "", sortOrder: index},
+    }));
+    const fixture = await fixtureWithMenuDocuments([
+      ...validItems(25),
+      ...invalidSections,
+      {
+        kind: "menu_sections",
+        id: "z-legitimate-section",
+        data: {title: "Dinner", body: "Served nightly", sortOrder: 99},
+      },
+    ]);
+    const pages = await readAllPages(fixture);
+    assert.deepEqual(pages.map((page) => page.entries.length), [25, 1]);
+    assert.deepEqual(pages.map((page) => page.hasMore), [true, false]);
+    assert.equal(pages[1].entries[0].kind, "section");
+    assert.equal(pages[1].entries[0].title, "Dinner");
+
+    const menuQueries = fixture.database.calls.queryDocuments.filter((query) =>
+      query.collectionPath.includes("/menu_"));
+    assert.ok(menuQueries.every((query) => query.limit <= 26));
+  });
+
+  const oversizedPrivateField = "\u0000".repeat(175_000);
+
+  await t.test(
+    "the exact valid byte-boundary row appears once across the page chain",
+    async () => {
+      const boundaryId = "z-boundary-item";
+      const fixture = await fixtureWithMenuDocuments([
+        ...validItems(25),
+        {
+          kind: "menu_items",
+          id: boundaryId,
+          data: {
+            name: boundaryId,
+            category: "Anytime",
+            sortOrder: 25,
+            privateNotes: oversizedPrivateField,
+          },
+        },
+      ]);
+      const pages = await readAllPages(fixture);
+      const names = pages.flatMap((page) =>
+        page.entries.map((entry) => entry.name)
+      );
+      assert.equal(names.filter((name) => name === boundaryId).length, 1);
+      assert.equal(names.length, 26);
+      assert.deepEqual(
+        pages.slice(0, 2).map((page) => page.entries.length),
+        [25, 1],
+      );
+      assert.equal(pages.at(-1).hasMore, false);
+    },
+  );
+
+  await t.test(
+    "a compact projection remains reachable from an individually large source row",
+    async () => {
+      const fixture = await fixtureWithMenuDocuments([
+        {
+          kind: "menu_items",
+          id: "a-large-source",
+          data: {
+            name: "Large source",
+            category: "Anytime",
+            sortOrder: 0,
+            privateNotes: oversizedPrivateField,
+          },
+        },
+        {
+          kind: "menu_items",
+          id: "z-compact-source",
+          data: {name: "Compact source", category: "Anytime", sortOrder: 1},
+        },
+      ]);
+      const pages = await readAllPages(fixture);
+      assert.deepEqual(
+        pages.flatMap((page) => page.entries.map((entry) => entry.name)),
+        ["Large source", "Compact source"],
+      );
+    },
+  );
+
+  await t.test("a rejected large boundary row preserves forward progress", async () => {
+    const fixture = await fixtureWithMenuDocuments([
+      {
+        kind: "menu_items",
+        id: "a-invalid-large-source",
+        data: {name: "", privateNotes: oversizedPrivateField},
+      },
+      {
+        kind: "menu_items",
+        id: "z-valid-source",
+        data: {name: "Reachable", category: "Anytime", sortOrder: 1},
+      },
+    ]);
+    const pages = await readAllPages(fixture);
+    assert.ok(pages.length <= 2);
+    assert.deepEqual(
+      pages.flatMap((page) => page.entries.map((entry) => entry.name)),
+      ["Reachable"],
+    );
+    assert.equal(pages.at(-1).hasMore, false);
+  });
+
+  await t.test(
+    "scan-budget exhaustion remains distinct from confirmed source exhaustion",
+    async () => {
+      const invalidItems = Array.from({length: 50}, (_, index) => ({
+        kind: "menu_items",
+        id: `z-invalid-${String(index).padStart(3, "0")}`,
+        data: {name: "", sortOrder: index + 25},
+      }));
+      const fixture = await fixtureWithMenuDocuments([
+        ...validItems(25),
+        ...invalidItems,
+      ]);
+      const pages = await readAllPages(fixture);
+      assert.deepEqual(pages.map((page) => page.entries.length), [25, 0]);
+      assert.deepEqual(pages.map((page) => page.hasMore), [true, false]);
+    },
+  );
+});
+
+test("menu images omit writer-shaped own and shared source identities", async () => {
+  const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  const context = createContext(database);
+  const started = await startCustomerBiteSaverSearchHandler(
+    startRequest({searchText: ""}),
+    context,
+  );
+  const session = markSessionReady(database, started);
+  const own = addReadyRestaurant(database, session, 0, {
+    onlyCoupons: true,
+    offerCount: 1,
+    restaurant: {menuSourceSide: "biteSaver"},
+  });
+  const firebaseUrl = (objectPath) =>
+    "https://firebasestorage.googleapis.com/v0/b/fixture.appspot.com/o/" +
+    `${encodeURIComponent(objectPath)}?alt=media&token=fixture-token`;
+  database.documents.set(
+    `restaurant_accounts/${own.accountId}/menu_images/unsafe-own`,
+    {
+      imageUrl: firebaseUrl(
+        `bitesaver_restaurants/${own.accountId}/menu_images/menu_1.jpg`,
+      ),
+      sortOrder: 1,
+    },
+  );
+  const ownObjectPath =
+    `bitesaver_restaurants/${own.accountId}/menu_images/menu_1.jpg`;
+  database.documents.set(
+    `restaurant_accounts/${own.accountId}/menu_images/unsafe-own-lowercase`,
+    {
+      imageUrl: firebaseUrl(ownObjectPath).replaceAll("%2F", "%2f"),
+      sortOrder: 2,
+    },
+  );
+  database.documents.set(
+    `restaurant_accounts/${own.accountId}/menu_images/unsafe-own-double`,
+    {
+      imageUrl: firebaseUrl(encodeURIComponent(ownObjectPath)),
+      sortOrder: 3,
+    },
+  );
+  database.documents.set(
+    `restaurant_accounts/${own.accountId}/menu_images/unsafe-own-raw`,
+    {
+      imageUrl: `https://storage.googleapis.com/fixture.appspot.com/${ownObjectPath}`,
+      sortOrder: 4,
+    },
+  );
+  database.documents.set(
+    `restaurant_accounts/${own.accountId}/menu_images/safe-own`,
+    {imageUrl: "https://images.example.test/public-menu.webp", sortOrder: 5},
+  );
+  const safeOwnAuthorizationId = `bsmia_${"a".repeat(43)}`;
+  const safeOwnUploadUrl = firebaseUrl(
+    `public_menu_images/${safeOwnAuthorizationId}/image.jpg`,
+  );
+  database.documents.set(
+    `restaurant_accounts/${own.accountId}/menu_images/safe-own-upload`,
+    {imageUrl: safeOwnUploadUrl, sortOrder: 6},
+  );
+  await getCustomerBiteSaverSearchPageHandler(
+    pageRequest(started, {clientRequestId: "image-filter-delivery"}),
+    context,
+  );
+  const ownPage = await getCustomerBiteSaverMenuPageHandler(
+    menuPageRequest(started, own.publicRestaurantId),
+    context,
+  );
+  assert.deepEqual(
+    ownPage.entries.map(({imageUrl}) => imageUrl),
+    ["https://images.example.test/public-menu.webp", safeOwnUploadUrl],
+  );
+  assert.equal(JSON.stringify(ownPage).includes(own.accountId), false);
+
+  const sharedDatabase = new InMemoryCustomerBiteSaverSearchDatabase();
+  const sharedContext = createContext(sharedDatabase, {
+    randomSource: (size) => Buffer.alloc(size, 61),
+  });
+  const sharedStarted = await startCustomerBiteSaverSearchHandler(
+    startRequest({clientRequestId: "shared-image-filter-start", searchText: ""}),
+    sharedContext,
+  );
+  const sharedSession = markSessionReady(sharedDatabase, sharedStarted);
+  const scoreId = "score-image-source";
+  const sharedMenuId = "shared-menu-private-source";
+  const ownerUserId = "different-shared-owner";
+  const bindingId = Buffer.alloc(32, 62).toString("base64url");
+  const shared = addReadyRestaurant(sharedDatabase, sharedSession, 0, {
+    onlyCoupons: true,
+    offerCount: 1,
+    restaurant: {
+      menuSourceSide: "biteScore",
+      linkedBiteScoreRestaurantId: scoreId,
+      biteSaverCatalogBindingId: bindingId,
+      biteScoreCatalogRestaurantId: scoreId,
+    },
+  });
+  sharedDatabase.documents.set(`bitescore_restaurants/${scoreId}`, {
+    id: scoreId,
+    status: "active",
+    isClaimed: true,
+    ownerUserId,
+    menuSourceSide: "biteScore",
+    sharedMenuId,
+    biteSaverCatalogBindingId: bindingId,
+    restaurantWriteRevision: 1,
+  });
+  sharedDatabase.documents.set(`restaurant_menus/${sharedMenuId}`, {
+    bitescoreRestaurantId: scoreId,
+    createdByUserId: ownerUserId,
+  });
+  sharedDatabase.documents.set(
+    `restaurant_menus/${sharedMenuId}/menu_images/unsafe-shared`,
+    {
+      imageUrl: firebaseUrl(
+        `restaurant_menus/${sharedMenuId}/menu_images/menu_2.jpg`,
+      ),
+      sortOrder: 1,
+    },
+  );
+  const sharedObjectPath =
+    `restaurant_menus/${sharedMenuId}/menu_images/menu_2.jpg`;
+  sharedDatabase.documents.set(
+    `restaurant_menus/${sharedMenuId}/menu_images/unsafe-shared-lowercase`,
+    {
+      imageUrl: firebaseUrl(sharedObjectPath).replaceAll("%2F", "%2f"),
+      sortOrder: 2,
+    },
+  );
+  sharedDatabase.documents.set(
+    `restaurant_menus/${sharedMenuId}/menu_images/unsafe-shared-raw`,
+    {
+      imageUrl:
+        `https://storage.googleapis.com/fixture.appspot.com/${sharedObjectPath}`,
+      sortOrder: 3,
+    },
+  );
+  sharedDatabase.documents.set(
+    `restaurant_menus/${sharedMenuId}/menu_images/safe-shared`,
+    {imageUrl: "https://cdn.example.test/shared-public.webp", sortOrder: 4},
+  );
+  const safeSharedAuthorizationId = `bsmia_${"b".repeat(43)}`;
+  const safeSharedUploadUrl = firebaseUrl(
+    `public_menu_images/${safeSharedAuthorizationId}/image.webp`,
+  );
+  sharedDatabase.documents.set(
+    `restaurant_menus/${sharedMenuId}/menu_images/safe-shared-upload`,
+    {imageUrl: safeSharedUploadUrl, sortOrder: 5},
+  );
+  await getCustomerBiteSaverSearchPageHandler(
+    pageRequest(sharedStarted, {clientRequestId: "shared-image-delivery"}),
+    sharedContext,
+  );
+  const sharedPage = await getCustomerBiteSaverMenuPageHandler(
+    menuPageRequest(sharedStarted, shared.publicRestaurantId),
+    sharedContext,
+  );
+  assert.deepEqual(
+    sharedPage.entries.map(({imageUrl}) => imageUrl),
+    ["https://cdn.example.test/shared-public.webp", safeSharedUploadUrl],
+  );
+  assert.equal(JSON.stringify(sharedPage).includes(sharedMenuId), false);
+});
+
+test("bounded shared menu requires a current catalog or legacy-owner relationship", async () => {
+  const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  const context = createContext(database);
+  const started = await startCustomerBiteSaverSearchHandler(
+    startRequest({searchText: ""}),
+    context,
+  );
+  const session = markSessionReady(database, started);
+  const scoreId = "shared-score-restaurant";
+  const menuId = "shared-menu-document";
+  const bindingId = Buffer.alloc(32, 41).toString("base64url");
+  const seeded = addReadyRestaurant(database, session, 0, {
+    onlyCoupons: true,
+    offerCount: 1,
+    restaurant: {
+      menuSourceSide: "biteScore",
+      linkedBiteScoreRestaurantId: scoreId,
+      biteScoreCatalogRestaurantId: scoreId,
+      biteSaverCatalogBindingId: bindingId,
+    },
+  });
+  database.documents.set(`bitescore_restaurants/${scoreId}`, {
+    id: scoreId,
+    isActive: true,
+    active: true,
+    isClaimed: true,
+    ownerUserId: "different-score-owner",
+    menuSourceSide: "biteScore",
+    sharedMenuId: menuId,
+    restaurantWriteRevision: 7,
+    biteSaverCatalogBindingId: bindingId,
+  });
+  database.documents.set(`restaurant_menus/${menuId}`, {
+    bitescoreRestaurantId: scoreId,
+    createdByUserId: "different-score-owner",
+    privateCanary: "shared-parent-canary",
+  });
+  database.documents.set(
+    `restaurant_menus/${menuId}/menu_sections/section-a`,
+    {
+      title: "Shared section",
+      body: "Shared authored body",
+      sortOrder: 2,
+      createdByUserId: "private-creator",
+    },
+  );
+  await getCustomerBiteSaverSearchPageHandler(
+    pageRequest(started, {clientRequestId: "shared-menu-delivery-0001"}),
+    context,
+  );
+
+  const response = await getCustomerBiteSaverMenuPageHandler(
+    menuPageRequest(started, seeded.publicRestaurantId),
+    context,
+  );
+  assert.equal(response.menuStyle, "biteScore");
+  assert.deepEqual(response.entries.map((entry) => entry.kind), ["section"]);
+  assert.equal(JSON.stringify(response).includes(menuId), false);
+  assert.equal(JSON.stringify(response).includes("different-score-owner"), false);
+
+  database.documents.set(`bitescore_restaurants/${scoreId}`, {
+    ...database.documents.get(`bitescore_restaurants/${scoreId}`),
+    biteSaverCatalogBindingId: Buffer.alloc(32, 42).toString("base64url"),
+  });
+  await assert.rejects(
+    getCustomerBiteSaverMenuPageHandler(
+      menuPageRequest(started, seeded.publicRestaurantId, {
+        clientRequestId: "shared-menu-invalid-0001",
+      }),
+      context,
+    ),
+    (error) => assertContractError(error, "failed-precondition"),
+  );
+});
+
+test("menu authorization rejects undelivered IDs and source changes between reads", async () => {
+  const database = new InMemoryCustomerBiteSaverSearchDatabase();
+  const context = createContext(database);
+  const started = await startCustomerBiteSaverSearchHandler(
+    startRequest({searchText: ""}),
+    context,
+  );
+  const session = markSessionReady(database, started);
+  const seeded = addReadyRestaurant(database, session, 0, {
+    onlyCoupons: true,
+    offerCount: 1,
+    restaurant: {menuSourceSide: "biteSaver"},
+  });
+  for (let index = 0; index < 26; index += 1) {
+    const id = `item-${String(index).padStart(3, "0")}`;
+    database.documents.set(
+      `restaurant_accounts/${seeded.accountId}/menu_items/${id}`,
+      {name: id, category: "Anytime", sortOrder: index},
+    );
+  }
+  await assert.rejects(
+    getCustomerBiteSaverMenuPageHandler(
+      menuPageRequest(started, seeded.publicRestaurantId),
+      context,
+    ),
+    (error) => assertContractError(error, "permission-denied"),
+  );
+  await getCustomerBiteSaverSearchPageHandler(
+    pageRequest(started, {clientRequestId: "source-change-delivery-0001"}),
+    context,
+  );
+  const first = await getCustomerBiteSaverMenuPageHandler(
+    menuPageRequest(started, seeded.publicRestaurantId),
+    context,
+  );
+  assert.equal(first.hasMore, true);
+  database.documents.set(`restaurant_accounts/${seeded.accountId}`, {
+    ...database.documents.get(`restaurant_accounts/${seeded.accountId}`),
+    menuSourceSide: "biteScore",
+    linkedBiteScoreRestaurantId: "replacement-source",
+  });
+  await assert.rejects(
+    getCustomerBiteSaverMenuPageHandler(
+      menuPageRequest(started, seeded.publicRestaurantId, {
+        clientRequestId: "source-change-menu-page-0002",
+        cursor: first.nextCursor,
+      }),
+      context,
+    ),
+    (error) => assertContractError(error, "failed-precondition"),
+  );
+
+  database.documents.set(`restaurant_accounts/${seeded.accountId}`, {
+    ...database.documents.get(`restaurant_accounts/${seeded.accountId}`),
+    menuSourceSide: "biteSaver",
+    linkedBiteScoreRestaurantId: undefined,
+  });
+  const originalQuery = database.queryDocuments.bind(database);
+  let changedDuringQuery = false;
+  database.queryDocuments = async (query) => {
+    const documents = await originalQuery(query);
+    if (!changedDuringQuery && query.collectionPath.endsWith("/menu_items")) {
+      changedDuringQuery = true;
+      database.documents.set(`restaurant_accounts/${seeded.accountId}`, {
+        ...database.documents.get(`restaurant_accounts/${seeded.accountId}`),
+        menuSourceSide: "biteScore",
+        linkedBiteScoreRestaurantId: "awaited-replacement",
+      });
+    }
+    return documents;
+  };
+  await assert.rejects(
+    getCustomerBiteSaverMenuPageHandler(
+      menuPageRequest(started, seeded.publicRestaurantId, {
+        clientRequestId: "awaited-source-change-0001",
+      }),
+      context,
+    ),
+    (error) => assertContractError(error, "failed-precondition"),
+  );
 });
 
 test("favorite handler enforces signed strict 0/25/50/75 request bounds", async () => {
@@ -7898,6 +9063,15 @@ test("guest restaurant and offer pages complete only after explicit checks", asy
     restaurantComplete.result.restaurants[0].restaurantId,
     seeded.publicRestaurantId,
   );
+  const emptyGuestMenu = await getCustomerBiteSaverMenuPageHandler(
+    menuPageRequest(started, seeded.publicRestaurantId, {
+      clientRequestId: "guest-menu-page-request-0001",
+    }),
+    context,
+  );
+  assert.equal(emptyGuestMenu.state, "available");
+  assert.deepEqual(emptyGuestMenu.entries, []);
+  assert.equal(emptyGuestMenu.hasMore, false);
 
   const offerRequest = offerPageRequest(started, seeded.publicRestaurantId, {
     clientRequestId: "guest-offer-page-start-0001",

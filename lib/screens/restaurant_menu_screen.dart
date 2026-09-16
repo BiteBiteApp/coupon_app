@@ -1,16 +1,25 @@
 import 'package:flutter/material.dart';
 
+import '../models/customer_bitesaver_search.dart';
 import '../services/app_mode_state_service.dart';
+import '../services/customer_bitesaver_search_coordinator.dart';
+import '../services/customer_bitesaver_service.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_menu_service.dart';
 import '../widgets/bitesaver_colors.dart';
 import '../widgets/persistent_bottom_navigation.dart';
 import '../widgets/restaurant_menu_section_card.dart';
 
+typedef RestaurantMenuViewerRouteOpener =
+    Future<void> Function(BuildContext context, WidgetBuilder builder);
+
 class RestaurantMenuScreen extends StatefulWidget {
   final String? restaurantUid;
   final String restaurantName;
   final RestaurantMenuSource? source;
+  final Future<CustomerBiteSaverMenuPageResult> Function(String? cursor)?
+  boundedPageLoader;
+  final RestaurantMenuViewerRouteOpener? boundedViewerOpener;
   final AppMode mode;
 
   const RestaurantMenuScreen({
@@ -18,16 +27,40 @@ class RestaurantMenuScreen extends StatefulWidget {
     required this.restaurantName,
     this.restaurantUid,
     this.source,
+    this.boundedPageLoader,
+    this.boundedViewerOpener,
     this.mode = AppMode.biteSaver,
-  });
+  }) : assert(boundedPageLoader == null || boundedViewerOpener != null);
+
+  const RestaurantMenuScreen.fromCustomerBiteSaver({
+    super.key,
+    required this.restaurantName,
+    required Future<CustomerBiteSaverMenuPageResult> Function(String? cursor)
+    pageLoader,
+    required RestaurantMenuViewerRouteOpener openImageViewer,
+  }) : restaurantUid = null,
+       source = null,
+       boundedPageLoader = pageLoader,
+       boundedViewerOpener = openImageViewer,
+       mode = AppMode.biteSaver;
 
   @override
   State<RestaurantMenuScreen> createState() => _RestaurantMenuScreenState();
 }
 
 class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
-  late Future<_RestaurantMenuData> _menuFuture;
+  Future<_RestaurantMenuData>? _legacyMenuFuture;
   int _selectedImageIndex = 0;
+  final Map<String, CustomerBiteSaverMenuEntry> _boundedEntries =
+      <String, CustomerBiteSaverMenuEntry>{};
+  CustomerBiteSaverMenuStyle? _boundedMenuStyle;
+  CustomerBiteSaverMenuAvailability? _boundedAvailability;
+  String? _boundedCursor;
+  Object? _boundedInitialError;
+  Object? _boundedAppendError;
+  bool _boundedInitialLoading = false;
+  bool _boundedAppendLoading = false;
+  bool _boundedInvalidated = false;
 
   static const List<String> _biteSaverCategoryOrder = [
     'Breakfast',
@@ -59,7 +92,11 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   @override
   void initState() {
     super.initState();
-    _menuFuture = _loadMenu();
+    if (widget.boundedPageLoader == null) {
+      _legacyMenuFuture = _loadMenu();
+    } else {
+      _loadBoundedInitial();
+    }
   }
 
   RestaurantMenuSource? get _source {
@@ -75,7 +112,9 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     return RestaurantMenuSource.legacyBiteSaver(uid);
   }
 
-  List<String> get _categoryOrder => _source?.isSharedMenu == true
+  List<String> get _categoryOrder =>
+      _source?.isSharedMenu == true ||
+          _boundedMenuStyle == CustomerBiteSaverMenuStyle.biteScore
       ? _biteScoreCategoryOrder
       : _biteSaverCategoryOrder;
 
@@ -95,6 +134,169 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       images: results[0] as List<RestaurantMenuImage>,
       items: results[1] as List<RestaurantMenuItem>,
       sections: results[2] as List<RestaurantMenuSection>,
+    );
+  }
+
+  Future<void> _loadBoundedInitial() async {
+    if (_boundedInitialLoading) return;
+    setState(() {
+      _boundedInitialLoading = true;
+      _boundedInitialError = null;
+      _boundedAppendError = null;
+      _boundedInvalidated = false;
+      _boundedEntries.clear();
+      _boundedCursor = null;
+      _boundedAvailability = null;
+      _boundedMenuStyle = null;
+    });
+    try {
+      final page = await widget.boundedPageLoader!(null);
+      if (!mounted) return;
+      setState(() => _acceptBoundedPage(page, initial: true));
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        if (_isBoundedAccessInvalidation(error)) {
+          _boundedInvalidated = true;
+          _boundedEntries.clear();
+        } else {
+          _boundedInitialError = error;
+        }
+      });
+    } finally {
+      if (mounted) setState(() => _boundedInitialLoading = false);
+    }
+  }
+
+  Future<void> _loadBoundedMore() async {
+    final cursor = _boundedCursor;
+    if (cursor == null || _boundedAppendLoading || _boundedInvalidated) return;
+    setState(() {
+      _boundedAppendLoading = true;
+      _boundedAppendError = null;
+    });
+    try {
+      final page = await widget.boundedPageLoader!(cursor);
+      if (!mounted) return;
+      setState(() => _acceptBoundedPage(page, initial: false));
+    } catch (error) {
+      if (!mounted) return;
+      setState(() {
+        if (_isBoundedAccessInvalidation(error)) {
+          _boundedInvalidated = true;
+          _boundedEntries.clear();
+          _boundedCursor = null;
+        } else {
+          _boundedAppendError = error;
+        }
+      });
+    } finally {
+      if (mounted) setState(() => _boundedAppendLoading = false);
+    }
+  }
+
+  void _acceptBoundedPage(
+    CustomerBiteSaverMenuPageResult page, {
+    required bool initial,
+  }) {
+    final existingStyle = _boundedMenuStyle;
+    final existingAvailability = _boundedAvailability;
+    if (!initial &&
+        (existingStyle != page.menuStyle ||
+            existingAvailability != page.availability ||
+            page.availability == CustomerBiteSaverMenuAvailability.absent)) {
+      _boundedInvalidated = true;
+      _boundedEntries.clear();
+      _boundedCursor = null;
+      return;
+    }
+    _boundedMenuStyle = page.menuStyle;
+    _boundedAvailability = page.availability;
+    for (final entry in page.entries) {
+      _boundedEntries[entry.key] = entry;
+    }
+    _boundedCursor = page.nextCursor;
+    _boundedInitialError = null;
+    _boundedAppendError = null;
+  }
+
+  bool _isBoundedAccessInvalidation(Object error) {
+    if (error is CustomerBiteSaverFreshSearchRequiredException) return true;
+    if (error is! CustomerBiteSaverServiceException ||
+        error.kind == CustomerBiteSaverServiceFailureKind.transport ||
+        error.kind == CustomerBiteSaverServiceFailureKind.invalidResponse) {
+      return false;
+    }
+    final code = error.code.startsWith('functions/')
+        ? error.code.substring('functions/'.length)
+        : error.code;
+    return const <String>{
+      'failed-precondition',
+      'permission-denied',
+      'not-found',
+      'unauthenticated',
+      'invalid-argument',
+    }.contains(code);
+  }
+
+  _RestaurantMenuData get _boundedMenuData {
+    final images = <RestaurantMenuImage>[];
+    final items = <RestaurantMenuItem>[];
+    final sections = <RestaurantMenuSection>[];
+    for (final entry in _boundedEntries.values) {
+      switch (entry) {
+        case CustomerBiteSaverMenuImageEntry image:
+          images.add(
+            RestaurantMenuImage(
+              id: image.key,
+              imageUrl: image.imageUrl,
+              sortOrder: image.sortOrder,
+            ),
+          );
+        case CustomerBiteSaverMenuItemEntry item:
+          items.add(
+            RestaurantMenuItem(
+              id: item.key,
+              name: item.name,
+              description: item.description,
+              price: item.price,
+              category: item.category,
+              sortOrder: item.sortOrder,
+            ),
+          );
+        case CustomerBiteSaverMenuSectionEntry section:
+          sections.add(
+            RestaurantMenuSection(
+              id: section.key,
+              title: section.title,
+              body: section.body,
+              sortOrder: section.sortOrder,
+            ),
+          );
+      }
+    }
+    images.sort((left, right) {
+      final order = left.sortOrder.compareTo(right.sortOrder);
+      return order != 0 ? order : left.id.compareTo(right.id);
+    });
+    items.sort((left, right) {
+      final category = left.category.compareTo(right.category);
+      if (category != 0) return category;
+      final order = left.sortOrder.compareTo(right.sortOrder);
+      if (order != 0) return order;
+      final name = left.name.compareTo(right.name);
+      return name != 0 ? name : left.id.compareTo(right.id);
+    });
+    sections.sort((left, right) {
+      final order = left.sortOrder.compareTo(right.sortOrder);
+      if (order != 0) return order;
+      final title = left.title.compareTo(right.title);
+      return title != 0 ? title : left.id.compareTo(right.id);
+    });
+    return _RestaurantMenuData(
+      images: images,
+      items: items,
+      sections: sections,
     );
   }
 
@@ -126,15 +328,17 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     List<RestaurantMenuImage> images,
     int initialIndex,
   ) async {
-    await Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (_) => _RestaurantMenuImageViewer(
-          images: images,
-          initialIndex: initialIndex,
-          restaurantName: widget.restaurantName,
-        ),
-      ),
+    Widget builder(BuildContext _) => _RestaurantMenuImageViewer(
+      images: images,
+      initialIndex: initialIndex,
+      restaurantName: widget.restaurantName,
     );
+    final boundedViewerOpener = widget.boundedViewerOpener;
+    if (boundedViewerOpener != null) {
+      await boundedViewerOpener(context, builder);
+      return;
+    }
+    await Navigator.of(context).push(MaterialPageRoute(builder: builder));
   }
 
   Widget _buildImageThumbs(List<RestaurantMenuImage> images) {
@@ -201,18 +405,21 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     );
   }
 
-  Widget _buildGroupedItems(_RestaurantMenuData data) {
+  Widget _buildGroupedItems(
+    _RestaurantMenuData data, {
+    List<Widget> footer = const <Widget>[],
+  }) {
     final groupedItems = _groupItems(data.items);
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        if (data.images.isNotEmpty) ...[
-          _buildImageThumbs(data.images),
-          const SizedBox(height: 20),
-        ],
-        for (final entry in groupedItems.entries) ...[
-          Text(
+    final rows = <WidgetBuilder>[];
+    if (data.images.isNotEmpty) {
+      rows
+        ..add((_) => _buildImageThumbs(data.images))
+        ..add((_) => const SizedBox(height: 20));
+    }
+    for (final entry in groupedItems.entries) {
+      rows
+        ..add(
+          (_) => Text(
             entry.key,
             style: const TextStyle(
               color: BiteSaverColors.ink,
@@ -220,83 +427,102 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 8),
-          for (final item in entry.value)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: BiteSaverColors.surface,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: BiteSaverColors.border),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Color.fromRGBO(15, 23, 42, 0.06),
-                      blurRadius: 10,
-                      offset: Offset(0, 4),
-                    ),
-                  ],
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              item.name,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w800,
-                                fontSize: 15,
-                                color: BiteSaverColors.ink,
-                              ),
-                            ),
-                          ),
-                          if (item.price.trim().isNotEmpty)
-                            Text(
-                              item.price,
-                              style: const TextStyle(
-                                color: Color(0xFF4D7F22),
-                                fontWeight: FontWeight.w800,
-                              ),
-                            ),
-                        ],
-                      ),
-                      if (item.description.trim().isNotEmpty) ...[
-                        const SizedBox(height: 5),
-                        Text(
-                          item.description,
-                          style: const TextStyle(
-                            color: BiteSaverColors.secondaryText,
-                            height: 1.25,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-            ),
-          const SizedBox(height: 8),
-        ],
-        if (data.sections.isNotEmpty) ...[
-          if (groupedItems.isNotEmpty) const SizedBox(height: 8),
-          for (final section in data.sections)
-            RestaurantMenuSectionCard(
-              title: section.title,
-              body: section.body,
-              margin: const EdgeInsets.only(bottom: 12),
-            ),
-        ],
-      ],
+        )
+        ..add((_) => const SizedBox(height: 8));
+      for (final item in entry.value) {
+        rows.add((_) => _buildMenuItemCard(item));
+      }
+      rows.add((_) => const SizedBox(height: 8));
+    }
+    if (data.sections.isNotEmpty) {
+      if (groupedItems.isNotEmpty) {
+        rows.add((_) => const SizedBox(height: 8));
+      }
+      for (final section in data.sections) {
+        rows.add(
+          (_) => RestaurantMenuSectionCard(
+            title: section.title,
+            body: section.body,
+            margin: const EdgeInsets.only(bottom: 12),
+          ),
+        );
+      }
+    }
+    for (final widget in footer) {
+      rows.add((_) => widget);
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: rows.length,
+      itemBuilder: (context, index) => rows[index](context),
     );
   }
 
-  Widget _buildImageMenu(List<RestaurantMenuImage> images) {
+  Widget _buildMenuItemCard(RestaurantMenuItem item) {
+    return Padding(
+      key: ValueKey<String>('menu-item-${item.id}'),
+      padding: const EdgeInsets.only(bottom: 10),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: BiteSaverColors.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: BiteSaverColors.border),
+          boxShadow: const [
+            BoxShadow(
+              color: Color.fromRGBO(15, 23, 42, 0.06),
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      item.name,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w800,
+                        fontSize: 15,
+                        color: BiteSaverColors.ink,
+                      ),
+                    ),
+                  ),
+                  if (item.price.trim().isNotEmpty)
+                    Text(
+                      item.price,
+                      style: const TextStyle(
+                        color: Color(0xFF4D7F22),
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                ],
+              ),
+              if (item.description.trim().isNotEmpty) ...[
+                const SizedBox(height: 5),
+                Text(
+                  item.description,
+                  style: const TextStyle(
+                    color: BiteSaverColors.secondaryText,
+                    height: 1.25,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildImageMenu(List<RestaurantMenuImage> images, {Widget? footer}) {
     final selectedImage =
         images[_selectedImageIndex.clamp(0, images.length - 1)];
     final hasMultipleImages = images.length > 1;
@@ -355,6 +581,11 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
               ],
             ),
           ),
+        if (footer != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            child: footer,
+          ),
       ],
     );
   }
@@ -393,6 +624,104 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     );
   }
 
+  Widget _buildBoundedContinuationControl() {
+    if (_boundedAppendLoading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 16),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_boundedAppendError != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Column(
+          children: [
+            const Text(
+              'Could not load more menu entries.',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            OutlinedButton(
+              onPressed: _loadBoundedMore,
+              child: const Text('Retry'),
+            ),
+          ],
+        ),
+      );
+    }
+    if (_boundedCursor == null) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: OutlinedButton(
+        onPressed: _loadBoundedMore,
+        child: const Text('Load more'),
+      ),
+    );
+  }
+
+  Widget _buildBoundedBody() {
+    if (_boundedInitialLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+    if (_boundedInvalidated) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text(
+            'This menu access changed. Return to search and try again.',
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+    if (_boundedInitialError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Could not load this menu right now.',
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              OutlinedButton(
+                onPressed: _loadBoundedInitial,
+                child: const Text('Retry'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final data = _boundedMenuData;
+    if (_boundedAvailability == CustomerBiteSaverMenuAvailability.absent ||
+        (data.images.isEmpty &&
+            data.items.isEmpty &&
+            data.sections.isEmpty &&
+            _boundedCursor == null)) {
+      return _buildEmptyState();
+    }
+    final continuation = _buildBoundedContinuationControl();
+    if (data.items.isNotEmpty || data.sections.isNotEmpty) {
+      return _buildGroupedItems(data, footer: <Widget>[continuation]);
+    }
+    if (data.images.isNotEmpty) {
+      return _buildImageMenu(data.images, footer: continuation);
+    }
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: <Widget>[
+        const Text(
+          'No visible menu entries were found on this page.',
+          textAlign: TextAlign.center,
+        ),
+        continuation,
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -404,37 +733,39 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         elevation: 0,
       ),
       bottomNavigationBar: PersistentBottomNavigation(mode: widget.mode),
-      body: FutureBuilder<_RestaurantMenuData>(
-        future: _menuFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState != ConnectionState.done) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: widget.boundedPageLoader != null
+          ? _buildBoundedBody()
+          : FutureBuilder<_RestaurantMenuData>(
+              future: _legacyMenuFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState != ConnectionState.done) {
+                  return const Center(child: CircularProgressIndicator());
+                }
 
-          if (snapshot.hasError) {
-            return const Center(
-              child: Padding(
-                padding: EdgeInsets.all(24),
-                child: Text('Could not load this menu right now.'),
-              ),
-            );
-          }
+                if (snapshot.hasError) {
+                  return const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Text('Could not load this menu right now.'),
+                    ),
+                  );
+                }
 
-          final data = snapshot.data;
-          if (data == null ||
-              (data.images.isEmpty &&
-                  data.items.isEmpty &&
-                  data.sections.isEmpty)) {
-            return _buildEmptyState();
-          }
+                final data = snapshot.data;
+                if (data == null ||
+                    (data.images.isEmpty &&
+                        data.items.isEmpty &&
+                        data.sections.isEmpty)) {
+                  return _buildEmptyState();
+                }
 
-          if (data.items.isNotEmpty || data.sections.isNotEmpty) {
-            return _buildGroupedItems(data);
-          }
+                if (data.items.isNotEmpty || data.sections.isNotEmpty) {
+                  return _buildGroupedItems(data);
+                }
 
-          return _buildImageMenu(data.images);
-        },
-      ),
+                return _buildImageMenu(data.images);
+              },
+            ),
     );
   }
 }

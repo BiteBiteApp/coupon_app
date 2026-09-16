@@ -28,6 +28,12 @@ typedef RestaurantMenuManagementItemSaver =
       String price,
       String category,
     );
+typedef RestaurantMenuManagementImageDeleter =
+    Future<void> Function({
+      required RestaurantMenuSource source,
+      required String imageId,
+      required RestaurantMenuImage expectedImage,
+    });
 
 class RestaurantMenuManagementScreen extends StatefulWidget {
   final RestaurantMenuSource? source;
@@ -37,6 +43,7 @@ class RestaurantMenuManagementScreen extends StatefulWidget {
   final User? Function()? testCurrentUserProvider;
   final RestaurantMenuManagementInitialDataLoader? testInitialDataLoader;
   final RestaurantMenuManagementItemSaver? testItemSaver;
+  final RestaurantMenuManagementImageDeleter? testImageDeleter;
 
   const RestaurantMenuManagementScreen({
     super.key,
@@ -47,6 +54,7 @@ class RestaurantMenuManagementScreen extends StatefulWidget {
     @visibleForTesting this.testCurrentUserProvider,
     @visibleForTesting this.testInitialDataLoader,
     @visibleForTesting this.testItemSaver,
+    @visibleForTesting this.testImageDeleter,
   });
 
   @override
@@ -303,9 +311,11 @@ class _RestaurantMenuManagementScreenState
         imageUrl = upload?.imageUrl;
         storagePath = upload?.storagePath;
       } else {
-        imageUrl = await BiteSaverImageUploadService.pickAndUploadMenuImage(
+        final upload = await BiteSaverImageUploadService.pickAndUploadMenuImage(
           uid: source.id,
         );
+        imageUrl = upload?.imageUrl;
+        storagePath = upload?.storagePath;
       }
       if (imageUrl == null) {
         return;
@@ -420,10 +430,20 @@ class _RestaurantMenuManagementScreenState
     final refreshDelivery = _captureHomeRefreshDelivery(source);
 
     try {
-      await RestaurantMenuService.deleteMenuImage(
-        source: source,
-        imageId: image.id,
-      );
+      final testImageDeleter = widget.testImageDeleter;
+      if (testImageDeleter != null) {
+        await testImageDeleter(
+          source: source,
+          imageId: image.id,
+          expectedImage: image,
+        );
+      } else {
+        await RestaurantMenuService.deleteMenuImage(
+          source: source,
+          imageId: image.id,
+          expectedImage: image,
+        );
+      }
       refreshDelivery.confirm();
       widget.onMenuChanged?.call();
       if (!mounted) return;

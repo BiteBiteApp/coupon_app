@@ -388,6 +388,11 @@ function publicProfileUrl(value: unknown, maximumLength: number): string | null 
   return url;
 }
 
+/** Applies the same customer-public URL allowlist used by profile images. */
+export function customerBiteSaverPublicImageUrl(value: unknown): string | null {
+  return publicProfileUrl(value, maximumPublicImageUrlLength);
+}
+
 function publicUrlStructuralCharacters(value: string): string {
   return value.replace(/[^:/?#@[\]\\%]/gu, "");
 }

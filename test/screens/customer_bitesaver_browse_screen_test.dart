@@ -651,7 +651,7 @@ void main() {
   });
 
   testWidgets(
-    'menu stays blocked without raw identity and does not open a consumer',
+    'profile Menu opens bounded existing screen and Back retains both states',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(900, 1000);
@@ -659,9 +659,7 @@ void main() {
       final harness = _BrowseHarness();
       const handler = CustomerBiteSaverBrowseDestinationHandler();
 
-      await tester.pumpWidget(
-        MaterialApp(home: harness.screen(onAction: handler.call)),
-      );
+      await tester.pumpWidget(_productionBrowseApp(harness, handler));
       await _pumpBrowseReady(tester, harness.transport);
       expect(
         harness.coordinator
@@ -670,18 +668,392 @@ void main() {
         isTrue,
       );
 
-      await tester.tap(find.text('View Menu'));
-      await tester.pump();
-
-      expect(
-        find.text('Menu is not available from this search yet.'),
-        findsOneWidget,
+      final browseState = tester.state(
+        find.byType(CustomerBiteSaverBrowseScreen),
       );
-      expect(find.byType(RestaurantMenuScreen), findsNothing);
+      final browseScroll = tester.widget<CustomScrollView>(
+        find.byType(CustomScrollView).last,
+      );
+      browseScroll.controller!.jumpTo(80);
+      await tester.pump();
+      final retainedOffset = browseScroll.controller!.offset;
+      await tester.tap(find.text('Fixture Café 😀'));
+      await tester.pumpAndSettle();
+      final profileState = tester.state(find.byType(RestaurantProfileScreen));
+      await tester.tap(find.text('Restaurant Information'));
+      await tester.pumpAndSettle();
+      expect(harness.transport.menuPageCalls, 0);
+      final menuLink = tester.widget<InkWell>(
+        find
+            .ancestor(of: find.text('Menu'), matching: find.byType(InkWell))
+            .last,
+      );
+      menuLink.onTap!();
+      menuLink.onTap!();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(RestaurantMenuScreen), findsOneWidget);
+      expect(find.text('Fixture menu item'), findsOneWidget);
+      expect(harness.transport.menuPageCalls, 1);
       expect(harness.transport.startCalls, 1);
       expect(harness.transport.redemptionCalls, 0);
+
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(
+        tester.state(find.byType(RestaurantProfileScreen)),
+        same(profileState),
+      );
+      expect(find.text('Menu'), findsOneWidget);
+      await tester.pageBack();
+      await tester.pumpAndSettle();
+      expect(
+        tester.state(find.byType(CustomerBiteSaverBrowseScreen)),
+        same(browseState),
+      );
+      expect(
+        tester
+            .widget<CustomScrollView>(find.byType(CustomScrollView).last)
+            .controller!
+            .offset,
+        closeTo(retainedOffset, 0.01),
+      );
+      expect(find.text('Fixture Café 😀'), findsWidgets);
+      expect(harness.transport.startCalls, 1);
     },
   );
+
+  testWidgets('guest profile Menu survives inactive and returns in place', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1000);
+    addTearDown(tester.view.reset);
+    final harness = _BrowseHarness(signed: false);
+    const handler = CustomerBiteSaverBrowseDestinationHandler();
+
+    await tester.pumpWidget(_productionBrowseApp(harness, handler));
+    await _pumpBrowseReady(tester, harness.transport);
+    final browseState = tester.state(
+      find.byType(CustomerBiteSaverBrowseScreen),
+    );
+    await tester.tap(find.text('Fixture Café 😀'));
+    await tester.pumpAndSettle();
+    final profileState = tester.state(find.byType(RestaurantProfileScreen));
+    await tester.tap(find.text('Restaurant Information'));
+    await tester.pumpAndSettle();
+    expect(harness.transport.menuPageCalls, 0);
+    await tester.tap(find.text('Menu'));
+    await tester.pumpAndSettle();
+    expect(find.byType(RestaurantMenuScreen), findsOneWidget);
+    expect(find.text('Fixture menu item'), findsOneWidget);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(find.byType(RestaurantMenuScreen), findsOneWidget);
+    expect(harness.transport.menuPageCalls, 1);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(
+      tester.state(find.byType(RestaurantProfileScreen)),
+      same(profileState),
+    );
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(
+      tester.state(find.byType(CustomerBiteSaverBrowseScreen)),
+      same(browseState),
+    );
+    expect(harness.transport.startCalls, 1);
+    expect(harness.transport.redemptionCalls, 0);
+  });
+
+  testWidgets('auth replacement retires a menu with a delayed initial read', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1000);
+    addTearDown(tester.view.reset);
+    final delayedMenu = Completer<Object?>();
+    Map<String, Object?>? delayedResponse;
+    final transport = _BrowseFixtureTransport(
+      menuResponder: (_, response) {
+        delayedResponse = response;
+        return delayedMenu.future;
+      },
+    );
+    final harness = _BrowseHarness(transport: transport);
+    const handler = CustomerBiteSaverBrowseDestinationHandler();
+
+    await tester.pumpWidget(_productionBrowseApp(harness, handler));
+    await _pumpBrowseReady(tester, transport);
+    await tester.tap(find.text('Fixture Café 😀'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Restaurant Information'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Menu'));
+    await _pumpUntil(
+      tester,
+      () => find.byType(RestaurantMenuScreen).evaluate().isNotEmpty,
+    );
+    expect(find.byType(RestaurantMenuScreen), findsOneWidget);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    await harness.coordinator.updateAuth(
+      const CustomerBiteSaverAuthSnapshot.signed('replacement-user'),
+    );
+    await _pumpUntil(
+      tester,
+      () => find.byType(RestaurantMenuScreen).evaluate().isEmpty,
+    );
+    delayedMenu.complete(delayedResponse);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.byType(RestaurantMenuScreen), findsNothing);
+    expect(find.text('Fixture menu item'), findsNothing);
+    expect(transport.menuPageCalls, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('bounded menu viewer retires with its originating search lease', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1000);
+    addTearDown(tester.view.reset);
+    final transport = _BrowseFixtureTransport(
+      menuResponder: (_, response) async => <String, Object?>{
+        ...response,
+        'entries': <Map<String, Object?>>[
+          <String, Object?>{
+            'kind': 'image',
+            'key': 'bsme_${'v' * 43}',
+            'imageUrl': 'https://images.example.test/guarded-menu.webp',
+            'sortOrder': 0,
+          },
+          <String, Object?>{
+            'kind': 'item',
+            'key': 'bsme_${'x' * 43}',
+            'name': 'Viewer fixture item',
+            'description': '',
+            'price': '',
+            'category': 'Dinner',
+            'sortOrder': 1,
+          },
+        ],
+      },
+    );
+    final harness = _BrowseHarness(transport: transport);
+    const handler = CustomerBiteSaverBrowseDestinationHandler();
+    final observer = _CountingNavigatorObserver();
+
+    await tester.pumpWidget(
+      _productionBrowseApp(
+        harness,
+        handler,
+        navigatorObservers: <NavigatorObserver>[observer],
+      ),
+    );
+    await _pumpBrowseReady(tester, transport);
+    await tester.tap(find.text('Fixture Café 😀'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Restaurant Information'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Menu'));
+    await tester.pumpAndSettle();
+    final menuState = tester.state(find.byType(RestaurantMenuScreen));
+    final thumbnail = find.byWidgetPredicate(
+      (widget) =>
+          widget is Image &&
+          widget.image is NetworkImage &&
+          (widget.image as NetworkImage).url.endsWith('guarded-menu.webp'),
+    );
+    expect(thumbnail, findsOneWidget);
+    await tester.tap(thumbnail);
+    await tester.pumpAndSettle();
+    expect(find.byType(InteractiveViewer), findsOneWidget);
+    expect(transport.menuPageCalls, 1);
+
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(find.byType(InteractiveViewer), findsOneWidget);
+    expect(transport.menuPageCalls, 1);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(tester.state(find.byType(RestaurantMenuScreen)), same(menuState));
+    expect(find.byType(InteractiveViewer), findsNothing);
+    await tester.tap(thumbnail);
+    await tester.pumpAndSettle();
+    expect(find.byType(InteractiveViewer), findsOneWidget);
+    expect(transport.menuPageCalls, 1);
+    expect(transport.startCalls, 1);
+
+    unawaited(
+      rootNavigatorKey.currentState!.push<void>(
+        MaterialPageRoute<void>(
+          builder: (_) => const Scaffold(
+            body: Center(child: Text('Newer unrelated route')),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('Newer unrelated route'), findsOneWidget);
+
+    await harness.coordinator.freshSearch(harness.coordinator.criteria!);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Newer unrelated route'), findsOneWidget);
+    expect(find.byType(InteractiveViewer), findsNothing);
+    expect(find.byType(RestaurantMenuScreen), findsNothing);
+    expect(transport.menuPageCalls, 1);
+    expect(transport.startCalls, 2);
+    expect(observer.removeCount, greaterThanOrEqualTo(2));
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('stale menu image callbacks cannot construct a viewer', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1000);
+    addTearDown(tester.view.reset);
+    final transport = _BrowseFixtureTransport(
+      menuResponder: (_, response) async => <String, Object?>{
+        ...response,
+        'entries': <Map<String, Object?>>[
+          <String, Object?>{
+            'kind': 'image',
+            'key': 'bsme_${'w' * 43}',
+            'imageUrl': 'https://images.example.test/stale-menu.webp',
+            'sortOrder': 0,
+          },
+          <String, Object?>{
+            'kind': 'item',
+            'key': 'bsme_${'y' * 43}',
+            'name': 'Stale viewer fixture item',
+            'description': '',
+            'price': '',
+            'category': 'Dinner',
+            'sortOrder': 1,
+          },
+        ],
+      },
+    );
+    final harness = _BrowseHarness(transport: transport);
+    const handler = CustomerBiteSaverBrowseDestinationHandler();
+    final observer = _CountingNavigatorObserver();
+
+    await tester.pumpWidget(
+      _productionBrowseApp(
+        harness,
+        handler,
+        navigatorObservers: <NavigatorObserver>[observer],
+      ),
+    );
+    await _pumpBrowseReady(tester, transport);
+    await tester.tap(find.text('Fixture Café 😀'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Restaurant Information'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Menu'));
+    await tester.pumpAndSettle();
+
+    final thumbnail = find.byWidgetPredicate(
+      (widget) =>
+          widget is Image &&
+          widget.image is NetworkImage &&
+          (widget.image as NetworkImage).url.endsWith('stale-menu.webp'),
+    );
+    final staleTap = tester.widget<InkWell>(
+      find.ancestor(of: thumbnail, matching: find.byType(InkWell)).first,
+    );
+    final pushesBeforeInvalidation = observer.pushCount;
+
+    await harness.coordinator.freshSearch(harness.coordinator.criteria!);
+    staleTap.onTap!();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(observer.pushCount, pushesBeforeInvalidation);
+    expect(find.byType(InteractiveViewer), findsNothing);
+    expect(find.byType(RestaurantMenuScreen), findsNothing);
+    expect(transport.menuPageCalls, 1);
+    expect(transport.startCalls, 2);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('auth replacement retires the guarded menu viewer and menu', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1000);
+    addTearDown(tester.view.reset);
+    final transport = _viewerMenuTransport(
+      imageKeyCharacter: 'z',
+      itemKeyCharacter: 'A',
+      imageName: 'auth-guarded-menu.webp',
+    );
+    final harness = _BrowseHarness(transport: transport);
+    const handler = CustomerBiteSaverBrowseDestinationHandler();
+
+    await tester.pumpWidget(_productionBrowseApp(harness, handler));
+    await _pumpBrowseReady(tester, transport);
+    await _openFixtureMenuViewer(tester, 'auth-guarded-menu.webp');
+    expect(find.byType(InteractiveViewer), findsOneWidget);
+
+    await harness.coordinator.updateAuth(
+      const CustomerBiteSaverAuthSnapshot.signed('viewer-replacement-user'),
+    );
+    await _pumpUntil(
+      tester,
+      () =>
+          find.byType(InteractiveViewer).evaluate().isEmpty &&
+          find.byType(RestaurantMenuScreen).evaluate().isEmpty,
+    );
+
+    expect(find.byType(CustomerBiteSaverBrowseScreen), findsOneWidget);
+    expect(transport.menuPageCalls, 1);
+    expect(transport.startCalls, 1);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('root disposal releases guarded menu viewer listeners', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1000);
+    addTearDown(tester.view.reset);
+    final transport = _viewerMenuTransport(
+      imageKeyCharacter: 'B',
+      itemKeyCharacter: 'C',
+      imageName: 'disposed-guarded-menu.webp',
+    );
+    final harness = _BrowseHarness(transport: transport);
+    const handler = CustomerBiteSaverBrowseDestinationHandler();
+
+    await tester.pumpWidget(_productionBrowseApp(harness, handler));
+    await _pumpBrowseReady(tester, transport);
+    await _openFixtureMenuViewer(tester, 'disposed-guarded-menu.webp');
+    expect(find.byType(InteractiveViewer), findsOneWidget);
+
+    await tester.pumpWidget(const MaterialApp(home: SizedBox.shrink()));
+    await tester.pumpAndSettle();
+
+    expect(harness.coordinator.isDisposed, isTrue);
+    expect(find.byType(InteractiveViewer), findsNothing);
+    expect(find.byType(RestaurantMenuScreen), findsNothing);
+    expect(transport.menuPageCalls, 1);
+    expect(tester.takeException(), isNull);
+  });
 
   testWidgets('daily-special selections use the bounded offer destination', (
     tester,
@@ -2113,9 +2485,11 @@ Future<CustomerBiteSaverBrowseActionResult> _ignoreAction(
 
 Widget _productionBrowseApp(
   _BrowseHarness harness,
-  CustomerBiteSaverBrowseDestinationHandler handler,
-) => MaterialApp(
+  CustomerBiteSaverBrowseDestinationHandler handler, {
+  List<NavigatorObserver> navigatorObservers = const <NavigatorObserver>[],
+}) => MaterialApp(
   navigatorKey: rootNavigatorKey,
+  navigatorObservers: navigatorObservers,
   home: MainNavigationScreen(
     initializePlatformServices: false,
     biteSaverBrowseHomeBuilder:
@@ -2131,6 +2505,23 @@ Widget _productionBrowseApp(
   ),
 );
 
+final class _CountingNavigatorObserver extends NavigatorObserver {
+  int pushCount = 0;
+  int removeCount = 0;
+
+  @override
+  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    pushCount += 1;
+    super.didPush(route, previousRoute);
+  }
+
+  @override
+  void didRemove(Route<dynamic> route, Route<dynamic>? previousRoute) {
+    removeCount += 1;
+    super.didRemove(route, previousRoute);
+  }
+}
+
 CustomerBiteSaverRestaurantId _restaurantId(
   _BrowseFixtureTransport transport,
 ) => CustomerBiteSaverRestaurantId(transport.firstRestaurantId);
@@ -2144,6 +2535,54 @@ Future<void> _pumpBrowseReady(
       transport.restaurantPageCalls > 0 &&
       find.text('Fixture Café 😀').evaluate().isNotEmpty,
 );
+
+_BrowseFixtureTransport _viewerMenuTransport({
+  required String imageKeyCharacter,
+  required String itemKeyCharacter,
+  required String imageName,
+}) => _BrowseFixtureTransport(
+  menuResponder: (_, response) async => <String, Object?>{
+    ...response,
+    'entries': <Map<String, Object?>>[
+      <String, Object?>{
+        'kind': 'image',
+        'key': 'bsme_${imageKeyCharacter * 43}',
+        'imageUrl': 'https://images.example.test/$imageName',
+        'sortOrder': 0,
+      },
+      <String, Object?>{
+        'kind': 'item',
+        'key': 'bsme_${itemKeyCharacter * 43}',
+        'name': 'Guarded viewer fixture item',
+        'description': '',
+        'price': '',
+        'category': 'Dinner',
+        'sortOrder': 1,
+      },
+    ],
+  },
+);
+
+Future<void> _openFixtureMenuViewer(
+  WidgetTester tester,
+  String imageName,
+) async {
+  await tester.tap(find.text('Fixture Café 😀'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Restaurant Information'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.text('Menu'));
+  await tester.pumpAndSettle();
+  final thumbnail = find.byWidgetPredicate(
+    (widget) =>
+        widget is Image &&
+        widget.image is NetworkImage &&
+        (widget.image as NetworkImage).url.endsWith(imageName),
+  );
+  expect(thumbnail, findsOneWidget);
+  await tester.tap(thumbnail);
+  await tester.pumpAndSettle();
+}
 
 Future<void> _pumpUntil(WidgetTester tester, bool Function() condition) async {
   for (var attempt = 0; attempt < 80; attempt += 1) {
@@ -2263,6 +2702,11 @@ typedef _BrowseStartResponder =
       Map<String, Object?> request,
       Map<String, Object?> response,
     );
+typedef _BrowseMenuResponder =
+    Future<Object?> Function(
+      Map<String, Object?> request,
+      Map<String, Object?> response,
+    );
 
 final class _BrowseFixtureTransport {
   _BrowseFixtureTransport({
@@ -2278,6 +2722,7 @@ final class _BrowseFixtureTransport {
     this.firstOfferOverrides = const <String, Object?>{},
     this.restaurantPageCount = 1,
     this.startResponder,
+    this.menuResponder,
   }) : fixture = _map(
          jsonDecode(
            File(
@@ -2299,14 +2744,17 @@ final class _BrowseFixtureTransport {
   final Map<String, Object?> firstOfferOverrides;
   final int restaurantPageCount;
   final _BrowseStartResponder? startResponder;
+  final _BrowseMenuResponder? menuResponder;
   final List<bool> freshSearchFlags = <bool>[];
   final List<Map<String, Object?>> startRequests = <Map<String, Object?>>[];
   final List<String?> restaurantCursors = <String?>[];
   final List<String?> offerCursors = <String?>[];
+  final List<String?> menuCursors = <String?>[];
   int startCalls = 0;
   int statusCalls = 0;
   int restaurantPageCalls = 0;
   int offerPageCalls = 0;
+  int menuPageCalls = 0;
   int favoriteReadCalls = 0;
   int redemptionCalls = 0;
 
@@ -2395,6 +2843,33 @@ final class _BrowseFixtureTransport {
           throw StateError('synthetic offer transport failure');
         }
         return _offerPage(request['restaurantId']! as String, cursor);
+      case CustomerBiteSaverService.menuPageCallableName:
+        menuPageCalls += 1;
+        final cursor = request['cursor'] as String?;
+        menuCursors.add(cursor);
+        final response = <String, Object?>{
+          'schemaVersion': 1,
+          'state': 'available',
+          'attemptGeneration': _map(_responses['start'])['attemptGeneration'],
+          'queryFingerprint': _map(_responses['start'])['queryFingerprint'],
+          'restaurantId': request['restaurantId'],
+          'menuStyle': 'biteSaver',
+          'entries': <Map<String, Object?>>[
+            <String, Object?>{
+              'kind': 'item',
+              'key': 'bsme_${'m' * 43}',
+              'name': 'Fixture menu item',
+              'description': 'Fixture menu description',
+              'price': 'Market price',
+              'category': 'Dinner',
+              'sortOrder': 1,
+            },
+          ],
+          'nextCursor': null,
+          'hasMore': false,
+        };
+        final responder = menuResponder;
+        return responder == null ? response : responder(request, response);
       case CustomerBiteSaverService.favoriteStatesCallableName:
         favoriteReadCalls += 1;
         return <String, Object?>{

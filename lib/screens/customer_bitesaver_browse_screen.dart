@@ -79,13 +79,27 @@ final class CustomerBiteSaverBrowseSelection {
   factory CustomerBiteSaverBrowseSelection.menu({
     required CustomerBiteSaverRestaurant restaurant,
     required CustomerBiteSaverSearchCoordinator session,
-  }) => CustomerBiteSaverBrowseSelection._(
-    action: CustomerBiteSaverBrowseAction.menu,
-    restaurant: restaurant,
-    offer: null,
-    session: session,
-    access: session.captureBrowseAccess(restaurant: restaurant),
-  );
+    CustomerBiteSaverBrowseAccess? access,
+  }) {
+    final selectedAccess =
+        access ?? session.captureBrowseAccess(restaurant: restaurant);
+    if (!identical(
+      session.currentAcceptedRestaurantForAccess(
+        selectedAccess,
+        restaurant.restaurantId,
+      ),
+      restaurant,
+    )) {
+      throw const CustomerBiteSaverFreshSearchRequiredException();
+    }
+    return CustomerBiteSaverBrowseSelection._(
+      action: CustomerBiteSaverBrowseAction.menu,
+      restaurant: restaurant,
+      offer: null,
+      session: session,
+      access: selectedAccess,
+    );
+  }
 
   factory CustomerBiteSaverBrowseSelection.offer({
     required CustomerBiteSaverRestaurant restaurant,

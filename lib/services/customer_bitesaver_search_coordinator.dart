@@ -539,6 +539,39 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     return access._restaurant;
   }
 
+  Future<CustomerBiteSaverMenuPageResult> loadMenuPageForAccess({
+    required CustomerBiteSaverBrowseAccess access,
+    required CustomerBiteSaverRestaurantId restaurantId,
+    String? cursor,
+  }) async {
+    _ensureAlive();
+    if (currentAcceptedRestaurantForAccess(access, restaurantId) == null) {
+      throw const CustomerBiteSaverFreshSearchRequiredException();
+    }
+    final api = _api;
+    if (api is! CustomerBiteSaverMenuApi) {
+      throw StateError('The BiteSaver menu service is unavailable.');
+    }
+    final menuApi = api as CustomerBiteSaverMenuApi;
+    final binding = _binding;
+    if (binding == null) {
+      throw const CustomerBiteSaverFreshSearchRequiredException();
+    }
+    final result = await menuApi.getCustomerBiteSaverMenuPage(
+      CustomerBiteSaverMenuPageRequest(
+        clientRequestId: _nextRequestId(),
+        binding: binding,
+        restaurantId: restaurantId,
+        cursor: cursor,
+      ),
+    );
+    if (currentAcceptedRestaurantForAccess(access, restaurantId) == null ||
+        result.restaurantId != restaurantId) {
+      throw const CustomerBiteSaverFreshSearchRequiredException();
+    }
+    return result;
+  }
+
   ({CustomerBiteSaverRestaurant restaurant, CustomerBiteSaverOffer offer})?
   currentAcceptedOfferSelectionForAccess(
     CustomerBiteSaverBrowseAccess access,

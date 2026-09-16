@@ -675,6 +675,7 @@ class RestaurantMenuService {
       return RestaurantAccountService.saveMenuImage(
         uid: source.id,
         imageUrl: imageUrl,
+        storagePath: storagePath,
       );
     }
 
@@ -818,17 +819,29 @@ class RestaurantMenuService {
   static Future<void> deleteMenuImage({
     required RestaurantMenuSource source,
     required String imageId,
+    RestaurantMenuImage? expectedImage,
+    RestaurantMenuImageDeletionDependencies? dependencies,
   }) async {
     if (source.isLegacyBiteSaver) {
       await RestaurantAccountService.deleteMenuImage(
         uid: source.id,
         imageId: imageId,
+        expectedImage: expectedImage,
+        dependencies: dependencies,
       );
       return;
     }
 
-    await _menuImagesCollection(source).doc(imageId.trim()).delete();
-    await _touchSharedMenu(source.id);
+    final location = RestaurantMenuImageDeletionLocation.sharedMenu(
+      menuId: source.id,
+      imageId: imageId,
+    );
+    await RestaurantAccountService.completeMenuImageDeletion(
+      location: location,
+      expectedImage: expectedImage,
+      defaultAuthorize: () async {},
+      dependencies: dependencies,
+    );
   }
 
   static Future<void> deleteMenuItem({

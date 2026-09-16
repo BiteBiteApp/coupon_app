@@ -4,22 +4,12 @@ import '../services/customer_bitesaver_search_coordinator.dart';
 import 'coupon_detail_screen.dart';
 import 'customer_bitesaver_browse_screen.dart';
 import 'main_navigation_screen.dart';
+import 'restaurant_menu_screen.dart';
 import 'restaurant_profile_screen.dart';
-
-final class CustomerBiteSaverMenuContractUnavailableException
-    implements Exception {
-  const CustomerBiteSaverMenuContractUnavailableException();
-
-  @override
-  String toString() => 'Menu is not available from this search yet.';
-}
 
 /// Opens bounded browse selections in the existing customer destinations.
 ///
-/// The route receives only the public DTOs and an opaque, generation-fenced
-/// browse lease. The menu action deliberately remains blocked because the
-/// existing menu reader requires an unavailable legacy account or shared-menu
-/// source ID.
+/// The route receives only public DTOs and an opaque, generation-fenced lease.
 final class CustomerBiteSaverBrowseDestinationHandler {
   const CustomerBiteSaverBrowseDestinationHandler();
 
@@ -34,7 +24,7 @@ final class CustomerBiteSaverBrowseDestinationHandler {
       case CustomerBiteSaverBrowseAction.offer:
         await _openOffer(context, selection);
       case CustomerBiteSaverBrowseAction.menu:
-        throw const CustomerBiteSaverMenuContractUnavailableException();
+        await _openMenu(context, selection);
     }
     return const CustomerBiteSaverBrowseActionResult();
   }
@@ -72,13 +62,47 @@ final class CustomerBiteSaverBrowseDestinationHandler {
           );
         },
         openBoundedMenu: (menuContext) async {
-          ScaffoldMessenger.of(menuContext)
-            ..hideCurrentSnackBar()
-            ..showSnackBar(
-              const SnackBar(
-                content: Text('Menu is not available from this search yet.'),
-              ),
-            );
+          final current = selection.session.currentAcceptedRestaurantForAccess(
+            selection.access,
+            selection.restaurant.restaurantId,
+          );
+          if (current == null) {
+            throw const CustomerBiteSaverFreshSearchRequiredException();
+          }
+          await call(
+            menuContext,
+            CustomerBiteSaverBrowseSelection.menu(
+              restaurant: current,
+              session: selection.session,
+              access: selection.access,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _openMenu(
+    BuildContext context,
+    CustomerBiteSaverBrowseSelection selection,
+  ) async {
+    await _pushCurrentDestination(
+      context,
+      selection: selection,
+      builder: (_) => RestaurantMenuScreen.fromCustomerBiteSaver(
+        restaurantName: selection.restaurant.displayName,
+        pageLoader: (cursor) => selection.session.loadMenuPageForAccess(
+          access: selection.access,
+          restaurantId: selection.restaurant.restaurantId,
+          cursor: cursor,
+        ),
+        openImageViewer: (viewerContext, viewerBuilder) async {
+          if (!selection.isCurrent) return;
+          await _pushCurrentDestination(
+            viewerContext,
+            selection: selection,
+            builder: viewerBuilder,
+          );
         },
       ),
     );

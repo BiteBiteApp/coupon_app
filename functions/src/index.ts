@@ -38,6 +38,10 @@ import {
 } from "./contribution_points_helpers.js";
 import { requireAdminInviteAccess } from "./admin_authorization.js";
 import {
+  createFirestoreMenuImageUploadAuthorizationDatabase,
+  issueMenuImageUploadAuthorizationHandler,
+} from "./menu_image_upload_authorization.js";
+import {
   createFirestoreAdminRestaurantQrBatchDatabase,
   markAdminRestaurantQrBatchPreparedCallableHandler,
   prepareAdminRestaurantQrBatchCallableHandler,
@@ -171,6 +175,7 @@ import {
   continueCustomerBiteSaverGuestOfferCheckHandler,
   customerBiteSaverCallableTimeoutSeconds,
   getCustomerBiteSaverFavoriteStatesHandler,
+  getCustomerBiteSaverMenuPageHandler,
   getCustomerBiteSaverOfferPageHandler,
   getCustomerBiteSaverSearchPageHandler,
   getCustomerBiteSaverSearchStatusHandler,
@@ -286,6 +291,8 @@ const db: Firestore = getFirestore();
 const searchIndexDatabase = createFirestoreSearchIndexDatabase(db);
 const customerBiteSaverSearchDatabase =
   createFirestoreCustomerBiteSaverSearchDatabase(db);
+const menuImageUploadAuthorizationDatabase =
+  createFirestoreMenuImageUploadAuthorizationDatabase(db);
 const adminUserDirectoryDatabase = createFirestoreAdminUserDirectoryDatabase(db);
 const adminRestaurantQrPreparationDatabase =
   createFirestoreAdminRestaurantQrPreparationDatabase(db);
@@ -2703,6 +2710,12 @@ export const reviewBiteSaverApplication = onCall(async (request) => {
   return reviewBiteSaverApplicationHandler(request, {
     runAccountTransaction: runBiteSaverAccountTransaction,
     serverTimestamp: () => FieldValue.serverTimestamp(),
+  });
+});
+
+export const issueMenuImageUploadAuthorization = onCall(async (request) => {
+  return issueMenuImageUploadAuthorizationHandler(request, {
+    database: menuImageUploadAuthorizationDatabase,
   });
 });
 
@@ -5589,6 +5602,23 @@ export const getCustomerBiteSaverOfferPage = onCall(
     return invokeCustomerBiteSaverCallable(
       request,
       getCustomerBiteSaverOfferPageHandler,
+      "discoveryAndIdentityV1",
+    );
+  },
+);
+
+export const getCustomerBiteSaverMenuPage = onCall(
+  {
+    secrets: [
+      biteSaverCustomerDiscoveryKey,
+      biteSaverCustomerIdentityKeyV1,
+    ],
+    timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
+  },
+  async (request) => {
+    return invokeCustomerBiteSaverCallable(
+      request,
+      getCustomerBiteSaverMenuPageHandler,
       "discoveryAndIdentityV1",
     );
   },

@@ -17,6 +17,7 @@ const callableHandlers = Object.freeze({
     "getCustomerBiteSaverSearchStatusHandler",
   getCustomerBiteSaverSearchPage: "getCustomerBiteSaverSearchPageHandler",
   getCustomerBiteSaverOfferPage: "getCustomerBiteSaverOfferPageHandler",
+  getCustomerBiteSaverMenuPage: "getCustomerBiteSaverMenuPageHandler",
   continueCustomerBiteSaverGuestOfferCheck:
     "continueCustomerBiteSaverGuestOfferCheckHandler",
   getCustomerBiteSaverFavoriteStates:
