@@ -574,6 +574,25 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
   Future<void> startSearch(CustomerBiteSaverSearchCriteria criteria) =>
       _start(criteria, freshSearch: false);
 
+  /// Revokes an issued search start that has not produced an accepted response.
+  ///
+  /// The transport may still complete, but advancing the existing request
+  /// generation prevents that response from installing coordinator state. A
+  /// ready session is left untouched when there is no pending start.
+  void revokePendingSearchStart() {
+    _ensureAlive();
+    if (_pendingSearch == null) return;
+    _generation += 1;
+    _pendingSearch = null;
+    _criteria = null;
+    _criteriaKey = null;
+    _clearSessionData(clearFavorites: false);
+    _status = CustomerBiteSaverCoordinatorStatus.idle;
+    _error = null;
+    _errorStackTrace = null;
+    _notify();
+  }
+
   Future<void> freshSearch([CustomerBiteSaverSearchCriteria? criteria]) {
     final selected = criteria ?? _criteria;
     if (selected == null) {

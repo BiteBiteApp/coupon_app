@@ -490,12 +490,18 @@ class _CustomerBiteSaverBrowseScreenState
       snapshot = _submittedSearch();
     } on CustomerBiteSaverProtocolException {
       _invalidatePendingSearchSetup();
+      if (!widget.coordinator.isDisposed) {
+        widget.coordinator.revokePendingSearchStart();
+      }
       _setSearchSetupError(
         'Search settings are invalid. Check the location and try again.',
       );
       return Future<void>.value();
     } on FormatException catch (error) {
       _invalidatePendingSearchSetup();
+      if (!widget.coordinator.isDisposed) {
+        widget.coordinator.revokePendingSearchStart();
+      }
       _setSearchSetupError(error.message);
       return Future<void>.value();
     }
@@ -511,6 +517,13 @@ class _CustomerBiteSaverBrowseScreenState
           authRealmKey: authRealmKey,
         )) {
       return pending.future;
+    }
+
+    // A distinct submission owns the search immediately, even while its time
+    // context is still loading. Any older transported start may finish, but it
+    // must not install state while this newer setup is pending.
+    if (!coordinator.isDisposed) {
+      coordinator.revokePendingSearchStart();
     }
 
     final setup = _PendingBrowseSearchSetup(

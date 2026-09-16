@@ -1024,7 +1024,7 @@ test("fixture carries the production New York daily-use boundary to Dart", async
   assert.equal(context.timeZone, "America/New_York");
   assert.equal(context.utcOffsetMinutes, -240);
   assert.deepEqual(context.oncePerDayUnavailableWindows, [{
-    startAtMillisInclusive: Date.parse("2026-03-08T05:00:00.000Z"),
+    startAtMillisInclusive: Date.parse("2026-03-08T05:01:00.000Z"),
     endAtMillisExclusive: context.evaluationAtMillis + 1,
   }]);
   assert.equal(context.oncePerDayUnavailableWindows.some((window) =>

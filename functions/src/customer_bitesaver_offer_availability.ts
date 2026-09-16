@@ -725,12 +725,40 @@ function localCivilMinuteAsUtc(parts: LocalDateTimeParts): number {
   );
 }
 
+type CustomerBiteSaverCouponDay = Readonly<{
+  year: number;
+  month: number;
+  day: number;
+  ordinal: number;
+}>;
+
+/**
+ * Returns the customer-local coupon day. The local 00:00 minute belongs to the
+ * prior coupon day, so a new once-per-day allowance begins at 00:01 exactly.
+ */
+function customerCouponDay(
+  instant: Date,
+  timeZone: string,
+): CustomerBiteSaverCouponDay {
+  const local = localParts(instant, timeZone);
+  const civilDayMillis = Date.UTC(local.year, local.month - 1, local.day) -
+    (local.hour === 0 && local.minute === 0 ? 86_400_000 : 0);
+  const day = new Date(civilDayMillis);
+  return Object.freeze({
+    year: day.getUTCFullYear(),
+    month: day.getUTCMonth() + 1,
+    day: day.getUTCDate(),
+    ordinal: civilDayMillis / 86_400_000,
+  });
+}
+
 function nextLocalDailyResetMillis(
-  redeemed: LocalDateTimeParts,
+  redeemedDay: CustomerBiteSaverCouponDay,
   timeZone: string,
 ): number | null {
   const nextDay = new Date(
-    Date.UTC(redeemed.year, redeemed.month - 1, redeemed.day) + 86_400_000,
+    Date.UTC(redeemedDay.year, redeemedDay.month - 1, redeemedDay.day) +
+      86_400_000,
   );
   const target: LocalDateTimeParts = Object.freeze({
     year: nextDay.getUTCFullYear(),
@@ -769,13 +797,14 @@ const maximumUsageEvaluationWindowMilliseconds =
  * Produces the absolute-time form of the committed once-per-day predicate.
  *
  * For a completed anchor C and evaluation E, the evaluator keeps the offer
- * unavailable exactly when C <= E and localDate(C) is at least the threshold
- * date. The threshold is E's prior local date only during local 00:00, and is
- * E's current local date at every other minute. An IANA rollback can make that
- * absolute set discontinuous, so a scalar cutoff is not sufficient.
+ * unavailable exactly when C <= E and couponDay(C) equals couponDay(E). A
+ * coupon day starts at local 00:01, so its civil threshold is the prior date's
+ * 00:01 only during local 00:00 and the current date's 00:01 thereafter. An
+ * IANA rollback can make that absolute set discontinuous, so a scalar cutoff
+ * is not sufficient.
  *
  * With the validated +/-14 hour offset bound, the complete preimage starts no
- * earlier than threshold-midnight minus 14 hours and ends at E+1ms. That span
+ * earlier than the threshold minus 14 hours and ends at E+1ms. That span
  * is less than 52h01m01ms. The runtime's audited 166-hour minimum transition
  * separation therefore permits at most one offset transition and at most two
  * disjoint windows.
@@ -803,22 +832,21 @@ export function customerBiteSaverUsageEvaluationCalendar(value: {
   if (evaluationLocal === null) {
     throw new Error("Invalid BiteSaver usage-evaluation time zone.");
   }
-  const currentDateStartCivilMillis = civilUtcMillis(Object.freeze({
+  const inMidnightMinute = evaluationLocal.hour === 0 &&
+    evaluationLocal.minute === 0;
+  const couponDayStartCivilMillis = civilUtcMillis(Object.freeze({
     year: evaluationLocal.year,
     month: evaluationLocal.month,
-    day: evaluationLocal.day,
+    day: evaluationLocal.day - (inMidnightMinute ? 1 : 0),
     hour: 0,
-    minute: 0,
+    minute: 1,
     second: 0,
     millisecond: 0,
   }));
-  if (currentDateStartCivilMillis === null) {
+  if (couponDayStartCivilMillis === null) {
     throw new Error("Invalid BiteSaver usage-evaluation date.");
   }
-  const inMidnightMinute = evaluationLocal.hour === 0 &&
-    evaluationLocal.minute === 0;
-  const thresholdCivilMillis = currentDateStartCivilMillis -
-    (inMidnightMinute ? 86_400_000 : 0);
+  const thresholdCivilMillis = couponDayStartCivilMillis;
   const windowStart = Math.max(
     0,
     thresholdCivilMillis - maximumUsageEvaluationOffsetMilliseconds,
@@ -1150,18 +1178,16 @@ function usageDecision(value: {
     };
   }
   if (usagePolicy === "oncePerDay") {
-    const redeemed = localParts(lastRedeemedAt, value.timeZone);
-    const now = localParts(value.now, value.timeZone);
-    const dayComparison = compareLocalDates(now, redeemed);
-    const available = dayComparison > 1 ||
-      (dayComparison === 1 && (now.hour > 0 || now.minute >= 1));
+    const redeemedDay = customerCouponDay(lastRedeemedAt, value.timeZone);
+    const nowDay = customerCouponDay(value.now, value.timeZone);
+    const available = nowDay.ordinal > redeemedDay.ordinal;
     return {
       usageState: available ? "available" : "unavailable",
       reason: available ? "available" : "used",
       activeTimerExpiresAtMs,
       nextAvailableAtMs: available
         ? null
-        : nextLocalDailyResetMillis(redeemed, value.timeZone),
+        : nextLocalDailyResetMillis(redeemedDay, value.timeZone),
     };
   }
   throw new Error("Recognized coupon usage state was not evaluated.");

@@ -1140,7 +1140,7 @@ test("once-per-customer and unknown usage states are unavailable", () => {
 test("once-per-day resets at local 12:01 AM, including after DST", () => {
   const lastRedeemedAt = new Date("2026-03-08T16:00:00.000Z");
   const atMidnight = evaluate({
-    now: new Date("2026-03-09T04:00:00.000Z"),
+    now: new Date("2026-03-09T04:00:59.999Z"),
     offer: {usageRule: "Once per day"},
     usage: usage({lastRedeemedAt}),
   });
@@ -1183,6 +1183,28 @@ test("once-per-day resets at local 12:01 AM, including after DST", () => {
     beforeFallReset.nextAvailableAtMs,
     Date.parse("2026-11-02T05:01:00.000Z"),
   );
+});
+
+test("a redemption in local 00:00 belongs to the prior coupon day", () => {
+  const lastRedeemedAt = new Date("2026-09-01T04:00:30.000Z");
+  const beforeReset = evaluate({
+    now: new Date("2026-09-01T04:00:59.999Z"),
+    offer: {usageRule: "Once per day"},
+    usage: usage({lastRedeemedAt}),
+  });
+  assert.equal(beforeReset.reason, "used");
+  assert.equal(
+    beforeReset.nextAvailableAtMs,
+    Date.parse("2026-09-01T04:01:00.000Z"),
+  );
+
+  const atReset = evaluate({
+    now: new Date("2026-09-01T04:01:00.000Z"),
+    offer: {usageRule: "Once per day"},
+    usage: usage({lastRedeemedAt}),
+  });
+  assert.equal(atReset.reason, "available");
+  assert.equal(atReset.nextAvailableAtMs, null);
 });
 
 test("once-per-day calendar comparisons remain exact across month and year boundaries", () => {
@@ -1241,7 +1263,7 @@ test("usage evaluation windows reproduce the New York spring-forward example", (
     utcOffsetMinutes: -240,
     validUntilExclusiveMillis: Date.parse("2026-03-09T04:01:00.000Z"),
     oncePerDayUnavailableWindows: [{
-      startAtMillisInclusive: Date.parse("2026-03-08T05:00:00.000Z"),
+      startAtMillisInclusive: Date.parse("2026-03-08T05:01:00.000Z"),
       endAtMillisExclusive: evaluationAtMillis + 1,
     }],
   });
@@ -1250,7 +1272,7 @@ test("usage evaluation windows reproduce the New York spring-forward example", (
     false,
   );
   assert.equal(
-    windowContains(calendar, "2026-03-08T05:00:00.000Z"),
+    windowContains(calendar, "2026-03-08T05:01:00.000Z"),
     true,
   );
   assert.equal(windowContains(calendar, evaluationAtMillis), true);
@@ -1280,7 +1302,7 @@ test("usage evaluation threshold changes exactly at local 00:01", () => {
   );
   assert.equal(
     windowContains(atReset, "2026-03-09T04:00:00.000Z"),
-    true,
+    false,
   );
   assert.equal(
     windowContains(atReset, "2026-03-09T03:59:59.999Z"),
@@ -1288,7 +1310,7 @@ test("usage evaluation threshold changes exactly at local 00:01", () => {
   );
 });
 
-test("usage evaluation emits two exact windows for a civil-date rollback", () => {
+test("usage evaluation waits for a repeated-midnight zone to reach 00:01", () => {
   const evaluationAtMillis = Date.parse("2000-10-29T03:31:00.000Z");
   const calendar = customerBiteSaverUsageEvaluationCalendar({
     evaluationAtMillis,
@@ -1296,17 +1318,13 @@ test("usage evaluation emits two exact windows for a civil-date rollback", () =>
   });
   assert.deepEqual(calendar.oncePerDayUnavailableWindows, [
     {
-      startAtMillisInclusive: Date.parse("2000-10-29T02:30:00.000Z"),
-      endAtMillisExclusive: Date.parse("2000-10-29T02:31:00.000Z"),
-    },
-    {
-      startAtMillisInclusive: Date.parse("2000-10-29T03:30:00.000Z"),
+      startAtMillisInclusive: Date.parse("2000-10-29T03:31:00.000Z"),
       endAtMillisExclusive: evaluationAtMillis + 1,
     },
   ]);
-  assert.equal(windowContains(calendar, "2000-10-29T02:30:30.000Z"), true);
+  assert.equal(windowContains(calendar, "2000-10-29T02:30:30.000Z"), false);
   assert.equal(windowContains(calendar, "2000-10-29T03:00:00.000Z"), false);
-  assert.equal(windowContains(calendar, "2000-10-29T03:30:30.000Z"), true);
+  assert.equal(windowContains(calendar, "2000-10-29T03:31:00.000Z"), true);
 });
 
 test("usage evaluation resolves a non-hour transition without a 24-hour guess", () => {
@@ -1318,7 +1336,7 @@ test("usage evaluation resolves a non-hour transition without a 24-hour guess", 
   assert.equal(calendar.utcOffsetMinutes, 660);
   assert.equal(
     calendar.oncePerDayUnavailableWindows[0].startAtMillisInclusive,
-    Date.parse("2026-10-03T13:30:00.000Z"),
+    Date.parse("2026-10-03T13:31:00.000Z"),
   );
   assert.equal(
     calendar.validUntilExclusiveMillis,

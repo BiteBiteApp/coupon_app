@@ -7224,78 +7224,403 @@ test("redemption honors signed usage failures without leakage", async () => {
   assertNoPrivateCanaries(malformed);
 });
 
-test("distinct page continuations re-evaluate current schedule time", async (t) => {
-  await t.test("restaurant page", async () => {
-    let clock = nowMs;
-    const database = new InMemoryCustomerBiteSaverSearchDatabase();
-    const context = createContext(database, {now: () => clock});
-    const started = await startCustomerBiteSaverSearchHandler(
-      startRequest({searchText: ""}),
-      context,
-    );
-    const session = markSessionReady(database, started);
-    for (let index = 0; index < 25; index += 1) {
-      addReadyRestaurant(database, session, index, {
-        offerCount: 1,
-        onlyCoupons: true,
+test("page cursor chains freeze scheduled membership and absolute expiry", async (t) => {
+  const transitionAtMs = nowMs + 30_000;
+  for (const callerScope of ["signed", "guest"]) {
+    for (const pageKind of ["restaurant", "offer"]) {
+      await t.test(`${callerScope} ${pageKind} page`, async () => {
+        let clock = nowMs;
+        const database = new InMemoryCustomerBiteSaverSearchDatabase();
+        const context = createContext(database, {
+          now: () => clock,
+          ...(callerScope === "guest" ? {identity: guestIdentity()} : {}),
+        });
+        const slug = `${callerScope}-${pageKind}-snapshot`;
+        const started = await startCustomerBiteSaverSearchHandler(
+          startRequest({
+            clientRequestId: `${slug}-start-0001`,
+            searchText: "",
+          }),
+          context,
+        );
+        const session = markSessionReady(database, started);
+        let restaurantId;
+        let targetId;
+        let withdrawnId;
+        let withdrawnPath;
+        if (pageKind === "restaurant") {
+          const target = addReadyRestaurant(database, session, 0, {
+            offerCount: 1,
+            onlyCoupons: true,
+            offerOverrides: {
+              usageRule: "Unlimited",
+              startTime: new Date(transitionAtMs),
+            },
+          });
+          const stable = Array.from({length: 52}, (_, index) =>
+            addReadyRestaurant(database, session, index + 1, {
+              offerCount: 1,
+              onlyCoupons: true,
+              offerOverrides: {usageRule: "Unlimited"},
+            }));
+          restaurantId = null;
+          targetId = target.publicRestaurantId;
+          withdrawnId = stable[25].publicRestaurantId;
+          withdrawnPath = `restaurant_accounts/${stable[25].accountId}/coupons/` +
+            stable[25].coupons[0].sourceDocumentId;
+        } else {
+          const seeded = addReadyRestaurant(database, session, 0, {
+            offerCount: 53,
+            onlyCoupons: true,
+            offerOverridesForIndex: (index) => ({
+              usageRule: "Unlimited",
+              ...(index === 0
+                ? {startTime: new Date(transitionAtMs)}
+                : {}),
+            }),
+          });
+          restaurantId = seeded.publicRestaurantId;
+          targetId = opaqueOfferId(seeded, seeded.coupons[0]);
+          withdrawnId = opaqueOfferId(seeded, seeded.coupons[26]);
+          withdrawnPath = `restaurant_accounts/${seeded.accountId}/coupons/` +
+            seeded.coupons[26].sourceDocumentId;
+        }
+
+        const invoke = (request) => pageKind === "restaurant"
+          ? getCustomerBiteSaverSearchPageHandler(request, context)
+          : getCustomerBiteSaverOfferPageHandler(request, context);
+        const requestFor = (clientRequestId, cursor, revision) =>
+          pageKind === "restaurant"
+            ? pageRequest(started, {
+                clientRequestId,
+                cursor,
+                guestStateRevision: revision,
+              })
+            : offerPageRequest(started, restaurantId, {
+                clientRequestId,
+                cursor,
+                guestStateRevision: revision,
+              });
+        const completedPage = (response) => callerScope === "guest"
+          ? response.result
+          : response;
+        const pageIds = (page) => pageKind === "restaurant"
+          ? page.restaurants.map(({restaurantId: id}) => id)
+          : page.offers.map(({offerId}) => offerId);
+        const replayPurpose = pageKind === "restaurant"
+          ? "restaurantPage"
+          : "offerPage";
+        const pageReplays = () => [...database.documents.values()].filter(
+          (document) => document.role === "requestReplay" &&
+            document.purpose === replayPurpose,
+        );
+        const revision = callerScope === "guest" ? 610 : null;
+        const firstRequest = requestFor(`${slug}-page-0001`, null, revision);
+        const firstResponse = await invoke(firstRequest);
+        if (callerScope === "guest") {
+          assert.equal(firstResponse.outcome, "complete");
+        }
+        const first = completedPage(firstResponse);
+        assert.equal(pageIds(first).length, 25);
+        assert.equal(pageIds(first).includes(targetId), false);
+        assert.match(first.nextCursor, /^bsc1\./u);
+        assert.equal(
+          firstResponse.evaluationContext.evaluationAtMillis,
+          nowMs,
+        );
+        assert.equal(pageReplays().length, 1);
+        assert.equal(pageReplays()[0].evaluationAt.getTime(), nowMs);
+        assert.equal(pageReplays()[0].createdAt.getTime(), nowMs);
+        const firstCursor = new CustomerBiteSaverCursorCodec({
+          key: discoveryKey,
+          now: () => nowMs,
+          nonceMode: "deterministicAuthenticated",
+        }).open(first.nextCursor, {allowExpired: true});
+        assert.equal(firstCursor.availabilityAtMs, nowMs);
+
+        clock = transitionAtMs;
+        assert.deepEqual(await invoke(firstRequest), firstResponse);
+        assert.equal(pageReplays().length, 1);
+        assert.equal(pageReplays()[0].evaluationAt.getTime(), nowMs);
+        assert.equal(pageReplays()[0].createdAt.getTime(), nowMs);
+        database.documents.delete(withdrawnPath);
+        const continuationRequest = requestFor(
+          `${slug}-page-0002`,
+          first.nextCursor,
+          revision,
+        );
+        const secondResponse = await invoke(continuationRequest);
+        if (callerScope === "guest") {
+          assert.equal(secondResponse.outcome, "complete");
+        }
+        const second = completedPage(secondResponse);
+        assert.equal(pageIds(second).length, 25);
+        assert.equal(pageIds(second).includes(targetId), false);
+        assert.equal(pageIds(second).includes(withdrawnId), false);
+        assert.match(second.nextCursor, /^bsc1\./u);
+        assert.equal(
+          secondResponse.evaluationContext.evaluationAtMillis,
+          nowMs,
+        );
+        const secondCursor = new CustomerBiteSaverCursorCodec({
+          key: discoveryKey,
+          now: () => nowMs,
+          nonceMode: "deterministicAuthenticated",
+        }).open(second.nextCursor, {allowExpired: true});
+        assert.equal(secondCursor.availabilityAtMs, firstCursor.availabilityAtMs);
+        assert.equal(secondCursor.issuedAtMs, firstCursor.issuedAtMs);
+        assert.equal(secondCursor.expiresAtMs, firstCursor.expiresAtMs);
+        assert.equal(pageReplays().length, 2);
+        const continuationReplay = pageReplays().find((document) =>
+          document.evaluationAt.getTime() === transitionAtMs);
+        assert.notEqual(continuationReplay, undefined);
+        assert.equal(continuationReplay.createdAt.getTime(), transitionAtMs);
+
+        const retryAtMs = transitionAtMs + 5_000;
+        clock = retryAtMs;
+        assert.deepEqual(await invoke(continuationRequest), secondResponse);
+        assert.equal(pageReplays().length, 2);
+        assert.equal(continuationReplay.evaluationAt.getTime(), transitionAtMs);
+        assert.equal(continuationReplay.createdAt.getTime(), transitionAtMs);
+
+        const freshResponse = await invoke(requestFor(
+          `${slug}-fresh-0003`,
+          null,
+          callerScope === "guest" ? revision + 1 : null,
+        ));
+        if (callerScope === "guest") {
+          assert.equal(freshResponse.outcome, "complete");
+        }
+        const fresh = completedPage(freshResponse);
+        assert.equal(pageIds(fresh).includes(targetId), true);
+        assert.equal(
+          freshResponse.evaluationContext.evaluationAtMillis,
+          retryAtMs,
+        );
+
+        clock = secondCursor.expiresAtMs;
+        await assert.rejects(
+          invoke(requestFor(
+            `${slug}-expired-0004`,
+            second.nextCursor,
+            revision,
+          )),
+          (error) => assertContractError(error, "invalid-argument"),
+        );
       });
     }
-    addReadyRestaurant(database, session, 25, {
-      offerCount: 1,
-      onlyCoupons: true,
-      offerOverrides: {endTime: new Date(nowMs + 10_000)},
-    });
-    const first = await getCustomerBiteSaverSearchPageHandler(
-      pageRequest(started, {clientRequestId: "time-page-restaurants-0001"}),
-      context,
-    );
-    assert.equal(first.restaurants.length, 25);
-    assert.notEqual(first.nextCursor, null);
-    clock += 20_000;
-    const continued = await getCustomerBiteSaverSearchPageHandler(
-      pageRequest(started, {
-        clientRequestId: "time-page-restaurants-0002",
-        cursor: first.nextCursor,
-      }),
-      context,
-    );
-    assert.deepEqual(continued.restaurants, []);
-    assert.equal(continued.nextCursor, null);
-  });
+  }
+});
 
-  await t.test("offer page", async () => {
-    let clock = nowMs;
-    const database = new InMemoryCustomerBiteSaverSearchDatabase();
-    const context = createContext(database, {now: () => clock});
-    const started = await startCustomerBiteSaverSearchHandler(
-      startRequest({searchText: ""}),
-      context,
-    );
-    const session = markSessionReady(database, started);
-    const seeded = addReadyRestaurant(database, session, 0, {
-      offerCount: 26,
-      onlyCoupons: true,
-      offerOverrides: {endTime: new Date(nowMs + 10_000)},
-    });
-    const first = await getCustomerBiteSaverOfferPageHandler(
-      offerPageRequest(started, seeded.publicRestaurantId, {
-        clientRequestId: "time-page-offers-0001",
-      }),
-      context,
-    );
-    assert.equal(first.offers.length, 25);
-    assert.notEqual(first.nextCursor, null);
-    clock += 20_000;
-    const continued = await getCustomerBiteSaverOfferPageHandler(
-      offerPageRequest(started, seeded.publicRestaurantId, {
-        clientRequestId: "time-page-offers-0002",
-        cursor: first.nextCursor,
-      }),
-      context,
-    );
-    assert.deepEqual(continued.offers, []);
-    assert.equal(continued.nextCursor, null);
-  });
+test("page cursor chains preserve the customer-local 00:01 snapshot", async (t) => {
+  const originalEvaluationAt = Date.parse("2026-09-10T04:00:30.000Z");
+  const resetAtMs = Date.parse("2026-09-10T04:01:00.000Z");
+  for (const callerScope of ["signed", "guest"]) {
+    for (const pageKind of ["restaurant", "offer"]) {
+      await t.test(`${callerScope} ${pageKind} page`, async () => {
+        let clock = originalEvaluationAt;
+        const uid = `daily-snapshot-${pageKind}-owner`;
+        const database = new InMemoryCustomerBiteSaverSearchDatabase();
+        const context = createContext(database, {
+          now: () => clock,
+          identity: callerScope === "guest"
+            ? guestIdentity()
+            : {authUid: uid, authIsAnonymous: false},
+        });
+        const slug = `${callerScope}-${pageKind}-daily-chain`;
+        const started = await startCustomerBiteSaverSearchHandler(
+          startRequest({
+            clientRequestId: `${slug}-start-0001`,
+            searchText: "",
+            timeZone: "America/New_York",
+            utcOffsetMinutes: -240,
+          }),
+          context,
+        );
+        const session = markSessionReady(database, started);
+        let restaurantId;
+        let targetId;
+        let targetRestaurantId;
+        if (pageKind === "restaurant") {
+          const target = addReadyRestaurant(database, session, 0, {
+            offerCount: 1,
+            onlyCoupons: true,
+            offerOverrides: {usageRule: "Once per day"},
+            resultCreatedAtMs: originalEvaluationAt,
+            offerProjectionNowMs: originalEvaluationAt,
+          });
+          for (let index = 1; index <= 26; index += 1) {
+            addReadyRestaurant(database, session, index, {
+              offerCount: 1,
+              onlyCoupons: true,
+              offerOverrides: {usageRule: "Unlimited"},
+              resultCreatedAtMs: originalEvaluationAt,
+              offerProjectionNowMs: originalEvaluationAt,
+            });
+          }
+          restaurantId = null;
+          targetId = target.publicRestaurantId;
+          targetRestaurantId = target.publicRestaurantId;
+          if (callerScope === "signed") {
+            const targetOfferId = opaqueOfferId(target, target.coupons[0]);
+            database.documents.set(
+              `customer_redemptions/${uid}/coupon_redemptions/${targetOfferId}`,
+              canonicalCouponUsage(
+                uid,
+                target.publicRestaurantId,
+                targetOfferId,
+                {timerStartedAt: new Date(originalEvaluationAt - 10 * 60_000)},
+              ),
+            );
+          }
+        } else {
+          const seeded = addReadyRestaurant(database, session, 0, {
+            offerCount: 27,
+            onlyCoupons: true,
+            offerOverridesForIndex: (index) => ({
+              usageRule: index === 0 ? "Once per day" : "Unlimited",
+            }),
+            resultCreatedAtMs: originalEvaluationAt,
+            offerProjectionNowMs: originalEvaluationAt,
+          });
+          restaurantId = seeded.publicRestaurantId;
+          targetId = opaqueOfferId(seeded, seeded.coupons[0]);
+          targetRestaurantId = seeded.publicRestaurantId;
+          if (callerScope === "signed") {
+            database.documents.set(
+              `customer_redemptions/${uid}/coupon_redemptions/${targetId}`,
+              canonicalCouponUsage(
+                uid,
+                seeded.publicRestaurantId,
+                targetId,
+                {timerStartedAt: new Date(originalEvaluationAt - 10 * 60_000)},
+              ),
+            );
+          }
+        }
+
+        const revision = callerScope === "guest" ? 620 : null;
+        const requestFor = (clientRequestId, cursor, requestRevision) =>
+          pageKind === "restaurant"
+            ? pageRequest(started, {
+                clientRequestId,
+                cursor,
+                guestStateRevision: requestRevision,
+              })
+            : offerPageRequest(started, restaurantId, {
+                clientRequestId,
+                cursor,
+                guestStateRevision: requestRevision,
+              });
+        const invoke = (request) => pageKind === "restaurant"
+          ? getCustomerBiteSaverSearchPageHandler(request, context)
+          : getCustomerBiteSaverOfferPageHandler(request, context);
+        const pageIds = (page) => pageKind === "restaurant"
+          ? page.restaurants.map(({restaurantId: id}) => id)
+          : page.offers.map(({offerId}) => offerId);
+        const finishGuest = async (challenge, unavailableOfferIds, suffix) => {
+          assert.equal(challenge.outcome, "guestCheckRequired");
+          assert.equal(
+            challenge.evaluationContext.evaluationAtMillis,
+            clock,
+          );
+          const answer = guestAnswerRequest(
+            started,
+            challenge,
+            unavailableOfferIds,
+            {clientRequestId: `${slug}-${suffix}-answer-0001`},
+          );
+          const completed = await continueCustomerBiteSaverGuestOfferCheckHandler(
+            answer,
+            context,
+          );
+          assert.equal(completed.outcome, "complete");
+          assert.deepEqual(
+            await continueCustomerBiteSaverGuestOfferCheckHandler(
+              answer,
+              context,
+            ),
+            completed,
+          );
+          return completed;
+        };
+
+        const firstRaw = await invoke(requestFor(
+          `${slug}-page-0001`,
+          null,
+          revision,
+        ));
+        const firstResponse = callerScope === "guest"
+          ? await finishGuest(firstRaw, [pageKind === "restaurant"
+            ? firstRaw.candidates[0].offerId
+            : targetId], "first")
+          : firstRaw;
+        const first = callerScope === "guest"
+          ? firstResponse.result
+          : firstResponse;
+        assert.equal(pageIds(first).length, 25);
+        assert.equal(pageIds(first).includes(targetId), false);
+        assert.match(first.nextCursor, /^bsc1\./u);
+        assert.equal(
+          firstResponse.evaluationContext.evaluationAtMillis,
+          originalEvaluationAt,
+        );
+        const cursor = new CustomerBiteSaverCursorCodec({
+          key: discoveryKey,
+          now: () => originalEvaluationAt,
+          nonceMode: "deterministicAuthenticated",
+        }).open(first.nextCursor, {allowExpired: true});
+        assert.equal(cursor.availabilityAtMs, originalEvaluationAt);
+        assert.equal(
+          cursor.expiresAtMs,
+          callerScope === "guest"
+            ? resetAtMs
+            : originalEvaluationAt +
+              customerBiteSaverCursorLifetimeMilliseconds,
+        );
+
+        clock = resetAtMs;
+        const continuationRequest = requestFor(
+          `${slug}-page-0002`,
+          first.nextCursor,
+          revision,
+        );
+        if (callerScope === "guest") {
+          await assert.rejects(
+            invoke(continuationRequest),
+            (error) => assertContractError(error, "invalid-argument"),
+          );
+        } else {
+          const continued = await invoke(continuationRequest);
+          assert.equal(
+            continued.evaluationContext.evaluationAtMillis,
+            originalEvaluationAt,
+          );
+          assert.equal(pageIds(continued).includes(targetId), false);
+        }
+
+        const freshRaw = await invoke(requestFor(
+          `${slug}-fresh-0003`,
+          null,
+          callerScope === "guest" ? revision + 1 : null,
+        ));
+        const freshResponse = callerScope === "guest"
+          ? await finishGuest(freshRaw, [], "fresh")
+          : freshRaw;
+        const fresh = callerScope === "guest"
+          ? freshResponse.result
+          : freshResponse;
+        assert.equal(
+          freshResponse.evaluationContext.evaluationAtMillis,
+          resetAtMs,
+        );
+        assert.equal(pageIds(fresh).includes(targetId), true);
+        if (pageKind === "restaurant") {
+          assert.equal(pageIds(fresh).includes(targetRestaurantId), true);
+        }
+      });
+    }
+  }
 });
 
 test("delivered offer identity and occurrence remain usable after sixteen minutes", async () => {
@@ -9275,7 +9600,7 @@ test("an accepted guest page answer survives response loss and token expiry", as
   );
 });
 
-test("a server checkpoint resumes after its non-null page cursor expires", async () => {
+test("a guest continuation checkpoint cannot outlive its page cursor", async () => {
   let clock = nowMs;
   const {database, context, response: started} = await startSession(undefined, {
     context: {identity: guestIdentity(), now: () => clock},
@@ -9346,31 +9671,34 @@ test("a server checkpoint resumes after its non-null page cursor expires", async
     },
     context,
   );
-  assert.equal(refreshed.outcome, "guestCheckRequired");
-  assert.equal(refreshed.operationRef, secondChallenge.operationRef);
-  assert.equal(refreshed.batchSequence, secondChallenge.batchSequence + 1);
-  assert.deepEqual(refreshed.candidates, secondChallenge.candidates);
-  assert.notEqual(refreshed.checkToken, secondChallenge.checkToken);
+  assert.equal(refreshed.outcome, "retryRequired");
+  assert.equal(refreshed.reason, "sourceChanged");
+  assert.equal(refreshed.restartFrom, "originalOperation");
   await assert.rejects(
     continueCustomerBiteSaverGuestOfferCheckHandler(staleAnswer, context),
     (error) => assertContractError(error, "failed-precondition"),
   );
 
-  const secondComplete =
-    await continueCustomerBiteSaverGuestOfferCheckHandler(
-      guestAnswerRequest(started, refreshed, [], {
-        clientRequestId: "guest-expired-cursor-second-answer-0002",
-      }),
-      context,
-    );
-  assert.equal(secondComplete.outcome, "complete");
-  assert.equal(secondComplete.result.offers.length, 5);
-  const delivered = [
-    ...firstComplete.result.offers,
-    ...secondComplete.result.offers,
-  ].map(({offerId}) => offerId);
-  assert.equal(delivered.length, 30);
-  assert.equal(new Set(delivered).size, 30);
+  const freshChallenge = await getCustomerBiteSaverOfferPageHandler(
+    offerPageRequest(started, seeded.publicRestaurantId, {
+      clientRequestId: "guest-expired-cursor-fresh-0003",
+      guestStateRevision: 76,
+    }),
+    context,
+  );
+  assert.equal(freshChallenge.outcome, "guestCheckRequired");
+  assert.equal(
+    freshChallenge.evaluationContext.evaluationAtMillis,
+    clock,
+  );
+  const freshComplete = await continueCustomerBiteSaverGuestOfferCheckHandler(
+    guestAnswerRequest(started, freshChallenge, [], {
+      clientRequestId: "guest-expired-cursor-fresh-answer-0003",
+    }),
+    context,
+  );
+  assert.equal(freshComplete.outcome, "complete");
+  assert.equal(freshComplete.result.offers.length, 25);
 });
 
 test("guest checkpoint refresh invalidates revision, source, day, and session changes", async (t) => {

@@ -1740,7 +1740,7 @@ if (!emulatorGate) {
     const completionAtMs = Date.parse("2026-03-08T04:30:00.000Z");
     const evaluationAtMs = Date.parse("2026-03-08T07:30:00.000Z");
     const expectedUnavailableWindows = [{
-      startAtMillisInclusive: Date.parse("2026-03-08T05:00:00.000Z"),
+      startAtMillisInclusive: Date.parse("2026-03-08T05:01:00.000Z"),
       endAtMillisExclusive: evaluationAtMs + 1,
     }];
     const isUnavailableCompletion = (context, completedAtMs) =>

@@ -1296,6 +1296,219 @@ void main() {
     );
   });
 
+  testWidgets('valid B revokes transported A before B time setup resolves', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1000);
+    addTearDown(tester.view.reset);
+    final olderStart = Completer<Object?>();
+    final newerStart = Completer<Object?>();
+    final newerTime = Completer<CustomerBiteSaverTimeContext>();
+    late Map<String, Object?> olderResponse;
+    late Map<String, Object?> newerResponse;
+    var providerCalls = 0;
+    Future<CustomerBiteSaverTimeContext> timeProvider() {
+      providerCalls += 1;
+      return switch (providerCalls) {
+        1 || 2 => Future<CustomerBiteSaverTimeContext>.value(_testTimeContext),
+        3 => newerTime.future,
+        _ => throw StateError('Unexpected time-context request.'),
+      };
+    }
+
+    final transport = _BrowseFixtureTransport(
+      startResponder: (callNumber, request, response) {
+        switch (callNumber) {
+          case 1:
+            return Future<Object?>.value(response);
+          case 2:
+            olderResponse = response;
+            return olderStart.future;
+          case 3:
+            newerResponse = response;
+            return newerStart.future;
+        }
+        throw StateError('Unexpected search start.');
+      },
+    );
+    final harness = _BrowseHarness(transport: transport);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: harness.screen(
+          onAction: _ignoreAction,
+          timeContextProvider: timeProvider,
+        ),
+      ),
+    );
+    await _pumpBrowseReady(tester, transport);
+    final field = find.byKey(const ValueKey<String>('bounded-content-field'));
+
+    await tester.enterText(field, 'older transported search');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await _pumpUntil(tester, () => transport.startCalls == 2);
+    await tester.enterText(field, 'newer time-pending search');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pump();
+
+    expect(providerCalls, 3);
+    expect(transport.startCalls, 2);
+    olderStart.complete(olderResponse);
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(transport.restaurantPageCalls, 1);
+    expect(harness.coordinator.status, CustomerBiteSaverCoordinatorStatus.idle);
+    expect(harness.coordinator.hasSession, isFalse);
+
+    newerTime.complete(
+      const CustomerBiteSaverTimeContext(
+        timeZone: 'America/Chicago',
+        utcOffsetMinutes: -300,
+      ),
+    );
+    await _pumpUntil(tester, () => transport.startCalls == 3);
+    final request = transport.startRequests.last;
+    expect(request['searchText'], 'newer time-pending search');
+    expect(request['timeZone'], 'America/Chicago');
+    expect(request['utcOffsetMinutes'], -300);
+
+    newerStart.complete(newerResponse);
+    await _pumpUntil(
+      tester,
+      () =>
+          harness.coordinator.status ==
+          CustomerBiteSaverCoordinatorStatus.ready,
+    );
+    expect(transport.restaurantPageCalls, 2);
+    expect(
+      harness.coordinator.criteria?.searchText,
+      'newer time-pending search',
+    );
+  });
+
+  testWidgets('invalid B revokes transported A and later valid C succeeds', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1000);
+    addTearDown(tester.view.reset);
+    final olderStart = Completer<Object?>();
+    late Map<String, Object?> olderResponse;
+    final transport = _BrowseFixtureTransport(
+      startResponder: (callNumber, request, response) {
+        if (callNumber == 1) return Future<Object?>.value(response);
+        if (callNumber == 2) {
+          olderResponse = response;
+          return olderStart.future;
+        }
+        return Future<Object?>.value(response);
+      },
+    );
+    final harness = _BrowseHarness(transport: transport);
+
+    await tester.pumpWidget(
+      MaterialApp(home: harness.screen(onAction: _ignoreAction)),
+    );
+    await _pumpBrowseReady(tester, transport);
+    final field = find.byKey(const ValueKey<String>('bounded-content-field'));
+
+    await tester.enterText(field, 'older valid search');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await _pumpUntil(tester, () => transport.startCalls == 2);
+    final invalid = List<String>.filled(201, '😀').join();
+    await tester.enterText(field, invalid);
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await tester.pump();
+
+    expect(transport.startCalls, 2);
+    expect(
+      find.text('Search must be at most 200 characters and 800 UTF-8 bytes.'),
+      findsOneWidget,
+    );
+    olderStart.complete(olderResponse);
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(transport.restaurantPageCalls, 1);
+    expect(harness.coordinator.status, CustomerBiteSaverCoordinatorStatus.idle);
+    expect(harness.coordinator.criteria, isNull);
+    expect(harness.coordinator.hasSession, isFalse);
+
+    await tester.enterText(field, 'later valid search');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    await _pumpUntil(
+      tester,
+      () =>
+          harness.coordinator.status ==
+          CustomerBiteSaverCoordinatorStatus.ready,
+    );
+    expect(transport.startCalls, 3);
+    expect(transport.restaurantPageCalls, 2);
+    expect(harness.coordinator.criteria?.searchText, 'later valid search');
+    expect(
+      find.text('Search must be at most 200 characters and 800 UTF-8 bytes.'),
+      findsNothing,
+    );
+  });
+
+  testWidgets(
+    'revoked A error and cleanup cannot clear transported B ownership',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1000);
+      addTearDown(tester.view.reset);
+      final olderStart = Completer<Object?>();
+      final newerStart = Completer<Object?>();
+      late Map<String, Object?> newerResponse;
+      final transport = _BrowseFixtureTransport(
+        startResponder: (callNumber, request, response) {
+          if (callNumber == 1) return Future<Object?>.value(response);
+          if (callNumber == 2) return olderStart.future;
+          if (callNumber == 3) {
+            newerResponse = response;
+            return newerStart.future;
+          }
+          throw StateError('A pending search was dispatched twice.');
+        },
+      );
+      final harness = _BrowseHarness(transport: transport);
+
+      await tester.pumpWidget(
+        MaterialApp(home: harness.screen(onAction: _ignoreAction)),
+      );
+      await _pumpBrowseReady(tester, transport);
+      final field = find.byKey(const ValueKey<String>('bounded-content-field'));
+
+      await tester.enterText(field, 'older transport error');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await _pumpUntil(tester, () => transport.startCalls == 2);
+      await tester.enterText(field, 'newer pending search');
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await _pumpUntil(tester, () => transport.startCalls == 3);
+
+      olderStart.completeError(StateError('stale transport failure'));
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(
+        harness.coordinator.status,
+        CustomerBiteSaverCoordinatorStatus.starting,
+      );
+      expect(harness.coordinator.criteria?.searchText, 'newer pending search');
+      expect(harness.coordinator.error, isNull);
+
+      await tester.testTextInput.receiveAction(TextInputAction.search);
+      await tester.pump();
+      expect(transport.startCalls, 3);
+
+      newerStart.complete(newerResponse);
+      await _pumpUntil(
+        tester,
+        () =>
+            harness.coordinator.status ==
+            CustomerBiteSaverCoordinatorStatus.ready,
+      );
+      expect(transport.restaurantPageCalls, 2);
+      expect(harness.coordinator.criteria?.searchText, 'newer pending search');
+    },
+  );
+
   testWidgets('content center radius and mode form one submitted snapshot', (
     tester,
   ) async {
@@ -1827,6 +2040,8 @@ void main() {
       MaterialApp(home: harness.screen(onAction: _ignoreAction)),
     );
     await _pumpBrowseReady(tester, harness.transport);
+    final readyPager = harness.coordinator.restaurantPager;
+    final readyCriteria = harness.coordinator.criteria;
     final oversized = List<String>.filled(201, '😀').join();
     await tester.enterText(
       find.byKey(const ValueKey<String>('bounded-content-field')),
@@ -1836,6 +2051,14 @@ void main() {
     await tester.pump();
 
     expect(harness.transport.startCalls, 1);
+    expect(harness.transport.restaurantPageCalls, 1);
+    expect(
+      harness.coordinator.status,
+      CustomerBiteSaverCoordinatorStatus.ready,
+    );
+    expect(harness.coordinator.restaurantPager, same(readyPager));
+    expect(harness.coordinator.criteria, same(readyCriteria));
+    expect(harness.coordinator.hasSession, isTrue);
     expect(
       find.text('Search must be at most 200 characters and 800 UTF-8 bytes.'),
       findsOneWidget,
@@ -2034,6 +2257,13 @@ final class _BrowseHarness {
   );
 }
 
+typedef _BrowseStartResponder =
+    Future<Object?> Function(
+      int callNumber,
+      Map<String, Object?> request,
+      Map<String, Object?> response,
+    );
+
 final class _BrowseFixtureTransport {
   _BrowseFixtureTransport({
     this.startsPreparing = false,
@@ -2047,6 +2277,7 @@ final class _BrowseFixtureTransport {
     this.firstOfferIsDailySpecial = false,
     this.firstOfferOverrides = const <String, Object?>{},
     this.restaurantPageCount = 1,
+    this.startResponder,
   }) : fixture = _map(
          jsonDecode(
            File(
@@ -2067,6 +2298,7 @@ final class _BrowseFixtureTransport {
   final bool firstOfferIsDailySpecial;
   final Map<String, Object?> firstOfferOverrides;
   final int restaurantPageCount;
+  final _BrowseStartResponder? startResponder;
   final List<bool> freshSearchFlags = <bool>[];
   final List<Map<String, Object?>> startRequests = <Map<String, Object?>>[];
   final List<String?> restaurantCursors = <String?>[];
@@ -2129,6 +2361,10 @@ final class _BrowseFixtureTransport {
         freshSearchFlags.add(request['freshSearch']! as bool);
         final response = _copyMap(_responses['start']);
         if (!startsPreparing || startCalls > 1) response['state'] = 'ready';
+        final responder = startResponder;
+        if (responder != null) {
+          return responder(startCalls, request, response);
+        }
         return response;
       case CustomerBiteSaverService.statusCallableName:
         statusCalls += 1;

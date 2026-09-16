@@ -2918,7 +2918,7 @@ async function commitSignedPageResponse(value: {
   replayInput: CustomerBiteSaverRequestReplayInput & Readonly<{
     purpose: "restaurantPage" | "offerPage";
   }>;
-  evaluationAtMs: number;
+  replayReservationAtMs: number;
   logicalExpiresAtMs: number;
   writes: readonly CustomerBiteSaverWrite[];
 }): Promise<void> {
@@ -2939,7 +2939,7 @@ async function commitSignedPageResponse(value: {
           purpose: value.replayInput.purpose,
           clientRequestId: value.replayInput.clientRequestId,
           requestFingerprint: value.replayInput.requestFingerprint,
-          evaluationAtMs: value.evaluationAtMs,
+          evaluationAtMs: value.replayReservationAtMs,
           logicalExpiresAtMs: value.logicalExpiresAtMs,
           absoluteSessionExpiresAt:
             value.replayInput.absoluteSessionExpiresAt,
@@ -3918,6 +3918,7 @@ function offerOccurrenceForDelivery(value: {
 
 type PageCursorState = Readonly<{
   availabilityAtMs: number;
+  expiresAtMs: number;
   startAfter: readonly CustomerBiteSaverCursorSortValue[] | undefined;
   usageGeneration: string | null;
 }>;
@@ -3935,8 +3936,18 @@ function pageCursorState(value: {
   matchingMode: "parent" | "offer" | null;
 }): PageCursorState {
   if (value.cursor === null) {
+    const expiresAtMs = Math.min(
+      value.initialAvailabilityAtMs +
+        customerBiteSaverCursorLifetimeMilliseconds,
+      value.session.logicalExpiresAt.getTime(),
+      value.session.absoluteExpiresAt.getTime(),
+    );
+    if (expiresAtMs <= value.initialAvailabilityAtMs) {
+      return expiredSignedPageReplay();
+    }
     return Object.freeze({
       availabilityAtMs: value.initialAvailabilityAtMs,
+      expiresAtMs,
       startAfter: undefined,
       usageGeneration: null,
     });
@@ -3980,6 +3991,7 @@ function pageCursorState(value: {
   });
   return Object.freeze({
     availabilityAtMs: payload.availabilityAtMs,
+    expiresAtMs: payload.expiresAtMs,
     startAfter: payload.sortTuple,
     usageGeneration: payload.usageGeneration,
   });
@@ -3990,6 +4002,7 @@ function encodePageCursor(value: {
   session: CustomerBiteSaverSessionDocument;
   context: CustomerBiteSaverSessionContext;
   availabilityAtMs: number;
+  expiresAtMs: number;
   guestStateFingerprint: string;
   usageGeneration: string;
   offerCatalogFingerprint: string | null;
@@ -4012,6 +4025,18 @@ function encodePageCursor(value: {
     restaurantPublicId: value.restaurantPublicId,
     matchingMode: value.matchingMode,
   });
+  const lifetimeMilliseconds = value.expiresAtMs - value.availabilityAtMs;
+  if (
+    !Number.isSafeInteger(lifetimeMilliseconds) ||
+    lifetimeMilliseconds <= 0 ||
+    lifetimeMilliseconds > customerBiteSaverCursorLifetimeMilliseconds ||
+    value.expiresAtMs > value.session.absoluteExpiresAt.getTime()
+  ) {
+    throw new CustomerBiteSaverContractError(
+      "failed-precondition",
+      "The BiteSaver page cursor lifetime is invalid.",
+    );
+  }
   return new CustomerBiteSaverCursorCodec({
     key: value.context.discoveryKey,
     now: () => value.availabilityAtMs,
@@ -4032,6 +4057,7 @@ function encodePageCursor(value: {
     guestStateFingerprint: value.guestStateFingerprint,
     usageGeneration: value.usageGeneration,
     offerCatalogFingerprint: value.offerCatalogFingerprint,
+    lifetimeMilliseconds,
   });
 }
 
@@ -4822,6 +4848,7 @@ function previewContinuationWrite(value: {
   session: CustomerBiteSaverSessionDocument;
   clientRequestId: string;
   availabilityAtMs: number;
+  expiresAtMs: number;
   guestStateFingerprint: string;
   usageGeneration: string;
   pendingParent: CurrentParent;
@@ -4839,9 +4866,13 @@ function previewContinuationWrite(value: {
 }> {
   const documentId = previewContinuationDocumentId(value);
   const expiresAtMs = Math.min(
+    value.expiresAtMs,
     value.session.absoluteExpiresAt.getTime(),
     value.availabilityAtMs + customerBiteSaverCursorLifetimeMilliseconds,
   );
+  if (expiresAtMs <= value.availabilityAtMs) {
+    return expiredSignedPageReplay();
+  }
   const projectionFingerprint = value.pendingParent.projection.sourceFingerprint;
   if (
     typeof projectionFingerprint !== "string" ||
@@ -5256,7 +5287,9 @@ async function getCustomerBiteSaverSearchPageCompletedHandler(
       if (
         nowMs >= Math.min(
           replay.logicalExpiresAtMs,
-          replay.evaluationAtMs + customerBiteSaverCursorLifetimeMilliseconds,
+          prevalidatedCursorState?.expiresAtMs ??
+            replay.evaluationAtMs +
+              customerBiteSaverCursorLifetimeMilliseconds,
           session.logicalExpiresAt.getTime(),
           session.absoluteExpiresAt.getTime(),
         )
@@ -5275,13 +5308,7 @@ async function getCustomerBiteSaverSearchPageCompletedHandler(
         restaurantPublicId: null,
         matchingMode: null,
       });
-      const cursorState = Object.freeze({
-        ...inboundCursorState,
-        // Each distinct continuation request gets a fresh replay-frozen
-        // evaluation instant. Only its immutable membership boundary comes
-        // from the preceding cursor.
-        availabilityAtMs: replay.evaluationAtMs,
-      });
+      const cursorState = inboundCursorState;
   const evaluationInstant = new Date(cursorState.availabilityAtMs);
   const cursorBoundary = restaurantCursorBoundary(cursorState.startAfter);
   const suppression = new Set<string>();
@@ -5685,7 +5712,10 @@ async function getCustomerBiteSaverSearchPageCompletedHandler(
   const pageCalendar = boundedUsageEvaluationCalendar({
     evaluationAtMs: cursorState.availabilityAtMs,
     timeZone: session.criteria.timeZone,
-    operationValidUntilExclusiveMs: pageOperationExpiresAtMs,
+    operationValidUntilExclusiveMs: Math.min(
+      pageOperationExpiresAtMs,
+      cursorState.expiresAtMs,
+    ),
     oncePerDayRelevant: deliveredRestaurants.some(({offers}) =>
       offers.some((offer) =>
         normalizeCustomerBiteSaverUsagePolicy(
@@ -5702,6 +5732,7 @@ async function getCustomerBiteSaverSearchPageCompletedHandler(
       session,
       clientRequestId: request.clientRequestId,
       availabilityAtMs: cursorState.availabilityAtMs,
+      expiresAtMs: responseLogicalExpiresAtMs,
       guestStateFingerprint: suppressionFingerprint,
       usageGeneration,
       pendingParent: pendingPreview.parent,
@@ -5756,6 +5787,7 @@ async function getCustomerBiteSaverSearchPageCompletedHandler(
         session,
         context,
         availabilityAtMs: cursorState.availabilityAtMs,
+        expiresAtMs: responseLogicalExpiresAtMs,
         guestStateFingerprint: suppressionFingerprint,
         usageGeneration,
         offerCatalogFingerprint: null,
@@ -5772,6 +5804,7 @@ async function getCustomerBiteSaverSearchPageCompletedHandler(
         session,
         context,
         availabilityAtMs: cursorState.availabilityAtMs,
+        expiresAtMs: responseLogicalExpiresAtMs,
         guestStateFingerprint: suppressionFingerprint,
         usageGeneration,
         offerCatalogFingerprint: null,
@@ -5834,7 +5867,7 @@ async function getCustomerBiteSaverSearchPageCompletedHandler(
   await commitSignedPageResponse({
     context,
     replayInput,
-    evaluationAtMs: cursorState.availabilityAtMs,
+    replayReservationAtMs: replay.evaluationAtMs,
     logicalExpiresAtMs: responseLogicalExpiresAtMs,
     writes: [
       ...(continuationWrite === null ? [] : [continuationWrite]),
@@ -6102,29 +6135,13 @@ async function getCustomerBiteSaverOfferPageCompletedHandler(
   if (
     nowMs >= Math.min(
       replay.logicalExpiresAtMs,
-      replay.evaluationAtMs + customerBiteSaverCursorLifetimeMilliseconds,
+      cursorPreflight?.cursorState.expiresAtMs ??
+        replay.evaluationAtMs + customerBiteSaverCursorLifetimeMilliseconds,
       session.logicalExpiresAt.getTime(),
       session.absoluteExpiresAt.getTime(),
     )
   ) {
     return expiredSignedPageReplay();
-  }
-  const evaluationAtMs = replay.evaluationAtMs;
-  const evaluationInstant = new Date(evaluationAtMs);
-  const currentParent = currentParentFromRaw({
-      result,
-      rawDocument: await context.database.getDocument(
-        "restaurant_accounts/" + result.authoritativeAccountId,
-      ),
-      session,
-      identityKeyV1: requireCustomerBiteSaverIdentityKey(context),
-      now: evaluationInstant,
-    });
-  if (currentParent === null) {
-    throw new CustomerBiteSaverContractError(
-      "failed-precondition",
-      "The BiteSaver restaurant is unavailable.",
-    );
   }
   const inboundCursorState = cursorPreflight?.cursorState ?? pageCursorState({
     cursor: null,
@@ -6134,14 +6151,28 @@ async function getCustomerBiteSaverOfferPageCompletedHandler(
     nowMs,
     initialAvailabilityAtMs: replay.evaluationAtMs,
     guestStateFingerprint: suppressionFingerprint,
-    offerCatalogFingerprint: currentParent.offerCatalogFingerprint,
+    offerCatalogFingerprint: cursorPreflight?.currentParent
+      .offerCatalogFingerprint ?? null,
     restaurantPublicId: request.restaurantId,
     matchingMode,
   });
-  const cursorState = Object.freeze({
-    ...inboundCursorState,
-    availabilityAtMs: replay.evaluationAtMs,
+  const cursorState = inboundCursorState;
+  const evaluationInstant = new Date(cursorState.availabilityAtMs);
+  const currentParent = currentParentFromRaw({
+    result,
+    rawDocument: await context.database.getDocument(
+      "restaurant_accounts/" + result.authoritativeAccountId,
+    ),
+    session,
+    identityKeyV1: requireCustomerBiteSaverIdentityKey(context),
+    now: evaluationInstant,
   });
+  if (currentParent === null) {
+    throw new CustomerBiteSaverContractError(
+      "failed-precondition",
+      "The BiteSaver restaurant is unavailable.",
+    );
+  }
   const deliveredOffers: CurrentOffer[] = [];
   const usageGenerationParts: string[] = [];
   const suppression = new Set<string>();
@@ -6276,20 +6307,6 @@ async function getCustomerBiteSaverOfferPageCompletedHandler(
       matchingMode,
     }),
   ));
-  const nextCursor = hasMore && boundary !== undefined
-    ? encodePageCursor({
-        purpose: "offerPage",
-        session,
-        context,
-        availabilityAtMs: cursorState.availabilityAtMs,
-        guestStateFingerprint: suppressionFingerprint,
-        usageGeneration,
-        offerCatalogFingerprint: currentParent.offerCatalogFingerprint,
-        sortTuple: boundary,
-        restaurantPublicId: request.restaurantId,
-        matchingMode,
-      })
-    : null;
   const finalParent = currentParentFromRaw({
     result,
     rawDocument: await context.database.getDocument(
@@ -6337,7 +6354,10 @@ async function getCustomerBiteSaverOfferPageCompletedHandler(
   const pageCalendar = boundedUsageEvaluationCalendar({
     evaluationAtMs: cursorState.availabilityAtMs,
     timeZone: session.criteria.timeZone,
-    operationValidUntilExclusiveMs: pageOperationExpiresAtMs,
+    operationValidUntilExclusiveMs: Math.min(
+      pageOperationExpiresAtMs,
+      cursorState.expiresAtMs,
+    ),
     oncePerDayRelevant: deliveredOffers.some((offer) =>
       normalizeCustomerBiteSaverUsagePolicy(
         offer.offerType,
@@ -6345,6 +6365,21 @@ async function getCustomerBiteSaverOfferPageCompletedHandler(
       ) === "oncePerDay"),
   });
   const responseLogicalExpiresAtMs = pageCalendar.validUntilExclusiveMillis;
+  const nextCursor = hasMore && boundary !== undefined
+    ? encodePageCursor({
+        purpose: "offerPage",
+        session,
+        context,
+        availabilityAtMs: cursorState.availabilityAtMs,
+        expiresAtMs: responseLogicalExpiresAtMs,
+        guestStateFingerprint: suppressionFingerprint,
+        usageGeneration,
+        offerCatalogFingerprint: currentParent.offerCatalogFingerprint,
+        sortTuple: boundary,
+        restaurantPublicId: request.restaurantId,
+        matchingMode,
+      })
+    : null;
   const deliveredOfferWrites = deliveredOfferIdentityWrites({
     context,
     session,
@@ -6385,7 +6420,7 @@ async function getCustomerBiteSaverOfferPageCompletedHandler(
   await commitSignedPageResponse({
     context,
     replayInput,
-    evaluationAtMs: cursorState.availabilityAtMs,
+    replayReservationAtMs: replay.evaluationAtMs,
     logicalExpiresAtMs: responseLogicalExpiresAtMs,
     writes: deliveredOfferWrites,
   });
@@ -10558,7 +10593,16 @@ function guestDocumentForOperation(value: {
           ? {}
           : {externalExpiresAtMs: value.externalExpiresAtMs}),
       })
-    : value.session.absoluteExpiresAt.getTime();
+    : Math.min(
+        value.externalExpiresAtMs ?? value.session.absoluteExpiresAt.getTime(),
+        value.session.absoluteExpiresAt.getTime(),
+      );
+  if (logicalExpiresAtMs <= value.evaluationAtMs) {
+    throw new CustomerBiteSaverContractError(
+      "failed-precondition",
+      "The BiteSaver guest page snapshot expired.",
+    );
+  }
   const evaluationAt = new Date(value.evaluationAtMs);
   const logicalExpiresAt = new Date(logicalExpiresAtMs);
   const evaluationCalendar = customerBiteSaverUsageEvaluationCalendar({
@@ -11202,6 +11246,11 @@ async function finalizeGuestOfferPage(value: {
         session: value.session,
         context: value.context,
         availabilityAtMs: value.document.evaluationAt.getTime(),
+        expiresAtMs: Math.min(
+          value.document.logicalExpiresAt.getTime(),
+          value.document.evaluationAt.getTime() +
+            customerBiteSaverCursorLifetimeMilliseconds,
+        ),
         guestStateFingerprint: guestFingerprint,
         usageGeneration,
         offerCatalogFingerprint: parent.offerCatalogFingerprint,
@@ -11718,6 +11767,11 @@ async function finalizeGuestRestaurantPage(value: {
         session: value.session,
         context: value.context,
         availabilityAtMs: value.document.evaluationAt.getTime(),
+        expiresAtMs: Math.min(
+          value.document.logicalExpiresAt.getTime(),
+          value.document.evaluationAt.getTime() +
+            customerBiteSaverCursorLifetimeMilliseconds,
+        ),
         guestStateFingerprint: guestFingerprint,
         usageGeneration,
         offerCatalogFingerprint: null,
@@ -12653,11 +12707,11 @@ async function startGuestRestaurantPage(value: {
         progress,
         session,
         context: value.context,
-        evaluationAtMs: replay.evaluationAtMs,
+        evaluationAtMs: cursorState.availabilityAtMs,
         guestStateRevision: value.request.guestStateRevision as number,
         ...(value.openedCursor === null
           ? {}
-          : {externalExpiresAtMs: value.openedCursor.expiresAtMs}),
+          : {externalExpiresAtMs: cursorState.expiresAtMs}),
       });
       let document = await loadInitialGuestDocument({
         base,
@@ -12812,7 +12866,9 @@ async function startGuestOfferPage(value: {
           "The BiteSaver restaurant is unavailable.",
         );
       }
-      const evaluationAt = new Date(replay.evaluationAtMs);
+      const evaluationAtMs = value.openedCursor?.availabilityAtMs ??
+        replay.evaluationAtMs;
+      const evaluationAt = new Date(evaluationAtMs);
       const parent = currentParentFromRaw({
         result,
         rawDocument: await value.context.database.getDocument(
@@ -12875,11 +12931,11 @@ async function startGuestOfferPage(value: {
         progress,
         session,
         context: value.context,
-        evaluationAtMs: replay.evaluationAtMs,
+        evaluationAtMs: cursorState.availabilityAtMs,
         guestStateRevision: value.request.guestStateRevision as number,
         ...(value.openedCursor === null
           ? {}
-          : {externalExpiresAtMs: value.openedCursor.expiresAtMs}),
+          : {externalExpiresAtMs: cursorState.expiresAtMs}),
       });
       let document = await loadInitialGuestDocument({
         base,
