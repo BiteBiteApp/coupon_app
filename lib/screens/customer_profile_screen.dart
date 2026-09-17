@@ -709,6 +709,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
     final restaurant = entry.restaurant;
     final offer = entry.offer;
     final unavailable = !entry.isAvailable;
+    final activeUse =
+        offer != null &&
+        (widget.boundedSavedCoordinator?.hasDisplayableRedemptionPresentation(
+              offer.offerId,
+            ) ??
+            false);
     final title =
         offer?.title ??
         restaurant?.displayName ??
@@ -717,6 +723,8 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             : 'Saved coupon unavailable');
     final subtitle = unavailable
         ? 'This item is no longer publicly available. You can remove it.'
+        : activeUse
+        ? '${restaurant!.displayName} · Coupon timer active'
         : offer == null
         ? _locationLabel(restaurant!.city, restaurant.zipCode)
         : '${restaurant!.displayName} · Saved coupon';

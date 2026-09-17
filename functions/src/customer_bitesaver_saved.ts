@@ -8,22 +8,34 @@ import { Timestamp } from "firebase-admin/firestore";
 import {
   customerBiteSaverOfferProjectionVersion,
   customerBiteSaverRestaurantProjectionVersion,
+  customerBiteSaverSearchProtocolVersion,
   customerBiteSaverSearchSchemaVersion,
   CustomerBiteSaverContractError,
+  privateCustomerBiteSaverActiveSessionCollection,
 } from "./customer_bitesaver_search_contract.js";
+import { customerBiteSaverDeterministicId } from
+  "./customer_bitesaver_search_cursor.js";
 import {
   customerBiteSaverOpaqueOfferId,
   customerBiteSaverOpaqueRestaurantId,
   type CustomerBiteSaverIdentityKeyV1,
 } from "./customer_bitesaver_public_identity.js";
 import {
+  buildCustomerBiteSaverCouponRedemption,
   customerBiteSaverCouponFavoritePath,
+  customerBiteSaverCouponRedemptionPath,
   customerBiteSaverRestaurantFavoritePath,
   parseCustomerBiteSaverCouponFavorite,
+  parseCustomerBiteSaverCouponRedemption,
   parseCustomerBiteSaverRestaurantFavorite,
 } from "./customer_bitesaver_customer_data_contract.js";
 import {
+  customerBiteSaverRedemptionTimerMilliseconds,
+  customerBiteSaverUsageEvaluationCalendar,
+  evaluateCustomerBiteSaverOfferAvailability,
   normalizeCustomerBiteSaverUsagePolicy,
+  type CustomerBiteSaverNormalizedUsagePolicy,
+  type CustomerBiteSaverUsageState,
 } from "./customer_bitesaver_offer_availability.js";
 import {
   decodeDartUtf16FirestoreBytesOrderKey,
@@ -38,6 +50,7 @@ import {
   restaurantSearchIndexCollection,
 } from "./search_index_contract.js";
 import { createQueryFingerprint } from "./query_fingerprint.js";
+import { validRestaurantCoordinates } from "./restaurant_geo_helpers.js";
 import type { CustomerBiteSaverStoredDocument } from
   "./customer_bitesaver_search_store.js";
 import {
@@ -52,6 +65,8 @@ import {
   type CustomerBiteSaverMenuPageResult,
   type CustomerBiteSaverPublicOfferDto,
   type CustomerBiteSaverPublicRestaurantDto,
+  type CustomerBiteSaverRedemptionStartResult,
+  type CustomerBiteSaverRedemptionValidationResult,
   type CustomerBiteSaverSessionContext,
 } from "./customer_bitesaver_search_session.js";
 
@@ -1312,9 +1327,1073 @@ export async function getCustomerBiteSaverSavedMenuPageHandler(
   });
 }
 
+type SavedRedemptionRequest = Readonly<{
+  clientRequestId: string;
+  accessToken: string;
+  restaurantId: string;
+  offerId: string;
+  redemptionRequestId: string;
+  timeZone: string;
+  utcOffsetMinutes: number;
+  currentCoordinates: Readonly<{
+    latitude: number;
+    longitude: number;
+    capturedAtMillis: number;
+  }> | null;
+}>;
+
+type SavedRedemptionStartRequest = SavedRedemptionRequest & Readonly<{
+  validationId: string;
+}>;
+
+type SavedRedemptionTarget = Readonly<{
+  authoritativeAccountId: string;
+  sourceDocumentId: string;
+  restaurantId: string;
+  offerId: string;
+}>;
+
+type SavedRedemptionEvaluationContext = Readonly<{
+  schemaVersion: number;
+  sessionId: string;
+  attemptGeneration: number;
+  queryFingerprint: string;
+  evaluationAtMillis: number;
+  timeZone: string;
+  utcOffsetMinutes: number;
+  availabilityGeneration: string;
+  validUntilExclusiveMillis: number;
+  oncePerDayUnavailableWindows: readonly Readonly<{
+    startAtMillisInclusive: number;
+    endAtMillisExclusive: number;
+  }>[];
+}>;
+
+type SavedValidationResponse = CustomerBiteSaverRedemptionValidationResult &
+  Readonly<{evaluationContext: SavedRedemptionEvaluationContext}>;
+
+const savedRedemptionReceiptLifetimeMilliseconds = 24 * 60 * 60 * 1_000;
+
+function parseSavedRedemptionRequest(
+  value: unknown,
+  requireValidationId: false,
+): SavedRedemptionRequest;
+function parseSavedRedemptionRequest(
+  value: unknown,
+  requireValidationId: true,
+): SavedRedemptionStartRequest;
+function parseSavedRedemptionRequest(
+  value: unknown,
+  requireValidationId: boolean,
+): SavedRedemptionRequest | SavedRedemptionStartRequest {
+  const expected = [
+    "schemaVersion",
+    "clientRequestId",
+    "accessToken",
+    "restaurantId",
+    "offerId",
+    "redemptionRequestId",
+    "timeZone",
+    "utcOffsetMinutes",
+    "currentCoordinates",
+    ...(requireValidationId ? ["validationId"] : []),
+  ];
+  if (
+    !isRecord(value) ||
+    !exactKeys(value, expected) ||
+    value.schemaVersion !== customerBiteSaverSearchSchemaVersion ||
+    typeof value.clientRequestId !== "string" ||
+    !/^[A-Za-z0-9_-]{16,128}$/u.test(value.clientRequestId) ||
+    typeof value.accessToken !== "string" ||
+    value.accessToken.length > 32_768 ||
+    typeof value.restaurantId !== "string" ||
+    !publicRestaurantPattern.test(value.restaurantId) ||
+    typeof value.offerId !== "string" ||
+    !publicOfferPattern.test(value.offerId) ||
+    typeof value.redemptionRequestId !== "string" ||
+    !/^[A-Za-z0-9_-]{16,128}$/u.test(value.redemptionRequestId) ||
+    typeof value.timeZone !== "string" ||
+    value.timeZone.length === 0 ||
+    value.timeZone.length > 100 ||
+    value.timeZone.trim() !== value.timeZone ||
+    typeof value.utcOffsetMinutes !== "number" ||
+    !Number.isSafeInteger(value.utcOffsetMinutes) ||
+    value.utcOffsetMinutes < -840 ||
+    value.utcOffsetMinutes > 840 ||
+    (requireValidationId &&
+      (typeof value.validationId !== "string" ||
+        !/^bsv_[A-Za-z0-9_-]{43}$/u.test(value.validationId)))
+  ) {
+    return invalidArgument("The Saved redemption request is invalid.");
+  }
+  let currentCoordinates: SavedRedemptionRequest["currentCoordinates"] = null;
+  if (value.currentCoordinates !== null) {
+    if (
+      !isRecord(value.currentCoordinates) ||
+      !exactKeys(value.currentCoordinates, [
+        "latitude",
+        "longitude",
+        "capturedAtMillis",
+      ])
+    ) {
+      return invalidArgument("The Saved redemption location is invalid.");
+    }
+    const coordinates = validRestaurantCoordinates(
+      value.currentCoordinates.latitude,
+      value.currentCoordinates.longitude,
+    );
+    if (
+      coordinates === null ||
+      typeof value.currentCoordinates.capturedAtMillis !== "number" ||
+      !Number.isSafeInteger(value.currentCoordinates.capturedAtMillis) ||
+      value.currentCoordinates.capturedAtMillis < 0
+    ) {
+      return invalidArgument("The Saved redemption location is invalid.");
+    }
+    currentCoordinates = Object.freeze({
+      ...coordinates,
+      capturedAtMillis: value.currentCoordinates.capturedAtMillis,
+    });
+  }
+  const base: SavedRedemptionRequest = Object.freeze({
+    clientRequestId: value.clientRequestId,
+    accessToken: value.accessToken,
+    restaurantId: value.restaurantId,
+    offerId: value.offerId,
+    redemptionRequestId: value.redemptionRequestId,
+    timeZone: value.timeZone,
+    utcOffsetMinutes: value.utcOffsetMinutes,
+    currentCoordinates,
+  });
+  return requireValidationId
+    ? Object.freeze({
+        ...base,
+        validationId: value.validationId as string,
+      })
+    : base;
+}
+
+function savedRedemptionRequestFingerprint(
+  request: SavedRedemptionRequest,
+): string {
+  return createQueryFingerprint({
+    purpose: "savedRedemptionValidation",
+    restaurantId: request.restaurantId,
+    offerId: request.offerId,
+    redemptionRequestId: request.redemptionRequestId,
+    timeZone: request.timeZone,
+    utcOffsetMinutes: request.utcOffsetMinutes,
+    currentCoordinates: request.currentCoordinates === null
+      ? null
+      : {
+          latitude: String(request.currentCoordinates.latitude),
+          longitude: String(request.currentCoordinates.longitude),
+          capturedAtMillis: request.currentCoordinates.capturedAtMillis,
+        },
+    accessDigest: createHash("sha256")
+      .update(request.accessToken, "utf8")
+      .digest("hex"),
+  });
+}
+
+function savedRedemptionStartFingerprint(
+  request: SavedRedemptionStartRequest,
+): string {
+  return createQueryFingerprint({
+    purpose: "savedRedemptionStart",
+    validationFingerprint: savedRedemptionRequestFingerprint(request),
+    validationId: request.validationId,
+  });
+}
+
+function savedRedemptionUserBinding(
+  context: CustomerBiteSaverSessionContext,
+  userId: string,
+): string {
+  return createHash("sha256")
+    .update(context.discoveryKey)
+    .update("\0saved-redemption-user\0", "utf8")
+    .update(userId, "utf8")
+    .digest("hex");
+}
+
+function savedRedemptionValidationId(
+  context: CustomerBiteSaverSessionContext,
+  userBinding: string,
+  request: SavedRedemptionRequest,
+): string {
+  return customerBiteSaverDeterministicId(
+    context.discoveryKey,
+    "bsv",
+    "savedRedemptionValidation",
+    [userBinding, request.redemptionRequestId],
+  );
+}
+
+function savedRedemptionStartReceiptId(
+  context: CustomerBiteSaverSessionContext,
+  userBinding: string,
+  request: SavedRedemptionRequest,
+): string {
+  return customerBiteSaverDeterministicId(
+    context.discoveryKey,
+    "bssrr",
+    "savedRedemptionStartReceipt",
+    [userBinding, request.redemptionRequestId],
+  );
+}
+
+async function resolveSavedRedemptionTarget(value: {
+  context: CustomerBiteSaverSessionContext;
+  access: SavedAccess;
+  request: SavedRedemptionRequest;
+}): Promise<SavedRedemptionTarget | null> {
+  if (
+    value.access.section !== "coupons" ||
+    value.access.restaurantId !== value.request.restaurantId ||
+    value.access.offerId !== value.request.offerId ||
+    customerBiteSaverOpaqueRestaurantId(
+      identityKey(value.context),
+      value.access.authoritativeAccountId,
+    ) !== value.request.restaurantId
+  ) {
+    return null;
+  }
+  const documents = await value.context.database.queryDocuments({
+    collectionPath: biteSaverOfferIndexCollection,
+    filters: Object.freeze([{
+      field: "publicOfferId",
+      operation: "in" as const,
+      value: Object.freeze([value.request.offerId]),
+    }]),
+    orders: Object.freeze([]),
+    limit: 2,
+  });
+  if (documents.length !== 1) return null;
+  const projection = documents[0].data;
+  const authoritativeAccountId = decodeDartUtf16FirestoreBytesOrderKey(
+    projection.restaurantAccountId,
+    1_500,
+  );
+  const sourceDocumentId = exactInternalId(projection.sourceDocumentId);
+  if (
+    authoritativeAccountId === null ||
+    sourceDocumentId === null ||
+    authoritativeAccountId !== value.access.authoritativeAccountId ||
+    projection.source !== "biteSaver" ||
+    projection.entityType !== "offer" ||
+    projection.offerType !== "coupon" ||
+    projection.customerOfferProjectionVersion !==
+      customerBiteSaverOfferProjectionVersion ||
+    projection.publicRestaurantId !== value.request.restaurantId ||
+    projection.publicOfferId !== value.request.offerId ||
+    customerBiteSaverOpaqueOfferId(
+      identityKey(value.context),
+      authoritativeAccountId,
+      "coupon",
+      sourceDocumentId,
+    ) !== value.request.offerId
+  ) {
+    return null;
+  }
+  return Object.freeze({
+    authoritativeAccountId,
+    sourceDocumentId,
+    restaurantId: value.request.restaurantId,
+    offerId: value.request.offerId,
+  });
+}
+
+function savedUsageState(value: {
+  document: CustomerBiteSaverStoredDocument | null;
+  userId: string;
+  restaurantId: string;
+  offerId: string;
+}): CustomerBiteSaverUsageState {
+  if (value.document === null) {
+    return Object.freeze({
+      known: true,
+      lastRedeemedAt: null,
+      timerStartedAt: null,
+      generation: createQueryFingerprint({
+        purpose: "savedRedemptionUsage",
+        offerId: value.offerId,
+        state: "missing",
+      }),
+    });
+  }
+  const parsed = parseCustomerBiteSaverCouponRedemption(value.document, {
+    userId: value.userId,
+    restaurantId: value.restaurantId,
+    offerId: value.offerId,
+  });
+  if (parsed === null) {
+    throw new CustomerBiteSaverContractError(
+      "failed-precondition",
+      "The BiteSaver redemption usage state is invalid.",
+    );
+  }
+  return Object.freeze({
+    known: true,
+    lastRedeemedAt: null,
+    timerStartedAt: parsed.timerStartedAt,
+    generation: createQueryFingerprint({
+      purpose: "savedRedemptionUsage",
+      offerId: value.offerId,
+      redemptionId: parsed.redemptionId,
+      timerStartedAtMillis: parsed.timerStartedAt.getTime(),
+      timerExpiresAtMillis: parsed.timerExpiresAt.getTime(),
+    }),
+  });
+}
+
+function currentSavedRedemptionSource(value: {
+  context: CustomerBiteSaverSessionContext;
+  target: SavedRedemptionTarget;
+  parentDocument: CustomerBiteSaverStoredDocument | null;
+  offerDocument: CustomerBiteSaverStoredDocument | null;
+  now: Date;
+}): Readonly<{
+  parent: Readonly<Record<string, unknown>>;
+  offer: Readonly<Record<string, unknown>>;
+  restaurantCoordinates: Readonly<{latitude: number; longitude: number}>;
+  usagePolicy: CustomerBiteSaverNormalizedUsagePolicy;
+}> | null {
+  if (value.parentDocument === null || value.offerDocument === null) return null;
+  const parent = buildBiteSaverRestaurantIndex({
+    sourceDocumentId: value.target.authoritativeAccountId,
+    source: value.parentDocument.data,
+    now: value.now,
+    identityKeyV1: identityKey(value.context),
+  });
+  const offer = buildBiteSaverCouponOfferIndex({
+    restaurantAccountId: value.target.authoritativeAccountId,
+    sourceDocumentId: value.target.sourceDocumentId,
+    offer: value.offerDocument.data,
+    restaurant: value.parentDocument.data,
+    now: value.now,
+    identityKeyV1: identityKey(value.context),
+  });
+  const coordinates = validRestaurantCoordinates(
+    parent?.latitude,
+    parent?.longitude,
+  );
+  const usagePolicy = normalizeCustomerBiteSaverUsagePolicy(
+    "coupon",
+    offer?.usageRule,
+  );
+  if (
+    parent === null ||
+    parent.publicVisible !== true ||
+    parent.publicProjectionVersion !== customerBiteSaverRestaurantProjectionVersion ||
+    parent.publicRestaurantId !== value.target.restaurantId ||
+    offer === null ||
+    offer.customerOfferProjectionVersion !==
+      customerBiteSaverOfferProjectionVersion ||
+    offer.customerDiscoverable !== true ||
+    offer.publicRestaurantId !== value.target.restaurantId ||
+    offer.publicOfferId !== value.target.offerId ||
+    offer.sourceDocumentId !== value.target.sourceDocumentId ||
+    coordinates === null ||
+    usagePolicy === null
+  ) {
+    return null;
+  }
+  const availabilityOffer: Record<string, unknown> = {
+    ...value.offerDocument.data,
+  };
+  for (const field of [
+    "startTime",
+    "endTime",
+    "usageRule",
+    "isProximityOnly",
+    "proximityRadiusMiles",
+  ] as const) {
+    if (Object.prototype.hasOwnProperty.call(offer, field)) {
+      availabilityOffer[field] = offer[field];
+    }
+  }
+  return Object.freeze({
+    parent,
+    offer: Object.freeze(availabilityOffer),
+    restaurantCoordinates: coordinates,
+    usagePolicy,
+  });
+}
+
+function savedRedemptionCalendar(value: {
+  request: SavedRedemptionRequest;
+  evaluationAtMillis: number;
+  usagePolicy: CustomerBiteSaverNormalizedUsagePolicy | null;
+  validUntilExclusiveMillis: number;
+}): SavedRedemptionEvaluationContext {
+  let calendar;
+  try {
+    calendar = customerBiteSaverUsageEvaluationCalendar({
+      evaluationAtMillis: value.evaluationAtMillis,
+      timeZone: value.request.timeZone,
+    });
+  } catch {
+    return invalidArgument("The customer time context is invalid.");
+  }
+  if (calendar.utcOffsetMinutes !== value.request.utcOffsetMinutes) {
+    return invalidArgument("The customer time context is stale.");
+  }
+  const validUntilExclusiveMillis = value.usagePolicy === "oncePerDay"
+    ? Math.min(
+        value.validUntilExclusiveMillis,
+        calendar.validUntilExclusiveMillis,
+      )
+    : value.validUntilExclusiveMillis;
+  if (validUntilExclusiveMillis <= value.evaluationAtMillis) {
+    throw new CustomerBiteSaverContractError(
+      "failed-precondition",
+      "The Saved redemption validation expired.",
+    );
+  }
+  const sessionId = customerBiteSaverDeterministicId(
+    new Uint8Array(createHash("sha256")
+      .update(value.request.accessToken, "utf8")
+      .digest()),
+    "bss",
+    "savedRedemptionEvaluation",
+    [value.request.restaurantId, value.request.offerId],
+  );
+  const queryFingerprint = createQueryFingerprint({
+    purpose: "savedRedemptionEvaluation",
+    restaurantId: value.request.restaurantId,
+    offerId: value.request.offerId,
+    redemptionRequestId: value.request.redemptionRequestId,
+  });
+  const availabilityGeneration = createQueryFingerprint({
+    purpose: "savedRedemptionAvailability",
+    queryFingerprint,
+    evaluationAtMillis: value.evaluationAtMillis,
+    validUntilExclusiveMillis,
+  });
+  return Object.freeze({
+    schemaVersion: calendar.schemaVersion,
+    sessionId,
+    attemptGeneration: 0,
+    queryFingerprint,
+    evaluationAtMillis: value.evaluationAtMillis,
+    timeZone: calendar.timeZone,
+    utcOffsetMinutes: calendar.utcOffsetMinutes,
+    availabilityGeneration,
+    validUntilExclusiveMillis,
+    oncePerDayUnavailableWindows: calendar.oncePerDayUnavailableWindows,
+  });
+}
+
+function validationReceiptPath(validationId: string): string {
+  return `${privateCustomerBiteSaverActiveSessionCollection}/${validationId}`;
+}
+
+function startReceiptPath(receiptId: string): string {
+  return `${privateCustomerBiteSaverActiveSessionCollection}/${receiptId}`;
+}
+
+function storedResponse(
+  document: CustomerBiteSaverStoredDocument | null,
+  expected: {
+    role: "savedRedemptionValidationReceipt" | "savedRedemptionStartReceipt";
+    documentId: string;
+    userBinding: string;
+    requestFingerprint: string;
+    nowMillis: number;
+  },
+): Readonly<Record<string, unknown>> | null {
+  if (document === null) return null;
+  const data = document.data;
+  const keys = Object.keys(data).sort();
+  const expectedKeys = [
+    "createdAt",
+    "expiresAt",
+    "protocolVersion",
+    "requestFingerprint",
+    "response",
+    "responseFingerprint",
+    "role",
+    "schemaVersion",
+    "state",
+    "updatedAt",
+    "userBinding",
+  ];
+  const createdAt = dateValue(data.createdAt);
+  const updatedAt = dateValue(data.updatedAt);
+  const expiresAt = dateValue(data.expiresAt);
+  if (
+    document.id !== expected.documentId ||
+    document.path !== startReceiptPath(expected.documentId) ||
+    keys.length !== expectedKeys.length ||
+    keys.some((key, index) => key !== expectedKeys[index]) ||
+    data.protocolVersion !== customerBiteSaverSearchProtocolVersion ||
+    data.schemaVersion !== customerBiteSaverSearchSchemaVersion ||
+    data.role !== expected.role ||
+    data.state !== "complete" ||
+    data.userBinding !== expected.userBinding ||
+    typeof data.userBinding !== "string" ||
+    !/^[0-9a-f]{64}$/u.test(data.userBinding) ||
+    data.requestFingerprint !== expected.requestFingerprint ||
+    typeof data.requestFingerprint !== "string" ||
+    !/^[0-9a-f]{64}$/u.test(data.requestFingerprint) ||
+    !isRecord(data.response) ||
+    typeof data.responseFingerprint !== "string" ||
+    !/^[0-9a-f]{64}$/u.test(data.responseFingerprint) ||
+    data.responseFingerprint !== createQueryFingerprint(data.response) ||
+    createdAt === null ||
+    updatedAt === null ||
+    expiresAt === null ||
+    updatedAt.getTime() < createdAt.getTime() ||
+    expiresAt.getTime() <= createdAt.getTime() ||
+    expected.nowMillis >= expiresAt.getTime()
+  ) {
+    throw new CustomerBiteSaverContractError(
+      "failed-precondition",
+      "The Saved redemption receipt is invalid or expired.",
+    );
+  }
+  return data.response;
+}
+
+function receiptDocument(value: {
+  role: "savedRedemptionValidationReceipt" | "savedRedemptionStartReceipt";
+  userBinding: string;
+  requestFingerprint: string;
+  response: Readonly<Record<string, unknown>>;
+  nowMillis: number;
+  expiresAtMillis: number;
+}): Readonly<Record<string, unknown>> {
+  const now = new Date(value.nowMillis);
+  const expiresAt = new Date(value.expiresAtMillis);
+  return Object.freeze({
+    protocolVersion: customerBiteSaverSearchProtocolVersion,
+    schemaVersion: customerBiteSaverSearchSchemaVersion,
+    role: value.role,
+    state: "complete",
+    userBinding: value.userBinding,
+    requestFingerprint: value.requestFingerprint,
+    response: value.response,
+    responseFingerprint: createQueryFingerprint(value.response),
+    createdAt: now,
+    updatedAt: now,
+    expiresAt,
+  });
+}
+
+function validationResponseFromStored(
+  value: Readonly<Record<string, unknown>>,
+  request: SavedRedemptionRequest,
+): SavedValidationResponse {
+  if (
+    value.restaurantId !== request.restaurantId ||
+    value.offerId !== request.offerId ||
+    typeof value.allowed !== "boolean" ||
+    typeof value.reason !== "string" ||
+    !isRecord(value.evaluationContext)
+  ) {
+    throw new CustomerBiteSaverContractError("failed-precondition");
+  }
+  return value as SavedValidationResponse;
+}
+
+function startResponseFromStored(
+  value: Readonly<Record<string, unknown>>,
+  request: SavedRedemptionRequest,
+): CustomerBiteSaverRedemptionStartResult {
+  const keys = Object.keys(value).sort();
+  const timed = value.status === "started" || value.status === "active";
+  if (
+    keys.length !== 7 ||
+    keys.some((key, index) => key !== [
+      "offerId",
+      "redemptionId",
+      "restaurantId",
+      "schemaVersion",
+      "status",
+      "timerExpiresAtMillis",
+      "timerStartedAtMillis",
+    ][index]) ||
+    value.schemaVersion !== customerBiteSaverSearchSchemaVersion ||
+    value.restaurantId !== request.restaurantId ||
+    value.offerId !== request.offerId ||
+    !publicRestaurantPattern.test(value.restaurantId) ||
+    !publicOfferPattern.test(value.offerId) ||
+    (value.status !== "started" &&
+      value.status !== "active" &&
+      value.status !== "unlimited") ||
+    (timed && (
+      typeof value.redemptionId !== "string" ||
+      !/^bsrd_[A-Za-z0-9_-]{43}$/u.test(value.redemptionId) ||
+      typeof value.timerStartedAtMillis !== "number" ||
+      !Number.isSafeInteger(value.timerStartedAtMillis) ||
+      value.timerStartedAtMillis < 0 ||
+      typeof value.timerExpiresAtMillis !== "number" ||
+      !Number.isSafeInteger(value.timerExpiresAtMillis) ||
+      value.timerExpiresAtMillis !== value.timerStartedAtMillis +
+        customerBiteSaverRedemptionTimerMilliseconds
+    )) ||
+    (!timed && (
+      value.redemptionId !== null ||
+      value.timerStartedAtMillis !== null ||
+      value.timerExpiresAtMillis !== null
+    ))
+  ) {
+    throw new CustomerBiteSaverContractError("failed-precondition");
+  }
+  return value as CustomerBiteSaverRedemptionStartResult;
+}
+
+function unavailableSavedValidation(value: {
+  request: SavedRedemptionRequest;
+  nowMillis: number;
+  reason: string;
+  usagePolicy?: CustomerBiteSaverNormalizedUsagePolicy | null;
+  activeTimerExpiresAtMillis?: number | null;
+  nextAvailableAtMillis?: number | null;
+  evaluationContext: SavedRedemptionEvaluationContext;
+}): SavedValidationResponse {
+  return Object.freeze({
+    schemaVersion: customerBiteSaverSearchSchemaVersion,
+    restaurantId: value.request.restaurantId,
+    offerId: value.request.offerId,
+    allowed: false,
+    reason: value.reason,
+    usagePolicy: value.usagePolicy ?? null,
+    evaluatedAtMillis: value.nowMillis,
+    activeTimerExpiresAtMillis: value.activeTimerExpiresAtMillis ?? null,
+    nextAvailableAtMillis: value.nextAvailableAtMillis ?? null,
+    validationId: null,
+    validationExpiresAtMillis: null,
+    evaluationContext: value.evaluationContext,
+  });
+}
+
+export async function validateCustomerBiteSaverSavedOfferRedemptionStartHandler(
+  rawRequest: unknown,
+  context: CustomerBiteSaverSessionContext,
+): Promise<SavedValidationResponse> {
+  const request = parseSavedRedemptionRequest(rawRequest, false);
+  const userId = requireSignedInUserId(context.identity);
+  const initialNowMillis = context.now?.() ?? Date.now();
+  const codec = new SavedOpaqueCodec(context.discoveryKey, () => initialNowMillis);
+  const access = openAccess({codec, token: request.accessToken, userId});
+  const target = await resolveSavedRedemptionTarget({context, access, request});
+  const userBinding = savedRedemptionUserBinding(context, userId);
+  const requestFingerprint = savedRedemptionRequestFingerprint(request);
+  const validationId = savedRedemptionValidationId(
+    context,
+    userBinding,
+    request,
+  );
+  const receiptPath = validationReceiptPath(validationId);
+  const favoritePath = customerBiteSaverCouponFavoritePath(
+    userId,
+    request.offerId,
+  );
+  const rawParentPath = target === null
+    ? null
+    : `restaurant_accounts/${target.authoritativeAccountId}`;
+  const rawOfferPath = target === null
+    ? null
+    : `${rawParentPath}/coupons/${target.sourceDocumentId}`;
+  const usagePath = customerBiteSaverCouponRedemptionPath(
+    userId,
+    request.offerId,
+  );
+  return context.database.runTransaction(async (transaction) => {
+    const paths = [
+      receiptPath,
+      favoritePath,
+      ...(rawParentPath === null ? [] : [rawParentPath, rawOfferPath!, usagePath]),
+    ];
+    const documents = await transaction.getDocuments(paths);
+    const mutationNowMillis = context.now?.() ?? Date.now();
+    const replay = storedResponse(documents[0], {
+      role: "savedRedemptionValidationReceipt",
+      documentId: validationId,
+      userBinding,
+      requestFingerprint,
+      nowMillis: mutationNowMillis,
+    });
+    if (replay !== null) {
+      return validationResponseFromStored(replay, request);
+    }
+    const favorite = documents[1];
+    if (
+      favorite === null ||
+      parseCustomerBiteSaverCouponFavorite(favorite, {
+        userId,
+        restaurantId: request.restaurantId,
+        offerId: request.offerId,
+      }) === null
+    ) {
+      throw new CustomerBiteSaverContractError(
+        "permission-denied",
+        "The exact Saved coupon is required to use this path.",
+      );
+    }
+    let usagePolicy: CustomerBiteSaverNormalizedUsagePolicy | null = null;
+    let response: SavedValidationResponse;
+    if (target === null) {
+      const evaluationContext = savedRedemptionCalendar({
+        request,
+        evaluationAtMillis: mutationNowMillis,
+        usagePolicy: null,
+        validUntilExclusiveMillis: Math.min(
+          mutationNowMillis + 60_000,
+          access.expiresAtMillis,
+        ),
+      });
+      response = unavailableSavedValidation({
+        request,
+        nowMillis: mutationNowMillis,
+        reason: "offerUnavailable",
+        evaluationContext,
+      });
+    } else {
+      const source = currentSavedRedemptionSource({
+        context,
+        target,
+        parentDocument: documents[2],
+        offerDocument: documents[3],
+        now: new Date(mutationNowMillis),
+      });
+      usagePolicy = source?.usagePolicy ?? null;
+      const usage = savedUsageState({
+        document: documents[4],
+        userId,
+        restaurantId: request.restaurantId,
+        offerId: request.offerId,
+      });
+      const decision = source === null
+        ? null
+        : evaluateCustomerBiteSaverOfferAvailability({
+            offerType: "coupon",
+            offer: source.offer,
+            parentEligible: true,
+            now: new Date(mutationNowMillis),
+            timeZone: request.timeZone,
+            locationMode: "current",
+            restaurantCoordinates: source.restaurantCoordinates,
+            currentCoordinates: request.currentCoordinates,
+            currentCoordinatesCapturedAt: request.currentCoordinates === null
+              ? null
+              : new Date(request.currentCoordinates.capturedAtMillis),
+            usage,
+            requireFreshLocation: true,
+          });
+      const validationExpiresAtMillis = Math.min(
+        mutationNowMillis + 60_000,
+        access.expiresAtMillis,
+        decision?.eligibilityExpiresAtMs ?? Number.MAX_SAFE_INTEGER,
+      );
+      const evaluationContext = savedRedemptionCalendar({
+        request,
+        evaluationAtMillis: mutationNowMillis,
+        usagePolicy,
+        validUntilExclusiveMillis: validationExpiresAtMillis,
+      });
+      if (source === null || decision === null) {
+        response = unavailableSavedValidation({
+          request,
+          nowMillis: mutationNowMillis,
+          reason: "offerUnavailable",
+          evaluationContext,
+        });
+      } else if (!decision.visible || !decision.redeemable) {
+        response = unavailableSavedValidation({
+          request,
+          nowMillis: mutationNowMillis,
+          reason: decision.reason,
+          usagePolicy,
+          activeTimerExpiresAtMillis: decision.activeTimerExpiresAtMs,
+          nextAvailableAtMillis: decision.nextAvailableAtMs,
+          evaluationContext,
+        });
+      } else {
+        response = Object.freeze({
+          schemaVersion: customerBiteSaverSearchSchemaVersion,
+          restaurantId: request.restaurantId,
+          offerId: request.offerId,
+          allowed: true,
+          reason: "available",
+          usagePolicy,
+          evaluatedAtMillis: mutationNowMillis,
+          activeTimerExpiresAtMillis: decision.activeTimerExpiresAtMs,
+          nextAvailableAtMillis: decision.nextAvailableAtMs,
+          validationId,
+          validationExpiresAtMillis:
+            evaluationContext.validUntilExclusiveMillis,
+          evaluationContext,
+        });
+      }
+    }
+    transaction.createDocument(receiptPath, receiptDocument({
+      role: "savedRedemptionValidationReceipt",
+      userBinding,
+      requestFingerprint,
+      response,
+      nowMillis: mutationNowMillis,
+      expiresAtMillis: Math.min(
+        access.expiresAtMillis,
+        mutationNowMillis + savedRedemptionReceiptLifetimeMilliseconds,
+      ),
+    }));
+    return response;
+  });
+}
+
+function newSavedRedemptionId(
+  context: CustomerBiteSaverSessionContext,
+): string {
+  const entropy = (context.randomSource ?? randomBytes)(32);
+  if (!(entropy instanceof Uint8Array) || entropy.length !== 32) {
+    throw new CustomerBiteSaverContractError("failed-precondition");
+  }
+  return `bsrd_${Buffer.from(entropy).toString("base64url")}`;
+}
+
+export async function startCustomerBiteSaverSavedOfferRedemptionHandler(
+  rawRequest: unknown,
+  context: CustomerBiteSaverSessionContext,
+): Promise<CustomerBiteSaverRedemptionStartResult> {
+  const request = parseSavedRedemptionRequest(rawRequest, true);
+  const userId = requireSignedInUserId(context.identity);
+  const initialNowMillis = context.now?.() ?? Date.now();
+  const codec = new SavedOpaqueCodec(context.discoveryKey, () => initialNowMillis);
+  const access = openAccess({codec, token: request.accessToken, userId});
+  const userBinding = savedRedemptionUserBinding(context, userId);
+  const validationFingerprint = savedRedemptionRequestFingerprint(request);
+  const expectedValidationId = savedRedemptionValidationId(
+    context,
+    userBinding,
+    request,
+  );
+  if (request.validationId !== expectedValidationId) return invalidArgument();
+  const requestFingerprint = savedRedemptionStartFingerprint(request);
+  const receiptId = savedRedemptionStartReceiptId(
+    context,
+    userBinding,
+    request,
+  );
+  const receiptPath = startReceiptPath(receiptId);
+  const committed = storedResponse(
+    await context.database.getDocument(receiptPath),
+    {
+      role: "savedRedemptionStartReceipt",
+      documentId: receiptId,
+      userBinding,
+      requestFingerprint,
+      nowMillis: context.now?.() ?? Date.now(),
+    },
+  );
+  if (committed !== null) return startResponseFromStored(committed, request);
+
+  const target = await resolveSavedRedemptionTarget({context, access, request});
+  if (target === null) {
+    throw new CustomerBiteSaverContractError(
+      "failed-precondition",
+      "The Saved coupon is no longer available to start.",
+    );
+  }
+  const favoritePath = customerBiteSaverCouponFavoritePath(
+    userId,
+    request.offerId,
+  );
+  const validationPath = validationReceiptPath(request.validationId);
+  const parentPath = `restaurant_accounts/${target.authoritativeAccountId}`;
+  const offerPath = `${parentPath}/coupons/${target.sourceDocumentId}`;
+  const usagePath = customerBiteSaverCouponRedemptionPath(
+    userId,
+    request.offerId,
+  );
+  const proposedRedemptionId = newSavedRedemptionId(context);
+  return context.database.runTransaction(async (transaction) => {
+    const documents = await transaction.getDocuments([
+      receiptPath,
+      validationPath,
+      favoritePath,
+      parentPath,
+      offerPath,
+      usagePath,
+    ]);
+    const mutationNowMillis = context.now?.() ?? Date.now();
+    const replay = storedResponse(documents[0], {
+      role: "savedRedemptionStartReceipt",
+      documentId: receiptId,
+      userBinding,
+      requestFingerprint,
+      nowMillis: mutationNowMillis,
+    });
+    if (replay !== null) return startResponseFromStored(replay, request);
+    const validationStored = storedResponse(documents[1], {
+      role: "savedRedemptionValidationReceipt",
+      documentId: request.validationId,
+      userBinding,
+      requestFingerprint: validationFingerprint,
+      nowMillis: mutationNowMillis,
+    });
+    if (validationStored === null) {
+      throw new CustomerBiteSaverContractError(
+        "failed-precondition",
+        "The Saved redemption validation is missing.",
+      );
+    }
+    const validation = validationResponseFromStored(validationStored, request);
+    if (
+      validation.allowed !== true ||
+      validation.validationId !== request.validationId ||
+      typeof validation.validationExpiresAtMillis !== "number" ||
+      mutationNowMillis >= validation.validationExpiresAtMillis
+    ) {
+      throw new CustomerBiteSaverContractError(
+        "failed-precondition",
+        "The Saved redemption validation expired or was denied.",
+      );
+    }
+    const favorite = documents[2];
+    if (
+      favorite === null ||
+      parseCustomerBiteSaverCouponFavorite(favorite, {
+        userId,
+        restaurantId: request.restaurantId,
+        offerId: request.offerId,
+      }) === null
+    ) {
+      throw new CustomerBiteSaverContractError(
+        "permission-denied",
+        "The exact Saved coupon is required to use this path.",
+      );
+    }
+    const source = currentSavedRedemptionSource({
+      context,
+      target,
+      parentDocument: documents[3],
+      offerDocument: documents[4],
+      now: new Date(mutationNowMillis),
+    });
+    if (source === null) {
+      throw new CustomerBiteSaverContractError(
+        "failed-precondition",
+        "The Saved coupon is no longer available to start.",
+      );
+    }
+    const usage = savedUsageState({
+      document: documents[5],
+      userId,
+      restaurantId: request.restaurantId,
+      offerId: request.offerId,
+    });
+    const calendar = savedRedemptionCalendar({
+      request,
+      evaluationAtMillis: mutationNowMillis,
+      usagePolicy: source.usagePolicy,
+      validUntilExclusiveMillis: Math.min(
+        validation.validationExpiresAtMillis,
+        access.expiresAtMillis,
+      ),
+    });
+    const decision = evaluateCustomerBiteSaverOfferAvailability({
+      offerType: "coupon",
+      offer: source.offer,
+      parentEligible: true,
+      now: new Date(mutationNowMillis),
+      timeZone: request.timeZone,
+      locationMode: "current",
+      restaurantCoordinates: source.restaurantCoordinates,
+      currentCoordinates: request.currentCoordinates,
+      currentCoordinatesCapturedAt: request.currentCoordinates === null
+        ? null
+        : new Date(request.currentCoordinates.capturedAtMillis),
+      usage,
+      requireFreshLocation: true,
+    });
+    if (
+      !decision.visible ||
+      !decision.redeemable ||
+      (decision.eligibilityExpiresAtMs !== null &&
+        mutationNowMillis >= decision.eligibilityExpiresAtMs) ||
+      mutationNowMillis >= calendar.validUntilExclusiveMillis
+    ) {
+      throw new CustomerBiteSaverContractError(
+        "failed-precondition",
+        "The Saved coupon is no longer available to start.",
+      );
+    }
+    const canonicalUsage = documents[5] === null
+      ? null
+      : parseCustomerBiteSaverCouponRedemption(documents[5]!, {
+          userId,
+          restaurantId: request.restaurantId,
+          offerId: request.offerId,
+        });
+    let result: CustomerBiteSaverRedemptionStartResult;
+    let usageWrite = null;
+    if (source.usagePolicy === "unlimited") {
+      result = Object.freeze({
+        schemaVersion: customerBiteSaverSearchSchemaVersion,
+        restaurantId: request.restaurantId,
+        offerId: request.offerId,
+        redemptionId: null,
+        status: "unlimited",
+        timerStartedAtMillis: null,
+        timerExpiresAtMillis: null,
+      });
+    } else if (
+      canonicalUsage !== null &&
+      canonicalUsage.timerExpiresAt.getTime() > mutationNowMillis
+    ) {
+      result = Object.freeze({
+        schemaVersion: customerBiteSaverSearchSchemaVersion,
+        restaurantId: request.restaurantId,
+        offerId: request.offerId,
+        redemptionId: canonicalUsage.redemptionId,
+        status: "active",
+        timerStartedAtMillis: canonicalUsage.timerStartedAt.getTime(),
+        timerExpiresAtMillis: canonicalUsage.timerExpiresAt.getTime(),
+      });
+    } else {
+      usageWrite = buildCustomerBiteSaverCouponRedemption({
+        userId,
+        restaurantId: request.restaurantId,
+        offerId: request.offerId,
+        redemptionId: proposedRedemptionId,
+        timerStartedAt: new Date(mutationNowMillis),
+        createdAt: canonicalUsage?.createdAt ?? new Date(mutationNowMillis),
+      });
+      result = Object.freeze({
+        schemaVersion: customerBiteSaverSearchSchemaVersion,
+        restaurantId: request.restaurantId,
+        offerId: request.offerId,
+        redemptionId: usageWrite.redemptionId,
+        status: "started",
+        timerStartedAtMillis: usageWrite.timerStartedAt.getTime(),
+        timerExpiresAtMillis: usageWrite.timerExpiresAt.getTime(),
+      });
+    }
+    if (usageWrite !== null) transaction.setDocument(usagePath, usageWrite);
+    transaction.createDocument(receiptPath, receiptDocument({
+      role: "savedRedemptionStartReceipt",
+      userBinding,
+      requestFingerprint,
+      response: result,
+      nowMillis: mutationNowMillis,
+      expiresAtMillis: Math.min(
+        access.expiresAtMillis,
+        mutationNowMillis + savedRedemptionReceiptLifetimeMilliseconds,
+      ),
+    }));
+    return result;
+  });
+}
+
 export const customerBiteSaverSavedInternals = Object.freeze({
   savedPageSize,
   savedCandidateBudget,
   parseSavedRequest,
+  parseSavedRedemptionRequest,
+  savedRedemptionRequestFingerprint,
+  savedRedemptionStartFingerprint,
   openAccess,
 });

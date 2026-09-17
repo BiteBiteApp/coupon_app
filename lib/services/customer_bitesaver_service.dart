@@ -105,6 +105,20 @@ abstract interface class CustomerBiteSaverSavedApi {
   Future<CustomerBiteSaverMenuPageResult> getCustomerBiteSaverSavedMenuPage(
     CustomerBiteSaverSavedMenuPageRequest request,
   );
+
+  Future<
+    CustomerBiteSaverEndpointResponse<
+      CustomerBiteSaverRedemptionValidationResult
+    >
+  >
+  validateCustomerBiteSaverSavedOfferRedemptionStart(
+    CustomerBiteSaverSavedRedemptionValidationRequest request,
+  );
+
+  Future<CustomerBiteSaverRedemptionStartResult>
+  startCustomerBiteSaverSavedOfferRedemption(
+    CustomerBiteSaverSavedRedemptionStartRequest request,
+  );
 }
 
 final class CustomerBiteSaverService
@@ -129,6 +143,10 @@ final class CustomerBiteSaverService
   static const String savedPageCallableName = 'getCustomerBiteSaverSavedPage';
   static const String savedMenuPageCallableName =
       'getCustomerBiteSaverSavedMenuPage';
+  static const String savedRedemptionValidationCallableName =
+      'validateCustomerBiteSaverSavedOfferRedemptionStart';
+  static const String savedRedemptionStartCallableName =
+      'startCustomerBiteSaverSavedOfferRedemption';
   static const String redemptionValidationCallableName =
       'validateCustomerBiteSaverOfferRedemptionStart';
   static const String redemptionStartCallableName =
@@ -315,6 +333,57 @@ final class CustomerBiteSaverService
       _invalidResponse();
     }
     return response;
+  }
+
+  @override
+  Future<
+    CustomerBiteSaverEndpointResponse<
+      CustomerBiteSaverRedemptionValidationResult
+    >
+  >
+  validateCustomerBiteSaverSavedOfferRedemptionStart(
+    CustomerBiteSaverSavedRedemptionValidationRequest request,
+  ) async {
+    final response = await _invoke(
+      savedRedemptionValidationCallableName,
+      request.toJson(),
+      (value) => parseCustomerBiteSaverEndpointResponse(
+        value,
+        expectedOperation: CustomerBiteSaverGuestOperation.redemptionStart,
+        resultParser: CustomerBiteSaverRedemptionValidationResult.fromJson,
+      ),
+    );
+    if (response
+        is! CustomerBiteSaverDirectResponse<
+          CustomerBiteSaverRedemptionValidationResult
+        >) {
+      _invalidResponse();
+    }
+    final direct = response;
+    if (direct.result.restaurantId != request.restaurantId ||
+        direct.result.offerId != request.offerId ||
+        direct.result.evaluatedAtMillis !=
+            direct.evaluationContext.evaluationAtMillis) {
+      _invalidResponse();
+    }
+    return direct;
+  }
+
+  @override
+  Future<CustomerBiteSaverRedemptionStartResult>
+  startCustomerBiteSaverSavedOfferRedemption(
+    CustomerBiteSaverSavedRedemptionStartRequest request,
+  ) async {
+    final result = await _invoke(
+      savedRedemptionStartCallableName,
+      request.toJson(),
+      CustomerBiteSaverRedemptionStartResult.fromJson,
+    );
+    if (result.restaurantId != request.restaurantId ||
+        result.offerId != request.offerId) {
+      _invalidResponse();
+    }
+    return result;
   }
 
   @override

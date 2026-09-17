@@ -38,7 +38,12 @@ Map<String, Object?> _restaurant(String id, {String? name}) =>
       'favoriteState': 'unknown',
     };
 
-Map<String, Object?> _offer(String id) => <String, Object?>{
+Map<String, Object?> _offer(
+  String id, {
+  String usageRule = 'Unlimited',
+  String usagePolicy = 'unlimited',
+  bool isProximityOnly = false,
+}) => <String, Object?>{
   'offerId': id,
   'offerOccurrence': 'bsoc1.${'a' * 43}',
   'offerType': 'coupon',
@@ -46,8 +51,8 @@ Map<String, Object?> _offer(String id) => <String, Object?>{
   'details': 'Details',
   'couponCode': 'SAVE',
   'couponNumber': null,
-  'usageRule': 'Unlimited',
-  'usagePolicy': 'unlimited',
+  'usageRule': usageRule,
+  'usagePolicy': usagePolicy,
   'availabilityMode': null,
   'daysOfWeek': <Object?>[],
   'allDay': null,
@@ -57,8 +62,8 @@ Map<String, Object?> _offer(String id) => <String, Object?>{
   'endAtMillis': null,
   'expiresAtMillis': null,
   'expiresText': null,
-  'isProximityOnly': false,
-  'proximityRadiusMiles': null,
+  'isProximityOnly': isProximityOnly,
+  'proximityRadiusMiles': isProximityOnly ? 1.0 : null,
   'imageUrl': null,
   'sourceCreatedAtMillis': 1,
   'available': false,
@@ -73,6 +78,10 @@ Map<String, Object?> _entry({
   required String restaurantId,
   String? offerId,
   bool available = true,
+  String? accessToken,
+  String usageRule = 'Unlimited',
+  String usagePolicy = 'unlimited',
+  bool isProximityOnly = false,
 }) => <String, Object?>{
   'favoriteKind': offerId == null
       ? CustomerBiteSaverFavoriteContract.restaurantKind
@@ -81,8 +90,17 @@ Map<String, Object?> _entry({
   'offerId': offerId,
   'availability': available ? 'available' : 'unavailable',
   'restaurant': available ? _restaurant(restaurantId) : null,
-  'offer': available && offerId != null ? _offer(offerId) : null,
-  'accessToken': available ? 'bssv1.test-token-$restaurantId-$offerId' : null,
+  'offer': available && offerId != null
+      ? _offer(
+          offerId,
+          usageRule: usageRule,
+          usagePolicy: usagePolicy,
+          isProximityOnly: isProximityOnly,
+        )
+      : null,
+  'accessToken': available
+      ? accessToken ?? 'bssv1.test-token-$restaurantId-$offerId'
+      : null,
 };
 
 CustomerBiteSaverSavedPageResult _page(
@@ -98,6 +116,69 @@ CustomerBiteSaverSavedPageResult _page(
   'partial': false,
 });
 
+const int _evaluationAtMillis = 1_789_560_000_000;
+
+CustomerBiteSaverDirectResponse<CustomerBiteSaverRedemptionValidationResult>
+_validation({
+  required String restaurantId,
+  required String offerId,
+  bool allowed = true,
+  String reason = 'available',
+  String usagePolicy = 'oncePerCustomer',
+  int? activeTimerExpiresAtMillis,
+}) {
+  final context = CustomerBiteSaverEvaluationContext.fromJson(<String, Object?>{
+    'schemaVersion': 1,
+    'sessionId': 'bss_${'S' * 43}',
+    'attemptGeneration': 0,
+    'queryFingerprint': 'f' * 64,
+    'evaluationAtMillis': _evaluationAtMillis,
+    'timeZone': 'America/New_York',
+    'utcOffsetMinutes': -240,
+    'availabilityGeneration': 'a' * 64,
+    'validUntilExclusiveMillis': _evaluationAtMillis + 60 * 1000,
+    'oncePerDayUnavailableWindows': <Object?>[
+      <String, Object?>{
+        'startAtMillisInclusive': _evaluationAtMillis - 60 * 1000,
+        'endAtMillisExclusive': _evaluationAtMillis + 1,
+      },
+    ],
+  });
+  final result =
+      CustomerBiteSaverRedemptionValidationResult.fromJson(<String, Object?>{
+        'schemaVersion': 1,
+        'restaurantId': restaurantId,
+        'offerId': offerId,
+        'allowed': allowed,
+        'reason': reason,
+        'usagePolicy': usagePolicy,
+        'evaluatedAtMillis': _evaluationAtMillis,
+        'activeTimerExpiresAtMillis': activeTimerExpiresAtMillis,
+        'nextAvailableAtMillis': null,
+        'validationId': allowed ? 'bsv_${'V' * 43}' : null,
+        'validationExpiresAtMillis': allowed
+            ? _evaluationAtMillis + 60 * 1000
+            : null,
+      });
+  return CustomerBiteSaverDirectResponse(result, evaluationContext: context);
+}
+
+CustomerBiteSaverRedemptionStartResult _started({
+  required String restaurantId,
+  required String offerId,
+  String status = 'started',
+}) => CustomerBiteSaverRedemptionStartResult.fromJson(<String, Object?>{
+  'schemaVersion': 1,
+  'restaurantId': restaurantId,
+  'offerId': offerId,
+  'redemptionId': status == 'unlimited' ? null : 'bsrd_${'D' * 43}',
+  'status': status,
+  'timerStartedAtMillis': status == 'unlimited' ? null : _evaluationAtMillis,
+  'timerExpiresAtMillis': status == 'unlimited'
+      ? null
+      : _evaluationAtMillis + 5 * 60 * 1000,
+});
+
 final class _FakeSavedApi implements CustomerBiteSaverSavedApi {
   final List<CustomerBiteSaverSavedPageRequest> pageRequests =
       <CustomerBiteSaverSavedPageRequest>[];
@@ -108,6 +189,58 @@ final class _FakeSavedApi implements CustomerBiteSaverSavedApi {
         CustomerBiteSaverSavedSection.restaurants: <Object>[],
         CustomerBiteSaverSavedSection.coupons: <Object>[],
       };
+  final List<CustomerBiteSaverSavedRedemptionValidationRequest>
+  validationRequests = <CustomerBiteSaverSavedRedemptionValidationRequest>[];
+  final List<CustomerBiteSaverSavedRedemptionStartRequest> startRequests =
+      <CustomerBiteSaverSavedRedemptionStartRequest>[];
+  final List<Object> validationResponses = <Object>[];
+  final List<Object> startResponses = <Object>[];
+
+  @override
+  Future<
+    CustomerBiteSaverEndpointResponse<
+      CustomerBiteSaverRedemptionValidationResult
+    >
+  >
+  validateCustomerBiteSaverSavedOfferRedemptionStart(
+    CustomerBiteSaverSavedRedemptionValidationRequest request,
+  ) async {
+    validationRequests.add(request);
+    final response = validationResponses.removeAt(0);
+    if (response
+        is Future<
+          CustomerBiteSaverEndpointResponse<
+            CustomerBiteSaverRedemptionValidationResult
+          >
+        >) {
+      return response;
+    }
+    if (response
+        is CustomerBiteSaverEndpointResponse<
+          CustomerBiteSaverRedemptionValidationResult
+        >) {
+      return response;
+    }
+    throw response;
+  }
+
+  @override
+  Future<CustomerBiteSaverRedemptionStartResult>
+  startCustomerBiteSaverSavedOfferRedemption(
+    CustomerBiteSaverSavedRedemptionStartRequest request,
+  ) async {
+    startRequests.add(request);
+    final response = startResponses.removeAt(0);
+    if (response is Future<CustomerBiteSaverRedemptionStartResult>) {
+      return response;
+    }
+    if (response is CustomerBiteSaverRedemptionStartResult) return response;
+    throw response;
+  }
+
+  void enqueueValidation(Object response) => validationResponses.add(response);
+
+  void enqueueStart(Object response) => startResponses.add(response);
 
   void enqueue(CustomerBiteSaverSavedSection section, Object response) {
     responses[section]!.add(response);
@@ -480,4 +613,230 @@ void main() {
       );
     },
   );
+
+  test(
+    'Saved coupon use coalesces taps and retains canonical timer anchors',
+    () async {
+      final api = _FakeSavedApi();
+      final actions = _Actions();
+      final restaurantId = _restaurantId(0);
+      final offerId = _offerId(0);
+      api.enqueue(
+        CustomerBiteSaverSavedSection.coupons,
+        _page(CustomerBiteSaverSavedSection.coupons, <Map<String, Object?>>[
+          _entry(
+            restaurantId: restaurantId,
+            offerId: offerId,
+            usageRule: 'Once per customer',
+            usagePolicy: 'oncePerCustomer',
+          ),
+        ]),
+      );
+      api
+        ..enqueueValidation(
+          _validation(restaurantId: restaurantId, offerId: offerId),
+        )
+        ..enqueueStart(_started(restaurantId: restaurantId, offerId: offerId));
+      var requestSequence = 0;
+      var guestStoreLoads = 0;
+      final coordinator = CustomerBiteSaverSavedCoordinator(
+        userId: 'owner-a',
+        api: api,
+        favoriteActions: actions.value,
+        isAccountCurrent: (_) => true,
+        requestIdGenerator: () =>
+            'saved-use-request-${(++requestSequence).toString().padLeft(4, '0')}',
+        timeContextProvider: () async =>
+            (timeZone: 'America/New_York', utcOffsetMinutes: -240),
+        guestUsageStoreLoader: () async {
+          guestStoreLoads += 1;
+          return null;
+        },
+        clock: () => DateTime.fromMillisecondsSinceEpoch(_evaluationAtMillis),
+      );
+      addTearDown(coordinator.dispose);
+      await coordinator.refresh(CustomerBiteSaverSavedSection.coupons);
+      final access = coordinator.captureAccess(
+        coordinator.entries(CustomerBiteSaverSavedSection.coupons).single,
+      );
+
+      final first = coordinator.useCoupon(access);
+      final second = coordinator.useCoupon(access);
+      expect(identical(first, second), isTrue);
+      final presentation = await first;
+
+      expect(
+        presentation.status,
+        CustomerBiteSaverRedemptionPresentationStatus.started,
+      );
+      expect(presentation.timerStartedAtMillis, _evaluationAtMillis);
+      expect(
+        presentation.timerExpiresAtMillis,
+        _evaluationAtMillis + 5 * 60 * 1000,
+      );
+      expect(
+        coordinator.redemptionPresentationFor(
+          CustomerBiteSaverOfferId(offerId),
+        ),
+        same(presentation),
+      );
+      expect(api.validationRequests, hasLength(1));
+      expect(api.startRequests, hasLength(1));
+      expect(guestStoreLoads, 1);
+      expect(
+        api.validationRequests.single.toJson(),
+        containsPair('currentCoordinates', null),
+      );
+      expect(
+        api.startRequests.single.redemptionRequestId,
+        api.validationRequests.single.redemptionRequestId,
+      );
+    },
+  );
+
+  test('uncertain Saved start retries the exact frozen request', () async {
+    final api = _FakeSavedApi();
+    final actions = _Actions();
+    final restaurantId = _restaurantId(1);
+    final offerId = _offerId(1);
+    api.enqueue(
+      CustomerBiteSaverSavedSection.coupons,
+      _page(CustomerBiteSaverSavedSection.coupons, <Map<String, Object?>>[
+        _entry(
+          restaurantId: restaurantId,
+          offerId: offerId,
+          usageRule: 'Once per customer',
+          usagePolicy: 'oncePerCustomer',
+        ),
+      ]),
+    );
+    api
+      ..enqueueValidation(
+        _validation(restaurantId: restaurantId, offerId: offerId),
+      )
+      ..enqueueStart(
+        const CustomerBiteSaverServiceException(
+          kind: CustomerBiteSaverServiceFailureKind.transport,
+          code: 'deadline-exceeded',
+          message: 'outcome unknown',
+        ),
+      )
+      ..enqueueStart(_started(restaurantId: restaurantId, offerId: offerId));
+    var requestSequence = 0;
+    final coordinator = CustomerBiteSaverSavedCoordinator(
+      userId: 'owner-a',
+      api: api,
+      favoriteActions: actions.value,
+      isAccountCurrent: (_) => true,
+      requestIdGenerator: () =>
+          'saved-retry-request-${(++requestSequence).toString().padLeft(4, '0')}',
+      timeContextProvider: () async =>
+          (timeZone: 'America/New_York', utcOffsetMinutes: -240),
+      guestUsageStoreLoader: () async => null,
+      clock: () => DateTime.fromMillisecondsSinceEpoch(_evaluationAtMillis),
+    );
+    addTearDown(coordinator.dispose);
+    await coordinator.refresh(CustomerBiteSaverSavedSection.coupons);
+    final access = coordinator.captureAccess(
+      coordinator.entries(CustomerBiteSaverSavedSection.coupons).single,
+    );
+
+    await expectLater(
+      coordinator.useCoupon(access),
+      throwsA(
+        isA<CustomerBiteSaverServiceException>().having(
+          (error) => error.kind,
+          'kind',
+          CustomerBiteSaverServiceFailureKind.transport,
+        ),
+      ),
+    );
+    final firstStart = api.startRequests.single.toJson();
+    api.enqueue(
+      CustomerBiteSaverSavedSection.coupons,
+      _page(CustomerBiteSaverSavedSection.coupons, <Map<String, Object?>>[
+        _entry(
+          restaurantId: restaurantId,
+          offerId: offerId,
+          accessToken: 'bssv1.refreshed-saved-access',
+          usageRule: 'Once per customer',
+          usagePolicy: 'oncePerCustomer',
+        ),
+      ]),
+    );
+    await coordinator.refresh(CustomerBiteSaverSavedSection.coupons);
+    final refreshedAccess = coordinator.captureAccess(
+      coordinator.entries(CustomerBiteSaverSavedSection.coupons).single,
+    );
+    expect(refreshedAccess.accessToken, isNot(access.accessToken));
+    final recovered = await coordinator.useCoupon(refreshedAccess);
+
+    expect(
+      recovered.status,
+      CustomerBiteSaverRedemptionPresentationStatus.started,
+    );
+    expect(api.validationRequests, hasLength(1));
+    expect(api.startRequests, hasLength(2));
+    expect(api.startRequests.last.toJson(), firstStart);
+  });
+
+  test('account replacement fences a late Saved start completion', () async {
+    final api = _FakeSavedApi();
+    final actions = _Actions();
+    final restaurantId = _restaurantId(2);
+    final offerId = _offerId(2);
+    api.enqueue(
+      CustomerBiteSaverSavedSection.coupons,
+      _page(CustomerBiteSaverSavedSection.coupons, <Map<String, Object?>>[
+        _entry(
+          restaurantId: restaurantId,
+          offerId: offerId,
+          usageRule: 'Once per customer',
+          usagePolicy: 'oncePerCustomer',
+        ),
+      ]),
+    );
+    final delayedStart = Completer<CustomerBiteSaverRedemptionStartResult>();
+    api
+      ..enqueueValidation(
+        _validation(restaurantId: restaurantId, offerId: offerId),
+      )
+      ..enqueueStart(delayedStart.future);
+    var currentUser = 'owner-a';
+    var requestSequence = 0;
+    final coordinator = CustomerBiteSaverSavedCoordinator(
+      userId: 'owner-a',
+      api: api,
+      favoriteActions: actions.value,
+      isAccountCurrent: (userId) => currentUser == userId,
+      requestIdGenerator: () =>
+          'saved-fence-request-${(++requestSequence).toString().padLeft(4, '0')}',
+      timeContextProvider: () async =>
+          (timeZone: 'America/New_York', utcOffsetMinutes: -240),
+      guestUsageStoreLoader: () async => null,
+      clock: () => DateTime.fromMillisecondsSinceEpoch(_evaluationAtMillis),
+    );
+    addTearDown(coordinator.dispose);
+    await coordinator.refresh(CustomerBiteSaverSavedSection.coupons);
+    final access = coordinator.captureAccess(
+      coordinator.entries(CustomerBiteSaverSavedSection.coupons).single,
+    );
+    final operation = coordinator.useCoupon(access);
+    while (api.startRequests.isEmpty) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    currentUser = 'owner-b';
+    delayedStart.complete(
+      _started(restaurantId: restaurantId, offerId: offerId),
+    );
+
+    await expectLater(
+      operation,
+      throwsA(isA<CustomerBiteSaverStaleOperationException>()),
+    );
+    expect(
+      coordinator.redemptionPresentationFor(CustomerBiteSaverOfferId(offerId)),
+      isNull,
+    );
+  });
 }

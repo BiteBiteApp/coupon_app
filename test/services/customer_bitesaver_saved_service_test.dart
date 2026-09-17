@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:coupon_app/models/customer_bitesaver_saved.dart';
+import 'package:coupon_app/models/customer_bitesaver_search.dart';
+import 'package:coupon_app/models/customer_bitesaver_favorite.dart';
 import 'package:coupon_app/services/customer_bitesaver_service.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -62,6 +64,47 @@ Map<String, Object?> _menuPage() => <String, Object?>{
   'hasMore': false,
 };
 
+Map<String, Object?> _savedRedemptionValidation() => <String, Object?>{
+  'schemaVersion': 1,
+  'restaurantId': _restaurantId,
+  'offerId': _offerId,
+  'allowed': true,
+  'reason': 'available',
+  'usagePolicy': 'oncePerCustomer',
+  'evaluatedAtMillis': 1_789_560_000_000,
+  'activeTimerExpiresAtMillis': null,
+  'nextAvailableAtMillis': null,
+  'validationId': 'bsv_${'V' * 43}',
+  'validationExpiresAtMillis': 1_789_560_060_000,
+  'evaluationContext': <String, Object?>{
+    'schemaVersion': 1,
+    'sessionId': 'bss_${'S' * 43}',
+    'attemptGeneration': 0,
+    'queryFingerprint': 'f' * 64,
+    'evaluationAtMillis': 1_789_560_000_000,
+    'timeZone': 'America/New_York',
+    'utcOffsetMinutes': -240,
+    'availabilityGeneration': 'a' * 64,
+    'validUntilExclusiveMillis': 1_789_560_060_000,
+    'oncePerDayUnavailableWindows': <Object?>[
+      <String, Object?>{
+        'startAtMillisInclusive': 1_789_559_940_000,
+        'endAtMillisExclusive': 1_789_560_000_001,
+      },
+    ],
+  },
+};
+
+Map<String, Object?> _savedRedemptionStart() => <String, Object?>{
+  'schemaVersion': 1,
+  'restaurantId': _restaurantId,
+  'offerId': _offerId,
+  'redemptionId': 'bsrd_${'D' * 43}',
+  'status': 'started',
+  'timerStartedAtMillis': 1_789_560_000_000,
+  'timerExpiresAtMillis': 1_789_560_300_000,
+};
+
 void main() {
   test('Saved cross-runtime fixture matches the Dart wire contract', () {
     final fixture =
@@ -93,6 +136,71 @@ void main() {
     expect(
       response.entries.single.restaurantId?.value,
       'bsr_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA',
+    );
+  });
+
+  test('Saved redemption cross-runtime fixture matches typed wire models', () {
+    final fixture =
+        jsonDecode(
+              File(
+                'test/fixtures/customer_bitesaver_saved_redemption_v1.json',
+              ).readAsStringSync(),
+            )
+            as Map<String, dynamic>;
+    final validationJson = Map<String, Object?>.from(
+      fixture['validationRequest']! as Map,
+    );
+    final coordinates = Map<String, Object?>.from(
+      validationJson['currentCoordinates']! as Map,
+    );
+    final validationRequest = CustomerBiteSaverSavedRedemptionValidationRequest(
+      clientRequestId: validationJson['clientRequestId']! as String,
+      accessToken: validationJson['accessToken']! as String,
+      restaurantId: CustomerBiteSaverRestaurantId(
+        validationJson['restaurantId']! as String,
+      ),
+      offerId: CustomerBiteSaverOfferId(validationJson['offerId']! as String),
+      redemptionRequestId: validationJson['redemptionRequestId']! as String,
+      timeZone: validationJson['timeZone']! as String,
+      utcOffsetMinutes: validationJson['utcOffsetMinutes']! as int,
+      currentCoordinates: CustomerBiteSaverCoordinates.fromJson(coordinates),
+    );
+    final startJson = Map<String, Object?>.from(
+      fixture['startRequest']! as Map,
+    );
+    final startRequest =
+        CustomerBiteSaverSavedRedemptionStartRequest.fromValidation(
+          request: validationRequest,
+          clientRequestId: startJson['clientRequestId']! as String,
+          validationId: startJson['validationId']! as String,
+        );
+    final validationResponse = parseCustomerBiteSaverEndpointResponse(
+      fixture['validationResponse'],
+      expectedOperation: CustomerBiteSaverGuestOperation.redemptionStart,
+      resultParser: CustomerBiteSaverRedemptionValidationResult.fromJson,
+    );
+    final startResponse = CustomerBiteSaverRedemptionStartResult.fromJson(
+      fixture['startResponse'],
+    );
+
+    expect(
+      fixture['fixtureVersion'],
+      'bitestar.customer-bitesaver-saved-redemption.v1',
+    );
+    expect(validationRequest.toJson(), validationJson);
+    expect(startRequest.toJson(), startJson);
+    expect(
+      validationResponse,
+      isA<
+        CustomerBiteSaverDirectResponse<
+          CustomerBiteSaverRedemptionValidationResult
+        >
+      >(),
+    );
+    expect(startResponse.status, CustomerBiteSaverRedemptionStatus.started);
+    expect(
+      startResponse.timerExpiresAtMillis! - startResponse.timerStartedAtMillis!,
+      CustomerBiteSaverSearchContract.redemptionTimerMilliseconds,
     );
   });
 
@@ -231,4 +339,69 @@ void main() {
     expect(result.entries.single.isAvailable, isFalse);
     expect(result.entries.single.favoriteId, _offerId);
   });
+
+  test(
+    'Saved redemption callables preserve the exact typed envelope',
+    () async {
+      final calls = <(String, Map<String, Object?>)>[];
+      final service = CustomerBiteSaverService(
+        transport: (name, request) async {
+          calls.add((name, Map<String, Object?>.from(request)));
+          return name ==
+                  CustomerBiteSaverService.savedRedemptionValidationCallableName
+              ? _savedRedemptionValidation()
+              : _savedRedemptionStart();
+        },
+      );
+      final validationRequest =
+          CustomerBiteSaverSavedRedemptionValidationRequest(
+            clientRequestId: 'saved-validation-service-0001',
+            accessToken: 'bssv1.saved-coupon-access',
+            restaurantId: CustomerBiteSaverRestaurantId(_restaurantId),
+            offerId: CustomerBiteSaverOfferId(_offerId),
+            redemptionRequestId: 'saved-redemption-logical-0001',
+            timeZone: 'America/New_York',
+            utcOffsetMinutes: -240,
+            currentCoordinates: CustomerBiteSaverCoordinates(
+              latitude: 28.5383,
+              longitude: -81.3792,
+              capturedAtMillis: 1_789_560_000_000,
+            ),
+          );
+      final validation = await service
+          .validateCustomerBiteSaverSavedOfferRedemptionStart(
+            validationRequest,
+          );
+      expect(
+        validation,
+        isA<
+          CustomerBiteSaverDirectResponse<
+            CustomerBiteSaverRedemptionValidationResult
+          >
+        >(),
+      );
+      final startRequest =
+          CustomerBiteSaverSavedRedemptionStartRequest.fromValidation(
+            request: validationRequest,
+            clientRequestId: 'saved-start-service-0001',
+            validationId: 'bsv_${'V' * 43}',
+          );
+      final started = await service.startCustomerBiteSaverSavedOfferRedemption(
+        startRequest,
+      );
+
+      expect(started.status, CustomerBiteSaverRedemptionStatus.started);
+      expect(calls.map((call) => call.$1), <String>[
+        CustomerBiteSaverService.savedRedemptionValidationCallableName,
+        CustomerBiteSaverService.savedRedemptionStartCallableName,
+      ]);
+      expect(calls.first.$2, validationRequest.toJson());
+      expect(calls.last.$2, startRequest.toJson());
+      expect(calls.first.$2['currentCoordinates'], <String, Object?>{
+        'latitude': 28.5383,
+        'longitude': -81.3792,
+        'capturedAtMillis': 1_789_560_000_000,
+      });
+    },
+  );
 }

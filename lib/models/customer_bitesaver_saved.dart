@@ -241,3 +241,90 @@ final class CustomerBiteSaverSavedMenuPageRequest {
     'cursor': cursor,
   };
 }
+
+final class CustomerBiteSaverSavedRedemptionValidationRequest {
+  const CustomerBiteSaverSavedRedemptionValidationRequest({
+    required this.clientRequestId,
+    required this.accessToken,
+    required this.restaurantId,
+    required this.offerId,
+    required this.redemptionRequestId,
+    required this.timeZone,
+    required this.utcOffsetMinutes,
+    required this.currentCoordinates,
+  });
+
+  final String clientRequestId;
+  final String accessToken;
+  final CustomerBiteSaverRestaurantId restaurantId;
+  final CustomerBiteSaverOfferId offerId;
+  final String redemptionRequestId;
+  final String timeZone;
+  final int utcOffsetMinutes;
+  final CustomerBiteSaverCoordinates? currentCoordinates;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'schemaVersion': CustomerBiteSaverSearchContract.schemaVersion,
+    'clientRequestId': clientRequestId,
+    'accessToken': accessToken,
+    'restaurantId': restaurantId.value,
+    'offerId': offerId.value,
+    'redemptionRequestId': redemptionRequestId,
+    'timeZone': timeZone,
+    'utcOffsetMinutes': utcOffsetMinutes,
+    'currentCoordinates': currentCoordinates?.toJson(),
+  };
+}
+
+final class CustomerBiteSaverSavedRedemptionStartRequest {
+  const CustomerBiteSaverSavedRedemptionStartRequest({
+    required this.clientRequestId,
+    required this.accessToken,
+    required this.restaurantId,
+    required this.offerId,
+    required this.redemptionRequestId,
+    required this.timeZone,
+    required this.utcOffsetMinutes,
+    required this.currentCoordinates,
+    required this.validationId,
+  });
+
+  factory CustomerBiteSaverSavedRedemptionStartRequest.fromValidation({
+    required CustomerBiteSaverSavedRedemptionValidationRequest request,
+    required String clientRequestId,
+    required String validationId,
+  }) => CustomerBiteSaverSavedRedemptionStartRequest(
+    clientRequestId: clientRequestId,
+    accessToken: request.accessToken,
+    restaurantId: request.restaurantId,
+    offerId: request.offerId,
+    redemptionRequestId: request.redemptionRequestId,
+    timeZone: request.timeZone,
+    utcOffsetMinutes: request.utcOffsetMinutes,
+    currentCoordinates: request.currentCoordinates,
+    validationId: validationId,
+  );
+
+  final String clientRequestId;
+  final String accessToken;
+  final CustomerBiteSaverRestaurantId restaurantId;
+  final CustomerBiteSaverOfferId offerId;
+  final String redemptionRequestId;
+  final String timeZone;
+  final int utcOffsetMinutes;
+  final CustomerBiteSaverCoordinates? currentCoordinates;
+  final String validationId;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'schemaVersion': CustomerBiteSaverSearchContract.schemaVersion,
+    'clientRequestId': clientRequestId,
+    'accessToken': accessToken,
+    'restaurantId': restaurantId.value,
+    'offerId': offerId.value,
+    'redemptionRequestId': redemptionRequestId,
+    'timeZone': timeZone,
+    'utcOffsetMinutes': utcOffsetMinutes,
+    'currentCoordinates': currentCoordinates?.toJson(),
+    'validationId': validationId,
+  };
+}

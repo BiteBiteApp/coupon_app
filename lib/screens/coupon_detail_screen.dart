@@ -28,6 +28,10 @@ typedef CouponCustomerVisibilityLoader =
 typedef CouponRedemptionStoreInitializer = Future<void> Function();
 typedef CustomerBiteSaverDetailAction =
     Future<void> Function(BuildContext context);
+typedef CustomerBiteSaverDetailUseAction =
+    Future<CustomerBiteSaverRedemptionPresentation> Function(
+      BuildContext context,
+    );
 
 @immutable
 final class CustomerBiteSaverOfferPresentation {
@@ -157,7 +161,7 @@ class CouponDetailScreen extends StatefulWidget {
   final CustomerBiteSaverSavedAccess? boundedSavedAccess;
   final CustomerBiteSaverBrowseAccess? boundedAccess;
   final CustomerBiteSaverDetailAction? openBoundedRestaurant;
-  final CustomerBiteSaverDetailAction? useBoundedCoupon;
+  final CustomerBiteSaverDetailUseAction? useBoundedCoupon;
 
   const CouponDetailScreen({
     super.key,
@@ -213,6 +217,7 @@ class CouponDetailScreen extends StatefulWidget {
     required CustomerBiteSaverSavedCoordinator savedCoordinator,
     required CustomerBiteSaverSavedAccess savedAccess,
     required this.openBoundedRestaurant,
+    this.useBoundedCoupon,
   }) : coupon = _customerBiteSaverCouponDetailView(restaurant, offer),
        restaurant = _customerBiteSaverRestaurantDetailView(restaurant),
        boundedRestaurant = restaurant,
@@ -221,7 +226,6 @@ class CouponDetailScreen extends StatefulWidget {
        boundedSavedCoordinator = savedCoordinator,
        boundedSavedAccess = savedAccess,
        boundedAccess = null,
-       useBoundedCoupon = null,
        loadFavoriteState = null,
        loadCustomerVisibility = null,
        initializeRedemptionStore = null;
@@ -670,13 +674,63 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   bool _isSavingFavoriteCoupon = false;
   bool _isSubmittingReport = false;
   bool _isOpeningRestaurant = false;
+  bool _isConfirmingUse = false;
   bool _isCustomerVisibleOffer = false;
   Timer? _countdownTicker;
+  CustomerBiteSaverRedemptionPresentation? _confirmedRedemption;
 
   bool get _supportsRedeemTimer =>
-      widget.boundedOffer?.offerType == CustomerBiteSaverOfferType.coupon ||
+      (widget.boundedOffer?.offerType == CustomerBiteSaverOfferType.coupon &&
+          widget.boundedOffer?.usagePolicy !=
+              CustomerBiteSaverUsagePolicy.unlimited) ||
       (widget.boundedOffer == null &&
           DemoRedemptionStore.supportsRedeemTimer(widget.coupon.usageRule));
+
+  bool get _supportsCouponUse =>
+      widget.boundedOffer?.offerType == CustomerBiteSaverOfferType.coupon ||
+      (widget.boundedOffer == null && _supportsRedeemTimer);
+
+  CustomerBiteSaverRedemptionPresentation? get _boundedRedemption {
+    final offer = widget.boundedOffer;
+    if (offer == null) return null;
+    final retained =
+        _confirmedRedemption ??
+        widget.boundedSession?.redemptionPresentationFor(offer.offerId) ??
+        widget.boundedSavedCoordinator?.redemptionPresentationFor(
+          offer.offerId,
+        );
+    if (retained != null) {
+      final active = retained.isActiveAt(_redemptionNowMillis);
+      final occurrenceCanRefresh =
+          retained.usagePolicy == CustomerBiteSaverUsagePolicy.oncePerDay ||
+          retained.usagePolicy ==
+              CustomerBiteSaverUsagePolicy.reusableAfterTimer;
+      if (active ||
+          !occurrenceCanRefresh ||
+          retained.offerOccurrence == offer.offerOccurrence) {
+        return retained;
+      }
+    }
+    final expiresAt = offer.activeTimerExpiresAtMillis;
+    if (expiresAt == null) return null;
+    return CustomerBiteSaverRedemptionPresentation(
+      restaurantId: widget.boundedRestaurant!.restaurantId,
+      offerId: offer.offerId,
+      offerOccurrence: offer.offerOccurrence,
+      status: CustomerBiteSaverRedemptionPresentationStatus.active,
+      usagePolicy:
+          offer.usagePolicy ?? CustomerBiteSaverUsagePolicy.oncePerCustomer,
+      timerStartedAtMillis:
+          expiresAt -
+          CustomerBiteSaverSearchContract.redemptionTimerMilliseconds,
+      timerExpiresAtMillis: expiresAt,
+    );
+  }
+
+  int get _redemptionNowMillis =>
+      widget.boundedSession?.redemptionPresentationNowMillis ??
+      widget.boundedSavedCoordinator?.redemptionPresentationNowMillis ??
+      DateTime.now().millisecondsSinceEpoch;
 
   bool get _boundedSelectionCurrent {
     final boundedRestaurant = widget.boundedRestaurant;
@@ -720,8 +774,10 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
       widget.boundedSession?.addListener(_handleBoundedFavoriteChange);
       widget.boundedSavedCoordinator?.addListener(_handleBoundedFavoriteChange);
       _isCustomerVisibleOffer =
-          _boundedSelectionCurrent && widget.boundedOffer!.available;
+          _boundedSelectionCurrent &&
+          (widget.boundedSavedAccess != null || widget.boundedOffer!.available);
       isLoading = false;
+      _syncCountdownTicker();
       return;
     }
     DemoRedemptionStore.changes.addListener(_handleRedemptionStoreChange);
@@ -742,7 +798,9 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   }
 
   void _handleBoundedFavoriteChange() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    _syncCountdownTicker();
+    setState(() {});
   }
 
   CustomerBiteSaverFavoriteState get _boundedFavoriteState {
@@ -841,8 +899,16 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   void _syncCountdownTicker() {
     _countdownTicker?.cancel();
 
-    if (!_supportsRedeemTimer ||
-        !DemoRedemptionStore.hasActiveRedeemTimer(widget.coupon.id)) {
+    final bounded = _boundedRedemption;
+    final boundedActive =
+        bounded != null &&
+        !bounded.isUnlimited &&
+        bounded.isActiveAt(_redemptionNowMillis);
+    final legacyActive =
+        widget.boundedOffer == null &&
+        _supportsRedeemTimer &&
+        DemoRedemptionStore.hasActiveRedeemTimer(widget.coupon.id);
+    if (!boundedActive && !legacyActive) {
       _countdownTicker = null;
       return;
     }
@@ -850,7 +916,15 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     _countdownTicker = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted) return;
 
-      if (!DemoRedemptionStore.hasActiveRedeemTimer(widget.coupon.id)) {
+      final currentBounded = _boundedRedemption;
+      final currentBoundedActive =
+          currentBounded != null &&
+          !currentBounded.isUnlimited &&
+          currentBounded.isActiveAt(_redemptionNowMillis);
+      final currentLegacyActive =
+          widget.boundedOffer == null &&
+          DemoRedemptionStore.hasActiveRedeemTimer(widget.coupon.id);
+      if (!currentBoundedActive && !currentLegacyActive) {
         _countdownTicker?.cancel();
         _countdownTicker = null;
       }
@@ -860,7 +934,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   }
 
   Future<void> _startRedeemTimer() async {
-    if (isRedeeming || !_supportsRedeemTimer) return;
+    if (isRedeeming || _isConfirmingUse || !_supportsCouponUse) return;
     if (!_isCustomerVisibleOffer) {
       _showSnackBar('This offer is no longer available.');
       return;
@@ -869,11 +943,66 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     final boundedAction = widget.useBoundedCoupon;
     if (widget.boundedOffer != null) {
       if (boundedAction == null || !_boundedSelectionCurrent) return;
-      setState(() => isRedeeming = true);
+      setState(() => _isConfirmingUse = true);
       try {
-        await boundedAction(context);
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Use this coupon now?'),
+            content: Text(
+              _supportsRedeemTimer
+                  ? 'Using it starts the five-minute coupon timer. Start only when you are ready to pay.'
+                  : 'Show this coupon when you are ready to pay.',
+            ),
+            actions: [
+              TextButton(
+                key: const ValueKey<String>('bitesaver_use_cancel'),
+                onPressed: () => Navigator.of(dialogContext).pop(false),
+                child: const Text('Cancel'),
+              ),
+              FilledButton(
+                key: const ValueKey<String>('bitesaver_use_confirm'),
+                onPressed: () => Navigator.of(dialogContext).pop(true),
+                child: const Text('Use Coupon'),
+              ),
+            ],
+          ),
+        );
+        if (!mounted || confirmed != true) return;
+        setState(() {
+          _isConfirmingUse = false;
+          isRedeeming = true;
+        });
+        final presentation = await boundedAction(context);
+        if (!mounted) return;
+        setState(() => _confirmedRedemption = presentation);
+        _syncCountdownTicker();
+        _showSnackBar(
+          presentation.isUnlimited
+              ? 'Your coupon is ready to show.'
+              : presentation.status ==
+                    CustomerBiteSaverRedemptionPresentationStatus.active
+              ? 'Your existing coupon timer is still active.'
+              : 'Your 5-minute coupon timer has started.',
+        );
+      } on CustomerBiteSaverRedemptionDeniedException catch (error) {
+        if (mounted) _showSnackBar(_redemptionDenialMessage(error.decision));
+      } catch (error) {
+        if (mounted) {
+          _showSnackBar(
+            AppErrorText.friendly(
+              error,
+              fallback: 'Could not use this coupon right now. Try again.',
+            ),
+          );
+        }
       } finally {
-        if (mounted) setState(() => isRedeeming = false);
+        if (mounted) {
+          setState(() {
+            _isConfirmingUse = false;
+            isRedeeming = false;
+          });
+        }
       }
       return;
     }
@@ -1157,6 +1286,26 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     };
   }
 
+  String _redemptionDenialMessage(
+    CustomerBiteSaverRedemptionDecision decision,
+  ) => switch (decision.reason) {
+    'used' || 'localUsageUnavailable' =>
+      decision.nextAvailableAtMillis == null
+          ? 'This coupon has already been used.'
+          : 'This coupon is not available again yet.',
+    'outsideProximity' =>
+      'Move within this coupon’s required distance and try again.',
+    'missingFreshLocation' || 'typedLocation' =>
+      'A fresh current location is required to use this coupon.',
+    'expired' => 'This coupon has expired.',
+    'notStarted' ||
+    'outsideTimeWindow' ||
+    'wrongDay' => 'This coupon is not available at this time.',
+    'usageUnknown' =>
+      'Coupon-use history could not be verified. Try again before using it.',
+    _ => 'This coupon is no longer available to use.',
+  };
+
   String? _unavailableStatusText({
     required DateTime now,
     required bool isWithinSchedule,
@@ -1165,7 +1314,13 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   }) {
     final boundedOffer = widget.boundedOffer;
     if (boundedOffer != null) {
-      return boundedOffer.available && _boundedSelectionCurrent
+      final presentation = _boundedRedemption;
+      if (presentation != null &&
+          presentation.isActiveAt(_redemptionNowMillis)) {
+        return null;
+      }
+      return (widget.boundedSavedAccess != null || boundedOffer.available) &&
+              _boundedSelectionCurrent
           ? null
           : 'This offer is no longer available.';
     }
@@ -1379,22 +1534,35 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
       );
     }
 
-    final now = DateTime.now();
-    final isWithinSchedule = boundedOffer?.available ?? coupon.isActiveAt(now);
-    final hasActiveTimer =
-        boundedOffer == null &&
-        _supportsRedeemTimer &&
-        DemoRedemptionStore.hasActiveRedeemTimer(coupon.id);
-    final isAvailableByUsage =
-        boundedOffer?.available ??
-        (!_supportsRedeemTimer ||
-            DemoRedemptionStore.isAvailable(coupon.id, coupon.usageRule));
+    final now = widget.boundedOffer == null
+        ? DateTime.now()
+        : DateTime.fromMillisecondsSinceEpoch(_redemptionNowMillis);
+    final boundedRedemption = _boundedRedemption;
+    final boundedActive =
+        boundedRedemption != null &&
+        !boundedRedemption.isUnlimited &&
+        boundedRedemption.isActiveAt(now.millisecondsSinceEpoch);
+    final boundedUnlimitedReady = boundedRedemption?.isUnlimited == true;
+    final isWithinSchedule = boundedOffer == null
+        ? coupon.isActiveAt(now)
+        : widget.boundedSavedAccess != null || boundedOffer.available;
+    final hasActiveTimer = boundedOffer == null
+        ? _supportsRedeemTimer &&
+              DemoRedemptionStore.hasActiveRedeemTimer(coupon.id)
+        : boundedActive;
+    final isAvailableByUsage = boundedOffer == null
+        ? (!_supportsRedeemTimer ||
+              DemoRedemptionStore.isAvailable(coupon.id, coupon.usageRule))
+        : boundedRedemption == null ||
+              boundedRedemption.usagePolicy !=
+                  CustomerBiteSaverUsagePolicy.oncePerCustomer;
     final canStartRedeemTimer =
-        _supportsRedeemTimer &&
+        _supportsCouponUse &&
         _isCustomerVisibleOffer &&
         isWithinSchedule &&
         isAvailableByUsage &&
         !hasActiveTimer &&
+        !boundedUnlimitedReady &&
         (boundedOffer == null || widget.useBoundedCoupon != null);
     final showExpiredMessage =
         boundedOffer == null &&
@@ -1402,9 +1570,15 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
         isWithinSchedule &&
         !hasActiveTimer &&
         !isAvailableByUsage;
-    final remaining = boundedOffer == null && hasActiveTimer
+    final remaining = !hasActiveTimer
+        ? null
+        : boundedOffer == null
         ? DemoRedemptionStore.activeTimerRemaining(coupon.id)
-        : null;
+        : Duration(
+            milliseconds:
+                boundedRedemption!.timerExpiresAtMillis! -
+                now.millisecondsSinceEpoch,
+          );
     final titleLabel = _displayText(
       coupon.title,
       boundedOffer == null ? 'Untitled coupon' : 'Untitled offer',
@@ -1429,7 +1603,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
         couponNumberLabel != null &&
             BiteSaverCouponNumberVisibility.shouldShow(
               supportsRedeemTimer: _supportsRedeemTimer,
-              hasActiveTimer: hasActiveTimer,
+              hasActiveTimer: hasActiveTimer || boundedUnlimitedReady,
             )
         ? couponNumberLabel
         : null;
@@ -1600,14 +1774,20 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                         ),
                       ),
                     ),
-                    if (_supportsRedeemTimer) ...[
+                    if (_supportsCouponUse) ...[
                       const SizedBox(height: 16),
                       SizedBox(
                         width: double.infinity,
                         child: _redeemButtonShell(
-                          enabled: canStartRedeemTimer && !isRedeeming,
+                          enabled:
+                              canStartRedeemTimer &&
+                              !isRedeeming &&
+                              !_isConfirmingUse,
                           child: ElevatedButton(
-                            onPressed: (canStartRedeemTimer && !isRedeeming)
+                            onPressed:
+                                (canStartRedeemTimer &&
+                                    !isRedeeming &&
+                                    !_isConfirmingUse)
                                 ? _startRedeemTimer
                                 : null,
                             style: ElevatedButton.styleFrom(
@@ -1628,12 +1808,16 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                             ),
                             child: Text(
                               isRedeeming
-                                  ? 'Starting Timer...'
+                                  ? 'Preparing Coupon...'
+                                  : _isConfirmingUse
+                                  ? 'Confirm Use'
                                   : boundedOffer != null &&
                                         widget.useBoundedCoupon == null
                                   ? 'Use Coupon Unavailable'
                                   : hasActiveTimer
                                   ? 'Redeem Timer Active'
+                                  : boundedUnlimitedReady
+                                  ? 'Coupon Ready'
                                   : boundedOffer != null
                                   ? 'Use Coupon'
                                   : canStartRedeemTimer
@@ -1648,6 +1832,14 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                         Text(
                           'Timer active: ${_formatDuration(remaining)} remaining.',
                           style: const TextStyle(
+                            color: _detailAccent,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        )
+                      else if (boundedUnlimitedReady)
+                        const Text(
+                          'Coupon ready to show at checkout.',
+                          style: TextStyle(
                             color: _detailAccent,
                             fontWeight: FontWeight.w700,
                           ),
@@ -1671,13 +1863,15 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                       else if (boundedOffer != null &&
                           widget.useBoundedCoupon == null)
                         const Text(
-                          'Coupon use will be connected in the redemption checkpoint.',
+                          'Coupon use is unavailable until customer time is configured.',
                           style: TextStyle(color: _detailMutedInk),
                         )
                       else if (canStartRedeemTimer)
-                        const Text(
-                          'Tapping redeem starts a 5-minute timer. Tap when ready to pay.',
-                          style: TextStyle(color: _detailMutedInk),
+                        Text(
+                          _supportsRedeemTimer
+                              ? 'Using this coupon starts a 5-minute timer. Tap when ready to pay.'
+                              : 'Tap Use Coupon when you are ready to show it.',
+                          style: const TextStyle(color: _detailMutedInk),
                         ),
                     ],
                   ],

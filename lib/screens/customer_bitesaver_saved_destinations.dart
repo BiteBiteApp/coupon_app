@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../models/customer_bitesaver_saved.dart';
 import '../services/customer_bitesaver_saved_coordinator.dart';
+import '../services/customer_bitesaver_search_coordinator.dart';
 import 'coupon_detail_screen.dart';
 import 'main_navigation_screen.dart';
 import 'restaurant_menu_screen.dart';
@@ -57,6 +60,9 @@ final class CustomerBiteSaverSavedDestinationHandler {
         savedAccess: access,
         openBoundedRestaurant: (restaurantContext) =>
             _openRestaurant(restaurantContext, coordinator, access),
+        useBoundedCoupon: coordinator.canUseCoupons
+            ? (_) => coordinator.useCoupon(access)
+            : null,
       ),
     );
   }
@@ -112,31 +118,129 @@ class _CustomerBiteSaverSavedDestinationGuard extends StatefulWidget {
 }
 
 class _CustomerBiteSaverSavedDestinationGuardState
-    extends State<_CustomerBiteSaverSavedDestinationGuard> {
+    extends State<_CustomerBiteSaverSavedDestinationGuard>
+    with WidgetsBindingObserver {
   bool _retirementScheduled = false;
+  Timer? _confirmedExpiryTimer;
+  CustomerBiteSaverRedemptionPresentation? _scheduledPresentation;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     widget.access.changes.addListener(_handleChange);
+    _reconcileOwnership();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _retireIfStale();
+    _reconcileOwnership();
+  }
+
+  @override
+  void didUpdateWidget(_CustomerBiteSaverSavedDestinationGuard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.access.changes, widget.access.changes)) {
+      oldWidget.access.changes.removeListener(_handleChange);
+      widget.access.changes.addListener(_handleChange);
+    }
+    _cancelConfirmedExpiryTimer();
+    _reconcileOwnership();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _cancelConfirmedExpiryTimer();
     widget.access.changes.removeListener(_handleChange);
     super.dispose();
   }
 
-  void _handleChange() => _retireIfStale();
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _reconcileOwnership();
+  }
+
+  void _handleChange() => _reconcileOwnership();
+
+  void _reconcileOwnership() {
+    if (!mounted) return;
+    _syncConfirmedExpiryTimer();
+    _retireIfStale();
+  }
+
+  void _syncConfirmedExpiryTimer() {
+    final presentation = widget.access.redemptionPresentation;
+    final expiresAtMillis = presentation?.timerExpiresAtMillis;
+    if (presentation == null ||
+        presentation.isUnlimited ||
+        expiresAtMillis == null ||
+        !presentation.isActiveAt(
+          widget.access.redemptionPresentationNowMillis,
+        )) {
+      _cancelConfirmedExpiryTimer();
+      return;
+    }
+    if (_sameScheduledPresentation(presentation) &&
+        _confirmedExpiryTimer?.isActive == true) {
+      return;
+    }
+    _cancelConfirmedExpiryTimer();
+    _scheduledPresentation = presentation;
+    final remainingMillis =
+        expiresAtMillis - widget.access.redemptionPresentationNowMillis;
+    if (remainingMillis <= 0) return;
+    _confirmedExpiryTimer = Timer(
+      Duration(milliseconds: remainingMillis),
+      () => _handleConfirmedExpiry(presentation),
+    );
+  }
+
+  bool _sameScheduledPresentation(
+    CustomerBiteSaverRedemptionPresentation presentation,
+  ) {
+    final scheduled = _scheduledPresentation;
+    return scheduled != null &&
+        scheduled.restaurantId == presentation.restaurantId &&
+        scheduled.offerId == presentation.offerId &&
+        scheduled.offerOccurrence == presentation.offerOccurrence &&
+        scheduled.timerStartedAtMillis == presentation.timerStartedAtMillis &&
+        scheduled.timerExpiresAtMillis == presentation.timerExpiresAtMillis;
+  }
+
+  void _handleConfirmedExpiry(
+    CustomerBiteSaverRedemptionPresentation scheduled,
+  ) {
+    if (!mounted || !_sameScheduledPresentation(scheduled)) return;
+    _confirmedExpiryTimer = null;
+    _scheduledPresentation = null;
+    final current = widget.access.redemptionPresentation;
+    if (current != null &&
+        current.restaurantId == scheduled.restaurantId &&
+        current.offerId == scheduled.offerId &&
+        current.offerOccurrence == scheduled.offerOccurrence &&
+        current.timerStartedAtMillis == scheduled.timerStartedAtMillis &&
+        current.timerExpiresAtMillis == scheduled.timerExpiresAtMillis) {
+      _reconcileOwnership();
+    } else {
+      _syncConfirmedExpiryTimer();
+    }
+  }
+
+  void _cancelConfirmedExpiryTimer() {
+    _confirmedExpiryTimer?.cancel();
+    _confirmedExpiryTimer = null;
+    _scheduledPresentation = null;
+  }
 
   void _retireIfStale() {
-    if (_retirementScheduled || widget.access.isCurrent) return;
+    final hasConfirmedDisplay = widget.access.hasDisplayableRedemption;
+    if (_retirementScheduled ||
+        widget.access.isCurrent ||
+        hasConfirmedDisplay) {
+      return;
+    }
     _retirementScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -150,7 +254,9 @@ class _CustomerBiteSaverSavedDestinationGuardState
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.access.isCurrent || _retirementScheduled) {
+    final hasConfirmedDisplay = widget.access.hasDisplayableRedemption;
+    if ((!widget.access.isCurrent && !hasConfirmedDisplay) ||
+        _retirementScheduled) {
       return const SizedBox.shrink();
     }
     return widget.builder(context);

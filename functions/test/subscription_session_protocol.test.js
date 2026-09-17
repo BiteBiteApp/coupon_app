@@ -906,8 +906,10 @@ test("runtime, region, secret bindings, exports, production caller, and webhook 
       "startRatingRestaurantDelete",
       "startRatingRestaurantMerge",
       "startCustomerBiteSaverOfferRedemption",
+      "startCustomerBiteSaverSavedOfferRedemption",
       "startCustomerBiteSaverSearch",
       "validateCustomerBiteSaverOfferRedemptionStart",
+      "validateCustomerBiteSaverSavedOfferRedemptionStart",
     ].sort(),
   );
   for (const exportName of [

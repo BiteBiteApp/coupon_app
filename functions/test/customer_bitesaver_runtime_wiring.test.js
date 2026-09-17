@@ -25,6 +25,10 @@ const callableHandlers = Object.freeze({
   getCustomerBiteSaverSavedPage: "getCustomerBiteSaverSavedPageHandler",
   getCustomerBiteSaverSavedMenuPage:
     "getCustomerBiteSaverSavedMenuPageHandler",
+  startCustomerBiteSaverSavedOfferRedemption:
+    "startCustomerBiteSaverSavedOfferRedemptionHandler",
+  validateCustomerBiteSaverSavedOfferRedemptionStart:
+    "validateCustomerBiteSaverSavedOfferRedemptionStartHandler",
   startCustomerBiteSaverOfferRedemption:
     "startCustomerBiteSaverOfferRedemptionHandler",
   validateCustomerBiteSaverOfferRedemptionStart:
@@ -173,6 +177,8 @@ function loadCompiledIndexWithCustomerBiteSaverHarness() {
     [
       "getCustomerBiteSaverSavedPageHandler",
       "getCustomerBiteSaverSavedMenuPageHandler",
+      "startCustomerBiteSaverSavedOfferRedemptionHandler",
+      "validateCustomerBiteSaverSavedOfferRedemptionStartHandler",
     ].map((name) => [name, mockedSession[name]]),
   );
   const mockedWorker = async (jobId, context) => {

@@ -229,6 +229,71 @@ abstract interface class CustomerBiteSaverFavoriteStateOwner
   );
 }
 
+enum CustomerBiteSaverRedemptionPresentationStatus {
+  started,
+  active,
+  unlimited,
+}
+
+/// The small, presentation-safe result shared by Browse, Saved, and detail.
+///
+/// This never carries validation capabilities or private source identities.
+/// Timed results retain the server/local store's absolute anchors so rebuilding
+/// a route cannot manufacture a new five-minute window.
+@immutable
+final class CustomerBiteSaverRedemptionPresentation {
+  const CustomerBiteSaverRedemptionPresentation({
+    required this.restaurantId,
+    required this.offerId,
+    required this.offerOccurrence,
+    required this.status,
+    required this.usagePolicy,
+    required this.timerStartedAtMillis,
+    required this.timerExpiresAtMillis,
+  });
+
+  final CustomerBiteSaverRestaurantId restaurantId;
+  final CustomerBiteSaverOfferId offerId;
+  final String offerOccurrence;
+  final CustomerBiteSaverRedemptionPresentationStatus status;
+  final CustomerBiteSaverUsagePolicy usagePolicy;
+  final int? timerStartedAtMillis;
+  final int? timerExpiresAtMillis;
+
+  bool get isUnlimited =>
+      status == CustomerBiteSaverRedemptionPresentationStatus.unlimited;
+
+  bool isActiveAt(int nowMillis) =>
+      isUnlimited ||
+      (timerExpiresAtMillis != null && nowMillis < timerExpiresAtMillis!);
+}
+
+/// Optional account-scoped bridge used to keep Browse and Saved synchronized
+/// without reloading either collection or sharing mutation capabilities.
+abstract interface class CustomerBiteSaverRedemptionPresentationOwner
+    implements Listenable {
+  String get authRealmKey;
+
+  CustomerBiteSaverRedemptionPresentation? redemptionPresentationFor(
+    CustomerBiteSaverOfferId offerId,
+  );
+
+  void recordRedemptionPresentation(
+    CustomerBiteSaverRedemptionPresentation presentation, {
+    required String expectedAuthRealmKey,
+  });
+}
+
+final class CustomerBiteSaverRedemptionDeniedException implements Exception {
+  const CustomerBiteSaverRedemptionDeniedException(this.decision);
+
+  final CustomerBiteSaverRedemptionDecision decision;
+
+  @override
+  String toString() =>
+      'CustomerBiteSaverRedemptionDeniedException(${decision.reason})';
+}
+
 /// A presentation-safe validation view. Authorization tokens stay private.
 @immutable
 final class CustomerBiteSaverRedemptionDecision {
@@ -408,6 +473,9 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
       <String, CustomerBiteSaverFavoriteState>{};
   final Map<String, CustomerBiteSaverFavoriteState> _offerFavorites =
       <String, CustomerBiteSaverFavoriteState>{};
+  final Map<String, CustomerBiteSaverRedemptionPresentation>
+  _redemptionPresentations =
+      <String, CustomerBiteSaverRedemptionPresentation>{};
   final Map<String, int> _favoriteOperationVersions = <String, int>{};
   final Set<String> _issuedRequestIds = <String>{};
   final Map<String, _PendingOriginalCall> _pendingOriginalCalls =
@@ -477,7 +545,52 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     return owner != null && owner.authRealmKey == _auth.realmKey ? owner : null;
   }
 
+  CustomerBiteSaverRedemptionPresentationOwner?
+  get _currentRedemptionPresentationOwner {
+    final owner = _favoriteStateOwner;
+    if (owner == null ||
+        owner is! CustomerBiteSaverRedemptionPresentationOwner) {
+      return null;
+    }
+    final presentationOwner =
+        owner as CustomerBiteSaverRedemptionPresentationOwner;
+    return presentationOwner.authRealmKey == _auth.realmKey
+        ? presentationOwner
+        : null;
+  }
+
   void _handleFavoriteOwnerChanged() => _notify();
+
+  CustomerBiteSaverRedemptionPresentation? redemptionPresentationFor(
+    CustomerBiteSaverOfferId offerId,
+  ) =>
+      _redemptionPresentations[offerId.value] ??
+      _currentRedemptionPresentationOwner?.redemptionPresentationFor(offerId);
+
+  int get redemptionPresentationNowMillis => _clock().millisecondsSinceEpoch;
+
+  bool hasDisplayableRedemptionPresentation(CustomerBiteSaverOfferId offerId) {
+    final presentation = redemptionPresentationFor(offerId);
+    return presentation != null &&
+        presentation.isActiveAt(redemptionPresentationNowMillis);
+  }
+
+  void recordRecoveredRedemptionPresentation(
+    CustomerBiteSaverRedemptionPresentation presentation,
+  ) {
+    _ensureAlive();
+    if (presentation.offerId.value.isEmpty ||
+        presentation.restaurantId.value.isEmpty ||
+        presentation.offerOccurrence.isEmpty) {
+      throw const CustomerBiteSaverProtocolException();
+    }
+    _redemptionPresentations[presentation.offerId.value] = presentation;
+    _currentRedemptionPresentationOwner?.recordRedemptionPresentation(
+      presentation,
+      expectedAuthRealmKey: _auth.realmKey,
+    );
+    _notify();
+  }
 
   CustomerBiteSaverEffectiveOfferAvailability effectiveOfferAvailability(
     CustomerBiteSaverOfferId offerId,
@@ -485,6 +598,29 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     final offer = _offers[offerId.value];
     if (offer == null) {
       throw StateError('Only delivered offers have effective availability.');
+    }
+    final presentation = redemptionPresentationFor(offerId);
+    final nowMillis = _clock().millisecondsSinceEpoch;
+    if (presentation != null && !presentation.isUnlimited) {
+      final active = presentation.isActiveAt(nowMillis);
+      final reusable =
+          presentation.usagePolicy ==
+          CustomerBiteSaverUsagePolicy.reusableAfterTimer;
+      final refreshedDaily =
+          presentation.usagePolicy == CustomerBiteSaverUsagePolicy.oncePerDay &&
+          presentation.offerOccurrence != offer.offerOccurrence;
+      if (active || !reusable && !refreshedDaily) {
+        return CustomerBiteSaverEffectiveOfferAvailability(
+          serverAvailable: offer.available,
+          serverUsageState: offer.usageState,
+          localUsageState: active
+              ? CustomerBiteSaverLocalUsageOverlayState.activeTimer
+              : CustomerBiteSaverLocalUsageOverlayState.unavailable,
+          localActiveTimerExpiresAtMillis: active
+              ? presentation.timerExpiresAtMillis
+              : null,
+        );
+      }
     }
     final overlay = _effectiveLocalUsageOverlay(offer);
     return CustomerBiteSaverEffectiveOfferAvailability(
@@ -2599,6 +2735,11 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
             restaurantId: authorization.request.restaurantId,
             offerId: authorization.request.offerId,
           );
+          _recordRedemptionReceipt(
+            receipt,
+            usagePolicy: authorization.result.usagePolicy!,
+            offerOccurrence: intent.offerOccurrence,
+          );
           _redemptionError = null;
           _completeRedemptionIntent(intentGeneration, intent);
           _notify();
@@ -2639,6 +2780,11 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
         _requireRedemptionIntent(intentGeneration, intent);
         _guestStateRevision = guestResult.guestStateRevision;
         final receipt = CustomerBiteSaverRedemptionReceipt.guest(guestResult);
+        _recordRedemptionReceipt(
+          receipt,
+          usagePolicy: authorization.result.usagePolicy!,
+          offerOccurrence: intent.offerOccurrence,
+        );
         _redemptionError = null;
         _completeRedemptionIntent(intentGeneration, intent);
         _markFreshSearchRequired(clearRedemption: false);
@@ -2693,10 +2839,16 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
       final result = await _api.startCustomerBiteSaverOfferRedemption(request);
       _requireRedemptionSessionCurrent(authorization);
       _requireRedemptionIntent(intentGeneration, intent);
+      final receipt = CustomerBiteSaverRedemptionReceipt.signed(result);
+      _recordRedemptionReceipt(
+        receipt,
+        usagePolicy: authorization.result.usagePolicy!,
+        offerOccurrence: intent.offerOccurrence,
+      );
       _redemptionError = null;
       _completeRedemptionIntent(intentGeneration, intent);
       _notify();
-      return CustomerBiteSaverRedemptionReceipt.signed(result);
+      return receipt;
     } catch (caught) {
       if (_isRedemptionSessionCurrent(authorization) &&
           _isRedemptionIntentCurrent(intentGeneration, intent)) {
@@ -2734,6 +2886,41 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     validationExpiresAtMillis: result.validationExpiresAtMillis,
   );
 
+  void _recordRedemptionReceipt(
+    CustomerBiteSaverRedemptionReceipt receipt, {
+    required CustomerBiteSaverUsagePolicy usagePolicy,
+    required String offerOccurrence,
+  }) {
+    final signed = receipt.signedResult;
+    final guest = receipt.guestResult;
+    final restaurantId =
+        signed?.restaurantId ??
+        guest?.restaurantId ??
+        receipt.guestUnlimitedRestaurantId!;
+    final offerId =
+        signed?.offerId ?? guest?.offerId ?? receipt.guestUnlimitedOfferId!;
+    final presentation = CustomerBiteSaverRedemptionPresentation(
+      restaurantId: restaurantId,
+      offerId: offerId,
+      offerOccurrence: offerOccurrence,
+      status: receipt.isUnlimited
+          ? CustomerBiteSaverRedemptionPresentationStatus.unlimited
+          : signed?.status == CustomerBiteSaverRedemptionStatus.started ||
+                guest?.status ==
+                    CustomerBiteSaverGuestRedemptionStartStatus.started
+          ? CustomerBiteSaverRedemptionPresentationStatus.started
+          : CustomerBiteSaverRedemptionPresentationStatus.active,
+      usagePolicy: usagePolicy,
+      timerStartedAtMillis: receipt.timerStartedAtMillis,
+      timerExpiresAtMillis: receipt.timerExpiresAtMillis,
+    );
+    _redemptionPresentations[offerId.value] = presentation;
+    _currentRedemptionPresentationOwner?.recordRedemptionPresentation(
+      presentation,
+      expectedAuthRealmKey: _auth.realmKey,
+    );
+  }
+
   Future<void> updateAuth(CustomerBiteSaverAuthSnapshot next) async {
     _ensureAlive();
     _validateAuthSnapshot(next);
@@ -2769,6 +2956,7 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
 
     if (previous.realmKey != next.realmKey) {
       _clearSessionData(clearFavorites: true);
+      _redemptionPresentations.clear();
       _status = CustomerBiteSaverCoordinatorStatus.idle;
       _notify();
       return;

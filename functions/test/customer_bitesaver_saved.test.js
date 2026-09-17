@@ -15,8 +15,11 @@ const {
   customerBiteSaverOpaqueRestaurantId,
 } = require("../lib/customer_bitesaver_public_identity.js");
 const {
+  customerBiteSaverSavedInternals,
   getCustomerBiteSaverSavedMenuPageHandler,
   getCustomerBiteSaverSavedPageHandler,
+  startCustomerBiteSaverSavedOfferRedemptionHandler,
+  validateCustomerBiteSaverSavedOfferRedemptionStartHandler,
 } = require("../lib/customer_bitesaver_saved.js");
 const {
   buildBiteSaverCouponOfferIndex,
@@ -36,6 +39,10 @@ const identityKeyV1 = Buffer.alloc(32, 59);
 const savedFixture = JSON.parse(fs.readFileSync(path.resolve(
   __dirname,
   "../../test/fixtures/customer_bitesaver_saved_page_v1.json",
+), "utf8"));
+const savedRedemptionFixture = JSON.parse(fs.readFileSync(path.resolve(
+  __dirname,
+  "../../test/fixtures/customer_bitesaver_saved_redemption_v1.json",
 ), "utf8"));
 
 function compare(left, right) {
@@ -165,13 +172,23 @@ class MemoryDatabase {
   }
 
   async runTransaction(operation) {
-    return operation({
+    const staged = [];
+    const result = await operation({
       getDocument: (path) => this.getDocument(path),
       getDocuments: (paths) => this.getDocuments(paths),
-      createDocument: (path, data) => this.writes.push({type: "create", path, data}),
-      setDocument: (path, data) => this.writes.push({type: "set", path, data}),
-      deleteDocument: (path) => this.writes.push({type: "delete", path}),
+      createDocument: (path, data) => staged.push({type: "create", path, data}),
+      setDocument: (path, data) => staged.push({type: "set", path, data}),
+      deleteDocument: (path) => staged.push({type: "delete", path}),
     });
+    for (const write of staged) {
+      if (write.type === "create" && this.documents.has(write.path)) {
+        throw new Error(`document already exists: ${write.path}`);
+      }
+      if (write.type === "delete") this.documents.delete(write.path);
+      else this.documents.set(write.path, write.data);
+    }
+    this.writes.push(...staged);
+    return result;
   }
 
   async commitWrites(writes) {
@@ -205,6 +222,21 @@ function menuRequest(accessToken, cursor = null, suffix = "0001") {
     clientRequestId: `saved-menu-request-${suffix}`,
     accessToken,
     cursor,
+  };
+}
+
+function savedRedemptionRequest(seeded, accessToken, overrides = {}) {
+  return {
+    schemaVersion: customerBiteSaverSearchSchemaVersion,
+    clientRequestId: "saved-redemption-request-0001",
+    accessToken,
+    restaurantId: seeded.restaurantId,
+    offerId: seeded.offerId,
+    redemptionRequestId: "saved-logical-redemption-0001",
+    timeZone: "America/New_York",
+    utcOffsetMinutes: -240,
+    currentCoordinates: null,
+    ...overrides,
   };
 }
 
@@ -402,6 +434,34 @@ test("Saved fixture is emitted exactly by the production handler", async () => {
   assert.equal(
     savedFixture.fixtureVersion,
     "bitestar.customer-bitesaver-saved-page.v1",
+  );
+});
+
+test("Saved redemption fixture matches the backend request contract", () => {
+  const validation = customerBiteSaverSavedInternals
+    .parseSavedRedemptionRequest(
+      savedRedemptionFixture.validationRequest,
+      false,
+    );
+  const start = customerBiteSaverSavedInternals.parseSavedRedemptionRequest(
+    savedRedemptionFixture.startRequest,
+    true,
+  );
+  assert.equal(
+    savedRedemptionFixture.fixtureVersion,
+    "bitestar.customer-bitesaver-saved-redemption.v1",
+  );
+  assert.equal(validation.restaurantId, start.restaurantId);
+  assert.equal(validation.offerId, start.offerId);
+  assert.equal(validation.redemptionRequestId, start.redemptionRequestId);
+  assert.equal(start.validationId, savedRedemptionFixture.startRequest.validationId);
+  assert.equal(
+    customerBiteSaverSavedInternals.savedRedemptionRequestFingerprint(validation),
+    customerBiteSaverSavedInternals.savedRedemptionRequestFingerprint(start),
+  );
+  assert.notEqual(
+    customerBiteSaverSavedInternals.savedRedemptionStartFingerprint(start),
+    customerBiteSaverSavedInternals.savedRedemptionRequestFingerprint(start),
   );
 });
 
@@ -805,5 +865,372 @@ test("empty, failed, anonymous, and malformed reads never write or infer absence
       identity: {authUid: "anonymous", authIsAnonymous: true},
     }),
     contractError("permission-denied"),
+  );
+});
+
+test("Saved redemption writes canonical usage once and replays original anchors", async () => {
+  const database = new MemoryDatabase();
+  const uid = "saved-redemption-owner";
+  const seeded = seedCoupon(database, uid, 0, {
+    accountId: "saved-redemption-account",
+    coupon: {usageRule: "Once per customer"},
+  });
+  const page = await getCustomerBiteSaverSavedPageHandler(
+    request("coupons"),
+    context(database, uid),
+  );
+  const accessToken = page.entries[0].accessToken;
+  const validationRequest = savedRedemptionRequest(seeded, accessToken);
+  const validation = await validateCustomerBiteSaverSavedOfferRedemptionStartHandler(
+    validationRequest,
+    context(database, uid),
+  );
+  assert.equal(validation.allowed, true);
+  assert.equal(validation.usagePolicy, "oncePerCustomer");
+  assert.match(validation.validationId, /^bsv_[A-Za-z0-9_-]{43}$/u);
+  const startRequest = {
+    ...validationRequest,
+    clientRequestId: "saved-redemption-start-0001",
+    validationId: validation.validationId,
+  };
+  const started = await startCustomerBiteSaverSavedOfferRedemptionHandler(
+    startRequest,
+    context(database, uid),
+  );
+  assert.equal(started.status, "started");
+  assert.equal(started.timerStartedAtMillis, nowMs);
+  assert.equal(started.timerExpiresAtMillis, nowMs + 5 * 60 * 1_000);
+  const usagePath =
+    `customer_redemptions/${uid}/coupon_redemptions/${seeded.offerId}`;
+  assert.equal(database.stored(usagePath).data.redemptionId, started.redemptionId);
+
+  const writesAfterStart = database.writes.length;
+  const exactRetry = await startCustomerBiteSaverSavedOfferRedemptionHandler(
+    startRequest,
+    context(database, uid),
+  );
+  assert.deepEqual(exactRetry, started);
+  assert.equal(database.writes.length, writesAfterStart);
+
+  const activeContext = {
+    ...context(database, uid),
+    now: () => nowMs + 60_000,
+  };
+  const activeValidationRequest = savedRedemptionRequest(seeded, accessToken, {
+    clientRequestId: "saved-redemption-request-0002",
+    redemptionRequestId: "saved-logical-redemption-0002",
+  });
+  const activeValidation =
+    await validateCustomerBiteSaverSavedOfferRedemptionStartHandler(
+      activeValidationRequest,
+      activeContext,
+    );
+  assert.equal(activeValidation.allowed, true);
+  assert.equal(activeValidation.activeTimerExpiresAtMillis, started.timerExpiresAtMillis);
+  const active = await startCustomerBiteSaverSavedOfferRedemptionHandler({
+    ...activeValidationRequest,
+    clientRequestId: "saved-redemption-start-0002",
+    validationId: activeValidation.validationId,
+  }, activeContext);
+  assert.equal(active.status, "active");
+  assert.equal(active.redemptionId, started.redemptionId);
+  assert.equal(active.timerStartedAtMillis, started.timerStartedAtMillis);
+  assert.equal(active.timerExpiresAtMillis, started.timerExpiresAtMillis);
+  assert.equal(database.writes.filter(({type, path}) =>
+    type === "set" && path === usagePath).length, 1);
+
+  const expiredTimerRetry =
+    await startCustomerBiteSaverSavedOfferRedemptionHandler(
+      startRequest,
+      {
+        ...context(database, uid),
+        now: () => nowMs + 6 * 60 * 1_000,
+      },
+    );
+  assert.deepEqual(expiredTimerRetry, started);
+  assert.equal(database.writes.filter(({type, path}) =>
+    type === "set" && path === usagePath).length, 1);
+
+  const writesBeforeWithdrawnRecovery = database.writes.length;
+  const queriesBeforeWithdrawnRecovery = database.queries.length;
+  database.documents.delete(
+    `${biteSaverOfferIndexCollection}/${seeded.offerProjection.indexDocumentId}`,
+  );
+  database.documents.delete(
+    `user_profiles/${uid}/favorite_coupons/${seeded.offerId}`,
+  );
+  const recoveredAfterWithdrawal =
+    await startCustomerBiteSaverSavedOfferRedemptionHandler(
+      startRequest,
+      {
+        ...context(database, uid),
+        now: () => nowMs + 7 * 60 * 1_000,
+      },
+    );
+  assert.deepEqual(recoveredAfterWithdrawal, started);
+  assert.equal(database.writes.length, writesBeforeWithdrawnRecovery);
+  assert.equal(database.queries.length, queriesBeforeWithdrawnRecovery);
+  assert.equal(database.writes.filter(({type, path}) =>
+    type === "set" && path === usagePath).length, 1);
+});
+
+test("Saved committed recovery rejects actor, target, binding, and receipt-purpose mismatches", async () => {
+  const database = new MemoryDatabase();
+  const uid = "saved-recovery-binding-owner";
+  const seeded = seedCoupon(database, uid, 0, {
+    accountId: "saved-recovery-binding-account",
+    coupon: {usageRule: "Once per customer"},
+  });
+  const page = await getCustomerBiteSaverSavedPageHandler(
+    request("coupons"),
+    context(database, uid),
+  );
+  const validationRequest = savedRedemptionRequest(
+    seeded,
+    page.entries[0].accessToken,
+    {
+      clientRequestId: "saved-recovery-binding-validation-0001",
+      redemptionRequestId: "saved-recovery-binding-logical-0001",
+    },
+  );
+  const validation =
+    await validateCustomerBiteSaverSavedOfferRedemptionStartHandler(
+      validationRequest,
+      context(database, uid),
+    );
+  const startRequest = {
+    ...validationRequest,
+    clientRequestId: "saved-recovery-binding-start-0001",
+    validationId: validation.validationId,
+  };
+  await startCustomerBiteSaverSavedOfferRedemptionHandler(
+    startRequest,
+    context(database, uid),
+  );
+  const writesAfterCommit = database.writes.length;
+  database.documents.delete(
+    `${biteSaverOfferIndexCollection}/${seeded.offerProjection.indexDocumentId}`,
+  );
+
+  await assert.rejects(
+    startCustomerBiteSaverSavedOfferRedemptionHandler(
+      startRequest,
+      context(database, "saved-recovery-other-owner"),
+    ),
+    contractError("invalid-argument"),
+  );
+  await assert.rejects(
+    startCustomerBiteSaverSavedOfferRedemptionHandler({
+      ...startRequest,
+      offerId: `bso_${"X".repeat(43)}`,
+    }, context(database, uid)),
+    contractError("failed-precondition"),
+  );
+  await assert.rejects(
+    startCustomerBiteSaverSavedOfferRedemptionHandler({
+      ...startRequest,
+      utcOffsetMinutes: -300,
+    }, context(database, uid)),
+    contractError("failed-precondition"),
+  );
+
+  const [receiptPath, receipt] = [...database.documents.entries()].find(
+    ([, data]) => data.role === "savedRedemptionStartReceipt",
+  );
+  database.documents.set(receiptPath, {
+    ...receipt,
+    role: "savedRedemptionValidationReceipt",
+  });
+  await assert.rejects(
+    startCustomerBiteSaverSavedOfferRedemptionHandler(
+      startRequest,
+      context(database, uid),
+    ),
+    contractError("failed-precondition"),
+  );
+  assert.equal(database.writes.length, writesAfterCommit);
+});
+
+test("Saved access alone cannot redeem and current source withdrawal wins", async () => {
+  const uid = "saved-redemption-authorization-owner";
+  const missingFavoriteDatabase = new MemoryDatabase();
+  const missingFavorite = seedCoupon(missingFavoriteDatabase, uid, 0, {
+    accountId: "saved-access-only-account",
+    coupon: {usageRule: "Once per customer"},
+  });
+  const page = await getCustomerBiteSaverSavedPageHandler(
+    request("coupons"),
+    context(missingFavoriteDatabase, uid),
+  );
+  const accessToken = page.entries[0].accessToken;
+  missingFavoriteDatabase.documents.delete(
+    `user_profiles/${uid}/favorite_coupons/${missingFavorite.offerId}`,
+  );
+  await assert.rejects(
+    validateCustomerBiteSaverSavedOfferRedemptionStartHandler(
+      savedRedemptionRequest(missingFavorite, accessToken),
+      context(missingFavoriteDatabase, uid),
+    ),
+    contractError("permission-denied"),
+  );
+  assert.equal(missingFavoriteDatabase.writes.length, 0);
+
+  const withdrawnDatabase = new MemoryDatabase();
+  const withdrawn = seedCoupon(withdrawnDatabase, uid, 1, {
+    accountId: "saved-withdrawn-account",
+    coupon: {usageRule: "Once per customer"},
+  });
+  const withdrawnPage = await getCustomerBiteSaverSavedPageHandler(
+    request("coupons", null, "0002"),
+    context(withdrawnDatabase, uid),
+  );
+  const validationRequest = savedRedemptionRequest(
+    withdrawn,
+    withdrawnPage.entries[0].accessToken,
+    {
+      clientRequestId: "saved-withdrawn-validation-0001",
+      redemptionRequestId: "saved-withdrawn-logical-0001",
+    },
+  );
+  const validation = await validateCustomerBiteSaverSavedOfferRedemptionStartHandler(
+    validationRequest,
+    context(withdrawnDatabase, uid),
+  );
+  withdrawnDatabase.set(
+    `restaurant_accounts/${withdrawn.accountId}/coupons/${withdrawn.sourceDocumentId}`,
+    {...withdrawn.raw, active: false, isActive: false},
+  );
+  await assert.rejects(
+    startCustomerBiteSaverSavedOfferRedemptionHandler({
+      ...validationRequest,
+      clientRequestId: "saved-withdrawn-start-0001",
+      validationId: validation.validationId,
+    }, context(withdrawnDatabase, uid)),
+    contractError("failed-precondition"),
+  );
+  assert.equal(
+    withdrawnDatabase.stored(
+      `customer_redemptions/${uid}/coupon_redemptions/${withdrawn.offerId}`,
+    ),
+    null,
+  );
+
+  const missingProjectionDatabase = new MemoryDatabase();
+  const missingProjection = seedCoupon(missingProjectionDatabase, uid, 2, {
+    accountId: "saved-missing-projection-account",
+    coupon: {usageRule: "Once per customer"},
+  });
+  const missingProjectionPage = await getCustomerBiteSaverSavedPageHandler(
+    request("coupons", null, "0003"),
+    context(missingProjectionDatabase, uid),
+  );
+  const missingProjectionValidationRequest = savedRedemptionRequest(
+    missingProjection,
+    missingProjectionPage.entries[0].accessToken,
+    {
+      clientRequestId: "saved-missing-projection-validation-0001",
+      redemptionRequestId: "saved-missing-projection-logical-0001",
+    },
+  );
+  const missingProjectionValidation =
+    await validateCustomerBiteSaverSavedOfferRedemptionStartHandler(
+      missingProjectionValidationRequest,
+      context(missingProjectionDatabase, uid),
+    );
+  missingProjectionDatabase.documents.delete(
+    `${biteSaverOfferIndexCollection}/` +
+      missingProjection.offerProjection.indexDocumentId,
+  );
+  const writesBeforeFreshFailure = missingProjectionDatabase.writes.length;
+  await assert.rejects(
+    startCustomerBiteSaverSavedOfferRedemptionHandler({
+      ...missingProjectionValidationRequest,
+      clientRequestId: "saved-missing-projection-start-0001",
+      validationId: missingProjectionValidation.validationId,
+    }, context(missingProjectionDatabase, uid)),
+    contractError("failed-precondition"),
+  );
+  assert.equal(
+    missingProjectionDatabase.writes.length,
+    writesBeforeFreshFailure,
+  );
+  assert.equal(
+    missingProjectionDatabase.stored(
+      `customer_redemptions/${uid}/coupon_redemptions/` +
+        missingProjection.offerId,
+    ),
+    null,
+  );
+});
+
+test("Saved redemption applies proximity and unlimited semantics", async () => {
+  const uid = "saved-redemption-policy-owner";
+  const proximityDatabase = new MemoryDatabase();
+  const proximity = seedCoupon(proximityDatabase, uid, 0, {
+    accountId: "saved-proximity-account",
+    coupon: {
+      usageRule: "Once per customer",
+      isProximityOnly: true,
+      proximityRadiusMiles: 1,
+    },
+  });
+  const proximityPage = await getCustomerBiteSaverSavedPageHandler(
+    request("coupons"),
+    context(proximityDatabase, uid),
+  );
+  const denied = await validateCustomerBiteSaverSavedOfferRedemptionStartHandler(
+    savedRedemptionRequest(proximity, proximityPage.entries[0].accessToken),
+    context(proximityDatabase, uid),
+  );
+  assert.equal(denied.allowed, false);
+  assert.equal(denied.reason, "missingFreshLocation");
+  assert.equal(
+    proximityDatabase.writes.some(({path}) =>
+      path.startsWith(`customer_redemptions/${uid}/`)),
+    false,
+  );
+
+  const unlimitedDatabase = new MemoryDatabase();
+  const unlimited = seedCoupon(unlimitedDatabase, uid, 1, {
+    accountId: "saved-unlimited-account",
+    coupon: {usageRule: "Unlimited"},
+  });
+  const unlimitedPage = await getCustomerBiteSaverSavedPageHandler(
+    request("coupons", null, "0002"),
+    context(unlimitedDatabase, uid),
+  );
+  const validationRequest = savedRedemptionRequest(
+    unlimited,
+    unlimitedPage.entries[0].accessToken,
+    {
+      clientRequestId: "saved-unlimited-validation-0001",
+      redemptionRequestId: "saved-unlimited-logical-0001",
+    },
+  );
+  const validation = await validateCustomerBiteSaverSavedOfferRedemptionStartHandler(
+    validationRequest,
+    context(unlimitedDatabase, uid),
+  );
+  const started = await startCustomerBiteSaverSavedOfferRedemptionHandler({
+    ...validationRequest,
+    clientRequestId: "saved-unlimited-start-0001",
+    validationId: validation.validationId,
+  }, context(unlimitedDatabase, uid));
+  assert.deepEqual({
+    status: started.status,
+    redemptionId: started.redemptionId,
+    timerStartedAtMillis: started.timerStartedAtMillis,
+    timerExpiresAtMillis: started.timerExpiresAtMillis,
+  }, {
+    status: "unlimited",
+    redemptionId: null,
+    timerStartedAtMillis: null,
+    timerExpiresAtMillis: null,
+  });
+  assert.equal(
+    unlimitedDatabase.stored(
+      `customer_redemptions/${uid}/coupon_redemptions/${unlimited.offerId}`,
+    ),
+    null,
   );
 });

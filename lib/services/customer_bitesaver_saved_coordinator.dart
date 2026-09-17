@@ -9,11 +9,19 @@ import '../models/customer_bitesaver_favorite.dart';
 import '../models/customer_bitesaver_saved.dart';
 import '../models/customer_bitesaver_search.dart';
 import 'customer_bitesaver_favorite_service.dart';
+import 'customer_bitesaver_guest_usage_store.dart';
 import 'customer_bitesaver_search_coordinator.dart';
 import 'customer_bitesaver_service.dart';
+import 'customer_session_service.dart';
 
 typedef CustomerBiteSaverSavedRequestIdGenerator = String Function();
 typedef CustomerBiteSaverSavedAccountCurrent = bool Function(String userId);
+typedef CustomerBiteSaverSavedTimeContextProvider =
+    Future<({String timeZone, int utcOffsetMinutes})> Function();
+typedef CustomerBiteSaverSavedCurrentCoordinatesProvider =
+    Future<CustomerBiteSaverCoordinates> Function();
+typedef CustomerBiteSaverSavedGuestUsageStoreLoader =
+    Future<CustomerBiteSaverGuestUsageStore?> Function();
 typedef CustomerBiteSaverSavedRestaurantWrite =
     Future<void> Function(
       CustomerBiteSaverRestaurantFavoriteIdentity identity,
@@ -81,23 +89,42 @@ final class CustomerBiteSaverSavedAccess {
   final String accessToken;
 
   bool get isCurrent => _owner.isAccessCurrent(this);
+  bool get hasDisplayableRedemption =>
+      offer != null &&
+      _owner.hasDisplayableRedemptionPresentation(offer!.offerId);
+  CustomerBiteSaverRedemptionPresentation? get redemptionPresentation =>
+      offer == null ? null : _owner.redemptionPresentationFor(offer!.offerId);
+  int get redemptionPresentationNowMillis =>
+      _owner.redemptionPresentationNowMillis;
   String get authRealmKey => _owner.authRealmKey;
   Listenable get changes => _owner;
 }
 
 final class CustomerBiteSaverSavedCoordinator extends ChangeNotifier
-    implements CustomerBiteSaverFavoriteStateOwner {
+    implements
+        CustomerBiteSaverFavoriteStateOwner,
+        CustomerBiteSaverRedemptionPresentationOwner {
   CustomerBiteSaverSavedCoordinator({
     required String userId,
     required CustomerBiteSaverSavedApi api,
     required CustomerBiteSaverSavedFavoriteActions favoriteActions,
     required CustomerBiteSaverSavedAccountCurrent isAccountCurrent,
     CustomerBiteSaverSavedRequestIdGenerator? requestIdGenerator,
+    CustomerBiteSaverSavedTimeContextProvider? timeContextProvider,
+    CustomerBiteSaverSavedCurrentCoordinatesProvider?
+    currentCoordinatesProvider,
+    CustomerBiteSaverSavedGuestUsageStoreLoader? guestUsageStoreLoader,
+    DateTime Function()? clock,
   }) : _userId = userId,
        _api = api,
        _favoriteActions = favoriteActions,
        _isAccountCurrent = isAccountCurrent,
-       _requestIdGenerator = requestIdGenerator ?? _secureRequestId {
+       _requestIdGenerator = requestIdGenerator ?? _secureRequestId,
+       _timeContextProvider = timeContextProvider,
+       _currentCoordinatesProvider = currentCoordinatesProvider,
+       _guestUsageStoreLoader =
+           guestUsageStoreLoader ?? _loadExistingGuestUsageStore,
+       _clock = clock ?? DateTime.now {
     if (userId.isEmpty || userId.contains('/')) {
       throw ArgumentError.value(userId, 'userId');
     }
@@ -108,6 +135,9 @@ final class CustomerBiteSaverSavedCoordinator extends ChangeNotifier
     FirebaseAuth? auth,
     CustomerBiteSaverService? api,
     CustomerBiteSaverFavoriteService? favoriteService,
+    CustomerBiteSaverSavedTimeContextProvider? timeContextProvider,
+    CustomerBiteSaverSavedCurrentCoordinatesProvider?
+    currentCoordinatesProvider,
   }) {
     final firebaseAuth = auth ?? FirebaseAuth.instance;
     return CustomerBiteSaverSavedCoordinator(
@@ -121,6 +151,8 @@ final class CustomerBiteSaverSavedCoordinator extends ChangeNotifier
         final user = firebaseAuth.currentUser;
         return user != null && !user.isAnonymous && user.uid == expectedUserId;
       },
+      timeContextProvider: timeContextProvider,
+      currentCoordinatesProvider: currentCoordinatesProvider,
     );
   }
 
@@ -129,6 +161,11 @@ final class CustomerBiteSaverSavedCoordinator extends ChangeNotifier
   final CustomerBiteSaverSavedFavoriteActions _favoriteActions;
   final CustomerBiteSaverSavedAccountCurrent _isAccountCurrent;
   final CustomerBiteSaverSavedRequestIdGenerator _requestIdGenerator;
+  final CustomerBiteSaverSavedTimeContextProvider? _timeContextProvider;
+  final CustomerBiteSaverSavedCurrentCoordinatesProvider?
+  _currentCoordinatesProvider;
+  final CustomerBiteSaverSavedGuestUsageStoreLoader _guestUsageStoreLoader;
+  final DateTime Function() _clock;
 
   final Map<CustomerBiteSaverSavedSection, List<CustomerBiteSaverSavedEntry>>
   _entries = <CustomerBiteSaverSavedSection, List<CustomerBiteSaverSavedEntry>>{
@@ -166,13 +203,43 @@ final class CustomerBiteSaverSavedCoordinator extends ChangeNotifier
   final Set<String> _issuedRequestIds = <String>{};
   final Set<CustomerBiteSaverSavedSection> _refreshAfterLoad =
       <CustomerBiteSaverSavedSection>{};
+  final Map<String, CustomerBiteSaverRedemptionPresentation>
+  _redemptionPresentations =
+      <String, CustomerBiteSaverRedemptionPresentation>{};
+  _SavedRedemptionAttempt? _pendingRedemptionAttempt;
+  _SavedRedemptionInFlight? _redemptionInFlight;
   bool _disposed = false;
   int _generation = 0;
 
   @override
   String get authRealmKey => 'signed:$_userId';
 
+  bool get canUseCoupons => _timeContextProvider != null;
+
   bool get isDisposed => _disposed;
+
+  int get redemptionPresentationNowMillis => _clock().millisecondsSinceEpoch;
+
+  @override
+  CustomerBiteSaverRedemptionPresentation? redemptionPresentationFor(
+    CustomerBiteSaverOfferId offerId,
+  ) => _redemptionPresentations[offerId.value];
+
+  bool hasDisplayableRedemptionPresentation(CustomerBiteSaverOfferId offerId) {
+    final presentation = redemptionPresentationFor(offerId);
+    return presentation != null &&
+        presentation.isActiveAt(redemptionPresentationNowMillis);
+  }
+
+  @override
+  void recordRedemptionPresentation(
+    CustomerBiteSaverRedemptionPresentation presentation, {
+    required String expectedAuthRealmKey,
+  }) {
+    if (!_isUsable || expectedAuthRealmKey != authRealmKey) return;
+    _redemptionPresentations[presentation.offerId.value] = presentation;
+    notifyListeners();
+  }
 
   List<CustomerBiteSaverSavedEntry> entries(
     CustomerBiteSaverSavedSection section,
@@ -360,6 +427,276 @@ final class CustomerBiteSaverSavedCoordinator extends ChangeNotifier
     return result;
   }
 
+  Future<CustomerBiteSaverRedemptionPresentation> useCoupon(
+    CustomerBiteSaverSavedAccess access,
+  ) {
+    _requireUsable();
+    final offer = access.offer;
+    if (!isAccessCurrent(access) ||
+        offer == null ||
+        offer.offerType != CustomerBiteSaverOfferType.coupon) {
+      throw const CustomerBiteSaverStaleOperationException();
+    }
+    if (_timeContextProvider == null) {
+      throw StateError(
+        'Saved coupon use requires the customer time context provider.',
+      );
+    }
+    final inFlight = _redemptionInFlight;
+    if (inFlight != null) {
+      if (inFlight.restaurantId == access.restaurant.restaurantId &&
+          inFlight.offerId == offer.offerId) {
+        return inFlight.operation;
+      }
+      throw StateError(
+        'An in-flight or uncertain Saved redemption must settle or recover.',
+      );
+    }
+    final pending = _pendingRedemptionAttempt;
+    if (pending != null &&
+        (pending.restaurantId != access.restaurant.restaurantId ||
+            pending.offerId != offer.offerId)) {
+      throw StateError(
+        'An uncertain Saved redemption must be recovered before another use.',
+      );
+    }
+    late final Future<CustomerBiteSaverRedemptionPresentation> operation;
+    operation = _runCouponUse(access).whenComplete(() {
+      if (identical(_redemptionInFlight?.operation, operation)) {
+        _redemptionInFlight = null;
+      }
+    });
+    _redemptionInFlight = _SavedRedemptionInFlight(
+      restaurantId: access.restaurant.restaurantId,
+      offerId: offer.offerId,
+      operation: operation,
+    );
+    return operation;
+  }
+
+  Future<CustomerBiteSaverRedemptionPresentation> _runCouponUse(
+    CustomerBiteSaverSavedAccess access,
+  ) async {
+    final offer = access.offer!;
+    final generation = _generation;
+    var attempt = _pendingRedemptionAttempt;
+    if (attempt == null) {
+      try {
+        final time = await _timeContextProvider!.call();
+        _requireOwnedAccess(generation, access);
+        CustomerBiteSaverCoordinates? coordinates;
+        if (offer.isProximityOnly) {
+          final loader = _currentCoordinatesProvider;
+          if (loader == null) {
+            throw StateError('Current location is required for this coupon.');
+          }
+          coordinates = await loader();
+          _requireOwnedAccess(generation, access);
+        }
+        attempt = _SavedRedemptionAttempt(
+          generation: generation,
+          restaurantId: access.restaurant.restaurantId,
+          offerId: offer.offerId,
+          offerOccurrence: offer.offerOccurrence,
+          usagePolicy:
+              offer.usagePolicy ??
+              (throw const CustomerBiteSaverProtocolException()),
+          validationRequest: CustomerBiteSaverSavedRedemptionValidationRequest(
+            clientRequestId: _nextRequestId(),
+            accessToken: access.accessToken,
+            restaurantId: access.restaurant.restaurantId,
+            offerId: offer.offerId,
+            redemptionRequestId: _nextRequestId(),
+            timeZone: time.timeZone,
+            utcOffsetMinutes: time.utcOffsetMinutes,
+            currentCoordinates: coordinates,
+          ),
+        );
+        _pendingRedemptionAttempt = attempt;
+      } catch (_) {
+        _pendingRedemptionAttempt = null;
+        rethrow;
+      }
+    }
+    _requireOwnedAccess(attempt.generation, access);
+
+    if (attempt.validationResult == null || attempt.evaluationContext == null) {
+      try {
+        final response = await _api
+            .validateCustomerBiteSaverSavedOfferRedemptionStart(
+              attempt.validationRequest,
+            );
+        _requireOwnedAccess(attempt.generation, access);
+        if (response
+            is! CustomerBiteSaverDirectResponse<
+              CustomerBiteSaverRedemptionValidationResult
+            >) {
+          throw const CustomerBiteSaverProtocolException();
+        }
+        attempt.validationResult = response.result;
+        attempt.evaluationContext = response.evaluationContext;
+      } catch (error) {
+        if (error is CustomerBiteSaverServiceException &&
+            error.kind == CustomerBiteSaverServiceFailureKind.callable) {
+          _pendingRedemptionAttempt = null;
+        }
+        rethrow;
+      }
+    }
+
+    final result = attempt.validationResult!;
+    final evaluationContext = attempt.evaluationContext!;
+    if (!result.allowed) {
+      _pendingRedemptionAttempt = null;
+      throw CustomerBiteSaverRedemptionDeniedException(
+        CustomerBiteSaverRedemptionDecision(
+          restaurantId: result.restaurantId,
+          offerId: result.offerId,
+          allowed: false,
+          reason: result.reason,
+          evaluatedAtMillis: result.evaluatedAtMillis,
+          activeTimerExpiresAtMillis: result.activeTimerExpiresAtMillis,
+          nextAvailableAtMillis: result.nextAvailableAtMillis,
+          validationExpiresAtMillis: result.validationExpiresAtMillis,
+        ),
+      );
+    }
+
+    if (attempt.startRequest == null) {
+      try {
+        final localPresentation = await _restrictWithRetainedGuestUsage(
+          attempt,
+          evaluationContext,
+        );
+        _requireOwnedAccess(attempt.generation, access);
+        if (localPresentation != null) {
+          _pendingRedemptionAttempt = null;
+          recordRedemptionPresentation(
+            localPresentation,
+            expectedAuthRealmKey: authRealmKey,
+          );
+          return localPresentation;
+        }
+        attempt.startRequest =
+            CustomerBiteSaverSavedRedemptionStartRequest.fromValidation(
+              request: attempt.validationRequest,
+              clientRequestId: _nextRequestId(),
+              validationId:
+                  result.validationId ??
+                  (throw const CustomerBiteSaverProtocolException()),
+            );
+      } catch (_) {
+        _pendingRedemptionAttempt = null;
+        rethrow;
+      }
+    }
+
+    try {
+      final started = await _api.startCustomerBiteSaverSavedOfferRedemption(
+        attempt.startRequest!,
+      );
+      _requireOwnedAccess(attempt.generation, access);
+      final presentation = CustomerBiteSaverRedemptionPresentation(
+        restaurantId: started.restaurantId,
+        offerId: started.offerId,
+        offerOccurrence: attempt.offerOccurrence,
+        status: switch (started.status) {
+          CustomerBiteSaverRedemptionStatus.started =>
+            CustomerBiteSaverRedemptionPresentationStatus.started,
+          CustomerBiteSaverRedemptionStatus.active =>
+            CustomerBiteSaverRedemptionPresentationStatus.active,
+          CustomerBiteSaverRedemptionStatus.unlimited =>
+            CustomerBiteSaverRedemptionPresentationStatus.unlimited,
+        },
+        usagePolicy: attempt.usagePolicy,
+        timerStartedAtMillis: started.timerStartedAtMillis,
+        timerExpiresAtMillis: started.timerExpiresAtMillis,
+      );
+      _pendingRedemptionAttempt = null;
+      recordRedemptionPresentation(
+        presentation,
+        expectedAuthRealmKey: authRealmKey,
+      );
+      return presentation;
+    } catch (error) {
+      if (error is CustomerBiteSaverServiceException &&
+          error.kind == CustomerBiteSaverServiceFailureKind.callable) {
+        _pendingRedemptionAttempt = null;
+      }
+      rethrow;
+    }
+  }
+
+  Future<CustomerBiteSaverRedemptionPresentation?>
+  _restrictWithRetainedGuestUsage(
+    _SavedRedemptionAttempt attempt,
+    CustomerBiteSaverEvaluationContext context,
+  ) async {
+    if (attempt.usagePolicy == CustomerBiteSaverUsagePolicy.unlimited) {
+      return null;
+    }
+    if (_clock().millisecondsSinceEpoch >= context.validUntilExclusiveMillis) {
+      throw const CustomerBiteSaverGuestUsageException(
+        CustomerBiteSaverGuestUsageFailure.evaluationExpired,
+      );
+    }
+    final store = await _guestUsageStoreLoader();
+    if (store == null) return null;
+    final evaluated = await store
+        .evaluateLocalCandidates(<CustomerBiteSaverLocalUsageCandidate>[
+          CustomerBiteSaverLocalUsageCandidate(
+            offerId: attempt.offerId,
+            usagePolicy: attempt.usagePolicy,
+          ),
+        ], context);
+    final durableRevision = await store.readRevision();
+    if (!evaluated.allEvaluated ||
+        durableRevision != evaluated.guestStateRevision) {
+      throw const CustomerBiteSaverGuestUsageException(
+        CustomerBiteSaverGuestUsageFailure.revisionChanged,
+      );
+    }
+    final active =
+        evaluated.activeTimerExpiresAtMillisByOfferId[attempt.offerId];
+    if (active != null) {
+      return CustomerBiteSaverRedemptionPresentation(
+        restaurantId: attempt.restaurantId,
+        offerId: attempt.offerId,
+        offerOccurrence: attempt.offerOccurrence,
+        status: CustomerBiteSaverRedemptionPresentationStatus.active,
+        usagePolicy: attempt.usagePolicy,
+        timerStartedAtMillis:
+            active -
+            customerBiteSaverGuestRedemptionTimerDuration.inMilliseconds,
+        timerExpiresAtMillis: active,
+      );
+    }
+    if (evaluated.unavailableOfferIds.contains(attempt.offerId)) {
+      throw CustomerBiteSaverRedemptionDeniedException(
+        CustomerBiteSaverRedemptionDecision(
+          restaurantId: attempt.restaurantId,
+          offerId: attempt.offerId,
+          allowed: false,
+          reason: 'localUsageUnavailable',
+          evaluatedAtMillis: context.evaluationAtMillis,
+          activeTimerExpiresAtMillis: null,
+          nextAvailableAtMillis: null,
+          validationExpiresAtMillis: null,
+        ),
+      );
+    }
+    return null;
+  }
+
+  void _requireOwnedAccess(
+    int generation,
+    CustomerBiteSaverSavedAccess access,
+  ) {
+    if (!_ownsCompletion(generation) || !isAccessCurrent(access)) {
+      throw const CustomerBiteSaverStaleOperationException();
+    }
+  }
+
   @override
   Future<void> setRestaurantFavorite(
     CustomerBiteSaverRestaurant restaurant,
@@ -494,6 +831,15 @@ final class CustomerBiteSaverSavedCoordinator extends ChangeNotifier
     ).replaceAll('=', '');
   }
 
+  static Future<CustomerBiteSaverGuestUsageStore?>
+  _loadExistingGuestUsageStore() async {
+    final guestDeviceId =
+        await CustomerSessionService.getExistingGuestDeviceId();
+    return guestDeviceId == null
+        ? null
+        : CustomerBiteSaverGuestUsageStore(guestDeviceId: guestDeviceId);
+  }
+
   @override
   void dispose() {
     if (_disposed) return;
@@ -502,6 +848,42 @@ final class CustomerBiteSaverSavedCoordinator extends ChangeNotifier
     _loadVersions.updateAll((_, value) => value + 1);
     _pendingIds.clear();
     _refreshAfterLoad.clear();
+    _pendingRedemptionAttempt = null;
+    _redemptionInFlight = null;
+    _redemptionPresentations.clear();
     super.dispose();
   }
+}
+
+final class _SavedRedemptionAttempt {
+  _SavedRedemptionAttempt({
+    required this.generation,
+    required this.restaurantId,
+    required this.offerId,
+    required this.offerOccurrence,
+    required this.usagePolicy,
+    required this.validationRequest,
+  });
+
+  final int generation;
+  final CustomerBiteSaverRestaurantId restaurantId;
+  final CustomerBiteSaverOfferId offerId;
+  final String offerOccurrence;
+  final CustomerBiteSaverUsagePolicy usagePolicy;
+  final CustomerBiteSaverSavedRedemptionValidationRequest validationRequest;
+  CustomerBiteSaverRedemptionValidationResult? validationResult;
+  CustomerBiteSaverEvaluationContext? evaluationContext;
+  CustomerBiteSaverSavedRedemptionStartRequest? startRequest;
+}
+
+final class _SavedRedemptionInFlight {
+  const _SavedRedemptionInFlight({
+    required this.restaurantId,
+    required this.offerId,
+    required this.operation,
+  });
+
+  final CustomerBiteSaverRestaurantId restaurantId;
+  final CustomerBiteSaverOfferId offerId;
+  final Future<CustomerBiteSaverRedemptionPresentation> operation;
 }

@@ -1,0 +1,73 @@
+{
+  "fixtureVersion": "bitestar.customer-bitesaver-saved-redemption.v1",
+  "validationRequest": {
+    "schemaVersion": 1,
+    "clientRequestId": "saved-fixture-validation-0001",
+    "accessToken": "bssv1.fixture-saved-coupon-access",
+    "restaurantId": "bsr_RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "offerId": "bso_OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+    "redemptionRequestId": "saved-fixture-logical-0001",
+    "timeZone": "America/New_York",
+    "utcOffsetMinutes": -240,
+    "currentCoordinates": {
+      "latitude": 28.5383,
+      "longitude": -81.3792,
+      "capturedAtMillis": 1789560000000
+    }
+  },
+  "startRequest": {
+    "schemaVersion": 1,
+    "clientRequestId": "saved-fixture-start-0001",
+    "accessToken": "bssv1.fixture-saved-coupon-access",
+    "restaurantId": "bsr_RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "offerId": "bso_OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+    "redemptionRequestId": "saved-fixture-logical-0001",
+    "timeZone": "America/New_York",
+    "utcOffsetMinutes": -240,
+    "currentCoordinates": {
+      "latitude": 28.5383,
+      "longitude": -81.3792,
+      "capturedAtMillis": 1789560000000
+    },
+    "validationId": "bsv_VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV"
+  },
+  "validationResponse": {
+    "schemaVersion": 1,
+    "restaurantId": "bsr_RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "offerId": "bso_OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+    "allowed": true,
+    "reason": "available",
+    "usagePolicy": "oncePerCustomer",
+    "evaluatedAtMillis": 1789560000000,
+    "activeTimerExpiresAtMillis": null,
+    "nextAvailableAtMillis": null,
+    "validationId": "bsv_VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV",
+    "validationExpiresAtMillis": 1789560060000,
+    "evaluationContext": {
+      "schemaVersion": 1,
+      "sessionId": "bss_SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS",
+      "attemptGeneration": 0,
+      "queryFingerprint": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "evaluationAtMillis": 1789560000000,
+      "timeZone": "America/New_York",
+      "utcOffsetMinutes": -240,
+      "availabilityGeneration": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "validUntilExclusiveMillis": 1789560060000,
+      "oncePerDayUnavailableWindows": [
+        {
+          "startAtMillisInclusive": 1789559940000,
+          "endAtMillisExclusive": 1789560000001
+        }
+      ]
+    }
+  },
+  "startResponse": {
+    "schemaVersion": 1,
+    "restaurantId": "bsr_RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+    "offerId": "bso_OOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOOO",
+    "redemptionId": "bsrd_DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD",
+    "status": "started",
+    "timerStartedAtMillis": 1789560000000,
+    "timerExpiresAtMillis": 1789560300000
+  }
+}

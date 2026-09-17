@@ -194,6 +194,8 @@ import {
 import {
   getCustomerBiteSaverSavedMenuPageHandler,
   getCustomerBiteSaverSavedPageHandler,
+  startCustomerBiteSaverSavedOfferRedemptionHandler,
+  validateCustomerBiteSaverSavedOfferRedemptionStartHandler,
 } from "./customer_bitesaver_saved.js";
 import {
   createFirestoreSearchIndexDatabase,
@@ -5703,6 +5705,40 @@ export const getCustomerBiteSaverSavedMenuPage = onCall(
     return invokeCustomerBiteSaverCallable(
       request,
       getCustomerBiteSaverSavedMenuPageHandler,
+      "discoveryAndIdentityV1",
+    );
+  },
+);
+
+export const validateCustomerBiteSaverSavedOfferRedemptionStart = onCall(
+  {
+    secrets: [
+      biteSaverCustomerDiscoveryKey,
+      biteSaverCustomerIdentityKeyV1,
+    ],
+    timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
+  },
+  async (request) => {
+    return invokeCustomerBiteSaverCallable(
+      request,
+      validateCustomerBiteSaverSavedOfferRedemptionStartHandler,
+      "discoveryAndIdentityV1",
+    );
+  },
+);
+
+export const startCustomerBiteSaverSavedOfferRedemption = onCall(
+  {
+    secrets: [
+      biteSaverCustomerDiscoveryKey,
+      biteSaverCustomerIdentityKeyV1,
+    ],
+    timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
+  },
+  async (request) => {
+    return invokeCustomerBiteSaverCallable(
+      request,
+      startCustomerBiteSaverSavedOfferRedemptionHandler,
       "discoveryAndIdentityV1",
     );
   },

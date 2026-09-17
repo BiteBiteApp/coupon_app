@@ -96,6 +96,8 @@ if (!emulatorGate) {
   const {
     getCustomerBiteSaverSavedMenuPageHandler,
     getCustomerBiteSaverSavedPageHandler,
+    startCustomerBiteSaverSavedOfferRedemptionHandler,
+    validateCustomerBiteSaverSavedOfferRedemptionStartHandler,
   } = require("../lib/customer_bitesaver_saved.js");
   const {
     createCustomerBiteSaverWorkerCounters,
@@ -1127,6 +1129,166 @@ if (!emulatorGate) {
       menuVisibleEntries: 1,
       menuQueryReads: menuAfter.queryReads - menuBefore.queryReads,
       menuWrites: 0,
+    };
+  });
+
+  test("real adapter Saved redemption contends and replays one canonical write",
+    {timeout: 30_000}, async () => {
+    const uid = `${runNamespace}_saved_redemption_owner`;
+    const accountId = `${runNamespace}_saved_redemption_account`;
+    const sourceDocumentId = `${runNamespace}_saved_redemption_coupon`;
+    const savedLatitude = 40.7128;
+    const savedLongitude = -74.0060;
+    const restaurant = rawRestaurant(8_500, {
+      city: "New York",
+      state: "NY",
+      zipCode: "10007",
+      latitude: savedLatitude,
+      longitude: savedLongitude,
+      geohash: canonicalRestaurantGeohash({
+        latitude: savedLatitude,
+        longitude: savedLongitude,
+      }),
+    });
+    const coupon = rawCoupon(8_500, {usageRule: "Once per customer"});
+    const restaurantProjection = buildBiteSaverRestaurantIndex({
+      sourceDocumentId: accountId,
+      source: restaurant,
+      now: new Date(fixedNowMs),
+      identityKeyV1,
+    });
+    const offerProjection = buildBiteSaverCouponOfferIndex({
+      restaurantAccountId: accountId,
+      sourceDocumentId,
+      offer: coupon,
+      restaurant,
+      now: new Date(fixedNowMs),
+      identityKeyV1,
+    });
+    assert.notEqual(restaurantProjection, null);
+    assert.notEqual(offerProjection, null);
+    const restaurantId = customerBiteSaverOpaqueRestaurantId(
+      identityKeyV1,
+      accountId,
+    );
+    const offerId = customerBiteSaverOpaqueOfferId(
+      identityKeyV1,
+      accountId,
+      "coupon",
+      sourceDocumentId,
+    );
+    await commitAll([
+      {
+        type: "set",
+        path: `restaurant_accounts/${accountId}`,
+        data: restaurant,
+      },
+      {
+        type: "set",
+        path: `restaurant_accounts/${accountId}/coupons/${sourceDocumentId}`,
+        data: coupon,
+      },
+      {
+        type: "set",
+        path: `${restaurantSearchIndexCollection}/${restaurantProjection.indexDocumentId}`,
+        data: restaurantProjection,
+      },
+      {
+        type: "set",
+        path: `${biteSaverOfferIndexCollection}/${offerProjection.indexDocumentId}`,
+        data: offerProjection,
+      },
+      {
+        type: "set",
+        path: `user_profiles/${uid}/favorite_coupons/${offerId}`,
+        data: canonicalCouponFavorite(uid, restaurantId, offerId),
+      },
+    ]);
+    const savedContext = {
+      database,
+      discoveryKey,
+      identityKeyV1,
+      identity: {authUid: uid, authIsAnonymous: false},
+      now: () => fixedNowMs,
+      randomSource: (size) => Buffer.alloc(size, 17),
+    };
+    const page = await getCustomerBiteSaverSavedPageHandler({
+      schemaVersion: customerBiteSaverSearchSchemaVersion,
+      clientRequestId: requestId("saved_redemption_page"),
+      section: "coupons",
+      cursor: null,
+    }, savedContext);
+    assert.equal(page.entries.length, 1);
+    const validationRequest = {
+      schemaVersion: customerBiteSaverSearchSchemaVersion,
+      clientRequestId: requestId("saved_redemption_validation"),
+      accessToken: page.entries[0].accessToken,
+      restaurantId,
+      offerId,
+      redemptionRequestId: requestId("saved_redemption_logical"),
+      timeZone: "America/New_York",
+      utcOffsetMinutes: -240,
+      currentCoordinates: null,
+    };
+    const validation =
+      await validateCustomerBiteSaverSavedOfferRedemptionStartHandler(
+        validationRequest,
+        savedContext,
+      );
+    assert.equal(validation.allowed, true);
+    const startRequest = {
+      ...validationRequest,
+      clientRequestId: requestId("saved_redemption_start"),
+      validationId: validation.validationId,
+    };
+    const before = snapshotMetrics();
+    const [first, concurrent] = await bounded(Promise.all([
+      startCustomerBiteSaverSavedOfferRedemptionHandler(
+        startRequest,
+        savedContext,
+      ),
+      startCustomerBiteSaverSavedOfferRedemptionHandler(
+        startRequest,
+        savedContext,
+      ),
+    ]), "concurrent Saved redemption start");
+    await firestore.doc(
+      `${biteSaverOfferIndexCollection}/${offerProjection.indexDocumentId}`,
+    ).delete();
+    assert.equal(
+      (await firestore.doc(
+        `${biteSaverOfferIndexCollection}/${offerProjection.indexDocumentId}`,
+      ).get()).exists,
+      false,
+    );
+    const exactRetry = await startCustomerBiteSaverSavedOfferRedemptionHandler(
+      startRequest,
+      savedContext,
+    );
+    const after = snapshotMetrics();
+    assert.deepEqual(concurrent, first);
+    assert.deepEqual(exactRetry, first);
+    assert.equal(first.status, "started");
+    assert.equal(first.timerStartedAtMillis, fixedNowMs);
+    const usagePath =
+      `customer_redemptions/${uid}/coupon_redemptions/${offerId}`;
+    const usage = await database.getDocument(usagePath);
+    assert.notEqual(usage, null);
+    assert.equal(usage.data.redemptionId, first.redemptionId);
+    assert.equal(millis(usage.data.timerStartedAt), first.timerStartedAtMillis);
+    assert.equal(millis(usage.data.timerExpiresAt), first.timerExpiresAtMillis);
+    assert.equal(
+      after.writes - before.writes,
+      2,
+      "one usage document and one start receipt must commit",
+    );
+    metrics.scenarioMeasurements.savedRedemption = {
+      concurrentStarts: 2,
+      exactRetries: 1,
+      projectionWithdrawnBeforeExactRetry: true,
+      canonicalUsageWrites: 1,
+      startReceiptWrites: 1,
+      writes: after.writes - before.writes,
     };
   });
 

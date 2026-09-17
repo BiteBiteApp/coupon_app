@@ -1,6 +1,13 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
+import 'dart:convert';
+import 'dart:math';
 
+import 'package:flutter/material.dart';
+import 'package:geolocator/geolocator.dart';
+
+import '../models/customer_bitesaver_search.dart';
 import '../services/customer_bitesaver_search_coordinator.dart';
+import '../services/customer_bitesaver_service.dart';
 import 'coupon_detail_screen.dart';
 import 'customer_bitesaver_browse_screen.dart';
 import 'main_navigation_screen.dart';
@@ -10,8 +17,16 @@ import 'restaurant_profile_screen.dart';
 /// Opens bounded browse selections in the existing customer destinations.
 ///
 /// The route receives only public DTOs and an opaque, generation-fenced lease.
+typedef CustomerBiteSaverRedemptionCoordinatesProvider =
+    Future<CustomerBiteSaverCoordinates> Function();
+
 final class CustomerBiteSaverBrowseDestinationHandler {
-  const CustomerBiteSaverBrowseDestinationHandler();
+  const CustomerBiteSaverBrowseDestinationHandler({
+    this.currentCoordinatesProvider,
+  });
+
+  final CustomerBiteSaverRedemptionCoordinatesProvider?
+  currentCoordinatesProvider;
 
   Future<CustomerBiteSaverBrowseActionResult> call(
     BuildContext context,
@@ -116,6 +131,11 @@ final class CustomerBiteSaverBrowseDestinationHandler {
     if (offer == null) {
       throw StateError('The selected BiteSaver offer is unavailable.');
     }
+    final useAction = _CustomerBiteSaverBrowseCouponUse(
+      selection: selection,
+      currentCoordinatesProvider:
+          currentCoordinatesProvider ?? _loadCurrentCoordinates,
+    );
     await _pushCurrentDestination(
       context,
       selection: selection,
@@ -141,9 +161,31 @@ final class CustomerBiteSaverBrowseDestinationHandler {
             ),
           );
         },
-        // Intentionally uncomposed until the bounded redemption checkpoint.
-        useBoundedCoupon: null,
+        useBoundedCoupon: useAction.call,
       ),
+    );
+  }
+
+  static Future<CustomerBiteSaverCoordinates> _loadCurrentCoordinates() async {
+    final enabled = await Geolocator.isLocationServiceEnabled();
+    if (!enabled) throw StateError('Location services are turned off.');
+    var permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    if (permission == LocationPermission.denied) {
+      throw StateError('Location permission was denied.');
+    }
+    if (permission == LocationPermission.deniedForever) {
+      throw StateError(
+        'Location permission is permanently denied. Enable it in settings.',
+      );
+    }
+    final position = await Geolocator.getCurrentPosition();
+    return CustomerBiteSaverCoordinates(
+      latitude: position.latitude,
+      longitude: position.longitude,
+      capturedAtMillis: position.timestamp.millisecondsSinceEpoch,
     );
   }
 
@@ -174,6 +216,110 @@ final class CustomerBiteSaverBrowseDestinationHandler {
   }
 }
 
+final class _CustomerBiteSaverBrowseCouponUse {
+  _CustomerBiteSaverBrowseCouponUse({
+    required this.selection,
+    required this.currentCoordinatesProvider,
+  });
+
+  final CustomerBiteSaverBrowseSelection selection;
+  final CustomerBiteSaverRedemptionCoordinatesProvider
+  currentCoordinatesProvider;
+
+  String? _redemptionRequestId;
+  CustomerBiteSaverCoordinates? _coordinates;
+  bool _validationCompleted = false;
+  Future<CustomerBiteSaverRedemptionPresentation>? _inFlight;
+
+  Future<CustomerBiteSaverRedemptionPresentation> call(BuildContext context) {
+    final existing = _inFlight;
+    if (existing != null) return existing;
+    late final Future<CustomerBiteSaverRedemptionPresentation> operation;
+    operation = _run().whenComplete(() {
+      if (identical(_inFlight, operation)) _inFlight = null;
+    });
+    _inFlight = operation;
+    return operation;
+  }
+
+  Future<CustomerBiteSaverRedemptionPresentation> _run() async {
+    final offer = selection.offer!;
+    final session = selection.session;
+    if (!_validationCompleted) {
+      if (!selection.isCurrent) {
+        throw const CustomerBiteSaverFreshSearchRequiredException();
+      }
+      _redemptionRequestId ??= _secureRequestId();
+      if (offer.isProximityOnly && _coordinates == null) {
+        _coordinates = await currentCoordinatesProvider();
+        if (!selection.isCurrent) {
+          throw const CustomerBiteSaverStaleOperationException();
+        }
+      }
+      try {
+        final decision = await session.validateRedemption(
+          restaurantId: selection.restaurant.restaurantId,
+          offerId: offer.offerId,
+          redemptionRequestId: _redemptionRequestId!,
+          currentCoordinates: _coordinates,
+        );
+        if (!decision.allowed) {
+          final activeExpiresAt = decision.activeTimerExpiresAtMillis;
+          if (activeExpiresAt != null &&
+              activeExpiresAt > session.redemptionPresentationNowMillis) {
+            final presentation = CustomerBiteSaverRedemptionPresentation(
+              restaurantId: decision.restaurantId,
+              offerId: decision.offerId,
+              offerOccurrence: offer.offerOccurrence,
+              status: CustomerBiteSaverRedemptionPresentationStatus.active,
+              usagePolicy:
+                  offer.usagePolicy ??
+                  (throw const CustomerBiteSaverProtocolException()),
+              timerStartedAtMillis:
+                  activeExpiresAt -
+                  CustomerBiteSaverSearchContract.redemptionTimerMilliseconds,
+              timerExpiresAtMillis: activeExpiresAt,
+            );
+            session.recordRecoveredRedemptionPresentation(presentation);
+            _resetAttempt();
+            return presentation;
+          }
+          _resetAttempt();
+          throw CustomerBiteSaverRedemptionDeniedException(decision);
+        }
+        _validationCompleted = true;
+      } catch (error) {
+        if (error is CustomerBiteSaverServiceException &&
+            error.kind == CustomerBiteSaverServiceFailureKind.callable) {
+          _resetAttempt();
+        }
+        rethrow;
+      }
+    }
+
+    await session.startValidatedRedemption();
+    final presentation = session.redemptionPresentationFor(offer.offerId);
+    if (presentation == null) {
+      throw const CustomerBiteSaverProtocolException();
+    }
+    _resetAttempt();
+    return presentation;
+  }
+
+  void _resetAttempt() {
+    _redemptionRequestId = null;
+    _coordinates = null;
+    _validationCompleted = false;
+  }
+
+  static String _secureRequestId() {
+    final random = Random.secure();
+    return base64UrlEncode(
+      List<int>.generate(24, (_) => random.nextInt(256)),
+    ).replaceAll('=', '');
+  }
+}
+
 class _CustomerBiteSaverDestinationGuard extends StatefulWidget {
   const _CustomerBiteSaverDestinationGuard({
     required this.selection,
@@ -189,33 +335,143 @@ class _CustomerBiteSaverDestinationGuard extends StatefulWidget {
 }
 
 class _CustomerBiteSaverDestinationGuardState
-    extends State<_CustomerBiteSaverDestinationGuard> {
+    extends State<_CustomerBiteSaverDestinationGuard>
+    with WidgetsBindingObserver {
   bool _retirementScheduled = false;
+  Timer? _confirmedExpiryTimer;
+  CustomerBiteSaverRedemptionPresentation? _scheduledPresentation;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     widget.selection.session.addListener(_handleSessionChange);
+    _reconcileOwnership();
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    _retireIfStale();
+    _reconcileOwnership();
+  }
+
+  @override
+  void didUpdateWidget(_CustomerBiteSaverDestinationGuard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.selection.session, widget.selection.session)) {
+      oldWidget.selection.session.removeListener(_handleSessionChange);
+      widget.selection.session.addListener(_handleSessionChange);
+    }
+    _cancelConfirmedExpiryTimer();
+    _reconcileOwnership();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _cancelConfirmedExpiryTimer();
     widget.selection.session.removeListener(_handleSessionChange);
     super.dispose();
   }
 
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _reconcileOwnership();
+  }
+
   void _handleSessionChange() {
+    _reconcileOwnership();
+  }
+
+  void _reconcileOwnership() {
+    if (!mounted) return;
+    _syncConfirmedExpiryTimer();
     _retireIfStale();
   }
 
+  void _syncConfirmedExpiryTimer() {
+    final offer = widget.selection.offer;
+    final presentation = offer == null
+        ? null
+        : widget.selection.session.redemptionPresentationFor(offer.offerId);
+    final expiresAtMillis = presentation?.timerExpiresAtMillis;
+    if (presentation == null ||
+        presentation.isUnlimited ||
+        expiresAtMillis == null ||
+        !presentation.isActiveAt(
+          widget.selection.session.redemptionPresentationNowMillis,
+        )) {
+      _cancelConfirmedExpiryTimer();
+      return;
+    }
+    if (_sameScheduledPresentation(presentation) &&
+        _confirmedExpiryTimer?.isActive == true) {
+      return;
+    }
+    _cancelConfirmedExpiryTimer();
+    _scheduledPresentation = presentation;
+    final remainingMillis =
+        expiresAtMillis -
+        widget.selection.session.redemptionPresentationNowMillis;
+    if (remainingMillis <= 0) return;
+    _confirmedExpiryTimer = Timer(
+      Duration(milliseconds: remainingMillis),
+      () => _handleConfirmedExpiry(presentation),
+    );
+  }
+
+  bool _sameScheduledPresentation(
+    CustomerBiteSaverRedemptionPresentation presentation,
+  ) {
+    final scheduled = _scheduledPresentation;
+    return scheduled != null &&
+        scheduled.restaurantId == presentation.restaurantId &&
+        scheduled.offerId == presentation.offerId &&
+        scheduled.offerOccurrence == presentation.offerOccurrence &&
+        scheduled.timerStartedAtMillis == presentation.timerStartedAtMillis &&
+        scheduled.timerExpiresAtMillis == presentation.timerExpiresAtMillis;
+  }
+
+  void _handleConfirmedExpiry(
+    CustomerBiteSaverRedemptionPresentation scheduled,
+  ) {
+    if (!mounted || !_sameScheduledPresentation(scheduled)) return;
+    _confirmedExpiryTimer = null;
+    _scheduledPresentation = null;
+    final offer = widget.selection.offer;
+    final current = offer == null
+        ? null
+        : widget.selection.session.redemptionPresentationFor(offer.offerId);
+    if (current != null &&
+        current.restaurantId == scheduled.restaurantId &&
+        current.offerId == scheduled.offerId &&
+        current.offerOccurrence == scheduled.offerOccurrence &&
+        current.timerStartedAtMillis == scheduled.timerStartedAtMillis &&
+        current.timerExpiresAtMillis == scheduled.timerExpiresAtMillis) {
+      _reconcileOwnership();
+    } else {
+      _syncConfirmedExpiryTimer();
+    }
+  }
+
+  void _cancelConfirmedExpiryTimer() {
+    _confirmedExpiryTimer?.cancel();
+    _confirmedExpiryTimer = null;
+    _scheduledPresentation = null;
+  }
+
   void _retireIfStale() {
-    if (_retirementScheduled || widget.selection.isCurrent) return;
+    final offer = widget.selection.offer;
+    final hasConfirmedDisplay =
+        offer != null &&
+        widget.selection.session.hasDisplayableRedemptionPresentation(
+          offer.offerId,
+        );
+    if (_retirementScheduled ||
+        widget.selection.isCurrent ||
+        hasConfirmedDisplay) {
+      return;
+    }
     _retirementScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
@@ -229,7 +485,14 @@ class _CustomerBiteSaverDestinationGuardState
 
   @override
   Widget build(BuildContext context) {
-    if (!widget.selection.isCurrent || _retirementScheduled) {
+    final offer = widget.selection.offer;
+    final hasConfirmedDisplay =
+        offer != null &&
+        widget.selection.session.hasDisplayableRedemptionPresentation(
+          offer.offerId,
+        );
+    if ((!widget.selection.isCurrent && !hasConfirmedDisplay) ||
+        _retirementScheduled) {
       return const SizedBox.shrink();
     }
     return widget.builder(context);

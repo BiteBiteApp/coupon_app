@@ -49,8 +49,8 @@ Map<String, Object?> _offer() => <String, Object?>{
   'details': 'Safe coupon details',
   'couponCode': 'SAVE',
   'couponNumber': null,
-  'usageRule': 'Unlimited',
-  'usagePolicy': 'unlimited',
+  'usageRule': 'Once per customer',
+  'usagePolicy': 'oncePerCustomer',
   'availabilityMode': null,
   'daysOfWeek': <Object?>[],
   'allDay': null,
@@ -66,7 +66,7 @@ Map<String, Object?> _offer() => <String, Object?>{
   'sourceCreatedAtMillis': 1,
   'available': false,
   'availabilityReason': 'savedReadOnly',
-  'redemptionPolicyLabel': 'Unlimited',
+  'redemptionPolicyLabel': 'Once per customer',
   'activeTimerExpiresAtMillis': null,
   'nextAvailableAtMillis': null,
   'usageState': 'unknown',
@@ -103,6 +103,73 @@ final class _SavedApi implements CustomerBiteSaverSavedApi {
   final List<CustomerBiteSaverSavedSection> pageCalls =
       <CustomerBiteSaverSavedSection>[];
   int menuCalls = 0;
+  int validationCalls = 0;
+  int startCalls = 0;
+  static const int evaluationAtMillis = 1_789_560_000_000;
+
+  @override
+  Future<
+    CustomerBiteSaverEndpointResponse<
+      CustomerBiteSaverRedemptionValidationResult
+    >
+  >
+  validateCustomerBiteSaverSavedOfferRedemptionStart(
+    CustomerBiteSaverSavedRedemptionValidationRequest request,
+  ) async {
+    validationCalls += 1;
+    final context = CustomerBiteSaverEvaluationContext.fromJson(
+      <String, Object?>{
+        'schemaVersion': 1,
+        'sessionId': 'bss_${'S' * 43}',
+        'attemptGeneration': 0,
+        'queryFingerprint': 'f' * 64,
+        'evaluationAtMillis': evaluationAtMillis,
+        'timeZone': 'America/New_York',
+        'utcOffsetMinutes': -240,
+        'availabilityGeneration': 'a' * 64,
+        'validUntilExclusiveMillis': evaluationAtMillis + 60 * 1000,
+        'oncePerDayUnavailableWindows': <Object?>[
+          <String, Object?>{
+            'startAtMillisInclusive': evaluationAtMillis - 60 * 1000,
+            'endAtMillisExclusive': evaluationAtMillis + 1,
+          },
+        ],
+      },
+    );
+    return CustomerBiteSaverDirectResponse(
+      CustomerBiteSaverRedemptionValidationResult.fromJson(<String, Object?>{
+        'schemaVersion': 1,
+        'restaurantId': request.restaurantId.value,
+        'offerId': request.offerId.value,
+        'allowed': true,
+        'reason': 'available',
+        'usagePolicy': 'oncePerCustomer',
+        'evaluatedAtMillis': evaluationAtMillis,
+        'activeTimerExpiresAtMillis': null,
+        'nextAvailableAtMillis': null,
+        'validationId': 'bsv_${'V' * 43}',
+        'validationExpiresAtMillis': evaluationAtMillis + 60 * 1000,
+      }),
+      evaluationContext: context,
+    );
+  }
+
+  @override
+  Future<CustomerBiteSaverRedemptionStartResult>
+  startCustomerBiteSaverSavedOfferRedemption(
+    CustomerBiteSaverSavedRedemptionStartRequest request,
+  ) async {
+    startCalls += 1;
+    return CustomerBiteSaverRedemptionStartResult.fromJson(<String, Object?>{
+      'schemaVersion': 1,
+      'restaurantId': request.restaurantId.value,
+      'offerId': request.offerId.value,
+      'redemptionId': 'bsrd_${'D' * 43}',
+      'status': 'started',
+      'timerStartedAtMillis': evaluationAtMillis,
+      'timerExpiresAtMillis': evaluationAtMillis + 5 * 60 * 1000,
+    });
+  }
 
   @override
   Future<CustomerBiteSaverSavedPageResult> getCustomerBiteSaverSavedPage(
@@ -354,6 +421,206 @@ void main() {
     },
   );
 
+  testWidgets(
+    'signed Saved use validates without search and reopens original timer',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1200);
+      addTearDown(tester.view.reset);
+      final user = _SavedUser('owner-a');
+      final api = _SavedApi();
+      final writes = _SavedWrites();
+      var requestSequence = 0;
+      var nowMillis = _SavedApi.evaluationAtMillis;
+      final coordinator = CustomerBiteSaverSavedCoordinator(
+        userId: user.uid,
+        api: api,
+        favoriteActions: writes.actions,
+        isAccountCurrent: (userId) => userId == user.uid,
+        requestIdGenerator: () =>
+            'saved-widget-use-${(++requestSequence).toString().padLeft(5, '0')}',
+        timeContextProvider: () async =>
+            (timeZone: 'America/New_York', utcOffsetMinutes: -240),
+        guestUsageStoreLoader: () async => null,
+        clock: () => DateTime.fromMillisecondsSinceEpoch(nowMillis),
+      );
+      addTearDown(coordinator.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: rootNavigatorKey,
+          scaffoldMessengerKey: rootScaffoldMessengerKey,
+          home: MainNavigationScreen(
+            initialIndex: 2,
+            initializePlatformServices: false,
+            testCustomerAuthRealmProvider: () => 'signed:${user.uid}',
+            biteSaverBrowseHomeBuilder:
+                (context, navigationRefreshGeneration, authRealm) =>
+                    const Scaffold(body: Text('Bounded Browse')),
+            biteSaverSavedAccountBuilder: (context, authRealm) =>
+                CustomerAccountScreen(
+                  userStream: Stream<User?>.value(user),
+                  profileDestinationBuilder: (context, currentUser) =>
+                      CustomerProfileScreen.fromCustomerBiteSaver(
+                        currentUser: currentUser,
+                        savedCoordinator: coordinator,
+                        testCurrentUserProvider: () => user,
+                        testProfileLoader: (_) async => _emptyProfile,
+                        testLocalExpertBadgesLoader: (_) async => const [],
+                      ),
+                ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('My Profile'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Coupons'));
+      await tester.tap(find.text('Coupons'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Canonical Saved Coupon'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Use Coupon'), findsOneWidget);
+      expect(api.validationCalls, 0);
+      expect(api.startCalls, 0);
+      await tester.tap(find.text('Use Coupon'));
+      await tester.pumpAndSettle();
+      expect(find.text('Use this coupon now?'), findsOneWidget);
+      await tester.tap(
+        find.byKey(const ValueKey<String>('bitesaver_use_confirm')),
+      );
+      await _pumpUntil(
+        tester,
+        () => find.text('Redeem Timer Active').evaluate().isNotEmpty,
+      );
+
+      expect(api.validationCalls, 1);
+      expect(api.startCalls, 1);
+      expect(find.textContaining('Timer active: 05:00'), findsOneWidget);
+      await tester.pump(const Duration(milliseconds: 400));
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Coupon timer active'), findsOneWidget);
+      await tester.tap(find.text('Canonical Saved Coupon'));
+      await _pumpUntil(
+        tester,
+        () => find.byType(CouponDetailScreen).evaluate().isNotEmpty,
+      );
+      expect(find.text('Redeem Timer Active'), findsOneWidget);
+      expect(find.textContaining('Timer active: 05:00'), findsOneWidget);
+      expect(api.validationCalls, 1);
+      expect(api.startCalls, 1);
+
+      nowMillis +=
+          CustomerBiteSaverSearchContract.redemptionTimerMilliseconds + 1;
+      await tester.pump(
+        const Duration(
+          milliseconds:
+              CustomerBiteSaverSearchContract.redemptionTimerMilliseconds + 1,
+        ),
+      );
+      await tester.pump();
+      expect(
+        find.byType(CouponDetailScreen),
+        findsOneWidget,
+        reason: 'The still-current Saved read lease owns the detail route.',
+      );
+      expect(api.validationCalls, 1);
+      expect(api.startCalls, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'confirmed expiry retires a stale Saved route without network work',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1200);
+      addTearDown(tester.view.reset);
+      final user = _SavedUser('owner-a');
+      final api = _SavedApi();
+      final writes = _SavedWrites();
+      var requestSequence = 0;
+      var nowMillis = _SavedApi.evaluationAtMillis;
+      var accountCurrent = true;
+      final coordinator = CustomerBiteSaverSavedCoordinator(
+        userId: user.uid,
+        api: api,
+        favoriteActions: writes.actions,
+        isAccountCurrent: (userId) => accountCurrent && userId == user.uid,
+        requestIdGenerator: () =>
+            'saved-expiry-${(++requestSequence).toString().padLeft(8, '0')}',
+        timeContextProvider: () async =>
+            (timeZone: 'America/New_York', utcOffsetMinutes: -240),
+        guestUsageStoreLoader: () async => null,
+        clock: () => DateTime.fromMillisecondsSinceEpoch(nowMillis),
+      );
+      addTearDown(coordinator.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          navigatorKey: rootNavigatorKey,
+          scaffoldMessengerKey: rootScaffoldMessengerKey,
+          home: MainNavigationScreen(
+            initialIndex: 2,
+            initializePlatformServices: false,
+            testCustomerAuthRealmProvider: () => 'signed:${user.uid}',
+            biteSaverBrowseHomeBuilder:
+                (context, navigationRefreshGeneration, authRealm) =>
+                    const Scaffold(body: Text('Bounded Browse')),
+            biteSaverSavedAccountBuilder: (context, authRealm) =>
+                CustomerAccountScreen(
+                  userStream: Stream<User?>.value(user),
+                  profileDestinationBuilder: (context, currentUser) =>
+                      CustomerProfileScreen.fromCustomerBiteSaver(
+                        currentUser: currentUser,
+                        savedCoordinator: coordinator,
+                        testCurrentUserProvider: () => user,
+                        testProfileLoader: (_) async => _emptyProfile,
+                        testLocalExpertBadgesLoader: (_) async => const [],
+                      ),
+                ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('My Profile'));
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Coupons'));
+      await tester.tap(find.text('Coupons'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Canonical Saved Coupon'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Use Coupon'));
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.byKey(const ValueKey<String>('bitesaver_use_confirm')),
+      );
+      await _pumpUntil(
+        tester,
+        () => find.text('Redeem Timer Active').evaluate().isNotEmpty,
+      );
+      expect(find.byType(CouponDetailScreen), findsOneWidget);
+
+      accountCurrent = false;
+      nowMillis +=
+          CustomerBiteSaverSearchContract.redemptionTimerMilliseconds + 1;
+      await tester.pump(
+        const Duration(
+          milliseconds:
+              CustomerBiteSaverSearchContract.redemptionTimerMilliseconds + 1,
+        ),
+      );
+      await tester.pump();
+
+      expect(find.byType(CouponDetailScreen), findsNothing);
+      expect(api.validationCalls, 1);
+      expect(api.startCalls, 1);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   test('default navigation entry keeps both bounded builders absent', () {
     const screen = MainNavigationScreen(initializePlatformServices: false);
     expect(screen.biteSaverBrowseHomeBuilder, isNull);
@@ -391,4 +658,12 @@ final class _SavedUser extends Fake implements User {
 
   @override
   List<UserInfo> get providerData => const <UserInfo>[];
+}
+
+Future<void> _pumpUntil(WidgetTester tester, bool Function() condition) async {
+  for (var attempt = 0; attempt < 80; attempt += 1) {
+    await tester.pump(const Duration(milliseconds: 10));
+    if (condition()) return;
+  }
+  fail('Timed out waiting for the Saved BiteSaver fixture.');
 }
