@@ -727,6 +727,12 @@
       "fieldPath": "expiresAt",
       "ttl": true,
       "indexes": []
+    },
+    {
+      "collectionGroup": "private_bitesaver_device_challenges",
+      "fieldPath": "deleteAfter",
+      "ttl": true,
+      "indexes": []
     }
   ]
 }

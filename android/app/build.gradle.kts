@@ -84,3 +84,8 @@ android {
 flutter {
     source = "../.."
 }
+
+dependencies {
+    implementation("com.google.android.play:integrity:1.6.0")
+    testImplementation("junit:junit:4.13.2")
+}

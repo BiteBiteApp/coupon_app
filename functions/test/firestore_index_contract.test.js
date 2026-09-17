@@ -741,6 +741,12 @@ const REQUIRED_FIELD_OVERRIDE_CONTRACT = [
     ttl: true,
     indexes: [],
   })),
+  {
+    collectionGroup: "private_bitesaver_device_challenges",
+    fieldPath: "deleteAfter",
+    ttl: true,
+    indexes: [],
+  },
 ];
 
 const loadIndexConfiguration = () =>
@@ -864,9 +870,9 @@ test("Firestore TTL and single-field exemptions exactly match the BiteSaver cont
 
   assert.equal(firebaseConfiguration.firestore.indexes, "firestore.indexes.json");
   assert.equal(firebaseConfiguration.firestore.rules, "firestore.rules");
-  assert.equal(fieldOverrides.length, 8);
+  assert.equal(fieldOverrides.length, 9);
   assert.equal(new Set(signatures).size, fieldOverrides.length);
-  assert.equal(fieldOverrides.filter(({ ttl }) => ttl === true).length, 7);
+  assert.equal(fieldOverrides.filter(({ ttl }) => ttl === true).length, 8);
 
   for (const override of fieldOverrides) {
     assert.deepEqual(override.indexes, []);
@@ -887,6 +893,16 @@ test("Firestore TTL and single-field exemptions exactly match the BiteSaver cont
         "private_bitesaver_search_results",
         "private_bitesaver_search_sessions",
       ].includes(override.collectionGroup));
+    } else if (override.fieldPath === "deleteAfter") {
+      assert.deepEqual(Object.keys(override).sort(), [
+        "collectionGroup",
+        "fieldPath",
+        "indexes",
+        "ttl",
+      ]);
+      assert.equal(override.collectionGroup,
+        "private_bitesaver_device_challenges");
+      assert.equal(override.ttl, true);
     } else {
       assert.deepEqual(Object.keys(override).sort(), [
         "collectionGroup",

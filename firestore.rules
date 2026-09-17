@@ -1814,6 +1814,14 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /private_bitesaver_device_challenges/{challengeId} {
+      allow get, list, create, update, delete: if false;
+    }
+
+    match /private_bitesaver_device_installations/{installationId} {
+      allow get, list, create, update, delete: if false;
+    }
+
     match /private_dish_merge_review_locks/{dishId} {
       allow read, write: if false;
     }
