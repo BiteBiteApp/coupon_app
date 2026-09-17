@@ -69,6 +69,11 @@ import {
   type CustomerBiteSaverRedemptionValidationResult,
   type CustomerBiteSaverSessionContext,
 } from "./customer_bitesaver_search_session.js";
+import type {
+  CustomerBiteSaverCombinedUseRequest,
+  CustomerBiteSaverDeviceUseContext,
+  CustomerBiteSaverPreparedFreshUseAuthority,
+} from "./customer_bitesaver_device_usage_core.js";
 
 const savedPageSize = 25;
 const savedCandidateBudget = 75;
@@ -2385,6 +2390,138 @@ export async function startCustomerBiteSaverSavedOfferRedemptionHandler(
       ),
     }));
     return result;
+  });
+}
+
+/**
+ * Prepares the Saved half of the future device-bound use operation. This
+ * retains the signed Saved access token, exact favorite, point-resolved offer
+ * projection, and current raw source checks without exporting a new callable.
+ */
+export async function prepareCustomerBiteSaverSavedDeviceUseAuthority(
+  request: CustomerBiteSaverCombinedUseRequest,
+  context: CustomerBiteSaverDeviceUseContext,
+  initialNowMillis: number,
+): Promise<CustomerBiteSaverPreparedFreshUseAuthority> {
+  if (request.origin.kind !== "saved") {
+    throw new CustomerBiteSaverContractError("invalid-argument");
+  }
+  const sessionContext = context as CustomerBiteSaverSessionContext;
+  const rawRequest = Object.freeze({
+    schemaVersion: customerBiteSaverSearchSchemaVersion,
+    clientRequestId: request.logicalRequestId,
+    accessToken: request.origin.accessToken,
+    restaurantId: request.restaurantId,
+    offerId: request.offerId,
+    redemptionRequestId: request.logicalRequestId,
+    timeZone: request.timeZone,
+    utcOffsetMinutes: request.utcOffsetMinutes,
+    currentCoordinates: request.currentCoordinates,
+  });
+  const parsedRequest = parseSavedRedemptionRequest(rawRequest, false);
+  const signedUserId = requireSignedInUserId(sessionContext.identity);
+  const codec = new SavedOpaqueCodec(
+    sessionContext.discoveryKey,
+    () => initialNowMillis,
+  );
+  const access = openAccess({
+    codec,
+    token: parsedRequest.accessToken,
+    userId: signedUserId,
+  });
+  const target = await resolveSavedRedemptionTarget({
+    context: sessionContext,
+    access,
+    request: parsedRequest,
+  });
+  const favoritePath = customerBiteSaverCouponFavoritePath(
+    signedUserId,
+    request.offerId,
+  );
+
+  return Object.freeze({
+    origin: "saved" as const,
+    signedUserId,
+    async readInTransaction(transaction, nowMillis) {
+      const paths = target === null
+        ? [favoritePath]
+        : [
+            favoritePath,
+            `restaurant_accounts/${target.authoritativeAccountId}`,
+            `restaurant_accounts/${target.authoritativeAccountId}/coupons/` +
+              target.sourceDocumentId,
+          ];
+      const documents = await transaction.getDocuments(paths);
+      const favorite = documents[0];
+      if (favorite === null || parseCustomerBiteSaverCouponFavorite(
+        favorite,
+        {
+          userId: signedUserId,
+          restaurantId: request.restaurantId,
+          offerId: request.offerId,
+        },
+      ) === null) {
+        throw new CustomerBiteSaverContractError(
+          "permission-denied",
+          "The exact Saved coupon is required to use this path.",
+        );
+      }
+      if (nowMillis >= access.expiresAtMillis) {
+        throw new CustomerBiteSaverContractError(
+          "failed-precondition",
+          "The Saved coupon authority expired.",
+        );
+      }
+      if (target === null) {
+        return Object.freeze({
+          kind: "denied" as const,
+          origin: "saved" as const,
+          signedUserId,
+          restaurantId: request.restaurantId,
+          offerId: request.offerId,
+          freshUseExpiresAtMillis: access.expiresAtMillis,
+          recoveryExpiresAtMillis: access.expiresAtMillis,
+          reason: "offerUnavailable",
+        });
+      }
+      const source = currentSavedRedemptionSource({
+        context: sessionContext,
+        target,
+        parentDocument: documents[1],
+        offerDocument: documents[2],
+        now: new Date(nowMillis),
+      });
+      if (source === null) {
+        return Object.freeze({
+          kind: "denied" as const,
+          origin: "saved" as const,
+          signedUserId,
+          restaurantId: request.restaurantId,
+          offerId: request.offerId,
+          freshUseExpiresAtMillis: access.expiresAtMillis,
+          recoveryExpiresAtMillis: access.expiresAtMillis,
+          reason: "offerUnavailable",
+        });
+      }
+      return Object.freeze({
+        kind: "authorized" as const,
+        origin: "saved" as const,
+        signedUserId,
+        restaurantId: request.restaurantId,
+        offerId: request.offerId,
+        freshUseExpiresAtMillis: access.expiresAtMillis,
+        recoveryExpiresAtMillis: access.expiresAtMillis,
+        source: Object.freeze({
+          offer: source.offer,
+          usagePolicy: source.usagePolicy,
+          timeZone: request.timeZone,
+          utcOffsetMinutes: request.utcOffsetMinutes,
+          locationMode: "current" as const,
+          restaurantCoordinates: source.restaurantCoordinates,
+          currentCoordinates: request.currentCoordinates,
+        }),
+      });
+    },
   });
 }
 

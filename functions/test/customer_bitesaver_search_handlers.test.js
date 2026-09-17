@@ -75,6 +75,9 @@ const {
   canonicalRestaurantGeohash,
   exactCustomerBiteSaverDistanceMiles,
 } = require("../lib/restaurant_geo_helpers.js");
+const {
+  handleCustomerBiteSaverDeviceBoundUse,
+} = require("../lib/customer_bitesaver_device_usage_handler.js");
 
 const nowMs = Date.parse("2026-09-09T12:00:00.000Z");
 const discoveryKey = Buffer.alloc(32, 17);
@@ -7047,6 +7050,101 @@ test("signed redemption start commits one canonical timer and recovers retries",
   assert.equal(completed.reason, "used");
   assert.equal(completed.activeTimerExpiresAtMillis, null);
   assert.equal(completed.validationId, null);
+});
+
+test("device-bound discovery use reuses session, occurrence, delivery, and current-source authority", async () => {
+  const uid = "device-discovery-owner";
+  const database = new SerializedTransactionCustomerBiteSaverSearchDatabase();
+  const context = createContext(database, {
+    identity: {authUid: uid, authIsAnonymous: false},
+    deviceEvidenceVerifier: {
+      async verify(input) {
+        return {
+          state: "verified",
+          deviceSubject: "synthetic-discovery-device-subject",
+          requestFingerprint: input.requestFingerprint,
+          authenticatedUserId: uid,
+          validFromMillis: nowMs - 1_000,
+          validUntilMillis: nowMs + 60_000,
+        };
+      },
+    },
+  });
+  const started = await startCustomerBiteSaverSearchHandler(
+    startRequest({
+      clientRequestId: "device-discovery-search-0001",
+      searchText: "",
+    }),
+    context,
+  );
+  const session = markSessionReady(database, started);
+  const seeded = addReadyRestaurant(database, session, 991, {
+    offerCount: 1,
+    onlyCoupons: true,
+    offerOverrides: {usageRule: "Once per customer"},
+  });
+  const selectedOfferId = opaqueOfferId(seeded, seeded.coupons[0]);
+  const delivered = await deliveredRedemptionRequest(
+    started,
+    seeded.publicRestaurantId,
+    selectedOfferId,
+    context,
+    {
+      clientRequestId: "device-discovery-delivery-0001",
+      redemptionRequestId: "device-discovery-use-0001",
+    },
+  );
+  const request = {
+    schemaVersion: customerBiteSaverSearchSchemaVersion,
+    logicalRequestId: "device-discovery-use-0001",
+    restaurantId: seeded.publicRestaurantId,
+    offerId: selectedOfferId,
+    timeZone: "America/New_York",
+    utcOffsetMinutes: -240,
+    currentCoordinates: null,
+    origin: {
+      kind: "discovery",
+      clientInstanceId: delivered.clientInstanceId,
+      sessionId: delivered.sessionId,
+      capability: delivered.capability,
+      criteriaFingerprint: delivered.criteriaFingerprint,
+      offerOccurrence: delivered.offerOccurrence,
+      guestStateRevision: null,
+    },
+  };
+  const result = await handleCustomerBiteSaverDeviceBoundUse(request, context);
+  assert.equal(result.status, "started");
+  assert.equal(result.restaurantId, seeded.publicRestaurantId);
+  assert.equal(result.offerId, selectedOfferId);
+  assert.equal(result.timerStartedAtMillis, nowMs);
+  assert.equal(
+    [...database.documents.values()].filter((document) =>
+      document.role === "deviceCouponUsage").length,
+    1,
+  );
+  assert.equal(
+    [...database.documents.values()].filter((document) =>
+      document.role === "deviceUseOutcomeReceipt").length,
+    1,
+  );
+  assert.notEqual(
+    database.stored(
+      `customer_redemptions/${uid}/coupon_redemptions/${selectedOfferId}`,
+    ),
+    null,
+  );
+
+  database.documents.delete(seeded.resultPath);
+  database.documents.delete(
+    `restaurant_accounts/${seeded.accountId}/coupons/` +
+      seeded.coupons[0].sourceDocumentId,
+  );
+  const readsBeforeRecovery = database.calls.getDocuments.length;
+  assert.deepEqual(
+    await handleCustomerBiteSaverDeviceBoundUse(request, context),
+    result,
+  );
+  assert.equal(database.calls.getDocuments.length, readsBeforeRecovery);
 });
 
 test("committed start recovery rechecks the absolute deadline after reads", async () => {

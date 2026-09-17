@@ -148,7 +148,8 @@ export class CustomerBiteSaverContractError extends Error {
     | "permission-denied"
     | "failed-precondition"
     | "resource-exhausted"
-    | "not-found";
+    | "not-found"
+    | "unavailable";
 
   constructor(
     code: CustomerBiteSaverContractError["code"],

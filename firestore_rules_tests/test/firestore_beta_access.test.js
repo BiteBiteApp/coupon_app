@@ -1282,6 +1282,7 @@ test("search indexes remain server-written and non-restaurant artifacts stay pri
   const biteSaverPrivateCollections = [
     "private_bitesaver_search_sessions",
     "private_bitesaver_search_active_sessions",
+    "private_bitesaver_device_coupon_usage",
     "private_bitesaver_guest_offer_checks",
     "private_bitesaver_search_candidates",
     "private_bitesaver_search_results",
@@ -1348,6 +1349,37 @@ test("search indexes remain server-written and non-restaurant artifacts stay pri
     for (const collectionName of biteSaverPrivateCollections) {
       await assertFails(db.collection(collectionName).get());
     }
+  }
+});
+
+test("device coupon usage and combined-use outcome receipts stay private from every client", async () => {
+  const devicePath =
+    "private_bitesaver_device_coupon_usage/bsdu_private-canary";
+  const receiptPath =
+    "private_bitesaver_search_active_sessions/bsduo_private-canary";
+  await seedRuleTestDocuments([
+    {documentPath: devicePath, data: {role: "deviceCouponUsage"}},
+    {documentPath: receiptPath, data: {role: "deviceUseOutcomeReceipt"}},
+  ]);
+  for (const actorName of [
+    "unauthenticated",
+    "customer",
+    "restaurantOwner",
+    "admin",
+  ]) {
+    const db = dbFor(actorName);
+    for (const documentPath of [devicePath, receiptPath]) {
+      await assertFails(db.doc(documentPath).get());
+      await assertFails(db.doc(documentPath).set({state: "forged"}));
+      await assertFails(db.doc(documentPath).update({state: "forged"}));
+      await assertFails(db.doc(documentPath).delete());
+    }
+    await assertFails(
+      db.collection("private_bitesaver_device_coupon_usage").get(),
+    );
+    await assertFails(
+      db.collection("private_bitesaver_search_active_sessions").get(),
+    );
   }
 });
 

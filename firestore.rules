@@ -1289,6 +1289,10 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    match /private_bitesaver_device_coupon_usage/{document=**} {
+      allow read, write: if false;
+    }
+
     match /private_bitesaver_guest_offer_checks/{document=**} {
       allow read, write: if false;
     }

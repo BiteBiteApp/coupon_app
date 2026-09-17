@@ -32,6 +32,9 @@ const {
 const {
   canonicalRestaurantGeohash,
 } = require("../lib/restaurant_geo_helpers.js");
+const {
+  handleCustomerBiteSaverDeviceBoundUse,
+} = require("../lib/customer_bitesaver_device_usage_handler.js");
 
 const nowMs = Date.parse("2026-09-16T16:00:00.000Z");
 const discoveryKey = Buffer.alloc(32, 41);
@@ -1232,5 +1235,80 @@ test("Saved redemption applies proximity and unlimited semantics", async () => {
       `customer_redemptions/${uid}/coupon_redemptions/${unlimited.offerId}`,
     ),
     null,
+  );
+});
+
+test("device-bound Saved use reuses exact favorite/source authority and recovers before withdrawal", async () => {
+  const database = new MemoryDatabase();
+  const uid = "saved-device-core-owner";
+  const seeded = seedCoupon(database, uid, 91, {
+    accountId: "saved-device-core-account",
+    sourceDocumentId: "saved-device-core-coupon",
+    coupon: {usageRule: "Once per customer"},
+  });
+  const savedPage = await getCustomerBiteSaverSavedPageHandler(
+    request("coupons", null, "device-core"),
+    context(database, uid),
+  );
+  assert.equal(savedPage.entries.length, 1);
+  const combinedRequest = {
+    schemaVersion: customerBiteSaverSearchSchemaVersion,
+    logicalRequestId: "saved-device-core-use-0001",
+    restaurantId: seeded.restaurantId,
+    offerId: seeded.offerId,
+    timeZone: "America/New_York",
+    utcOffsetMinutes: -240,
+    currentCoordinates: null,
+    origin: {
+      kind: "saved",
+      accessToken: savedPage.entries[0].accessToken,
+    },
+  };
+  const deviceContext = {
+    ...context(database, uid),
+    deviceEvidenceVerifier: {
+      async verify(input) {
+        return {
+          state: "verified",
+          deviceSubject: "synthetic-saved-device-subject",
+          requestFingerprint: input.requestFingerprint,
+          authenticatedUserId: uid,
+          validFromMillis: nowMs - 1_000,
+          validUntilMillis: nowMs + 60_000,
+        };
+      },
+    },
+  };
+  const started = await handleCustomerBiteSaverDeviceBoundUse(
+    combinedRequest,
+    deviceContext,
+  );
+  assert.equal(started.status, "started");
+  assert.equal(started.timerStartedAtMillis, nowMs);
+  assert.notEqual(
+    database.stored(
+      `customer_redemptions/${uid}/coupon_redemptions/${seeded.offerId}`,
+    ),
+    null,
+  );
+  assert.equal(
+    [...database.documents.values()].filter((data) =>
+      data.role === "deviceCouponUsage").length,
+    1,
+  );
+
+  database.documents.delete(
+    `${biteSaverOfferIndexCollection}/${seeded.offerProjection.indexDocumentId}`,
+  );
+  database.documents.delete(
+    `user_profiles/${uid}/favorite_coupons/${seeded.offerId}`,
+  );
+  database.failQuery = true;
+  assert.deepEqual(
+    await handleCustomerBiteSaverDeviceBoundUse(
+      combinedRequest,
+      deviceContext,
+    ),
+    started,
   );
 });

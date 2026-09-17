@@ -143,6 +143,11 @@ import {
   type CustomerBiteSaverGuestOfferCheckContinuationRequest,
   type CustomerBiteSaverGuestOfferCheckTokenPayload,
 } from "./customer_bitesaver_guest_offer_checks.js";
+import type {
+  CustomerBiteSaverCombinedUseRequest,
+  CustomerBiteSaverDeviceUseContext,
+  CustomerBiteSaverPreparedFreshUseAuthority,
+} from "./customer_bitesaver_device_usage_core.js";
 
 export type CustomerBiteSaverCallableIdentity = Readonly<{
   authUid: string | null;
@@ -9401,6 +9406,315 @@ export async function startCustomerBiteSaverOfferRedemptionHandler(
     }
     transaction.createDocument(startReceiptPath, receipt);
     return startResult;
+  });
+}
+
+/**
+ * Prepares the discovery half of the future device-bound use operation. It is
+ * internal server wiring, not a callable export. The same session,
+ * occurrence, delivered-offer, raw-source, projection, and evaluator inputs
+ * used by the current Browse redemption path are retained.
+ */
+export async function prepareCustomerBiteSaverDiscoveryDeviceUseAuthority(
+  request: CustomerBiteSaverCombinedUseRequest,
+  context: CustomerBiteSaverDeviceUseContext,
+  _initialNowMillis: number,
+): Promise<CustomerBiteSaverPreparedFreshUseAuthority> {
+  if (request.origin.kind !== "discovery") {
+    throw new CustomerBiteSaverContractError("invalid-argument");
+  }
+  const sessionContext = context as CustomerBiteSaverSessionContext;
+  const rawRequest = Object.freeze({
+    schemaVersion: customerBiteSaverSearchSchemaVersion,
+    clientRequestId: request.logicalRequestId,
+    clientInstanceId: request.origin.clientInstanceId,
+    sessionId: request.origin.sessionId,
+    capability: request.origin.capability,
+    criteriaFingerprint: request.origin.criteriaFingerprint,
+    restaurantId: request.restaurantId,
+    offerId: request.offerId,
+    offerOccurrence: request.origin.offerOccurrence,
+    redemptionRequestId: request.logicalRequestId,
+    currentCoordinates: request.currentCoordinates,
+    guestStateRevision: request.origin.guestStateRevision,
+  });
+  const parsedRequest = parseRedemptionRequest(rawRequest);
+  requireGuestStateRevisionForCaller(
+    parsedRequest.guestStateRevision,
+    sessionContext,
+  );
+  const signedUserId = requireAuthUid(sessionContext.identity);
+
+  return Object.freeze({
+    origin: "discovery" as const,
+    signedUserId,
+    async readInTransaction(transaction, nowMillis) {
+      const sessionDocument = await transaction.getDocument(
+        sessionPath(parsedRequest.sessionId),
+      );
+      const parsedSession = parseSession(sessionDocument);
+      if (sessionDocument !== null && parsedSession === null) {
+        throw new CustomerBiteSaverContractError(
+          "failed-precondition",
+          "The BiteSaver session state is invalid.",
+        );
+      }
+      const session = authorizeCustomerBiteSaverSession({
+        request: parsedRequest,
+        session: parsedSession,
+        context: sessionContext,
+        nowMs: nowMillis,
+      });
+      if (session.state !== "ready" || session.phase !== "ready") {
+        throw new CustomerBiteSaverContractError(
+          "failed-precondition",
+          "The BiteSaver search is not ready.",
+        );
+      }
+      const occurrenceCodec = new CustomerBiteSaverOfferOccurrenceCodec({
+        key: sessionContext.discoveryKey,
+        now: () => nowMillis,
+      });
+      const openedOccurrence = occurrenceCodec.open(
+        parsedRequest.offerOccurrence,
+      );
+      preflightOfferOccurrenceForRequest({
+        payload: openedOccurrence,
+        request: parsedRequest,
+        context: sessionContext,
+      });
+      const occurrencePageGeneration = pageGenerationFingerprint({
+        session,
+        purpose: openedOccurrence.pagePurpose,
+        availabilityAtMs: openedOccurrence.availabilityAtMs,
+        callerCapabilityBinding: callerCapabilityBindingFor(
+          sessionContext,
+          session,
+        ),
+        guestStateFingerprint: openedOccurrence.guestStateFingerprint,
+        usageGeneration: openedOccurrence.usageGeneration,
+        offerCatalogFingerprint: openedOccurrence.offerCatalogFingerprint,
+        restaurantPublicId: openedOccurrence.pagePurpose === "offerPage"
+          ? parsedRequest.restaurantId
+          : null,
+        matchingMode: openedOccurrence.pagePurpose === "offerPage"
+          ? openedOccurrence.matchingMode
+          : null,
+      });
+      const occurrence = occurrenceCodec.decode(
+        parsedRequest.offerOccurrence,
+        {
+          pagePurpose: openedOccurrence.pagePurpose,
+          sessionId: session.sessionId,
+          attemptGeneration: session.attemptGeneration,
+          queryFingerprint: session.queryFingerprint,
+          pageGenerationFingerprint: occurrencePageGeneration,
+          callerCapabilityBinding: callerCapabilityBindingFor(
+            sessionContext,
+            session,
+          ),
+          restaurantPublicId: parsedRequest.restaurantId,
+          offerPublicId: parsedRequest.offerId,
+          matchingMode: openedOccurrence.pagePurpose === "offerPage"
+            ? openedOccurrence.matchingMode
+            : null,
+          availabilityAtMs: openedOccurrence.availabilityAtMs,
+          guestStateFingerprint: openedOccurrence.guestStateFingerprint,
+          usageGeneration: openedOccurrence.usageGeneration,
+          offerCatalogFingerprint: openedOccurrence.offerCatalogFingerprint,
+        },
+      );
+      if (occurrence.offerType !== "coupon") {
+        throw new CustomerBiteSaverContractError(
+          "permission-denied",
+          "The delivered item is not an authorized coupon.",
+        );
+      }
+      const candidate = parsePreviewCandidate({
+        offerType: occurrence.offerType,
+        sourceDocumentId: occurrence.sourceDocumentId,
+        indexDocumentId: occurrence.indexDocumentId,
+        sourceCreatedAtMs: occurrence.sourceCreatedAtMs,
+        sourceCreatedAtOrderKey: occurrence.sourceCreatedAtOrderKey,
+        sourceFingerprint: occurrence.sourceFingerprint,
+      });
+      if (candidate === null ||
+        customerBiteSaverOpaqueRestaurantId(
+          requireCustomerBiteSaverIdentityKey(sessionContext),
+          occurrence.authoritativeAccountId,
+        ) !== parsedRequest.restaurantId ||
+        customerBiteSaverOpaqueOfferId(
+          requireCustomerBiteSaverIdentityKey(sessionContext),
+          occurrence.authoritativeAccountId,
+          "coupon",
+          occurrence.sourceDocumentId,
+        ) !== parsedRequest.offerId
+      ) {
+        throw new CustomerBiteSaverContractError(
+          "permission-denied",
+          "The delivered BiteSaver coupon authority is invalid.",
+        );
+      }
+      const resultPath = path(
+        privateCustomerBiteSaverResultCollection,
+        customerBiteSaverResultDocumentId(
+          sessionContext.discoveryKey,
+          session.sessionId,
+          session.attemptGeneration,
+          parsedRequest.restaurantId,
+        ),
+      );
+      const deliveredPath = path(
+        privateCustomerBiteSaverCandidateCollection,
+        deliveredOfferIdentityDocumentId({
+          context: sessionContext,
+          session,
+          publicOfferId: parsedRequest.offerId,
+        }),
+      );
+      const rawParentPath =
+        `restaurant_accounts/${occurrence.authoritativeAccountId}`;
+      const rawCouponPath = rawOfferPath(
+        occurrence.authoritativeAccountId,
+        "coupon",
+        occurrence.sourceDocumentId,
+      );
+      const documents = await transaction.getDocuments([
+        resultPath,
+        deliveredPath,
+        rawParentPath,
+        rawCouponPath,
+      ]);
+      const result = parseResultDocument(
+        documents[0],
+        session,
+        sessionContext.discoveryKey,
+        requireCustomerBiteSaverIdentityKey(sessionContext),
+      );
+      const delivered = parseDeliveredOfferIdentity({
+        document: documents[1],
+        context: sessionContext,
+        session,
+        publicOfferId: parsedRequest.offerId,
+        nowMs: nowMillis,
+      });
+      if (result === null ||
+        result.publicRestaurantId !== parsedRequest.restaurantId ||
+        result.authoritativeAccountId !== occurrence.authoritativeAccountId ||
+        delivered === null || delivered.offerType !== "coupon" ||
+        delivered.publicRestaurantId !== parsedRequest.restaurantId ||
+        delivered.authoritativeAccountId !==
+          occurrence.authoritativeAccountId ||
+        delivered.sourceDocumentId !== occurrence.sourceDocumentId
+      ) {
+        throw new CustomerBiteSaverContractError(
+          "permission-denied",
+          "The BiteSaver coupon was not delivered by this search.",
+        );
+      }
+      const expectedMatchingMode: "parent" | "offer" = result.parentMatches
+        ? "parent"
+        : "offer";
+      if (occurrence.pagePurpose === "offerPage" &&
+        occurrence.matchingMode !== expectedMatchingMode
+      ) {
+        throw new CustomerBiteSaverContractError(
+          "permission-denied",
+          "The delivered BiteSaver coupon authority changed.",
+        );
+      }
+      const recoveryExpiresAtMillis = session.absoluteExpiresAt.getTime();
+      const touched = sessionAfterActivity(session, nowMillis);
+      const freshUseExpiresAtMillis = Math.min(
+        touched.logicalExpiresAt.getTime(),
+        occurrence.expiresAtMs,
+      );
+      const applyAfterReads = touched === session
+        ? undefined
+        : (writer: CustomerBiteSaverTransaction) => {
+            writer.setDocument(sessionPath(session.sessionId), touched);
+          };
+      const parent = currentParentFromRaw({
+        result,
+        rawDocument: documents[2],
+        session,
+        identityKeyV1: requireCustomerBiteSaverIdentityKey(sessionContext),
+        now: new Date(nowMillis),
+      });
+      const rawCoupon = documents[3];
+      if (parent === null || rawCoupon === null) {
+        return Object.freeze({
+          kind: "denied" as const,
+          origin: "discovery" as const,
+          signedUserId,
+          restaurantId: request.restaurantId,
+          offerId: request.offerId,
+          freshUseExpiresAtMillis,
+          recoveryExpiresAtMillis,
+          reason: "offerUnavailable",
+          applyAfterReads,
+        });
+      }
+      const projection = freshOfferProjection({
+        parent,
+        candidate,
+        raw: rawCoupon.data,
+        now: new Date(nowMillis),
+        identityKeyV1: requireCustomerBiteSaverIdentityKey(sessionContext),
+      });
+      if (projection === null || !currentOfferMatches({
+        session,
+        parentMatches: result.parentMatches,
+        projection,
+        raw: rawCoupon.data,
+        offerType: "coupon",
+      })) {
+        return Object.freeze({
+          kind: "denied" as const,
+          origin: "discovery" as const,
+          signedUserId,
+          restaurantId: request.restaurantId,
+          offerId: request.offerId,
+          freshUseExpiresAtMillis,
+          recoveryExpiresAtMillis,
+          reason: "offerUnavailable",
+          applyAfterReads,
+        });
+      }
+      const usagePolicy = normalizeCustomerBiteSaverUsagePolicy(
+        "coupon",
+        projection.usageRule,
+      );
+      if (usagePolicy === null) {
+        throw new CustomerBiteSaverContractError("failed-precondition");
+      }
+      const seed: OfferSeed = Object.freeze({
+        parent,
+        candidate,
+        raw: rawCoupon.data,
+        projection,
+        publicOfferId: parsedRequest.offerId,
+      });
+      return Object.freeze({
+        kind: "authorized" as const,
+        origin: "discovery" as const,
+        signedUserId,
+        restaurantId: request.restaurantId,
+        offerId: request.offerId,
+        freshUseExpiresAtMillis,
+        recoveryExpiresAtMillis,
+        source: Object.freeze({
+          offer: availabilityOfferFromFreshProjection(seed),
+          usagePolicy,
+          timeZone: session.criteria.timeZone,
+          utcOffsetMinutes: session.criteria.utcOffsetMinutes,
+          locationMode: session.criteria.locationMode,
+          restaurantCoordinates: parent.coordinates,
+          currentCoordinates: request.currentCoordinates,
+        }),
+        applyAfterReads,
+      });
+    },
   });
 }
 

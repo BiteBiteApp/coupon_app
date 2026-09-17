@@ -124,6 +124,13 @@ if (!emulatorGate) {
   const {
     canonicalRestaurantGeohash,
   } = require("../lib/restaurant_geo_helpers.js");
+  const {
+    customerBiteSaverDeviceCouponUsagePath,
+    customerBiteSaverDeviceUsageCoreInternals,
+  } = require("../lib/customer_bitesaver_device_usage_core.js");
+  const {
+    handleCustomerBiteSaverDeviceBoundUse,
+  } = require("../lib/customer_bitesaver_device_usage_handler.js");
 
   const fixedNowMs = Date.parse("2026-09-10T16:00:00.000Z");
   const discoveryKey = Buffer.alloc(32, 61);
@@ -139,6 +146,7 @@ if (!emulatorGate) {
   const ownedPaths = new Set();
   const hooks = {
     afterGetDocument: null,
+    afterTransactionGetDocuments: null,
     beforeQuery: null,
     afterTransactionCommit: null,
   };
@@ -248,6 +256,9 @@ if (!emulatorGate) {
             ).length;
             const documents = await transaction.getDocuments(paths);
             metrics.transactionPointReadResults += countStored(documents);
+            if (hooks.afterTransactionGetDocuments !== null) {
+              await hooks.afterTransactionGetDocuments(paths, documents);
+            }
             return documents;
           },
           createDocument(path, data) {
@@ -676,6 +687,9 @@ if (!emulatorGate) {
       sourceDocumentId: accountId,
       source: restaurant,
       now: new Date(preparationNowMs),
+      ...(options.customerIdentityKeyV1 === undefined
+        ? {}
+        : {identityKeyV1: options.customerIdentityKeyV1}),
     });
     assert.notEqual(parentProjection, null);
     const publicRestaurantId = customerBiteSaverOpaqueRestaurantId(
@@ -716,6 +730,9 @@ if (!emulatorGate) {
           offer: raw,
           restaurant,
           now: new Date(preparationNowMs),
+          ...(options.customerIdentityKeyV1 === undefined
+            ? {}
+            : {identityKeyV1: options.customerIdentityKeyV1}),
         })
         : buildBiteSaverDailySpecialOfferIndex({
           restaurantAccountId: accountId,
@@ -913,6 +930,7 @@ if (!emulatorGate) {
 
   test.after(async () => {
     hooks.afterGetDocument = null;
+    hooks.afterTransactionGetDocuments = null;
     hooks.beforeQuery = null;
     hooks.afterTransactionCommit = null;
     // This set contains only writes that successfully committed through this
@@ -1290,6 +1308,767 @@ if (!emulatorGate) {
       startReceiptWrites: 1,
       writes: after.writes - before.writes,
     };
+  });
+
+  test("real adapter device-bound Browse and Saved contend on device and account scopes",
+    {timeout: 120_000}, async () => {
+    const clock = {value: fixedNowMs};
+    const guestBundle = await startSession({guest: true, clock});
+    const guestSession = await markReady(guestBundle);
+    const accountId = `${runNamespace}_device_core_account`;
+    const parent = readyRestaurantWrites(guestSession, 8_700, {
+      accountId,
+      offerCount: 2,
+      onlyCoupons: true,
+      customerIdentityKeyV1: identityKeyV1,
+      offerOverrides: {usageRule: "Once per customer"},
+    });
+    const uidA = `${runNamespace}_device_core_user_a`;
+    const uidB = `${runNamespace}_device_core_user_b`;
+    const publicOfferIds = parent.coupons.map(({sourceDocumentId}) =>
+      customerBiteSaverOpaqueOfferId(
+        identityKeyV1,
+        accountId,
+        "coupon",
+        sourceDocumentId,
+      ));
+    await commitAll([
+      ...parent.writes,
+      ...[uidA, uidB].flatMap((uid) => publicOfferIds.map((publicOfferId) => ({
+        type: "set",
+        path: `user_profiles/${uid}/favorite_coupons/${publicOfferId}`,
+        data: canonicalCouponFavorite(
+          uid,
+          parent.publicRestaurantId,
+          publicOfferId,
+        ),
+      }))),
+    ]);
+
+    const guestPageRequest = pageRequest(guestBundle, {
+      clientRequestId: requestId("device_core_guest_page"),
+      guestStateRevision: 87,
+    });
+    const challenge = await getCustomerBiteSaverSearchPageHandler(
+      guestPageRequest,
+      guestBundle.context,
+    );
+    assert.equal(challenge.outcome, "guestCheckRequired");
+    const guestComplete = await continueCustomerBiteSaverGuestOfferCheckHandler(
+      guestAnswerRequest(guestBundle, challenge, [], {
+        clientRequestId: requestId("device_core_guest_answer"),
+      }),
+      guestBundle.context,
+    );
+    assert.equal(guestComplete.outcome, "complete");
+    const deliveredRestaurant = guestComplete.result.restaurants[0];
+    const deliveredOffer = deliveredRestaurant.offers.find(({offerId}) =>
+      offerId === publicOfferIds[0]);
+    assert.notEqual(deliveredOffer, undefined);
+
+    const signedContext = (uid, deviceSubject, randomByte) => {
+      let entropy = randomByte;
+      return {
+        database,
+        discoveryKey,
+        identityKeyV1,
+        identity: {authUid: uid, authIsAnonymous: false},
+        now: () => clock.value,
+        randomSource: (size) => Buffer.alloc(size, entropy++),
+        deviceEvidenceVerifier: {
+          async verify(input) {
+            return {
+              state: "verified",
+              deviceSubject,
+              requestFingerprint: input.requestFingerprint,
+              authenticatedUserId: uid,
+              validFromMillis: clock.value - 1_000,
+              validUntilMillis: clock.value + 60_000,
+            };
+          },
+        },
+      };
+    };
+    const guestDeviceContext = {
+      ...guestBundle.context,
+      deviceEvidenceVerifier: {
+        async verify(input) {
+          return {
+            state: "verified",
+            deviceSubject: "synthetic-real-adapter-device-a",
+            requestFingerprint: input.requestFingerprint,
+            authenticatedUserId: null,
+            validFromMillis: clock.value - 1_000,
+            validUntilMillis: clock.value + 60_000,
+          };
+        },
+      },
+    };
+    const savedContextA = signedContext(
+      uidA,
+      "synthetic-real-adapter-device-a",
+      71,
+    );
+    const savedPageA = await getCustomerBiteSaverSavedPageHandler({
+      schemaVersion: customerBiteSaverSearchSchemaVersion,
+      clientRequestId: requestId("device_core_saved_page_a"),
+      section: "coupons",
+      cursor: null,
+    }, savedContextA);
+    const savedEntryA = savedPageA.entries.find(({offerId}) =>
+      offerId === publicOfferIds[0]);
+    assert.notEqual(savedEntryA, undefined);
+    const guestUseRequest = {
+      schemaVersion: customerBiteSaverSearchSchemaVersion,
+      logicalRequestId: requestId("device_core_guest_use"),
+      restaurantId: parent.publicRestaurantId,
+      offerId: publicOfferIds[0],
+      timeZone: "America/New_York",
+      utcOffsetMinutes: -240,
+      currentCoordinates: null,
+      origin: {
+        kind: "discovery",
+        clientInstanceId: guestBundle.clientInstanceId,
+        sessionId: guestBundle.response.sessionId,
+        capability: guestBundle.response.capability,
+        criteriaFingerprint: guestBundle.response.criteriaFingerprint,
+        offerOccurrence: deliveredOffer.offerOccurrence,
+        guestStateRevision: 87,
+      },
+    };
+    const savedUseRequestA = {
+      schemaVersion: customerBiteSaverSearchSchemaVersion,
+      logicalRequestId: requestId("device_core_saved_use_a"),
+      restaurantId: parent.publicRestaurantId,
+      offerId: publicOfferIds[0],
+      timeZone: "America/New_York",
+      utcOffsetMinutes: -240,
+      currentCoordinates: null,
+      origin: {kind: "saved", accessToken: savedEntryA.accessToken},
+    };
+
+    const bothUsageReads = deferred();
+    let initialUsageReadArrivals = 0;
+    hooks.afterTransactionGetDocuments = async (paths) => {
+      if (!paths.some((path) =>
+        path.startsWith("private_bitesaver_device_coupon_usage/"))) return;
+      if (initialUsageReadArrivals >= 2) return;
+      initialUsageReadArrivals += 1;
+      if (initialUsageReadArrivals === 2) bothUsageReads.resolve();
+      await bothUsageReads.promise;
+    };
+    const before = snapshotMetrics();
+    const invocationsBefore = metrics.transactionInvocations;
+    const attemptsBefore = metrics.transactionAttempts;
+    const [guestUse, savedUse] = await bounded(Promise.all([
+      handleCustomerBiteSaverDeviceBoundUse(
+        guestUseRequest,
+        guestDeviceContext,
+      ),
+      handleCustomerBiteSaverDeviceBoundUse(
+        savedUseRequestA,
+        savedContextA,
+      ),
+    ]), "device-bound guest/signed contention", 60_000);
+    hooks.afterTransactionGetDocuments = null;
+    const after = snapshotMetrics();
+    const transactionInvocations =
+      metrics.transactionInvocations - invocationsBefore;
+    const transactionAttempts = metrics.transactionAttempts - attemptsBefore;
+    assert.equal(initialUsageReadArrivals, 2);
+    assert.deepEqual(
+      [guestUse.status, savedUse.status].sort(),
+      ["active", "started"],
+    );
+    assert.equal(guestUse.redemptionId, savedUse.redemptionId);
+    assert.equal(guestUse.timerStartedAtMillis, savedUse.timerStartedAtMillis);
+    assert.equal(transactionInvocations, 2);
+    assert.equal(transactionAttempts >= 3, true);
+    assert.equal(after.writes - before.writes, 4);
+    assert.notEqual(await database.getDocument(
+      `customer_redemptions/${uidA}/coupon_redemptions/${publicOfferIds[0]}`,
+    ), null);
+
+    const savedContextB = signedContext(
+      uidB,
+      "synthetic-real-adapter-device-a",
+      72,
+    );
+    const savedPageB = await getCustomerBiteSaverSavedPageHandler({
+      schemaVersion: customerBiteSaverSearchSchemaVersion,
+      clientRequestId: requestId("device_core_saved_page_b"),
+      section: "coupons",
+      cursor: null,
+    }, savedContextB);
+    const savedEntryB = savedPageB.entries.find(({offerId}) =>
+      offerId === publicOfferIds[0]);
+    const accountSwitchRequest = {
+      ...savedUseRequestA,
+      logicalRequestId: requestId("device_core_saved_use_b"),
+      origin: {kind: "saved", accessToken: savedEntryB.accessToken},
+    };
+    const accountSwitchBefore = snapshotMetrics();
+    const accountSwitch = await handleCustomerBiteSaverDeviceBoundUse(
+      accountSwitchRequest,
+      savedContextB,
+    );
+    const accountSwitchAfter = snapshotMetrics();
+    assert.equal(accountSwitch.status, "active");
+    assert.equal(accountSwitch.redemptionId, guestUse.redemptionId);
+    assert.notEqual(await database.getDocument(
+      `customer_redemptions/${uidB}/coupon_redemptions/${publicOfferIds[0]}`,
+    ), null);
+
+    const secondDeviceContextA = signedContext(
+      uidA,
+      "synthetic-real-adapter-device-b",
+      73,
+    );
+    const secondDeviceBefore = snapshotMetrics();
+    const secondDevice = await handleCustomerBiteSaverDeviceBoundUse({
+      ...savedUseRequestA,
+      logicalRequestId: requestId("device_core_second_device"),
+    }, secondDeviceContextA);
+    const secondDeviceAfter = snapshotMetrics();
+    assert.equal(secondDevice.status, "active");
+    assert.equal(secondDevice.redemptionId, guestUse.redemptionId);
+
+    const untouchedEntry = savedPageA.entries.find(({offerId}) =>
+      offerId === publicOfferIds[1]);
+    const distinctBefore = snapshotMetrics();
+    const distinctCoupon = await handleCustomerBiteSaverDeviceBoundUse({
+      ...savedUseRequestA,
+      logicalRequestId: requestId("device_core_distinct_coupon"),
+      offerId: publicOfferIds[1],
+      origin: {kind: "saved", accessToken: untouchedEntry.accessToken},
+    }, savedContextA);
+    const distinctAfter = snapshotMetrics();
+    assert.equal(distinctCoupon.status, "started");
+    assert.notEqual(distinctCoupon.redemptionId, guestUse.redemptionId);
+
+    clock.value = guestUse.timerExpiresAtMillis;
+    const deniedBefore = snapshotMetrics();
+    const denied = await handleCustomerBiteSaverDeviceBoundUse({
+      ...savedUseRequestA,
+      logicalRequestId: requestId("device_core_used_denial"),
+    }, savedContextA);
+    const deniedAfter = snapshotMetrics();
+    assert.equal(denied.status, "denied");
+    assert.equal(denied.reason, "used");
+
+    await database.commitWrites([{
+      type: "delete",
+      path: `user_profiles/${uidB}/favorite_coupons/${publicOfferIds[0]}`,
+    }, {
+      type: "delete",
+      path: `${biteSaverOfferIndexCollection}/${parent.coupons[0].indexDocumentId}`,
+    }]);
+    const queriesBeforeRecovery = metrics.queryCalls;
+    const replayBefore = snapshotMetrics();
+    assert.deepEqual(
+      await handleCustomerBiteSaverDeviceBoundUse(
+        accountSwitchRequest,
+        savedContextB,
+      ),
+      accountSwitch,
+    );
+    const replayAfter = snapshotMetrics();
+    assert.equal(metrics.queryCalls, queriesBeforeRecovery);
+    assert.equal(replayAfter.writes, replayBefore.writes);
+    await assert.rejects(
+      handleCustomerBiteSaverDeviceBoundUse({
+        ...accountSwitchRequest,
+        currentCoordinates: {
+          latitude: 28.5383,
+          longitude: -81.3792,
+          capturedAtMillis: clock.value,
+        },
+      }, savedContextB),
+      contractError("failed-precondition"),
+    );
+    assert.equal(metrics.queryCalls, queriesBeforeRecovery);
+
+    const delta = (beforeValue, afterValue) => ({
+      pointReads: afterValue.pointReads - beforeValue.pointReads,
+      queries: afterValue.queries - beforeValue.queries,
+      queryReads: afterValue.queryReads - beforeValue.queryReads,
+      writes: afterValue.writes - beforeValue.writes,
+    });
+    assert.deepEqual(delta(accountSwitchBefore, accountSwitchAfter), {
+      pointReads: 7,
+      queries: 1,
+      queryReads: 1,
+      writes: 2,
+    });
+    assert.deepEqual(delta(secondDeviceBefore, secondDeviceAfter), {
+      pointReads: 7,
+      queries: 1,
+      queryReads: 1,
+      writes: 2,
+    });
+    assert.deepEqual(delta(distinctBefore, distinctAfter), {
+      pointReads: 7,
+      queries: 1,
+      queryReads: 1,
+      writes: 3,
+    });
+    assert.deepEqual(delta(deniedBefore, deniedAfter), {
+      pointReads: 7,
+      queries: 1,
+      queryReads: 1,
+      writes: 1,
+    });
+    assert.deepEqual(delta(replayBefore, replayAfter), {
+      pointReads: 1,
+      queries: 0,
+      queryReads: 0,
+      writes: 0,
+    });
+
+    metrics.scenarioMeasurements.deviceUsageCore = {
+      syntheticDeviceEvidenceBoundary: true,
+      realFirestoreTransactions: transactionInvocations,
+      realFirestoreAttempts: transactionAttempts,
+      contentionExtraAttempts: transactionAttempts - transactionInvocations,
+      contentionPointReads: after.pointReads - before.pointReads,
+      contentionQueries: after.queries - before.queries,
+      contentionQueryReads: after.queryReads - before.queryReads,
+      contentionWrites: after.writes - before.writes,
+      activeReconciliation: delta(accountSwitchBefore, accountSwitchAfter),
+      secondDeviceReconciliation: delta(
+        secondDeviceBefore,
+        secondDeviceAfter,
+      ),
+      freshSignedDistinctCoupon: delta(distinctBefore, distinctAfter),
+      semanticDenial: delta(deniedBefore, deniedAfter),
+      exactReplay: delta(replayBefore, replayAfter),
+      guestAndSignedSameDevice: true,
+      accountSwitchReconciled: true,
+      sameAccountSecondDeviceReconciled: true,
+      distinctCouponStarted: true,
+    };
+    // This file shares one emulator namespace across sequential scenarios.
+    // Remove this scenario's synthetic public projections so the later broad
+    // Florida worker campaign measures only the 26 records it creates.
+    await database.commitWrites([
+      {
+        type: "delete",
+        path: `${restaurantSearchIndexCollection}/${
+          parent.parentProjection.indexDocumentId}`,
+      },
+      ...parent.coupons.map(({indexDocumentId}) => ({
+        type: "delete",
+        path: `${biteSaverOfferIndexCollection}/${indexDocumentId}`,
+      })),
+    ]);
+  });
+
+  test("real handlers preserve a current-device timer and reject borrowing a remote timer",
+    {timeout: 120_000}, async () => {
+    const clock = {value: fixedNowMs};
+    const setupBundle = await startSession({guest: true, clock});
+    const setupSession = await markReady(setupBundle);
+    const accountId = `${runNamespace}_same_phone_policy_account`;
+    const parent = readyRestaurantWrites(setupSession, 8_710, {
+      accountId,
+      offerCount: 2,
+      onlyCoupons: true,
+      customerIdentityKeyV1: identityKeyV1,
+      offerOverrides: {usageRule: "Once per customer"},
+    });
+    const uid = `${runNamespace}_same_phone_policy_user`;
+    const offerIds = parent.coupons.map(({sourceDocumentId}) =>
+      customerBiteSaverOpaqueOfferId(
+        identityKeyV1,
+        accountId,
+        "coupon",
+        sourceDocumentId,
+      ));
+    await commitAll([
+      ...parent.writes,
+      ...offerIds.map((publicOfferId) => ({
+        type: "set",
+        path: `user_profiles/${uid}/favorite_coupons/${publicOfferId}`,
+        data: canonicalCouponFavorite(
+          uid,
+          parent.publicRestaurantId,
+          publicOfferId,
+        ),
+      })),
+    ]);
+
+    const signedContext = (deviceSubject, randomByte) => {
+      let entropy = randomByte;
+      return {
+        database,
+        discoveryKey,
+        identityKeyV1,
+        identity: {authUid: uid, authIsAnonymous: false},
+        now: () => clock.value,
+        randomSource: (size) => Buffer.alloc(size, entropy++),
+        deviceEvidenceVerifier: {
+          async verify(input) {
+            return {
+              state: "verified",
+              deviceSubject,
+              requestFingerprint: input.requestFingerprint,
+              authenticatedUserId: uid,
+              validFromMillis: clock.value - 1_000,
+              validUntilMillis: clock.value + 60_000,
+            };
+          },
+        },
+      };
+    };
+    const phoneX = "synthetic-same-phone-policy-device-x";
+    const phoneY = "synthetic-same-phone-policy-device-y";
+    const contextX = signedContext(phoneX, 81);
+    const contextY = signedContext(phoneY, 82);
+    const deviceUsagePath = (deviceSubject, offerId) =>
+      customerBiteSaverDeviceCouponUsagePath({
+        secretKey: discoveryKey,
+        deviceBinding:
+          customerBiteSaverDeviceUsageCoreInternals.deviceBinding(
+            discoveryKey,
+            deviceSubject,
+          ),
+        offerId,
+      });
+    const accountUsagePath = (offerId) =>
+      `customer_redemptions/${uid}/coupon_redemptions/${offerId}`;
+    const savedPage = async (label, context) =>
+      getCustomerBiteSaverSavedPageHandler({
+        schemaVersion: customerBiteSaverSearchSchemaVersion,
+        clientRequestId: requestId(label),
+        section: "coupons",
+        cursor: null,
+      }, context);
+    const savedEntry = (page, offerId) => {
+      const entry = page.entries.find((candidate) =>
+        candidate.offerId === offerId);
+      assert.notEqual(entry, undefined);
+      return entry;
+    };
+    const savedUseRequest = (label, offerId, accessToken) => ({
+      schemaVersion: customerBiteSaverSearchSchemaVersion,
+      logicalRequestId: requestId(label),
+      restaurantId: parent.publicRestaurantId,
+      offerId,
+      timeZone: "America/New_York",
+      utcOffsetMinutes: -240,
+      currentCoordinates: null,
+      origin: {kind: "saved", accessToken},
+    });
+    const assertUsageUnchanged = async (path, before) => {
+      const after = await database.getDocument(path);
+      assert.notEqual(after, null);
+      assert.deepEqual(after.data, before.data);
+    };
+
+    const initialSavedPage = await savedPage("same_phone_initial_saved", contextX);
+    const accountFirst = await handleCustomerBiteSaverDeviceBoundUse(
+      savedUseRequest(
+        "same_phone_account_first",
+        offerIds[0],
+        savedEntry(initialSavedPage, offerIds[0]).accessToken,
+      ),
+      contextX,
+    );
+    assert.equal(accountFirst.status, "started");
+    clock.value = accountFirst.timerExpiresAtMillis;
+
+    const guestBundle = await startSession({guest: true, clock});
+    const guestSession = await markReady(guestBundle);
+    const currentParent = readyRestaurantWrites(guestSession, 8_710, {
+      accountId,
+      offerCount: 2,
+      onlyCoupons: true,
+      preparationNowMs: clock.value,
+      customerIdentityKeyV1: identityKeyV1,
+      offerOverrides: {usageRule: "Once per customer"},
+    });
+    await commitAll(currentParent.writes);
+    const guestPageRequest = pageRequest(guestBundle, {
+      clientRequestId: requestId("same_phone_guest_page"),
+      guestStateRevision: 91,
+    });
+    const challenge = await getCustomerBiteSaverSearchPageHandler(
+      guestPageRequest,
+      guestBundle.context,
+    );
+    assert.equal(challenge.outcome, "guestCheckRequired");
+    const guestPage = await continueCustomerBiteSaverGuestOfferCheckHandler(
+      guestAnswerRequest(guestBundle, challenge, [], {
+        clientRequestId: requestId("same_phone_guest_answer"),
+      }),
+      guestBundle.context,
+    );
+    assert.equal(guestPage.outcome, "complete");
+    const deliveredOffers = new Map(
+      guestPage.result.restaurants[0].offers.map((offer) =>
+        [offer.offerId, offer]),
+    );
+    const guestContextY = {
+      ...guestBundle.context,
+      deviceEvidenceVerifier: {
+        async verify(input) {
+          return {
+            state: "verified",
+            deviceSubject: phoneY,
+            requestFingerprint: input.requestFingerprint,
+            authenticatedUserId: null,
+            validFromMillis: clock.value - 1_000,
+            validUntilMillis: clock.value + 60_000,
+          };
+        },
+      },
+    };
+    const discoveryUseRequest = (label, offerId, offerOccurrence, revision) => ({
+      schemaVersion: customerBiteSaverSearchSchemaVersion,
+      logicalRequestId: requestId(label),
+      restaurantId: parent.publicRestaurantId,
+      offerId,
+      timeZone: "America/New_York",
+      utcOffsetMinutes: -240,
+      currentCoordinates: null,
+      origin: {
+        kind: "discovery",
+        clientInstanceId: guestBundle.clientInstanceId,
+        sessionId: guestBundle.response.sessionId,
+        capability: guestBundle.response.capability,
+        criteriaFingerprint: guestBundle.response.criteriaFingerprint,
+        offerOccurrence,
+        guestStateRevision: revision,
+      },
+    });
+    const currentPhoneFirst = await handleCustomerBiteSaverDeviceBoundUse(
+      discoveryUseRequest(
+        "same_phone_current_guest_first",
+        offerIds[0],
+        deliveredOffers.get(offerIds[0]).offerOccurrence,
+        91,
+      ),
+      guestContextY,
+    );
+    const currentPhoneSecond = await handleCustomerBiteSaverDeviceBoundUse(
+      discoveryUseRequest(
+        "same_phone_current_guest_second",
+        offerIds[1],
+        deliveredOffers.get(offerIds[1]).offerOccurrence,
+        91,
+      ),
+      guestContextY,
+    );
+    assert.equal(currentPhoneFirst.status, "started");
+    assert.equal(currentPhoneSecond.status, "started");
+
+    const ownerPage = await savedPage("same_phone_owner_page", contextY);
+    const continuationRequest = savedUseRequest(
+      "same_phone_owner_continuation",
+      offerIds[0],
+      savedEntry(ownerPage, offerIds[0]).accessToken,
+    );
+    const ownerAccountBefore = await database.getDocument(
+      accountUsagePath(offerIds[0]),
+    );
+    const ownerDeviceBefore = await database.getDocument(
+      deviceUsagePath(phoneY, offerIds[0]),
+    );
+    assert.equal(millis(ownerAccountBefore.data.timerExpiresAt) <= clock.value, true);
+    assert.equal(millis(ownerDeviceBefore.data.timerExpiresAt) > clock.value, true);
+    const ownerBefore = snapshotMetrics();
+    const continuation = await handleCustomerBiteSaverDeviceBoundUse(
+      continuationRequest,
+      contextY,
+    );
+    const ownerAfter = snapshotMetrics();
+    assert.equal(continuation.status, "active");
+    assert.equal(continuation.redemptionId, currentPhoneFirst.redemptionId);
+    assert.equal(
+      continuation.timerStartedAtMillis,
+      currentPhoneFirst.timerStartedAtMillis,
+    );
+    assert.equal(
+      continuation.timerExpiresAtMillis,
+      currentPhoneFirst.timerExpiresAtMillis,
+    );
+    assert.equal(ownerAfter.writes - ownerBefore.writes, 1);
+    await assertUsageUnchanged(accountUsagePath(offerIds[0]), ownerAccountBefore);
+    await assertUsageUnchanged(
+      deviceUsagePath(phoneY, offerIds[0]),
+      ownerDeviceBefore,
+    );
+    const ownerReplayBefore = snapshotMetrics();
+    assert.deepEqual(
+      await handleCustomerBiteSaverDeviceBoundUse(continuationRequest, contextY),
+      continuation,
+    );
+    const ownerReplayAfter = snapshotMetrics();
+    assert.equal(ownerReplayAfter.writes, ownerReplayBefore.writes);
+
+    clock.value = currentPhoneSecond.timerExpiresAtMillis;
+    const expiredReplayBefore = snapshotMetrics();
+    const expiredReplay = await handleCustomerBiteSaverDeviceBoundUse(
+      continuationRequest,
+      contextY,
+    );
+    const expiredReplayAfter = snapshotMetrics();
+    assert.deepEqual(expiredReplay, continuation);
+    assert.equal(expiredReplay.timerExpiresAtMillis <= clock.value, true);
+    assert.equal(expiredReplayAfter.writes, expiredReplayBefore.writes);
+    const ownerExpiredPage = await savedPage("same_phone_owner_expired_page", contextY);
+    const afterDeadline = await handleCustomerBiteSaverDeviceBoundUse(
+      savedUseRequest(
+        "same_phone_owner_after_deadline",
+        offerIds[0],
+        savedEntry(ownerExpiredPage, offerIds[0]).accessToken,
+      ),
+      contextY,
+    );
+    assert.equal(afterDeadline.status, "denied");
+    assert.equal(afterDeadline.reason, "used");
+
+    const remoteTimerPage = await savedPage("same_phone_remote_timer_page", contextX);
+    const remoteTimer = await handleCustomerBiteSaverDeviceBoundUse(
+      savedUseRequest(
+        "same_phone_remote_timer",
+        offerIds[1],
+        savedEntry(remoteTimerPage, offerIds[1]).accessToken,
+      ),
+      contextX,
+    );
+    assert.equal(remoteTimer.status, "started");
+
+    const signedBundle = await startSession({clock, uid});
+    const signedSession = await markReady(signedBundle);
+    const signedParent = readyRestaurantWrites(signedSession, 8_710, {
+      accountId,
+      offerCount: 2,
+      onlyCoupons: true,
+      preparationNowMs: clock.value,
+      customerIdentityKeyV1: identityKeyV1,
+      offerOverrides: {usageRule: "Once per customer"},
+    });
+    await commitAll(signedParent.writes);
+    const signedPageResult = await getCustomerBiteSaverSearchPageHandler(
+      pageRequest(signedBundle, {
+        clientRequestId: requestId("same_phone_signed_page"),
+      }),
+      signedBundle.context,
+    );
+    const signedOffer = signedPageResult.restaurants[0].offers.find((offer) =>
+      offer.offerId === offerIds[1]);
+    assert.notEqual(signedOffer, undefined);
+    const reverseSavedPage = await savedPage(
+      "same_phone_reverse_saved_page",
+      contextY,
+    );
+    const reverseRequests = [{
+      origin: "saved",
+      request: savedUseRequest(
+        "same_phone_reverse_saved",
+        offerIds[1],
+        savedEntry(reverseSavedPage, offerIds[1]).accessToken,
+      ),
+      context: contextY,
+    }, {
+      origin: "discovery",
+      request: {
+        schemaVersion: customerBiteSaverSearchSchemaVersion,
+        logicalRequestId: requestId("same_phone_reverse_discovery"),
+        restaurantId: parent.publicRestaurantId,
+        offerId: offerIds[1],
+        timeZone: "America/New_York",
+        utcOffsetMinutes: -240,
+        currentCoordinates: null,
+        origin: {
+          kind: "discovery",
+          clientInstanceId: signedBundle.clientInstanceId,
+          sessionId: signedBundle.response.sessionId,
+          capability: signedBundle.response.capability,
+          criteriaFingerprint: signedBundle.response.criteriaFingerprint,
+          offerOccurrence: signedOffer.offerOccurrence,
+          guestStateRevision: null,
+        },
+      },
+      context: {
+        ...signedBundle.context,
+        deviceEvidenceVerifier: contextY.deviceEvidenceVerifier,
+      },
+    }];
+    const reverseAccountBefore = await database.getDocument(
+      accountUsagePath(offerIds[1]),
+    );
+    const reverseDeviceBefore = await database.getDocument(
+      deviceUsagePath(phoneY, offerIds[1]),
+    );
+    assert.equal(millis(reverseDeviceBefore.data.timerExpiresAt) <= clock.value, true);
+    assert.equal(millis(reverseAccountBefore.data.timerExpiresAt) > clock.value, true);
+    const reverseMeasurements = [];
+    for (const scenario of reverseRequests) {
+      const before = snapshotMetrics();
+      const result = await handleCustomerBiteSaverDeviceBoundUse(
+        scenario.request,
+        scenario.context,
+      );
+      const after = snapshotMetrics();
+      assert.equal(result.status, "denied", scenario.origin);
+      assert.equal(result.reason, "used", scenario.origin);
+      assert.equal(after.writes - before.writes, 1, scenario.origin);
+      await assertUsageUnchanged(
+        accountUsagePath(offerIds[1]),
+        reverseAccountBefore,
+      );
+      await assertUsageUnchanged(
+        deviceUsagePath(phoneY, offerIds[1]),
+        reverseDeviceBefore,
+      );
+      const replayBefore = snapshotMetrics();
+      assert.deepEqual(
+        await handleCustomerBiteSaverDeviceBoundUse(
+          scenario.request,
+          scenario.context,
+        ),
+        result,
+      );
+      const replayAfter = snapshotMetrics();
+      assert.equal(replayAfter.writes, replayBefore.writes, scenario.origin);
+      reverseMeasurements.push({
+        origin: scenario.origin,
+        pointReads: after.pointReads - before.pointReads,
+        queries: after.queries - before.queries,
+        queryReads: after.queryReads - before.queryReads,
+        writes: after.writes - before.writes,
+      });
+    }
+    metrics.scenarioMeasurements.samePhoneTimerPolicy = {
+      syntheticDeviceEvidenceBoundary: true,
+      ownerApprovedContinuation: {
+        status: continuation.status,
+        preservedRedemptionId: continuation.redemptionId,
+        preservedTimerStartedAtMillis: continuation.timerStartedAtMillis,
+        preservedTimerExpiresAtMillis: continuation.timerExpiresAtMillis,
+        writes: ownerAfter.writes - ownerBefore.writes,
+        exactReplayWrites: ownerReplayAfter.writes - ownerReplayBefore.writes,
+        expiredExactReplayWrites:
+          expiredReplayAfter.writes - expiredReplayBefore.writes,
+        afterDeadlineStatus: afterDeadline.status,
+      },
+      reverseCases: reverseMeasurements,
+      usageRecordsUnchanged: true,
+    };
+
+    await database.commitWrites([
+      {
+        type: "delete",
+        path: `${restaurantSearchIndexCollection}/${
+          signedParent.parentProjection.indexDocumentId}`,
+      },
+      ...signedParent.coupons.map(({indexDocumentId}) => ({
+        type: "delete",
+        path: `${biteSaverOfferIndexCollection}/${indexDocumentId}`,
+      })),
+    ]);
   });
 
   test("installed SDK retries genuinely conflicting real adapter transactions",
