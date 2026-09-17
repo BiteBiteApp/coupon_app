@@ -13,14 +13,14 @@
           "projectId": "coupon-app-29446",
           "configurations": {
             "android": "1:253983587346:android:f3d5e70ac2ff915c48accb",
-            "ios": "1:253983587346:ios:9002570d04bd127748accb"
+            "ios": "1:253983587346:ios:9e02bea4dfc6bdb548accb"
           }
         }
       },
       "ios": {
         "default": {
           "projectId": "coupon-app-29446",
-          "appId": "1:253983587346:ios:9002570d04bd127748accb",
+          "appId": "1:253983587346:ios:9e02bea4dfc6bdb548accb",
           "uploadDebugSymbols": false,
           "fileOutput": "ios/Runner/GoogleService-Info.plist"
         }

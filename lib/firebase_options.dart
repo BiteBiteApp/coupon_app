@@ -69,7 +69,7 @@ class DefaultFirebaseOptions {
     projectId: 'coupon-app-29446',
     storageBucket: 'coupon-app-29446.firebasestorage.app',
     androidClientId:
-        '253983587346-9fh1d0d2m8upp17bv0rla8dj2410tk5a.apps.googleusercontent.com',
+        '253983587346-4q5l70crjhe9m4f151ah3irbr67cenfa.apps.googleusercontent.com',
     iosClientId: '253983587346-rdqimuapjngq4f91m4h816l87oup8bn0.apps.googleusercontent.com',
     iosBundleId: 'com.colesmart.bitestar',
   );
