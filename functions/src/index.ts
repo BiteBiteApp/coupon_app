@@ -5819,7 +5819,11 @@ async function invokeCustomerBiteSaverDeviceCallable<Response>(
 }
 
 export const issueCustomerBiteSaverDeviceUseChallenge = onCall(
-  {timeoutSeconds: customerBiteSaverCallableTimeoutSeconds},
+  {
+    serviceAccount:
+      "bitesaver-device-challenge@coupon-app-29446.iam.gserviceaccount.com",
+    timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
+  },
   async (request) => invokeCustomerBiteSaverDeviceCallable(
     request,
     () => createIssueCustomerBiteSaverDeviceUseChallengeHandler({
@@ -5830,6 +5834,8 @@ export const issueCustomerBiteSaverDeviceUseChallenge = onCall(
 
 export const useCustomerBiteSaverCoupon = onCall(
   {
+    serviceAccount:
+      "bitesaver-device-use@coupon-app-29446.iam.gserviceaccount.com",
     secrets: [
       biteSaverCustomerDiscoveryKey,
       biteSaverCustomerIdentityKeyV1,

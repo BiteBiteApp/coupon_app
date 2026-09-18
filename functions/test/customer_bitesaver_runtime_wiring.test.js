@@ -413,6 +413,42 @@ test("only two device callables extend the complete protected export inventory",
   );
 });
 
+test("device callables pin separate runtime identities with otherwise unchanged metadata", () => {
+  const metadata = loadActualCompiledMetadata();
+  const serviceAccounts = {
+    issueCustomerBiteSaverDeviceUseChallenge:
+      "bitesaver-device-challenge@coupon-app-29446.iam.gserviceaccount.com",
+    useCustomerBiteSaverCoupon:
+      "bitesaver-device-use@coupon-app-29446.iam.gserviceaccount.com",
+  };
+  for (const [name, serviceAccountEmail] of Object.entries(serviceAccounts)) {
+    // Complete real Firebase metadata from 644a2cb818fb1d237dbda5a954df5cd619d5215e,
+    // changing only the runtime service account. Exact literals also reject an
+    // omitted/default identity or accidentally sharing either new identity.
+    assert.deepEqual(metadata[name], {
+      availableMemoryMb: null,
+      timeoutSeconds: 120,
+      minInstances: null,
+      maxInstances: 10,
+      ingressSettings: null,
+      concurrency: null,
+      serviceAccountEmail,
+      vpc: null,
+      platform: "gcfv2",
+      region: ["us-central1"],
+      ...(name === "useCustomerBiteSaverCoupon" ? {
+        secretEnvironmentVariables: [
+          {key: discoverySecretName},
+          {key: identitySecretNameV1},
+          {key: deviceRootSecretNameV1},
+        ],
+      } : {}),
+      labels: {},
+      callableTrigger: {},
+    }, name);
+  }
+});
+
 test("device callable factories use trusted Firebase actors and isolated secrets", async () => {
   const runtime = loadCompiledIndexWithCustomerBiteSaverHarness();
   assert.deepEqual(runtime.state.secretResolutions, []);
