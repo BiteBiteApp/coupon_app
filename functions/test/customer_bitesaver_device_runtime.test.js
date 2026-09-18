@@ -42,9 +42,9 @@ const integrityInput = Object.freeze({
   nowMillis: now,
 });
 
-test("production version policy matches the current Flutter and platform version resolution", () => {
+test("Android release version 3 uses the shared Flutter and existing platform version resolution", () => {
   const source = (file) => readFileSync(path.resolve(__dirname, "../..", file), "utf8");
-  assert.match(source("pubspec.yaml"), /^version: 1\.0\.0\+2$/mu);
+  assert.match(source("pubspec.yaml"), /^version: 1\.0\.0\+3$/mu);
   const android = source("android/app/build.gradle.kts");
   assert.match(android, /versionCode = flutter\.versionCode/u);
   assert.match(android, /versionName = flutter\.versionName/u);
@@ -65,7 +65,7 @@ function contractError(code) {
     error.code === code;
 }
 
-function payload() {
+function payload(versionCode = "2") {
   return {
     tokenPayloadExternal: {
       requestDetails: {
@@ -76,7 +76,7 @@ function payload() {
       appIntegrity: {
         appRecognitionVerdict: "PLAY_RECOGNIZED",
         packageName,
-        versionCode: "2",
+        versionCode,
         certificateSha256Digest: [playSigner],
       },
       deviceIntegrity: {
@@ -97,26 +97,28 @@ function providersFor(response) {
   });
 }
 
-test("production Android accepts only the current Play package/signer/build without requiring LICENSED or optional signals", async () => {
+test("production Android accepts builds 2 and 3 with the current Play package/signer without requiring LICENSED or optional signals", async () => {
   assert.equal(playSigner, "UfkgJcNOqPXbzaUBobLIU8bWsMvQsmxME6XNv5XkCEk");
-  for (const licensingVerdict of ["LICENSED", "UNLICENSED", "UNEVALUATED"]) {
-    const response = payload();
-    response.tokenPayloadExternal.accountDetails.appLicensingVerdict =
-      licensingVerdict;
-    const result = await providersFor(response).playIntegrityVerifier
-      .verify(integrityInput);
-    assert.deepEqual(result, {
-      qualification: {
-        packageName,
-        versionCode: "2",
-        certificateSha256Digests: [playSigner],
-        appRecognitionVerdict: "PLAY_RECOGNIZED",
-        deviceRecognitionVerdicts: ["MEETS_DEVICE_INTEGRITY"],
-        licensingVerdict,
-      },
-      requestTimeMillis: now - 1_000,
-      validUntilMillis: now - 1_000 + 120_000,
-    });
+  for (const versionCode of ["2", "3"]) {
+    for (const licensingVerdict of ["LICENSED", "UNLICENSED", "UNEVALUATED"]) {
+      const response = payload(versionCode);
+      response.tokenPayloadExternal.accountDetails.appLicensingVerdict =
+        licensingVerdict;
+      const result = await providersFor(response).playIntegrityVerifier
+        .verify(integrityInput);
+      assert.deepEqual(result, {
+        qualification: {
+          packageName,
+          versionCode,
+          certificateSha256Digests: [playSigner],
+          appRecognitionVerdict: "PLAY_RECOGNIZED",
+          deviceRecognitionVerdicts: ["MEETS_DEVICE_INTEGRITY"],
+          licensingVerdict,
+        },
+        requestTimeMillis: now - 1_000,
+        validUntilMillis: now - 1_000 + 120_000,
+      });
+    }
   }
 });
 
@@ -132,8 +134,14 @@ test("production Android rejects substituted identity, unrecognized apps, absent
       )],
     ["missing signer", (p) => delete p.appIntegrity.certificateSha256Digest],
     ["prior build", (p) => p.appIntegrity.versionCode = "1"],
-    ["future build", (p) => p.appIntegrity.versionCode = "3"],
+    ["future build", (p) => p.appIntegrity.versionCode = "4"],
+    ["missing version", (p) => delete p.appIntegrity.versionCode],
     ["numeric version", (p) => p.appIntegrity.versionCode = 2],
+    ["malformed version", (p) => p.appIntegrity.versionCode = "3.0"],
+    ["padded version", (p) => p.appIntegrity.versionCode = "03"],
+    ["whitespace version", (p) => p.appIntegrity.versionCode = "3 "],
+    ["wildcard version", (p) => p.appIntegrity.versionCode = "*"],
+    ["range version", (p) => p.appIntegrity.versionCode = "2-3"],
     ["unrecognized version", (p) =>
       p.appIntegrity.appRecognitionVerdict = "UNRECOGNIZED_VERSION"],
     ["missing recognition", (p) => delete p.appIntegrity.appRecognitionVerdict],
@@ -154,14 +162,16 @@ test("production Android rejects substituted identity, unrecognized apps, absent
     ["unknown request field", (p) => p.requestDetails.unknownField = true],
     ["test response", (p) => p.testingDetails = {isTestingResponse: true}],
   ];
-  for (const [label, mutate] of cases) {
-    const response = payload();
-    mutate(response.tokenPayloadExternal);
-    await assert.rejects(
-      providersFor(response).playIntegrityVerifier.verify(integrityInput),
-      contractError("permission-denied"),
-      label,
-    );
+  for (const versionCode of ["2", "3"]) {
+    for (const [label, mutate] of cases) {
+      const response = payload(versionCode);
+      mutate(response.tokenPayloadExternal);
+      await assert.rejects(
+        providersFor(response).playIntegrityVerifier.verify(integrityInput),
+        contractError("permission-denied"),
+        `build ${versionCode}: ${label}`,
+      );
+    }
   }
   for (const response of [
     null, [], {}, "provider response", {tokenPayloadExternal: null},
@@ -175,21 +185,23 @@ test("production Android rejects substituted identity, unrecognized apps, absent
 });
 
 test("production Android enforces the exact two-minute age and ten-second future-skew bounds", async () => {
-  for (const offset of [-120_000, 10_000]) {
-    const response = payload();
-    response.tokenPayloadExternal.requestDetails.timestampMillis =
-      String(now + offset);
-    await assert.doesNotReject(
-      providersFor(response).playIntegrityVerifier.verify(integrityInput),
-    );
-  }
-  for (const timestamp of [String(now - 120_001), String(now + 10_001), "NaN"]) {
-    const response = payload();
-    response.tokenPayloadExternal.requestDetails.timestampMillis = timestamp;
-    await assert.rejects(
-      providersFor(response).playIntegrityVerifier.verify(integrityInput),
-      contractError("permission-denied"),
-    );
+  for (const versionCode of ["2", "3"]) {
+    for (const offset of [-120_000, 10_000]) {
+      const response = payload(versionCode);
+      response.tokenPayloadExternal.requestDetails.timestampMillis =
+        String(now + offset);
+      await assert.doesNotReject(
+        providersFor(response).playIntegrityVerifier.verify(integrityInput),
+      );
+    }
+    for (const timestamp of [String(now - 120_001), String(now + 10_001), "NaN"]) {
+      const response = payload(versionCode);
+      response.tokenPayloadExternal.requestDetails.timestampMillis = timestamp;
+      await assert.rejects(
+        providersFor(response).playIntegrityVerifier.verify(integrityInput),
+        contractError("permission-denied"),
+      );
+    }
   }
 });
 

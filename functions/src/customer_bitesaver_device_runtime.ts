@@ -62,7 +62,8 @@ export function createProductionCustomerBiteSaverDeviceProviders(
   decoder: CustomerBiteSaverPlayIntegrityDecoder =
     createGoogleCustomerBiteSaverPlayIntegrityDecoder(),
 ) {
-  // pubspec 1.0.0+2 -> Android versionCode 2 and iOS CFBundleVersion 2.
+  // Android enrollment temporarily accepts builds 2 and 3 for Internal testing.
+  // The separately reviewed iOS build policy remains at CFBundleVersion 2.
   // Future builds must update/review these exact allowlists before deployment.
   // Each factory invocation owns its policy sets; none are client-configurable.
   return Object.freeze({
@@ -70,7 +71,7 @@ export function createProductionCustomerBiteSaverDeviceProviders(
       decoder,
       policy: {
         packageName: customerBiteSaverAndroidPackageName,
-        allowedVersionCodes: new Set(["2"]),
+        allowedVersionCodes: new Set(["2", "3"]),
         allowedCertificateSha256Digests: new Set([playSigningDigest()]),
         requiredDeviceRecognitionVerdicts: new Set(["MEETS_DEVICE_INTEGRITY"]),
         maximumTokenAgeMilliseconds: 120_000,
