@@ -47,7 +47,8 @@ CustomerBiteSaverDeviceUseContext["identity"] {
 }
 
 export function createIssueCustomerBiteSaverDeviceUseChallengeHandler(
-  dependencies: CustomerBiteSaverDeviceUsageCallableDependencies,
+  dependencies: Pick<CustomerBiteSaverDeviceUsageCallableDependencies,
+    "database" | "now" | "randomSource">,
 ): (
   rawRequest: unknown,
   actor: CustomerBiteSaverFutureCallableActor,

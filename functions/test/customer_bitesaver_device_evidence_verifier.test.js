@@ -8,8 +8,6 @@ const {
   sign,
   webcrypto,
 } = require("node:crypto");
-const fs = require("node:fs");
-const path = require("node:path");
 const test = require("node:test");
 const {encode} = require("cbor-x");
 const {
@@ -31,6 +29,12 @@ const {
 const {
   createCustomerBiteSaverRequestDeviceEvidenceVerifier,
 } = require("../lib/customer_bitesaver_device_evidence_verifier.js");
+const {
+  createIssueCustomerBiteSaverDeviceUseChallengeHandler,
+  createUseCustomerBiteSaverCouponHandler,
+  issueCustomerBiteSaverDeviceUseChallengeCallableName,
+  useCustomerBiteSaverCouponCallableName,
+} = require("../lib/customer_bitesaver_device_usage_callable.js");
 const {
   issueCustomerBiteSaverDeviceUseChallenge,
   loadCustomerBiteSaverDeviceInstallation,
@@ -419,33 +423,82 @@ test("expiry during store reads or provider verification cannot mutate state", a
   }
 });
 
-test("future callable factories exist but deployed index has no export or secret binding", () => {
-  const sourceIndex = fs.readFileSync(
-    path.resolve(__dirname, "../src/index.ts"),
-    "utf8",
-  );
-  const compiledIndex = fs.readFileSync(
-    path.resolve(__dirname, "../lib/index.js"),
-    "utf8",
-  );
-  for (const publicName of [
+test("reviewed callable factories retain the exact production boundary names", () => {
+  assert.equal(
+    issueCustomerBiteSaverDeviceUseChallengeCallableName,
     "issueCustomerBiteSaverDeviceUseChallenge",
+  );
+  assert.equal(
+    useCustomerBiteSaverCouponCallableName,
     "useCustomerBiteSaverCoupon",
-    "BITESAVER_DEVICE_ROOT_KEY_V1",
+  );
+  assert.equal(typeof createUseCustomerBiteSaverCouponHandler, "function");
+});
+
+test("challenge callable binds trusted actors and writes only its bounded challenge", async () => {
+  for (const [actor, expectedUserId] of [
+    [{uid: null, isAnonymous: false}, null],
+    [{uid: "anonymous-user", isAnonymous: true}, null],
+    [{uid: "signed-user", isAnonymous: false}, "signed-user"],
   ]) {
-    assert.equal(sourceIndex.includes(publicName), false, publicName);
-    assert.equal(compiledIndex.includes(publicName), false, publicName);
+    const database = new MemoryDatabase();
+    const request = combinedRequest();
+    const handler = createIssueCustomerBiteSaverDeviceUseChallengeHandler({
+      database,
+      now: () => now,
+      randomSource: (size) => Buffer.alloc(size, 0x19),
+    });
+    assert.equal(database.documents.size, 0);
+    const challenge = await handler({
+      schemaVersion: 1,
+      platform: "android",
+      request,
+    }, actor);
+    assert.equal(challenge.authenticatedUserId, expectedUserId);
+    assert.equal(challenge.requestFingerprint,
+      customerBiteSaverCombinedUseRequestFingerprint(request));
+    assert.equal(challenge.expiresAtMillis, now + 120_000);
+    assert.equal(challenge.issuedAtMillis, now);
+    assert.equal(database.documents.size, 1);
+    assert.deepEqual([...database.documents.keys()], [
+      `${privateCustomerBiteSaverDeviceChallengeCollection}/${challenge.challengeId}`,
+    ]);
+    const stored = [...database.documents.values()][0];
+    assert.equal(stored.state, "issued");
+    assert.equal(stored.authenticatedUserId, expectedUserId);
+    assert.equal(Object.hasOwn(challenge, "deviceRef"), false);
   }
-  const futureModule = require("../lib/customer_bitesaver_device_usage_callable.js");
-  assert.equal(
-    futureModule.issueCustomerBiteSaverDeviceUseChallengeCallableName,
-    "issueCustomerBiteSaverDeviceUseChallenge",
-  );
-  assert.equal(
-    futureModule.useCustomerBiteSaverCouponCallableName,
-    "useCustomerBiteSaverCoupon",
-  );
-  assert.equal(typeof futureModule.createUseCustomerBiteSaverCouponHandler, "function");
+});
+
+test("challenge rejects client authority substitutions before any write", async () => {
+  const database = new MemoryDatabase();
+  const handler = createIssueCustomerBiteSaverDeviceUseChallengeHandler({
+    database,
+    now: () => now,
+    randomSource: (size) => Buffer.alloc(size, 0x19),
+  });
+  const request = combinedRequest();
+  const envelope = {schemaVersion: 1, platform: "android", request};
+  for (const [key, value] of Object.entries({
+    uid: "other-user",
+    authenticatedUserId: "other-user",
+    deviceRef: "client-selected-device",
+    requestFingerprint: "0".repeat(64),
+    verified: true,
+    privatePath: "private_bitesaver_device_installations/selected",
+  })) {
+    for (const modified of [
+      {...envelope, [key]: value},
+      {...envelope, request: {...request, [key]: value}},
+    ]) {
+      await assert.rejects(
+        handler(modified, {uid: null, isAnonymous: false}),
+        contractError("invalid-argument"),
+        key,
+      );
+    }
+  }
+  assert.equal(database.documents.size, 0);
 });
 
 async function syntheticIosRecoveryProofs() {

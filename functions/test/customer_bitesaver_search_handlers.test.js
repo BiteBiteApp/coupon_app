@@ -2,6 +2,9 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
+const {productionDeviceUseFixture} = require(
+  "./helpers/customer_bitesaver_production_device_fixture.js",
+);
 const {Timestamp} = require("firebase-admin/firestore");
 
 const {
@@ -7052,99 +7055,165 @@ test("signed redemption start commits one canonical timer and recovers retries",
   assert.equal(completed.validationId, null);
 });
 
-test("device-bound discovery use reuses session, occurrence, delivery, and current-source authority", async () => {
-  const uid = "device-discovery-owner";
-  const database = new SerializedTransactionCustomerBiteSaverSearchDatabase();
-  const context = createContext(database, {
-    identity: {authUid: uid, authIsAnonymous: false},
-    deviceEvidenceVerifier: {
-      async verify(input) {
-        return {
-          state: "verified",
-          deviceSubject: "synthetic-discovery-device-subject",
-          requestFingerprint: input.requestFingerprint,
-          authenticatedUserId: uid,
-          validFromMillis: nowMs - 1_000,
-          validUntilMillis: nowMs + 60_000,
-        };
+for (const production of [false, true]) {
+  test(`device-bound discovery use reuses session, occurrence, delivery, and current-source authority (production=${production})`, async () => {
+    const uid = "device-discovery-owner";
+    const database = new SerializedTransactionCustomerBiteSaverSearchDatabase();
+    const context = createContext(database, {
+      identity: {authUid: uid, authIsAnonymous: false},
+      deviceEvidenceVerifier: {
+        async verify(input) {
+          return {
+            state: "verified",
+            deviceSubject: "synthetic-discovery-device-subject",
+            requestFingerprint: input.requestFingerprint,
+            authenticatedUserId: uid,
+            validFromMillis: nowMs - 1_000,
+            validUntilMillis: nowMs + 60_000,
+          };
+        },
       },
-    },
+    });
+    const started = await startCustomerBiteSaverSearchHandler(
+      startRequest({
+        clientRequestId: "device-discovery-search-0001",
+        searchText: "",
+      }),
+      context,
+    );
+    const session = markSessionReady(database, started);
+    const seeded = addReadyRestaurant(database, session, 991, {
+      offerCount: 1,
+      onlyCoupons: true,
+      offerOverrides: {usageRule: "Once per customer"},
+    });
+    const selectedOfferId = opaqueOfferId(seeded, seeded.coupons[0]);
+    const delivered = await deliveredRedemptionRequest(
+      started,
+      seeded.publicRestaurantId,
+      selectedOfferId,
+      context,
+      {
+        clientRequestId: "device-discovery-delivery-0001",
+        redemptionRequestId: "device-discovery-use-0001",
+      },
+    );
+    const request = {
+      schemaVersion: customerBiteSaverSearchSchemaVersion,
+      logicalRequestId: "device-discovery-use-0001",
+      restaurantId: seeded.publicRestaurantId,
+      offerId: selectedOfferId,
+      timeZone: "America/New_York",
+      utcOffsetMinutes: -240,
+      currentCoordinates: null,
+      origin: {
+        kind: "discovery",
+        clientInstanceId: delivered.clientInstanceId,
+        sessionId: delivered.sessionId,
+        capability: delivered.capability,
+        criteriaFingerprint: delivered.criteriaFingerprint,
+        offerOccurrence: delivered.offerOccurrence,
+        guestStateRevision: null,
+      },
+    };
+    const fixture = production
+      ? await productionDeviceUseFixture(request, context)
+      : null;
+    const invoke = () => fixture === null
+      ? handleCustomerBiteSaverDeviceBoundUse(request, context)
+      : fixture.use();
+    const result = await invoke();
+    assert.equal(result.status, "started");
+    assert.equal(result.restaurantId, seeded.publicRestaurantId);
+    assert.equal(result.offerId, selectedOfferId);
+    assert.equal(result.timerStartedAtMillis, nowMs);
+    assert.equal(
+      [...database.documents.values()].filter((document) =>
+        document.role === "deviceCouponUsage").length,
+      1,
+    );
+    assert.equal(
+      [...database.documents.values()].filter((document) =>
+        document.role === "deviceUseOutcomeReceipt").length,
+      1,
+    );
+    assert.notEqual(
+      database.stored(
+        `customer_redemptions/${uid}/coupon_redemptions/${selectedOfferId}`,
+      ),
+      null,
+    );
+
+    database.documents.delete(seeded.resultPath);
+    database.documents.delete(
+      `restaurant_accounts/${seeded.accountId}/coupons/` +
+        seeded.coupons[0].sourceDocumentId,
+    );
+    const readsBeforeRecovery = database.calls.getDocuments.length;
+    assert.deepEqual(
+      await invoke(),
+      result,
+    );
+    assert.equal(database.calls.getDocuments.length, readsBeforeRecovery);
+    fixture?.assertPrivateAndReplayed();
   });
-  const started = await startCustomerBiteSaverSearchHandler(
-    startRequest({
-      clientRequestId: "device-discovery-search-0001",
-      searchText: "",
-    }),
-    context,
-  );
+}
+
+test("production combined-use composition permits an unauthenticated Browse guest", async () => {
+  const {database, context, response: started} = await startSession(undefined, {
+    context: {identity: guestIdentity()},
+    request: {searchText: ""},
+  });
   const session = markSessionReady(database, started);
   const seeded = addReadyRestaurant(database, session, 991, {
     offerCount: 1,
     onlyCoupons: true,
     offerOverrides: {usageRule: "Once per customer"},
   });
-  const selectedOfferId = opaqueOfferId(seeded, seeded.coupons[0]);
-  const delivered = await deliveredRedemptionRequest(
-    started,
-    seeded.publicRestaurantId,
-    selectedOfferId,
+  const history = new SimulatedLocalGuestHistory([], 27);
+  const offerCheck = await getCustomerBiteSaverOfferPageHandler(
+    offerPageRequest(started, seeded.publicRestaurantId, {
+      guestStateRevision: history.revision,
+    }),
     context,
-    {
-      clientRequestId: "device-discovery-delivery-0001",
-      redemptionRequestId: "device-discovery-use-0001",
-    },
   );
-  const request = {
+  const page = await continueCustomerBiteSaverGuestOfferCheckHandler(
+    history.answer(started, offerCheck), context,
+  );
+  assert.equal(page.outcome, "complete");
+  const offer = page.result.offers[0];
+  const combined = {
     schemaVersion: customerBiteSaverSearchSchemaVersion,
-    logicalRequestId: "device-discovery-use-0001",
+    logicalRequestId: "production-guest-use-0001",
     restaurantId: seeded.publicRestaurantId,
-    offerId: selectedOfferId,
+    offerId: offer.offerId,
     timeZone: "America/New_York",
     utcOffsetMinutes: -240,
     currentCoordinates: null,
     origin: {
       kind: "discovery",
-      clientInstanceId: delivered.clientInstanceId,
-      sessionId: delivered.sessionId,
-      capability: delivered.capability,
-      criteriaFingerprint: delivered.criteriaFingerprint,
-      offerOccurrence: delivered.offerOccurrence,
-      guestStateRevision: null,
+      clientInstanceId: "client-instance-0001",
+      sessionId: started.sessionId,
+      capability: started.capability,
+      criteriaFingerprint: started.criteriaFingerprint,
+      offerOccurrence: offer.offerOccurrence,
+      guestStateRevision: history.revision,
     },
   };
-  const result = await handleCustomerBiteSaverDeviceBoundUse(request, context);
-  assert.equal(result.status, "started");
-  assert.equal(result.restaurantId, seeded.publicRestaurantId);
-  assert.equal(result.offerId, selectedOfferId);
-  assert.equal(result.timerStartedAtMillis, nowMs);
-  assert.equal(
-    [...database.documents.values()].filter((document) =>
-      document.role === "deviceCouponUsage").length,
-    1,
-  );
-  assert.equal(
-    [...database.documents.values()].filter((document) =>
-      document.role === "deviceUseOutcomeReceipt").length,
-    1,
-  );
-  assert.notEqual(
-    database.stored(
-      `customer_redemptions/${uid}/coupon_redemptions/${selectedOfferId}`,
-    ),
-    null,
-  );
-
-  database.documents.delete(seeded.resultPath);
-  database.documents.delete(
-    `restaurant_accounts/${seeded.accountId}/coupons/` +
-      seeded.coupons[0].sourceDocumentId,
-  );
-  const readsBeforeRecovery = database.calls.getDocuments.length;
-  assert.deepEqual(
-    await handleCustomerBiteSaverDeviceBoundUse(request, context),
-    result,
-  );
-  assert.equal(database.calls.getDocuments.length, readsBeforeRecovery);
+  const fixture = await productionDeviceUseFixture(combined, context);
+  const first = await fixture.use();
+  assert.equal(first.status, "started");
+  assert.deepEqual(await fixture.use(), first);
+  assert.equal([...database.documents.keys()].some((path) =>
+    path.startsWith("customer_redemptions/")), false);
+  assert.equal([...database.documents.values()].filter((data) =>
+    data.role === "deviceCouponUsage").length, 1);
+  assert.deepEqual(Object.keys(first).sort(), [
+    "schemaVersion", "restaurantId", "offerId", "status", "reason",
+    "redemptionId", "timerStartedAtMillis", "timerExpiresAtMillis",
+    "evaluatedAtMillis",
+  ].sort());
+  fixture.assertPrivateAndReplayed();
 });
 
 test("committed start recovery rechecks the absolute deadline after reads", async () => {

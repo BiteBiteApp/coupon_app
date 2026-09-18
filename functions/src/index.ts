@@ -24,6 +24,16 @@ import {
 } from "firebase-functions/v2/https";
 import { setGlobalOptions } from "firebase-functions/v2/options";
 import { onSchedule } from "firebase-functions/v2/scheduler";
+import {
+  createIssueCustomerBiteSaverDeviceUseChallengeHandler,
+  type CustomerBiteSaverFutureCallableActor,
+} from "./customer_bitesaver_device_usage_callable.js";
+import {
+  customerBiteSaverDeviceRootSecretNameV1,
+} from "./customer_bitesaver_device_identity.js";
+import {
+  createProductionCustomerBiteSaverCouponUseHandler,
+} from "./customer_bitesaver_device_runtime.js";
 import Stripe from "stripe";
 import {
   awardApprovedDishProposalContributionPointsCallableHandler,
@@ -328,6 +338,9 @@ const biteSaverCustomerDiscoveryKey = defineSecret(
 );
 const biteSaverCustomerIdentityKeyV1 = defineSecret(
   customerBiteSaverIdentitySecretNameV1,
+);
+const biteSaverDeviceRootKeyV1 = defineSecret(
+  customerBiteSaverDeviceRootSecretNameV1,
 );
 const couponAdminPagingDatabase = createFirestoreCouponAdminPagingDatabase(db);
 const couponAdminRadiusStore = createFirestoreCouponAdminRadiusStore(db);
@@ -5776,6 +5789,67 @@ export const startCustomerBiteSaverOfferRedemption = onCall(
       "discoveryAndIdentityV1",
     );
   },
+);
+
+// Source-only checkpoint: these boundaries await targeted deployment and
+// physical qualification. Browse/Saved clients remain on their existing paths.
+async function invokeCustomerBiteSaverDeviceCallable<Response>(
+  request: CallableRequest<unknown>,
+  createHandler: () => (
+    data: unknown,
+    actor: CustomerBiteSaverFutureCallableActor,
+  ) => Promise<Response>,
+): Promise<Response> {
+  try {
+    const identity = customerBiteSaverCallableIdentity(request);
+    return await createHandler()(request.data, Object.freeze({
+      uid: identity.authUid,
+      isAnonymous: identity.authIsAnonymous,
+    }));
+  } catch (error) {
+    if (error instanceof CustomerBiteSaverContractError) {
+      throw new HttpsError(error.code, error.message);
+    }
+    // Never log proofs, identifiers, credentials, or raw provider failures.
+    throw new HttpsError(
+      "internal",
+      "BiteSaver device verification is temporarily unavailable.",
+    );
+  }
+}
+
+export const issueCustomerBiteSaverDeviceUseChallenge = onCall(
+  {timeoutSeconds: customerBiteSaverCallableTimeoutSeconds},
+  async (request) => invokeCustomerBiteSaverDeviceCallable(
+    request,
+    () => createIssueCustomerBiteSaverDeviceUseChallengeHandler({
+      database: customerBiteSaverSearchDatabase,
+    }),
+  ),
+);
+
+export const useCustomerBiteSaverCoupon = onCall(
+  {
+    secrets: [
+      biteSaverCustomerDiscoveryKey,
+      biteSaverCustomerIdentityKeyV1,
+      biteSaverDeviceRootKeyV1,
+    ],
+    timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
+  },
+  async (request) => invokeCustomerBiteSaverDeviceCallable(
+    request,
+    () => createProductionCustomerBiteSaverCouponUseHandler({
+      database: customerBiteSaverSearchDatabase,
+      discoveryKey: decodeCustomerBiteSaverSecret(
+        biteSaverCustomerDiscoveryKey.value(),
+      ),
+      identityKeyV1: decodeCustomerBiteSaverIdentityKeyV1(
+        biteSaverCustomerIdentityKeyV1.value(),
+      ),
+      encodedRootKey: biteSaverDeviceRootKeyV1.value(),
+    }),
+  ),
 );
 
 export const processPrivateCustomerBiteSaverSearchJob = onDocumentCreated(

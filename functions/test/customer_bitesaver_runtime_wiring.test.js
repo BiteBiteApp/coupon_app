@@ -3,6 +3,9 @@
 const assert = require("node:assert/strict");
 const {execFileSync} = require("node:child_process");
 const Module = require("node:module");
+const protectedMetadata = require(
+  "./fixtures/customer_bitesaver_pre_device_runtime_metadata.json",
+);
 const path = require("node:path");
 const test = require("node:test");
 
@@ -34,6 +37,16 @@ const callableHandlers = Object.freeze({
   validateCustomerBiteSaverOfferRedemptionStart:
     "validateCustomerBiteSaverOfferRedemptionStartHandler",
 });
+const deviceCallableFactories = Object.freeze({
+  issueCustomerBiteSaverDeviceUseChallenge:
+    "createIssueCustomerBiteSaverDeviceUseChallengeHandler",
+  useCustomerBiteSaverCoupon:
+    "createProductionCustomerBiteSaverCouponUseHandler",
+});
+const allCallableExports = [
+  ...Object.keys(callableHandlers),
+  ...Object.keys(deviceCallableFactories),
+];
 const discoveryOnlyCallableExports = new Set([
   "startCustomerBiteSaverSearch",
   "getCustomerBiteSaverSearchStatus",
@@ -42,24 +55,25 @@ const workerExport = "processPrivateCustomerBiteSaverSearchJob";
 const workerHandler = "processCustomerBiteSaverSearchJob";
 const discoverySecretName = "BITESAVER_CUSTOMER_DISCOVERY_KEY";
 const identitySecretNameV1 = "BITESAVER_CUSTOMER_IDENTITY_KEY_V1";
+const deviceRootSecretNameV1 = "BITESAVER_DEVICE_ROOT_KEY_V1";
 
 function expectedSecrets(exportName) {
+  if (exportName === "issueCustomerBiteSaverDeviceUseChallenge") return [];
+  if (exportName === "useCustomerBiteSaverCoupon") {
+    return [discoverySecretName, identitySecretNameV1, deviceRootSecretNameV1];
+  }
   return discoveryOnlyCallableExports.has(exportName)
     ? [discoverySecretName]
     : [discoverySecretName, identitySecretNameV1];
 }
 
-function loadActualCompiledCustomerBiteSaverMetadata() {
+function loadActualCompiledMetadata() {
   const indexPath = path.resolve(__dirname, "../lib/index.js");
   const script = `
     const index = require(${JSON.stringify(indexPath)});
     const metadata = Object.fromEntries(
       Object.entries(index)
-        .filter(([name, exported]) =>
-          name.includes("CustomerBiteSaver") &&
-          typeof exported === "function" &&
-          exported.__endpoint)
-        .map(([name, exported]) => [name, exported.__endpoint]),
+        .map(([name, exported]) => [name, exported.__endpoint ?? null]),
     );
     process.stdout.write(JSON.stringify(metadata));
   `;
@@ -74,6 +88,10 @@ function loadCompiledIndexWithCustomerBiteSaverHarness() {
     adapterInputs: [],
     callableCalls: [],
     callableError: null,
+    deviceCalls: [],
+    deviceFactoryInputs: [],
+    deviceFactoryError: null,
+    deviceRootSecretValueV1: Buffer.alloc(32, 0x7c).toString("base64url"),
     discoverySecretValue: Buffer.alloc(32, 0x5a).toString("base64url"),
     globalOptions: null,
     identitySecretValueV1: Buffer.alloc(32, 0x6b).toString("base64url"),
@@ -181,6 +199,15 @@ function loadCompiledIndexWithCustomerBiteSaverHarness() {
       "validateCustomerBiteSaverSavedOfferRedemptionStartHandler",
     ].map((name) => [name, mockedSession[name]]),
   );
+  const deviceFactory = (name) => (dependencies) => {
+    state.deviceFactoryInputs.push({name, dependencies});
+    if (state.deviceFactoryError !== null) throw state.deviceFactoryError;
+    return async (data, actor) => {
+      state.deviceCalls.push({name, data, actor});
+      if (state.callableError !== null) throw state.callableError;
+      return Object.freeze({handler: name});
+    };
+  };
   const mockedWorker = async (jobId, context) => {
     state.workerCalls.push({name: workerHandler, jobId, context});
     if (state.workerError !== null) {
@@ -218,6 +245,9 @@ function loadCompiledIndexWithCustomerBiteSaverHarness() {
               if (name === identitySecretNameV1) {
                 return state.identitySecretValueV1;
               }
+              if (name === deviceRootSecretNameV1) {
+                return state.deviceRootSecretValueV1;
+              }
               return "unused";
             },
           }),
@@ -239,6 +269,18 @@ function loadCompiledIndexWithCustomerBiteSaverHarness() {
         return {setGlobalOptions: (options) => { state.globalOptions = options; }};
       case "firebase-functions/v2/scheduler":
         return {onSchedule: scheduledTrigger};
+      case "./customer_bitesaver_device_usage_callable.js":
+        return {
+          createIssueCustomerBiteSaverDeviceUseChallengeHandler: deviceFactory(
+            deviceCallableFactories.issueCustomerBiteSaverDeviceUseChallenge,
+          ),
+        };
+      case "./customer_bitesaver_device_runtime.js":
+        return {
+          createProductionCustomerBiteSaverCouponUseHandler: deviceFactory(
+            deviceCallableFactories.useCustomerBiteSaverCoupon,
+          ),
+        };
       case "./customer_bitesaver_search_session.js":
         return mockedSession;
       case "./customer_bitesaver_saved.js":
@@ -275,20 +317,20 @@ function loadCompiledIndexWithCustomerBiteSaverHarness() {
 
 test("customer BiteSaver exports have exact v2 runtime metadata", () => {
   const runtime = loadCompiledIndexWithCustomerBiteSaverHarness();
-  const exactExports = [...Object.keys(callableHandlers), workerExport].sort();
+  const exactExports = [...allCallableExports, workerExport].sort();
   assert.deepEqual(
     Object.keys(runtime.exports)
       .filter((name) => name.includes("CustomerBiteSaver"))
       .sort(),
     exactExports,
   );
-  for (const name of Object.keys(callableHandlers)) {
+  for (const name of allCallableExports) {
     const endpoint = runtime.exports[name].__endpoint;
     assert.equal(endpoint.platform, "gcfv2", name);
     assert.deepEqual(endpoint.region, ["us-central1"], name);
     assert.ok(endpoint.callableTrigger, name);
     assert.deepEqual(
-      endpoint.secretEnvironmentVariables,
+      endpoint.secretEnvironmentVariables ?? [],
       expectedSecrets(name),
       name,
     );
@@ -317,18 +359,18 @@ test("customer BiteSaver exports have exact v2 runtime metadata", () => {
 });
 
 test("actual Firebase metadata retains exact secrets and retry policy", () => {
-  const metadata = loadActualCompiledCustomerBiteSaverMetadata();
+  const metadata = loadActualCompiledMetadata();
   assert.deepEqual(
-    Object.keys(metadata).sort(),
-    [...Object.keys(callableHandlers), workerExport].sort(),
+    Object.keys(metadata).filter((name) => name.includes("CustomerBiteSaver")).sort(),
+    [...allCallableExports, workerExport].sort(),
   );
-  for (const name of Object.keys(callableHandlers)) {
+  for (const name of allCallableExports) {
     const endpoint = metadata[name];
     assert.equal(endpoint.platform, "gcfv2", name);
     assert.deepEqual(endpoint.region, ["us-central1"], name);
     assert.ok(endpoint.callableTrigger, name);
     assert.deepEqual(
-      endpoint.secretEnvironmentVariables.map((secret) => secret.key),
+      (endpoint.secretEnvironmentVariables ?? []).map((secret) => secret.key),
       expectedSecrets(name),
       name,
     );
@@ -347,6 +389,144 @@ test("actual Firebase metadata retains exact secrets and retry policy", () => {
     worker.secretEnvironmentVariables.map((secret) => secret.key),
     [discoverySecretName, identitySecretNameV1],
   );
+});
+
+test("only two device callables extend the complete protected export inventory", () => {
+  const metadata = loadActualCompiledMetadata();
+  // Captured from real Firebase metadata at the reviewed starting HEAD:
+  // 6c3175298649da1aeba825ea0cdd41297b8fd638. This includes Stripe, payment,
+  // Admin, search, background, and scheduled runtime configuration.
+  assert.deepEqual(
+    Object.keys(metadata).sort(),
+    [...Object.keys(protectedMetadata), ...Object.keys(deviceCallableFactories)]
+      .sort(),
+  );
+  for (const [name, endpoint] of Object.entries(protectedMetadata)) {
+    assert.deepEqual(metadata[name], endpoint, name);
+  }
+  assert.deepEqual(
+    Object.entries(metadata).filter(([, endpoint]) =>
+      endpoint?.secretEnvironmentVariables?.some((secret) =>
+        secret.key === deviceRootSecretNameV1))
+      .map(([name]) => name),
+    ["useCustomerBiteSaverCoupon"],
+  );
+});
+
+test("device callable factories use trusted Firebase actors and isolated secrets", async () => {
+  const runtime = loadCompiledIndexWithCustomerBiteSaverHarness();
+  assert.deepEqual(runtime.state.secretResolutions, []);
+  assert.deepEqual(runtime.state.deviceFactoryInputs, []);
+  const authStates = [
+    {auth: undefined, actor: {uid: null, isAnonymous: false}},
+    {auth: null, actor: {uid: null, isAnonymous: false}},
+    {
+      auth: {
+        uid: "anonymous-firebase-user",
+        token: {firebase: {sign_in_provider: "anonymous"}},
+      },
+      actor: {uid: "anonymous-firebase-user", isAnonymous: true},
+    },
+    {
+      auth: {
+        uid: "trusted-firebase-user",
+        token: {firebase: {sign_in_provider: "password"}},
+      },
+      actor: {uid: "trusted-firebase-user", isAnonymous: false},
+    },
+  ];
+  for (const [name, factoryName] of Object.entries(deviceCallableFactories)) {
+    for (const {auth, actor} of authStates) {
+      const data = {
+        uid: "untrusted-client-uid",
+        identity: {authUid: "untrusted-client-uid", authIsAnonymous: false},
+        deviceRef: "untrusted-device-ref",
+        requestFingerprint: "untrusted-fingerprint",
+      };
+      const secretResolutionOffset = runtime.state.secretResolutions.length;
+      assert.deepEqual(await runtime.exports[name]({data, auth}), {
+        handler: factoryName,
+      });
+      const call = runtime.state.deviceCalls.at(-1);
+      assert.equal(call.data, data);
+      assert.equal(call.name, factoryName);
+      assert.deepEqual(call.actor, actor);
+      const {dependencies} = runtime.state.deviceFactoryInputs.at(-1);
+      assert.equal(dependencies.database, runtime.customerDatabase);
+      if (name === "issueCustomerBiteSaverDeviceUseChallenge") {
+        assert.deepEqual(Object.keys(dependencies), ["database"]);
+      } else {
+        assert.deepEqual(Object.keys(dependencies).sort(), [
+          "database", "discoveryKey", "encodedRootKey", "identityKeyV1",
+        ]);
+        assert.equal(
+          Buffer.from(dependencies.discoveryKey).toString("base64url"),
+          runtime.state.discoverySecretValue,
+        );
+        assert.equal(
+          Buffer.from(dependencies.identityKeyV1).toString("base64url"),
+          runtime.state.identitySecretValueV1,
+        );
+        assert.equal(
+          dependencies.encodedRootKey,
+          runtime.state.deviceRootSecretValueV1,
+        );
+      }
+      assert.deepEqual(
+        runtime.state.secretResolutions.slice(secretResolutionOffset),
+        expectedSecrets(name),
+      );
+    }
+  }
+});
+
+test("device callable wrappers sanitize construction and invocation failures", async () => {
+  const runtime = loadCompiledIndexWithCustomerBiteSaverHarness();
+  const canary = "private-provider-proof-and-secret-canary";
+  for (const name of Object.keys(deviceCallableFactories)) {
+    const callable = runtime.exports[name];
+    for (const errorSource of ["deviceFactoryError", "callableError"]) {
+      runtime.state[errorSource] = new Error(canary);
+      await assert.rejects(callable({data: {}}), (error) => {
+        assert.equal(error.code, "internal");
+        assert.equal(error.message,
+          "BiteSaver device verification is temporarily unavailable.");
+        assert.equal(JSON.stringify(error).includes(canary), false);
+        assert.equal(error.details, undefined);
+        return true;
+      });
+      runtime.state[errorSource] = new CustomerBiteSaverContractError(
+        "permission-denied", "BiteSaver device proof was rejected.",
+      );
+      await assert.rejects(callable({data: {}}), (error) => {
+        assert.equal(error.code, "permission-denied");
+        assert.equal(error.message, "BiteSaver device proof was rejected.");
+        assert.equal(error.details, undefined);
+        return true;
+      });
+      runtime.state[errorSource] = null;
+    }
+  }
+  assert.equal(JSON.stringify(runtime.state.logs).includes(canary), false);
+});
+
+test("challenge remains available without device, discovery, or identity secrets", async () => {
+  const runtime = loadCompiledIndexWithCustomerBiteSaverHarness();
+  runtime.state.discoverySecretValue = "";
+  runtime.state.identitySecretValueV1 = "";
+  runtime.state.deviceRootSecretValueV1 = "";
+  assert.deepEqual(
+    await runtime.exports.issueCustomerBiteSaverDeviceUseChallenge({data: {}}),
+    {handler: deviceCallableFactories.issueCustomerBiteSaverDeviceUseChallenge},
+  );
+  assert.deepEqual(runtime.state.secretResolutions, []);
+  assert.equal(runtime.state.deviceFactoryInputs.length, 1);
+  await assert.rejects(
+    runtime.exports.useCustomerBiteSaverCoupon({data: {}}),
+    (error) => error.code === "failed-precondition" &&
+      error.message === "BiteSaver discovery is not configured.",
+  );
+  assert.equal(runtime.state.deviceFactoryInputs.length, 1);
 });
 
 test("callables route exact identity and only their required decoded keys", async () => {
