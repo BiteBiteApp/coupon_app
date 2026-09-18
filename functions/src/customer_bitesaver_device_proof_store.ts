@@ -1,4 +1,6 @@
 import { randomBytes } from "node:crypto";
+import {consumeCustomerBiteSaverDeviceChallengeAdmission} from
+  "./customer_bitesaver_device_challenge_admission.js";
 import {
   customerBiteSaverDeviceChallengeCleanupDelayMilliseconds,
   customerBiteSaverDeviceChallengeLifetimeMilliseconds,
@@ -475,12 +477,12 @@ export async function issueCustomerBiteSaverDeviceUseChallenge(value: {
   platform: CustomerBiteSaverDevicePlatform;
   request: CustomerBiteSaverCombinedUseRequest;
   authenticatedUserId: string | null;
-  nowMillis: number;
+  admissionHandle: string;
+  permit: string;
+  now: () => number;
   randomSource?: (size: number) => Uint8Array;
 }): Promise<CustomerBiteSaverDeviceUseChallenge> {
-  if (!Number.isSafeInteger(value.nowMillis) || value.nowMillis < 0 ||
-    (value.platform !== "android" && value.platform !== "ios")
-  ) {
+  if (value.platform !== "android" && value.platform !== "ios") {
     return invalidState();
   }
   const entropy = (value.randomSource ?? randomBytes)(32);
@@ -489,51 +491,58 @@ export async function issueCustomerBiteSaverDeviceUseChallenge(value: {
   }
   const challengeBytes = Buffer.from(entropy).toString("base64url");
   const challengeId = `bsdc_${challengeBytes}`;
-  const expiresAtMillis = value.nowMillis +
-    customerBiteSaverDeviceChallengeLifetimeMilliseconds;
-  const challenge = parseCustomerBiteSaverDeviceUseChallenge({
-    schemaVersion: customerBiteSaverDeviceProofSchemaVersion,
-    protocolVersion: customerBiteSaverDeviceProofProtocolVersion,
-    challengeId,
-    platform: value.platform,
-    purpose: customerBiteSaverDeviceUsePurpose,
-    requestFingerprint:
-      customerBiteSaverCombinedUseRequestFingerprint(value.request),
-    authenticatedUserId: value.authenticatedUserId,
-    origin: value.request.origin.kind,
-    logicalRequestId: value.request.logicalRequestId,
-    issuedAtMillis: value.nowMillis,
-    validFromMillis: value.nowMillis,
-    expiresAtMillis,
-    challengeBytes,
-  });
-  const document: CustomerBiteSaverIssuedChallengeDocument = Object.freeze({
-    protocolVersion: customerBiteSaverDeviceProofProtocolVersion,
-    schemaVersion: customerBiteSaverDeviceProofSchemaVersion,
-    role: "deviceUseChallenge",
-    state: "issued",
-    challengeId,
-    platform: value.platform,
-    purpose: customerBiteSaverDeviceUsePurpose,
-    requestFingerprint: challenge.requestFingerprint,
-    authenticatedUserId: value.authenticatedUserId,
-    origin: challenge.origin,
-    logicalRequestId: challenge.logicalRequestId,
-    challengeBytes,
-    issuedAt: new Date(value.nowMillis),
-    validFrom: new Date(value.nowMillis),
-    expiresAt: new Date(expiresAtMillis),
-    deleteAfter: new Date(
-      expiresAtMillis + customerBiteSaverDeviceChallengeCleanupDelayMilliseconds,
-    ),
-  });
-  await value.database.runTransaction(async (transaction) => {
+  return value.database.runTransaction(async (transaction) => {
     if (await transaction.getDocument(challengePath(challengeId)) !== null) {
       return invalidState();
     }
+    const admission = await consumeCustomerBiteSaverDeviceChallengeAdmission({
+      transaction, admissionHandle: value.admissionHandle, permit: value.permit,
+      request: value.request, platform: value.platform,
+      authenticatedUserId: value.authenticatedUserId, now: value.now,
+    });
+    const nowMillis = admission.consumedAtMillis;
+    const expiresAtMillis = nowMillis +
+      customerBiteSaverDeviceChallengeLifetimeMilliseconds;
+    const challenge = parseCustomerBiteSaverDeviceUseChallenge({
+      schemaVersion: customerBiteSaverDeviceProofSchemaVersion,
+      protocolVersion: customerBiteSaverDeviceProofProtocolVersion,
+      challengeId,
+      platform: value.platform,
+      purpose: customerBiteSaverDeviceUsePurpose,
+      requestFingerprint:
+        customerBiteSaverCombinedUseRequestFingerprint(value.request),
+      authenticatedUserId: value.authenticatedUserId,
+      origin: value.request.origin.kind,
+      logicalRequestId: value.request.logicalRequestId,
+      issuedAtMillis: nowMillis,
+      validFromMillis: nowMillis,
+      expiresAtMillis,
+      challengeBytes,
+    });
+    const document: CustomerBiteSaverIssuedChallengeDocument = Object.freeze({
+      protocolVersion: customerBiteSaverDeviceProofProtocolVersion,
+      schemaVersion: customerBiteSaverDeviceProofSchemaVersion,
+      role: "deviceUseChallenge",
+      state: "issued",
+      challengeId,
+      platform: value.platform,
+      purpose: customerBiteSaverDeviceUsePurpose,
+      requestFingerprint: challenge.requestFingerprint,
+      authenticatedUserId: value.authenticatedUserId,
+      origin: challenge.origin,
+      logicalRequestId: challenge.logicalRequestId,
+      challengeBytes,
+      issuedAt: new Date(nowMillis),
+      validFrom: new Date(nowMillis),
+      expiresAt: new Date(expiresAtMillis),
+      deleteAfter: new Date(
+        expiresAtMillis + customerBiteSaverDeviceChallengeCleanupDelayMilliseconds,
+      ),
+    });
+    transaction.setDocument(admission.path, admission.document);
     transaction.createDocument(challengePath(challengeId), document);
+    return challenge;
   });
-  return challenge;
 }
 
 export async function loadCustomerBiteSaverDeviceChallenge(value: {

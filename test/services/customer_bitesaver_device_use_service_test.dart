@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:cloud_functions/cloud_functions.dart';
 import 'package:coupon_app/models/customer_bitesaver_device_usage.dart';
 import 'package:coupon_app/models/customer_bitesaver_favorite.dart';
 import 'package:coupon_app/services/customer_bitesaver_device_proof_service.dart';
@@ -74,6 +75,14 @@ Map<String, Object?> challenge({
   'expiresAtMillis': expiresAtMillis ?? issuedAtMillis + 120000,
   'challengeBytes': _challengeBytes,
 };
+
+Map<String, Object?> admission({String permit = _challengeBytes}) =>
+    <String, Object?>{
+      'schemaVersion': 1,
+      'admissionHandle': 'bsda_${'a' * 43}',
+      'permit': permit,
+      'expiresAtMillis': 121000,
+    };
 
 Map<String, Object?> result(CustomerBiteSaverCombinedUseRequest request) =>
     <String, Object?>{
@@ -161,6 +170,7 @@ void main() {
           return _ManualTimer(callback);
         },
         transport: (name, payload) async {
+          if (payload['operation'] == 'admitChallenge') return admission();
           if (name ==
               CustomerBiteSaverDeviceProofContract.issueChallengeCallableName) {
             elapsed += const Duration(milliseconds: 250);
@@ -212,6 +222,7 @@ void main() {
           proofService: proofService(),
           elapsedClock: () => elapsed,
           transport: (name, payload) async {
+            if (payload['operation'] == 'admitChallenge') return admission();
             if (name ==
                 CustomerBiteSaverDeviceProofContract
                     .issueChallengeCallableName) {
@@ -275,6 +286,7 @@ void main() {
           proofService: proofService(),
           elapsedClock: () => elapsed,
           transport: (name, payload) async {
+            if (payload['operation'] == 'admitChallenge') return admission();
             if (name ==
                 CustomerBiteSaverDeviceProofContract
                     .issueChallengeCallableName) {
@@ -325,6 +337,7 @@ void main() {
         proofService: proofService(),
         elapsedClock: () => elapsed,
         transport: (name, payload) async {
+          if (payload['operation'] == 'admitChallenge') return admission();
           expect(
             name,
             CustomerBiteSaverDeviceProofContract.issueChallengeCallableName,
@@ -362,6 +375,7 @@ void main() {
           return _ManualTimer(callback);
         },
         transport: (name, payload) async {
+          if (payload['operation'] == 'admitChallenge') return admission();
           if (name ==
               CustomerBiteSaverDeviceProofContract.issueChallengeCallableName) {
             return challenge();
@@ -400,6 +414,7 @@ void main() {
           return timer;
         },
         transport: (name, payload) async {
+          if (payload['operation'] == 'admitChallenge') return admission();
           if (name ==
               CustomerBiteSaverDeviceProofContract.issueChallengeCallableName) {
             issues += 1;
@@ -448,6 +463,7 @@ void main() {
           return elapsed;
         },
         transport: (name, payload) async {
+          if (payload['operation'] == 'admitChallenge') return admission();
           if (name ==
               CustomerBiteSaverDeviceProofContract.issueChallengeCallableName) {
             return challenge();
@@ -497,6 +513,7 @@ void main() {
       proofService: proofService(),
       elapsedClock: () => Duration(milliseconds: nowMillis),
       transport: (name, payload) async {
+        if (payload['operation'] == 'admitChallenge') return admission();
         if (name ==
             CustomerBiteSaverDeviceProofContract.issueChallengeCallableName) {
           issueCalls += 1;
@@ -553,6 +570,7 @@ void main() {
         proofService: proofService(),
         elapsedClock: () => const Duration(milliseconds: 2000),
         transport: (name, payload) async {
+          if (payload['operation'] == 'admitChallenge') return admission();
           if (name ==
               CustomerBiteSaverDeviceProofContract.issueChallengeCallableName) {
             issueCalls += 1;
@@ -589,6 +607,7 @@ void main() {
       proofService: proofService(),
       elapsedClock: () => const Duration(milliseconds: 2000),
       transport: (name, payload) async {
+        if (payload['operation'] == 'admitChallenge') return admission();
         if (name ==
             CustomerBiteSaverDeviceProofContract.issueChallengeCallableName) {
           return challenge();
@@ -635,6 +654,7 @@ void main() {
       proofService: proofService(),
       elapsedClock: () => const Duration(milliseconds: 2000),
       transport: (name, payload) async {
+        if (payload['operation'] == 'admitChallenge') return admission();
         transportCalls += 1;
         fail('Unsupported API levels must not issue a server challenge.');
       },
@@ -698,8 +718,10 @@ void main() {
       proofService: proofService(),
       elapsedClock: () => const Duration(milliseconds: 2000),
       transport: (name, payload) async =>
-          name ==
-              CustomerBiteSaverDeviceProofContract.issueChallengeCallableName
+          payload['operation'] == 'admitChallenge'
+          ? admission()
+          : name ==
+                CustomerBiteSaverDeviceProofContract.issueChallengeCallableName
           ? challenge()
           : result(target),
     );
@@ -728,6 +750,7 @@ void main() {
       proofService: proofService(),
       elapsedClock: () => Duration(milliseconds: nowMillis),
       transport: (name, payload) async {
+        if (payload['operation'] == 'admitChallenge') return admission();
         if (name ==
             CustomerBiteSaverDeviceProofContract.issueChallengeCallableName) {
           issueCalls += 1;
@@ -778,6 +801,7 @@ void main() {
           return timer;
         },
         transport: (name, payload) async {
+          if (payload['operation'] == 'admitChallenge') return admission();
           if (name ==
               CustomerBiteSaverDeviceProofContract.issueChallengeCallableName) {
             issueCalls += 1;
@@ -827,6 +851,7 @@ void main() {
         return timer;
       },
       transport: (name, payload) async {
+        if (payload['operation'] == 'admitChallenge') return admission();
         if (name ==
             CustomerBiteSaverDeviceProofContract.issueChallengeCallableName) {
           issueCalls += 1;
@@ -885,6 +910,7 @@ void main() {
         return timer;
       },
       transport: (name, payload) async {
+        if (payload['operation'] == 'admitChallenge') return admission();
         if (name ==
             CustomerBiteSaverDeviceProofContract.issueChallengeCallableName) {
           issueCalls += 1;
@@ -972,6 +998,7 @@ void main() {
         proofService: proofService(),
         elapsedClock: () => Duration(milliseconds: nowMillis),
         transport: (name, payload) async {
+          if (payload['operation'] == 'admitChallenge') return admission();
           if (name ==
               CustomerBiteSaverDeviceProofContract.issueChallengeCallableName) {
             return challenge(expiresAtMillis: 3000);
@@ -1019,6 +1046,9 @@ void main() {
         proofService: proofService(),
         elapsedClock: () => const Duration(milliseconds: 2000),
         transport: (name, payload) {
+          if (payload['operation'] == 'admitChallenge') {
+            return Future<Object?>.value(admission());
+          }
           if (name ==
               CustomerBiteSaverDeviceProofContract.issueChallengeCallableName) {
             return challengeCompleter.future;
@@ -1047,6 +1077,312 @@ void main() {
       expect(nativeCalls, 0);
     },
   );
+
+  test(
+    'admission precedes proof and exact use retry skips both issue calls',
+    () async {
+      final events = <String>[];
+      final requests = <Map<String, Object?>>[];
+      installAvailableAndroidBridge(onCall: (call) => events.add(call.method));
+      final target = request();
+      var uses = 0;
+      var elapsed = Duration.zero;
+      Duration? retention;
+      final service = CustomerBiteSaverDeviceUseService(
+        proofService: proofService(),
+        elapsedClock: () => elapsed,
+        expiryTimerFactory: (duration, callback) {
+          retention = duration;
+          return _ManualTimer(callback);
+        },
+        transport: (name, payload) async {
+          requests.add(payload);
+          if (payload['operation'] == 'admitChallenge') {
+            expect(
+              name,
+              CustomerBiteSaverDeviceProofContract.useCouponCallableName,
+            );
+            expect(payload, <String, Object?>{
+              'schemaVersion': 1,
+              'operation': 'admitChallenge',
+              'platform': 'android',
+              'request': target.toJson(),
+            });
+            events.add('admit');
+            elapsed += const Duration(seconds: 30);
+            return admission();
+          }
+          if (name ==
+              CustomerBiteSaverDeviceProofContract.issueChallengeCallableName) {
+            expect(payload, <String, Object?>{
+              'schemaVersion': 1,
+              'platform': 'android',
+              'request': target.toJson(),
+              'admissionHandle': admission()['admissionHandle'],
+              'permit': _challengeBytes,
+            });
+            events.add('issue');
+            elapsed += const Duration(milliseconds: 250);
+            return challenge();
+          }
+          events.add('use');
+          if (++uses == 1) {
+            throw const CustomerBiteSaverDeviceUseTransportException(
+              code: 'unavailable',
+              ambiguous: true,
+            );
+          }
+          return result(target);
+        },
+      );
+      addTearDown(service.dispose);
+      await expectLater(
+        service.useCoupon(request: target, authenticatedUserId: null),
+        throwsA(isA<CustomerBiteSaverDeviceUseException>()),
+      );
+      await service.useCoupon(request: target, authenticatedUserId: null);
+      expect(events, [
+        'getCapability',
+        'admit',
+        'issue',
+        'createUseProof',
+        'use',
+        'use',
+      ]);
+      expect(requests[2], requests[3]);
+      expect(retention, const Duration(milliseconds: 119749));
+    },
+  );
+
+  for (final lostStage in ['admission', 'challenge']) {
+    test(
+      'lost $lostStage response obtains a new reservation on explicit retry',
+      () async {
+        var admissions = 0;
+        var issues = 0;
+        var proofs = 0;
+        final usedPermits = <Object?>[];
+        installAvailableAndroidBridge(
+          onCall: (call) {
+            if (call.method == 'createUseProof') proofs++;
+          },
+        );
+        final target = request();
+        final service = CustomerBiteSaverDeviceUseService(
+          proofService: proofService(),
+          elapsedClock: () => Duration.zero,
+          transport: (name, payload) async {
+            if (payload['operation'] == 'admitChallenge') {
+              admissions++;
+              if (admissions == 1 && lostStage == 'admission') {
+                throw const CustomerBiteSaverDeviceUseTransportException(
+                  code: 'unavailable',
+                  ambiguous: true,
+                );
+              }
+              return admission(
+                permit: base64UrlEncode(
+                  List<int>.filled(32, admissions),
+                ).replaceAll('=', ''),
+              );
+            }
+            if (name ==
+                CustomerBiteSaverDeviceProofContract
+                    .issueChallengeCallableName) {
+              issues++;
+              usedPermits.add(payload['permit']);
+              if (issues == 1 && lostStage == 'challenge') {
+                throw const CustomerBiteSaverDeviceUseTransportException(
+                  code: 'deadline-exceeded',
+                  ambiguous: true,
+                );
+              }
+              return challenge();
+            }
+            return result(target);
+          },
+        );
+        addTearDown(service.dispose);
+        await expectLater(
+          service.useCoupon(request: target, authenticatedUserId: null),
+          throwsA(isA<CustomerBiteSaverDeviceUseException>()),
+        );
+        expect(admissions, 1);
+        expect(proofs, 0);
+        await service.useCoupon(request: target, authenticatedUserId: null);
+        expect(admissions, 2);
+        expect(issues, lostStage == 'challenge' ? 2 : 1);
+        expect(proofs, 1);
+        expect(usedPermits.toSet(), hasLength(usedPermits.length));
+      },
+    );
+  }
+
+  for (final cooldown in <Object?>[
+    1,
+    120000,
+    0,
+    -1,
+    120001,
+    2.5,
+    '1000',
+    null,
+  ]) {
+    test(
+      'quota cooldown $cooldown is typed and never automatically retried',
+      () async {
+        var calls = 0;
+        var proofs = 0;
+        installAvailableAndroidBridge(
+          onCall: (call) {
+            if (call.method == 'createUseProof') proofs++;
+          },
+        );
+        final service = CustomerBiteSaverDeviceUseService(
+          proofService: proofService(),
+          transport: (name, payload) async {
+            calls++;
+            expect(payload['operation'], 'admitChallenge');
+            throw CustomerBiteSaverDeviceUseTransportException.fromFirebase(
+              FirebaseFunctionsException(
+                code: 'resource-exhausted',
+                message: 'Please retry shortly.',
+                details: <String, Object?>{'retryAfterMillis': cooldown},
+              ),
+            );
+          },
+        );
+        addTearDown(service.dispose);
+        await expectLater(
+          service.useCoupon(request: request(), authenticatedUserId: null),
+          throwsA(
+            isA<CustomerBiteSaverDeviceUseException>()
+                .having(
+                  (error) => error.kind,
+                  'kind',
+                  CustomerBiteSaverDeviceUseFailureKind.temporaryCooldown,
+                )
+                .having(
+                  (error) => error.retryAfterMillis,
+                  'retryAfterMillis',
+                  cooldown is int && cooldown > 0 && cooldown <= 120000
+                      ? cooldown
+                      : null,
+                ),
+          ),
+        );
+        expect(calls, 1);
+        expect(proofs, 0);
+      },
+    );
+  }
+
+  test(
+    'malformed admission and expired permit rejection stop before proof',
+    () async {
+      installAvailableAndroidBridge();
+      for (final malformed in [true, false]) {
+        var calls = 0;
+        final service = CustomerBiteSaverDeviceUseService(
+          proofService: proofService(),
+          transport: (name, payload) async {
+            calls++;
+            if (payload['operation'] == 'admitChallenge') {
+              return malformed
+                  ? <String, Object?>{...admission(), 'permit': 'invalid'}
+                  : admission();
+            }
+            expect(
+              name,
+              CustomerBiteSaverDeviceProofContract.issueChallengeCallableName,
+            );
+            throw const CustomerBiteSaverDeviceUseTransportException(
+              code: 'permission-denied',
+              ambiguous: false,
+            );
+          },
+        );
+        addTearDown(service.dispose);
+        await expectLater(
+          service.useCoupon(request: request(), authenticatedUserId: null),
+          throwsA(
+            isA<CustomerBiteSaverDeviceUseException>().having(
+              (error) => error.kind,
+              'kind',
+              malformed
+                  ? CustomerBiteSaverDeviceUseFailureKind.invalidResponse
+                  : CustomerBiteSaverDeviceUseFailureKind.rejected,
+            ),
+          ),
+        );
+        expect(calls, malformed ? 1 : 2);
+      }
+    },
+  );
+
+  for (final invalidate
+      in <String, void Function(CustomerBiteSaverDeviceUseService)>{
+        'cancel': (service) => service.cancel(),
+        'auth': (service) => service.discardForAuthChange(),
+        'request': (service) => service.discardForRequestIdentityChange(),
+        'target': (service) => service.discardForTargetChange(),
+        'browse': (service) => service.discardForBrowseContextChange(),
+        'saved': (service) => service.discardForSavedGenerationChange(),
+        'time': (service) => service.discardForLocationOrTimeChange(),
+        'dispose': (service) => service.dispose(),
+      }.entries) {
+    for (final rejects in [false, true]) {
+      test(
+        '${invalidate.key} fences ${rejects ? 'rejected' : 'successful'} admission completion',
+        () async {
+          var calls = 0;
+          final entered = Completer<void>();
+          final pending = Completer<Object?>();
+          installAvailableAndroidBridge();
+          final service = CustomerBiteSaverDeviceUseService(
+            proofService: proofService(),
+            transport: (name, payload) {
+              calls++;
+              expect(payload['operation'], 'admitChallenge');
+              entered.complete();
+              return pending.future;
+            },
+          );
+          addTearDown(service.dispose);
+          final operation = service.useCoupon(
+            request: request(),
+            authenticatedUserId: null,
+          );
+          await entered.future;
+          final expectation = expectLater(
+            operation,
+            throwsA(
+              isA<CustomerBiteSaverDeviceUseException>().having(
+                (error) => error.kind,
+                'kind',
+                invalidate.key == 'dispose'
+                    ? CustomerBiteSaverDeviceUseFailureKind.disposed
+                    : CustomerBiteSaverDeviceUseFailureKind.stale,
+              ),
+            ),
+          );
+          invalidate.value(service);
+          if (rejects) {
+            pending.completeError(
+              const CustomerBiteSaverDeviceUseTransportException(
+                code: 'unavailable',
+                ambiguous: true,
+              ),
+            );
+          } else {
+            pending.complete(admission());
+          }
+          await expectation;
+          expect(calls, 1);
+        },
+      );
+    }
+  }
 
   test('foundation remains unwired from initialization and coordinators', () {
     for (final path in <String>[

@@ -22,44 +22,8 @@ async function productionDeviceUseFixture(request, context) {
     uid: context.identity.authUid,
     isAnonymous: context.identity.authIsAnonymous,
   };
-  const before = new Map(context.database.documents);
-  const challenge = await createIssueCustomerBiteSaverDeviceUseChallengeHandler({
-    database: context.database,
-    now: context.now,
-    randomSource: context.randomSource,
-  })({schemaVersion: 1, platform: "android", request}, actor);
-  assert.equal(context.database.documents.size, before.size + 1);
-  for (const [path, data] of before) {
-    assert.deepEqual(context.database.documents.get(path), data);
-  }
-  const {privateKey, publicKey} = generateKeyPairSync("ec", {
-    namedCurve: "prime256v1",
-  });
-  const publicKeySpki = publicKey.export({format: "der", type: "spki"});
-  const publicKeyHash = createHash("sha256").update(publicKeySpki).digest();
-  const credentialId = customerBiteSaverCredentialId("android", publicKeyHash);
-  const transcript = buildCustomerBiteSaverDeviceProofTranscript({
-    challenge,
-    proofKind: "androidEnrollment",
-    credentialId,
-    androidInstallationPublicKeySha256: publicKeyHash,
-    androidSsaid: "0123456789abcdef",
-  });
-  const proof = {
-    schemaVersion: 1,
-    kind: "androidEnrollment",
-    credentialId,
-    installationPublicKeySpki: publicKeySpki.toString("base64url"),
-    androidSsaid: "0123456789abcdef",
-    possessionSignature: sign(
-      "sha256", encodeCustomerBiteSaverDeviceProofTranscript(transcript),
-      privateKey,
-    ).toString("base64url"),
-    integrityToken: "synthetic.production-fixture.token",
-  };
-  const envelope = {
-    schemaVersion: 1, challengeId: challenge.challengeId, request, proof,
-  };
+  let transcript;
+  let proof;
   let decoderCalls = 0;
   const use = createProductionCustomerBiteSaverCouponUseHandler({
     database: context.database,
@@ -94,6 +58,56 @@ async function productionDeviceUseFixture(request, context) {
       },
     },
   });
+  const before = new Map(context.database.documents);
+  const admission = await use({
+    schemaVersion: 1, operation: "admitChallenge", platform: "android", request,
+  }, actor);
+  assert.deepEqual(Object.keys(admission).sort(), [
+    "admissionHandle", "expiresAtMillis", "permit", "schemaVersion",
+  ]);
+  assert.match(admission.admissionHandle, /^bsda_[A-Za-z0-9_-]{43}$/u);
+  assert.match(admission.permit, /^[A-Za-z0-9_-]{43}$/u);
+  const challenge = await createIssueCustomerBiteSaverDeviceUseChallengeHandler({
+    database: context.database,
+    now: context.now,
+    randomSource: context.randomSource,
+  })({
+    schemaVersion: 1, platform: "android", request,
+    admissionHandle: admission.admissionHandle, permit: admission.permit,
+  }, actor);
+  assert.equal(decoderCalls, 0, "admission and challenge issuance must stay offline");
+  for (const [path, data] of before) {
+    if (path === `private_bitesaver_device_challenges/${admission.admissionHandle}`) continue;
+    assert.deepEqual(context.database.documents.get(path), data);
+  }
+  const {privateKey, publicKey} = generateKeyPairSync("ec", {
+    namedCurve: "prime256v1",
+  });
+  const publicKeySpki = publicKey.export({format: "der", type: "spki"});
+  const publicKeyHash = createHash("sha256").update(publicKeySpki).digest();
+  const credentialId = customerBiteSaverCredentialId("android", publicKeyHash);
+  transcript = buildCustomerBiteSaverDeviceProofTranscript({
+    challenge,
+    proofKind: "androidEnrollment",
+    credentialId,
+    androidInstallationPublicKeySha256: publicKeyHash,
+    androidSsaid: "0123456789abcdef",
+  });
+  proof = {
+    schemaVersion: 1,
+    kind: "androidEnrollment",
+    credentialId,
+    installationPublicKeySpki: publicKeySpki.toString("base64url"),
+    androidSsaid: "0123456789abcdef",
+    possessionSignature: sign(
+      "sha256", encodeCustomerBiteSaverDeviceProofTranscript(transcript),
+      privateKey,
+    ).toString("base64url"),
+    integrityToken: "synthetic.production-fixture.token",
+  };
+  const envelope = {
+    schemaVersion: 1, challengeId: challenge.challengeId, request, proof,
+  };
   for (const extra of [
     {uid: "attacker"}, {deviceRef: "attacker"}, {requestFingerprint: "attacker"},
     {verified: true}, {privatePath: "attacker/path"},
@@ -105,6 +119,17 @@ async function productionDeviceUseFixture(request, context) {
   assert.equal(decoderCalls, 0);
   return {
     use: () => use(envelope, actor),
+    requestAdmission: () => use({
+      schemaVersion: 1, operation: "admitChallenge", platform: "android", request,
+    }, actor),
+    issueWithAdmission: (nextAdmission) => createIssueCustomerBiteSaverDeviceUseChallengeHandler({
+      database: context.database,
+      now: context.now,
+      randomSource: context.randomSource,
+    })({
+      schemaVersion: 1, platform: "android", request,
+      admissionHandle: nextAdmission.admissionHandle, permit: nextAdmission.permit,
+    }, actor),
     assertPrivateAndReplayed() {
       assert.equal(decoderCalls, 1, "exact replay must not decode again");
       const stored = JSON.stringify([...context.database.documents]);

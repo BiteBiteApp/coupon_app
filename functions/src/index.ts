@@ -32,6 +32,9 @@ import {
   customerBiteSaverDeviceRootSecretNameV1,
 } from "./customer_bitesaver_device_identity.js";
 import {
+  CustomerBiteSaverDeviceChallengeLimitError,
+} from "./customer_bitesaver_device_challenge_admission.js";
+import {
   createProductionCustomerBiteSaverCouponUseHandler,
 } from "./customer_bitesaver_device_runtime.js";
 import Stripe from "stripe";
@@ -5807,6 +5810,11 @@ async function invokeCustomerBiteSaverDeviceCallable<Response>(
       isAnonymous: identity.authIsAnonymous,
     }));
   } catch (error) {
+    if (error instanceof CustomerBiteSaverDeviceChallengeLimitError) {
+      throw new HttpsError(error.code, error.message, {
+        retryAfterMillis: error.retryAfterMillis,
+      });
+    }
     if (error instanceof CustomerBiteSaverContractError) {
       throw new HttpsError(error.code, error.message);
     }

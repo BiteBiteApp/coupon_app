@@ -1,8 +1,12 @@
 import {
+  parseCustomerBiteSaverAdmitDeviceChallengeRequest,
   parseCustomerBiteSaverIssueDeviceChallengeRequest,
   parseCustomerBiteSaverUseCouponWithDeviceProofRequest,
   type CustomerBiteSaverDeviceUseChallenge,
+  type CustomerBiteSaverDeviceChallengeAdmission,
 } from "./customer_bitesaver_device_proof_contract.js";
+import {reserveCustomerBiteSaverDeviceChallengeAdmission} from
+  "./customer_bitesaver_device_challenge_admission.js";
 import {
   createCustomerBiteSaverRequestDeviceEvidenceVerifier,
   type CustomerBiteSaverDeviceEvidenceVerifierDependencies,
@@ -68,7 +72,9 @@ export function createIssueCustomerBiteSaverDeviceUseChallengeHandler(
       platform: request.platform,
       request: request.request,
       authenticatedUserId,
-      nowMillis: trustedNow(),
+      admissionHandle: request.admissionHandle,
+      permit: request.permit,
+      now: trustedNow,
       ...(dependencies.randomSource === undefined ? {} : {
         randomSource: dependencies.randomSource,
       }),
@@ -81,8 +87,22 @@ export function createUseCustomerBiteSaverCouponHandler(
 ): (
   rawRequest: unknown,
   actor: CustomerBiteSaverFutureCallableActor,
-) => Promise<CustomerBiteSaverDeviceUseResult> {
+) => Promise<CustomerBiteSaverDeviceUseResult | CustomerBiteSaverDeviceChallengeAdmission> {
   return async (rawRequest, actor) => {
+    if (rawRequest !== null && typeof rawRequest === "object" &&
+      "operation" in rawRequest) {
+      const admission = parseCustomerBiteSaverAdmitDeviceChallengeRequest(
+        rawRequest, parseCustomerBiteSaverCombinedUseRequest,
+      );
+      return reserveCustomerBiteSaverDeviceChallengeAdmission({
+        request: admission.request, platform: admission.platform,
+        context: {
+          database: dependencies.database, discoveryKey: dependencies.discoveryKey,
+          identityKeyV1: dependencies.identityKeyV1, identity: identity(actor),
+          now: dependencies.now, randomSource: dependencies.randomSource,
+        },
+      });
+    }
     const request = parseCustomerBiteSaverUseCouponWithDeviceProofRequest(
       rawRequest,
       parseCustomerBiteSaverCombinedUseRequest,

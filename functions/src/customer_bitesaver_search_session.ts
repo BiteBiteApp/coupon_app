@@ -9409,6 +9409,90 @@ export async function startCustomerBiteSaverOfferRedemptionHandler(
   });
 }
 
+/** Authenticates original Browse authority without rechecking fresh eligibility. */
+export async function authenticateCustomerBiteSaverDiscoveryChallengeAuthority(
+  request: CustomerBiteSaverCombinedUseRequest,
+  context: CustomerBiteSaverDeviceUseContext,
+  transaction: CustomerBiteSaverTransaction,
+  nowMillis: number,
+): Promise<Readonly<{
+  guestSessionId: string;
+  recoveryExpiresAtMillis: number;
+}>> {
+  if (request.origin.kind !== "discovery" ||
+    !Number.isSafeInteger(nowMillis) || nowMillis < 0
+  ) {
+    throw new CustomerBiteSaverContractError("invalid-argument");
+  }
+  const parsedRequest = parseRedemptionRequest({
+    schemaVersion: customerBiteSaverSearchSchemaVersion,
+    clientRequestId: request.logicalRequestId,
+    clientInstanceId: request.origin.clientInstanceId,
+    sessionId: request.origin.sessionId,
+    capability: request.origin.capability,
+    criteriaFingerprint: request.origin.criteriaFingerprint,
+    restaurantId: request.restaurantId,
+    offerId: request.offerId,
+    offerOccurrence: request.origin.offerOccurrence,
+    redemptionRequestId: request.logicalRequestId,
+    currentCoordinates: request.currentCoordinates,
+    guestStateRevision: request.origin.guestStateRevision,
+  });
+  requireGuestStateRevisionForCaller(parsedRequest.guestStateRevision, context);
+  const document = await transaction.getDocument(
+    sessionPath(parsedRequest.sessionId),
+  );
+  const parsedSession = parseSession(document);
+  if (document !== null && parsedSession === null) {
+    throw new CustomerBiteSaverContractError("failed-precondition");
+  }
+  const session = authorizeCustomerBiteSaverSession({
+    request: parsedRequest,
+    session: parsedSession,
+    context,
+    nowMs: nowMillis,
+    allowExpired: true,
+  });
+  const recoveryExpiresAtMillis = session.absoluteExpiresAt.getTime();
+  if (nowMillis >= recoveryExpiresAtMillis ||
+    nowMillis < session.createdAt.getTime()
+  ) {
+    throw new CustomerBiteSaverContractError("failed-precondition");
+  }
+  const occurrence = new CustomerBiteSaverOfferOccurrenceCodec({
+    key: context.discoveryKey,
+    now: () => nowMillis,
+  }).authenticateForChallengeAdmission(parsedRequest.offerOccurrence);
+  preflightOfferOccurrenceForRequest({
+    payload: occurrence,
+    request: parsedRequest,
+    context,
+  });
+  if (occurrence.offerType !== "coupon" ||
+    occurrence.issuedAtMs > nowMillis ||
+    occurrence.issuedAtMs < session.createdAt.getTime() ||
+    occurrence.expiresAtMs > recoveryExpiresAtMillis ||
+    customerBiteSaverOpaqueRestaurantId(
+      requireCustomerBiteSaverIdentityKey(context),
+      occurrence.authoritativeAccountId,
+    ) !== request.restaurantId ||
+    customerBiteSaverOpaqueOfferId(
+      requireCustomerBiteSaverIdentityKey(context),
+      occurrence.authoritativeAccountId,
+      "coupon",
+      occurrence.sourceDocumentId,
+    ) !== request.offerId
+  ) {
+    throw new CustomerBiteSaverContractError("permission-denied");
+  }
+  // A committed result may outlive idle expiry and catalog/usage changes.
+  // Fresh use still performs the existing generation and source checks below.
+  return Object.freeze({
+    guestSessionId: session.sessionId,
+    recoveryExpiresAtMillis,
+  });
+}
+
 /**
  * Prepares the discovery half of the future device-bound use operation. It is
  * internal server wiring, not a callable export. The same session,

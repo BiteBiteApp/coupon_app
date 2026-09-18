@@ -16,6 +16,7 @@ const {
   parseCustomerBiteSaverDeviceProof,
   parseCustomerBiteSaverDeviceUseChallenge,
   parseCustomerBiteSaverIssueDeviceChallengeRequest,
+  parseCustomerBiteSaverAdmitDeviceChallengeRequest,
   parseCustomerBiteSaverUseCouponWithDeviceProofRequest,
 } = require("../lib/customer_bitesaver_device_proof_contract.js");
 const {
@@ -182,10 +183,14 @@ test("outer codecs never accept a client request fingerprint", () => {
     schemaVersion: 1,
     platform: "android",
     request: {opaque: "combined"},
+    admissionHandle: `bsda_${Buffer.alloc(32, 6).toString("base64url")}`,
+    permit: Buffer.alloc(32, 7).toString("base64url"),
   }, parser), {
     schemaVersion: 1,
     platform: "android",
     request: parsedRequest,
+    admissionHandle: `bsda_${Buffer.alloc(32, 6).toString("base64url")}`,
+    permit: Buffer.alloc(32, 7).toString("base64url"),
   });
   assert.throws(() => parseCustomerBiteSaverIssueDeviceChallengeRequest({
     schemaVersion: 1,
@@ -215,6 +220,30 @@ test("outer codecs never accept a client request fingerprint", () => {
     proof: useProof,
     requestFingerprint: fingerprint,
   }, parser), contractError("invalid-argument"));
+});
+
+test("admission operation is exact and challenge issuance requires a canonical permit", () => {
+  const parser = (raw) => raw;
+  const admission = {schemaVersion: 1, operation: "admitChallenge", platform: "ios", request: {}};
+  assert.deepEqual(parseCustomerBiteSaverAdmitDeviceChallengeRequest(admission, parser), admission);
+  for (const invalid of [
+    {...admission, operation: "use"}, {...admission, operation: undefined},
+    {...admission, proof: {}}, {...admission, permit: "x"},
+    {...admission, challengeId: challenge.challengeId}, {...admission, platform: "web"},
+  ]) {
+    assert.throws(() => parseCustomerBiteSaverAdmitDeviceChallengeRequest(invalid, parser),
+      contractError("invalid-argument"));
+  }
+  const issuance = {schemaVersion: 1, platform: "ios", request: {},
+    admissionHandle: `bsda_${Buffer.alloc(32, 6).toString("base64url")}`,
+    permit: Buffer.alloc(32, 7).toString("base64url")};
+  for (const invalid of [
+    {...issuance, permit: undefined}, {...issuance, permit: `${issuance.permit}=`},
+    {...issuance, admissionHandle: undefined}, {...issuance, operation: "admitChallenge"},
+  ]) {
+    assert.throws(() => parseCustomerBiteSaverIssueDeviceChallengeRequest(invalid, parser),
+      contractError("invalid-argument"));
+  }
 });
 
 test("golden identifiers are bounded and do not expose source material", () => {

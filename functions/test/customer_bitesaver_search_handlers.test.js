@@ -7159,6 +7159,88 @@ for (const production of [false, true]) {
   });
 }
 
+test("production Browse fresh-proof recovery survives idle expiry and source withdrawal within the original deadline", async () => {
+  const uid = "browse-fresh-proof-recovery-owner";
+  let clock = nowMs;
+  const database = new SerializedTransactionCustomerBiteSaverSearchDatabase();
+  const context = createContext(database, {
+    identity: {authUid: uid, authIsAnonymous: false}, now: () => clock,
+  });
+  const started = await startCustomerBiteSaverSearchHandler(startRequest({
+    clientRequestId: "browse-fresh-proof-search-0001", searchText: "",
+  }), context);
+  const session = markSessionReady(database, started);
+  const seeded = addReadyRestaurant(database, session, 992, {
+    offerCount: 1, onlyCoupons: true,
+    offerOverrides: {usageRule: "Once per customer"},
+  });
+  const offerId = opaqueOfferId(seeded, seeded.coupons[0]);
+  const delivered = await deliveredRedemptionRequest(
+    started, seeded.publicRestaurantId, offerId, context,
+    {redemptionRequestId: "browse-fresh-proof-use-0001"},
+  );
+  const request = {
+    schemaVersion: customerBiteSaverSearchSchemaVersion,
+    logicalRequestId: "browse-fresh-proof-use-0001",
+    restaurantId: seeded.publicRestaurantId, offerId,
+    timeZone: "America/New_York", utcOffsetMinutes: -240, currentCoordinates: null,
+    origin: {
+      kind: "discovery", clientInstanceId: delivered.clientInstanceId,
+      sessionId: delivered.sessionId, capability: delivered.capability,
+      criteriaFingerprint: delivered.criteriaFingerprint,
+      offerOccurrence: delivered.offerOccurrence, guestStateRevision: null,
+    },
+  };
+  const firstFixture = await productionDeviceUseFixture(request, context);
+  const committed = await firstFixture.use();
+  assert.equal(committed.status, "started");
+  assert.equal(committed.timerStartedAtMillis, nowMs);
+  assert.equal(committed.timerExpiresAtMillis, nowMs + 5 * 60_000);
+  const usagePath = `customer_redemptions/${uid}/coupon_redemptions/${offerId}`;
+  const isUsageOrReceipt = (path, data) => path === usagePath ||
+    data.role === "deviceCouponUsage" || data.role === "deviceUseOutcomeReceipt";
+  const usageAndReceiptBefore = [...database.documents.entries()]
+    .filter(([path, data]) => isUsageOrReceipt(path, data));
+  assert.equal(usageAndReceiptBefore.length, 3);
+  const storedSession = database.documents.get(
+    `${privateCustomerBiteSaverSearchSessionCollection}/${started.sessionId}`,
+  );
+  const occurrence = new CustomerBiteSaverOfferOccurrenceCodec({
+    key: discoveryKey, now: () => clock,
+  }).open(delivered.offerOccurrence);
+  const challengeExpiry = Math.max(...[...database.documents.values()]
+    .filter((data) => data.role === "deviceUseChallenge")
+    .map((data) => data.expiresAt.getTime()));
+  const absoluteDeadline = storedSession.absoluteExpiresAt.getTime();
+  assert.equal(occurrence.expiresAtMs, absoluteDeadline,
+    "production occurrence authority lasts until the original absolute deadline");
+  clock = Math.max(storedSession.logicalExpiresAt.getTime(), challengeExpiry) + 1;
+  assert.ok(clock < absoluteDeadline);
+  database.documents.delete(seeded.resultPath);
+  database.documents.delete(`restaurant_accounts/${seeded.accountId}/coupons/` +
+    seeded.coupons[0].sourceDocumentId);
+  database.failGetDocuments = true;
+  const writesBeforeRecovery = database.calls.transactionWrites.length;
+
+  // A fresh real admission and Android proof use the same inner operation and
+  // stable synthetic SSAID. Only the external provider decode is mocked.
+  const freshFixture = await productionDeviceUseFixture(request, context);
+  assert.deepEqual(await freshFixture.use(), committed);
+  assert.deepEqual([...database.documents.entries()]
+    .filter(([path, data]) => isUsageOrReceipt(path, data)), usageAndReceiptBefore);
+  assert.equal(database.calls.transactionWrites.slice(writesBeforeRecovery).flat()
+    .some((write) => isUsageOrReceipt(write.path, write.data ?? {})), false);
+  assert.equal([...database.documents.values()].filter((data) =>
+    data.role === "deviceUseChallenge").length, 2);
+  freshFixture.assertPrivateAndReplayed();
+
+  clock = absoluteDeadline;
+  const beforeExpiredAdmission = [...database.documents.entries()];
+  await assert.rejects(freshFixture.requestAdmission(), (error) =>
+    assertContractError(error, "failed-precondition"));
+  assert.deepEqual([...database.documents.entries()], beforeExpiredAdmission);
+});
+
 test("production combined-use composition permits an unauthenticated Browse guest", async () => {
   const {database, context, response: started} = await startSession(undefined, {
     context: {identity: guestIdentity()},

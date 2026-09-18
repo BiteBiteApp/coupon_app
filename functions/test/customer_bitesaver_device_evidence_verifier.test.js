@@ -10,6 +10,9 @@ const {
 } = require("node:crypto");
 const test = require("node:test");
 const {encode} = require("cbor-x");
+const {challengeAuthorityFixture} = require(
+  "./helpers/customer_bitesaver_challenge_authority_fixture.js",
+);
 const {
   BasicConstraintsExtension,
   Extension,
@@ -40,6 +43,9 @@ const {
   loadCustomerBiteSaverDeviceInstallation,
   privateCustomerBiteSaverDeviceChallengeCollection,
 } = require("../lib/customer_bitesaver_device_proof_store.js");
+const {reserveCustomerBiteSaverDeviceChallengeAdmission} = require(
+  "../lib/customer_bitesaver_device_challenge_admission.js",
+);
 const {
   CustomerBiteSaverAppAttestVerifier,
   customerBiteSaverIosAppId,
@@ -47,18 +53,15 @@ const {
 const {
   customerBiteSaverCombinedUseRequestFingerprint,
   executeCustomerBiteSaverDeviceBoundUse,
-  parseCustomerBiteSaverCombinedUseRequest,
 } = require("../lib/customer_bitesaver_device_usage_core.js");
 const {
-  customerBiteSaverSearchSchemaVersion,
   CustomerBiteSaverContractError,
 } = require("../lib/customer_bitesaver_search_contract.js");
 
 const now = Date.parse("2026-09-17T12:00:00.000Z");
 const rootKey = Buffer.alloc(32, 0x42);
 const discoveryKey = Buffer.alloc(32, 0x43);
-const restaurantId = `bsr_${Buffer.alloc(32, 11).toString("base64url")}`;
-const offerId = `bso_${Buffer.alloc(32, 12).toString("base64url")}`;
+const identityKeyV1 = Buffer.alloc(32, 0x44);
 
 class MemoryDatabase {
   constructor() {
@@ -121,24 +124,27 @@ class MemoryDatabase {
   }
 }
 
-function combinedRequest() {
-  return parseCustomerBiteSaverCombinedUseRequest({
-    schemaVersion: customerBiteSaverSearchSchemaVersion,
-    logicalRequestId: "device-evidence-request-0001",
-    restaurantId,
-    offerId,
-    timeZone: "America/New_York",
-    utcOffsetMinutes: -240,
-    currentCoordinates: null,
-    origin: {
-      kind: "discovery",
-      clientInstanceId: "device-evidence-client-0001",
-      sessionId: `bss_${Buffer.alloc(32, 13).toString("base64url")}`,
-      capability: "synthetic-capability",
-      criteriaFingerprint: "c".repeat(64),
-      offerOccurrence: "synthetic-occurrence",
-      guestStateRevision: 1,
-    },
+function admittedAuthority(database, actor = {uid: null, isAnonymous: false}) {
+  return challengeAuthorityFixture({
+    database, nowMillis: now, discoveryKey, identityKeyV1, actor,
+    origin: "discovery",
+  });
+}
+
+async function issueAdmittedChallenge({
+  database, request, context, platform, clock = () => now, randomSource,
+}) {
+  const admission = await reserveCustomerBiteSaverDeviceChallengeAdmission({
+    request, platform, context: {...context, now: clock, randomSource},
+  });
+  return issueCustomerBiteSaverDeviceUseChallenge({
+    database, request, platform,
+    authenticatedUserId: context.identity.authIsAnonymous
+      ? null : context.identity.authUid,
+    admissionHandle: admission.admissionHandle,
+    permit: admission.permit,
+    now: clock,
+    randomSource,
   });
 }
 
@@ -181,13 +187,12 @@ function contractError(code) {
 
 test("request-scoped Android enrollment evidence integrates with the committed core and exact replay", async () => {
   const database = new MemoryDatabase();
-  const request = combinedRequest();
-  const challenge = await issueCustomerBiteSaverDeviceUseChallenge({
+  const {request, context} = admittedAuthority(database);
+  const challenge = await issueAdmittedChallenge({
     database,
     platform: "android",
     request,
-    authenticatedUserId: null,
-    nowMillis: now,
+    context,
     randomSource: (size) => Buffer.alloc(size, 0x19),
   });
   const {privateKey, publicKey} = generateKeyPairSync("ec", {
@@ -317,13 +322,12 @@ test("request-scoped Android enrollment evidence integrates with the committed c
 test("expiry during store reads or provider verification cannot mutate state", async () => {
   for (const expiry of ["read", "challenge", "provider"]) {
     const database = new MemoryDatabase();
-    const request = combinedRequest();
-    const challenge = await issueCustomerBiteSaverDeviceUseChallenge({
+    const {request, context} = admittedAuthority(database);
+    const challenge = await issueAdmittedChallenge({
       database,
       platform: "android",
       request,
-      authenticatedUserId: null,
-      nowMillis: now,
+      context,
       randomSource: (size) => Buffer.alloc(size, expiry === "challenge" ? 0x31 : 0x32),
     });
     const {privateKey, publicKey} = generateKeyPairSync("ec", {
@@ -416,8 +420,9 @@ test("expiry during store reads or provider verification cannot mutate state", a
       origin: "discovery",
       nowMillis: now + 1,
     }), contractError("permission-denied"), expiry);
-    assert.equal(database.documents.size, 1, expiry);
-    assert.equal([...database.documents.values()][0].state, "issued", expiry);
+    assert.equal(database.documents.get(
+      `${privateCustomerBiteSaverDeviceChallengeCollection}/${challenge.challengeId}`,
+    ).state, "issued", expiry);
     assert.equal(JSON.stringify([...database.documents.entries()]), before, expiry);
     assert.equal(providerCalls, expiry === "read" ? 0 : 1, expiry);
   }
@@ -435,38 +440,60 @@ test("reviewed callable factories retain the exact production boundary names", (
   assert.equal(typeof createUseCustomerBiteSaverCouponHandler, "function");
 });
 
-test("challenge callable binds trusted actors and writes only its bounded challenge", async () => {
+test("challenge callables require genuine authority admission and bind trusted actors", async () => {
   for (const [actor, expectedUserId] of [
     [{uid: null, isAnonymous: false}, null],
     [{uid: "anonymous-user", isAnonymous: true}, null],
     [{uid: "signed-user", isAnonymous: false}, "signed-user"],
   ]) {
     const database = new MemoryDatabase();
-    const request = combinedRequest();
+    const {request, context} = admittedAuthority(database, actor);
+    const before = new Map(database.documents);
+    const admit = createUseCustomerBiteSaverCouponHandler({
+      ...context,
+      rootKey,
+      playIntegrityVerifier: {verify() { assert.fail("admission must not verify Android proof"); }},
+      appAttestVerifier: {
+        verifyAttestation() { assert.fail("admission must not verify iOS attestation"); },
+        verifyAssertion() { assert.fail("admission must not verify iOS assertion"); },
+      },
+    });
+    const admission = await admit({
+      schemaVersion: 1, operation: "admitChallenge", platform: "android", request,
+    }, actor);
+    assert.match(admission.admissionHandle, /^bsda_[A-Za-z0-9_-]{43}$/u);
+    assert.match(admission.permit, /^[A-Za-z0-9_-]{43}$/u);
+    let challengeEntropy = 0x19;
     const handler = createIssueCustomerBiteSaverDeviceUseChallengeHandler({
       database,
       now: () => now,
-      randomSource: (size) => Buffer.alloc(size, 0x19),
+      randomSource: (size) => Buffer.alloc(size, challengeEntropy++),
     });
-    assert.equal(database.documents.size, 0);
     const challenge = await handler({
       schemaVersion: 1,
       platform: "android",
       request,
+      admissionHandle: admission.admissionHandle,
+      permit: admission.permit,
     }, actor);
     assert.equal(challenge.authenticatedUserId, expectedUserId);
     assert.equal(challenge.requestFingerprint,
       customerBiteSaverCombinedUseRequestFingerprint(request));
     assert.equal(challenge.expiresAtMillis, now + 120_000);
     assert.equal(challenge.issuedAtMillis, now);
-    assert.equal(database.documents.size, 1);
-    assert.deepEqual([...database.documents.keys()], [
+    const stored = database.documents.get(
       `${privateCustomerBiteSaverDeviceChallengeCollection}/${challenge.challengeId}`,
-    ]);
-    const stored = [...database.documents.values()][0];
+    );
     assert.equal(stored.state, "issued");
     assert.equal(stored.authenticatedUserId, expectedUserId);
     assert.equal(Object.hasOwn(challenge, "deviceRef"), false);
+    for (const [path, data] of before) assert.deepEqual(database.documents.get(path), data);
+    const issuedState = [...database.documents.entries()];
+    await assert.rejects(handler({
+      schemaVersion: 1, platform: "android", request,
+      admissionHandle: admission.admissionHandle, permit: admission.permit,
+    }, actor), contractError("permission-denied"), "a consumed permit is single use");
+    assert.deepEqual([...database.documents.entries()], issuedState);
   }
 });
 
@@ -477,8 +504,15 @@ test("challenge rejects client authority substitutions before any write", async 
     now: () => now,
     randomSource: (size) => Buffer.alloc(size, 0x19),
   });
-  const request = combinedRequest();
-  const envelope = {schemaVersion: 1, platform: "android", request};
+  const {request, context} = admittedAuthority(database);
+  const admission = await reserveCustomerBiteSaverDeviceChallengeAdmission({
+    request, platform: "android", context,
+  });
+  const before = [...database.documents.entries()];
+  const envelope = {
+    schemaVersion: 1, platform: "android", request,
+    admissionHandle: admission.admissionHandle, permit: admission.permit,
+  };
   for (const [key, value] of Object.entries({
     uid: "other-user",
     authenticatedUserId: "other-user",
@@ -498,7 +532,43 @@ test("challenge rejects client authority substitutions before any write", async 
       );
     }
   }
-  assert.equal(database.documents.size, 0);
+  assert.deepEqual([...database.documents.entries()], before);
+});
+
+test("challenge issuance rejects missing, forged, or rebound permits without spending the authentic permit", async () => {
+  const database = new MemoryDatabase();
+  const actor = {uid: "signed-permit-owner", isAnonymous: false};
+  const {request, context} = admittedAuthority(database, actor);
+  const admission = await reserveCustomerBiteSaverDeviceChallengeAdmission({
+    request, platform: "android", context,
+  });
+  const handler = createIssueCustomerBiteSaverDeviceUseChallengeHandler({
+    database, now: () => now,
+    randomSource: (size) => Buffer.alloc(size, 0x65),
+  });
+  await assert.rejects(handler({schemaVersion: 1, platform: "android", request}, actor),
+    contractError("invalid-argument"));
+  const envelope = {
+    schemaVersion: 1, platform: "android", request,
+    admissionHandle: admission.admissionHandle, permit: admission.permit,
+  };
+  const before = [...database.documents.entries()];
+  for (const [modified, caller] of [
+    [{...envelope, permit: Buffer.alloc(32, 0x66).toString("base64url")}, actor],
+    [{...envelope, admissionHandle: `bsda_${Buffer.alloc(32, 0x67).toString("base64url")}`}, actor],
+    [{...envelope, platform: "ios"}, actor],
+    [{...envelope, request: {...request, logicalRequestId: "changed-logical-request"}}, actor],
+    [envelope, {uid: "different-signed-user", isAnonymous: false}],
+    [envelope, {uid: actor.uid, isAnonymous: true}],
+    [envelope, {uid: null, isAnonymous: false}],
+  ]) {
+    await assert.rejects(handler(modified, caller), contractError("permission-denied"));
+    assert.deepEqual([...database.documents.entries()], before);
+  }
+  const challenge = await handler(envelope, actor);
+  assert.equal(challenge.authenticatedUserId, actor.uid);
+  assert.equal(challenge.requestFingerprint,
+    customerBiteSaverCombinedUseRequestFingerprint(request));
 });
 
 async function syntheticIosRecoveryProofs() {
@@ -657,15 +727,15 @@ async function syntheticIosRecoveryProofs() {
 
 test("real iOS verifier rejects delayed older recovery and preserves current Ka counters and stable Kd", async () => {
   const database = new MemoryDatabase();
-  const request = combinedRequest();
+  const {request, context} = admittedAuthority(database);
   const clock = {value: now};
   let entropy = 0;
-  const issue = () => issueCustomerBiteSaverDeviceUseChallenge({
+  const issue = () => issueAdmittedChallenge({
     database,
     platform: "ios",
     request,
-    authenticatedUserId: null,
-    nowMillis: clock.value,
+    context,
+    clock: () => clock.value,
     randomSource: (size) => Buffer.alloc(size, ++entropy),
   });
   const fixture = await syntheticIosRecoveryProofs();

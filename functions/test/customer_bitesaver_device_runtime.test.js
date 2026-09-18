@@ -491,3 +491,18 @@ test("production handler requires a canonical 32-byte root with no missing-secre
     handlerOptions(),
   ), "function");
 });
+
+test("production admission dispatch rejects ambiguous envelopes before database or provider access", async () => {
+  const options = handlerOptions();
+  const handler = createProductionCustomerBiteSaverCouponUseHandler(options);
+  const actor = {uid: null, isAnonymous: false};
+  for (const envelope of [
+    {schemaVersion: 1, operation: "admitChallenge", platform: "android"},
+    {schemaVersion: 1, operation: "unknownOperation", platform: "android", request: {}},
+    {schemaVersion: 1, operation: "admitChallenge", platform: "web", request: {}},
+    {schemaVersion: 1, operation: "admitChallenge", platform: "android", request: {}, proof: {}},
+    {schemaVersion: 1, operation: "admitChallenge", platform: "android", request: {}, challengeId: "caller-selected"},
+  ]) {
+    await assert.rejects(handler(envelope, actor), contractError("invalid-argument"));
+  }
+});

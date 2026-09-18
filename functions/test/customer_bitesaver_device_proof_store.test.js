@@ -19,18 +19,18 @@ const {
   privateCustomerBiteSaverDeviceChallengeCollection,
   privateCustomerBiteSaverDeviceInstallationCollection,
 } = require("../lib/customer_bitesaver_device_proof_store.js");
+const {reserveCustomerBiteSaverDeviceChallengeAdmission} = require(
+  "../lib/customer_bitesaver_device_challenge_admission.js",
+);
+const {challengeAuthorityFixture} = require(
+  "./helpers/customer_bitesaver_challenge_authority_fixture.js",
+);
 const {
-  parseCustomerBiteSaverCombinedUseRequest,
-} = require("../lib/customer_bitesaver_device_usage_core.js");
-const {
-  customerBiteSaverSearchSchemaVersion,
   CustomerBiteSaverContractError,
 } = require("../lib/customer_bitesaver_search_contract.js");
 
 const now = Date.parse("2026-09-17T12:00:00.000Z");
 const rootKey = Buffer.alloc(32, 0x42);
-const restaurantId = `bsr_${Buffer.alloc(32, 11).toString("base64url")}`;
-const offerId = `bso_${Buffer.alloc(32, 12).toString("base64url")}`;
 
 class MemoryDatabase {
   constructor() {
@@ -108,36 +108,22 @@ class MemoryDatabase {
   }
 }
 
-function request() {
-  return parseCustomerBiteSaverCombinedUseRequest({
-    schemaVersion: customerBiteSaverSearchSchemaVersion,
-    logicalRequestId: "device-proof-store-request-0001",
-    restaurantId,
-    offerId,
-    timeZone: "America/New_York",
-    utcOffsetMinutes: -240,
-    currentCoordinates: null,
-    origin: {
-      kind: "discovery",
-      clientInstanceId: "device-proof-client-0001",
-      sessionId: `bss_${Buffer.alloc(32, 13).toString("base64url")}`,
-      capability: "synthetic-capability",
-      criteriaFingerprint: "c".repeat(64),
-      offerOccurrence: "synthetic-occurrence",
-      guestStateRevision: 1,
-    },
-  });
-}
-
 let entropySequence = 1;
 async function issue(database, platform, issuedAt = now) {
   const byte = entropySequence++;
+  const fixture = challengeAuthorityFixture({database, nowMillis: issuedAt});
+  const admission = await reserveCustomerBiteSaverDeviceChallengeAdmission({
+    request: fixture.request, platform,
+    context: {...fixture.context, randomSource: (size) => Buffer.alloc(size, byte)},
+  });
   return issueCustomerBiteSaverDeviceUseChallenge({
     database,
     platform,
-    request: request(),
+    request: fixture.request,
+    admissionHandle: admission.admissionHandle,
+    permit: admission.permit,
     authenticatedUserId: null,
-    nowMillis: issuedAt,
+    now: () => issuedAt,
     randomSource: (size) => Buffer.alloc(size, byte),
   });
 }
@@ -251,6 +237,9 @@ test("challenge issue, first verification, and exact ambiguous retry are atomic"
   assert.equal(install.deviceRef, androidDeviceRef);
 
   const persisted = JSON.stringify([...database.documents.values()]);
+  const {restaurantId, offerId} = challengeAuthorityFixture({
+    database: {documents: new Map()}, nowMillis: now,
+  }).request;
   for (const privacyCanary of [
     "0123456789abcdef",
     "androidSsaid",
@@ -302,7 +291,7 @@ test("absolute expiry is synchronous and independent from TTL cleanup", async ()
     challengeId: challenge.challengeId,
     nowMillis: challenge.expiresAtMillis,
   }), contractError("permission-denied"));
-  assert.equal(database.documents.size, 1, "TTL has not run and must not be trusted");
+  assert.equal(database.documents.size, 3, "Session, allowance and expired challenge remain; TTL is not trusted");
 });
 
 test("transaction retries re-sample challenge and provider expiry before writes", async () => {
@@ -330,8 +319,10 @@ test("transaction retries re-sample challenge and provider expiry before writes"
       providerValidUntilMillis,
       enrollment: androidEnrollment,
     }), contractError("permission-denied"), expiry);
-    assert.equal(database.documents.size, 1, expiry);
-    assert.equal([...database.documents.values()][0].state, "issued", expiry);
+    assert.equal(database.documents.size, 3, expiry);
+    assert.equal(database.documents.get(
+      `${privateCustomerBiteSaverDeviceChallengeCollection}/${challenge.challengeId}`,
+    ).state, "issued", expiry);
     assert.equal(JSON.stringify([...database.documents.entries()]), before, expiry);
   }
 });

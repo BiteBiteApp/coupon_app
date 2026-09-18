@@ -30,6 +30,37 @@ Map<String, Object?> challengeJson({
 };
 
 void main() {
+  test('challenge admission accepts only an exact bounded permit response', () {
+    final valid = <String, Object?>{
+      'schemaVersion': 1,
+      'admissionHandle': 'bsda_${'a' * 43}',
+      'permit': _challengeBytes,
+      'expiresAtMillis': 1789617720000,
+    };
+    final parsed = CustomerBiteSaverDeviceChallengeAdmission.fromJson(valid);
+    expect(parsed.admissionHandle, valid['admissionHandle']);
+    expect(parsed.permit, _challengeBytes);
+    expect(parsed.expiresAtMillis, 1789617720000);
+    for (final changed in <Map<String, Object?>>[
+      {...valid, 'schemaVersion': 2},
+      {...valid, 'admissionHandle': 'bsda_${'a' * 42}'},
+      {...valid, 'admissionHandle': '${valid['admissionHandle']}\n'},
+      {...valid, 'permit': 'a' * 43},
+      {...valid, 'permit': '$_challengeBytes='},
+      {...valid, 'permit': _challengeBytes.substring(1)},
+      {...valid, 'expiresAtMillis': 0},
+      {...valid, 'expiresAtMillis': 1.5},
+      {...valid, 'expiresAtMillis': 9007199254740992},
+      {...valid, 'deviceRef': 'unexpected'},
+      Map<String, Object?>.of(valid)..remove('permit'),
+    ]) {
+      expect(
+        () => CustomerBiteSaverDeviceChallengeAdmission.fromJson(changed),
+        throwsA(isA<CustomerBiteSaverDeviceProtocolException>()),
+      );
+    }
+  });
+
   group('canonical device-proof transcript', () {
     test('matches the frozen cross-language Android enrollment vector', () {
       final publicKeyHash = Uint8List.fromList(

@@ -15,6 +15,7 @@ enum CustomerBiteSaverDeviceUseFailureKind {
   unsupported,
   proof,
   rejected,
+  temporaryCooldown,
   ambiguous,
   invalidResponse,
   stale,
@@ -25,10 +26,23 @@ final class CustomerBiteSaverDeviceUseTransportException implements Exception {
   const CustomerBiteSaverDeviceUseTransportException({
     required this.code,
     required this.ambiguous,
+    this.retryAfterMillis,
   });
 
   final String code;
   final bool ambiguous;
+  final int? retryAfterMillis;
+
+  factory CustomerBiteSaverDeviceUseTransportException.fromFirebase(
+    FirebaseFunctionsException error,
+  ) => CustomerBiteSaverDeviceUseTransportException(
+    code: CustomerBiteSaverDeviceUseService._sanitizeTransportCode(error.code),
+    ambiguous: CustomerBiteSaverDeviceUseService._ambiguousFirebaseCodes
+        .contains(error.code),
+    retryAfterMillis: error.code == 'resource-exhausted'
+        ? CustomerBiteSaverDeviceUseService._retryAfterMillis(error.details)
+        : null,
+  );
 
   @override
   String toString() => 'CustomerBiteSaverDeviceUseTransportException($code)';
@@ -39,11 +53,13 @@ final class CustomerBiteSaverDeviceUseException implements Exception {
     required this.kind,
     required this.code,
     this.cause,
+    this.retryAfterMillis,
   });
 
   final CustomerBiteSaverDeviceUseFailureKind kind;
   final String code;
   final Object? cause;
+  final int? retryAfterMillis;
 
   @override
   String toString() => 'CustomerBiteSaverDeviceUseException($code)';
@@ -97,10 +113,7 @@ final class CustomerBiteSaverDeviceUseService {
       ).httpsCallable(callableName);
       return (await callable.call<Object?>(request)).data;
     } on FirebaseFunctionsException catch (error) {
-      throw CustomerBiteSaverDeviceUseTransportException(
-        code: _sanitizeTransportCode(error.code),
-        ambiguous: _ambiguousFirebaseCodes.contains(error.code),
-      );
+      throw CustomerBiteSaverDeviceUseTransportException.fromFirebase(error);
     } catch (_) {
       throw const CustomerBiteSaverDeviceUseTransportException(
         code: 'transport-failure',
@@ -239,14 +252,42 @@ final class CustomerBiteSaverDeviceUseService {
       throw _translateProofFailure(error);
     }
 
+    final admissionValue = await _invokeCurrent(
+      CustomerBiteSaverDeviceProofContract.useCouponCallableName,
+      <String, Object?>{
+        'schemaVersion': CustomerBiteSaverDeviceProofContract.schemaVersion,
+        'operation': 'admitChallenge',
+        'platform': platform.name,
+        'request': request.toJson(),
+      },
+      generation,
+    );
+    late final CustomerBiteSaverDeviceChallengeAdmission admission;
+    try {
+      admission = CustomerBiteSaverDeviceChallengeAdmission.fromJson(
+        admissionValue,
+      );
+    } on FormatException catch (error) {
+      throw CustomerBiteSaverDeviceUseException(
+        kind: CustomerBiteSaverDeviceUseFailureKind.invalidResponse,
+        code: 'device-use-invalid-admission',
+        cause: error,
+      );
+    }
+
+    // This clock starts at challenge issuance, not at the earlier admission.
+    // Consumption checks permit expiry before returning a fresh challenge.
     final requestStartedAtElapsed = _elapsedClock();
-    final challengeValue = await _invoke(
+    final challengeValue = await _invokeCurrent(
       CustomerBiteSaverDeviceProofContract.issueChallengeCallableName,
       <String, Object?>{
         'schemaVersion': CustomerBiteSaverDeviceProofContract.schemaVersion,
         'platform': platform.name,
         'request': request.toJson(),
+        'admissionHandle': admission.admissionHandle,
+        'permit': admission.permit,
       },
+      generation,
     );
     _assertCurrent(generation);
 
@@ -361,11 +402,18 @@ final class CustomerBiteSaverDeviceUseService {
       return await _transport(callableName, request);
     } on CustomerBiteSaverDeviceUseTransportException catch (error) {
       throw CustomerBiteSaverDeviceUseException(
-        kind: error.ambiguous
+        kind: error.code == 'resource-exhausted'
+            ? CustomerBiteSaverDeviceUseFailureKind.temporaryCooldown
+            : error.ambiguous
             ? CustomerBiteSaverDeviceUseFailureKind.ambiguous
             : CustomerBiteSaverDeviceUseFailureKind.rejected,
         code: error.code,
         cause: error,
+        retryAfterMillis: error.code == 'resource-exhausted'
+            ? _retryAfterMillis(<String, Object?>{
+                'retryAfterMillis': error.retryAfterMillis,
+              })
+            : null,
       );
     } catch (error) {
       throw CustomerBiteSaverDeviceUseException(
@@ -373,6 +421,18 @@ final class CustomerBiteSaverDeviceUseService {
         code: 'transport-failure',
         cause: error,
       );
+    }
+  }
+
+  Future<Object?> _invokeCurrent(
+    String callableName,
+    Map<String, Object?> request,
+    int generation,
+  ) async {
+    try {
+      return await _invoke(callableName, request);
+    } finally {
+      _assertCurrent(generation);
     }
   }
 
@@ -488,6 +548,17 @@ final class CustomerBiteSaverDeviceUseService {
   static String _sanitizeTransportCode(String value) {
     if (RegExp(r'^[a-z0-9-]{1,64}$').hasMatch(value)) return value;
     return 'transport-failure';
+  }
+
+  static int? _retryAfterMillis(Object? details) {
+    final value = details is Map ? details['retryAfterMillis'] : null;
+    return value is int &&
+            value > 0 &&
+            value <=
+                CustomerBiteSaverDeviceProofContract
+                    .challengeLifetimeMilliseconds
+        ? value
+        : null;
   }
 }
 

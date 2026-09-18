@@ -152,6 +152,7 @@ bool _boolean(Object? value) {
 final RegExp _base64UrlPattern = RegExp(r'^[A-Za-z0-9_-]+$');
 final RegExp _fingerprintPattern = RegExp(r'^[0-9a-f]{64}$');
 final RegExp _challengeIdPattern = RegExp(r'^bsdc_[A-Za-z0-9_-]{43}$');
+final RegExp _admissionHandlePattern = RegExp(r'^bsda_[A-Za-z0-9_-]{43}$');
 final RegExp _credentialIdPattern = RegExp(r'^bsic_[A-Za-z0-9_-]{43}$');
 final RegExp _integrityTokenPattern = RegExp(r'^[A-Za-z0-9._~-]+$');
 final RegExp _logicalRequestIdPattern = RegExp(r'^[A-Za-z0-9_-]{16,128}$');
@@ -350,6 +351,50 @@ final class CustomerBiteSaverCombinedUseRequest {
   /// Local stale-work key only. It is not a cryptographic fingerprint and is
   /// never sent as server authority.
   String get localFenceKey => jsonEncode(toJson());
+}
+
+final class CustomerBiteSaverDeviceChallengeAdmission {
+  const CustomerBiteSaverDeviceChallengeAdmission._({
+    required this.admissionHandle,
+    required this.permit,
+    required this.expiresAtMillis,
+  });
+
+  factory CustomerBiteSaverDeviceChallengeAdmission.fromJson(Object? value) {
+    final data = _record(value);
+    _exactKeys(data, const <String>{
+      'schemaVersion',
+      'admissionHandle',
+      'permit',
+      'expiresAtMillis',
+    });
+    if (data['schemaVersion'] !=
+        CustomerBiteSaverDeviceProofContract.schemaVersion) {
+      throw const CustomerBiteSaverDeviceProtocolException();
+    }
+    return CustomerBiteSaverDeviceChallengeAdmission._(
+      admissionHandle: _string(
+        data['admissionHandle'],
+        maximumLength: 48,
+        pattern: _admissionHandlePattern,
+      ),
+      permit: _base64UrlNoPadding(
+        _decodeBase64Url(
+          data['permit'],
+          maximumEncodedLength: 43,
+          exactByteLength: 32,
+        ),
+      ),
+      expiresAtMillis: _safeInteger(data['expiresAtMillis'], minimum: 1),
+    );
+  }
+
+  final String admissionHandle;
+  final String permit;
+
+  /// The server checks this absolute deadline when consuming the permit.
+  /// Admission has no proof authority and is never retained for a later retry.
+  final int expiresAtMillis;
 }
 
 final class CustomerBiteSaverDeviceChallenge {

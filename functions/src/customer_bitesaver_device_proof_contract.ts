@@ -92,6 +92,22 @@ export type CustomerBiteSaverIssueDeviceChallengeRequest = Readonly<{
   schemaVersion: typeof customerBiteSaverDeviceProofSchemaVersion;
   platform: CustomerBiteSaverDevicePlatform;
   request: CustomerBiteSaverCombinedUseRequest;
+  admissionHandle: string;
+  permit: string;
+}>;
+
+export type CustomerBiteSaverDeviceChallengeAdmission = Readonly<{
+  schemaVersion: typeof customerBiteSaverDeviceProofSchemaVersion;
+  admissionHandle: string;
+  permit: string;
+  expiresAtMillis: number;
+}>;
+
+export type CustomerBiteSaverAdmitDeviceChallengeRequest = Readonly<{
+  schemaVersion: typeof customerBiteSaverDeviceProofSchemaVersion;
+  operation: "admitChallenge";
+  platform: CustomerBiteSaverDevicePlatform;
+  request: CustomerBiteSaverCombinedUseRequest;
 }>;
 
 export type CustomerBiteSaverUseCouponWithDeviceProofRequest = Readonly<{
@@ -145,7 +161,9 @@ const challengeKeys = Object.freeze([
   "schemaVersion",
   "validFromMillis",
 ].sort());
-const issueKeys = Object.freeze(["platform", "request", "schemaVersion"].sort());
+const issueKeys = Object.freeze([
+  "admissionHandle", "permit", "platform", "request", "schemaVersion",
+].sort());
 const useKeys = Object.freeze([
   "challengeId",
   "proof",
@@ -421,13 +439,33 @@ export function parseCustomerBiteSaverIssueDeviceChallengeRequest(
 ): CustomerBiteSaverIssueDeviceChallengeRequest {
   if (!isPlainRecord(value) || !exactKeys(value, issueKeys) ||
     value.schemaVersion !== customerBiteSaverDeviceProofSchemaVersion ||
-    (value.platform !== "android" && value.platform !== "ios")
+    (value.platform !== "android" && value.platform !== "ios") ||
+    typeof value.admissionHandle !== "string" ||
+    !/^bsda_[A-Za-z0-9_-]{43}$/u.test(value.admissionHandle)
   ) {
     return invalidRequest();
   }
+  decodeCustomerBiteSaverBase64Url(value.permit, 32, 32);
   return Object.freeze({
     schemaVersion: customerBiteSaverDeviceProofSchemaVersion,
     platform: value.platform,
+    request: parseCombinedUseRequest(value.request),
+    admissionHandle: value.admissionHandle,
+    permit: value.permit as string,
+  });
+}
+
+export function parseCustomerBiteSaverAdmitDeviceChallengeRequest(
+  value: unknown,
+  parseCombinedUseRequest: (raw: unknown) => CustomerBiteSaverCombinedUseRequest,
+): CustomerBiteSaverAdmitDeviceChallengeRequest {
+  if (!isPlainRecord(value) || !exactKeys(value, ["operation", "platform", "request", "schemaVersion"]) ||
+    value.schemaVersion !== customerBiteSaverDeviceProofSchemaVersion ||
+    value.operation !== "admitChallenge" ||
+    (value.platform !== "android" && value.platform !== "ios")) return invalidRequest();
+  return Object.freeze({
+    schemaVersion: customerBiteSaverDeviceProofSchemaVersion,
+    operation: "admitChallenge", platform: value.platform,
     request: parseCombinedUseRequest(value.request),
   });
 }

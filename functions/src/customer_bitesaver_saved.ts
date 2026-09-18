@@ -2393,6 +2393,37 @@ export async function startCustomerBiteSaverSavedOfferRedemptionHandler(
   });
 }
 
+/** Authenticates original Saved authority without current favorite/source reads. */
+export function authenticateCustomerBiteSaverSavedChallengeAuthority(
+  request: CustomerBiteSaverCombinedUseRequest,
+  context: CustomerBiteSaverDeviceUseContext,
+  nowMillis: number,
+): Readonly<{recoveryExpiresAtMillis: number}> {
+  if (request.origin.kind !== "saved" ||
+    !Number.isSafeInteger(nowMillis) || nowMillis < 0
+  ) {
+    throw new CustomerBiteSaverContractError("invalid-argument");
+  }
+  const userId = requireSignedInUserId(context.identity);
+  const access = openAccess({
+    codec: new SavedOpaqueCodec(context.discoveryKey, () => nowMillis),
+    token: request.origin.accessToken,
+    userId,
+  });
+  if (access.section !== "coupons" ||
+    access.restaurantId !== request.restaurantId ||
+    access.offerId !== request.offerId ||
+    access.issuedAtMillis > nowMillis ||
+    customerBiteSaverOpaqueRestaurantId(
+      identityKey(context),
+      access.authoritativeAccountId,
+    ) !== request.restaurantId
+  ) {
+    throw new CustomerBiteSaverContractError("permission-denied");
+  }
+  return Object.freeze({recoveryExpiresAtMillis: access.expiresAtMillis});
+}
+
 /**
  * Prepares the Saved half of the future device-bound use operation. This
  * retains the signed Saved access token, exact favorite, point-resolved offer

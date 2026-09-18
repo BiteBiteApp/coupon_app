@@ -1318,3 +1318,88 @@ for (const production of [false, true]) {
     fixture?.assertPrivateAndReplayed();
   });
 }
+
+test("production Saved quota cannot reset a lost-response timer or extend the original recovery deadline", async () => {
+  const database = new MemoryDatabase();
+  const uid = "saved-near-deadline-owner";
+  const seeded = seedCoupon(database, uid, 92, {
+    accountId: "saved-near-deadline-account",
+    sourceDocumentId: "saved-near-deadline-coupon",
+    coupon: {usageRule: "Once per customer"},
+  });
+  const savedPage = await getCustomerBiteSaverSavedPageHandler(
+    request("coupons", null, "near-deadline"), context(database, uid),
+  );
+  assert.equal(savedPage.entries.length, 1);
+  const originalDeadline = nowMs + 24 * 60 * 60_000;
+  const clock = {value: originalDeadline - 30_000};
+  let entropy = 1;
+  const deviceContext = {
+    ...context(database, uid),
+    now: () => clock.value,
+    randomSource: (size) => Buffer.alloc(size, entropy++),
+  };
+  const combinedRequest = {
+    schemaVersion: customerBiteSaverSearchSchemaVersion,
+    logicalRequestId: "saved-near-deadline-use-0001",
+    restaurantId: seeded.restaurantId,
+    offerId: seeded.offerId,
+    timeZone: "America/New_York",
+    utcOffsetMinutes: -240,
+    currentCoordinates: null,
+    origin: {kind: "saved", accessToken: savedPage.entries[0].accessToken},
+  };
+  const fixture = await productionDeviceUseFixture(combinedRequest, deviceContext);
+  const committed = await fixture.use();
+  assert.equal(committed.status, "started");
+  assert.equal(committed.timerStartedAtMillis, clock.value);
+  assert.equal(committed.timerExpiresAtMillis, clock.value + 5 * 60_000);
+  assert.ok(committed.timerExpiresAtMillis > originalDeadline);
+  const historyPath = `customer_redemptions/${uid}/coupon_redemptions/${seeded.offerId}`;
+  const originalHistory = database.documents.get(historyPath);
+  const receipt = [...database.documents.values()].find((data) =>
+    data.role === "deviceUseOutcomeReceipt");
+  assert.equal(receipt.logicalExpiresAt.getTime(), originalDeadline);
+
+  // The original response is considered lost. Fill the other twenty-nine allowance
+  // slots with real admitted challenges; no provider proof or coupon use runs.
+  for (let index = 1; index < 30; index += 1) {
+    const admission = await fixture.requestAdmission();
+    assert.equal(admission.expiresAtMillis, originalDeadline);
+    await fixture.issueWithAdmission(admission);
+  }
+  assert.equal([...database.documents.values()].filter((data) =>
+    data.role === "deviceUseChallenge").length, 30);
+  const beforeRetry = [...database.documents.entries()];
+  await assert.rejects(fixture.requestAdmission(), (error) => {
+    assert.equal(error.code, "resource-exhausted");
+    assert.equal(error.retryAfterMillis, 120_000);
+    assert.ok(clock.value + error.retryAfterMillis > originalDeadline);
+    return true;
+  });
+  assert.deepEqual([...database.documents.entries()], beforeRetry);
+
+  clock.value = originalDeadline - 1;
+  assert.deepEqual(await fixture.use(), committed,
+    "a retained valid proof recovers the committed result without a new slot");
+  assert.deepEqual([...database.documents.entries()], beforeRetry);
+  fixture.assertPrivateAndReplayed();
+
+  clock.value = originalDeadline;
+  for (const [retry, code, message] of [
+    [() => fixture.requestAdmission(), "invalid-argument", "The Saved access expired. Refresh Saved."],
+    [() => fixture.use(), "failed-precondition", "The BiteSaver device-use outcome is invalid or expired."],
+  ]) {
+    await assert.rejects(retry(), (error) => {
+      assert.equal(error.code, code);
+      assert.equal(error.message, message);
+      return true;
+    });
+    assert.deepEqual([...database.documents.entries()], beforeRetry);
+  }
+  assert.deepEqual(database.documents.get(historyPath), originalHistory);
+  assert.equal(originalHistory.timerExpiresAt.getTime(), committed.timerExpiresAtMillis);
+  assert.ok(clock.value < originalHistory.timerExpiresAt.getTime(),
+    "recovery ends at the original authority deadline while the committed timer remains active");
+  fixture.assertPrivateAndReplayed();
+});

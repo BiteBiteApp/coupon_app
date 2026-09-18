@@ -13,6 +13,9 @@ const actualFirestore = require("firebase-admin/firestore");
 const {
   CustomerBiteSaverContractError,
 } = require("../lib/customer_bitesaver_search_contract.js");
+const {CustomerBiteSaverDeviceChallengeLimitError} = require(
+  "../lib/customer_bitesaver_device_challenge_admission.js",
+);
 
 const callableHandlers = Object.freeze({
   startCustomerBiteSaverSearch: "startCustomerBiteSaverSearchHandler",
@@ -542,6 +545,37 @@ test("device callable wrappers sanitize construction and invocation failures", a
       });
       runtime.state[errorSource] = null;
     }
+  }
+  assert.equal(JSON.stringify(runtime.state.logs).includes(canary), false);
+});
+
+test("device callable quota failures expose only bounded retry guidance", async () => {
+  const runtime = loadCompiledIndexWithCustomerBiteSaverHarness();
+  const canary = "private-allowance-permit-and-account-canary";
+  for (const name of Object.keys(deviceCallableFactories)) {
+    for (const [retryAfterMillis, expected] of [[17_000, 17_000], [-1, 1], [999_999, 120_000]]) {
+      const error = new CustomerBiteSaverDeviceChallengeLimitError(retryAfterMillis);
+      error.privateAllowance = {permit: canary};
+      runtime.state.callableError = error;
+      await assert.rejects(runtime.exports[name]({data: {}}), (failure) => {
+        assert.equal(failure.code, "resource-exhausted");
+        assert.equal(failure.message,
+          "Device verification is temporarily limited. Try again shortly.");
+        assert.deepEqual(failure.details, {retryAfterMillis: expected});
+        assert.equal(JSON.stringify(failure).includes(canary), false);
+        return true;
+      });
+    }
+    const untrusted = new CustomerBiteSaverContractError("resource-exhausted", "Try again.");
+    untrusted.retryAfterMillis = 50_000;
+    untrusted.privateAllowance = canary;
+    runtime.state.callableError = untrusted;
+    await assert.rejects(runtime.exports[name]({data: {}}), (failure) => {
+      assert.equal(failure.details, undefined,
+        "an arbitrary contract error must not gain the quota details allowlist");
+      assert.equal(JSON.stringify(failure).includes(canary), false);
+      return true;
+    });
   }
   assert.equal(JSON.stringify(runtime.state.logs).includes(canary), false);
 });

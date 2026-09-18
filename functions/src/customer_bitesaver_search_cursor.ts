@@ -818,7 +818,14 @@ export class CustomerBiteSaverOfferOccurrenceCodec {
     }
   }
 
-  open(token: unknown): CustomerBiteSaverOfferOccurrencePayload {
+  /**
+   * Authenticates an occurrence for challenge admission only. The caller must
+   * check its immutable bindings and the original session recovery deadline.
+   * This does not authorize fresh coupon use or extend occurrence validity.
+   */
+  authenticateForChallengeAdmission(
+    token: unknown,
+  ): CustomerBiteSaverOfferOccurrencePayload {
     try {
       if (
         typeof token !== "string" ||
@@ -861,14 +868,24 @@ export class CustomerBiteSaverOfferOccurrenceCodec {
       const payload = parseOfferOccurrencePayload(
         JSON.parse(plaintext.toString("utf8")) as unknown,
       );
-      if (this.#now() >= payload.expiresAtMs) {
-        return invalidOfferOccurrence();
-      }
       return payload;
     } catch (error) {
       if (error instanceof CustomerBiteSaverContractError) {
         throw error;
       }
+      return invalidOfferOccurrence();
+    }
+  }
+
+  open(token: unknown): CustomerBiteSaverOfferOccurrencePayload {
+    try {
+      const payload = this.authenticateForChallengeAdmission(token);
+      if (this.#now() >= payload.expiresAtMs) {
+        return invalidOfferOccurrence();
+      }
+      return payload;
+    } catch (error) {
+      if (error instanceof CustomerBiteSaverContractError) throw error;
       return invalidOfferOccurrence();
     }
   }
