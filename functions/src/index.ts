@@ -306,6 +306,9 @@ setGlobalOptions({
   maxInstances: 10,
 });
 
+const biteSaverBrowseRuntimeServiceAccount =
+  "bitesaver-browse-runtime@coupon-app-29446.iam.gserviceaccount.com";
+
 const db: Firestore = getFirestore();
 const searchIndexDatabase = createFirestoreSearchIndexDatabase(db);
 const customerBiteSaverSearchDatabase =
@@ -5223,6 +5226,7 @@ function readSearchIndexEventSnapshotData(
 
 export const maintainBiteSaverRestaurantSearchIndex = onDocumentWritten(
   {
+    serviceAccount: biteSaverBrowseRuntimeServiceAccount,
     document: "restaurant_accounts/{restaurantAccountId}",
     retry: true,
     secrets: [biteSaverCustomerIdentityKeyV1],
@@ -5310,6 +5314,7 @@ export const maintainBiteScoreDishSearchIndexFromAggregate = onDocumentWritten(
 
 export const maintainBiteSaverCouponOfferSearchIndex = onDocumentWritten(
   {
+    serviceAccount: biteSaverBrowseRuntimeServiceAccount,
     document: "restaurant_accounts/{restaurantAccountId}/coupons/{couponId}",
     retry: true,
     secrets: [biteSaverCustomerIdentityKeyV1],
@@ -5563,6 +5568,7 @@ export const maintainAdminUserDirectoryFromReviewFeedbackVote =
 
 export const processPrivateSearchIndexJob = onDocumentCreated(
   {
+    serviceAccount: biteSaverBrowseRuntimeServiceAccount,
     document: "private_search_index_jobs/{jobId}",
     retry: true,
     secrets: [biteSaverCustomerIdentityKeyV1],
@@ -5581,6 +5587,7 @@ export const processPrivateSearchIndexJob = onDocumentCreated(
 
 export const startCustomerBiteSaverSearch = onCall(
   {
+    serviceAccount: biteSaverBrowseRuntimeServiceAccount,
     secrets: [biteSaverCustomerDiscoveryKey],
     timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
   },
@@ -5595,6 +5602,7 @@ export const startCustomerBiteSaverSearch = onCall(
 
 export const getCustomerBiteSaverSearchStatus = onCall(
   {
+    serviceAccount: biteSaverBrowseRuntimeServiceAccount,
     secrets: [biteSaverCustomerDiscoveryKey],
     timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
   },
@@ -5609,6 +5617,7 @@ export const getCustomerBiteSaverSearchStatus = onCall(
 
 export const getCustomerBiteSaverSearchPage = onCall(
   {
+    serviceAccount: biteSaverBrowseRuntimeServiceAccount,
     secrets: [
       biteSaverCustomerDiscoveryKey,
       biteSaverCustomerIdentityKeyV1,
@@ -5626,6 +5635,7 @@ export const getCustomerBiteSaverSearchPage = onCall(
 
 export const getCustomerBiteSaverOfferPage = onCall(
   {
+    serviceAccount: biteSaverBrowseRuntimeServiceAccount,
     secrets: [
       biteSaverCustomerDiscoveryKey,
       biteSaverCustomerIdentityKeyV1,
@@ -5868,6 +5878,7 @@ export const useCustomerBiteSaverCoupon = onCall(
 
 export const processPrivateCustomerBiteSaverSearchJob = onDocumentCreated(
   {
+    serviceAccount: biteSaverBrowseRuntimeServiceAccount,
     document: "private_bitesaver_search_jobs/{jobId}",
     retry: true,
     secrets: [

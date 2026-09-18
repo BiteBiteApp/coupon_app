@@ -59,6 +59,18 @@ const workerHandler = "processCustomerBiteSaverSearchJob";
 const discoverySecretName = "BITESAVER_CUSTOMER_DISCOVERY_KEY";
 const identitySecretNameV1 = "BITESAVER_CUSTOMER_IDENTITY_KEY_V1";
 const deviceRootSecretNameV1 = "BITESAVER_DEVICE_ROOT_KEY_V1";
+const browseRuntimeServiceAccount =
+  "bitesaver-browse-runtime@coupon-app-29446.iam.gserviceaccount.com";
+const browseRuntimeExports = new Set([
+  "startCustomerBiteSaverSearch",
+  "getCustomerBiteSaverSearchStatus",
+  "getCustomerBiteSaverSearchPage",
+  "getCustomerBiteSaverOfferPage",
+  "processPrivateCustomerBiteSaverSearchJob",
+  "maintainBiteSaverRestaurantSearchIndex",
+  "maintainBiteSaverCouponOfferSearchIndex",
+  "processPrivateSearchIndexJob",
+]);
 
 function expectedSecrets(exportName) {
   if (exportName === "issueCustomerBiteSaverDeviceUseChallenge") return [];
@@ -394,7 +406,7 @@ test("actual Firebase metadata retains exact secrets and retry policy", () => {
   );
 });
 
-test("only two device callables extend the complete protected export inventory", () => {
+test("Browse runtime isolation preserves the complete protected export inventory", () => {
   const metadata = loadActualCompiledMetadata();
   // Captured from real Firebase metadata at the reviewed starting HEAD:
   // 6c3175298649da1aeba825ea0cdd41297b8fd638. This includes Stripe, payment,
@@ -405,7 +417,13 @@ test("only two device callables extend the complete protected export inventory",
       .sort(),
   );
   for (const [name, endpoint] of Object.entries(protectedMetadata)) {
-    assert.deepEqual(metadata[name], endpoint, name);
+    // Only the eight approved Browse identities may differ from this original
+    // snapshot. Keep every other metadata field, including all payment and
+    // unrelated export metadata, under the same exact comparison.
+    assert.deepEqual(metadata[name], browseRuntimeExports.has(name) ? {
+      ...endpoint,
+      serviceAccountEmail: browseRuntimeServiceAccount,
+    } : endpoint, name);
   }
   assert.deepEqual(
     Object.entries(metadata).filter(([, endpoint]) =>
@@ -413,6 +431,36 @@ test("only two device callables extend the complete protected export inventory",
         secret.key === deviceRootSecretNameV1))
       .map(([name]) => name),
     ["useCustomerBiteSaverCoupon"],
+  );
+});
+
+test("exactly eight Browse exports share the dedicated Node 24 runtime identity", () => {
+  const metadata = loadActualCompiledMetadata();
+  assert.deepEqual(
+    Object.entries(metadata)
+      .filter(([, endpoint]) =>
+        endpoint?.serviceAccountEmail === browseRuntimeServiceAccount)
+      .map(([name]) => name)
+      .sort(),
+    [...browseRuntimeExports].sort(),
+  );
+  assert.deepEqual(
+    [...new Set([...browseRuntimeExports].flatMap((name) =>
+      metadata[name].secretEnvironmentVariables.map((secret) => secret.key)))]
+      .sort(),
+    [discoverySecretName, identitySecretNameV1].sort(),
+  );
+  // Firebase takes the deployment runtime from the codebase override or the
+  // package engine; __endpoint does not contain the Node runtime selection.
+  const functionsPackage = require("../package.json");
+  const codebases = require("../../firebase.json").functions
+    .filter((codebase) => codebase.source === "functions");
+  assert.equal(codebases.length, 1);
+  assert.equal(functionsPackage.engines.node, "24");
+  assert.equal(functionsPackage.main, "lib/index.js");
+  assert.equal(
+    codebases[0].runtime ?? `nodejs${functionsPackage.engines.node}`,
+    "nodejs24",
   );
 });
 
