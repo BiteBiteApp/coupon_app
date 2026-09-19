@@ -67,11 +67,25 @@ const browseRuntimeExports = new Set([
   "getCustomerBiteSaverSearchStatus",
   "getCustomerBiteSaverSearchPage",
   "getCustomerBiteSaverOfferPage",
+  "getCustomerBiteSaverMenuPage",
+  "continueCustomerBiteSaverGuestOfferCheck",
+  "getCustomerBiteSaverFavoriteStates",
+  "getCustomerBiteSaverSavedPage",
+  "getCustomerBiteSaverSavedMenuPage",
   "processPrivateCustomerBiteSaverSearchJob",
   "maintainBiteSaverRestaurantSearchIndex",
   "maintainBiteSaverCouponOfferSearchIndex",
   "processPrivateSearchIndexJob",
 ]);
+const adminSupportRuntimeServiceAccount =
+  "bitestar-admin-support-runtime@coupon-app-29446.iam.gserviceaccount.com";
+const adminSupportRuntimeSecrets = Object.freeze({
+  listCouponAdminQueuePage: ["SEARCH_PAGINATION_CURSOR_KEY"],
+  listRatingAdminQueuePage: ["SEARCH_PAGINATION_CURSOR_KEY"],
+  searchAdminLinkRestaurantsPage: [
+    "SEARCH_PAGINATION_CURSOR_KEY", "GOOGLE_MAPS_API_KEY",
+  ],
+});
 
 function expectedSecrets(exportName) {
   if (exportName === "issueCustomerBiteSaverDeviceUseChallenge") return [];
@@ -407,7 +421,7 @@ test("actual Firebase metadata retains exact secrets and retry policy", () => {
   );
 });
 
-test("Browse runtime isolation preserves the complete protected export inventory", () => {
+test("approved runtime isolation preserves the complete protected export inventory", () => {
   const metadata = loadActualCompiledMetadata();
   // Captured from real Firebase metadata at the reviewed starting HEAD:
   // 6c3175298649da1aeba825ea0cdd41297b8fd638. This includes Stripe, payment,
@@ -418,12 +432,17 @@ test("Browse runtime isolation preserves the complete protected export inventory
       .sort(),
   );
   for (const [name, endpoint] of Object.entries(protectedMetadata)) {
-    // Only the eight approved Browse identities may differ from this original
-    // snapshot. Keep every other metadata field, including all payment and
-    // unrelated export metadata, under the same exact comparison.
-    assert.deepEqual(metadata[name], browseRuntimeExports.has(name) ? {
+    // Retain the original snapshot: only explicitly approved Browse and
+    // Admin-support identities differ. Every other metadata field, including
+    // payment, invocation policy and secret bindings, must still match exactly.
+    const serviceAccountEmail = browseRuntimeExports.has(name)
+      ? browseRuntimeServiceAccount
+      : Object.hasOwn(adminSupportRuntimeSecrets, name)
+        ? adminSupportRuntimeServiceAccount
+        : undefined;
+    assert.deepEqual(metadata[name], serviceAccountEmail !== undefined ? {
       ...endpoint,
-      serviceAccountEmail: browseRuntimeServiceAccount,
+      serviceAccountEmail,
     } : endpoint, name);
   }
   assert.deepEqual(
@@ -452,7 +471,7 @@ test("approved BiteScore additions retain exact isolated runtime metadata", () =
     .map(([name]) => name).sort(), Object.keys(biteScoreMetadata).sort());
 });
 
-test("exactly eight Browse exports share the dedicated Node 24 runtime identity", () => {
+test("exactly thirteen Browse, Saved, Menu and guest exports share the dedicated Node 24 runtime identity", () => {
   const metadata = loadActualCompiledMetadata();
   assert.deepEqual(
     Object.entries(metadata)
@@ -480,6 +499,30 @@ test("exactly eight Browse exports share the dedicated Node 24 runtime identity"
     codebases[0].runtime ?? `nodejs${functionsPackage.engines.node}`,
     "nodejs24",
   );
+});
+
+test("exactly three Admin-support callables pin their identity without sharing secret bindings", () => {
+  const metadata = loadActualCompiledMetadata();
+  assert.deepEqual(
+    Object.entries(metadata)
+      .filter(([, endpoint]) =>
+        endpoint?.serviceAccountEmail === adminSupportRuntimeServiceAccount)
+      .map(([name]) => name)
+      .sort(),
+    Object.keys(adminSupportRuntimeSecrets).sort(),
+  );
+  for (const [name, secrets] of Object.entries(adminSupportRuntimeSecrets)) {
+    assert.deepEqual(metadata[name], {
+      ...protectedMetadata[name],
+      serviceAccountEmail: adminSupportRuntimeServiceAccount,
+    }, name);
+    assert.deepEqual(metadata[name].callableTrigger, {}, name);
+    assert.deepEqual(
+      metadata[name].secretEnvironmentVariables.map((secret) => secret.key),
+      secrets,
+      name,
+    );
+  }
 });
 
 test("device callables pin separate runtime identities with otherwise unchanged metadata", () => {

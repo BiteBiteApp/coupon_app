@@ -343,6 +343,8 @@ setGlobalOptions({
 
 const biteSaverBrowseRuntimeServiceAccount =
   "bitesaver-browse-runtime@coupon-app-29446.iam.gserviceaccount.com";
+const adminSupportRuntimeServiceAccount =
+  "bitestar-admin-support-runtime@coupon-app-29446.iam.gserviceaccount.com";
 
 const db: Firestore = getFirestore();
 const searchIndexDatabase = createFirestoreSearchIndexDatabase(db);
@@ -2449,6 +2451,7 @@ export const searchAdminRestaurants = onCall(
 
 export const searchAdminLinkRestaurantsPage = onCall(
   {
+    serviceAccount: adminSupportRuntimeServiceAccount,
     secrets: [searchPaginationCursorKey, googleMapsApiKey],
   },
   async (request) => {
@@ -2527,7 +2530,10 @@ export const searchCouponAdminRestaurantsPage = onCall(
 );
 
 export const listCouponAdminQueuePage = onCall(
-  { secrets: [searchPaginationCursorKey] },
+  {
+    serviceAccount: adminSupportRuntimeServiceAccount,
+    secrets: [searchPaginationCursorKey],
+  },
   async (request) => {
     const admin = requireAdminInviteAccess(request);
     return listCouponAdminQueuePageHandler(request.data, {
@@ -2596,7 +2602,10 @@ export const listRatingAdminDirectoryPage = onCall(
 );
 
 export const listRatingAdminQueuePage = onCall(
-  { secrets: [searchPaginationCursorKey] },
+  {
+    serviceAccount: adminSupportRuntimeServiceAccount,
+    secrets: [searchPaginationCursorKey],
+  },
   async (request) => {
     const admin = requireAdminInviteAccess(request);
     return listRatingAdminQueuePageHandler(request.data, {
@@ -5688,6 +5697,7 @@ export const getCustomerBiteSaverOfferPage = onCall(
 
 export const getCustomerBiteSaverMenuPage = onCall(
   {
+    serviceAccount: biteSaverBrowseRuntimeServiceAccount,
     secrets: [
       biteSaverCustomerDiscoveryKey,
       biteSaverCustomerIdentityKeyV1,
@@ -5705,6 +5715,7 @@ export const getCustomerBiteSaverMenuPage = onCall(
 
 export const continueCustomerBiteSaverGuestOfferCheck = onCall(
   {
+    serviceAccount: biteSaverBrowseRuntimeServiceAccount,
     secrets: [
       biteSaverCustomerDiscoveryKey,
       biteSaverCustomerIdentityKeyV1,
@@ -5722,6 +5733,7 @@ export const continueCustomerBiteSaverGuestOfferCheck = onCall(
 
 export const getCustomerBiteSaverFavoriteStates = onCall(
   {
+    serviceAccount: biteSaverBrowseRuntimeServiceAccount,
     secrets: [
       biteSaverCustomerDiscoveryKey,
       biteSaverCustomerIdentityKeyV1,
@@ -5739,6 +5751,7 @@ export const getCustomerBiteSaverFavoriteStates = onCall(
 
 export const getCustomerBiteSaverSavedPage = onCall(
   {
+    serviceAccount: biteSaverBrowseRuntimeServiceAccount,
     secrets: [
       biteSaverCustomerDiscoveryKey,
       biteSaverCustomerIdentityKeyV1,
@@ -5756,6 +5769,7 @@ export const getCustomerBiteSaverSavedPage = onCall(
 
 export const getCustomerBiteSaverSavedMenuPage = onCall(
   {
+    serviceAccount: biteSaverBrowseRuntimeServiceAccount,
     secrets: [
       biteSaverCustomerDiscoveryKey,
       biteSaverCustomerIdentityKeyV1,
