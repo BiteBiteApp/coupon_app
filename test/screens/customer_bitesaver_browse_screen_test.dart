@@ -30,7 +30,9 @@ import '../support/customer_bitesaver_device_use_fixture.dart';
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  setUp(() {
+  setUp(() async {
+    mainNavigationController.resetBiteSaverCustomerPathForTesting();
+    await DemoRedemptionStore.resetForTesting();
     SharedPreferences.setMockInitialValues(const <String, Object>{});
     SharedLocationStateService.resetForTesting();
     AppModeStateService.setMode(AppMode.biteSaver);

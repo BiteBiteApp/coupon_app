@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/demo_redemption_store.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/restaurant_customer_link_service.dart';
 import '../services/restaurant_invite_service.dart';
@@ -77,6 +78,30 @@ typedef BiteSaverSavedAccountBuilder =
     Widget Function(BuildContext context, String authRealm);
 
 class MainNavigationController {
+  // Keep the existing paired customer composition when a route reconstructs
+  // the shell. Cutover is one-way for this controller's lifetime; a later shell
+  // omitting the builders must not silently restore legacy coupon writers.
+  BiteSaverBrowseHomeBuilder? _biteSaverBrowseHomeBuilder;
+  BiteSaverSavedAccountBuilder? _biteSaverSavedAccountBuilder;
+
+  void _retainBiteSaverCustomerPath({
+    required BiteSaverBrowseHomeBuilder browse,
+    required BiteSaverSavedAccountBuilder saved,
+  }) {
+    _biteSaverBrowseHomeBuilder = browse;
+    _biteSaverSavedAccountBuilder = saved;
+    // Standalone public routes and owner flows use the root controller.
+    mainNavigationController._biteSaverBrowseHomeBuilder = browse;
+    mainNavigationController._biteSaverSavedAccountBuilder = saved;
+    DemoRedemptionStore.retireLegacyWritersForBoundedCutover();
+  }
+
+  @visibleForTesting
+  void resetBiteSaverCustomerPathForTesting() {
+    _biteSaverBrowseHomeBuilder = null;
+    _biteSaverSavedAccountBuilder = null;
+  }
+
   final List<_MainNavigationRegistration> _registrations =
       <_MainNavigationRegistration>[];
   final Map<NavigatorState, _MainNavigationRootContext> _rootContexts =
@@ -1488,6 +1513,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   void initState() {
     super.initState();
+    _retainBiteSaverCustomerPath();
     final initialCustomerDeepLink = widget.initialCustomerDeepLink;
     final initialInviteDeepLink = widget.initialInviteDeepLink;
     final initialInviteIsBiteScore = initialInviteDeepLink?.side == 'bitescore';
@@ -1553,6 +1579,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   @override
   void didUpdateWidget(covariant MainNavigationScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
+    _retainBiteSaverCustomerPath();
     final oldController =
         oldWidget.navigationController ?? mainNavigationController;
     if (!identical(oldController, _effectiveNavigationController)) {
@@ -1575,6 +1602,34 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
 
   MainNavigationController get _effectiveNavigationController =>
       widget.navigationController ?? mainNavigationController;
+
+  BiteSaverBrowseHomeBuilder? get _biteSaverBrowseHomeBuilder =>
+      widget.biteSaverBrowseHomeBuilder ??
+      _effectiveNavigationController._biteSaverBrowseHomeBuilder ??
+      mainNavigationController._biteSaverBrowseHomeBuilder;
+
+  BiteSaverSavedAccountBuilder? get _biteSaverSavedAccountBuilder =>
+      widget.biteSaverSavedAccountBuilder ??
+      _effectiveNavigationController._biteSaverSavedAccountBuilder ??
+      mainNavigationController._biteSaverSavedAccountBuilder;
+
+  void _retainBiteSaverCustomerPath() {
+    if (widget.testPagesBuilder == null &&
+        (widget.biteSaverBrowseHomeBuilder == null) !=
+            (widget.biteSaverSavedAccountBuilder == null)) {
+      throw StateError(
+        'Bounded BiteSaver Home and Saved/Account must be selected together.',
+      );
+    }
+    final browse = _biteSaverBrowseHomeBuilder;
+    final saved = _biteSaverSavedAccountBuilder;
+    if (browse != null && saved != null) {
+      _effectiveNavigationController._retainBiteSaverCustomerPath(
+        browse: browse,
+        saved: saved,
+      );
+    }
+  }
 
   void _registerNavigationShell() {
     final navigator = Navigator.maybeOf(context, rootNavigator: true);
@@ -2270,7 +2325,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     if (testBuilder != null) {
       return testBuilder(mode, navigationRefreshGeneration);
     }
-    final boundedBuilder = widget.biteSaverBrowseHomeBuilder;
+    final boundedBuilder = _biteSaverBrowseHomeBuilder;
     if (mode == AppMode.biteSaver && boundedBuilder != null) {
       return boundedBuilder(
         context,
@@ -2293,7 +2348,7 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
     if (index == 0 &&
         (widget.testModeHomeBuilder != null ||
             (mode == AppMode.biteSaver &&
-                widget.biteSaverBrowseHomeBuilder != null))) {
+                _biteSaverBrowseHomeBuilder != null))) {
       return _buildModeHomePage(mode);
     }
     final testPages = widget.testPagesBuilder?.call(mode);
@@ -2302,10 +2357,9 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
       return testPages[index];
     }
 
-    if (index == 2 &&
-        mode == AppMode.biteSaver &&
-        widget.biteSaverBrowseHomeBuilder != null) {
-      final accountBuilder = widget.biteSaverSavedAccountBuilder;
+    // Account exposes BiteSaver Saved in both modes.
+    if (index == 2 && _biteSaverBrowseHomeBuilder != null) {
+      final accountBuilder = _biteSaverSavedAccountBuilder;
       if (accountBuilder == null) {
         throw StateError(
           'Bounded BiteSaver Home requires its canonical Saved/Account builder.',

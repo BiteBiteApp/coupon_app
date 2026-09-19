@@ -51,13 +51,22 @@ test("Android release version 3 uses the shared Flutter and existing platform ve
   const ios = source("ios/Runner/Info.plist");
   assert.match(ios, /<key>CFBundleShortVersionString<\/key>\s*<string>\$\(FLUTTER_BUILD_NAME\)<\/string>/u);
   assert.match(ios, /<key>CFBundleVersion<\/key>\s*<string>\$\(FLUTTER_BUILD_NUMBER\)<\/string>/u);
+});
+
+test("bounded coordinators use the device service while default customer activation stays off", () => {
+  const source = (file) => readFileSync(path.resolve(__dirname, "../..", file), "utf8");
   for (const file of [
     "lib/services/customer_bitesaver_search_coordinator.dart",
     "lib/services/customer_bitesaver_saved_coordinator.dart",
   ]) {
+    assert.match(source(file), /CustomerBiteSaverDeviceUseService\(/u);
+    assert.match(source(file), /_deviceUseService\.useCoupon\(/u);
+    // The shared device service owns the callable transport and proof flow.
     assert.doesNotMatch(source(file),
-      /issueCustomerBiteSaverDeviceUseChallenge|useCustomerBiteSaverCoupon|CustomerBiteSaverDeviceProofService/u);
+      /issueCustomerBiteSaverDeviceUseChallenge|useCustomerBiteSaverCoupon/u);
   }
+  assert.doesNotMatch(source("lib/main.dart"),
+    /biteSaverBrowseHomeBuilder:|biteSaverSavedAccountBuilder:/u);
 });
 
 function contractError(code) {

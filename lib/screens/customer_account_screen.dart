@@ -3,7 +3,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../models/demo_redemption_store.dart';
 import '../services/admin_access_service.dart';
+import '../services/app_mode_state_service.dart';
 import '../services/app_error_text.dart';
 import '../services/customer_auth_service.dart';
 import '../widgets/phone_auth_sheet.dart';
@@ -732,6 +734,15 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
                 onPressed: isSubmitting
                     ? null
                     : () async {
+                        if (!DemoRedemptionStore.legacyWritesEnabled &&
+                            widget.profileDestinationBuilder == null) {
+                          openMainNavigationDestination(
+                            context,
+                            mode: AppMode.biteSaver,
+                            index: 2,
+                          );
+                          return;
+                        }
                         await pushMainNavigationPrivateRoute<void>(
                           context,
                           parentBinding: null,

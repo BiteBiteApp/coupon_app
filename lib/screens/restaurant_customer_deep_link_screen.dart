@@ -129,7 +129,8 @@ class _RestaurantCustomerDeepLinkScreenState
         .where(
           (coupon) =>
               coupon.isActiveAt(now) &&
-              DemoRedemptionStore.isAvailable(coupon.id, coupon.usageRule),
+              (!DemoRedemptionStore.legacyWritesEnabled ||
+                  DemoRedemptionStore.isAvailable(coupon.id, coupon.usageRule)),
         )
         .toList(growable: false);
     final visibleSpecials = DailySpecial.visibleSpecialsAt(dailySpecials, now);

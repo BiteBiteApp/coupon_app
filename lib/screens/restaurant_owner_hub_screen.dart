@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
+import '../services/app_mode_state_service.dart';
 import '../widgets/admin_content_insets.dart';
 import 'bitescore_owner_screen.dart';
 import 'main_navigation_screen.dart';
@@ -36,11 +37,10 @@ class RestaurantOwnerHubScreen extends StatelessWidget {
       return;
     }
 
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute(
-        builder: (_) => const MainNavigationScreen(initialIndex: 1),
-      ),
-      (route) => false,
+    openMainNavigationDestination(
+      context,
+      mode: AppModeStateService.selectedMode.value,
+      index: 1,
     );
   }
 

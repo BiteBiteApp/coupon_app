@@ -1513,10 +1513,11 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                   .where(
                     (coupon) =>
                         coupon.isActiveAt(now) &&
-                        DemoRedemptionStore.isAvailable(
-                          coupon.id,
-                          coupon.usageRule,
-                        ),
+                        (!DemoRedemptionStore.legacyWritesEnabled ||
+                            DemoRedemptionStore.isAvailable(
+                              coupon.id,
+                              coupon.usageRule,
+                            )),
                   )
                   .toList();
 

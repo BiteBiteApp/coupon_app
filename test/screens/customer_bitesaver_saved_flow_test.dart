@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:coupon_app/models/demo_redemption_store.dart';
 import 'package:coupon_app/models/customer_bitesaver_favorite.dart';
 import 'package:coupon_app/models/customer_bitesaver_saved.dart';
 import 'package:coupon_app/models/customer_bitesaver_search.dart';
@@ -211,7 +212,9 @@ const BiteScoreUserProfileData _emptyProfile = BiteScoreUserProfileData(
 );
 
 void main() {
-  setUp(() {
+  setUp(() async {
+    mainNavigationController.resetBiteSaverCustomerPathForTesting();
+    await DemoRedemptionStore.resetForTesting();
     SharedPreferences.setMockInitialValues(<String, Object>{});
     AppModeStateService.setMode(AppMode.biteSaver);
   });

@@ -567,30 +567,42 @@ test("device callable factories use trusted Firebase actors and isolated secrets
   }
 });
 
-test("device callable wrappers sanitize construction and invocation failures", async () => {
+test("device callable failures are sanitized and never fall back to account-only writers", async () => {
   const runtime = loadCompiledIndexWithCustomerBiteSaverHarness();
   const canary = "private-provider-proof-and-secret-canary";
+  const authStates = [undefined, {
+    uid: "signed-in-customer",
+    token: {firebase: {sign_in_provider: "password"}},
+  }];
   for (const name of Object.keys(deviceCallableFactories)) {
     const callable = runtime.exports[name];
     for (const errorSource of ["deviceFactoryError", "callableError"]) {
       runtime.state[errorSource] = new Error(canary);
-      await assert.rejects(callable({data: {}}), (error) => {
-        assert.equal(error.code, "internal");
-        assert.equal(error.message,
-          "BiteSaver device verification is temporarily unavailable.");
-        assert.equal(JSON.stringify(error).includes(canary), false);
-        assert.equal(error.details, undefined);
-        return true;
-      });
+      for (const auth of authStates) {
+        await assert.rejects(callable({data: {}, auth}), (error) => {
+          assert.equal(error.code, "internal");
+          assert.equal(error.message,
+            "BiteSaver device verification is temporarily unavailable.");
+          assert.equal(JSON.stringify(error).includes(canary), false);
+          assert.equal(error.details, undefined);
+          return true;
+        });
+      }
+      assert.deepEqual(runtime.state.callableCalls, [],
+        "Device failures must not invoke retained account-only handlers.");
       runtime.state[errorSource] = new CustomerBiteSaverContractError(
         "permission-denied", "BiteSaver device proof was rejected.",
       );
-      await assert.rejects(callable({data: {}}), (error) => {
-        assert.equal(error.code, "permission-denied");
-        assert.equal(error.message, "BiteSaver device proof was rejected.");
-        assert.equal(error.details, undefined);
-        return true;
-      });
+      for (const auth of authStates) {
+        await assert.rejects(callable({data: {}, auth}), (error) => {
+          assert.equal(error.code, "permission-denied");
+          assert.equal(error.message, "BiteSaver device proof was rejected.");
+          assert.equal(error.details, undefined);
+          return true;
+        });
+      }
+      assert.deepEqual(runtime.state.callableCalls, [],
+        "Rejected device proofs must not invoke retained account-only handlers.");
       runtime.state[errorSource] = null;
     }
   }

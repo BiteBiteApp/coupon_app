@@ -24,7 +24,26 @@ final class DemoRedemptionStoredState {
 class DemoRedemptionStore {
   static final ValueNotifier<int> changes = ValueNotifier<int>(0);
 
-  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  static FirebaseFirestore get _firestore =>
+      _firestoreForTesting ?? FirebaseFirestore.instance;
+  static FirebaseFirestore? _firestoreForTesting;
+  static Future<void> Function(String key, String value)?
+  _guestStateWriterForTesting;
+  static Future<void>? _guestWriteTail;
+  static bool _legacyWritesEnabled = true;
+
+  static bool get legacyWritesEnabled => _legacyWritesEnabled;
+
+  /// Called by the existing bounded customer composition before it is exposed.
+  /// Retirement is one-way for this process, including already scheduled work.
+  static void retireLegacyWritersForBoundedCutover() {
+    if (!_legacyWritesEnabled) return;
+    _legacyWritesEnabled = false;
+    _loadGeneration++;
+    _clearMemory();
+    _initialized = false;
+    _initializingFuture = null;
+  }
 
   static const String _guestStorageKeyPrefix = 'guest_coupon_redemptions';
   static const Duration redeemWindow = Duration(minutes: 5);
@@ -32,6 +51,8 @@ class DemoRedemptionStore {
   static final Map<String, DateTime> _lastRedeemedAtByCoupon = {};
   static final Map<String, DateTime> _timerStartedAtByCoupon = {};
   static final Map<String, Timer> _expiryTimersByCoupon = {};
+  static final Map<String, Future<void>> _pendingFinalizationsByCoupon = {};
+  static final Map<String, DateTime> _deferredFinalizationsByCoupon = {};
 
   static bool _initialized = false;
   static Future<void>? _initializingFuture;
@@ -62,6 +83,7 @@ class DemoRedemptionStore {
   }
 
   static Future<void> ensureInitialized() {
+    if (!legacyWritesEnabled) return Future<void>.value();
     _authSubscription ??= _authChanges().listen((snapshot) async {
       final nextUid = snapshot?.uid;
       final nextIsGuest = snapshot?.isAnonymous ?? false;
@@ -92,6 +114,7 @@ class DemoRedemptionStore {
 
   static Future<void> _loadCurrentUserRedemptions() async {
     await _ensureAuthReady();
+    if (!legacyWritesEnabled) return;
     final authSnapshot = _currentAuthSnapshot();
     final loadGeneration = _loadGeneration;
     final activeUid = authSnapshot?.uid;
@@ -150,6 +173,7 @@ class DemoRedemptionStore {
     _loadedGuestDeviceId = guestDeviceId;
     _replaceMemory(loadedRedemptions);
     await _finalizeExpiredTimersIfNeeded();
+    if (!_isCurrentLoad(loadGeneration, activeUid, activeIsGuest)) return;
     _scheduleAllExpiryTimers();
 
     if (!_isCurrentLoad(loadGeneration, activeUid, activeIsGuest)) {
@@ -168,6 +192,8 @@ class DemoRedemptionStore {
       timer.cancel();
     }
     _expiryTimersByCoupon.clear();
+    _pendingFinalizationsByCoupon.clear();
+    _deferredFinalizationsByCoupon.clear();
   }
 
   static Future<Map<String, _StoredCouponRedemption>>
@@ -204,9 +230,16 @@ class DemoRedemptionStore {
 
   static Future<Map<String, _StoredCouponRedemption>>
   _readGuestRedemptionsFromDevice(String guestDeviceId) async {
+    if (_guestWriteTail case final pendingWrite?) await pendingWrite;
     final prefs = await SharedPreferences.getInstance();
-    final rawJson = prefs.getString(_guestStorageKeyFor(guestDeviceId));
+    return _decodeGuestRedemptions(
+      prefs.getString(_guestStorageKeyFor(guestDeviceId)),
+    );
+  }
 
+  static Map<String, _StoredCouponRedemption> _decodeGuestRedemptions(
+    String? rawJson,
+  ) {
     if (rawJson == null || rawJson.trim().isEmpty) {
       return {};
     }
@@ -293,39 +326,73 @@ class DemoRedemptionStore {
     }
   }
 
-  static Future<void> _saveGuestRedemptionsToDevice() async {
-    final guestDeviceId =
-        _loadedGuestDeviceId ??
-        await CustomerSessionService.getOrCreateGuestDeviceId();
-
-    final prefs = await SharedPreferences.getInstance();
-
-    final data = <String, Map<String, String>>{};
-    final couponIds = <String>{
-      ..._lastRedeemedAtByCoupon.keys,
-      ..._timerStartedAtByCoupon.keys,
-    };
-
-    for (final couponId in couponIds) {
-      final redemptionData = <String, String>{};
-      final lastRedeemedAt = _lastRedeemedAtByCoupon[couponId];
-      final timerStartedAt = _timerStartedAtByCoupon[couponId];
-
-      if (lastRedeemedAt != null) {
-        redemptionData['lastRedeemedAt'] = lastRedeemedAt.toIso8601String();
-      }
-
-      if (timerStartedAt != null) {
-        redemptionData['timerStartedAt'] = timerStartedAt.toIso8601String();
-      }
-
-      if (redemptionData.isNotEmpty) {
-        data[couponId] = redemptionData;
-      }
+  static Future<_StoredCouponRedemption?> _saveGuestRedemptionToDevice({
+    required String guestDeviceId,
+    required String couponId,
+    required _StoredCouponRedemption state,
+    required bool Function() isCurrent,
+    DateTime? finalizedTimerStartedAt,
+  }) {
+    // Serialize read/modify/write of the existing device key. Each operation
+    // changes only its captured coupon, never a later account's memory snapshot.
+    final write = (_guestWriteTail ?? SynchronousFuture<void>(null))
+        .then<_StoredCouponRedemption?>((_) async {
+          if (!isCurrent()) return null;
+          final prefs = await SharedPreferences.getInstance();
+          if (!isCurrent()) return null;
+          final key = _guestStorageKeyFor(guestDeviceId);
+          final redemptions = _decodeGuestRedemptions(prefs.getString(key));
+          final existing = redemptions[couponId];
+          final latestLastRedeemedAt = _laterDate(
+            existing?.lastRedeemedAt,
+            state.lastRedeemedAt,
+          );
+          final existingTimer = existing?.timerStartedAt;
+          redemptions[couponId] = _StoredCouponRedemption(
+            lastRedeemedAt: latestLastRedeemedAt,
+            timerStartedAt: finalizedTimerStartedAt == null
+                ? _laterDate(existingTimer, state.timerStartedAt)
+                : existingTimer == finalizedTimerStartedAt
+                ? null
+                : existingTimer,
+          );
+          final data = <String, Map<String, String>>{
+            for (final entry in redemptions.entries)
+              entry.key: <String, String>{
+                if (entry.value.lastRedeemedAt != null)
+                  'lastRedeemedAt': entry.value.lastRedeemedAt!
+                      .toIso8601String(),
+                if (entry.value.timerStartedAt != null)
+                  'timerStartedAt': entry.value.timerStartedAt!
+                      .toIso8601String(),
+              },
+          };
+          final encoded = jsonEncode(data);
+          if (_guestStateWriterForTesting case final writer?) {
+            await writer(key, encoded);
+          } else {
+            await prefs.setString(key, encoded);
+          }
+          return redemptions[couponId];
+        });
+    // A failed operation must not poison subsequent independent saves.
+    late final Future<void> tail;
+    void completed() {
+      if (identical(_guestWriteTail, tail)) _guestWriteTail = null;
     }
 
-    await prefs.setString(_guestStorageKeyFor(guestDeviceId), jsonEncode(data));
+    tail = write.then<void>(
+      (_) => completed(),
+      onError: (Object _, StackTrace _) => completed(),
+    );
+    _guestWriteTail = tail;
+    return write;
   }
+
+  static DateTime? _laterDate(DateTime? first, DateTime? second) =>
+      second != null && (first == null || second.isAfter(first))
+      ? second
+      : first;
 
   static bool supportsRedeemTimer(String usageRule) {
     return usageRule.trim().toLowerCase() != 'unlimited';
@@ -387,16 +454,50 @@ class DemoRedemptionStore {
   }
 
   static Future<void> startRedeemTimer(Coupon coupon) async {
+    if (!legacyWritesEnabled) {
+      throw StateError(
+        'Legacy coupon use is retired for the bounded customer path.',
+      );
+    }
     await ensureInitialized();
+    if (!legacyWritesEnabled ||
+        !_matchesCurrentAuthUser(_loadedUid, _loadedAsGuest)) {
+      throw StateError('The customer session changed. Please try again.');
+    }
 
     if (!supportsRedeemTimer(coupon.usageRule)) {
       return;
     }
 
-    if (hasActiveRedeemTimer(coupon.id)) {
-      return;
+    final generation = _loadGeneration;
+    final uid = _loadedUid;
+    final isGuest = _loadedAsGuest;
+    while (true) {
+      final hasActiveTimer = hasActiveRedeemTimer(coupon.id);
+      if (_pendingFinalizationsByCoupon[coupon.id] case final finalization?) {
+        await finalization;
+      } else if (_deferredFinalizationsByCoupon[coupon.id]
+          case final deferredAnchor?) {
+        // A failed completion still owns the durable timer. Retry it before a
+        // new use can replace that anchor, including after offline recovery.
+        await _persistRedemptionState(
+          couponId: coupon.id,
+          finalizedTimerStartedAt: deferredAnchor,
+        );
+        if (_isCurrentLoad(generation, uid, isGuest) &&
+            _deferredFinalizationsByCoupon[coupon.id] == deferredAnchor) {
+          _deferredFinalizationsByCoupon.remove(coupon.id);
+        }
+      } else {
+        if (hasActiveTimer) return;
+        break;
+      }
+      if (!_isCurrentLoad(generation, uid, isGuest)) {
+        throw StateError('The customer session changed. Please try again.');
+      }
+      // Persistence can discover another expired remote anchor. Settle its
+      // finalizer too before deciding whether a new use is available.
     }
-
     if (!isAvailable(coupon.id, coupon.usageRule)) {
       throw Exception('This coupon is not currently redeemable.');
     }
@@ -417,46 +518,136 @@ class DemoRedemptionStore {
   static Future<void> _persistRedemptionState({
     required String couponId,
     Coupon? coupon,
-    bool incrementRedeemedCount = false,
+    DateTime? finalizedTimerStartedAt,
   }) async {
-    await _ensureAuthReady();
-    final user = _currentAuthSnapshot();
+    // Capture the owner and coupon before yielding. Auth refreshes can clear or
+    // replace both maps while auth readiness or persistence is pending.
+    final uid = _loadedUid;
+    final isGuest = _loadedAsGuest;
+    final generation = _loadGeneration;
+    final guestDeviceId = _loadedGuestDeviceId;
+    final state = _StoredCouponRedemption(
+      lastRedeemedAt: _lastRedeemedAtByCoupon[couponId],
+      timerStartedAt: _timerStartedAtByCoupon[couponId],
+    );
+    bool isCurrent() => _isCurrentLoad(generation, uid, isGuest);
 
-    if (user == null) {
+    await _ensureAuthReady();
+    if (!isCurrent()) {
+      if (coupon != null) {
+        throw StateError('The customer session changed. Please try again.');
+      }
+      return;
+    }
+    if (uid == null) {
       throw StateError(
         'Please continue as guest or sign in before redeeming coupons.',
       );
     }
 
-    if (user.isAnonymous) {
-      await _saveGuestRedemptionsToDevice();
+    if (isGuest) {
+      if (guestDeviceId == null) {
+        throw StateError('The guest customer session is not initialized.');
+      }
+      final persisted = await _saveGuestRedemptionToDevice(
+        guestDeviceId: guestDeviceId,
+        couponId: couponId,
+        state: state,
+        isCurrent: isCurrent,
+        finalizedTimerStartedAt: finalizedTimerStartedAt,
+      );
+      if (isCurrent() && persisted != null) {
+        _reconcilePersistedState(couponId, state, persisted);
+      }
+      if (coupon != null && !isCurrent()) {
+        throw StateError('The customer session changed. Please try again.');
+      }
       return;
     }
 
-    final data = <String, dynamic>{
+    final reference = _redemptionsCollection(uid).doc(couponId);
+    if (finalizedTimerStartedAt != null) {
+      final completedAt = finalizedTimerStartedAt.add(redeemWindow);
+      final newerState = await _firestore
+          .runTransaction<_StoredCouponRedemption?>((transaction) async {
+            if (!isCurrent()) return null;
+            final snapshot = await transaction.get(reference);
+            if (!isCurrent()) return null;
+            final existing = snapshot.data();
+            final existingTimer = _coerceDateTime(existing?['timerStartedAt']);
+            // A newer remote use owns its timer; an older reader cannot clear it.
+            if (existingTimer != null &&
+                existingTimer != finalizedTimerStartedAt) {
+              return _StoredCouponRedemption(
+                lastRedeemedAt: _coerceDateTime(existing?['lastRedeemedAt']),
+                timerStartedAt: existingTimer,
+              );
+            }
+            final lastRedeemedAt = _coerceDateTime(existing?['lastRedeemedAt']);
+            final shouldUpdate =
+                lastRedeemedAt == null || completedAt.isAfter(lastRedeemedAt);
+            final persistedState = _StoredCouponRedemption(
+              lastRedeemedAt: _laterDate(lastRedeemedAt, completedAt),
+            );
+            if (!shouldUpdate && existingTimer == null) return persistedState;
+            transaction.set(reference, <String, dynamic>{
+              'couponId': couponId,
+              'updatedAt': FieldValue.serverTimestamp(),
+              if (existingTimer == finalizedTimerStartedAt)
+                'timerStartedAt': FieldValue.delete(),
+              if (shouldUpdate) ...<String, dynamic>{
+                'lastRedeemedAt': Timestamp.fromDate(completedAt),
+                'redeemedCount': FieldValue.increment(1),
+              },
+            }, SetOptions(merge: true));
+            return persistedState;
+          });
+      if (isCurrent() && newerState != null) {
+        _reconcilePersistedState(couponId, state, newerState);
+      }
+      return;
+    }
+
+    await reference.set(<String, dynamic>{
       'couponId': couponId,
       'updatedAt': FieldValue.serverTimestamp(),
-      'lastRedeemedAt': _lastRedeemedAtByCoupon[couponId] == null
-          ? FieldValue.delete()
-          : Timestamp.fromDate(_lastRedeemedAtByCoupon[couponId]!),
-      'timerStartedAt': _timerStartedAtByCoupon[couponId] == null
-          ? FieldValue.delete()
-          : Timestamp.fromDate(_timerStartedAtByCoupon[couponId]!),
-    };
+      // Starting a timer does not replace previously recorded use history.
+      if (state.timerStartedAt != null)
+        'timerStartedAt': Timestamp.fromDate(state.timerStartedAt!),
+      if (coupon != null) ...<String, dynamic>{
+        'couponTitle': coupon.title,
+        'restaurant': coupon.restaurant,
+        'usageRule': coupon.usageRule,
+      },
+    }, SetOptions(merge: true));
+  }
 
-    if (coupon != null) {
-      data['couponTitle'] = coupon.title;
-      data['restaurant'] = coupon.restaurant;
-      data['usageRule'] = coupon.usageRule;
+  static void _reconcilePersistedState(
+    String couponId,
+    _StoredCouponRedemption expected,
+    _StoredCouponRedemption persisted,
+  ) {
+    // A finalizer may observe a later use while it is pending. Restore that
+    // timer for display only if no later local action has replaced our state.
+    if (_lastRedeemedAtByCoupon[couponId] != expected.lastRedeemedAt ||
+        _timerStartedAtByCoupon[couponId] != expected.timerStartedAt) {
+      return;
     }
-
-    if (incrementRedeemedCount) {
-      data['redeemedCount'] = FieldValue.increment(1);
+    final lastRedeemedAt = _laterDate(
+      expected.lastRedeemedAt,
+      persisted.lastRedeemedAt,
+    );
+    var changed = lastRedeemedAt != expected.lastRedeemedAt;
+    if (lastRedeemedAt != null) {
+      _lastRedeemedAtByCoupon[couponId] = lastRedeemedAt;
     }
-
-    await _redemptionsCollection(
-      user.uid,
-    ).doc(couponId).set(data, SetOptions(merge: true));
+    if (persisted.timerStartedAt != null &&
+        persisted.timerStartedAt != expected.timerStartedAt) {
+      _timerStartedAtByCoupon[couponId] = persisted.timerStartedAt!;
+      _scheduleExpiryTimer(couponId);
+      changed = true;
+    }
+    if (changed) changes.value++;
   }
 
   static void _scheduleAllExpiryTimers() {
@@ -466,6 +657,7 @@ class DemoRedemptionStore {
   }
 
   static void _scheduleExpiryTimer(String couponId) {
+    if (!legacyWritesEnabled) return;
     _expiryTimersByCoupon.remove(couponId)?.cancel();
 
     final timerStartedAt = _timerStartedAtByCoupon[couponId];
@@ -488,42 +680,40 @@ class DemoRedemptionStore {
 
   static void _refreshExpiredTimerIfNeeded(String couponId) {
     final timerStartedAt = _timerStartedAtByCoupon[couponId];
-    if (timerStartedAt == null) {
+    if (timerStartedAt == null ||
+        DateTime.now().isBefore(timerStartedAt.add(redeemWindow))) {
       return;
     }
-
-    final completedAt = timerStartedAt.add(redeemWindow);
-    if (DateTime.now().isBefore(completedAt)) {
-      return;
-    }
-    final existingLastRedeemedAt = _lastRedeemedAtByCoupon[couponId];
-    final shouldUpdate =
-        existingLastRedeemedAt == null ||
-        completedAt.isAfter(existingLastRedeemedAt);
-
-    _timerStartedAtByCoupon.remove(couponId);
-    _expiryTimersByCoupon.remove(couponId)?.cancel();
-
-    if (shouldUpdate) {
-      _lastRedeemedAtByCoupon[couponId] = completedAt;
-    }
-
-    changes.value++;
-    unawaited(
-      _persistRedemptionState(
-        couponId: couponId,
-        incrementRedeemedCount: shouldUpdate,
-      ),
-    );
+    unawaited(_finalizeExpiredTimerIfNeeded(couponId));
   }
 
   static Future<void> _finalizeExpiredTimersIfNeeded() async {
+    final generation = _loadGeneration;
+    final uid = _loadedUid;
+    final isGuest = _loadedAsGuest;
     for (final couponId in _timerStartedAtByCoupon.keys.toList()) {
+      if (!_isCurrentLoad(generation, uid, isGuest)) return;
       await _finalizeExpiredTimerIfNeeded(couponId);
     }
   }
 
-  static Future<void> _finalizeExpiredTimerIfNeeded(String couponId) async {
+  static Future<void> _finalizeExpiredTimerIfNeeded(String couponId) {
+    final pending = _pendingFinalizationsByCoupon[couponId];
+    if (pending != null) return pending;
+    final finalization = _finalizeExpiredTimer(couponId);
+    _pendingFinalizationsByCoupon[couponId] = finalization;
+    return finalization.whenComplete(() {
+      if (identical(_pendingFinalizationsByCoupon[couponId], finalization)) {
+        _pendingFinalizationsByCoupon.remove(couponId);
+      }
+    });
+  }
+
+  static Future<void> _finalizeExpiredTimer(String couponId) async {
+    if (!legacyWritesEnabled ||
+        !_matchesCurrentAuthUser(_loadedUid, _loadedAsGuest)) {
+      return;
+    }
     final timerStartedAt = _timerStartedAtByCoupon[couponId];
     if (timerStartedAt == null) {
       return;
@@ -547,12 +737,25 @@ class DemoRedemptionStore {
       _lastRedeemedAtByCoupon[couponId] = completedAt;
     }
 
-    await _persistRedemptionState(
-      couponId: couponId,
-      incrementRedeemedCount: shouldUpdate,
-    );
-
+    // Read-triggered finalization updates memory synchronously, so repeated
+    // reads cannot schedule duplicate consumption while persistence is pending.
+    final generation = _loadGeneration;
+    final uid = _loadedUid;
+    final isGuest = _loadedAsGuest;
     changes.value++;
+    try {
+      await _persistRedemptionState(
+        couponId: couponId,
+        finalizedTimerStartedAt: timerStartedAt,
+      );
+    } on FirebaseException catch (error) {
+      // Transactions cannot complete offline. Keep the local completion and
+      // durable original timer; refresh/load or the next explicit use retries.
+      if (_isCurrentLoad(generation, uid, isGuest)) {
+        _deferredFinalizationsByCoupon[couponId] = timerStartedAt;
+      }
+      debugPrint('Legacy coupon finalization deferred: ${error.code}');
+    }
   }
 
   static DateTime _nextDailyAvailability(DateTime redeemedAt) {
@@ -568,8 +771,10 @@ class DemoRedemptionStore {
   static Future<void> syncGuestDeviceRedemptionsToSignedInUser(
     String targetUid,
   ) async {
-    final guestDeviceId =
-        await CustomerSessionService.getExistingGuestDeviceId();
+    bool canImport() =>
+        legacyWritesEnabled && _matchesCurrentAuthUser(targetUid, false);
+    if (!canImport()) return;
+    final guestDeviceId = await _getExistingGuestDeviceId();
 
     if (guestDeviceId == null || guestDeviceId.trim().isEmpty) {
       return;
@@ -579,7 +784,7 @@ class DemoRedemptionStore {
       guestDeviceId,
     );
 
-    if (localGuestRedemptions.isEmpty) {
+    if (!canImport() || localGuestRedemptions.isEmpty) {
       return;
     }
 
@@ -608,10 +813,12 @@ class DemoRedemptionStore {
       batch.set(targetCollection.doc(entry.key), data, SetOptions(merge: true));
     }
 
+    if (!canImport()) return;
     await batch.commit();
   }
 
   static Future<void> refreshFromFirestore() async {
+    if (!legacyWritesEnabled) return;
     _loadGeneration++;
     _initialized = false;
     _initializingFuture = null;
@@ -667,7 +874,8 @@ class DemoRedemptionStore {
   }
 
   static bool _isCurrentLoad(int generation, String? uid, bool isGuest) {
-    return generation == _loadGeneration &&
+    return legacyWritesEnabled &&
+        generation == _loadGeneration &&
         _matchesCurrentAuthUser(uid, isGuest);
   }
 
@@ -679,10 +887,14 @@ class DemoRedemptionStore {
     Future<String?> Function()? existingGuestDeviceId,
     Future<String> Function()? guestDeviceId,
     DemoRedemptionSignedStateLoader? signedStateLoader,
+    FirebaseFirestore? firestore,
+    Future<void> Function(String key, String value)? guestStateWriter,
   }) {
     if (_authSubscription != null || _initializingFuture != null) {
       throw StateError('Reset DemoRedemptionStore before configuring it.');
     }
+    _firestoreForTesting = firestore;
+    _guestStateWriterForTesting = guestStateWriter;
     _currentAuthSnapshotForTesting = currentAuthSnapshot;
     _ensureAuthReadyForTesting = ensureAuthReady ?? () async {};
     _authChangesForTesting =
@@ -698,6 +910,8 @@ class DemoRedemptionStore {
   @visibleForTesting
   static void seedMemoryForTesting({
     required String loadedUid,
+    bool loadedAsGuest = false,
+    String? loadedGuestDeviceId,
     Map<String, DateTime> lastRedeemedAtByCoupon = const <String, DateTime>{},
     Map<String, DateTime> timerStartedAtByCoupon = const <String, DateTime>{},
   }) {
@@ -705,7 +919,8 @@ class DemoRedemptionStore {
     _lastRedeemedAtByCoupon.addAll(lastRedeemedAtByCoupon);
     _timerStartedAtByCoupon.addAll(timerStartedAtByCoupon);
     _loadedUid = loadedUid;
-    _loadedAsGuest = false;
+    _loadedAsGuest = loadedAsGuest;
+    _loadedGuestDeviceId = loadedGuestDeviceId;
     _initialized = true;
   }
 
@@ -725,6 +940,11 @@ class DemoRedemptionStore {
   @visibleForTesting
   static Future<void> resetForTesting() async {
     _loadGeneration++;
+    if (_guestWriteTail case final pendingWrite?) await pendingWrite;
+    _guestWriteTail = null;
+    _legacyWritesEnabled = true;
+    _firestoreForTesting = null;
+    _guestStateWriterForTesting = null;
     final subscription = _authSubscription;
     _authSubscription = null;
     if (subscription != null) {

@@ -5753,6 +5753,10 @@ export const validateCustomerBiteSaverSavedOfferRedemptionStart = onCall(
   },
 );
 
+// Legacy account-only writer: retained at this source-only checkpoint, never a
+// fallback for bounded Saved. Before final customer activation, retire this
+// export and any deployed endpoint after checking old-client compatibility.
+// Do not include it in a deployment of the device-authoritative customer path.
 export const startCustomerBiteSaverSavedOfferRedemption = onCall(
   {
     secrets: [
@@ -5787,6 +5791,10 @@ export const validateCustomerBiteSaverOfferRedemptionStart = onCall(
   },
 );
 
+// Legacy account-only writer: retained at this source-only checkpoint, never a
+// fallback for bounded Browse. Before final customer activation, retire this
+// export and any deployed endpoint after checking old-client compatibility.
+// Do not include it in a deployment of the device-authoritative customer path.
 export const startCustomerBiteSaverOfferRedemption = onCall(
   {
     secrets: [
@@ -5804,8 +5812,8 @@ export const startCustomerBiteSaverOfferRedemption = onCall(
   },
 );
 
-// Source-only checkpoint: these boundaries await targeted deployment and
-// physical qualification. Browse/Saved clients remain on their existing paths.
+// Bounded Browse/Saved use these device-authoritative boundaries exclusively.
+// Default customer activation remains off pending the final rollout gates.
 async function invokeCustomerBiteSaverDeviceCallable<Response>(
   request: CallableRequest<unknown>,
   createHandler: () => (

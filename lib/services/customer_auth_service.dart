@@ -277,27 +277,66 @@ class CustomerAuthService {
     }
 
     await CustomerSessionService.signOutToSignedOut();
-    await DemoRedemptionStore.refreshFromFirestore();
+    if (DemoRedemptionStore.legacyWritesEnabled) {
+      await DemoRedemptionStore.refreshFromFirestore();
+    }
   }
 
   static Future<void> _finalizeSignedInCustomerSession({
     required String? anonymousUid,
     required User? signedInUser,
+    User? Function()? currentUserForTesting,
+    Future<void> Function(String)? importGuestForTesting,
+    Future<void> Function(User)? upsertProfileForTesting,
+    Future<void> Function()? refreshRedemptionsForTesting,
   }) async {
-    if (signedInUser == null) {
+    if (signedInUser == null || signedInUser.isAnonymous) {
       return;
     }
 
-    await DemoRedemptionStore.syncGuestDeviceRedemptionsToSignedInUser(
-      signedInUser.uid,
-    );
+    final currentUser = currentUserForTesting ?? () => _auth.currentUser;
+    bool isCurrent() {
+      final user = currentUser();
+      return user != null && !user.isAnonymous && user.uid == signedInUser.uid;
+    }
 
+    if (!isCurrent()) return;
+    // The paired bounded composition retires legacy imports for every auth
+    // provider. Same-device enforcement then belongs to the device-use backend.
+    if (DemoRedemptionStore.legacyWritesEnabled) {
+      await (importGuestForTesting ??
+          DemoRedemptionStore.syncGuestDeviceRedemptionsToSignedInUser)(
+        signedInUser.uid,
+      );
+    }
+
+    if (!isCurrent()) return;
     await signedInUser.reload();
-    final refreshedUser = _auth.currentUser ?? signedInUser;
-    await UserProfileService.upsertSignedInUserProfile(refreshedUser);
+    if (!isCurrent()) return;
+    await (upsertProfileForTesting ??
+        UserProfileService.upsertSignedInUserProfile)(currentUser()!);
 
-    await DemoRedemptionStore.refreshFromFirestore();
+    if (isCurrent() && DemoRedemptionStore.legacyWritesEnabled) {
+      await (refreshRedemptionsForTesting ??
+          DemoRedemptionStore.refreshFromFirestore)();
+    }
   }
+
+  @visibleForTesting
+  static Future<void> finalizeSignedInSessionForTesting({
+    required User signedInUser,
+    required User? Function() currentUser,
+    required Future<void> Function(String) importGuest,
+    required Future<void> Function(User) upsertProfile,
+    required Future<void> Function() refreshRedemptions,
+  }) => _finalizeSignedInCustomerSession(
+    anonymousUid: null,
+    signedInUser: signedInUser,
+    currentUserForTesting: currentUser,
+    importGuestForTesting: importGuest,
+    upsertProfileForTesting: upsertProfile,
+    refreshRedemptionsForTesting: refreshRedemptions,
+  );
 
   static Future<void> _sendEmailVerificationIfNeeded(User? user) async {
     if (user == null || user.isAnonymous || user.emailVerified) {

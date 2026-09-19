@@ -699,7 +699,11 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
       (widget.boundedOffer == null &&
           DemoRedemptionStore.supportsRedeemTimer(widget.coupon.usageRule));
 
+  bool get _requiresBoundedBrowse =>
+      widget.boundedOffer == null && !DemoRedemptionStore.legacyWritesEnabled;
+
   bool get _supportsCouponUse =>
+      _requiresBoundedBrowse ||
       widget.boundedOffer?.offerType == CustomerBiteSaverOfferType.coupon ||
       (widget.boundedOffer == null && _supportsRedeemTimer);
 
@@ -845,7 +849,9 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     try {
       final redemptionStoreInitializer = widget.initializeRedemptionStore;
       if (redemptionStoreInitializer == null) {
-        await DemoRedemptionStore.ensureInitialized();
+        if (DemoRedemptionStore.legacyWritesEnabled) {
+          await DemoRedemptionStore.ensureInitialized();
+        }
       } else {
         await redemptionStoreInitializer();
       }
@@ -933,6 +939,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     final legacyActive =
         widget.boundedOffer == null &&
         _supportsRedeemTimer &&
+        !_requiresBoundedBrowse &&
         DemoRedemptionStore.hasActiveRedeemTimer(widget.coupon.id);
     if (!boundedActive && !legacyActive) {
       _countdownTicker = null;
@@ -949,6 +956,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
           currentBounded.isActiveAt(_redemptionNowMillis);
       final currentLegacyActive =
           widget.boundedOffer == null &&
+          !_requiresBoundedBrowse &&
           DemoRedemptionStore.hasActiveRedeemTimer(widget.coupon.id);
       if (!currentBoundedActive && !currentLegacyActive) {
         _countdownTicker?.cancel();
@@ -1039,6 +1047,13 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
           });
         }
       }
+      return;
+    }
+
+    if (_requiresBoundedBrowse) {
+      // Public QR links remain navigation. Only a current bounded selection
+      // can perform the authoritative final Use Coupon action.
+      openMainNavigationDestination(context, mode: AppMode.biteSaver, index: 0);
       return;
     }
 
@@ -1581,11 +1596,13 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
         ? coupon.isActiveAt(now)
         : _boundedCanRequestUse;
     final hasActiveTimer = boundedOffer == null
-        ? _supportsRedeemTimer &&
+        ? !_requiresBoundedBrowse &&
+              _supportsRedeemTimer &&
               DemoRedemptionStore.hasActiveRedeemTimer(coupon.id)
         : boundedActive;
     final isAvailableByUsage = boundedOffer == null
-        ? (!_supportsRedeemTimer ||
+        ? (_requiresBoundedBrowse ||
+              !_supportsRedeemTimer ||
               DemoRedemptionStore.isAvailable(coupon.id, coupon.usageRule))
         : boundedRedemption == null ||
               boundedRedemption.usagePolicy !=
@@ -1636,7 +1653,8 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     final visibleCouponNumberLabel =
         couponNumberLabel != null &&
             BiteSaverCouponNumberVisibility.shouldShow(
-              supportsRedeemTimer: _supportsRedeemTimer,
+              supportsRedeemTimer:
+                  _supportsRedeemTimer || _requiresBoundedBrowse,
               hasActiveTimer: hasActiveTimer || boundedUnlimitedReady,
             )
         ? couponNumberLabel
@@ -1848,6 +1866,8 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                                   ? 'Preparing Coupon...'
                                   : _isConfirmingUse
                                   ? 'Confirm Use'
+                                  : _requiresBoundedBrowse
+                                  ? 'Browse coupons'
                                   : boundedOffer != null &&
                                         widget.useBoundedCoupon == null
                                   ? 'Use Coupon Unavailable'
@@ -1901,6 +1921,11 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                           widget.useBoundedCoupon == null)
                         const Text(
                           'Coupon use is unavailable until customer time is configured.',
+                          style: TextStyle(color: _detailMutedInk),
+                        )
+                      else if (_requiresBoundedBrowse)
+                        const Text(
+                          'Find this coupon in Browse to use it.',
                           style: TextStyle(color: _detailMutedInk),
                         )
                       else if (canStartRedeemTimer)
