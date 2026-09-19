@@ -71,6 +71,29 @@ void main() {
       expect(link!.restaurantId, 'restaurant 123');
     });
 
+    test('customer links decode exact percent-containing identities once', () {
+      for (final id in ['catalog%20literal', 'catalog%2Fliteral', 'cafe%']) {
+        for (final build in [
+          RestaurantCustomerLinkService.couponRestaurantUrl,
+          RestaurantCustomerLinkService.biteScoreRestaurantUrl,
+        ]) {
+          final uri = Uri.parse(build(id));
+          expect(
+            RestaurantCustomerLinkService.parseRestaurantDeepLink(
+              uri,
+            )?.restaurantId,
+            id,
+          );
+          expect(
+            RestaurantCustomerLinkService.parseRestaurantRouteName(
+              uri.path,
+            )?.restaurantId,
+            id,
+          );
+        }
+      }
+    });
+
     test('customer URL builders reject empty restaurant IDs', () {
       expect(
         () => RestaurantCustomerLinkService.couponRestaurantUrl(''),

@@ -107,7 +107,14 @@ void main() {
       expect(destination.restaurant.accountDocumentId, isNull);
       expect(destination.restaurant.name, 'Fixture Café 😀');
       expect(find.byTooltip('Save restaurant'), findsOneWidget);
-      expect(find.text('Report'), findsNothing);
+      expect(find.text('Report'), findsOneWidget);
+      final reportButton = find.widgetWithText(TextButton, 'Report');
+      await tester.ensureVisible(reportButton);
+      await tester.tap(reportButton);
+      await tester.pumpAndSettle();
+      expect(find.text('Reason'), findsOneWidget);
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
 
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
@@ -2221,6 +2228,7 @@ void main() {
       detail.boundedOffer?.offerType,
       CustomerBiteSaverOfferType.dailySpecial,
     );
+    expect(find.text('Report'), findsNothing);
     expect(find.text('Offer Details'), findsOneWidget);
     expect(find.text('Use Coupon Unavailable'), findsNothing);
     expect(harness.deviceUse.stages, isEmpty);

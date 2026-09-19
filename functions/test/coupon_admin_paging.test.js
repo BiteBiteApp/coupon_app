@@ -632,6 +632,28 @@ test("name-change and report queues use exact status filters and stable timestam
   assert.deepEqual(reports.total, {state: "exact", value: 1});
 });
 
+test("existing report queue carries bounded public identities and display context", async () => {
+  const restaurantId = `bsr_${"R".repeat(43)}`;
+  const couponId = `bso_${"O".repeat(43)}`;
+  const database = new FakePagingDatabase({
+    bitesaver_reports: [dated("bounded-report", 2, {
+      status: "open", reportType: "coupon", restaurantId, couponId,
+      restaurantName: "Public Restaurant", couponTitle: "Public Coupon",
+      reason: "Incorrect information", note: "Please check.", reporterUid: "guest-1",
+    })],
+  });
+  const result = await listCouponAdminQueuePageHandler(
+    request({queueKind: "openReports"}, {pageSize: 25}), handlerContext(database),
+  );
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0].restaurantId, restaurantId);
+  assert.equal(result.items[0].couponId, couponId);
+  assert.equal(result.items[0].restaurantName, "Public Restaurant");
+  assert.equal(result.items[0].couponTitle, "Public Coupon");
+  assert.equal(result.items[0].reason, "Incorrect information");
+  assert.equal(result.items[0].reporterUid, "guest-1");
+});
+
 test("coupon pages are restaurant-scoped, exact, stable, and read at most 26", async () => {
   const coupons = Array.from({length: 30}, (_, index) => dated(`coupon-${index}`, index, {
     title: `Coupon ${index}`,

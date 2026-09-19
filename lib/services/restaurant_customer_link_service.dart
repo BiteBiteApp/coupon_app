@@ -94,9 +94,9 @@ class RestaurantCustomerLinkService {
     }
 
     final side = segments[restaurantOffset].trim().toLowerCase();
-    final restaurantId = Uri.decodeComponent(
-      segments[restaurantOffset + 1].trim(),
-    );
+    // Uri.pathSegments has already decoded each segment. Decoding again would
+    // change literal percent sequences in the permanent restaurant identity.
+    final restaurantId = segments[restaurantOffset + 1];
     if ((side != 'coupons' && side != 'bitescore') || restaurantId.isEmpty) {
       return null;
     }

@@ -704,6 +704,8 @@ void main() {
                     required reportType,
                     restaurantId,
                     couponId,
+                    restaurantName,
+                    couponTitle,
                     required reason,
                     note,
                   }) async {

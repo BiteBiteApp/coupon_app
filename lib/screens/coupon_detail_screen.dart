@@ -164,6 +164,8 @@ class CouponDetailScreen extends StatefulWidget {
   final CustomerBiteSaverBrowseAccess? boundedAccess;
   final CustomerBiteSaverDetailAction? openBoundedRestaurant;
   final CustomerBiteSaverDetailUseAction? useBoundedCoupon;
+  final Future<BiteSaverReportResult?> Function(BuildContext)? promptForReport;
+  final BiteSaverReportSubmitter? submitReport;
 
   const CouponDetailScreen({
     super.key,
@@ -172,6 +174,8 @@ class CouponDetailScreen extends StatefulWidget {
     @visibleForTesting this.loadFavoriteState,
     @visibleForTesting this.loadCustomerVisibility,
     @visibleForTesting this.initializeRedemptionStore,
+    @visibleForTesting this.promptForReport,
+    @visibleForTesting this.submitReport,
   }) : boundedRestaurant = null,
        boundedOffer = null,
        boundedSession = null,
@@ -189,6 +193,8 @@ class CouponDetailScreen extends StatefulWidget {
     required CustomerBiteSaverBrowseAccess access,
     required this.openBoundedRestaurant,
     this.useBoundedCoupon,
+    @visibleForTesting this.promptForReport,
+    @visibleForTesting this.submitReport,
   }) : coupon = _customerBiteSaverCouponDetailView(restaurant, offer),
        restaurant = _customerBiteSaverRestaurantDetailView(restaurant),
        boundedRestaurant = restaurant,
@@ -230,6 +236,8 @@ class CouponDetailScreen extends StatefulWidget {
     required CustomerBiteSaverSavedAccess savedAccess,
     required this.openBoundedRestaurant,
     this.useBoundedCoupon,
+    @visibleForTesting this.promptForReport,
+    @visibleForTesting this.submitReport,
   }) : coupon = _customerBiteSaverCouponDetailView(restaurant, offer),
        restaurant = _customerBiteSaverRestaurantDetailView(restaurant),
        boundedRestaurant = restaurant,
@@ -1201,14 +1209,19 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   }
 
   Future<void> _reportCoupon() async {
-    if (widget.boundedOffer != null || _isSubmittingReport) {
+    if (_isSubmittingReport ||
+        widget.boundedOffer?.offerType ==
+            CustomerBiteSaverOfferType.dailySpecial) {
       return;
     }
 
-    final report = await showDialog<BiteSaverReportResult>(
-      context: context,
-      builder: (context) => const BiteSaverReportDialog(),
-    );
+    final prompt = widget.promptForReport;
+    final report = prompt == null
+        ? await showDialog<BiteSaverReportResult>(
+            context: context,
+            builder: (context) => const BiteSaverReportDialog(),
+          )
+        : await prompt(context);
 
     if (report == null || !mounted) {
       return;
@@ -1219,9 +1232,14 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     });
 
     try {
-      await BiteSaverReportService.submitReport(
+      await (widget.submitReport ?? BiteSaverReportService.submitReport)(
         reportType: 'coupon',
-        couponId: widget.coupon.id,
+        restaurantId:
+            widget.boundedRestaurant?.restaurantId.value ??
+            widget.restaurant?.accountDocumentId,
+        couponId: widget.boundedOffer?.offerId.value ?? widget.coupon.id,
+        restaurantName: widget.coupon.restaurant,
+        couponTitle: widget.coupon.title,
         reason: report.reason,
         note: report.note,
       );
@@ -1819,7 +1837,9 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                               ),
                             ],
                             const SizedBox(height: 4),
-                            if (boundedOffer == null)
+                            if (boundedOffer == null ||
+                                boundedOffer.offerType ==
+                                    CustomerBiteSaverOfferType.coupon)
                               BiteSaverCouponReportRow(
                                 isSubmittingReport: _isSubmittingReport,
                                 onReport: _reportCoupon,

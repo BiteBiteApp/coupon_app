@@ -12,6 +12,7 @@ import 'package:coupon_app/screens/restaurant_menu_screen.dart';
 import 'package:coupon_app/screens/restaurant_profile_screen.dart';
 import 'package:coupon_app/services/app_mode_state_service.dart';
 import 'package:coupon_app/services/bitescore_service.dart';
+import 'package:coupon_app/widgets/bitesaver_report_dialog.dart';
 import 'package:coupon_app/services/customer_bitesaver_device_use_service.dart';
 import 'package:coupon_app/services/customer_bitesaver_saved_coordinator.dart';
 import 'package:coupon_app/services/customer_bitesaver_search_coordinator.dart';
@@ -217,6 +218,145 @@ void main() {
     await DemoRedemptionStore.resetForTesting();
     SharedPreferences.setMockInitialValues(<String, Object>{});
     AppModeStateService.setMode(AppMode.biteSaver);
+  });
+
+  for (final reportType in ['restaurant', 'coupon']) {
+    testWidgets(
+      'bounded $reportType reporting carries public identity without use',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(900, 1200);
+        addTearDown(tester.view.reset);
+        final harness = _SavedBackHarness();
+        addTearDown(harness.device.dispose);
+        addTearDown(harness.coordinator.dispose);
+        final entry = _savedPage(
+          CustomerBiteSaverSavedSection.coupons,
+        ).entries.single;
+        final access = harness.coordinator.captureAccess(entry);
+        final submissions = <Map<String, Object?>>[];
+        Future<void> submit({
+          required String reportType,
+          String? restaurantId,
+          String? couponId,
+          String? restaurantName,
+          String? couponTitle,
+          required String reason,
+          String? note,
+        }) async {
+          submissions.add({
+            'reportType': reportType,
+            'restaurantId': restaurantId,
+            'couponId': couponId,
+            'restaurantName': restaurantName,
+            'couponTitle': couponTitle,
+            'reason': reason,
+            'note': note,
+          });
+        }
+
+        Future<BiteSaverReportResult?> prompt(BuildContext context) async =>
+            const BiteSaverReportResult(
+              reason: 'Incorrect information',
+              note: 'Please check.',
+            );
+        final screen = reportType == 'restaurant'
+            ? RestaurantProfileScreen.fromCustomerBiteSaverSaved(
+                restaurant: access.restaurant,
+                savedCoordinator: harness.coordinator,
+                openBoundedMenu: (_) async {},
+                promptForReport: prompt,
+                submitReport: submit,
+              )
+            : CouponDetailScreen.fromCustomerBiteSaverSaved(
+                restaurant: access.restaurant,
+                offer: access.offer!,
+                savedCoordinator: harness.coordinator,
+                savedAccess: access,
+                openBoundedRestaurant: (_) async {},
+                promptForReport: prompt,
+                submitReport: submit,
+              );
+        await tester.pumpWidget(MaterialApp(home: screen));
+        await tester.pumpAndSettle();
+        final report = find.widgetWithText(TextButton, 'Report');
+        await tester.ensureVisible(report);
+        await tester.tap(report);
+        await tester.pumpAndSettle();
+        expect(submissions, [
+          {
+            'reportType': reportType,
+            'restaurantId': _restaurantId,
+            'couponId': reportType == 'coupon' ? _offerId : null,
+            'restaurantName': 'Canonical Saved Restaurant',
+            'couponTitle': reportType == 'coupon'
+                ? 'Canonical Saved Coupon'
+                : null,
+            'reason': 'Incorrect information',
+            'note': 'Please check.',
+          },
+        ]);
+        expect(find.text('Thanks — we’ll review this.'), findsOneWidget);
+        expect(harness.device.stages, isEmpty);
+        harness.expectNoLegacyUse();
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('bounded report failure stays retryable without coupon use', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1200);
+    addTearDown(tester.view.reset);
+    final harness = _SavedBackHarness();
+    addTearDown(harness.device.dispose);
+    addTearDown(harness.coordinator.dispose);
+    final access = harness.coordinator.captureAccess(
+      _savedPage(CustomerBiteSaverSavedSection.coupons).entries.single,
+    );
+    var attempts = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CouponDetailScreen.fromCustomerBiteSaverSaved(
+          restaurant: access.restaurant,
+          offer: access.offer!,
+          savedCoordinator: harness.coordinator,
+          savedAccess: access,
+          openBoundedRestaurant: (_) async {},
+          promptForReport: (_) async => const BiteSaverReportResult(
+            reason: 'Incorrect information',
+            note: '',
+          ),
+          submitReport:
+              ({
+                required reportType,
+                restaurantId,
+                couponId,
+                restaurantName,
+                couponTitle,
+                required reason,
+                note,
+              }) async {
+                if (++attempts == 1) throw StateError('offline');
+              },
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final report = find.widgetWithText(TextButton, 'Report');
+    await tester.ensureVisible(report);
+    await tester.tap(report);
+    await tester.pumpAndSettle();
+    expect(attempts, 1);
+    expect(find.text('Thanks — we’ll review this.'), findsNothing);
+    await tester.tap(report);
+    await tester.pumpAndSettle();
+    expect(attempts, 2);
+    expect(harness.device.stages, isEmpty);
+    harness.expectNoLegacyUse();
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets(

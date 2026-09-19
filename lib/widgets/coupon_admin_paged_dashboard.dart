@@ -1464,6 +1464,10 @@ class _CouponAdminPagedDashboardState extends State<CouponAdminPagedDashboard>
             Text('Restaurant: ${record.text('restaurantName')}'),
           if (record.text('couponTitle').isNotEmpty)
             Text('Coupon: ${record.text('couponTitle')}'),
+          if (record.text('restaurantId').isNotEmpty)
+            Text('Restaurant ID: ${record.text('restaurantId')}'),
+          if (record.text('couponId').isNotEmpty)
+            Text('Coupon ID: ${record.text('couponId')}'),
           Text(
             'Reason: ${record.text('reason').isEmpty ? 'Unknown' : record.text('reason')}',
           ),

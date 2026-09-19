@@ -39,14 +39,7 @@ typedef CustomerBiteSaverProfileMenuOpener =
     Future<void> Function(BuildContext context);
 typedef PublicRestaurantReportPrompt =
     Future<BiteSaverReportResult?> Function(BuildContext context);
-typedef PublicRestaurantReportSubmitter =
-    Future<void> Function({
-      required String reportType,
-      String? restaurantId,
-      String? couponId,
-      required String reason,
-      String? note,
-    });
+typedef PublicRestaurantReportSubmitter = BiteSaverReportSubmitter;
 
 class RestaurantProfileScreen extends StatefulWidget {
   final Restaurant restaurant;
@@ -86,6 +79,8 @@ class RestaurantProfileScreen extends StatefulWidget {
     required CustomerBiteSaverBrowseAccess access,
     required this.openBoundedOffer,
     required this.openBoundedMenu,
+    @visibleForTesting this.promptForReport,
+    @visibleForTesting this.submitReport,
   }) : restaurant = _customerBiteSaverRestaurantView(restaurant),
        boundedRestaurant = restaurant,
        boundedSession = session,
@@ -94,9 +89,7 @@ class RestaurantProfileScreen extends StatefulWidget {
        loadFavorite = null,
        refreshRestaurant = null,
        loadProjectionData = null,
-       resolvePublicMenu = null,
-       promptForReport = null,
-       submitReport = null {
+       resolvePublicMenu = null {
     final current = session.currentAcceptedRestaurantForAccess(
       access,
       restaurant.restaurantId,
@@ -112,6 +105,8 @@ class RestaurantProfileScreen extends StatefulWidget {
     required CustomerBiteSaverSavedCoordinator savedCoordinator,
     required this.openBoundedMenu,
     this.openBoundedOffer,
+    @visibleForTesting this.promptForReport,
+    @visibleForTesting this.submitReport,
   }) : restaurant = _customerBiteSaverRestaurantView(restaurant),
        boundedRestaurant = restaurant,
        boundedSession = null,
@@ -120,9 +115,7 @@ class RestaurantProfileScreen extends StatefulWidget {
        loadFavorite = null,
        refreshRestaurant = null,
        loadProjectionData = null,
-       resolvePublicMenu = null,
-       promptForReport = null,
-       submitReport = null;
+       resolvePublicMenu = null;
 
   @override
   State<RestaurantProfileScreen> createState() =>
@@ -668,7 +661,7 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   }
 
   Future<void> _reportRestaurant() async {
-    if (widget.boundedRestaurant != null || _isSubmittingReport) {
+    if (_isSubmittingReport) {
       return;
     }
 
@@ -693,7 +686,10 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
           widget.submitReport ?? BiteSaverReportService.submitReport;
       await submitReport(
         reportType: 'restaurant',
-        restaurantId: restaurant.accountDocumentId,
+        restaurantId:
+            widget.boundedRestaurant?.restaurantId.value ??
+            restaurant.accountDocumentId,
+        restaurantName: restaurant.name,
         reason: report.reason,
         note: report.note,
       );
@@ -1638,22 +1634,21 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                             ),
                           ],
                         ),
-                        if (widget.boundedRestaurant == null)
-                          Align(
-                            alignment: Alignment.centerLeft,
-                            child: TextButton.icon(
-                              onPressed: _isSubmittingReport
-                                  ? null
-                                  : _reportRestaurant,
-                              style: TextButton.styleFrom(
-                                foregroundColor: BiteSaverColors.mutedInk,
-                                padding: EdgeInsets.zero,
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              icon: const Icon(Icons.flag_outlined, size: 16),
-                              label: const Text('Report'),
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: TextButton.icon(
+                            onPressed: _isSubmittingReport
+                                ? null
+                                : _reportRestaurant,
+                            style: TextButton.styleFrom(
+                              foregroundColor: BiteSaverColors.mutedInk,
+                              padding: EdgeInsets.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
+                            icon: const Icon(Icons.flag_outlined, size: 16),
+                            label: const Text('Report'),
                           ),
+                        ),
                         const SizedBox(height: 20),
                         if (widget.boundedRestaurant == null) ...[
                           _buildSpecialsCallout(),

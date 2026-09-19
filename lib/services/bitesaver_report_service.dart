@@ -1,6 +1,17 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+typedef BiteSaverReportSubmitter =
+    Future<void> Function({
+      required String reportType,
+      String? restaurantId,
+      String? couponId,
+      String? restaurantName,
+      String? couponTitle,
+      required String reason,
+      String? note,
+    });
+
 class BiteSaverReportService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -9,6 +20,8 @@ class BiteSaverReportService {
     required String reportType,
     String? restaurantId,
     String? couponId,
+    String? restaurantName,
+    String? couponTitle,
     required String reason,
     String? note,
   }) async {
@@ -25,6 +38,8 @@ class BiteSaverReportService {
     final trimmedRestaurantId = restaurantId?.trim();
     final trimmedCouponId = couponId?.trim();
     final trimmedNote = note?.trim();
+    final trimmedRestaurantName = restaurantName?.trim();
+    final trimmedCouponTitle = couponTitle?.trim();
     final user = _auth.currentUser;
 
     await _firestore.collection('bitesaver_reports').add({
@@ -33,6 +48,10 @@ class BiteSaverReportService {
         'restaurantId': trimmedRestaurantId,
       if (trimmedCouponId != null && trimmedCouponId.isNotEmpty)
         'couponId': trimmedCouponId,
+      if (trimmedRestaurantName != null && trimmedRestaurantName.isNotEmpty)
+        'restaurantName': trimmedRestaurantName,
+      if (trimmedCouponTitle != null && trimmedCouponTitle.isNotEmpty)
+        'couponTitle': trimmedCouponTitle,
       'reason': trimmedReason,
       if (trimmedNote != null && trimmedNote.isNotEmpty) 'note': trimmedNote,
       if (user != null) 'reporterUid': user.uid,

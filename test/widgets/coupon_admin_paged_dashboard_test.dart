@@ -1,3 +1,5 @@
+import 'package:coupon_app/services/coupon_admin_paging_service.dart';
+import 'package:coupon_app/models/pagination/paged_models.dart';
 import 'package:coupon_app/services/firestore_document_id.dart';
 import 'package:coupon_app/services/restaurant_invite_service.dart';
 import 'package:coupon_app/widgets/coupon_admin_paged_dashboard.dart';
@@ -5,6 +7,68 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
+  testWidgets(
+    'report queue shows exact bounded identity and existing context',
+    (tester) async {
+      final restaurantId = 'bsr_${'R' * 43}';
+      final couponId = 'bso_${'O' * 43}';
+      final service = CouponAdminPagingService(
+        functionsBoundary: (name, request) async {
+          expect(name, 'listCouponAdminQueuePage');
+          return <String, Object?>{
+            'protocolVersion': pageProtocolVersion,
+            'items': [
+              <String, Object?>{
+                'id': 'bounded-report',
+                'kind': 'openReports',
+                'reportType': 'coupon',
+                'restaurantName': 'Reported Restaurant',
+                'couponTitle': 'Reported Coupon',
+                'restaurantId': restaurantId,
+                'couponId': couponId,
+                'reason': 'Incorrect information',
+                'note': 'Please check.',
+                'reporterUid': 'reporter',
+                'status': 'open',
+                'createdAtMillis': 1786200000000,
+              },
+            ],
+            'pageSize': 25,
+            'hasNext': false,
+            'hasPrevious': false,
+            'currentPageNumber': 1,
+            'total': {'state': 'exact', 'value': 1},
+            'queryFingerprint': 'a' * 64,
+            'snapshotTimestampMs': 1786200000000,
+            'capabilities': {
+              'first': false,
+              'previous': false,
+              'numberedVisitedPages': true,
+              'next': false,
+              'last': false,
+            },
+          };
+        },
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: CouponAdminPagedDashboard(pagingService: service),
+          ),
+        ),
+      );
+      await tester.tap(find.text('Reports'));
+      await tester.pumpAndSettle();
+      expect(find.text('Restaurant: Reported Restaurant'), findsOneWidget);
+      expect(find.text('Coupon: Reported Coupon'), findsOneWidget);
+      expect(find.text('Restaurant ID: $restaurantId'), findsOneWidget);
+      expect(find.text('Coupon ID: $couponId'), findsOneWidget);
+      expect(find.text('Mark reviewed'), findsOneWidget);
+      expect(find.text('Dismiss'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   Future<void> openDialog(
     WidgetTester tester,
     CouponAdminManualInviteCreator createInvite,
