@@ -156,6 +156,7 @@ class MainNavigationController {
     required ModalRoute<dynamic> route,
     required String originatingAuthRealm,
     bool preserveRouteOnAuthChange = false,
+    bool Function()? canPreserveRouteOnAuthChange,
     bool allowGuestToSignedUpgrade = false,
     MainNavigationAuthRealmReplaced? onAuthRealmReplaced,
     MainNavigationSameAuthRealmNotified? onSameAuthRealmNotified,
@@ -197,6 +198,7 @@ class MainNavigationController {
       authRealm: effectiveOriginatingAuthRealm,
       authGeneration: rootContext.authGeneration,
       preserveRouteOnAuthChange: preserveRouteOnAuthChange,
+      canPreserveRouteOnAuthChange: canPreserveRouteOnAuthChange,
       allowGuestToSignedUpgrade: allowGuestToSignedUpgrade,
       onAuthRealmReplaced: onAuthRealmReplaced,
       onSameAuthRealmNotified: onSameAuthRealmNotified,
@@ -379,6 +381,8 @@ class MainNavigationController {
     required MainNavigationAuthRouteBinding parent,
     required NavigatorState navigator,
     required ModalRoute<dynamic> route,
+    bool Function()? canPreserveRouteOnAuthChange,
+    MainNavigationAuthRealmReplaced? onAuthRealmReplaced,
   }) {
     final parentRegistration = _authRouteRegistrationFor(parent._token);
     if (parentRegistration == null ||
@@ -392,6 +396,8 @@ class MainNavigationController {
       originatingAuthRealm: parentRegistration.authRealm,
       allowGuestToSignedUpgrade: parentRegistration.allowGuestToSignedUpgrade,
       privateOwner: parentRegistration.owner,
+      canPreserveRouteOnAuthChange: canPreserveRouteOnAuthChange,
+      onAuthRealmReplaced: onAuthRealmReplaced,
     );
   }
 
@@ -449,7 +455,8 @@ class MainNavigationController {
         continue;
       }
 
-      if (registration.preserveRouteOnAuthChange) {
+      if (registration.preserveRouteOnAuthChange ||
+          registration.canPreserveRouteOnAuthChange?.call() == true) {
         registration
           ..version += 1
           ..authRealm = nextRealm
@@ -992,6 +999,7 @@ class _MainNavigationAuthRouteRegistration {
   String authRealm;
   int authGeneration;
   final bool preserveRouteOnAuthChange;
+  final bool Function()? canPreserveRouteOnAuthChange;
   final bool allowGuestToSignedUpgrade;
   final MainNavigationAuthRealmReplaced? onAuthRealmReplaced;
   final MainNavigationSameAuthRealmNotified? onSameAuthRealmNotified;
@@ -1008,6 +1016,7 @@ class _MainNavigationAuthRouteRegistration {
     required this.authRealm,
     required this.authGeneration,
     required this.preserveRouteOnAuthChange,
+    required this.canPreserveRouteOnAuthChange,
     required this.allowGuestToSignedUpgrade,
     required this.onAuthRealmReplaced,
     required this.onSameAuthRealmNotified,
@@ -1041,11 +1050,15 @@ class MainNavigationAuthRouteBinding {
   MainNavigationAuthRouteBinding? bindPrivateDescendantRoute({
     required NavigatorState navigator,
     required ModalRoute<dynamic> route,
+    bool Function()? canPreserveRouteOnAuthChange,
+    MainNavigationAuthRealmReplaced? onAuthRealmReplaced,
   }) {
     return _controller.bindPrivateDescendantRoute(
       parent: this,
       navigator: navigator,
       route: route,
+      canPreserveRouteOnAuthChange: canPreserveRouteOnAuthChange,
+      onAuthRealmReplaced: onAuthRealmReplaced,
     );
   }
 }
@@ -1241,6 +1254,8 @@ Future<T?> pushMainNavigationPrivateRoute<T>(
   required MainNavigationAuthRouteBinding? parentBinding,
   String? originatingAuthRealm,
   bool allowGuestToSignedUpgrade = false,
+  bool Function()? canPreserveRouteOnAuthChange,
+  MainNavigationAuthRealmReplaced? onAuthRealmReplaced,
   required WidgetBuilder builder,
 }) async {
   final navigator = Navigator.of(context, rootNavigator: true);
@@ -1263,6 +1278,8 @@ Future<T?> pushMainNavigationPrivateRoute<T>(
     childBinding = parentBinding.bindPrivateDescendantRoute(
       navigator: navigator,
       route: route,
+      canPreserveRouteOnAuthChange: canPreserveRouteOnAuthChange,
+      onAuthRealmReplaced: onAuthRealmReplaced,
     );
   } else if (originatingAuthRealm != null) {
     childBinding = mainNavigationController.bindAuthBoundRoute(
@@ -1270,6 +1287,8 @@ Future<T?> pushMainNavigationPrivateRoute<T>(
       route: route,
       originatingAuthRealm: originatingAuthRealm,
       allowGuestToSignedUpgrade: allowGuestToSignedUpgrade,
+      canPreserveRouteOnAuthChange: canPreserveRouteOnAuthChange,
+      onAuthRealmReplaced: onAuthRealmReplaced,
     );
   }
   if ((parentBinding != null || originatingAuthRealm != null) &&

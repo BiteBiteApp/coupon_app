@@ -12,6 +12,7 @@ import '../services/app_mode_state_service.dart';
 import '../services/bitesaver_report_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
+import '../services/customer_bitesaver_device_use_service.dart';
 import '../services/customer_bitesaver_search_coordinator.dart';
 import '../services/customer_bitesaver_saved_coordinator.dart';
 import '../services/restaurant_account_service.dart';
@@ -20,6 +21,7 @@ import '../widgets/bitesaver_colors.dart';
 import '../widgets/bitesaver_report_dialog.dart';
 import '../widgets/persistent_bottom_navigation.dart';
 import 'customer_account_screen.dart';
+import 'main_navigation_screen.dart';
 import 'restaurant_profile_screen.dart';
 
 typedef CouponFavoriteStateLoader = Future<bool> Function(String couponId);
@@ -203,9 +205,19 @@ class CouponDetailScreen extends StatefulWidget {
       restaurant.restaurantId,
       offer.offerId,
     );
-    if (!identical(current?.restaurant, restaurant) ||
-        !identical(current?.offer, offer) ||
-        current?.offer.offerOccurrence != offer.offerOccurrence) {
+    final confirmed = session.redemptionPresentationFor(offer.offerId);
+    final hasConfirmedDeviceTimer =
+        confirmed != null &&
+        confirmed.restaurantId == restaurant.restaurantId &&
+        confirmed.offerOccurrence == offer.offerOccurrence &&
+        confirmed.isDeviceTimerActiveAt(
+          session.redemptionPresentationNowMillis,
+        );
+    if (!hasConfirmedDeviceTimer &&
+        !session.isCouponUseRecoverable(access, offer.offerId) &&
+        (!identical(current?.restaurant, restaurant) ||
+            !identical(current?.offer, offer) ||
+            current?.offer.offerOccurrence != offer.offerOccurrence)) {
       throw const CustomerBiteSaverFreshSearchRequiredException();
     }
   }
@@ -678,6 +690,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   bool _isCustomerVisibleOffer = false;
   Timer? _countdownTicker;
   CustomerBiteSaverRedemptionPresentation? _confirmedRedemption;
+  MainNavigationAuthLease? _boundedAuthLease;
 
   bool get _supportsRedeemTimer =>
       (widget.boundedOffer?.offerType == CustomerBiteSaverOfferType.coupon &&
@@ -711,20 +724,17 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
         return retained;
       }
     }
-    final expiresAt = offer.activeTimerExpiresAtMillis;
-    if (expiresAt == null) return null;
-    return CustomerBiteSaverRedemptionPresentation(
-      restaurantId: widget.boundedRestaurant!.restaurantId,
-      offerId: offer.offerId,
-      offerOccurrence: offer.offerOccurrence,
-      status: CustomerBiteSaverRedemptionPresentationStatus.active,
-      usagePolicy:
-          offer.usagePolicy ?? CustomerBiteSaverUsagePolicy.oncePerCustomer,
-      timerStartedAtMillis:
-          expiresAt -
-          CustomerBiteSaverSearchContract.redemptionTimerMilliseconds,
-      timerExpiresAtMillis: expiresAt,
-    );
+    // Browse/Saved account DTOs may describe another phone's timer.
+    // Only a confirmed device-use presentation belongs to this phone.
+    return null;
+  }
+
+  bool get _boundedCanRequestUse {
+    final offer = widget.boundedOffer;
+    return offer != null &&
+        (widget.boundedSavedAccess != null ||
+            offer.available ||
+            offer.availabilityReason == 'used');
   }
 
   int get _redemptionNowMillis =>
@@ -733,6 +743,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
       DateTime.now().millisecondsSinceEpoch;
 
   bool get _boundedSelectionCurrent {
+    if (_boundedAuthLease?.isCurrent == false) return false;
     final boundedRestaurant = widget.boundedRestaurant;
     final boundedOffer = widget.boundedOffer;
     final savedAccess = widget.boundedSavedAccess;
@@ -752,6 +763,9 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     final access = widget.boundedAccess;
     if (session == null || access == null) {
       return false;
+    }
+    if (session.isCouponUseRecoverable(access, boundedOffer.offerId)) {
+      return true;
     }
     final current = session.currentAcceptedOfferSelectionForAccess(
       access,
@@ -774,14 +788,23 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
       widget.boundedSession?.addListener(_handleBoundedFavoriteChange);
       widget.boundedSavedCoordinator?.addListener(_handleBoundedFavoriteChange);
       _isCustomerVisibleOffer =
-          _boundedSelectionCurrent &&
-          (widget.boundedSavedAccess != null || widget.boundedOffer!.available);
+          _boundedSelectionCurrent && _boundedCanRequestUse;
       isLoading = false;
       _syncCountdownTicker();
       return;
     }
     DemoRedemptionStore.changes.addListener(_handleRedemptionStoreChange);
     _initializeRedemptionState();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (widget.boundedOffer != null) {
+      _boundedAuthLease ??= MainNavigationAuthBoundOverlayScope.maybeOf(
+        context,
+      )?.captureLease();
+    }
   }
 
   @override
@@ -809,6 +832,9 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
       return _isFavoriteCoupon
           ? CustomerBiteSaverFavoriteState.favorite
           : CustomerBiteSaverFavoriteState.notFavorite;
+    }
+    if (!_boundedSelectionCurrent) {
+      return CustomerBiteSaverFavoriteState.unknown;
     }
     return widget.boundedSession?.offerFavoriteState(offer.offerId) ??
         widget.boundedSavedCoordinator?.offerFavoriteState(offer.offerId) ??
@@ -853,7 +879,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   Future<bool> _refreshCustomerVisibleOffer() async {
     final boundedOffer = widget.boundedOffer;
     if (boundedOffer != null) {
-      final available = _boundedSelectionCurrent && boundedOffer.available;
+      final available = _boundedSelectionCurrent && _boundedCanRequestUse;
       if (mounted) {
         setState(() => _isCustomerVisibleOffer = available);
       }
@@ -968,7 +994,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
             ],
           ),
         );
-        if (!mounted || confirmed != true) return;
+        if (!mounted || confirmed != true || !_boundedSelectionCurrent) return;
         setState(() {
           _isConfirmingUse = false;
           isRedeeming = true;
@@ -985,6 +1011,15 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
               ? 'Your existing coupon timer is still active.'
               : 'Your 5-minute coupon timer has started.',
         );
+      } on CustomerBiteSaverDeviceUseException catch (error) {
+        if (mounted) {
+          _showSnackBar(
+            error.kind ==
+                    CustomerBiteSaverDeviceUseFailureKind.temporaryCooldown
+                ? 'Please wait a moment before trying this coupon again.'
+                : 'Could not use this coupon right now. Try again.',
+          );
+        }
       } on CustomerBiteSaverRedemptionDeniedException catch (error) {
         if (mounted) _showSnackBar(_redemptionDenialMessage(error.decision));
       } catch (error) {
@@ -1319,8 +1354,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
           presentation.isActiveAt(_redemptionNowMillis)) {
         return null;
       }
-      return (widget.boundedSavedAccess != null || boundedOffer.available) &&
-              _boundedSelectionCurrent
+      return _boundedCanRequestUse && _boundedSelectionCurrent
           ? null
           : 'This offer is no longer available.';
     }
@@ -1545,7 +1579,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     final boundedUnlimitedReady = boundedRedemption?.isUnlimited == true;
     final isWithinSchedule = boundedOffer == null
         ? coupon.isActiveAt(now)
-        : widget.boundedSavedAccess != null || boundedOffer.available;
+        : _boundedCanRequestUse;
     final hasActiveTimer = boundedOffer == null
         ? _supportsRedeemTimer &&
               DemoRedemptionStore.hasActiveRedeemTimer(coupon.id)
@@ -1694,7 +1728,10 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                               showUnlimitedUsage: boundedOffer != null,
                               unavailableStatus: unavailableStatus,
                               isOpeningRestaurant: _isOpeningRestaurant,
-                              onOpenRestaurant: restaurantLabel.trim().isEmpty
+                              onOpenRestaurant:
+                                  restaurantLabel.trim().isEmpty ||
+                                      (boundedOffer != null &&
+                                          !_boundedSelectionCurrent)
                                   ? null
                                   : _openRestaurantProfile,
                               trailingTitleAction:

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:coupon_app/models/coupon.dart';
+import 'package:coupon_app/models/demo_redemption_store.dart';
 import 'package:coupon_app/models/customer_bitesaver_favorite.dart';
 import 'package:coupon_app/models/customer_bitesaver_search.dart';
 import 'package:coupon_app/screens/coupon_detail_screen.dart';
@@ -14,13 +15,17 @@ import 'package:coupon_app/screens/restaurant_menu_screen.dart';
 import 'package:coupon_app/screens/restaurant_profile_screen.dart';
 import 'package:coupon_app/services/app_mode_state_service.dart';
 import 'package:coupon_app/services/customer_bitesaver_guest_usage_store.dart';
+import 'package:coupon_app/services/customer_bitesaver_device_use_service.dart';
 import 'package:coupon_app/services/customer_bitesaver_search_coordinator.dart';
 import 'package:coupon_app/services/customer_bitesaver_service.dart';
 import 'package:coupon_app/services/shared_location_state_service.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../support/customer_bitesaver_device_use_fixture.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -39,6 +44,7 @@ void main() {
   test('default navigation entry has no bounded browse activation', () {
     const screen = MainNavigationScreen(initializePlatformServices: false);
     expect(screen.biteSaverBrowseHomeBuilder, isNull);
+    expect(screen.biteSaverSavedAccountBuilder, isNull);
   });
 
   testWidgets(
@@ -118,6 +124,7 @@ void main() {
       expect(harness.transport.startCalls, 1);
       expect(harness.transport.restaurantPageCalls, 1);
       expect(harness.transport.redemptionCalls, 0);
+      expect(harness.deviceUse.stages, isEmpty);
 
       for (var cycle = 0; cycle < 2; cycle += 1) {
         await tester.tap(find.text('Fixture Café 😀'));
@@ -209,6 +216,7 @@ void main() {
       expect(find.text('Use Coupon'), findsOneWidget);
       expect(find.byTooltip('Save coupon'), findsOneWidget);
       expect(harness.transport.redemptionCalls, 0);
+      expect(harness.deviceUse.stages, isEmpty);
 
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
@@ -240,6 +248,7 @@ void main() {
         expected.offer.offerOccurrence,
       );
       expect(harness.transport.redemptionCalls, 0);
+      expect(harness.deviceUse.stages, isEmpty);
 
       await tester.binding.handlePopRoute();
       await tester.pumpAndSettle();
@@ -267,15 +276,18 @@ void main() {
 
       expect(find.text('Use Coupon'), findsOneWidget);
       expect(harness.transport.redemptionCalls, 0);
+      expect(harness.deviceUse.stages, isEmpty);
       await tester.tap(find.text('Use Coupon'));
       await tester.pumpAndSettle();
       expect(find.text('Use this coupon now?'), findsOneWidget);
       expect(harness.transport.redemptionCalls, 0);
+      expect(harness.deviceUse.stages, isEmpty);
       await tester.tap(
         find.byKey(const ValueKey<String>('bitesaver_use_cancel')),
       );
       await tester.pumpAndSettle();
       expect(harness.transport.redemptionCalls, 0);
+      expect(harness.deviceUse.stages, isEmpty);
 
       await tester.tap(find.text('Use Coupon'));
       await tester.pumpAndSettle();
@@ -285,7 +297,7 @@ void main() {
       await _pumpUntil(
         tester,
         () =>
-            harness.transport.redemptionCalls == 2 &&
+            harness.deviceUse.submissions.length == 1 &&
             find.text('Redeem Timer Active').evaluate().isNotEmpty,
       );
       expect(find.text('Redeem Timer Active'), findsOneWidget);
@@ -310,7 +322,31 @@ void main() {
       expect(find.byType(CouponDetailScreen), findsOneWidget);
       expect(find.text('Redeem Timer Active'), findsOneWidget);
       expect(find.textContaining('Timer active: 05:00'), findsOneWidget);
-      expect(harness.transport.redemptionCalls, 2);
+      expect(harness.transport.redemptionCalls, 0);
+      expect(harness.deviceUse.stages, <String>[
+        'capability',
+        'admission',
+        'challenge',
+        'proof',
+        'use',
+      ]);
+      expect(harness.deviceUse.submissions, hasLength(1));
+      expect(harness.deviceUse.authenticatedUserId, 'signed-a');
+      final useRequest = _map(harness.deviceUse.submissions.single['request']);
+      final authority = _map(useRequest['origin']);
+      final startResponse = _map(harness.transport._responses['start']);
+      expect(authority['kind'], 'discovery');
+      expect(authority['sessionId'], startResponse['sessionId']);
+      expect(authority['capability'], startResponse['capability']);
+      expect(
+        authority['criteriaFingerprint'],
+        startResponse['criteriaFingerprint'],
+      );
+      expect(authority['offerOccurrence'], isNotEmpty);
+      expect(authority['guestStateRevision'], isNull);
+      expect(useRequest['restaurantId'], harness.transport.firstRestaurantId);
+      expect(useRequest['offerId'], harness.transport.firstOfferId);
+      expect(harness.guestPreferences.values, isEmpty);
       expect(tester.takeException(), isNull);
     },
   );
@@ -359,8 +395,9 @@ void main() {
       await tester.pump();
 
       expect(find.byType(CouponDetailScreen), findsNothing);
-      expect(transport.redemptionValidationCalls, 1);
-      expect(transport.redemptionStartCalls, 1);
+      expect(transport.redemptionValidationCalls, 0);
+      expect(transport.redemptionStartCalls, 0);
+      expect(harness.deviceUse.submissions, hasLength(1));
       expect(tester.takeException(), isNull);
     },
   );
@@ -472,42 +509,867 @@ void main() {
 
     expect(find.text('Newer expiry-safe route'), findsOneWidget);
     expect(find.byType(CouponDetailScreen, skipOffstage: false), findsNothing);
-    expect(transport.redemptionValidationCalls, 1);
-    expect(transport.redemptionStartCalls, 1);
+    expect(transport.redemptionValidationCalls, 0);
+    expect(transport.redemptionStartCalls, 0);
+    expect(harness.deviceUse.submissions, hasLength(1));
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('guest Browse confirms through local canonical usage start', (
+  testWidgets(
+    'guest Browse confirms through device authority without local consumption',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1100);
+      addTearDown(tester.view.reset);
+      final harness = _BrowseHarness(signed: false);
+      const handler = CustomerBiteSaverBrowseDestinationHandler();
+
+      await tester.pumpWidget(_productionBrowseApp(harness, handler));
+      await _pumpBrowseReady(tester, harness.transport);
+      await tester.tap(find.text('Fixture Coupon 1'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Use Coupon'));
+      await tester.pumpAndSettle();
+      expect(harness.transport.redemptionCalls, 0);
+      expect(harness.deviceUse.stages, isEmpty);
+      await tester.tap(
+        find.byKey(const ValueKey<String>('bitesaver_use_confirm')),
+      );
+      await _pumpUntil(
+        tester,
+        () => find.text('Redeem Timer Active').evaluate().isNotEmpty,
+      );
+
+      expect(harness.transport.redemptionValidationCalls, 0);
+      expect(harness.transport.guestContinuationCalls, 0);
+      expect(harness.transport.redemptionStartCalls, 0);
+      expect(harness.coordinator.guestStateRevision, 0);
+      expect(harness.guestPreferences.values, isEmpty);
+      expect(harness.deviceUse.stages, <String>[
+        'capability',
+        'admission',
+        'challenge',
+        'proof',
+        'use',
+      ]);
+      expect(harness.deviceUse.authenticatedUserId, isNull);
+      final authority = _map(
+        _map(harness.deviceUse.submissions.single['request'])['origin'],
+      );
+      expect(authority['kind'], 'discovery');
+      expect(authority['guestStateRevision'], 0);
+      expect(find.textContaining('Timer active: 05:00'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'ambiguous Browse retry across read expiry reuses exact proof and original timer',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1100);
+      addTearDown(tester.view.reset);
+      final transport = _BrowseFixtureTransport();
+      var nowMillis = transport.evaluationAtMillis;
+      final responses = transport._responses;
+      _map(responses['start'])['logicalExpiresAtMillis'] = nowMillis + 1000;
+      for (final key in <String>['restaurantPage', 'offerPage']) {
+        _map(
+          _map(responses[key])['evaluationContext'],
+        )['validUntilExclusiveMillis'] = nowMillis + 1000;
+      }
+      final harness = _BrowseHarness(
+        transport: transport,
+        clock: () =>
+            DateTime.fromMillisecondsSinceEpoch(nowMillis, isUtc: true),
+      );
+      var failFirstUse = true;
+      harness.deviceUse.beforeStage = (stage) async {
+        if (stage == 'use' && failFirstUse) {
+          failFirstUse = false;
+          throw const CustomerBiteSaverDeviceUseTransportException(
+            code: 'unavailable',
+            ambiguous: true,
+          );
+        }
+      };
+      await _openFixtureCouponForUse(tester, harness);
+      await _confirmFixtureCouponUse(tester);
+      await _pumpUntil(tester, () => harness.deviceUse.submissions.length == 1);
+      await tester.pumpAndSettle();
+      expect(find.text('Redeem Timer Active'), findsNothing);
+      expect(harness.transport.redemptionCalls, 0);
+      expect(harness.guestPreferences.values, isEmpty);
+      nowMillis += 1001;
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+      await tester.pump();
+      tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+      await tester.pump();
+      expect(find.byType(CouponDetailScreen), findsOneWidget);
+
+      await _confirmFixtureCouponUse(tester);
+      await _pumpUntil(
+        tester,
+        () => find.text('Redeem Timer Active').evaluate().isNotEmpty,
+      );
+      expect(harness.deviceUse.submissions, hasLength(2));
+      expect(
+        harness.deviceUse.submissions[1],
+        harness.deviceUse.submissions[0],
+      );
+      expect(harness.deviceUse.stages, <String>[
+        'capability',
+        'admission',
+        'challenge',
+        'proof',
+        'use',
+        'use',
+      ]);
+      expect(
+        harness.coordinator
+            .redemptionPresentationFor(
+              CustomerBiteSaverOfferId(harness.transport.firstOfferId),
+            )!
+            .timerStartedAtMillis,
+        harness.transport.evaluationAtMillis,
+      );
+      expect(harness.transport.redemptionCalls, 0);
+      expect(harness.guestPreferences.values, isEmpty);
+    },
+  );
+
+  for (final failure in <({String name, String stage, Object error})>[
+    (
+      name: 'temporary cooldown',
+      stage: 'admission',
+      error: const CustomerBiteSaverDeviceUseTransportException(
+        code: 'resource-exhausted',
+        ambiguous: false,
+        retryAfterMillis: 120000,
+      ),
+    ),
+    (
+      name: 'network failure',
+      stage: 'admission',
+      error: const CustomerBiteSaverDeviceUseTransportException(
+        code: 'unavailable',
+        ambiguous: true,
+      ),
+    ),
+    (
+      name: 'challenge rejection',
+      stage: 'challenge',
+      error: const CustomerBiteSaverDeviceUseTransportException(
+        code: 'permission-denied',
+        ambiguous: false,
+      ),
+    ),
+    (
+      name: 'provider failure',
+      stage: 'proof',
+      error: PlatformException(code: 'device-proof-provider-unavailable'),
+    ),
+    (
+      name: 'expired authority',
+      stage: 'use',
+      error: const CustomerBiteSaverDeviceUseTransportException(
+        code: 'failed-precondition',
+        ambiguous: false,
+      ),
+    ),
+    (
+      name: 'server rejection',
+      stage: 'use',
+      error: const CustomerBiteSaverDeviceUseTransportException(
+        code: 'permission-denied',
+        ambiguous: false,
+      ),
+    ),
+  ]) {
+    testWidgets('Browse ${failure.name} fails closed without legacy fallback', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1100);
+      addTearDown(tester.view.reset);
+      final harness = _BrowseHarness(signed: false);
+      var legacyStoreEntries = 0;
+      await DemoRedemptionStore.resetForTesting();
+      DemoRedemptionStore.configureForTesting(
+        currentAuthSnapshot: () => (uid: 'guest-test', isAnonymous: true),
+        ensureAuthReady: () async {
+          legacyStoreEntries += 1;
+          throw StateError(
+            'The bounded flow must never enter the legacy store.',
+          );
+        },
+      );
+      addTearDown(DemoRedemptionStore.resetForTesting);
+      harness.deviceUse.beforeStage = (stage) async {
+        if (stage == failure.stage) throw failure.error;
+      };
+      await _openFixtureCouponForUse(tester, harness);
+      await _confirmFixtureCouponUse(tester);
+      await _pumpUntil(
+        tester,
+        () => harness.deviceUse.stages.contains(failure.stage),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Redeem Timer Active'), findsNothing);
+      expect(find.byType(SnackBar), findsOneWidget);
+      expect(legacyStoreEntries, 0);
+      if (failure.name == 'temporary cooldown') {
+        expect(
+          find.text('Please wait a moment before trying this coupon again.'),
+          findsOneWidget,
+        );
+      }
+      expect(harness.transport.redemptionCalls, 0);
+      expect(harness.guestPreferences.values, isEmpty);
+      expect(
+        harness.coordinator.redemptionPresentationFor(
+          CustomerBiteSaverOfferId(harness.transport.firstOfferId),
+        ),
+        isNull,
+      );
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  for (final transition
+      in <({String name, bool signed, CustomerBiteSaverAuthSnapshot next})>[
+        (
+          name: 'guest to signed',
+          signed: false,
+          next: const CustomerBiteSaverAuthSnapshot.signed('signed-a'),
+        ),
+        (
+          name: 'sign out',
+          signed: true,
+          next: const CustomerBiteSaverAuthSnapshot.signedOut(),
+        ),
+        (
+          name: 'account A to B',
+          signed: true,
+          next: const CustomerBiteSaverAuthSnapshot.signed('signed-b'),
+        ),
+      ]) {
+    for (final stage in <String>['admission', 'challenge', 'proof', 'use']) {
+      testWidgets(
+        'Browse ${transition.name} during $stage fences continuation',
+        (tester) async {
+          tester.view.devicePixelRatio = 1;
+          tester.view.physicalSize = const Size(900, 1100);
+          addTearDown(tester.view.reset);
+          final harness = _BrowseHarness(signed: transition.signed);
+          final release = Completer<void>();
+          addTearDown(() {
+            if (!release.isCompleted) release.complete();
+          });
+          harness.deviceUse.beforeStage = (current) async {
+            if (current == stage) await release.future;
+          };
+          await _openFixtureCouponForUse(tester, harness);
+          await _confirmFixtureCouponUse(tester);
+          await _pumpUntil(
+            tester,
+            () => harness.deviceUse.stages.contains(stage),
+          );
+          await harness.coordinator.updateAuth(transition.next);
+          release.complete();
+          await _pumpUntil(
+            tester,
+            () => find.byType(CouponDetailScreen).evaluate().isEmpty,
+          );
+          await tester.pump(const Duration(milliseconds: 400));
+          expect(harness.deviceUse.stages.last, stage);
+          expect(
+            harness.deviceUse.submissions,
+            hasLength(stage == 'use' ? 1 : 0),
+          );
+          expect(find.byType(CouponDetailScreen), findsNothing);
+          expect(
+            harness.coordinator.redemptionPresentationFor(
+              CustomerBiteSaverOfferId(harness.transport.firstOfferId),
+            ),
+            isNull,
+          );
+          expect(harness.transport.redemptionCalls, 0);
+          expect(harness.guestPreferences.values, isEmpty);
+          expect(tester.takeException(), isNull);
+        },
+      );
+    }
+  }
+
+  for (final transition
+      in <({String name, bool signed, CustomerBiteSaverAuthSnapshot next})>[
+        (
+          name: 'guest to signed',
+          signed: false,
+          next: const CustomerBiteSaverAuthSnapshot.signed('signed-a'),
+        ),
+        (
+          name: 'account A to B',
+          signed: true,
+          next: const CustomerBiteSaverAuthSnapshot.signed('signed-b'),
+        ),
+        (
+          name: 'sign out',
+          signed: true,
+          next: const CustomerBiteSaverAuthSnapshot.signedOut(),
+        ),
+      ]) {
+    testWidgets(
+      'confirmed Browse timer survives ${transition.name} offline until original expiry',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(900, 1100);
+        addTearDown(tester.view.reset);
+        final transport = _BrowseFixtureTransport();
+        final originalStart = transport.evaluationAtMillis;
+        var nowMillis = originalStart;
+        final harness = _BrowseHarness(
+          signed: transition.signed,
+          transport: transport,
+          clock: () =>
+              DateTime.fromMillisecondsSinceEpoch(nowMillis, isUtc: true),
+        );
+        var authRealm = harness.coordinator.auth.realmKey;
+        final authChanges = StreamController<String>.broadcast(sync: true);
+        addTearDown(authChanges.close);
+        await tester.pumpWidget(
+          _productionBrowseApp(
+            harness,
+            const CustomerBiteSaverBrowseDestinationHandler(),
+            authRealmProvider: () => authRealm,
+            authRealmChanges: authChanges.stream,
+          ),
+        );
+        await _pumpBrowseReady(tester, transport);
+        await tester.tap(find.text('Fixture Coupon 1'));
+        await tester.pumpAndSettle();
+        await _confirmFixtureCouponUse(tester);
+        await _pumpUntil(
+          tester,
+          () => find.text('Redeem Timer Active').evaluate().isNotEmpty,
+        );
+        await tester.pump(const Duration(milliseconds: 400));
+        final original = harness.coordinator.redemptionPresentationFor(
+          CustomerBiteSaverOfferId(transport.firstOfferId),
+        )!;
+        expect(original.timerStartedAtMillis, originalStart);
+        expect(original.timerExpiresAtMillis, originalStart + 300000);
+        final stageCount = harness.deviceUse.stages.length;
+        harness.deviceUse.beforeStage = (_) async =>
+            throw StateError('Device network is offline.');
+
+        await harness.coordinator.updateAuth(transition.next);
+        authRealm = transition.next.realmKey;
+        authChanges.add(authRealm);
+        await tester.pump(const Duration(milliseconds: 400));
+        expect(find.byType(CouponDetailScreen), findsOneWidget);
+        expect(find.text('Redeem Timer Active'), findsOneWidget);
+        expect(find.textContaining('Timer active: 05:00'), findsOneWidget);
+        expect(
+          tester
+              .widget<ElevatedButton>(
+                find.widgetWithText(ElevatedButton, 'Redeem Timer Active'),
+              )
+              .onPressed,
+          isNull,
+        );
+        expect(
+          tester
+              .widget<IconButton>(
+                find.ancestor(
+                  of: find.byTooltip('Saved status unavailable'),
+                  matching: find.byType(IconButton),
+                ),
+              )
+              .onPressed,
+          isNull,
+        );
+        expect(
+          tester
+              .widget<BiteSaverCouponRestaurantLink>(
+                find.byKey(BiteSaverCouponDetailInfoSection.restaurantPillKey),
+              )
+              .onTap,
+          isNull,
+        );
+        expect(harness.restaurantFavoriteWrites, 0);
+        expect(harness.offerFavoriteWrites, 0);
+        expect(find.byType(RestaurantProfileScreen), findsNothing);
+        expect(harness.deviceUse.stages, hasLength(stageCount));
+        expect(harness.deviceUse.submissions, hasLength(1));
+
+        nowMillis = originalStart + 60000;
+        await tester.pump(const Duration(seconds: 1));
+        expect(find.textContaining('Timer active: 04:00'), findsOneWidget);
+        nowMillis = originalStart + 299999;
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await tester.pump();
+        expect(find.byType(CouponDetailScreen), findsOneWidget);
+        nowMillis = originalStart + 300000;
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.inactive,
+        );
+        tester.binding.handleAppLifecycleStateChanged(
+          AppLifecycleState.resumed,
+        );
+        await _pumpUntil(
+          tester,
+          () => find.byType(CouponDetailScreen).evaluate().isEmpty,
+        );
+        expect(harness.deviceUse.stages, hasLength(stageCount));
+        expect(harness.deviceUse.submissions, hasLength(1));
+        expect(transport.redemptionCalls, 0);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final stage in <String>['proof', 'use']) {
+    testWidgets(
+      'Browse Back during $stage preserves committed use and original remaining timer',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(900, 1100);
+        addTearDown(tester.view.reset);
+        final transport = _BrowseFixtureTransport();
+        final originalStart = transport.evaluationAtMillis;
+        var nowMillis = originalStart;
+        final harness = _BrowseHarness(
+          transport: transport,
+          clock: () =>
+              DateTime.fromMillisecondsSinceEpoch(nowMillis, isUtc: true),
+        );
+        final release = Completer<void>();
+        addTearDown(() {
+          if (!release.isCompleted) release.complete();
+        });
+        harness.deviceUse.beforeStage = (current) async {
+          if (current == stage) await release.future;
+        };
+        await _openFixtureCouponForUse(tester, harness);
+        await _confirmFixtureCouponUse(tester);
+        await _pumpUntil(
+          tester,
+          () => harness.deviceUse.stages.contains(stage),
+        );
+        expect(
+          harness.deviceUse.submissions,
+          hasLength(stage == 'use' ? 1 : 0),
+        );
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.byType(CouponDetailScreen), findsNothing);
+
+        release.complete();
+        await tester.pumpAndSettle();
+        expect(harness.deviceUse.submissions, hasLength(1));
+        expect(find.byType(CouponDetailScreen), findsNothing);
+        expect(find.byType(SnackBar), findsNothing);
+        final presentation = harness.coordinator.redemptionPresentationFor(
+          CustomerBiteSaverOfferId(transport.firstOfferId),
+        )!;
+        expect(presentation.timerStartedAtMillis, originalStart);
+        expect(presentation.timerExpiresAtMillis, originalStart + 300000);
+
+        nowMillis = originalStart + 60000;
+        await tester.tap(find.text('Fixture Coupon 1'));
+        await tester.pumpAndSettle();
+        expect(find.textContaining('Timer active: 04:00'), findsOneWidget);
+        expect(find.textContaining('Timer active: 05:00'), findsNothing);
+        expect(
+          tester
+              .widget<ElevatedButton>(
+                find.widgetWithText(ElevatedButton, 'Redeem Timer Active'),
+              )
+              .onPressed,
+          isNull,
+        );
+        expect(
+          harness.coordinator.redemptionPresentationFor(presentation.offerId),
+          same(presentation),
+        );
+        expect(harness.deviceUse.submissions, hasLength(1));
+        expect(
+          harness.deviceUse.stages.where((value) => value == 'proof'),
+          hasLength(1),
+        );
+        expect(harness.transport.redemptionCalls, 0);
+        expect(harness.guestPreferences.values, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  for (final stage in <String>['proof', 'use']) {
+    testWidgets(
+      'Browse re-entry during pending $stage shares the committed use',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(900, 1100);
+        addTearDown(tester.view.reset);
+        final harness = _BrowseHarness();
+        final release = Completer<void>();
+        addTearDown(() {
+          if (!release.isCompleted) release.complete();
+        });
+        harness.deviceUse.beforeStage = (current) async {
+          if (current == stage) await release.future;
+        };
+        await _openFixtureCouponForUse(tester, harness);
+        await _confirmFixtureCouponUse(tester);
+        await _pumpUntil(
+          tester,
+          () => harness.deviceUse.stages.contains(stage),
+        );
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Fixture Coupon 1'));
+        await tester.pumpAndSettle();
+        await _confirmFixtureCouponUse(tester);
+        await _pumpUntil(
+          tester,
+          () => find.text('Preparing Coupon...').evaluate().isNotEmpty,
+        );
+        expect(
+          harness.deviceUse.stages.where((value) => value == 'admission'),
+          hasLength(1),
+        );
+        release.complete();
+        await _pumpUntil(
+          tester,
+          () => find.text('Redeem Timer Active').evaluate().isNotEmpty,
+        );
+        expect(harness.deviceUse.submissions, hasLength(1));
+        expect(
+          harness.deviceUse.stages.where((value) => value == 'proof'),
+          hasLength(1),
+        );
+        final presentation = harness.coordinator.redemptionPresentationFor(
+          CustomerBiteSaverOfferId(harness.transport.firstOfferId),
+        )!;
+        expect(
+          presentation.timerStartedAtMillis,
+          harness.transport.evaluationAtMillis,
+        );
+        expect(
+          presentation.timerExpiresAtMillis,
+          harness.transport.evaluationAtMillis + 300000,
+        );
+        expect(harness.transport.redemptionCalls, 0);
+        expect(harness.guestPreferences.values, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets('Browse timer expiring after Back remains used on return', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(900, 1100);
     addTearDown(tester.view.reset);
-    final harness = _BrowseHarness(signed: false);
-    const handler = CustomerBiteSaverBrowseDestinationHandler();
-
-    await tester.pumpWidget(_productionBrowseApp(harness, handler));
-    await _pumpBrowseReady(tester, harness.transport);
-    await tester.tap(find.text('Fixture Coupon 1'));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Use Coupon'));
-    await tester.pumpAndSettle();
-    expect(harness.transport.redemptionCalls, 0);
-    await tester.tap(
-      find.byKey(const ValueKey<String>('bitesaver_use_confirm')),
+    final transport = _BrowseFixtureTransport(
+      firstOfferOverrides: const <String, Object?>{
+        'usagePolicy': 'oncePerCustomer',
+        'usageRule': 'Once per customer',
+      },
     );
+    final originalStart = transport.evaluationAtMillis;
+    var nowMillis = originalStart;
+    final harness = _BrowseHarness(
+      transport: transport,
+      clock: () => DateTime.fromMillisecondsSinceEpoch(nowMillis, isUtc: true),
+    );
+    await _openFixtureCouponForUse(tester, harness);
+    await _confirmFixtureCouponUse(tester);
     await _pumpUntil(
       tester,
       () => find.text('Redeem Timer Active').evaluate().isNotEmpty,
     );
-
-    expect(harness.transport.redemptionValidationCalls, 1);
-    expect(harness.transport.guestContinuationCalls, 1);
-    expect(harness.transport.redemptionStartCalls, 0);
-    expect(harness.coordinator.guestStateRevision, 1);
-    expect(find.textContaining('Timer active: 05:00'), findsOneWidget);
+    final presentation = harness.coordinator.redemptionPresentationFor(
+      CustomerBiteSaverOfferId(transport.firstOfferId),
+    )!;
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    nowMillis = originalStart + 300001;
+    await tester.tap(find.text('Fixture Coupon 1'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Timer active:'), findsNothing);
+    expect(
+      tester
+          .widget<ElevatedButton>(
+            find.widgetWithText(ElevatedButton, 'Use Coupon'),
+          )
+          .onPressed,
+      isNull,
+    );
+    expect(
+      harness.coordinator.redemptionPresentationFor(presentation.offerId),
+      same(presentation),
+    );
+    expect(presentation.timerStartedAtMillis, originalStart);
+    expect(presentation.timerExpiresAtMillis, originalStart + 300000);
+    expect(harness.deviceUse.submissions, hasLength(1));
+    expect(harness.transport.redemptionCalls, 0);
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('Browse rejected use after Back creates no successful timer', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(900, 1100);
+    addTearDown(tester.view.reset);
+    final harness = _BrowseHarness();
+    final release = Completer<void>();
+    addTearDown(() {
+      if (!release.isCompleted) release.complete();
+    });
+    harness.deviceUse.status = 'denied';
+    harness.deviceUse.beforeStage = (stage) async {
+      if (stage == 'use') await release.future;
+    };
+    await _openFixtureCouponForUse(tester, harness);
+    await _confirmFixtureCouponUse(tester);
+    await _pumpUntil(tester, () => harness.deviceUse.submissions.length == 1);
+    await tester.binding.handlePopRoute();
+    await tester.pumpAndSettle();
+    release.complete();
+    await tester.pumpAndSettle();
+    expect(find.byType(CouponDetailScreen), findsNothing);
+    expect(find.byType(SnackBar), findsNothing);
+    expect(
+      harness.coordinator.redemptionPresentationFor(
+        CustomerBiteSaverOfferId(harness.transport.firstOfferId),
+      ),
+      isNull,
+    );
+    await tester.tap(find.text('Fixture Coupon 1'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Timer active:'), findsNothing);
+    expect(harness.deviceUse.submissions, hasLength(1));
+    expect(harness.transport.redemptionCalls, 0);
+    expect(harness.guestPreferences.values, isEmpty);
+    await _confirmFixtureCouponUse(tester);
+    await tester.pumpAndSettle();
+    expect(harness.deviceUse.submissions, hasLength(2));
+    expect(find.textContaining('Timer active:'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final cancelConfirmation in <bool>[false, true]) {
+    testWidgets(
+      'Browse Back before final Use with confirmation $cancelConfirmation consumes nothing',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(900, 1100);
+        addTearDown(tester.view.reset);
+        final harness = _BrowseHarness();
+        await _openFixtureCouponForUse(tester, harness);
+        if (cancelConfirmation) {
+          await tester.tap(find.text('Use Coupon'));
+          await tester.pumpAndSettle();
+          await tester.tap(
+            find.byKey(const ValueKey<String>('bitesaver_use_cancel')),
+          );
+          await tester.pumpAndSettle();
+        }
+        await tester.binding.handlePopRoute();
+        await tester.pumpAndSettle();
+        expect(find.byType(CouponDetailScreen), findsNothing);
+        expect(harness.deviceUse.stages, isEmpty);
+        expect(harness.deviceUse.submissions, isEmpty);
+        expect(harness.transport.redemptionCalls, 0);
+        expect(harness.guestPreferences.values, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
+
+  testWidgets(
+    'Browse ambiguous use after Back retries the exact proof on return',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1100);
+      addTearDown(tester.view.reset);
+      final transport = _BrowseFixtureTransport();
+      final originalStart = transport.evaluationAtMillis;
+      var nowMillis = originalStart;
+      final harness = _BrowseHarness(
+        transport: transport,
+        clock: () =>
+            DateTime.fromMillisecondsSinceEpoch(nowMillis, isUtc: true),
+      );
+      final release = Completer<void>();
+      addTearDown(() {
+        if (!release.isCompleted) release.complete();
+      });
+      harness.deviceUse.beforeStage = (stage) async {
+        if (stage == 'use' && harness.deviceUse.submissions.length == 1) {
+          await release.future;
+          throw const CustomerBiteSaverDeviceUseTransportException(
+            code: 'unavailable',
+            ambiguous: true,
+          );
+        }
+      };
+      await _openFixtureCouponForUse(tester, harness);
+      await _confirmFixtureCouponUse(tester);
+      await _pumpUntil(tester, () => harness.deviceUse.submissions.length == 1);
+      await tester.binding.handlePopRoute();
+      await tester.pumpAndSettle();
+      release.complete();
+      await tester.pumpAndSettle();
+      expect(find.byType(SnackBar), findsNothing);
+      nowMillis = originalStart + 60000;
+      await tester.tap(find.text('Fixture Coupon 1'));
+      await tester.pumpAndSettle();
+      expect(harness.deviceUse.submissions, hasLength(1));
+      expect(find.textContaining('Timer active:'), findsNothing);
+      await _confirmFixtureCouponUse(tester);
+      await _pumpUntil(
+        tester,
+        () => find.text('Redeem Timer Active').evaluate().isNotEmpty,
+      );
+      expect(harness.deviceUse.submissions, hasLength(2));
+      expect(
+        harness.deviceUse.submissions.last,
+        harness.deviceUse.submissions.first,
+      );
+      expect(
+        harness.deviceUse.stages.where((value) => value == 'proof'),
+        hasLength(1),
+      );
+      final presentation = harness.coordinator.redemptionPresentationFor(
+        CustomerBiteSaverOfferId(transport.firstOfferId),
+      )!;
+      expect(presentation.timerStartedAtMillis, originalStart);
+      expect(presentation.timerExpiresAtMillis, originalStart + 300000);
+      expect(find.textContaining('Timer active: 04:00'), findsOneWidget);
+      expect(harness.transport.redemptionCalls, 0);
+      expect(harness.guestPreferences.values, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'repeated Browse Use taps while admission is pending submit once',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(900, 1100);
+      addTearDown(tester.view.reset);
+      final harness = _BrowseHarness();
+      final release = Completer<void>();
+      addTearDown(() {
+        if (!release.isCompleted) release.complete();
+      });
+      harness.deviceUse.beforeStage = (stage) async {
+        if (stage == 'admission') await release.future;
+      };
+      await _openFixtureCouponForUse(tester, harness);
+      await _confirmFixtureCouponUse(tester);
+      await _pumpUntil(
+        tester,
+        () => harness.deviceUse.stages.contains('admission'),
+      );
+      await tester.pump(const Duration(milliseconds: 400));
+      final useButton = find.widgetWithText(
+        ElevatedButton,
+        'Preparing Coupon...',
+      );
+      expect(useButton, findsOneWidget);
+      expect(tester.widget<ElevatedButton>(useButton).onPressed, isNull);
+      final detail = tester.widget<CouponDetailScreen>(
+        find.byType(CouponDetailScreen),
+      );
+      final duplicate = detail.useBoundedCoupon!(
+        tester.element(find.byType(CouponDetailScreen)),
+      );
+      release.complete();
+      await _pumpUntil(
+        tester,
+        () => find.text('Redeem Timer Active').evaluate().isNotEmpty,
+      );
+      await duplicate;
+      expect(harness.deviceUse.submissions, hasLength(1));
+      expect(
+        harness.deviceUse.stages.where((value) => value == 'admission'),
+        hasLength(1),
+      );
+      expect(harness.transport.redemptionCalls, 0);
+      expect(harness.guestPreferences.values, isEmpty);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  for (final recoverLocal in <bool>[false, true]) {
+    testWidgets(
+      recoverLocal
+          ? 'used account DTO recovers this phone timer only after explicit Use'
+          : 'account DTO remote timer is never borrowed on open or denied Use',
+      (tester) async {
+        tester.view.devicePixelRatio = 1;
+        tester.view.physicalSize = const Size(900, 1100);
+        addTearDown(tester.view.reset);
+        final template = _BrowseFixtureTransport();
+        final transport = _BrowseFixtureTransport(
+          firstOfferOverrides: <String, Object?>{
+            'available': false,
+            'availabilityReason': 'used',
+            'usageState': 'unavailable',
+            'activeTimerExpiresAtMillis': template.evaluationAtMillis + 240000,
+          },
+        );
+        final harness = _BrowseHarness(
+          transport: transport,
+          deviceTimerAge: const Duration(minutes: 1),
+        );
+        harness.deviceUse.status = recoverLocal ? 'active' : 'denied';
+        await _openFixtureCouponForUse(tester, harness);
+        expect(find.text('Redeem Timer Active'), findsNothing);
+        expect(harness.deviceUse.stages, isEmpty);
+        expect(find.text('Use Coupon'), findsOneWidget);
+        await _confirmFixtureCouponUse(tester);
+        await _pumpUntil(
+          tester,
+          () => harness.deviceUse.submissions.isNotEmpty,
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.text('Redeem Timer Active'),
+          recoverLocal ? findsOneWidget : findsNothing,
+        );
+        if (recoverLocal) {
+          expect(find.textContaining('Timer active: 04:00'), findsOneWidget);
+          final presentation = harness.coordinator.redemptionPresentationFor(
+            CustomerBiteSaverOfferId(transport.firstOfferId),
+          )!;
+          expect(
+            presentation.timerStartedAtMillis,
+            transport.evaluationAtMillis - 60000,
+          );
+          expect(
+            presentation.timerExpiresAtMillis,
+            transport.evaluationAtMillis + 240000,
+          );
+        }
+        expect(harness.transport.redemptionCalls, 0);
+        expect(harness.guestPreferences.values, isEmpty);
+        expect(tester.takeException(), isNull);
+      },
+    );
+  }
 
   testWidgets('bounded detail preserves structured offer presentation', (
     tester,
@@ -660,6 +1522,7 @@ void main() {
     expect(detail.boundedOffer?.title, 'Fixture Coupon 1');
     expect(harness.transport.startCalls, 1);
     expect(harness.transport.redemptionCalls, 0);
+    expect(harness.deviceUse.stages, isEmpty);
   });
 
   testWidgets('bounded all-day schedule does not invent clock times', (
@@ -955,6 +1818,7 @@ void main() {
       expect(harness.transport.menuPageCalls, 1);
       expect(harness.transport.startCalls, 1);
       expect(harness.transport.redemptionCalls, 0);
+      expect(harness.deviceUse.stages, isEmpty);
 
       await tester.pageBack();
       await tester.pumpAndSettle();
@@ -1027,6 +1891,7 @@ void main() {
     );
     expect(harness.transport.startCalls, 1);
     expect(harness.transport.redemptionCalls, 0);
+    expect(harness.deviceUse.stages, isEmpty);
   });
 
   testWidgets('auth replacement retires a menu with a delayed initial read', (
@@ -1356,6 +2221,7 @@ void main() {
     );
     expect(find.text('Offer Details'), findsOneWidget);
     expect(find.text('Use Coupon Unavailable'), findsNothing);
+    expect(harness.deviceUse.stages, isEmpty);
     expect(transport.redemptionCalls, 0);
   });
 
@@ -1411,6 +2277,7 @@ void main() {
     expect(find.byType(CustomerBiteSaverBrowseScreen), findsOneWidget);
     expect(harness.transport.startCalls, 1);
     expect(harness.transport.redemptionCalls, 0);
+    expect(harness.deviceUse.stages, isEmpty);
     expect(tester.takeException(), isNull);
   });
 
@@ -1530,6 +2397,7 @@ void main() {
         everyElement(same(harness.coordinator)),
       );
       expect(harness.transport.redemptionCalls, 0);
+      expect(harness.deviceUse.stages, isEmpty);
     },
   );
 
@@ -1662,6 +2530,7 @@ void main() {
       );
       expect(selections.last.restaurant.offers, hasLength(2));
       expect(harness.transport.redemptionCalls, 0);
+      expect(harness.deviceUse.stages, isEmpty);
     },
   );
 
@@ -1770,6 +2639,7 @@ void main() {
     expect(harness.transport.startCalls, 1);
     expect(harness.transport.offerPageCalls, 0);
     expect(harness.transport.redemptionCalls, 0);
+    expect(harness.deviceUse.stages, isEmpty);
   });
 
   testWidgets('latest submitted search wins while time setup is pending', (
@@ -2781,11 +3651,15 @@ Widget _productionBrowseApp(
   _BrowseHarness harness,
   CustomerBiteSaverBrowseDestinationHandler handler, {
   List<NavigatorObserver> navigatorObservers = const <NavigatorObserver>[],
+  String Function()? authRealmProvider,
+  Stream<String>? authRealmChanges,
 }) => MaterialApp(
   navigatorKey: rootNavigatorKey,
   navigatorObservers: navigatorObservers,
   home: MainNavigationScreen(
     initializePlatformServices: false,
+    testCustomerAuthRealmProvider: authRealmProvider,
+    testCustomerAuthRealmChanges: authRealmChanges,
     biteSaverBrowseHomeBuilder:
         (context, navigationRefreshGeneration, authRealm) => harness.screen(
           navigationRefreshGeneration: navigationRefreshGeneration,
@@ -2798,6 +3672,27 @@ Widget _productionBrowseApp(
     ],
   ),
 );
+
+Future<void> _openFixtureCouponForUse(
+  WidgetTester tester,
+  _BrowseHarness harness,
+) async {
+  await tester.pumpWidget(
+    _productionBrowseApp(
+      harness,
+      const CustomerBiteSaverBrowseDestinationHandler(),
+    ),
+  );
+  await _pumpBrowseReady(tester, harness.transport);
+  await tester.tap(find.text('Fixture Coupon 1'));
+  await tester.pumpAndSettle();
+}
+
+Future<void> _confirmFixtureCouponUse(WidgetTester tester) async {
+  await tester.tap(find.text('Use Coupon'));
+  await tester.pumpAndSettle();
+  await tester.tap(find.byKey(const ValueKey<String>('bitesaver_use_confirm')));
+}
 
 final class _CountingNavigatorObserver extends NavigatorObserver {
   int pushCount = 0;
@@ -2923,6 +3818,7 @@ final class _BrowseHarness {
     CustomerBiteSaverFavoriteStateOwner? favoriteStateOwner,
     _BrowseFixtureTransport? transport,
     DateTime Function()? clock,
+    Duration deviceTimerAge = Duration.zero,
   }) {
     final selectedTransport = transport ?? _BrowseFixtureTransport();
     this.transport = selectedTransport;
@@ -2933,11 +3829,20 @@ final class _BrowseHarness {
           isUtc: true,
         );
     var requestSequence = 0;
+    deviceUse = CustomerBiteSaverDeviceUseFixture(
+      evaluatedAtMillis:
+          selectedClock().millisecondsSinceEpoch -
+          deviceTimerAge.inMilliseconds,
+      authenticatedUserId: signed ? 'signed-a' : null,
+    );
+    addTearDown(deviceUse.dispose);
     coordinator = CustomerBiteSaverSearchCoordinator(
       api: CustomerBiteSaverService(transport: selectedTransport.call),
+      deviceUseService: deviceUse.service,
+      authSnapshotProvider: () => coordinator.auth,
       guestUsageStore: CustomerBiteSaverGuestUsageStore(
         guestDeviceId: 'bounded-browse-test-device',
-        preferences: _MemoryGuestPreferences(),
+        preferences: guestPreferences,
         clock: selectedClock,
       ),
       clientInstanceId: 'bounded-browse-client-0001',
@@ -2966,6 +3871,8 @@ final class _BrowseHarness {
   final bool failRestaurantFavoriteWrite;
   late final _BrowseFixtureTransport transport;
   late final CustomerBiteSaverSearchCoordinator coordinator;
+  late final CustomerBiteSaverDeviceUseFixture deviceUse;
+  final _MemoryGuestPreferences guestPreferences = _MemoryGuestPreferences();
   int restaurantFavoriteWrites = 0;
   int offerFavoriteWrites = 0;
 

@@ -1384,11 +1384,135 @@ void main() {
     }
   }
 
-  test('foundation remains unwired from initialization and coordinators', () {
+  test('stale caller ownership stops before capability or transport', () async {
+    var nativeCalls = 0;
+    var transportCalls = 0;
+    installAvailableAndroidBridge(onCall: (_) => nativeCalls++);
+    final service = CustomerBiteSaverDeviceUseService(
+      proofService: proofService(),
+      transport: (_, _) async {
+        transportCalls++;
+        return null;
+      },
+    );
+    addTearDown(service.dispose);
+
+    await expectLater(
+      service.useCoupon(
+        request: request(),
+        authenticatedUserId: null,
+        isCurrent: () => false,
+      ),
+      throwsA(
+        isA<CustomerBiteSaverDeviceUseException>().having(
+          (error) => error.kind,
+          'kind',
+          CustomerBiteSaverDeviceUseFailureKind.stale,
+        ),
+      ),
+    );
+    expect(nativeCalls, 0);
+    expect(transportCalls, 0);
+  });
+
+  const stages = ['capability', 'admission', 'challenge', 'proof', 'use'];
+  for (final stage in stages) {
+    for (final rejects in [false, true]) {
+      test(
+        'caller ownership fences ${rejects ? 'rejected' : 'successful'} $stage completion without waiting for auth listeners',
+        () async {
+          var current = true;
+          final events = <String>[];
+          final entered = Completer<void>();
+          final pending = Completer<Object?>();
+          Future<Object?> step(String name, Object? response) {
+            events.add(name);
+            if (name == stage) {
+              entered.complete();
+              return pending.future;
+            }
+            return Future<Object?>.value(response);
+          }
+
+          final target = request();
+          final responses = <String, Object?>{
+            'capability': <String, Object?>{
+              'schemaVersion': 1,
+              'protocolVersion': 'bitestar.bitesaver-device-proof.v1',
+              'platform': 'android',
+              'apiLevel': 36,
+              'minimumApiLevel': 26,
+              'supported': true,
+              'credentialState': 'present',
+              'integrityAvailable': true,
+            },
+            'admission': admission(),
+            'challenge': challenge(),
+            'proof': <String, Object?>{
+              'schemaVersion': 1,
+              'kind': 'androidUse',
+              'credentialId': _credentialId,
+              'possessionSignature': signature(),
+            },
+            'use': result(target),
+          };
+          TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+              .setMockMethodCallHandler(_channel, (call) {
+                final name = switch (call.method) {
+                  'getCapability' => 'capability',
+                  'createUseProof' => 'proof',
+                  _ => throw StateError('Unexpected native method.'),
+                };
+                return step(name, responses[name]);
+              });
+          final service = CustomerBiteSaverDeviceUseService(
+            proofService: proofService(),
+            elapsedClock: () => Duration.zero,
+            transport: (callable, payload) {
+              final name = payload['operation'] == 'admitChallenge'
+                  ? 'admission'
+                  : callable ==
+                        CustomerBiteSaverDeviceProofContract
+                            .issueChallengeCallableName
+                  ? 'challenge'
+                  : 'use';
+              return step(name, responses[name]);
+            },
+          );
+          addTearDown(service.dispose);
+          final operation = service.useCoupon(
+            request: target,
+            authenticatedUserId: null,
+            isCurrent: () => current,
+          );
+          await entered.future;
+          final expectation = expectLater(
+            operation,
+            throwsA(
+              isA<CustomerBiteSaverDeviceUseException>().having(
+                (error) => error.kind,
+                'kind',
+                CustomerBiteSaverDeviceUseFailureKind.stale,
+              ),
+            ),
+          );
+          current = false;
+          if (rejects) {
+            pending.completeError(PlatformException(code: 'unavailable'));
+          } else {
+            pending.complete(responses[stage]);
+          }
+          await expectation;
+          expect(events, stages.take(stages.indexOf(stage) + 1).toList());
+        },
+      );
+    }
+  }
+
+  test('device use remains unwired from default startup and Home', () {
     for (final path in <String>[
       'lib/main.dart',
-      'lib/services/customer_bitesaver_search_coordinator.dart',
-      'lib/services/customer_bitesaver_saved_coordinator.dart',
+      'lib/screens/home_screen.dart',
     ]) {
       final source = File(path).readAsStringSync();
       expect(
@@ -1397,5 +1521,8 @@ void main() {
       );
       expect(source, isNot(contains('CustomerBiteSaverDeviceUseService')));
     }
+    final startup = File('lib/main.dart').readAsStringSync();
+    expect(startup, isNot(contains('biteSaverBrowseHomeBuilder:')));
+    expect(startup, isNot(contains('biteSaverSavedAccountBuilder:')));
   });
 }

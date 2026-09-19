@@ -1,13 +1,10 @@
 import 'dart:async';
-import 'dart:convert';
-import 'dart:math';
 
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
 import '../models/customer_bitesaver_search.dart';
 import '../services/customer_bitesaver_search_coordinator.dart';
-import '../services/customer_bitesaver_service.dart';
 import 'coupon_detail_screen.dart';
 import 'customer_bitesaver_browse_screen.dart';
 import 'main_navigation_screen.dart';
@@ -196,13 +193,30 @@ final class CustomerBiteSaverBrowseDestinationHandler {
   }) async {
     _requireCurrent(selection);
     final parentBinding = MainNavigationAuthBoundOverlayScope.maybeOf(context);
+    final guardKey = GlobalKey<_CustomerBiteSaverDestinationGuardState>();
+    bool canPreserveDeviceTimer() {
+      final offer = selection.offer;
+      return selection.action == CustomerBiteSaverBrowseAction.offer &&
+          offer != null &&
+          selection.session
+                  .redemptionPresentationFor(offer.offerId)
+                  ?.isDeviceTimerActiveAt(
+                    selection.session.redemptionPresentationNowMillis,
+                  ) ==
+              true;
+    }
+
     await pushMainNavigationPrivateRoute<void>(
       context,
       parentBinding: parentBinding,
       originatingAuthRealm: parentBinding == null
           ? selection.access.authRealmKey
           : null,
+      canPreserveRouteOnAuthChange: canPreserveDeviceTimer,
+      onAuthRealmReplaced: (_, _) =>
+          guardKey.currentState?.retireAuthorityForAuthChange(),
       builder: (routeContext) => _CustomerBiteSaverDestinationGuard(
+        key: guardKey,
         selection: selection,
         builder: builder,
       ),
@@ -226,102 +240,31 @@ final class _CustomerBiteSaverBrowseCouponUse {
   final CustomerBiteSaverRedemptionCoordinatesProvider
   currentCoordinatesProvider;
 
-  String? _redemptionRequestId;
-  CustomerBiteSaverCoordinates? _coordinates;
-  bool _validationCompleted = false;
-  Future<CustomerBiteSaverRedemptionPresentation>? _inFlight;
-
   Future<CustomerBiteSaverRedemptionPresentation> call(BuildContext context) {
-    final existing = _inFlight;
-    if (existing != null) return existing;
-    late final Future<CustomerBiteSaverRedemptionPresentation> operation;
-    operation = _run().whenComplete(() {
-      if (identical(_inFlight, operation)) _inFlight = null;
-    });
-    _inFlight = operation;
-    return operation;
-  }
-
-  Future<CustomerBiteSaverRedemptionPresentation> _run() async {
-    final offer = selection.offer!;
-    final session = selection.session;
-    if (!_validationCompleted) {
-      if (!selection.isCurrent) {
-        throw const CustomerBiteSaverFreshSearchRequiredException();
-      }
-      _redemptionRequestId ??= _secureRequestId();
-      if (offer.isProximityOnly && _coordinates == null) {
-        _coordinates = await currentCoordinatesProvider();
-        if (!selection.isCurrent) {
-          throw const CustomerBiteSaverStaleOperationException();
-        }
-      }
-      try {
-        final decision = await session.validateRedemption(
-          restaurantId: selection.restaurant.restaurantId,
-          offerId: offer.offerId,
-          redemptionRequestId: _redemptionRequestId!,
-          currentCoordinates: _coordinates,
-        );
-        if (!decision.allowed) {
-          final activeExpiresAt = decision.activeTimerExpiresAtMillis;
-          if (activeExpiresAt != null &&
-              activeExpiresAt > session.redemptionPresentationNowMillis) {
-            final presentation = CustomerBiteSaverRedemptionPresentation(
-              restaurantId: decision.restaurantId,
-              offerId: decision.offerId,
-              offerOccurrence: offer.offerOccurrence,
-              status: CustomerBiteSaverRedemptionPresentationStatus.active,
-              usagePolicy:
-                  offer.usagePolicy ??
-                  (throw const CustomerBiteSaverProtocolException()),
-              timerStartedAtMillis:
-                  activeExpiresAt -
-                  CustomerBiteSaverSearchContract.redemptionTimerMilliseconds,
-              timerExpiresAtMillis: activeExpiresAt,
-            );
-            session.recordRecoveredRedemptionPresentation(presentation);
-            _resetAttempt();
-            return presentation;
-          }
-          _resetAttempt();
-          throw CustomerBiteSaverRedemptionDeniedException(decision);
-        }
-        _validationCompleted = true;
-      } catch (error) {
-        if (error is CustomerBiteSaverServiceException &&
-            error.kind == CustomerBiteSaverServiceFailureKind.callable) {
-          _resetAttempt();
-        }
-        rethrow;
-      }
+    if (!context.mounted) {
+      throw const CustomerBiteSaverStaleOperationException();
     }
-
-    await session.startValidatedRedemption();
-    final presentation = session.redemptionPresentationFor(offer.offerId);
-    if (presentation == null) {
-      throw const CustomerBiteSaverProtocolException();
+    final lease = MainNavigationAuthBoundOverlayScope.maybeOf(
+      context,
+    )?.captureLease();
+    final route = ModalRoute.of(context);
+    if (route?.isActive == false || lease?.isCurrent == false) {
+      throw const CustomerBiteSaverStaleOperationException();
     }
-    _resetAttempt();
-    return presentation;
-  }
-
-  void _resetAttempt() {
-    _redemptionRequestId = null;
-    _coordinates = null;
-    _validationCompleted = false;
-  }
-
-  static String _secureRequestId() {
-    final random = Random.secure();
-    return base64UrlEncode(
-      List<int>.generate(24, (_) => random.nextInt(256)),
-    ).replaceAll('=', '');
+    // Final Use commits the attempt to the coordinator. Route disposal only
+    // detaches its UI; the coordinator retains live auth and authority fencing.
+    return selection.session.useCouponForAccess(
+      access: selection.access,
+      restaurantId: selection.restaurant.restaurantId,
+      offerId: selection.offer!.offerId,
+      currentCoordinatesProvider: currentCoordinatesProvider,
+    );
   }
 }
 
 class _CustomerBiteSaverDestinationGuard extends StatefulWidget {
   const _CustomerBiteSaverDestinationGuard({
+    super.key,
     required this.selection,
     required this.builder,
   });
@@ -338,6 +281,7 @@ class _CustomerBiteSaverDestinationGuardState
     extends State<_CustomerBiteSaverDestinationGuard>
     with WidgetsBindingObserver {
   bool _retirementScheduled = false;
+  bool _authorityRetiredForAuth = false;
   Timer? _confirmedExpiryTimer;
   CustomerBiteSaverRedemptionPresentation? _scheduledPresentation;
 
@@ -377,6 +321,36 @@ class _CustomerBiteSaverDestinationGuardState
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) _reconcileOwnership();
+  }
+
+  void retireAuthorityForAuthChange() {
+    if (!mounted) return;
+    _authorityRetiredForAuth = true;
+    final offer = widget.selection.offer;
+    if (offer != null) {
+      widget.selection.session.cancelCouponUse(
+        widget.selection.access,
+        offerId: offer.offerId,
+      );
+    }
+    _reconcileOwnership();
+    setState(() {});
+  }
+
+  bool get _hasCurrentAuthority =>
+      !_authorityRetiredForAuth && widget.selection.isCurrent;
+
+  bool get _hasConfirmedDisplay {
+    final offer = widget.selection.offer;
+    if (offer == null) return false;
+    final presentation = widget.selection.session.redemptionPresentationFor(
+      offer.offerId,
+    );
+    if (presentation == null) return false;
+    final nowMillis = widget.selection.session.redemptionPresentationNowMillis;
+    return _authorityRetiredForAuth
+        ? presentation.isDeviceTimerActiveAt(nowMillis)
+        : presentation.isActiveAt(nowMillis);
   }
 
   void _handleSessionChange() {
@@ -462,13 +436,17 @@ class _CustomerBiteSaverDestinationGuardState
 
   void _retireIfStale() {
     final offer = widget.selection.offer;
-    final hasConfirmedDisplay =
+    final hasConfirmedDisplay = _hasConfirmedDisplay;
+    final recoverable =
+        !_authorityRetiredForAuth &&
         offer != null &&
-        widget.selection.session.hasDisplayableRedemptionPresentation(
+        widget.selection.session.isCouponUseRecoverable(
+          widget.selection.access,
           offer.offerId,
         );
     if (_retirementScheduled ||
-        widget.selection.isCurrent ||
+        _hasCurrentAuthority ||
+        recoverable ||
         hasConfirmedDisplay) {
       return;
     }
@@ -486,12 +464,15 @@ class _CustomerBiteSaverDestinationGuardState
   @override
   Widget build(BuildContext context) {
     final offer = widget.selection.offer;
-    final hasConfirmedDisplay =
+    final hasConfirmedDisplay = _hasConfirmedDisplay;
+    final recoverable =
+        !_authorityRetiredForAuth &&
         offer != null &&
-        widget.selection.session.hasDisplayableRedemptionPresentation(
+        widget.selection.session.isCouponUseRecoverable(
+          widget.selection.access,
           offer.offerId,
         );
-    if ((!widget.selection.isCurrent && !hasConfirmedDisplay) ||
+    if ((!_hasCurrentAuthority && !hasConfirmedDisplay && !recoverable) ||
         _retirementScheduled) {
       return const SizedBox.shrink();
     }

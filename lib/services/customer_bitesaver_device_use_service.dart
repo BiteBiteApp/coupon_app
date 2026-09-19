@@ -124,10 +124,13 @@ final class CustomerBiteSaverDeviceUseService {
 
   /// Performs work only when explicitly called by a confirmed coupon-use path.
   /// An ambiguous retry of the identical frozen request reuses the exact proof.
+  /// The caller's live ownership check fences each async continuation, including
+  /// auth changes that have not reached an asynchronous subscription yet.
   Future<CustomerBiteSaverDeviceUseResult> useCoupon({
     required CustomerBiteSaverCombinedUseRequest request,
     required String? authenticatedUserId,
     bool forceEnrollmentOrRecovery = false,
+    bool Function()? isCurrent,
   }) {
     if (_disposed) {
       return Future<CustomerBiteSaverDeviceUseResult>.error(
@@ -138,6 +141,15 @@ final class CustomerBiteSaverDeviceUseService {
       );
     }
     final normalizedUid = _validateAuthenticatedUserId(authenticatedUserId);
+    if (isCurrent != null && !isCurrent()) {
+      _invalidateCurrentWork();
+      return Future<CustomerBiteSaverDeviceUseResult>.error(
+        const CustomerBiteSaverDeviceUseException(
+          kind: CustomerBiteSaverDeviceUseFailureKind.stale,
+          code: 'device-use-stale-operation',
+        ),
+      );
+    }
     final operationKey = _operationKey(
       request,
       normalizedUid,
@@ -160,6 +172,7 @@ final class CustomerBiteSaverDeviceUseService {
           operationKey: operationKey,
           generation: generation,
           forceEnrollmentOrRecovery: forceEnrollmentOrRecovery,
+          isCurrent: isCurrent,
         ).whenComplete(() {
           final current = _inFlight;
           if (current != null && identical(current.future, future)) {
@@ -168,6 +181,24 @@ final class CustomerBiteSaverDeviceUseService {
         });
     _inFlight = _InFlightDeviceUse(operationKey, future);
     return future;
+  }
+
+  /// True only while the existing service retains an exact usable proof.
+  /// This does not issue a challenge or extend its monotonic expiry.
+  bool canRetry({
+    required CustomerBiteSaverCombinedUseRequest request,
+    required String? authenticatedUserId,
+  }) {
+    final pending = _pending;
+    return !_disposed &&
+        pending != null &&
+        pending.challenge.isLocallyUsable &&
+        pending.operationKey ==
+            _operationKey(
+              request,
+              _validateAuthenticatedUserId(authenticatedUserId),
+              false,
+            );
   }
 
   void cancel() => _invalidateCurrentWork();
@@ -196,12 +227,14 @@ final class CustomerBiteSaverDeviceUseService {
     required String operationKey,
     required int generation,
     required bool forceEnrollmentOrRecovery,
+    required bool Function()? isCurrent,
   }) async {
+    _assertCurrent(generation, isCurrent);
     final retry = _pending;
     if (retry != null && retry.operationKey == operationKey) {
       if (retry.challenge.isLocallyUsable) {
-        _assertCurrent(generation);
-        return _submit(retry, generation);
+        _assertCurrent(generation, isCurrent);
+        return _submit(retry, generation, isCurrent);
       }
       _clearPending();
     }
@@ -217,8 +250,9 @@ final class CustomerBiteSaverDeviceUseService {
       capability = await _proofService.getCapability();
     } on CustomerBiteSaverDeviceProofException catch (error) {
       throw _translateProofFailure(error);
+    } finally {
+      _assertCurrent(generation, isCurrent);
     }
-    _assertCurrent(generation);
     _requireCapability(capability);
 
     late final bool enroll;
@@ -261,6 +295,7 @@ final class CustomerBiteSaverDeviceUseService {
         'request': request.toJson(),
       },
       generation,
+      isCurrent,
     );
     late final CustomerBiteSaverDeviceChallengeAdmission admission;
     try {
@@ -288,8 +323,9 @@ final class CustomerBiteSaverDeviceUseService {
         'permit': admission.permit,
       },
       generation,
+      isCurrent,
     );
-    _assertCurrent(generation);
+    _assertCurrent(generation, isCurrent);
 
     late final CustomerBiteSaverDeviceChallenge challenge;
     try {
@@ -322,8 +358,9 @@ final class CustomerBiteSaverDeviceUseService {
           : await _proofService.createUseProof(challenge);
     } on CustomerBiteSaverDeviceProofException catch (error) {
       throw _translateProofFailure(error);
+    } finally {
+      _assertCurrent(generation, isCurrent);
     }
-    _assertCurrent(generation);
     if (!challenge.isLocallyUsable) {
       throw const CustomerBiteSaverDeviceUseException(
         kind: CustomerBiteSaverDeviceUseFailureKind.stale,
@@ -338,14 +375,15 @@ final class CustomerBiteSaverDeviceUseService {
       proof: proof,
     );
     _retainPendingUntilExpiry(pending);
-    return _submit(pending, generation);
+    return _submit(pending, generation, isCurrent);
   }
 
   Future<CustomerBiteSaverDeviceUseResult> _submit(
     _PendingDeviceUse pending,
     int generation,
+    bool Function()? isCurrent,
   ) async {
-    _assertCurrent(generation);
+    _assertCurrent(generation, isCurrent);
     // Recheck immediately at every send, including an exact ambiguous retry.
     // Timer callbacks can be delayed, so they are not the eligibility guard.
     if (!pending.challenge.isLocallyUsable) {
@@ -367,13 +405,13 @@ final class CustomerBiteSaverDeviceUseService {
         },
       );
     } on CustomerBiteSaverDeviceUseException catch (error) {
-      _assertCurrent(generation);
+      _assertCurrent(generation, isCurrent);
       if (error.kind != CustomerBiteSaverDeviceUseFailureKind.ambiguous) {
         _clearPendingIfIdentical(pending);
       }
       rethrow;
     }
-    _assertCurrent(generation);
+    _assertCurrent(generation, isCurrent);
     try {
       final result = CustomerBiteSaverDeviceUseResult.fromJson(value);
       final request = pending.request;
@@ -428,11 +466,13 @@ final class CustomerBiteSaverDeviceUseService {
     String callableName,
     Map<String, Object?> request,
     int generation,
+    bool Function()? isCurrent,
   ) async {
+    _assertCurrent(generation, isCurrent);
     try {
       return await _invoke(callableName, request);
     } finally {
-      _assertCurrent(generation);
+      _assertCurrent(generation, isCurrent);
     }
   }
 
@@ -471,7 +511,7 @@ final class CustomerBiteSaverDeviceUseService {
     cause: error,
   );
 
-  void _assertCurrent(int generation) {
+  void _assertCurrent(int generation, bool Function()? isCurrent) {
     if (_disposed) {
       throw const CustomerBiteSaverDeviceUseException(
         kind: CustomerBiteSaverDeviceUseFailureKind.disposed,
@@ -479,6 +519,13 @@ final class CustomerBiteSaverDeviceUseService {
       );
     }
     if (generation != _generation) {
+      throw const CustomerBiteSaverDeviceUseException(
+        kind: CustomerBiteSaverDeviceUseFailureKind.stale,
+        code: 'device-use-stale-operation',
+      );
+    }
+    if (isCurrent != null && !isCurrent()) {
+      _invalidateCurrentWork();
       throw const CustomerBiteSaverDeviceUseException(
         kind: CustomerBiteSaverDeviceUseFailureKind.stale,
         code: 'device-use-stale-operation',

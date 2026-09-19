@@ -5,10 +5,14 @@ import 'dart:io';
 import 'package:coupon_app/models/customer_bitesaver_favorite.dart';
 import 'package:coupon_app/models/customer_bitesaver_search.dart';
 import 'package:coupon_app/services/customer_bitesaver_guest_usage_store.dart';
+import 'package:coupon_app/services/customer_bitesaver_device_use_service.dart';
 import 'package:coupon_app/services/customer_bitesaver_search_coordinator.dart';
 import 'package:coupon_app/services/customer_bitesaver_service.dart';
 import 'package:coupon_app/services/customer_load_more_controller.dart';
+import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_test/flutter_test.dart';
+
+import '../support/customer_bitesaver_device_use_fixture.dart';
 
 const String _fixturePath =
     'test/fixtures/customer_bitesaver_client_boundary_v1.json';
@@ -502,6 +506,8 @@ final class _Harness {
     required CustomerBiteSaverAuthSnapshot auth,
     _ManualScheduler? scheduler,
     CustomerBiteSaverFavoriteActions? favoriteActions,
+    CustomerBiteSaverDeviceUseService? deviceUseService,
+    CustomerBiteSaverAuthSnapshot Function()? authSnapshotProvider,
     CustomerBiteSaverDelay? delay,
     DateTime Function()? coordinatorClock,
     int maximumStatusPolls = 20,
@@ -524,6 +530,8 @@ final class _Harness {
       clientInstanceId: _clientInstanceId,
       initialAuth: auth,
       favoriteActions: favoriteActions,
+      deviceUseService: deviceUseService,
+      authSnapshotProvider: authSnapshotProvider ?? () => coordinator.auth,
       requestIdGenerator: () =>
           'coordinator-request-${(++sequence).toString().padLeft(8, '0')}',
       clock: coordinatorClock ?? () => now,
@@ -573,13 +581,703 @@ Future<CustomerBiteSaverGuestRedemptionStart> _seedActiveTimer(
   return started;
 }
 
+Future<_Harness> _readyDeviceHarness(
+  CustomerBiteSaverDeviceUseFixture device, {
+  CustomerBiteSaverAuthSnapshot auth =
+      const CustomerBiteSaverAuthSnapshot.signed('signed-a'),
+  Map<String, Object?> offerFields = const <String, Object?>{},
+  CustomerBiteSaverFavoriteActions? favoriteActions,
+  CustomerBiteSaverAuthSnapshot Function()? authSnapshotProvider,
+}) async {
+  final api = _FakeApi();
+  final offer = _offerJson(991)..addAll(offerFields);
+  final restaurants = <Map<String, dynamic>>[
+    _restaurantJson(991, offers: <Map<String, dynamic>>[offer]),
+  ];
+  api.onStart = (_) async => _startResponse();
+  if (auth.isSigned) {
+    api.onRestaurantPage = (_) async => _direct(_restaurantPage(restaurants));
+  } else {
+    final complete = _copyMap(_guestResponses['restaurantComplete']);
+    complete['result'] = _restaurantPage(restaurants).toJson();
+    api.onRestaurantPage = (_) async => _guestRestaurantResponse(complete);
+  }
+  final harness = _Harness(
+    api: api,
+    auth: auth,
+    deviceUseService: device.service,
+    favoriteActions: favoriteActions,
+    authSnapshotProvider: authSnapshotProvider,
+  );
+  addTearDown(device.dispose);
+  addTearDown(harness.dispose);
+  await harness.coordinator.startSearch(_criteria());
+  expect(harness.coordinator.restaurants, hasLength(1));
+  return harness;
+}
+
+CustomerBiteSaverBrowseAccess _deviceAccess(_Harness harness) {
+  final restaurant = harness.coordinator.restaurants.single;
+  return harness.coordinator.captureBrowseAccess(
+    restaurant: restaurant,
+    offer: restaurant.offers.single,
+  );
+}
+
+Future<CustomerBiteSaverRedemptionPresentation> _useDeviceCoupon(
+  _Harness harness,
+  CustomerBiteSaverBrowseAccess access, {
+  Future<CustomerBiteSaverCoordinates> Function()? coordinates,
+  bool Function()? isCurrent,
+}) => harness.coordinator.useCouponForAccess(
+  access: access,
+  restaurantId: CustomerBiteSaverRestaurantId(_restaurantId(991)),
+  offerId: CustomerBiteSaverOfferId(_offerId(991)),
+  currentCoordinatesProvider: coordinates,
+  isCurrent: isCurrent,
+);
+
+void _expectNoLegacyDeviceFallback(_Harness harness, int localWrites) {
+  expect(harness.api.validationRequests, isEmpty);
+  expect(harness.api.redemptionStartRequests, isEmpty);
+  expect(harness.preferences.mutationCount, localWrites);
+}
+
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() {
     _fixture =
         jsonDecode(File(_fixturePath).readAsStringSync())!
             as Map<String, dynamic>;
     _signedResponses = _map(_map(_fixture['signed'])['responses']);
     _guestResponses = _map(_map(_fixture['guest'])['responses']);
+  });
+
+  for (final auth in <CustomerBiteSaverAuthSnapshot>[
+    const CustomerBiteSaverAuthSnapshot.signedOut(),
+    const CustomerBiteSaverAuthSnapshot.anonymous('anonymous-a'),
+    const CustomerBiteSaverAuthSnapshot.signed('signed-a'),
+  ]) {
+    test(
+      'bounded ${auth.uid ?? 'signed-out'} explicit use supplies genuine discovery authority',
+      () async {
+        final device = CustomerBiteSaverDeviceUseFixture(
+          authenticatedUserId: auth.isSigned ? auth.uid : null,
+          evaluatedAtMillis: _evaluationAtMillis + 1000,
+        );
+        final harness = await _readyDeviceHarness(device, auth: auth);
+        final access = _deviceAccess(harness);
+        final localWrites = harness.preferences.mutationCount;
+        expect(device.stages, isEmpty);
+
+        final presentation = await _useDeviceCoupon(harness, access);
+
+        expect(device.stages, [
+          'capability',
+          'admission',
+          'challenge',
+          'proof',
+          'use',
+        ]);
+        final request = device.submissions.single['request']! as Map;
+        final origin = request['origin']! as Map;
+        final start = _map(_signedResponses['start']);
+        expect(origin, <String, Object?>{
+          'kind': 'discovery',
+          'clientInstanceId': _clientInstanceId,
+          'sessionId': start['sessionId'],
+          'capability': start['capability'],
+          'criteriaFingerprint': start['criteriaFingerprint'],
+          'offerOccurrence': harness
+              .coordinator
+              .restaurants
+              .single
+              .offers
+              .single
+              .offerOccurrence,
+          'guestStateRevision': auth.isSigned ? null : 0,
+        });
+        expect(request['restaurantId'], _restaurantId(991));
+        expect(request['offerId'], _offerId(991));
+        expect(request['timeZone'], 'America/New_York');
+        expect(request['utcOffsetMinutes'], -240);
+        expect(request['currentCoordinates'], isNull);
+        expect(
+          presentation.status,
+          CustomerBiteSaverRedemptionPresentationStatus.started,
+        );
+        expect(presentation.timerStartedAtMillis, _evaluationAtMillis + 1000);
+        expect(presentation.timerExpiresAtMillis, _evaluationAtMillis + 301000);
+        expect(
+          harness.coordinator.redemptionPresentationFor(presentation.offerId),
+          same(presentation),
+        );
+        _expectNoLegacyDeviceFallback(harness, localWrites);
+      },
+    );
+  }
+
+  test(
+    'bounded reading and favoriting do not begin device proof or use',
+    () async {
+      final device = CustomerBiteSaverDeviceUseFixture(
+        authenticatedUserId: 'signed-a',
+      );
+      var favoriteWrites = 0;
+      final harness = await _readyDeviceHarness(
+        device,
+        favoriteActions: CustomerBiteSaverFavoriteActions(
+          upsertRestaurant: (_) async => favoriteWrites++,
+          removeRestaurant: (_) async => favoriteWrites++,
+          upsertCoupon: (_) async => favoriteWrites++,
+          removeCoupon: (_) async => favoriteWrites++,
+        ),
+      );
+      _deviceAccess(harness);
+      await harness.coordinator.setRestaurantFavorite(
+        CustomerBiteSaverRestaurantId(_restaurantId(991)),
+        true,
+      );
+      await harness.coordinator.setOfferFavorite(
+        CustomerBiteSaverOfferId(_offerId(991)),
+        true,
+      );
+      expect(favoriteWrites, 2);
+      expect(device.stages, isEmpty);
+      expect(device.requests, isEmpty);
+    },
+  );
+
+  test(
+    'bounded ambiguous retry freezes request coordinates and exact proof',
+    () async {
+      final device = CustomerBiteSaverDeviceUseFixture(
+        authenticatedUserId: 'signed-a',
+        evaluatedAtMillis: _evaluationAtMillis + 1000,
+      );
+      var useCalls = 0;
+      device.beforeStage = (stage) async {
+        if (stage == 'use' && ++useCalls == 1) {
+          throw const CustomerBiteSaverDeviceUseTransportException(
+            code: 'unavailable',
+            ambiguous: true,
+          );
+        }
+      };
+      final harness = await _readyDeviceHarness(
+        device,
+        offerFields: {'isProximityOnly': true, 'proximityRadiusMiles': 1},
+      );
+      final access = _deviceAccess(harness);
+      final localWrites = harness.preferences.mutationCount;
+      var coordinateReads = 0;
+      Future<CustomerBiteSaverCoordinates> coordinates() async {
+        coordinateReads++;
+        return CustomerBiteSaverCoordinates(
+          latitude: 28.5383,
+          longitude: -81.3792,
+          capturedAtMillis: _evaluationAtMillis + coordinateReads,
+        );
+      }
+
+      await expectLater(
+        _useDeviceCoupon(harness, access, coordinates: coordinates),
+        throwsA(isA<CustomerBiteSaverDeviceUseException>()),
+      );
+      final presentation = await _useDeviceCoupon(
+        harness,
+        access,
+        coordinates: coordinates,
+      );
+      expect(coordinateReads, 1);
+      expect(device.submissions, hasLength(2));
+      expect(device.submissions.first, device.submissions.last);
+      expect(device.stages, [
+        'capability',
+        'admission',
+        'challenge',
+        'proof',
+        'use',
+        'use',
+      ]);
+      expect(presentation.timerStartedAtMillis, _evaluationAtMillis + 1000);
+      _expectNoLegacyDeviceFallback(harness, localWrites);
+    },
+  );
+
+  test(
+    'bounded repeated taps share the same operation and retain completed timer through cancellation',
+    () async {
+      final device = CustomerBiteSaverDeviceUseFixture(
+        authenticatedUserId: 'signed-a',
+        evaluatedAtMillis: _evaluationAtMillis + 1000,
+      )..status = 'active';
+      final entered = Completer<void>();
+      final release = Completer<void>();
+      device.beforeStage = (stage) async {
+        if (stage == 'use') {
+          entered.complete();
+          await release.future;
+        }
+      };
+      final harness = await _readyDeviceHarness(device);
+      final access = _deviceAccess(harness);
+      final first = _useDeviceCoupon(harness, access);
+      final second = _useDeviceCoupon(harness, access);
+      expect(second, same(first));
+      await entered.future;
+      release.complete();
+      final presentation = await first;
+      expect(
+        presentation.status,
+        CustomerBiteSaverRedemptionPresentationStatus.active,
+      );
+      harness.coordinator.cancelCouponUse(access);
+      harness.now = harness.now.add(const Duration(seconds: 30));
+      final continued = await _useDeviceCoupon(harness, access);
+      expect(continued, same(presentation));
+      expect(continued.timerStartedAtMillis, _evaluationAtMillis + 1000);
+      expect(continued.timerExpiresAtMillis, _evaluationAtMillis + 301000);
+      expect(device.submissions, hasLength(1));
+    },
+  );
+
+  test(
+    'bounded explicit use cannot reuse an active legacy presentation as device authority',
+    () async {
+      final device = CustomerBiteSaverDeviceUseFixture(
+        authenticatedUserId: 'signed-a',
+        evaluatedAtMillis: _evaluationAtMillis + 1000,
+      );
+      final harness = await _readyDeviceHarness(device);
+      final access = _deviceAccess(harness);
+      final restaurant = harness.coordinator.restaurants.single;
+      final offer = restaurant.offers.single;
+      final legacy = CustomerBiteSaverRedemptionPresentation(
+        restaurantId: restaurant.restaurantId,
+        offerId: offer.offerId,
+        offerOccurrence: offer.offerOccurrence,
+        status: CustomerBiteSaverRedemptionPresentationStatus.active,
+        usagePolicy: offer.usagePolicy!,
+        timerStartedAtMillis: _evaluationAtMillis - 60000,
+        timerExpiresAtMillis: _evaluationAtMillis + 240000,
+      );
+      harness.coordinator.recordRecoveredRedemptionPresentation(legacy);
+      expect(legacy.isDeviceAuthoritative, isFalse);
+      final localWrites = harness.preferences.mutationCount;
+
+      final confirmed = await _useDeviceCoupon(harness, access);
+
+      expect(device.stages, [
+        'capability',
+        'admission',
+        'challenge',
+        'proof',
+        'use',
+      ]);
+      expect(device.submissions, hasLength(1));
+      expect(confirmed, isNot(same(legacy)));
+      expect(confirmed.isDeviceAuthoritative, isTrue);
+      expect(confirmed.timerStartedAtMillis, _evaluationAtMillis + 1000);
+      expect(confirmed.timerExpiresAtMillis, _evaluationAtMillis + 301000);
+      expect(
+        harness.coordinator.redemptionPresentationFor(offer.offerId),
+        same(confirmed),
+      );
+      _expectNoLegacyDeviceFallback(harness, localWrites);
+    },
+  );
+
+  test(
+    'bounded remote-account timer denial creates no local timer presentation',
+    () async {
+      final device = CustomerBiteSaverDeviceUseFixture(
+        authenticatedUserId: 'signed-a',
+      )..status = 'denied';
+      final harness = await _readyDeviceHarness(
+        device,
+        offerFields: {
+          'available': false,
+          'availabilityReason': 'used',
+          'activeTimerExpiresAtMillis': _evaluationAtMillis + 300000,
+        },
+      );
+      final localWrites = harness.preferences.mutationCount;
+      await expectLater(
+        _useDeviceCoupon(harness, _deviceAccess(harness)),
+        throwsA(
+          isA<CustomerBiteSaverRedemptionDeniedException>().having(
+            (error) => error.decision.activeTimerExpiresAtMillis,
+            'remote timer is not borrowed',
+            isNull,
+          ),
+        ),
+      );
+      expect(
+        harness.coordinator.redemptionPresentationFor(
+          CustomerBiteSaverOfferId(_offerId(991)),
+        ),
+        isNull,
+      );
+      _expectNoLegacyDeviceFallback(harness, localWrites);
+    },
+  );
+
+  for (final failure in [
+    'cooldown',
+    'provider',
+    'network',
+    'challenge',
+    'server',
+  ]) {
+    test('bounded $failure failure never falls back to old writers', () async {
+      final device = CustomerBiteSaverDeviceUseFixture(
+        authenticatedUserId: 'signed-a',
+      );
+      final failedStage = switch (failure) {
+        'cooldown' => 'admission',
+        'provider' => 'proof',
+        'challenge' => 'challenge',
+        _ => 'use',
+      };
+      device.beforeStage = (stage) async {
+        if (stage != failedStage) return;
+        if (failure == 'provider') {
+          throw PlatformException(code: 'provider-unavailable');
+        }
+        throw CustomerBiteSaverDeviceUseTransportException(
+          code: failure == 'cooldown'
+              ? 'resource-exhausted'
+              : failure == 'network'
+              ? 'unavailable'
+              : 'permission-denied',
+          ambiguous: failure == 'network',
+          retryAfterMillis: failure == 'cooldown' ? 30000 : null,
+        );
+      };
+      final harness = await _readyDeviceHarness(device);
+      final localWrites = harness.preferences.mutationCount;
+      await expectLater(
+        _useDeviceCoupon(harness, _deviceAccess(harness)),
+        throwsA(
+          isA<CustomerBiteSaverDeviceUseException>().having(
+            (error) => error.kind,
+            'failure kind',
+            switch (failure) {
+              'cooldown' =>
+                CustomerBiteSaverDeviceUseFailureKind.temporaryCooldown,
+              'provider' => CustomerBiteSaverDeviceUseFailureKind.proof,
+              'network' => CustomerBiteSaverDeviceUseFailureKind.ambiguous,
+              _ => CustomerBiteSaverDeviceUseFailureKind.rejected,
+            },
+          ),
+        ),
+      );
+      expect(device.stages.last, failedStage);
+      expect(
+        harness.coordinator.redemptionPresentationFor(
+          CustomerBiteSaverOfferId(_offerId(991)),
+        ),
+        isNull,
+      );
+      _expectNoLegacyDeviceFallback(harness, localWrites);
+    });
+  }
+
+  for (final transition in ['guest-to-signed', 'account-a-to-b', 'sign-out']) {
+    for (final stage in [
+      'capability',
+      'admission',
+      'challenge',
+      'proof',
+      'use',
+    ]) {
+      test(
+        'bounded $transition during $stage retires every stale completion',
+        () async {
+          final auth = transition == 'guest-to-signed'
+              ? const CustomerBiteSaverAuthSnapshot.anonymous('anonymous-a')
+              : const CustomerBiteSaverAuthSnapshot.signed('signed-a');
+          final device = CustomerBiteSaverDeviceUseFixture(
+            authenticatedUserId: auth.isSigned ? auth.uid : null,
+          );
+          final entered = Completer<void>();
+          final release = Completer<void>();
+          device.beforeStage = (current) async {
+            if (current == stage) {
+              entered.complete();
+              await release.future;
+            }
+          };
+          final harness = await _readyDeviceHarness(device, auth: auth);
+          final localWrites = harness.preferences.mutationCount;
+          final operation = _useDeviceCoupon(harness, _deviceAccess(harness));
+          await entered.future;
+          final expectation = expectLater(
+            operation,
+            throwsA(
+              anyOf(
+                isA<CustomerBiteSaverStaleOperationException>(),
+                isA<CustomerBiteSaverDeviceUseException>().having(
+                  (error) => error.kind,
+                  'stale',
+                  CustomerBiteSaverDeviceUseFailureKind.stale,
+                ),
+              ),
+            ),
+          );
+          await harness.coordinator.updateAuth(
+            transition == 'sign-out'
+                ? const CustomerBiteSaverAuthSnapshot.signedOut()
+                : const CustomerBiteSaverAuthSnapshot.signed('signed-b'),
+          );
+          release.complete();
+          await expectation;
+          expect(device.stages.last, stage);
+          expect(
+            harness.coordinator.redemptionPresentationFor(
+              CustomerBiteSaverOfferId(_offerId(991)),
+            ),
+            isNull,
+          );
+          _expectNoLegacyDeviceFallback(harness, localWrites);
+        },
+      );
+    }
+  }
+
+  for (final stage in ['proof', 'use']) {
+    test(
+      'bounded live auth change during $stage fences work before auth listener delivery',
+      () async {
+        var liveAuth = const CustomerBiteSaverAuthSnapshot.signed('signed-a');
+        final device = CustomerBiteSaverDeviceUseFixture(
+          authenticatedUserId: 'signed-a',
+        );
+        final entered = Completer<void>();
+        final release = Completer<void>();
+        device.beforeStage = (current) async {
+          if (current == stage) {
+            entered.complete();
+            await release.future;
+          }
+        };
+        final harness = await _readyDeviceHarness(
+          device,
+          authSnapshotProvider: () => liveAuth,
+        );
+        final localWrites = harness.preferences.mutationCount;
+        final operation = _useDeviceCoupon(harness, _deviceAccess(harness));
+        await entered.future;
+        final expectation = expectLater(
+          operation,
+          throwsA(
+            isA<CustomerBiteSaverDeviceUseException>().having(
+              (error) => error.kind,
+              'stale live identity',
+              CustomerBiteSaverDeviceUseFailureKind.stale,
+            ),
+          ),
+        );
+        liveAuth = const CustomerBiteSaverAuthSnapshot.signed('signed-b');
+        expect(harness.coordinator.auth.uid, 'signed-a');
+        release.complete();
+        await expectation;
+        expect(device.stages.last, stage);
+        expect(
+          harness.coordinator.redemptionPresentationFor(
+            CustomerBiteSaverOfferId(_offerId(991)),
+          ),
+          isNull,
+        );
+        _expectNoLegacyDeviceFallback(harness, localWrites);
+      },
+    );
+  }
+
+  for (final cancel in ['owner invalidation', 'explicit cancellation']) {
+    test(
+      'bounded $cancel while proof is pending prevents submission',
+      () async {
+        final device = CustomerBiteSaverDeviceUseFixture(
+          authenticatedUserId: 'signed-a',
+        );
+        final entered = Completer<void>();
+        final release = Completer<void>();
+        device.beforeStage = (stage) async {
+          if (stage == 'proof') {
+            entered.complete();
+            await release.future;
+          }
+        };
+        final harness = await _readyDeviceHarness(device);
+        final access = _deviceAccess(harness);
+        var current = true;
+        final operation = _useDeviceCoupon(
+          harness,
+          access,
+          isCurrent: () => current,
+        );
+        await entered.future;
+        final expectation = expectLater(
+          operation,
+          throwsA(
+            isA<CustomerBiteSaverDeviceUseException>().having(
+              (error) => error.kind,
+              'stale',
+              CustomerBiteSaverDeviceUseFailureKind.stale,
+            ),
+          ),
+        );
+        if (cancel == 'explicit cancellation') {
+          harness.coordinator.cancelCouponUse(access);
+        }
+        current = false;
+        release.complete();
+        await expectation;
+        expect(device.submissions, isEmpty);
+      },
+    );
+  }
+
+  for (final ambiguous in [false, true]) {
+    test(
+      'bounded ${ambiguous ? 'exact retry' : 'use completion'} survives read-lease expiry without new authority',
+      () async {
+        final originalAnchor =
+            (_map(_signedResponses['start'])['logicalExpiresAtMillis']!
+                as int) -
+            1000;
+        final device = CustomerBiteSaverDeviceUseFixture(
+          authenticatedUserId: 'signed-a',
+          evaluatedAtMillis: originalAnchor,
+        );
+        final entered = Completer<void>();
+        final release = Completer<void>();
+        var useCalls = 0;
+        device.beforeStage = (stage) async {
+          if (stage == 'use' && ++useCalls == 1) {
+            entered.complete();
+            await release.future;
+            if (ambiguous) {
+              throw const CustomerBiteSaverDeviceUseTransportException(
+                code: 'unavailable',
+                ambiguous: true,
+              );
+            }
+          }
+        };
+        final harness = await _readyDeviceHarness(device);
+        harness.api.onStatus = (_) async => _statusResponse('expired');
+        final access = _deviceAccess(harness);
+        final offerId = CustomerBiteSaverOfferId(_offerId(991));
+        final operation = _useDeviceCoupon(harness, access);
+        await entered.future;
+        harness.now = DateTime.fromMillisecondsSinceEpoch(
+          harness.coordinator.logicalExpiresAtMillis! + 1,
+          isUtc: true,
+        );
+        await harness.coordinator.pollNow();
+        expect(harness.coordinator.isBrowseAccessCurrent(access), isFalse);
+        expect(
+          harness.coordinator.isCouponUseRecoverable(access, offerId),
+          isTrue,
+        );
+        late final CustomerBiteSaverRedemptionPresentation presentation;
+        if (ambiguous) {
+          final expectation = expectLater(
+            operation,
+            throwsA(isA<CustomerBiteSaverDeviceUseException>()),
+          );
+          release.complete();
+          await expectation;
+          expect(
+            harness.coordinator.isCouponUseRecoverable(access, offerId),
+            isTrue,
+          );
+          presentation = await _useDeviceCoupon(harness, access);
+          expect(device.submissions, hasLength(2));
+          expect(device.submissions.first, device.submissions.last);
+        } else {
+          release.complete();
+          presentation = await operation;
+          expect(device.submissions, hasLength(1));
+        }
+        expect(presentation.timerStartedAtMillis, originalAnchor);
+        expect(presentation.timerExpiresAtMillis, originalAnchor + 300000);
+        expect(
+          device.stages.where((stage) => stage == 'admission'),
+          hasLength(1),
+        );
+        expect(device.stages.where((stage) => stage == 'proof'), hasLength(1));
+        harness.coordinator.cancelCouponUse(access);
+        expect(
+          harness.coordinator.isCouponUseRecoverable(access, offerId),
+          isFalse,
+        );
+        expect(
+          harness.coordinator.redemptionPresentationFor(offerId),
+          same(presentation),
+        );
+      },
+    );
+  }
+
+  test(
+    'bounded cancellation removes exact-retry eligibility after lease expiry',
+    () async {
+      final device = CustomerBiteSaverDeviceUseFixture(
+        authenticatedUserId: 'signed-a',
+      );
+      device.beforeStage = (stage) async {
+        if (stage == 'use') {
+          throw const CustomerBiteSaverDeviceUseTransportException(
+            code: 'unavailable',
+            ambiguous: true,
+          );
+        }
+      };
+      final harness = await _readyDeviceHarness(device);
+      final access = _deviceAccess(harness);
+      final offerId = CustomerBiteSaverOfferId(_offerId(991));
+      await expectLater(
+        _useDeviceCoupon(harness, access),
+        throwsA(isA<CustomerBiteSaverDeviceUseException>()),
+      );
+      harness.now = DateTime.fromMillisecondsSinceEpoch(
+        harness.coordinator.logicalExpiresAtMillis! + 1,
+        isUtc: true,
+      );
+      expect(
+        harness.coordinator.isCouponUseRecoverable(access, offerId),
+        isTrue,
+      );
+      harness.coordinator.cancelCouponUse(access);
+      expect(
+        harness.coordinator.isCouponUseRecoverable(access, offerId),
+        isFalse,
+      );
+      expect(
+        () => _useDeviceCoupon(harness, access),
+        throwsA(isA<CustomerBiteSaverStaleOperationException>()),
+      );
+      expect(device.submissions, hasLength(1));
+    },
+  );
+
+  test('bounded daily special rejects use before any device work', () async {
+    final device = CustomerBiteSaverDeviceUseFixture(
+      authenticatedUserId: 'signed-a',
+    );
+    final harness = await _readyDeviceHarness(
+      device,
+      offerFields: {'offerType': 'dailySpecial', 'usagePolicy': null},
+    );
+    expect(
+      () => _useDeviceCoupon(harness, _deviceAccess(harness)),
+      throwsA(isA<CustomerBiteSaverStaleOperationException>()),
+    );
+    expect(device.stages, isEmpty);
   });
 
   test(

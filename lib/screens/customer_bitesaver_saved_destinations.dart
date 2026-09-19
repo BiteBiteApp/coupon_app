@@ -61,9 +61,24 @@ final class CustomerBiteSaverSavedDestinationHandler {
         openBoundedRestaurant: (restaurantContext) =>
             _openRestaurant(restaurantContext, coordinator, access),
         useBoundedCoupon: coordinator.canUseCoupons
-            ? (_) => coordinator.useCoupon(access)
+            ? (detailContext) {
+                if (!detailContext.mounted) {
+                  throw const CustomerBiteSaverStaleOperationException();
+                }
+                final lease = MainNavigationAuthBoundOverlayScope.maybeOf(
+                  detailContext,
+                )?.captureLease();
+                final route = ModalRoute.of(detailContext);
+                if (route?.isActive == false || lease?.isCurrent == false) {
+                  throw const CustomerBiteSaverStaleOperationException();
+                }
+                // The coordinator owns committed use beyond this route;
+                // its live account checks still fence every continuation.
+                return coordinator.useCoupon(access);
+              }
             : null,
       ),
+      preserveConfirmedDeviceTimer: true,
     );
   }
 
@@ -85,17 +100,28 @@ final class CustomerBiteSaverSavedDestinationHandler {
   Future<void> _push(
     BuildContext context,
     CustomerBiteSaverSavedAccess access,
-    WidgetBuilder builder,
-  ) async {
+    WidgetBuilder builder, {
+    bool preserveConfirmedDeviceTimer = false,
+  }) async {
     if (!access.isCurrent) {
       throw StateError('The Saved account session changed.');
     }
     final parentBinding = MainNavigationAuthBoundOverlayScope.maybeOf(context);
+    final guardKey = GlobalKey<_CustomerBiteSaverSavedDestinationGuardState>();
     await pushMainNavigationPrivateRoute<void>(
       context,
       parentBinding: parentBinding,
       originatingAuthRealm: parentBinding == null ? access.authRealmKey : null,
+      canPreserveRouteOnAuthChange: () =>
+          preserveConfirmedDeviceTimer &&
+          access.redemptionPresentation?.isDeviceTimerActiveAt(
+                access.redemptionPresentationNowMillis,
+              ) ==
+              true,
+      onAuthRealmReplaced: (_, _) =>
+          guardKey.currentState?.retireAuthorityForAuthChange(),
       builder: (_) => _CustomerBiteSaverSavedDestinationGuard(
+        key: guardKey,
         access: access,
         builder: builder,
       ),
@@ -105,6 +131,7 @@ final class CustomerBiteSaverSavedDestinationHandler {
 
 class _CustomerBiteSaverSavedDestinationGuard extends StatefulWidget {
   const _CustomerBiteSaverSavedDestinationGuard({
+    super.key,
     required this.access,
     required this.builder,
   });
@@ -121,6 +148,7 @@ class _CustomerBiteSaverSavedDestinationGuardState
     extends State<_CustomerBiteSaverSavedDestinationGuard>
     with WidgetsBindingObserver {
   bool _retirementScheduled = false;
+  bool _authorityRetiredForAuth = false;
   Timer? _confirmedExpiryTimer;
   CustomerBiteSaverRedemptionPresentation? _scheduledPresentation;
 
@@ -160,6 +188,25 @@ class _CustomerBiteSaverSavedDestinationGuardState
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) _reconcileOwnership();
+  }
+
+  void retireAuthorityForAuthChange() {
+    if (!mounted) return;
+    _authorityRetiredForAuth = true;
+    _reconcileOwnership();
+    setState(() {});
+  }
+
+  bool get _hasCurrentAuthority =>
+      !_authorityRetiredForAuth && widget.access.isCurrent;
+
+  bool get _hasConfirmedDisplay {
+    final presentation = widget.access.redemptionPresentation;
+    if (presentation == null) return false;
+    final nowMillis = widget.access.redemptionPresentationNowMillis;
+    return _authorityRetiredForAuth
+        ? presentation.isDeviceTimerActiveAt(nowMillis)
+        : presentation.isActiveAt(nowMillis);
   }
 
   void _handleChange() => _reconcileOwnership();
@@ -235,10 +282,8 @@ class _CustomerBiteSaverSavedDestinationGuardState
   }
 
   void _retireIfStale() {
-    final hasConfirmedDisplay = widget.access.hasDisplayableRedemption;
-    if (_retirementScheduled ||
-        widget.access.isCurrent ||
-        hasConfirmedDisplay) {
+    final hasConfirmedDisplay = _hasConfirmedDisplay;
+    if (_retirementScheduled || _hasCurrentAuthority || hasConfirmedDisplay) {
       return;
     }
     _retirementScheduled = true;
@@ -254,8 +299,8 @@ class _CustomerBiteSaverSavedDestinationGuardState
 
   @override
   Widget build(BuildContext context) {
-    final hasConfirmedDisplay = widget.access.hasDisplayableRedemption;
-    if ((!widget.access.isCurrent && !hasConfirmedDisplay) ||
+    final hasConfirmedDisplay = _hasConfirmedDisplay;
+    if ((!_hasCurrentAuthority && !hasConfirmedDisplay) ||
         _retirementScheduled) {
       return const SizedBox.shrink();
     }

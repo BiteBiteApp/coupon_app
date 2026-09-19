@@ -5,14 +5,15 @@ import 'dart:math';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
+import '../models/customer_bitesaver_device_usage.dart';
 import '../models/customer_bitesaver_favorite.dart';
 import '../models/customer_bitesaver_saved.dart';
 import '../models/customer_bitesaver_search.dart';
+import 'customer_bitesaver_device_proof_service.dart';
+import 'customer_bitesaver_device_use_service.dart';
 import 'customer_bitesaver_favorite_service.dart';
-import 'customer_bitesaver_guest_usage_store.dart';
 import 'customer_bitesaver_search_coordinator.dart';
 import 'customer_bitesaver_service.dart';
-import 'customer_session_service.dart';
 
 typedef CustomerBiteSaverSavedRequestIdGenerator = String Function();
 typedef CustomerBiteSaverSavedAccountCurrent = bool Function(String userId);
@@ -20,8 +21,6 @@ typedef CustomerBiteSaverSavedTimeContextProvider =
     Future<({String timeZone, int utcOffsetMinutes})> Function();
 typedef CustomerBiteSaverSavedCurrentCoordinatesProvider =
     Future<CustomerBiteSaverCoordinates> Function();
-typedef CustomerBiteSaverSavedGuestUsageStoreLoader =
-    Future<CustomerBiteSaverGuestUsageStore?> Function();
 typedef CustomerBiteSaverSavedRestaurantWrite =
     Future<void> Function(
       CustomerBiteSaverRestaurantFavoriteIdentity identity,
@@ -113,7 +112,7 @@ final class CustomerBiteSaverSavedCoordinator extends ChangeNotifier
     CustomerBiteSaverSavedTimeContextProvider? timeContextProvider,
     CustomerBiteSaverSavedCurrentCoordinatesProvider?
     currentCoordinatesProvider,
-    CustomerBiteSaverSavedGuestUsageStoreLoader? guestUsageStoreLoader,
+    CustomerBiteSaverDeviceUseService? deviceUseService,
     DateTime Function()? clock,
   }) : _userId = userId,
        _api = api,
@@ -122,8 +121,11 @@ final class CustomerBiteSaverSavedCoordinator extends ChangeNotifier
        _requestIdGenerator = requestIdGenerator ?? _secureRequestId,
        _timeContextProvider = timeContextProvider,
        _currentCoordinatesProvider = currentCoordinatesProvider,
-       _guestUsageStoreLoader =
-           guestUsageStoreLoader ?? _loadExistingGuestUsageStore,
+       _deviceUseService =
+           deviceUseService ??
+           CustomerBiteSaverDeviceUseService(
+             proofService: CustomerBiteSaverDeviceProofService(),
+           ),
        _clock = clock ?? DateTime.now {
     if (userId.isEmpty || userId.contains('/')) {
       throw ArgumentError.value(userId, 'userId');
@@ -164,7 +166,7 @@ final class CustomerBiteSaverSavedCoordinator extends ChangeNotifier
   final CustomerBiteSaverSavedTimeContextProvider? _timeContextProvider;
   final CustomerBiteSaverSavedCurrentCoordinatesProvider?
   _currentCoordinatesProvider;
-  final CustomerBiteSaverSavedGuestUsageStoreLoader _guestUsageStoreLoader;
+  final CustomerBiteSaverDeviceUseService _deviceUseService;
   final DateTime Function() _clock;
 
   final Map<CustomerBiteSaverSavedSection, List<CustomerBiteSaverSavedEntry>>
@@ -208,8 +210,10 @@ final class CustomerBiteSaverSavedCoordinator extends ChangeNotifier
       <String, CustomerBiteSaverRedemptionPresentation>{};
   _SavedRedemptionAttempt? _pendingRedemptionAttempt;
   _SavedRedemptionInFlight? _redemptionInFlight;
+  CustomerBiteSaverSavedAccess? _couponUseAccess;
   bool _disposed = false;
   int _generation = 0;
+  int _couponUseGeneration = 0;
 
   @override
   String get authRealmKey => 'signed:$_userId';
@@ -428,11 +432,13 @@ final class CustomerBiteSaverSavedCoordinator extends ChangeNotifier
   }
 
   Future<CustomerBiteSaverRedemptionPresentation> useCoupon(
-    CustomerBiteSaverSavedAccess access,
-  ) {
+    CustomerBiteSaverSavedAccess access, {
+    bool Function()? isCurrent,
+  }) {
     _requireUsable();
     final offer = access.offer;
     if (!isAccessCurrent(access) ||
+        (isCurrent != null && !isCurrent()) ||
         offer == null ||
         offer.offerType != CustomerBiteSaverOfferType.coupon) {
       throw const CustomerBiteSaverStaleOperationException();
@@ -460,10 +466,12 @@ final class CustomerBiteSaverSavedCoordinator extends ChangeNotifier
         'An uncertain Saved redemption must be recovered before another use.',
       );
     }
+    _couponUseAccess = access;
     late final Future<CustomerBiteSaverRedemptionPresentation> operation;
-    operation = _runCouponUse(access).whenComplete(() {
+    operation = _runCouponUse(access, isCurrent: isCurrent).whenComplete(() {
       if (identical(_redemptionInFlight?.operation, operation)) {
         _redemptionInFlight = null;
+        if (_pendingRedemptionAttempt == null) _couponUseAccess = null;
       }
     });
     _redemptionInFlight = _SavedRedemptionInFlight(
@@ -474,226 +482,102 @@ final class CustomerBiteSaverSavedCoordinator extends ChangeNotifier
     return operation;
   }
 
+  /// Cancels pending foreground work without erasing a confirmed timer.
+  void cancelCouponUse(CustomerBiteSaverSavedAccess access) {
+    if (!identical(access._owner, this) ||
+        !identical(_couponUseAccess, access)) {
+      return;
+    }
+    _couponUseGeneration += 1;
+    _pendingRedemptionAttempt = null;
+    _redemptionInFlight = null;
+    _couponUseAccess = null;
+    _deviceUseService.cancel();
+  }
+
   Future<CustomerBiteSaverRedemptionPresentation> _runCouponUse(
-    CustomerBiteSaverSavedAccess access,
-  ) async {
+    CustomerBiteSaverSavedAccess access, {
+    bool Function()? isCurrent,
+  }) async {
     final offer = access.offer!;
     final generation = _generation;
+    final useGeneration = _couponUseGeneration;
+    bool ownsOperation() =>
+        useGeneration == _couponUseGeneration &&
+        _ownsCompletion(generation) &&
+        isAccessCurrent(access) &&
+        (isCurrent == null || isCurrent());
+    void requireOwnedOperation() {
+      if (!ownsOperation()) {
+        throw const CustomerBiteSaverStaleOperationException();
+      }
+    }
+
     var attempt = _pendingRedemptionAttempt;
     if (attempt == null) {
-      try {
-        final time = await _timeContextProvider!.call();
-        _requireOwnedAccess(generation, access);
-        CustomerBiteSaverCoordinates? coordinates;
-        if (offer.isProximityOnly) {
-          final loader = _currentCoordinatesProvider;
-          if (loader == null) {
-            throw StateError('Current location is required for this coupon.');
-          }
-          coordinates = await loader();
-          _requireOwnedAccess(generation, access);
+      final time = await _timeContextProvider!.call();
+      requireOwnedOperation();
+      CustomerBiteSaverCoordinates? coordinates;
+      if (offer.isProximityOnly) {
+        final loader = _currentCoordinatesProvider;
+        if (loader == null) {
+          throw StateError('Current location is required for this coupon.');
         }
-        attempt = _SavedRedemptionAttempt(
-          generation: generation,
+        coordinates = await loader();
+        requireOwnedOperation();
+      }
+      attempt = _SavedRedemptionAttempt(
+        restaurantId: access.restaurant.restaurantId,
+        offerId: offer.offerId,
+        offerOccurrence: offer.offerOccurrence,
+        usagePolicy:
+            offer.usagePolicy ??
+            (throw const CustomerBiteSaverProtocolException()),
+        request: CustomerBiteSaverCombinedUseRequest(
+          logicalRequestId: _nextRequestId(),
           restaurantId: access.restaurant.restaurantId,
           offerId: offer.offerId,
-          offerOccurrence: offer.offerOccurrence,
-          usagePolicy:
-              offer.usagePolicy ??
-              (throw const CustomerBiteSaverProtocolException()),
-          validationRequest: CustomerBiteSaverSavedRedemptionValidationRequest(
-            clientRequestId: _nextRequestId(),
+          timeZone: time.timeZone,
+          utcOffsetMinutes: time.utcOffsetMinutes,
+          currentCoordinates: coordinates,
+          origin: CustomerBiteSaverSavedUseAuthority(
             accessToken: access.accessToken,
-            restaurantId: access.restaurant.restaurantId,
-            offerId: offer.offerId,
-            redemptionRequestId: _nextRequestId(),
-            timeZone: time.timeZone,
-            utcOffsetMinutes: time.utcOffsetMinutes,
-            currentCoordinates: coordinates,
           ),
-        );
-        _pendingRedemptionAttempt = attempt;
-      } catch (_) {
-        _pendingRedemptionAttempt = null;
-        rethrow;
-      }
-    }
-    _requireOwnedAccess(attempt.generation, access);
-
-    if (attempt.validationResult == null || attempt.evaluationContext == null) {
-      try {
-        final response = await _api
-            .validateCustomerBiteSaverSavedOfferRedemptionStart(
-              attempt.validationRequest,
-            );
-        _requireOwnedAccess(attempt.generation, access);
-        if (response
-            is! CustomerBiteSaverDirectResponse<
-              CustomerBiteSaverRedemptionValidationResult
-            >) {
-          throw const CustomerBiteSaverProtocolException();
-        }
-        attempt.validationResult = response.result;
-        attempt.evaluationContext = response.evaluationContext;
-      } catch (error) {
-        if (error is CustomerBiteSaverServiceException &&
-            error.kind == CustomerBiteSaverServiceFailureKind.callable) {
-          _pendingRedemptionAttempt = null;
-        }
-        rethrow;
-      }
-    }
-
-    final result = attempt.validationResult!;
-    final evaluationContext = attempt.evaluationContext!;
-    if (!result.allowed) {
-      _pendingRedemptionAttempt = null;
-      throw CustomerBiteSaverRedemptionDeniedException(
-        CustomerBiteSaverRedemptionDecision(
-          restaurantId: result.restaurantId,
-          offerId: result.offerId,
-          allowed: false,
-          reason: result.reason,
-          evaluatedAtMillis: result.evaluatedAtMillis,
-          activeTimerExpiresAtMillis: result.activeTimerExpiresAtMillis,
-          nextAvailableAtMillis: result.nextAvailableAtMillis,
-          validationExpiresAtMillis: result.validationExpiresAtMillis,
         ),
       );
+      _pendingRedemptionAttempt = attempt;
     }
-
-    if (attempt.startRequest == null) {
-      try {
-        final localPresentation = await _restrictWithRetainedGuestUsage(
-          attempt,
-          evaluationContext,
-        );
-        _requireOwnedAccess(attempt.generation, access);
-        if (localPresentation != null) {
-          _pendingRedemptionAttempt = null;
-          recordRedemptionPresentation(
-            localPresentation,
-            expectedAuthRealmKey: authRealmKey,
-          );
-          return localPresentation;
-        }
-        attempt.startRequest =
-            CustomerBiteSaverSavedRedemptionStartRequest.fromValidation(
-              request: attempt.validationRequest,
-              clientRequestId: _nextRequestId(),
-              validationId:
-                  result.validationId ??
-                  (throw const CustomerBiteSaverProtocolException()),
-            );
-      } catch (_) {
-        _pendingRedemptionAttempt = null;
-        rethrow;
-      }
-    }
-
+    requireOwnedOperation();
     try {
-      final started = await _api.startCustomerBiteSaverSavedOfferRedemption(
-        attempt.startRequest!,
+      final result = await _deviceUseService.useCoupon(
+        request: attempt.request,
+        authenticatedUserId: _userId,
+        isCurrent: ownsOperation,
       );
-      _requireOwnedAccess(attempt.generation, access);
-      final presentation = CustomerBiteSaverRedemptionPresentation(
-        restaurantId: started.restaurantId,
-        offerId: started.offerId,
-        offerOccurrence: attempt.offerOccurrence,
-        status: switch (started.status) {
-          CustomerBiteSaverRedemptionStatus.started =>
-            CustomerBiteSaverRedemptionPresentationStatus.started,
-          CustomerBiteSaverRedemptionStatus.active =>
-            CustomerBiteSaverRedemptionPresentationStatus.active,
-          CustomerBiteSaverRedemptionStatus.unlimited =>
-            CustomerBiteSaverRedemptionPresentationStatus.unlimited,
-        },
-        usagePolicy: attempt.usagePolicy,
-        timerStartedAtMillis: started.timerStartedAtMillis,
-        timerExpiresAtMillis: started.timerExpiresAtMillis,
-      );
+      requireOwnedOperation();
       _pendingRedemptionAttempt = null;
+      final presentation =
+          CustomerBiteSaverRedemptionPresentation.fromDeviceUse(
+            result: result,
+            offerOccurrence: attempt.offerOccurrence,
+            usagePolicy: attempt.usagePolicy,
+          );
       recordRedemptionPresentation(
         presentation,
         expectedAuthRealmKey: authRealmKey,
       );
       return presentation;
     } catch (error) {
-      if (error is CustomerBiteSaverServiceException &&
-          error.kind == CustomerBiteSaverServiceFailureKind.callable) {
+      // Only an uncertain server outcome retains its exact frozen request.
+      // The device service retains the matching proof until challenge expiry.
+      if (identical(_pendingRedemptionAttempt, attempt) &&
+          (error is! CustomerBiteSaverDeviceUseException ||
+              (error.kind != CustomerBiteSaverDeviceUseFailureKind.ambiguous &&
+                  error.kind !=
+                      CustomerBiteSaverDeviceUseFailureKind.invalidResponse))) {
         _pendingRedemptionAttempt = null;
       }
       rethrow;
-    }
-  }
-
-  Future<CustomerBiteSaverRedemptionPresentation?>
-  _restrictWithRetainedGuestUsage(
-    _SavedRedemptionAttempt attempt,
-    CustomerBiteSaverEvaluationContext context,
-  ) async {
-    if (attempt.usagePolicy == CustomerBiteSaverUsagePolicy.unlimited) {
-      return null;
-    }
-    if (_clock().millisecondsSinceEpoch >= context.validUntilExclusiveMillis) {
-      throw const CustomerBiteSaverGuestUsageException(
-        CustomerBiteSaverGuestUsageFailure.evaluationExpired,
-      );
-    }
-    final store = await _guestUsageStoreLoader();
-    if (store == null) return null;
-    final evaluated = await store
-        .evaluateLocalCandidates(<CustomerBiteSaverLocalUsageCandidate>[
-          CustomerBiteSaverLocalUsageCandidate(
-            offerId: attempt.offerId,
-            usagePolicy: attempt.usagePolicy,
-          ),
-        ], context);
-    final durableRevision = await store.readRevision();
-    if (!evaluated.allEvaluated ||
-        durableRevision != evaluated.guestStateRevision) {
-      throw const CustomerBiteSaverGuestUsageException(
-        CustomerBiteSaverGuestUsageFailure.revisionChanged,
-      );
-    }
-    final active =
-        evaluated.activeTimerExpiresAtMillisByOfferId[attempt.offerId];
-    if (active != null) {
-      return CustomerBiteSaverRedemptionPresentation(
-        restaurantId: attempt.restaurantId,
-        offerId: attempt.offerId,
-        offerOccurrence: attempt.offerOccurrence,
-        status: CustomerBiteSaverRedemptionPresentationStatus.active,
-        usagePolicy: attempt.usagePolicy,
-        timerStartedAtMillis:
-            active -
-            customerBiteSaverGuestRedemptionTimerDuration.inMilliseconds,
-        timerExpiresAtMillis: active,
-      );
-    }
-    if (evaluated.unavailableOfferIds.contains(attempt.offerId)) {
-      throw CustomerBiteSaverRedemptionDeniedException(
-        CustomerBiteSaverRedemptionDecision(
-          restaurantId: attempt.restaurantId,
-          offerId: attempt.offerId,
-          allowed: false,
-          reason: 'localUsageUnavailable',
-          evaluatedAtMillis: context.evaluationAtMillis,
-          activeTimerExpiresAtMillis: null,
-          nextAvailableAtMillis: null,
-          validationExpiresAtMillis: null,
-        ),
-      );
-    }
-    return null;
-  }
-
-  void _requireOwnedAccess(
-    int generation,
-    CustomerBiteSaverSavedAccess access,
-  ) {
-    if (!_ownsCompletion(generation) || !isAccessCurrent(access)) {
-      throw const CustomerBiteSaverStaleOperationException();
     }
   }
 
@@ -831,49 +715,41 @@ final class CustomerBiteSaverSavedCoordinator extends ChangeNotifier
     ).replaceAll('=', '');
   }
 
-  static Future<CustomerBiteSaverGuestUsageStore?>
-  _loadExistingGuestUsageStore() async {
-    final guestDeviceId =
-        await CustomerSessionService.getExistingGuestDeviceId();
-    return guestDeviceId == null
-        ? null
-        : CustomerBiteSaverGuestUsageStore(guestDeviceId: guestDeviceId);
-  }
-
   @override
   void dispose() {
     if (_disposed) return;
     _disposed = true;
     _generation += 1;
+    _couponUseGeneration += 1;
+    _deviceUseService.dispose();
     _loadVersions.updateAll((_, value) => value + 1);
     _pendingIds.clear();
     _refreshAfterLoad.clear();
     _pendingRedemptionAttempt = null;
     _redemptionInFlight = null;
-    _redemptionPresentations.clear();
+    _couponUseAccess = null;
+    final nowMillis = redemptionPresentationNowMillis;
+    _redemptionPresentations.removeWhere(
+      (_, presentation) => !presentation.isDeviceTimerActiveAt(nowMillis),
+    );
     super.dispose();
   }
 }
 
 final class _SavedRedemptionAttempt {
-  _SavedRedemptionAttempt({
-    required this.generation,
+  const _SavedRedemptionAttempt({
     required this.restaurantId,
     required this.offerId,
     required this.offerOccurrence,
     required this.usagePolicy,
-    required this.validationRequest,
+    required this.request,
   });
 
-  final int generation;
   final CustomerBiteSaverRestaurantId restaurantId;
   final CustomerBiteSaverOfferId offerId;
   final String offerOccurrence;
   final CustomerBiteSaverUsagePolicy usagePolicy;
-  final CustomerBiteSaverSavedRedemptionValidationRequest validationRequest;
-  CustomerBiteSaverRedemptionValidationResult? validationResult;
-  CustomerBiteSaverEvaluationContext? evaluationContext;
-  CustomerBiteSaverSavedRedemptionStartRequest? startRequest;
+  final CustomerBiteSaverCombinedUseRequest request;
 }
 
 final class _SavedRedemptionInFlight {

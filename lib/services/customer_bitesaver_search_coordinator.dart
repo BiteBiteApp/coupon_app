@@ -2,10 +2,14 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 
+import '../models/customer_bitesaver_device_usage.dart';
 import '../models/customer_bitesaver_favorite.dart';
 import '../models/customer_bitesaver_search.dart';
+import 'customer_bitesaver_device_proof_service.dart';
+import 'customer_bitesaver_device_use_service.dart';
 import 'customer_bitesaver_favorite_service.dart';
 import 'customer_bitesaver_guest_usage_store.dart';
 import 'customer_bitesaver_service.dart';
@@ -250,7 +254,49 @@ final class CustomerBiteSaverRedemptionPresentation {
     required this.usagePolicy,
     required this.timerStartedAtMillis,
     required this.timerExpiresAtMillis,
+    this.isDeviceAuthoritative = false,
   });
+
+  factory CustomerBiteSaverRedemptionPresentation.fromDeviceUse({
+    required CustomerBiteSaverDeviceUseResult result,
+    required String offerOccurrence,
+    required CustomerBiteSaverUsagePolicy usagePolicy,
+  }) {
+    if (result.status == CustomerBiteSaverDeviceUseStatus.denied) {
+      throw CustomerBiteSaverRedemptionDeniedException(
+        CustomerBiteSaverRedemptionDecision(
+          restaurantId: result.restaurantId,
+          offerId: result.offerId,
+          allowed: false,
+          reason: result.reason,
+          evaluatedAtMillis: result.evaluatedAtMillis,
+          activeTimerExpiresAtMillis: null,
+          nextAvailableAtMillis: null,
+          validationExpiresAtMillis: null,
+        ),
+      );
+    }
+    return CustomerBiteSaverRedemptionPresentation(
+      restaurantId: result.restaurantId,
+      offerId: result.offerId,
+      offerOccurrence: offerOccurrence,
+      status: switch (result.status) {
+        CustomerBiteSaverDeviceUseStatus.started =>
+          CustomerBiteSaverRedemptionPresentationStatus.started,
+        CustomerBiteSaverDeviceUseStatus.active =>
+          CustomerBiteSaverRedemptionPresentationStatus.active,
+        CustomerBiteSaverDeviceUseStatus.unlimited =>
+          CustomerBiteSaverRedemptionPresentationStatus.unlimited,
+        CustomerBiteSaverDeviceUseStatus.denied => throw StateError(
+          'Denied use',
+        ),
+      },
+      usagePolicy: usagePolicy,
+      timerStartedAtMillis: result.timerStartedAtMillis,
+      timerExpiresAtMillis: result.timerExpiresAtMillis,
+      isDeviceAuthoritative: true,
+    );
+  }
 
   final CustomerBiteSaverRestaurantId restaurantId;
   final CustomerBiteSaverOfferId offerId;
@@ -259,6 +305,12 @@ final class CustomerBiteSaverRedemptionPresentation {
   final CustomerBiteSaverUsagePolicy usagePolicy;
   final int? timerStartedAtMillis;
   final int? timerExpiresAtMillis;
+
+  /// Only the current phone's confirmed device result can outlive auth.
+  final bool isDeviceAuthoritative;
+
+  bool isDeviceTimerActiveAt(int nowMillis) =>
+      isDeviceAuthoritative && !isUnlimited && isActiveAt(nowMillis);
 
   bool get isUnlimited =>
       status == CustomerBiteSaverRedemptionPresentationStatus.unlimited;
@@ -369,6 +421,8 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     required CustomerBiteSaverGuestUsageStore guestUsageStore,
     required String clientInstanceId,
     required CustomerBiteSaverAuthSnapshot initialAuth,
+    CustomerBiteSaverDeviceUseService? deviceUseService,
+    CustomerBiteSaverAuthSnapshot Function()? authSnapshotProvider,
     CustomerBiteSaverFavoriteActions? favoriteActions,
     CustomerBiteSaverFavoriteStateOwner? favoriteStateOwner,
     CustomerBiteSaverRequestIdGenerator? requestIdGenerator,
@@ -379,7 +433,13 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     this.guestRetryDelay = const Duration(milliseconds: 250),
     this.maximumStatusPolls = 20,
     this.maximumGuestProtocolSteps = 12,
-  }) : _api = api,
+  }) : _deviceUseService =
+           deviceUseService ??
+           CustomerBiteSaverDeviceUseService(
+             proofService: CustomerBiteSaverDeviceProofService(),
+           ),
+       _authSnapshotProvider = authSnapshotProvider ?? _currentFirebaseAuth,
+       _api = api,
        _guestUsageStore = guestUsageStore,
        _clientInstanceId = clientInstanceId,
        _auth = initialAuth,
@@ -410,6 +470,8 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     }
   }
 
+  final CustomerBiteSaverDeviceUseService _deviceUseService;
+  final CustomerBiteSaverAuthSnapshot Function() _authSnapshotProvider;
   final CustomerBiteSaverApi _api;
   final CustomerBiteSaverGuestUsageStore _guestUsageStore;
   final String _clientInstanceId;
@@ -497,6 +559,11 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
   _RedemptionIntent? _activeRedemptionIntent;
   _ValidationInFlight? _validationInFlight;
   _RedemptionStartInFlight? _redemptionStartInFlight;
+  _BrowseDeviceUseAttempt? _pendingDeviceUse;
+  Future<CustomerBiteSaverRedemptionPresentation>? _deviceUseInFlight;
+  CustomerBiteSaverBrowseAccess? _deviceUseAccess;
+  CustomerBiteSaverOfferId? _deviceUseOfferId;
+  int _deviceUseGeneration = 0;
 
   CustomerBiteSaverAuthSnapshot get auth => _auth;
   CustomerBiteSaverCoordinatorStatus get status => _status;
@@ -1181,13 +1248,17 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
   }
 
   bool get _hasPendingRedemptionStart =>
+      _deviceUseInFlight != null ||
+      (_deviceUseAccess != null &&
+          _deviceUseOfferId != null &&
+          isCouponUseRecoverable(_deviceUseAccess!, _deviceUseOfferId!)) ||
       _redemptionStartInFlight != null ||
       _pendingSignedStart != null ||
       _pendingGuestStartIntentGeneration != null;
 
   void _discardReadySessionWork() {
     final preserveRedemptionStart = _hasPendingRedemptionStart;
-    _invalidateBrowseAccess();
+    _invalidateBrowseAccess(preserveDeviceUse: preserveRedemptionStart);
     _generation += 1;
     _cancelScheduledWork();
     _disposePagers(clearDelivered: true);
@@ -2326,6 +2397,261 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     return actions;
   }
 
+  static CustomerBiteSaverAuthSnapshot _currentFirebaseAuth() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return const CustomerBiteSaverAuthSnapshot.signedOut();
+    return user.isAnonymous
+        ? CustomerBiteSaverAuthSnapshot.anonymous(user.uid)
+        : CustomerBiteSaverAuthSnapshot.signed(user.uid);
+  }
+
+  bool _isDeviceAuthCurrent(CustomerBiteSaverAuthSnapshot expected) {
+    try {
+      final current = _authSnapshotProvider();
+      return current.uid == expected.uid &&
+          current.isAnonymous == expected.isAnonymous;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Called only by the bounded detail screen's final, explicit Use action.
+  /// The accepted session/occurrence supplies authority; reading never redeems.
+  Future<CustomerBiteSaverRedemptionPresentation> useCouponForAccess({
+    required CustomerBiteSaverBrowseAccess access,
+    required CustomerBiteSaverRestaurantId restaurantId,
+    required CustomerBiteSaverOfferId offerId,
+    Future<CustomerBiteSaverCoordinates> Function()? currentCoordinatesProvider,
+    bool Function()? isCurrent,
+  }) {
+    _ensureAlive();
+    if (!_isDeviceAuthCurrent(_auth)) {
+      _cancelDeviceCouponUse();
+      throw const CustomerBiteSaverStaleOperationException();
+    }
+    final recoverable = isCouponUseRecoverable(access, offerId);
+    final selected =
+        currentAcceptedOfferSelectionForAccess(access, restaurantId, offerId) ??
+        (recoverable &&
+                access._restaurant.restaurantId == restaurantId &&
+                _pendingDeviceUse?.offer.offerId == offerId
+            ? (restaurant: access._restaurant, offer: _pendingDeviceUse!.offer)
+            : null);
+    if (selected == null ||
+        selected.offer.offerType != CustomerBiteSaverOfferType.coupon ||
+        isCurrent?.call() == false) {
+      throw const CustomerBiteSaverStaleOperationException();
+    }
+    final running = _deviceUseInFlight;
+    if (running != null) {
+      if (_canRejoinDeviceCouponUse(access, restaurantId, selected.offer)) {
+        return running;
+      }
+      throw StateError('A coupon use is already in progress.');
+    }
+    final retained = redemptionPresentationFor(offerId);
+    if (retained != null &&
+        retained.isDeviceAuthoritative &&
+        retained.isActiveAt(redemptionPresentationNowMillis)) {
+      return Future.value(retained);
+    }
+    final pending = _pendingDeviceUse;
+    if (pending != null &&
+        !_canRejoinDeviceCouponUse(access, restaurantId, selected.offer)) {
+      throw StateError(
+        'Retry the pending coupon use before using another coupon.',
+      );
+    }
+    // A reopened detail may have a new read lease. The committed attempt keeps
+    // its original authority, request, coordinates and exact recovery proof.
+    final operationAccess = pending?.access ?? access;
+    final generation = _deviceUseGeneration;
+    final auth = _auth;
+    bool ownsOperation() =>
+        !_disposed &&
+        generation == _deviceUseGeneration &&
+        auth.uid == _auth.uid &&
+        auth.isAnonymous == _auth.isAnonymous &&
+        _isDeviceAuthCurrent(auth) &&
+        _ownsDeviceUseAccess(operationAccess) &&
+        isCurrent?.call() != false;
+    _deviceUseAccess = operationAccess;
+    _deviceUseOfferId = offerId;
+    late final Future<CustomerBiteSaverRedemptionPresentation> operation;
+    operation =
+        _runDeviceCouponUse(
+          access: operationAccess,
+          offer: selected.offer,
+          restaurantId: restaurantId,
+          authenticatedUserId: auth.isSigned ? auth.uid : null,
+          ownsOperation: ownsOperation,
+          currentCoordinatesProvider: currentCoordinatesProvider,
+        ).whenComplete(() {
+          if (identical(_deviceUseInFlight, operation)) {
+            _deviceUseInFlight = null;
+          }
+        });
+    _deviceUseInFlight = operation;
+    return operation;
+  }
+
+  bool _canRejoinDeviceCouponUse(
+    CustomerBiteSaverBrowseAccess access,
+    CustomerBiteSaverRestaurantId restaurantId,
+    CustomerBiteSaverOffer offer,
+  ) {
+    final original = _deviceUseAccess;
+    if (original == null ||
+        !_ownsDeviceUseAccess(original) ||
+        _deviceUseOfferId != offer.offerId ||
+        original._restaurant.restaurantId != restaurantId) {
+      return false;
+    }
+    if (identical(original, access)) return true;
+    final originalOffer =
+        _pendingDeviceUse?.offer ??
+        currentAcceptedOfferSelectionForAccess(
+          original,
+          restaurantId,
+          offer.offerId,
+        )?.offer;
+    return isBrowseAccessCurrent(access) &&
+        access._realmKey == original._realmKey &&
+        access._criteriaKey == original._criteriaKey &&
+        access._sessionId == original._sessionId &&
+        access._attemptGeneration == original._attemptGeneration &&
+        access._queryFingerprint == original._queryFingerprint &&
+        originalOffer?.offerOccurrence == offer.offerOccurrence;
+  }
+
+  Future<CustomerBiteSaverRedemptionPresentation> _runDeviceCouponUse({
+    required CustomerBiteSaverBrowseAccess access,
+    required CustomerBiteSaverOffer offer,
+    required CustomerBiteSaverRestaurantId restaurantId,
+    required String? authenticatedUserId,
+    required bool Function() ownsOperation,
+    Future<CustomerBiteSaverCoordinates> Function()? currentCoordinatesProvider,
+  }) async {
+    void requireCurrent() {
+      if (!ownsOperation()) {
+        throw const CustomerBiteSaverStaleOperationException();
+      }
+    }
+
+    requireCurrent();
+    var attempt = _pendingDeviceUse;
+    if (attempt == null) {
+      final binding = _binding!;
+      final criteria = _criteria!;
+      CustomerBiteSaverCoordinates? coordinates;
+      if (offer.isProximityOnly) {
+        if (currentCoordinatesProvider == null) {
+          throw StateError('Current location is required for this coupon.');
+        }
+        coordinates = await currentCoordinatesProvider();
+        requireCurrent();
+      }
+      attempt = _BrowseDeviceUseAttempt(
+        access: access,
+        offer: offer,
+        request: CustomerBiteSaverCombinedUseRequest(
+          logicalRequestId: _nextRequestId(),
+          restaurantId: restaurantId,
+          offerId: offer.offerId,
+          timeZone: criteria.timeZone,
+          utcOffsetMinutes: criteria.utcOffsetMinutes,
+          currentCoordinates: coordinates,
+          origin: CustomerBiteSaverDiscoveryUseAuthority(
+            clientInstanceId: binding.clientInstanceId,
+            sessionId: binding.sessionId,
+            capability: binding.capability,
+            criteriaFingerprint: binding.criteriaFingerprint,
+            offerOccurrence: offer.offerOccurrence,
+            guestStateRevision: authenticatedUserId == null
+                ? _guestStateRevision
+                : null,
+          ),
+        ),
+      );
+      _pendingDeviceUse = attempt;
+    }
+    try {
+      final result = await _deviceUseService.useCoupon(
+        request: attempt.request,
+        authenticatedUserId: authenticatedUserId,
+        isCurrent: ownsOperation,
+      );
+      requireCurrent();
+      _pendingDeviceUse = null;
+      final presentation =
+          CustomerBiteSaverRedemptionPresentation.fromDeviceUse(
+            result: result,
+            offerOccurrence: attempt.offer.offerOccurrence,
+            usagePolicy:
+                attempt.offer.usagePolicy ??
+                (throw const CustomerBiteSaverProtocolException()),
+          );
+      recordRecoveredRedemptionPresentation(presentation);
+      return presentation;
+    } on CustomerBiteSaverDeviceUseException catch (error) {
+      if (ownsOperation() &&
+          (error.kind == CustomerBiteSaverDeviceUseFailureKind.rejected ||
+              error.kind == CustomerBiteSaverDeviceUseFailureKind.stale ||
+              error.kind == CustomerBiteSaverDeviceUseFailureKind.disposed)) {
+        _pendingDeviceUse = null;
+      }
+      rethrow;
+    }
+  }
+
+  bool _ownsDeviceUseAccess(CustomerBiteSaverBrowseAccess access) =>
+      !_disposed &&
+      identical(access._owner, this) &&
+      identical(_deviceUseAccess, access) &&
+      access._realmKey == _auth.realmKey &&
+      access._criteriaKey == _criteriaKey &&
+      access._sessionId == _binding?.sessionId &&
+      access._attemptGeneration == _attemptGeneration &&
+      access._queryFingerprint == _queryFingerprint;
+
+  /// Keeps only the already-started action/replay usable when its read lease
+  /// expires. A new use still needs a current accepted selection.
+  bool isCouponUseRecoverable(
+    CustomerBiteSaverBrowseAccess access,
+    CustomerBiteSaverOfferId offerId,
+  ) {
+    if (!_ownsDeviceUseAccess(access) || _deviceUseOfferId != offerId) {
+      return false;
+    }
+    if (_deviceUseInFlight != null) return true;
+    final pending = _pendingDeviceUse;
+    return pending != null &&
+        _deviceUseService.canRetry(
+          request: pending.request,
+          authenticatedUserId: _auth.isSigned ? _auth.uid : null,
+        );
+  }
+
+  void cancelCouponUse(
+    CustomerBiteSaverBrowseAccess access, {
+    CustomerBiteSaverOfferId? offerId,
+  }) {
+    if (!identical(_deviceUseAccess, access) ||
+        (offerId != null && offerId != _deviceUseOfferId)) {
+      return;
+    }
+    _cancelDeviceCouponUse();
+  }
+
+  void _cancelDeviceCouponUse() {
+    _deviceUseGeneration += 1;
+    _deviceUseService.cancel();
+    _pendingDeviceUse = null;
+    _deviceUseInFlight = null;
+    _deviceUseAccess = null;
+    _deviceUseOfferId = null;
+  }
+
   Future<CustomerBiteSaverRedemptionDecision> validateRedemption({
     required CustomerBiteSaverRestaurantId restaurantId,
     required CustomerBiteSaverOfferId offerId,
@@ -2921,10 +3247,20 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     );
   }
 
+  void _retainConfirmedDeviceTimers() {
+    final nowMillis = redemptionPresentationNowMillis;
+    _redemptionPresentations.removeWhere(
+      (_, presentation) => !presentation.isDeviceTimerActiveAt(nowMillis),
+    );
+  }
+
   Future<void> updateAuth(CustomerBiteSaverAuthSnapshot next) async {
     _ensureAlive();
     _validateAuthSnapshot(next);
     final previous = _auth;
+    if (previous.uid != next.uid || previous.isAnonymous != next.isAnonymous) {
+      _cancelDeviceCouponUse();
+    }
     final previousStatus = _status;
     final previousRevision = _guestStateRevision;
     final preserveRedemptionStart =
@@ -2956,7 +3292,7 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
 
     if (previous.realmKey != next.realmKey) {
       _clearSessionData(clearFavorites: true);
-      _redemptionPresentations.clear();
+      _retainConfirmedDeviceTimers();
       _status = CustomerBiteSaverCoordinatorStatus.idle;
       _notify();
       return;
@@ -3149,7 +3485,7 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
 
   void _markFreshSearchRequired({bool clearRedemption = true}) {
     final preserveRedemptionStart = _hasPendingRedemptionStart;
-    _invalidateBrowseAccess();
+    _invalidateBrowseAccess(preserveDeviceUse: preserveRedemptionStart);
     _generation += 1;
     _cancelScheduledWork();
     _disposePagers(clearDelivered: true);
@@ -3369,7 +3705,8 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     }
   }
 
-  void _invalidateBrowseAccess() {
+  void _invalidateBrowseAccess({bool preserveDeviceUse = false}) {
+    if (!preserveDeviceUse) _cancelDeviceCouponUse();
     _browseAccessGeneration += 1;
   }
 
@@ -3378,7 +3715,9 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
     if (_disposed) {
       return;
     }
+    _retainConfirmedDeviceTimers();
     _disposed = true;
+    _deviceUseService.dispose();
     _favoriteStateOwner?.removeListener(_handleFavoriteOwnerChanged);
     _invalidateBrowseAccess();
     _generation += 1;
@@ -3697,4 +4036,15 @@ final class _LocalUsageOverlay {
   final CustomerBiteSaverEvaluationContext? context;
   final int? guestStateRevision;
   final String? realmKey;
+}
+
+final class _BrowseDeviceUseAttempt {
+  const _BrowseDeviceUseAttempt({
+    required this.access,
+    required this.offer,
+    required this.request,
+  });
+  final CustomerBiteSaverBrowseAccess access;
+  final CustomerBiteSaverOffer offer;
+  final CustomerBiteSaverCombinedUseRequest request;
 }
