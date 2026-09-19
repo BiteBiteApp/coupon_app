@@ -224,6 +224,13 @@ final class CustomerBiteSaverSavedCoordinator extends ChangeNotifier
 
   int get redemptionPresentationNowMillis => _clock().millisecondsSinceEpoch;
 
+  List<CustomerBiteSaverRedemptionPresentation>
+  get activeDeviceRedemptionPresentations => List.unmodifiable(
+    _redemptionPresentations.values.where(
+      (value) => value.isDeviceTimerActiveAt(redemptionPresentationNowMillis),
+    ),
+  );
+
   @override
   CustomerBiteSaverRedemptionPresentation? redemptionPresentationFor(
     CustomerBiteSaverOfferId offerId,

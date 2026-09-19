@@ -864,3 +864,19 @@ test("private worker routes the job and propagates failures for retry", async ()
     (error) => error === retriable,
   );
 });
+
+
+test("profile-use context uses the existing two-key public page callable and actual auth", async () => {
+  for (const auth of [undefined, {uid: "profile-owner", token: {firebase: {sign_in_provider: "password"}}}]) {
+    const runtime = loadCompiledIndexWithCustomerBiteSaverHarness();
+    const data = {schemaVersion: 1, kind: "publicProfileUse", catalogRestaurantId: "catalog-a"};
+    await runtime.exports.getCustomerBiteSaverSearchPage({data, ...(auth === undefined ? {} : {auth})});
+    const call = runtime.state.callableCalls[0];
+    assert.equal(call.name, callableHandlers.getCustomerBiteSaverSearchPage);
+    assert.equal(call.data, data);
+    assert.deepEqual(call.context.identity, {authUid: auth?.uid ?? null, authIsAnonymous: false});
+    assert.equal(Buffer.from(call.context.discoveryKey).toString("base64url"), runtime.state.discoverySecretValue);
+    assert.equal(Buffer.from(call.context.identityKeyV1).toString("base64url"), runtime.state.identitySecretValueV1);
+    assert.deepEqual(runtime.state.secretResolutions, expectedSecrets("getCustomerBiteSaverSearchPage"));
+  }
+});

@@ -65,8 +65,18 @@ test("bounded coordinators use the device service while default customer activat
     assert.doesNotMatch(source(file),
       /issueCustomerBiteSaverDeviceUseChallenge|useCustomerBiteSaverCoupon/u);
   }
-  assert.doesNotMatch(source("lib/main.dart"),
-    /biteSaverBrowseHomeBuilder:|biteSaverSavedAccountBuilder:/u);
+  for (const [builder, factory] of [
+    ["biteSaverBrowseHomeBuilder", "buildBrowse"],
+    ["biteSaverSavedAccountBuilder", "buildAccount"],
+  ]) {
+    assert.ok(source("lib/main.dart").includes(
+      `${builder}: CustomerBiteSaverRuntime.isEnabled\n          ? CustomerBiteSaverRuntime.${factory}\n          : null`,
+    ));
+  }
+  for (const mode of ["bitesaver", "bitescore"]) {
+    assert.match(source(`lib/services/customer_${mode}_runtime.dart`),
+      /bool\.fromEnvironment\([\s\S]*?defaultValue: false/u);
+  }
 });
 
 function contractError(code) {

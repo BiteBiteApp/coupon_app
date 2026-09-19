@@ -119,6 +119,7 @@ async function productionDeviceUseFixture(request, context) {
   assert.equal(decoderCalls, 0);
   return {
     use: () => use(envelope, actor),
+    useWithProof: (overrides) => use({...envelope, proof: {...proof, ...overrides}}, actor),
     requestAdmission: () => use({
       schemaVersion: 1, operation: "admitChallenge", platform: "android", request,
     }, actor),

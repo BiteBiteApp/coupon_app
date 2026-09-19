@@ -7,6 +7,7 @@ import android.os.Looper
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.util.TimeZone
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 import java.util.concurrent.RejectedExecutionException
@@ -39,12 +40,27 @@ internal class BiteSaverDeviceProofBridge(
             return
         }
         when (call.method) {
+            "getTimeContext" -> getTimeContext(call.arguments, result)
             "getCapability" -> getCapability(call.arguments, result)
             "createEnrollmentProof" -> createEnrollmentProof(call.arguments, result)
             "createUseProof" -> createUseProof(call.arguments, result)
             "resetCredential" -> resetCredential(call.arguments, result)
             else -> result.notImplemented()
         }
+    }
+
+    private fun getTimeContext(arguments: Any?, result: MethodChannel.Result) {
+        if (arguments != null) {
+            error(result, "invalid-request")
+            return
+        }
+        val zone = TimeZone.getDefault()
+        result.success(
+            mapOf(
+                "timeZone" to zone.id,
+                "utcOffsetMinutes" to zone.getOffset(System.currentTimeMillis()) / 60_000,
+            ),
+        )
     }
 
     fun dispose() {

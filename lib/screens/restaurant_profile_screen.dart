@@ -13,6 +13,7 @@ import '../services/bitesaver_report_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../services/customer_bitesaver_search_coordinator.dart';
+import '../services/customer_bitesaver_public_profile.dart';
 import '../services/customer_bitesaver_saved_coordinator.dart';
 import '../services/customer_bitescore_reads.dart';
 import '../services/customer_bitescore_runtime.dart';
@@ -45,6 +46,7 @@ typedef PublicRestaurantReportSubmitter = BiteSaverReportSubmitter;
 
 class RestaurantProfileScreen extends StatefulWidget {
   final Restaurant restaurant;
+  final CustomerBiteSaverPublicProfile? publicProfile;
   final PublicRestaurantFavoriteLoader? loadFavorite;
   final PublicRestaurantDetailsRefresher? refreshRestaurant;
   final PublicRestaurantProjectionLoader? loadProjectionData;
@@ -69,7 +71,8 @@ class RestaurantProfileScreen extends StatefulWidget {
     @visibleForTesting this.testBiteScoreReads,
     @visibleForTesting this.promptForReport,
     @visibleForTesting this.submitReport,
-  }) : boundedRestaurant = null,
+  }) : publicProfile = null,
+       boundedRestaurant = null,
        boundedSession = null,
        boundedSavedCoordinator = null,
        boundedAccess = null,
@@ -85,7 +88,8 @@ class RestaurantProfileScreen extends StatefulWidget {
     required this.openBoundedMenu,
     @visibleForTesting this.promptForReport,
     @visibleForTesting this.submitReport,
-  }) : restaurant = _customerBiteSaverRestaurantView(restaurant),
+  }) : publicProfile = null,
+       restaurant = _customerBiteSaverRestaurantView(restaurant),
        boundedRestaurant = restaurant,
        boundedSession = session,
        boundedSavedCoordinator = null,
@@ -112,7 +116,8 @@ class RestaurantProfileScreen extends StatefulWidget {
     this.openBoundedOffer,
     @visibleForTesting this.promptForReport,
     @visibleForTesting this.submitReport,
-  }) : restaurant = _customerBiteSaverRestaurantView(restaurant),
+  }) : publicProfile = null,
+       restaurant = _customerBiteSaverRestaurantView(restaurant),
        boundedRestaurant = restaurant,
        boundedSession = null,
        boundedSavedCoordinator = savedCoordinator,
@@ -122,6 +127,28 @@ class RestaurantProfileScreen extends StatefulWidget {
        loadProjectionData = null,
        testBiteScoreReads = null,
        resolvePublicMenu = null;
+
+  RestaurantProfileScreen.fromPublicProfile({
+    super.key,
+    required CustomerBiteSaverPublicProfile profile,
+    required this.openBoundedOffer,
+    required this.openBoundedMenu,
+    this.boundedSavedCoordinator,
+  }) : publicProfile = profile,
+       restaurant = _customerBiteSaverRestaurantView(
+         profile.restaurant!,
+         hideDistance: true,
+       ),
+       boundedRestaurant = profile.restaurant,
+       boundedSession = null,
+       boundedAccess = null,
+       loadFavorite = null,
+       refreshRestaurant = null,
+       loadProjectionData = null,
+       resolvePublicMenu = null,
+       testBiteScoreReads = null,
+       promptForReport = null,
+       submitReport = null;
 
   @override
   State<RestaurantProfileScreen> createState() =>
@@ -140,7 +167,15 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
   AppMode? _pressedMode;
   late Restaurant _restaurant;
 
-  Restaurant get restaurant => _restaurant;
+  Restaurant get restaurant => widget.publicProfile == null
+      ? _restaurant
+      : _customerBiteSaverRestaurantView(
+          widget.publicProfile!.restaurant!,
+          offers: widget.publicProfile!.offers,
+          hideDistance: true,
+        );
+  List<CustomerBiteSaverOffer>? get _boundedOffers =>
+      widget.publicProfile?.offers ?? widget.boundedRestaurant?.offers;
 
   String _displayText(String value, String fallback) {
     final trimmed = value.trim();
@@ -520,10 +555,11 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
     String? linkedBiteScoreRestaurantId;
     if (accountDocumentId != null) {
       if (CustomerBiteScoreRuntime.isEnabled) {
-        final route = await RestaurantMenuService.resolveBiteSaverPublicMenuRoute(
-          uid: accountDocumentId,
-          projectionLoader: widget.loadProjectionData,
-        );
+        final route =
+            await RestaurantMenuService.resolveBiteSaverPublicMenuRoute(
+              uid: accountDocumentId,
+              projectionLoader: widget.loadProjectionData,
+            );
         source = route?.source;
         linkedBiteScoreRestaurantId = route?.biteScoreRestaurantId;
       } else {
@@ -1521,10 +1557,14 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
       );
     }
     return ListenableBuilder(
-      listenable:
-          widget.boundedSession ??
-          widget.boundedSavedCoordinator ??
-          DemoRedemptionStore.changes,
+      listenable: widget.publicProfile != null
+          ? Listenable.merge([
+              widget.publicProfile,
+              widget.boundedSavedCoordinator,
+            ])
+          : widget.boundedSession ??
+                widget.boundedSavedCoordinator ??
+                DemoRedemptionStore.changes,
       builder: (context, child) {
         final now = DateTime.now();
         final activeCoupons = widget.boundedRestaurant != null
@@ -1709,10 +1749,8 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                           Column(
                             children: activeCoupons.map((coupon) {
                               final isProximity = coupon.isProximityOnly;
-                              final boundedOffer = widget
-                                  .boundedRestaurant
-                                  ?.offers
-                                  .where(
+                              final boundedOffer = _boundedOffers
+                                  ?.where(
                                     (offer) => offer.offerId.value == coupon.id,
                                   )
                                   .firstOrNull;
@@ -1877,6 +1915,21 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
                               );
                             }).toList(),
                           ),
+                        if (widget.publicProfile?.cursor != null)
+                          TextButton(
+                            onPressed: widget.publicProfile!.loading
+                                ? null
+                                : widget.publicProfile!.loadMore,
+                            child: Text(
+                              widget.publicProfile!.loading
+                                  ? 'Loading offers…'
+                                  : 'More offers',
+                            ),
+                          ),
+                        if (widget.publicProfile?.error != null)
+                          const Text(
+                            'Could not load more offers. Please try again.',
+                          ),
                       ],
                     ),
                   ),
@@ -1891,19 +1944,21 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
 }
 
 Restaurant _customerBiteSaverRestaurantView(
-  CustomerBiteSaverRestaurant restaurant,
-) {
+  CustomerBiteSaverRestaurant restaurant, {
+  List<CustomerBiteSaverOffer>? offers,
+  bool hideDistance = false,
+}) {
   final distance =
       restaurant.distanceMiles == restaurant.distanceMiles.roundToDouble()
       ? restaurant.distanceMiles.toStringAsFixed(0)
       : restaurant.distanceMiles.toStringAsFixed(1);
   return Restaurant(
     name: restaurant.displayName,
-    distance: '$distance miles',
+    distance: hideDistance ? '' : '$distance miles',
     city: restaurant.city,
     state: restaurant.state,
     zipCode: restaurant.zipCode,
-    coupons: restaurant.offers
+    coupons: (offers ?? restaurant.offers)
         .map((offer) => _customerBiteSaverCouponView(restaurant, offer))
         .toList(growable: false),
     phone: restaurant.phone,

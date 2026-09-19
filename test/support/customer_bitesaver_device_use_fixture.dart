@@ -14,6 +14,10 @@ final class CustomerBiteSaverDeviceUseFixture {
   }) {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(_channel, (call) async {
+          if (call.method == 'getTimeContext') {
+            timeContextReads += 1;
+            return {'timeZone': timeZone, 'utcOffsetMinutes': utcOffsetMinutes};
+          }
           await _stage(call.method == 'getCapability' ? 'capability' : 'proof');
           if (call.method == 'getCapability') {
             return <String, Object?>{
@@ -47,65 +51,66 @@ final class CustomerBiteSaverDeviceUseFixture {
           }
           throw StateError('Unexpected native method: ${call.method}');
         });
-    service = CustomerBiteSaverDeviceUseService(
-      proofService: CustomerBiteSaverDeviceProofService(
-        channel: _channel,
-        platformResolver: () => CustomerBiteSaverDevicePlatform.android,
-      ),
-      elapsedClock: () => Duration.zero,
-      transport: (name, payload) async {
-        requests.add(payload);
-        if (payload['operation'] == 'admitChallenge') {
-          await _stage('admission');
-          return <String, Object?>{
-            'schemaVersion': 1,
-            'admissionHandle': 'bsda_${'a' * 43}',
-            'permit': _challengeBytes,
-            'expiresAtMillis': evaluatedAtMillis + 120000,
-          };
-        }
-        final request = payload['request']! as Map<String, Object?>;
-        if (name ==
-            CustomerBiteSaverDeviceProofContract.issueChallengeCallableName) {
-          await _stage('challenge');
-          final origin = request['origin']! as Map<String, Object?>;
-          return <String, Object?>{
-            'schemaVersion': 1,
-            'protocolVersion': 'bitestar.bitesaver-device-proof.v1',
-            'challengeId': 'bsdc_$_challengeBytes',
-            'platform': 'android',
-            'purpose': 'combinedCouponUse',
-            'requestFingerprint': 'a' * 64,
-            'authenticatedUserId': authenticatedUserId,
-            'origin': origin['kind'],
-            'logicalRequestId': request['logicalRequestId'],
-            'issuedAtMillis': evaluatedAtMillis,
-            'validFromMillis': evaluatedAtMillis,
-            'expiresAtMillis': evaluatedAtMillis + 120000,
-            'challengeBytes': _challengeBytes,
-          };
-        }
-        if (name !=
-            CustomerBiteSaverDeviceProofContract.useCouponCallableName) {
-          throw StateError('Unexpected callable: $name');
-        }
-        submissions.add(payload);
-        await _stage('use');
-        final timed = status == 'started' || status == 'active';
+    proofService = CustomerBiteSaverDeviceProofService(
+      channel: _channel,
+      platformResolver: () => CustomerBiteSaverDevicePlatform.android,
+    );
+    transport = (name, payload) async {
+      requests.add(payload);
+      if (payload['operation'] == 'admitChallenge') {
+        await _stage('admission');
         return <String, Object?>{
           'schemaVersion': 1,
-          'restaurantId': request['restaurantId'],
-          'offerId': request['offerId'],
-          'status': status,
-          'reason': status == 'denied' || status == 'active'
-              ? 'used'
-              : 'available',
-          'redemptionId': timed ? 'bsrd_${'D' * 43}' : null,
-          'timerStartedAtMillis': timed ? evaluatedAtMillis : null,
-          'timerExpiresAtMillis': timed ? evaluatedAtMillis + 300000 : null,
-          'evaluatedAtMillis': evaluatedAtMillis,
+          'admissionHandle': 'bsda_${'a' * 43}',
+          'permit': _challengeBytes,
+          'expiresAtMillis': evaluatedAtMillis + 120000,
         };
-      },
+      }
+      final request = payload['request']! as Map<String, Object?>;
+      if (name ==
+          CustomerBiteSaverDeviceProofContract.issueChallengeCallableName) {
+        await _stage('challenge');
+        final origin = request['origin']! as Map<String, Object?>;
+        return <String, Object?>{
+          'schemaVersion': 1,
+          'protocolVersion': 'bitestar.bitesaver-device-proof.v1',
+          'challengeId': 'bsdc_$_challengeBytes',
+          'platform': 'android',
+          'purpose': 'combinedCouponUse',
+          'requestFingerprint': 'a' * 64,
+          'authenticatedUserId': authenticatedUserId,
+          'origin': origin['kind'],
+          'logicalRequestId': request['logicalRequestId'],
+          'issuedAtMillis': evaluatedAtMillis,
+          'validFromMillis': evaluatedAtMillis,
+          'expiresAtMillis': evaluatedAtMillis + 120000,
+          'challengeBytes': _challengeBytes,
+        };
+      }
+      if (name != CustomerBiteSaverDeviceProofContract.useCouponCallableName) {
+        throw StateError('Unexpected callable: $name');
+      }
+      submissions.add(payload);
+      await _stage('use');
+      final timed = status == 'started' || status == 'active';
+      return <String, Object?>{
+        'schemaVersion': 1,
+        'restaurantId': request['restaurantId'],
+        'offerId': request['offerId'],
+        'status': status,
+        'reason': status == 'denied' || status == 'active'
+            ? 'used'
+            : 'available',
+        'redemptionId': timed ? 'bsrd_${'D' * 43}' : null,
+        'timerStartedAtMillis': timed ? evaluatedAtMillis : null,
+        'timerExpiresAtMillis': timed ? evaluatedAtMillis + 300000 : null,
+        'evaluatedAtMillis': evaluatedAtMillis,
+      };
+    };
+    service = CustomerBiteSaverDeviceUseService(
+      proofService: proofService,
+      elapsedClock: () => Duration.zero,
+      transport: transport,
     );
   }
 
@@ -114,6 +119,11 @@ final class CustomerBiteSaverDeviceUseFixture {
   final String? authenticatedUserId;
   final int evaluatedAtMillis;
   late final CustomerBiteSaverDeviceUseService service;
+  late final CustomerBiteSaverDeviceProofService proofService;
+  late final CustomerBiteSaverDeviceUseTransport transport;
+  String timeZone = 'America/New_York';
+  int utcOffsetMinutes = -240;
+  int timeContextReads = 0;
   String status = 'started';
   Future<void> Function(String)? beforeStage;
   final List<String> stages = <String>[];

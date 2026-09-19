@@ -13,6 +13,7 @@ import '../services/bitesaver_report_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../services/customer_bitesaver_device_use_service.dart';
+import '../services/customer_bitesaver_public_profile.dart';
 import '../services/customer_bitesaver_search_coordinator.dart';
 import '../services/customer_bitesaver_saved_coordinator.dart';
 import '../services/restaurant_account_service.dart';
@@ -152,6 +153,7 @@ class CouponDetailScreen extends StatefulWidget {
   );
 
   final Coupon coupon;
+  final CustomerBiteSaverPublicProfile? publicProfile;
   final Restaurant? restaurant;
   final CouponFavoriteStateLoader? loadFavoriteState;
   final CouponCustomerVisibilityLoader? loadCustomerVisibility;
@@ -176,7 +178,8 @@ class CouponDetailScreen extends StatefulWidget {
     @visibleForTesting this.initializeRedemptionStore,
     @visibleForTesting this.promptForReport,
     @visibleForTesting this.submitReport,
-  }) : boundedRestaurant = null,
+  }) : publicProfile = null,
+       boundedRestaurant = null,
        boundedOffer = null,
        boundedSession = null,
        boundedSavedCoordinator = null,
@@ -195,7 +198,8 @@ class CouponDetailScreen extends StatefulWidget {
     this.useBoundedCoupon,
     @visibleForTesting this.promptForReport,
     @visibleForTesting this.submitReport,
-  }) : coupon = _customerBiteSaverCouponDetailView(restaurant, offer),
+  }) : publicProfile = null,
+       coupon = _customerBiteSaverCouponDetailView(restaurant, offer),
        restaurant = _customerBiteSaverRestaurantDetailView(restaurant),
        boundedRestaurant = restaurant,
        boundedOffer = offer,
@@ -238,7 +242,8 @@ class CouponDetailScreen extends StatefulWidget {
     this.useBoundedCoupon,
     @visibleForTesting this.promptForReport,
     @visibleForTesting this.submitReport,
-  }) : coupon = _customerBiteSaverCouponDetailView(restaurant, offer),
+  }) : publicProfile = null,
+       coupon = _customerBiteSaverCouponDetailView(restaurant, offer),
        restaurant = _customerBiteSaverRestaurantDetailView(restaurant),
        boundedRestaurant = restaurant,
        boundedOffer = offer,
@@ -249,6 +254,27 @@ class CouponDetailScreen extends StatefulWidget {
        loadFavoriteState = null,
        loadCustomerVisibility = null,
        initializeRedemptionStore = null;
+
+  CouponDetailScreen.fromPublicProfile({
+    super.key,
+    required CustomerBiteSaverPublicProfile profile,
+    required CustomerBiteSaverOffer offer,
+    required this.useBoundedCoupon,
+    required this.openBoundedRestaurant,
+    this.boundedSavedCoordinator,
+  }) : publicProfile = profile,
+       boundedRestaurant = profile.restaurant,
+       boundedOffer = offer,
+       coupon = _customerBiteSaverCouponDetailView(profile.restaurant!, offer),
+       restaurant = _customerBiteSaverRestaurantDetailView(profile.restaurant!),
+       boundedSession = null,
+       boundedAccess = null,
+       boundedSavedAccess = null,
+       loadFavoriteState = null,
+       loadCustomerVisibility = null,
+       initializeRedemptionStore = null,
+       promptForReport = null,
+       submitReport = null;
 
   @override
   State<CouponDetailScreen> createState() => _CouponDetailScreenState();
@@ -720,11 +746,13 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     if (offer == null) return null;
     final retained =
         _confirmedRedemption ??
+        widget.publicProfile?.presentationFor(offer) ??
         widget.boundedSession?.redemptionPresentationFor(offer.offerId) ??
         widget.boundedSavedCoordinator?.redemptionPresentationFor(
           offer.offerId,
         );
-    if (retained != null) {
+    if (retained != null &&
+        retained.restaurantId == widget.boundedRestaurant?.restaurantId) {
       final active = retained.isActiveAt(_redemptionNowMillis);
       final occurrenceCanRefresh =
           retained.usagePolicy == CustomerBiteSaverUsagePolicy.oncePerDay ||
@@ -744,12 +772,14 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   bool get _boundedCanRequestUse {
     final offer = widget.boundedOffer;
     return offer != null &&
-        (widget.boundedSavedAccess != null ||
+        (widget.publicProfile != null ||
+            widget.boundedSavedAccess != null ||
             offer.available ||
             offer.availabilityReason == 'used');
   }
 
   int get _redemptionNowMillis =>
+      widget.publicProfile?.nowMillis() ??
       widget.boundedSession?.redemptionPresentationNowMillis ??
       widget.boundedSavedCoordinator?.redemptionPresentationNowMillis ??
       DateTime.now().millisecondsSinceEpoch;
@@ -759,6 +789,10 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
     final boundedRestaurant = widget.boundedRestaurant;
     final boundedOffer = widget.boundedOffer;
     final savedAccess = widget.boundedSavedAccess;
+    if (widget.publicProfile != null) {
+      return boundedOffer != null &&
+          widget.publicProfile!.contains(boundedOffer);
+    }
     if (boundedRestaurant == null || boundedOffer == null) {
       return false;
     }
@@ -797,6 +831,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
   void initState() {
     super.initState();
     if (widget.boundedOffer != null) {
+      widget.publicProfile?.addListener(_handleBoundedFavoriteChange);
       widget.boundedSession?.addListener(_handleBoundedFavoriteChange);
       widget.boundedSavedCoordinator?.addListener(_handleBoundedFavoriteChange);
       _isCustomerVisibleOffer =
@@ -821,6 +856,7 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
 
   @override
   void dispose() {
+    widget.publicProfile?.removeListener(_handleBoundedFavoriteChange);
     widget.boundedSession?.removeListener(_handleBoundedFavoriteChange);
     widget.boundedSavedCoordinator?.removeListener(
       _handleBoundedFavoriteChange,
@@ -1888,11 +1924,11 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                                   ? 'Confirm Use'
                                   : _requiresBoundedBrowse
                                   ? 'Browse coupons'
+                                  : hasActiveTimer
+                                  ? 'Redeem Timer Active'
                                   : boundedOffer != null &&
                                         widget.useBoundedCoupon == null
                                   ? 'Use Coupon Unavailable'
-                                  : hasActiveTimer
-                                  ? 'Redeem Timer Active'
                                   : boundedUnlimitedReady
                                   ? 'Coupon Ready'
                                   : boundedOffer != null
@@ -1939,8 +1975,10 @@ class _CouponDetailScreenState extends State<CouponDetailScreen> {
                         )
                       else if (boundedOffer != null &&
                           widget.useBoundedCoupon == null)
-                        const Text(
-                          'Coupon use is unavailable until customer time is configured.',
+                        Text(
+                          widget.publicProfile != null
+                              ? 'Coupon use is not available from this profile yet.'
+                              : 'Coupon use is unavailable until customer time is configured.',
                           style: TextStyle(color: _detailMutedInk),
                         )
                       else if (_requiresBoundedBrowse)

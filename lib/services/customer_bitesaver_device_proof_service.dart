@@ -53,10 +53,38 @@ final class CustomerBiteSaverDeviceProofService {
   static const String enrollmentMethod = 'createEnrollmentProof';
   static const String useMethod = 'createUseProof';
   static const String resetMethod = 'resetCredential';
+  static const String timeContextMethod = 'getTimeContext';
 
   final MethodChannel _channel;
   final CustomerBiteSaverDevicePlatformResolver _platformResolver;
   final int androidCloudProjectNumber;
+
+  /// Passive OS calendar context. No device timestamp is sent to the server,
+  /// and unavailable context must never be replaced with an assumed UTC zone.
+  Future<({String timeZone, int utcOffsetMinutes})> getTimeContext() async {
+    final value = await _invoke(timeContextMethod, null);
+    if (value is! Map || value.length != 2) {
+      throw const CustomerBiteSaverDeviceProofException(
+        kind: CustomerBiteSaverDeviceProofFailureKind.invalidProtocol,
+        code: 'device-time-context-unavailable',
+      );
+    }
+    final zone = value['timeZone'];
+    final offset = value['utcOffsetMinutes'];
+    if (zone is! String ||
+        zone.isEmpty ||
+        zone.length > 100 ||
+        !RegExp(r'^[A-Za-z0-9_+\-/]+$').hasMatch(zone) ||
+        offset is! int ||
+        offset < -840 ||
+        offset > 840) {
+      throw const CustomerBiteSaverDeviceProofException(
+        kind: CustomerBiteSaverDeviceProofFailureKind.invalidProtocol,
+        code: 'device-time-context-unavailable',
+      );
+    }
+    return (timeZone: zone, utcOffsetMinutes: offset);
+  }
 
   CustomerBiteSaverDevicePlatform get platform => _requiredPlatform;
 

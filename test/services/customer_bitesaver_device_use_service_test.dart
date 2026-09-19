@@ -1509,11 +1509,8 @@ void main() {
     }
   }
 
-  test('device use remains unwired from default startup and Home', () {
-    for (final path in <String>[
-      'lib/main.dart',
-      'lib/screens/home_screen.dart',
-    ]) {
+  test('legacy Home does not directly instantiate device use', () {
+    for (final path in <String>['lib/screens/home_screen.dart']) {
       final source = File(path).readAsStringSync();
       expect(
         source,
@@ -1521,8 +1518,5 @@ void main() {
       );
       expect(source, isNot(contains('CustomerBiteSaverDeviceUseService')));
     }
-    final startup = File('lib/main.dart').readAsStringSync();
-    expect(startup, isNot(contains('biteSaverBrowseHomeBuilder:')));
-    expect(startup, isNot(contains('biteSaverSavedAccountBuilder:')));
   });
 }

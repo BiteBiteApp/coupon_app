@@ -1342,3 +1342,70 @@ final class _CanonicalWriter {
 
   Uint8List takeBytes() => _builder.takeBytes();
 }
+
+/// A genuine server-issued exact-profile discovery context, never a public DTO.
+final class CustomerBiteSaverProfileUseContext {
+  CustomerBiteSaverProfileUseContext.fromJson(Object? value) {
+    final data = _record(value);
+    _exactKeys(data, const {
+      'schemaVersion',
+      'kind',
+      'catalogRestaurantId',
+      'restaurantId',
+      'offerId',
+      'sessionId',
+      'capability',
+      'criteriaFingerprint',
+      'offerOccurrence',
+      'freshExpiresAtMillis',
+      'isProximityOnly',
+      'usagePolicy',
+    });
+    if (data['schemaVersion'] != 1 ||
+        data['kind'] != 'publicProfileUse' ||
+        data['isProximityOnly'] is! bool) {
+      throw const CustomerBiteSaverDeviceProtocolException();
+    }
+    catalogRestaurantId = _string(
+      data['catalogRestaurantId'],
+      maximumLength: 1500,
+    );
+    restaurantId = CustomerBiteSaverRestaurantId(
+      _string(data['restaurantId'], maximumLength: 47),
+    );
+    offerId = CustomerBiteSaverOfferId(
+      _string(data['offerId'], maximumLength: 47),
+    );
+    sessionId = _string(
+      data['sessionId'],
+      maximumLength: 47,
+      pattern: _sessionIdPattern,
+    );
+    capability = _string(data['capability'], maximumLength: 32768);
+    criteriaFingerprint = _string(
+      data['criteriaFingerprint'],
+      maximumLength: 64,
+      pattern: _fingerprintPattern,
+    );
+    offerOccurrence = _string(data['offerOccurrence'], maximumLength: 32768);
+    freshExpiresAtMillis = _safeInteger(data['freshExpiresAtMillis']);
+    isProximityOnly = data['isProximityOnly'] as bool;
+    usagePolicy = switch (data['usagePolicy']) {
+      'oncePerCustomer' => CustomerBiteSaverUsagePolicy.oncePerCustomer,
+      'oncePerDay' => CustomerBiteSaverUsagePolicy.oncePerDay,
+      'unlimited' => CustomerBiteSaverUsagePolicy.unlimited,
+      'reusableAfterTimer' => CustomerBiteSaverUsagePolicy.reusableAfterTimer,
+      _ => throw const CustomerBiteSaverDeviceProtocolException(),
+    };
+  }
+  late final String catalogRestaurantId,
+      sessionId,
+      capability,
+      criteriaFingerprint,
+      offerOccurrence;
+  late final CustomerBiteSaverRestaurantId restaurantId;
+  late final CustomerBiteSaverOfferId offerId;
+  late final int freshExpiresAtMillis;
+  late final bool isProximityOnly;
+  late final CustomerBiteSaverUsagePolicy usagePolicy;
+}

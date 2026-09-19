@@ -476,7 +476,7 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
   final CustomerBiteSaverGuestUsageStore _guestUsageStore;
   final String _clientInstanceId;
   final CustomerBiteSaverFavoriteActions? _favoriteActions;
-  final CustomerBiteSaverFavoriteStateOwner? _favoriteStateOwner;
+  CustomerBiteSaverFavoriteStateOwner? _favoriteStateOwner;
   final CustomerBiteSaverRequestIdGenerator _requestIdGenerator;
   final DateTime Function() _clock;
   final CustomerBiteSaverScheduler _scheduler;
@@ -607,6 +607,20 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
   CustomerBiteSaverFavoriteStateOwner? get favoriteStateOwner =>
       _currentFavoriteStateOwner;
 
+  /// Reconnect the account-scoped Saved owner after an auth transition. This
+  /// changes favorite ownership without restarting a search or coupon attempt.
+  void replaceFavoriteStateOwner(CustomerBiteSaverFavoriteStateOwner? owner) {
+    _ensureAlive();
+    if (owner != null && owner.authRealmKey != _auth.realmKey) {
+      throw ArgumentError('The favorite owner does not match this account.');
+    }
+    if (identical(owner, _favoriteStateOwner)) return;
+    _favoriteStateOwner?.removeListener(_handleFavoriteOwnerChanged);
+    _favoriteStateOwner = owner;
+    owner?.addListener(_handleFavoriteOwnerChanged);
+    _notify();
+  }
+
   CustomerBiteSaverFavoriteStateOwner? get _currentFavoriteStateOwner {
     final owner = _favoriteStateOwner;
     return owner != null && owner.authRealmKey == _auth.realmKey ? owner : null;
@@ -635,6 +649,13 @@ final class CustomerBiteSaverSearchCoordinator extends ChangeNotifier {
       _currentRedemptionPresentationOwner?.redemptionPresentationFor(offerId);
 
   int get redemptionPresentationNowMillis => _clock().millisecondsSinceEpoch;
+
+  List<CustomerBiteSaverRedemptionPresentation>
+  get activeDeviceRedemptionPresentations => List.unmodifiable(
+    _redemptionPresentations.values.where(
+      (value) => value.isDeviceTimerActiveAt(redemptionPresentationNowMillis),
+    ),
+  );
 
   bool hasDisplayableRedemptionPresentation(CustomerBiteSaverOfferId offerId) {
     final presentation = redemptionPresentationFor(offerId);

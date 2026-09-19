@@ -232,6 +232,16 @@ final class BiteSaverDeviceProofBridge {
 
   private func handle(_ call: FlutterMethodCall, result: @escaping FlutterResult) {
     switch call.method {
+    case "getTimeContext":
+      guard call.arguments == nil || call.arguments is NSNull else {
+        result(Self.flutterError(code: "invalid-request"))
+        return
+      }
+      let zone = TimeZone.autoupdatingCurrent
+      result([
+        "timeZone": zone.identifier,
+        "utcOffsetMinutes": zone.secondsFromGMT(for: Date()) / 60,
+      ])
     case "getCapability":
       handleCapability(arguments: call.arguments, result: result)
     case "createEnrollmentProof":

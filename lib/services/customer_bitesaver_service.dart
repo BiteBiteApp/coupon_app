@@ -1,6 +1,8 @@
 import 'package:cloud_functions/cloud_functions.dart';
 
 import '../models/customer_bitesaver_search.dart';
+import '../models/customer_bitesaver_device_usage.dart';
+import '../models/customer_bitesaver_favorite.dart';
 import '../models/customer_bitesaver_saved.dart';
 
 typedef CustomerBiteSaverCallableTransport =
@@ -158,6 +160,63 @@ final class CustomerBiteSaverService
   };
 
   final CustomerBiteSaverCallableTransport _transport;
+
+  Future<CustomerBiteSaverProfileUseContext> getProfileUseContext(
+    Map<String, Object?> request,
+  ) async {
+    final result = await _invoke(
+      restaurantPageCallableName,
+      request,
+      CustomerBiteSaverProfileUseContext.fromJson,
+    );
+    if (result.catalogRestaurantId != request['catalogRestaurantId'] ||
+        result.restaurantId.value != request['restaurantId'] ||
+        result.offerId.value != request['offerId']) {
+      throw const CustomerBiteSaverProtocolException();
+    }
+    return result;
+  }
+
+  Future<CustomerBiteSaverPublicProfileResult> getPublicProfile(
+    String catalogRestaurantId, {
+    required ({String timeZone, int utcOffsetMinutes}) timeContext,
+    String? cursor,
+  }) async {
+    final result = await _invoke(restaurantPageCallableName, {
+      'schemaVersion': 1,
+      'kind': 'publicProfile',
+      'timeZone': timeContext.timeZone,
+      'utcOffsetMinutes': timeContext.utcOffsetMinutes,
+      'section': 'profile',
+      'catalogRestaurantId': catalogRestaurantId,
+      'cursor': cursor,
+    }, CustomerBiteSaverPublicProfileResult.fromJson);
+    if (result.catalogRestaurantId != catalogRestaurantId) {
+      throw const CustomerBiteSaverProtocolException();
+    }
+    return result;
+  }
+
+  Future<CustomerBiteSaverMenuPageResult> getPublicProfileMenu(
+    String catalogRestaurantId,
+    CustomerBiteSaverRestaurantId restaurantId, {
+    required ({String timeZone, int utcOffsetMinutes}) timeContext,
+    String? cursor,
+  }) async {
+    final result = await _invoke(restaurantPageCallableName, {
+      'schemaVersion': 1,
+      'kind': 'publicProfile',
+      'timeZone': timeContext.timeZone,
+      'utcOffsetMinutes': timeContext.utcOffsetMinutes,
+      'section': 'menu',
+      'catalogRestaurantId': catalogRestaurantId,
+      'cursor': cursor,
+    }, CustomerBiteSaverMenuPageResult.fromJson);
+    if (result.restaurantId != restaurantId) {
+      throw const CustomerBiteSaverProtocolException();
+    }
+    return result;
+  }
 
   @override
   Future<CustomerBiteSaverStartResponse> startCustomerBiteSaverSearch(

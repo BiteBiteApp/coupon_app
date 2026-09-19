@@ -9,6 +9,8 @@ import '../services/app_mode_state_service.dart';
 import '../services/bitescore_service.dart';
 import '../services/customer_bitescore_reads.dart';
 import '../services/customer_bitescore_runtime.dart';
+import '../services/customer_bitesaver_runtime.dart';
+import '../services/customer_bitesaver_public_profile.dart';
 import '../services/restaurant_account_service.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
 import 'main_navigation_screen.dart';
@@ -52,6 +54,13 @@ class RestaurantCustomerDeepLinkScreen extends StatefulWidget {
 class _RestaurantCustomerDeepLinkScreenState
     extends State<RestaurantCustomerDeepLinkScreen> {
   late Future<_RestaurantDeepLinkResolution> _resolutionFuture;
+  CustomerBiteSaverPublicProfile? _publicProfile;
+
+  @override
+  void dispose() {
+    _publicProfile?.dispose();
+    super.dispose();
+  }
 
   bool get _isBiteScore => widget.side == 'bitescore';
 
@@ -94,6 +103,25 @@ class _RestaurantCustomerDeepLinkScreenState
         restaurant: restaurant,
         entries: entries,
       );
+    }
+
+    if (CustomerBiteSaverRuntime.isEnabled ||
+        !DemoRedemptionStore.legacyWritesEnabled) {
+      final profile = await CustomerBiteSaverRuntime.loadPublicProfile(
+        restaurantId,
+      );
+      if (!mounted) {
+        profile.dispose();
+        return const _RestaurantDeepLinkResolution.notFound();
+      }
+      _publicProfile = profile;
+      if (profile.initial.state == 'notParticipating') {
+        return const _RestaurantDeepLinkResolution.catalogNotAvailable();
+      }
+      if (profile.restaurant == null) {
+        return const _RestaurantDeepLinkResolution.notFound();
+      }
+      return const _RestaurantDeepLinkResolution.publicProfile();
     }
 
     final customerRestaurantResolver = widget.customerRestaurantResolver;
@@ -256,6 +284,11 @@ class _RestaurantCustomerDeepLinkScreenState
           return _buildSafeState(_noOffersMessage);
         }
 
+        if (resolution.state ==
+            _RestaurantDeepLinkResolutionState.publicProfile) {
+          return CustomerBiteSaverRuntime.buildPublicProfile(_publicProfile!);
+        }
+
         final couponRestaurant = resolution.restaurant;
         if (couponRestaurant != null) {
           return RestaurantProfileScreen(restaurant: couponRestaurant);
@@ -290,6 +323,14 @@ class _RestaurantDeepLinkResolution {
     required this.biteScoreRestaurant,
     required this.biteScoreEntries,
   });
+
+  const _RestaurantDeepLinkResolution.publicProfile()
+    : this._(
+        state: _RestaurantDeepLinkResolutionState.publicProfile,
+        restaurant: null,
+        biteScoreRestaurant: null,
+        biteScoreEntries: const [],
+      );
 
   const _RestaurantDeepLinkResolution.notFound()
     : this._(
@@ -335,6 +376,7 @@ class _RestaurantDeepLinkResolution {
 }
 
 enum _RestaurantDeepLinkResolutionState {
+  publicProfile,
   loaded,
   notFound,
   catalogNotAvailable,

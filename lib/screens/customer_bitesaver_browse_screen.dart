@@ -230,6 +230,7 @@ class _CustomerBiteSaverBrowseScreenState
   String? _inputError;
   late String _observedAuthRealmKey;
   SharedLocationState _location = const SharedLocationState();
+  CustomerBiteSaverSearchCriteria? _retainedSearchCenter;
 
   @override
   void initState() {
@@ -351,6 +352,22 @@ class _CustomerBiteSaverBrowseScreenState
   Future<void> _restoreCriteriaOnce() async {
     if (_restoreStarted) return;
     _restoreStarted = true;
+    final retained = widget.coordinator.criteria;
+    if (!widget.disposeCoordinator && retained != null) {
+      // A reconstructed shell borrows the existing operation and discovery
+      // center. Do not restart it, fetch new time, or turn its coordinates into
+      // a fresh device-position observation for coupon use.
+      _retainedSearchCenter = retained;
+      _selectedRadiusMiles = retained.radiusMiles;
+      _contentController.text = retained.searchText;
+      _replaceLocationText(_retainedLocationLabel(retained));
+      _restored = true;
+      _attachRestaurantPager(widget.coordinator.restaurantPager);
+      if (WidgetsBinding.instance.lifecycleState == AppLifecycleState.resumed) {
+        await widget.coordinator.resume();
+      }
+      return;
+    }
     final generation = _locationGeneration;
     final lease = SharedLocationStateService.acquireRestoreLease();
     _restoreLease = lease;
@@ -396,6 +413,7 @@ class _CustomerBiteSaverBrowseScreenState
   }
 
   void _applySharedLocation(SharedLocationState location) {
+    _retainedSearchCenter = null;
     _location = location;
     _replaceLocationText(
       location.usingCurrentLocation ? '' : location.searchText,
@@ -435,6 +453,7 @@ class _CustomerBiteSaverBrowseScreenState
       SharedLocationStateService.ownsLocationOperation(token);
 
   bool get _hasUsableCenter {
+    if (_retainedSearchCenter != null) return true;
     if (_location.usingCurrentLocation) {
       final position = _location.currentPosition;
       return position != null &&
@@ -462,6 +481,17 @@ class _CustomerBiteSaverBrowseScreenState
     if (!_hasUsableCenter) {
       throw const FormatException(
         'Use your current location or search for a city or ZIP first.',
+      );
+    }
+    final retained = _retainedSearchCenter;
+    if (retained != null) {
+      return _SubmittedBrowseSearch(
+        latitude: retained.latitude,
+        longitude: retained.longitude,
+        radiusMiles: _selectedRadiusMiles,
+        locationMode: retained.locationMode,
+        typedLocation: retained.typedLocation,
+        searchText: content,
       );
     }
     if (_location.usingCurrentLocation) {
@@ -655,7 +685,7 @@ class _CustomerBiteSaverBrowseScreenState
       if (!accepted || !_ownsLocationOperation(generation, token)) return;
       setState(() {
         _restored = true;
-        _location = SharedLocationStateService.state;
+        _applySharedLocation(SharedLocationStateService.state);
         _geocoding = false;
         _locationMessage = 'Using "$query" as your search center.';
       });
@@ -667,6 +697,7 @@ class _CustomerBiteSaverBrowseScreenState
       setState(() {
         _restored = true;
         _geocoding = false;
+        _retainedSearchCenter = null;
         _location = SharedLocationStateService.state;
         _inputError = AppErrorText.friendly(
           error,
@@ -870,6 +901,11 @@ class _CustomerBiteSaverBrowseScreenState
   }
 
   String get _locationSummary {
+    final retained = _retainedSearchCenter;
+    if (retained != null) {
+      final label = _retainedLocationLabel(retained);
+      return label.isEmpty ? 'Current location' : label;
+    }
     if (_location.usingCurrentLocation) {
       final city = _location.detectedCity?.trim();
       return city == null || city.isEmpty ? 'Current location' : city;
@@ -877,6 +913,15 @@ class _CustomerBiteSaverBrowseScreenState
     final text = _location.searchText.trim();
     return text.isEmpty ? 'Choose a search center' : text;
   }
+
+  static String _retainedLocationLabel(
+    CustomerBiteSaverSearchCriteria criteria,
+  ) => switch (criteria.typedLocation) {
+    CustomerBiteSaverZipLocation(:final zip) => zip,
+    CustomerBiteSaverCityLocation(:final city, :final state) =>
+      state == null ? city : '$city, $state',
+    null => '',
+  };
 
   @override
   Widget build(BuildContext context) {

@@ -131,7 +131,7 @@ final class CustomerBiteSaverBrowseDestinationHandler {
     final useAction = _CustomerBiteSaverBrowseCouponUse(
       selection: selection,
       currentCoordinatesProvider:
-          currentCoordinatesProvider ?? _loadCurrentCoordinates,
+          currentCoordinatesProvider ?? loadCurrentCoordinates,
     );
     await _pushCurrentDestination(
       context,
@@ -163,7 +163,7 @@ final class CustomerBiteSaverBrowseDestinationHandler {
     );
   }
 
-  static Future<CustomerBiteSaverCoordinates> _loadCurrentCoordinates() async {
+  static Future<CustomerBiteSaverCoordinates> loadCurrentCoordinates() async {
     final enabled = await Geolocator.isLocationServiceEnabled();
     if (!enabled) throw StateError('Location services are turned off.');
     var permission = await Geolocator.checkPermission();

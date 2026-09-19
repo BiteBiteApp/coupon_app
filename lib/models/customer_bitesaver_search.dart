@@ -1304,7 +1304,10 @@ final class CustomerBiteSaverRestaurant {
     required this.favoriteState,
   });
 
-  factory CustomerBiteSaverRestaurant.fromJson(Object? value) {
+  factory CustomerBiteSaverRestaurant.fromJson(
+    Object? value, {
+    bool publicProfile = false,
+  }) {
     final data = _record(value);
     _exactKeys(data, <String>{
       'restaurantId',
@@ -1339,7 +1342,7 @@ final class CustomerBiteSaverRestaurant {
     }
     final offers = _list(
       data['offers'],
-      maximumLength: 2,
+      maximumLength: publicProfile ? 25 : 2,
     ).map(CustomerBiteSaverOffer.fromJson).toList(growable: false);
     if (offers.map((entry) => entry.offerId.value).toSet().length !=
         offers.length) {
@@ -2673,4 +2676,78 @@ final class CustomerBiteSaverRedemptionStartResult {
     'timerStartedAtMillis': timerStartedAtMillis,
     'timerExpiresAtMillis': timerExpiresAtMillis,
   };
+}
+
+/// Presentation-only exact profile result. It contains no use credential.
+final class CustomerBiteSaverPublicProfileResult {
+  const CustomerBiteSaverPublicProfileResult._(
+    this.catalogRestaurantId,
+    this.state,
+    this.restaurant,
+    this.nextCursor,
+    this.partial,
+    this.favoriteStates,
+  );
+  factory CustomerBiteSaverPublicProfileResult.fromJson(Object? value) {
+    final data = _record(value);
+    _exactKeys(data, {
+      'schemaVersion',
+      'kind',
+      'catalogRestaurantId',
+      'state',
+      'restaurant',
+      'nextCursor',
+      'hasMore',
+      'partial',
+      'favoriteStates',
+    });
+    if (data['schemaVersion'] != 1 ||
+        data['kind'] != 'publicProfile' ||
+        !{
+          'available',
+          'notParticipating',
+          'unavailable',
+        }.contains(data['state'])) {
+      throw const CustomerBiteSaverProtocolException();
+    }
+    final restaurant = data['restaurant'] == null
+        ? null
+        : CustomerBiteSaverRestaurant.fromJson(
+            data['restaurant'],
+            publicProfile: true,
+          );
+    final cursor = _nullableString(data['nextCursor'], maximumLength: 32768);
+    final more = _boolean(data['hasMore']);
+    if ((data['state'] == 'available') != (restaurant != null) ||
+        more != (cursor != null) ||
+        (restaurant == null && more) ||
+        (restaurant != null && restaurant.hasMoreOffers != more)) {
+      throw const CustomerBiteSaverProtocolException();
+    }
+    final favorites = CustomerBiteSaverFavoriteStatesResponse.fromJson({
+      'schemaVersion': 1,
+      'states': data['favoriteStates'],
+    }).states;
+    final delivered = {
+      restaurant?.restaurantId.value,
+      ...?restaurant?.offers.map((offer) => offer.offerId.value),
+    };
+    if (favorites.any((entry) => !delivered.contains(entry.idValue))) {
+      throw const CustomerBiteSaverProtocolException();
+    }
+    return CustomerBiteSaverPublicProfileResult._(
+      _string(data['catalogRestaurantId'], maximumLength: 1500),
+      data['state'] as String,
+      restaurant,
+      cursor,
+      _boolean(data['partial']),
+      favorites,
+    );
+  }
+  final String catalogRestaurantId;
+  final String state;
+  final CustomerBiteSaverRestaurant? restaurant;
+  final String? nextCursor;
+  final bool partial;
+  final List<CustomerBiteSaverFavoriteStateEntry> favoriteStates;
 }

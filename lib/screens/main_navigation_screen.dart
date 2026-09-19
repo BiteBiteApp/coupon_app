@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+
+import '../services/customer_bitesaver_runtime.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/demo_redemption_store.dart';
@@ -1606,12 +1608,18 @@ class _MainNavigationScreenState extends State<MainNavigationScreen> {
   BiteSaverBrowseHomeBuilder? get _biteSaverBrowseHomeBuilder =>
       widget.biteSaverBrowseHomeBuilder ??
       _effectiveNavigationController._biteSaverBrowseHomeBuilder ??
-      mainNavigationController._biteSaverBrowseHomeBuilder;
+      mainNavigationController._biteSaverBrowseHomeBuilder ??
+      (CustomerBiteSaverRuntime.isEnabled
+          ? CustomerBiteSaverRuntime.buildBrowse
+          : null);
 
   BiteSaverSavedAccountBuilder? get _biteSaverSavedAccountBuilder =>
       widget.biteSaverSavedAccountBuilder ??
       _effectiveNavigationController._biteSaverSavedAccountBuilder ??
-      mainNavigationController._biteSaverSavedAccountBuilder;
+      mainNavigationController._biteSaverSavedAccountBuilder ??
+      (CustomerBiteSaverRuntime.isEnabled
+          ? CustomerBiteSaverRuntime.buildAccount
+          : null);
 
   void _retainBiteSaverCustomerPath() {
     if (widget.testPagesBuilder == null &&

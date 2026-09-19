@@ -4,6 +4,7 @@ import 'package:coupon_app/screens/restaurant_customer_deep_link_screen.dart';
 import 'package:coupon_app/screens/restaurant_invite_preview_screen.dart';
 import 'package:coupon_app/services/app_mode_state_service.dart';
 import 'package:coupon_app/services/customer_session_service.dart';
+import 'package:coupon_app/services/customer_bitesaver_runtime.dart';
 import 'package:coupon_app/services/restaurant_customer_link_service.dart';
 import 'package:coupon_app/services/restaurant_invite_service.dart';
 import 'package:coupon_app/services/user_profile_service.dart';
@@ -43,6 +44,7 @@ class CouponApp extends StatelessWidget {
   testCustomerRouteBuilder;
   final Widget Function(RestaurantInviteDeepLink link)? testInviteRouteBuilder;
   final bool testWrapCelebrationHosts;
+  final bool testInitializePlatformServices;
 
   const CouponApp({
     super.key,
@@ -50,6 +52,7 @@ class CouponApp extends StatelessWidget {
     @visibleForTesting this.testCustomerRouteBuilder,
     @visibleForTesting this.testInviteRouteBuilder,
     @visibleForTesting this.testWrapCelebrationHosts = true,
+    @visibleForTesting this.testInitializePlatformServices = true,
   });
 
   Widget _buildNavigationShell({
@@ -62,6 +65,15 @@ class CouponApp extends StatelessWidget {
       return testBuilder(customerLink, inviteLink);
     }
     return MainNavigationScreen(
+      // Forward the app-level test seam without replacing the real factory.
+      // ignore: invalid_use_of_visible_for_testing_member
+      initializePlatformServices: testInitializePlatformServices,
+      biteSaverBrowseHomeBuilder: CustomerBiteSaverRuntime.isEnabled
+          ? CustomerBiteSaverRuntime.buildBrowse
+          : null,
+      biteSaverSavedAccountBuilder: CustomerBiteSaverRuntime.isEnabled
+          ? CustomerBiteSaverRuntime.buildAccount
+          : null,
       initialCustomerDeepLink: customerLink,
       initialInviteDeepLink: inviteLink,
       initialDeepLinkRouteName: initialDeepLinkRouteName,

@@ -297,7 +297,7 @@ function parseTypedLocation(
   throw new CustomerBiteSaverContractError("invalid-argument");
 }
 
-function requireIanaTimeZone(value: unknown): string {
+export function requireIanaTimeZone(value: unknown): string {
   if (
     typeof value !== "string" ||
     value !== value.trim() ||
@@ -354,7 +354,7 @@ function timeZoneUtcOffsetMinutes(timeZone: string, instantMs: number): number {
 
 const supportedOffsetsByTimeZone = new Map<string, ReadonlySet<number>>();
 
-function timeZoneSupportsUtcOffset(
+export function timeZoneSupportsUtcOffset(
   timeZone: string,
   offsetMinutes: number,
 ): boolean {

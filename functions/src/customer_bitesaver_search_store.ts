@@ -47,6 +47,7 @@ export type CustomerBiteSaverWrite =
     }>;
 
 export interface CustomerBiteSaverTransaction {
+  queryDocuments(query: CustomerBiteSaverQuery): Promise<readonly CustomerBiteSaverStoredDocument[]>;
   getDocument(path: string): Promise<CustomerBiteSaverStoredDocument | null>;
   getDocuments(
     paths: readonly string[],
@@ -127,6 +128,10 @@ function transactionFacade(
   transaction: Transaction,
 ): CustomerBiteSaverTransaction {
   return {
+    async queryDocuments(options) {
+      const snapshot = await transaction.get(buildQuery(database, options));
+      return snapshot.docs.map((doc) => documentFromSnapshot(doc) as CustomerBiteSaverStoredDocument);
+    },
     async getDocument(path) {
       const snapshot = await transaction.get(database.doc(path));
       return documentFromSnapshot(snapshot);

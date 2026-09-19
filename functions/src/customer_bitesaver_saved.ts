@@ -173,7 +173,7 @@ function exactKeys(
     keys.every((key, index) => key === sorted[index]);
 }
 
-function exactInternalId(value: unknown): string | null {
+export function exactInternalId(value: unknown): string | null {
   return typeof value === "string" &&
       value.length > 0 &&
       value.length <= 1_500 &&
@@ -258,7 +258,7 @@ function safeInteger(value: unknown): number | null {
     : null;
 }
 
-class SavedOpaqueCodec {
+export class SavedOpaqueCodec {
   readonly #key: Buffer;
   readonly #now: () => number;
 
@@ -530,7 +530,7 @@ function safeBusinessHours(value: unknown): readonly unknown[] {
     : Object.freeze([]);
 }
 
-function restaurantDto(
+export function restaurantDto(
   projection: Readonly<Record<string, unknown>>,
   publicRestaurantId: string,
 ): CustomerBiteSaverPublicRestaurantDto | null {
@@ -586,17 +586,18 @@ function safeDays(value: unknown): readonly number[] {
     : Object.freeze([]);
 }
 
-function offerDto(
+export function offerDto(
   projection: Readonly<Record<string, unknown>>,
   publicOfferId: string,
+  offerType: "coupon" | "dailySpecial" = "coupon",
 ): CustomerBiteSaverPublicOfferDto | null {
   const sourceCreatedAtMillis = dateMillis(projection.sourceCreatedAt);
   const usageRule = nullableString(projection.usageRule, 200);
   const usagePolicy = normalizeCustomerBiteSaverUsagePolicy(
-    "coupon",
+    offerType,
     usageRule,
   );
-  if (sourceCreatedAtMillis === null || usagePolicy === null) return null;
+  if (sourceCreatedAtMillis === null || (offerType === "coupon" && usagePolicy === null)) return null;
   return Object.freeze({
     offerId: publicOfferId,
     offerOccurrence: "bsoc1." + createHash("sha256")
@@ -605,7 +606,7 @@ function offerDto(
       .update("\0", "utf8")
       .update(String(projection.sourceFingerprint ?? ""), "utf8")
       .digest("base64url"),
-    offerType: "coupon",
+    offerType,
     title: boundedString(projection.displayTitle, 200) ?? "",
     details: nullableString(projection.details, 4_000),
     couponCode: nullableString(projection.couponCode, 500),
@@ -625,12 +626,12 @@ function offerDto(
     proximityRadiusMiles: finiteNumber(projection.proximityRadiusMiles),
     imageUrl: nullableString(projection.primaryImageUrl, 2_000),
     sourceCreatedAtMillis,
-    available: false,
+    available: offerType === "dailySpecial",
     availabilityReason: "savedReadOnly",
     redemptionPolicyLabel: usageRule,
     activeTimerExpiresAtMillis: null,
     nextAvailableAtMillis: null,
-    usageState: "unknown",
+    usageState: offerType === "dailySpecial" ? "available" : "unknown",
   });
 }
 
@@ -1141,77 +1142,13 @@ function openMenuCursor(value: {
   });
 }
 
-export async function getCustomerBiteSaverSavedMenuPageHandler(
-  rawRequest: unknown,
+/** Shared bounded menu presentation reader; callers validate their own public source. */
+export async function readCustomerBiteSaverMenuEntries(
   context: CustomerBiteSaverSessionContext,
-): Promise<CustomerBiteSaverMenuPageResult> {
-  const request = parseSavedMenuRequest(rawRequest);
-  const userId = requireSignedInUserId(context.identity);
-  const nowMs = context.now?.() ?? Date.now();
-  const codec = new SavedOpaqueCodec(context.discoveryKey, () => nowMs);
-  const access = openAccess({codec, token: request.accessToken, userId});
-  const expectedRestaurantId = customerBiteSaverOpaqueRestaurantId(
-    identityKey(context),
-    access.authoritativeAccountId,
-  );
-  if (expectedRestaurantId !== access.restaurantId) return invalidArgument();
-  if (access.offerId !== null) {
-    const favorite = await context.database.getDocument(
-      customerBiteSaverCouponFavoritePath(userId, access.offerId),
-    );
-    // The access token remains sufficient after a confirmed removal, but if a
-    // record is present it must still be the same exact parent/type contract.
-    if (favorite !== null && parseCustomerBiteSaverCouponFavorite(favorite, {
-      userId,
-      restaurantId: access.restaurantId,
-      offerId: access.offerId,
-    }) === null) {
-      throw new CustomerBiteSaverContractError("permission-denied");
-    }
-  } else {
-    const favorite = await context.database.getDocument(
-      customerBiteSaverRestaurantFavoritePath(userId, access.restaurantId),
-    );
-    if (favorite !== null && parseCustomerBiteSaverRestaurantFavorite(favorite, {
-      userId,
-      restaurantId: access.restaurantId,
-    }) === null) {
-      throw new CustomerBiteSaverContractError("permission-denied");
-    }
-  }
-  const source = await resolveCustomerBiteSaverSavedMenuSource({
-    context,
-    authoritativeAccountId: access.authoritativeAccountId,
-    publicRestaurantId: access.restaurantId,
-    now: new Date(nowMs),
-  });
-  const accessDigest = createHash("sha256")
-    .update(request.accessToken, "utf8")
-    .digest("hex");
-  const boundary = openMenuCursor({
-    codec,
-    token: request.cursor,
-    access,
-    accessDigest,
-    relationshipFingerprint: source.relationshipFingerprint,
-  });
-  if (source.state === "absent") {
-    if (request.cursor !== null) return invalidArgument();
-    return Object.freeze({
-      schemaVersion: customerBiteSaverSearchSchemaVersion,
-      state: "absent",
-      attemptGeneration: 0,
-      queryFingerprint: createQueryFingerprint({
-        purpose: "savedMenu",
-        accessDigest,
-      }),
-      restaurantId: access.restaurantId,
-      menuStyle: source.style,
-      entries: Object.freeze([]),
-      nextCursor: null,
-      hasMore: false,
-    });
-  }
+  source: Awaited<ReturnType<typeof resolveCustomerBiteSaverSavedMenuSource>>,
+  boundary: Readonly<{phase: number; afterId: string | null}>,
+): Promise<Readonly<{entries: readonly CustomerBiteSaverMenuEntry[];
+  hasMore: boolean; phase: number; afterId: string | null}>> {
   if (source.collectionRoot === null) {
     throw new CustomerBiteSaverContractError("failed-precondition");
   }
@@ -1287,6 +1224,85 @@ export async function getCustomerBiteSaverSavedMenuPageHandler(
       afterId = null;
     }
   }
+  return Object.freeze({entries: Object.freeze(entries), hasMore, phase, afterId});
+}
+
+export async function getCustomerBiteSaverSavedMenuPageHandler(
+  rawRequest: unknown,
+  context: CustomerBiteSaverSessionContext,
+): Promise<CustomerBiteSaverMenuPageResult> {
+  const request = parseSavedMenuRequest(rawRequest);
+  const userId = requireSignedInUserId(context.identity);
+  const nowMs = context.now?.() ?? Date.now();
+  const codec = new SavedOpaqueCodec(context.discoveryKey, () => nowMs);
+  const access = openAccess({codec, token: request.accessToken, userId});
+  const expectedRestaurantId = customerBiteSaverOpaqueRestaurantId(
+    identityKey(context),
+    access.authoritativeAccountId,
+  );
+  if (expectedRestaurantId !== access.restaurantId) return invalidArgument();
+  if (access.offerId !== null) {
+    const favorite = await context.database.getDocument(
+      customerBiteSaverCouponFavoritePath(userId, access.offerId),
+    );
+    // The access token remains sufficient after a confirmed removal, but if a
+    // record is present it must still be the same exact parent/type contract.
+    if (favorite !== null && parseCustomerBiteSaverCouponFavorite(favorite, {
+      userId,
+      restaurantId: access.restaurantId,
+      offerId: access.offerId,
+    }) === null) {
+      throw new CustomerBiteSaverContractError("permission-denied");
+    }
+  } else {
+    const favorite = await context.database.getDocument(
+      customerBiteSaverRestaurantFavoritePath(userId, access.restaurantId),
+    );
+    if (favorite !== null && parseCustomerBiteSaverRestaurantFavorite(favorite, {
+      userId,
+      restaurantId: access.restaurantId,
+    }) === null) {
+      throw new CustomerBiteSaverContractError("permission-denied");
+    }
+  }
+  const source = await resolveCustomerBiteSaverSavedMenuSource({
+    context,
+    authoritativeAccountId: access.authoritativeAccountId,
+    publicRestaurantId: access.restaurantId,
+    now: new Date(nowMs),
+  });
+  const accessDigest = createHash("sha256")
+    .update(request.accessToken, "utf8")
+    .digest("hex");
+  const boundary = openMenuCursor({
+    codec,
+    token: request.cursor,
+    access,
+    accessDigest,
+    relationshipFingerprint: source.relationshipFingerprint,
+  });
+  if (source.state === "absent") {
+    if (request.cursor !== null) return invalidArgument();
+    return Object.freeze({
+      schemaVersion: customerBiteSaverSearchSchemaVersion,
+      state: "absent",
+      attemptGeneration: 0,
+      queryFingerprint: createQueryFingerprint({
+        purpose: "savedMenu",
+        accessDigest,
+      }),
+      restaurantId: access.restaurantId,
+      menuStyle: source.style,
+      entries: Object.freeze([]),
+      nextCursor: null,
+      hasMore: false,
+    });
+  }
+  if (source.collectionRoot === null) {
+    throw new CustomerBiteSaverContractError("failed-precondition");
+  }
+  const {entries, hasMore, phase, afterId} =
+    await readCustomerBiteSaverMenuEntries(context, source, boundary);
   const currentSource = await resolveCustomerBiteSaverSavedMenuSource({
     context,
     authoritativeAccountId: access.authoritativeAccountId,
@@ -1564,12 +1580,23 @@ async function resolveSavedRedemptionTarget(value: {
   ) {
     return null;
   }
+  return resolveCustomerBiteSaverCouponTarget({context: value.context,
+    authoritativeAccountId: value.access.authoritativeAccountId,
+    restaurantId: value.request.restaurantId, offerId: value.request.offerId});
+}
+
+export async function resolveCustomerBiteSaverCouponTarget(value: {
+  context: CustomerBiteSaverSessionContext;
+  authoritativeAccountId: string;
+  restaurantId: string;
+  offerId: string;
+}): Promise<SavedRedemptionTarget | null> {
   const documents = await value.context.database.queryDocuments({
     collectionPath: biteSaverOfferIndexCollection,
     filters: Object.freeze([{
       field: "publicOfferId",
       operation: "in" as const,
-      value: Object.freeze([value.request.offerId]),
+      value: Object.freeze([value.offerId]),
     }]),
     orders: Object.freeze([]),
     limit: 2,
@@ -1584,28 +1611,28 @@ async function resolveSavedRedemptionTarget(value: {
   if (
     authoritativeAccountId === null ||
     sourceDocumentId === null ||
-    authoritativeAccountId !== value.access.authoritativeAccountId ||
+    authoritativeAccountId !== value.authoritativeAccountId ||
     projection.source !== "biteSaver" ||
     projection.entityType !== "offer" ||
     projection.offerType !== "coupon" ||
     projection.customerOfferProjectionVersion !==
       customerBiteSaverOfferProjectionVersion ||
-    projection.publicRestaurantId !== value.request.restaurantId ||
-    projection.publicOfferId !== value.request.offerId ||
+    projection.publicRestaurantId !== value.restaurantId ||
+    projection.publicOfferId !== value.offerId ||
     customerBiteSaverOpaqueOfferId(
       identityKey(value.context),
       authoritativeAccountId,
       "coupon",
       sourceDocumentId,
-    ) !== value.request.offerId
+    ) !== value.offerId
   ) {
     return null;
   }
   return Object.freeze({
     authoritativeAccountId,
     sourceDocumentId,
-    restaurantId: value.request.restaurantId,
-    offerId: value.request.offerId,
+    restaurantId: value.restaurantId,
+    offerId: value.offerId,
   });
 }
 
@@ -1652,7 +1679,7 @@ function savedUsageState(value: {
   });
 }
 
-function currentSavedRedemptionSource(value: {
+export function currentSavedRedemptionSource(value: {
   context: CustomerBiteSaverSessionContext;
   target: SavedRedemptionTarget;
   parentDocument: CustomerBiteSaverStoredDocument | null;

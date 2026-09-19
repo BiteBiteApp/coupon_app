@@ -54,6 +54,56 @@ void main() {
         .setMockMethodCallHandler(channel, null);
   });
 
+  test('OS local context is passive, fresh, and sends no wall clock', () async {
+    Object? response;
+    final calls = <MethodCall>[];
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          calls.add(call);
+          return response;
+        });
+    final service = CustomerBiteSaverDeviceProofService(
+      channel: channel,
+      platformResolver: () => null,
+    );
+    for (final (zone, offset) in [
+      ('America/New_York', -300),
+      ('America/New_York', -240),
+      ('Asia/Kathmandu', 345),
+      ('Australia/Lord_Howe', 660),
+      ('UTC', 0),
+    ]) {
+      response = {'timeZone': zone, 'utcOffsetMinutes': offset};
+      expect(await service.getTimeContext(), (
+        timeZone: zone,
+        utcOffsetMinutes: offset,
+      ));
+    }
+    expect(calls.map((call) => call.method), everyElement('getTimeContext'));
+    expect(calls.map((call) => call.arguments), everyElement(isNull));
+    for (final invalid in <Object?>[
+      null,
+      {},
+      {'timeZone': ' UTC', 'utcOffsetMinutes': 0},
+      {'timeZone': 'America/New_York', 'utcOffsetMinutes': '-300'},
+      {'timeZone': 'UTC', 'utcOffsetMinutes': 841},
+      {'timeZone': 'UTC', 'utcOffsetMinutes': 0, 'nowMillis': 1},
+    ]) {
+      response = invalid;
+      await expectLater(
+        service.getTimeContext(),
+        throwsA(isA<CustomerBiteSaverDeviceProofException>()),
+      );
+    }
+  });
+
+  test('unavailable OS context has no UTC fallback', () async {
+    await expectLater(
+      CustomerBiteSaverDeviceProofService(channel: channel).getTimeContext(),
+      throwsA(isA<CustomerBiteSaverDeviceProofException>()),
+    );
+  });
+
   test(
     'direct proof honors the original elapsed deadline on skewed phones',
     () async {

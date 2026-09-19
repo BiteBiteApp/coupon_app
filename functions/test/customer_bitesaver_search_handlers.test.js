@@ -88,8 +88,8 @@ const identityKeyV1 = Buffer.alloc(32, 23);
 const defaultSignedUid = "handler-test-customer";
 
 function compareValues(left, right) {
-  const leftValue = left instanceof Date ? left.getTime() : left;
-  const rightValue = right instanceof Date ? right.getTime() : right;
+  const leftValue = left instanceof Date ? left.getTime() : typeof left?.toMillis === "function" ? left.toMillis() : left;
+  const rightValue = right instanceof Date ? right.getTime() : typeof right?.toMillis === "function" ? right.toMillis() : right;
   if (leftValue instanceof Uint8Array && rightValue instanceof Uint8Array) {
     return Buffer.compare(Buffer.from(leftValue), Buffer.from(rightValue));
   }
@@ -159,6 +159,7 @@ class InMemoryCustomerBiteSaverSearchDatabase {
         const value = filter.field === "__name__"
           ? document.id
           : document.data[filter.field];
+        if (filter.operation === "in") return filter.value.some((item) => compareValues(value, item) === 0);
         const comparison = compareValues(value, filter.value);
         if (filter.operation === "==") return comparison === 0;
         if (filter.operation === ">=") return comparison >= 0;
@@ -232,6 +233,7 @@ class InMemoryCustomerBiteSaverSearchDatabase {
         this.onTransactionGetDocuments?.(paths, stored);
         return stored;
       },
+      queryDocuments: (query) => this.queryDocuments(query),
       createDocument: (path, data) => writes.push({type: "create", path, data}),
       setDocument: (path, data) => writes.push({type: "set", path, data}),
       deleteDocument: (path) => writes.push({type: "delete", path}),
@@ -588,6 +590,7 @@ function addReadyRestaurant(database, session, index, options = {}) {
     sourceDocumentId: accountId,
     source: restaurant,
     now: new Date(nowMs),
+    ...(options.customerIdentityKeyV1 ? {identityKeyV1: options.customerIdentityKeyV1} : {}),
   });
   assert.notEqual(restaurantProjection, null);
   const publicRestaurantId = customerBiteSaverOpaqueRestaurantId(
@@ -621,6 +624,7 @@ function addReadyRestaurant(database, session, index, options = {}) {
           offer: raw,
           restaurant,
           now: new Date(options.offerProjectionNowMs ?? nowMs),
+          ...(options.customerIdentityKeyV1 ? {identityKeyV1: options.customerIdentityKeyV1} : {}),
         })
       : buildBiteSaverDailySpecialOfferIndex({
           restaurantAccountId: accountId,
@@ -12819,3 +12823,54 @@ module.exports = {
   startRequest,
   startSession,
 };
+
+for (const profileFirst of [true, false]) test(`genuine profile and Browse share usage and signed challenge scope (profileFirst=${profileFirst})`, async () => {
+  const database=new SerializedTransactionCustomerBiteSaverSearchDatabase();
+  let clock=nowMs;
+  const context=createContext(database,{now:()=>clock});
+  const started=await startCustomerBiteSaverSearchHandler(startRequest({searchText:''}),context);
+  const session=markSessionReady(database,started);
+  const catalogId='profile-browse-catalog';
+  const binding='B'.repeat(43);
+  const seeded=addReadyRestaurant(database,session,992,{offerCount:1,onlyCoupons:true,
+    customerIdentityKeyV1:identityKeyV1,offerOverrides:{usageRule:'Once per customer'},
+    restaurant:{biteScoreCatalogRestaurantId:catalogId,biteSaverCatalogBindingId:binding}});
+  database.documents.set(`bitescore_restaurants/${catalogId}`,{id:catalogId,name:seeded.restaurant.restaurantName,
+    address:seeded.restaurant.streetAddress,streetAddress:seeded.restaurant.streetAddress,city:'Orlando',state:'FL',zipCode:'32801',
+    latitude:28.5383,longitude:-81.3792,restaurantWriteRevision:1,isActive:true,isClaimed:false,ownerUserId:null,biteSaverCatalogBindingId:binding});
+  const offerId=opaqueOfferId(seeded,seeded.coupons[0]);
+  const delivered=await deliveredRedemptionRequest(started,seeded.publicRestaurantId,offerId,context);
+  const base={schemaVersion:1,restaurantId:seeded.publicRestaurantId,offerId,timeZone:'America/New_York',utcOffsetMinutes:-240,currentCoordinates:null};
+  const browse={...base,logicalRequestId:'browse-profile-use-0001',origin:{kind:'discovery',clientInstanceId:delivered.clientInstanceId,
+    sessionId:delivered.sessionId,capability:delivered.capability,criteriaFingerprint:delivered.criteriaFingerprint,
+    offerOccurrence:delivered.offerOccurrence,guestStateRevision:null}};
+  const profileAccess=await getCustomerBiteSaverSearchPageHandler({schemaVersion:1,kind:'publicProfileUse',clientRequestId:'profile-browse-context-0001',
+    clientInstanceId:'client-instance-0001',catalogRestaurantId:catalogId,restaurantId:base.restaurantId,offerId,
+    timeZone:base.timeZone,utcOffsetMinutes:-240,guestStateRevision:null},context);
+  const profile={...base,logicalRequestId:'profile-browse-use-0001',origin:{kind:'discovery',clientInstanceId:'client-instance-0001',
+    sessionId:profileAccess.sessionId,capability:profileAccess.capability,criteriaFingerprint:profileAccess.criteriaFingerprint,
+    offerOccurrence:profileAccess.offerOccurrence,guestStateRevision:null}};
+  const {getCustomerBiteSaverSavedPageHandler}=require('../lib/customer_bitesaver_saved.js');
+  database.documents.set(`user_profiles/${context.identity.authUid}/favorite_coupons/${offerId}`,
+    canonicalCouponFavorite(context.identity.authUid,base.restaurantId,offerId));
+  const savedPage=await getCustomerBiteSaverSavedPageHandler({schemaVersion:1,clientRequestId:'saved-cross-context-0001',section:'coupons',cursor:null},context);
+  const saved={...base,logicalRequestId:'saved-cross-use-0001',origin:{kind:'saved',accessToken:savedPage.entries[0].accessToken}};
+  const {reserveCustomerBiteSaverDeviceChallengeAdmission:reserve}=require('../lib/customer_bitesaver_device_challenge_admission.js');
+  const grants=[];
+  for(let i=0;i<30;i++) grants.push(await reserve({request:{...[profile,browse,saved][i%3],logicalRequestId:`cross-all-ratelimit-${String(i).padStart(4,'0')}`},platform:'android',context}));
+  assert.equal(new Set(grants.map(g=>g.admissionHandle)).size,1);
+  for(const request of [profile,browse,saved]) await assert.rejects(reserve({request,platform:'android',context}),{code:'resource-exhausted'});
+  clock+=120000;
+  const first=await productionDeviceUseFixture(profileFirst?profile:browse,context);
+  const accepted=await first.use(); assert.equal(accepted.status,'started');
+  clock+=60000;
+  const other=await productionDeviceUseFixture(profileFirst?browse:profile,context);
+  const joined=await other.use(); assert.equal(joined.status,'active'); assert.equal(joined.redemptionId,accepted.redemptionId);
+  assert.equal(joined.timerExpiresAtMillis-clock,240000);
+  clock=accepted.timerExpiresAtMillis+1;
+  for(const request of [profile,browse,saved]) {
+    const attempt=await productionDeviceUseFixture({...request,logicalRequestId:`expired-${request.logicalRequestId}`},context);
+    const denied=await attempt.use();assert.equal(denied.status,'denied');assert.equal(denied.reason,'used');
+  }
+  assert.equal([...database.documents.values()].filter(d=>d.role==='deviceCouponUsage').length,1);
+});

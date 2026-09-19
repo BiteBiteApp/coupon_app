@@ -25,9 +25,9 @@ class CustomerAccountScreen extends StatefulWidget {
   const CustomerAccountScreen({
     super.key,
     this.showAppBar = false,
-    @visibleForTesting this.userStream,
+    this.userStream,
     @visibleForTesting this.adminDestinationBuilder,
-    @visibleForTesting this.profileDestinationBuilder,
+    this.profileDestinationBuilder,
   });
 
   @override

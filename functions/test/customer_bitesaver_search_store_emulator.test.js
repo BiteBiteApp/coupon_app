@@ -261,6 +261,12 @@ if (!emulatorGate) {
             }
             return documents;
           },
+          async queryDocuments(query) {
+            metrics.queryCalls += 1;
+            const documents = await transaction.queryDocuments(query);
+            metrics.queryReadResults += documents.length;
+            return documents;
+          },
           createDocument(path, data) {
             const write = {type: "create", path, data};
             attemptedWrites.push(write);
@@ -1310,21 +1316,24 @@ if (!emulatorGate) {
     };
   });
 
-  test("real adapter device-bound Browse and Saved contend on device and account scopes",
+  for (const profileMode of [false, true]) test(`real adapter device-bound ${profileMode ? "Profile" : "Browse"} and Saved contend on device and account scopes`,
     {timeout: 120_000}, async () => {
     const clock = {value: fixedNowMs};
     const guestBundle = await startSession({guest: true, clock});
     const guestSession = await markReady(guestBundle);
-    const accountId = `${runNamespace}_device_core_account`;
+    const accountId = `${runNamespace}_device_core_account_${profileMode}`;
+    const catalogId = `${runNamespace}_profile_catalog`;
+    const binding = "C".repeat(43);
     const parent = readyRestaurantWrites(guestSession, 8_700, {
       accountId,
+      restaurant: profileMode ? {biteScoreCatalogRestaurantId: catalogId, biteSaverCatalogBindingId: binding} : {},
       offerCount: 2,
       onlyCoupons: true,
       customerIdentityKeyV1: identityKeyV1,
       offerOverrides: {usageRule: "Once per customer"},
     });
-    const uidA = `${runNamespace}_device_core_user_a`;
-    const uidB = `${runNamespace}_device_core_user_b`;
+    const uidA = `${runNamespace}_device_core_user_a_${profileMode}`;
+    const uidB = `${runNamespace}_device_core_user_b_${profileMode}`;
     const publicOfferIds = parent.coupons.map(({sourceDocumentId}) =>
       customerBiteSaverOpaqueOfferId(
         identityKeyV1,
@@ -1345,6 +1354,12 @@ if (!emulatorGate) {
       }))),
     ]);
 
+    if (profileMode) await seed(`bitescore_restaurants/${catalogId}`, {
+      id: catalogId, name: parent.restaurant.restaurantName,
+      address: parent.restaurant.streetAddress, streetAddress: parent.restaurant.streetAddress,
+      city: 'Orlando', state: 'FL', zipCode: '32801', latitude: 28.5383, longitude: -81.3792,
+      restaurantWriteRevision: 1, isActive: true, isClaimed: false, ownerUserId: null, biteSaverCatalogBindingId: binding,
+    });
     const guestPageRequest = pageRequest(guestBundle, {
       clientRequestId: requestId("device_core_guest_page"),
       guestStateRevision: 87,
@@ -1447,6 +1462,31 @@ if (!emulatorGate) {
       origin: {kind: "saved", accessToken: savedEntryA.accessToken},
     };
 
+    const profileContextRequest = {schemaVersion: 1, kind: 'publicProfileUse',
+      clientRequestId: requestId('profile_context'), clientInstanceId: guestBundle.clientInstanceId,
+      catalogRestaurantId: catalogId, restaurantId: parent.publicRestaurantId, offerId: publicOfferIds[0],
+      timeZone: 'America/New_York', utcOffsetMinutes: -240, guestStateRevision: 87};
+    let signedProfileRequest;
+    if (profileMode) {
+      const access = await getCustomerBiteSaverSearchPageHandler(profileContextRequest, guestDeviceContext);
+      Object.assign(guestUseRequest.origin, {sessionId: access.sessionId, capability: access.capability,
+        criteriaFingerprint: access.criteriaFingerprint, offerOccurrence: access.offerOccurrence});
+      const signedAccess = await getCustomerBiteSaverSearchPageHandler({...profileContextRequest,
+        clientRequestId: requestId('profile_signed_context'), guestStateRevision: null}, savedContextA);
+      signedProfileRequest = {...guestUseRequest, logicalRequestId: requestId('profile_signed_use'),
+        origin: {...guestUseRequest.origin, sessionId: signedAccess.sessionId, capability: signedAccess.capability,
+          criteriaFingerprint: signedAccess.criteriaFingerprint, offerOccurrence: signedAccess.offerOccurrence, guestStateRevision: null}};
+      const {reserveCustomerBiteSaverDeviceChallengeAdmission: reserve} = require('../lib/customer_bitesaver_device_challenge_admission.js');
+      const grants = [];
+      for (let i=0; i<30; i++) grants.push(await reserve({request: {...(i%2?savedUseRequestA:signedProfileRequest),
+        logicalRequestId: requestId('mixed_profile_rate')}, platform: 'android', context: savedContextA}));
+      assert.equal(new Set(grants.map(g=>g.admissionHandle)).size, 1);
+      await assert.rejects(reserve({request: signedProfileRequest, platform: 'android', context: savedContextA}), {code: 'resource-exhausted'});
+      const reopened = await getCustomerBiteSaverSearchPageHandler({...profileContextRequest,
+        clientRequestId: requestId('profile_rescan')}, guestDeviceContext);
+      assert.equal(reopened.sessionId, access.sessionId);
+    }
+
     const bothUsageReads = deferred();
     let initialUsageReadArrivals = 0;
     hooks.afterTransactionGetDocuments = async (paths) => {
@@ -1488,6 +1528,22 @@ if (!emulatorGate) {
     assert.notEqual(await database.getDocument(
       `customer_redemptions/${uidA}/coupon_redemptions/${publicOfferIds[0]}`,
     ), null);
+
+    if (profileMode) {
+      clock.value += 60_000;
+      const recovered = await handleCustomerBiteSaverDeviceBoundUse(signedProfileRequest, savedContextA);
+      assert.equal(recovered.status, 'active');
+      assert.equal(recovered.redemptionId, guestUse.redemptionId);
+      assert.equal(recovered.timerExpiresAtMillis - clock.value, 240_000);
+      // A second reciprocal claimant is checked in the real fresh-use transaction.
+      await seed(`restaurant_accounts/${accountId}_duplicate`, parent.restaurant);
+      const denied = await handleCustomerBiteSaverDeviceBoundUse({...signedProfileRequest,
+        logicalRequestId: requestId('profile_duplicate_denied')}, savedContextA);
+      assert.equal(denied.status, 'denied');
+      assert.equal(denied.timerStartedAtMillis, null);
+      await database.commitWrites([{type:'delete', path:`restaurant_accounts/${accountId}_duplicate`}]);
+      assert.deepEqual(await handleCustomerBiteSaverDeviceBoundUse(signedProfileRequest, savedContextA), recovered);
+    }
 
     const savedContextB = signedContext(
       uidB,
@@ -1625,7 +1681,7 @@ if (!emulatorGate) {
       writes: 0,
     });
 
-    metrics.scenarioMeasurements.deviceUsageCore = {
+    metrics.scenarioMeasurements[profileMode ? "profileDeviceUsageCore" : "deviceUsageCore"] = {
       syntheticDeviceEvidenceBoundary: true,
       realFirestoreTransactions: transactionInvocations,
       realFirestoreAttempts: transactionAttempts,

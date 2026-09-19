@@ -1,3 +1,10 @@
+import {
+  startCustomerBiteSaverProfileUseContext,
+  authenticateCustomerBiteSaverProfileChallengeAuthority,
+  readCustomerBiteSaverProfileUseAuthority,
+  type CustomerBiteSaverProfileUseContextResult,
+} from "./customer_bitesaver_profile_use.js";
+import {getCustomerBiteSaverPublicProfileHandler, type CustomerBiteSaverPublicProfileResult} from "./customer_bitesaver_public_profile.js";
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import {
   canonicalCustomerBiteSaverCriteria,
@@ -557,7 +564,7 @@ function buildStartRequestReplay(value: {
   callerBindingHash: string;
   clientRequestBinding: string;
   requestFingerprint: string;
-  session: CustomerBiteSaverSessionDocument;
+  session: Pick<CustomerBiteSaverSessionDocument, "sessionId" | "attemptGeneration" | "absoluteExpiresAt">;
   now: Date;
 }): StartRequestReplayDocument {
   const absoluteExpiresAt = new Date(
@@ -1602,13 +1609,17 @@ function parseBoundSessionRequest(value: unknown): BoundSessionRequest {
   });
 }
 
-export function authorizeCustomerBiteSaverSession(value: {
+export type CustomerBiteSaverSessionAuthority = Pick<CustomerBiteSaverSessionDocument,
+  "sessionId" | "criteriaFingerprint" | "callerScope" | "callerBindingHash" |
+  "authenticatedUidHash" | "capabilityHash" | "logicalExpiresAt" | "absoluteExpiresAt" | "state">;
+
+export function authorizeCustomerBiteSaverSession<T extends CustomerBiteSaverSessionAuthority>(value: {
   request: BoundSessionRequest;
-  session: CustomerBiteSaverSessionDocument | null;
+  session: T | null;
   context: CustomerBiteSaverSessionContext;
   nowMs: number;
   allowExpired?: boolean;
-}): CustomerBiteSaverSessionDocument {
+}): T {
   const session = value.session;
   if (session === null) {
     throw new CustomerBiteSaverContractError("not-found", "Search unavailable.");
@@ -1763,6 +1774,11 @@ export async function getCustomerBiteSaverSearchStatusHandler(
 
 export const customerBiteSaverSessionInternals = Object.freeze({
   parseBoundSessionRequest,
+  callerScope, requireAuthUid, authenticatedUidHash, controlDocumentId,
+  pointerDocumentId, parseActiveControl, parseActivePointer,
+  startRequestReplayDocumentId, startRequestClientBinding,
+  parseStartRequestReplay, buildStartRequestReplay,
+  requestCallerCapabilityBindingFor, guestStateFingerprint,
   parseSession,
   parsePrivatePreviewCandidate,
   parsePrivateSafeRestaurantSnapshot,
@@ -3221,20 +3237,35 @@ function freshOfferProjection(value: {
   now: Date;
   identityKeyV1: CustomerBiteSaverIdentityKeyV1;
 }): Readonly<Record<string, unknown>> | null {
+  return freshCustomerBiteSaverOfferProjection({
+    ...value,
+    authoritativeAccountId: value.parent.result.authoritativeAccountId,
+    restaurant: value.parent.raw,
+  });
+}
+
+export function freshCustomerBiteSaverOfferProjection(value: {
+  authoritativeAccountId: string;
+  restaurant: Readonly<Record<string, unknown>>;
+  candidate: ParsedPreviewCandidate;
+  raw: Readonly<Record<string, unknown>>;
+  now: Date;
+  identityKeyV1: CustomerBiteSaverIdentityKeyV1;
+}): Readonly<Record<string, unknown>> | null {
   const projection = value.candidate.offerType === "coupon"
     ? buildBiteSaverCouponOfferIndex({
-        restaurantAccountId: value.parent.result.authoritativeAccountId,
+        restaurantAccountId: value.authoritativeAccountId,
         sourceDocumentId: value.candidate.sourceDocumentId,
         offer: value.raw,
-        restaurant: value.parent.raw,
+        restaurant: value.restaurant,
         now: value.now,
         identityKeyV1: value.identityKeyV1,
       })
     : buildBiteSaverDailySpecialOfferIndex({
-        restaurantAccountId: value.parent.result.authoritativeAccountId,
+        restaurantAccountId: value.authoritativeAccountId,
         sourceDocumentId: value.candidate.sourceDocumentId,
         offer: value.raw,
-        restaurant: value.parent.raw,
+        restaurant: value.restaurant,
         now: value.now,
       });
   if (
@@ -3243,7 +3274,7 @@ function freshOfferProjection(value: {
       customerBiteSaverOfferProjectionVersion ||
     projection.customerDiscoverable !== true ||
     offerProjectionRestaurantAccountId(projection.restaurantAccountId) !==
-      value.parent.result.authoritativeAccountId ||
+      value.authoritativeAccountId ||
     projection.sourceDocumentId !== value.candidate.sourceDocumentId ||
     projection.indexDocumentId !== value.candidate.indexDocumentId ||
     projection.catalogGenerationContribution !==
@@ -3373,8 +3404,8 @@ type OfferSeed = Readonly<{
   publicOfferId: string;
 }>;
 
-function availabilityOfferFromFreshProjection(
-  seed: OfferSeed,
+export function availabilityOfferFromFreshProjection(
+  seed: Pick<OfferSeed, "candidate" | "raw" | "projection">,
 ): Readonly<Record<string, unknown>> {
   const fields = seed.candidate.offerType === "coupon"
     ? [
@@ -5966,7 +5997,7 @@ export function customerBiteSaverPerParentOfferQuery(value: {
   });
 }
 
-function offerCandidateFromProjection(
+export function offerCandidateFromProjection(
   document: CustomerBiteSaverStoredDocument,
   authoritativeAccountId: string,
 ): ParsedPreviewCandidate | null {
@@ -5993,7 +6024,7 @@ function offerCandidateFromProjection(
     : null;
 }
 
-function offerSortTupleFromStored(
+export function offerSortTupleFromStored(
   document: CustomerBiteSaverStoredDocument,
 ): readonly [number, string, string] {
   const rank = document.data.presentationTypeRank;
@@ -7604,6 +7635,112 @@ function unknownCustomerBiteSaverFavoriteStates(
   });
 }
 
+/** Read canonical own-favorite state only after the caller resolves exact public targets. */
+export async function readCustomerBiteSaverResolvedFavoriteStates(
+  context: CustomerBiteSaverSessionContext,
+  restaurantIds: readonly string[],
+  resolvedOffers: ReadonlyMap<string, Readonly<{offerType: "coupon" | "dailySpecial"; publicRestaurantId: string}>>,
+): Promise<CustomerBiteSaverFavoriteStatesResponse> {
+  const request = {restaurantIds, offerIds: [...resolvedOffers.keys()]};
+  const requestedIds = [...request.restaurantIds, ...request.offerIds];
+  const uid = requireAuthUid(context.identity);
+  if (uid === null) return unknownCustomerBiteSaverFavoriteStates(requestedIds);
+  try {
+    const favoritePaths: string[] = [];
+    const canonicalPathByPublicId = new Map<string, string>();
+    for (const publicId of request.restaurantIds) {
+      const favoritePath = customerBiteSaverRestaurantFavoritePath(
+        uid,
+        publicId,
+      );
+      favoritePaths.push(favoritePath);
+      canonicalPathByPublicId.set(publicId, favoritePath);
+    }
+    for (const publicId of request.offerIds) {
+      const offer = resolvedOffers.get(publicId);
+      if (offer === undefined || offer.offerType !== "coupon") {
+        continue;
+      }
+      const favoritePath = customerBiteSaverCouponFavoritePath(uid, publicId);
+      favoritePaths.push(favoritePath);
+      canonicalPathByPublicId.set(publicId, favoritePath);
+    }
+    const favoriteDocuments = await context.database.getDocuments(favoritePaths);
+    if (favoriteDocuments.length !== favoritePaths.length) {
+      return unknownCustomerBiteSaverFavoriteStates(requestedIds);
+    }
+    const favoriteByPath = new Map(
+      favoritePaths.map((favoritePath, index) => [
+        favoritePath,
+        favoriteDocuments[index],
+      ]),
+    );
+    const favoriteStateByPublicId = new Map<
+      string,
+      "favorite" | "notFavorite"
+    >();
+    for (const publicId of request.restaurantIds) {
+      const favoritePath = canonicalPathByPublicId.get(publicId);
+      if (favoritePath === undefined || !favoriteByPath.has(favoritePath)) {
+        return unknownCustomerBiteSaverFavoriteStates(requestedIds);
+      }
+      const favorite = favoriteByPath.get(favoritePath);
+      if (favorite === undefined) {
+        return unknownCustomerBiteSaverFavoriteStates(requestedIds);
+      }
+      if (favorite === null) {
+        favoriteStateByPublicId.set(publicId, "notFavorite");
+        continue;
+      }
+      if (parseCustomerBiteSaverRestaurantFavorite(favorite, {
+        userId: uid,
+        restaurantId: publicId,
+      }) === null) {
+        return unknownCustomerBiteSaverFavoriteStates(requestedIds);
+      }
+      favoriteStateByPublicId.set(publicId, "favorite");
+    }
+    for (const publicId of request.offerIds) {
+      const offer = resolvedOffers.get(publicId);
+      if (offer === undefined) {
+        return unknownCustomerBiteSaverFavoriteStates(requestedIds);
+      }
+      if (offer.offerType !== "coupon") {
+        continue;
+      }
+      const favoritePath = canonicalPathByPublicId.get(publicId);
+      if (favoritePath === undefined || !favoriteByPath.has(favoritePath)) {
+        return unknownCustomerBiteSaverFavoriteStates(requestedIds);
+      }
+      const favorite = favoriteByPath.get(favoritePath);
+      if (favorite === undefined) {
+        return unknownCustomerBiteSaverFavoriteStates(requestedIds);
+      }
+      if (favorite === null) {
+        favoriteStateByPublicId.set(publicId, "notFavorite");
+        continue;
+      }
+      if (parseCustomerBiteSaverCouponFavorite(favorite, {
+        userId: uid,
+        restaurantId: offer.publicRestaurantId,
+        offerId: publicId,
+      }) === null) {
+        return unknownCustomerBiteSaverFavoriteStates(requestedIds);
+      }
+      favoriteStateByPublicId.set(publicId, "favorite");
+    }
+    return Object.freeze({
+      schemaVersion: customerBiteSaverSearchSchemaVersion,
+      states: Object.freeze(requestedIds.map((publicId) => Object.freeze({
+        id: publicId,
+        state: favoriteStateByPublicId.get(publicId) ?? "unknown",
+      }))),
+    });
+  } catch {
+    return unknownCustomerBiteSaverFavoriteStates(requestedIds);
+  }
+}
+
 export async function getCustomerBiteSaverFavoriteStatesHandler(
   rawRequest: unknown,
   context: CustomerBiteSaverSessionContext,
@@ -7746,100 +7883,7 @@ export async function getCustomerBiteSaverFavoriteStatesHandler(
     if (resultByPublicId.size !== request.restaurantIds.length) {
       return unknownCustomerBiteSaverFavoriteStates(requestedIds);
     }
-    const favoritePaths: string[] = [];
-    const canonicalPathByPublicId = new Map<string, string>();
-    for (const publicId of request.restaurantIds) {
-      const result = resultByPublicId.get(publicId);
-      if (result === undefined) {
-        continue;
-      }
-      const favoritePath = customerBiteSaverRestaurantFavoritePath(
-        uid,
-        publicId,
-      );
-      favoritePaths.push(favoritePath);
-      canonicalPathByPublicId.set(publicId, favoritePath);
-    }
-    for (const publicId of request.offerIds) {
-      const offer = resolvedOffers.get(publicId);
-      if (offer === undefined || offer.offerType !== "coupon") {
-        continue;
-      }
-      const favoritePath = customerBiteSaverCouponFavoritePath(uid, publicId);
-      favoritePaths.push(favoritePath);
-      canonicalPathByPublicId.set(publicId, favoritePath);
-    }
-    const favoriteDocuments = await context.database.getDocuments(favoritePaths);
-    if (favoriteDocuments.length !== favoritePaths.length) {
-      return unknownCustomerBiteSaverFavoriteStates(requestedIds);
-    }
-    const favoriteByPath = new Map(
-      favoritePaths.map((favoritePath, index) => [
-        favoritePath,
-        favoriteDocuments[index],
-      ]),
-    );
-    const favoriteStateByPublicId = new Map<
-      string,
-      "favorite" | "notFavorite"
-    >();
-    for (const publicId of request.restaurantIds) {
-      const favoritePath = canonicalPathByPublicId.get(publicId);
-      if (favoritePath === undefined || !favoriteByPath.has(favoritePath)) {
-        return unknownCustomerBiteSaverFavoriteStates(requestedIds);
-      }
-      const favorite = favoriteByPath.get(favoritePath);
-      if (favorite === undefined) {
-        return unknownCustomerBiteSaverFavoriteStates(requestedIds);
-      }
-      if (favorite === null) {
-        favoriteStateByPublicId.set(publicId, "notFavorite");
-        continue;
-      }
-      if (parseCustomerBiteSaverRestaurantFavorite(favorite, {
-        userId: uid,
-        restaurantId: publicId,
-      }) === null) {
-        return unknownCustomerBiteSaverFavoriteStates(requestedIds);
-      }
-      favoriteStateByPublicId.set(publicId, "favorite");
-    }
-    for (const publicId of request.offerIds) {
-      const offer = resolvedOffers.get(publicId);
-      if (offer === undefined) {
-        return unknownCustomerBiteSaverFavoriteStates(requestedIds);
-      }
-      if (offer.offerType !== "coupon") {
-        continue;
-      }
-      const favoritePath = canonicalPathByPublicId.get(publicId);
-      if (favoritePath === undefined || !favoriteByPath.has(favoritePath)) {
-        return unknownCustomerBiteSaverFavoriteStates(requestedIds);
-      }
-      const favorite = favoriteByPath.get(favoritePath);
-      if (favorite === undefined) {
-        return unknownCustomerBiteSaverFavoriteStates(requestedIds);
-      }
-      if (favorite === null) {
-        favoriteStateByPublicId.set(publicId, "notFavorite");
-        continue;
-      }
-      if (parseCustomerBiteSaverCouponFavorite(favorite, {
-        userId: uid,
-        restaurantId: offer.publicRestaurantId,
-        offerId: publicId,
-      }) === null) {
-        return unknownCustomerBiteSaverFavoriteStates(requestedIds);
-      }
-      favoriteStateByPublicId.set(publicId, "favorite");
-    }
-    return Object.freeze({
-      schemaVersion: customerBiteSaverSearchSchemaVersion,
-      states: Object.freeze(requestedIds.map((publicId) => Object.freeze({
-        id: publicId,
-        state: favoriteStateByPublicId.get(publicId) ?? "unknown",
-      }))),
-    });
+    return readCustomerBiteSaverResolvedFavoriteStates(context, request.restaurantIds, resolvedOffers);
   } catch {
     // Request, auth, session, readiness, and identity-key contract checks all
     // complete above this boundary. Any failure while resolving private
@@ -9454,6 +9498,9 @@ export async function authenticateCustomerBiteSaverDiscoveryChallengeAuthority(
   const document = await transaction.getDocument(
     sessionPath(parsedRequest.sessionId),
   );
+  if (document?.data.mode === "publicProfileUse") {
+    return authenticateCustomerBiteSaverProfileChallengeAuthority(request, context, document, nowMillis);
+  }
   const parsedSession = parseSession(document);
   if (document !== null && parsedSession === null) {
     throw new CustomerBiteSaverContractError("failed-precondition");
@@ -9548,6 +9595,9 @@ export async function prepareCustomerBiteSaverDiscoveryDeviceUseAuthority(
       const sessionDocument = await transaction.getDocument(
         sessionPath(parsedRequest.sessionId),
       );
+      if (sessionDocument?.data.mode === "publicProfileUse") {
+        return readCustomerBiteSaverProfileUseAuthority(request, context, transaction, sessionDocument, nowMillis);
+      }
       const parsedSession = parseSession(sessionDocument);
       if (sessionDocument !== null && parsedSession === null) {
         throw new CustomerBiteSaverContractError(
@@ -14678,9 +14728,16 @@ async function startGuestRedemption(value: {
 export async function getCustomerBiteSaverSearchPageHandler(
   rawRequest: unknown,
   context: CustomerBiteSaverSessionContext,
-): Promise<CustomerBiteSaverRestaurantPageResult |
+): Promise<CustomerBiteSaverProfileUseContextResult | CustomerBiteSaverPublicProfileResult | CustomerBiteSaverMenuPageResult |
+  CustomerBiteSaverRestaurantPageResult |
   CustomerBiteSaverSignedResponse<CustomerBiteSaverRestaurantPageResult> |
   CustomerBiteSaverGuestOperationResponse> {
+  if (isPlainRecord(rawRequest) && rawRequest.kind === "publicProfileUse") {
+    return startCustomerBiteSaverProfileUseContext(rawRequest, context);
+  }
+  if (isPlainRecord(rawRequest) && rawRequest.kind === "publicProfile") {
+    return getCustomerBiteSaverPublicProfileHandler(rawRequest, context);
+  }
   const request = parsePageRequest(rawRequest, false) as
     CustomerBiteSaverPageRequest;
   requireGuestStateRevisionForCaller(request.guestStateRevision, context);
