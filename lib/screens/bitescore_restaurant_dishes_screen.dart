@@ -11,6 +11,9 @@ import '../services/app_error_text.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
+import '../services/customer_bitescore_reads.dart';
+import '../services/customer_bitescore_runtime.dart';
+import '../services/customer_bitescore_search_service.dart';
 import '../services/restaurant_menu_service.dart';
 import '../utils/phone_number_formatter.dart';
 import '../widgets/app_mode_switcher_bar.dart';
@@ -70,6 +73,8 @@ class _BiteScoreRestaurantDishesScreenState
     extends State<BiteScoreRestaurantDishesScreen> {
   late List<BiteScoreHomeEntry> _entries;
   late BitescoreRestaurant _restaurant;
+  CustomerBiteScoreSearchController? _boundedDishes;
+  final _boundedReads = CustomerBiteScoreReads();
   bool _isRefreshing = false;
   bool _bioExpanded = false;
   bool _hoursExpanded = false;
@@ -249,7 +254,14 @@ class _BiteScoreRestaurantDishesScreenState
   void initState() {
     super.initState();
     _restaurant = widget.restaurant;
-    _entries = _sortedEntries(widget.entries);
+    _entries = CustomerBiteScoreRuntime.isEnabled
+        ? []
+        : _sortedEntries(widget.entries);
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      _boundedDishes = CustomerBiteScoreSearchController(
+        criteria: customerBiteScoreDishCriteria(restaurantId: _restaurant.id),
+      )..addListener(_onBoundedDishPage);
+    }
     _hadManagementAccess = _canManageRestaurant;
     _refreshRestaurantData();
   }
@@ -282,6 +294,7 @@ class _BiteScoreRestaurantDishesScreenState
 
   @override
   void dispose() {
+    _boundedDishes?.dispose();
     _refreshGeneration += 1;
     _unbindAuthBoundRoute();
     super.dispose();
@@ -324,6 +337,11 @@ class _BiteScoreRestaurantDishesScreenState
     if (hadManagementAccess != hasManagementAccess) {
       setState(() {});
     }
+  }
+
+  void _onBoundedDishPage() {
+    if (!mounted) return;
+    setState(() => _entries = _boundedDishes!.entries);
   }
 
   List<BiteScoreHomeEntry> _sortedEntries(List<BiteScoreHomeEntry> entries) {
@@ -390,6 +408,19 @@ class _BiteScoreRestaurantDishesScreenState
       final BiteScoreRestaurantDishesInitialData data;
       if (testLoader != null) {
         data = await testLoader();
+      } else if (CustomerBiteScoreRuntime.isEnabled) {
+        final detail = await _boundedReads.detail('restaurant', _restaurant.id);
+        await _boundedDishes!.loadInitial();
+        if (_boundedDishes!.error != null) throw _boundedDishes!.error!;
+        // Only a server-confirmed owner/Admin enters the separate trusted path.
+        final managed = detail.canManage
+            ? await BiteScoreService.loadRestaurantById(_restaurant.id)
+            : null;
+        data = (
+          restaurant: managed ?? detail.restaurant,
+          entries: _boundedDishes!.entries,
+          isFavorite: detail.isFavorite,
+        );
       } else {
         final refreshedRestaurant = await BiteScoreService.loadRestaurantById(
           _restaurant.id,
@@ -718,6 +749,19 @@ class _BiteScoreRestaurantDishesScreenState
   }
 
   Future<void> _openMenu() async {
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => RestaurantMenuScreen(
+            restaurantName: _restaurant.name,
+            mode: AppMode.biteScore,
+            biteScorePageLoader: (cursor) =>
+                _boundedReads.menu(_restaurant.id, cursor: cursor),
+          ),
+        ),
+      );
+      return;
+    }
     final refreshedRestaurant = await BiteScoreService.loadRestaurantById(
       _restaurant.id,
     );
@@ -1529,6 +1573,31 @@ class _BiteScoreRestaurantDishesScreenState
                           ),
                         );
                       }),
+                    if (_boundedDishes?.hasMore == true ||
+                        _boundedDishes?.isLoading == true)
+                      Center(
+                        child: OutlinedButton(
+                          onPressed: _boundedDishes!.isLoading
+                              ? null
+                              : _boundedDishes!.loadMore,
+                          child: Text(
+                            _boundedDishes!.isLoading
+                                ? 'Loading…'
+                                : 'Load more dishes',
+                          ),
+                        ),
+                      ),
+                    if (_boundedDishes?.error != null)
+                      Padding(
+                        padding: const EdgeInsets.all(12),
+                        child: Text(
+                          AppErrorText.friendly(
+                            _boundedDishes!.error!,
+                            fallback:
+                                'Could not load dishes. Refresh and try again.',
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),

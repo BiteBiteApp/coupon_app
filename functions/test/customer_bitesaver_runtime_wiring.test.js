@@ -6,6 +6,7 @@ const Module = require("node:module");
 const protectedMetadata = require(
   "./fixtures/customer_bitesaver_pre_device_runtime_metadata.json",
 );
+const biteScoreMetadata = require("./fixtures/customer_bitescore_runtime_metadata.json");
 const path = require("node:path");
 const test = require("node:test");
 
@@ -413,7 +414,7 @@ test("Browse runtime isolation preserves the complete protected export inventory
   // Admin, search, background, and scheduled runtime configuration.
   assert.deepEqual(
     Object.keys(metadata).sort(),
-    [...Object.keys(protectedMetadata), ...Object.keys(deviceCallableFactories)]
+    [...Object.keys(protectedMetadata), ...Object.keys(deviceCallableFactories), ...Object.keys(biteScoreMetadata)]
       .sort(),
   );
   for (const [name, endpoint] of Object.entries(protectedMetadata)) {
@@ -432,6 +433,23 @@ test("Browse runtime isolation preserves the complete protected export inventory
       .map(([name]) => name),
     ["useCustomerBiteSaverCoupon"],
   );
+});
+
+test("approved BiteScore additions retain exact isolated runtime metadata", () => {
+  const metadata = loadActualCompiledMetadata();
+  // Explicitly authored RUN002/RUN003 inventory: nineteen callables, thirteen written
+  // triggers and one scheduler. SDK-default region is absent in this module's
+  // real metadata; this fixture preserves that exact source contract.
+  assert.equal(Object.keys(biteScoreMetadata).length, 33);
+  assert.equal(Object.values(biteScoreMetadata).filter(value => value.callableTrigger).length, 19);
+  assert.equal(Object.values(biteScoreMetadata).filter(value => value.eventTrigger).length, 13);
+  assert.equal(Object.values(biteScoreMetadata).filter(value => value.scheduleTrigger).length, 1);
+  for (const [name, expected] of Object.entries(biteScoreMetadata)) {
+    assert.deepEqual(metadata[name], expected, name);
+  }
+  assert.deepEqual(Object.entries(metadata)
+    .filter(([, value]) => value?.serviceAccountEmail === "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com")
+    .map(([name]) => name).sort(), Object.keys(biteScoreMetadata).sort());
 });
 
 test("exactly eight Browse exports share the dedicated Node 24 runtime identity", () => {

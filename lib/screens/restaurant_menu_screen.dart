@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 
 import '../models/customer_bitesaver_search.dart';
 import '../services/app_mode_state_service.dart';
+import '../services/customer_bitescore_reads.dart';
 import '../services/customer_bitesaver_search_coordinator.dart';
 import '../services/customer_bitesaver_service.dart';
 import '../services/restaurant_account_service.dart';
@@ -20,6 +22,8 @@ class RestaurantMenuScreen extends StatefulWidget {
   final Future<CustomerBiteSaverMenuPageResult> Function(String? cursor)?
   boundedPageLoader;
   final RestaurantMenuViewerRouteOpener? boundedViewerOpener;
+  final Future<CustomerBiteScoreMenuPage> Function(String? cursor)?
+  biteScorePageLoader;
   final AppMode mode;
 
   const RestaurantMenuScreen({
@@ -29,6 +33,7 @@ class RestaurantMenuScreen extends StatefulWidget {
     this.source,
     this.boundedPageLoader,
     this.boundedViewerOpener,
+    this.biteScorePageLoader,
     this.mode = AppMode.biteSaver,
   }) : assert(boundedPageLoader == null || boundedViewerOpener != null);
 
@@ -40,6 +45,7 @@ class RestaurantMenuScreen extends StatefulWidget {
     required RestaurantMenuViewerRouteOpener openImageViewer,
   }) : restaurantUid = null,
        source = null,
+       biteScorePageLoader = null,
        boundedPageLoader = pageLoader,
        boundedViewerOpener = openImageViewer,
        mode = AppMode.biteSaver;
@@ -92,7 +98,8 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
   @override
   void initState() {
     super.initState();
-    if (widget.boundedPageLoader == null) {
+    if (widget.boundedPageLoader == null &&
+        widget.biteScorePageLoader == null) {
       _legacyMenuFuture = _loadMenu();
     } else {
       _loadBoundedInitial();
@@ -150,7 +157,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       _boundedMenuStyle = null;
     });
     try {
-      final page = await widget.boundedPageLoader!(null);
+      final page = await _loadBoundedPage(null);
       if (!mounted) return;
       setState(() => _acceptBoundedPage(page, initial: true));
     } catch (error) {
@@ -176,7 +183,7 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
       _boundedAppendError = null;
     });
     try {
-      final page = await widget.boundedPageLoader!(cursor);
+      final page = await _loadBoundedPage(cursor);
       if (!mounted) return;
       setState(() => _acceptBoundedPage(page, initial: false));
     } catch (error) {
@@ -195,8 +202,20 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
     }
   }
 
+  Future<CustomerBiteScoreMenuPage> _loadBoundedPage(String? cursor) async {
+    final scoreLoader = widget.biteScorePageLoader;
+    if (scoreLoader != null) return scoreLoader(cursor);
+    final page = await widget.boundedPageLoader!(cursor);
+    return CustomerBiteScoreMenuPage(
+      availability: page.availability,
+      menuStyle: page.menuStyle,
+      entries: page.entries,
+      nextCursor: page.nextCursor,
+    );
+  }
+
   void _acceptBoundedPage(
-    CustomerBiteSaverMenuPageResult page, {
+    CustomerBiteScoreMenuPage page, {
     required bool initial,
   }) {
     final existingStyle = _boundedMenuStyle;
@@ -222,6 +241,15 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
 
   bool _isBoundedAccessInvalidation(Object error) {
     if (error is CustomerBiteSaverFreshSearchRequiredException) return true;
+    if (error is FirebaseFunctionsException) {
+      return {
+        'failed-precondition',
+        'permission-denied',
+        'not-found',
+        'unauthenticated',
+        'invalid-argument',
+      }.contains(error.code);
+    }
     if (error is! CustomerBiteSaverServiceException ||
         error.kind == CustomerBiteSaverServiceFailureKind.transport ||
         error.kind == CustomerBiteSaverServiceFailureKind.invalidResponse) {
@@ -274,6 +302,13 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
             ),
           );
       }
+    }
+    if (widget.biteScorePageLoader != null) {
+      return _RestaurantMenuData(
+        images: images,
+        items: items,
+        sections: sections,
+      );
     }
     images.sort((left, right) {
       final order = left.sortOrder.compareTo(right.sortOrder);
@@ -733,7 +768,8 @@ class _RestaurantMenuScreenState extends State<RestaurantMenuScreen> {
         elevation: 0,
       ),
       bottomNavigationBar: PersistentBottomNavigation(mode: widget.mode),
-      body: widget.boundedPageLoader != null
+      body:
+          widget.boundedPageLoader != null || widget.biteScorePageLoader != null
           ? _buildBoundedBody()
           : FutureBuilder<_RestaurantMenuData>(
               future: _legacyMenuFuture,

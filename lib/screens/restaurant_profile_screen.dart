@@ -14,6 +14,8 @@ import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
 import '../services/customer_bitesaver_search_coordinator.dart';
 import '../services/customer_bitesaver_saved_coordinator.dart';
+import '../services/customer_bitescore_reads.dart';
+import '../services/customer_bitescore_runtime.dart';
 import '../services/restaurant_account_service.dart';
 import '../services/restaurant_menu_service.dart';
 import '../widgets/bitesaver_colors.dart';
@@ -47,6 +49,7 @@ class RestaurantProfileScreen extends StatefulWidget {
   final PublicRestaurantDetailsRefresher? refreshRestaurant;
   final PublicRestaurantProjectionLoader? loadProjectionData;
   final PublicRestaurantMenuResolver? resolvePublicMenu;
+  final CustomerBiteScoreReads? testBiteScoreReads;
   final PublicRestaurantReportPrompt? promptForReport;
   final PublicRestaurantReportSubmitter? submitReport;
   final CustomerBiteSaverRestaurant? boundedRestaurant;
@@ -63,6 +66,7 @@ class RestaurantProfileScreen extends StatefulWidget {
     @visibleForTesting this.refreshRestaurant,
     @visibleForTesting this.loadProjectionData,
     @visibleForTesting this.resolvePublicMenu,
+    @visibleForTesting this.testBiteScoreReads,
     @visibleForTesting this.promptForReport,
     @visibleForTesting this.submitReport,
   }) : boundedRestaurant = null,
@@ -89,6 +93,7 @@ class RestaurantProfileScreen extends StatefulWidget {
        loadFavorite = null,
        refreshRestaurant = null,
        loadProjectionData = null,
+       testBiteScoreReads = null,
        resolvePublicMenu = null {
     final current = session.currentAcceptedRestaurantForAccess(
       access,
@@ -115,6 +120,7 @@ class RestaurantProfileScreen extends StatefulWidget {
        loadFavorite = null,
        refreshRestaurant = null,
        loadProjectionData = null,
+       testBiteScoreReads = null,
        resolvePublicMenu = null;
 
   @override
@@ -510,30 +516,48 @@ class _RestaurantProfileScreenState extends State<RestaurantProfileScreen> {
       return;
     }
     final accountDocumentId = restaurant.accountDocumentId;
-    final resolver = widget.resolvePublicMenu;
-    final source = accountDocumentId == null
-        ? null
-        : resolver == null
-        ? await RestaurantMenuService.resolveBiteSaverPublicMenuSource(
-            uid: accountDocumentId,
-          )
-        : await resolver(accountDocumentId);
+    RestaurantMenuSource? source;
+    String? linkedBiteScoreRestaurantId;
+    if (accountDocumentId != null) {
+      if (CustomerBiteScoreRuntime.isEnabled) {
+        final route = await RestaurantMenuService.resolveBiteSaverPublicMenuRoute(
+          uid: accountDocumentId,
+          projectionLoader: widget.loadProjectionData,
+        );
+        source = route?.source;
+        linkedBiteScoreRestaurantId = route?.biteScoreRestaurantId;
+      } else {
+        final resolver = widget.resolvePublicMenu;
+        source = resolver == null
+            ? await RestaurantMenuService.resolveBiteSaverPublicMenuSource(
+                uid: accountDocumentId,
+              )
+            : await resolver(accountDocumentId);
+      }
+    }
 
     if (!context.mounted) {
       return;
     }
 
-    if (source == null) {
+    if (source == null && linkedBiteScoreRestaurantId == null) {
       await _showLaunchError(context, 'Menu is not available right now.');
       return;
     }
 
+    final linkedId = linkedBiteScoreRestaurantId;
+    final biteScoreReads = linkedId == null
+        ? null
+        : widget.testBiteScoreReads ?? CustomerBiteScoreReads();
     await Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => RestaurantMenuScreen(
           restaurantUid: accountDocumentId,
           restaurantName: _displayText(restaurant.name, 'Restaurant'),
           source: source,
+          biteScorePageLoader: linkedId == null
+              ? null
+              : (cursor) => biteScoreReads!.menu(linkedId, cursor: cursor),
         ),
       ),
     );

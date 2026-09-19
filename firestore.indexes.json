@@ -678,6 +678,314 @@
         { "fieldPath": "sourceDocumentId", "order": "ASCENDING" },
         { "fieldPath": "source", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "restaurant_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "publicVisible", "order": "ASCENDING" },
+        { "fieldPath": "customerPublicProjectionVersion", "order": "ASCENDING" },
+        { "fieldPath": "geohash", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "publicVisible", "order": "ASCENDING" },
+        { "fieldPath": "customerPublicProjectionVersion", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dish_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "publicVisible", "order": "ASCENDING" },
+        { "fieldPath": "customerPublicProjectionVersion", "order": "ASCENDING" },
+        { "fieldPath": "restaurantSourceDocumentId", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dish_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "publicVisible", "order": "ASCENDING" },
+        { "fieldPath": "customerPublicProjectionVersion", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "private_bitescore_search_results",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sessionId", "order": "ASCENDING" },
+        { "fieldPath": "attempt", "order": "ASCENDING" },
+        { "fieldPath": "rank0", "order": "ASCENDING" },
+        { "fieldPath": "rank1", "order": "ASCENDING" },
+        { "fieldPath": "rank2", "order": "ASCENDING" },
+        { "fieldPath": "nameKey", "order": "ASCENDING" },
+        { "fieldPath": "idKey0", "order": "ASCENDING" },
+        { "fieldPath": "idKey1", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dish_reviews",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "dishId", "order": "ASCENDING" },
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "DESCENDING" },
+        { "fieldPath": "aggregateReviewOrder0", "order": "DESCENDING" },
+        { "fieldPath": "aggregateReviewOrder1", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "private_bitescore_review_aggregates",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "private_bitescore_review_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "dishId", "order": "ASCENDING" },
+        { "fieldPath": "publicVisible", "order": "ASCENDING" },
+        { "fieldPath": "writtenText", "order": "DESCENDING" },
+        { "fieldPath": "helpfulScore", "order": "DESCENDING" },
+        { "fieldPath": "createdAtMicros", "order": "DESCENDING" },
+        { "fieldPath": "reviewOrder0", "order": "ASCENDING" },
+        { "fieldPath": "reviewOrder1", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "private_bitescore_review_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "dishId", "order": "ASCENDING" },
+        { "fieldPath": "publicVisible", "order": "ASCENDING" },
+        { "fieldPath": "createdAtMicros", "order": "DESCENDING" },
+        { "fieldPath": "reviewOrder0", "order": "ASCENDING" },
+        { "fieldPath": "reviewOrder1", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "private_bitescore_review_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "dishId", "order": "ASCENDING" },
+        { "fieldPath": "publicVisible", "order": "ASCENDING" },
+        { "fieldPath": "overallBiteScore", "order": "DESCENDING" },
+        { "fieldPath": "createdAtMicros", "order": "DESCENDING" },
+        { "fieldPath": "reviewOrder0", "order": "ASCENDING" },
+        { "fieldPath": "reviewOrder1", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "private_bitescore_review_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "dishId", "order": "ASCENDING" },
+        { "fieldPath": "publicVisible", "order": "ASCENDING" },
+        { "fieldPath": "overallBiteScore", "order": "ASCENDING" },
+        { "fieldPath": "createdAtMicros", "order": "DESCENDING" },
+        { "fieldPath": "reviewOrder0", "order": "ASCENDING" },
+        { "fieldPath": "reviewOrder1", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "review_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "reviewId", "order": "ASCENDING" },
+        { "fieldPath": "reportingUserId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bitescore_restaurants",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "zipCode", "order": "ASCENDING" },
+        { "fieldPath": "normalizedName", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bitescore_dishes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "restaurantId", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "mergedIntoDishId", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "bitescore_dishes",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "restaurantId", "order": "ASCENDING" },
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "mergedIntoDishId", "order": "ASCENDING" },
+        { "fieldPath": "normalizedName", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "reportingUserId", "order": "ASCENDING" },
+        { "fieldPath": "restaurantId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dish_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "reportingUserId", "order": "ASCENDING" },
+        { "fieldPath": "dishId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "duplicate_restaurant_reports",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "reportingUserId", "order": "ASCENDING" },
+        { "fieldPath": "restaurantId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "private_bitescore_review_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "publicVisible", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "private_bitescore_review_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "publicVisible", "order": "ASCENDING" },
+        { "fieldPath": "createdAtMs", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dish_search_index",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "source", "order": "ASCENDING" },
+        { "fieldPath": "restaurantSourceDocumentId", "order": "ASCENDING" },
+        { "fieldPath": "publicVisible", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "private_bitescore_image_state",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "dishId", "order": "ASCENDING" },
+        { "fieldPath": "helpfulCount", "order": "DESCENDING" },
+        { "fieldPath": "sortOrder", "order": "ASCENDING" },
+        { "fieldPath": "createdAtMicros", "order": "ASCENDING" },
+        { "fieldPath": "imageOrder0", "order": "ASCENDING" },
+        { "fieldPath": "imageOrder1", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "private_bitescore_image_state",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "reviewId", "order": "ASCENDING" },
+        { "fieldPath": "dishId", "order": "ASCENDING" },
+        { "fieldPath": "sortOrder", "order": "ASCENDING" },
+        { "fieldPath": "createdAtMicros", "order": "ASCENDING" },
+        { "fieldPath": "imageOrder0", "order": "ASCENDING" },
+        { "fieldPath": "imageOrder1", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "private_bitescore_search_results",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "sessionId", "order": "ASCENDING" },
+        { "fieldPath": "attempt", "order": "ASCENDING" },
+        { "fieldPath": "kindRank", "order": "ASCENDING" },
+        { "fieldPath": "categoryRank", "order": "ASCENDING" },
+        { "fieldPath": "categoryKey", "order": "ASCENDING" },
+        { "fieldPath": "sortOrder", "order": "ASCENDING" },
+        { "fieldPath": "titleKey", "order": "ASCENDING" },
+        { "fieldPath": "idKey0", "order": "ASCENDING" },
+        { "fieldPath": "idKey1", "order": "ASCENDING" },
+        { "fieldPath": "__name__", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "dish_edit_proposals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "userId", "order": "ASCENDING"},
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "type", "order": "ASCENDING"},
+        {"fieldPath": "restaurantId", "order": "ASCENDING"},
+        {"fieldPath": "canonicalSourceDishId", "order": "ASCENDING"},
+        {"fieldPath": "normalizedProposedName", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "dish_edit_proposals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "userId", "order": "ASCENDING"},
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "type", "order": "ASCENDING"},
+        {"fieldPath": "restaurantId", "order": "ASCENDING"},
+        {"fieldPath": "canonicalSourceDishId", "order": "ASCENDING"},
+        {"fieldPath": "mergeTargetDishId", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "dish_edit_proposals",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "userId", "order": "ASCENDING"},
+        {"fieldPath": "status", "order": "ASCENDING"},
+        {"fieldPath": "type", "order": "ASCENDING"},
+        {"fieldPath": "restaurantId", "order": "ASCENDING"},
+        {"fieldPath": "canonicalSourceDishId", "order": "ASCENDING"},
+        {"fieldPath": "__name__", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "restaurant_claim_requests",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "restaurantId", "order": "ASCENDING"},
+        {"fieldPath": "requesterUserId", "order": "ASCENDING"},
+        {"fieldPath": "status", "order": "ASCENDING"}
+      ]
+    },
+    {
+      "collectionGroup": "bitescore_restaurants",
+      "queryScope": "COLLECTION",
+      "fields": [
+        {"fieldPath": "ownerUserId", "order": "ASCENDING"},
+        {"fieldPath": "isClaimed", "order": "ASCENDING"}
+      ]
     }
   ],
   "fieldOverrides": [
@@ -731,6 +1039,36 @@
     {
       "collectionGroup": "private_bitesaver_device_challenges",
       "fieldPath": "deleteAfter",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "private_bitescore_search_sessions",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "private_bitescore_search_results",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "private_bitescore_search_admission",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "private_bitescore_suggestion_sessions",
+      "fieldPath": "expiresAt",
+      "ttl": true,
+      "indexes": []
+    },
+    {
+      "collectionGroup": "private_bitescore_suggestion_admission",
+      "fieldPath": "expiresAt",
       "ttl": true,
       "indexes": []
     }

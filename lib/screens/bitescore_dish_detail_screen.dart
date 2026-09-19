@@ -19,6 +19,9 @@ import '../services/bitescore_image_upload_service.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
+import '../services/customer_bitescore_reads.dart';
+import '../services/customer_bitescore_runtime.dart';
+import '../services/customer_bitescore_search_service.dart';
 import '../services/contribution_points_celebration_service.dart';
 import '../services/contribution_points_service.dart';
 import '../services/local_expert_badge_celebration_service.dart';
@@ -386,6 +389,7 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
   final String? editReviewId;
   final RatingDestructiveOperationsService? ratingDestructiveOperationsService;
   final Future<void> Function()? testInitialLoader;
+  final CustomerBiteScoreReads? testCustomerReads;
   final BiteScoreDishDetailWriteGate? testWriteGate;
   final BiteScoreDishDetailReviewSaver? testReviewSaver;
   final User? Function()? testCurrentUserProvider;
@@ -403,6 +407,7 @@ class BiteScoreDishDetailScreen extends StatefulWidget {
     this.editReviewId,
     this.ratingDestructiveOperationsService,
     @visibleForTesting this.testInitialLoader,
+    @visibleForTesting this.testCustomerReads,
     @visibleForTesting this.testWriteGate,
     @visibleForTesting this.testReviewSaver,
     @visibleForTesting this.testCurrentUserProvider,
@@ -477,6 +482,13 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     _reviewSortLowestScore,
   ];
   Future<_DishDetailData>? _detailFuture;
+  late final _boundedReads =
+      widget.testCustomerReads ?? CustomerBiteScoreReads();
+  String? _boundedReviewCursor;
+  String? _boundedImageCursor;
+  bool _boundedAppendLoading = false;
+  _DishDetailData? _boundedDetail;
+  List<CustomerBiteScoreReviewItem> _boundedReviewItems = [];
   final ScrollController _scrollController = ScrollController();
   final GlobalKey _reviewSectionKey = GlobalKey();
   final Map<String, GlobalKey> _reviewCardKeys = <String, GlobalKey>{};
@@ -664,6 +676,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   }
 
   void _refresh() {
+    _boundedAppendLoading = false;
     final generation = ++_detailLoadGeneration;
     _detailFuture = _loadDetailData(generation);
   }
@@ -709,6 +722,9 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         reviewerNamesByUserId: const <String, String>{},
         localExpertBadgesByUserId: const <String, List<LocalExpertBadge>>{},
       );
+    }
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      return _loadBoundedDetailData(generation);
     }
     await BiteScoreService.evaluatePendingDishEditSuggestionsForDish(
       _currentEntry.dish.id,
@@ -792,7 +808,140 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     );
   }
 
+  Future<_DishDetailData> _loadBoundedDetailData(int generation) async {
+    final actor = mainNavigationAuthRealmForUser(_currentUser);
+    final detail = await _boundedReads.detail('dish', _currentEntry.dish.id);
+    var entry = detail.entry!;
+    final reviews = await _boundedReads.reviews(
+      entry.dish.id,
+      sort: _selectedReviewSort,
+      targetReviewId:
+          !_didHandleInitialEditReview && widget.editReviewId != null
+          ? widget.editReviewId
+          : !_didHandleTargetReview
+          ? widget.targetReviewId
+          : null,
+    );
+    final images = await _boundedReads.images(entry.dish.id);
+    if (actor != mainNavigationAuthRealmForUser(_currentUser)) {
+      throw StateError('BiteScore account changed.');
+    }
+    if (detail.canManage) {
+      final restaurant = await BiteScoreService.loadRestaurantById(
+        entry.restaurant.id,
+      );
+      final dish = await BiteScoreService.loadDishById(entry.dish.id);
+      if (restaurant != null && dish != null) {
+        entry = BiteScoreHomeEntry(
+          dish: dish,
+          restaurant: restaurant,
+          aggregate: entry.aggregate,
+        );
+      }
+    }
+    if (actor != mainNavigationAuthRealmForUser(_currentUser)) {
+      throw StateError('BiteScore account changed.');
+    }
+    final data = _boundedData(entry, reviews.items, images.items);
+    if (generation == _detailLoadGeneration) {
+      _boundedReviewItems = reviews.items;
+      _boundedReviewCursor = reviews.nextCursor;
+      _boundedImageCursor = images.nextCursor;
+      _boundedDetail = data;
+      _currentEntry = entry;
+      _isFavoriteDish = detail.isFavorite;
+    }
+    return data;
+  }
+
+  _DishDetailData _boundedData(
+    BiteScoreHomeEntry entry,
+    List<CustomerBiteScoreReviewItem> reviews,
+    List<BiteScoreDishImage> images,
+  ) => _DishDetailData(
+    dish: entry.dish,
+    restaurant: entry.restaurant,
+    aggregate: entry.aggregate,
+    reviews: reviews.map((item) => item.review).toList(),
+    dishImages: images,
+    trustByReviewId: {for (final item in reviews) item.review.id: item.trust},
+    reviewImageByReviewId: {
+      for (final item in reviews)
+        if (item.image != null) item.review.id: item.image!,
+    },
+    reviewerReviewCountsByUserId: {
+      for (final item in reviews) item.review.userId: item.publicReviewCount,
+    },
+    reviewerNamesByUserId: {
+      for (final item in reviews) item.review.userId: item.displayName,
+    },
+    localExpertBadgesByUserId: {
+      for (final item in reviews) item.review.userId: item.badges,
+    },
+  );
+
+  Future<void> _loadMoreBounded({bool images = false}) async {
+    final cursor = images ? _boundedImageCursor : _boundedReviewCursor;
+    if (_boundedAppendLoading || cursor == null || _boundedDetail == null) {
+      return;
+    }
+    final generation = _detailLoadGeneration;
+    final sort = _selectedReviewSort;
+    setState(() => _boundedAppendLoading = true);
+    try {
+      var loadedImages = _boundedDetail!.dishImages;
+      if (images) {
+        final page = await _boundedReads.images(
+          _currentEntry.dish.id,
+          cursor: cursor,
+        );
+        if (!mounted || generation != _detailLoadGeneration) return;
+        loadedImages = {
+          for (final image in [...loadedImages, ...page.items]) image.id: image,
+        }.values.toList();
+        _boundedImageCursor = page.nextCursor;
+      } else {
+        final page = await _boundedReads.reviews(
+          _currentEntry.dish.id,
+          sort: sort,
+          cursor: cursor,
+        );
+        if (!mounted ||
+            generation != _detailLoadGeneration ||
+            sort != _selectedReviewSort) {
+          return;
+        }
+        _boundedReviewItems = {
+          for (final item in [..._boundedReviewItems, ...page.items])
+            item.review.id: item,
+        }.values.toList();
+        _boundedReviewCursor = page.nextCursor;
+        _visibleReviewCount += 3;
+      }
+      _boundedDetail = _boundedData(
+        _currentEntry,
+        _boundedReviewItems,
+        loadedImages,
+      );
+      setState(() => _detailFuture = Future.value(_boundedDetail!));
+    } catch (error) {
+      if (mounted && generation == _detailLoadGeneration) {
+        _showSnackBar(
+          AppErrorText.friendly(
+            error,
+            fallback: 'Could not load more. Refresh and try again.',
+          ),
+        );
+      }
+    } finally {
+      if (mounted && generation == _detailLoadGeneration) {
+        setState(() => _boundedAppendLoading = false);
+      }
+    }
+  }
+
   List<DishReview> _sortedReviewsForDisplay(List<DishReview> reviews) {
+    if (CustomerBiteScoreRuntime.isEnabled) return reviews;
     final sortedReviews = List<DishReview>.from(reviews);
     if (_selectedReviewSort == _reviewSortMostHelpful) {
       return sortedReviews;
@@ -845,6 +994,11 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
           }
           setState(() {
             _selectedReviewSort = value;
+            if (CustomerBiteScoreRuntime.isEnabled) {
+              _visibleReviewCount = 3;
+              _boundedAppendLoading = false;
+              _refresh();
+            }
           });
         },
       ),
@@ -1100,9 +1254,11 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
   }
 
   Future<void> _openRestaurantPage() async {
-    final restaurantEntries = await BiteScoreService.loadEntriesForRestaurant(
-      _currentEntry.restaurant,
-    );
+    final restaurantEntries = CustomerBiteScoreRuntime.isEnabled
+        ? const <BiteScoreHomeEntry>[]
+        : await BiteScoreService.loadEntriesForRestaurant(
+            _currentEntry.restaurant,
+          );
     if (!mounted) {
       return;
     }
@@ -1502,7 +1658,12 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         return;
       }
 
-      final freshDish = await BiteScoreService.loadDishById(dish.id);
+      final freshDetail = CustomerBiteScoreRuntime.isEnabled
+          ? await _boundedReads.detail('dish', dish.id)
+          : null;
+      final freshDish = CustomerBiteScoreRuntime.isEnabled
+          ? freshDetail!.entry?.dish
+          : await BiteScoreService.loadDishById(dish.id);
       if (!_isPrivateLeaseCurrent(authLease)) {
         return;
       }
@@ -1513,12 +1674,15 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
         _showSnackBar('This dish is no longer available.');
         return;
       }
-      final freshImages = await BiteScoreService.loadDishImages(dish.id);
+      final freshImages = CustomerBiteScoreRuntime.isEnabled
+          ? const <BiteScoreDishImage>[]
+          : await BiteScoreService.loadDishImages(dish.id);
       if (!_isPrivateLeaseCurrent(authLease)) {
         return;
       }
-      if (BiteScoreDishImagePreview.effectiveImageUrl(freshDish, freshImages) !=
-          null) {
+      if ((freshDetail != null && freshDetail.imageCount > 0) ||
+          BiteScoreDishImagePreview.effectiveImageUrl(freshDish, freshImages) !=
+              null) {
         if (!mounted) {
           return;
         }
@@ -1880,12 +2044,12 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     final safeImages = images ?? const <BiteScoreDishImage>[];
     final imageUrl = BiteScoreDishImagePreview.effectiveImageUrl(
       dish,
-      safeImages,
+      CustomerBiteScoreRuntime.isEnabled ? const [] : safeImages,
     );
 
     return BiteScoreDishImagePreview(
       dish: dish,
-      images: safeImages,
+      images: CustomerBiteScoreRuntime.isEnabled ? const [] : safeImages,
       isAddingImage: _isAddingDishImage,
       onAddImage: () => _addMissingDishImage(
         dish: dish,
@@ -1933,6 +2097,12 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     final didChange = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => BiteScoreDishImageGalleryScreen(
+          pageLoader: CustomerBiteScoreRuntime.isEnabled
+              ? (cursor) => _boundedReads.images(dish.id, cursor: cursor)
+              : null,
+          initialCursor: CustomerBiteScoreRuntime.isEnabled
+              ? _boundedImageCursor
+              : null,
           dish: dish,
           restaurant: restaurant,
           images: safeImages,
@@ -3233,7 +3403,10 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                       : effectiveVisibleReviewCount,
                 )
                 .toList();
-            final hasMoreReviews = sortedReviews.length > visibleReviews.length;
+            final hasMoreReviews =
+                sortedReviews.length > visibleReviews.length ||
+                (CustomerBiteScoreRuntime.isEnabled &&
+                    _boundedReviewCursor != null);
 
             return Column(
               children: [
@@ -3470,6 +3643,16 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                               ),
                             ),
                             const SizedBox(height: 12),
+                            if (CustomerBiteScoreRuntime.isEnabled &&
+                                _boundedImageCursor != null)
+                              Center(
+                                child: OutlinedButton(
+                                  onPressed: _boundedAppendLoading
+                                      ? null
+                                      : () => _loadMoreBounded(images: true),
+                                  child: const Text('Load more photos'),
+                                ),
+                              ),
                             _buildSuggestionCard(currentDish),
                             const SizedBox(height: 12),
                             const Text(
@@ -3524,11 +3707,21 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
                                 const SizedBox(height: 2),
                                 Center(
                                   child: OutlinedButton(
-                                    onPressed: () {
-                                      setState(() {
-                                        _visibleReviewCount += 3;
-                                      });
-                                    },
+                                    onPressed: _boundedAppendLoading
+                                        ? null
+                                        : () {
+                                            if (CustomerBiteScoreRuntime
+                                                    .isEnabled &&
+                                                _visibleReviewCount >=
+                                                    sortedReviews.length &&
+                                                _boundedReviewCursor != null) {
+                                              _loadMoreBounded();
+                                            } else {
+                                              setState(
+                                                () => _visibleReviewCount += 3,
+                                              );
+                                            }
+                                          },
                                     style: BiteRaterTheme.outlinedButtonStyle(
                                       accentColor: BiteRaterTheme.grape,
                                     ),
@@ -3609,6 +3802,11 @@ typedef BiteScoreGalleryVoteCallback =
     });
 
 class BiteScoreDishImageGalleryScreen extends StatefulWidget {
+  final Future<CustomerBiteScoreReadPage<BiteScoreDishImage>> Function(
+    String? cursor,
+  )?
+  pageLoader;
+  final String? initialCursor;
   final BitescoreDish dish;
   final BitescoreRestaurant restaurant;
   final List<BiteScoreDishImage> images;
@@ -3624,6 +3822,8 @@ class BiteScoreDishImageGalleryScreen extends StatefulWidget {
 
   const BiteScoreDishImageGalleryScreen({
     super.key,
+    this.pageLoader,
+    this.initialCursor,
     required this.dish,
     required this.restaurant,
     required this.images,
@@ -3649,6 +3849,9 @@ class _BiteScoreDishImageGalleryScreenState
   late int _selectedIndex;
   Map<String, String> _currentVotesByImageId = const <String, String>{};
   bool _isVoting = false;
+  bool _isLoadingMore = false;
+  final Set<String> _loadedVoteImageIds = <String>{};
+  String? _nextImageCursor;
   bool _isAddingImage = false;
   bool _didChange = false;
   final Object _homeRefreshIntentOwner = Object();
@@ -3691,6 +3894,7 @@ class _BiteScoreDishImageGalleryScreenState
   void initState() {
     super.initState();
     _images = List<BiteScoreDishImage>.from(widget.images);
+    _nextImageCursor = widget.initialCursor;
     _imageUrls = widget.imageUrls
         .map((url) => url.trim())
         .where((url) => url.isNotEmpty)
@@ -3757,6 +3961,7 @@ class _BiteScoreDishImageGalleryScreenState
         previousRealm == 'guest' && nextRealm.startsWith('signed:');
     setState(() {
       _currentVotesByImageId = const <String, String>{};
+      _loadedVoteImageIds.clear();
       if (!preservesGuestOperation) {
         _isVoting = false;
         _isAddingImage = false;
@@ -3764,6 +3969,47 @@ class _BiteScoreDishImageGalleryScreenState
       _didChange = false;
     });
     _loadCurrentVotes();
+  }
+
+  Future<void> _loadMoreImages() async {
+    final loader = widget.pageLoader;
+    final cursor = _nextImageCursor;
+    if (loader == null || cursor == null || _isLoadingMore) return;
+    final authRealm = mainNavigationAuthRealmForUser(_currentUser);
+    setState(() => _isLoadingMore = true);
+    try {
+      final page = await loader(cursor);
+      if (!mounted ||
+          authRealm != mainNavigationAuthRealmForUser(_currentUser)) {
+        return;
+      }
+      setState(() {
+        _images = {
+          for (final image in [..._images, ...page.items]) image.id: image,
+        }.values.toList();
+        _imageUrls = {
+          ..._imageUrls,
+          ...page.items.map((image) => image.imageUrl),
+        }.toList();
+        _nextImageCursor = page.nextCursor;
+      });
+      _loadCurrentVotes();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              AppErrorText.friendly(
+                error,
+                fallback: 'Could not load more photos. Please try again.',
+              ),
+            ),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoadingMore = false);
+    }
   }
 
   void _selectImage(int index) {
@@ -3792,7 +4038,7 @@ class _BiteScoreDishImageGalleryScreenState
     final generation = ++_voteLoadGeneration;
     final imageIds = _images
         .map((image) => image.id.trim())
-        .where((id) => id.isNotEmpty)
+        .where((id) => id.isNotEmpty && !_loadedVoteImageIds.contains(id))
         .toList();
     if (imageIds.isEmpty) {
       return;
@@ -3802,13 +4048,15 @@ class _BiteScoreDishImageGalleryScreenState
         widget.loadCurrentVotes ??
         BiteScoreService.loadCurrentUserDishImageVotes;
     try {
-      final votes = await loader(imageIds);
-      if (!mounted || generation != _voteLoadGeneration) {
-        return;
+      for (var offset = 0; offset < imageIds.length; offset += 25) {
+        final batch = imageIds.skip(offset).take(25).toList();
+        final votes = await loader(batch);
+        if (!mounted || generation != _voteLoadGeneration) return;
+        setState(() {
+          _loadedVoteImageIds.addAll(batch);
+          _currentVotesByImageId = {..._currentVotesByImageId, ...votes};
+        });
       }
-      setState(() {
-        _currentVotesByImageId = votes;
-      });
     } catch (error) {
       if (mounted && generation == _voteLoadGeneration) {
         debugPrint('Could not load current dish image votes: $error');
@@ -4152,6 +4400,13 @@ class _BiteScoreDishImageGalleryScreenState
                       ),
                     ),
                     _buildVoteControls(),
+                    if (_nextImageCursor != null)
+                      TextButton(
+                        onPressed: _isLoadingMore ? null : _loadMoreImages,
+                        child: Text(
+                          _isLoadingMore ? 'Loading…' : 'Load more photos',
+                        ),
+                      ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 10),
                       child: Row(
@@ -4741,15 +4996,51 @@ class _DishMergeSuggestionDialogState
     extends State<_DishMergeSuggestionDialog> {
   String? _selectedDishId;
   bool _isSaving = false;
-  late final Future<List<BitescoreDish>> _candidatesFuture;
+  late Future<List<BitescoreDish>> _candidatesFuture;
+  CustomerBiteScoreSearchController? _candidateSearch;
 
   @override
   void initState() {
     super.initState();
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      _candidateSearch = CustomerBiteScoreSearchController(
+        criteria: customerBiteScoreDishCriteria(
+          restaurantId: widget.restaurant.id,
+          sort: 'Dish Name',
+        ),
+      );
+    }
     _candidatesFuture = _loadMergeCandidates();
   }
 
+  @override
+  void dispose() {
+    _candidateSearch?.dispose();
+    super.dispose();
+  }
+
+  List<BitescoreDish> _boundedCandidateDishes() => _candidateSearch!.entries
+      .map((entry) => entry.dish)
+      .where((dish) => dish.id != widget.sourceDish.id)
+      .toList();
+
+  Future<void> _loadMoreMergeCandidates() async {
+    final search = _candidateSearch!;
+    final loading = search.loadMore();
+    setState(() {});
+    await loading;
+    if (!mounted) return;
+    setState(() {
+      _candidatesFuture = Future.value(_boundedCandidateDishes());
+    });
+  }
+
   Future<List<BitescoreDish>> _loadMergeCandidates() async {
+    if (_candidateSearch != null) {
+      await _candidateSearch!.loadInitial();
+      if (_candidateSearch!.error != null) throw _candidateSearch!.error!;
+      return _boundedCandidateDishes();
+    }
     final dishes = await BiteScoreService.loadDishesForRestaurant(
       widget.restaurant.id,
     );
@@ -4825,13 +5116,13 @@ class _DishMergeSuggestionDialogState
           }
 
           final dishes = snapshot.data ?? const <BitescoreDish>[];
-          if (dishes.isEmpty) {
+          if (dishes.isEmpty && _candidateSearch?.hasMore != true) {
             return const Text(
               'No other active dishes are available for merge suggestions here.',
             );
           }
 
-          return DropdownButtonFormField<String>(
+          final choices = DropdownButtonFormField<String>(
             initialValue: _selectedDishId,
             decoration: const InputDecoration(
               labelText: 'Merge into',
@@ -4852,6 +5143,26 @@ class _DishMergeSuggestionDialogState
                       _selectedDishId = value;
                     });
                   },
+          );
+          if (_candidateSearch == null) return choices;
+          return Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (dishes.isNotEmpty) choices,
+              if (_candidateSearch!.hasMore)
+                TextButton(
+                  onPressed: _candidateSearch!.isLoading
+                      ? null
+                      : _loadMoreMergeCandidates,
+                  child: Text(
+                    _candidateSearch!.isLoading
+                        ? 'Loading...'
+                        : _candidateSearch!.error == null
+                        ? 'Load More'
+                        : 'Retry',
+                  ),
+                ),
+            ],
           );
         },
       ),

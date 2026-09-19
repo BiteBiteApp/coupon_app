@@ -674,9 +674,216 @@ const REQUIRED_INDEX_CONTRACT = [
       ),
     ],
   ),
+  // BiteScore opt-in source specialization. Keep this independent inventory
+  // explicit: it records query contracts, not a copy generated from the manifest.
+  requiredIndex(
+    "bitescore.restaurant-geographic-preparation",
+    "BITESCORE_STAGE_1",
+    ["functions/src/customer_bitescore_search.ts"],
+    "restaurant_search_index",
+    ascending("source", "publicVisible", "customerPublicProjectionVersion", "geohash", "__name__"),
+  ),
+  requiredIndex(
+    "bitescore.restaurant-global-preparation",
+    "BITESCORE_STAGE_1",
+    ["functions/src/customer_bitescore_search.ts"],
+    "restaurant_search_index",
+    ascending("source", "publicVisible", "customerPublicProjectionVersion", "__name__"),
+  ),
+  requiredIndex(
+    "bitescore.restaurant-dish-preparation",
+    "BITESCORE_STAGE_1",
+    ["functions/src/customer_bitescore_search.ts"],
+    "dish_search_index",
+    ascending("source", "publicVisible", "customerPublicProjectionVersion", "restaurantSourceDocumentId", "__name__"),
+  ),
+  requiredIndex(
+    "bitescore.dish-global-preparation",
+    "BITESCORE_STAGE_1",
+    ["functions/src/customer_bitescore_search.ts"],
+    "dish_search_index",
+    ascending("source", "publicVisible", "customerPublicProjectionVersion", "__name__"),
+  ),
+  requiredIndex(
+    "bitescore.global-search-and-profile-results",
+    "BITESCORE_STAGE_1",
+    ["functions/src/customer_bitescore_search.ts", "functions/src/customer_bitescore_profile_search.ts"],
+    "private_bitescore_search_results",
+    ascending("sessionId", "attempt", "rank0", "rank1", "rank2", "nameKey", "idKey0", "idKey1", "__name__"),
+  ),
+  requiredIndex(
+    "bitescore.current-logical-review-winner",
+    "BITESCORE_STAGE_1",
+    ["functions/src/bitescore_review_aggregate.ts"],
+    "dish_reviews",
+    [...ascending("dishId", "userId"), ...descending("updatedAt", "aggregateReviewOrder0", "aggregateReviewOrder1")],
+  ),
+  requiredIndex(
+    "bitescore.aggregate-bounded-reconciliation",
+    "BITESCORE_STAGE_1",
+    ["functions/src/bitescore_review_aggregate.ts"],
+    "private_bitescore_review_aggregates",
+    ascending("status", "updatedAt"),
+  ),
+  requiredIndex(
+    "bitescore.dish-reviews-most-helpful",
+    "BITESCORE_STAGE_1",
+    ["functions/src/customer_bitescore_reads.ts"],
+    "private_bitescore_review_index",
+    [...ascending("dishId", "publicVisible"), ...descending("writtenText", "helpfulScore", "createdAtMicros"),
+      ...ascending("reviewOrder0", "reviewOrder1")],
+  ),
+  requiredIndex(
+    "bitescore.dish-reviews-most-recent",
+    "BITESCORE_STAGE_1",
+    ["functions/src/customer_bitescore_reads.ts"],
+    "private_bitescore_review_index",
+    [...ascending("dishId", "publicVisible"), ...descending("createdAtMicros"), ...ascending("reviewOrder0", "reviewOrder1")],
+  ),
+  requiredIndex(
+    "bitescore.dish-reviews-highest-score",
+    "BITESCORE_STAGE_1",
+    ["functions/src/customer_bitescore_reads.ts"],
+    "private_bitescore_review_index",
+    [...ascending("dishId", "publicVisible"), ...descending("overallBiteScore", "createdAtMicros"), ...ascending("reviewOrder0", "reviewOrder1")],
+  ),
+  requiredIndex(
+    "bitescore.dish-reviews-lowest-score",
+    "BITESCORE_STAGE_1",
+    ["functions/src/customer_bitescore_reads.ts"],
+    "private_bitescore_review_index",
+    [...ascending("dishId", "publicVisible", "overallBiteScore"), ...descending("createdAtMicros"), ...ascending("reviewOrder0", "reviewOrder1")],
+  ),
+  requiredIndex(
+    "bitescore.current-review-report",
+    "BITESCORE_STAGE_1",
+    ["functions/src/customer_bitescore_reads.ts"],
+    "review_reports",
+    ascending("reviewId", "reportingUserId", "status"),
+  ),
+  requiredIndex(
+    "bitescore.new-restaurant-exact-duplicate-check",
+    "BITESCORE_STAGE_1",
+    ["lib/services/bitescore_service.dart", "functions/src/customer_bitescore_creation.ts"],
+    "bitescore_restaurants",
+    ascending("zipCode", "normalizedName"),
+  ),
+  requiredIndex(
+    "bitescore.restaurant-active-dish-check",
+    "BITESCORE_STAGE_1",
+    ["lib/services/bitescore_service.dart", "functions/src/customer_bitescore_creation.ts"],
+    "bitescore_dishes",
+    ascending("restaurantId", "isActive", "mergedIntoDishId"),
+  ),
+  requiredIndex(
+    "bitescore.new-dish-exact-duplicate-check",
+    "BITESCORE_STAGE_1",
+    ["lib/services/bitescore_service.dart", "functions/src/customer_bitescore_creation.ts"],
+    "bitescore_dishes",
+    ascending("restaurantId", "isActive", "mergedIntoDishId", "normalizedName"),
+  ),
+  requiredIndex(
+    "bitescore.current-restaurant-report",
+    "BITESCORE_STAGE_1",
+    ["lib/services/bitescore_service.dart"],
+    "restaurant_reports",
+    ascending("reportingUserId", "restaurantId", "status"),
+  ),
+  requiredIndex(
+    "bitescore.current-dish-report",
+    "BITESCORE_STAGE_1",
+    ["lib/services/bitescore_service.dart"],
+    "dish_reports",
+    ascending("reportingUserId", "dishId", "status"),
+  ),
+  requiredIndex(
+    "bitescore.current-duplicate-restaurant-report",
+    "BITESCORE_STAGE_1",
+    ["lib/services/bitescore_service.dart"],
+    "duplicate_restaurant_reports",
+    ascending("reportingUserId", "restaurantId", "status"),
+  ),
+  requiredIndex(
+    "bitescore.profile-review-preparation",
+    "BITESCORE_STAGE_1",
+    ["functions/src/customer_bitescore_profile_search.ts"],
+    "private_bitescore_review_index",
+    ascending("userId", "publicVisible", "__name__"),
+  ),
+  requiredIndex(
+    "bitescore.public-profile-oldest-review",
+    "BITESCORE_STAGE_1",
+    ["functions/src/customer_bitescore_profile_summary.ts"],
+    "private_bitescore_review_index",
+    ascending("userId", "publicVisible", "createdAtMs"),
+  ),
+  requiredIndex(
+    "bitescore.restaurant-dish-suggestions",
+    "BITESCORE_STAGE_1",
+    ["functions/src/customer_bitescore_suggestions.ts"],
+    "dish_search_index",
+    ascending("source", "restaurantSourceDocumentId", "publicVisible", "__name__"),
+  ),
+  requiredIndex(
+    "bitescore.dish-image-gallery-ranking",
+    "BITESCORE_STAGE_1",
+    ["functions/src/customer_bitescore_reads.ts"],
+    "private_bitescore_image_state",
+    [...ascending("dishId"), ...descending("helpfulCount"), ...ascending("sortOrder", "createdAtMicros", "imageOrder0", "imageOrder1")],
+  ),
+  requiredIndex(
+    "bitescore.review-primary-image",
+    "BITESCORE_STAGE_1",
+    ["functions/src/customer_bitescore_reads.ts"],
+    "private_bitescore_image_state",
+    ascending("reviewId", "dishId", "sortOrder", "createdAtMicros", "imageOrder0", "imageOrder1"),
+  ),
+  requiredIndex(
+    "bitescore.globally-ordered-menu-results",
+    "BITESCORE_STAGE_1",
+    ["functions/src/customer_bitescore_menu_search.ts"],
+    "private_bitescore_search_results",
+    ascending("sessionId", "attempt", "kindRank", "categoryRank", "categoryKey", "sortOrder", "titleKey", "idKey0", "idKey1", "__name__"),
+  ),
+  requiredIndex(
+    "bitescore.pending-rename-existence", "BITESCORE_STAGE_2",
+    ["lib/services/dish_edit_proposal_duplicate_lookup.dart"],
+    "dish_edit_proposals",
+    ascending("userId", "status", "type", "restaurantId", "canonicalSourceDishId", "normalizedProposedName"),
+  ),
+  requiredIndex(
+    "bitescore.pending-merge-existence", "BITESCORE_STAGE_2",
+    ["lib/services/dish_edit_proposal_duplicate_lookup.dart"],
+    "dish_edit_proposals",
+    ascending("userId", "status", "type", "restaurantId", "canonicalSourceDishId", "mergeTargetDishId"),
+  ),
+  requiredIndex(
+    "bitescore.pending-long-rename-continuation", "BITESCORE_STAGE_2",
+    ["lib/services/dish_edit_proposal_duplicate_lookup.dart"],
+    "dish_edit_proposals",
+    ascending("userId", "status", "type", "restaurantId", "canonicalSourceDishId", "__name__"),
+  ),
+  requiredIndex(
+    "bitescore.pending-claim-existence", "BITESCORE_STAGE_2",
+    ["functions/src/customer_bitescore_creation.ts"],
+    "restaurant_claim_requests",
+    ascending("restaurantId", "requesterUserId", "status"),
+  ),
+  requiredIndex(
+    "bitescore.owned-claimed-restaurants", "BITESCORE_STAGE_2",
+    ["lib/services/bitescore_owner_queries.dart"],
+    "bitescore_restaurants",
+    ascending("ownerUserId", "isClaimed"),
+  ),
 ];
 
 const AUTOMATIC_INDEX_CONTRACT = [
+  {
+    id: "bitescore.long-restaurant-name-continuation",
+    phase: "BITESCORE_STAGE_2",
+    source: "functions/src/customer_bitescore_creation.ts",
+    reason: "ZIP equality with ascending document identity uses its automatic single-field index",
+  },
   {
     id: "customer.public-restaurant-projection",
     phase: "P1",
@@ -747,6 +954,18 @@ const REQUIRED_FIELD_OVERRIDE_CONTRACT = [
     ttl: true,
     indexes: [],
   },
+  ...[
+    "private_bitescore_search_sessions",
+    "private_bitescore_search_results",
+    "private_bitescore_search_admission",
+    "private_bitescore_suggestion_sessions",
+    "private_bitescore_suggestion_admission",
+  ].map((collectionGroup) => ({
+    collectionGroup,
+    fieldPath: "expiresAt",
+    ttl: true,
+    indexes: [],
+  })),
 ];
 
 const loadIndexConfiguration = () =>
@@ -788,7 +1007,7 @@ test("Firestore composite index contract is unique, scoped, and structurally val
 
   assert.equal(new Set(signatures).size, signatures.length);
   assert.equal(new Set(contractIds).size, contractIds.length);
-  assert.equal(configuration.indexes.length, 72);
+  assert.equal(configuration.indexes.length, 101);
   assert.equal(
     REQUIRED_INDEX_CONTRACT.filter(({ phase }) => phase === "LEGACY").length,
     2,
@@ -807,6 +1026,8 @@ test("Firestore composite index contract is unique, scoped, and structurally val
     ).length,
     4,
   );
+  assert.equal(REQUIRED_INDEX_CONTRACT.filter(({phase}) => phase === "BITESCORE_STAGE_1").length, 24);
+  assert.equal(REQUIRED_INDEX_CONTRACT.filter(({phase}) => phase === "BITESCORE_STAGE_2").length, 5);
 
   for (const index of configuration.indexes) {
     assert.deepEqual(Object.keys(index).sort(), [
@@ -816,9 +1037,16 @@ test("Firestore composite index contract is unique, scoped, and structurally val
     ]);
     assert.equal(index.queryScope, "COLLECTION");
     assert.ok(index.fields.length >= 2);
+    assert.ok(index.fields.length <= 10);
 
-    for (const field of index.fields) {
-      assert.notEqual(field.fieldPath, "__name__");
+    for (const [position, field] of index.fields.entries()) {
+      if (field.fieldPath === "__name__") {
+        assert.equal(position, index.fields.length - 1, "document identity is the final order field");
+        assert.equal(field.order, "ASCENDING");
+        assert.ok(["BITESCORE_STAGE_1", "BITESCORE_STAGE_2"].includes(
+          REQUIRED_INDEX_CONTRACT.find((contract) => indexSignature(contract) === indexSignature(index))?.phase),
+        "only the explicit BiteScore contracts introduce document-ID ordering");
+      }
       assert.equal(
         Number(Object.hasOwn(field, "order")) +
           Number(Object.hasOwn(field, "arrayConfig")),
@@ -836,7 +1064,7 @@ test("Firestore composite index contract is unique, scoped, and structurally val
 test("every explicit and automatic query contract points to current source", () => {
   for (const contract of REQUIRED_INDEX_CONTRACT) {
     assert.ok(
-      ["LEGACY", "P2", "LATER", "BITESAVER_STAGE_1"].includes(
+      ["LEGACY", "P2", "LATER", "BITESAVER_STAGE_1", "BITESCORE_STAGE_1", "BITESCORE_STAGE_2"].includes(
         contract.phase,
       ),
     );
@@ -849,7 +1077,7 @@ test("every explicit and automatic query contract points to current source", () 
   }
 
   for (const contract of AUTOMATIC_INDEX_CONTRACT) {
-    assert.ok(["P1", "P2", "LATER"].includes(contract.phase));
+    assert.ok(["P1", "P2", "LATER", "BITESCORE_STAGE_2"].includes(contract.phase));
     assert.equal(
       fs.existsSync(path.join(repositoryRoot, contract.source)),
       true,
@@ -859,7 +1087,7 @@ test("every explicit and automatic query contract points to current source", () 
   }
 });
 
-test("Firestore TTL and single-field exemptions exactly match the BiteSaver contract", () => {
+test("Firestore TTL and single-field exemptions exactly match the BiteSaver and BiteScore contracts", () => {
   const { fieldOverrides } = loadIndexConfiguration();
   const firebaseConfiguration = JSON.parse(
     fs.readFileSync(firebasePath, "utf8"),
@@ -870,9 +1098,9 @@ test("Firestore TTL and single-field exemptions exactly match the BiteSaver cont
 
   assert.equal(firebaseConfiguration.firestore.indexes, "firestore.indexes.json");
   assert.equal(firebaseConfiguration.firestore.rules, "firestore.rules");
-  assert.equal(fieldOverrides.length, 9);
+  assert.equal(fieldOverrides.length, 14);
   assert.equal(new Set(signatures).size, fieldOverrides.length);
-  assert.equal(fieldOverrides.filter(({ ttl }) => ttl === true).length, 8);
+  assert.equal(fieldOverrides.filter(({ ttl }) => ttl === true).length, 13);
 
   for (const override of fieldOverrides) {
     assert.deepEqual(override.indexes, []);
@@ -892,6 +1120,11 @@ test("Firestore TTL and single-field exemptions exactly match the BiteSaver cont
         "private_bitesaver_search_jobs",
         "private_bitesaver_search_results",
         "private_bitesaver_search_sessions",
+        "private_bitescore_search_sessions",
+        "private_bitescore_search_results",
+        "private_bitescore_search_admission",
+        "private_bitescore_suggestion_sessions",
+        "private_bitescore_suggestion_admission",
       ].includes(override.collectionGroup));
     } else if (override.fieldPath === "deleteAfter") {
       assert.deepEqual(Object.keys(override).sort(), [

@@ -11,6 +11,11 @@ import '../models/local_expert_badge.dart';
 import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/bitescore_service.dart';
+import '../services/customer_bitescore_profile_service.dart';
+import '../services/customer_bitescore_reads.dart';
+import '../services/customer_bitescore_runtime.dart';
+import '../services/customer_bitescore_search_service.dart';
+import '../widgets/customer_bitescore_page_status.dart';
 import '../services/customer_bitesaver_saved_coordinator.dart';
 import '../services/local_expert_badge_recalculation_service.dart';
 import '../services/local_expert_badge_service.dart';
@@ -39,6 +44,9 @@ class CustomerProfileScreen extends StatefulWidget {
   final CustomerProfileBadgeLoader? testLocalExpertBadgesLoader;
   final CustomerProfileUsernameSaver? testUsernameSaver;
   final CustomerBiteSaverSavedCoordinator? boundedSavedCoordinator;
+  final CustomerBiteScoreProfileService? boundedProfileService;
+  final Future<void> Function()? testPrepareProfileIdentity;
+  final Future<BiteScoreUserProfileData> Function()? testLegacyBiteSaverLoader;
 
   const CustomerProfileScreen({
     super.key,
@@ -47,6 +55,9 @@ class CustomerProfileScreen extends StatefulWidget {
     @visibleForTesting this.testProfileLoader,
     @visibleForTesting this.testLocalExpertBadgesLoader,
     @visibleForTesting this.testUsernameSaver,
+    this.boundedProfileService,
+    @visibleForTesting this.testPrepareProfileIdentity,
+    @visibleForTesting this.testLegacyBiteSaverLoader,
   }) : boundedSavedCoordinator = null;
 
   const CustomerProfileScreen.fromCustomerBiteSaver({
@@ -57,6 +68,9 @@ class CustomerProfileScreen extends StatefulWidget {
     @visibleForTesting this.testProfileLoader,
     @visibleForTesting this.testLocalExpertBadgesLoader,
     @visibleForTesting this.testUsernameSaver,
+    this.boundedProfileService,
+    @visibleForTesting this.testPrepareProfileIdentity,
+    @visibleForTesting this.testLegacyBiteSaverLoader,
   }) : boundedSavedCoordinator = savedCoordinator;
 
   @override
@@ -65,6 +79,51 @@ class CustomerProfileScreen extends StatefulWidget {
 
 class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   late Future<BiteScoreUserProfileData> _profileFuture;
+  late final CustomerBiteScoreProfileService _boundedProfiles =
+      widget.boundedProfileService ?? CustomerBiteScoreProfileService();
+  CustomerBiteScoreSearchController? _savedRestaurants;
+  CustomerBiteScoreSearchController? _savedDishes;
+  CustomerBiteScoreSearchController? _reviews;
+  bool get _bounded =>
+      CustomerBiteScoreRuntime.isEnabled && widget.testProfileLoader == null;
+
+  void _refreshBoundedLists() {
+    _savedRestaurants?.dispose();
+    _savedDishes?.dispose();
+    _reviews?.dispose();
+    _savedRestaurants = _boundedProfiles.list(
+      kind: 'savedRestaurants',
+      userId: widget.currentUser.uid,
+    )..addListener(_handleSavedChanged);
+    _savedDishes = _boundedProfiles.list(
+      kind: 'savedDishes',
+      userId: widget.currentUser.uid,
+    )..addListener(_handleSavedChanged);
+    _reviews = _boundedProfiles.list(
+      kind: 'reviews',
+      userId: widget.currentUser.uid,
+    )..addListener(_handleSavedChanged);
+    unawaited(_savedRestaurants!.loadInitial());
+    unawaited(_reviews!.loadInitial());
+    if (_savedSection == _SavedSection.dishes) {
+      unawaited(_savedDishes!.loadInitial());
+    }
+  }
+
+  Future<BiteScoreUserProfileData> _loadBoundedProfile() async {
+    await (widget.testPrepareProfileIdentity?.call() ??
+        BiteScoreService.prepareCurrentUserPublicProfileIdentity());
+    final summary = await _boundedProfiles.summary(widget.currentUser.uid);
+    final saver = widget.boundedSavedCoordinator == null
+        ? await (widget.testLegacyBiteSaverLoader?.call() ??
+              BiteScoreService.loadLegacyBiteSaverProfileData())
+        : null;
+    return CustomerBiteScoreProfileService.ownProfile(
+      summary,
+      biteSaver: saver,
+    );
+  }
+
   late Future<List<LocalExpertBadge>> _localExpertBadgesFuture;
   final LocalExpertBadgeProfileRefreshBridge _localExpertBadgeRefreshBridge =
       LocalExpertBadgeProfileRefreshBridge();
@@ -93,11 +152,14 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   }
 
   void _refresh() {
-    _profileFuture =
-        widget.testProfileLoader?.call(widget.currentUser) ??
-        BiteScoreService.loadCurrentUserProfileData(
-          includeLegacyBiteSaverSaved: widget.boundedSavedCoordinator == null,
-        );
+    if (_bounded) _refreshBoundedLists();
+    _profileFuture = _bounded
+        ? _loadBoundedProfile()
+        : widget.testProfileLoader?.call(widget.currentUser) ??
+              BiteScoreService.loadCurrentUserProfileData(
+                includeLegacyBiteSaverSaved:
+                    widget.boundedSavedCoordinator == null,
+              );
     final savedCoordinator = widget.boundedSavedCoordinator;
     if (savedCoordinator != null) {
       unawaited(savedCoordinator.refreshAll().catchError((_) {}));
@@ -109,7 +171,11 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
             userId: widget.currentUser.uid,
             recalculate: LocalExpertBadgeRecalculationService
                 .recalculateMyLocalExpertBadges,
-            loadBadges: LocalExpertBadgeService.loadBadgesForUser,
+            loadBadges: _bounded
+                ? (userId) => userId == null
+                      ? Future.value(<LocalExpertBadge>[])
+                      : _boundedProfiles.badges(userId)
+                : LocalExpertBadgeService.loadBadgesForUser,
             onRecalculationError: (error, stackTrace) {
               debugPrint('Local Expert badge recalculation failed: $error');
             },
@@ -175,6 +241,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
   void dispose() {
     _unbindAuthBoundRoute();
     widget.boundedSavedCoordinator?.removeListener(_handleSavedChanged);
+    _savedRestaurants?.dispose();
+    _savedDishes?.dispose();
+    _reviews?.dispose();
     _usernameController.dispose();
     super.dispose();
   }
@@ -303,9 +372,9 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
   Future<void> _openRestaurant(BitescoreRestaurant restaurant) async {
     try {
-      final entries = await BiteScoreService.loadEntriesForRestaurant(
-        restaurant,
-      );
+      final entries = _bounded
+          ? <BiteScoreHomeEntry>[]
+          : await BiteScoreService.loadEntriesForRestaurant(restaurant);
       if (!mounted) {
         return;
       }
@@ -364,7 +433,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
 
     try {
       final aggregate =
-          await BiteScoreService.loadDishRatingAggregate(dish.id) ??
+          (_bounded
+              ? (await CustomerBiteScoreReads().detail(
+                  'dish',
+                  dish.id,
+                )).entry?.aggregate
+              : await BiteScoreService.loadDishRatingAggregate(dish.id)) ??
           DishRatingAggregate(dishId: dish.id, restaurantId: restaurant.id);
       if (!mounted) {
         return;
@@ -642,6 +716,12 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       onSelectionChanged: (selection) {
         setState(() {
           _savedSection = selection.first;
+          if (_bounded &&
+              _savedSection == _SavedSection.dishes &&
+              _savedDishes!.items.isEmpty &&
+              !_savedDishes!.isLoading) {
+            unawaited(_savedDishes!.loadInitial());
+          }
         });
       },
     );
@@ -1157,6 +1237,7 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
       _hasSeededUsernameField = true;
     }
 
+    if (_bounded) return _buildBoundedProfileBody(profileData);
     return RefreshIndicator(
       onRefresh: () async {
         setState(_refresh);
@@ -1183,6 +1264,144 @@ class _CustomerProfileScreenState extends State<CustomerProfileScreen> {
           else
             ...profileData.reviews.map(_buildReviewCard),
         ],
+      ),
+    );
+  }
+
+  Widget _buildBoundedProfileBody(BiteScoreUserProfileData profile) {
+    final rows = <Widget Function()>[
+      () => _buildPublicUsernameCard(profile),
+      () => const SizedBox(height: 16),
+      () => _buildBadgeCard(profile),
+      () => const SizedBox(height: 16),
+      () => ContributionPointsCard(points: profile.contributionPoints),
+      () => _buildLocalExpertBadgesSection(profile),
+      () => const SizedBox(height: 24),
+      () => _buildSectionHeader('Saved', Icons.favorite_border),
+      () => const SizedBox(height: 12),
+      _buildSavedSectionTabs,
+    ];
+    final saver = widget.boundedSavedCoordinator;
+    switch (_savedSection) {
+      case _SavedSection.restaurants:
+        final biteScore = _savedRestaurants!;
+        final saverRows =
+            saver?.entries(CustomerBiteSaverSavedSection.restaurants) ??
+            const <CustomerBiteSaverSavedEntry>[];
+        rows.addAll(
+          saverRows.map(
+            (entry) =>
+                () => _buildSavedBiteSaverCard(entry),
+          ),
+        );
+        if (saver == null) {
+          rows.addAll(
+            profile.favoriteSaverRestaurants.map(
+              (entry) =>
+                  () => _buildSavedSaverRestaurantCard(entry),
+            ),
+          );
+        }
+        rows.addAll(
+          biteScore.items.map(
+            (item) =>
+                () => _buildSavedRestaurantCard(
+                  CustomerBiteScoreProfileService.restaurant(item),
+                ),
+          ),
+        );
+        if (biteScore.items.isEmpty &&
+            !biteScore.isLoading &&
+            biteScore.error == null &&
+            saverRows.isEmpty &&
+            profile.favoriteSaverRestaurants.isEmpty) {
+          rows.add(
+            () => _buildEmptyCard('You have not saved any restaurants yet.'),
+          );
+        }
+        rows.add(() => CustomerBiteScorePageStatus(controller: biteScore));
+        rows.addAll(
+          _boundedSavedStatusCards(
+            CustomerBiteSaverSavedSection.restaurants,
+          ).map(
+            (widget) =>
+                () => widget,
+          ),
+        );
+      case _SavedSection.dishes:
+        final controller = _savedDishes!;
+        rows.addAll(
+          controller.items.map(
+            (item) =>
+                () => _buildSavedDishCard(
+                  CustomerBiteScoreProfileService.dish(item),
+                ),
+          ),
+        );
+        if (controller.items.isEmpty &&
+            !controller.isLoading &&
+            controller.error == null) {
+          rows.add(() => _buildEmptyCard('You have not saved any dishes yet.'));
+        }
+        rows.add(() => CustomerBiteScorePageStatus(controller: controller));
+      case _SavedSection.coupons:
+        final entries =
+            saver?.entries(CustomerBiteSaverSavedSection.coupons) ??
+            const <CustomerBiteSaverSavedEntry>[];
+        rows.addAll(
+          entries.map(
+            (entry) =>
+                () => _buildSavedBiteSaverCard(entry),
+          ),
+        );
+        if (saver == null) {
+          rows.addAll(
+            profile.favoriteCoupons.map(
+              (coupon) =>
+                  () => _buildSavedCouponTile(coupon),
+            ),
+          );
+        }
+        if (entries.isEmpty && profile.favoriteCoupons.isEmpty) {
+          rows.add(
+            () => _buildEmptyCard('You have not saved any coupons yet.'),
+          );
+        }
+        rows.addAll(
+          _boundedSavedStatusCards(CustomerBiteSaverSavedSection.coupons).map(
+            (widget) =>
+                () => widget,
+          ),
+        );
+    }
+    rows.addAll([
+      () => const SizedBox(height: 28),
+      () => _buildSectionHeader('Your Reviews', Icons.rate_review_outlined),
+    ]);
+    final reviews = _reviews!;
+    rows.addAll(
+      reviews.items.map(
+        (item) =>
+            () =>
+                _buildReviewCard(CustomerBiteScoreProfileService.review(item)),
+      ),
+    );
+    if (reviews.items.isEmpty && !reviews.isLoading && reviews.error == null) {
+      rows.add(
+        () => _buildEmptyCard('You have not posted a BiteScore review yet.'),
+      );
+    }
+    rows.add(() => CustomerBiteScorePageStatus(controller: reviews));
+    return RefreshIndicator(
+      onRefresh: () async {
+        setState(_refresh);
+        await _profileFuture;
+      },
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: rows.length,
+        itemBuilder: (context, index) => rows[index](),
       ),
     );
   }

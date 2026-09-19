@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -6,6 +7,11 @@ import '../models/dish_rating_aggregate.dart';
 import '../services/app_error_text.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/bitescore_service.dart';
+import '../services/customer_bitescore_profile_service.dart';
+import '../services/customer_bitescore_reads.dart';
+import '../services/customer_bitescore_runtime.dart';
+import '../services/customer_bitescore_search_service.dart';
+import '../widgets/customer_bitescore_page_status.dart';
 import '../services/local_expert_review_service.dart';
 import '../services/shared_location_state_service.dart';
 import '../widgets/biterater_theme.dart';
@@ -321,6 +327,7 @@ class LocalExpertReviewsScreen extends StatefulWidget {
   final String reviewerDisplayName;
   final String expertTypeId;
   final String expertDisplayName;
+  final CustomerBiteScoreProfileService? boundedProfileService;
 
   const LocalExpertReviewsScreen({
     super.key,
@@ -328,6 +335,7 @@ class LocalExpertReviewsScreen extends StatefulWidget {
     required this.reviewerDisplayName,
     required this.expertTypeId,
     required this.expertDisplayName,
+    this.boundedProfileService,
   });
 
   static String emptyMessageFor(String expertDisplayName) {
@@ -341,6 +349,20 @@ class LocalExpertReviewsScreen extends StatefulWidget {
 
 class _LocalExpertReviewsScreenState extends State<LocalExpertReviewsScreen> {
   late Future<List<LocalExpertReviewEntry>> _reviewsFuture;
+  late final CustomerBiteScoreProfileService _boundedProfiles =
+      widget.boundedProfileService ?? CustomerBiteScoreProfileService();
+  CustomerBiteScoreSearchController? _boundedReviews;
+  bool get _bounded => CustomerBiteScoreRuntime.isEnabled;
+  void _onReviewsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _boundedReviews?.dispose();
+    super.dispose();
+  }
+
   LocalExpertReviewSort _sort = LocalExpertReviewListPresenter.defaultSort;
 
   @override
@@ -349,7 +371,31 @@ class _LocalExpertReviewsScreenState extends State<LocalExpertReviewsScreen> {
     _refresh();
   }
 
+  @override
+  void didUpdateWidget(covariant LocalExpertReviewsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.reviewerUserId != widget.reviewerUserId ||
+        oldWidget.expertTypeId != widget.expertTypeId) {
+      _refresh();
+    }
+  }
+
   void _refresh() {
+    if (_bounded) {
+      final location = _sharedSelectedLocation();
+      _boundedReviews?.dispose();
+      _boundedReviews = _boundedProfiles.list(
+        kind: 'localExpert',
+        userId: widget.reviewerUserId,
+        expertTypeId: widget.expertTypeId,
+        sort: _sort.name,
+        latitude: location?.latitude,
+        longitude: location?.longitude,
+      )..addListener(_onReviewsChanged);
+      unawaited(_boundedReviews!.loadInitial());
+      _reviewsFuture = Future.value(const []);
+      return;
+    }
     _reviewsFuture = LocalExpertReviewService.loadExpertReviews(
       reviewerUserId: widget.reviewerUserId,
       expertTypeId: widget.expertTypeId,
@@ -410,7 +456,14 @@ class _LocalExpertReviewsScreenState extends State<LocalExpertReviewsScreen> {
   }) async {
     try {
       final aggregate =
-          await BiteScoreService.loadDishRatingAggregate(entry.dish.id) ??
+          (_bounded
+              ? (await CustomerBiteScoreReads().detail(
+                  'dish',
+                  entry.dish.id,
+                )).entry?.aggregate
+              : await BiteScoreService.loadDishRatingAggregate(
+                  entry.dish.id,
+                )) ??
           DishRatingAggregate(
             dishId: entry.dish.id,
             restaurantId: entry.restaurant.id,
@@ -456,9 +509,9 @@ class _LocalExpertReviewsScreenState extends State<LocalExpertReviewsScreen> {
 
   Future<void> _openRestaurant(BitescoreRestaurant restaurant) async {
     try {
-      final entries = await BiteScoreService.loadEntriesForRestaurant(
-        restaurant,
-      );
+      final entries = _bounded
+          ? <BiteScoreHomeEntry>[]
+          : await BiteScoreService.loadEntriesForRestaurant(restaurant);
       if (!mounted) {
         return;
       }
@@ -551,6 +604,7 @@ class _LocalExpertReviewsScreenState extends State<LocalExpertReviewsScreen> {
                       }
                       setState(() {
                         _sort = value;
+                        if (_bounded) _refresh();
                       });
                     },
                   ),
@@ -686,6 +740,35 @@ class _LocalExpertReviewsScreenState extends State<LocalExpertReviewsScreen> {
     );
   }
 
+  Widget _buildBoundedBody() {
+    final controller = _boundedReviews!;
+    final reviews = controller.items;
+    final empty =
+        reviews.isEmpty && !controller.isLoading && controller.error == null;
+    return RefreshIndicator(
+      onRefresh: () async {
+        setState(_refresh);
+      },
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        physics: const AlwaysScrollableScrollPhysics(),
+        itemCount: 1 + reviews.length + (empty ? 1 : 0) + 1,
+        itemBuilder: (context, index) {
+          if (index == 0) return _buildControls();
+          if (index <= reviews.length) {
+            return _buildReviewCard(
+              CustomerBiteScoreProfileService.expertReview(reviews[index - 1]),
+            );
+          }
+          if (empty && index == 1) {
+            return SizedBox(height: 260, child: _buildEmptyState());
+          }
+          return CustomerBiteScorePageStatus(controller: controller);
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -694,47 +777,49 @@ class _LocalExpertReviewsScreenState extends State<LocalExpertReviewsScreen> {
       bottomNavigationBar: const PersistentBottomNavigation(
         mode: AppMode.biteScore,
       ),
-      body: FutureBuilder<List<LocalExpertReviewEntry>>(
-        future: _reviewsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2.4),
-              ),
-            );
-          }
+      body: _bounded
+          ? _buildBoundedBody()
+          : FutureBuilder<List<LocalExpertReviewEntry>>(
+              future: _reviewsFuture,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(
+                    child: SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: CircularProgressIndicator(strokeWidth: 2.4),
+                    ),
+                  );
+                }
 
-          if (snapshot.hasError) {
-            return _buildErrorState(snapshot.error);
-          }
+                if (snapshot.hasError) {
+                  return _buildErrorState(snapshot.error);
+                }
 
-          final reviews = LocalExpertReviewListPresenter.visibleEntries(
-            entries: snapshot.data ?? const <LocalExpertReviewEntry>[],
-            sort: _sort,
-            selectedLocation: _sharedSelectedLocation(),
-          );
+                final reviews = LocalExpertReviewListPresenter.visibleEntries(
+                  entries: snapshot.data ?? const <LocalExpertReviewEntry>[],
+                  sort: _sort,
+                  selectedLocation: _sharedSelectedLocation(),
+                );
 
-          return RefreshIndicator(
-            onRefresh: () async {
-              setState(_refresh);
-              await _reviewsFuture;
-            },
-            child: ListView(
-              padding: const EdgeInsets.all(16),
-              children: [
-                _buildControls(),
-                if (reviews.isEmpty)
-                  SizedBox(height: 260, child: _buildEmptyState())
-                else
-                  ...reviews.map(_buildReviewCard),
-              ],
+                return RefreshIndicator(
+                  onRefresh: () async {
+                    setState(_refresh);
+                    await _reviewsFuture;
+                  },
+                  child: ListView(
+                    padding: const EdgeInsets.all(16),
+                    children: [
+                      _buildControls(),
+                      if (reviews.isEmpty)
+                        SizedBox(height: 260, child: _buildEmptyState())
+                      else
+                        ...reviews.map(_buildReviewCard),
+                    ],
+                  ),
+                );
+              },
             ),
-          );
-        },
-      ),
     );
   }
 }

@@ -1,0 +1,27 @@
+[
+  {
+    "dishId": "dish-1",
+    "userId": "user-1",
+    "reviewId": "bsreview_43686c71bdf53e6b885554f7b25c0376e20f923bf3d9d08734469a9c3b50cd8e"
+  },
+  {
+    "dishId": "a_b",
+    "userId": "c",
+    "reviewId": "bsreview_6769bfc9a95eecbce683474c92565f5d08e65924b046a4e4996b683315789f57"
+  },
+  {
+    "dishId": "a",
+    "userId": "b_c",
+    "reviewId": "bsreview_72502d35ed03bed88962f7a174e9ce620d21374da1852a067a4e66800a384022"
+  },
+  {
+    "dishId": "dish with spaces",
+    "userId": "user-1",
+    "reviewId": "bsreview_ca06a9ed890b23ed4c46ef1fa98a18267f2e5ab9895a29d08574d4c5024692ef"
+  },
+  {
+    "dishId": "dish-🍕",
+    "userId": "user-1",
+    "reviewId": "bsreview_8ee4d0b06447eb034af9a77bf00d4365ceb9c9439a64d41939c4022a1200c9ff"
+  }
+]

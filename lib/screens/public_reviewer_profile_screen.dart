@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
@@ -6,6 +7,11 @@ import '../models/local_expert_badge.dart';
 import '../services/app_error_text.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/bitescore_service.dart';
+import '../services/customer_bitescore_profile_service.dart';
+import '../services/customer_bitescore_reads.dart';
+import '../services/customer_bitescore_runtime.dart';
+import '../services/customer_bitescore_search_service.dart';
+import '../widgets/customer_bitescore_page_status.dart';
 import '../services/local_expert_badge_service.dart';
 import '../widgets/biterater_theme.dart';
 import '../widgets/local_expert_badge_widget.dart';
@@ -31,6 +37,7 @@ typedef PublicReviewerDishDestinationBuilder =
 
 class PublicReviewerProfileScreen extends StatefulWidget {
   final String userId;
+  final CustomerBiteScoreProfileService? boundedProfileService;
   final PublicReviewerProfileLoader? profileLoader;
   final PublicReviewerBadgesLoader? badgesLoader;
   final PublicReviewerReviewEntryLoader? reviewEntryLoader;
@@ -41,6 +48,7 @@ class PublicReviewerProfileScreen extends StatefulWidget {
   const PublicReviewerProfileScreen({
     super.key,
     required this.userId,
+    this.boundedProfileService,
     this.profileLoader,
     this.badgesLoader,
     this.reviewEntryLoader,
@@ -57,6 +65,21 @@ class PublicReviewerProfileScreen extends StatefulWidget {
 class _PublicReviewerProfileScreenState
     extends State<PublicReviewerProfileScreen> {
   late Future<BiteScorePublicReviewerProfileData> _profileFuture;
+  late final CustomerBiteScoreProfileService _boundedProfiles =
+      widget.boundedProfileService ?? CustomerBiteScoreProfileService();
+  CustomerBiteScoreSearchController? _reviews;
+  bool get _bounded =>
+      CustomerBiteScoreRuntime.isEnabled && widget.profileLoader == null;
+  void _onReviewsChanged() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _reviews?.dispose();
+    super.dispose();
+  }
+
   late Future<List<LocalExpertBadge>> _localExpertBadgesFuture;
 
   @override
@@ -65,14 +88,30 @@ class _PublicReviewerProfileScreenState
     _refresh();
   }
 
+  @override
+  void didUpdateWidget(covariant PublicReviewerProfileScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.userId != widget.userId) _refresh();
+  }
+
   void _refresh() {
     final profileLoader = widget.profileLoader;
+    if (_bounded) {
+      _reviews?.dispose();
+      _reviews = _boundedProfiles.list(kind: 'reviews', userId: widget.userId)
+        ..addListener(_onReviewsChanged);
+      unawaited(_reviews!.loadInitial());
+    }
     _profileFuture = profileLoader == null
-        ? BiteScoreService.loadPublicReviewerProfileData(widget.userId)
+        ? (_bounded
+              ? _boundedProfiles.summary(widget.userId)
+              : BiteScoreService.loadPublicReviewerProfileData(widget.userId))
         : profileLoader(widget.userId);
     final badgesLoader = widget.badgesLoader;
     _localExpertBadgesFuture = badgesLoader == null
-        ? LocalExpertBadgeService.loadBadgesForUser(widget.userId)
+        ? (_bounded
+              ? _boundedProfiles.badges(widget.userId)
+              : LocalExpertBadgeService.loadBadgesForUser(widget.userId))
         : badgesLoader(widget.userId);
   }
 
@@ -133,7 +172,7 @@ class _PublicReviewerProfileScreenState
     try {
       final reviewEntryLoader = widget.reviewEntryLoader;
       final refreshedEntry = reviewEntryLoader == null
-          ? await _loadCustomerVisibleReviewEntry(entry)
+          ? (_bounded ? entry : await _loadCustomerVisibleReviewEntry(entry))
           : await reviewEntryLoader(entry);
       if (refreshedEntry == null ||
           !BiteScoreService.isCustomerVisibleReviewEntry(refreshedEntry)) {
@@ -146,7 +185,12 @@ class _PublicReviewerProfileScreenState
       final aggregateLoader = widget.aggregateLoader;
       final aggregate =
           (aggregateLoader == null
-              ? await BiteScoreService.loadDishRatingAggregate(dish.id)
+              ? (_bounded
+                    ? (await CustomerBiteScoreReads().detail(
+                        'dish',
+                        dish.id,
+                      )).entry?.aggregate
+                    : await BiteScoreService.loadDishRatingAggregate(dish.id))
               : await aggregateLoader(dish.id)) ??
           DishRatingAggregate(dishId: dish.id, restaurantId: restaurant.id);
       if (!mounted) {
@@ -456,6 +500,48 @@ class _PublicReviewerProfileScreenState
   }
 
   Widget _buildBody(BiteScorePublicReviewerProfileData profileData) {
+    if (_bounded) {
+      final controller = _reviews!;
+      final reviews = controller.items;
+      final headers = <Widget>[
+        _buildBadgeCard(profileData),
+        _buildLocalExpertBadgesSection(profileData),
+        const SizedBox(height: 24),
+        const Text(
+          'Reviews',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+        ),
+      ];
+      final empty =
+          reviews.isEmpty && !controller.isLoading && controller.error == null;
+      return RefreshIndicator(
+        onRefresh: () async {
+          setState(_refresh);
+          await _profileFuture;
+        },
+        child: ListView.builder(
+          padding: const EdgeInsets.all(16),
+          physics: const AlwaysScrollableScrollPhysics(),
+          itemCount: headers.length + reviews.length + (empty ? 1 : 0) + 1,
+          itemBuilder: (context, index) {
+            if (index < headers.length) return headers[index];
+            final row = index - headers.length;
+            if (row < reviews.length) {
+              return _buildReviewCard(
+                CustomerBiteScoreProfileService.review(reviews[row]),
+              );
+            }
+            if (empty && row == 0) {
+              return const Padding(
+                padding: EdgeInsets.all(16),
+                child: Text('No public BiteScore reviews yet.'),
+              );
+            }
+            return CustomerBiteScorePageStatus(controller: controller);
+          },
+        ),
+      );
+    }
     final visibleReviews = profileData.reviews
         .where(BiteScoreService.isCustomerVisibleReviewEntry)
         .toList(growable: false);

@@ -2,11 +2,18 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 
 import '../models/bitescore_restaurant.dart';
 import '../models/restaurant.dart';
+import 'bitescore_owner_queries.dart';
+import 'firestore_document_id.dart';
 import 'restaurant_account_service.dart';
 
 enum RestaurantMenuSourceType { legacyBiteSaver, sharedMenu }
 
 enum RestaurantMenuAppSide { biteSaver, biteScore }
+
+typedef RestaurantPublicMenuRoute = ({
+  RestaurantMenuSource? source,
+  String? biteScoreRestaurantId,
+});
 
 class RestaurantMenuQueryDocument {
   final String id;
@@ -228,6 +235,36 @@ class RestaurantMenuService {
     return sharedMenusCollection().doc(source.id).collection('menu_sections');
   }
 
+  /// Resolves the existing public routing projection without loading a linked
+  /// mixed BiteScore source. The linked menu is read through its bounded API.
+  static Future<RestaurantPublicMenuRoute?> resolveBiteSaverPublicMenuRoute({
+    required String uid,
+    Future<Map<String, dynamic>?> Function(String restaurantId)? projectionLoader,
+  }) async {
+    final accountId = exactFirestoreDocumentId(uid);
+    if (accountId == null) return null;
+    final accountData = await (projectionLoader ??
+        RestaurantAccountService.loadCustomerRestaurantProjectionById)(accountId);
+    if (RestaurantAccountService.customerRestaurantFromProjectionData(
+          accountData,
+          expectedRestaurantId: accountId,
+        ) == null) {
+      return null;
+    }
+    if (accountData?[menuSourceSideField] == menuSourceBiteScore) {
+      final linkedId = exactFirestoreDocumentId(
+        accountData?[linkedBiteScoreRestaurantIdField],
+      );
+      return linkedId == null
+          ? null
+          : (source: null, biteScoreRestaurantId: linkedId);
+    }
+    return (
+      source: RestaurantMenuSource.legacyBiteSaver(accountId),
+      biteScoreRestaurantId: null,
+    );
+  }
+
   static Future<RestaurantMenuSource?> resolveBiteSaverPublicMenuSource({
     required String uid,
     Future<Map<String, dynamic>?> Function(String restaurantId)?
@@ -363,10 +400,10 @@ class RestaurantMenuService {
       ...accountData,
       Restaurant.fieldUid: trimmedUid,
     }, coupons: const []);
-    final snapshot = await _firestore
-        .collection(BitescoreRestaurant.collectionName)
-        .where('ownerUserId', isEqualTo: trimmedUid)
-        .get();
+    final snapshot = await BiteScoreOwnerQueries.restaurants(
+      _firestore.collection(BitescoreRestaurant.collectionName),
+      userId: trimmedUid,
+    ).get();
 
     for (final doc in snapshot.docs) {
       final biteScoreRestaurant = _parseBiteScoreRestaurant(

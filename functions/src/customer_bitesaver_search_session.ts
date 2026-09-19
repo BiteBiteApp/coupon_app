@@ -6666,6 +6666,18 @@ export function customerBiteSaverPublicMenuEntry(value: {
     kind: value.kind,
     documentId: value.document.id,
   });
+  return customerPublicMenuEntry({key, privateSourceIdentities: value.privateSourceIdentities,
+    kind: value.kind, document: value.document});
+}
+
+/** Shared presentation allowlist, independent of either customer capability. */
+export function customerPublicMenuEntry(value: {
+  key: string;
+  privateSourceIdentities: readonly string[];
+  kind: typeof customerBiteSaverMenuKinds[number];
+  document: CustomerBiteSaverStoredDocument;
+}): CustomerBiteSaverMenuEntry | null {
+  const key = value.key;
   const sortOrder = menuSortOrder(value.document.data.sortOrder);
   if (sortOrder === null) return null;
   if (value.kind === "menu_images") {

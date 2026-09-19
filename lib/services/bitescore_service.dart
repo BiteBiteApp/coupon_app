@@ -1,11 +1,15 @@
+import 'dart:convert';
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cloud_functions/cloud_functions.dart';
+import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:geocoding/geocoding.dart';
 
 import 'admin_access_service.dart';
+import 'bitescore_owner_queries.dart';
 import '../models/bitescore_dish.dart';
 import '../models/bitescore_category.dart';
 import '../models/bitescore_dish_image.dart';
@@ -25,7 +29,10 @@ import '../models/restaurant.dart';
 import '../models/restaurant_claim_request.dart';
 import 'customer_auth_service.dart';
 import 'customer_bitesaver_favorite_service.dart';
+import 'customer_bitescore_runtime.dart';
+import 'customer_bitescore_suggestions.dart';
 import 'contribution_points_service.dart';
+import 'dish_edit_proposal_duplicate_lookup.dart';
 import 'firestore_document_id.dart';
 import 'restaurant_account_service.dart';
 
@@ -681,6 +688,8 @@ class BiteScoreCreateRequest {
 }
 
 class BiteScoreService {
+  static final _customerSuggestions = CustomerBiteScoreSuggestionsService();
+
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static final CustomerBiteSaverFavoriteService
   _customerBiteSaverFavoriteService =
@@ -1224,7 +1233,7 @@ class BiteScoreService {
     Iterable<BiteScoreHomeEntry> entries,
   ) {
     final seenDishIds = <String>{};
-    final seenDishIdentityKeys = <String>{};
+    final legacySeenNames = <String>{};
     final deduped = <BiteScoreHomeEntry>[];
 
     for (final entry in entries) {
@@ -1242,9 +1251,11 @@ class BiteScoreService {
         continue;
       }
 
-      final identityKey = dishIdentityKeyForDish(entry.dish);
-      if (identityKey.isNotEmpty && !seenDishIdentityKeys.add(identityKey)) {
-        continue;
+      if (!CustomerBiteScoreRuntime.isEnabled) {
+        final legacyName = dishIdentityKeyForDish(entry.dish);
+        if (legacyName.isNotEmpty && !legacySeenNames.add(legacyName)) {
+          continue;
+        }
       }
 
       deduped.add(entry);
@@ -1336,9 +1347,10 @@ class BiteScoreService {
       return const <BitescoreRestaurant>[];
     }
 
-    final snapshot = await restaurantsCollection()
-        .where('ownerUserId', isEqualTo: trimmedUserId)
-        .get();
+    final snapshot = await BiteScoreOwnerQueries.restaurants(
+      restaurantsCollection(),
+      userId: trimmedUserId,
+    ).get();
 
     final restaurants =
         snapshot.docs
@@ -2740,6 +2752,9 @@ class BiteScoreService {
   static Future<List<DishCatalogSuggestion>> loadDishCatalogSuggestions(
     String query,
   ) async {
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      return _customerSuggestions.catalog(query);
+    }
     final normalizedQuery = query.trim().toLowerCase();
     if (normalizedQuery.isEmpty) {
       return const <DishCatalogSuggestion>[];
@@ -2819,8 +2834,16 @@ class BiteScoreService {
     return deduped.values.toList();
   }
 
-  static Future<Map<String, DishRatingAggregate>> loadRatingAggregates() async {
-    final snapshot = await ratingAggregatesCollection().get();
+  static Future<Map<String, DishRatingAggregate>> loadRatingAggregates({
+    String? restaurantId,
+  }) async {
+    final query = restaurantId == null
+        ? ratingAggregatesCollection()
+        : BiteScoreOwnerQueries.aggregates(
+            ratingAggregatesCollection(),
+            restaurantId: restaurantId,
+          );
+    final snapshot = await query.get();
 
     final result = <String, DishRatingAggregate>{};
     for (final doc in snapshot.docs) {
@@ -2909,7 +2932,7 @@ class BiteScoreService {
     final dishesSnapshot = await dishesCollection()
         .where('restaurantId', isEqualTo: restaurant.id)
         .get();
-    final aggregates = await loadRatingAggregates();
+    final aggregates = await loadRatingAggregates(restaurantId: restaurant.id);
 
     final dishes = dishesSnapshot.docs
         .map(
@@ -2994,7 +3017,8 @@ class BiteScoreService {
 
     final reviews = snapshot.docs
         .map(
-          (doc) => DishReview.tryFromFirestore(doc.data(), fallbackId: doc.id),
+          (doc) =>
+              publicDishReviewFromFirestore(doc.data(), documentId: doc.id),
         )
         .whereType<DishReview>()
         .toList();
@@ -3006,6 +3030,15 @@ class BiteScoreService {
     });
 
     return reviews;
+  }
+
+  @visibleForTesting
+  static DishReview? publicDishReviewFromFirestore(
+    Map<String, dynamic>? data, {
+    required String documentId,
+  }) {
+    if (!_isPublicReviewData(data)) return null;
+    return DishReview.tryFromFirestore(data, fallbackId: documentId);
   }
 
   static Future<List<BiteScoreDishImage>> loadDishImages(String dishId) async {
@@ -3111,6 +3144,118 @@ class BiteScoreService {
     return BiteScoreDishImageSaveResult(image: image);
   }
 
+  @visibleForTesting
+  static Query<Map<String, dynamic>> currentUserPhotoVoteQuery(
+    Query<Map<String, dynamic>> query, {
+    required String userId,
+    required List<String> voteDocumentIds,
+  }) {
+    if (voteDocumentIds.isEmpty || voteDocumentIds.length > 25) {
+      throw ArgumentError('Photo vote queries require between 1 and 25 IDs.');
+    }
+    return query
+        .where(FieldPath.documentId, whereIn: voteDocumentIds)
+        .where('userId', isEqualTo: userId)
+        .limit(25);
+  }
+
+  static Future<Object?> _trustedPhotoTransport(
+    String name,
+    Map<String, Object?> request,
+  ) async => (await FirebaseFunctions.instanceFor(
+    region: 'us-central1',
+  ).httpsCallable(name).call<Object?>(request)).data;
+
+  static BiteScoreDishImage _trustedPhotoImage(
+    Object? raw, {
+    required String imageId,
+    required String dishId,
+    required String restaurantId,
+    String uploadedByUserId = '',
+    String storagePath = '',
+  }) {
+    if (raw is! Map || raw['id'] != imageId || raw['dishId'] != dishId ||
+        raw['restaurantId'] != restaurantId || raw['imageUrl'] is! String ||
+        (raw['imageUrl'] as String).isEmpty ||
+        (raw['reviewId'] != null && raw['reviewId'] is! String)) {
+      throw const FormatException('Invalid photo response identity.');
+    }
+    int integer(String key, {bool signed = false}) {
+      final value = raw[key];
+      if (value is! int || (!signed && value < 0)) {
+        throw FormatException('Invalid photo $key.');
+      }
+      return value;
+    }
+    return BiteScoreDishImage(
+      id: imageId,
+      dishId: dishId,
+      restaurantId: restaurantId,
+      reviewId: raw['reviewId'] as String?,
+      uploadedByUserId: uploadedByUserId,
+      storagePath: storagePath,
+      imageUrl: raw['imageUrl'] as String,
+      sortOrder: integer('sortOrder', signed: true),
+      helpfulCount: integer('helpfulCount'),
+      notHelpfulCount: integer('notHelpfulCount'),
+      createdAt: DateTime.fromMillisecondsSinceEpoch(integer('createdAtMs'), isUtc: true),
+    );
+  }
+
+  @visibleForTesting
+  static Future<BiteScoreDishImage> createPhotoWithTrustedMetadata({
+    required String imageId,
+    required String dishId,
+    required String restaurantId,
+    required String uploadedByUserId,
+    required String imageUrl,
+    required String storagePath,
+    required String mode,
+    String? reviewId,
+    Future<Object?> Function(String, Map<String, Object?>)? transport,
+  }) async {
+    final result = await (transport ?? _trustedPhotoTransport)(
+      'createCustomerBiteScorePhoto',
+      {'schemaVersion': 1, 'expectedUserId': uploadedByUserId, 'imageId': imageId, 'dishId': dishId,
+        'restaurantId': restaurantId, 'reviewId': reviewId,
+        'imageUrl': imageUrl, 'storagePath': storagePath, 'mode': mode},
+    );
+    if (result is! Map || result['schemaVersion'] != 1) {
+      throw const FormatException('Invalid photo response.');
+    }
+    final image = _trustedPhotoImage(result['image'], imageId: imageId,
+      dishId: dishId, restaurantId: restaurantId,
+      uploadedByUserId: uploadedByUserId, storagePath: storagePath);
+    if (image.imageUrl != imageUrl || image.reviewId != reviewId) {
+      throw const FormatException('Photo response does not match the upload.');
+    }
+    return image;
+  }
+
+  @visibleForTesting
+  static Future<BiteScoreDishImageVoteResult> voteForPhotoWithTrustedMetadata({
+    required BiteScoreDishImage image,
+    required String voteType,
+    required String expectedUserId,
+    Future<Object?> Function(String, Map<String, Object?>)? transport,
+  }) async {
+    final result = await (transport ?? _trustedPhotoTransport)(
+      'toggleCustomerBiteScorePhotoVote',
+      {'schemaVersion': 1, 'expectedUserId': expectedUserId, 'imageId': image.id, 'dishId': image.dishId,
+        'restaurantId': image.restaurantId, 'voteType': voteType},
+    );
+    if (result is! Map || result['schemaVersion'] != 1 ||
+        ![null, BiteScoreDishImageVote.voteHelpful, BiteScoreDishImageVote.voteNotHelpful]
+            .contains(result['currentUserVoteType'])) {
+      throw const FormatException('Invalid photo vote response.');
+    }
+    return BiteScoreDishImageVoteResult(
+      image: _trustedPhotoImage(result['image'], imageId: image.id,
+        dishId: image.dishId, restaurantId: image.restaurantId),
+      currentUserVoteType: result['currentUserVoteType'] as String?,
+    );
+  }
+
   static Future<BiteScoreDishImage> _addDishImageRecordWithoutAward({
     required BitescoreDish dish,
     required BitescoreRestaurant restaurant,
@@ -3121,6 +3266,21 @@ class BiteScoreService {
     bool requireMissingDishImage = false,
     bool requireExistingDish = false,
   }) async {
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      await _prepareExpectedBiteScoreMutation(
+        operation: 'addDishImageRecord', expectedUserId: uploadedByUserId,
+      );
+      final image = await createPhotoWithTrustedMetadata(
+        imageId: dishImagesCollection().doc().id,
+        dishId: dish.id, restaurantId: restaurant.id,
+        uploadedByUserId: uploadedByUserId, imageUrl: imageUrl,
+        storagePath: storagePath, reviewId: reviewId,
+        mode: requireMissingDishImage ? 'missing' : requireExistingDish ? 'gallery' : 'review',
+      );
+      _requireExpectedSignedInBiteScoreUser(uploadedByUserId);
+      return image;
+    }
+
     final imageRef = dishImagesCollection().doc();
     final dishRef = dishesCollection().doc(dish.id);
 
@@ -3189,6 +3349,25 @@ class BiteScoreService {
       return const <String, String>{};
     }
 
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      final votes = <String, String>{};
+      for (final batch in _chunkStrings(trimmedImageIds, size: 25)) {
+        final snapshot = await currentUserPhotoVoteQuery(
+          dishImageVotesCollection(), userId: user.uid,
+          voteDocumentIds: batch.map((imageId) => _dishImageVoteDocumentId(imageId, user.uid)).toList(),
+        ).get();
+        for (final doc in snapshot.docs) {
+          final vote = BiteScoreDishImageVote.tryFromFirestore(doc.data(), fallbackId: doc.id);
+          if (vote != null && vote.userId == user.uid && batch.contains(vote.imageId) &&
+              doc.id == _dishImageVoteDocumentId(vote.imageId, user.uid)) {
+            votes[vote.imageId] = vote.voteType;
+          }
+        }
+      }
+      if (FirebaseAuth.instance.currentUser?.uid != user.uid) return const {};
+      return votes;
+    }
+
     final voteEntries = await Future.wait(
       trimmedImageIds.map((imageId) async {
         final voteRef = dishImageVotesCollection().doc(
@@ -3228,6 +3407,13 @@ class BiteScoreService {
     if (testWrite != null) {
       return await testWrite('toggleDishImageVote', pinnedUserId)
           as BiteScoreDishImageVoteResult;
+    }
+
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      final result = await voteForPhotoWithTrustedMetadata(image: image,
+        voteType: voteType, expectedUserId: pinnedUserId);
+      _requireExpectedSignedInBiteScoreUser(pinnedUserId);
+      return result;
     }
 
     final imageRef = dishImagesCollection().doc(image.id);
@@ -3321,6 +3507,7 @@ class BiteScoreService {
   }
 
   static Future<void> _refreshPrimaryDishImageForDish(String dishId) async {
+    if (CustomerBiteScoreRuntime.isEnabled) return;
     final trimmedDishId = dishId.trim();
     if (trimmedDishId.isEmpty) {
       return;
@@ -3634,20 +3821,30 @@ class BiteScoreService {
 
   static Future<BiteScoreUserProfileData> loadCurrentUserProfileData({
     bool includeLegacyBiteSaverSaved = true,
+    bool includeBiteScoreHistoryAndSaved = true,
   }) async {
     final user = _requireSignedInAppUser();
     final publicIdentity = await _ensureCurrentUserPublicReviewerIdentity(user);
 
-    final favoriteRestaurantSnapshot = await favoriteRestaurantsCollection(
-      user.uid,
-    ).get();
-    final favoriteDishSnapshot = await favoriteDishesCollection(user.uid).get();
+    final restaurantFavorites = favoriteRestaurantsCollection(user.uid);
+    final favoriteRestaurantSnapshot =
+        await (includeBiteScoreHistoryAndSaved
+                ? restaurantFavorites
+                : restaurantFavorites.where(
+                    'restaurantType',
+                    isEqualTo: 'bitesaver',
+                  ))
+            .get();
+    final favoriteDishDocs = includeBiteScoreHistoryAndSaved
+        ? (await favoriteDishesCollection(user.uid).get()).docs
+        : const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
     final favoriteCouponDocs = includeLegacyBiteSaverSaved
         ? (await favoriteCouponsCollection(user.uid).get()).docs
         : const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
-    final reviewSnapshot = await reviewsCollection()
-        .where('userId', isEqualTo: user.uid)
-        .get();
+    final reviewDocs = includeBiteScoreHistoryAndSaved
+        ? (await reviewsCollection().where('userId', isEqualTo: user.uid).get())
+              .docs
+        : const <QueryDocumentSnapshot<Map<String, dynamic>>>[];
 
     final favoriteRestaurants = <BitescoreRestaurant>[];
     final favoriteSaverRestaurantsByAccount =
@@ -3719,7 +3916,7 @@ class BiteScoreService {
           ),
         );
 
-    final favoriteDishIds = favoriteDishSnapshot.docs
+    final favoriteDishIds = favoriteDishDocs
         .map((doc) => _readString(doc.data()['dishId']) ?? doc.id)
         .whereType<String>()
         .toList();
@@ -3753,7 +3950,7 @@ class BiteScoreService {
     )..sort((a, b) => a.title.toLowerCase().compareTo(b.title.toLowerCase()));
 
     final reviews =
-        reviewSnapshot.docs
+        reviewDocs
             .where((doc) => _isPublicReviewData(doc.data()))
             .map(
               (doc) =>
@@ -3814,6 +4011,16 @@ class BiteScoreService {
       moderationFlagCount: moderationFlagCount,
       contributionPoints: contributionPoints,
     );
+  }
+
+  /// Preserves the independent legacy BiteSaver rollout without reading any
+  /// BiteScore favorite or review history for the bounded BiteScore profile.
+  static Future<BiteScoreUserProfileData> loadLegacyBiteSaverProfileData() =>
+      loadCurrentUserProfileData(includeBiteScoreHistoryAndSaved: false);
+
+  static Future<void> prepareCurrentUserPublicProfileIdentity() async {
+    final user = _requireSignedInAppUser();
+    await _ensureCurrentUserPublicReviewerIdentity(user);
   }
 
   static Future<BiteScorePublicReviewerProfileData>
@@ -4247,6 +4454,18 @@ class BiteScoreService {
     if (normalizedRestaurantId.isEmpty) {
       throw ArgumentError(restaurantClaimUnavailableMessage);
     }
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      _requireExpectedSignedInBiteScoreUser(user.uid);
+      await submitRestaurantClaimWithTrustedHandler(
+        restaurantId: restaurantId,
+        expectedUserId: user.uid,
+        claimantName: claimantName,
+        phone: phone,
+        message: message,
+      );
+      _requireExpectedSignedInBiteScoreUser(user.uid);
+      return;
+    }
     final restaurantRef = restaurantsCollection().doc(normalizedRestaurantId);
     final restaurantSnapshot = await restaurantRef.get();
     _requireRestaurantAvailableForClaim(
@@ -4520,9 +4739,17 @@ class BiteScoreService {
     String? reason,
   }) async {
     final user = await _requireFreshSignedInBiteScoreUserForCurrentOperation();
-    final pendingSnapshot = await reviewReportsCollection()
-        .where('reportingUserId', isEqualTo: user.uid)
-        .get();
+    var pendingQuery = reviewReportsCollection().where(
+      'reportingUserId',
+      isEqualTo: user.uid,
+    );
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      pendingQuery = pendingQuery
+          .where('reviewId', isEqualTo: review.id)
+          .where('status', isEqualTo: 'pending')
+          .limit(1);
+    }
+    final pendingSnapshot = await pendingQuery.get();
 
     final alreadyPending = pendingSnapshot.docs.any((doc) {
       final report = ReviewReport.tryFromFirestore(
@@ -4563,9 +4790,17 @@ class BiteScoreService {
     String? reason,
   }) async {
     final user = await _requireFreshSignedInBiteScoreUserForCurrentOperation();
-    final pendingSnapshot = await restaurantReportsCollection()
-        .where('reportingUserId', isEqualTo: user.uid)
-        .get();
+    var pendingQuery = restaurantReportsCollection().where(
+      'reportingUserId',
+      isEqualTo: user.uid,
+    );
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      pendingQuery = pendingQuery
+          .where('restaurantId', isEqualTo: restaurant.id)
+          .where('status', isEqualTo: 'pending')
+          .limit(1);
+    }
+    final pendingSnapshot = await pendingQuery.get();
 
     final alreadyPending = pendingSnapshot.docs.any((doc) {
       final report = RestaurantReport.tryFromFirestore(
@@ -4605,9 +4840,17 @@ class BiteScoreService {
     String? reason,
   }) async {
     final user = await _requireFreshSignedInBiteScoreUserForCurrentOperation();
-    final pendingSnapshot = await dishReportsCollection()
-        .where('reportingUserId', isEqualTo: user.uid)
-        .get();
+    var pendingQuery = dishReportsCollection().where(
+      'reportingUserId',
+      isEqualTo: user.uid,
+    );
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      pendingQuery = pendingQuery
+          .where('dishId', isEqualTo: dish.id)
+          .where('status', isEqualTo: 'pending')
+          .limit(1);
+    }
+    final pendingSnapshot = await pendingQuery.get();
 
     final alreadyPending = pendingSnapshot.docs.any((doc) {
       final report = DishReport.tryFromFirestore(
@@ -4648,9 +4891,17 @@ class BiteScoreService {
     String? reason,
   }) async {
     final user = await _requireFreshSignedInBiteScoreUserForCurrentOperation();
-    final pendingSnapshot = await duplicateRestaurantReportsCollection()
-        .where('reportingUserId', isEqualTo: user.uid)
-        .get();
+    var pendingQuery = duplicateRestaurantReportsCollection().where(
+      'reportingUserId',
+      isEqualTo: user.uid,
+    );
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      pendingQuery = pendingQuery
+          .where('restaurantId', isEqualTo: restaurant.id)
+          .where('status', isEqualTo: 'pending')
+          .limit(1);
+    }
+    final pendingSnapshot = await pendingQuery.get();
 
     final alreadyPending = pendingSnapshot.docs.any((doc) {
       final report = DuplicateRestaurantReport.tryFromFirestore(
@@ -4851,6 +5102,13 @@ class BiteScoreService {
     required String dishName,
     int limit = 8,
   }) async {
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      return _customerSuggestions.similar(
+        restaurantId: restaurantId,
+        dishName: dishName,
+        limit: limit,
+      );
+    }
     final normalizedQuery = _normalizeDishMatchText(dishName);
     if (restaurantId.trim().isEmpty || normalizedQuery.isEmpty) {
       return const <BitescoreDish>[];
@@ -4944,24 +5202,15 @@ class BiteScoreService {
       throw ArgumentError('That dish already uses this name.');
     }
 
-    final existing = await editProposalsCollection()
-        .where('userId', isEqualTo: user.uid)
-        .limit(100)
-        .get();
-
-    for (final doc in existing.docs) {
-      final proposal = DishEditProposal.tryFromFirestore(
-        doc.data(),
-        fallbackId: doc.id,
-      );
-      if (proposal != null &&
-          proposal.status == 'pending' &&
-          proposal.isRename &&
-          proposal.restaurantId == dish.restaurantId &&
-          proposal.targetDishId == dish.id &&
-          _normalize(proposal.proposedName ?? '') == normalizedName) {
-        throw ArgumentError('You already suggested this rename for the dish.');
-      }
+    final alreadyPending = await DishEditProposalDuplicateLookup.renameExists(
+      editProposalsCollection(),
+      userId: user.uid,
+      restaurantId: dish.restaurantId,
+      sourceDishId: dish.id,
+      proposedName: proposedDishName,
+    );
+    if (alreadyPending) {
+      throw ArgumentError('You already suggested this rename for the dish.');
     }
 
     final proposalRef = editProposalsCollection().doc();
@@ -4995,23 +5244,15 @@ class BiteScoreService {
       throw ArgumentError('Choose a different dish to merge into.');
     }
 
-    final existing = await editProposalsCollection()
-        .where('userId', isEqualTo: user.uid)
-        .limit(100)
-        .get();
-    for (final doc in existing.docs) {
-      final proposal = DishEditProposal.tryFromFirestore(
-        doc.data(),
-        fallbackId: doc.id,
-      );
-      if (proposal != null &&
-          proposal.status == 'pending' &&
-          proposal.isMerge &&
-          proposal.restaurantId == sourceDish.restaurantId &&
-          proposal.targetDishId == sourceDish.id &&
-          proposal.mergeTargetDishId == mergeTargetDish.id) {
-        throw ArgumentError('You already suggested this merge.');
-      }
+    final existing = await DishEditProposalDuplicateLookup.merge(
+      editProposalsCollection(),
+      userId: user.uid,
+      restaurantId: sourceDish.restaurantId,
+      sourceDishId: sourceDish.id,
+      mergeTargetDishId: mergeTargetDish.id,
+    ).get();
+    if (existing.docs.isNotEmpty) {
+      throw ArgumentError('You already suggested this merge.');
     }
 
     final proposalRef = editProposalsCollection().doc();
@@ -5045,23 +5286,15 @@ class BiteScoreService {
       throw ArgumentError('Choose a different dish to merge into.');
     }
 
-    final existing = await editProposalsCollection()
-        .where('userId', isEqualTo: user.uid)
-        .limit(100)
-        .get();
-    for (final doc in existing.docs) {
-      final proposal = DishEditProposal.tryFromFirestore(
-        doc.data(),
-        fallbackId: doc.id,
-      );
-      if (proposal != null &&
-          proposal.status == 'pending' &&
-          proposal.isMerge &&
-          proposal.restaurantId == sourceDish.restaurantId &&
-          proposal.targetDishId == sourceDish.id &&
-          proposal.mergeTargetDishId == mergeTargetDish.id) {
-        throw ArgumentError('You already suggested this merge.');
-      }
+    final existing = await DishEditProposalDuplicateLookup.merge(
+      editProposalsCollection(),
+      userId: user.uid,
+      restaurantId: sourceDish.restaurantId,
+      sourceDishId: sourceDish.id,
+      mergeTargetDishId: mergeTargetDish.id,
+    ).get();
+    if (existing.docs.isNotEmpty) {
+      throw ArgumentError('You already suggested this merge.');
     }
 
     final proposalRef = editProposalsCollection().doc();
@@ -5070,6 +5303,7 @@ class BiteScoreService {
       'type': DishEditProposal.typeMerge,
       'restaurantId': sourceDish.restaurantId,
       'sourceDishId': sourceDish.id,
+      'canonicalSourceDishId': sourceDish.id,
       'targetDishId': mergeTargetDish.id,
       'mergeTargetDishId': mergeTargetDish.id,
       'reason': 'duplicate',
@@ -5969,13 +6203,46 @@ class BiteScoreService {
     required String creatorUserId,
     required String expectedUserId,
   }) async {
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      final requestId = restaurantsCollection().doc().id;
+      _requireExpectedSignedInBiteScoreUser(expectedUserId);
+      var resolved = await resolveRestaurantCreationWithTrustedHandler(
+        request: request,
+        requestId: requestId,
+        expectedUserId: expectedUserId,
+      );
+      _requireExpectedSignedInBiteScoreUser(expectedUserId);
+      if (resolved != null) {
+        return _BiteScoreRestaurantResolution(
+          restaurant: resolved.restaurant,
+          wasCreated: resolved.wasCreated,
+        );
+      }
+      final verifiedLocation = await _verifyRestaurantAddress(request);
+      _requireExpectedSignedInBiteScoreUser(expectedUserId);
+      resolved = await resolveRestaurantCreationWithTrustedHandler(
+        request: request,
+        requestId: requestId,
+        expectedUserId: expectedUserId,
+        location: GeoPoint(verifiedLocation.latitude, verifiedLocation.longitude),
+      );
+      _requireExpectedSignedInBiteScoreUser(expectedUserId);
+      if (resolved == null) {
+        throw StateError('The trusted restaurant response is invalid.');
+      }
+      return _BiteScoreRestaurantResolution(
+        restaurant: resolved.restaurant,
+        wasCreated: resolved.wasCreated,
+      );
+    }
     final normalizedRestaurantName = _normalize(request.restaurantName);
     final zipCode = request.zipCode.trim();
 
-    final snapshot = await restaurantsCollection()
-        .where('zipCode', isEqualTo: zipCode)
-        .limit(20)
-        .get();
+    final snapshot = await restaurantCreationLookup(
+      restaurantsCollection(),
+      zipCode: zipCode,
+      normalizedName: normalizedRestaurantName,
+    ).get();
 
     for (final doc in snapshot.docs) {
       final restaurant = BitescoreRestaurant.tryFromFirestore(
@@ -6023,12 +6290,273 @@ class BiteScoreService {
     );
   }
 
+  static Future<Map<String, dynamic>> _callTrustedCreationHandler(
+    String callable,
+    Map<String, Object?> request,
+    Future<Object?> Function(String, Map<String, Object?>)? transport,
+  ) async {
+    var currentRequest = Map<String, Object?>.of(request);
+    while (true) {
+      final response = transport == null
+          ? (await FirebaseFunctions.instance
+                    .httpsCallable(callable)
+                    .call<Object?>(currentRequest))
+                .data
+          : await transport(callable, currentRequest);
+      if (response is! Map || response['schemaVersion'] != 1) {
+        throw StateError('The trusted BiteScore response is invalid.');
+      }
+      if (response['state'] != 'preparing') {
+        return Map<String, dynamic>.from(response);
+      }
+      final cursor = response['nextCursor'];
+      if (!const {
+            'resolveCustomerBiteScoreRestaurantCreation',
+            'resolveCustomerBiteScoreDishCreation',
+          }.contains(callable) ||
+          cursor is! String || cursor.isEmpty || cursor == currentRequest['cursor']) {
+        throw StateError('The trusted creation continuation is invalid.');
+      }
+      // Keep the original actor and criteria through every bounded step. A
+      // changed SDK auth token is rejected by the server before any source read.
+      currentRequest = {...request, 'cursor': cursor};
+    }
+  }
+
+  static BitescoreRestaurant _restaurantFromTrustedCreationResponse(
+    Map<String, dynamic> response,
+  ) {
+    final raw = response['restaurant'];
+    if (raw is! Map) {
+      throw StateError('The trusted restaurant response is invalid.');
+    }
+    final data = Map<String, dynamic>.from(raw);
+    final id = exactFirestoreDocumentId(data['id']);
+    final restaurant = id == null
+        ? null
+        : BitescoreRestaurant.tryFromFirestore(data, fallbackId: id);
+    if (restaurant == null || !restaurant.isActive) {
+      throw StateError('The trusted restaurant response is invalid.');
+    }
+    return restaurant;
+  }
+
+  @visibleForTesting
+  static Future<void> submitRestaurantClaimWithTrustedHandler({
+    required String restaurantId,
+    required String expectedUserId,
+    required String claimantName,
+    required String phone,
+    required String message,
+    Future<Object?> Function(String, Map<String, Object?>)? transport,
+  }) async {
+    if (exactFirestoreDocumentId(restaurantId) != restaurantId) {
+      throw StateError('The restaurant identity is invalid.');
+    }
+    final response = await _callTrustedCreationHandler(
+      'submitCustomerBiteScoreRestaurantClaim',
+      {
+        'schemaVersion': 1,
+        'expectedUserId': expectedUserId,
+        'restaurantId': restaurantId,
+        'claimantName': claimantName,
+        'phone': phone,
+        'message': message,
+      },
+      transport,
+    );
+    if (exactFirestoreDocumentId(response['claimId']) == null) {
+      throw StateError('The trusted claim response is invalid.');
+    }
+  }
+
+  @visibleForTesting
+  static Future<({BitescoreRestaurant restaurant, bool wasCreated})?>
+  resolveRestaurantCreationWithTrustedHandler({
+    required BiteScoreCreateRequest request,
+    required String requestId,
+    required String expectedUserId,
+    GeoPoint? location,
+    Future<Object?> Function(String, Map<String, Object?>)? transport,
+  }) async {
+    final response = await _callTrustedCreationHandler(
+      'resolveCustomerBiteScoreRestaurantCreation',
+      {
+        'schemaVersion': 1,
+        'expectedUserId': expectedUserId,
+        'requestId': requestId,
+        'name': request.restaurantName,
+        'address': request.streetAddress,
+        'city': request.city,
+        'state': request.state,
+        'zipCode': request.zipCode,
+        if (location != null)
+          'location': {
+            'latitude': location.latitude,
+            'longitude': location.longitude,
+          },
+      },
+      transport,
+    );
+    if (response['requiresLocation'] == true && location == null &&
+        !response.containsKey('restaurant')) {
+      return null;
+    }
+    final restaurant = _restaurantFromTrustedCreationResponse(response);
+    if (response['wasCreated'] is! bool ||
+        restaurant.normalizedName != _normalize(request.restaurantName)) {
+      throw StateError('The trusted restaurant response has a different identity.');
+    }
+    return (
+      restaurant: restaurant,
+      wasCreated: response['wasCreated'] as bool,
+    );
+  }
+
+  @visibleForTesting
+  static Future<({BitescoreDish dish, bool wasCreated, bool restaurantHadNoDishesBefore})>
+  resolveDishCreationWithTrustedHandler({
+    required BiteScoreCreateRequest request,
+    required BitescoreRestaurant restaurant,
+    required String requestId,
+    required String expectedUserId,
+    required bool allowExistingMatch,
+    Future<Object?> Function(String, Map<String, Object?>)? transport,
+  }) async {
+    if (exactFirestoreDocumentId(restaurant.id) != restaurant.id) {
+      throw StateError('The restaurant identity is invalid.');
+    }
+    final dishName = _normalizeDishNameForSave(request.dishName);
+    final response = await _callTrustedCreationHandler(
+      'resolveCustomerBiteScoreDishCreation',
+      {
+        'schemaVersion': 1,
+        'expectedUserId': expectedUserId,
+        'requestId': requestId,
+        'restaurantId': restaurant.id,
+        'dishName': dishName,
+        'category': request.category.trim(),
+        'subcategory': request.subcategory?.trim(),
+        'categoryManualKeywords': request.categoryManualKeywords?.trim(),
+        'categoryTags': BitescoreCategories.buildSearchableTags(
+          categoryName: request.category.trim(),
+          subcategory: request.subcategory,
+          manualKeywords: request.categoryManualKeywords,
+          dishName: dishName,
+          restaurantName: restaurant.name,
+        ),
+        'priceLabel': request.priceLabel,
+        'allowExistingMatch': allowExistingMatch,
+      },
+      transport,
+    );
+    final raw = response['dish'];
+    if (raw is! Map || response['wasCreated'] is! bool ||
+        response['restaurantHadNoDishesBefore'] is! bool) {
+      throw StateError('The trusted dish response is invalid.');
+    }
+    final data = Map<String, dynamic>.from(raw);
+    final id = exactFirestoreDocumentId(data['id']);
+    final dish = id == null
+        ? null
+        : BitescoreDish.tryFromFirestore(data, fallbackId: id);
+    if (dish == null || dish.restaurantId != restaurant.id ||
+        dish.normalizedName != _normalize(dishName) ||
+        !dish.isActive || dish.isMerged) {
+      throw StateError('The trusted dish response has a different identity.');
+    }
+    return (
+      dish: dish,
+      wasCreated: response['wasCreated'] as bool,
+      restaurantHadNoDishesBefore: response['restaurantHadNoDishesBefore'] as bool,
+    );
+  }
+
+  @visibleForTesting
+  static Future<BitescoreRestaurant> completeRestaurantProvenanceWithTrustedHandler({
+    required BitescoreRestaurant restaurant,
+    required String dishId,
+    required String expectedUserId,
+    Future<Object?> Function(String, Map<String, Object?>)? transport,
+  }) async {
+    if (exactFirestoreDocumentId(restaurant.id) != restaurant.id ||
+        exactFirestoreDocumentId(dishId) != dishId) {
+      throw StateError('The creation provenance identity is invalid.');
+    }
+    final response = await _callTrustedCreationHandler(
+      'completeCustomerBiteScoreRestaurantProvenance',
+      {
+        'schemaVersion': 1,
+        'expectedUserId': expectedUserId,
+        'restaurantId': restaurant.id,
+        'dishId': dishId,
+        'expectedRestaurantRevision': restaurant.restaurantWriteRevision,
+      },
+      transport,
+    );
+    final completed = _restaurantFromTrustedCreationResponse(response);
+    if (completed.id != restaurant.id ||
+        completed.restaurantWriteRevision != restaurant.restaurantWriteRevision + 1) {
+      throw StateError('The trusted provenance response has a different identity.');
+    }
+    return completed;
+  }
+
+  @visibleForTesting
+  static Query<Map<String, dynamic>> restaurantCreationLookup(
+    Query<Map<String, dynamic>> query, {
+    required String zipCode,
+    required String normalizedName,
+  }) {
+    final inZip = query.where('zipCode', isEqualTo: zipCode);
+    return CustomerBiteScoreRuntime.isEnabled
+        ? inZip.where('normalizedName', isEqualTo: normalizedName).limit(1)
+        : inZip.limit(20);
+  }
+
+  @visibleForTesting
+  static Query<Map<String, dynamic>> dishCreationLookup(
+    Query<Map<String, dynamic>> query, {
+    required String restaurantId,
+    String? normalizedName,
+  }) {
+    var result = query.where('restaurantId', isEqualTo: restaurantId);
+    if (normalizedName != null) {
+      result = result.where('normalizedName', isEqualTo: normalizedName);
+    }
+    return CustomerBiteScoreRuntime.isEnabled
+        ? result
+              .where('isActive', isEqualTo: true)
+              .where('mergedIntoDishId', isNull: true)
+              .limit(1)
+        : result;
+  }
+
+  @visibleForTesting
+  static Future<List<T>> loadDishCreationCandidates<T>({
+    required bool allowExistingMatch,
+    required Future<List<T>> Function() load,
+  }) async {
+    if (CustomerBiteScoreRuntime.isEnabled && !allowExistingMatch) return <T>[];
+    return load();
+  }
+
   static Future<BitescoreRestaurant> _completeNewRestaurantCreationProvenance({
     required BitescoreRestaurant restaurant,
     required String dishId,
     required String creatorUserId,
     required String expectedUserId,
   }) async {
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      _requireExpectedSignedInBiteScoreUser(expectedUserId);
+      final completed = await completeRestaurantProvenanceWithTrustedHandler(
+        restaurant: restaurant,
+        dishId: dishId,
+        expectedUserId: expectedUserId,
+      );
+      _requireExpectedSignedInBiteScoreUser(expectedUserId);
+      return completed;
+    }
     final provenance = _restaurantCreationProvenanceFields(
       createdByUserId: creatorUserId,
       createdFromDishId: dishId,
@@ -6076,6 +6604,22 @@ class BiteScoreService {
     required String expectedUserId,
     bool allowExistingMatch = true,
   }) async {
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      _requireExpectedSignedInBiteScoreUser(expectedUserId);
+      final resolved = await resolveDishCreationWithTrustedHandler(
+        request: request,
+        restaurant: restaurant,
+        requestId: dishesCollection().doc().id,
+        expectedUserId: expectedUserId,
+        allowExistingMatch: allowExistingMatch,
+      );
+      _requireExpectedSignedInBiteScoreUser(expectedUserId);
+      return _BiteScoreDishResolution(
+        dish: resolved.dish,
+        wasCreated: resolved.wasCreated,
+        restaurantHadNoDishesBefore: resolved.restaurantHadNoDishesBefore,
+      );
+    }
     if (restaurant.latitude == null || restaurant.longitude == null) {
       throw ArgumentError(BiteScoreCreateRequest.invalidAddressMessage);
     }
@@ -6103,9 +6647,10 @@ class BiteScoreService {
       dishName: dishName,
       restaurantName: restaurant.name,
     );
-    final restaurantDishSnapshot = await dishesCollection()
-        .where('restaurantId', isEqualTo: restaurant.id)
-        .get();
+    final restaurantDishSnapshot = await dishCreationLookup(
+      dishesCollection(),
+      restaurantId: restaurant.id,
+    ).get();
     final restaurantHadNoDishesBefore = restaurantDishSnapshot.docs
         .map(
           (doc) =>
@@ -6114,12 +6659,16 @@ class BiteScoreService {
         .whereType<BitescoreDish>()
         .where((dish) => dish.isActive && !dish.isMerged)
         .isEmpty;
-    final snapshot = await dishesCollection()
-        .where('restaurantId', isEqualTo: restaurant.id)
-        .where('normalizedName', isEqualTo: normalizedDishName)
-        .get();
+    final existingDocuments = await loadDishCreationCandidates(
+      allowExistingMatch: allowExistingMatch,
+      load: () async => (await dishCreationLookup(
+        dishesCollection(),
+        restaurantId: restaurant.id,
+        normalizedName: normalizedDishName,
+      ).get()).docs,
+    );
 
-    for (final doc in snapshot.docs) {
+    for (final doc in existingDocuments) {
       final existingDish = BitescoreDish.tryFromFirestore(
         doc.data(),
         fallbackId: doc.id,
@@ -6282,6 +6831,9 @@ class BiteScoreService {
   }
 
   static String _reviewDocumentId(String dishId, String userId) {
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      return 'bsreview_${sha256.convert(utf8.encode(jsonEncode([dishId, userId])))}';
+    }
     return '${_safeDocumentIdPart(dishId)}_${_safeDocumentIdPart(userId)}';
   }
 
@@ -7276,6 +7828,11 @@ class BiteScoreService {
     required String dishId,
     required String restaurantId,
   }) async {
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      // Trusted review maintenance owns create/edit/delete and moderation
+      // contributions after coordinated cutover, including Admin mutations.
+      return;
+    }
     final dishSnapshot = await dishesCollection().doc(dishId).get();
     final aggregateWriteGeneration = _readAggregateWriteGeneration(
       dishSnapshot.data(),
@@ -7488,6 +8045,30 @@ class BiteScoreService {
     final currentUser = _requireExpectedSignedInBiteScoreUser(expectedUserId);
     await _ensureCurrentUserPublicReviewerIdentity(currentUser);
 
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      _requireExpectedSignedInBiteScoreUser(expectedUserId);
+      final review = await saveReviewWithTrustedAggregate(
+        dishId: dish.id,
+        restaurantId: restaurant.id,
+        userId: expectedUserId,
+        headline: headline,
+        notes: notes,
+        overallImpression: overallImpression,
+        tastinessScore: tastinessScore!,
+        qualityScore: qualityScore!,
+        valueScore: valueScore!,
+      );
+      _requireExpectedSignedInBiteScoreUser(expectedUserId);
+      final milestoneAward =
+          await ContributionPointsService.awardReviewMilestoneContributionPoints(
+            userId: expectedUserId,
+          );
+      return _BiteScoreReviewWriteResult(
+        review: review,
+        milestoneAward: milestoneAward,
+      );
+    }
+
     final overallBiteScore = computeOverallBiteScore(
       overallImpression: overallImpression,
       tastinessScore: tastinessScore,
@@ -7534,6 +8115,69 @@ class BiteScoreService {
       review: review,
       milestoneAward: milestoneAward,
     );
+  }
+
+  @visibleForTesting
+  static Future<DishReview> saveReviewWithTrustedAggregate({
+    required String dishId,
+    required String restaurantId,
+    required String userId,
+    required String headline,
+    required String notes,
+    required double overallImpression,
+    required double tastinessScore,
+    required double qualityScore,
+    required double valueScore,
+    Future<Object?> Function(String, Map<String, Object?>)? transport,
+  }) async {
+    if (exactFirestoreDocumentId(dishId) != dishId ||
+        exactFirestoreDocumentId(restaurantId) != restaurantId) {
+      throw StateError('The review identity is invalid.');
+    }
+    final request = <String, Object?>{
+      'schemaVersion': 1,
+      'expectedUserId': userId,
+      'dishId': dishId,
+      'restaurantId': restaurantId,
+      'headline': headline,
+      'notes': notes,
+      'overallImpression': overallImpression,
+      'tastinessScore': tastinessScore,
+      'qualityScore': qualityScore,
+      'valueScore': valueScore,
+    };
+    final result = transport == null
+        ? (await FirebaseFunctions.instance
+                  .httpsCallable('saveCustomerBiteScoreReview')
+                  .call<Object?>(request))
+              .data
+        : await transport('saveCustomerBiteScoreReview', request);
+    if (result is! Map ||
+        result['schemaVersion'] != 1 ||
+        result['review'] is! Map) {
+      throw StateError('The trusted review response is invalid.');
+    }
+    final data = Map<String, dynamic>.from(result['review'] as Map);
+    final reviewId = exactFirestoreDocumentId(data['id']);
+    final created = data['createdAtMillis'];
+    final updated = data['updatedAtMillis'];
+    if (reviewId == null ||
+        data['dishId'] != dishId ||
+        data['restaurantId'] != restaurantId ||
+        data['userId'] != userId ||
+        created is! num ||
+        updated is! num ||
+        !created.isFinite ||
+        !updated.isFinite) {
+      throw StateError('The trusted review response has a different identity.');
+    }
+    data['createdAt'] = DateTime.fromMillisecondsSinceEpoch(created.toInt());
+    data['updatedAt'] = DateTime.fromMillisecondsSinceEpoch(updated.toInt());
+    final review = DishReview.tryFromFirestore(data, fallbackId: reviewId);
+    if (review == null) {
+      throw StateError('The trusted review response is invalid.');
+    }
+    return review;
   }
 
   static String? _validateRequiredReviewScores({

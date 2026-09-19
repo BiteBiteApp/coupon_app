@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io' show Platform;
 
 import 'package:firebase_auth/firebase_auth.dart';
@@ -9,6 +10,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/bitescore_category.dart';
+import '../models/bitescore_dish.dart';
 import '../models/bitescore_food_search.dart';
 import '../models/bitescore_restaurant.dart';
 import '../services/app_error_text.dart';
@@ -16,6 +18,10 @@ import '../services/app_mode_state_service.dart';
 import '../services/bitescore_image_upload_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
+import '../services/customer_bitescore_runtime.dart';
+import '../services/customer_bitescore_reads.dart';
+import '../services/firestore_document_id.dart';
+import '../services/customer_bitescore_search_service.dart';
 import '../services/shared_location_state_service.dart';
 import '../widgets/biterater_theme.dart';
 import 'bitescore_create_rate_screen.dart';
@@ -245,15 +251,35 @@ class _BiteScoreCategoryFilter {
 }
 
 class BiteScoreHomeScreen extends StatefulWidget {
+  @visibleForTesting
+  static Future<BitescoreDish?> loadPhotoCandidate(
+    String dishId, {
+    CustomerBiteScoreReads? reads,
+    Future<BitescoreDish?> Function(String)? legacyLoader,
+  }) async {
+    if (exactFirestoreDocumentId(dishId) != dishId) {
+      throw ArgumentError('An exact dish identity is required.');
+    }
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      return (await (reads ?? CustomerBiteScoreReads()).detail(
+        'dish',
+        dishId,
+      )).entry?.dish;
+    }
+    return (legacyLoader ?? BiteScoreService.loadDishById)(dishId);
+  }
+
   final int navigationRefreshGeneration;
   final BiteScoreHomeEntriesLoader? testHomeEntriesLoader;
   final BiteScoreHomeDishDetailBuilder? testDishDetailBuilder;
+  final CustomerBiteScoreSearchApi? testSearchApi;
 
   const BiteScoreHomeScreen({
     super.key,
     this.navigationRefreshGeneration = 0,
     @visibleForTesting this.testHomeEntriesLoader,
     @visibleForTesting this.testDishDetailBuilder,
+    @visibleForTesting this.testSearchApi,
   });
 
   @override
@@ -296,11 +322,75 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   bool _suppressLocationSearchListener = false;
   SharedLocationOperationToken? _ownedSharedLocationOperation;
   SharedLocationRestoreLease? _activeRestoreLease;
+  CustomerBiteScoreSearchController? _boundedSearch;
+  String? _boundedCriteriaKey;
+  Timer? _boundedSearchDebounce;
+  StreamSubscription<User?>? _boundedAuthSubscription;
+
+  bool get _usesBoundedSearch =>
+      CustomerBiteScoreRuntime.isEnabled || widget.testSearchApi != null;
+
+  Map<String, Object?> _boundedCriteria() {
+    final center = _activeSearchCenter();
+    return customerBiteScoreDishCriteria(
+      text: dishSearchController.text.trim(),
+      locationText: locationSearchController.text.trim(),
+      latitude: center?.latitude,
+      longitude: center?.longitude,
+      radiusMiles: _radiusMiles(),
+      sort: selectedSort,
+      categoryQueries: _selectedCategoryFilters.map((f) => f.query).toList()
+        ..sort(),
+    );
+  }
+
+  void _boundedSearchChanged() {
+    if (!mounted) return;
+    final search = _boundedSearch!;
+    if (jsonEncode(search.criteria) != jsonEncode(_boundedCriteria())) return;
+    setState(() {
+      _entries = search.entries;
+      _isLoading = search.isLoading;
+      _loadError = search.error;
+    });
+  }
+
+  // The comparison also covers restored location state and sheet selections.
+  // Scheduling outside build prevents listener notifications during layout.
+  void _syncBoundedCriteria() {
+    if (!_usesBoundedSearch) return;
+    final criteria = _boundedCriteria();
+    final key = jsonEncode([_hasLocationOrZipInput, criteria]);
+    if (key == _boundedCriteriaKey) return;
+    _boundedCriteriaKey = key;
+    _boundedSearchDebounce?.cancel();
+    _boundedSearchDebounce = Timer(const Duration(milliseconds: 250), () {
+      if (!mounted || key != _boundedCriteriaKey) return;
+      unawaited(
+        _boundedSearch!.updateCriteria(criteria, load: _hasLocationOrZipInput),
+      );
+    });
+  }
 
   @override
   void initState() {
     super.initState();
     _restoreSharedLocationState();
+    if (_usesBoundedSearch) {
+      _boundedSearch = CustomerBiteScoreSearchController(
+        api: widget.testSearchApi,
+        criteria: _boundedCriteria(),
+      )..addListener(_boundedSearchChanged);
+      try {
+        _boundedAuthSubscription = FirebaseAuth.instance
+            .authStateChanges()
+            .listen((_) {
+              if (mounted) unawaited(_refreshEntries());
+            });
+      } catch (_) {
+        // Widget tests may supply a transport without Firebase initialization.
+      }
+    }
     locationSearchController.addListener(_handleLocationSearchTextChanged);
     _refreshEntries();
     _initializeLocationState();
@@ -317,6 +407,9 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
 
   @override
   void dispose() {
+    _boundedSearchDebounce?.cancel();
+    _boundedAuthSubscription?.cancel();
+    _boundedSearch?.dispose();
     _locationOperationGeneration += 1;
     _entriesRequestGeneration += 1;
     final activeRestoreLease = _activeRestoreLease;
@@ -443,6 +536,16 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
   }
 
   Future<void> _refreshEntries() async {
+    if (_usesBoundedSearch) {
+      _boundedSearchDebounce?.cancel();
+      final criteria = _boundedCriteria();
+      _boundedCriteriaKey = jsonEncode([_hasLocationOrZipInput, criteria]);
+      await _boundedSearch!.updateCriteria(
+        criteria,
+        load: _hasLocationOrZipInput,
+      );
+      return;
+    }
     final requestGeneration = ++_entriesRequestGeneration;
     final showLoading = _entries.isEmpty;
     if (mounted) {
@@ -482,8 +585,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
       return;
     }
 
-    final dishId = entry.dish.id.trim();
-    if (dishId.isEmpty) {
+    final dishId = exactFirestoreDocumentId(entry.dish.id);
+    if (dishId == null) {
       return;
     }
 
@@ -511,7 +614,13 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         return;
       }
 
-      final freshDish = await BiteScoreService.loadDishById(dishId);
+      bool actorIsCurrent() =>
+          mounted &&
+          FirebaseAuth.instance.currentUser?.uid == user.uid &&
+          FirebaseAuth.instance.currentUser?.isAnonymous == false;
+      if (!actorIsCurrent()) return;
+      final freshDish = await BiteScoreHomeScreen.loadPhotoCandidate(dishId);
+      if (!actorIsCurrent()) return;
       if (freshDish == null) {
         _showHomeSnackBar('This dish is no longer available.');
         return;
@@ -527,6 +636,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
         dishId: freshDish.id,
         pickedImage: pickedImage,
       );
+      if (!actorIsCurrent()) return;
       await BiteScoreService.addMissingDishImageRecord(
         dish: freshDish,
         restaurant: entry.restaurant,
@@ -2340,42 +2450,75 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
     }
 
     return SliverList(
-      delegate: SliverChildBuilderDelegate((context, index) {
-        if (entries.isEmpty) {
-          return Padding(
-            padding: const EdgeInsets.only(top: 12),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BiteRaterTheme.surfaceDecoration(
-                accentColor: BiteRaterTheme.ocean,
+      delegate: SliverChildBuilderDelegate(
+        (context, index) {
+          if (_usesBoundedSearch &&
+              index == entries.length &&
+              entries.isNotEmpty) {
+            final search = _boundedSearch!;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Center(
+                child: search.isLoading
+                    ? const CircularProgressIndicator()
+                    : search.error != null
+                    ? TextButton(
+                        onPressed: search.loadMore,
+                        child: const Text('Try Again'),
+                      )
+                    : TextButton(
+                        onPressed: search.loadMore,
+                        child: const Text('Load More'),
+                      ),
               ),
-              child: const Text(
-                'No BiteScore dishes found yet. Use Create and Rate to add the first one.',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: BiteRaterTheme.mutedInk,
-                  fontWeight: FontWeight.w700,
-                  height: 1.3,
+            );
+          }
+          if (entries.isEmpty) {
+            return Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(20),
+                decoration: BiteRaterTheme.surfaceDecoration(
+                  accentColor: BiteRaterTheme.ocean,
+                ),
+                child: const Text(
+                  'No BiteScore dishes found yet. Use Create and Rate to add the first one.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: BiteRaterTheme.mutedInk,
+                    fontWeight: FontWeight.w700,
+                    height: 1.3,
+                  ),
                 ),
               ),
-            ),
-          );
-        }
+            );
+          }
 
-        final entry = entries[index];
-        return _buildEntryCard(
-          entry,
-          _entries,
-          placeholderAssetsByDishId[entry.dish.id],
-        );
-      }, childCount: entries.isEmpty ? 1 : entries.length),
+          final entry = entries[index];
+          return _buildEntryCard(
+            entry,
+            _entries,
+            placeholderAssetsByDishId[entry.dish.id],
+          );
+        },
+        childCount: entries.isEmpty
+            ? 1
+            : entries.length +
+                  (_usesBoundedSearch && _boundedSearch!.hasMore ? 1 : 0),
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final filteredEntries = _filteredEntries(_entries);
+    _syncBoundedCriteria();
+    final pendingCriteria =
+        _usesBoundedSearch &&
+        jsonEncode(_boundedSearch!.criteria) != jsonEncode(_boundedCriteria());
+    final filteredEntries = _usesBoundedSearch
+        ? (pendingCriteria ? <BiteScoreHomeEntry>[] : _entries)
+        : _filteredEntries(_entries);
     final bottomContentPadding =
         148.0 + MediaQuery.of(context).viewPadding.bottom;
 
@@ -2402,6 +2545,8 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
               padding: EdgeInsets.fromLTRB(16, 0, 16, bottomContentPadding),
               sliver: !_hasLocationOrZipInput
                   ? _buildGetStartedState()
+                  : pendingCriteria
+                  ? _buildInlineLoadingState()
                   : _loadError != null && _entries.isEmpty
                   ? _buildInlineErrorState()
                   : _isLoading && _entries.isEmpty

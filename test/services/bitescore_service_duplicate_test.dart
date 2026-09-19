@@ -6,10 +6,25 @@ import 'package:coupon_app/models/bitescore_restaurant.dart';
 import 'package:coupon_app/models/dish_rating_aggregate.dart';
 import 'package:coupon_app/models/dish_review.dart';
 import 'package:coupon_app/services/bitescore_service.dart';
+import 'package:coupon_app/services/customer_bitescore_runtime.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('BiteScore duplicate dish protection', () {
+    setUp(() => CustomerBiteScoreRuntime.testEnabled = true);
+    tearDown(() => CustomerBiteScoreRuntime.testEnabled = null);
+
+    test(
+      'default composition preserves the existing name-dedup behavior until cutover',
+      () {
+        CustomerBiteScoreRuntime.testEnabled = false;
+        final entries = BiteScoreService.deduplicateHomeEntriesForDisplay([
+          _entry(dishId: 'dish-1', dishName: 'Pizza'),
+          _entry(dishId: 'dish-2', dishName: 'Pizza'),
+        ]);
+        expect(entries.map((entry) => entry.dish.id), ['dish-1']);
+      },
+    );
     test(
       'home entries do not render duplicate cards with the same dish id',
       () {
@@ -24,7 +39,7 @@ void main() {
     );
 
     test(
-      'home entries do not render duplicate same-restaurant normalized names',
+      'home entries preserve distinct canonical dishes with the same name',
       () {
         final entries = BiteScoreService.deduplicateHomeEntriesForDisplay([
           _entry(dishId: 'dish-1', dishName: 'Supreme Pizza'),
@@ -35,8 +50,7 @@ void main() {
           ),
         ]);
 
-        expect(entries, hasLength(1));
-        expect(entries.single.dish.id, 'dish-1');
+        expect(entries.map((entry) => entry.dish.id), ['dish-1', 'dish-2']);
       },
     );
 
@@ -132,9 +146,19 @@ void main() {
             ),
           );
 
-        expect(entries.map((entry) => entry.dish.id), ['dish-1', 'dish-3']);
-        expect(searchResults.map((entry) => entry.dish.id), ['dish-1']);
-        expect(categoryResults.map((entry) => entry.dish.id), ['dish-1']);
+        expect(entries.map((entry) => entry.dish.id), [
+          'dish-1',
+          'dish-2',
+          'dish-3',
+        ]);
+        expect(searchResults.map((entry) => entry.dish.id), [
+          'dish-1',
+          'dish-2',
+        ]);
+        expect(categoryResults.map((entry) => entry.dish.id), [
+          'dish-1',
+          'dish-2',
+        ]);
         expect(sorted.first.dish.id, 'dish-3');
       },
     );

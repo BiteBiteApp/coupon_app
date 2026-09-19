@@ -8,6 +8,8 @@ import '../services/app_error_text.dart';
 import '../services/bitescore_image_upload_service.dart';
 import '../services/bitescore_sign_in_gate.dart';
 import '../services/bitescore_service.dart';
+import '../services/customer_bitescore_runtime.dart';
+import '../services/customer_bitescore_search_service.dart';
 import '../services/contribution_points_celebration_service.dart';
 import '../services/contribution_points_service.dart';
 import '../services/app_mode_state_service.dart';
@@ -72,6 +74,7 @@ class BiteScoreCreateRateScreen extends StatefulWidget {
   final BiteScoreCreateRateWriteGate? testWriteGate;
   final BiteScoreCreateRateReviewSaver? testReviewSaver;
   final User? Function()? testCurrentUserProvider;
+  final CustomerBiteScoreSearchApi? testSearchApi;
 
   const BiteScoreCreateRateScreen({
     super.key,
@@ -83,6 +86,7 @@ class BiteScoreCreateRateScreen extends StatefulWidget {
     @visibleForTesting this.testWriteGate,
     @visibleForTesting this.testReviewSaver,
     @visibleForTesting this.testCurrentUserProvider,
+    @visibleForTesting this.testSearchApi,
   });
 
   @override
@@ -598,6 +602,8 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
       const <DishCatalogSuggestion>[];
   bool _isLoadingDishSuggestions = false;
   int _dishSuggestionRequestId = 0;
+  int _restaurantSuggestionRequestId = 0;
+  CustomerBiteScoreSearchController? _finderSearch;
   List<String> _manualCitySuggestions = const <String>[];
   List<BitescoreRestaurant> _manualRestaurantSuggestions =
       const <BitescoreRestaurant>[];
@@ -651,7 +657,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     _openingAuthRealm = mainNavigationAuthRealmForUser(_openingUser);
     _seedExistingDishValues();
     _seedExistingRestaurantValues();
-    if (isRestaurantSelectionMode) {
+    if (isRestaurantSelectionMode && !CustomerBiteScoreRuntime.isEnabled) {
       _restaurantsFuture = _loadRestaurantsForFinder();
     }
   }
@@ -725,6 +731,8 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
 
   @override
   void dispose() {
+    _restaurantSuggestionRequestId++;
+    _finderSearch?.dispose();
     _unbindAuthBoundRoute();
     restaurantNameController.dispose();
     cityController.dispose();
@@ -797,6 +805,9 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
   }
 
   Future<List<BitescoreRestaurant>> _loadFinderRestaurants() async {
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      throw StateError('Bounded Finder requires exact search criteria.');
+    }
     if (_restaurantsFuture == null) {
       _restaurantsFuture = _loadRestaurantsForFinder();
     }
@@ -805,6 +816,9 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
   }
 
   Future<List<BitescoreRestaurant>> _loadRestaurantsForFinder() {
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      throw StateError('The legacy Finder is unavailable in bounded mode.');
+    }
     return widget.testRestaurantFinderLoader?.call() ??
         BiteScoreService.loadRestaurantsForFinder();
   }
@@ -943,9 +957,10 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
   }
 
   Future<void> _openSelectedRestaurant(BitescoreRestaurant restaurant) async {
-    final restaurantEntries =
-        await widget.testRestaurantEntriesLoader?.call(restaurant) ??
-        await BiteScoreService.loadEntriesForRestaurant(restaurant);
+    final restaurantEntries = CustomerBiteScoreRuntime.isEnabled
+        ? const <BiteScoreHomeEntry>[]
+        : await widget.testRestaurantEntriesLoader?.call(restaurant) ??
+              await BiteScoreService.loadEntriesForRestaurant(restaurant);
     if (!mounted) {
       return;
     }
@@ -968,7 +983,9 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     if (refreshed == true && mounted) {
       _hasHomeChanges = true;
       setState(() {
-        _restaurantsFuture = _loadRestaurantsForFinder();
+        if (!CustomerBiteScoreRuntime.isEnabled) {
+          _restaurantsFuture = _loadRestaurantsForFinder();
+        }
       });
     }
   }
@@ -998,7 +1015,14 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     });
 
     try {
-      final restaurants = await _loadFinderRestaurants();
+      final restaurants = CustomerBiteScoreRuntime.isEnabled
+          ? await _loadBoundedFinder(
+              name: manualName,
+              location: manualCity,
+              state: manualState,
+              mode: 'close',
+            )
+          : await _loadFinderRestaurants();
       final locationRestaurants = _restaurantsForManualLocation(
         restaurants,
         city: manualCity,
@@ -1382,6 +1406,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
   }
 
   Future<void> _refreshManualRestaurantSuggestions() async {
+    final requestId = ++_restaurantSuggestionRequestId;
     if (!_canSuggestManualRestaurant) {
       if (_manualRestaurantSuggestions.isEmpty) {
         return;
@@ -1409,8 +1434,33 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     final filter = cityController.text.trim();
     final normalizedFilter = _normalizeText(filter);
     final isZipFilter = _looksLikeZipFilter(filter);
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      if (!mounted || requestId != _restaurantSuggestionRequestId) return;
+      try {
+        final suggestions = await _loadBoundedFinder(
+          name: query,
+          location: filter,
+          state: selectedState,
+        );
+        if (!mounted || requestId != _restaurantSuggestionRequestId) return;
+        setState(() => _manualRestaurantSuggestions = suggestions);
+        if (suggestions.isNotEmpty) {
+          _scrollSuggestionIntoView(_manualRestaurantSuggestionsKey);
+        }
+      } catch (_) {
+        if (mounted && requestId == _restaurantSuggestionRequestId) {
+          setState(() => _manualRestaurantSuggestions = const []);
+        }
+      }
+      return;
+    }
     final restaurants = await _loadFinderRestaurants();
-    if (!mounted) {
+    if (!mounted ||
+        requestId != _restaurantSuggestionRequestId ||
+        query != restaurantNameController.text.trim() ||
+        filter != cityController.text.trim() ||
+        selectedState != _selectedManualState) {
       return;
     }
 
@@ -1478,6 +1528,27 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     if (suggestions.isNotEmpty) {
       _scrollSuggestionIntoView(_manualRestaurantSuggestionsKey);
     }
+  }
+
+  Future<List<BitescoreRestaurant>> _loadBoundedFinder({
+    required String name,
+    required String location,
+    required String state,
+    String mode = 'suggestions',
+  }) async {
+    final criteria = <String, Object?>{
+      ...customerBiteScoreDishCriteria(),
+      'kind': 'restaurant',
+      'text': name,
+      'finder': {'state': state, 'location': location, 'mode': mode},
+    };
+    final search = _finderSearch ??= CustomerBiteScoreSearchController(
+      criteria: criteria,
+      api: widget.testSearchApi,
+    );
+    await search.updateCriteria(criteria);
+    if (search.error != null) throw search.error!;
+    return search.restaurants;
   }
 
   Future<void> _applyManualRestaurantSuggestion(

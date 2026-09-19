@@ -411,6 +411,14 @@ service cloud.firestore {
         get(/databases/$(database)/documents/bitescore_restaurants/$(restaurantId)).data.ownerUserId == request.auth.uid;
     }
 
+    function ownerOfBiteScoreDish(dishId) {
+      return signedIn() && dishId is string &&
+        exists(/databases/$(database)/documents/bitescore_dishes/$(dishId)) &&
+        ownerOfBiteScoreRestaurant(
+          get(/databases/$(database)/documents/bitescore_dishes/$(dishId)).data.restaurantId
+        );
+    }
+
     function ownsSharedRestaurantMenu(menuId) {
       return signedIn() &&
         exists(/databases/$(database)/documents/restaurant_menus/$(menuId)) &&
@@ -822,6 +830,22 @@ service cloud.firestore {
               ) || proposalData.mergeTargetDishId == storedTargetDishId
             )
           ));
+    }
+
+    // Modern proposal writers expose the complete preflight duplicate predicate.
+    // This is lookup consistency, not an atomic uniqueness reservation.
+    function validBiteScoreProposalLookupData(proposalData) {
+      return proposalData.keys().hasAll(['canonicalSourceDishId', 'type', 'status']) &&
+        proposalData.type in ['rename', 'merge'] &&
+        proposalData.canonicalSourceDishId == dishProposalSourceDishId(proposalData) &&
+        (proposalData.type != 'merge' ||
+          (proposalData.keys().hasAll(['mergeTargetDishId']) &&
+            proposalData.mergeTargetDishId is string &&
+            proposalData.mergeTargetDishId == dishProposalMergeTargetDishId(proposalData))) &&
+        (proposalData.type != 'rename' ||
+          (proposalData.keys().hasAll(['proposedName', 'normalizedProposedName']) &&
+            proposalData.proposedName is string &&
+            proposalData.normalizedProposedName == proposalData.proposedName.trim().lower()));
     }
 
     function restaurantOperationLockAllowsMutation(restaurantId) {
@@ -1269,6 +1293,65 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // Source-only coordinated BiteScore rollout. Absence preserves the current
+    // client writer; once enabled only trusted server code owns aggregates.
+    function biteScoreTrustedAggregatesEnabled() {
+      return exists(/databases/$(database)/documents/private_bitescore_runtime/aggregation) &&
+        get(/databases/$(database)/documents/private_bitescore_runtime/aggregation).data.enabled == true;
+    }
+
+    match /private_bitescore_runtime/{document=**} {
+      allow read, write: if false;
+    }
+    match /private_bitescore_search_sessions/{document=**} {
+      allow read, write: if false;
+    }
+    match /private_bitescore_search_results/{document=**} {
+      allow read, write: if false;
+    }
+    match /private_bitescore_search_admission/{document=**} {
+      allow read, write: if false;
+    }
+    match /private_bitescore_catalog_generations/{document=**} {
+      allow read, write: if false;
+    }
+    match /private_bitescore_review_aggregates/{document=**} {
+      allow read, write: if false;
+    }
+    match /private_bitescore_review_index/{document=**} {
+      allow read, write: if false;
+    }
+    match /private_bitescore_review_stats/{document=**} {
+      allow read, write: if false;
+    }
+    match /private_bitescore_feedback_accounting/{document=**} {
+      allow read, write: if false;
+    }
+    match /private_bitescore_read_generations/{document=**} {
+      allow read, write: if false;
+    }
+    match /private_bitescore_reviewer_stats/{document=**} {
+      allow read, write: if false;
+    }
+    match /private_bitescore_image_state/{document=**} {
+      allow read, write: if false;
+    }
+    match /private_bitescore_profile_generations/{document=**} {
+      allow read, write: if false;
+    }
+    match /private_bitescore_suggestion_sessions/{document=**} {
+      allow read, write: if false;
+    }
+    match /private_bitescore_suggestion_admission/{document=**} {
+      allow read, write: if false;
+    }
+    match /private_bitescore_suggestion_generations/{document=**} {
+      allow read, write: if false;
+    }
+    match /private_bitescore_menu_generations/{document=**} {
+      allow read, write: if false;
+    }
+
     match /dish_search_index/{document=**} {
       allow read, write: if false;
     }
@@ -1516,8 +1599,12 @@ service cloud.firestore {
         (signedIn() && resource.data.userId == request.auth.uid);
     }
 
+    // Final BiteScore customer read cutoff. Deploy only after compatible clients
+    // and trusted endpoints are ready. Legacy/default clients use the preceding
+    // compatible deployed Rules; the client flag is never read authorization.
     match /bitescore_restaurants/{restaurantId} {
-      allow read: if true;
+      allow read: if isAdmin() || (signedIn() &&
+        resource.data.isClaimed == true && resource.data.ownerUserId == request.auth.uid);
       allow create: if
         !request.resource.data.keys().hasAny(biteScoreCatalogBindingFields()) &&
         !request.resource.data.keys().hasAny(['claimInvitationEpochAt']) &&
@@ -1552,7 +1639,7 @@ service cloud.firestore {
     }
 
     match /bitescore_dishes/{dishId} {
-      allow read: if true;
+      allow read: if isAdmin() || ownerOfBiteScoreRestaurant(resource.data.restaurantId);
       allow create: if canonicalDishId(dishId) &&
         dishOperationLockAllowsMutation(dishId) &&
         dataRestaurantOperationLockAllowsMutation(request.resource.data) &&
@@ -1570,6 +1657,8 @@ service cloud.firestore {
           ownerOfBiteScoreRestaurant(resource.data.restaurantId) ||
           (
             emailVerified() &&
+            (!biteScoreTrustedAggregatesEnabled() ||
+              !changedKeys().hasAny(['imageCount', 'primaryImageId', 'primaryImageUrl'])) &&
             changedKeys().hasOnly([
               'category',
               'subcategory',
@@ -1592,20 +1681,20 @@ service cloud.firestore {
     }
 
     match /dish_catalog/{catalogId} {
-      allow read: if true;
+      allow read: if isAdmin();
       allow write: if isAdmin();
     }
 
     match /dish_rating_aggregates/{dishId} {
-      allow read: if true;
-      allow create: if (isAdmin() || emailVerified()) &&
+      allow read: if isAdmin() || ownerOfBiteScoreRestaurant(resource.data.restaurantId);
+      allow create: if !biteScoreTrustedAggregatesEnabled() && (isAdmin() || emailVerified()) &&
         dishOperationLockAllowsMutation(dishId) &&
         dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data) &&
         aggregateDataMatchesDishIdentity(dishId, request.resource.data) &&
         aggregateWriteGenerationMatchesDish(dishId, request.resource.data) &&
         !mergeLockBlocksClientAggregates(dishId) &&
         !aggregateDataHasBlockingMergeLock(request.resource.data);
-      allow update: if (isAdmin() || emailVerified()) &&
+      allow update: if !biteScoreTrustedAggregatesEnabled() && (isAdmin() || emailVerified()) &&
         dishOperationLockAllowsMutation(dishId) &&
         dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
         dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data) &&
@@ -1615,7 +1704,7 @@ service cloud.firestore {
         !mergeLockBlocksClientAggregates(dishId) &&
         !aggregateDataHasBlockingMergeLock(resource.data) &&
         !aggregateDataHasBlockingMergeLock(request.resource.data);
-      allow delete: if isAdmin() &&
+      allow delete: if !biteScoreTrustedAggregatesEnabled() && isAdmin() &&
         dishOperationLockAllowsMutation(dishId) &&
         dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
         aggregateDataMatchesDishIdentity(dishId, resource.data) &&
@@ -1625,13 +1714,13 @@ service cloud.firestore {
     }
 
     match /dish_reviews/{reviewId} {
-      allow read: if true;
-      allow create: if createsOwnReview() &&
+      allow read: if isAdmin() || ownerOfBiteScoreDish(resource.data.dishId);
+      allow create: if !biteScoreTrustedAggregatesEnabled() && createsOwnReview() &&
         dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data) &&
         reviewDataHasCanonicalDishId(request.resource.data) &&
         !reviewDataHasBlockingMergeLock(request.resource.data) &&
         reviewDataUserAllowsMilestoneMutation(request.resource.data);
-      allow update: if (isAdmin() || updatesOwnReview()) &&
+      allow update: if (!biteScoreTrustedAggregatesEnabled() || isAdmin()) && (isAdmin() || updatesOwnReview()) &&
         dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
         dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data) &&
         reviewDataHasCanonicalDishId(resource.data) &&
@@ -1648,13 +1737,15 @@ service cloud.firestore {
     }
 
     match /bitescore_dish_images/{imageId} {
-      allow read: if true;
+      allow read: if isAdmin() || ownerOfBiteScoreDish(resource.data.dishId) ||
+        (signedIn() && resource.data.uploadedByUserId == request.auth.uid);
       allow create: if isAdmin() ||
-        (emailVerified() && request.resource.data.uploadedByUserId == request.auth.uid);
+        (!biteScoreTrustedAggregatesEnabled() && emailVerified() &&
+          request.resource.data.uploadedByUserId == request.auth.uid);
       allow update: if isAdmin() ||
         ownerOfBiteScoreRestaurant(resource.data.restaurantId) ||
         (
-          emailVerified() &&
+          !biteScoreTrustedAggregatesEnabled() && emailVerified() &&
           changedKeys().hasOnly([
             'helpfulCount',
             'notHelpfulCount',
@@ -1668,7 +1759,10 @@ service cloud.firestore {
     }
 
     match /bitescore_dish_image_votes/{voteId} {
-      allow read: if signedIn() && resource.data.userId == request.auth.uid;
+      // Empty exact-ID lookups reveal no record; all existing votes remain own-only.
+      allow read: if signedIn() &&
+        (!exists(/databases/$(database)/documents/bitescore_dish_image_votes/$(voteId)) ||
+          resource.data.userId == request.auth.uid);
       allow create: if emailVerified() && request.resource.data.userId == request.auth.uid;
       allow update: if emailVerified() &&
         resource.data.userId == request.auth.uid &&
@@ -1677,7 +1771,12 @@ service cloud.firestore {
     }
 
     match /review_feedback_votes/{voteId} {
-      allow read: if true;
+      // A missing point-read contains no private record and is necessary for the
+      // existing own-vote create transaction. Existing records stay own-only.
+      allow get: if isAdmin() || (signedIn() &&
+        (!exists(/databases/$(database)/documents/review_feedback_votes/$(voteId)) ||
+          resource.data.userId == request.auth.uid));
+      allow list: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
       allow create: if emailVerified() &&
         request.resource.data.userId == request.auth.uid &&
         dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data);
@@ -1738,9 +1837,11 @@ service cloud.firestore {
     match /dish_edit_proposals/{proposalId} {
       allow read: if isAdmin() || readsOwnDishEditProposal();
       allow create: if createsOwnDishEditProposal() &&
+        (!biteScoreTrustedAggregatesEnabled() || validBiteScoreProposalLookupData(request.resource.data)) &&
         dishProposalResolutionIdentitiesValid(request.resource.data) &&
         proposalOperationLocksAllowMutation(request.resource.data);
       allow update: if isAdmin() &&
+        (!biteScoreTrustedAggregatesEnabled() || validBiteScoreProposalLookupData(request.resource.data)) &&
         dishProposalResolutionIdentitiesValid(request.resource.data) &&
         proposalOperationLocksAllowMutation(resource.data) &&
         proposalOperationLocksAllowMutation(request.resource.data);
@@ -1772,7 +1873,7 @@ service cloud.firestore {
     }
 
     match /restaurant_menus/{menuId} {
-      allow read: if true;
+      allow read: if isAdmin() || ownsSharedRestaurantMenu(menuId);
       allow create: if isAdmin() ||
         (
           emailVerified() &&
@@ -1784,19 +1885,19 @@ service cloud.firestore {
       allow delete: if isAdmin();
 
       match /menu_images/{imageId} {
-        allow read: if true;
+        allow read: if isAdmin() || ownsSharedRestaurantMenu(menuId);
         allow create, update: if isAdmin() || ownsSharedRestaurantMenu(menuId);
         allow delete: if isAdmin() || ownsSharedRestaurantMenu(menuId);
       }
 
       match /menu_items/{itemId} {
-        allow read: if true;
+        allow read: if isAdmin() || ownsSharedRestaurantMenu(menuId);
         allow create, update: if isAdmin() || ownsSharedRestaurantMenu(menuId);
         allow delete: if isAdmin() || ownsSharedRestaurantMenu(menuId);
       }
 
       match /menu_sections/{sectionId} {
-        allow read: if true;
+        allow read: if isAdmin() || ownsSharedRestaurantMenu(menuId);
         allow create, update: if isAdmin() || ownsSharedRestaurantMenu(menuId);
         allow delete: if isAdmin() || ownsSharedRestaurantMenu(menuId);
       }

@@ -49,6 +49,10 @@ import {
   type SearchIndexJobParentSource,
 } from "./search_index_contract.js";
 import { readBiteScoreCatalogRestaurantId } from "./restaurant_invite_helpers.js";
+import {
+  customerBiteScoreGenerationShardPath,
+  nextCustomerBiteScoreGenerationDocument,
+} from "./customer_bitescore_search_contract.js";
 import type {
   CustomerBiteSaverIdentityKeyV1,
 } from "./customer_bitesaver_public_identity.js";
@@ -217,6 +221,11 @@ async function applyCurrentIndex(
     identity: CustomerBiteSaverCatalogIdentity;
     now: Date;
   }>,
+  biteScoreCatalogMutation?: Readonly<{
+    kind: "restaurant" | "dish";
+    sourceId: string;
+    now: Date;
+  }>,
 ): Promise<boolean> {
   const path = documentPath(collection, indexDocumentId);
   const existing = await transaction.getDocument(path);
@@ -238,6 +247,27 @@ async function applyCurrentIndex(
     path: string;
     document: SearchIndexDocument;
   }> | null = null;
+  let biteScoreGenerationWrite: Readonly<{
+    path: string;
+    document: SearchIndexDocument;
+  }> | null = null;
+  if (biteScoreCatalogMutation !== undefined && !hasExactNestedShape(
+    existing?.customerPublicProjection ?? null,
+    document?.customerPublicProjection ?? null,
+  )) {
+    const shardPath = customerBiteScoreGenerationShardPath(
+      biteScoreCatalogMutation.kind,
+      biteScoreCatalogMutation.sourceId,
+    );
+    const shard = await transaction.getDocument(shardPath);
+    biteScoreGenerationWrite = {
+      path: shardPath,
+      document: nextCustomerBiteScoreGenerationDocument(
+        shard,
+        biteScoreCatalogMutation.now,
+      ),
+    };
+  }
   if (customerCatalogMutation !== undefined) {
     const existingHasContribution = existing !== null &&
       Object.prototype.hasOwnProperty.call(
@@ -292,6 +322,12 @@ async function applyCurrentIndex(
   }
   if (generationWrite !== null) {
     transaction.setDocument(generationWrite.path, generationWrite.document);
+  }
+  if (biteScoreGenerationWrite !== null) {
+    transaction.setDocument(
+      biteScoreGenerationWrite.path,
+      biteScoreGenerationWrite.document,
+    );
   }
   return generationWrite !== null;
 }
@@ -362,6 +398,8 @@ export async function reconcileBiteScoreRestaurantIndex(
         source,
         now,
       }),
+      undefined,
+      {kind: "restaurant", sourceId: restaurantId, now},
     );
     return source;
   });
@@ -418,6 +456,8 @@ async function reconcileBiteScoreDishIndexInTransaction(
       aggregate,
       now,
     }),
+    undefined,
+    {kind: "dish", sourceId: dishId, now},
   );
 }
 

@@ -1017,7 +1017,7 @@ test("restaurant account root gets are private to the exact owner and Admin", as
   }
 });
 
-test("public child content remains readable through internal parent checks", async () => {
+test("BiteSaver public child content remains readable while BiteScore raw reads are retired", async () => {
   const accountPath = "restaurant_accounts/owner-1";
   const customerPaths = [
     `${accountPath}/coupons/coupon-1`,
@@ -1040,10 +1040,10 @@ test("public child content remains readable through internal parent checks", asy
   }
 
   const db = dbFor("unauthenticated");
-  await assertSucceeds(db.doc("bitescore_restaurants/bs-1").get());
-  await assertSucceeds(db.doc("bitescore_dishes/dish-1").get());
-  await assertSucceeds(db.doc("dish_rating_aggregates/dish-1").get());
-  await assertSucceeds(db.doc("dish_reviews/dish-1_customer-a").get());
+  await assertFails(db.doc("bitescore_restaurants/bs-1").get());
+  await assertFails(db.doc("bitescore_dishes/dish-1").get());
+  await assertFails(db.doc("dish_rating_aggregates/dish-1").get());
+  await assertFails(db.doc("dish_reviews/dish-1_customer-a").get());
 });
 
 test("public restaurant projection gets require the exact current BiteSaver contract", async () => {
@@ -1476,14 +1476,16 @@ test("BiteSaver Admin Restore removes only the veto and preserves posting gates"
   await assertSucceeds(dbFor("admin").doc(accountPath).get());
 });
 
-test("public can read review feedback votes for dish detail trust summaries", async () => {
-  const snapshot = await assertSucceeds(
+test("review feedback records are private while own-vote queries remain supported", async () => {
+  await assertFails(
     dbFor("unauthenticated")
       .collection("review_feedback_votes")
       .where("reviewId", "in", ["dish-1_customer-a"])
       .get(),
   );
 
+  const snapshot = await assertSucceeds(dbFor("wrongCustomer")
+    .collection("review_feedback_votes").where("userId", "==", "customer-b").get());
   assert.equal(snapshot.size, 1);
   assert.equal(snapshot.docs[0].data().voteType, "helpful");
 });
@@ -3092,7 +3094,7 @@ test("BiteScore dish provenance cannot be added later to old dishes", async () =
 
 test("old BiteScore dish docs without provenance remain readable and updatable", async () => {
   const db = dbFor("customer");
-  await assertSucceeds(db.doc("bitescore_dishes/dish-1").get());
+  await assertFails(db.doc("bitescore_dishes/dish-1").get());
   await assertSucceeds(
     db.doc("bitescore_dishes/dish-1").set(
       {
@@ -4013,7 +4015,7 @@ test("BiteScore restaurant provenance cannot be added later to old restaurants",
   );
 });
 
-test("old BiteScore restaurant docs without provenance remain readable and updatable", async () => {
+test("BiteScore owner retains existing restaurant read and update authority", async () => {
   const db = dbFor("biteScoreOwner");
   await assertSucceeds(db.doc("bitescore_restaurants/bs-1").get());
   await assertSucceeds(

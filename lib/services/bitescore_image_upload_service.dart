@@ -1,7 +1,11 @@
 import 'dart:typed_data';
 
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:image_picker/image_picker.dart';
+
+import 'customer_bitescore_runtime.dart';
+import 'firestore_document_id.dart';
 
 class BiteScorePickedDishImage {
   final String fileName;
@@ -56,8 +60,10 @@ class BiteScoreImageUploadService {
     required BiteScorePickedDishImage pickedImage,
   }) async {
     final timestamp = DateTime.now().microsecondsSinceEpoch;
-    final storagePath =
-        'bitescore_dishes/${_safePathSegment(dishId)}/images/$timestamp.jpg';
+    final storagePath = dishImageStoragePath(
+      dishId: dishId,
+      timestamp: timestamp,
+    );
     final ref = _storage.ref().child(storagePath);
 
     final uploadSnapshot = await ref.putData(
@@ -69,6 +75,24 @@ class BiteScoreImageUploadService {
       imageUrl: await uploadSnapshot.ref.getDownloadURL(),
       storagePath: storagePath,
     );
+  }
+
+  @visibleForTesting
+  static String dishImageStoragePath({
+    required String dishId,
+    required int timestamp,
+  }) {
+    final String segment;
+    if (CustomerBiteScoreRuntime.isEnabled) {
+      final exactId = exactFirestoreDocumentId(dishId);
+      if (exactId == null) {
+        throw ArgumentError.value(dishId, 'dishId', 'Invalid dish identity.');
+      }
+      segment = exactId;
+    } else {
+      segment = _safePathSegment(dishId);
+    }
+    return 'bitescore_dishes/$segment/images/$timestamp.jpg';
   }
 
   static String _safePathSegment(String value) {

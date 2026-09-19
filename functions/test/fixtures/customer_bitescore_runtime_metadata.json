@@ -1,0 +1,634 @@
+{
+  "startCustomerBiteScoreSearch": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "secretEnvironmentVariables": [
+      {
+        "key": "SEARCH_PAGINATION_CURSOR_KEY"
+      }
+    ],
+    "callableTrigger": {}
+  },
+  "advanceCustomerBiteScoreSearch": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "secretEnvironmentVariables": [
+      {
+        "key": "SEARCH_PAGINATION_CURSOR_KEY"
+      }
+    ],
+    "callableTrigger": {}
+  },
+  "getCustomerBiteScoreSearchPage": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "secretEnvironmentVariables": [
+      {
+        "key": "SEARCH_PAGINATION_CURSOR_KEY"
+      }
+    ],
+    "callableTrigger": {}
+  },
+  "getCustomerBiteScoreDetail": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "secretEnvironmentVariables": [
+      {
+        "key": "SEARCH_PAGINATION_CURSOR_KEY"
+      }
+    ],
+    "callableTrigger": {}
+  },
+  "pageCustomerBiteScoreReviews": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "secretEnvironmentVariables": [
+      {
+        "key": "SEARCH_PAGINATION_CURSOR_KEY"
+      }
+    ],
+    "callableTrigger": {}
+  },
+  "pageCustomerBiteScoreImages": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "secretEnvironmentVariables": [
+      {
+        "key": "SEARCH_PAGINATION_CURSOR_KEY"
+      }
+    ],
+    "callableTrigger": {}
+  },
+  "pageCustomerBiteScoreMenu": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "secretEnvironmentVariables": [
+      {
+        "key": "SEARCH_PAGINATION_CURSOR_KEY"
+      }
+    ],
+    "callableTrigger": {}
+  },
+  "startCustomerBiteScoreProfileList": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "secretEnvironmentVariables": [
+      {
+        "key": "SEARCH_PAGINATION_CURSOR_KEY"
+      }
+    ],
+    "callableTrigger": {}
+  },
+  "advanceCustomerBiteScoreProfileList": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "secretEnvironmentVariables": [
+      {
+        "key": "SEARCH_PAGINATION_CURSOR_KEY"
+      }
+    ],
+    "callableTrigger": {}
+  },
+  "getCustomerBiteScoreProfileListPage": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "secretEnvironmentVariables": [
+      {
+        "key": "SEARCH_PAGINATION_CURSOR_KEY"
+      }
+    ],
+    "callableTrigger": {}
+  },
+  "getCustomerBiteScoreProfileSummary": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "secretEnvironmentVariables": [
+      {
+        "key": "SEARCH_PAGINATION_CURSOR_KEY"
+      }
+    ],
+    "callableTrigger": {}
+  },
+  "getCustomerBiteScoreSuggestions": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "secretEnvironmentVariables": [
+      {
+        "key": "SEARCH_PAGINATION_CURSOR_KEY"
+      }
+    ],
+    "callableTrigger": {}
+  },
+  "saveCustomerBiteScoreReview": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "callableTrigger": {}
+  },
+  "maintainCustomerBiteScoreReviewAggregate": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": null,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "eventTrigger": {
+      "eventType": "google.cloud.firestore.document.v1.written",
+      "eventFilters": {
+        "database": "(default)",
+        "namespace": "(default)"
+      },
+      "eventFilterPathPatterns": {
+        "document": "dish_reviews/{reviewId}"
+      },
+      "retry": true
+    }
+  },
+  "maintainCustomerBiteScoreDishAggregate": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": null,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "eventTrigger": {
+      "eventType": "google.cloud.firestore.document.v1.written",
+      "eventFilters": {
+        "database": "(default)",
+        "namespace": "(default)"
+      },
+      "eventFilterPathPatterns": {
+        "document": "bitescore_dishes/{dishId}"
+      },
+      "retry": true
+    }
+  },
+  "maintainCustomerBiteScoreReviewFeedback": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": null,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "eventTrigger": {
+      "eventType": "google.cloud.firestore.document.v1.written",
+      "eventFilters": {
+        "database": "(default)",
+        "namespace": "(default)"
+      },
+      "eventFilterPathPatterns": {
+        "document": "review_feedback_votes/{voteId}"
+      },
+      "retry": true
+    }
+  },
+  "maintainCustomerBiteScoreImage": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": null,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "eventTrigger": {
+      "eventType": "google.cloud.firestore.document.v1.written",
+      "eventFilters": {
+        "database": "(default)",
+        "namespace": "(default)"
+      },
+      "eventFilterPathPatterns": {
+        "document": "bitescore_dish_images/{imageId}"
+      },
+      "retry": true
+    }
+  },
+  "maintainCustomerBiteScoreFavoriteRestaurant": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": null,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "eventTrigger": {
+      "eventType": "google.cloud.firestore.document.v1.written",
+      "eventFilters": {
+        "database": "(default)",
+        "namespace": "(default)"
+      },
+      "eventFilterPathPatterns": {
+        "document": "user_profiles/{userId}/favorite_restaurants/{favoriteId}"
+      },
+      "retry": true
+    }
+  },
+  "maintainCustomerBiteScoreFavoriteDish": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": null,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "eventTrigger": {
+      "eventType": "google.cloud.firestore.document.v1.written",
+      "eventFilters": {
+        "database": "(default)",
+        "namespace": "(default)"
+      },
+      "eventFilterPathPatterns": {
+        "document": "user_profiles/{userId}/favorite_dishes/{favoriteId}"
+      },
+      "retry": true
+    }
+  },
+  "maintainCustomerBiteScoreSuggestionCatalog": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": null,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "eventTrigger": {
+      "eventType": "google.cloud.firestore.document.v1.written",
+      "eventFilters": {
+        "database": "(default)",
+        "namespace": "(default)"
+      },
+      "eventFilterPathPatterns": {
+        "document": "dish_catalog/{catalogId}"
+      },
+      "retry": true
+    }
+  },
+  "maintainCustomerBiteScoreMenuImage": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": null,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "eventTrigger": {
+      "eventType": "google.cloud.firestore.document.v1.written",
+      "eventFilters": {
+        "database": "(default)",
+        "namespace": "(default)"
+      },
+      "eventFilterPathPatterns": {
+        "document": "restaurant_menus/{rootId}/menu_images/{entryId}"
+      },
+      "retry": true
+    }
+  },
+  "maintainCustomerBiteScoreMenuItem": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": null,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "eventTrigger": {
+      "eventType": "google.cloud.firestore.document.v1.written",
+      "eventFilters": {
+        "database": "(default)",
+        "namespace": "(default)"
+      },
+      "eventFilterPathPatterns": {
+        "document": "restaurant_menus/{rootId}/menu_items/{entryId}"
+      },
+      "retry": true
+    }
+  },
+  "maintainCustomerBiteScoreMenuSection": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": null,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "eventTrigger": {
+      "eventType": "google.cloud.firestore.document.v1.written",
+      "eventFilters": {
+        "database": "(default)",
+        "namespace": "(default)"
+      },
+      "eventFilterPathPatterns": {
+        "document": "restaurant_menus/{rootId}/menu_sections/{entryId}"
+      },
+      "retry": true
+    }
+  },
+  "maintainCustomerBiteScoreLinkedMenuImage": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": null,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "eventTrigger": {
+      "eventType": "google.cloud.firestore.document.v1.written",
+      "eventFilters": {
+        "database": "(default)",
+        "namespace": "(default)"
+      },
+      "eventFilterPathPatterns": {
+        "document": "restaurant_accounts/{rootId}/menu_images/{entryId}"
+      },
+      "retry": true
+    }
+  },
+  "maintainCustomerBiteScoreLinkedMenuItem": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": null,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "eventTrigger": {
+      "eventType": "google.cloud.firestore.document.v1.written",
+      "eventFilters": {
+        "database": "(default)",
+        "namespace": "(default)"
+      },
+      "eventFilterPathPatterns": {
+        "document": "restaurant_accounts/{rootId}/menu_items/{entryId}"
+      },
+      "retry": true
+    }
+  },
+  "maintainCustomerBiteScoreLinkedMenuSection": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": null,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "eventTrigger": {
+      "eventType": "google.cloud.firestore.document.v1.written",
+      "eventFilters": {
+        "database": "(default)",
+        "namespace": "(default)"
+      },
+      "eventFilterPathPatterns": {
+        "document": "restaurant_accounts/{rootId}/menu_sections/{entryId}"
+      },
+      "retry": true
+    }
+  },
+  "continueCustomerBiteScoreReviewAggregates": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "scheduleTrigger": {
+      "schedule": "every 1 minutes",
+      "retryConfig": {}
+    }
+  },
+  "submitCustomerBiteScoreRestaurantClaim": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "callableTrigger": {}
+  },
+  "resolveCustomerBiteScoreRestaurantCreation": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "callableTrigger": {},
+    "secretEnvironmentVariables": [
+      {
+        "key": "SEARCH_PAGINATION_CURSOR_KEY"
+      }
+    ]
+  },
+  "resolveCustomerBiteScoreDishCreation": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "callableTrigger": {},
+    "secretEnvironmentVariables": [
+      {
+        "key": "SEARCH_PAGINATION_CURSOR_KEY"
+      }
+    ]
+  },
+  "completeCustomerBiteScoreRestaurantProvenance": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "callableTrigger": {}
+  },
+  "createCustomerBiteScorePhoto": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "callableTrigger": {}
+  },
+  "toggleCustomerBiteScorePhotoVote": {
+    "availableMemoryMb": null,
+    "timeoutSeconds": 60,
+    "minInstances": null,
+    "maxInstances": null,
+    "ingressSettings": null,
+    "concurrency": null,
+    "serviceAccountEmail": "bitescore-customer-runtime@coupon-app-29446.iam.gserviceaccount.com",
+    "vpc": null,
+    "platform": "gcfv2",
+    "labels": {},
+    "callableTrigger": {}
+  }
+}

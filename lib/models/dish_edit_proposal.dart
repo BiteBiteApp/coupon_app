@@ -40,8 +40,11 @@ class DishEditProposal {
       'type': type.trim(),
       'restaurantId': restaurantId.trim(),
       'targetDishId': targetDishId.trim(),
+      'canonicalSourceDishId': targetDishId.trim(),
       'mergeTargetDishId': mergeTargetDishId?.trim(),
       'proposedName': proposedName?.trim(),
+      if (isRename)
+        'normalizedProposedName': (proposedName ?? '').trim().toLowerCase(),
       'reason': reason?.trim(),
       'userId': userId.trim(),
       'status': status.trim(),

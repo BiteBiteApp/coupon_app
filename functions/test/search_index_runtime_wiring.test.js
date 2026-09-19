@@ -95,6 +95,23 @@ const customerBiteSaverRetryEnabledTriggers = Object.freeze([
   "processPrivateCustomerBiteSaverSearchJob",
 ]);
 
+const customerBiteScoreRetryEnabledTriggers = Object.freeze([
+  "maintainCustomerBiteScoreReviewAggregate",
+  "maintainCustomerBiteScoreDishAggregate",
+  "maintainCustomerBiteScoreReviewFeedback",
+  "maintainCustomerBiteScoreImage",
+  "maintainCustomerBiteScoreFavoriteRestaurant",
+  "maintainCustomerBiteScoreFavoriteDish",
+  "maintainCustomerBiteScoreSuggestionCatalog",
+  "maintainCustomerBiteScoreMenuImage",
+  "maintainCustomerBiteScoreMenuItem",
+  "maintainCustomerBiteScoreMenuSection",
+  "maintainCustomerBiteScoreLinkedMenuImage",
+  "maintainCustomerBiteScoreLinkedMenuItem",
+  "maintainCustomerBiteScoreLinkedMenuSection"
+]);
+const customerBiteScoreRuntimeMetadata = require("./fixtures/customer_bitescore_runtime_metadata.json");
+
 const expectedAdminUserDirectoryTriggers = Object.freeze({
   maintainAdminUserDirectoryFromRestaurantAccount:
     "restaurant_accounts/{restaurantAccountId}",
@@ -557,6 +574,7 @@ test("compiled trigger metadata uses exact private paths and background event ty
     ...searchIndexRetryEnabledTriggers,
     ...preexistingRetryEnabledTriggers,
     ...customerBiteSaverRetryEnabledTriggers,
+    ...customerBiteScoreRetryEnabledTriggers,
   ]) {
     assert.equal(runtime.exports[name].__endpoint.eventTrigger.retry, true, name);
   }
@@ -568,6 +586,7 @@ test("actual Firebase export metadata enables retry for only the intended trigge
     ...searchIndexRetryEnabledTriggers,
     ...preexistingRetryEnabledTriggers,
     ...customerBiteSaverRetryEnabledTriggers,
+    ...customerBiteScoreRetryEnabledTriggers,
   ].sort();
 
   assert.deepEqual(
@@ -577,6 +596,9 @@ test("actual Firebase export metadata enables retry for only the intended trigge
       .sort(),
     expectedRetryEnabled,
   );
+  for (const name of customerBiteScoreRetryEnabledTriggers) {
+    assert.deepEqual(metadata[name], customerBiteScoreRuntimeMetadata[name], name);
+  }
   for (const name of searchIndexRetryEnabledTriggers) {
     const endpoint = metadata[name];
     assert.ok(endpoint, name);

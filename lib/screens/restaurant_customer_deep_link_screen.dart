@@ -7,6 +7,8 @@ import '../models/restaurant.dart';
 import '../services/app_error_text.dart';
 import '../services/app_mode_state_service.dart';
 import '../services/bitescore_service.dart';
+import '../services/customer_bitescore_reads.dart';
+import '../services/customer_bitescore_runtime.dart';
 import '../services/restaurant_account_service.dart';
 import 'bitescore_restaurant_dishes_screen.dart';
 import 'main_navigation_screen.dart';
@@ -66,6 +68,17 @@ class _RestaurantCustomerDeepLinkScreenState
     }
 
     if (_isBiteScore) {
+      if (CustomerBiteScoreRuntime.isEnabled &&
+          widget.biteScoreRestaurantLoader == null) {
+        final detail = await CustomerBiteScoreReads().detail(
+          'restaurant',
+          restaurantId,
+        );
+        return _RestaurantDeepLinkResolution.biteScore(
+          restaurant: detail.restaurant,
+          entries: const [],
+        );
+      }
       final restaurantLoader = widget.biteScoreRestaurantLoader;
       final restaurant = restaurantLoader == null
           ? await BiteScoreService.loadRestaurantById(restaurantId)

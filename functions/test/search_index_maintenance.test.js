@@ -31,6 +31,9 @@ const {
   privateCustomerBiteSaverCatalogGenerationCollection,
 } = require("../lib/customer_bitesaver_search_contract.js");
 const {
+  customerBiteScoreGenerationShardPath,
+} = require("../lib/customer_bitescore_search_contract.js");
+const {
   buildSearchIndexJobDocument,
   customerBiteSaverCatalogGenerationShard,
   createSearchIndexDocumentId,
@@ -6095,4 +6098,35 @@ test("unsupported cursor phase becomes terminal invalid without source work or r
   );
   assert.equal(database.operations.length, operationCount + 1);
   assert.deepEqual(database.operations.at(-1), {operation: "get", path});
+});
+
+test("BiteScore projection and generation commit together; duplicate and private-only source writes do not restart search", async () => {
+  const parentPath = "bitescore_restaurants/restaurant-1";
+  const database = new FakeSearchIndexDatabase({
+    [parentPath]: biteScoreRestaurant({streetAddress: "1 Synthetic Street", restaurantWriteRevision: 0}),
+    "bitescore_dishes/dish-1": biteScoreDish("dish-1"),
+  });
+  const parentGeneration = customerBiteScoreGenerationShardPath("restaurant", "restaurant-1");
+  await reconcileBiteScoreRestaurantIndex(database, "restaurant-1", now);
+  assert.equal(database.records.get(parentGeneration).generation, 1);
+  assert(database.transactionAttempts.some((attempt) =>
+    attempt.readPaths.includes(parentGeneration) && attempt.writes.some((write) =>
+      write.path.startsWith("restaurant_search_index/")) && attempt.writes.some((write) => write.path === parentGeneration)));
+  await reconcileBiteScoreRestaurantIndex(database, "restaurant-1", now);
+  database.records.set(parentPath, {...database.records.get(parentPath), privateInternalNote: "not customer-visible"});
+  await reconcileBiteScoreRestaurantIndex(database, "restaurant-1", now);
+  assert.equal(database.records.get(parentGeneration).generation, 1);
+  database.records.set(parentPath, {...database.records.get(parentPath), name: "Changed public name"});
+  await reconcileBiteScoreRestaurantIndex(database, "restaurant-1", now);
+  assert.equal(database.records.get(parentGeneration).generation, 2);
+  const dishGeneration = customerBiteScoreGenerationShardPath("dish", "dish-1");
+  const before = database.records.get(dishGeneration)?.generation ?? 0;
+  await reconcileBiteScoreDishIndex(database, "dish-1", now);
+  assert.equal(database.records.get(dishGeneration).generation, before + 1);
+  database.records.set("dish_rating_aggregates/dish-1", {dishId: "dish-1", restaurantId: "restaurant-1", ratingCount: 2, overallBiteScore: 92});
+  await reconcileBiteScoreDishIndex(database, "dish-1", now);
+  assert.equal(database.records.get(dishGeneration).generation, before + 2);
+  database.records.delete("bitescore_dishes/dish-1");
+  await reconcileBiteScoreDishIndex(database, "dish-1", now);
+  assert.equal(database.records.get(dishGeneration).generation, before + 3);
 });
