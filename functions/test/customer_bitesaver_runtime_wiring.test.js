@@ -32,15 +32,15 @@ const callableHandlers = Object.freeze({
   getCustomerBiteSaverSavedPage: "getCustomerBiteSaverSavedPageHandler",
   getCustomerBiteSaverSavedMenuPage:
     "getCustomerBiteSaverSavedMenuPageHandler",
-  startCustomerBiteSaverSavedOfferRedemption:
-    "startCustomerBiteSaverSavedOfferRedemptionHandler",
   validateCustomerBiteSaverSavedOfferRedemptionStart:
     "validateCustomerBiteSaverSavedOfferRedemptionStartHandler",
-  startCustomerBiteSaverOfferRedemption:
-    "startCustomerBiteSaverOfferRedemptionHandler",
   validateCustomerBiteSaverOfferRedemptionStart:
     "validateCustomerBiteSaverOfferRedemptionStartHandler",
 });
+const retiredCallableExports = new Set([
+  "startCustomerBiteSaverOfferRedemption",
+  "startCustomerBiteSaverSavedOfferRedemption",
+]);
 const deviceCallableFactories = Object.freeze({
   issueCustomerBiteSaverDeviceUseChallenge:
     "createIssueCustomerBiteSaverDeviceUseChallengeHandler",
@@ -429,9 +429,14 @@ test("approved runtime isolation and proposal schedule preserve the complete exp
   assert.deepEqual(
     Object.keys(metadata).sort(),
     [...Object.keys(protectedMetadata), ...Object.keys(deviceCallableFactories), ...Object.keys(biteScoreMetadata)]
+      .filter((name) => !retiredCallableExports.has(name))
       .sort(),
   );
+  for (const name of retiredCallableExports) {
+    assert.equal(Object.hasOwn(metadata, name), false, name);
+  }
   for (const [name, endpoint] of Object.entries(protectedMetadata)) {
+    if (retiredCallableExports.has(name)) continue;
     // Retain the original snapshot: only explicitly approved Browse and
     // Admin-support identities and the accepted proposal schedule spelling differ.
     // Every other metadata field, including

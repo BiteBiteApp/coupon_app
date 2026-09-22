@@ -1741,7 +1741,7 @@ test("reviewer identity setup and review creation are allowed for verified users
   );
 });
 
-test("customers can manage their own favorites and redemptions", async () => {
+test("customers can manage favorites but cannot write legacy redemptions", async () => {
   const db = dbFor("customer");
   await assertSucceeds(
     db.doc("user_profiles/customer-a/favorite_restaurants/bs-2").set({
@@ -1752,7 +1752,7 @@ test("customers can manage their own favorites and redemptions", async () => {
       updatedAt: serverTimestamp(),
     }),
   );
-  await assertSucceeds(
+  await assertFails(
     db.doc("customer_redemptions/customer-a/coupon_redemptions/coupon-2").set(
       {
         couponId: "coupon-2",
@@ -2164,14 +2164,16 @@ test("nonreserved favorite and usage document IDs retain legacy access", async (
     couponId: "legacy-coupon",
     arbitraryLegacyField: true,
   }));
-  await assertSucceeds(customer.doc(legacyUsagePath).set({
-    couponId: "legacy-coupon",
-    arbitraryLegacyField: true,
-  }));
+  await testEnv.withSecurityRulesDisabled(async (context) => {
+    await context.firestore().doc(legacyUsagePath).set({
+      couponId: "legacy-coupon",
+      arbitraryLegacyField: true,
+    });
+  });
   await assertSucceeds(customer.doc(legacyRestaurantPath).update({
     arbitraryLegacyField: false,
   }));
-  await assertSucceeds(customer.doc(legacyUsagePath).update({
+  await assertFails(customer.doc(legacyUsagePath).update({
     couponId: "legacy-coupon",
     arbitraryLegacyField: false,
   }));
@@ -2180,7 +2182,25 @@ test("nonreserved favorite and usage document IDs retain legacy access", async (
   await assertSucceeds(admin.doc(legacyUsagePath).get());
   await assertSucceeds(admin.doc(legacyRestaurantPath).delete());
   await assertSucceeds(admin.doc(legacyCouponPath).delete());
-  await assertSucceeds(admin.doc(legacyUsagePath).delete());
+  await assertFails(admin.doc(legacyUsagePath).delete());
+});
+
+test("final coupon history denies every client writer and encoding", async () => {
+  for (const actor of ["customer", "anonymousCustomer", "wrongCustomer", "admin", "unauthenticated"]) {
+    for (const couponId of ["coupon-1", canonicalBiteSaverOfferId]) {
+      const base = "customer_redemptions/customer-a/coupon_redemptions/";
+      const existing = dbFor(actor).doc(base + couponId);
+      const fresh = dbFor(actor).doc(base + couponId + "fresh");
+      await testEnv.withSecurityRulesDisabled(async (context) => {
+        await context.firestore().doc(base + couponId).set({couponId, redeemedCount: 1});
+      });
+      await assertFails(fresh.set({couponId: couponId + "fresh", redeemedCount: 1}));
+      await assertFails(existing.set({couponId, redeemedCount: 2}));
+      await assertFails(existing.set({couponId, redeemedCount: 2}, {merge: true}));
+      await assertFails(existing.update({redeemedCount: firebase.firestore.FieldValue.increment(1)}));
+      await assertFails(existing.delete());
+    }
+  }
 });
 
 test("customers cannot manage another user's favorites", async () => {

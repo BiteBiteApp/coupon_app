@@ -63,7 +63,7 @@ export function createProductionCustomerBiteSaverDeviceProviders(
     createGoogleCustomerBiteSaverPlayIntegrityDecoder(),
 ) {
   // Android enrollment temporarily accepts builds 2 and 3 for Internal testing.
-  // The separately reviewed iOS build policy remains at CFBundleVersion 2.
+  // The optional iOS bundle-version check accepts reviewed builds 2 and 3.
   // Future builds must update/review these exact allowlists before deployment.
   // Each factory invocation owns its policy sets; none are client-configurable.
   return Object.freeze({
@@ -89,7 +89,7 @@ export function createProductionCustomerBiteSaverDeviceProviders(
       // Apple's validating-apps-that-connect-to-your-server guide:
       // 2 = TestFlight, 4 = App Store. Preserve reviewed optional extensions.
       allowedValidationCategories: new Set([2, 4]),
-      allowedBundleVersions: new Set(["2"]),
+      allowedBundleVersions: new Set(["2", "3"]),
     }),
   });
 }

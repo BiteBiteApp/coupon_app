@@ -286,7 +286,7 @@ test("production iOS pins the exact Apple App Attestation root, App ID, environm
   assert.equal(policy.appId, appId);
   assert.equal(policy.environment, "production");
   assert.deepEqual([...policy.allowedValidationCategories], [2, 4]);
-  assert.deepEqual([...policy.allowedBundleVersions], ["2"]);
+  assert.deepEqual([...policy.allowedBundleVersions], ["2", "3"]);
   assert.equal(policy.trustedRootCertificatesDer.length, 1);
   const certificate = new X509Certificate(policy.trustedRootCertificatesDer[0]);
   assert.equal(certificate.fingerprint256.replace(/:/gu, ""),
@@ -342,11 +342,13 @@ function assertionFixture({
 test("production iOS assertions enforce exact Team/bundle/RP, distribution category, build, and positive counters", () => {
   const verifier = providersFor(payload()).appAttestVerifier;
   for (const category of [2, 4]) {
-    assert.deepEqual(verifier.verifyAssertion(assertionFixture({category, counter: 9})), {
-      assertionCounter: 9,
-      validationCategory: category,
-      bundleVersion: "2",
-    });
+    for (const version of ["2", "3"]) {
+      assert.deepEqual(verifier.verifyAssertion(assertionFixture({category, version, counter: 9})), {
+        assertionCounter: 9,
+        validationCategory: category,
+        bundleVersion: version,
+      });
+    }
   }
   for (const options of [
     {rpId: "OTHERTEAM1.com.colesmart.bitestar"},
@@ -354,7 +356,11 @@ test("production iOS assertions enforce exact Team/bundle/RP, distribution categ
     {rpId: packageName},
     {counter: 0},
     {version: "1"},
-    {version: "3"},
+    {version: "4"},
+    {version: ""},
+    {version: "03"},
+    {version: "3.0"},
+    {version: 3},
     {category: 1},
     {category: 3},
     {category: 5},
@@ -372,7 +378,7 @@ test("production iOS assertions enforce exact Team/bundle/RP, distribution categ
   });
 });
 
-async function syntheticAttestation({environment = "production", category = 4} = {}) {
+async function syntheticAttestation({environment = "production", category = 4, version = "2"} = {}) {
   const algorithm = {name: "ECDSA", namedCurve: "P-256"};
   const makeKey = () => webcrypto.subtle.generateKey(algorithm, true, ["sign", "verify"]);
   const [rootKeys, intermediateKeys, leafKeys] = await Promise.all([
@@ -418,7 +424,7 @@ async function syntheticAttestation({environment = "production", category = 4} =
     Buffer.from([0, 32]),
     keyId,
     encode(new Map([[1, 2], [3, -7], [-1, 1], [-2, x], [-3, y]])),
-    encode(extensionMap(category)),
+    encode(extensionMap(category, version)),
   ]);
   const clientDataHash = createHash("sha256").update("offline attestation").digest();
   const nonce = createHash("sha256").update(Buffer.concat([
@@ -459,20 +465,25 @@ async function syntheticAttestation({environment = "production", category = 4} =
 
 test("captured production iOS policy rejects development in an isolated signed-chain test; the runtime never trusts the synthetic root", async (t) => {
   const {policy, providers, RealVerifier} = captureIosPolicy(t);
-  for (const environment of ["production", "development"]) {
-    const fixture = await syntheticAttestation({environment});
+  for (const {environment, version} of [
+    {environment: "production", version: "2"},
+    {environment: "production", version: "3"},
+    {environment: "production", version: "4"},
+    {environment: "development", version: "3"},
+  ]) {
+    const fixture = await syntheticAttestation({environment, version});
     // Only this independent verifier receives test trust material. The runtime
     // factory exposes no root override and retains its pinned Apple certificate.
     const isolatedVerifier = new RealVerifier({
       ...policy,
       trustedRootCertificatesDer: [fixture.rootDer],
     });
-    if (environment === "production") {
+    if (environment === "production" && version !== "4") {
       const accepted = isolatedVerifier.verifyAttestation(fixture.input);
       assert.equal(accepted.environment, "production");
       assert.equal(accepted.appId, appId);
       assert.equal(accepted.initialAssertionCounter, 0);
-      assert.equal(accepted.bundleVersion, "2");
+      assert.equal(accepted.bundleVersion, version);
       assert.equal(accepted.validationCategory, 4);
     } else {
       assert.throws(() => isolatedVerifier.verifyAttestation(fixture.input),

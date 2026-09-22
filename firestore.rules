@@ -1575,11 +1575,7 @@ service cloud.firestore {
         );
       allow list: if !isCanonicalBiteSaverOfferId(couponId) &&
         (isAdmin() || isSelf(userId));
-      allow create, update: if !isCanonicalBiteSaverOfferId(couponId) &&
-        isSelf(userId) &&
-        request.resource.data.couponId == couponId;
-      allow delete: if !isCanonicalBiteSaverOfferId(couponId) &&
-        (isAdmin() || isSelf(userId));
+      allow create, update, delete: if false;
     }
 
     match /public_reviewer_profiles/{userId} {

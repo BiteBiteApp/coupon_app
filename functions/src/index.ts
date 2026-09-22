@@ -227,7 +227,6 @@ import {
   getCustomerBiteSaverOfferPageHandler,
   getCustomerBiteSaverSearchPageHandler,
   getCustomerBiteSaverSearchStatusHandler,
-  startCustomerBiteSaverOfferRedemptionHandler,
   startCustomerBiteSaverSearchHandler,
   type CustomerBiteSaverCallableIdentity,
   type CustomerBiteSaverSessionContext,
@@ -242,7 +241,6 @@ import {
 import {
   getCustomerBiteSaverSavedMenuPageHandler,
   getCustomerBiteSaverSavedPageHandler,
-  startCustomerBiteSaverSavedOfferRedemptionHandler,
   validateCustomerBiteSaverSavedOfferRedemptionStartHandler,
 } from "./customer_bitesaver_saved.js";
 import {
@@ -5802,27 +5800,6 @@ export const validateCustomerBiteSaverSavedOfferRedemptionStart = onCall(
   },
 );
 
-// Legacy account-only writer: retained at this source-only checkpoint, never a
-// fallback for bounded Saved. Before final customer activation, retire this
-// export and any deployed endpoint after checking old-client compatibility.
-// Do not include it in a deployment of the device-authoritative customer path.
-export const startCustomerBiteSaverSavedOfferRedemption = onCall(
-  {
-    secrets: [
-      biteSaverCustomerDiscoveryKey,
-      biteSaverCustomerIdentityKeyV1,
-    ],
-    timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
-  },
-  async (request) => {
-    return invokeCustomerBiteSaverCallable(
-      request,
-      startCustomerBiteSaverSavedOfferRedemptionHandler,
-      "discoveryAndIdentityV1",
-    );
-  },
-);
-
 export const validateCustomerBiteSaverOfferRedemptionStart = onCall(
   {
     secrets: [
@@ -5835,27 +5812,6 @@ export const validateCustomerBiteSaverOfferRedemptionStart = onCall(
     return invokeCustomerBiteSaverCallable(
       request,
       validateCustomerBiteSaverOfferRedemptionStartHandler,
-      "discoveryAndIdentityV1",
-    );
-  },
-);
-
-// Legacy account-only writer: retained at this source-only checkpoint, never a
-// fallback for bounded Browse. Before final customer activation, retire this
-// export and any deployed endpoint after checking old-client compatibility.
-// Do not include it in a deployment of the device-authoritative customer path.
-export const startCustomerBiteSaverOfferRedemption = onCall(
-  {
-    secrets: [
-      biteSaverCustomerDiscoveryKey,
-      biteSaverCustomerIdentityKeyV1,
-    ],
-    timeoutSeconds: customerBiteSaverCallableTimeoutSeconds,
-  },
-  async (request) => {
-    return invokeCustomerBiteSaverCallable(
-      request,
-      startCustomerBiteSaverOfferRedemptionHandler,
       "discoveryAndIdentityV1",
     );
   },
