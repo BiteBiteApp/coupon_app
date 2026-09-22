@@ -35,6 +35,7 @@ const {
   dishProposalSupporterCollection,
   createDishProposalGroupId,
 } = require("../lib/dish_proposal_private_contract.js");
+const {parseDishProposalGroupDocument} = require("../lib/dish_proposal_private_maintenance.js");
 const {
   buildReviewMilestoneReconciliationLockDocument,
   reviewMilestoneReconciliationLockCollection,
@@ -1116,6 +1117,34 @@ test("resolution-cycle award accepts normalized group after title-case rename an
   );
   assert.equal(db.get(userProfilePath("submitter-1")).contributionPoints, 1);
 });
+
+for (const [label, change] of [
+  ["missing identity marker", (db, fixture) => { const group = db.get(fixture.groupPath); delete group.resolutionIdentitiesValid; db.seed(fixture.groupPath, group); }],
+  ...[false, "true", 1, null].map((flag) => [`invalid identity marker ${JSON.stringify(flag)}`, (db, fixture) => db.seed(fixture.groupPath, {...db.get(fixture.groupPath), resolutionIdentitiesValid: flag})]),
+  ["unknown field", (db, fixture) => db.seed(fixture.groupPath, {...db.get(fixture.groupPath), untrusted: true})],
+  ["invalid fingerprint", (db, fixture) => db.seed(fixture.groupPath, {...db.get(fixture.groupPath), fingerprint: "0".repeat(64)})],
+  ["wrong group restaurant", (db, fixture) => db.seed(fixture.groupPath, {...db.get(fixture.groupPath), restaurantId: "other"})],
+  ["wrong group target", (db, fixture) => db.seed(fixture.groupPath, {...db.get(fixture.groupPath), sourceDishId: "other"})],
+  ["wrong normalized name", (db, fixture) => db.seed(fixture.groupPath, {...db.get(fixture.groupPath), normalizedProposedName: "other"})],
+  ["wrong contributor", (_db, fixture) => { fixture.request.supporterUid = "other"; }],
+  ["wrong applied name", (_db, fixture) => { fixture.request.newValue = "Other"; }],
+  ["wrong active job", (_db, fixture) => { fixture.request.activeJobId = "other"; }],
+  ["wrong exact creation time", (_db, fixture) => { fixture.request.trustedServerCreateTimeMillis += 1; }],
+  ["missing server creation time", (db) => { const proposal = db.get("dish_edit_proposals/proposal-strict"); delete proposal.__createTimeMillis; db.seed("dish_edit_proposals/proposal-strict", proposal); }],
+]) {
+  test(`resolution-cycle current group rejects ${label} without awarding`, async () => {
+    const db = new FakeFirestore();
+    const fixture = seedResolutionCyclePointAwardData(db, {
+      proposalId: "proposal-strict", supporterUid: "submitter-1",
+      proposedName: "house pizza", appliedDishName: "House Pizza", oldDishName: "Pizza",
+    });
+    change(db, fixture);
+    const before = cloneStore(db.store);
+    const result = await awardApprovedDishProposalContributionPointsForResolutionCycle(db, fixture.request, {fieldValues: fakeFieldValues});
+    assert.deepEqual(result, {outcome: "notEligible", result: {entries: []}});
+    assert.deepEqual(db.store, before);
+  });
+}
 
 test("all external dish-scoped award entry points honor destructive locks", async () => {
   const genericDb = new FakeFirestore();
@@ -2377,6 +2406,7 @@ function seedResolutionCyclePointAwardData(db, {
     sourceDishId: membership.sourceDishId,
     mergeTargetDishId: membership.mergeTargetDishId,
     normalizedProposedName: membership.normalizedProposedName,
+    resolutionIdentitiesValid: true,
     hasPendingMembers: true,
     oldestTrustedServerCreateTime,
     dueAt,
@@ -2399,6 +2429,7 @@ function seedResolutionCyclePointAwardData(db, {
       group.sourceDishId,
       group.mergeTargetDishId,
       group.normalizedProposedName,
+      group.resolutionIdentitiesValid,
       group.hasPendingMembers,
       group.oldestTrustedServerCreateTime.toISOString(),
       group.dueAt.toISOString(),
@@ -2412,6 +2443,10 @@ function seedResolutionCyclePointAwardData(db, {
       group.cycleCutoffAt.toISOString(),
     ],
   );
+  // Independently accept this fixture through the current producer-side parser.
+  assert.ok(parseDishProposalGroupDocument({
+    id: membership.groupId, data: {...group, fingerprint}, createTime: null,
+  }));
   db.seed(`${dishProposalGroupCollection}/${membership.groupId}`, {
     ...group,
     oldestTrustedServerCreateTime,
@@ -2446,6 +2481,7 @@ function seedResolutionCyclePointAwardData(db, {
   return {
     memberPath,
     supporterPath,
+    groupPath: `${dishProposalGroupCollection}/${membership.groupId}`,
     request: {
       proposalDocumentId: proposalId,
       activeJobId,
@@ -2607,7 +2643,7 @@ class FakeDocumentSnapshot {
     const createTimeMillis = data && data.__createTimeMillis;
     this.createTime =
       typeof createTimeMillis === "number"
-        ? { toMillis: () => createTimeMillis }
+        ? { toMillis: () => createTimeMillis, toDate: () => new Date(createTimeMillis) }
         : undefined;
   }
 

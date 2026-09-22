@@ -415,6 +415,7 @@ const dishProposalGroupKeys = Object.freeze([
   "sourceDishId",
   "mergeTargetDishId",
   "normalizedProposedName",
+  "resolutionIdentitiesValid",
   "hasPendingMembers",
   "oldestTrustedServerCreateTime",
   "dueAt",
@@ -4008,10 +4009,16 @@ function validateResolutionCyclePointEligibility(params: {
   expected: ParsedDishProposalResolutionPointAwardRequest;
 }): ResolutionCyclePointEligibility | null {
   const {expected, proposalSnapshot} = params;
+  // The private producer stores creation time through Timestamp.toDate(),
+  // then fingerprints and sends that exact millisecond Date value. toMillis()
+  // uses different sub-millisecond rounding in Firestore's Timestamp adapter.
+  const trustedServerCreateTime = readDishProposalDate(
+    proposalSnapshot.createTime,
+  );
   if (
     !proposalSnapshot.exists ||
     proposalSnapshot.id !== expected.proposalDocumentId ||
-    proposalSnapshot.createTime?.toMillis() !==
+    trustedServerCreateTime?.getTime() !==
       expected.trustedServerCreateTimeMillis
   ) {
     return null;
@@ -4148,6 +4155,7 @@ function validateExpectedPrivateDishProposalGroup(
     data.sourceDishId !== currentMembership.sourceDishId ||
     data.mergeTargetDishId !== currentMembership.mergeTargetDishId ||
     data.normalizedProposedName !== currentMembership.normalizedProposedName ||
+    data.resolutionIdentitiesValid !== true ||
     data.hasPendingMembers !== true ||
     typeof data.enoughSupporters !== "boolean" ||
     data.autoEligible !== false ||
@@ -4169,6 +4177,7 @@ function validateExpectedPrivateDishProposalGroup(
       currentMembership.sourceDishId,
       currentMembership.mergeTargetDishId,
       currentMembership.normalizedProposedName,
+      true,
       true,
       oldestTrustedServerCreateTime?.toISOString() ?? null,
       dueAt?.toISOString() ?? null,
