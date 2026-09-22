@@ -2739,7 +2739,7 @@ export const rejectRatingAdminDishSuggestionGroup = onCall(async (request) => {
 });
 
 export const processDishProposalResolutionWork = onSchedule(
-  "every 1 minute",
+  "every 1 minutes",
   async () => {
     const summary = await processDishProposalResolutionWorkHandler({
       discoveryDatabase: dishProposalRuntimeDiscoveryDatabase,

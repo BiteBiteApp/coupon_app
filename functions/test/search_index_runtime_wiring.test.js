@@ -1205,7 +1205,7 @@ test("dish-suggestion actions and scheduler expose only the exact bounded endpoi
   assert.equal(scheduled.__endpoint.platform, "gcfv2");
   assert.deepEqual(scheduled.__endpoint.region, ["us-central1"]);
   assert.deepEqual(scheduled.__endpoint.scheduleTrigger, {
-    schedule: "every 1 minute",
+    schedule: "every 1 minutes",
   });
   assert.equal(Object.hasOwn(scheduled.__endpoint, "callableTrigger"), false);
   assert.equal(Object.hasOwn(scheduled.__endpoint, "httpsTrigger"), false);

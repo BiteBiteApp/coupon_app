@@ -421,7 +421,7 @@ test("actual Firebase metadata retains exact secrets and retry policy", () => {
   );
 });
 
-test("approved runtime isolation preserves the complete protected export inventory", () => {
+test("approved runtime isolation and proposal schedule preserve the complete export inventory", () => {
   const metadata = loadActualCompiledMetadata();
   // Captured from real Firebase metadata at the reviewed starting HEAD:
   // 6c3175298649da1aeba825ea0cdd41297b8fd638. This includes Stripe, payment,
@@ -433,17 +433,24 @@ test("approved runtime isolation preserves the complete protected export invento
   );
   for (const [name, endpoint] of Object.entries(protectedMetadata)) {
     // Retain the original snapshot: only explicitly approved Browse and
-    // Admin-support identities differ. Every other metadata field, including
+    // Admin-support identities and the accepted proposal schedule spelling differ.
+    // Every other metadata field, including
     // payment, invocation policy and secret bindings, must still match exactly.
     const serviceAccountEmail = browseRuntimeExports.has(name)
       ? browseRuntimeServiceAccount
       : Object.hasOwn(adminSupportRuntimeSecrets, name)
         ? adminSupportRuntimeServiceAccount
         : undefined;
-    assert.deepEqual(metadata[name], serviceAccountEmail !== undefined ? {
+    assert.deepEqual(metadata[name], {
       ...endpoint,
-      serviceAccountEmail,
-    } : endpoint, name);
+      ...(serviceAccountEmail !== undefined ? {serviceAccountEmail} : {}),
+      ...(name === "processDishProposalResolutionWork" ? {
+        scheduleTrigger: {
+          ...endpoint.scheduleTrigger,
+          schedule: "every 1 minutes",
+        },
+      } : {}),
+    }, name);
   }
   assert.deepEqual(
     Object.entries(metadata).filter(([, endpoint]) =>
