@@ -924,7 +924,7 @@ test("deletion uses dedicated identities, worker-only Stripe access, and a priva
 
 test("late-image cleanup is a single private fixed-bucket finalize event with no Stripe secret", () => {
  const endpoint=loadActualCompiledMetadata().cleanupAccountDeletionFinalizedImage;
- assert.equal(endpoint.platform,"gcfv2");assert.deepEqual(endpoint.region,["us-central1"]);
+ assert.equal(endpoint.platform,"gcfv2");assert.deepEqual(endpoint.region,["us-east1"]);
  assert.equal(endpoint.serviceAccountEmail,"account-deletion-media@coupon-app-29446.iam.gserviceaccount.com");
  assert.equal(endpoint.timeoutSeconds,60);assert.equal(endpoint.availableMemoryMb,256);assert.equal(endpoint.maxInstances,2);assert.equal(endpoint.concurrency,10);
  assert.deepEqual(endpoint.secretEnvironmentVariables,[]);assert.equal(endpoint.callableTrigger,undefined);

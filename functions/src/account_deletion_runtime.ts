@@ -66,7 +66,7 @@ export const processAccountDeletionRequests = onSchedule({
 }, async () => { await processDueAccountDeletions(getFirestore(), createAccountDeletionStep(auth, createAccountDeletionStripeAdapter(new Stripe(deletionStripeSecret.value(), {apiVersion: "2025-08-27.basil"})), createAccountDeletionObjects(), createAccountDeletionFinalizedObjects())); });
 
 export const cleanupAccountDeletionFinalizedImage = onObjectFinalized({
-  bucket: accountDeletionMediaBucket, region: "us-central1",
+  bucket: accountDeletionMediaBucket, region: "us-east1",
   serviceAccount: "account-deletion-media@coupon-app-29446.iam.gserviceaccount.com",
   memory: "256MiB", timeoutSeconds: 60, maxInstances: 2, concurrency: 10,
   retry: true, secrets: [],
