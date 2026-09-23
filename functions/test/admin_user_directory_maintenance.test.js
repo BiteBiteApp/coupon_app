@@ -437,7 +437,8 @@ test("source and aggregate reconciliation enforce exact bounded read maxima", as
       ? 0
       : adminUserSourceConfigurations[kind].uidFields.length * 3;
     assert.equal(queries.length, expectedQueries, `${kind} query count`);
-    assert.equal(gets.length, adminUserSourceConfigurations[kind].documentIdFallback ? 14 : 13);
+    assert.equal(gets.length, adminUserSourceConfigurations[kind].documentIdFallback ? 15 : 14);
+    assert.equal(gets.filter((entry) => entry.path.startsWith("private_account_deletions/")).length, 1);
     assert.equal(queries.every((entry) => entry.query.limit === 1), true);
     assert.equal(
       gets.filter((entry) =>

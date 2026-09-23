@@ -1,3 +1,4 @@
+import {requireAccountWritableInStore} from "./account_deletion_guard.js";
 import {createHash, randomUUID} from "node:crypto";
 import {isDeepStrictEqual} from "node:util";
 import {GeoPoint} from "firebase-admin/firestore";
@@ -170,6 +171,7 @@ export async function submitCustomerBiteScoreRestaurantClaimHandler(database: Da
   const email = text(context.email);
   const claimId = `bsclaim_${randomUUID()}`;
   return database.runTransaction(async (transaction) => {
+    await requireAccountWritableInStore(transaction, uid);
     const target = restaurant(await transaction.getDocument(`bitescore_restaurants/${restaurantId}`));
     const source = target.data;
     if ((Object.prototype.hasOwnProperty.call(source, "isClaimed") && source.isClaimed !== false) ||
@@ -202,6 +204,7 @@ export async function resolveCustomerBiteScoreRestaurantCreationHandler(database
   const state = canonicalCustomerBiteSaverState(rawState) ?? (rawState.length === 2 ? rawState.toUpperCase() : rawState);
   const zipCode = /\d{5}(?:-\d{4})?/.exec(rawZip)?.[0] ?? rawZip;
   return database.runTransaction(async (transaction) => {
+    await requireAccountWritableInStore(transaction, uid);
     const own = await transaction.getDocument(`bitescore_restaurants/${newId}`);
     if (own) {
       const target = restaurant(own);
@@ -256,6 +259,7 @@ export async function resolveCustomerBiteScoreDishCreationHandler(database: Data
   const categoryTags = [...data.categoryTags];
   const priceLabel = text(data.priceLabel, false) || null;
   return database.runTransaction(async (transaction) => {
+    await requireAccountWritableInStore(transaction, uid);
     const parent = restaurant(await transaction.getDocument(`bitescore_restaurants/${restaurantId}`));
     coordinates(parent.data);
     await unlocked(transaction, restaurantId, newId);
@@ -305,6 +309,7 @@ export async function completeCustomerBiteScoreRestaurantProvenanceHandler(datab
     fail("invalid-argument", "Invalid restaurant revision.");
   }
   return database.runTransaction(async (transaction) => {
+    await requireAccountWritableInStore(transaction, uid);
     const parent = restaurant(await transaction.getDocument(`bitescore_restaurants/${restaurantId}`));
     const dish = await transaction.getDocument(`bitescore_dishes/${dishId}`);
     await unlocked(transaction, restaurantId, dishId);

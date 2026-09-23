@@ -1,7 +1,7 @@
 import 'package:coupon_app/models/contribution_point_ledger_entry.dart';
 import 'package:coupon_app/services/contribution_points_celebration_service.dart';
 import 'package:coupon_app/services/contribution_points_service.dart';
-import 'package:coupon_app/widgets/contribution_points_celebration_host.dart';
+import 'package:coupon_app/widgets/contribution_points_celebration_container.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

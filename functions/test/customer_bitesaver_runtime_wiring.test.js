@@ -438,7 +438,7 @@ test("approved runtime isolation and proposal schedule preserve the complete exp
   // Admin, search, background, and scheduled runtime configuration.
   assert.deepEqual(
     Object.keys(metadata).sort(),
-    [...Object.keys(protectedMetadata), ...Object.keys(deviceCallableFactories), ...Object.keys(biteScoreMetadata)]
+    [...Object.keys(protectedMetadata), ...Object.keys(deviceCallableFactories), ...Object.keys(biteScoreMetadata), "requestAccountDeletion", "getAccountDeletionStatus", "processAccountDeletionRequests", "cleanupAccountDeletionFinalizedImage"]
       .filter((name) => !retiredCallableExports.has(name))
       .sort(),
   );
@@ -458,8 +458,9 @@ test("approved runtime isolation and proposal schedule preserve the complete exp
         : undefined;
     assert.deepEqual(metadata[name], {
       ...endpoint,
+      ...(name === "processProximityPushRequest" ? {timeoutSeconds: 60} : {}),
       ...(serviceAccountEmail !== undefined ? {serviceAccountEmail} : {}),
-      ...(name === "processDishProposalResolutionWork" ? {
+      ...(["processDishProposalResolutionWork", "processRatingDestructiveOperationWork"].includes(name) ? {
         scheduleTrigger: {
           ...endpoint.scheduleTrigger,
           schedule: "every 1 minutes",
@@ -901,4 +902,32 @@ test("profile-use context uses the existing two-key public page callable and act
     assert.equal(Buffer.from(call.context.identityKeyV1).toString("base64url"), runtime.state.identitySecretValueV1);
     assert.deepEqual(runtime.state.secretResolutions, expectedSecrets("getCustomerBiteSaverSearchPage"));
   }
+});
+
+test("deletion uses dedicated identities, worker-only Stripe access, and a private schedule", () => {
+ const metadata=loadActualCompiledMetadata();
+ for(const name of ["requestAccountDeletion", "getAccountDeletionStatus"]) {
+  const endpoint=metadata[name];assert.equal(endpoint.platform,"gcfv2");assert.deepEqual(endpoint.region,["us-central1"]);
+  assert.equal(endpoint.serviceAccountEmail,"account-deletion-request@coupon-app-29446.iam.gserviceaccount.com");
+  assert.equal(endpoint.timeoutSeconds,30);assert.equal(endpoint.availableMemoryMb,256);assert.equal(endpoint.maxInstances,2);assert.equal(endpoint.concurrency,10);
+  assert.deepEqual(endpoint.secretEnvironmentVariables,[]);assert.deepEqual(endpoint.callableTrigger, {});
+  // This SDK emits public callable transport implicitly, not as an invoker
+  // member of callableTrigger. Keep the explicit source declaration checked.
+  assert.match(require("node:fs").readFileSync(path.resolve(__dirname, "../src/account_deletion_runtime.ts"), "utf8"), /invoker: "public" as const/);
+ }
+ const worker=metadata.processAccountDeletionRequests;
+ assert.equal(worker.serviceAccountEmail,"account-deletion-worker@coupon-app-29446.iam.gserviceaccount.com");
+ assert.equal(worker.scheduleTrigger.schedule,"every 1 minutes");assert.equal(worker.scheduleTrigger.retryConfig.retryCount,0);
+ assert.equal(worker.timeoutSeconds,60);assert.equal(worker.availableMemoryMb,256);assert.equal(worker.maxInstances,1);assert.equal(worker.concurrency,1);
+ assert.deepEqual(worker.secretEnvironmentVariables,[{key: "STRIPE_SECRET_KEY"}]);assert.equal(worker.callableTrigger,undefined);
+});
+
+test("late-image cleanup is a single private fixed-bucket finalize event with no Stripe secret", () => {
+ const endpoint=loadActualCompiledMetadata().cleanupAccountDeletionFinalizedImage;
+ assert.equal(endpoint.platform,"gcfv2");assert.deepEqual(endpoint.region,["us-central1"]);
+ assert.equal(endpoint.serviceAccountEmail,"account-deletion-media@coupon-app-29446.iam.gserviceaccount.com");
+ assert.equal(endpoint.timeoutSeconds,60);assert.equal(endpoint.availableMemoryMb,256);assert.equal(endpoint.maxInstances,2);assert.equal(endpoint.concurrency,10);
+ assert.deepEqual(endpoint.secretEnvironmentVariables,[]);assert.equal(endpoint.callableTrigger,undefined);
+ assert.equal(endpoint.eventTrigger.eventType,"google.cloud.storage.object.v1.finalized");
+ assert.deepEqual(endpoint.eventTrigger.eventFilters,{bucket:"coupon-app-29446.firebasestorage.app"});assert.equal(endpoint.eventTrigger.retry,true);
 });

@@ -595,6 +595,7 @@ test("actual Firebase export metadata enables retry for only the intended trigge
     ...preexistingRetryEnabledTriggers,
     ...customerBiteSaverRetryEnabledTriggers,
     ...customerBiteScoreRetryEnabledTriggers,
+    "cleanupAccountDeletionFinalizedImage",
   ].sort();
 
   assert.deepEqual(
@@ -1309,7 +1310,7 @@ test("Rating destructive operations expose exactly six callables and one bounded
   assert.equal(scheduled.__endpoint.platform, "gcfv2");
   assert.deepEqual(scheduled.__endpoint.region, ["us-central1"]);
   assert.deepEqual(scheduled.__endpoint.scheduleTrigger, {
-    schedule: "every 1 minute",
+    schedule: "every 1 minutes",
   });
   assert.equal(Object.hasOwn(scheduled.__endpoint, "callableTrigger"), false);
   assert.equal(Object.hasOwn(scheduled.__endpoint, "httpsTrigger"), false);

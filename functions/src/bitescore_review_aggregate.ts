@@ -1,3 +1,4 @@
+import {requireAccountWritableInStore} from "./account_deletion_guard.js";
 import {createHash} from "node:crypto";
 import {
   createDishReviewAggregateAccumulator,
@@ -579,6 +580,7 @@ export async function saveCustomerBiteScoreReview(
   const input = parseSave(request);
   if (input.expectedUserId !== userId) fail("permission-denied", "Your account changed. Please try again.");
   return database.runTransaction(async (transaction) => {
+    await requireAccountWritableInStore(transaction, userId);
     const epoch = await runtime(transaction);
     if (epoch === null) fail("failed-precondition", "Trusted BiteScore reviews are not enabled.");
     const [dishDocument, restaurant, stateDocument, aggregate, milestoneLock] = await Promise.all([

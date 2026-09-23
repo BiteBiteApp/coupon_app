@@ -671,6 +671,7 @@ test("restaurantMerge is bounded, retry-safe, exact, private, and unlocks only t
     isClaimed: true,
     phone: privacyCanaries[4],
     bio: "source bio",
+    bioAuthorUid: "source-bio-author",
     cuisineTags: ["Thai", "Cafe"],
   }));
   database.seed("bitescore_restaurants/target", restaurant("target", {
@@ -1018,6 +1019,7 @@ test("restaurantMerge is bounded, retry-safe, exact, private, and unlocks only t
   assert.equal(target.ownerUserId, "target-owner");
   assert.equal(target.phone, "target phone");
   assert.equal(target.bio, "source bio");
+  assert.equal(target.bioAuthorUid, "source-bio-author");
   assert.deepEqual(target.cuisineTags, ["Cafe", "Italian", "Thai"]);
   assert.equal(target.restaurantWriteRevision, 6);
   assert.equal(database.data(`${ratingRestaurantOperationLockCollection}/source`).state, "merged_source");

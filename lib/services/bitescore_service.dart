@@ -5443,6 +5443,10 @@ class BiteScoreService {
     required String cuisineTags,
     List<RestaurantBusinessHours>? businessHours,
   }) async {
+    final bioActorUid = FirebaseAuth.instance.currentUser?.uid;
+    if (bioActorUid == null) {
+      throw StateError('Sign in before editing restaurant notes.');
+    }
     final expectedRevision = restaurant.restaurantWriteRevision;
     final normalizedName = _normalize(name);
     if (normalizedName.isEmpty) {
@@ -5512,7 +5516,10 @@ class BiteScoreService {
       await _runExpectedRestaurantRevisionTransaction<void>(
         restaurantRef: restaurantRef,
         expectedRevision: expectedRevision,
-        apply: (transaction, _, nextRevision) async {
+        apply: (transaction, current, nextRevision) async {
+          if (FirebaseAuth.instance.currentUser?.uid != bioActorUid) {
+            throw StateError('The signed-in account changed.');
+          }
           dishNameSynchronizationRevision = nextRevision;
           final profileData =
               updatedRestaurant
@@ -5522,6 +5529,10 @@ class BiteScoreService {
                 ..remove('active');
           transaction.set(restaurantRef, {
             ...profileData,
+            if (current.data()?['bio'] != updatedRestaurant.bio)
+              'bioAuthorUid': updatedRestaurant.bio == null
+                  ? FieldValue.delete()
+                  : bioActorUid,
             'createdAt': restaurant.createdAt == null
                 ? FieldValue.serverTimestamp()
                 : Timestamp.fromDate(restaurant.createdAt!),

@@ -118,7 +118,7 @@ test("scheduler uses the exact bounded oldest-updated query and leaves backlog",
 
   assert.equal(ratingDestructiveScheduledWorkLimit, 25);
   assert.deepEqual(ratingDestructiveScheduledFunctionOptions, {
-    schedule: "every 1 minute",
+    schedule: "every 1 minutes",
     region: "us-central1",
   });
   assert.equal(discoveryCalls, 1);

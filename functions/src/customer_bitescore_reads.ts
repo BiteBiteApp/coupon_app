@@ -1,3 +1,4 @@
+import {accountDeletionPath} from "./account_deletion_guard.js";
 import { isDeepStrictEqual } from "node:util";
 import { createHash } from "node:crypto";
 import { FieldValue, type Firestore, type Query } from "firebase-admin/firestore";
@@ -97,9 +98,11 @@ export async function reconcileCustomerBiteScoreReview(db: Firestore, reviewId: 
     const userRefs = [...userIds].map((value) => db.doc(`${customerBiteScoreReviewerStats}/${hash(value)}`));
     const profileRefs = [...userIds].map((value) => db.doc(customerBiteScoreProfileGenerationPath(value)));
     const snapshots = await tx.getAll(...generationRefs, ...userRefs, ...profileRefs);
-    profileRefs.forEach((ref, i) => tx.set(ref, nextCustomerBiteScoreProfileGeneration(snapshots[generationRefs.length + userRefs.length + i].data())));
+    const fences = userIds.size ? await tx.getAll(...[...userIds].map((uid) => db.doc(accountDeletionPath(uid)))) : [];
+    profileRefs.forEach((ref, i) => { if (fences[i].exists) tx.delete(ref); else tx.set(ref, nextCustomerBiteScoreProfileGeneration(snapshots[generationRefs.length + userRefs.length + i].data())); });
     generationRefs.forEach((ref, i) => tx.set(ref, {...snapshots[i].data(), generation: count(snapshots[i].data()?.generation) + 1}));
     [...userIds].forEach((userId, i) => {
+      if (fences[i].exists) { tx.delete(userRefs[i]); return; }
       const delta = (next?.userId === userId && next.publicVisible ? 1 : 0) - (previous?.userId === userId && previous.publicVisible ? 1 : 0);
       const helpfulDelta = (next?.userId === userId && next.publicVisible ? count(next.helpfulCount) : 0) - (previous?.userId === userId && previous.publicVisible ? count(previous.helpfulCount) : 0);
       tx.set(userRefs[i], {publicReviewCount: Math.max(0, count(snapshots[generationRefs.length + i].data()?.publicReviewCount) + delta),
@@ -135,6 +138,7 @@ export async function reconcileCustomerBiteScoreFeedback(db: Firestore, voteId: 
     });
     const authorIds = [...authorDeltas.keys()];
     const authorStats = authorIds.length ? await tx.getAll(...authorIds.map((value) => db.doc(`${customerBiteScoreReviewerStats}/${hash(value)}`))) : [];
+    const authorFences = authorIds.length ? await tx.getAll(...authorIds.map((uid) => db.doc(accountDeletionPath(uid)))) : [];
     reviewIds.forEach((value, i) => {
       const oldStats = snaps[i * 2].data() ?? {};
       const delta = (type: string) => (next?.reviewId === value && next.voteType === type ? 1 : 0) - (previous?.reviewId === value && previous.voteType === type ? 1 : 0);
@@ -143,8 +147,8 @@ export async function reconcileCustomerBiteScoreFeedback(db: Firestore, voteId: 
       tx.set(refs[i * 2], {helpfulCount, notHelpfulCount});
       if (snaps[i * 2 + 1].exists) tx.update(refs[i * 2 + 1], {helpfulCount, notHelpfulCount, helpfulScore: helpfulCount - notHelpfulCount});
     });
-    authorStats.forEach((snap, i) => tx.set(snap.ref, {publicReviewCount: count(snap.data()?.publicReviewCount),
-      publicHelpfulVotesReceived: Math.max(0, count(snap.data()?.publicHelpfulVotesReceived) + authorDeltas.get(authorIds[i])!)}));
+    authorStats.forEach((snap, i) => { if (authorFences[i].exists) { tx.delete(snap.ref); return; } tx.set(snap.ref, {publicReviewCount: count(snap.data()?.publicReviewCount),
+      publicHelpfulVotesReceived: Math.max(0, count(snap.data()?.publicHelpfulVotesReceived) + authorDeltas.get(authorIds[i])!)}); });
     generations.forEach((snap) => tx.set(snap.ref, {...snap.data(), generation: count(snap.data()?.generation) + 1}));
     if (next) tx.set(accounting, next); else tx.delete(accounting);
   });

@@ -2,6 +2,45 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Trusted UID fence survives removal of Auth/profile and delayed clients.
+    // Read authorization is unchanged; no client can write this collection.
+    function deletionAccountMayWrite(uid) {
+      return uid is string && uid.size() > 0 &&
+        !exists(/databases/$(database)/documents/private_account_deletions/$(uid));
+    }
+    function deletionActorMayWrite() {
+      return signedIn() && deletionAccountMayWrite(request.auth.uid);
+    }
+    function deletionPersonalIdentityMayWrite(data, field) {
+      return data.keys().hasAny([field]) && deletionAccountMayWrite(data[field]);
+    }
+    function deletionOptionalIdentityMayWrite(data, field) {
+      return !data.keys().hasAny([field]) || data[field] == null || data[field] == '' || deletionAccountMayWrite(data[field]);
+    }
+    function deletionReviewParentMayWrite(data) {
+      let parent = get(/databases/$(database)/documents/dish_reviews/$(data.reviewId)).data;
+      return deletionPersonalIdentityMayWrite(parent, 'userId') &&
+        parent.dishId == data.dishId && parent.restaurantId == data.restaurantId;
+    }
+    function deletionOptionalReviewParentMayWrite(data) {
+      return !data.keys().hasAny(['reviewId']) || data.reviewId == null || deletionReviewParentMayWrite(data);
+    }
+    function deletionImageParentMayWrite(data) {
+      let parent = get(/databases/$(database)/documents/bitescore_dish_images/$(data.imageId)).data;
+      return deletionPersonalIdentityMayWrite(parent, 'uploadedByUserId') &&
+        parent.dishId == data.dishId && parent.restaurantId == data.restaurantId;
+    }
+    function deletionCatalogFieldMayWrite(field) {
+      return (resource != null && request.resource.data.get(field, null) == resource.data.get(field, null)) ||
+        deletionOptionalIdentityMayWrite(request.resource.data, field);
+    }
+    function deletionCatalogAttributionMayWrite() {
+      return deletionCatalogFieldMayWrite('ownerUserId') && deletionCatalogFieldMayWrite('createdByUserId');
+    }
+    match /private_account_deletions/{document=**} {
+      allow read, write: if false;
+    }
     function signedIn() {
       return request.auth != null;
     }
@@ -442,6 +481,7 @@ service cloud.firestore {
         'phone',
         'website',
         'bio',
+        'bioAuthorUid',
         'businessHours',
         'cuisineTags',
         'location',
@@ -456,6 +496,22 @@ service cloud.firestore {
         'restaurantWriteRevision',
         'updatedAt'
       ];
+    }
+
+    // An original catalog creator is not necessarily the author of later notes.
+    // No additional document lookups; attribution changes only with the text.
+    function validCatalogBioCreate() {
+      return request.resource.data.get('bio', null) == null
+        ? !request.resource.data.keys().hasAny(['bioAuthorUid'])
+        : request.resource.data.bio is string && request.resource.data.bioAuthorUid == request.auth.uid;
+    }
+
+    function validCatalogBioUpdate() {
+      return changedKeys().hasAny(['bio'])
+        ? (request.resource.data.get('bio', null) == null
+          ? !request.resource.data.keys().hasAny(['bioAuthorUid'])
+          : request.resource.data.bio is string && request.resource.data.bioAuthorUid == request.auth.uid)
+        : !changedKeys().hasAny(['bioAuthorUid']);
     }
 
     function biteScoreRestaurantMenuRoutingFields() {
@@ -998,10 +1054,11 @@ service cloud.firestore {
 
     function reviewMilestoneLockAllowsClientMutation(userId) {
       let lockPath = /databases/$(database)/documents/private_review_milestone_reconciliation_locks/$(userId);
+      let lock = get(lockPath);
       return canonicalPrivateReviewMilestoneIdentity(userId) &&
         (
-          !exists(lockPath) ||
-          strictReleasedReviewMilestoneLock(userId, get(lockPath).data)
+          lock == null ||
+          strictReleasedReviewMilestoneLock(userId, lock.data)
         );
     }
 
@@ -1212,72 +1269,88 @@ service cloud.firestore {
       allow get: if isAdmin() ||
         isSelf(restaurantUid);
       allow list: if isAdmin();
-      allow create: if
-        !request.resource.data.keys().hasAny(restaurantAccountCatalogBindingFields()) &&
-        (isAdmin() || canCreateOwnRestaurantAccount(restaurantUid));
-      allow update: if
-        !changedKeys().hasAny(restaurantAccountCatalogBindingFields()) &&
+      allow create: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (!request.resource.data.keys().hasAny(restaurantAccountCatalogBindingFields()) &&
+        (isAdmin() || canCreateOwnRestaurantAccount(restaurantUid)));
+      allow update: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (!changedKeys().hasAny(restaurantAccountCatalogBindingFields()) &&
         (
           (isAdmin() &&
             (!changedKeys().hasAny(['adminHidden']) ||
               validAdminRestaurantVisibilityUpdate())) ||
           canUpdateOwnRestaurantAccount(restaurantUid)
-        );
+        ));
       allow delete: if false;
 
       match /coupons/{couponId} {
         allow read: if isAdmin() ||
           isSelf(restaurantUid) ||
           restaurantAccountIsCustomerVisible(restaurantUid);
-        allow create, update: if canManageRestaurantContent(restaurantUid) &&
-          request.resource.data.id == couponId;
-        allow delete: if canDeleteRestaurantCoupon(restaurantUid);
+        allow create: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
+          request.resource.data.id == couponId);
+      allow update: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
+          request.resource.data.id == couponId);
+        allow delete: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canDeleteRestaurantCoupon(restaurantUid));
       }
 
       match /daily_specials/{specialId} {
         allow read: if isAdmin() ||
           isSelf(restaurantUid) ||
           restaurantAccountIsCustomerVisible(restaurantUid);
-        allow create, update: if canManageRestaurantContent(restaurantUid) &&
+        allow create: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
           request.resource.data.id == specialId &&
           request.resource.data.restaurantId == restaurantUid &&
-          request.resource.data.ownerUid == restaurantUid;
-        allow delete: if canManageRestaurantContent(restaurantUid);
+          request.resource.data.ownerUid == restaurantUid);
+      allow update: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
+          request.resource.data.id == specialId &&
+          request.resource.data.restaurantId == restaurantUid &&
+          request.resource.data.ownerUid == restaurantUid);
+        allow delete: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid));
       }
 
       match /menu_images/{imageId} {
         allow read: if isAdmin() ||
           isSelf(restaurantUid) ||
           restaurantAccountMenuIsCustomerVisible(restaurantUid);
-        allow create, update: if canManageRestaurantContent(restaurantUid) &&
-          request.resource.data.id == imageId;
-        allow delete: if canManageRestaurantContent(restaurantUid);
+        allow create: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
+          request.resource.data.id == imageId);
+      allow update: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
+          request.resource.data.id == imageId);
+        allow delete: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid));
       }
 
       match /menu_items/{itemId} {
         allow read: if isAdmin() ||
           isSelf(restaurantUid) ||
           restaurantAccountMenuIsCustomerVisible(restaurantUid);
-        allow create, update: if canManageRestaurantContent(restaurantUid) &&
-          request.resource.data.id == itemId;
-        allow delete: if canManageRestaurantContent(restaurantUid);
+        allow create: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
+          request.resource.data.id == itemId);
+      allow update: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
+          request.resource.data.id == itemId);
+        allow delete: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid));
       }
 
       match /menu_sections/{sectionId} {
         allow read: if isAdmin() ||
           isSelf(restaurantUid) ||
           restaurantAccountMenuIsCustomerVisible(restaurantUid);
-        allow create, update: if canManageRestaurantContent(restaurantUid) &&
-          request.resource.data.id == sectionId;
-        allow delete: if canManageRestaurantContent(restaurantUid);
+        allow create: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
+          request.resource.data.id == sectionId);
+      allow update: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid) &&
+          request.resource.data.id == sectionId);
+        allow delete: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid));
       }
 
       match /coupon_number_reservations/{reservationId} {
-        allow read, create, update, delete: if canManageRestaurantContent(restaurantUid);
+        allow read: if canManageRestaurantContent(restaurantUid);
+      allow create: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid));
+      allow update: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid));
+      allow delete: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid));
       }
 
       match /coupon_code_reservations/{reservationId} {
-        allow read, create, update, delete: if canManageRestaurantContent(restaurantUid);
+        allow read: if canManageRestaurantContent(restaurantUid);
+      allow create: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid));
+      allow update: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid));
+      allow delete: if deletionActorMayWrite() && deletionAccountMayWrite(restaurantUid) && (canManageRestaurantContent(restaurantUid));
       }
 
       match /{document=**} {
@@ -1398,15 +1471,16 @@ service cloud.firestore {
 
     match /restaurant_name_change_requests/{requestId} {
       allow read: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
-      allow create: if canCreateOwnRestaurantNameChangeRequest();
-      allow update, delete: if isAdmin();
+      allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && (canCreateOwnRestaurantNameChangeRequest());
+      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && (isAdmin());
+      allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && (isAdmin());
     }
 
     match /user_profiles/{userId} {
       allow read: if isAdmin() || isSelf(userId);
-      allow create: if isAdmin() || canCreateOwnProfile(userId);
-      allow update: if isAdmin() || canUpdateOwnProfile(userId);
-      allow delete: if isAdmin();
+      allow create: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && (isAdmin() || canCreateOwnProfile(userId));
+      allow update: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && (isAdmin() || canUpdateOwnProfile(userId));
+      allow delete: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && (isAdmin());
 
       match /favorite_restaurants/{favoriteId} {
         allow get: if
@@ -1419,8 +1493,7 @@ service cloud.firestore {
             (isAdmin() || isSelf(userId))
           );
         allow list: if isSignedInNonAnonymousSelf(userId);
-        allow create: if
-          (
+        allow create: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && ((
             isCanonicalBiteSaverRestaurantId(favoriteId) &&
             isSignedInNonAnonymousSelf(userId) &&
             canonicalBiteSaverRestaurantFavoriteData(
@@ -1434,9 +1507,8 @@ service cloud.firestore {
           (
             !isCanonicalBiteSaverRestaurantId(favoriteId) &&
             userOwnedCreate(userId)
-          );
-        allow update: if
-          (
+          ));
+        allow update: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && ((
             isCanonicalBiteSaverRestaurantId(favoriteId) &&
             isSignedInNonAnonymousSelf(userId) &&
             canonicalBiteSaverRestaurantFavoriteData(
@@ -1460,23 +1532,22 @@ service cloud.firestore {
           (
             !isCanonicalBiteSaverRestaurantId(favoriteId) &&
             userOwnedUpdate(userId)
-          );
-        allow delete: if
-          (
+          ));
+        allow delete: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && ((
             isCanonicalBiteSaverRestaurantId(favoriteId) &&
             isSignedInNonAnonymousSelf(userId)
           ) ||
           (
             !isCanonicalBiteSaverRestaurantId(favoriteId) &&
             (isAdmin() || isSelf(userId))
-          );
+          ));
       }
 
       match /favorite_dishes/{favoriteId} {
         allow read: if isAdmin() || isSelf(userId);
-        allow create: if userOwnedCreate(userId);
-        allow update: if userOwnedUpdate(userId);
-        allow delete: if isAdmin() || isSelf(userId);
+        allow create: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && (userOwnedCreate(userId));
+        allow update: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && (userOwnedUpdate(userId));
+        allow delete: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && (isAdmin() || isSelf(userId));
       }
 
       match /favorite_coupons/{favoriteId} {
@@ -1490,8 +1561,7 @@ service cloud.firestore {
             (isAdmin() || isSelf(userId))
           );
         allow list: if isSignedInNonAnonymousSelf(userId);
-        allow create: if
-          (
+        allow create: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && ((
             isCanonicalBiteSaverOfferId(favoriteId) &&
             isSignedInNonAnonymousSelf(userId) &&
             canonicalBiteSaverCouponFavoriteData(
@@ -1505,9 +1575,8 @@ service cloud.firestore {
           (
             !isCanonicalBiteSaverOfferId(favoriteId) &&
             userOwnedCreate(userId)
-          );
-        allow update: if
-          (
+          ));
+        allow update: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && ((
             isCanonicalBiteSaverOfferId(favoriteId) &&
             isSignedInNonAnonymousSelf(userId) &&
             canonicalBiteSaverCouponFavoriteData(
@@ -1533,16 +1602,15 @@ service cloud.firestore {
           (
             !isCanonicalBiteSaverOfferId(favoriteId) &&
             userOwnedUpdate(userId)
-          );
-        allow delete: if
-          (
+          ));
+        allow delete: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && ((
             isCanonicalBiteSaverOfferId(favoriteId) &&
             isSignedInNonAnonymousSelf(userId)
           ) ||
           (
             !isCanonicalBiteSaverOfferId(favoriteId) &&
             (isAdmin() || isSelf(userId))
-          );
+          ));
       }
 
       match /local_expert_badges/{badgeId} {
@@ -1553,7 +1621,7 @@ service cloud.firestore {
       match /local_expert_badge_celebrations/{eventId} {
         allow read: if isAdmin() || isSelf(userId);
         allow create: if false;
-        allow update: if canAcknowledgeOwnLocalExpertBadgeCelebration(userId);
+        allow update: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && (canAcknowledgeOwnLocalExpertBadgeCelebration(userId));
         allow delete: if false;
       }
 
@@ -1580,19 +1648,19 @@ service cloud.firestore {
 
     match /public_reviewer_profiles/{userId} {
       allow read: if true;
-      allow create: if isAdmin() || canWriteOwnPublicReviewerProfile(userId);
-      allow update: if isAdmin() || canUpdateOwnPublicReviewerProfile(userId);
-      allow delete: if isAdmin();
+      allow create: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && (isAdmin() || canWriteOwnPublicReviewerProfile(userId));
+      allow update: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && (isAdmin() || canUpdateOwnPublicReviewerProfile(userId));
+      allow delete: if deletionActorMayWrite() && deletionAccountMayWrite(userId) && (isAdmin());
     }
 
     match /public_usernames/{username} {
       allow read: if true;
-      allow create: if signedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if signedIn() &&
+      allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && (signedIn() && request.resource.data.userId == request.auth.uid);
+      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && (signedIn() &&
         resource.data.userId == request.auth.uid &&
-        request.resource.data.userId == request.auth.uid;
-      allow delete: if isAdmin() ||
-        (signedIn() && resource.data.userId == request.auth.uid);
+        request.resource.data.userId == request.auth.uid);
+      allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && (isAdmin() ||
+        (signedIn() && resource.data.userId == request.auth.uid));
     }
 
     // Final BiteScore customer read cutoff. Deploy only after compatible clients
@@ -1601,17 +1669,15 @@ service cloud.firestore {
     match /bitescore_restaurants/{restaurantId} {
       allow read: if isAdmin() || (signedIn() &&
         resource.data.isClaimed == true && resource.data.ownerUserId == request.auth.uid);
-      allow create: if
-        !request.resource.data.keys().hasAny(biteScoreCatalogBindingFields()) &&
+      allow create: if validCatalogBioCreate() && deletionActorMayWrite() && deletionCatalogAttributionMayWrite() && (!request.resource.data.keys().hasAny(biteScoreCatalogBindingFields()) &&
         !request.resource.data.keys().hasAny(['claimInvitationEpochAt']) &&
         restaurantOperationLockAllowsMutation(restaurantId) &&
         validBiteScoreRestaurantCreateRevision() &&
         (
           isAdmin() ||
           canCreatePublicBiteScoreRestaurant(restaurantId)
-        );
-      allow update: if
-        !changedKeys().hasAny(biteScoreCatalogBindingFields()) &&
+        ));
+      allow update: if validCatalogBioUpdate() && deletionActorMayWrite() && deletionCatalogAttributionMayWrite() && (!changedKeys().hasAny(biteScoreCatalogBindingFields()) &&
         validBiteScoreClaimInvitationEpochUpdate() &&
         restaurantOperationLockAllowsMutation(restaurantId) &&
         validBiteScoreRestaurantUpdateRevision() &&
@@ -1629,14 +1695,14 @@ service cloud.firestore {
         (
           biteScoreRestaurantProvenanceUnchanged() ||
           canCompleteBiteScoreRestaurantProvenance()
-        );
-      allow delete: if restaurantOperationLockAllowsMutation(restaurantId) &&
-        isAdmin();
+        ));
+      allow delete: if deletionActorMayWrite() && (restaurantOperationLockAllowsMutation(restaurantId) &&
+        isAdmin());
     }
 
     match /bitescore_dishes/{dishId} {
       allow read: if isAdmin() || ownerOfBiteScoreRestaurant(resource.data.restaurantId);
-      allow create: if canonicalDishId(dishId) &&
+      allow create: if deletionActorMayWrite() && deletionCatalogAttributionMayWrite() && (canonicalDishId(dishId) &&
         dishOperationLockAllowsMutation(dishId) &&
         dataRestaurantOperationLockAllowsMutation(request.resource.data) &&
         request.resource.data.id == dishId &&
@@ -1644,8 +1710,8 @@ service cloud.firestore {
         (
           isAdmin() ||
           (emailVerified() && validBiteScoreDishCreateProvenance())
-        );
-      allow update: if dishOperationLockAllowsMutation(dishId) &&
+        ));
+      allow update: if deletionActorMayWrite() && deletionCatalogAttributionMayWrite() && (dishOperationLockAllowsMutation(dishId) &&
         dataRestaurantOperationLockAllowsMutation(resource.data) &&
         dataRestaurantOperationLockAllowsMutation(request.resource.data) &&
         (
@@ -1669,28 +1735,28 @@ service cloud.firestore {
         ) &&
         biteScoreDishProvenanceUnchanged() &&
         aggregateWriteGenerationUnchanged() &&
-        validAggregateWriteGeneration(request.resource.data);
-      allow delete: if dishOperationLockAllowsMutation(dishId) &&
+        validAggregateWriteGeneration(request.resource.data));
+      allow delete: if deletionActorMayWrite() && (dishOperationLockAllowsMutation(dishId) &&
         dataRestaurantOperationLockAllowsMutation(resource.data) &&
         isAdmin() &&
-        validAggregateWriteGeneration(resource.data);
+        validAggregateWriteGeneration(resource.data));
     }
 
     match /dish_catalog/{catalogId} {
       allow read: if isAdmin();
-      allow write: if isAdmin();
+      allow write: if deletionActorMayWrite() && (isAdmin());
     }
 
     match /dish_rating_aggregates/{dishId} {
       allow read: if isAdmin() || ownerOfBiteScoreRestaurant(resource.data.restaurantId);
-      allow create: if !biteScoreTrustedAggregatesEnabled() && (isAdmin() || emailVerified()) &&
+      allow create: if deletionActorMayWrite() && (!biteScoreTrustedAggregatesEnabled() && (isAdmin() || emailVerified()) &&
         dishOperationLockAllowsMutation(dishId) &&
         dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data) &&
         aggregateDataMatchesDishIdentity(dishId, request.resource.data) &&
         aggregateWriteGenerationMatchesDish(dishId, request.resource.data) &&
         !mergeLockBlocksClientAggregates(dishId) &&
-        !aggregateDataHasBlockingMergeLock(request.resource.data);
-      allow update: if !biteScoreTrustedAggregatesEnabled() && (isAdmin() || emailVerified()) &&
+        !aggregateDataHasBlockingMergeLock(request.resource.data));
+      allow update: if deletionActorMayWrite() && (!biteScoreTrustedAggregatesEnabled() && (isAdmin() || emailVerified()) &&
         dishOperationLockAllowsMutation(dishId) &&
         dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
         dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data) &&
@@ -1699,46 +1765,46 @@ service cloud.firestore {
         aggregateWriteGenerationMatchesDish(dishId, request.resource.data) &&
         !mergeLockBlocksClientAggregates(dishId) &&
         !aggregateDataHasBlockingMergeLock(resource.data) &&
-        !aggregateDataHasBlockingMergeLock(request.resource.data);
-      allow delete: if !biteScoreTrustedAggregatesEnabled() && isAdmin() &&
+        !aggregateDataHasBlockingMergeLock(request.resource.data));
+      allow delete: if deletionActorMayWrite() && (!biteScoreTrustedAggregatesEnabled() && isAdmin() &&
         dishOperationLockAllowsMutation(dishId) &&
         dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
         aggregateDataMatchesDishIdentity(dishId, resource.data) &&
         aggregateWriteGenerationMatchesDish(dishId, resource.data) &&
         !mergeLockBlocksClientAggregates(dishId) &&
-        !aggregateDataHasBlockingMergeLock(resource.data);
+        !aggregateDataHasBlockingMergeLock(resource.data));
     }
 
     match /dish_reviews/{reviewId} {
       allow read: if isAdmin() || ownerOfBiteScoreDish(resource.data.dishId);
-      allow create: if !biteScoreTrustedAggregatesEnabled() && createsOwnReview() &&
+      allow create: if deletionActorMayWrite() && (!biteScoreTrustedAggregatesEnabled() && createsOwnReview() &&
         dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data) &&
         reviewDataHasCanonicalDishId(request.resource.data) &&
         !reviewDataHasBlockingMergeLock(request.resource.data) &&
-        reviewDataUserAllowsMilestoneMutation(request.resource.data);
-      allow update: if (!biteScoreTrustedAggregatesEnabled() || isAdmin()) && (isAdmin() || updatesOwnReview()) &&
+        reviewDataUserAllowsMilestoneMutation(request.resource.data));
+      allow update: if deletionActorMayWrite() && ((isAdmin() || !biteScoreTrustedAggregatesEnabled()) && (isAdmin() || updatesOwnReview()) &&
         dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
-        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data) &&
+        ((request.resource.data.dishId == resource.data.dishId && request.resource.data.restaurantId == resource.data.restaurantId) || dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data)) &&
         reviewDataHasCanonicalDishId(resource.data) &&
-        reviewDataHasCanonicalDishId(request.resource.data) &&
+        (request.resource.data.dishId == resource.data.dishId || reviewDataHasCanonicalDishId(request.resource.data)) &&
         !reviewDataHasBlockingMergeLock(resource.data) &&
-        !reviewDataHasBlockingMergeLock(request.resource.data) &&
+        (request.resource.data.dishId == resource.data.dishId || !reviewDataHasBlockingMergeLock(request.resource.data)) &&
         reviewDataUserAllowsMilestoneMutation(resource.data) &&
-        reviewDataUserAllowsMilestoneMutation(request.resource.data);
-      allow delete: if (isAdmin() || (signedIn() && resource.data.userId == request.auth.uid)) &&
+        (request.resource.data.userId == resource.data.userId || reviewDataUserAllowsMilestoneMutation(request.resource.data)));
+      allow delete: if deletionActorMayWrite() && ((isAdmin() || (signedIn() && resource.data.userId == request.auth.uid)) &&
         dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
         reviewDataHasCanonicalDishId(resource.data) &&
         !reviewDataHasBlockingMergeLock(resource.data) &&
-        reviewDataUserAllowsMilestoneMutation(resource.data);
+        reviewDataUserAllowsMilestoneMutation(resource.data));
     }
 
     match /bitescore_dish_images/{imageId} {
       allow read: if isAdmin() || ownerOfBiteScoreDish(resource.data.dishId) ||
         (signedIn() && resource.data.uploadedByUserId == request.auth.uid);
-      allow create: if isAdmin() ||
+      allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'uploadedByUserId') && deletionOptionalReviewParentMayWrite(request.resource.data) && (isAdmin() ||
         (!biteScoreTrustedAggregatesEnabled() && emailVerified() &&
-          request.resource.data.uploadedByUserId == request.auth.uid);
-      allow update: if isAdmin() ||
+          request.resource.data.uploadedByUserId == request.auth.uid));
+      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'uploadedByUserId') && deletionPersonalIdentityMayWrite(request.resource.data, 'uploadedByUserId') && deletionOptionalReviewParentMayWrite(resource.data) && deletionOptionalReviewParentMayWrite(request.resource.data) && (isAdmin() ||
         ownerOfBiteScoreRestaurant(resource.data.restaurantId) ||
         (
           !biteScoreTrustedAggregatesEnabled() && emailVerified() &&
@@ -1749,9 +1815,9 @@ service cloud.firestore {
             'sortOrder',
             'updatedAt'
           ])
-        );
-      allow delete: if isAdmin() ||
-        (signedIn() && resource.data.uploadedByUserId == request.auth.uid);
+        ));
+      allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'uploadedByUserId') && (isAdmin() ||
+        (signedIn() && resource.data.uploadedByUserId == request.auth.uid));
     }
 
     match /bitescore_dish_image_votes/{voteId} {
@@ -1759,11 +1825,11 @@ service cloud.firestore {
       allow read: if signedIn() &&
         (!exists(/databases/$(database)/documents/bitescore_dish_image_votes/$(voteId)) ||
           resource.data.userId == request.auth.uid);
-      allow create: if emailVerified() && request.resource.data.userId == request.auth.uid;
-      allow update: if emailVerified() &&
+      allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && deletionImageParentMayWrite(request.resource.data) && (emailVerified() && request.resource.data.userId == request.auth.uid);
+      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && deletionImageParentMayWrite(resource.data) && deletionImageParentMayWrite(request.resource.data) && (emailVerified() &&
         resource.data.userId == request.auth.uid &&
-        request.resource.data.userId == request.auth.uid;
-      allow delete: if signedIn() && resource.data.userId == request.auth.uid;
+        request.resource.data.userId == request.auth.uid);
+      allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && (signedIn() && resource.data.userId == request.auth.uid);
     }
 
     match /review_feedback_votes/{voteId} {
@@ -1773,129 +1839,133 @@ service cloud.firestore {
         (!exists(/databases/$(database)/documents/review_feedback_votes/$(voteId)) ||
           resource.data.userId == request.auth.uid));
       allow list: if isAdmin() || (signedIn() && resource.data.userId == request.auth.uid);
-      allow create: if emailVerified() &&
+      allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && deletionReviewParentMayWrite(request.resource.data) && (emailVerified() &&
         request.resource.data.userId == request.auth.uid &&
-        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data);
-      allow update: if emailVerified() &&
+        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data));
+      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && deletionReviewParentMayWrite(resource.data) && deletionReviewParentMayWrite(request.resource.data) && (emailVerified() &&
         resource.data.userId == request.auth.uid &&
         request.resource.data.userId == request.auth.uid &&
         dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
-        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data);
-      allow delete: if signedIn() &&
+        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data));
+      allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && (signedIn() &&
         resource.data.userId == request.auth.uid &&
-        dataDishAndRestaurantOperationLocksAllowMutation(resource.data);
+        dataDishAndRestaurantOperationLocksAllowMutation(resource.data));
     }
 
     match /review_reports/{reportId} {
       allow read: if isAdmin() || readsOwnReport('reportingUserId');
-      allow create: if createsOwnReport('reportingUserId') &&
-        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data);
-      allow update: if (isAdmin() || updatesOwnReport('reportingUserId')) &&
+      allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'reportingUserId') && deletionReviewParentMayWrite(request.resource.data) && (createsOwnReport('reportingUserId') &&
+        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data));
+      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'reportingUserId') && deletionPersonalIdentityMayWrite(request.resource.data, 'reportingUserId') && deletionReviewParentMayWrite(resource.data) && deletionReviewParentMayWrite(request.resource.data) && ((isAdmin() || updatesOwnReport('reportingUserId')) &&
         dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
-        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data);
-      allow delete: if isAdmin() &&
-        dataDishAndRestaurantOperationLocksAllowMutation(resource.data);
+        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data));
+      allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'reportingUserId') && (isAdmin() &&
+        dataDishAndRestaurantOperationLocksAllowMutation(resource.data));
     }
 
     match /restaurant_reports/{reportId} {
       allow read: if isAdmin() || readsOwnReport('reportingUserId');
-      allow create: if createsOwnReport('reportingUserId') &&
-        dataRestaurantOperationLockAllowsMutation(request.resource.data);
-      allow update: if (isAdmin() || updatesOwnReport('reportingUserId')) &&
+      allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'reportingUserId') && (createsOwnReport('reportingUserId') &&
+        dataRestaurantOperationLockAllowsMutation(request.resource.data));
+      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'reportingUserId') && deletionPersonalIdentityMayWrite(request.resource.data, 'reportingUserId') && ((isAdmin() || updatesOwnReport('reportingUserId')) &&
         dataRestaurantOperationLockAllowsMutation(resource.data) &&
-        dataRestaurantOperationLockAllowsMutation(request.resource.data);
-      allow delete: if isAdmin() &&
-        dataRestaurantOperationLockAllowsMutation(resource.data);
+        dataRestaurantOperationLockAllowsMutation(request.resource.data));
+      allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'reportingUserId') && (isAdmin() &&
+        dataRestaurantOperationLockAllowsMutation(resource.data));
     }
 
     match /dish_reports/{reportId} {
       allow read: if isAdmin() || readsOwnReport('reportingUserId');
-      allow create: if createsOwnReport('reportingUserId') &&
-        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data);
-      allow update: if (isAdmin() || updatesOwnReport('reportingUserId')) &&
+      allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'reportingUserId') && (createsOwnReport('reportingUserId') &&
+        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data));
+      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'reportingUserId') && deletionPersonalIdentityMayWrite(request.resource.data, 'reportingUserId') && ((isAdmin() || updatesOwnReport('reportingUserId')) &&
         dataDishAndRestaurantOperationLocksAllowMutation(resource.data) &&
-        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data);
-      allow delete: if isAdmin() &&
-        dataDishAndRestaurantOperationLocksAllowMutation(resource.data);
+        dataDishAndRestaurantOperationLocksAllowMutation(request.resource.data));
+      allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'reportingUserId') && (isAdmin() &&
+        dataDishAndRestaurantOperationLocksAllowMutation(resource.data));
     }
 
     match /duplicate_restaurant_reports/{reportId} {
       allow read: if isAdmin() || readsOwnReport('reportingUserId');
-      allow create: if createsOwnReport('reportingUserId') &&
-        dataRestaurantOperationLockAllowsMutation(request.resource.data);
-      allow update: if (isAdmin() || updatesOwnReport('reportingUserId')) &&
+      allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'reportingUserId') && (createsOwnReport('reportingUserId') &&
+        dataRestaurantOperationLockAllowsMutation(request.resource.data));
+      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'reportingUserId') && deletionPersonalIdentityMayWrite(request.resource.data, 'reportingUserId') && ((isAdmin() || updatesOwnReport('reportingUserId')) &&
         dataRestaurantOperationLockAllowsMutation(resource.data) &&
-        dataRestaurantOperationLockAllowsMutation(request.resource.data);
-      allow delete: if isAdmin() &&
-        dataRestaurantOperationLockAllowsMutation(resource.data);
+        dataRestaurantOperationLockAllowsMutation(request.resource.data));
+      allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'reportingUserId') && (isAdmin() &&
+        dataRestaurantOperationLockAllowsMutation(resource.data));
     }
 
     match /dish_edit_proposals/{proposalId} {
       allow read: if isAdmin() || readsOwnDishEditProposal();
-      allow create: if createsOwnDishEditProposal() &&
+      allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && (createsOwnDishEditProposal() &&
         (!biteScoreTrustedAggregatesEnabled() || validBiteScoreProposalLookupData(request.resource.data)) &&
         dishProposalResolutionIdentitiesValid(request.resource.data) &&
-        proposalOperationLocksAllowMutation(request.resource.data);
-      allow update: if isAdmin() &&
+        proposalOperationLocksAllowMutation(request.resource.data));
+      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && deletionPersonalIdentityMayWrite(request.resource.data, 'userId') && (isAdmin() &&
         (!biteScoreTrustedAggregatesEnabled() || validBiteScoreProposalLookupData(request.resource.data)) &&
         dishProposalResolutionIdentitiesValid(request.resource.data) &&
         proposalOperationLocksAllowMutation(resource.data) &&
-        proposalOperationLocksAllowMutation(request.resource.data);
-      allow delete: if isAdmin() &&
-        proposalOperationLocksAllowMutation(resource.data);
+        proposalOperationLocksAllowMutation(request.resource.data));
+      allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'userId') && (isAdmin() &&
+        proposalOperationLocksAllowMutation(resource.data));
     }
 
     match /restaurant_claim_requests/{requestId} {
       allow read: if isAdmin() || readsOwnClaimRequest();
-      allow create: if createsOwnClaimRequest() &&
-        dataRestaurantOperationLockAllowsMutation(request.resource.data);
-      allow update: if isAdmin() &&
+      allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'requesterUserId') && (createsOwnClaimRequest() &&
+        dataRestaurantOperationLockAllowsMutation(request.resource.data));
+      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'requesterUserId') && deletionPersonalIdentityMayWrite(request.resource.data, 'requesterUserId') && (isAdmin() &&
         dataRestaurantOperationLockAllowsMutation(resource.data) &&
         dataRestaurantOperationLockAllowsMutation(request.resource.data) &&
         (
           !writesRestaurantClaimApproval() ||
           canApprovePendingClaimRequest(requestId)
-        );
-      allow delete: if isAdmin() &&
-        dataRestaurantOperationLockAllowsMutation(resource.data);
+        ));
+      allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'requesterUserId') && (isAdmin() &&
+        dataRestaurantOperationLockAllowsMutation(resource.data));
     }
 
     match /bitesaver_reports/{reportId} {
       allow read: if isAdmin();
-      allow create: if request.resource.data.status == 'open' &&
+      allow create: if (!signedIn() || deletionAccountMayWrite(request.auth.uid)) && deletionOptionalIdentityMayWrite(request.resource.data, 'reporterUid') && (request.resource.data.status == 'open' &&
         (!('reporterUid' in request.resource.data) ||
-          (signedIn() && request.resource.data.reporterUid == request.auth.uid));
-      allow update, delete: if isAdmin();
+          (signedIn() && request.resource.data.reporterUid == request.auth.uid)));
+      allow update: if deletionActorMayWrite() && deletionOptionalIdentityMayWrite(resource.data, 'reporterUid') && deletionOptionalIdentityMayWrite(request.resource.data, 'reporterUid') && (isAdmin());
+      allow delete: if deletionActorMayWrite() && deletionOptionalIdentityMayWrite(resource.data, 'reporterUid') && (isAdmin());
     }
 
     match /restaurant_menus/{menuId} {
       allow read: if isAdmin() || ownsSharedRestaurantMenu(menuId);
-      allow create: if isAdmin() ||
+      allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(request.resource.data, 'createdByUserId') && (isAdmin() ||
         (
           emailVerified() &&
           request.resource.data.createdByUserId == request.auth.uid &&
           request.resource.data.bitescoreRestaurantId is string &&
           ownerOfBiteScoreRestaurant(request.resource.data.bitescoreRestaurantId)
-        );
-      allow update: if isAdmin() || ownsSharedRestaurantMenu(menuId);
-      allow delete: if isAdmin();
+        ));
+      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'createdByUserId') && deletionPersonalIdentityMayWrite(request.resource.data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
+      allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(resource.data, 'createdByUserId') && (isAdmin());
 
       match /menu_images/{imageId} {
         allow read: if isAdmin() || ownsSharedRestaurantMenu(menuId);
-        allow create, update: if isAdmin() || ownsSharedRestaurantMenu(menuId);
-        allow delete: if isAdmin() || ownsSharedRestaurantMenu(menuId);
+        allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
+      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
+        allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
       }
 
       match /menu_items/{itemId} {
         allow read: if isAdmin() || ownsSharedRestaurantMenu(menuId);
-        allow create, update: if isAdmin() || ownsSharedRestaurantMenu(menuId);
-        allow delete: if isAdmin() || ownsSharedRestaurantMenu(menuId);
+        allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
+      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
+        allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
       }
 
       match /menu_sections/{sectionId} {
         allow read: if isAdmin() || ownsSharedRestaurantMenu(menuId);
-        allow create, update: if isAdmin() || ownsSharedRestaurantMenu(menuId);
-        allow delete: if isAdmin() || ownsSharedRestaurantMenu(menuId);
+        allow create: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
+      allow update: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
+        allow delete: if deletionActorMayWrite() && deletionPersonalIdentityMayWrite(get(/databases/$(database)/documents/restaurant_menus/$(menuId)).data, 'createdByUserId') && (isAdmin() || ownsSharedRestaurantMenu(menuId));
       }
 
       match /{document=**} {

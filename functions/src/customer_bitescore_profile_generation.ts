@@ -1,3 +1,4 @@
+import {accountDeletionPath} from "./account_deletion_guard.js";
 import type {CustomerBiteSaverSearchDatabase} from "./customer_bitesaver_search_store.js";
 import {readBiteScoreCatalogRestaurantId} from "./restaurant_invite_helpers.js";
 import {biteScoreRecord, customerBiteScoreDigest, CustomerBiteScoreSearchError} from "./customer_bitescore_search_contract.js";
@@ -31,7 +32,8 @@ export async function reconcileCustomerBiteScoreFavoriteGeneration(database: Cus
   const accountingPath = `${customerBiteScoreProfileGenerationCollection}/favorite_${customerBiteScoreDigest(version, sourcePath)}`;
   const generationPath = customerBiteScoreProfileGenerationPath(userId);
   await database.runTransaction(async (tx) => {
-    const [source, previous, generation] = await tx.getDocuments([sourcePath, accountingPath, generationPath]);
+    const [source, previous, generation, deletion] = await tx.getDocuments([sourcePath, accountingPath, generationPath, accountDeletionPath(userId)]);
+    if (deletion) { tx.deleteDocument(accountingPath); tx.deleteDocument(generationPath); return; }
     const raw = source?.data;
     const target = raw && readBiteScoreCatalogRestaurantId(raw[kind === "favorite_dishes" ? "dishId" : "restaurantId"] ?? favoriteId);
     const next = raw && target && raw.restaurantType !== "bitesaver" && !String(raw.favoriteKind ?? "").startsWith("bitesaver") ?

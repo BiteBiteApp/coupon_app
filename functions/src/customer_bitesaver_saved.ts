@@ -1,3 +1,4 @@
+import {requireAccountWritableInStore} from "./account_deletion_guard.js";
 import {
   createCipheriv,
   createDecipheriv,
@@ -2034,6 +2035,7 @@ export async function validateCustomerBiteSaverSavedOfferRedemptionStartHandler(
     request.offerId,
   );
   return context.database.runTransaction(async (transaction) => {
+    await requireAccountWritableInStore(transaction, userId);
     const paths = [
       receiptPath,
       favoritePath,

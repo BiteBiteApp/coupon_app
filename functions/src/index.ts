@@ -1,3 +1,6 @@
+import {randomBytes} from "node:crypto";
+import {createDeletionAwareCheckout, queueAccountDeletionSubscription, reserveAccountDeletionCheckoutIntent} from "./account_deletion_billing.js";
+import {accountDeletionRequested, requireAccountWritable} from "./account_deletion_guard.js";
 import { initializeApp } from "firebase-admin/app";
 export {
   submitCustomerBiteScoreRestaurantClaim,
@@ -165,7 +168,6 @@ import {
   generateOwnerBillingCheckoutAttemptId,
   OwnerBillingLifecycleError,
   ownerBillingCheckoutRequestFingerprint,
-  ownerBillingStripeIdempotencyKey,
   requireOwnerBillingPortalGate,
   requireReusableOwnerBillingCheckoutAttempt,
   type OwnerBillingCheckoutVariant,
@@ -670,6 +672,7 @@ async function reserveServerSubscriptionReturnContext(params: {
         });
         const safeAccountData = rawAccountData ?? {};
         params.validateAccount?.(safeAccountData);
+        if (params.checkout !== undefined) await requireAccountWritable(db, transaction, params.ownerUid);
         const [billingSnapshot, stateSnapshot] =
           await Promise.all([
             transaction.get(billingStateRef),
@@ -780,6 +783,11 @@ async function reserveServerSubscriptionReturnContext(params: {
           allowExistingTokenHash,
         });
         if (params.checkout !== undefined) {
+          await reserveAccountDeletionCheckoutIntent(db, transaction, params.ownerUid, billingState.checkoutAttemptId!, {
+            newAttempt: !allowExistingTokenHash,
+            sessionId: billingState.checkoutSessionId,
+            attemptedAtMs: billingState.checkoutAttemptCreatedAt!.getTime(),
+          });
           transaction.set(billingStateRef, billingState);
         }
         transaction.set(stateRef, nextState);
@@ -953,6 +961,7 @@ async function runBiteSaverAccountTransaction<T>(
 ): Promise<T> {
   const accountRef = db.collection("restaurant_accounts").doc(documentId);
   return db.runTransaction(async (transaction) => {
+    await requireAccountWritable(db, transaction, documentId);
     const latestSnapshot = await transaction.get(accountRef);
     const decision = evaluate(
       biteSaverAccountSnapshot(latestSnapshot.exists, latestSnapshot.data()),
@@ -2763,7 +2772,7 @@ export const processDishProposalResolutionWork = onSchedule(
 );
 
 export const processRatingDestructiveOperationWork = onSchedule(
-  "every 1 minute",
+  "every 1 minutes",
   async () => {
     const summary = await processRatingDestructiveOperationWorkHandler({
       discoveryDatabase: ratingDestructiveSchedulerDiscoveryDatabase,
@@ -2899,6 +2908,7 @@ export const redeemCouponRestaurantInvite = onCall(async (request) => {
   const newCatalogBindingId = generateBiteSaverCatalogBindingId();
 
   const result = await db.runTransaction(async (transaction) => {
+    await requireAccountWritable(db, transaction, uid);
     const inviteSnapshot = await transaction.get(inviteQuery);
     if (inviteSnapshot.empty) {
       throw new HttpsError("not-found", "This invite link is no longer valid.");
@@ -3187,6 +3197,7 @@ export const redeemBiteScoreRestaurantClaimInvite = onCall(async (request) => {
     .limit(1);
 
   const result = await db.runTransaction(async (transaction) => {
+    await requireAccountWritable(db, transaction, uid);
     const inviteSnapshot = await transaction.get(inviteQuery);
     if (inviteSnapshot.empty) {
       throw new HttpsError("not-found", "This invite link is no longer valid.");
@@ -3894,7 +3905,11 @@ async function persistLocalExpertBadges(
     .collection(localExpertCelebrationSubcollection);
   const existingSnapshot = await badgeCollection.get();
   const existingIds = new Set(existingSnapshot.docs.map((doc) => doc.id));
-  const batch = db.batch();
+  const writes: ((tx: import("firebase-admin/firestore").Transaction) => void)[] = [];
+  const batch = {
+    set: (ref: import("firebase-admin/firestore").DocumentReference, value: Record<string, unknown>, options?: {merge: boolean}) => { writes.push((tx) => { if (options) tx.set(ref, value, options); else tx.set(ref, value); }); },
+    delete: (ref: import("firebase-admin/firestore").DocumentReference) => { writes.push((tx) => { tx.delete(ref); }); },
+  };
   let earnedBadgeCount = 0;
   let removedBadgeCount = 0;
   const celebrations: LocalExpertBadgeCelebrationEvent[] = [];
@@ -3976,7 +3991,12 @@ async function persistLocalExpertBadges(
     batch.delete(badgeCollection.doc(staleId));
   }
 
-  await batch.commit();
+  const persisted = await db.runTransaction(async (tx) => {
+    if (await accountDeletionRequested(db, tx, userId)) return false;
+    for (const write of writes) write(tx);
+    return true;
+  });
+  if (!persisted) return {earnedBadgeCount: 0, removedBadgeCount: 0, celebrations: []};
   return { earnedBadgeCount, removedBadgeCount, celebrations };
 }
 
@@ -4078,6 +4098,12 @@ async function syncRestaurantSubscriptionFromStripe(
     const billingState = parseOwnerBillingStateDocument(
       storedDocument(ownerUid, billingSnapshot),
     );
+    const deleting = await queueAccountDeletionSubscription(db, transaction, ownerUid, {
+      subscriptionId: incoming.stripeSubscriptionId, customerId: incoming.stripeCustomerId,
+      checkoutAttemptId: incoming.checkoutAttemptId,
+    });
+    if (deleting && accountSnapshot.exists) transaction.update(accountRef, {couponPostingEnabled: false, accountDeletionRequested: true});
+
     if (billingState === null) {
       return;
     }
@@ -4114,7 +4140,7 @@ async function syncRestaurantSubscriptionFromStripe(
     ) {
       return;
     }
-    transaction.update(accountRef, updateData);
+    transaction.update(accountRef, {...updateData, ...(deleting ? {couponPostingEnabled: false} : {})});
   });
 }
 
@@ -4132,6 +4158,25 @@ async function bindCompletedCheckoutSession(params: {
     const billingState = parseOwnerBillingStateDocument(
       storedDocument(metadata.ownerUid, billingSnapshot),
     );
+    const checkoutIntentRef = billingRef.collection("checkout_intents").doc(metadata.checkoutAttemptId);
+    const checkoutIntent = await transaction.get(checkoutIntentRef);
+    if (checkoutIntent.exists && (checkoutIntent.get("ownerUid") !== metadata.ownerUid ||
+        checkoutIntent.get("checkoutAttemptId") !== metadata.checkoutAttemptId ||
+        (checkoutIntent.get("sessionId") && checkoutIntent.get("sessionId") !== params.session.id))) throw new Error("Checkout intent binding changed");
+    const customerId = typeof params.session.customer === "string" ? params.session.customer : params.session.customer?.id;
+    const subscriptionCustomerId = typeof params.subscription.customer === "string" ? params.subscription.customer : params.subscription.customer.id;
+    if (!customerId || customerId !== subscriptionCustomerId || params.session.client_reference_id !== metadata.ownerUid) throw new Error("Checkout subscription identity mismatch");
+    const deleting = await queueAccountDeletionSubscription(db, transaction, metadata.ownerUid, {
+      subscriptionId: params.subscription.id, customerId, checkoutAttemptId: metadata.checkoutAttemptId,
+    });
+    // A verified late session may resolve an older uncertain attempt which is
+    // no longer the latest billing row. Its subscription remains independently
+    // queued for cancellation; closing Checkout never means billing is stopped.
+    if (deleting) transaction.set(checkoutIntentRef, {
+      ownerUid: metadata.ownerUid, checkoutAttemptId: metadata.checkoutAttemptId,
+      sessionId: params.session.id, terminal: true, confirmedStatus: "complete",
+    });
+
     if (
       billingState === null ||
       billingState.checkoutAttemptId !== metadata.checkoutAttemptId
@@ -4228,7 +4273,7 @@ export const createSubscriptionCheckoutSession = onCall(
           metadata,
         };
 
-      const session = await stripe.checkout.sessions.create({
+      const session = await createDeletionAwareCheckout(db, stripe, ownerUid, reserved.billingState.checkoutAttemptId!, {
         mode: "subscription",
         line_items: [
           {
@@ -4244,11 +4289,6 @@ export const createSubscriptionCheckoutSession = onCall(
         ...(reserved.checkoutStripeCustomerId === null
           ? {}
           : {customer: reserved.checkoutStripeCustomerId}),
-      }, {
-        idempotencyKey: ownerBillingStripeIdempotencyKey({
-          ownerUid,
-          checkoutAttemptId: reserved.billingState.checkoutAttemptId,
-        }),
       });
 
       if (!session.url) {
@@ -4388,7 +4428,7 @@ export const createCheckoutSession = onCall(
       if (includeTrial) {
         subscriptionData.trial_period_days = stripeTrialDays;
       }
-      const session = await stripe.checkout.sessions.create({
+      const session = await createDeletionAwareCheckout(db, stripe, ownerUid, reserved.billingState.checkoutAttemptId!, {
         mode: "subscription",
         line_items: [
           {
@@ -4404,11 +4444,6 @@ export const createCheckoutSession = onCall(
         ...(reserved.checkoutStripeCustomerId === null
           ? {}
           : {customer: reserved.checkoutStripeCustomerId}),
-      }, {
-        idempotencyKey: ownerBillingStripeIdempotencyKey({
-          ownerUid,
-          checkoutAttemptId: reserved.billingState.checkoutAttemptId,
-        }),
       });
 
       if (!session.url) {
@@ -4989,7 +5024,7 @@ export const stripeWebhook = onRequest(
 );
 
 export const processProximityPushRequest = onDocumentCreated(
-  "proximity_push_requests/{requestId}",
+  {document: "proximity_push_requests/{requestId}", timeoutSeconds: 60},
   async (event) => {
     const snapshot = event.data;
     if (!snapshot) {
@@ -4999,10 +5034,15 @@ export const processProximityPushRequest = onDocumentCreated(
 
     const requestRef = snapshot.ref;
     const requestId = event.params.requestId as string;
-    const raw = snapshot.data() as PushRequestData | undefined;
+    const processingToken = randomBytes(16).toString("hex");
+    const finishRequest = async (patch: Record<string, unknown>, _options?: unknown) => db.runTransaction(async (tx) => {
+      const current = await tx.get(requestRef);
+      if (current.exists && current.get("processingToken") === processingToken) tx.update(requestRef, patch);
+    });
+    let raw = snapshot.data() as PushRequestData | undefined;
 
     if (!raw) {
-      await requestRef.set(
+      await finishRequest(
         {
           status: "failed",
           failureReason: "missing_request_data",
@@ -5033,17 +5073,27 @@ export const processProximityPushRequest = onDocumentCreated(
         return { proceed: false, reason: `status_${status}` };
       }
 
+      const linkedUids = [freshData.authUid, freshData.customerAccountUid].filter((uid): uid is string => typeof uid === "string" && uid.length > 0);
+      for (const uid of linkedUids) {
+        if (await accountDeletionRequested(db, tx, uid)) {
+          tx.update(requestRef, {status: "skipped_account_deletion", updatedAt: FieldValue.serverTimestamp()});
+          return {proceed: false, reason: "account_deletion"};
+        }
+      }
+
       tx.set(
         requestRef,
         {
           status: "processing",
+          processingToken,
+          processingDeadlineAtMs: Date.now() + 120_000,
           processingStartedAt: FieldValue.serverTimestamp(),
           updatedAt: FieldValue.serverTimestamp(),
         },
         { merge: true },
       );
 
-      return { proceed: true, reason: "claimed" };
+      return { proceed: true, reason: "claimed", data: freshData };
     });
 
     if (!claimResult.proceed) {
@@ -5054,10 +5104,11 @@ export const processProximityPushRequest = onDocumentCreated(
       return;
     }
 
+    raw = claimResult.data!;
     try {
       const installationId = raw.installationId?.trim();
       if (!installationId) {
-        await requestRef.set(
+        await finishRequest(
           {
             status: "skipped_missing_installation",
             updatedAt: FieldValue.serverTimestamp(),
@@ -5077,7 +5128,7 @@ export const processProximityPushRequest = onDocumentCreated(
         | undefined;
 
       if (!installationSnap.exists || !installation) {
-        await requestRef.set(
+        await finishRequest(
           {
             status: "skipped_missing_installation_doc",
             updatedAt: FieldValue.serverTimestamp(),
@@ -5093,7 +5144,7 @@ export const processProximityPushRequest = onDocumentCreated(
       const token = installation.fcmToken?.trim();
 
       if (!proximityPushEnabled || maxPerDay <= 0) {
-        await requestRef.set(
+        await finishRequest(
           {
             status: "skipped_disabled",
             updatedAt: FieldValue.serverTimestamp(),
@@ -5104,7 +5155,7 @@ export const processProximityPushRequest = onDocumentCreated(
       }
 
       if (!isPermissionUsable(permissionStatus)) {
-        await requestRef.set(
+        await finishRequest(
           {
             status: "skipped_permission",
             permissionStatus: permissionStatus ?? null,
@@ -5116,7 +5167,7 @@ export const processProximityPushRequest = onDocumentCreated(
       }
 
       if (!token) {
-        await requestRef.set(
+        await finishRequest(
           {
             status: "skipped_missing_token",
             updatedAt: FieldValue.serverTimestamp(),
@@ -5126,6 +5177,17 @@ export const processProximityPushRequest = onDocumentCreated(
         return;
       }
 
+      const maySend = await db.runTransaction(async (tx) => {
+        const current = await tx.get(requestRef);
+        if (!current.exists || current.get("status") !== "processing") return false;
+        for (const uid of [current.get("authUid"), current.get("customerAccountUid"), installation.authUid, installation.customerAccountUid]) {
+          if (typeof uid === "string" && uid.length > 0 && await accountDeletionRequested(db, tx, uid)) return false;
+        }
+        return true;
+      });
+      if (!maySend) { await finishRequest({status: "skipped_account_deletion", updatedAt: FieldValue.serverTimestamp()}); return; }
+      // An FCM operation accepted after this check must finish before cleanup
+      // removes this processing record. There is no claim of recall capability.
       const title = buildNotificationTitle(raw);
       const body = buildNotificationBody(raw);
 
@@ -5152,7 +5214,7 @@ export const processProximityPushRequest = onDocumentCreated(
         },
       });
 
-      await requestRef.set(
+      await finishRequest(
         {
           status: "sent",
           fcmMessageId: response,
@@ -5173,7 +5235,7 @@ export const processProximityPushRequest = onDocumentCreated(
         error,
       });
 
-      await requestRef.set(
+      await finishRequest(
         {
           status: "failed",
           failureReason:
@@ -6029,3 +6091,6 @@ export const recalculateLocalExpertBadgesOnReviewWrite = onDocumentWritten(
     }
   },
 );
+
+// Source candidate: see account-deletion release blockers before any deployment.
+export {requestAccountDeletion, getAccountDeletionStatus, processAccountDeletionRequests, cleanupAccountDeletionFinalizedImage} from "./account_deletion_runtime.js";

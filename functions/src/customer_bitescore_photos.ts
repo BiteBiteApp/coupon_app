@@ -1,3 +1,5 @@
+import {createHash} from "node:crypto";
+import {requireAccountWritable} from "./account_deletion_guard.js";
 import {type Firestore, type Transaction} from "firebase-admin/firestore";
 import {getStorage} from "firebase-admin/storage";
 import {HttpsError, type CallableRequest} from "firebase-functions/v2/https";
@@ -12,6 +14,7 @@ import {biteScoreRestaurantIsActive} from "./search_index_builders.js";
 type Data = Record<string, unknown>;
 export type CustomerBiteScoreUploadedObject = Readonly<{
   bucket: string; name: string; size: number; contentType: string; downloadTokens: readonly string[];
+  generation: string; metadata: Readonly<Record<string, unknown>>;
 }>;
 export type CustomerBiteScorePhotoOptions = Readonly<{
   now?: Date;
@@ -48,15 +51,16 @@ async function uploadedObject(storagePath: string): Promise<CustomerBiteScoreUpl
   const bucket = getStorage().bucket();
   const [value] = await bucket.file(storagePath).getMetadata();
   return {bucket: bucket.name, name: value.name ?? "", size: Number(value.size), contentType: value.contentType ?? "",
+    generation: String(value.generation ?? ""), metadata: value.metadata ?? {},
     downloadTokens: String(value.metadata?.firebaseStorageDownloadTokens ?? "").split(",")};
 }
-function storageIdentity(value: Data, dishId: string): {storagePath: string; imageUrl: string; bucket: string; token: string} {
+function storageIdentity(value: Data, dishId: string, userId: string): {storagePath: string; imageUrl: string; bucket: string; token: string} {
   if (typeof value.storagePath !== "string" || typeof value.imageUrl !== "string" || value.imageUrl.length > 4096) {
     throw new HttpsError("invalid-argument", "Invalid uploaded image.");
   }
-  // Match the existing immutable dish upload layout without normalizing IDs or
-  // accepting a different catalog parent through a sanitized path alias.
-  const prefix = `bitescore_dishes/${dishId}/images/`;
+  // Only the new Rules-bound immutable uploader namespace proves ownership.
+  // Never trust matching custom metadata on the retired unowned layout.
+  const prefix = `bitescore_user_uploads/${createHash("sha256").update(`bitestar.dish-upload.v1:${userId}`).digest("hex")}/dish_images/${dishId}/`;
   const fileName = value.storagePath.slice(prefix.length);
   if (!value.storagePath.startsWith(prefix) || !/^[A-Za-z0-9_-][A-Za-z0-9._-]{0,199}$/.test(fileName)) {
     throw new HttpsError("invalid-argument", "Image storage does not match this dish.");
@@ -121,16 +125,19 @@ export async function createCustomerBiteScorePhotoHandler(
   if (!["review", "missing", "gallery"].includes(String(value.mode)) || (value.mode !== "review" && reviewId !== null)) {
     throw new HttpsError("invalid-argument", "Invalid photo operation.");
   }
-  const upload = storageIdentity(value, dishId);
+  const upload = storageIdentity(value, dishId, userId);
   let object: CustomerBiteScoreUploadedObject;
   try { object = await (options.readUploadedObject ?? uploadedObject)(upload.storagePath); }
   catch { throw new HttpsError("failed-precondition", "The uploaded image is unavailable."); }
   if (object.bucket !== upload.bucket || object.name !== upload.storagePath || !Number.isSafeInteger(object.size) || object.size <= 0 ||
-      object.size > 5 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp"].includes(object.contentType) || !object.downloadTokens.includes(upload.token)) {
+      object.size > 5 * 1024 * 1024 || !["image/jpeg", "image/png", "image/webp"].includes(object.contentType) || !object.downloadTokens.includes(upload.token) ||
+      !/^[0-9]+$/.test(object.generation) || object.metadata.ownershipVersion !== "1" ||
+      object.metadata.uploaderKey !== createHash("sha256").update(`bitestar.dish-upload.v1:${userId}`).digest("hex") || object.metadata.dishId !== dishId) {
     throw new HttpsError("failed-precondition", "The uploaded image is invalid.");
   }
   const now = options.now ?? new Date();
   return db.runTransaction(async (tx) => {
+    await requireAccountWritable(db, tx, userId);
     const dish = await parent(db, tx, dishId, restaurantId);
     const imageRef = db.doc(`bitescore_dish_images/${imageId}`);
     const existing = await tx.get(imageRef);
@@ -154,7 +161,7 @@ export async function createCustomerBiteScorePhotoHandler(
       throw new HttpsError("failed-precondition", "This dish already has an image.");
     }
     const source = {id: imageId, dishId, restaurantId, reviewId, uploadedByUserId: userId, imageUrl: upload.imageUrl,
-      storagePath: upload.storagePath, sortOrder: 0, helpfulCount: 0, notHelpfulCount: 0, createdAt: now, updatedAt: now};
+      storagePath: upload.storagePath, originalUploaderUid: userId, ownershipVersion: 1, storageGeneration: object.generation, sortOrder: 0, helpfulCount: 0, notHelpfulCount: 0, createdAt: now, updatedAt: now};
     const image = safeImage(imageId, source, dishId, restaurantId);
     tx.set(imageRef, source);
     tx.update(db.doc(`bitescore_dishes/${dishId}`), {imageCount: imageCount + 1, updatedAt: now,
@@ -176,18 +183,21 @@ export async function toggleCustomerBiteScorePhotoVoteHandler(
   if (voteType !== "helpful" && voteType !== "notHelpful") throw new HttpsError("invalid-argument", "Invalid photo vote.");
   const now = options.now ?? new Date();
   return db.runTransaction(async (tx) => {
+    await requireAccountWritable(db, tx, userId);
     await parent(db, tx, dishId, restaurantId);
     const imageRef = db.doc(`bitescore_dish_images/${imageId}`);
     const voteRef = db.doc(`bitescore_dish_image_votes/${imageId}_${userId}`);
     const [image, vote] = await tx.getAll(imageRef, voteRef);
     const source = image.data();
     if (!source || source.dishId !== dishId || source.restaurantId !== restaurantId) throw new HttpsError("failed-precondition", "This photo is unavailable.");
+    if (typeof source.uploadedByUserId !== "string") throw new HttpsError("failed-precondition", "This photo is unavailable.");
     safeImage(imageId, source, dishId, restaurantId);
     const old = vote.data();
     if (old && (old.userId !== userId || old.imageId !== imageId || old.dishId !== dishId || old.restaurantId !== restaurantId || !["helpful", "notHelpful"].includes(String(old.voteType)))) {
       throw new HttpsError("failed-precondition", "The photo vote does not match its target.");
     }
     const next = old?.voteType === voteType ? null : voteType;
+    if (next !== null) await requireAccountWritable(db, tx, source.uploadedByUserId);
     const delta = (type: string) => Number(next === type) - Number(old?.voteType === type);
     const helpfulCount = Math.max(0, count(source.helpfulCount) + delta("helpful"));
     const notHelpfulCount = Math.max(0, count(source.notHelpfulCount) + delta("notHelpful"));

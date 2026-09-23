@@ -1,7 +1,7 @@
 "use strict";
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const {randomUUID} = require("node:crypto");
+const {randomUUID,createHash} = require("node:crypto");
 if (process.env.BITESAVER_FIRESTORE_EMULATOR_TEST !== "1") {
   test("BiteScore photo transaction/storage integration requires explicit local emulators", {skip:"set BITESAVER_FIRESTORE_EMULATOR_TEST=1 with loopback Firestore+Storage/demo project"},()=>{});
 } else {
@@ -23,7 +23,7 @@ if (process.env.BITESAVER_FIRESTORE_EMULATOR_TEST !== "1") {
     const other=initializeApp({projectId:photoProjectId},`photo-contender-${randomUUID()}`);
     const db=getFirestore(app), db2=getFirestore(other), bucket=getStorage(app).bucket();
     const unique=randomUUID(), dishId=`photo dish 寿司🍣-${unique}`, restaurantId=`photo-restaurant-${unique}`, imageId=`photo-${unique}`;
-    const userId=`user-${unique}`, storagePath=`bitescore_dishes/${dishId}/images/123.jpg`, token=randomUUID();
+    const userId=`user-${unique}`, storagePath=`bitescore_user_uploads/${createHash("sha256").update(`bitestar.dish-upload.v1:${userId}`).digest("hex")}/dish_images/${dishId}/123.jpg`, token=randomUUID();
     const auth=(uid=userId)=>({uid,token:{email_verified:true,firebase:{sign_in_provider:"password"}}});
     const data={schemaVersion:1,expectedUserId:userId,imageId,dishId,restaurantId,reviewId:null,mode:"gallery",storagePath,
       imageUrl:`https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(storagePath)}?alt=media&token=${token}`};
@@ -31,7 +31,7 @@ if (process.env.BITESAVER_FIRESTORE_EMULATOR_TEST !== "1") {
     const paths=[runtime,`bitescore_dishes/${dishId}`,`bitescore_restaurants/${restaurantId}`,`bitescore_dish_images/${imageId}`,
       ...Array.from({length:6},(_,i)=>`bitescore_dish_image_votes/${imageId}_${userId}-${i}`)];
     try {
-      await bucket.file(storagePath).save(Buffer.from([0xff,0xd8,0xff,0xd9]),{resumable:false,metadata:{contentType:"image/jpeg",metadata:{firebaseStorageDownloadTokens:token}}});
+      await bucket.file(storagePath).save(Buffer.from([0xff,0xd8,0xff,0xd9]),{resumable:false,metadata:{contentType:"image/jpeg",metadata:{firebaseStorageDownloadTokens:token,ownershipVersion:"1",uploaderKey:createHash("sha256").update(`bitestar.dish-upload.v1:${userId}`).digest("hex"),dishId}}});
       await db.doc(runtime).set({enabled:true,version:1,epoch:unique});
       await db.doc(`bitescore_dishes/${dishId}`).set({id:dishId,restaurantId,isActive:true,imageCount:0});
       await db.doc(`bitescore_restaurants/${restaurantId}`).set({id:restaurantId,isActive:true,ownerUserId:"PRIVATE_OWNER"});

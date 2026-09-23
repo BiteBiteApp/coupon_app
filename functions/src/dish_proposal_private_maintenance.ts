@@ -862,9 +862,12 @@ export async function maintainDishEditProposalPrivateState(
     if (storedMemberDocument !== null && existingMember === null) {
       throw new Error("Stored private dish-proposal member has an invalid schema.");
     }
+    const author = sourceDocument?.data.userId ?? sourceDocument?.data.createdByUserId;
+    const deleting = typeof author === "string" && author.length > 0 && !author.includes("/") &&
+      await transaction.getDocument(`private_account_deletions/${author}`) !== null;
     const nextMembership = buildDishProposalMembership({
       proposalDocumentId,
-      source: sourceDocument?.data ?? null,
+      source: deleting ? null : sourceDocument?.data ?? null,
       trustedServerCreateTime: sourceDocument?.createTime ?? null,
     });
     await applyDishProposalMemberChange(

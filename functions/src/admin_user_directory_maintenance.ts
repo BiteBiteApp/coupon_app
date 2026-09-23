@@ -1,3 +1,4 @@
+import {accountDeletionPath} from "./account_deletion_guard.js";
 import {
   FieldPath,
   type DocumentData,
@@ -342,6 +343,11 @@ export async function reconcileAdminUserSource(
     throw new Error("Admin user directory reconciliation time is invalid.");
   }
   return database.runTransaction(async (transaction) => {
+    if (await transaction.getDocument(accountDeletionPath(uid))) {
+      for (const kind of adminUserSourceKinds) transaction.deleteDocument(adminUserSourceSummaryDocumentPath({uid, sourceKind: kind}));
+      transaction.deleteDocument(adminUserDirectoryDocumentPath(uid));
+      return {uid, sourceKind, sourcePresent: false, summaryWritten: false, summaryDeleted: true, directoryWritten: false, directoryDeleted: true};
+    }
     const currentSource = await loadCurrentSourceState(
       transaction,
       sourceKind,

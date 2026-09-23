@@ -1,3 +1,4 @@
+import {requireAccountWritableInStore} from "./account_deletion_guard.js";
 import { randomBytes } from "node:crypto";
 import {
   buildCustomerBiteSaverCouponRedemption,
@@ -1117,6 +1118,7 @@ export async function executeCustomerBiteSaverDeviceBoundUse(
     : customerBiteSaverCouponRedemptionPath(signedUserId, request.offerId);
 
   return context.database.runTransaction(async (transaction) => {
+    if (signedUserId !== null) await requireAccountWritableInStore(transaction, signedUserId);
     const receiptDocument = await transaction.getDocument(receiptPath);
     const replayNowMillis = context.now?.() ?? Date.now();
     const replay = parseOutcomeReceipt({

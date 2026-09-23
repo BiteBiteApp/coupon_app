@@ -65,7 +65,7 @@ export class ReviewMilestoneReconciliationLockError extends Error {
 }
 
 export type ReviewMilestoneReconciliationLockClaimResult = Readonly<{
-  status: "acquired" | "already-owned" | "already-released";
+  status: "acquired" | "already-owned" | "already-released" | "account-deletion";
 }>;
 
 export type ReviewMilestoneReconciliationLockValidationResult = Readonly<{
@@ -397,12 +397,18 @@ export function parseReviewMilestoneReconciliationLockDocument(
     return null;
   }
   try {
-    if (!isRecord(document) || !isRecord(document.data) ||
-        !hasExactKeys(document.data, lockDocumentKeys)) {
+    if (!isRecord(document) || !isRecord(document.data)) {
       return fail("invalid-state");
     }
-    const data = document.data;
+    requireIdentity(document.id, true);
+    const data = {...document.data};
+    if (Object.prototype.hasOwnProperty.call(data, "accountDeletionRequested")) {
+      if (data.accountDeletionRequested !== true) return fail("invalid-state");
+      delete data.accountDeletionRequested;
+      if (Object.keys(data).length === 0) return null;
+    }
     if (
+      !hasExactKeys(data, lockDocumentKeys) ||
       data.version !== reviewMilestoneReconciliationLockVersion ||
       (data.state !== "active" && data.state !== "released")
     ) {
@@ -746,6 +752,8 @@ export async function claimReviewMilestoneReconciliationLock(
     const terminal = parseReviewMilestoneReconciliationTerminalStateDocument(
       documentFromSnapshot(await transaction.get(terminalReference)),
     );
+    const deletion = await transaction.get(database.collection("private_account_deletions").doc(exactIdentity.userId));
+    if (deletion.exists && existing?.state !== "active") return Object.freeze({status: "account-deletion" as const});
     if (existing === null && terminal !== null) {
       return fail("invalid-state");
     }
@@ -808,9 +816,9 @@ export async function releaseReviewMilestoneReconciliationLock(
     const terminalReference = database
       .collection(reviewMilestoneReconciliationTerminalStateCollection)
       .doc(exactIdentity.userId);
-    const existing = parseReviewMilestoneReconciliationLockDocument(
-      documentFromSnapshot(await transaction.get(reference)),
-    );
+    const lockSnapshot = await transaction.get(reference);
+    const existing = parseReviewMilestoneReconciliationLockDocument(documentFromSnapshot(lockSnapshot));
+    const deleting = lockSnapshot.data()?.accountDeletionRequested === true;
     if (existing === null) {
       return fail("missing");
     }
@@ -833,7 +841,7 @@ export async function releaseReviewMilestoneReconciliationLock(
       createdAt: existing.createdAt,
       updatedAt: now,
     });
-    transaction.set(reference, released);
+    transaction.set(reference, {...released, ...(deleting ? {accountDeletionRequested: true} : {})});
     return Object.freeze({status: "released" as const});
   });
 }

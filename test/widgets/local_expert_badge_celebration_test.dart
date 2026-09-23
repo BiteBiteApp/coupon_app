@@ -2,7 +2,7 @@ import 'package:coupon_app/models/local_expert.dart';
 import 'package:coupon_app/models/local_expert_badge_celebration.dart';
 import 'package:coupon_app/services/local_expert_badge_celebration_service.dart';
 import 'package:coupon_app/services/local_expert_badge_recalculation_service.dart';
-import 'package:coupon_app/widgets/local_expert_badge_celebration_host.dart';
+import 'package:coupon_app/widgets/local_expert_badge_celebration_container.dart';
 import 'package:coupon_app/widgets/local_expert_badge_celebration_overlay.dart';
 import 'package:coupon_app/widgets/local_expert_badge_widget.dart';
 import 'package:flutter/material.dart';

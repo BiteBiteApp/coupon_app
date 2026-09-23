@@ -1,3 +1,4 @@
+import '../services/account_deletion_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -866,6 +867,15 @@ class _CustomerAccountScreenState extends State<CustomerAccountScreen> {
                             isGuest
                                 ? _buildGuestCard(user)
                                 : _buildSignedInCard(user),
+                            if (user != null)
+                              TextButton.icon(
+                                onPressed: () => Navigator.of(
+                                  context,
+                                  rootNavigator: true,
+                                ).pushNamed(accountDeletionRoute),
+                                icon: const Icon(Icons.delete_outline),
+                                label: const Text("Delete Account"),
+                              ),
                           ],
                         ),
                       ),

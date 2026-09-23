@@ -2783,7 +2783,7 @@ test("permanent catalog binding fields are writable only by trusted server code"
   ));
   await assertSucceeds(biteScoreRef.set(
     {
-      bio: "Binding-safe BiteScore owner edit",
+      bio: "Binding-safe BiteScore owner edit", bioAuthorUid: "bitescore-owner",
       restaurantWriteRevision: 5,
       updatedAt: serverTimestamp(),
     },
@@ -2936,7 +2936,7 @@ test("BiteScore claimed restaurant owners can manage linked public content", asy
   await assertSucceeds(
     db.doc("bitescore_restaurants/bs-1").set(
       {
-        bio: "Owner updated bio",
+        bio: "Owner updated bio", bioAuthorUid: "bitescore-owner",
         restaurantWriteRevision: 5,
         updatedAt: serverTimestamp(),
       },
@@ -3256,7 +3256,7 @@ test("BiteScore restaurant update requires the current revision plus one", async
   await assertSucceeds(
     restaurantRef.set(
       {
-        bio: "Fresh revision four edit",
+        bio: "Fresh revision four edit", bioAuthorUid: "admin-1",
         restaurantWriteRevision: 5,
         updatedAt: serverTimestamp(),
       },
@@ -3488,7 +3488,7 @@ test("existing Admin and owner profile edits remain available without activity c
   await assertSucceeds(
     dbFor("biteScoreOwner").doc("bitescore_restaurants/bs-1").set(
       {
-        bio: "Owner profile edit remains available",
+        bio: "Owner profile edit remains available", bioAuthorUid: "bitescore-owner",
         restaurantWriteRevision: 6,
         updatedAt: serverTimestamp(),
       },
@@ -3514,7 +3514,7 @@ test("BiteScore restaurant revision accepts the safe maximum and then exhausts",
   await assertSucceeds(
     restaurantRef.set(
       {
-        bio: "Maximum revision reached",
+        bio: "Maximum revision reached", bioAuthorUid: "admin-1",
         restaurantWriteRevision: 9007199254740991,
       },
       { merge: true },
@@ -3868,7 +3868,7 @@ test("restaurant revision preserves owner and Admin authorization and isolation"
   await assertSucceeds(
     restaurantRef.set(
       {
-        bio: "Owner-authorized revision",
+        bio: "Owner-authorized revision", bioAuthorUid: "bitescore-owner",
         restaurantWriteRevision: 5,
       },
       { merge: true },
@@ -3886,7 +3886,7 @@ test("restaurant revision preserves owner and Admin authorization and isolation"
   await assertSucceeds(
     dbFor("admin").doc("bitescore_restaurants/bs-1").set(
       {
-        bio: "Admin-authorized revision",
+        bio: "Admin-authorized revision", bioAuthorUid: "admin-1",
         restaurantWriteRevision: 6,
       },
       { merge: true },
@@ -4041,7 +4041,7 @@ test("BiteScore owner retains existing restaurant read and update authority", as
   await assertSucceeds(
     db.doc("bitescore_restaurants/bs-1").set(
       {
-        bio: "Still owner editable",
+        bio: "Still owner editable", bioAuthorUid: "bitescore-owner",
         restaurantWriteRevision: 5,
         updatedAt: serverTimestamp(),
       },
@@ -6203,7 +6203,7 @@ test("restaurant operation locks fail closed and deletion unlocks only the targe
       `bitescore_restaurants/rules-restaurant-${label}`,
     );
     await assertFails(existingRef.update({
-      bio: "Blocked by exact operation lock",
+      bio: "Blocked by exact operation lock", bioAuthorUid: "admin-1",
       restaurantWriteRevision: 5,
       updatedAt: serverTimestamp(),
     }));
@@ -6218,7 +6218,7 @@ test("restaurant operation locks fail closed and deletion unlocks only the targe
 
   const unlockRef = adminDb.doc(`bitescore_restaurants/${unlockId}`);
   await assertFails(unlockRef.update({
-    bio: "Still locked",
+    bio: "Still locked", bioAuthorUid: "admin-1",
     restaurantWriteRevision: 5,
     updatedAt: serverTimestamp(),
   }));
@@ -6226,13 +6226,13 @@ test("restaurant operation locks fail closed and deletion unlocks only the targe
     `private_rating_restaurant_operation_locks/${unlockId}`,
   ]);
   await assertSucceeds(unlockRef.update({
-    bio: "Unlocked after safe boundary",
+    bio: "Unlocked after safe boundary", bioAuthorUid: "admin-1",
     restaurantWriteRevision: 5,
     updatedAt: serverTimestamp(),
   }));
   await assertSucceeds(
     adminDb.doc(`bitescore_restaurants/${unrelatedId}`).update({
-      bio: "Unrelated remains writable",
+      bio: "Unrelated remains writable", bioAuthorUid: "admin-1",
       restaurantWriteRevision: 5,
       updatedAt: serverTimestamp(),
     }),
@@ -6417,7 +6417,11 @@ test("reviews and aggregates check old and new destructive identities", async ()
     await assertFails(adminDb.doc(reviewPath).update(reviewMovement));
     await deleteRuleTestDocuments([lockPath]);
   }
+  await seedRuleTestDocuments([{documentPath: 'private_review_milestone_reconciliation_locks/customer-a', data: reviewMilestoneLockData('customer-a', {state: 'released'})}]);
   await assertSucceeds(adminDb.doc(reviewPath).update(reviewMovement));
+  await seedRuleTestDocuments([{documentPath: 'private_review_milestone_reconciliation_locks/customer-a', data: {accountDeletionRequested:true}}]);
+  await assertFails(adminDb.doc(reviewPath).update({dishId:dishA,restaurantId:restaurantA,updatedAt:serverTimestamp()}));
+  await deleteRuleTestDocuments(['private_review_milestone_reconciliation_locks/customer-a']);
   await seedRuleTestDocuments([{
     documentPath: `private_rating_dish_operation_locks/${dishB}`,
     data: ratingDishOperationLockData(dishB, "merged_source"),
@@ -6663,6 +6667,10 @@ test("dish dependents check old and new dish and restaurant locks", async () => 
     documentPath: `${collection}/destructive-existing`,
     data,
   })));
+  await seedRuleTestDocuments([
+    {documentPath: "dish_reviews/review-existing", data: {userId: "customer-a", dishId: dishA, restaurantId: restaurantA}},
+    {documentPath: "dish_reviews/review-new-parent", data: {userId: "customer-b", dishId: dishB, restaurantId: restaurantB}},
+  ]);
   const customerDb = dbFor("customer");
   const lockSequence = [
     [
@@ -6689,6 +6697,7 @@ test("dish dependents check old and new dish and restaurant locks", async () => 
       await assertFails(dbFor(actor).doc(
         `${collection}/destructive-existing`,
       ).update({
+        ...(collection === "dish_reports" ? {} : {reviewId: "review-new-parent"}),
         dishId: dishB,
         restaurantId: restaurantB,
         updatedAt: serverTimestamp(),
@@ -6724,7 +6733,8 @@ test("dish dependents check old and new dish and restaurant locks", async () => 
   for (const {collection, actor, data} of cases) {
     const ref = dbFor(actor).doc(`${collection}/destructive-existing`);
     await assertSucceeds(ref.update({
-      dishId: dishB,
+      ...(collection === "dish_reports" ? {} : {reviewId: "review-new-parent"}),
+        dishId: dishB,
       restaurantId: restaurantB,
       updatedAt: serverTimestamp(),
     }));
@@ -6741,6 +6751,7 @@ test("dish dependents check old and new dish and restaurant locks", async () => 
       customerDb.doc(`${collection}/create-unlocked`).set({
         ...data,
         id: `${collection}-create-unlocked`,
+        ...(collection === "dish_reports" ? {} : {reviewId: "review-new-parent"}),
         dishId: dishB,
         restaurantId: restaurantB,
       }),

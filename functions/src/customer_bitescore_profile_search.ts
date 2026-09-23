@@ -1,3 +1,4 @@
+import {requireAccountWritableInStore} from "./account_deletion_guard.js";
 import {randomBytes} from "node:crypto";
 import type {CustomerBiteSaverSearchDatabase as Database, CustomerBiteSaverStoredDocument as Document,
   CustomerBiteSaverTransaction as Transaction} from "./customer_bitesaver_search_store.js";
@@ -103,6 +104,8 @@ async function current(transaction: Transaction, input: ReturnType<typeof contin
   if (session.actor !== actor(context) || session.queryFingerprint !== input.queryFingerprint ||
       timestamp(context) >= Math.min(session.absoluteExpiresAtMs, session.idleExpiresAtMs)) fail();
   authorize(session.criteria, context);
+  await requireAccountWritableInStore(transaction, session.criteria.userId);
+  if (context.userId) await requireAccountWritableInStore(transaction, context.userId);
   const instance = await transaction.getDocument(instancePath(session.actor, session.instanceId));
   if (instance?.data.sessionId !== session.sessionId || instance.data.queryGeneration !== session.queryGeneration) fail();
   return session;
@@ -126,6 +129,8 @@ export async function startCustomerBiteScoreProfileListHandler(db: Database, raw
   const queryFingerprint = digest(version, c);
   const sessionId = digest(version, actorId, instanceId, requestId);
   return response(await db.runTransaction(async (tx) => {
+    await requireAccountWritableInStore(tx, c.userId);
+    if (context.userId) await requireAccountWritableInStore(tx, context.userId);
     const [instance, admission, previous, generations] = await Promise.all([tx.getDocument(instancePath(actorId, instanceId)),
       tx.getDocument(admissionPath(actorId)), tx.getDocument(path(sessionId)), generation(tx, c.userId)]);
     if (previous !== null) {

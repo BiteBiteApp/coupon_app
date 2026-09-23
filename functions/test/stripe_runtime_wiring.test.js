@@ -145,6 +145,7 @@ function makeCheckoutCompletedEvent(overrides = {}) {
       object: {
         id: sensitiveCanaries.checkoutSession,
         mode: "subscription",
+        client_reference_id: sensitiveCanaries.uid,
         customer: sensitiveCanaries.customer,
         subscription: sensitiveCanaries.subscription,
         metadata,
@@ -218,6 +219,7 @@ function createHarness() {
   }
 
   function documentState(reference) {
+    if (reference.path.startsWith("private_account_deletions/") || reference.path.includes("/checkout_intents/")) return {exists: false, data: undefined};
     if (reference.path.startsWith("restaurant_accounts/")) {
       if (state.accountLookupFailure !== null) {
         throw state.accountLookupFailure;
@@ -246,6 +248,8 @@ function createHarness() {
     const document = documentState(reference);
     return {
       exists: document.exists,
+      get: (field) => document.data?.[field],
+      ref: reference,
       data: () => document.exists ? clone(document.data) : undefined,
     };
   }
@@ -264,12 +268,14 @@ function createHarness() {
   }
 
   const db = {
+    doc(documentPath) { const split = documentPath.lastIndexOf("/"); return this.collection(documentPath.slice(0, split)).doc(documentPath.slice(split + 1)); },
     collection(collectionPath) {
       return {
         doc(documentId) {
           const reference = {
             id: documentId,
             path: `${collectionPath}/${documentId}`,
+            collection(child) { return db.collection(`${collectionPath}/${documentId}/${child}`); },
             async get() {
               state.dbCalls.push({
                 operation: "get",

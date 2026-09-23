@@ -1566,6 +1566,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
     try {
       final uploadedImage = await BiteScoreImageUploadService.uploadDishImage(
         dishId: saveResult.dish.id,
+        expectedUid: saveResult.review.userId,
         pickedImage: selectedImage,
       );
       if (!_isPrivateLeaseCurrent(authLease)) {
@@ -1693,6 +1694,7 @@ class _BiteScoreDishDetailScreenState extends State<BiteScoreDishDetailScreen> {
 
       final uploadedImage = await BiteScoreImageUploadService.uploadDishImage(
         dishId: freshDish.id,
+        expectedUid: user.uid,
         pickedImage: pickedImage,
       );
       if (!_isPrivateLeaseCurrent(authLease)) {
@@ -4254,6 +4256,7 @@ class _BiteScoreDishImageGalleryScreenState
 
     final uploadedImage = await BiteScoreImageUploadService.uploadDishImage(
       dishId: widget.dish.id,
+      expectedUid: user.uid,
       pickedImage: pickedImage,
     );
     if (!_isPrivateLeaseCurrent(authLease)) {

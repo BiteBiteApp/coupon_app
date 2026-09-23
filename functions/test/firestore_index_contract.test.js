@@ -945,6 +945,21 @@ const ADMIN_TEMPORARY_SINGLE_FIELD_INDEXES = [
   {arrayConfig: "CONTAINS", queryScope: "COLLECTION"},
 ];
 
+const DELETION_SINGLE_FIELD_CONTRACT = [
+  {collectionGroup: "contributions", fieldPath: "candidate.userId", indexes: [{order: "ASCENDING", queryScope: "COLLECTION_GROUP"}]},
+  {collectionGroup: "aggregate_winners", fieldPath: "reviewerFingerprint", indexes: [{order: "ASCENDING", queryScope: "COLLECTION_GROUP"}]},
+  ...[
+    ["menu_images", "storagePath"],
+    ["menu_images", "imageUrl"],
+    ["coupons", "imageUrl"],
+    ["daily_specials", "imageUrl"],
+  ].map(([collectionGroup, fieldPath]) => ({
+    collectionGroup, fieldPath,
+    indexes: [...ADMIN_TEMPORARY_SINGLE_FIELD_INDEXES,
+      {order: "ASCENDING", queryScope: "COLLECTION_GROUP"}],
+  })),
+];
+
 const REQUIRED_FIELD_OVERRIDE_CONTRACT = [
   {
     collectionGroup: "bitesaver_offer_index",
@@ -990,6 +1005,8 @@ const REQUIRED_FIELD_OVERRIDE_CONTRACT = [
     indexes: ADMIN_TEMPORARY_SINGLE_FIELD_INDEXES,
   })),
 ];
+
+REQUIRED_FIELD_OVERRIDE_CONTRACT.push(...DELETION_SINGLE_FIELD_CONTRACT);
 
 const loadIndexConfiguration = () =>
   JSON.parse(fs.readFileSync(indexPath, "utf8"));
@@ -1121,11 +1138,13 @@ test("Firestore TTL and single-field settings exactly match customer and Admin t
 
   assert.equal(firebaseConfiguration.firestore.indexes, "firestore.indexes.json");
   assert.equal(firebaseConfiguration.firestore.rules, "firestore.rules");
-  assert.equal(fieldOverrides.length, 21);
+  assert.equal(fieldOverrides.length, 27);
   assert.equal(new Set(signatures).size, fieldOverrides.length);
   assert.equal(fieldOverrides.filter(({ ttl }) => ttl === true).length, 20);
 
   for (const override of fieldOverrides) {
+    const deletion = DELETION_SINGLE_FIELD_CONTRACT.find((entry) => entry.collectionGroup === override.collectionGroup && entry.fieldPath === override.fieldPath);
+    if (deletion) { assert.deepEqual(override, deletion); assert.equal(override.ttl, undefined); continue; }
     if (ADMIN_TEMPORARY_TTL_COLLECTIONS.includes(override.collectionGroup)) {
       assert.deepEqual(override, {
         collectionGroup: override.collectionGroup,

@@ -1,3 +1,4 @@
+import {requireAccountWritableInStore} from "./account_deletion_guard.js";
 import {createHash, randomBytes, timingSafeEqual} from "node:crypto";
 import {
   customerBiteSaverDeviceChallengeCleanupDelayMilliseconds,
@@ -182,6 +183,7 @@ export async function reserveCustomerBiteSaverDeviceChallengeAdmission(value: {
   const permit = Buffer.from(entropy).toString("base64url");
   const digest = permitHash(permit);
   return context.database.runTransaction(async (transaction) => {
+    if (authenticatedUserId !== null) await requireAccountWritableInStore(transaction, authenticatedUserId);
     const initialNow = time(clock());
     let guestSessionId: string | null = null;
     let recoveryExpiresAtMillis: number;

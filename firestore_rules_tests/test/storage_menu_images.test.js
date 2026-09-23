@@ -206,3 +206,46 @@ test("private upload grants remain unreadable through client Firestore rules", a
     );
   }
 });
+
+
+test("real deletion acceptance revokes both owner menu grants atomically and preserves B", async () => {
+  const functionsRequire=require('node:module').createRequire(path.resolve(__dirname,'../../functions/package.json'));
+  const {initializeApp,deleteApp}=functionsRequire('firebase-admin/app');
+  const {getFirestore}=functionsRequire('firebase-admin/firestore');
+  const {requestAccountDeletionHandler}=require('../../functions/lib/account_deletion_service');
+  const {createFirestoreMenuImageUploadAuthorizationDatabase}=require('../../functions/lib/menu_image_upload_authorization');
+  const app=initializeApp({projectId},'storage-deletion-fixture');
+  try {
+    const db=getFirestore(app), now=Date.now();
+    const shared=await seedSharedGrant();
+    await seedOwnGrant({id:'bsmia_'+ 'c'.repeat(43),ownerUserId:'owner-b',sourceId:'owner-b'});
+    await assertSucceeds(upload('owner',objectPath));
+    await assertSucceeds(upload('owner',shared,{contentType:'image/png'}));
+    const accept=()=>requestAccountDeletionHandler(db,{schemaVersion:1,expectedUid:'owner-a',confirmation:'DELETE',receipt:'r'.repeat(43)},
+      {uid:'owner-a',authTime:Math.floor(now/1000),issuedAt:Math.floor(now/1000),signInProvider:'password'},
+      {uid:'owner-a',creationTime:new Date(now-100000).toUTCString(),providerIds:['password'],disabled:false},now);
+    const issuer=createFirestoreMenuImageUploadAuthorizationDatabase(db);
+    await Promise.allSettled([accept(),issuer.createAuthorization('bsmia_'+ 'd'.repeat(43),{schemaVersion:1,state:'active',ownerUserId:'owner-a',sourceType:'biteSaver',sourceId:'owner-a',fileName:'image.jpg'},'owner-a')]);
+    await accept();
+    const active=await db.collection('private_menu_image_upload_authorizations').where('ownerUserId','==','owner-a').where('state','==','active').get();
+    require('node:assert/strict').equal(active.size,0);
+    await assertFails(upload('owner',objectPath));
+    await assertFails(upload('claimAdmin',objectPath));
+    await assertFails(upload('claimAdmin',shared,{contentType:'image/png'}));
+    const bPath='public_menu_images/bsmia_'+ 'c'.repeat(43)+'/image.jpg';
+    await assertSucceeds(upload('otherOwner',bPath));
+    await db.doc('private_account_deletions/claim-admin').set({state:'requested'});
+    await assertFails(upload('claimAdmin',bPath));
+    await assertSucceeds(upload('otherOwner',bPath));
+  } finally { await deleteApp(app); }
+});
+
+test("retired deletion grant remains private and can never authorize owner or Admin uploads", async () => {
+  const id = `bsmia_${require('node:crypto').randomBytes(32).toString('base64url')}`;
+  await seedOwnGrant({id, grantOverrides: {state: 'retired', deletionOperationId: 'a'.repeat(64)}});
+  for (const actor of ['owner', 'claimAdmin', 'emailAdmin']) {
+    await assertFails(upload(actor, `public_menu_images/${id}/image.jpg`));
+    await assertFails(actors[actor].firestore().doc(`private_menu_image_upload_authorizations/${id}`).get());
+    await assertFails(actors[actor].firestore().doc(`private_menu_image_upload_authorizations/${id}`).update({state: 'active'}));
+  }
+});

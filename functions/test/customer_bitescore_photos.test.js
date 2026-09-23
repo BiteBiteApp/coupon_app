@@ -3,13 +3,14 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const {MemoryFirestore} = require("./helpers/bitescore_read_fixture.js");
 const {createCustomerBiteScorePhotoHandler:create, toggleCustomerBiteScorePhotoVoteHandler:vote} = require("../lib/customer_bitescore_photos.js");
+const ownerKey=uid=>require("node:crypto").createHash("sha256").update(`bitestar.dish-upload.v1:${uid}`).digest("hex");
 const bucket="demo-photos.firebasestorage.app", token="download-token";
 const auth=(uid="user", overrides={})=>({uid,token:{email_verified:true,firebase:{sign_in_provider:"password"},...overrides}});
 const input=(overrides={})=>({schemaVersion:1,expectedUserId:"user",imageId:"image",dishId:"dish",restaurantId:"restaurant",reviewId:null,
-  imageUrl:`https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent("bitescore_dishes/dish/images/123.jpg")}?alt=media&token=${token}`,
-  storagePath:"bitescore_dishes/dish/images/123.jpg",mode:"gallery",...overrides});
+  imageUrl:`https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(`bitescore_user_uploads/${ownerKey("user")}/dish_images/dish/123.jpg`)}?alt=media&token=${token}`,
+  storagePath:`bitescore_user_uploads/${ownerKey("user")}/dish_images/dish/123.jpg`,mode:"gallery",...overrides});
 const request=(data=input(), actor=auth())=>({data,auth:actor});
-const options={now:new Date(1000),readUploadedObject:async name=>({bucket,name,size:100,contentType:"image/jpeg",downloadTokens:[token]})};
+const options={now:new Date(1000),readUploadedObject:async name=>({bucket,name,size:100,contentType:"image/jpeg",downloadTokens:[token],generation:"10",metadata:{ownershipVersion:"1",uploaderKey:name.split("/")[1],dishId:name.split("/")[3]}})};
 function db(){const value=new MemoryFirestore();value.values.set("private_bitescore_runtime/aggregation",{enabled:true,version:1,epoch:"new"});
   value.values.set("bitescore_dishes/dish",{id:"dish",restaurantId:"restaurant",isActive:true,imageCount:0,privateOwner:"CANARY"});
   value.values.set("bitescore_restaurants/restaurant",{id:"restaurant",isActive:true,ownerUserId:"owner",privateOwner:"CANARY"});return value;}
@@ -24,12 +25,12 @@ test("photo create verifies actual caller, target upload and returns only public
  assert.deepEqual(store.limits,[]);
 });
 test("photo storage identity preserves canonical Unicode and spaces without accepting sanitized aliases",async()=>{
- const store=db(),dishId="dish crème 寿司🍣",storagePath=`bitescore_dishes/${dishId}/images/123.jpg`;
+ const store=db(),dishId="dish crème 寿司🍣",storagePath=`bitescore_user_uploads/${ownerKey("user")}/dish_images/${dishId}/123.jpg`;
  store.values.set(`bitescore_dishes/${dishId}`,{id:dishId,restaurantId:"restaurant",isActive:true,imageCount:0});
  const data=input({dishId,storagePath,imageUrl:`https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(storagePath)}?alt=media&token=${token}`});
  const result=await create(store,request(data),options);assert.equal(result.image.dishId,dishId);
  assert.equal(store.values.get("bitescore_dish_images/image").storagePath,storagePath);
- const aliasPath="bitescore_dishes/dish_cr_me_/images/123.jpg";
+ const aliasPath="bitescore_user_uploads/user/dish_images/dish_cr_me_/123.jpg";
  await assert.rejects(create(store,request({...data,imageId:"alias",storagePath:aliasPath,imageUrl:`https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(aliasPath)}?alt=media&token=${token}`}),options),{code:"invalid-argument"});
 });
 test("photo authentication fails before Storage or database reads",async()=>{
@@ -51,7 +52,7 @@ test("photo account pin rejects a replaced actual actor before any Firestore or 
  assert.equal(accesses,0);
 });
 test("photo creation preserves Admin metadata right but voting requires verified actor",async()=>{
- const store=db();await create(store,request(input({expectedUserId:"admin-user"}),auth("admin-user",{email_verified:false,admin:true})),options);
+ const store=db();await create(store,request(input({expectedUserId:"admin-user",storagePath:input().storagePath.replace(ownerKey("user"),ownerKey("admin-user")),imageUrl:input().imageUrl.replace(ownerKey("user"),ownerKey("admin-user"))}),auth("admin-user",{email_verified:false,admin:true})),options);
  assert.equal(store.values.get("bitescore_dish_images/image").uploadedByUserId,"admin-user");
  await assert.rejects(vote(store,{...voteRequest(),auth:auth("admin-user",{email_verified:false,admin:true})}),{code:"permission-denied"});
 });
@@ -85,7 +86,7 @@ test("concurrent missing-image additions allow one image and reject identity reu
  const store=db();const results=await Promise.allSettled(["a","b"].map(imageId=>create(store,request(input({imageId,mode:"missing"})),options)));
  assert.equal(results.filter(v=>v.status==="fulfilled").length,1);assert.equal(store.values.get("bitescore_dishes/dish").imageCount,1);
  const winner=results.findIndex(v=>v.status==="fulfilled")===0?"a":"b";
- await assert.rejects(create(store,request(input({imageId:winner,expectedUserId:"other"}),auth("other")),options),{code:"already-exists"});
+ await assert.rejects(create(store,request(input({imageId:winner,expectedUserId:"other"}),auth("other")),options),{code:"invalid-argument"});
 });
 test("photo vote toggles, switches and concurrent users preserve authoritative counts",async()=>{
  const store=db();await create(store,request(),options);
@@ -105,4 +106,15 @@ test("photo votes reject missing image, wrong parent, locks and another actor's 
  store.values.delete("bitescore_dish_image_votes/image_user");store.values.set("private_rating_dish_operation_locks/dish",{active:true});
  await assert.rejects(vote(store,voteRequest()),{code:"unavailable"});
  assert.equal(store.values.get("bitescore_dish_images/image").helpfulCount,0);
+});
+
+test("new photo ownership rejects foreign metadata and forged proof on retired paths",async()=>{
+ for(const metadata of [{ownershipVersion:"1",uploaderKey:ownerKey("B"),dishId:"dish"},{ownershipVersion:"1",uploaderKey:ownerKey("user"),dishId:"B"},{ownershipVersion:"2",uploaderKey:ownerKey("user"),dishId:"dish"},{}]) {
+  const store=db(); await assert.rejects(create(store,request(),{...options,readUploadedObject:async name=>({...await options.readUploadedObject(name),metadata})}),{code:"failed-precondition"});
+  assert.equal(store.values.has("bitescore_dish_images/image"),false);
+ }
+ const storagePath="bitescore_dishes/dish/images/old.jpg";
+ await assert.rejects(create(db(),request(input({storagePath,imageUrl:`https://firebasestorage.googleapis.com/v0/b/${bucket}/o/${encodeURIComponent(storagePath)}?alt=media&token=${token}`})),options),{code:"invalid-argument"});
+ const store=db(); store.values.set("private_account_deletions/user",{});
+ await assert.rejects(create(store,request(),options),{code:"failed-precondition"});
 });

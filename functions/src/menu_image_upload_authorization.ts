@@ -1,3 +1,4 @@
+import {requireAccountWritable} from "./account_deletion_guard.js";
 import { randomBytes } from "node:crypto";
 import { FieldValue, type Firestore } from "firebase-admin/firestore";
 import type { CallableRequest } from "firebase-functions/v2/https";
@@ -41,6 +42,7 @@ export interface MenuImageUploadAuthorizationDatabase {
   createAuthorization(
     authorizationId: string,
     grant: MenuImageUploadAuthorizationGrant,
+    actorUid: string,
   ): Promise<void>;
 }
 
@@ -228,6 +230,7 @@ export async function issueMenuImageUploadAuthorizationHandler(
           sourceId: parsed.sourceId,
           fileName,
         }),
+        actor.uid,
       );
       return Object.freeze({
         schemaVersion: menuImageUploadAuthorizationSchemaVersion,
@@ -258,17 +261,16 @@ export function createFirestoreMenuImageUploadAuthorizationDatabase(
         data: Object.freeze(snapshot.data() ?? {}),
       });
     },
-    async createAuthorization(
-      authorizationId: string,
-      grant: MenuImageUploadAuthorizationGrant,
-    ) {
-      await firestore
-        .collection(privateMenuImageUploadAuthorizationCollection)
-        .doc(authorizationId)
-        .create({
-          ...grant,
-          createdAt: FieldValue.serverTimestamp(),
-        });
+    async createAuthorization(authorizationId: string, grant: MenuImageUploadAuthorizationGrant, actorUid: string) {
+      await firestore.runTransaction(async (tx) => {
+        await requireAccountWritable(firestore, tx, actorUid);
+        await requireAccountWritable(firestore, tx, grant.ownerUserId);
+        const source = await tx.get(firestore.doc(`${grant.sourceType === "biteSaver" ? "restaurant_accounts" : "restaurant_menus"}/${grant.sourceId}`));
+        if (!source.exists || (grant.sourceType === "sharedMenu" && source.get("createdByUserId") !== grant.ownerUserId)) {
+          throw new HttpsError("failed-precondition", "Menu ownership changed.");
+        }
+        tx.create(firestore.collection(privateMenuImageUploadAuthorizationCollection).doc(authorizationId), {...grant, createdAt: FieldValue.serverTimestamp()});
+      });
     },
   });
 }

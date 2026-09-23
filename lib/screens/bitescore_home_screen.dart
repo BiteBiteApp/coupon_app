@@ -634,6 +634,7 @@ class _BiteScoreHomeScreenState extends State<BiteScoreHomeScreen> {
 
       final uploadedImage = await BiteScoreImageUploadService.uploadDishImage(
         dishId: freshDish.id,
+        expectedUid: user.uid,
         pickedImage: pickedImage,
       );
       if (!actorIsCurrent()) return;

@@ -323,6 +323,7 @@ export type ParsedRatingRestaurant = Readonly<{
   ownerUserId: string | null;
   phone: string | null;
   bio: string | null;
+  bioAuthorUid: string | null;
   cuisineTags: readonly string[];
 }>;
 
@@ -392,6 +393,7 @@ export function parseRatingRestaurant(
     ownerUserId: trimmedString(document.data.ownerUserId),
     phone: trimmedString(document.data.phone),
     bio: trimmedString(document.data.bio),
+    bioAuthorUid: trimmedString(document.data.bioAuthorUid),
     cuisineTags,
   };
 }

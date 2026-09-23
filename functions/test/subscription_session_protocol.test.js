@@ -61,6 +61,8 @@ function createHarness() {
     checkoutBillingStateSnapshots: [],
     checkoutBeforeResponse: null,
     checkoutCalls: [],
+    checkoutIntents: new Map(),
+    checkoutIntentWrites: [],
     checkoutOptions: [],
     checkoutFailure: null,
     checkoutResponse: {
@@ -101,6 +103,7 @@ function createHarness() {
       stripeCustomerId: canaries.customer,
     };
     state.accountExists = true;
+    state.deletionRequested = false;
     state.accountLookupFailure = null;
     state.billingPortalCalls = [];
     state.billingPortalFailure = null;
@@ -109,6 +112,8 @@ function createHarness() {
     state.checkoutBillingStateSnapshots = [];
     state.checkoutBeforeResponse = null;
     state.checkoutCalls = [];
+    state.checkoutIntents = new Map();
+    state.checkoutIntentWrites = [];
     state.checkoutOptions = [];
     state.checkoutFailure = null;
     state.checkoutResponse = {
@@ -199,6 +204,7 @@ function createHarness() {
   }
 
   const db = {
+    doc(documentPath) { const split = documentPath.lastIndexOf("/"); return this.collection(documentPath.slice(0, split)).doc(documentPath.slice(split + 1)); },
     collection(collectionPath) {
       return {
         doc(documentId) {
@@ -257,11 +263,21 @@ function createHarness() {
         const pendingLedgerWrites = [];
         const pendingOwnerBillingWrites = [];
         const pendingWrites = [];
+        const pendingCheckoutWrites = [];
         let ledgerReadVersion = null;
         let ownerBillingReadVersion = null;
         state.transactionCallbackAttempts += 1;
         const result = await callback({
+          async getAll(...references) { return Promise.all(references.map(reference => this.get(reference))); },
           async get(reference) {
+            if (reference.path.includes("/checkout_intents/")) {
+              const value = state.checkoutIntents.get(reference.path);
+              return {exists: value !== undefined, data: () => structuredClone(value), get: field => value?.[field], ref: reference};
+            }
+            if (reference.path.startsWith("private_account_deletions/")) {
+              assert.equal(reference.path, `private_account_deletions/${canaries.uid}`);
+              return {exists: state.deletionRequested === true, data: () => state.deletionRequested ? {state: "requested"} : undefined, ref: reference};
+            }
             if (
               reference.path.startsWith(
                 "private_subscription_return_state/",
@@ -313,6 +329,7 @@ function createHarness() {
             };
           },
           create(reference, data) {
+            if (reference.path.includes("/checkout_intents/")) { pendingCheckoutWrites.push({operation: "create", path: reference.path, data: structuredClone(data)}); return; }
             pendingWrites.push({
               operation: "create",
               path: reference.path,
@@ -320,6 +337,7 @@ function createHarness() {
             });
           },
           update(reference, data) {
+            if (reference.path.includes("/checkout_intents/")) { pendingCheckoutWrites.push({operation: "update", path: reference.path, data: structuredClone(data)}); return; }
             pendingWrites.push({
               operation: "update",
               path: reference.path,
@@ -384,6 +402,14 @@ function createHarness() {
               operation: "ownerBillingCommit",
               data: structuredClone(write.data),
             });
+          }
+          for (const write of pendingCheckoutWrites) {
+            const value = write.operation === "create" ? {} : {...state.checkoutIntents.get(write.path)};
+            for (const [field, next] of Object.entries(write.data)) {
+              if (next?.operation === "delete") delete value[field]; else value[field] = next;
+            }
+            state.checkoutIntents.set(write.path, value);
+            state.checkoutIntentWrites.push(write);
           }
           state.writes.push(...pendingWrites);
           state.transactionCommits += 1;
@@ -683,6 +709,12 @@ function normalizeCheckoutPayload(payload, returnToken) {
     ),
     returnToken,
   );
+  // The existing fixed-price request now freezes its default24-hour expiry
+  // so deletion can close an unknown response without replaying a new session.
+  assert.ok(Number.isSafeInteger(normalized.expires_at));
+  assert.ok(normalized.expires_at > Math.floor(Date.now() / 1000) + 23 * 60 * 60);
+  assert.ok(normalized.expires_at <= Math.floor(Date.now() / 1000) + 24 * 60 * 60);
+  delete normalized.expires_at;
   normalized.success_url = checkoutSuccessBaseUrl;
   normalized.cancel_url = checkoutCancelBaseUrl;
   return normalized;
@@ -1988,7 +2020,10 @@ test("Stripe failure preserves one unready return context and one unknown retrya
 
 test("mark-ready failure withholds the Stripe URL and leaves an unusable unready context", async () => {
   harness.state.transactionBehaviors.push(
-    {type: "commit"},
+    {type: "commit"}, // reserve billing/return context
+    {type: "commit"}, // persist exact outbound intent
+    {type: "commit"}, // checkpoint returned session
+    {type: "commit"}, // record billing session
     {
       type: "fail_after_callback",
       error: {
@@ -2226,4 +2261,23 @@ test("session source places return tokens only in return URLs and safe response 
     );
     assert.match(loggerCall, /stripeLogMetadata\(/);
   }
+});
+
+
+test("accepted account deletion blocks both new Checkout writers while preserving the billing Portal", async () => {
+  for (const writer of [harness.createCheckoutSession, harness.createSubscriptionCheckoutSession]) {
+    harness.reset();
+    harness.state.deletionRequested = true;
+    await assert.rejects(() => writer(authenticatedRequest()), error => error.code === "failed-precondition");
+    assert.equal(harness.state.checkoutCalls.length, 0);
+    assert.equal(harness.state.ownerBillingWrites.length, 0);
+    assert.equal(harness.state.ledgerWrites.length, 0);
+  }
+  harness.reset();
+  harness.state.deletionRequested = true;
+  const before = harness.seedActiveBillingState();
+  const response = await harness.createCustomerPortalSession(authenticatedRequest());
+  assert.equal(response.url, canaries.portalUrl);
+  assert.equal(harness.state.billingPortalCalls.length, 1);
+  assert.deepEqual(harness.state.ownerBillingDocument, before);
 });

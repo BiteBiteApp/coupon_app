@@ -21,7 +21,7 @@ import type {
 export const ratingDestructiveScheduledWorkLimit = 25;
 
 export const ratingDestructiveScheduledFunctionOptions = Object.freeze({
-  schedule: "every 1 minute",
+  schedule: "every 1 minutes",
   region: "us-central1",
 } as const);
 

@@ -208,7 +208,7 @@ test("Stripe webhook wiring updates only an existing identity-matched account wi
     "async function syncRestaurantSubscriptionFromStripe",
   );
   const syncEnd = source.indexOf(
-    "export const createSubscriptionCheckoutSession",
+    "async function bindCompletedCheckoutSession",
     syncStart,
   );
   assert.ok(syncStart >= 0 && syncEnd > syncStart);
@@ -218,7 +218,8 @@ test("Stripe webhook wiring updates only an existing identity-matched account wi
   assert.match(syncSource, /!accountSnapshot\.exists/);
   assert.match(syncSource, /accountData\.stripeCustomerId !== incoming\.stripeCustomerId/);
   assert.match(syncSource, /accountData\.stripeSubscriptionId !== incoming\.stripeSubscriptionId/);
-  assert.match(syncSource, /transaction\.update\(accountRef, updateData\)/);
+  assert.match(syncSource, /transaction\.update\(accountRef, \{\.\.\.updateData, \.\.\.\(deleting \? \{couponPostingEnabled: false\} : \{\}\)\}\)/);
+  assert.match(syncSource, /await queueAccountDeletionSubscription\(db, transaction, ownerUid/);
   assert.doesNotMatch(syncSource, /transaction\.set\(accountRef/);
   assert.doesNotMatch(syncSource, /\{\s*subscriptionId:[\s\S]*?\bmetadata\s*,/);
 });

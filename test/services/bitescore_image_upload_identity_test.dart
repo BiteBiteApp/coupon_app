@@ -1,40 +1,38 @@
 import 'package:coupon_app/services/bitescore_image_upload_service.dart';
-import 'package:coupon_app/services/customer_bitescore_runtime.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  tearDown(() => CustomerBiteScoreRuntime.testEnabled = null);
-
+  test('owner key has the same fixed UTF-8 hash contract as Rules and server', () {
+    expect(BiteScoreImageUploadService.dishImageOwnerKey('A'), '6d584dd4bedf3a4ac2abe72764b29b76d44b77683b205e1752e163eba5045ee7');
+  });
+  test('uploader namespace preserves exact Unicode dish identities', () {
+    for (final id in ['dish', 'dish one', 'crème brûlée', '寿司🍣', 'dish_1-2']) {
+      expect(
+        BiteScoreImageUploadService.dishImageStoragePath(
+          dishId: id,
+          expectedUid: 'A',
+          timestamp: 123,
+        ),
+        'bitescore_user_uploads/${BiteScoreImageUploadService.dishImageOwnerKey('A')}/dish_images/$id/123.jpg',
+      );
+    }
+  });
   test(
-    'enabled uploads preserve exact valid dish IDs in the existing layout',
+    'invalid dish or uploader identity is never normalized into another owner',
     () {
-      CustomerBiteScoreRuntime.testEnabled = true;
-      for (final id in [
-        'dish',
-        'dish one',
-        'crème brûlée',
-        '寿司🍣',
-        'dish_1-2',
-      ]) {
-        expect(
-          BiteScoreImageUploadService.dishImageStoragePath(
-            dishId: id,
-            timestamp: 123,
-          ),
-          'bitescore_dishes/$id/images/123.jpg',
-        );
-      }
-    },
-  );
-
-  test(
-    'enabled uploads reject invalid identities instead of aliasing them',
-    () {
-      CustomerBiteScoreRuntime.testEnabled = true;
       for (final id in ['', ' dish', 'dish ', 'a/b', '.', '..', 'a\u200bb']) {
         expect(
           () => BiteScoreImageUploadService.dishImageStoragePath(
             dishId: id,
+            expectedUid: 'A',
+            timestamp: 123,
+          ),
+          throwsArgumentError,
+        );
+        expect(
+          () => BiteScoreImageUploadService.dishImageStoragePath(
+            dishId: 'dish',
+            expectedUid: id,
             timestamp: 123,
           ),
           throwsArgumentError,
@@ -42,22 +40,4 @@ void main() {
       }
     },
   );
-
-  test('default upload path retains existing legacy normalization', () {
-    CustomerBiteScoreRuntime.testEnabled = false;
-    expect(
-      BiteScoreImageUploadService.dishImageStoragePath(
-        dishId: ' dish one ',
-        timestamp: 123,
-      ),
-      'bitescore_dishes/dish_one/images/123.jpg',
-    );
-    expect(
-      BiteScoreImageUploadService.dishImageStoragePath(
-        dishId: '',
-        timestamp: 123,
-      ),
-      'bitescore_dishes/image/images/123.jpg',
-    );
-  });
 }

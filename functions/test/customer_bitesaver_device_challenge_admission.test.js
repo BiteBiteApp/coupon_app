@@ -142,7 +142,8 @@ test("unauthorized admission creates no allowance and valid paths have bounded p
   const saved = h.fixture({origin: "saved", actor: {uid: "read-budget-owner", isAnonymous: false}});
   h.database.reads = [];
   await h.reserve(saved);
-  assert.equal(h.database.reads.length, 1);
+  assert.equal(h.database.reads.length, 2);
+  assert.ok(h.database.reads.includes("private_account_deletions/read-budget-owner"));
 });
 
 test("thirty slots cap simulated concurrent reservations; denied calls do not write or extend retention", async () => {

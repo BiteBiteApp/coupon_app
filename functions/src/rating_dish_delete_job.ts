@@ -1,3 +1,4 @@
+import {accountDeletionPath} from "./account_deletion_guard.js";
 import {createHash} from "node:crypto";
 
 import {
@@ -62,7 +63,7 @@ async function requireDeletionDishLock(
   return lock;
 }
 
-function milestoneLockToken(
+export function milestoneLockToken(
   jobId: string,
   itemId: string,
   userId: string,
@@ -150,7 +151,8 @@ async function materializeMilestoneUser(
   job: RatingDestructiveJobDocument,
   userId: string,
   now: Date,
-): Promise<RatingDestructiveJobItemDocument> {
+): Promise<RatingDestructiveJobItemDocument | null> {
+  if (await transaction.getDocument(accountDeletionPath(userId))) return null;
   const itemId = createRatingDestructiveJobItemId({
     jobId: job.jobId,
     operation: job.operation,
@@ -706,7 +708,7 @@ export async function processMilestoneUserItemStep(
         identity,
         now,
       );
-      changes = result.status === "already-released"
+      changes = (result.status === "already-released" || result.status === "account-deletion")
         ? {
             status: "complete",
             subphase: "complete",

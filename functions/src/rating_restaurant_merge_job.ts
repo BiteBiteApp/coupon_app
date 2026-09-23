@@ -839,6 +839,7 @@ async function finalizeRestaurantMerge(
       {
         phone: target.phone ?? source.phone,
         bio: target.bio ?? source.bio,
+        bioAuthorUid: target.bio !== null ? target.bioAuthorUid : source.bioAuthorUid,
         cuisineTags: mergedCuisineTags,
         ownerUserId: mergedOwnerUserId,
         isClaimed:

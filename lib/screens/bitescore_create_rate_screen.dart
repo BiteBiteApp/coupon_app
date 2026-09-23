@@ -2762,6 +2762,7 @@ class _BiteScoreCreateRateScreenState extends State<BiteScoreCreateRateScreen> {
     try {
       final uploadedImage = await BiteScoreImageUploadService.uploadDishImage(
         dishId: saveResult.dish.id,
+        expectedUid: saveResult.review.userId,
         pickedImage: selectedImage,
       );
       if (!mounted || !_canUseOpeningIdentity(authLease)) {

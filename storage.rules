@@ -2,12 +2,16 @@ rules_version = '2';
 
 service firebase.storage {
   match /b/{bucket}/o {
+    function deletionActorMayWrite() {
+      return signedIn() && !firestore.exists(/databases/(default)/documents/private_account_deletions/$(request.auth.uid));
+    }
+
     function signedIn() {
       return request.auth != null;
     }
 
     function isOwner(uid) {
-      return signedIn() && request.auth.uid == uid;
+      return deletionActorMayWrite() && request.auth.uid == uid;
     }
 
     function isAdmin() {
@@ -32,7 +36,7 @@ service firebase.storage {
     }
 
     function isSharedMenuOwner(menuId) {
-      return signedIn()
+      return deletionActorMayWrite()
         && firestore.exists(/databases/(default)/documents/restaurant_menus/$(menuId))
         && firestore.get(/databases/(default)/documents/restaurant_menus/$(menuId)).data.createdByUserId == request.auth.uid;
     }
@@ -81,7 +85,7 @@ service firebase.storage {
         grant.fileName == fileName &&
         (fileName == 'image.jpg' || fileName == 'image.png' || fileName == 'image.webp') &&
         grant.createdAt is timestamp &&
-        (isAdmin() || ownsAuthorizedMenuImageSource(grant));
+        (isAdmin() ? deletionActorMayWrite() : ownsAuthorizedMenuImageSource(grant));
     }
 
     function dishExists(dishId) {
@@ -116,6 +120,8 @@ service firebase.storage {
       allow delete: if isSharedMenuOwner(menuId);
     }
 
+    // Acceptance transaction revokes every owned grant; issuance reads the
+    // owner fence. Owner uses grant+source; Admin uses grant+actor fence (2).
     match /public_menu_images/{authorizationId}/{fileName} {
       allow read: if true;
       allow create: if canManageAuthorizedMenuImage(authorizationId, fileName) &&
@@ -127,7 +133,19 @@ service firebase.storage {
 
     match /bitescore_dishes/{dishId}/images/{fileName} {
       allow read: if true;
-      allow create: if signedIn() && dishExists(dishId) && isAllowedImage();
+      // Retired unowned namespace remains readable; new bytes need immutable ownership.
+      allow create: if false;
+      allow update, delete: if false;
+    }
+
+    match /bitescore_user_uploads/{ownerKey}/dish_images/{dishId}/{fileName} {
+      allow read: if true;
+      // Exactly two Firestore documents: actor fence and existing dish.
+      allow create: if resource == null && deletionActorMayWrite() && ownerKey == hashing.sha256('bitestar.dish-upload.v1:' + request.auth.uid).toHexString().lower() && dishExists(dishId) && isAllowedImage()
+        && request.resource.metadata.keys().hasOnly(['ownershipVersion', 'uploaderKey', 'dishId'])
+        && request.resource.metadata.ownershipVersion == '1'
+        && request.resource.metadata.uploaderKey == ownerKey
+        && request.resource.metadata.dishId == dishId;
       allow update, delete: if false;
     }
 

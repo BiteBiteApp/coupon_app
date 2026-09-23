@@ -1,3 +1,5 @@
+import 'screens/account_deletion_screen.dart';
+import 'services/account_deletion_service.dart';
 import 'package:coupon_app/firebase_options.dart';
 import 'package:coupon_app/screens/main_navigation_screen.dart';
 import 'package:coupon_app/screens/restaurant_customer_deep_link_screen.dart';
@@ -8,8 +10,8 @@ import 'package:coupon_app/services/customer_bitesaver_runtime.dart';
 import 'package:coupon_app/services/restaurant_customer_link_service.dart';
 import 'package:coupon_app/services/restaurant_invite_service.dart';
 import 'package:coupon_app/services/user_profile_service.dart';
-import 'package:coupon_app/widgets/contribution_points_celebration_host.dart';
-import 'package:coupon_app/widgets/local_expert_badge_celebration_host.dart';
+import 'package:coupon_app/widgets/contribution_points_celebration_container.dart';
+import 'package:coupon_app/widgets/local_expert_badge_celebration_container.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 
@@ -18,7 +20,11 @@ Future<void> main() async {
 
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
-  await ensureUserSignedIn();
+  final deletionEntry =
+      WidgetsBinding.instance.platformDispatcher.defaultRouteName ==
+          accountDeletionRoute ||
+      Uri.base.fragment == accountDeletionRoute;
+  if (!deletionEntry) await ensureUserSignedIn();
 
   runApp(const CouponApp());
 }
@@ -43,12 +49,14 @@ class CouponApp extends StatelessWidget {
   final Widget Function(RestaurantCustomerDeepLink link)?
   testCustomerRouteBuilder;
   final Widget Function(RestaurantInviteDeepLink link)? testInviteRouteBuilder;
+  final WidgetBuilder? testAccountDeletionBuilder;
   final bool testWrapCelebrationHosts;
   final bool testInitializePlatformServices;
 
   const CouponApp({
     super.key,
     @visibleForTesting this.testNavigationBuilder,
+    @visibleForTesting this.testAccountDeletionBuilder,
     @visibleForTesting this.testCustomerRouteBuilder,
     @visibleForTesting this.testInviteRouteBuilder,
     @visibleForTesting this.testWrapCelebrationHosts = true,
@@ -90,6 +98,13 @@ class CouponApp extends StatelessWidget {
       );
     }
 
+    if (settings.name == accountDeletionRoute) {
+      return MaterialPageRoute<void>(
+        settings: settings,
+        builder:
+            testAccountDeletionBuilder ?? (_) => const AccountDeletionScreen(),
+      );
+    }
     final inviteLink = RestaurantInviteService.parseInviteRouteName(
       settings.name,
     );
@@ -126,6 +141,11 @@ class CouponApp extends StatelessWidget {
   }
 
   List<Route<dynamic>> _onGenerateInitialRoutes(String initialRoute) {
+    if (initialRoute == accountDeletionRoute) {
+      return [
+        _onGenerateRoute(const RouteSettings(name: accountDeletionRoute))!,
+      ];
+    }
     final inviteLink = RestaurantInviteService.parseInviteRouteName(
       initialRoute,
     );
@@ -182,7 +202,10 @@ class CouponApp extends StatelessWidget {
       onGenerateRoute: _onGenerateRoute,
       onGenerateInitialRoutes: _onGenerateInitialRoutes,
       builder: (context, child) {
-        if (!testWrapCelebrationHosts) {
+        if (!testWrapCelebrationHosts ||
+            WidgetsBinding.instance.platformDispatcher.defaultRouteName ==
+                accountDeletionRoute ||
+            Uri.base.fragment == accountDeletionRoute) {
           return child ?? const SizedBox.shrink();
         }
         return LocalExpertBadgeCelebrationHost(

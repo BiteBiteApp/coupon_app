@@ -1,3 +1,4 @@
+import {requireAccountWritableInStore} from "./account_deletion_guard.js";
 import { randomBytes } from "node:crypto";
 import {consumeCustomerBiteSaverDeviceChallengeAdmission} from
   "./customer_bitesaver_device_challenge_admission.js";
@@ -492,6 +493,7 @@ export async function issueCustomerBiteSaverDeviceUseChallenge(value: {
   const challengeBytes = Buffer.from(entropy).toString("base64url");
   const challengeId = `bsdc_${challengeBytes}`;
   return value.database.runTransaction(async (transaction) => {
+    if (value.authenticatedUserId !== null) await requireAccountWritableInStore(transaction, value.authenticatedUserId);
     if (await transaction.getDocument(challengePath(challengeId)) !== null) {
       return invalidState();
     }
@@ -729,6 +731,7 @@ export async function commitCustomerBiteSaverVerifiedDeviceProof(value: {
     return nowMillis;
   };
   return value.database.runTransaction(async (transaction) => {
+    if (challenge.authenticatedUserId !== null) await requireAccountWritableInStore(transaction, challenge.authenticatedUserId);
     const path = challengePath(challenge.challengeId);
     const challengeDocument = await transaction.getDocument(path);
     const stored = challengeFromDocument(

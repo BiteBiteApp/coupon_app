@@ -603,6 +603,9 @@ export async function reverseContributionPointLedgerEntryTransaction(
         };
       }
 
+      if ((await transaction.get(db.collection("private_account_deletions").doc(freshEntry.userId))).exists) {
+        return {ledgerEntryId, pointsDelta: 0, status: "not-active"};
+      }
       if (freshEntry.actionType === contributionPointAction.reviewMilestone) {
         await assertReviewMilestoneTransactionAllowed(
           transaction,
@@ -1980,6 +1983,7 @@ export async function markContributionPointLedgerEntriesCelebratedTransaction(
   const fieldValues = options.fieldValues ?? adminServerFieldValues;
 
   await db.runTransaction(async (transaction) => {
+    if ((await transaction.get(db.collection("private_account_deletions").doc(userId))).exists) return;
     for (const ledgerEntryId of attemptedEntryIds) {
       const entryRef = ledgerDocument(db, ledgerEntryId);
       const snapshot = await transaction.get(entryRef);
@@ -2485,7 +2489,7 @@ function reviewMilestoneManifestStateIsConsistent(
     value.reconciliationAfterLedgerDocumentId === null;
 }
 
-function parseReviewMilestoneAccumulatorManifest(
+export function parseReviewMilestoneAccumulatorManifest(
   snapshot: DocumentSnapshotLike,
 ): ReviewMilestoneAccumulatorManifest {
   const data = snapshot.data();
@@ -4751,6 +4755,7 @@ async function awardContributionPointsWithinTransaction(
   options: HelperOptions,
   enforceRatingDestructiveLocks: boolean,
 ): Promise<ContributionPointTransactionAward> {
+  if ((await transaction.get(db.collection("private_account_deletions").doc(draft.userId))).exists) return {result: {entries: []}, wasCreated: false};
   if (enforceRatingDestructiveLocks) {
     await assertRatingDestructiveAwardLocksInTransaction(
       transaction,
@@ -5158,4 +5163,16 @@ function nullableTrim(value: string | null | undefined): string | null {
   }
   const trimmed = value.trim();
   return trimmed.length === 0 ? null : trimmed;
+}
+
+/** Source-only deletion reuses the exact private accumulator bindings. */
+export function parseCompletedDeletionMilestoneManifest(snapshot: DocumentSnapshotLike, params: Readonly<{userId: string; operationId: string; lockToken: string; namespaceId: string; scanId: string}>): ReviewMilestoneAccumulatorManifest {
+  const value = parseReviewMilestoneAccumulatorManifest(snapshot);
+  const userFingerprint = reviewMilestoneAccumulatorUserFingerprint(params.userId);
+  const operationFingerprint = reviewMilestoneOperationFingerprint(params.operationId);
+  const lockFingerprint = reviewMilestoneLockIdentityFingerprint(params);
+  if (value.userFingerprint !== userFingerprint || value.operationFingerprint !== operationFingerprint || value.lockFingerprint !== lockFingerprint ||
+      value.scanFingerprint !== reviewMilestoneAccumulatorScanFingerprint(params.namespaceId, userFingerprint, operationFingerprint, lockFingerprint, params.scanId) ||
+      value.state !== "count-complete" || value.reconciliationPhase !== "complete") throw new Error("Completed deletion accumulator binding invalid");
+  return value;
 }
