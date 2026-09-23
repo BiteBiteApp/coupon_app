@@ -1093,4 +1093,22 @@ test("Rating radius sessions exceed 135 with bounded exhaustive advancement", as
   assert.equal(store.maximumAdvanceReads <= 450, true);
   assert.equal(ratingAdminRadiusIdleLifetimeMs, 15 * 60 * 1000);
   assert.equal(ratingAdminRadiusAbsoluteLifetimeMs, 60 * 60 * 1000);
+
+  // TTL has not removed anything, and this freshly issued cursor is still
+  // valid. The earlier stored session deadline must independently reject it.
+  const persisted = store.sessions.get("rating-radius-session");
+  store.sessions.set(persisted.id, {...persisted, idleExpiresAtMs: nowMs + 1_000});
+  const retainedSession = store.sessions.get(persisted.id);
+  const retainedResults = [...store.results.get(persisted.id)];
+  const queryCount = database.queries.length;
+  await assert.rejects(
+    searchRatingAdminRadiusRestaurantsPage(
+      request(criteria, 50, {direction: "forward", cursor: result.nextCursor, clientRequestId: "rating-logical-expiry-before-ttl"}),
+      {...handler, now: () => nowMs + 1_000},
+    ),
+    (error) => error.code === "failed-precondition",
+  );
+  assert.equal(store.sessions.get(persisted.id), retainedSession);
+  assert.deepEqual([...store.results.get(persisted.id)], retainedResults);
+  assert.equal(database.queries.length, queryCount);
 });

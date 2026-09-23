@@ -373,8 +373,12 @@ void main() {
   });
 
   test(
-    'bounded retirement disables reads, imports, refresh and explicit use',
+    'bounded retirement disables legacy operations and preserves device history',
     () async {
+      final preferences = await SharedPreferences.getInstance();
+      const storedHistory =
+          '{"coupon":{"lastRedeemedAt":"2026-09-01T10:00:00.000Z"}}';
+      await preferences.setString(_guestKey, storedHistory);
       var reads = 0;
       final firestore = _MemoryFirestore({});
       DemoRedemptionStore.configureForTesting(
@@ -395,14 +399,12 @@ void main() {
       expect(DemoRedemptionStore.legacyWritesEnabled, isFalse);
       await DemoRedemptionStore.ensureInitialized();
       await DemoRedemptionStore.refreshFromFirestore();
-      await DemoRedemptionStore.syncGuestDeviceRedemptionsToSignedInUser(
-        'signed',
-      );
       DemoRedemptionStore.hasActiveRedeemTimer('coupon');
       await expectLater(
         DemoRedemptionStore.startRedeemTimer(_coupon('coupon')),
         throwsStateError,
       );
+      expect(preferences.getString(_guestKey), storedHistory);
       expect(reads, 0);
       expect(firestore.collectionPaths, isEmpty);
       expect(DemoRedemptionStore.memoryStateForTesting('coupon'), isNull);
@@ -773,90 +775,80 @@ void main() {
     );
   }
 
-  test(
-    'same-target sign-in event does not cancel legacy guest import',
-    () async {
-      final authChanges = StreamController<DemoRedemptionAuthSnapshot?>(
-        sync: true,
-      );
-      addTearDown(authChanges.close);
-      final deviceReadStarted = Completer<void>();
-      final releaseDeviceRead = Completer<void>();
-      var deviceReads = 0;
-      final firestore = _MemoryFirestore({});
-      final preferences = await SharedPreferences.getInstance();
-      final redeemedAt = DateTime.now().subtract(const Duration(hours: 1));
-      await preferences.setString(
-        _guestKey,
-        jsonEncode({
-          'coupon': {'lastRedeemedAt': redeemedAt.toIso8601String()},
-        }),
-      );
-      DemoRedemptionStore.configureForTesting(
-        currentAuthSnapshot: () => (uid: 'signed', isAnonymous: false),
-        authChanges: authChanges.stream,
-        firestore: firestore,
-        existingGuestDeviceId: () async {
-          if (deviceReads++ == 0) {
-            deviceReadStarted.complete();
-            await releaseDeviceRead.future;
-          }
-          return 'guest-test-device';
-        },
-      );
-      DemoRedemptionStore.seedMemoryForTesting(
-        loadedUid: 'guest',
-        loadedAsGuest: true,
-      );
-      await DemoRedemptionStore.ensureInitialized();
-      final import =
-          DemoRedemptionStore.syncGuestDeviceRedemptionsToSignedInUser(
-            'signed',
+  for (final historyKind in ['used', 'expiredTimer', 'activeTimer']) {
+    test(
+      'signed refresh enforces local $historyKind without importing account history',
+      () async {
+        final preferences = await SharedPreferences.getInstance();
+        final anchor = DateTime.now().subtract(
+          Duration(minutes: historyKind == 'activeTimer' ? 1 : 10),
+        );
+        final storedHistory = jsonEncode({
+          'coupon': {
+            historyKind == 'used' ? 'lastRedeemedAt' : 'timerStartedAt': anchor
+                .toIso8601String(),
+          },
+        });
+        await preferences.setString(_guestKey, storedHistory);
+        final firestore = _MemoryFirestore({});
+        DemoRedemptionStore.configureForTesting(
+          currentAuthSnapshot: () => (uid: 'signed', isAnonymous: false),
+          firestore: firestore,
+        );
+
+        await DemoRedemptionStore.refreshFromFirestore();
+
+        expect(firestore.transaction.writes, isEmpty);
+        expect(firestore.transaction.directWrites, isEmpty);
+        expect(firestore.transaction.data, isEmpty);
+        expect(preferences.getString(_guestKey), storedHistory);
+        if (historyKind == 'activeTimer') {
+          expect(DemoRedemptionStore.hasActiveRedeemTimer('coupon'), isTrue);
+          expect(
+            DemoRedemptionStore.memoryStateForTesting('coupon')!.timerStartedAt,
+            anchor,
           );
-      await deviceReadStarted.future;
-      authChanges.add((uid: 'signed', isAnonymous: false));
-      await _flushAsync();
-      releaseDeviceRead.complete();
-      await import;
-      expect(firestore.writeBatch.commits, 1);
-      expect(
-        firestore.writeBatch.writes.single['lastRedeemedAt'],
-        Timestamp.fromDate(redeemedAt),
-      );
-    },
-  );
+        } else {
+          expect(
+            DemoRedemptionStore.isAvailable('coupon', 'Once per customer'),
+            isFalse,
+          );
+        }
+      },
+    );
+  }
 
   test(
-    'guest import stops when its signed account changes during a read',
+    'device-only expiry preserves existing account history without a timer',
     () async {
-      DemoRedemptionAuthSnapshot? auth = (uid: 'a', isAnonymous: false);
-      final deviceReadStarted = Completer<void>();
-      final releaseDeviceRead = Completer<void>();
-      final firestore = _MemoryFirestore({});
-      final preferences = await SharedPreferences.getInstance();
-      await preferences.setString(
-        _guestKey,
-        jsonEncode({
-          'coupon': {'lastRedeemedAt': DateTime.now().toIso8601String()},
-        }),
-      );
+      final anchor = DateTime.now().subtract(const Duration(minutes: 10));
+      final previousUse = anchor.subtract(const Duration(days: 1));
+      final firestore = _MemoryFirestore({
+        'lastRedeemedAt': Timestamp.fromDate(previousUse),
+        'redeemedCount': 3,
+      });
       DemoRedemptionStore.configureForTesting(
-        currentAuthSnapshot: () => auth,
+        currentAuthSnapshot: () => (uid: 'signed', isAnonymous: false),
         firestore: firestore,
-        existingGuestDeviceId: () async {
-          deviceReadStarted.complete();
-          await releaseDeviceRead.future;
-          return 'guest-test-device';
-        },
       );
-      final import =
-          DemoRedemptionStore.syncGuestDeviceRedemptionsToSignedInUser('a');
-      await deviceReadStarted.future;
-      auth = (uid: 'b', isAnonymous: false);
-      releaseDeviceRead.complete();
-      await import;
-      expect(firestore.writeBatch.commits, 0);
-      expect(firestore.collectionPaths, isEmpty);
+      DemoRedemptionStore.seedMemoryForTesting(
+        loadedUid: 'signed',
+        timerStartedAtByCoupon: {'coupon': anchor},
+      );
+
+      expect(DemoRedemptionStore.hasActiveRedeemTimer('coupon'), isFalse);
+      await _flushAsync();
+
+      expect(firestore.transaction.writes, isEmpty);
+      expect(firestore.transaction.directWrites, isEmpty);
+      expect(firestore.transaction.data, {
+        'lastRedeemedAt': Timestamp.fromDate(previousUse),
+        'redeemedCount': 3,
+      });
+      expect(
+        DemoRedemptionStore.isAvailable('coupon', 'Once per customer'),
+        isFalse,
+      );
     },
   );
 
@@ -943,11 +935,7 @@ class _MemoryFirestore extends Fake implements FirebaseFirestore {
     : transaction = _MemoryTransaction(data);
   final _MemoryTransaction transaction;
   final List<String> collectionPaths = [];
-  final _MemoryWriteBatch writeBatch = _MemoryWriteBatch();
   FirebaseException? transactionFailure;
-
-  @override
-  WriteBatch batch() => writeBatch;
 
   @override
   CollectionReference<Map<String, dynamic>> collection(String path) {
@@ -1037,23 +1025,5 @@ class _MemoryTransaction extends Fake implements Transaction {
       data['redeemedCount'] = (data['redeemedCount'] as int? ?? 0) + 1;
     }
     return this;
-  }
-}
-
-class _MemoryWriteBatch extends Fake implements WriteBatch {
-  int commits = 0;
-  final List<Map<String, dynamic>> writes = [];
-  @override
-  void set<T>(
-    DocumentReference<T> documentReference,
-    T data, [
-    SetOptions? options,
-  ]) {
-    writes.add(data as Map<String, dynamic>);
-  }
-
-  @override
-  Future<void> commit() async {
-    commits++;
   }
 }

@@ -1,4 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:coupon_app/models/demo_redemption_store.dart';
 import 'package:coupon_app/services/customer_session_service.dart';
 import 'package:coupon_app/services/user_profile_service.dart';
@@ -8,7 +7,6 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 class CustomerAuthService {
   static final FirebaseAuth _auth = FirebaseAuth.instance;
-  static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
   static const String webServerClientId =
       '253983587346-bqkv4qsf93390ctdjctpq9nuup2r9lhe.apps.googleusercontent.com';
@@ -36,7 +34,6 @@ class CustomerAuthService {
     final trimmedEmail = email.trim();
 
     if (currentUser != null && currentUser.isAnonymous) {
-      final anonymousUid = currentUser.uid;
       final credential = EmailAuthProvider.credential(
         email: trimmedEmail,
         password: password,
@@ -50,10 +47,7 @@ class CustomerAuthService {
 
         await _sendEmailVerificationIfNeeded(linkedUser);
 
-        await _finalizeSignedInCustomerSession(
-          anonymousUid: anonymousUid,
-          signedInUser: linkedUser,
-        );
+        await _finalizeSignedInCustomerSession(signedInUser: linkedUser);
 
         return linkedUser;
       } on FirebaseAuthException catch (e) {
@@ -67,7 +61,6 @@ class CustomerAuthService {
           await _sendEmailVerificationIfNeeded(signedInCredential.user);
 
           await _finalizeSignedInCustomerSession(
-            anonymousUid: anonymousUid,
             signedInUser: signedInCredential.user,
           );
 
@@ -85,7 +78,6 @@ class CustomerAuthService {
     await _sendEmailVerificationIfNeeded(createdCredential.user);
 
     await _finalizeSignedInCustomerSession(
-      anonymousUid: null,
       signedInUser: createdCredential.user,
     );
 
@@ -96,18 +88,12 @@ class CustomerAuthService {
     required String email,
     required String password,
   }) async {
-    final currentUser = _auth.currentUser;
-    final anonymousUid = currentUser != null && currentUser.isAnonymous
-        ? currentUser.uid
-        : null;
-
     final signedInCredential = await _auth.signInWithEmailAndPassword(
       email: email.trim(),
       password: password,
     );
 
     await _finalizeSignedInCustomerSession(
-      anonymousUid: anonymousUid,
       signedInUser: signedInCredential.user,
     );
 
@@ -118,9 +104,6 @@ class CustomerAuthService {
     PhoneAuthCredential credential,
   ) async {
     final currentUser = _auth.currentUser;
-    final anonymousUid = currentUser != null && currentUser.isAnonymous
-        ? currentUser.uid
-        : null;
 
     if (currentUser != null && currentUser.isAnonymous) {
       try {
@@ -129,10 +112,7 @@ class CustomerAuthService {
         );
         final linkedUser = linkedCredential.user;
 
-        await _finalizeSignedInCustomerSession(
-          anonymousUid: anonymousUid,
-          signedInUser: linkedUser,
-        );
+        await _finalizeSignedInCustomerSession(signedInUser: linkedUser);
 
         return linkedUser;
       } on FirebaseAuthException catch (e) {
@@ -143,7 +123,6 @@ class CustomerAuthService {
           );
 
           await _finalizeSignedInCustomerSession(
-            anonymousUid: anonymousUid,
             signedInUser: signedInCredential.user,
           );
 
@@ -156,7 +135,6 @@ class CustomerAuthService {
     final signedInCredential = await _auth.signInWithCredential(credential);
 
     await _finalizeSignedInCustomerSession(
-      anonymousUid: null,
       signedInUser: signedInCredential.user,
     );
 
@@ -166,19 +144,13 @@ class CustomerAuthService {
   static Future<User?> _signInOrLinkWithGoogleWeb() async {
     final provider = GoogleAuthProvider();
     final currentUser = _auth.currentUser;
-    final anonymousUid = currentUser != null && currentUser.isAnonymous
-        ? currentUser.uid
-        : null;
 
     if (currentUser != null && currentUser.isAnonymous) {
       try {
         final linkedCredential = await currentUser.linkWithPopup(provider);
         final linkedUser = linkedCredential.user;
 
-        await _finalizeSignedInCustomerSession(
-          anonymousUid: anonymousUid,
-          signedInUser: linkedUser,
-        );
+        await _finalizeSignedInCustomerSession(signedInUser: linkedUser);
 
         return linkedUser;
       } on FirebaseAuthException catch (e) {
@@ -187,7 +159,6 @@ class CustomerAuthService {
           final signedInCredential = await _auth.signInWithPopup(provider);
 
           await _finalizeSignedInCustomerSession(
-            anonymousUid: anonymousUid,
             signedInUser: signedInCredential.user,
           );
 
@@ -199,10 +170,7 @@ class CustomerAuthService {
 
     final credential = await _auth.signInWithPopup(provider);
 
-    await _finalizeSignedInCustomerSession(
-      anonymousUid: null,
-      signedInUser: credential.user,
-    );
+    await _finalizeSignedInCustomerSession(signedInUser: credential.user);
 
     return credential.user;
   }
@@ -224,9 +192,6 @@ class CustomerAuthService {
     );
 
     final currentUser = _auth.currentUser;
-    final anonymousUid = currentUser != null && currentUser.isAnonymous
-        ? currentUser.uid
-        : null;
 
     if (currentUser != null && currentUser.isAnonymous) {
       try {
@@ -235,10 +200,7 @@ class CustomerAuthService {
         );
         final linkedUser = linkedCredential.user;
 
-        await _finalizeSignedInCustomerSession(
-          anonymousUid: anonymousUid,
-          signedInUser: linkedUser,
-        );
+        await _finalizeSignedInCustomerSession(signedInUser: linkedUser);
 
         return linkedUser;
       } on FirebaseAuthException catch (e) {
@@ -249,7 +211,6 @@ class CustomerAuthService {
           );
 
           await _finalizeSignedInCustomerSession(
-            anonymousUid: anonymousUid,
             signedInUser: signedInCredential.user,
           );
 
@@ -262,7 +223,6 @@ class CustomerAuthService {
     final signedInCredential = await _auth.signInWithCredential(credential);
 
     await _finalizeSignedInCustomerSession(
-      anonymousUid: null,
       signedInUser: signedInCredential.user,
     );
 
@@ -283,10 +243,8 @@ class CustomerAuthService {
   }
 
   static Future<void> _finalizeSignedInCustomerSession({
-    required String? anonymousUid,
     required User? signedInUser,
     User? Function()? currentUserForTesting,
-    Future<void> Function(String)? importGuestForTesting,
     Future<void> Function(User)? upsertProfileForTesting,
     Future<void> Function()? refreshRedemptionsForTesting,
   }) async {
@@ -301,16 +259,8 @@ class CustomerAuthService {
     }
 
     if (!isCurrent()) return;
-    // The paired bounded composition retires legacy imports for every auth
-    // provider. Same-device enforcement then belongs to the device-use backend.
-    if (DemoRedemptionStore.legacyWritesEnabled) {
-      await (importGuestForTesting ??
-          DemoRedemptionStore.syncGuestDeviceRedemptionsToSignedInUser)(
-        signedInUser.uid,
-      );
-    }
-
-    if (!isCurrent()) return;
+    // Guest history stays device-scoped. Account/device allowance is enforced
+    // by the trusted per-offer use operation, never imported during sign-in.
     await signedInUser.reload();
     if (!isCurrent()) return;
     await (upsertProfileForTesting ??
@@ -326,14 +276,11 @@ class CustomerAuthService {
   static Future<void> finalizeSignedInSessionForTesting({
     required User signedInUser,
     required User? Function() currentUser,
-    required Future<void> Function(String) importGuest,
     required Future<void> Function(User) upsertProfile,
     required Future<void> Function() refreshRedemptions,
   }) => _finalizeSignedInCustomerSession(
-    anonymousUid: null,
     signedInUser: signedInUser,
     currentUserForTesting: currentUser,
-    importGuestForTesting: importGuest,
     upsertProfileForTesting: upsertProfile,
     refreshRedemptionsForTesting: refreshRedemptions,
   );
@@ -351,52 +298,5 @@ class CustomerAuthService {
     }
 
     await user.sendEmailVerification();
-  }
-
-  static Future<void> _mergeAnonymousRedemptionsIntoUser({
-    required String? anonymousUid,
-    required String? targetUid,
-  }) async {
-    // Legacy helper kept for reference. The active guest redemption flow stores
-    // anonymous redemptions locally on device and syncs them after sign-in.
-    // Reading the previous anonymous Firestore path after auth has switched to
-    // the signed-in user will violate Firestore ownership rules.
-    if (anonymousUid == null ||
-        targetUid == null ||
-        anonymousUid == targetUid) {
-      return;
-    }
-
-    final sourceCollection = _firestore
-        .collection('customer_redemptions')
-        .doc(anonymousUid)
-        .collection('coupon_redemptions');
-
-    final targetCollection = _firestore
-        .collection('customer_redemptions')
-        .doc(targetUid)
-        .collection('coupon_redemptions');
-
-    final sourceSnapshot = await sourceCollection.get();
-
-    if (sourceSnapshot.docs.isEmpty) {
-      return;
-    }
-
-    final batch = _firestore.batch();
-
-    for (final doc in sourceSnapshot.docs) {
-      batch.set(
-        targetCollection.doc(doc.id),
-        doc.data(),
-        SetOptions(merge: true),
-      );
-    }
-
-    for (final doc in sourceSnapshot.docs) {
-      batch.delete(doc.reference);
-    }
-
-    await batch.commit();
   }
 }

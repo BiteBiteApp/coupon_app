@@ -575,8 +575,10 @@ class DemoRedemptionStore {
             if (!isCurrent()) return null;
             final existing = snapshot.data();
             final existingTimer = _coerceDateTime(existing?['timerStartedAt']);
-            // A newer remote use owns its timer; an older reader cannot clear it.
-            if (existingTimer != null &&
+            // Device-only guest timers may be present in the merged view, but
+            // finalization must never create account history from that view.
+            // Only the matching stored account timer authorizes this write.
+            if (existingTimer == null ||
                 existingTimer != finalizedTimerStartedAt) {
               return _StoredCouponRedemption(
                 lastRedeemedAt: _coerceDateTime(existing?['lastRedeemedAt']),
@@ -589,12 +591,10 @@ class DemoRedemptionStore {
             final persistedState = _StoredCouponRedemption(
               lastRedeemedAt: _laterDate(lastRedeemedAt, completedAt),
             );
-            if (!shouldUpdate && existingTimer == null) return persistedState;
             transaction.set(reference, <String, dynamic>{
               'couponId': couponId,
               'updatedAt': FieldValue.serverTimestamp(),
-              if (existingTimer == finalizedTimerStartedAt)
-                'timerStartedAt': FieldValue.delete(),
+              'timerStartedAt': FieldValue.delete(),
               if (shouldUpdate) ...<String, dynamic>{
                 'lastRedeemedAt': Timestamp.fromDate(completedAt),
                 'redeemedCount': FieldValue.increment(1),
@@ -766,55 +766,6 @@ class DemoRedemptionStore {
       0,
       1,
     );
-  }
-
-  static Future<void> syncGuestDeviceRedemptionsToSignedInUser(
-    String targetUid,
-  ) async {
-    bool canImport() =>
-        legacyWritesEnabled && _matchesCurrentAuthUser(targetUid, false);
-    if (!canImport()) return;
-    final guestDeviceId = await _getExistingGuestDeviceId();
-
-    if (guestDeviceId == null || guestDeviceId.trim().isEmpty) {
-      return;
-    }
-
-    final localGuestRedemptions = await _readGuestRedemptionsFromDevice(
-      guestDeviceId,
-    );
-
-    if (!canImport() || localGuestRedemptions.isEmpty) {
-      return;
-    }
-
-    final batch = _firestore.batch();
-    final targetCollection = _redemptionsCollection(targetUid);
-
-    for (final entry in localGuestRedemptions.entries) {
-      final data = <String, dynamic>{
-        'couponId': entry.key,
-        'updatedAt': FieldValue.serverTimestamp(),
-      };
-
-      if (entry.value.lastRedeemedAt != null) {
-        data['lastRedeemedAt'] = Timestamp.fromDate(
-          entry.value.lastRedeemedAt!,
-        );
-        data['redeemedCount'] = 1;
-      }
-
-      if (entry.value.timerStartedAt != null) {
-        data['timerStartedAt'] = Timestamp.fromDate(
-          entry.value.timerStartedAt!,
-        );
-      }
-
-      batch.set(targetCollection.doc(entry.key), data, SetOptions(merge: true));
-    }
-
-    if (!canImport()) return;
-    await batch.commit();
   }
 
   static Future<void> refreshFromFirestore() async {

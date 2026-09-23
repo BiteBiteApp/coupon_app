@@ -928,6 +928,23 @@ const AUTOMATIC_INDEX_CONTRACT = [
   },
 ];
 
+const ADMIN_TEMPORARY_TTL_COLLECTIONS = [
+  "private_admin_restaurant_search_sessions",
+  "private_admin_restaurant_search_active_sessions",
+  "private_rating_admin_restaurant_search_sessions",
+  "private_rating_admin_restaurant_search_active_sessions",
+  "private_admin_link_restaurant_search_sessions",
+  "private_admin_link_restaurant_search_active_sessions",
+  "results",
+];
+// The installed CLI requires indexes on a TTL field override. Retain standard
+// automatic single-field modes instead of exempting these newly covered fields.
+const ADMIN_TEMPORARY_SINGLE_FIELD_INDEXES = [
+  {order: "ASCENDING", queryScope: "COLLECTION"},
+  {order: "DESCENDING", queryScope: "COLLECTION"},
+  {arrayConfig: "CONTAINS", queryScope: "COLLECTION"},
+];
+
 const REQUIRED_FIELD_OVERRIDE_CONTRACT = [
   {
     collectionGroup: "bitesaver_offer_index",
@@ -965,6 +982,12 @@ const REQUIRED_FIELD_OVERRIDE_CONTRACT = [
     fieldPath: "expiresAt",
     ttl: true,
     indexes: [],
+  })),
+  ...ADMIN_TEMPORARY_TTL_COLLECTIONS.map((collectionGroup) => ({
+    collectionGroup,
+    fieldPath: "expiresAt",
+    ttl: true,
+    indexes: ADMIN_TEMPORARY_SINGLE_FIELD_INDEXES,
   })),
 ];
 
@@ -1087,7 +1110,7 @@ test("every explicit and automatic query contract points to current source", () 
   }
 });
 
-test("Firestore TTL and single-field exemptions exactly match the BiteSaver and BiteScore contracts", () => {
+test("Firestore TTL and single-field settings exactly match customer and Admin temporary contracts", () => {
   const { fieldOverrides } = loadIndexConfiguration();
   const firebaseConfiguration = JSON.parse(
     fs.readFileSync(firebasePath, "utf8"),
@@ -1098,11 +1121,20 @@ test("Firestore TTL and single-field exemptions exactly match the BiteSaver and 
 
   assert.equal(firebaseConfiguration.firestore.indexes, "firestore.indexes.json");
   assert.equal(firebaseConfiguration.firestore.rules, "firestore.rules");
-  assert.equal(fieldOverrides.length, 14);
+  assert.equal(fieldOverrides.length, 21);
   assert.equal(new Set(signatures).size, fieldOverrides.length);
-  assert.equal(fieldOverrides.filter(({ ttl }) => ttl === true).length, 13);
+  assert.equal(fieldOverrides.filter(({ ttl }) => ttl === true).length, 20);
 
   for (const override of fieldOverrides) {
+    if (ADMIN_TEMPORARY_TTL_COLLECTIONS.includes(override.collectionGroup)) {
+      assert.deepEqual(override, {
+        collectionGroup: override.collectionGroup,
+        fieldPath: "expiresAt",
+        ttl: true,
+        indexes: ADMIN_TEMPORARY_SINGLE_FIELD_INDEXES,
+      });
+      continue;
+    }
     assert.deepEqual(override.indexes, []);
     if (override.fieldPath === "expiresAt") {
       assert.deepEqual(Object.keys(override).sort(), [

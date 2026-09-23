@@ -3008,6 +3008,27 @@ test("invalid page size and expired continuation fail before new scanning", asyn
     /expired|invalid/i,
   );
   assert.deepEqual(store.advanceReads, [51]);
+
+  // Exercise session expiry while its cursor is still valid and both parent
+  // and result subcollection remain physically present awaiting TTL cleanup.
+  const persisted = store.sessions.get("admin-link-session");
+  store.sessions.set(persisted.id, {...persisted, idleExpiresAtMs: baseNow + 1_000});
+  const retainedSession = store.sessions.get(persisted.id);
+  const retainedResults = [...store.results.get(persisted.id)];
+  await assert.rejects(
+    searchAdminLinkRestaurantsPageHandler(
+      request(continuationCriteria(criteria(), first), {
+        direction: "forward",
+        cursor: first.nextCursor,
+        clientRequestId: "logical-expiry-before-ttl",
+      }),
+      handler(store, {now: () => baseNow + 1_000}),
+    ),
+    /expired|invalid/i,
+  );
+  assert.equal(store.sessions.get(persisted.id), retainedSession);
+  assert.deepEqual([...store.results.get(persisted.id)], retainedResults);
+  assert.deepEqual(store.advanceReads, [51]);
 });
 
 test("absolute expiry replaces an active pointer even when idle expiry is later", async () => {

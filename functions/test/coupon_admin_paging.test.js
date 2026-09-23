@@ -925,6 +925,23 @@ test("radius session wrong caller and expiry fail closed", async () => {
     ),
     (error) => error.code === "failed-precondition",
   );
+  // Keep the stored session/results physically present and the signed cursor
+  // unexpired: the handler must enforce the earlier session deadline itself.
+  const persisted = store.sessions.get("radius-session-two");
+  store.sessions.set(persisted.id, {...persisted, idleExpiresAtMs: nowMs + 1_000});
+  const retainedSession = store.sessions.get(persisted.id);
+  const retainedResults = [...store.results.get(persisted.id)];
+  const queryCount = database.queries.length;
+  await assert.rejects(
+    searchCouponAdminRadiusRestaurantsPage(
+      request(criteria, {direction: "forward", cursor: page.nextCursor, clientRequestId: "logical-expiry-before-ttl"}),
+      {...context, now: () => nowMs + 1_000},
+    ),
+    (error) => error.code === "failed-precondition",
+  );
+  assert.equal(store.sessions.get(persisted.id), retainedSession);
+  assert.deepEqual([...store.results.get(persisted.id)], retainedResults);
+  assert.equal(database.queries.length, queryCount);
 });
 
 test("radius exact distance rejects a geohash candidate outside the circle", async () => {
