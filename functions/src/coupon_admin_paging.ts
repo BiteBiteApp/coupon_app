@@ -8,6 +8,10 @@ import {
 import { HttpsError } from "firebase-functions/v2/https";
 import { OpaqueCursorCodec, type CursorSortValue } from "./opaque_cursor.js";
 import {
+  adminTimestampCursorValues,
+  adminTimestampQueryValues,
+} from "./admin_timestamp_cursor.js";
+import {
   adminDirectoryDefaultPageSize,
   operationalQueueDefaultPageSize,
   pageProtocolVersion,
@@ -392,7 +396,7 @@ async function executeSimplePage(
 ): Promise<Readonly<Record<string, unknown>>> {
   const queryFingerprint = createQueryFingerprint(definition.fingerprintCriteria);
   const direction = parsed.request.direction;
-  let cursorTuple: readonly CursorSortValue[] | null = null;
+  let queryCursor: CouponAdminQuery["cursor"];
   let currentPageNumber = 1;
   if (parsed.request.cursor !== undefined) {
     try {
@@ -404,8 +408,11 @@ async function executeSimplePage(
         callerBinding: parsed.callerBinding,
         purposes: [direction === "backward" ? "backward" : "forward"],
       });
-      cursorTuple = decoded.sortTuple;
-      currentPageNumber = pageNumberFromCursorTuple(cursorTuple);
+      currentPageNumber = pageNumberFromCursorTuple(decoded.sortTuple);
+      queryCursor = {
+        kind: direction === "backward" ? "endBefore" : "startAfter",
+        values: definition.queryCursorValues(decoded.sortTuple),
+      };
     } catch {
       callableError("invalid-argument", "The page cursor is invalid or expired.");
     }
@@ -430,12 +437,6 @@ async function executeSimplePage(
   const readLimit = exactLastPageSize ?? (definition.postFilter === undefined
     ? definition.pageSize + 1
     : couponAdminPostFilterReadBudget);
-  const queryCursor = cursorTuple === null
-    ? undefined
-    : {
-        kind: direction === "backward" ? "endBefore" as const : "startAfter" as const,
-        values: definition.queryCursorValues(cursorTuple),
-      };
   const rawDocuments = await database.queryDocuments({
     collectionPath: definition.collectionPath,
     filters: definition.filters,
@@ -695,8 +696,10 @@ export async function listCouponAdminCouponsPageHandler(
     ],
     pageSize: couponAdminCouponPageSize,
     fingerprintCriteria: { restaurantAccountId },
-    cursorValues: (document) => [documentTimestamp(document, "createdAt"), document.id],
-    queryCursorValues: (tuple) => [new Date(tuple[0] as number), tuple[1]],
+    cursorValues: (document) => adminTimestampCursorValues(
+      document.data.createdAt, document.id,
+    ),
+    queryCursorValues: adminTimestampQueryValues,
     project: couponProjection,
     exactCount: true,
   }, context.database);
@@ -745,8 +748,10 @@ export async function listCouponAdminInviteHistoryPageHandler(
     ],
     pageSize: couponAdminInvitePageSize,
     fingerprintCriteria: { side: "coupon" },
-    cursorValues: (document) => [documentTimestamp(document, "createdAt"), document.id],
-    queryCursorValues: (tuple) => [new Date(tuple[0] as number), tuple[1]],
+    cursorValues: (document) => adminTimestampCursorValues(
+      document.data.createdAt, document.id,
+    ),
+    queryCursorValues: adminTimestampQueryValues,
     project: inviteProjection,
     exactCount: true,
   }, context.database);

@@ -205,6 +205,7 @@ function loadCompiledIndexWithRuntimeHarness({
     globalOptions: null,
     firestoreDocuments: new Map(),
     firestoreQueries: [],
+    firestoreCounts: [],
     firestoreReads: [],
     firestoreWrites: [],
     recursiveDeletes: [],
@@ -233,6 +234,12 @@ function loadCompiledIndexWithRuntimeHarness({
         limit(value) {
           queryState.limit = value;
           return this;
+        },
+        count() {
+          return {get: async () => {
+            state.firestoreCounts.push({...queryState});
+            return {data: () => ({count: (state.firestoreDocuments.get(collectionPath) ?? []).length})};
+          }};
         },
         async get() {
           state.firestoreQueries.push(queryState);
@@ -331,7 +338,8 @@ function loadCompiledIndexWithRuntimeHarness({
         return {
           defineSecret: (name) => ({
             name,
-            value: () => name === biteSaverIdentitySecretName
+            value: () => name === biteSaverIdentitySecretName ||
+              name === "SEARCH_PAGINATION_CURSOR_KEY"
               ? Buffer.alloc(32, 17).toString("base64url")
               : "unused",
           }),
@@ -1020,6 +1028,48 @@ test("all Coupon Admin paged callables reject unauthenticated and non-Admin call
       (error) => error.code === "permission-denied",
       `${name} non-Admin`,
     );
+  }
+});
+
+test("the six isolated Admin paging callables accept the real Admin envelope and reject spoofed or anonymous authority", async () => {
+  const endpoints = [
+    ["searchCouponAdminRestaurantsPage", 50, {mode: "exactZip", zipCode: "33101"}],
+    ["listCouponAdminCouponsPage", 25, {restaurantAccountId: "restaurant-one"}],
+    ["listCouponAdminInviteHistoryPage", 50, {side: "coupon"}],
+    ["searchRatingAdminRestaurantsPage", 50, {mode: "exactZip", zipCode: "33101", status: "all"}],
+    ["listRatingAdminDirectoryPage", 50, {directoryKind: "reviews"}],
+    ["listRatingAdminInviteHistoryPage", 50, {side: "bitescore"}],
+  ];
+  const authorized = {
+    uid: "admin-paging-test",
+    token: {email: "schuyler.cole@gmail.com", firebase: {sign_in_provider: "google.com"}},
+  };
+  for (const [name, pageSize, criteria] of endpoints) {
+    const runtime = loadCompiledIndexWithRuntimeHarness();
+    // Same closed PagedRequest.toJson envelope used by the existing Flutter callers.
+    const data = {protocolVersion: "bitestar.page.v1", pageSize, criteria,
+      direction: "first", requestExactCount: true, clientRequestId: "admin-paging-test"};
+    for (const auth of [
+      null,
+      {uid: "customer", token: {email: "customer@example.test"}},
+      {uid: "customer", token: {email: "customer@example.test", admin: true}},
+      {...authorized, token: {...authorized.token, firebase: {sign_in_provider: "anonymous"}}},
+      {...authorized, token: {...authorized.token, firebase: []}},
+    ]) {
+      await assert.rejects(runtime.exports[name]({auth, data: {...data,
+        admin: true, role: "admin", uid: authorized.uid, email: authorized.token.email}}),
+      error => error.code === "permission-denied", name);
+    }
+    assert.equal(runtime.state.firestoreQueries.length, 0, name);
+    assert.equal(runtime.state.firestoreCounts.length, 0, name);
+    const page = await runtime.exports[name]({auth: authorized, data});
+    assert.deepEqual(page.items, [], name);
+    assert.equal(page.pageSize, pageSize, name);
+    assert.equal(page.currentPageNumber, 1, name);
+    assert.equal(page.hasNext, false, name);
+    assert.equal(page.hasPrevious, false, name);
+    assert(runtime.state.firestoreQueries.length > 0, name);
+    assert.equal(runtime.state.firestoreWrites.length, 0, name);
   }
 });
 

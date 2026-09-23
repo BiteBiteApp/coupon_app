@@ -80,6 +80,16 @@ const browseRuntimeExports = new Set([
 const adminSupportRuntimeServiceAccount =
   "bitestar-admin-support-runtime@coupon-app-29446.iam.gserviceaccount.com";
 const adminSupportRuntimeSecrets = Object.freeze({
+  searchCouponAdminRestaurantsPage: [
+    "SEARCH_PAGINATION_CURSOR_KEY", "GOOGLE_MAPS_API_KEY",
+  ],
+  listCouponAdminCouponsPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
+  listCouponAdminInviteHistoryPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
+  searchRatingAdminRestaurantsPage: [
+    "SEARCH_PAGINATION_CURSOR_KEY", "GOOGLE_MAPS_API_KEY",
+  ],
+  listRatingAdminDirectoryPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
+  listRatingAdminInviteHistoryPage: ["SEARCH_PAGINATION_CURSOR_KEY"],
   listCouponAdminQueuePage: ["SEARCH_PAGINATION_CURSOR_KEY"],
   listRatingAdminQueuePage: ["SEARCH_PAGINATION_CURSOR_KEY"],
   searchAdminLinkRestaurantsPage: [
@@ -513,7 +523,7 @@ test("exactly thirteen Browse, Saved, Menu and guest exports share the dedicated
   );
 });
 
-test("exactly three Admin-support callables pin their identity without sharing secret bindings", () => {
+test("exactly nine Admin-support callables pin their identity with exact per-function secret bindings", () => {
   const metadata = loadActualCompiledMetadata();
   assert.deepEqual(
     Object.entries(metadata)

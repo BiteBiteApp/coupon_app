@@ -8,6 +8,10 @@ import {
 import { HttpsError } from "firebase-functions/v2/https";
 import { OpaqueCursorCodec, type CursorSortValue } from "./opaque_cursor.js";
 import {
+  adminTimestampCursorValues,
+  adminTimestampQueryValues,
+} from "./admin_timestamp_cursor.js";
+import {
   adminDirectoryDefaultPageSize,
   operationalQueueDefaultPageSize,
   pageProtocolVersion,
@@ -661,7 +665,7 @@ async function executeSimplePage(
 ): Promise<Readonly<Record<string, unknown>>> {
   const queryFingerprint = createQueryFingerprint(definition.fingerprintCriteria);
   const direction = parsed.request.direction;
-  let cursorTuple: readonly CursorSortValue[] | null = null;
+  let queryCursor: RatingAdminQuery["cursor"];
   let currentPageNumber = 1;
   if (parsed.request.cursor !== undefined) {
     try {
@@ -673,8 +677,11 @@ async function executeSimplePage(
         callerBinding: parsed.callerBinding,
         purposes: [direction === "backward" ? "backward" : "forward"],
       });
-      cursorTuple = decoded.sortTuple;
-      currentPageNumber = pageNumberFromCursorTuple(cursorTuple);
+      currentPageNumber = pageNumberFromCursorTuple(decoded.sortTuple);
+      queryCursor = {
+        kind: direction === "backward" ? "endBefore" : "startAfter",
+        values: definition.queryCursorValues(decoded.sortTuple),
+      };
     } catch {
       callableError("invalid-argument", "The page cursor is invalid or expired.");
     }
@@ -699,12 +706,6 @@ async function executeSimplePage(
   const readLimit = exactLastPageSize ?? (definition.postFilter === undefined
     ? definition.pageSize + 1
     : ratingAdminPostFilterReadBudget);
-  const queryCursor = cursorTuple === null
-    ? undefined
-    : {
-        kind: direction === "backward" ? "endBefore" as const : "startAfter" as const,
-        values: definition.queryCursorValues(cursorTuple),
-      };
   const rawDocuments = await database.queryDocuments({
     collectionPath: definition.collectionPath,
     filters: definition.filters,
@@ -1128,11 +1129,10 @@ export async function listRatingAdminDirectoryPageHandler(
       ],
       pageSize: ratingAdminDirectoryPageSize,
       fingerprintCriteria: { directoryKind: kind },
-      cursorValues: (document) => [
-        documentTimestamp(document, "createdAt"),
-        document.id,
-      ],
-      queryCursorValues: (tuple) => [new Date(tuple[0] as number), tuple[1]],
+      cursorValues: (document) => adminTimestampCursorValues(
+        document.data.createdAt, document.id,
+      ),
+      queryCursorValues: adminTimestampQueryValues,
       project: () => null,
       exactCount: true,
       enrich: (page) => enrichReviews(page, context.database),
@@ -1376,11 +1376,10 @@ export async function listRatingAdminInviteHistoryPageHandler(
     ],
     pageSize: ratingAdminInvitePageSize,
     fingerprintCriteria: { side: "bitescore" },
-    cursorValues: (document) => [
-      documentTimestamp(document, "createdAt"),
-      document.id,
-    ],
-    queryCursorValues: (tuple) => [new Date(tuple[0] as number), tuple[1]],
+    cursorValues: (document) => adminTimestampCursorValues(
+      document.data.createdAt, document.id,
+    ),
+    queryCursorValues: adminTimestampQueryValues,
     project: inviteProjection,
     exactCount: true,
   }, context.database);

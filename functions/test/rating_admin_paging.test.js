@@ -2,6 +2,7 @@
 
 const assert = require("node:assert/strict");
 const test = require("node:test");
+const {Timestamp} = require("firebase-admin/firestore");
 
 const {
   listRatingAdminDirectoryPageHandler,
@@ -44,7 +45,10 @@ function request(criteria, pageSize = 50, overrides = {}) {
 }
 
 function scalar(value) {
-  return value instanceof Date ? value.getTime() : value;
+  const timestamp = value instanceof Date ? Timestamp.fromDate(value) : value;
+  return timestamp instanceof Timestamp
+    ? BigInt(timestamp.seconds) * 1_000_000_000n + BigInt(timestamp.nanoseconds)
+    : value;
 }
 
 function compare(first, second) {

@@ -2508,6 +2508,7 @@ export const markAdminRestaurantQrBatchPrepared = onCall(async (request) => {
 
 export const searchCouponAdminRestaurantsPage = onCall(
   {
+    serviceAccount: adminSupportRuntimeServiceAccount,
     secrets: [searchPaginationCursorKey, googleMapsApiKey],
   },
   async (request) => {
@@ -2543,7 +2544,10 @@ export const listCouponAdminQueuePage = onCall(
 );
 
 export const listCouponAdminCouponsPage = onCall(
-  { secrets: [searchPaginationCursorKey] },
+  {
+    serviceAccount: adminSupportRuntimeServiceAccount,
+    secrets: [searchPaginationCursorKey],
+  },
   async (request) => {
     const admin = requireAdminInviteAccess(request);
     return listCouponAdminCouponsPageHandler(request.data, {
@@ -2555,7 +2559,10 @@ export const listCouponAdminCouponsPage = onCall(
 );
 
 export const listCouponAdminInviteHistoryPage = onCall(
-  { secrets: [searchPaginationCursorKey] },
+  {
+    serviceAccount: adminSupportRuntimeServiceAccount,
+    secrets: [searchPaginationCursorKey],
+  },
   async (request) => {
     const admin = requireAdminInviteAccess(request);
     return listCouponAdminInviteHistoryPageHandler(request.data, {
@@ -2568,6 +2575,7 @@ export const listCouponAdminInviteHistoryPage = onCall(
 
 export const searchRatingAdminRestaurantsPage = onCall(
   {
+    serviceAccount: adminSupportRuntimeServiceAccount,
     secrets: [searchPaginationCursorKey, googleMapsApiKey],
   },
   async (request) => {
@@ -2588,7 +2596,10 @@ export const searchRatingAdminRestaurantsPage = onCall(
 );
 
 export const listRatingAdminDirectoryPage = onCall(
-  { secrets: [searchPaginationCursorKey] },
+  {
+    serviceAccount: adminSupportRuntimeServiceAccount,
+    secrets: [searchPaginationCursorKey],
+  },
   async (request) => {
     const admin = requireAdminInviteAccess(request);
     return listRatingAdminDirectoryPageHandler(request.data, {
@@ -2615,7 +2626,10 @@ export const listRatingAdminQueuePage = onCall(
 );
 
 export const listRatingAdminInviteHistoryPage = onCall(
-  { secrets: [searchPaginationCursorKey] },
+  {
+    serviceAccount: adminSupportRuntimeServiceAccount,
+    secrets: [searchPaginationCursorKey],
+  },
   async (request) => {
     const admin = requireAdminInviteAccess(request);
     return listRatingAdminInviteHistoryPageHandler(request.data, {
