@@ -1,11 +1,11 @@
 'use strict';
 const test=require('node:test'),assert=require('node:assert/strict');
 const enabled=process.env.RUN_ACCOUNT_DELETION_EMULATOR==='1';
-let app,db,now,api,billing,contract,webhook,indexExports,mockStripeEvent,mockStripeSubscription;
+let app,db,now,api,billing,contract,webhook,indexExports,mockStripeEvent,mockStripeSubscription,mockCheckoutBodies,mockRetrieveIds,mockRetrieveHook;
 const uid='billing-A';
 const local=(name,fn)=>test(name,{skip:!enabled},fn);
 const meta=()=>webhook.createOwnerBillingStripeMetadata({ownerUid:uid,checkoutAttemptId:'attempt-A'});
-const sub=(changes={})=>({id:'sub_owned',customer:'cus_owned',metadata:meta(),status:'active',schedule:null,pending_invoice_item_interval:null,transfer_data:null,items:{has_more:false,data:[{price:{id:billing.deletionStripePriceId,recurring:{usage_type:'licensed'}},quantity:1}]},...changes});
+const sub=(changes={})=>({id:'sub_owned',customer:'cus_owned',metadata:meta(),status:'active',cancel_at_period_end:false,schedule:null,pending_invoice_item_interval:null,transfer_data:null,items:{has_more:false,data:[{price:{id:billing.deletionStripePriceId,recurring:{usage_type:'licensed'}},quantity:1}]},...changes});
 async function seed(subscriptionStatus='active') {
  const created=new Date(now-10000);let state=contract.createCheckoutPendingOwnerBillingState(contract.createInitialOwnerBillingState(uid,created),{checkoutAttemptId:'attempt-A',checkoutRequestFingerprint:'a'.repeat(64),checkoutAttemptCreatedAt:created,now:created});
  state=webhook.applyOwnerBillingWebhookEvent({current:state,incoming:webhook.createOwnerBillingWebhookEvent({metadata:meta(),stripeCustomerId:'cus_owned',stripeSubscriptionId:'sub_owned',rawStripeStatus:subscriptionStatus,eventType:'customer.subscription.updated',eventCreated:Math.floor(now/1000),eventId:'evt_fixture'}),now:new Date(now)}).state;
@@ -20,6 +20,13 @@ async function pass(adapter) {
 function fake(value) {
  const calls=[];return {value,calls,async listSubscriptions(customer){assert.equal(customer,"cus_owned");return {data:[structuredClone(this.value)],has_more:false};},async retrieveSubscription(id){calls.push(['retrieve',id]);return structuredClone(this.value);},async cancelSubscription(id){calls.push(['cancel',id]);this.value.status='canceled';},async retrieveCheckout(){throw Error('unexpected Checkout');},async expireCheckout(){throw Error('unexpected expire');},async replayCheckout(){throw Error('unexpected replay');}};
 }
+function legacyMetadata(primary=false) {
+ return {ownerUid:uid,restaurantAccountId:uid,source:'bitesaver_subscription',...(primary?{billingPlanName:'coupon_monthly'}:{})};
+}
+async function seedLegacy() {
+ await db.doc(`restaurant_accounts/${uid}`).set({uid,name:'Existing old Checkout account',approvalStatus:'approved',couponPostingEnabled:true,stripeCustomerId:'cus_owned',stripeSubscriptionId:'sub_owned'});
+ await api.requestAccountDeletionHandler(db,{schemaVersion:1,expectedUid:uid,confirmation:'DELETE',receipt:'a'.repeat(43)},{uid,authTime:Math.floor(now/1000),issuedAt:Math.floor(now/1000),signInProvider:'password'},{uid,creationTime:new Date(now-100000).toUTCString(),providerIds:['password'],disabled:false},now);
+}
 test.before(async()=>{
  if(!enabled)return;
  assert.equal(process.env.FIRESTORE_EMULATOR_HOST,'127.0.0.1:8792');assert.equal(process.env.GCLOUD_PROJECT,'demo-coupon-app-rules');assert.ok(!process.env.GOOGLE_APPLICATION_CREDENTIALS);
@@ -30,7 +37,8 @@ test.before(async()=>{
   Module._load=function(name,parent,isMain) {
    if(name==='stripe')return class LocalStripe {
     webhooks={constructEvent:()=>mockStripeEvent};
-    subscriptions={retrieve:async()=>structuredClone(mockStripeSubscription)};
+    subscriptions={retrieve:async id=>{mockRetrieveIds.push(id);if(mockRetrieveHook)await mockRetrieveHook();return structuredClone(mockStripeSubscription);}};
+    checkout={sessions:{create:async body=>{mockCheckoutBodies.push(structuredClone(body));return {id:'cs_forward',url:'https://checkout.stripe.test/local-only',customer:body.customer??'cus_fresh'};}}};
    };
    if(name==='firebase-functions/params') {
     const actual=load.call(this,name,parent,isMain);
@@ -41,7 +49,7 @@ test.before(async()=>{
   indexExports=require('../lib/index');
  } finally {Module._load=load;}
 });
-test.beforeEach(async()=>{if(!enabled)return;now=Date.now();assert.equal((await fetch('http://127.0.0.1:8792/emulator/v1/projects/demo-coupon-app-rules/databases/(default)/documents',{method:'DELETE'})).status,200);});
+test.beforeEach(async()=>{if(!enabled)return;now=Date.now();mockCheckoutBodies=[];mockRetrieveIds=[];mockRetrieveHook=null;assert.equal((await fetch('http://127.0.0.1:8792/emulator/v1/projects/demo-coupon-app-rules/databases/(default)/documents',{method:'DELETE'})).status,200);});
 test.after(async()=>{if(app)for(const value of require('firebase-admin/app').getApps())await value.delete();});
 for(const status of ['active','trialing','past_due','unpaid','paused','incomplete']) local(`${status} owned subscription cancels before complete; business closes at acceptance`,async()=>{
  await seed(status);const adapter=fake(sub({status,cancel_at_period_end:true}));assert.equal((await db.doc(`restaurant_accounts/${uid}`).get()).get('couponPostingEnabled'),false);
@@ -171,6 +179,151 @@ async function deliver(event,subscription) {
  await indexExports.stripeWebhook({method:'POST',header:()=> 'LOCAL_FAKE_SIGNATURE',rawBody:Buffer.from('LOCAL_FAKE_EVENT')},response);
  assert.equal(code,200,typeof body==='string'?body:undefined);
 }
+for(const primary of [false,true]) {
+ const label=primary?'four-field primary':'three-field compatibility';
+ local(`${label} accepted old Checkout replaces prior IDs only through verified completion`,async()=>{
+  await db.doc(`restaurant_accounts/${uid}`).set({uid,subscriptionStatus:'inactive',couponPostingEnabled:false,stripeCustomerId:'cus_prior',stripeSubscriptionId:'sub_prior'});
+  const subscription=sub({metadata:legacyMetadata(primary)});
+  mockStripeEvent={id:'evt_oldreplace',created:Math.floor(now/1000),type:'customer.subscription.updated',data:{object:subscription}};mockStripeSubscription=subscription;
+  let code;const response={status(value){code=value;return this;},send(){return this;},json(){return this;}};
+  await indexExports.stripeWebhook({method:'POST',header:()=> 'LOCAL_FAKE_SIGNATURE',rawBody:Buffer.from('LOCAL_FAKE_EVENT')},response);
+  assert.equal(code,500);assert.equal((await db.doc(`restaurant_accounts/${uid}`).get()).get('stripeCustomerId'),'cus_prior');
+  const session={id:'cs_replacement',mode:'subscription',subscription:subscription.id,customer:'cus_owned',client_reference_id:uid,metadata:subscription.metadata};
+  await deliver({id:'evt_oldreplacecomplete',created:Math.floor(now/1000),type:'checkout.session.completed',data:{object:session}},subscription);
+  const root=(await db.doc(`restaurant_accounts/${uid}`).get()).data();assert.equal(root.stripeCustomerId,'cus_owned');assert.equal(root.stripeSubscriptionId,'sub_owned');assert.equal(root.couponPostingEnabled,true);
+  await deliver({id:'evt_oldreplacelater',created:Math.floor(now/1000)+1,type:'customer.subscription.updated',data:{object:{...subscription,status:'past_due'}}});
+  assert.equal((await db.doc(`restaurant_accounts/${uid}`).get()).get('couponPostingEnabled'),false);
+ });
+ local(`${label} Checkout completion updates normal billing without fabricating v2 state`,async()=>{
+  await db.doc(`restaurant_accounts/${uid}`).set({uid,name:'Existing owner',approvalStatus:'approved',couponPostingEnabled:false});
+  const subscription=sub({metadata:legacyMetadata(primary),status:'trialing',trial_end:Math.floor(now/1000)+1000});
+  const session={id:'cs_old',mode:'subscription',subscription:subscription.id,customer:'cus_owned',client_reference_id:uid,metadata:subscription.metadata};
+  const event={id:'evt_oldcompletion',created:Math.floor(now/1000),type:'checkout.session.completed',data:{object:session}};
+  await deliver(event,subscription);await deliver(event,subscription);
+  const root=(await db.doc(`restaurant_accounts/${uid}`).get()).data();
+  assert.equal(root.subscriptionStatus,'trialing');assert.equal(root.couponPostingEnabled,true);assert.equal(root.hasUsedTrial,true);assert.equal(root.name,'Existing owner');assert.equal(root.stripeSubscriptionId,'sub_owned');
+  assert.equal((await db.doc(`private_owner_billing_states/${uid}`).get()).exists,false);
+  assert.equal((await db.doc(`private_account_deletions/${uid}`).get()).exists,false);
+ });
+ local(`${label} active subscription cancels through worker and retains real ownership`,async()=>{
+  await seedLegacy();const adapter=fake(sub({metadata:legacyMetadata(primary)}));
+  for(let i=0;i<8;i++)await pass(adapter);
+  assert.equal(adapter.value.status,'canceled');assert.equal(adapter.calls.filter(c=>c[0]==='cancel').length,1);
+  assert.equal((await db.doc(`private_account_deletions/${uid}`).get()).get('state'),'complete');
+  assert.equal((await db.doc(`private_account_deletions/${uid}/billing_intents/sub_owned`).get()).get('checkoutAttemptId'),null);
+  assert.equal((await db.doc(`private_owner_billing_states/${uid}`).get()).exists,false);
+  assert.equal((await db.doc(`restaurant_accounts/${uid}`).get()).get('couponPostingEnabled'),false);
+ });
+ local(`${label} already-canceled subscription is complete without cancellation or current-price requirements`,async()=>{
+  await seedLegacy();const adapter=fake(sub({metadata:legacyMetadata(primary),status:'canceled',items:{has_more:false,data:[]}}));
+  for(let i=0;i<6;i++)await pass(adapter);
+  assert.equal(adapter.calls.filter(c=>c[0]==='cancel').length,0);
+  assert.equal((await db.doc(`private_account_deletions/${uid}`).get()).get('state'),'complete');
+ });
+ local(`${label} late Checkout after cleanup reopens cancellation without recreating the account`,async()=>{
+  await seedLegacy();const settled=fake(sub({metadata:legacyMetadata(primary),status:'canceled'}));for(let i=0;i<6;i++)await pass(settled);
+  await db.doc(`restaurant_accounts/${uid}`).delete();
+  const late=sub({id:'sub_oldlate',metadata:legacyMetadata(primary)});
+  const session={id:'cs_oldlate',mode:'subscription',subscription:late.id,customer:'cus_owned',client_reference_id:uid,metadata:late.metadata};
+  const event={id:'evt_oldlate',created:Math.floor(now/1000)-100,type:'checkout.session.completed',data:{object:session}};
+  await deliver(event,late);await deliver(event,late);
+  const job=db.doc(`private_account_deletions/${uid}`),intent=db.doc(`private_account_deletions/${uid}/billing_intents/sub_oldlate`);
+  assert.equal((await job.get()).get('state'),'pending');assert.equal((await intent.get()).get('terminal'),false);assert.equal((await intent.get()).get('checkoutAttemptId'),null);
+  assert.equal((await db.doc(`restaurant_accounts/${uid}`).get()).exists,false);
+  const adapter=fake(late);for(let i=0;i<6;i++)await pass(adapter);
+  assert.equal(adapter.calls.filter(c=>c[0]==='cancel').length,1);assert.equal((await job.get()).get('state'),'complete');
+  assert.equal((await db.doc(`restaurant_accounts/${uid}`).get()).exists,false);
+ });
+}
+for(const name of ['createCheckoutSession','createSubscriptionCheckoutSession']) local(`${name} proves the legacy customer for a real new v2 attempt and updates the old root`,async()=>{
+ await db.doc(`restaurant_accounts/${uid}`).set({uid,hasUsedTrial:true,subscriptionStatus:'inactive',couponPostingEnabled:false,stripeCustomerId:'cus_owned',stripeSubscriptionId:'sub_prior'});
+ mockStripeSubscription=sub({id:'sub_prior',metadata:legacyMetadata(),status:'canceled',items:{has_more:false,data:[]}});
+ const request={auth:{uid},data:{returnProtocolVersion:2,restaurantAccountDocumentId:uid}};
+ await indexExports[name].run(request);await indexExports[name].run(request);
+ assert.deepEqual(mockRetrieveIds,['sub_prior']);assert.equal(mockCheckoutBodies.length,2);
+ const body=mockCheckoutBodies[0];assert.equal(body.customer,'cus_owned');assert.deepEqual(mockCheckoutBodies[1],body);assert.equal(body.subscription_data.trial_period_days,undefined);
+ assert.equal(body.metadata.contractVersion,webhook.ownerBillingStripeMetadataContractVersion);assert.equal(body.metadata.ownerUid,uid);assert.ok(body.metadata.checkoutAttemptId);assert.deepEqual(body.metadata,body.subscription_data.metadata);
+ const subscription=sub({id:'sub_forward',metadata:body.metadata});
+ await deliver({id:'evt_forward',created:Math.floor(Date.now()/1000),type:'customer.subscription.updated',data:{object:subscription}});
+ const root=(await db.doc(`restaurant_accounts/${uid}`).get()).data();assert.equal(root.stripeCustomerId,'cus_owned');assert.equal(root.stripeSubscriptionId,'sub_forward');assert.equal(root.couponPostingEnabled,true);
+ assert.equal((await db.doc(`private_account_deletions/${uid}`).get()).exists,false);
+});
+for(const [label,change] of [
+ ['foreign customer',()=>({customer:'cus_other'})],['foreign subscription',()=>({id:'sub_other'})],
+ ['foreign owner',()=>({metadata:{...legacyMetadata(),ownerUid:'billing-B',restaurantAccountId:'billing-B'}})],
+]) local(`new Checkout refuses unproven legacy ${label} before reservation or creation`,async()=>{
+ await db.doc(`restaurant_accounts/${uid}`).set({uid,stripeCustomerId:'cus_owned',stripeSubscriptionId:'sub_owned'});
+ mockStripeSubscription=sub({metadata:legacyMetadata(),status:'canceled',...change()});
+ await assert.rejects(indexExports.createCheckoutSession.run({auth:{uid},data:{returnProtocolVersion:2,restaurantAccountDocumentId:uid}}));
+ assert.equal(mockCheckoutBodies.length,0);assert.equal((await db.doc(`private_owner_billing_states/${uid}`).get()).exists,false);
+});
+local('legacy customer proof cannot survive an intervening account-binding change',async()=>{
+ const root=db.doc(`restaurant_accounts/${uid}`);await root.set({uid,stripeCustomerId:'cus_owned',stripeSubscriptionId:'sub_owned'});
+ mockStripeSubscription=sub({metadata:legacyMetadata(),status:'canceled'});mockRetrieveHook=async()=>root.update({stripeCustomerId:'cus_changed',stripeSubscriptionId:'sub_changed'});
+ await assert.rejects(indexExports.createCheckoutSession.run({auth:{uid},data:{returnProtocolVersion:2,restaurantAccountDocumentId:uid}}));
+ assert.equal(mockCheckoutBodies.length,0);assert.equal((await db.doc(`private_owner_billing_states/${uid}`).get()).exists,false);
+});
+local('deletion blocks legacy customer lookup before any provider call',async()=>{
+ await seedLegacy();await assert.rejects(indexExports.createCheckoutSession.run({auth:{uid},data:{returnProtocolVersion:2,restaurantAccountDocumentId:uid}}));
+ assert.deepEqual(mockRetrieveIds,[]);assert.deepEqual(mockCheckoutBodies,[]);
+});
+for(const [label,change] of [
+ ['foreign customer',()=>({customer:'cus_other'})],['foreign subscription',()=>({id:'sub_other'})],
+ ['foreign owner',()=>({metadata:{...legacyMetadata(),ownerUid:'billing-B',restaurantAccountId:'billing-B'}})],
+ ['partial v2',()=>({metadata:{...legacyMetadata(),checkoutAttemptId:'invented'}})],
+]) local(`legacy worker rejects ${label} even if provider says canceled`,async()=>{
+  const changes=change();
+  await seedLegacy();const adapter=fake(sub({metadata:legacyMetadata(),status:'canceled',...changes}));await pass(adapter);
+  assert.equal(adapter.calls.filter(c=>c[0]==='cancel').length,0);assert.notEqual((await db.doc(`private_account_deletions/${uid}`).get()).get('state'),'complete');
+});
+local('legacy subscription cannot overwrite a forward private lifecycle or recreate a missing account',async()=>{
+ await seed();await db.doc(`private_account_deletions/${uid}`).delete();
+ const before=(await db.doc(`private_owner_billing_states/${uid}`).get()).data();
+ const old=sub({metadata:legacyMetadata(),status:'canceled'});
+ await deliver({id:'evt_oldstale',created:Math.floor(now/1000)-100,type:'customer.subscription.updated',data:{object:old}});
+ assert.deepEqual((await db.doc(`private_owner_billing_states/${uid}`).get()).data(),before);
+ assert.equal((await db.doc(`restaurant_accounts/${uid}`).get()).get('stripeSubscriptionId'),'sub_owned');
+ await db.doc(`restaurant_accounts/${uid}`).delete();await db.doc(`private_owner_billing_states/${uid}`).delete();
+ await deliver({id:'evt_oldmissing',created:Math.floor(now/1000),type:'customer.subscription.updated',data:{object:old}});
+ assert.equal((await db.doc(`restaurant_accounts/${uid}`).get()).exists,false);
+});
+local('pending forward Checkout does not silence or lose the bound old subscription',async()=>{
+ await seedLegacy();await db.doc(`private_account_deletions/${uid}`).delete();
+ const t=new Date(now-10000),pending=contract.createCheckoutPendingOwnerBillingState(contract.createInitialOwnerBillingState(uid,t),{checkoutAttemptId:'attempt-new',checkoutRequestFingerprint:'a'.repeat(64),checkoutAttemptCreatedAt:t,now:t});
+ await db.doc(`private_owner_billing_states/${uid}`).set(pending);
+ const old=sub({metadata:legacyMetadata(),status:'past_due'});
+ await deliver({id:'evt_oldpending',created:Math.floor(now/1000),type:'customer.subscription.updated',data:{object:old}});
+ assert.equal((await db.doc(`restaurant_accounts/${uid}`).get()).get('subscriptionStatus'),'inactive');
+ assert.equal((await db.doc(`restaurant_accounts/${uid}`).get()).get('couponPostingEnabled'),false);
+ assert.equal((await db.doc(`private_owner_billing_states/${uid}`).get()).get('checkoutAttemptId'),'attempt-new');
+ await api.requestAccountDeletionHandler(db,{schemaVersion:1,expectedUid:uid,confirmation:'DELETE',receipt:'a'.repeat(43)},{uid,authTime:Math.floor(now/1000),issuedAt:Math.floor(now/1000),signInProvider:'password'},{uid,creationTime:new Date(now-100000).toUTCString(),providerIds:['password'],disabled:false},now);
+ const adapter=fake(old);for(let i=0;i<6;i++)await pass(adapter);
+ assert.equal(adapter.calls.filter(c=>c[0]==='cancel').length,1);
+ // Unknown accepted forward work still cannot be silently treated as closed.
+ assert.notEqual((await db.doc(`private_account_deletions/${uid}`).get()).get('state'),'complete');
+});
+local('incomplete old billing association stays pending without invented ownership or provider calls',async()=>{
+ await seedLegacy();await db.doc(`restaurant_accounts/${uid}`).update({stripeCustomerId:'',stripeSubscriptionId:''});
+ const adapter=fake(sub({metadata:legacyMetadata()}));await pass(adapter);
+ assert.deepEqual(adapter.calls,[]);assert.notEqual((await db.doc(`private_account_deletions/${uid}`).get()).get('state'),'complete');
+ assert.equal((await db.doc(`private_owner_billing_states/${uid}`).get()).exists,false);
+});
+local('a partial account projection does not invalidate an authoritative v2 billing association',async()=>{
+ await seed();await db.doc(`restaurant_accounts/${uid}`).update({stripeSubscriptionId:require('firebase-admin/firestore').FieldValue.delete()});
+ const adapter=fake(sub());for(let i=0;i<6;i++)await pass(adapter);
+ assert.equal(adapter.calls.filter(c=>c[0]==='cancel').length,1);
+ assert.equal((await db.doc(`private_account_deletions/${uid}`).get()).get('state'),'complete');
+});
+local('old Checkout rejects conflicting session/customer/subscription bindings before any obligation',async()=>{
+ await seedLegacy();const subscription=sub({metadata:legacyMetadata()});
+ const base={id:'cs_oldconflict',mode:'subscription',subscription:'sub_owned',customer:'cus_owned',client_reference_id:uid,metadata:legacyMetadata()};
+ for(const patch of [{customer:'cus_other'},{client_reference_id:'billing-B'},{subscription:'sub_other'},{metadata:meta()}]) {
+  mockStripeEvent={id:'evt_conflict',created:Math.floor(now/1000),type:'checkout.session.completed',data:{object:{...base,...patch}}};mockStripeSubscription=subscription;
+  let code;const response={status(value){code=value;return this;},send(){return this;},json(){return this;}};
+  await indexExports.stripeWebhook({method:'POST',header:()=> 'LOCAL_FAKE_SIGNATURE',rawBody:Buffer.from('LOCAL_FAKE_EVENT')},response);
+  assert.equal(code,500);assert.equal((await db.collection(`private_account_deletions/${uid}/billing_intents`).get()).size,0);
+ }
+});
 local('actual late and duplicate webhook handlers queue every owned subscription without reopening business',async()=>{
  await seed();const older=sub({id:'sub_late',metadata:webhook.createOwnerBillingStripeMetadata({ownerUid:uid,checkoutAttemptId:'attempt-old'}),cancel_at_period_end:false});
  const event={id:'evt_old',created:Math.floor(now/1000)-100,type:'customer.subscription.updated',data:{object:older}};

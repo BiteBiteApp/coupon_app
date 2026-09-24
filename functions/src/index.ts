@@ -1,5 +1,5 @@
 import {randomBytes} from "node:crypto";
-import {createDeletionAwareCheckout, queueAccountDeletionSubscription, reserveAccountDeletionCheckoutIntent} from "./account_deletion_billing.js";
+import {createDeletionAwareCheckout, queueAccountDeletionSubscription, reserveAccountDeletionCheckoutIntent, requireOwnedAccountDeletionSubscription} from "./account_deletion_billing.js";
 import {accountDeletionRequested, requireAccountWritable} from "./account_deletion_guard.js";
 import { initializeApp } from "firebase-admin/app";
 export {
@@ -179,7 +179,9 @@ import {
   createOwnerBillingStripeMetadata,
   createOwnerBillingWebhookEvent,
   ownerBillingStripeMetadataContractVersion,
+  parseSupportedOwnerBillingStripeMetadata,
   requireMatchingOwnerBillingStripeMetadata,
+  requireMatchingSupportedOwnerBillingStripeMetadata,
 } from "./owner_billing_webhook.js";
 import {
   SubscriptionPortalConfigurationError,
@@ -638,6 +640,7 @@ async function reserveServerSubscriptionReturnContext(params: {
   restaurantAccountDocumentId: string;
   family: SubscriptionReturnFamily;
   validateAccount?: (accountData: DocumentData) => void;
+  stripe?: () => Stripe;
   checkout?: Readonly<{
     variant: OwnerBillingCheckoutVariant;
     priceId: string;
@@ -653,6 +656,34 @@ async function reserveServerSubscriptionReturnContext(params: {
     params.restaurantAccountDocumentId,
   );
   const billingStateRef = ownerBillingStateRef(params.ownerUid);
+
+  // A real old subscription can locate the existing customer, but account
+  // fields alone never authorize passing that customer to a new Checkout.
+  let existingCheckoutCustomer: {customerId: string; subscriptionId: string} | null = null;
+  if (params.checkout !== undefined) {
+    existingCheckoutCustomer = await db.runTransaction(async (tx) => {
+      const account = await tx.get(accountRef);
+      requireRestaurantAccountOwnership({ownerUid: params.ownerUid,
+        restaurantAccountDocumentId: params.restaurantAccountDocumentId,
+        accountExists: account.exists, accountData: account.data()});
+      await requireAccountWritable(db, tx, params.ownerUid);
+      const billing = await tx.get(billingStateRef);
+      const state = initializeOwnerBillingState(storedDocument(params.ownerUid, billing), params.ownerUid, new Date()).state;
+      if (state.stripeCustomerId !== null) return null;
+      const {stripeCustomerId: customerId, stripeSubscriptionId: subscriptionId} = account.data() ?? {};
+      if (customerId == null && subscriptionId == null) return null;
+      if (typeof customerId !== "string" || !/^cus_[A-Za-z0-9]+$/.test(customerId) ||
+          typeof subscriptionId !== "string" || !/^sub_[A-Za-z0-9]+$/.test(subscriptionId)) throw new Error("Billing association needs recovery");
+      return {customerId, subscriptionId};
+    });
+    if (existingCheckoutCustomer !== null) {
+      if (!params.stripe) throw new Error("Missing Checkout provider");
+      const subscription = await params.stripe().subscriptions.retrieve(existingCheckoutCustomer.subscriptionId, {}, {timeout: 10000, maxNetworkRetries: 0});
+      const metadata = parseSupportedOwnerBillingStripeMetadata(subscription.metadata);
+      requireOwnedAccountDeletionSubscription(subscription, {uid: params.ownerUid,
+        ...existingCheckoutCustomer, checkoutAttemptId: metadata.checkoutAttemptId});
+    }
+  }
 
   for (
     let attempt = 0;
@@ -689,6 +720,11 @@ async function reserveServerSubscriptionReturnContext(params: {
         let allowExistingTokenHash = false;
         let checkoutStripeCustomerId: string | null = null;
         if (params.checkout !== undefined) {
+          if (existingCheckoutCustomer !== null &&
+              (safeAccountData.stripeCustomerId !== existingCheckoutCustomer.customerId ||
+               safeAccountData.stripeSubscriptionId !== existingCheckoutCustomer.subscriptionId)) throw new Error("Billing association changed");
+          if (billingState.stripeCustomerId === null && existingCheckoutCustomer === null &&
+              (safeAccountData.stripeCustomerId != null || safeAccountData.stripeSubscriptionId != null)) throw new Error("Billing association changed");
           const checkoutDescriptor = {
             ...params.checkout,
             trialPeriodDays:
@@ -704,7 +740,7 @@ async function reserveServerSubscriptionReturnContext(params: {
             (billingState.lifecycleState === "subscription_known" &&
               billingState.billingPosture === "inactive")
           ) {
-            checkoutStripeCustomerId = billingState.stripeCustomerId;
+            checkoutStripeCustomerId = billingState.stripeCustomerId ?? existingCheckoutCustomer?.customerId ?? null;
             const requestFingerprint =
               ownerBillingCheckoutRequestFingerprint({
                 ...checkoutDescriptor,
@@ -723,7 +759,7 @@ async function reserveServerSubscriptionReturnContext(params: {
             );
           } else {
             const candidateCustomerIds = billingState.stripeCustomerId === null
-              ? [null]
+              ? [...new Set([existingCheckoutCustomer?.customerId ?? null, null])]
               : [billingState.stripeCustomerId, null];
             let matchedExistingRequest = false;
             for (const candidateCustomerId of candidateCustomerIds) {
@@ -4028,6 +4064,10 @@ async function syncRestaurantSubscriptionFromStripe(
   subscription: Stripe.Subscription,
   event: Stripe.Event,
 ): Promise<void> {
+  if (parseSupportedOwnerBillingStripeMetadata(subscription.metadata).checkoutAttemptId === null) {
+    await syncLegacyRestaurantSubscriptionFromStripe(subscription, event);
+    return;
+  }
   const stripeCustomerId =
     typeof subscription.customer === "string"
       ? subscription.customer
@@ -4144,6 +4184,57 @@ async function syncRestaurantSubscriptionFromStripe(
   });
 }
 
+/** Signed old Checkout events have real owner/customer/subscription authority,
+ * but no v2 attempt. Preserve that distinction and never synthesize a lifecycle. */
+async function syncLegacyRestaurantSubscriptionFromStripe(
+  subscription: Stripe.Subscription, event: Stripe.Event,
+  verifiedCheckoutCompletion = false,
+): Promise<void> {
+  const metadata = parseSupportedOwnerBillingStripeMetadata(subscription.metadata);
+  if (metadata.checkoutAttemptId !== null || !/^evt_[A-Za-z0-9]+$/.test(event.id) ||
+      !Number.isSafeInteger(event.created) || event.created <= 0) throw new Error("Invalid legacy billing event");
+  const customerId = typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id;
+  if (!customerId) throw new Error("Missing subscription customer");
+  requireOwnedAccountDeletionSubscription(subscription, {uid: metadata.ownerUid,
+    subscriptionId: subscription.id, customerId, checkoutAttemptId: null});
+  const accountRef = db.doc(`restaurant_accounts/${metadata.ownerUid}`);
+  const billingRef = ownerBillingStateRef(metadata.ownerUid);
+  await db.runTransaction(async (tx) => {
+    const [account, billing] = await Promise.all([tx.get(accountRef), tx.get(billingRef)]);
+    // Queue before deciding whether this event may change the current account.
+    // A delayed owned subscription still needs cancellation after cleanup.
+    const deleting = await queueAccountDeletionSubscription(db, tx, metadata.ownerUid, {
+      subscriptionId: subscription.id, customerId, checkoutAttemptId: null,
+    });
+    if (deleting) {
+      if (account.exists) tx.update(accountRef, {couponPostingEnabled: false, accountDeletionRequested: true});
+      return;
+    }
+    // An old event cannot overwrite a bound v2 subscription or recreate an
+    // account. A pending new Checkout must not silence the old subscription.
+    const currentBilling = parseOwnerBillingStateDocument(storedDocument(metadata.ownerUid, billing));
+    if (billing.exists && currentBilling === null) throw new Error("Invalid billing state");
+    if (!account.exists || currentBilling?.stripeSubscriptionId) return;
+    const data = account.data() ?? {};
+    if (!verifiedCheckoutCompletion && ((data.stripeCustomerId && data.stripeCustomerId !== customerId) ||
+        (data.stripeSubscriptionId && data.stripeSubscriptionId !== subscription.id))) {
+      throw new Error("Legacy billing association changed");
+    }
+    const status = subscription.status === "trialing" ? "trialing" :
+      subscription.status === "active" ? "active" : "inactive";
+    const enabled = status === "active" || status === "trialing";
+    tx.update(accountRef, {
+      subscriptionStatus: status, cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      trialEndsAt: status === "trialing" ? unixSecondsToTimestamp(subscription.trial_end) : null,
+      subscriptionEndsAt: unixSecondsToTimestamp((subscription as any).current_period_end) ??
+        unixSecondsToTimestamp(subscription.ended_at) ?? unixSecondsToTimestamp(subscription.canceled_at),
+      stripeCustomerId: customerId, stripeSubscriptionId: subscription.id,
+      billingPlanName: metadata.billingPlanName, couponPostingEnabled: enabled,
+      ...(enabled ? {hasUsedTrial: true} : {}), updatedAt: FieldValue.serverTimestamp(),
+    });
+  });
+}
+
 async function bindCompletedCheckoutSession(params: {
   session: Stripe.Checkout.Session;
   subscription: Stripe.Subscription;
@@ -4225,6 +4316,7 @@ export const createSubscriptionCheckoutSession = onCall(
     try {
       reserved = await reserveServerSubscriptionReturnContext({
         ownerUid,
+        stripe: () => new Stripe(stripeSecretKey.value(), {apiVersion: "2025-08-27.basil"}),
         restaurantAccountDocumentId:
           protocolRequest.restaurantAccountDocumentId,
         family: "checkout",
@@ -4376,6 +4468,7 @@ export const createCheckoutSession = onCall(
     try {
       reserved = await reserveServerSubscriptionReturnContext({
         ownerUid,
+        stripe: () => new Stripe(stripeSecret.value(), {apiVersion: "2025-08-27.basil"}),
         restaurantAccountDocumentId:
           protocolRequest.restaurantAccountDocumentId,
         family: "checkout",
@@ -4993,7 +5086,17 @@ export const stripeWebhook = onRequest(
             const subscription = await stripe.subscriptions.retrieve(
               session.subscription,
             );
-            await bindCompletedCheckoutSession({session, subscription});
+            if (subscription.id !== session.subscription) throw new Error("Checkout subscription identity mismatch");
+            const metadata = requireMatchingSupportedOwnerBillingStripeMetadata({
+              checkoutSessionMetadata: session.metadata, subscriptionMetadata: subscription.metadata,
+            });
+            if (metadata.checkoutAttemptId === null) {
+              const sessionCustomer = typeof session.customer === "string" ? session.customer : session.customer?.id;
+              const subscriptionCustomer = typeof subscription.customer === "string" ? subscription.customer : subscription.customer?.id;
+              if (!sessionCustomer || sessionCustomer !== subscriptionCustomer ||
+                  session.client_reference_id !== metadata.ownerUid) throw new Error("Checkout subscription identity mismatch");
+              await syncLegacyRestaurantSubscriptionFromStripe(subscription, event, true);
+            } else await bindCompletedCheckoutSession({session, subscription});
           }
           break;
         }

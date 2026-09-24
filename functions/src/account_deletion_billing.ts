@@ -5,7 +5,7 @@ import {HttpsError} from "firebase-functions/v2/https";
 import {accountDeletionPath} from "./account_deletion_guard.js";
 import type {AccountDeletionStepContext} from "./account_deletion_service.js";
 import {parseOwnerBillingStateDocument} from "./owner_billing_state_contract.js";
-import {parseOwnerBillingStripeMetadata} from "./owner_billing_webhook.js";
+import {parseOwnerBillingStripeMetadata, parseSupportedOwnerBillingStripeMetadata} from "./owner_billing_webhook.js";
 import {ownerBillingStripeIdempotencyKey} from "./owner_billing_lifecycle.js";
 
 export const deletionStripePriceId = "price_1TJKGjBwoT6e93tVkesJPfxD";
@@ -49,14 +49,16 @@ export function createAccountDeletionStripeAdapter(stripe: Stripe): AccountDelet
   };
 }
 
-/** Called only after exact server v2 metadata validation. Queues every owned
+/** Called only after exact supported server metadata validation. Queues every owned
  * subscription even when the normal latest-subscription ledger rejects a late
  * event. The job revision is a completion barrier, not event ordering. */
 export async function queueAccountDeletionSubscription(
   db: Firestore, tx: Transaction, uid: string,
-  value: {subscriptionId: string; customerId: string; checkoutAttemptId: string},
+  value: {subscriptionId: string; customerId: string; checkoutAttemptId: string | null},
 ): Promise<boolean> {
   if (!stripeId(value.subscriptionId, "sub") || !stripeId(value.customerId, "cus")) throw new Error("Invalid billing identity");
+  if (value.checkoutAttemptId !== null &&
+      (typeof value.checkoutAttemptId !== "string" || !/^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$/.test(value.checkoutAttemptId))) throw new Error("Invalid Checkout attempt");
   const jobRef = db.doc(accountDeletionPath(uid));
   const job = await tx.get(jobRef);
   if (!job.exists) return false;
@@ -136,8 +138,9 @@ export async function createDeletionAwareCheckout(
   return session;
 }
 
-function ownedSubscription(raw: Stripe.Subscription, expected: {uid: string; subscriptionId: string; customerId: string; checkoutAttemptId: string}): void {
-  const metadata = parseOwnerBillingStripeMetadata(raw.metadata);
+export function requireOwnedAccountDeletionSubscription(raw: Stripe.Subscription, expected: {uid: string; subscriptionId: string; customerId: string; checkoutAttemptId: string | null}): void {
+  const metadata = parseSupportedOwnerBillingStripeMetadata(raw.metadata);
+  if (!stripeId(expected.subscriptionId, "sub") || !stripeId(expected.customerId, "cus")) throw new Error("Invalid billing identity");
   if (!metadata || raw.id !== expected.subscriptionId || customer(raw) !== expected.customerId ||
       metadata.ownerUid !== expected.uid || metadata.restaurantAccountId !== expected.uid || metadata.checkoutAttemptId !== expected.checkoutAttemptId) throw new Error("Subscription ownership is unproven");
   if (terminal(raw.status)) return;
@@ -162,7 +165,28 @@ export async function reconcileAccountDeletionBilling(context: AccountDeletionSt
   const billing = parseOwnerBillingStateDocument(snapshot.exists ? {id: job.uid, data: snapshot.data()!} : null);
   const account = await db.doc(`restaurant_accounts/${job.uid}`).get();
   if (snapshot.exists && !billing) throw new Error("Invalid billing state");
-  if (!billing && account.exists && ["stripeCustomerId", "stripeSubscriptionId"].some((field) => account.get(field))) throw new Error("Billing association needs recovery");
+  // Actual old Checkout did not create a v2 private lifecycle. The existing
+  // account association locates a subscription; its provider metadata must
+  // independently prove the same owner/customer/subscription before queuing.
+  const separateAccountAssociation = account.exists &&
+    ((account.get("stripeCustomerId") != null && account.get("stripeCustomerId") !== billing?.stripeCustomerId) ||
+      (account.get("stripeSubscriptionId") != null && account.get("stripeSubscriptionId") !== billing?.stripeSubscriptionId));
+  const oldCustomerId = separateAccountAssociation ? account.get("stripeCustomerId") : null;
+  const oldSubscriptionId = separateAccountAssociation ? account.get("stripeSubscriptionId") : null;
+  if (oldCustomerId != null || oldSubscriptionId != null) {
+    if (!stripeId(oldCustomerId, "cus") || !stripeId(oldSubscriptionId, "sub")) throw new Error("Billing association needs recovery");
+    const subscription = await adapter.retrieveSubscription(oldSubscriptionId);
+    const metadata = parseSupportedOwnerBillingStripeMetadata(subscription.metadata);
+    requireOwnedAccountDeletionSubscription(subscription, {uid: job.uid, subscriptionId: oldSubscriptionId,
+      customerId: oldCustomerId, checkoutAttemptId: metadata.checkoutAttemptId});
+    await db.runTransaction(async (tx) => {
+      await context.assertLease(tx);
+      const current = await tx.get(account.ref);
+      if (current.get("stripeCustomerId") !== oldCustomerId || current.get("stripeSubscriptionId") !== oldSubscriptionId) throw new Error("Billing association changed");
+      await queueAccountDeletionSubscription(db, tx, job.uid, {subscriptionId: oldSubscriptionId,
+        customerId: oldCustomerId, checkoutAttemptId: metadata.checkoutAttemptId});
+    });
+  }
   if (billing?.stripeSubscriptionId && billing.stripeCustomerId && billing.checkoutAttemptId) {
     await db.runTransaction(async (tx) => {
       await context.assertLease(tx);
@@ -175,7 +199,8 @@ export async function reconcileAccountDeletionBilling(context: AccountDeletionSt
     await db.runTransaction(async (tx) => { await context.assertLease(tx); });
     // Retrieve first on EVERY retry, including response-loss after cancellation.
     const subscription = await adapter.retrieveSubscription(intent.id);
-    ownedSubscription(subscription, {uid: job.uid, subscriptionId: intent.id, customerId: value.customerId, checkoutAttemptId: value.checkoutAttemptId});
+    if (value.ownerUid !== job.uid || value.subscriptionId !== intent.id) throw new Error("Cancellation intent ownership changed");
+    requireOwnedAccountDeletionSubscription(subscription, {uid: job.uid, subscriptionId: intent.id, customerId: value.customerId, checkoutAttemptId: value.checkoutAttemptId});
     if (terminal(subscription.status)) {
       await checkpoint(context, intent.ref.path, {terminal: true, confirmedStatus: subscription.status, confirmedAt: FieldValue.serverTimestamp()});
     } else if (value.phase !== "cancel") {
@@ -187,18 +212,19 @@ export async function reconcileAccountDeletionBilling(context: AccountDeletionSt
     }
     return false;
   }
-  if (billing?.stripeCustomerId && (job.billingScanCustomer !== billing.stripeCustomerId || job.billingScanComplete !== true)) {
-    const after = job.billingScanCustomer === billing.stripeCustomerId ? job.billingScanAfter : undefined;
-    const page = await adapter.listSubscriptions(billing.stripeCustomerId, typeof after === "string" ? after : undefined);
+  const scanCustomerId = billing?.stripeCustomerId ?? oldCustomerId;
+  if (scanCustomerId && (job.billingScanCustomer !== scanCustomerId || job.billingScanComplete !== true)) {
+    const after = job.billingScanCustomer === scanCustomerId ? job.billingScanAfter : undefined;
+    const page = await adapter.listSubscriptions(scanCustomerId, typeof after === "string" ? after : undefined);
     if (page.data.length > 25 || (page.has_more && page.data.length === 0)) throw new Error("Invalid bounded subscription page");
     for (const subscription of page.data) {
       let metadata;
-      try { metadata = parseOwnerBillingStripeMetadata(subscription.metadata); } catch { continue; }
+      try { metadata = parseSupportedOwnerBillingStripeMetadata(subscription.metadata); } catch { continue; }
       // Reading a shared customer's page never authorizes canceling all rows.
-      if (metadata.ownerUid !== job.uid || metadata.restaurantAccountId !== job.uid || customer(subscription) !== billing.stripeCustomerId) continue;
-      await db.runTransaction(async (tx) => { await context.assertLease(tx); await queueAccountDeletionSubscription(db, tx, job.uid, {subscriptionId: subscription.id, customerId: billing.stripeCustomerId!, checkoutAttemptId: metadata.checkoutAttemptId}); });
+      if (metadata.ownerUid !== job.uid || metadata.restaurantAccountId !== job.uid || customer(subscription) !== scanCustomerId) continue;
+      await db.runTransaction(async (tx) => { await context.assertLease(tx); await queueAccountDeletionSubscription(db, tx, job.uid, {subscriptionId: subscription.id, customerId: scanCustomerId, checkoutAttemptId: metadata.checkoutAttemptId}); });
     }
-    await checkpoint(context, accountDeletionPath(job.uid), {billingScanCustomer: billing.stripeCustomerId, billingScanAfter: page.data.length ? page.data[page.data.length - 1].id : null, billingScanComplete: !page.has_more});
+    await checkpoint(context, accountDeletionPath(job.uid), {billingScanCustomer: scanCustomerId, billingScanAfter: page.data.length ? page.data[page.data.length - 1].id : null, billingScanComplete: !page.has_more});
     return false;
   }
   if (billing?.checkoutSessionId && billing.checkoutAttemptId) {

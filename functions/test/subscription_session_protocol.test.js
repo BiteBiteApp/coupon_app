@@ -50,7 +50,6 @@ function createHarness() {
       email: canaries.email,
       hasUsedTrial: false,
       profileField: "preserve-profile",
-      stripeCustomerId: canaries.customer,
     },
     accountExists: true,
     accountLookupFailure: null,
@@ -100,7 +99,6 @@ function createHarness() {
       email: canaries.email,
       hasUsedTrial: false,
       profileField: "preserve-profile",
-      stripeCustomerId: canaries.customer,
     };
     state.accountExists = true;
     state.deletionRequested = false;
@@ -146,6 +144,7 @@ function createHarness() {
   }
 
   function seedKnownBillingState(rawStripeStatus = "active") {
+    state.accountDocument.stripeCustomerId = canaries.customer;
     const now = new Date();
     const checkoutAttemptId = "attempt_session_protocol_checkout";
     state.ownerBillingDocument = buildOwnerBillingStateDocument({
@@ -1122,6 +1121,10 @@ test("production createCheckoutSession preserves its complete trial-eligible Str
   );
   assert.deepEqual(harness.state.dbCalls, [
     {
+      operation: "get", // ownership/legacy-association precheck
+      path: `restaurant_accounts/${canaries.uid}`,
+    },
+    {
       operation: "get",
       path: `restaurant_accounts/${canaries.uid}`,
     },
@@ -1222,6 +1225,10 @@ test("compatibility createSubscriptionCheckoutSession tokenizes while preserving
     false,
   );
   assert.deepEqual(harness.state.dbCalls, [
+    {
+      operation: "get", // ownership/legacy-association precheck
+      path: `restaurant_accounts/${canaries.uid}`,
+    },
     {
       operation: "get",
       path: `restaurant_accounts/${canaries.uid}`,
@@ -1503,6 +1510,16 @@ test("exact terminal known Stripe statuses start one fresh pending attempt throu
   }
 });
 
+test("Checkout cannot adopt a customer-only legacy association without subscription ownership", async () => {
+  harness.state.accountDocument.stripeCustomerId = canaries.customer;
+  await assert.rejects(() => harness.createCheckoutSession(authenticatedRequest()), {code: "internal"});
+  assert.deepEqual(harness.state.checkoutCalls, []);
+  assert.deepEqual(harness.state.stripeConstructorCalls, []);
+  assert.deepEqual(harness.state.ownerBillingWrites, []);
+  assert.deepEqual(harness.state.ledgerWrites, []);
+  assert.equal(harness.state.randomBytesCalls, 0);
+});
+
 test("the Customer Portal requires a known subscription and an exact current customer", async () => {
   const unavailableFixtures = [
     () => {},
@@ -1516,6 +1533,7 @@ test("the Customer Portal requires a known subscription and an exact current cus
 
   for (const configure of unavailableFixtures) {
     harness.reset();
+    harness.state.accountDocument.stripeCustomerId = canaries.customer;
     configure();
     await assert.rejects(
       () => harness.createCustomerPortalSession(authenticatedRequest()),
@@ -2020,6 +2038,7 @@ test("Stripe failure preserves one unready return context and one unknown retrya
 
 test("mark-ready failure withholds the Stripe URL and leaves an unusable unready context", async () => {
   harness.state.transactionBehaviors.push(
+    {type: "commit"}, // read-only ownership/legacy-association precheck
     {type: "commit"}, // reserve billing/return context
     {type: "commit"}, // persist exact outbound intent
     {type: "commit"}, // checkpoint returned session

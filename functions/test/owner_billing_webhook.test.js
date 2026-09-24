@@ -97,6 +97,58 @@ test("Checkout and Subscription metadata use one exact generation-free schema", 
   ]);
 });
 
+test("supported metadata recognizes only genuine old producer shapes without inventing an attempt", () => {
+  const old = {ownerUid: "owner-1", restaurantAccountId: "owner-1", source: "bitesaver_subscription"};
+  for (const raw of [old, {...old, billingPlanName: "coupon_monthly"}]) {
+    const parsed = webhook.parseSupportedOwnerBillingStripeMetadata(raw);
+    assert.equal(parsed.ownerUid, "owner-1");
+    assert.equal(parsed.checkoutAttemptId, null);
+    assert.equal(parsed.contractVersion, null);
+    assert.equal(parsed.billingPlanName, "coupon_monthly");
+    assertContractError(() => webhook.parseOwnerBillingStripeMetadata(raw), "invalid_metadata");
+    assert.deepEqual(webhook.requireMatchingSupportedOwnerBillingStripeMetadata({checkoutSessionMetadata: raw, subscriptionMetadata: raw}), parsed);
+  }
+  assert.deepEqual(webhook.parseSupportedOwnerBillingStripeMetadata(metadata()), metadata());
+});
+
+test("supported metadata rejects missing ownership, partial v2, foreign, extra and conflicting values", () => {
+  const old = {ownerUid: "owner-1", restaurantAccountId: "owner-1", source: "bitesaver_subscription"};
+  for (const raw of [null, {}, {...old, ownerUid: ""}, {...old, ownerUid: "bad/id"},
+    {...old, restaurantAccountId: "other"}, {...old, source: "foreign"},
+    {...old, billingPlanName: "foreign"}, {...old, billingPlanName: null},
+    {...old, checkoutAttemptId: null}, {...old, contractVersion: null},
+    {...old, checkoutAttemptId: "invented"}, {...old, extra: "field"},
+    {ownerUid: "owner-1", source: "bitesaver_subscription"}]) {
+    assertContractError(() => webhook.parseSupportedOwnerBillingStripeMetadata(raw), "invalid_metadata");
+  }
+  for (const other of [metadata(), {...old, ownerUid: "other", restaurantAccountId: "other"}]) {
+    assertContractError(() => webhook.requireMatchingSupportedOwnerBillingStripeMetadata({checkoutSessionMetadata: old, subscriptionMetadata: other}), "invalid_metadata");
+  }
+});
+
+test("worker validates old and v2 ownership before accepting provider cancellation", () => {
+  const worker = require("../lib/account_deletion_billing.js");
+  const old = {ownerUid: "owner-1", restaurantAccountId: "owner-1", source: "bitesaver_subscription"};
+  for (const raw of [old, {...old, billingPlanName: "coupon_monthly"}, metadata()]) {
+    const attempt = webhook.parseSupportedOwnerBillingStripeMetadata(raw).checkoutAttemptId;
+    const expected = {uid: "owner-1", subscriptionId: "sub_owned", customerId: "cus_owned", checkoutAttemptId: attempt};
+    const subscription = {id: "sub_owned", customer: "cus_owned", metadata: raw, status: "canceled"};
+    assert.doesNotThrow(() => worker.requireOwnedAccountDeletionSubscription(subscription, expected));
+    assert.doesNotThrow(() => worker.requireOwnedAccountDeletionSubscription({...subscription, status: "incomplete_expired"}, expected));
+    for (const bad of [{...subscription, customer: "cus_other"}, {...subscription, id: "sub_other"},
+      {...subscription, metadata: {}}, {...subscription, metadata: {...raw, ownerUid: "other"}}]) {
+      assert.throws(() => worker.requireOwnedAccountDeletionSubscription(bad, expected));
+    }
+    assert.throws(() => worker.requireOwnedAccountDeletionSubscription(subscription, {...expected, checkoutAttemptId: attempt === null ? "invented" : null}));
+    const active = {...subscription, status: "active", items: {has_more: false, data: [{price: {id: worker.deletionStripePriceId, recurring: {usage_type: "licensed"}}, quantity: 1}]}};
+    assert.doesNotThrow(() => worker.requireOwnedAccountDeletionSubscription(active, expected));
+    for (const change of [{schedule: "sub_sched"}, {transfer_data: {}}, {items: {...active.items, has_more: true}},
+      {items: {has_more: false, data: [{price: {id: "price_foreign", recurring: {usage_type: "licensed"}}, quantity: 1}]}}]) {
+      assert.throws(() => worker.requireOwnedAccountDeletionSubscription({...active, ...change}, expected));
+    }
+  }
+});
+
 test("metadata parsing is strict and Checkout/Subscription copies must match", () => {
   assert.deepEqual(webhook.parseOwnerBillingStripeMetadata(metadata()), metadata());
   const missingSource = metadata();

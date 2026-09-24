@@ -296,6 +296,50 @@ export function requireMatchingOwnerBillingStripeMetadata(params: {
   return subscription;
 }
 
+/** The two deployed Checkout producers predate v2 attempt metadata. Null is
+ * genuine absence, never a manufactured attempt or permission to adopt v2. */
+export type SupportedOwnerBillingStripeMetadata = OwnerBillingStripeMetadata | Readonly<{
+  contractVersion: null;
+  ownerUid: string;
+  restaurantAccountId: string;
+  checkoutAttemptId: null;
+  billingPlanName: typeof ownerBillingStripeMetadataPlan;
+  source: typeof ownerBillingStripeMetadataSource;
+}>;
+
+export function parseSupportedOwnerBillingStripeMetadata(
+  raw: unknown,
+): SupportedOwnerBillingStripeMetadata {
+  if (!isPlainRecord(raw)) invalidMetadata();
+  // Any v2 field requires the complete, unchanged strict v2 contract.
+  if ("contractVersion" in raw || "checkoutAttemptId" in raw) {
+    return parseOwnerBillingStripeMetadata(raw);
+  }
+  const oldKeys = ["ownerUid", "restaurantAccountId", "source"];
+  if (!hasExactKeys(raw, oldKeys) &&
+      !hasExactKeys(raw, [...oldKeys, "billingPlanName"])) invalidMetadata();
+  const ownerUid = requireOwnerUid(raw.ownerUid);
+  if (requireOwnerUid(raw.restaurantAccountId) !== ownerUid ||
+      raw.source !== ownerBillingStripeMetadataSource ||
+      ("billingPlanName" in raw && raw.billingPlanName !== ownerBillingStripeMetadataPlan)) invalidMetadata();
+  return Object.freeze({contractVersion: null, ownerUid,
+    restaurantAccountId: ownerUid, checkoutAttemptId: null,
+    billingPlanName: ownerBillingStripeMetadataPlan,
+    source: ownerBillingStripeMetadataSource});
+}
+
+export function requireMatchingSupportedOwnerBillingStripeMetadata(params: {
+  checkoutSessionMetadata: unknown;
+  subscriptionMetadata: unknown;
+}): SupportedOwnerBillingStripeMetadata {
+  const session = parseSupportedOwnerBillingStripeMetadata(params.checkoutSessionMetadata);
+  const subscription = parseSupportedOwnerBillingStripeMetadata(params.subscriptionMetadata);
+  for (const key of metadataKeys) {
+    if (session[key] !== subscription[key]) invalidMetadata();
+  }
+  return subscription;
+}
+
 function effectivePayloadFingerprint(params: {
   metadata: OwnerBillingStripeMetadata;
   stripeCustomerId: string;
