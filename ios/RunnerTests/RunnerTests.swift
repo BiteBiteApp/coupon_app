@@ -82,6 +82,64 @@ final class RunnerTests: XCTestCase {
     XCTAssertEqual(BiteSaverBase64URL.encode(hash), "lW6orH7ejxjIP5yOgRBdnTpyuHC6UhDK0uKJQrAEEyk")
   }
 
+  func testUnicodeUidBoundaryPreservesExactTranscriptBytes() throws {
+    for uid in [
+      "ordinary-user", String(repeating: "a", count: 128),
+      String(repeating: "é", count: 128), String(repeating: "界", count: 128),
+      String(repeating: "😀", count: 64), "e" + String(repeating: "\u{301}", count: 127),
+    ] {
+      XCTAssertNoThrow(try BiteSaverDeviceProofTranscript.validateAuthenticatedUserId(uid))
+      let transcript = uidTranscript(uid)
+      XCTAssertEqual(Data(try XCTUnwrap(transcript.authenticatedUserId).utf8), Data(uid.utf8))
+      XCTAssertEqual(try transcript.encode(), try uidTranscript(uid).encode())
+    }
+    let maximum = uidTranscript(String(repeating: "界", count: 128))
+    XCTAssertEqual(try maximum.encode().count, 829)
+    XCTAssertEqual(
+      hex(try maximum.sha256()),
+      "58469f9264b56a5587c3e24d244414a3c57dc2fe34360b2db17090e45364fabf"
+    )
+    XCTAssertNotEqual(
+      try uidTranscript(String(repeating: "é", count: 64)).sha256(),
+      try uidTranscript(String(repeating: "e\u{301}", count: 64)).sha256()
+    )
+  }
+
+  func testUnicodeUidRejectsActualUtf16OverLimit() {
+    // Swift String.count counts graphemes; Firebase's supported server counts UTF-16 units.
+    for uid in [
+      "", String(repeating: "a", count: 129), String(repeating: "界", count: 129),
+      String(repeating: "😀", count: 65), String(repeating: "界", count: 127) + "😀",
+      "e" + String(repeating: "\u{301}", count: 128),
+    ] {
+      XCTAssertThrowsError(try BiteSaverDeviceProofTranscript.validateAuthenticatedUserId(uid))
+      XCTAssertThrowsError(try uidTranscript(uid).encode())
+    }
+  }
+
+  private func uidTranscript(_ uid: String) -> BiteSaverDeviceProofTranscript {
+    BiteSaverDeviceProofTranscript(
+      protocolVersion: BiteSaverDeviceProofTranscript.protocolVersion,
+      proofKind: .androidEnrollment,
+      platform: "android",
+      purpose: BiteSaverDeviceProofTranscript.purpose,
+      challengeId: "bsdc_AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8",
+      challengeBytes: Data((0..<32).map(UInt8.init)),
+      requestFingerprint: Data((0..<32).map(UInt8.init)),
+      authenticatedUserId: uid,
+      origin: "discovery",
+      logicalRequestId: "device-use-request-0001",
+      issuedAtMillis: 1_789_617_600_000,
+      validFromMillis: 1_789_617_600_000,
+      expiresAtMillis: 1_789_617_720_000,
+      credentialId: "bsic_YcxipHbd8t0dF7rGAx_n9Q_XEbD0WVoVDuhK_wudtPI",
+      androidInstallationPublicKeySha256: Data((0x20..<0x40).map(UInt8.init)),
+      androidSsaidUtf8: Data("0123456789abcdef".utf8),
+      iosRecoveryPublicKeyX963: nil,
+      iosAppAttestKeyId: nil
+    )
+  }
+
   func testBase64UrlRejectsPaddingAndNonCanonicalInput() throws {
     let bytes = Data((0..<32).map(UInt8.init))
     let encoded = BiteSaverBase64URL.encode(bytes)
@@ -365,12 +423,20 @@ final class RunnerTests: XCTestCase {
           keyStore: MemoryAppAttestKeyStore()
         )
       )
-      let request = bridgeProofArguments(issuedAtMillis: issuedAt)
+      var request = bridgeProofArguments(issuedAtMillis: issuedAt)
+      // Exercise the wide UID through the real native codec as well as the contract tests.
+      if issuedAt == 1_789_617_600_000 {
+        request["authenticatedUserId"] = String(repeating: "界", count: 128)
+      }
       let wire = FlutterStandardMethodCodec.sharedInstance().encode(
         FlutterMethodCall(methodName: "createEnrollmentProof", arguments: request)
       )
       let decoded = FlutterStandardMethodCodec.sharedInstance().decodeMethodCall(wire)
       let decodedArguments = try XCTUnwrap(decoded.arguments as? [String: Any])
+      if let uid = request["authenticatedUserId"] as? String {
+        let decodedUid = try XCTUnwrap(decodedArguments["authenticatedUserId"] as? String)
+        XCTAssertEqual(Data(decodedUid.utf8), Data(uid.utf8))
+      }
       let decodedInteger = try XCTUnwrap(decodedArguments["issuedAtMillis"] as? NSNumber)
       XCTAssertNotEqual(CFGetTypeID(decodedInteger), CFBooleanGetTypeID())
       XCTAssertEqual(decodedInteger.int64Value, issuedAt)

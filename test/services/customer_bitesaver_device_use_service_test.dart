@@ -498,6 +498,7 @@ void main() {
   );
 
   test('identical ambiguous retry reuses exact challenge and proof', () async {
+    final uid = '界' * 128;
     var nowMillis = 2000;
     var nativeUseCalls = 0;
     installAvailableAndroidBridge(
@@ -517,7 +518,7 @@ void main() {
         if (name ==
             CustomerBiteSaverDeviceProofContract.issueChallengeCallableName) {
           issueCalls += 1;
-          return challenge();
+          return challenge(authenticatedUserId: uid);
         }
         useCalls += 1;
         payloads.add(jsonEncode(payload));
@@ -532,7 +533,7 @@ void main() {
     );
 
     await expectLater(
-      service.useCoupon(request: target, authenticatedUserId: null),
+      service.useCoupon(request: target, authenticatedUserId: uid),
       throwsA(
         isA<CustomerBiteSaverDeviceUseException>().having(
           (error) => error.kind,
@@ -543,7 +544,7 @@ void main() {
     );
     final recovered = await service.useCoupon(
       request: target,
-      authenticatedUserId: null,
+      authenticatedUserId: uid,
     );
 
     expect(recovered.status, CustomerBiteSaverDeviceUseStatus.denied);

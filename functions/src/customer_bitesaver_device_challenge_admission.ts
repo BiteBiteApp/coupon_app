@@ -3,6 +3,7 @@ import {createHash, randomBytes, timingSafeEqual} from "node:crypto";
 import {
   customerBiteSaverDeviceChallengeCleanupDelayMilliseconds,
   customerBiteSaverDeviceChallengeLifetimeMilliseconds,
+  isValidCustomerBiteSaverDeviceProofUserId,
   type CustomerBiteSaverDeviceChallengeAdmission,
   type CustomerBiteSaverDevicePlatform,
 } from "./customer_bitesaver_device_proof_contract.js";
@@ -125,8 +126,10 @@ function parseAllowance(document: CustomerBiteSaverStoredDocument | null, handle
     data.admissionHandle !== handle || !handlePattern.test(handle) ||
     (data.scope !== "guestSession" && data.scope !== "signedAccount") ||
     typeof data.scopeSubject !== "string" || data.scopeSubject.length === 0 ||
-    Buffer.byteLength(data.scopeSubject, "utf8") > 128 ||
-    (data.scope === "guestSession" && !/^bss_[A-Za-z0-9_-]{43}$/u.test(data.scopeSubject)) ||
+    (data.scope === "signedAccount"
+      ? !isValidCustomerBiteSaverDeviceProofUserId(data.scopeSubject)
+      : Buffer.byteLength(data.scopeSubject, "utf8") > 128 ||
+        !/^bss_[A-Za-z0-9_-]{43}$/u.test(data.scopeSubject)) ||
     !Array.isArray(data.reservations) || data.reservations.length === 0 ||
     data.reservations.length > customerBiteSaverDeviceChallengeAllowanceSize) return invalid();
   const seen = new Set<string>();

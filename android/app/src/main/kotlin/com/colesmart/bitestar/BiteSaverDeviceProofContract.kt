@@ -14,7 +14,10 @@ internal const val BITE_SAVER_DEVICE_PROOF_MINIMUM_API_LEVEL = 26
 
 private const val MAX_SAFE_INTEGER = 9_007_199_254_740_991L
 private const val MAX_CHALLENGE_LIFETIME_MILLIS = 120_000L
-private const val MAX_AUTHENTICATED_USER_ID_BYTES = 128
+// Firebase Admin's UID/token subject contract counts UTF-16 code units.
+private const val MAX_AUTHENTICATED_USER_ID_UNITS = 128
+// A well-formed UTF-16 unit needs at most 3 UTF-8 bytes (a pair needs 4).
+private const val MAX_AUTHENTICATED_USER_ID_BYTES = MAX_AUTHENTICATED_USER_ID_UNITS * 3
 private const val MAX_TEXT_BYTES = 256
 private val challengeIdPattern = Regex("^bsdc_[A-Za-z0-9_-]{43}$")
 private val logicalRequestIdPattern = Regex("^[A-Za-z0-9_-]{16,128}$")
@@ -164,11 +167,10 @@ internal object BiteSaverDeviceProofRequestParser {
         }
     }
 
-    private fun requireAuthenticatedUserId(value: String) {
-        val encoded = value.toByteArray(StandardCharsets.UTF_8)
+    internal fun requireAuthenticatedUserId(value: String) {
         if (
             value.isEmpty() ||
-            encoded.size > MAX_AUTHENTICATED_USER_ID_BYTES ||
+            value.length > MAX_AUTHENTICATED_USER_ID_UNITS ||
             value.trim() != value ||
             value.any { it.code <= 0x1f || it.code == 0x7f } ||
             value.contains('/') ||
@@ -177,6 +179,21 @@ internal object BiteSaverDeviceProofRequestParser {
             (value.startsWith("__") && value.endsWith("__"))
         ) {
             invalid()
+        }
+        // UTF-8 encoding replaces lone surrogates; reject them before signing
+        // so two different malformed identities cannot bind the same bytes.
+        var index = 0
+        while (index < value.length) {
+            val unit = value[index]
+            if (Character.isHighSurrogate(unit)) {
+                if (index + 1 >= value.length || !Character.isLowSurrogate(value[index + 1])) {
+                    invalid()
+                }
+                index += 2
+            } else {
+                if (Character.isLowSurrogate(unit)) invalid()
+                index += 1
+            }
         }
     }
 
@@ -254,7 +271,7 @@ internal object BiteSaverCanonicalTranscript {
             data.writeText(input.challenge.challengeId)
             data.writeBytesWithLength(input.challenge.challengeBytes)
             data.writeBytesWithLength(input.challenge.requestFingerprint)
-            data.writeNullableText(input.challenge.authenticatedUserId)
+            data.writeNullableText(input.challenge.authenticatedUserId, MAX_AUTHENTICATED_USER_ID_BYTES)
             data.writeText(input.challenge.origin)
             data.writeText(input.challenge.logicalRequestId)
             data.writeLong(input.challenge.issuedAtMillis)
@@ -273,6 +290,9 @@ internal object BiteSaverCanonicalTranscript {
         MessageDigest.getInstance("SHA-256").digest(transcript)
 
     private fun validate(input: BiteSaverAndroidTranscriptInput) {
+        input.challenge.authenticatedUserId?.let {
+            BiteSaverDeviceProofRequestParser.requireAuthenticatedUserId(it)
+        }
         if (
             !credentialIdPattern.matches(input.credentialId) ||
             input.installationPublicKeySha256.size != 32 ||
@@ -295,9 +315,9 @@ internal object BiteSaverCanonicalTranscript {
         }
     }
 
-    private fun DataOutputStream.writeText(value: String) {
+    private fun DataOutputStream.writeText(value: String, maximumBytes: Int = MAX_TEXT_BYTES) {
         val encoded = value.toByteArray(StandardCharsets.UTF_8)
-        if (encoded.size > MAX_TEXT_BYTES) {
+        if (encoded.size > maximumBytes) {
             throw BiteSaverDeviceContractException()
         }
         writeBytesWithLength(encoded)
@@ -308,12 +328,12 @@ internal object BiteSaverCanonicalTranscript {
         write(value)
     }
 
-    private fun DataOutputStream.writeNullableText(value: String?) {
+    private fun DataOutputStream.writeNullableText(value: String?, maximumBytes: Int = MAX_TEXT_BYTES) {
         if (value == null) {
             writeByte(0)
         } else {
             writeByte(1)
-            writeText(value)
+            writeText(value, maximumBytes)
         }
     }
 

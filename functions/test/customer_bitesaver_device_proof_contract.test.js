@@ -107,6 +107,43 @@ test("canonical transcript and assertion envelope match immutable cross-language
   );
 });
 
+test("Firebase UID UTF-16 boundaries preserve exact UTF-8 transcript identity", () => {
+  const {isUid} = require("../node_modules/firebase-admin/lib/utils/validator.js");
+  const makeTranscript = (uid) => buildCustomerBiteSaverDeviceProofTranscript({
+    challenge: {...challenge, authenticatedUserId: uid},
+    proofKind: "androidEnrollment",
+    credentialId: customerBiteSaverCredentialId("android", keyHash),
+    androidInstallationPublicKeySha256: keyHash,
+    androidSsaid: "0123456789abcdef",
+  });
+  const uids = ["ordinary-user", "a".repeat(128), "é".repeat(128),
+    "界".repeat(128), "😀".repeat(64), "e" + "\u0301".repeat(127)];
+  for (const uid of uids) {
+    assert.equal(isUid(uid), true);
+    const parsed = parseCustomerBiteSaverDeviceUseChallenge({...challenge, authenticatedUserId: uid});
+    assert.equal(parsed.authenticatedUserId, uid);
+    const transcript = makeTranscript(uid);
+    const encoded = encodeCustomerBiteSaverDeviceProofTranscript(transcript);
+    assert.ok(encoded.includes(Buffer.from(uid, "utf8")));
+    assert.deepEqual(encoded, encodeCustomerBiteSaverDeviceProofTranscript(makeTranscript(uid)));
+  }
+  const maximum = makeTranscript("界".repeat(128));
+  assert.equal(encodeCustomerBiteSaverDeviceProofTranscript(maximum).length, 829);
+  assert.equal(customerBiteSaverDeviceProofTranscriptSha256(maximum).toString("hex"),
+    "58469f9264b56a5587c3e24d244414a3c57dc2fe34360b2db17090e45364fabf");
+  // Canonically equivalent Unicode spellings are still distinct Firebase UIDs.
+  assert.notDeepEqual(customerBiteSaverDeviceProofTranscriptSha256(makeTranscript("é".repeat(64))),
+    customerBiteSaverDeviceProofTranscriptSha256(makeTranscript("e\u0301".repeat(64))));
+  for (const uid of ["", "a".repeat(129), "界".repeat(129), "😀".repeat(65),
+    "界".repeat(127) + "😀", "\ud800", "x\ud800", "\udc00", "\ud800x"]) {
+    assert.throws(() => parseCustomerBiteSaverDeviceUseChallenge({...challenge, authenticatedUserId: uid}),
+      contractError("invalid-argument"));
+    assert.throws(() => encodeCustomerBiteSaverDeviceProofTranscript({
+      ...maximum, authenticatedUserId: uid,
+    }), contractError("failed-precondition"));
+  }
+});
+
 test("raw transcript encoder independently rejects an overlong lifetime", () => {
   const transcript = buildCustomerBiteSaverDeviceProofTranscript({
     challenge,

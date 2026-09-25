@@ -74,7 +74,7 @@ private struct BiteSaverProofRequest {
     if authValue is NSNull {
       authenticatedUserId = nil
     } else {
-      guard let userId = authValue as? String, userId.utf8.count <= 128 else {
+      guard let userId = authValue as? String else {
         throw BiteSaverDeviceProofContractError.invalidField("authenticatedUserId")
       }
       authenticatedUserId = userId

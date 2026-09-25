@@ -41,6 +41,60 @@ class BiteSaverDeviceProofContractTest {
     }
 
     @Test
+    fun unicodeUidBoundariesPreserveExactTranscriptBytes() {
+        val valid = listOf(
+            "ordinary-user", "a".repeat(128), "é".repeat(128), "界".repeat(128),
+            "😀".repeat(64), "e" + "\u0301".repeat(127),
+        )
+        for (uid in valid) {
+            val parsed = BiteSaverDeviceProofRequestParser.parseEnrollment(
+                enrollmentArguments() + ("authenticatedUserId" to uid),
+            )
+            assertEquals(uid, parsed.challenge.authenticatedUserId)
+            assertArrayEquals(uidTranscript(uid), uidTranscript(uid))
+        }
+        val maximum = uidTranscript("界".repeat(128))
+        assertEquals(829, maximum.size)
+        assertEquals(
+            "58469f9264b56a5587c3e24d244414a3c57dc2fe34360b2db17090e45364fabf",
+            BiteSaverDeviceEncoding.lowerHex(BiteSaverCanonicalTranscript.sha256(maximum)),
+        )
+        assertFalse(
+            BiteSaverCanonicalTranscript.sha256(uidTranscript("é".repeat(64))).contentEquals(
+                BiteSaverCanonicalTranscript.sha256(uidTranscript("e\u0301".repeat(64))),
+            ),
+        )
+    }
+
+    @Test
+    fun unicodeUidRejectsOverLimitAndMalformedUtf16BeforeEncoding() {
+        for (uid in listOf(
+            "", "a".repeat(129), "界".repeat(129), "😀".repeat(65),
+            "界".repeat(127) + "😀", "\uD800", "x\uD800", "\uDC00", "\uD800x",
+        )) {
+            assertThrows(BiteSaverDeviceContractException::class.java) {
+                BiteSaverDeviceProofRequestParser.parseEnrollment(
+                    enrollmentArguments() + ("authenticatedUserId" to uid),
+                )
+            }
+            assertThrows(BiteSaverDeviceContractException::class.java) {
+                uidTranscript(uid)
+            }
+        }
+    }
+
+    private fun uidTranscript(uid: String): ByteArray =
+        BiteSaverCanonicalTranscript.encode(
+            BiteSaverAndroidTranscriptInput(
+                proofKind = BiteSaverAndroidProofKind.ENROLLMENT,
+                challenge = goldenChallenge().copy(authenticatedUserId = uid),
+                credentialId = GOLDEN_CREDENTIAL_ID,
+                installationPublicKeySha256 = bytes(0x20),
+                androidSsaid = "0123456789abcdef",
+            ),
+        )
+
+    @Test
     fun challengeParserAcceptsOnlyExactBoundedShape() {
         val parsed = BiteSaverDeviceProofRequestParser.parseEnrollment(enrollmentArguments())
         assertEquals(253_983_587_346L, parsed.cloudProjectNumber)

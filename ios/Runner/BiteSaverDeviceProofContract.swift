@@ -235,7 +235,8 @@ struct BiteSaverDeviceProofTranscript: Equatable {
 
   static func validateAuthenticatedUserId(_ value: String) throws {
     guard !value.utf8.isEmpty,
-      value.utf8.count <= 128,
+      // Firebase Admin measures UID/token subjects in UTF-16 code units.
+      value.utf16.count <= 128,
       value == value.trimmingCharacters(in: .whitespacesAndNewlines),
       value != ".",
       value != "..",

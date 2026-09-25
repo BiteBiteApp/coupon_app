@@ -29,7 +29,101 @@ Map<String, Object?> challengeJson({
   'challengeBytes': _challengeBytes,
 };
 
+CustomerBiteSaverDeviceProofTranscript uidTranscript(String uid) =>
+    CustomerBiteSaverDeviceProofTranscript(
+      proofKind: CustomerBiteSaverDeviceProofKind.androidEnrollment,
+      platform: CustomerBiteSaverDevicePlatform.android,
+      challengeId: _challengeId,
+      challengeBytes: Uint8List.fromList(List<int>.generate(32, (i) => i)),
+      requestFingerprint:
+          '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f',
+      authenticatedUserId: uid,
+      origin: CustomerBiteSaverDeviceUseOrigin.discovery,
+      logicalRequestId: 'device-use-request-0001',
+      issuedAtMillis: 1789617600000,
+      validFromMillis: 1789617600000,
+      expiresAtMillis: 1789617720000,
+      credentialId: _credentialId,
+      androidInstallationPublicKeySha256: Uint8List.fromList(
+        List<int>.generate(32, (i) => i + 0x20),
+      ),
+      androidSsaidUtf8: Uint8List.fromList(utf8.encode('0123456789abcdef')),
+      iosRecoveryPublicKeyX963: null,
+      iosAppAttestKeyId: null,
+    );
+
 void main() {
+  test(
+    'Firebase UTF-16 UID boundary round-trips through both native bridges',
+    () {
+      for (final uid in [
+        'ordinary-user',
+        'a' * 128,
+        'é' * 128,
+        '界' * 128,
+        '😀' * 64,
+        'e${'\u0301' * 127}',
+      ]) {
+        expect(
+          CustomerBiteSaverDeviceProofContract.isValidAuthenticatedUserId(uid),
+          isTrue,
+        );
+        for (final platform in ['android', 'ios']) {
+          final json = challengeJson(
+            platform: platform,
+            authenticatedUserId: uid,
+          );
+          final parsed = CustomerBiteSaverDeviceChallenge.fromJson(
+            json,
+            requestStartedAtElapsed: Duration.zero,
+            elapsedClock: () => Duration.zero,
+          );
+          expect(parsed.authenticatedUserId, uid);
+          expect(parsed.toNativeArguments(), json);
+        }
+        expect(uidTranscript(uid).encode(), uidTranscript(uid).encode());
+      }
+      final maximum = uidTranscript('界' * 128);
+      expect(maximum.encode(), hasLength(829));
+      expect(
+        maximum.sha256Hex,
+        '58469f9264b56a5587c3e24d244414a3c57dc2fe34360b2db17090e45364fabf',
+      );
+      expect(
+        uidTranscript('é' * 64).sha256Hex,
+        isNot(uidTranscript('e\u0301' * 64).sha256Hex),
+      );
+      for (final uid in [
+        '',
+        'a' * 129,
+        '界' * 129,
+        '😀' * 65,
+        '${'界' * 127}😀',
+        '\ud800',
+        'x\ud800',
+        '\udc00',
+        '\ud800x',
+      ]) {
+        expect(
+          CustomerBiteSaverDeviceProofContract.isValidAuthenticatedUserId(uid),
+          isFalse,
+        );
+        expect(
+          () => CustomerBiteSaverDeviceChallenge.fromJson(
+            challengeJson(authenticatedUserId: uid),
+            requestStartedAtElapsed: Duration.zero,
+            elapsedClock: () => Duration.zero,
+          ),
+          throwsA(isA<CustomerBiteSaverDeviceProtocolException>()),
+        );
+        expect(
+          () => uidTranscript(uid),
+          throwsA(isA<CustomerBiteSaverDeviceProtocolException>()),
+        );
+      }
+    },
+  );
+
   test('challenge admission accepts only an exact bounded permit response', () {
     final valid = <String, Object?>{
       'schemaVersion': 1,

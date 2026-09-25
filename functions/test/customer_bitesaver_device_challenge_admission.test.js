@@ -146,6 +146,26 @@ test("unauthorized admission creates no allowance and valid paths have bounded p
   assert.ok(h.database.reads.includes("private_account_deletions/read-budget-owner"));
 });
 
+test("Unicode signed admission rereads preserve exact account, permit, and replay fences", async () => {
+  for (const uid of ["界".repeat(128), "😀".repeat(64), "é".repeat(64)]) {
+    const h = harness();
+    const value = h.fixture({origin: "saved", actor: {uid, isAnonymous: false}});
+    const first = await h.reserve(value);
+    const second = await h.reserve(value);
+    assert.equal(second.admissionHandle, first.admissionHandle);
+    assert.equal(h.database.documents.get(allowancePath(first)).scopeSubject, uid);
+    const beforeMismatch = snapshot(h);
+    await assert.rejects(h.issue(value, first, {authenticatedUserId: "e\u0301".repeat(64)}), rejected);
+    assertUnchanged(h, beforeMismatch);
+    const challenge = await h.issue(value, first);
+    assert.equal(challenge.authenticatedUserId, uid);
+    const beforeReplay = snapshot(h);
+    await assert.rejects(h.issue(value, first), rejected);
+    assertUnchanged(h, beforeReplay);
+    assert.equal((await h.issue(value, second)).authenticatedUserId, uid);
+  }
+});
+
 test("thirty slots cap simulated concurrent reservations; denied calls do not write or extend retention", async () => {
   assert.equal(customerBiteSaverDeviceChallengeAllowanceSize, allowanceSize);
   const h = harness();
@@ -270,7 +290,7 @@ test("simulated retry crossing permit or authority expiry rolls back every attem
 
 test("signed scope is shared across Browse/Saved sessions, offers, ciphertexts and variable request fields", async () => {
   const h = harness();
-  const actor = {uid: "one-signed-owner", isAnonymous: false};
+  const actor = {uid: "界".repeat(128), isAnonymous: false};
   const browseA = h.fixture({actor});
   const browseB = h.fixture({actor, sourceId: "another-coupon",
     sessionId: `bss_${Buffer.alloc(32, 94).toString("base64url")}`,

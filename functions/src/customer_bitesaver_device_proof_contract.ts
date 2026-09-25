@@ -239,7 +239,7 @@ function validUtf16(value: string): boolean {
     const current = value.charCodeAt(index);
     if (current >= 0xd800 && current <= 0xdbff) {
       const trailing = value.charCodeAt(index + 1);
-      if (trailing < 0xdc00 || trailing > 0xdfff) return false;
+      if (!(trailing >= 0xdc00 && trailing <= 0xdfff)) return false;
       index += 1;
     } else if (current >= 0xdc00 && current <= 0xdfff) {
       return false;
@@ -249,12 +249,20 @@ function validUtf16(value: string): boolean {
 }
 
 function validUserId(value: unknown): value is string | null {
-  return value === null || (
+  return value === null || isValidCustomerBiteSaverDeviceProofUserId(value);
+}
+
+export function isValidCustomerBiteSaverDeviceProofUserId(
+  value: unknown,
+): value is string {
+  return (
     typeof value === "string" && value.length > 0 &&
     value !== "." && value !== ".." && !/^__.*__$/u.test(value) &&
     !value.includes("/") && value.trim() === value &&
     !/[\u0000-\u001f\u007f]/u.test(value) && validUtf16(value) &&
-    Buffer.byteLength(value, "utf8") <= 128
+    // Firebase Admin UID and verified-token subject limits use UTF-16 units,
+    // not UTF-8 bytes. Preserve the exact UID in the length-prefixed transcript.
+    value.length <= 128
   );
 }
 

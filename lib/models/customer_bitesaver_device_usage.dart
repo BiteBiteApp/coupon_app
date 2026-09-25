@@ -45,7 +45,8 @@ abstract final class CustomerBiteSaverDeviceProofContract {
   static bool isValidAuthenticatedUserId(String value) {
     if (!_wellFormedUtf16(value) ||
         value.isEmpty ||
-        utf8.encode(value).length > 128 ||
+        // Match Firebase Admin's UID/token subject limit in UTF-16 code units.
+        value.length > 128 ||
         value.trim() != value ||
         value.contains('/') ||
         value == '.' ||

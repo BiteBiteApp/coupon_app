@@ -233,7 +233,7 @@ test("guest, account switching, cross-device use, and distinct coupons share onl
   assert.equal(usageRecords(database, "deviceCouponUsage").length, 1);
   assert.equal(usageRecords(database, "deviceUseOutcomeReceipt").length, 1);
 
-  const accountA = "device-core-account-a";
+  const accountA = "é".repeat(64);
   const signedRequest = parseCustomerBiteSaverCombinedUseRequest(rawRequest({
     logicalRequestId: "device-use-request-0002",
     origin: "saved",
@@ -251,7 +251,7 @@ test("guest, account switching, cross-device use, and distinct coupons share onl
     null,
   );
 
-  const accountB = "device-core-account-b";
+  const accountB = "e\u0301".repeat(64);
   const switched = await executeCustomerBiteSaverDeviceBoundUse(
     parseCustomerBiteSaverCombinedUseRequest(rawRequest({
       logicalRequestId: "device-use-request-0003",
