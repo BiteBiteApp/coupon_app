@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/customer_bitesaver_search.dart';
 import '../services/app_error_text.dart';
+import '../services/app_mode_state_service.dart';
 import '../services/bitesaver_location_search.dart';
 import '../services/customer_bitesaver_search_coordinator.dart';
 import '../services/customer_load_more_controller.dart';
@@ -946,22 +947,39 @@ class _CustomerBiteSaverBrowseScreenState
             ],
           ),
         ),
-        child: CustomScrollView(
-          key: const PageStorageKey<String>('bounded-bitesaver-browse-scroll'),
-          controller: _scrollController,
-          physics: const ClampingScrollPhysics(),
-          slivers: <Widget>[
-            SliverToBoxAdapter(child: _buildHeader()),
-            SliverPadding(
-              padding: EdgeInsets.fromLTRB(
-                8,
-                8,
-                8,
-                136 + MediaQuery.viewPaddingOf(context).bottom,
-              ),
-              sliver: _buildBody(restaurants, pager),
+        child: LayoutBuilder(
+          builder: (context, constraints) => CustomScrollView(
+            key: const PageStorageKey<String>(
+              'bounded-bitesaver-browse-scroll',
             ),
-          ],
+            controller: _scrollController,
+            physics: const ClampingScrollPhysics(),
+            slivers: <Widget>[
+              SliverPersistentHeader(
+                pinned: true,
+                delegate: _BoundedHomeHeaderDelegate(
+                  minExtentHeight: _collapsedHeaderExtent,
+                  maxExtentHeight:
+                      _expandedHeaderExtentFor(
+                        constraints.maxWidth,
+                        MediaQuery.textScalerOf(context),
+                      ) +
+                      _headerFeedbackHeight(context, constraints.maxWidth),
+                  builder: (context, expansionT) =>
+                      _buildHeader(expansionT: expansionT),
+                ),
+              ),
+              SliverPadding(
+                padding: EdgeInsets.fromLTRB(
+                  8,
+                  8,
+                  8,
+                  136 + MediaQuery.viewPaddingOf(context).bottom,
+                ),
+                sliver: _buildBody(restaurants, pager),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -979,218 +997,702 @@ class _CustomerBiteSaverBrowseScreenState
     }
   }
 
-  Widget _buildHeader() {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final narrow =
-            constraints.maxWidth < 430 ||
-            MediaQuery.textScalerOf(context).scale(14) > 18;
-        final locationField = TextField(
+  // Presentation recovered from home-header-responsive-fix-2026-07-20.
+  // Search state and actions remain owned by the bounded screen above.
+  static const double _collapsedHeaderExtent = 60;
+  static const double _tightExpandedHeaderExtent = 219;
+  static const double _regularExpandedHeaderExtent = 222;
+
+  String get _headerStatus =>
+      _inputError ??
+      _locationMessage ??
+      '$_locationSummary • $_selectedRadiusMiles miles';
+
+  TextStyle _headerStatusStyle(BuildContext context) =>
+      Theme.of(context).textTheme.bodyMedium!.copyWith(
+        color: _inputError == null
+            ? BiteSaverColors.secondaryText
+            : Theme.of(context).colorScheme.error,
+        fontSize: 12.5,
+        fontWeight: FontWeight.w600,
+      );
+
+  double _headerFeedbackHeight(BuildContext context, double width) {
+    final painter = TextPainter(
+      text: TextSpan(text: _headerStatus, style: _headerStatusStyle(context)),
+      textDirection: Directionality.of(context),
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout(maxWidth: (width - 24).clamp(1, double.infinity));
+    final height = painter.height.ceilToDouble() + 8;
+    painter.dispose();
+    return height;
+  }
+
+  static bool _usesTightHeaderLayout(double width) => width < 430;
+
+  static double _heroTextScaleHeightAdjustment(
+    double width,
+    TextScaler textScaler,
+  ) {
+    final heroFontSize = _usesTightHeaderLayout(width) ? 28.0 : 33.0;
+    final scaledFontSize = textScaler.scale(heroFontSize);
+    return ((scaledFontSize - heroFontSize) * 2 * 1.04).clamp(
+      0,
+      double.infinity,
+    );
+  }
+
+  static double _expandedHeaderExtentFor(double width, TextScaler textScaler) {
+    final baseExtent = _usesTightHeaderLayout(width)
+        ? _tightExpandedHeaderExtent
+        : _regularExpandedHeaderExtent;
+    return baseExtent + _heroTextScaleHeightAdjustment(width, textScaler);
+  }
+
+  Future<void> _expandHeader() async {
+    if (!_scrollController.hasClients) {
+      return;
+    }
+
+    await _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  Widget _buildHeader({required double expansionT}) {
+    final collapsed = expansionT <= 0.12;
+    final statusLine = _headerStatus;
+
+    InputDecoration searchDecoration({
+      required String hint,
+      required IconData icon,
+      Widget? suffixIcon,
+      EdgeInsetsGeometry contentPadding = const EdgeInsets.symmetric(
+        horizontal: 16,
+        vertical: 15,
+      ),
+    }) {
+      return InputDecoration(
+        filled: true,
+        fillColor: BiteSaverColors.surface,
+        hintText: hint,
+        hintStyle: const TextStyle(
+          color: BiteSaverColors.mutedInk,
+          fontSize: 12.6,
+          fontWeight: FontWeight.w500,
+        ),
+        prefixIcon: Icon(icon, color: BiteSaverColors.ink, size: 21),
+        prefixIconConstraints: const BoxConstraints(
+          minWidth: 32,
+          minHeight: 36,
+        ),
+        suffixIcon: suffixIcon,
+        suffixIconConstraints: const BoxConstraints(
+          minWidth: 32,
+          minHeight: 36,
+        ),
+        contentPadding: contentPadding,
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(13),
+          borderSide: const BorderSide(color: BiteSaverColors.border),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(13),
+          borderSide: const BorderSide(color: BiteSaverColors.border),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(13),
+          borderSide: const BorderSide(
+            color: BiteSaverColors.orange,
+            width: 1.25,
+          ),
+        ),
+      );
+    }
+
+    Widget currentLocationButton(bool tight, double controlHeight) {
+      return ElevatedButton.icon(
+        key: const ValueKey<String>('bounded-current-location'),
+        onPressed: _locating ? null : _useCurrentLocation,
+        icon: Icon(
+          _locating ? Icons.hourglass_top : Icons.near_me_outlined,
+          size: tight ? 17 : 21,
+        ),
+        label: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                _locating ? 'Locating...' : 'Use My Current Location',
+                maxLines: 1,
+                textScaler: TextScaler.noScaling,
+                style: TextStyle(fontSize: tight ? 10.3 : 12.2),
+              ),
+            ),
+            if (!tight)
+              Text(
+                'Find restaurants near you',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: tight ? 9.2 : 10.2,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+          ],
+        ),
+        style: ElevatedButton.styleFrom(
+          fixedSize: Size.fromHeight(controlHeight),
+          backgroundColor: const Color(0xFFE94312),
+          foregroundColor: Colors.white,
+          elevation: 0,
+          padding: EdgeInsets.symmetric(horizontal: tight ? 5 : 9),
+          textStyle: const TextStyle(
+            fontSize: 12.6,
+            fontWeight: FontWeight.w800,
+          ),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(11),
+          ),
+        ),
+      );
+    }
+
+    Widget typedLocationButton(bool tight, double controlHeight) {
+      return SizedBox(
+        height: controlHeight,
+        child: TextField(
           key: const ValueKey<String>('bounded-location-field'),
           controller: _locationController,
           enabled: !_locating && !_geocoding,
           textInputAction: TextInputAction.search,
           onSubmitted: (_) => _searchTypedLocation(),
-          decoration: _inputDecoration(
+          decoration: searchDecoration(
             hint: 'City or zip code',
             icon: Icons.location_on,
-            suffix: IconButton(
-              tooltip: 'Search location',
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: tight ? 5 : 9,
+              vertical: tight ? 6 : 8,
+            ),
+            suffixIcon: IconButton(
               onPressed: _geocoding ? null : _searchTypedLocation,
+              tooltip: 'Search location',
               icon: _geocoding
-                  ? const SizedBox.square(
-                      dimension: 18,
+                  ? const SizedBox(
+                      width: 17,
+                      height: 17,
                       child: CircularProgressIndicator(strokeWidth: 2),
                     )
-                  : const Icon(Icons.arrow_forward, size: 19),
+                  : const Icon(
+                      Icons.arrow_forward,
+                      color: BiteSaverColors.ink,
+                      size: 18,
+                    ),
             ),
           ),
-        );
-        final currentButton = ElevatedButton.icon(
-          key: const ValueKey<String>('bounded-current-location'),
-          onPressed: _locating ? null : _useCurrentLocation,
-          icon: Icon(_locating ? Icons.hourglass_top : Icons.near_me_outlined),
-          label: Text(_locating ? 'Locating...' : 'Use My Current Location'),
-          style: ElevatedButton.styleFrom(
-            minimumSize: const Size.fromHeight(49),
-            backgroundColor: const Color(0xFFE94312),
-            foregroundColor: Colors.white,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(11),
-            ),
-          ),
-        );
-        final contentField = TextField(
+        ),
+      );
+    }
+
+    Widget radiusDropdown(bool tight, double controlHeight) {
+      return SizedBox(
+        height: controlHeight,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return DropdownButtonFormField<int>(
+              key: const ValueKey<String>('bounded-radius-field'),
+              initialValue: _selectedRadiusMiles,
+              isExpanded: true,
+              decoration: InputDecoration(
+                filled: true,
+                fillColor: BiteSaverColors.surface,
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(
+                  horizontal: tight ? 7 : 8,
+                  vertical: tight ? 5 : 6,
+                ),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(11),
+                  borderSide: const BorderSide(color: BiteSaverColors.border),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(11),
+                  borderSide: const BorderSide(color: BiteSaverColors.border),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(11),
+                  borderSide: const BorderSide(color: Color(0xFFD79A32)),
+                ),
+              ),
+              style: TextStyle(
+                color: BiteSaverColors.ink,
+                fontSize: tight ? 11.7 : 12.2,
+                fontWeight: FontWeight.w700,
+              ),
+              selectedItemBuilder: (context) => const [
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text('1 mi'),
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text('3 mi'),
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text('5 mi'),
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text('10 mi'),
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text('15 mi'),
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text('20 mi'),
+                ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text('30 mi'),
+                ),
+              ],
+              items: <DropdownMenuItem<int>>[
+                for (final miles in _supportedRadii)
+                  DropdownMenuItem<int>(
+                    value: miles,
+                    child: Text(miles == 1 ? '1 mile' : '$miles miles'),
+                  ),
+              ],
+              onChanged: (value) {
+                if (value != null) unawaited(_selectRadius(value));
+              },
+            );
+          },
+        ),
+      );
+    }
+
+    Widget restaurantSearchField(bool tight, double controlHeight) {
+      return SizedBox(
+        height: controlHeight,
+        child: TextField(
           key: const ValueKey<String>('bounded-content-field'),
           controller: _contentController,
           enabled: !_locating && !_geocoding,
           textInputAction: TextInputAction.search,
           onSubmitted: (_) => _startSearch(),
-          decoration: _inputDecoration(
-            hint: 'Search restaurants or deals',
+          decoration: searchDecoration(
+            hint: tight
+                ? 'Restaurants or cuisines...'
+                : 'Search for restaurants or cuisines...',
             icon: Icons.search,
-            suffix: IconButton(
-              tooltip: 'Search restaurants or deals',
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 10,
+              vertical: tight ? 6 : 8,
+            ),
+            suffixIcon: IconButton(
               onPressed: _hasUsableCenter && !_locating && !_geocoding
                   ? _startSearch
                   : null,
-              icon: const Icon(Icons.arrow_forward, size: 19),
+              tooltip: 'Search restaurants or deals',
+              icon: const Icon(
+                Icons.arrow_forward,
+                color: BiteSaverColors.ink,
+                size: 18,
+              ),
             ),
           ),
-        );
-        final radius = DropdownButtonFormField<int>(
-          key: const ValueKey<String>('bounded-radius-field'),
-          initialValue: _selectedRadiusMiles,
-          isExpanded: true,
-          decoration: _inputDecoration(hint: 'Radius', icon: Icons.radar),
-          items: <DropdownMenuItem<int>>[
-            for (final miles in _supportedRadii)
-              DropdownMenuItem<int>(value: miles, child: Text('$miles mi')),
-          ],
-          onChanged: (value) {
-            if (value != null) unawaited(_selectRadius(value));
-          },
-        );
+        ),
+      );
+    }
 
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: <Widget>[
-              SizedBox(
-                height: narrow ? 92 : 106,
-                child: Stack(
-                  children: <Widget>[
-                    Positioned.fill(
-                      child: Row(
-                        children: <Widget>[
-                          Expanded(
-                            child: FittedBox(
-                              fit: BoxFit.scaleDown,
-                              alignment: Alignment.centerLeft,
-                              child: Text.rich(
-                                const TextSpan(
-                                  children: <TextSpan>[
-                                    TextSpan(text: 'Eat well.\n'),
-                                    TextSpan(
-                                      text: 'Spend less.',
-                                      style: TextStyle(
-                                        color: BiteSaverColors.orangeDark,
+    return Material(
+      color: BiteSaverColors.secondaryBackground,
+      child: AnimatedSwitcher(
+        duration: const Duration(milliseconds: 180),
+        layoutBuilder: (currentChild, previousChildren) {
+          return Stack(
+            alignment: Alignment.topCenter,
+            children: <Widget>[...previousChildren, ?currentChild],
+          );
+        },
+        child: collapsed
+            ? Padding(
+                key: const ValueKey('collapsed'),
+                padding: const EdgeInsets.fromLTRB(10, 7, 10, 0),
+                child: SizedBox(
+                  height: 44,
+                  child: Container(
+                    padding: const EdgeInsets.only(left: 13, right: 5),
+                    decoration: BoxDecoration(
+                      color: BiteSaverColors.surface,
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: BiteSaverColors.border),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: Color.fromRGBO(15, 23, 42, 0.07),
+                          blurRadius: 12,
+                          offset: Offset(0, 5),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            statusLine.isEmpty
+                                ? 'Find local BiteSaver deals'
+                                : statusLine,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: _inputError == null
+                                  ? BiteSaverColors.ink
+                                  : Theme.of(context).colorScheme.error,
+                              fontSize: 13.4,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          onPressed: _expandHeader,
+                          visualDensity: VisualDensity.compact,
+                          constraints: const BoxConstraints.tightFor(
+                            width: 34,
+                            height: 34,
+                          ),
+                          padding: EdgeInsets.zero,
+                          icon: const Icon(
+                            Icons.keyboard_arrow_down,
+                            color: Color(0xFFE24A17),
+                            size: 24,
+                          ),
+                          tooltip: 'Expand search',
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+            : Opacity(
+                key: const ValueKey('expanded'),
+                opacity: expansionT,
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final width = constraints.maxWidth;
+                    final tight = _usesTightHeaderLayout(width);
+                    final controlHeight = tight ? 38.0 : 43.0;
+                    final heroVisualHeight = tight ? 120.0 : 128.0;
+                    final searchPanelOverlap = tight ? 10.0 : 12.0;
+                    final heroLayoutHeight =
+                        heroVisualHeight -
+                        searchPanelOverlap +
+                        _heroTextScaleHeightAdjustment(
+                          width,
+                          MediaQuery.textScalerOf(context),
+                        );
+                    final horizontalPadding = tight ? 8.0 : 10.0;
+                    final searchPadding = tight ? 5.0 : 7.0;
+
+                    return DecoratedBox(
+                      decoration: const BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            BiteSaverColors.secondaryBackground,
+                            BiteSaverColors.pageBackground,
+                          ],
+                        ),
+                      ),
+                      child: Column(
+                        children: [
+                          SizedBox(
+                            key: const ValueKey('bitesaver-home-hero'),
+                            height: heroLayoutHeight,
+                            child: Padding(
+                              padding: EdgeInsets.fromLTRB(
+                                horizontalPadding + 4,
+                                10,
+                                tight ? 6 : horizontalPadding,
+                                0,
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    flex: tight ? 58 : 56,
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        FittedBox(
+                                          fit: BoxFit.scaleDown,
+                                          alignment: Alignment.centerLeft,
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                'Eat well.',
+                                                style: TextStyle(
+                                                  color: const Color(
+                                                    0xFF111827,
+                                                  ),
+                                                  fontSize: tight ? 28 : 33,
+                                                  fontWeight: FontWeight.w900,
+                                                  height: 1.04,
+                                                ),
+                                              ),
+                                              Text(
+                                                'Spend less.',
+                                                style: TextStyle(
+                                                  color: const Color(
+                                                    0xFF4F8A24,
+                                                  ),
+                                                  fontSize: tight ? 28 : 33,
+                                                  fontWeight: FontWeight.w900,
+                                                  height: 1.04,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          'Save money at nearby favorites.',
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: TextStyle(
+                                            color: BiteSaverColors.valueInk,
+                                            fontSize: tight ? 12.2 : 13.4,
+                                            height: 1.18,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  SizedBox(width: tight ? 12 : 16),
+                                  Expanded(
+                                    flex: tight ? 42 : 44,
+                                    child: Transform.translate(
+                                      offset: Offset(
+                                        BiteSaverHomeHeroLogo.horizontalOffsetFor(
+                                          tight: tight,
+                                          availableWidth: width,
+                                        ),
+                                        BiteSaverHomeHeroLogo.verticalOffsetFor(
+                                          tight: tight,
+                                        ),
+                                      ),
+                                      child: Align(
+                                        alignment: Alignment.topRight,
+                                        child: IgnorePointer(
+                                          child: Transform.scale(
+                                            scale: 1.25,
+                                            alignment: Alignment.center,
+                                            child: BiteSaverHomeHeroLogo(
+                                              tight: tight,
+                                            ),
+                                          ),
+                                        ),
                                       ),
                                     ),
-                                  ],
-                                ),
-                                style: TextStyle(
-                                  color: BiteSaverColors.ink,
-                                  fontSize: narrow ? 27 : 32,
-                                  height: 1.02,
-                                  fontWeight: FontWeight.w900,
-                                ),
+                                  ),
+                                ],
                               ),
                             ),
                           ),
-                          SizedBox(
-                            width: constraints.maxWidth * 0.44,
-                            child: BiteSaverHomeHeroLogo(tight: narrow),
+                          Padding(
+                            key: const ValueKey('bounded-search-panel'),
+                            padding: EdgeInsets.fromLTRB(
+                              horizontalPadding,
+                              0,
+                              horizontalPadding,
+                              0,
+                            ),
+                            child: Container(
+                              width: double.infinity,
+                              padding: EdgeInsets.fromLTRB(
+                                searchPadding,
+                                tight ? 3 : 5,
+                                searchPadding,
+                                tight ? 3 : 5,
+                              ),
+                              decoration: BoxDecoration(
+                                color: BiteSaverColors.surface,
+                                borderRadius: BorderRadius.circular(15),
+                                border: Border.all(
+                                  color: BiteSaverColors.border,
+                                  width: 0.8,
+                                ),
+                                boxShadow: const [
+                                  BoxShadow(
+                                    color: Color.fromRGBO(15, 23, 42, 0.085),
+                                    blurRadius: 18,
+                                    offset: Offset(0, 7),
+                                  ),
+                                ],
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        flex: 49,
+                                        child: currentLocationButton(
+                                          tight,
+                                          controlHeight,
+                                        ),
+                                      ),
+                                      SizedBox(width: tight ? 8 : 10),
+                                      Expanded(
+                                        flex: 51,
+                                        child: typedLocationButton(
+                                          tight,
+                                          controlHeight,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                  SizedBox(height: tight ? 2 : 3),
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: restaurantSearchField(
+                                          tight,
+                                          controlHeight,
+                                        ),
+                                      ),
+                                      SizedBox(width: tight ? 5 : 7),
+                                      SizedBox(
+                                        width: tight ? 92 : 100,
+                                        child: radiusDropdown(
+                                          tight,
+                                          controlHeight,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+                            child: Align(
+                              alignment: Alignment.centerLeft,
+                              child: Text(
+                                _headerStatus,
+                                key: const ValueKey<String>(
+                                  'bounded-search-status',
+                                ),
+                                style: _headerStatusStyle(context),
+                              ),
+                            ),
                           ),
                         ],
                       ),
-                    ),
-                  ],
+                    );
+                  },
                 ),
               ),
-              Container(
-                key: const ValueKey<String>('bounded-search-panel'),
-                padding: const EdgeInsets.all(7),
-                decoration: BoxDecoration(
-                  color: BiteSaverColors.surface,
-                  borderRadius: BorderRadius.circular(15),
-                  border: Border.all(color: BiteSaverColors.border),
-                  boxShadow: const <BoxShadow>[
-                    BoxShadow(
-                      color: Color.fromRGBO(15, 23, 42, 0.085),
-                      blurRadius: 18,
-                      offset: Offset(0, 7),
-                    ),
-                  ],
-                ),
-                child: Column(
-                  children: <Widget>[
-                    if (narrow) ...<Widget>[
-                      currentButton,
-                      const SizedBox(height: 7),
-                      locationField,
-                    ] else
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Expanded(child: currentButton),
-                          const SizedBox(width: 9),
-                          Expanded(child: locationField),
-                        ],
-                      ),
-                    const SizedBox(height: 7),
-                    if (narrow) ...<Widget>[
-                      contentField,
-                      const SizedBox(height: 7),
-                      radius,
-                    ] else
-                      Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: <Widget>[
-                          Expanded(child: contentField),
-                          const SizedBox(width: 7),
-                          SizedBox(width: 132, child: radius),
-                        ],
-                      ),
-                  ],
-                ),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(4, 8, 4, 0),
-                child: Text(
-                  _inputError ??
-                      _locationMessage ??
-                      '$_locationSummary • $_selectedRadiusMiles miles',
-                  key: const ValueKey<String>('bounded-search-status'),
-                  style: TextStyle(
-                    color: _inputError == null
-                        ? BiteSaverColors.secondaryText
-                        : Theme.of(context).colorScheme.error,
-                    fontSize: 12.5,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-        );
-      },
+      ),
     );
   }
 
-  InputDecoration _inputDecoration({
-    required String hint,
-    required IconData icon,
-    Widget? suffix,
-  }) {
-    final border = OutlineInputBorder(
-      borderRadius: BorderRadius.circular(11),
-      borderSide: const BorderSide(color: BiteSaverColors.border),
+  Widget _buildConfirmedEmptyCard() {
+    final nextRadius = _supportedRadii.firstWhere(
+      (radius) => radius > _selectedRadiusMiles,
+      orElse: () => _selectedRadiusMiles,
     );
-    return InputDecoration(
-      filled: true,
-      fillColor: BiteSaverColors.surface,
-      hintText: hint,
-      prefixIcon: Icon(icon, size: 20, color: BiteSaverColors.ink),
-      suffixIcon: suffix,
-      isDense: true,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 9, vertical: 14),
-      border: border,
-      enabledBorder: border,
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(11),
-        borderSide: const BorderSide(color: BiteSaverColors.orange, width: 1.3),
+    final canIncreaseRadius = nextRadius != _selectedRadiusMiles;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        key: const ValueKey<String>('bounded-confirmed-empty-card'),
+        decoration: BoxDecoration(
+          color: BiteSaverColors.surface,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: BiteSaverColors.border),
+          boxShadow: const [
+            BoxShadow(
+              color: Color.fromRGBO(15, 23, 42, 0.08),
+              blurRadius: 18,
+              offset: Offset(0, 10),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(22),
+          child: Column(
+            children: [
+              const Icon(
+                Icons.local_offer_outlined,
+                color: Color(0xFFC97917),
+                size: 32,
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                'No nearby deals yet',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: BiteSaverColors.ink,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'Try a larger radius, another ZIP code, or switch to BiteScore to find highly rated dishes nearby.',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: BiteSaverColors.secondaryText,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 14),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  OutlinedButton(
+                    onPressed: canIncreaseRadius
+                        ? () => unawaited(_selectRadius(nextRadius))
+                        : null,
+                    child: Text(
+                      canIncreaseRadius ? 'Increase Radius' : 'Max Radius',
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () {
+                      AppModeStateService.setMode(AppMode.biteScore);
+                    },
+                    child: const Text('Try BiteScore'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1251,10 +1753,7 @@ class _CustomerBiteSaverBrowseScreenState
         );
       }
       if (restaurants.isEmpty && !pager.hasNext) {
-        return _messageSliver(
-          title: 'No nearby deals yet',
-          detail: 'Try a larger radius, another location, or a broader search.',
-        );
+        return SliverToBoxAdapter(child: _buildConfirmedEmptyCard());
       }
     }
 
@@ -2189,5 +2688,62 @@ class _InlineStatusCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _BoundedHomeHeaderDelegate extends SliverPersistentHeaderDelegate {
+  final double minExtentHeight;
+  final double maxExtentHeight;
+  final Widget Function(BuildContext context, double expansionT) builder;
+
+  const _BoundedHomeHeaderDelegate({
+    required this.minExtentHeight,
+    required this.maxExtentHeight,
+    required this.builder,
+  });
+
+  @override
+  double get minExtent => minExtentHeight;
+
+  @override
+  double get maxExtent => maxExtentHeight;
+
+  @override
+  Widget build(
+    BuildContext context,
+    double shrinkOffset,
+    bool overlapsContent,
+  ) {
+    final availableRange = (maxExtent - minExtent).clamp(1, double.infinity);
+    final currentExtent = (maxExtent - shrinkOffset).clamp(
+      minExtent,
+      maxExtent,
+    );
+    final expansionT = ((currentExtent - minExtent) / availableRange).clamp(
+      0.0,
+      1.0,
+    );
+
+    return SizedBox(
+      height: currentExtent,
+      child: ClipRect(
+        child: OverflowBox(
+          alignment: Alignment.topCenter,
+          minHeight: 0,
+          maxHeight: maxExtent,
+          child: SizedBox(
+            height: maxExtent,
+            child: builder(context, expansionT),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  bool shouldRebuild(covariant _BoundedHomeHeaderDelegate oldDelegate) {
+    return minExtentHeight != oldDelegate.minExtentHeight ||
+        maxExtentHeight != oldDelegate.maxExtentHeight ||
+        builder != oldDelegate.builder;
   }
 }

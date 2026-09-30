@@ -23,6 +23,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart' show Location;
+import 'package:coupon_app/widgets/bitesaver_restaurant_images.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../support/customer_bitesaver_device_use_fixture.dart';
@@ -3131,7 +3133,7 @@ void main() {
       find.byKey(const ValueKey<String>('bounded-radius-field')),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.text('30 mi').last);
+    await tester.tap(find.text('30 miles').last);
     await tester.pump();
     await tester.tap(find.byTooltip('Search restaurants or deals'));
     await _pumpUntil(tester, () => providerCalls == 3);
@@ -3282,6 +3284,10 @@ void main() {
     );
     await tester.pump(const Duration(milliseconds: 50));
     expect(find.text('Preparing nearby deals…'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('bounded-confirmed-empty-card')),
+      findsNothing,
+    );
     expect(transport.restaurantPageCalls, 0);
 
     await _pumpBrowseReady(tester, transport);
@@ -3313,6 +3319,10 @@ void main() {
     );
     await _pumpUntil(tester, () => transport.restaurantPageCalls == 1);
     expect(find.text('Search is still in progress.'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('bounded-confirmed-empty-card')),
+      findsNothing,
+    );
     expect(find.text('Continue Search'), findsOneWidget);
 
     await tester.tap(find.text('Continue Search'));
@@ -3335,6 +3345,10 @@ void main() {
     );
     await _pumpUntil(tester, () => transport.restaurantPageCalls == 1);
     expect(find.text('Could not load nearby deals.'), findsOneWidget);
+    expect(
+      find.byKey(const ValueKey('bounded-confirmed-empty-card')),
+      findsNothing,
+    );
     expect(find.text('Try Again'), findsOneWidget);
 
     await tester.tap(find.text('Try Again'));
@@ -3615,6 +3629,335 @@ void main() {
     expect(field.controller!.text.runes.length, 201);
   });
 
+  for (final layout in <({Size size, double scale})>[
+    (size: Size(360, 640), scale: 1),
+    (size: Size(430, 932), scale: 1),
+    (size: Size(412, 915), scale: 1), // Galaxy S22 Ultra-like logical viewport.
+    (size: Size(640, 360), scale: 1),
+    (size: Size(915, 412), scale: 1),
+    (size: Size(640, 360), scale: 1.4),
+    (size: Size(360, 640), scale: 2),
+  ]) {
+    testWidgets('historical header ${layout.size} scale ${layout.scale}', (
+      tester,
+    ) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = layout.size;
+      addTearDown(tester.view.reset);
+      final harness = _BrowseHarness();
+      await tester.pumpWidget(
+        MaterialApp(
+          builder: (context, child) => MediaQuery(
+            data: MediaQuery.of(
+              context,
+            ).copyWith(textScaler: TextScaler.linear(layout.scale)),
+            child: child!,
+          ),
+          home: harness.screen(onAction: _ignoreAction),
+        ),
+      );
+      await _pumpBrowseReady(tester, harness.transport);
+      final tight = layout.size.width < 430;
+      final hero = tester.getRect(
+        find.byKey(const ValueKey('bitesaver-home-hero')),
+      );
+      final panel = tester.getRect(
+        find
+            .descendant(
+              of: find.byKey(const ValueKey('bounded-search-panel')),
+              matching: find.byType(Container),
+            )
+            .first,
+      );
+      final fontSize = tight ? 28.0 : 33.0;
+      expect(hero.top, 0);
+      expect(
+        hero.height,
+        closeTo(
+          (tight ? 110 : 116) + (fontSize * layout.scale - fontSize) * 2 * 1.04,
+          .01,
+        ),
+      );
+      expect(panel.top, closeTo(hero.bottom, .01));
+      expect(panel.left, tight ? 8 : 10);
+      expect(panel.right, layout.size.width - (tight ? 8 : 10));
+      if (layout.scale == 1) {
+        final location = tester.getRect(
+          find.byKey(const ValueKey('bounded-current-location')),
+        );
+        final zip = tester.getRect(
+          find.byKey(const ValueKey('bounded-location-field')),
+        );
+        final query = tester.getRect(
+          find.byKey(const ValueKey('bounded-content-field')),
+        );
+        final radius = tester.getRect(
+          find.byKey(const ValueKey('bounded-radius-field')),
+        );
+        expect(location.width / zip.width, closeTo(49 / 51, .001));
+        expect(zip.left - location.right, closeTo(tight ? 8 : 10, .01));
+        final button = tester.widget<ElevatedButton>(
+          find.byKey(const ValueKey('bounded-current-location')),
+        );
+        expect(button.style!.fixedSize!.resolve({})!.height, tight ? 38 : 43);
+        // Material keeps the historical button's larger padded tap region.
+        expect(location.height, greaterThanOrEqualTo(tight ? 38 : 43));
+        expect(zip.height, closeTo(tight ? 38 : 43, .01));
+        expect(query.height, closeTo(tight ? 38 : 43, .01));
+        expect(radius.height, closeTo(tight ? 38 : 43, .01));
+        expect(radius.width, tight ? 92 : 100);
+        expect(radius.left - query.right, closeTo(tight ? 5 : 7, .01));
+        if (layout.size.width == 360) expect(panel.bottom, closeTo(205.6, .1));
+      }
+      final spend = tester.widget<Text>(find.text('Spend less.'));
+      expect(spend.style!.color, const Color(0xFF4F8A24));
+      expect(spend.style!.fontSize, fontSize);
+      expect(spend.style!.fontWeight, FontWeight.w900);
+      expect(spend.style!.height, 1.04);
+      final subtitle = tester.widget<Text>(
+        find.text('Save money at nearby favorites.'),
+      );
+      expect(subtitle.style!.fontSize, tight ? 12.2 : 13.4);
+      expect(subtitle.style!.color, const Color(0xFF475569));
+      expect(subtitle.style!.height, 1.18);
+      final panelBox =
+          tester
+                  .widget<Container>(
+                    find
+                        .descendant(
+                          of: find.byKey(
+                            const ValueKey('bounded-search-panel'),
+                          ),
+                          matching: find.byType(Container),
+                        )
+                        .first,
+                  )
+                  .decoration!
+              as BoxDecoration;
+      expect(panelBox.borderRadius, BorderRadius.circular(15));
+      expect(
+        panelBox.border,
+        Border.all(color: const Color(0xFFE2E8F0), width: .8),
+      );
+      expect(panelBox.boxShadow, const [
+        BoxShadow(
+          color: Color.fromRGBO(15, 23, 42, .085),
+          blurRadius: 18,
+          offset: Offset(0, 7),
+        ),
+      ]);
+      final logoTransforms = tester.widgetList<Transform>(
+        find.ancestor(
+          of: find.byType(BiteSaverHomeHeroLogo),
+          matching: find.byType(Transform),
+        ),
+      );
+      expect(logoTransforms.any((t) => t.transform.storage[0] == 1.25), isTrue);
+      expect(
+        logoTransforms.any(
+          (t) =>
+              (t.transform.storage[12] -
+                          BiteSaverHomeHeroLogo.horizontalOffsetFor(
+                            tight: tight,
+                            availableWidth: layout.size.width,
+                          ))
+                      .abs() <
+                  .01 &&
+              t.transform.storage[13] == (tight ? -15 : -17),
+        ),
+        isTrue,
+      );
+      final status = tester.getRect(
+        find.byKey(const ValueKey('bounded-search-status')),
+      );
+      expect(status.top, greaterThanOrEqualTo(panel.bottom));
+      expect(tester.takeException(), isNull);
+    });
+  }
+
+  testWidgets(
+    'restored controls retain bounded location ZIP query and radius actions',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(412, 915);
+      addTearDown(tester.view.reset);
+      SharedLocationStateService.resetForTesting();
+      final harness = _BrowseHarness();
+      var currentCalls = 0;
+      final geocoded = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          home: harness.screen(
+            onAction: _ignoreAction,
+            currentPositionLoader: () async {
+              currentCalls++;
+              return _position();
+            },
+            restoredLocation: const SharedLocationState(
+              usingTypedSearchLocation: true,
+              typedLatitude: 42.3601,
+              typedLongitude: -71.0589,
+              typedLabel: 'Boston, MA',
+              searchText: 'Boston, MA',
+            ),
+            reverseGeocoder: (_) async => (city: 'Orlando', zip: '32801'),
+            locationGeocoder: (query) async {
+              geocoded.add(query);
+              return [
+                Location(
+                  latitude: 42.3601,
+                  longitude: -71.0589,
+                  timestamp: DateTime(2026),
+                ),
+              ];
+            },
+          ),
+        ),
+      );
+      await _pumpBrowseReady(tester, harness.transport);
+      await tester.tap(find.byKey(const ValueKey('bounded-current-location')));
+      await _pumpUntil(tester, () => harness.transport.startCalls == 2);
+      expect(currentCalls, 1);
+      expect(harness.transport.startRequests.last['locationMode'], 'current');
+      await tester.enterText(
+        find.byKey(const ValueKey('bounded-location-field')),
+        '02108',
+      );
+      await tester.tap(find.byTooltip('Search location'));
+      await _pumpUntil(tester, () => harness.transport.startCalls == 3);
+      expect(geocoded, ['02108']);
+      expect(harness.transport.startRequests.last['locationMode'], 'typed');
+      expect(harness.transport.startRequests.last['latitude'], 42.3601);
+      await tester.enterText(
+        find.byKey(const ValueKey('bounded-content-field')),
+        'thai',
+      );
+      await tester.tap(find.byTooltip('Search restaurants or deals'));
+      await _pumpUntil(tester, () => harness.transport.startCalls == 4);
+      expect(harness.transport.startRequests.last['searchText'], 'thai');
+      final radiusFinder = find.byKey(const ValueKey('bounded-radius-field'));
+      expect(
+        tester
+            .widget<DropdownButton<int>>(
+              find.descendant(
+                of: radiusFinder,
+                matching: find.byType(DropdownButton<int>),
+              ),
+            )
+            .items!
+            .map((item) => item.value),
+        [1, 3, 5, 10, 15, 20, 30],
+      );
+      await tester.tap(radiusFinder);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('30 miles').last);
+      await _pumpUntil(tester, () => harness.transport.startCalls == 5);
+      await tester.pumpAndSettle();
+      expect(harness.transport.startRequests.last['radiusMiles'], 30);
+      expect(harness.transport.startRequests.last['searchText'], 'thai');
+      expect(harness.transport.startRequests.last['latitude'], 42.3601);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
+    'historical empty card invokes current radius and app mode behavior',
+    (tester) async {
+      tester.view.devicePixelRatio = 1;
+      tester.view.physicalSize = const Size(430, 932);
+      addTearDown(tester.view.reset);
+      final transport = _BrowseFixtureTransport(confirmedEmpty: true);
+      final harness = _BrowseHarness(transport: transport);
+      await tester.pumpWidget(
+        MaterialApp(home: harness.screen(onAction: _ignoreAction)),
+      );
+      await _pumpUntil(
+        tester,
+        () => find.text('No nearby deals yet').evaluate().isNotEmpty,
+      );
+      final card = tester.widget<Container>(
+        find.byKey(const ValueKey('bounded-confirmed-empty-card')),
+      );
+      final decoration = card.decoration! as BoxDecoration;
+      expect(decoration.borderRadius, BorderRadius.circular(24));
+      expect(decoration.boxShadow, const [
+        BoxShadow(
+          color: Color.fromRGBO(15, 23, 42, .08),
+          blurRadius: 18,
+          offset: Offset(0, 10),
+        ),
+      ]);
+      expect(
+        tester.widget<Icon>(find.byIcon(Icons.local_offer_outlined)).size,
+        32,
+      );
+      await tester.tap(find.text('Increase Radius'));
+      await _pumpUntil(
+        tester,
+        () =>
+            transport.startCalls == 2 &&
+            find.text('No nearby deals yet').evaluate().isNotEmpty,
+      );
+      expect(transport.startRequests.last['radiusMiles'], 20);
+      expect(transport.startRequests.last['latitude'], _position().latitude);
+      expect(
+        (await SharedPreferences.getInstance()).getString('selected_radius'),
+        '20 miles',
+      );
+      await tester.tap(find.text('Increase Radius'));
+      await _pumpUntil(
+        tester,
+        () =>
+            transport.startCalls == 3 &&
+            find.text('Max Radius').evaluate().isNotEmpty,
+      );
+      expect(transport.startRequests.last['radiusMiles'], 30);
+      expect(
+        tester
+            .widget<OutlinedButton>(
+              find.widgetWithText(OutlinedButton, 'Max Radius'),
+            )
+            .onPressed,
+        isNull,
+      );
+      await tester.tap(find.text('Try BiteScore'));
+      await tester.pump();
+      expect(AppModeStateService.selectedMode.value, AppMode.biteScore);
+      expect(transport.startCalls, 3);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('historical pinned header expands without restarting search', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(360, 640);
+    addTearDown(tester.view.reset);
+    final harness = _BrowseHarness();
+    await tester.pumpWidget(
+      MaterialApp(home: harness.screen(onAction: _ignoreAction)),
+    );
+    await _pumpBrowseReady(tester, harness.transport);
+    final scroll = tester.widget<CustomScrollView>(
+      find.byType(CustomScrollView),
+    );
+    scroll.controller!.jumpTo(230);
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Expand search'), findsOneWidget);
+    expect(find.text('Eat well.'), findsNothing);
+    final delegate = tester
+        .widget<SliverPersistentHeader>(find.byType(SliverPersistentHeader))
+        .delegate;
+    expect(delegate.minExtent, 60);
+    await tester.tap(find.byTooltip('Expand search'));
+    await tester.pumpAndSettle();
+    expect(scroll.controller!.offset, 0);
+    expect(find.text('Eat well.'), findsOneWidget);
+    expect(harness.transport.startCalls, 1);
+    expect(tester.takeException(), isNull);
+  });
+
   for (final layout in <({Size size, double textScale, String name})>[
     (size: const Size(320, 640), textScale: 1.5, name: 'narrow portrait'),
     (size: const Size(760, 360), textScale: 1.2, name: 'narrow landscape'),
@@ -3642,7 +3985,14 @@ void main() {
 
       expect(find.text('Use My Current Location'), findsOneWidget);
       expect(find.text('City or zip code'), findsOneWidget);
-      expect(find.text('Search restaurants or deals'), findsOneWidget);
+      expect(
+        find.text(
+          layout.size.width < 430
+              ? 'Restaurants or cuisines...'
+              : 'Search for restaurants or cuisines...',
+        ),
+        findsOneWidget,
+      );
       expect(
         find.byKey(const ValueKey<String>('bounded-radius-field')),
         findsOneWidget,
@@ -3891,10 +4241,16 @@ final class _BrowseHarness {
     int navigationRefreshGeneration = 0,
     CustomerBiteSaverTimeContextProvider? timeContextProvider,
     SharedLocationState? restoredLocation,
+    Future<Position> Function()? currentPositionLoader,
+    CustomerBiteSaverReverseGeocoder? reverseGeocoder,
+    Future<List<Location>> Function(String)? locationGeocoder,
   }) => CustomerBiteSaverBrowseScreen(
     coordinator: coordinator,
     timeContextProvider: timeContextProvider ?? () async => _testTimeContext,
     onAction: onAction,
+    currentPositionLoader: currentPositionLoader,
+    reverseGeocoder: reverseGeocoder,
+    locationGeocoder: locationGeocoder,
     locationRestoreLoader: () async => SharedLocationRestoreResult(
       state:
           restoredLocation ??
@@ -3993,6 +4349,7 @@ final class _BrowseFixtureTransport {
     this.startsPreparing = false,
     this.expireFirstPreparation = false,
     this.zeroPartialFirst = false,
+    this.confirmedEmpty = false,
     this.failFirstRestaurantPage = false,
     this.failAppendRestaurantPage = false,
     this.failFirstOfferPage = false,
@@ -4015,6 +4372,7 @@ final class _BrowseFixtureTransport {
   final bool startsPreparing;
   final bool expireFirstPreparation;
   final bool zeroPartialFirst;
+  final bool confirmedEmpty;
   final bool failFirstRestaurantPage;
   final bool failAppendRestaurantPage;
   final bool failFirstOfferPage;
@@ -4209,6 +4567,13 @@ final class _BrowseFixtureTransport {
 
   Map<String, Object?> _restaurantPage(String? cursor) {
     final page = _copyMap(_responses['restaurantPage']);
+    if (confirmedEmpty) {
+      page['restaurants'] = const <Object?>[];
+      page['nextCursor'] = null;
+      page['hasMore'] = false;
+      page['partial'] = false;
+      return page;
+    }
     if (zeroPartialFirst && cursor == null) {
       page['restaurants'] = const <Object?>[];
       page['nextCursor'] = 'bsc1.restaurant-0';
