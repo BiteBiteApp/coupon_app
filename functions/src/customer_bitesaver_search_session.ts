@@ -19,6 +19,7 @@ import {
   customerBiteSaverGuestCheckLifetimeMilliseconds,
   customerBiteSaverGuestCheckMaximumCandidateIds,
   customerBiteSaverIdleExpiryMilliseconds,
+  customerBiteSaverMaximumCatalogRestarts,
   customerBiteSaverMaximumUnfinishedSessions,
   customerBiteSaverMaximumIndexedOrderKeyBytes,
   customerBiteSaverOfferProjectionVersion,
@@ -1685,91 +1686,144 @@ export type CustomerBiteSaverStatusResponse = Readonly<{
   logicalExpiresAtMillis: number;
 }>;
 
+// Status observes preparation; unlike a page operation, ordinary worker
+// state/phase progress does not invalidate its result. A new generation or
+// expiry must leave this gate before being observed under the appropriate path.
+async function touchStatusSession(
+  request: BoundSessionRequest,
+  context: CustomerBiteSaverSessionContext,
+  preauthorized: CustomerBiteSaverSessionDocument,
+): Promise<CustomerBiteSaverSessionDocument | null> {
+  return context.database.runTransaction(async (transaction) => {
+    const snapshot = await transaction.getDocument(sessionPath(request.sessionId));
+    const parsed = parseSession(snapshot);
+    if (snapshot !== null && parsed === null) {
+      throw new CustomerBiteSaverContractError(
+        "failed-precondition",
+        "The BiteSaver session state is invalid.",
+      );
+    }
+    const nowMs = context.now?.() ?? Date.now();
+    const current = authorizeCustomerBiteSaverSession({
+      request, session: parsed, context, nowMs, allowExpired: true,
+    });
+    if (
+      current.absoluteExpiresAt.getTime() !==
+        preauthorized.absoluteExpiresAt.getTime() ||
+      current.attemptGeneration < preauthorized.attemptGeneration ||
+      (current.attemptGeneration === preauthorized.attemptGeneration &&
+        current.queryFingerprint !== preauthorized.queryFingerprint)
+    ) {
+      throw new CustomerBiteSaverContractError(
+        "failed-precondition",
+        "The BiteSaver session changed. Retry with current state.",
+      );
+    }
+    if (
+      current.attemptGeneration !== preauthorized.attemptGeneration ||
+      current.state === "expired" ||
+      nowMs >= current.logicalExpiresAt.getTime() ||
+      nowMs >= current.absoluteExpiresAt.getTime()
+    ) {
+      return null;
+    }
+    return touchSessionInTransaction(transaction, current, nowMs);
+  });
+}
+
 export async function getCustomerBiteSaverSearchStatusHandler(
   rawRequest: unknown,
   context: CustomerBiteSaverSessionContext,
 ): Promise<CustomerBiteSaverStatusResponse> {
   const request = parseBoundSessionRequest(rawRequest);
-  const nowMs = context.now?.() ?? Date.now();
-  let session = await readAuthorizedSession(request, context, nowMs, {
-    allowExpired: true,
-  });
-  const response = (): CustomerBiteSaverStatusResponse => {
-    const completedRanges = session.progress.completedRestaurantRanges +
-      session.progress.completedOfferRanges;
-    const totalRanges = session.restaurantRanges.length +
-      session.offerRanges.length;
-    return Object.freeze({
-      schemaVersion: customerBiteSaverSearchSchemaVersion,
-      state: session.state,
-      progress: Object.freeze({
-        phase: session.phase,
-        completedRanges,
-        totalRanges,
-      }),
-      failureCode: session.failureCode,
-      retriable: session.failureCode === "catalog_changed_repeatedly" ||
-        session.failureCode === "preparation_failed",
-      attemptGeneration: session.attemptGeneration,
-      queryFingerprint: session.queryFingerprint,
-      logicalExpiresAtMillis: session.logicalExpiresAt.getTime(),
-    });
-  };
-  if (
-    session.state === "expired" ||
-    nowMs >= session.logicalExpiresAt.getTime() ||
-    nowMs >= session.absoluteExpiresAt.getTime()
-  ) {
-    // Expiry remains an immediate status result and does not contend for the
-    // live continuation gate. Materialize the terminal state only after the
-    // read-only authorization has proved that this session is already dead.
-    session = await loadAuthorizedSession(request, context, nowMs, {
+  // At most two catalog restarts plus one expiry transition can require a
+  // different observation path. Each retry releases its own gate first.
+  for (let observation = 0;
+    observation < customerBiteSaverMaximumCatalogRestarts + 2;
+    observation += 1) {
+    const nowMs = context.now?.() ?? Date.now();
+    let session = await readAuthorizedSession(request, context, nowMs, {
       allowExpired: true,
     });
-    return response();
-  }
-  return withCustomerBiteSaverRequestGate({
-    context,
-    session,
-    clientRequestId: request.clientRequestId,
-    endpoint: "status",
-    nowMs,
-    operation: async () => {
-      session = await touchPreauthorizedSession(
-        request,
-        context,
-        session,
-        nowMs,
-      );
-      if (session.state === "preparing") {
-        const jobSnapshot = await context.database.getDocument(path(
-          privateCustomerBiteSaverJobCollection,
-          session.currentJobId,
-        ));
-        if (jobSnapshot === null) {
-          // A missing trigger work item can be recreated from immutable current
-          // session state. `create` keeps later nudges idempotent.
-          try {
-            await context.database.commitWrites([{
-              type: "create",
-              path: path(
-                privateCustomerBiteSaverJobCollection,
-                session.currentJobId,
-              ),
-              data: buildCustomerBiteSaverJobDocument({
-                jobId: session.currentJobId,
-                session,
-                now: new Date(nowMs),
-              }),
-            }]);
-          } catch {
-            // A prior request may have recreated the deterministic item.
+    const response = (): CustomerBiteSaverStatusResponse => {
+      const completedRanges = session.progress.completedRestaurantRanges +
+        session.progress.completedOfferRanges;
+      const totalRanges = session.restaurantRanges.length +
+        session.offerRanges.length;
+      return Object.freeze({
+        schemaVersion: customerBiteSaverSearchSchemaVersion,
+        state: session.state,
+        progress: Object.freeze({
+          phase: session.phase,
+          completedRanges,
+          totalRanges,
+        }),
+        failureCode: session.failureCode,
+        retriable: session.failureCode === "catalog_changed_repeatedly" ||
+          session.failureCode === "preparation_failed",
+        attemptGeneration: session.attemptGeneration,
+        queryFingerprint: session.queryFingerprint,
+        logicalExpiresAtMillis: session.logicalExpiresAt.getTime(),
+      });
+    };
+    if (
+      session.state === "expired" ||
+      nowMs >= session.logicalExpiresAt.getTime() ||
+      nowMs >= session.absoluteExpiresAt.getTime()
+    ) {
+      // Expiry remains an immediate status result and does not contend for the
+      // live continuation gate. Materialize the terminal state only after the
+      // read-only authorization has proved that this session is already dead.
+      session = await loadAuthorizedSession(request, context, nowMs, {
+        allowExpired: true,
+      });
+      return response();
+    }
+    const observed = await withCustomerBiteSaverRequestGate({
+      context,
+      session,
+      clientRequestId: request.clientRequestId,
+      endpoint: "status",
+      nowMs,
+      operation: async () => {
+        const current = await touchStatusSession(request, context, session);
+        if (current === null) return null;
+        session = current;
+        if (session.state === "preparing") {
+          const jobSnapshot = await context.database.getDocument(path(
+            privateCustomerBiteSaverJobCollection,
+            session.currentJobId,
+          ));
+          if (jobSnapshot === null) {
+            // A missing trigger work item can be recreated from immutable current
+            // session state. `create` keeps later nudges idempotent.
+            try {
+              await context.database.commitWrites([{
+                type: "create",
+                path: path(
+                  privateCustomerBiteSaverJobCollection,
+                  session.currentJobId,
+                ),
+                data: buildCustomerBiteSaverJobDocument({
+                  jobId: session.currentJobId,
+                  session,
+                  now: new Date(nowMs),
+                }),
+              }]);
+            } catch {
+              // A prior request may have recreated the deterministic item.
+            }
           }
         }
-      }
-      return response();
-    },
-  });
+        return response();
+      },
+    });
+    if (observed !== null) return observed;
+  }
+  throw new CustomerBiteSaverContractError(
+    "resource-exhausted",
+    "The BiteSaver session is changing. Retry the status check.",
+  );
 }
 
 export const customerBiteSaverSessionInternals = Object.freeze({

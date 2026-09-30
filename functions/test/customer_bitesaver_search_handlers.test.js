@@ -13,6 +13,7 @@ const {
   createCustomerBiteSaverMembershipFingerprint,
   customerBiteSaverGuestCheckMaximumCandidateIds,
   customerBiteSaverGuestCheckLifetimeMilliseconds,
+  customerBiteSaverGenerationShardId,
   customerBiteSaverCursorLifetimeMilliseconds,
   customerBiteSaverIdleExpiryMilliseconds,
   customerBiteSaverPageSize,
@@ -21,6 +22,7 @@ const {
   customerBiteSaverSearchSchemaVersion,
   privateCustomerBiteSaverActiveSessionCollection,
   privateCustomerBiteSaverCandidateCollection,
+  privateCustomerBiteSaverCatalogGenerationCollection,
   privateCustomerBiteSaverGuestOfferCheckCollection,
   privateCustomerBiteSaverJobCollection,
   privateCustomerBiteSaverResultCollection,
@@ -64,6 +66,9 @@ const {
 const {
   customerBiteSaverFreshLocationMaximumAgeMilliseconds,
 } = require("../lib/customer_bitesaver_offer_availability.js");
+const {
+  processCustomerBiteSaverSearchJob,
+} = require("../lib/customer_bitesaver_search_worker.js");
 const {
   buildBiteSaverCouponOfferIndex,
   buildBiteSaverDailySpecialOfferIndex,
@@ -1616,6 +1621,276 @@ test("status handler is closed, authorized, sanitized, and recreates only missin
   assert.equal(ready.state, "ready");
   assert.equal(ready.progress.phase, "ready");
   assert.equal(database.calls.commits.length, 1);
+});
+
+async function advanceStatusWorkerUntil(database, context, started, predicate) {
+  const sessionPath = `${privateCustomerBiteSaverSearchSessionCollection}/${started.sessionId}`;
+  for (let iteration = 0; iteration < 30; iteration += 1) {
+    const session = database.documents.get(sessionPath);
+    if (predicate(session)) return session;
+    assert.equal(session.state, "preparing");
+    await processCustomerBiteSaverSearchJob(session.currentJobId, context);
+  }
+  assert.fail("The synthetic worker did not reach the expected state.");
+}
+
+// Advance the real worker after status's authorized snapshot has been read,
+// while acquiring its gate. Transactional session reads then see the progress.
+function interleaveStatusWorker(database, advance) {
+  const original = database.runTransaction.bind(database);
+  let pending = true;
+  database.runTransaction = async (operation) => {
+    if (pending) {
+      pending = false;
+      await advance();
+    }
+    return original(operation);
+  };
+}
+
+function statusZipRequest(overrides = {}) {
+  return {
+    latitude: 28.85,
+    longitude: -82.49,
+    radiusMiles: 15,
+    locationMode: "typed",
+    typedLocation: {kind: "zip", zip: "34461"},
+    searchText: "",
+    freshSearch: false,
+    ...overrides,
+  };
+}
+
+function seedStatusRestaurant(database) {
+  const accountId = "status-synthetic-restaurant";
+  const coordinates = {latitude: 28.85, longitude: -82.49};
+  const restaurant = rawRestaurant(1, {
+    ...coordinates,
+    geohash: canonicalRestaurantGeohash(coordinates),
+    zipCode: "34461",
+  });
+  const coupon = rawCoupon(1);
+  const parent = buildBiteSaverRestaurantIndex({
+    sourceDocumentId: accountId, source: restaurant, identityKeyV1,
+    now: new Date(nowMs),
+  });
+  const offer = buildBiteSaverCouponOfferIndex({
+    restaurantAccountId: accountId, sourceDocumentId: "status-coupon",
+    offer: coupon, restaurant, identityKeyV1, now: new Date(nowMs),
+  });
+  assert.ok(parent);
+  assert.ok(offer);
+  database.documents.set(`restaurant_accounts/${accountId}`, restaurant);
+  database.documents.set(`restaurant_accounts/${accountId}/coupons/status-coupon`, coupon);
+  database.documents.set(`${restaurantSearchIndexCollection}/${parent.indexDocumentId}`, parent);
+  database.documents.set(`${biteSaverOfferIndexCollection}/${offer.indexDocumentId}`, offer);
+}
+
+async function restartStatusWorker(database, context, started) {
+  const verifying = await advanceStatusWorkerUntil(database, context, started,
+    (session) => session.phase === "verifyCatalogGeneration");
+  const shardPath = `${privateCustomerBiteSaverCatalogGenerationCollection}/` +
+    customerBiteSaverGenerationShardId(0);
+  const shard = database.documents.get(shardPath);
+  database.documents.set(shardPath, {...shard, generation: shard.generation + 1});
+  await processCustomerBiteSaverSearchJob(verifying.currentJobId, context);
+}
+
+for (const transition of ["offerRanges", "ready"]) {
+  for (const restaurantCount of [0, 1]) {
+    test(`status accepts actual worker progress to ${transition} between reads (${restaurantCount} restaurants)`, async () => {
+      const {database, context, response: started} = await startSession(undefined, {
+        request: statusZipRequest(),
+      });
+      if (restaurantCount) seedStatusRestaurant(database);
+      if (transition === "ready") {
+        await advanceStatusWorkerUntil(database, context, started,
+          (session) => session.phase === "verifyCatalogGeneration");
+      }
+      let advanced;
+      interleaveStatusWorker(database, async () => {
+        advanced = await advanceStatusWorkerUntil(database, context, started,
+          (session) => session.phase === transition);
+      });
+
+      const observed = await getCustomerBiteSaverSearchStatusHandler(
+        boundRequest(started), context,
+      );
+      assert.equal(observed.state, advanced.state);
+      assert.equal(observed.progress.phase, transition);
+      assert.equal(observed.progress.completedRanges,
+        advanced.progress.completedRestaurantRanges + advanced.progress.completedOfferRanges);
+      assert.equal(observed.attemptGeneration, advanced.attemptGeneration);
+      assert.equal(observed.queryFingerprint, advanced.queryFingerprint);
+      assert.equal(observed.failureCode, null);
+      assert.equal(observed.retriable, false);
+      await advanceStatusWorkerUntil(database, context, started,
+        (session) => session.state === "ready");
+      const page = await getCustomerBiteSaverSearchPageHandler(pageRequest(started), context);
+      assert.equal(page.restaurants.length, restaurantCount);
+    });
+  }
+}
+
+test("status releases each old gate before observing two actual catalog restarts", async () => {
+  const {database, context, response: started} = await startSession();
+  const original = database.runTransaction.bind(database);
+  let restarts = 0;
+  database.runTransaction = (operation) => original((transaction) => operation({
+    ...transaction,
+    getDocument: async (path) => {
+      if (path.startsWith(`${privateCustomerBiteSaverActiveSessionCollection}/`) &&
+          !database.documents.has(path) && restarts < 2) {
+        restarts += 1;
+        await restartStatusWorker(database, context, started);
+      }
+      return transaction.getDocument(path);
+    },
+  }));
+  const writeStart = database.calls.transactionWrites.length;
+  const response = await getCustomerBiteSaverSearchStatusHandler(boundRequest(started), context);
+  const current = database.documents.get(`${privateCustomerBiteSaverSearchSessionCollection}/${started.sessionId}`);
+  assert.equal(response.attemptGeneration, 2);
+  assert.equal(response.queryFingerprint, current.queryFingerprint);
+  assert.equal(response.progress.phase, "restaurantRanges");
+  assert.equal(response.progress.completedRanges, 0);
+  const writes = database.calls.transactionWrites.slice(writeStart).flat();
+  const gates = writes.filter((write) => write.data?.role === "sessionContinuationGate");
+  assert.deepEqual(gates.map((write) => write.data.attemptGeneration), [0, 1, 2]);
+  assert.equal(new Set(gates.map((write) => write.path)).size, 3);
+  for (const [index, gate] of gates.entries()) {
+    const released = writes.findIndex((write) => write.path === gate.path && write.type === "delete");
+    assert.ok(released > writes.indexOf(gate));
+    if (gates[index + 1]) assert.ok(released < writes.indexOf(gates[index + 1]));
+    assert.equal(database.documents.has(gate.path), false);
+  }
+});
+
+test("status observes actual worker terminal failure without reviving the session", async () => {
+  const {database, context, response: started} = await startSession();
+  await restartStatusWorker(database, context, started);
+  await restartStatusWorker(database, context, started);
+  interleaveStatusWorker(database, () => restartStatusWorker(database, context, started));
+  const request = boundRequest(started);
+  const failed = await getCustomerBiteSaverSearchStatusHandler(request, context);
+  assert.equal(failed.state, "failed");
+  assert.equal(failed.failureCode, "catalog_changed_repeatedly");
+  assert.equal(failed.retriable, true);
+  assert.equal(failed.attemptGeneration, 2);
+  assert.deepEqual(await getCustomerBiteSaverSearchStatusHandler(request, context), failed);
+});
+
+test("status crossing expiry releases its gate and cannot prolong preparation", async () => {
+  let clock = nowMs;
+  const {database, context, response: started} = await startSession(undefined, {
+    context: {now: () => clock},
+  });
+  const sessionPath = `${privateCustomerBiteSaverSearchSessionCollection}/${started.sessionId}`;
+  const before = database.documents.get(sessionPath);
+  interleaveStatusWorker(database, async () => { clock = before.logicalExpiresAt.getTime(); });
+  const response = await getCustomerBiteSaverSearchStatusHandler(boundRequest(started), context);
+  assert.equal(response.state, "expired");
+  assert.equal(response.logicalExpiresAtMillis, before.logicalExpiresAt.getTime());
+  assert.equal(database.documents.get(sessionPath).lastAccessAt.getTime(), before.lastAccessAt.getTime());
+  assert.equal(database.documents.get(`${privateCustomerBiteSaverJobCollection}/${before.currentJobId}`).state, "expired");
+  assert.equal([...database.documents.values()].some((doc) => doc.role === "sessionContinuationGate"), false);
+});
+
+test("status reauthorizes changed private authority and rejects same-generation query changes", async (t) => {
+  const changes = {
+    caller: (s) => ({...s, callerBindingHash: "0".repeat(64)}),
+    capability: (s) => ({...s, capabilityHash: "0".repeat(64)}),
+    actor: (s) => ({...s, authenticatedUidHash: "A".repeat(43)}),
+    criteria: (s) => {
+      const criteria = {...s.criteria, radiusMiles: 30};
+      return {...s, criteria, criteriaFingerprint: createCustomerBiteSaverCriteriaFingerprint(criteria),
+        queryFingerprint: createCustomerBiteSaverMembershipFingerprint({...s, criteria})};
+    },
+    query: (s) => {
+      const catalogGenerationVector = s.catalogGenerationVector.map((g) => g + 1);
+      return {...s, catalogGenerationVector,
+        queryFingerprint: createCustomerBiteSaverMembershipFingerprint({...s, catalogGenerationVector})};
+    },
+    expiry: (s) => ({...s, absoluteExpiresAt: new Date(s.absoluteExpiresAt.getTime() + 1),
+      expiresAt: new Date(s.expiresAt.getTime() + 1)}),
+    malformed: (s) => ({...s, queryFingerprint: "invalid"}),
+  };
+  for (const [name, change] of Object.entries(changes)) {
+    await t.test(name, async () => {
+      const {database, context, response: started} = await startSession();
+      const sessionPath = `${privateCustomerBiteSaverSearchSessionCollection}/${started.sessionId}`;
+      interleaveStatusWorker(database, async () => {
+        database.documents.set(sessionPath, change(database.documents.get(sessionPath)));
+      });
+      await assert.rejects(getCustomerBiteSaverSearchStatusHandler(boundRequest(started), context),
+        (error) => assertContractError(error,
+          ["query", "expiry", "malformed"].includes(name) ? "failed-precondition" : "permission-denied"));
+      assert.equal([...database.documents.values()].some((doc) => doc.role === "sessionContinuationGate"), false);
+    });
+  }
+});
+
+test("status duplicate and concurrent requests respect the live gate and replay after release", async () => {
+  const {database, context, response: started} = await startSession();
+  const original = database.runTransaction.bind(database);
+  let signalHeld, release;
+  const held = new Promise((resolve) => { signalHeld = resolve; });
+  const wait = new Promise((resolve) => { release = resolve; });
+  let pause = true;
+  database.runTransaction = async (operation) => {
+    const result = await original(operation);
+    if (pause && database.calls.transactionWrites.at(-1).some((w) => w.data?.role === "sessionContinuationGate")) {
+      pause = false;
+      signalHeld();
+      await wait;
+    }
+    return result;
+  };
+  const request = boundRequest(started);
+  const pending = getCustomerBiteSaverSearchStatusHandler(request, context);
+  await held;
+  try {
+    for (const clientRequestId of [request.clientRequestId, "concurrent-status-0002"]) {
+      await assert.rejects(getCustomerBiteSaverSearchStatusHandler({...request, clientRequestId}, context),
+        (error) => assertContractError(error, "resource-exhausted"));
+    }
+  } finally { release(); }
+  const response = await pending;
+  assert.deepEqual(await getCustomerBiteSaverSearchStatusHandler(request, context), response);
+});
+
+test("ZIP 34461 A-B-A reuses ready A while fresh and new-instance starts replace it", async () => {
+  const {database, context, response: first} = await startSession(undefined, {request: statusZipRequest()});
+  interleaveStatusWorker(database, () => advanceStatusWorkerUntil(database, context, first,
+    (s) => s.state === "ready"));
+  assert.equal((await getCustomerBiteSaverSearchStatusHandler(boundRequest(first), context)).state, "ready");
+  const b = await startCustomerBiteSaverSearchHandler(startRequest(statusZipRequest({
+    clientRequestId: "radius-thirty-request", radiusMiles: 30,
+  })), context);
+  assert.notEqual(b.criteriaFingerprint, first.criteriaFingerprint);
+  const returned = await startCustomerBiteSaverSearchHandler(startRequest(statusZipRequest({
+    clientRequestId: "radius-fifteen-return",
+  })), context);
+  assert.equal(returned.sessionId, first.sessionId);
+  assert.equal(returned.state, "ready");
+  assert.equal(returned.attemptGeneration, first.attemptGeneration);
+  assert.equal((await getCustomerBiteSaverSearchStatusHandler(boundRequest(first), context)).state, "ready");
+  await advanceStatusWorkerUntil(database, context, b, (s) => s.state === "ready");
+  const fresh = await startCustomerBiteSaverSearchHandler(startRequest(statusZipRequest({
+    clientRequestId: "radius-fifteen-fresh", freshSearch: true,
+  })), context);
+  assert.notEqual(fresh.sessionId, first.sessionId);
+  assert.equal(fresh.state, "preparing");
+  const newInstance = "cold-client-instance-0002";
+  const cold = await startCustomerBiteSaverSearchHandler(startRequest(statusZipRequest({
+    clientRequestId: "radius-fifteen-cold", clientInstanceId: newInstance,
+  })), context);
+  assert.notEqual(cold.sessionId, first.sessionId);
+  assert.notEqual(cold.sessionId, fresh.sessionId);
+  assert.equal(cold.state, "preparing");
+  await assert.rejects(getCustomerBiteSaverSearchStatusHandler(boundRequest(first, {
+    clientInstanceId: newInstance,
+  }), context), (error) => assertContractError(error, "permission-denied"));
 });
 
 test("signed session status rejects guest, anonymous, and wrong-UID replay", async () => {
